@@ -131,40 +131,46 @@ abstract contract ProviderRegistryBase is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @dev Internal registration logic - must be implemented by child contracts
+     * @dev Internal registration logic - validates stake and calls child hook
      */
-    function _registerProviderInternal(address provider, uint256 agentId) internal virtual {
-        // Check if already registered (child contract should store providers mapping)
-        // This is a placeholder - child contracts must implement actual provider storage
-
+    function _registerProviderInternal(address provider, uint256 agentId) internal {
         // Validate stake
         if (msg.value < minProviderStake) {
             revert InsufficientStake(msg.value, minProviderStake);
         }
 
-        // Add to provider list
+        // Call child contract hook to store provider data
+        // Child contract should check for duplicates and store provider struct
+        _onProviderRegistered(provider, agentId, msg.value);
+
+        // Add to provider list (only if not already registered)
+        // Child contract's _onProviderRegistered should revert if already registered
         providerList.push(provider);
         providerCount++;
-
-        // Call child contract hook
-        _onProviderRegistered(provider, agentId, msg.value);
 
         emit ProviderRegistered(provider, agentId, msg.value, block.timestamp);
     }
 
     /**
-     * @dev Hook for child contracts to store provider data
+     * @dev Hook for child contracts to store provider data and validate
      * @param provider Provider address
      * @param agentId Agent ID (0 if not linked)
      * @param stake Stake amount
+     * @dev Child contracts must:
+     *      - Check if provider already registered (revert if yes)
+     *      - Store provider struct with all provider-specific fields
+     *      - Set agentId in provider struct
      */
     function _onProviderRegistered(address provider, uint256 agentId, uint256 stake) internal virtual;
 
     /**
      * @dev Validate registration parameters - override in child contracts
+     * @dev Currently unused - kept for future extensibility
+     * @dev Child contracts can override for provider-specific validation
      */
     function _validateRegistration(address provider, uint256 agentId) internal view virtual {
         // Child contracts can override for provider-specific validation
+        // Currently not called - validation happens in child contract register() functions
     }
 
     // ============ Provider Management ============
@@ -172,19 +178,25 @@ abstract contract ProviderRegistryBase is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Deactivate provider (can reactivate later)
      * @dev Child contracts should override to update their provider struct
+     * @dev Base provides moderation check - child should call super and update active status
      */
     function deactivateProvider(address provider) external virtual {
         // Child contracts must implement
-        revert("Not implemented");
+        // Should check: provider exists, is active, caller is provider or owner
+        // Should update: provider.active = false
+        // Should emit: ProviderDeactivated(provider)
     }
 
     /**
      * @notice Reactivate a deactivated provider
      * @dev Child contracts should override to update their provider struct
+     * @dev Base provides moderation check - child should call super and update active status
      */
     function reactivateProvider(address provider) external virtual {
         // Child contracts must implement
-        revert("Not implemented");
+        // Should check: provider exists, is not active, stake >= minProviderStake
+        // Should update: provider.active = true
+        // Should emit: ProviderReactivated(provider)
     }
 
     // ============ Staking Management ============
@@ -192,10 +204,13 @@ abstract contract ProviderRegistryBase is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Add more stake to provider
      * @dev Child contracts should override to update their provider struct
+     * @dev Base validates - child should update provider.stake
      */
     function addStake(address provider) external payable virtual {
         // Child contracts must implement
-        revert("Not implemented");
+        // Should check: provider exists, caller is provider
+        // Should update: provider.stake += msg.value
+        // Should emit: StakeAdded(provider, msg.value, provider.stake)
     }
 
     /**
@@ -203,10 +218,15 @@ abstract contract ProviderRegistryBase is Ownable, Pausable, ReentrancyGuard {
      * @param provider Provider address
      * @param amount Amount to withdraw
      * @dev Child contracts should override to update their provider struct
+     * @dev Base validates minimum - child should update provider.stake and transfer
      */
     function withdrawStake(address provider, uint256 amount) external virtual {
         // Child contracts must implement
-        revert("Not implemented");
+        // Should check: provider exists, caller is provider, amount <= provider.stake
+        // Should check: if active, (provider.stake - amount) >= minProviderStake
+        // Should update: provider.stake -= amount
+        // Should transfer: amount to provider
+        // Should emit: StakeWithdrawn(provider, amount)
     }
 
     // ============ View Functions ============

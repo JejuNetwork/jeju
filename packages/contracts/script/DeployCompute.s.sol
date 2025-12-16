@@ -29,8 +29,8 @@ contract DeployCompute is Script {
         BanManager banManager = new BanManager(deployer, deployer);
         console.log("BanManager deployed at:", address(banManager));
 
-        // Deploy ComputeRegistry
-        ComputeRegistry registry = new ComputeRegistry(deployer);
+        // Deploy ComputeRegistry (new constructor: owner, identityRegistry, banManager, minProviderStake)
+        ComputeRegistry registry = new ComputeRegistry(deployer, address(0), address(banManager), 0.01 ether);
         console.log("ComputeRegistry deployed at:", address(registry));
 
         // Deploy LedgerManager

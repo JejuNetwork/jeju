@@ -39,8 +39,8 @@ contract TrainingCoordinatorTest is Test {
     bytes32 public p2pEndpoint4 = keccak256("endpoint-4");
 
     function setUp() public {
-        // Deploy compute registry
-        computeRegistry = new ComputeRegistry(owner);
+        // Deploy compute registry (new constructor: owner, identityRegistry, banManager, minProviderStake)
+        computeRegistry = new ComputeRegistry(owner, address(0), address(0), 0.01 ether);
 
         // Deploy MPC key registry
         mpcKeyRegistry = new MPCKeyRegistry(0.01 ether);
@@ -861,7 +861,7 @@ contract TrainingRewardsTest is Test {
     bytes32 public runId = keccak256("reward-test-run");
 
     function setUp() public {
-        computeRegistry = new ComputeRegistry(owner);
+        computeRegistry = new ComputeRegistry(owner, address(0), address(0), 0.01 ether);
         mpcKeyRegistry = new MPCKeyRegistry(0.01 ether);
         coordinator = new TrainingCoordinator(
             address(computeRegistry),
@@ -1080,7 +1080,7 @@ contract NodePerformanceOracleTest is Test {
     address public node2 = makeAddr("node2");
 
     function setUp() public {
-        computeRegistry = new ComputeRegistry(owner);
+        computeRegistry = new ComputeRegistry(owner, address(0), address(0), 0.01 ether);
         mpcKeyRegistry = new MPCKeyRegistry(0.01 ether);
         coordinator = new TrainingCoordinator(
             address(computeRegistry),

@@ -14,6 +14,7 @@ import {
   type WalletClient,
   keccak256,
   toBytes,
+  decodeEventLog,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
@@ -25,6 +26,7 @@ import type {
   PkgVersionMetadata,
   PackageManifest,
 } from './types';
+import { encodeCidToBytes32, decodeBytes32ToCidKey, cidToHex } from './cid-utils';
 
 // PackageRegistry ABI (subset for our needs)
 const PACKAGE_REGISTRY_ABI = [
@@ -256,6 +258,7 @@ export class PkgRegistryManager {
   private packageRegistryAddress: Address;
   private backend: BackendManager;
   private manifestCache: Map<string, PackageManifest> = new Map();
+  private cidMap: Map<Hex, string> = new Map(); // bytes32 hash -> original CID string
 
   constructor(config: PkgRegistryManagerConfig, backend: BackendManager) {
     this.backend = backend;
@@ -287,8 +290,24 @@ export class PkgRegistryManager {
    * Parse a package name into scope and name
    */
   parsePackageName(fullName: string): { name: string; scope: string } {
+    if (!fullName || typeof fullName !== 'string') {
+      throw new Error('Package name must be a non-empty string');
+    }
+
+    if (fullName.length > 214) {
+      throw new Error('Package name exceeds maximum length of 214 characters');
+    }
+
+    // Validate package name format (npm spec)
+    if (!/^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/i.test(fullName)) {
+      throw new Error(`Invalid package name format: ${fullName}`);
+    }
+
     if (fullName.startsWith('@')) {
       const parts = fullName.split('/');
+      if (parts.length < 2) {
+        throw new Error(`Invalid scoped package name: ${fullName}`);
+      }
       return { scope: parts[0], name: parts.slice(1).join('/') };
     }
     return { name: fullName, scope: '' };
@@ -312,12 +331,19 @@ export class PkgRegistryManager {
    * Get package by ID
    */
   async getPackage(packageId: Hex): Promise<Package | null> {
-    const result = await this.publicClient.readContract({
-      address: this.packageRegistryAddress,
-      abi: PACKAGE_REGISTRY_ABI,
-      functionName: 'getPackage',
-      args: [packageId],
-    });
+    let result;
+    try {
+      result = await this.publicClient.readContract({
+        address: this.packageRegistryAddress,
+        abi: PACKAGE_REGISTRY_ABI,
+        functionName: 'getPackage',
+        args: [packageId],
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[Pkg Registry] Failed to read package ${packageId}: ${errorMessage}`);
+      return null;
+    }
 
     if (!result || result.createdAt === 0n) {
       return null;
@@ -332,12 +358,19 @@ export class PkgRegistryManager {
   async getPackageByName(fullName: string): Promise<Package | null> {
     const { name, scope } = this.parsePackageName(fullName);
 
-    const result = await this.publicClient.readContract({
-      address: this.packageRegistryAddress,
-      abi: PACKAGE_REGISTRY_ABI,
-      functionName: 'getPackageByName',
-      args: [name, scope],
-    });
+    let result;
+    try {
+      result = await this.publicClient.readContract({
+        address: this.packageRegistryAddress,
+        abi: PACKAGE_REGISTRY_ABI,
+        functionName: 'getPackageByName',
+        args: [name, scope],
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[Pkg Registry] Failed to read package by name ${fullName}: ${errorMessage}`);
+      return null;
+    }
 
     if (!result || result.createdAt === 0n) {
       return null;
@@ -347,7 +380,7 @@ export class PkgRegistryManager {
   }
 
   /**
-   * Get package metadata in npm CLI compatible format
+   * Get package metadata in npm CLI compatible format (for compatibility)
    */
   async getPkgMetadata(fullName: string): Promise<PkgPackageMetadata | null> {
     const pkg = await this.getPackageByName(fullName);
@@ -449,8 +482,34 @@ export class PkgRegistryManager {
     tarball: Buffer,
     publisher: Address
   ): Promise<{ packageId: Hex; versionId: Hex }> {
+    // Input validation
     if (!this.walletClient) {
       throw new Error('Wallet not configured for write operations');
+    }
+
+    if (!publisher || typeof publisher !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(publisher)) {
+      throw new Error('Invalid publisher address');
+    }
+
+    if (!manifest || !manifest.name || !manifest.version) {
+      throw new Error('Manifest must include name and version');
+    }
+
+    // Validate version format (semver)
+    if (!/^\d+\.\d+\.\d+(-[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*)?(\+[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*)?$/.test(manifest.version)) {
+      throw new Error(`Invalid version format: ${manifest.version}. Expected semver format.`);
+    }
+
+    if (fullName !== manifest.name) {
+      throw new Error(`Package name mismatch: ${fullName} !== ${manifest.name}`);
+    }
+
+    if (tarball.length === 0) {
+      throw new Error('Tarball cannot be empty');
+    }
+
+    if (tarball.length > 100 * 1024 * 1024) {
+      throw new Error('Tarball exceeds maximum size of 100MB');
     }
 
     const { name, scope } = this.parsePackageName(fullName);
@@ -458,56 +517,126 @@ export class PkgRegistryManager {
 
     // Create package if it doesn't exist
     if (!pkg) {
-      const { request: createRequest } = await this.publicClient.simulateContract({
-        address: this.packageRegistryAddress,
-        abi: PACKAGE_REGISTRY_ABI,
-        functionName: 'createPackage',
-        args: [name, scope, manifest.description || '', manifest.license || '', 0n],
-        account: publisher,
-      });
+      let createHash: Hex;
+      try {
+        const { request: createRequest } = await this.publicClient.simulateContract({
+          address: this.packageRegistryAddress,
+          abi: PACKAGE_REGISTRY_ABI,
+          functionName: 'createPackage',
+          args: [name, scope, manifest.description || '', manifest.license || '', 0n],
+          account: publisher,
+        });
 
-      const createHash = await this.walletClient.writeContract(createRequest);
-      await this.publicClient.waitForTransactionReceipt({ hash: createHash });
+        createHash = await this.walletClient.writeContract(createRequest);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to create package ${fullName}: ${errorMessage}`);
+      }
+
+      try {
+        await this.publicClient.waitForTransactionReceipt({ hash: createHash });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to wait for package creation transaction ${createHash}: ${errorMessage}`);
+      }
 
       pkg = await this.getPackageByName(fullName);
       if (!pkg) {
-        throw new Error('Failed to create package');
+        throw new Error(`Package ${fullName} was not found after creation. Transaction: ${createHash}`);
       }
     }
 
     // Store tarball
-    const tarballResult = await this.backend.upload(tarball, {
-      filename: `${name}-${manifest.version}.tgz`,
-    });
+    let tarballResult: { cid: string; url: string };
+    try {
+      tarballResult = await this.backend.upload(tarball, {
+        filename: `${name}-${manifest.version}.tgz`,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to upload tarball for ${fullName}@${manifest.version}: ${errorMessage}`);
+    }
 
     // Calculate integrity hash (SHA-512)
     const integrityHash = createHash('sha512').update(tarball).digest('hex');
     const integrityBytes32 = `0x${integrityHash.slice(0, 64)}` as Hex;
 
     // Store manifest
-    const manifestBuffer = Buffer.from(JSON.stringify(manifest));
-    const manifestResult = await this.backend.upload(manifestBuffer, {
-      filename: `${name}-${manifest.version}-package.json`,
-    });
+    let manifestResult: { cid: string; url: string };
+    try {
+      const manifestBuffer = Buffer.from(JSON.stringify(manifest));
+      manifestResult = await this.backend.upload(manifestBuffer, {
+        filename: `${name}-${manifest.version}-package.json`,
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to upload manifest for ${fullName}@${manifest.version}: ${errorMessage}`);
+    }
 
-    // Convert CIDs to bytes32
-    const tarballCid = `0x${Buffer.from(tarballResult.cid).toString('hex').padEnd(64, '0')}` as Hex;
-    const manifestCid = `0x${Buffer.from(manifestResult.cid).toString('hex').padEnd(64, '0')}` as Hex;
+    // Convert CIDs to bytes32 using proper encoding
+    const tarballCidBytes32 = encodeCidToBytes32(tarballResult.cid);
+    const manifestCidBytes32 = encodeCidToBytes32(manifestResult.cid);
+    
+    // Store mapping for later retrieval
+    this.cidMap.set(tarballCidBytes32, tarballResult.cid);
+    this.cidMap.set(manifestCidBytes32, manifestResult.cid);
 
     // Publish version on-chain
-    const { request: publishRequest } = await this.publicClient.simulateContract({
-      address: this.packageRegistryAddress,
-      abi: PACKAGE_REGISTRY_ABI,
-      functionName: 'publishVersion',
-      args: [pkg.packageId, manifest.version, tarballCid, integrityBytes32, manifestCid, BigInt(tarball.length)],
-      account: publisher,
+    let publishHash: Hex;
+    try {
+      const { request: publishRequest } = await this.publicClient.simulateContract({
+        address: this.packageRegistryAddress,
+        abi: PACKAGE_REGISTRY_ABI,
+        functionName: 'publishVersion',
+        args: [pkg.packageId, manifest.version, tarballCidBytes32, integrityBytes32, manifestCidBytes32, BigInt(tarball.length)],
+        account: publisher,
+      });
+
+      publishHash = await this.walletClient.writeContract(publishRequest);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to publish version ${manifest.version} of ${fullName}: ${errorMessage}`);
+    }
+
+    let receipt;
+    try {
+      receipt = await this.publicClient.waitForTransactionReceipt({ hash: publishHash });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to wait for publish transaction ${publishHash}: ${errorMessage}`);
+    }
+
+    // Extract versionId from logs using event signature
+    const versionPublishedEvent = receipt.logs.find((log) => {
+      try {
+        const decoded = decodeEventLog({
+          abi: PACKAGE_REGISTRY_ABI,
+          data: log.data,
+          topics: log.topics,
+        });
+        return decoded.eventName === 'VersionPublished';
+      } catch {
+        return false;
+      }
     });
 
-    const publishHash = await this.walletClient.writeContract(publishRequest);
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash: publishHash });
+    if (!versionPublishedEvent) {
+      throw new Error(`VersionPublished event not found in transaction receipt ${publishHash}. Logs: ${receipt.logs.length}`);
+    }
 
-    // Extract versionId from logs
-    const versionId = receipt.logs[0]?.topics[2] as Hex;
+    let versionId: Hex;
+    try {
+      const decoded = decodeEventLog({
+        abi: PACKAGE_REGISTRY_ABI,
+        data: versionPublishedEvent.data,
+        topics: versionPublishedEvent.topics,
+      }) as { args: { versionId: Hex } };
+
+      versionId = decoded.args.versionId;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to decode VersionPublished event from transaction ${publishHash}: ${errorMessage}`);
+    }
 
     return { packageId: pkg.packageId, versionId };
   }
@@ -516,8 +645,28 @@ export class PkgRegistryManager {
    * Get manifest from storage
    */
   async getManifest(manifestCid: Hex): Promise<PackageManifest | null> {
-    const cidString = this.hexToCid(manifestCid);
-    if (!cidString) return null;
+    // Look up original CID from bytes32 hash
+    const cidString = this.cidMap.get(manifestCid);
+    if (!cidString) {
+      // Fallback: try using the hex directly (for backwards compatibility)
+      const hexKey = decodeBytes32ToCidKey(manifestCid);
+      // Try to find CID by iterating through known CIDs
+      for (const [hash, cid] of this.cidMap) {
+        if (hash === manifestCid) {
+          const result = await this.backend.download(cid).catch((err: Error) => {
+            console.error(`[Pkg Registry] Failed to download manifest ${cid}: ${err.message}`);
+            return null;
+          });
+          if (result) {
+            const manifest = JSON.parse(result.content.toString()) as PackageManifest;
+            this.manifestCache.set(cid, manifest);
+            return manifest;
+          }
+        }
+      }
+      console.error(`[Pkg Registry] CID not found for bytes32: ${manifestCid}`);
+      return null;
+    }
 
     const cached = this.manifestCache.get(cidString);
     if (cached) return cached;
@@ -537,7 +686,10 @@ export class PkgRegistryManager {
    * Get tarball download URL
    */
   async getTarballUrl(tarballCid: Hex): Promise<string> {
-    const cidString = this.hexToCid(tarballCid);
+    const cidString = this.cidMap.get(tarballCid);
+    if (!cidString) {
+      throw new Error(`CID not found for bytes32: ${tarballCid}`);
+    }
     const baseUrl = process.env.DWS_BASE_URL || 'http://localhost:4030';
     return `${baseUrl}/storage/download/${cidString}`;
   }
@@ -546,8 +698,11 @@ export class PkgRegistryManager {
    * Download tarball
    */
   async downloadTarball(tarballCid: Hex): Promise<Buffer | null> {
-    const cidString = this.hexToCid(tarballCid);
-    if (!cidString) return null;
+    const cidString = this.cidMap.get(tarballCid);
+    if (!cidString) {
+      console.error(`[Pkg Registry] CID not found for bytes32: ${tarballCid}`);
+      return null;
+    }
 
     const result = await this.backend.download(cidString).catch((err: Error) => {
       console.error(`[Pkg Registry] Failed to download tarball ${cidString}: ${err.message}`);
@@ -609,11 +764,6 @@ export class PkgRegistryManager {
   }
 
   // ============ Private Helpers ============
-
-  private hexToCid(hex: Hex): string {
-    const cleaned = hex.slice(2).replace(/0+$/, '');
-    return Buffer.from(cleaned, 'hex').toString();
-  }
 
   private mapContractPackage(result: {
     packageId: Hex;

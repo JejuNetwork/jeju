@@ -188,8 +188,8 @@ export class PullRequestsManager {
 
     // Get commits between base and head
     const objectStore = this.repoManager.getObjectStore(repoId);
-    const headCommit = sourceBranch.tipCommitCid.slice(2, 42);
-    const baseCommit = targetBranch.tipCommitCid.slice(2, 42);
+    const headCommit = decodeBytes32ToOid(sourceBranch.tipCommitCid);
+    const baseCommit = decodeBytes32ToOid(targetBranch.tipCommitCid);
     const commits = await objectStore.walkCommits(headCommit, 100);
     const commitOids = commits.map(c => c.oid).filter(oid => oid !== baseCommit);
 
@@ -514,7 +514,7 @@ export class PullRequestsManager {
 
     // Simple check: if base commit still matches target branch tip, it's mergeable
     // Real implementation would check for conflicts
-    const currentBase = targetBranch.tipCommitCid.slice(2, 42);
+    const currentBase = decodeBytes32ToOid(targetBranch.tipCommitCid);
     return pr.baseCommit === currentBase;
   }
 

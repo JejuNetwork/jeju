@@ -8,6 +8,7 @@ export * from './types';
 
 // Core package registry operations
 export { PkgRegistryManager, type PkgRegistryManagerConfig } from './registry-manager';
+export * from './cid-utils';
 export { UpstreamProxy, type UpstreamProxyConfig } from './upstream';
 
 // Leaderboard integration

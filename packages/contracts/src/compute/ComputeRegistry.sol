@@ -1,16 +1,14 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
+import {ProviderRegistryBase} from "../registry/ProviderRegistryBase.sol";
 
 /**
  * @title ComputeRegistry
  * @author Jeju Network
  * @notice Provider registry for decentralized AI compute marketplace
  * @dev Integrates with ERC-8004 IdentityRegistry for agent verification
+ *      Inherits from ProviderRegistryBase for standardized ERC-8004 and moderation integration
  *
  * Key Features:
  * - Provider registration with staking
@@ -27,7 +25,7 @@ import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
  *
  * @custom:security-contact security@jeju.network
  */
-contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
+contract ComputeRegistry is ProviderRegistryBase {
     // ============ Structs ============
 
     struct Provider {
@@ -51,26 +49,11 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
 
     // ============ State Variables ============
 
-    /// @notice Minimum stake required to register as provider
-    uint256 public minProviderStake = 0.01 ether;
-
     /// @notice Provider data by address
     mapping(address => Provider) public providers;
 
     /// @notice Provider capabilities (provider => capability[])
     mapping(address => Capability[]) private _capabilities;
-
-    /// @notice All registered provider addresses
-    address[] public providerList;
-
-    /// @notice ERC-8004 Identity Registry (optional integration)
-    IIdentityRegistry public identityRegistry;
-
-    /// @notice Whether to require ERC-8004 agent registration
-    bool public requireAgentRegistration;
-
-    /// @notice Mapping of agent ID => provider address
-    mapping(uint256 => address) public agentToProvider;
 
     // ============ Events ============
 
@@ -78,10 +61,6 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
         address indexed provider, string name, string endpoint, bytes32 attestationHash, uint256 stake, uint256 agentId
     );
     event ProviderUpdated(address indexed provider, string endpoint, bytes32 attestationHash);
-    event ProviderDeactivated(address indexed provider);
-    event ProviderReactivated(address indexed provider);
-    event StakeAdded(address indexed provider, uint256 amount, uint256 newTotal);
-    event StakeWithdrawn(address indexed provider, uint256 amount);
     event CapabilityAdded(
         address indexed provider,
         string model,
@@ -90,30 +69,21 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 maxContextLength
     );
     event CapabilityUpdated(address indexed provider, uint256 index, bool active);
-    event MinStakeUpdated(uint256 oldStake, uint256 newStake);
-    event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
-    event AgentRegistrationRequirementUpdated(bool required);
 
     // ============ Errors ============
 
-    error InsufficientStake(uint256 provided, uint256 required);
-    error ProviderAlreadyRegistered();
-    error ProviderNotRegistered();
-    error ProviderNotActive();
-    error ProviderStillActive();
     error InvalidEndpoint();
     error InvalidName();
     error InvalidCapabilityIndex();
-    error WithdrawalWouldBreachMinimum();
-    error TransferFailed();
-    error AgentRequired();
-    error InvalidAgentId();
-    error NotAgentOwner();
-    error AgentAlreadyLinked();
 
     // ============ Constructor ============
 
-    constructor(address initialOwner) Ownable(initialOwner) {}
+    constructor(
+        address _owner,
+        address _identityRegistry,
+        address _banManager,
+        uint256 _minProviderStake
+    ) ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake) {}
 
     // ============ Registration ============
 
@@ -129,8 +99,11 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
         nonReentrant
         whenNotPaused
     {
-        if (requireAgentRegistration) revert AgentRequired();
-        _registerInternal(name, endpoint, attestationHash, 0);
+        if (bytes(name).length == 0) revert InvalidName();
+        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
+
+        _registerProviderWithoutAgent(msg.sender);
+        _storeProviderData(msg.sender, name, endpoint, attestationHash, 0);
     }
 
     /**
@@ -146,28 +119,25 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
         nonReentrant
         whenNotPaused
     {
-        if (address(identityRegistry) == address(0)) revert InvalidAgentId();
-        if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
-        if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
-        if (agentToProvider[agentId] != address(0)) revert AgentAlreadyLinked();
+        if (bytes(name).length == 0) revert InvalidName();
+        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
 
-        _registerInternal(name, endpoint, attestationHash, agentId);
-        agentToProvider[agentId] = msg.sender;
+        _registerProviderWithAgent(msg.sender, agentId);
+        _storeProviderData(msg.sender, name, endpoint, attestationHash, agentId);
     }
 
     /**
-     * @dev Internal registration logic
+     * @dev Store provider-specific data after base registration
      */
-    function _registerInternal(string calldata name, string calldata endpoint, bytes32 attestationHash, uint256 agentId)
-        internal
-    {
-        if (providers[msg.sender].registeredAt != 0) revert ProviderAlreadyRegistered();
-        if (bytes(name).length == 0) revert InvalidName();
-        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
-        if (msg.value < minProviderStake) revert InsufficientStake(msg.value, minProviderStake);
-
-        providers[msg.sender] = Provider({
-            owner: msg.sender,
+    function _storeProviderData(
+        address provider,
+        string calldata name,
+        string calldata endpoint,
+        bytes32 attestationHash,
+        uint256 agentId
+    ) internal {
+        providers[provider] = Provider({
+            owner: provider,
             name: name,
             endpoint: endpoint,
             attestationHash: attestationHash,
@@ -177,9 +147,17 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
             active: true
         });
 
-        providerList.push(msg.sender);
+        emit ProviderRegistered(provider, name, endpoint, attestationHash, msg.value, agentId);
+    }
 
-        emit ProviderRegistered(msg.sender, name, endpoint, attestationHash, msg.value, agentId);
+    /**
+     * @dev Hook called by base contract during registration
+     */
+    function _onProviderRegistered(address provider, uint256 agentId, uint256 stake) internal override {
+        if (providers[provider].registeredAt != 0) {
+            revert ProviderAlreadyRegistered();
+        }
+        // Provider data will be stored by _storeProviderData after this hook
     }
 
     // ============ Provider Management ============
@@ -330,7 +308,7 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Get all active providers
      */
-    function getActiveProviders() external view returns (address[] memory) {
+    function getActiveProviders() external view override returns (address[] memory) {
         uint256 activeCount = 0;
         for (uint256 i = 0; i < providerList.length; i++) {
             if (providers[providerList[i]].active) {
@@ -357,27 +335,13 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Get total provider count
-     */
-    function getProviderCount() external view returns (uint256) {
-        return providerList.length;
-    }
-
-    /**
      * @notice Check if provider is a verified ERC-8004 agent
      */
     function isVerifiedAgent(address addr) external view returns (bool) {
         uint256 agentId = providers[addr].agentId;
         if (agentId == 0) return false;
-        if (address(identityRegistry) == address(0)) return false;
-        return identityRegistry.agentExists(agentId);
-    }
-
-    /**
-     * @notice Get provider by agent ID
-     */
-    function getProviderByAgent(uint256 agentId) external view returns (address) {
-        return agentToProvider[agentId];
+        // Use inherited function from base contract (external, so use this.)
+        return this.hasValidAgent(addr);
     }
 
     /**
@@ -387,49 +351,10 @@ contract ComputeRegistry is Ownable, Pausable, ReentrancyGuard {
         return providers[provider].agentId;
     }
 
-    // ============ Admin Functions ============
-
-    /**
-     * @notice Update minimum provider stake
-     */
-    function setMinProviderStake(uint256 newMinStake) external onlyOwner {
-        uint256 oldStake = minProviderStake;
-        minProviderStake = newMinStake;
-        emit MinStakeUpdated(oldStake, newMinStake);
-    }
-
-    /**
-     * @notice Set the ERC-8004 Identity Registry
-     */
-    function setIdentityRegistry(address _identityRegistry) external onlyOwner {
-        address oldRegistry = address(identityRegistry);
-        identityRegistry = IIdentityRegistry(_identityRegistry);
-        emit IdentityRegistryUpdated(oldRegistry, _identityRegistry);
-    }
-
-    /**
-     * @notice Set whether agent registration is required
-     */
-    function setRequireAgentRegistration(bool required) external onlyOwner {
-        requireAgentRegistration = required;
-        emit AgentRegistrationRequirementUpdated(required);
-    }
-
-    /**
-     * @notice Pause/unpause the registry
-     */
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
     /**
      * @notice Contract version
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0-base";
     }
 }

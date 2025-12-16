@@ -3,7 +3,7 @@
  * Manages git repositories with on-chain registry integration
  */
 
-import { createPublicClient, createWalletClient, http, type Address, type Hex, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, type Address, type Hex, type PublicClient, type WalletClient, decodeEventLog } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import type { BackendManager } from '../storage/backends';
@@ -20,6 +20,7 @@ import type {
   CreateRepoResponse,
   ContributionEvent,
 } from './types';
+import { encodeOidToBytes32, decodeBytes32ToOid } from './oid-utils';
 
 // RepoRegistry ABI (subset for our needs)
 const REPO_REGISTRY_ABI = [
@@ -266,32 +267,96 @@ export class GitRepoManager {
    * Create a new repository
    */
   async createRepository(request: CreateRepoRequest, signer: Address): Promise<CreateRepoResponse> {
+    // Input validation
     if (!this.walletClient) {
       throw new Error('Wallet not configured for write operations');
+    }
+
+    if (!signer || typeof signer !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(signer)) {
+      throw new Error('Invalid signer address');
+    }
+
+    if (!request.name || typeof request.name !== 'string') {
+      throw new Error('Repository name is required');
+    }
+
+    if (request.name.length > 100) {
+      throw new Error('Repository name exceeds maximum length of 100 characters');
+    }
+
+    // Validate repository name format (alphanumeric, hyphens, underscores, dots)
+    if (!/^[a-z0-9._-]+$/i.test(request.name)) {
+      throw new Error(`Invalid repository name format: ${request.name}. Only alphanumeric, dots, hyphens, and underscores allowed.`);
+    }
+
+    if (request.description && request.description.length > 1000) {
+      throw new Error('Repository description exceeds maximum length of 1000 characters');
     }
 
     const visibility = request.visibility === 'private' ? 1 : 0;
     const agentId = request.agentId ? BigInt(request.agentId) : 0n;
 
-    const { request: txRequest } = await this.publicClient.simulateContract({
-      address: this.repoRegistryAddress,
-      abi: REPO_REGISTRY_ABI,
-      functionName: 'createRepository',
-      args: [
-        request.name,
-        request.description || '',
-        '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
-        agentId,
-        visibility,
-      ],
-      account: signer,
+    let hash: Hex;
+    try {
+      const { request: txRequest } = await this.publicClient.simulateContract({
+        address: this.repoRegistryAddress,
+        abi: REPO_REGISTRY_ABI,
+        functionName: 'createRepository',
+        args: [
+          request.name,
+          request.description || '',
+          '0x0000000000000000000000000000000000000000000000000000000000000000' as Hex,
+          agentId,
+          visibility,
+        ],
+        account: signer,
+      });
+
+      hash = await this.walletClient.writeContract(txRequest);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to create repository ${request.name}: ${errorMessage}`);
+    }
+
+    let receipt;
+    try {
+      receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to wait for repository creation transaction ${hash}: ${errorMessage}`);
+    }
+
+    // Extract repoId from logs using event signature
+    const repositoryCreatedEvent = receipt.logs.find((log) => {
+      try {
+        const decoded = decodeEventLog({
+          abi: REPO_REGISTRY_ABI,
+          data: log.data,
+          topics: log.topics,
+        });
+        return decoded.eventName === 'RepositoryCreated';
+      } catch {
+        return false;
+      }
     });
 
-    const hash = await this.walletClient.writeContract(txRequest);
-    const receipt = await this.publicClient.waitForTransactionReceipt({ hash });
+    if (!repositoryCreatedEvent) {
+      throw new Error(`RepositoryCreated event not found in transaction receipt ${hash}. Logs: ${receipt.logs.length}`);
+    }
 
-    // Extract repoId from logs (first topic of RepositoryCreated event)
-    const repoId = receipt.logs[0]?.topics[1] as Hex;
+    let repoId: Hex;
+    try {
+      const decoded = decodeEventLog({
+        abi: REPO_REGISTRY_ABI,
+        data: repositoryCreatedEvent.data,
+        topics: repositoryCreatedEvent.topics,
+      }) as { args: { repoId: Hex } };
+
+      repoId = decoded.args.repoId;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to decode RepositoryCreated event from transaction ${hash}: ${errorMessage}`);
+    }
 
     const baseUrl = process.env.DWS_BASE_URL || 'http://localhost:4030';
     return {
@@ -306,12 +371,19 @@ export class GitRepoManager {
    * Get repository by ID
    */
   async getRepository(repoId: Hex): Promise<Repository | null> {
-    const result = await this.publicClient.readContract({
-      address: this.repoRegistryAddress,
-      abi: REPO_REGISTRY_ABI,
-      functionName: 'getRepository',
-      args: [repoId],
-    });
+    let result;
+    try {
+      result = await this.publicClient.readContract({
+        address: this.repoRegistryAddress,
+        abi: REPO_REGISTRY_ABI,
+        functionName: 'getRepository',
+        args: [repoId],
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[Git Registry] Failed to read repository ${repoId}: ${errorMessage}`);
+      return null;
+    }
 
     if (!result || result.createdAt === 0n) {
       return null;
@@ -324,12 +396,19 @@ export class GitRepoManager {
    * Get repository by owner and name
    */
   async getRepositoryByName(owner: Address, name: string): Promise<Repository | null> {
-    const result = await this.publicClient.readContract({
-      address: this.repoRegistryAddress,
-      abi: REPO_REGISTRY_ABI,
-      functionName: 'getRepositoryByName',
-      args: [owner, name],
-    });
+    let result;
+    try {
+      result = await this.publicClient.readContract({
+        address: this.repoRegistryAddress,
+        abi: REPO_REGISTRY_ABI,
+        functionName: 'getRepositoryByName',
+        args: [owner, name],
+      });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      console.error(`[Git Registry] Failed to read repository ${owner}/${name}: ${errorMessage}`);
+      return null;
+    }
 
     if (!result || result.createdAt === 0n) {
       return null;
@@ -468,26 +547,67 @@ export class GitRepoManager {
     commitCount: number,
     pusher: Address
   ): Promise<void> {
+    // Input validation
     if (!this.walletClient) {
       throw new Error('Wallet not configured for write operations');
     }
 
-    // Convert OID to bytes32 (pad with zeros)
-    const newCommitCid = `0x${newCommitOid.padEnd(64, '0')}` as Hex;
+    if (!repoId || typeof repoId !== 'string' || !/^0x[a-fA-F0-9]{64}$/.test(repoId)) {
+      throw new Error('Invalid repository ID');
+    }
+
+    if (!branch || typeof branch !== 'string') {
+      throw new Error('Branch name is required');
+    }
+
+    if (branch.length > 255) {
+      throw new Error('Branch name exceeds maximum length of 255 characters');
+    }
+
+    if (!newCommitOid || typeof newCommitOid !== 'string' || !/^[0-9a-f]{40}$/i.test(newCommitOid)) {
+      throw new Error('Invalid Git OID format. Expected 40-character hex string.');
+    }
+
+    if (oldCommitOid !== null && (!/^[0-9a-f]{40}$/i.test(oldCommitOid))) {
+      throw new Error('Invalid old Git OID format. Expected 40-character hex string or null.');
+    }
+
+    if (commitCount < 0 || commitCount > 1000) {
+      throw new Error(`Invalid commit count: ${commitCount}. Must be between 0 and 1000.`);
+    }
+
+    if (!pusher || typeof pusher !== 'string' || !/^0x[a-fA-F0-9]{40}$/.test(pusher)) {
+      throw new Error('Invalid pusher address');
+    }
+
+    // Convert OID to bytes32 (pad with zeros on the left)
+    const newCommitCid = encodeOidToBytes32(newCommitOid);
     const oldCommitCid = oldCommitOid
-      ? (`0x${oldCommitOid.padEnd(64, '0')}` as Hex)
+      ? encodeOidToBytes32(oldCommitOid)
       : ('0x0000000000000000000000000000000000000000000000000000000000000000' as Hex);
 
-    const { request: txRequest } = await this.publicClient.simulateContract({
-      address: this.repoRegistryAddress,
-      abi: REPO_REGISTRY_ABI,
-      functionName: 'pushBranch',
-      args: [repoId, branch, newCommitCid, oldCommitCid, BigInt(commitCount)],
-      account: pusher,
-    });
+    let hash: Hex;
+    try {
+      const { request: txRequest } = await this.publicClient.simulateContract({
+        address: this.repoRegistryAddress,
+        abi: REPO_REGISTRY_ABI,
+        functionName: 'pushBranch',
+        args: [repoId, branch, newCommitCid, oldCommitCid, BigInt(commitCount)],
+        account: pusher,
+      });
 
-    const hash = await this.walletClient.writeContract(txRequest);
-    await this.publicClient.waitForTransactionReceipt({ hash });
+      hash = await this.walletClient.writeContract(txRequest);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to push branch ${branch} to repository ${repoId}: ${errorMessage}`);
+    }
+
+    try {
+      await this.publicClient.waitForTransactionReceipt({ hash });
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      throw new Error(`Failed to wait for push transaction ${hash}: ${errorMessage}`);
+    }
 
     // Queue contribution event for leaderboard
     this.queueContribution({
@@ -511,8 +631,8 @@ export class GitRepoManager {
     const refs: GitRef[] = [];
 
     for (const branch of branches) {
-      // Convert bytes32 CID back to OID (first 40 chars)
-      const oid = branch.tipCommitCid.slice(2, 42);
+      // Convert bytes32 CID back to OID
+      const oid = decodeBytes32ToOid(branch.tipCommitCid);
       refs.push({
         name: `refs/heads/${branch.name}`,
         oid,
@@ -524,13 +644,13 @@ export class GitRepoManager {
     if (mainBranch) {
       refs.unshift({
         name: 'HEAD',
-        oid: mainBranch.tipCommitCid.slice(2, 42),
+        oid: decodeBytes32ToOid(mainBranch.tipCommitCid),
         symbolic: 'refs/heads/main',
       });
     } else if (branches.length > 0) {
       refs.unshift({
         name: 'HEAD',
-        oid: branches[0].tipCommitCid.slice(2, 42),
+        oid: decodeBytes32ToOid(branches[0].tipCommitCid),
         symbolic: `refs/heads/${branches[0].name}`,
       });
     }

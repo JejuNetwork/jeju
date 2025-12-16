@@ -7,6 +7,7 @@ import type { Address, Hex } from 'viem';
 import type { BackendManager } from '../../storage/backends';
 import type { GitRepoManager } from '../../git/repo-manager';
 import { WorkflowEngine } from '../../ci/workflow-engine';
+import { decodeBytes32ToOid } from '../../git/oid-utils';
 
 interface CIContext {
   workflowEngine: WorkflowEngine;
@@ -86,7 +87,7 @@ export function createCIRouter(ctx: CIContext): Hono {
       'workflow_dispatch',
       triggeredBy,
       branch,
-      branchData.tipCommitCid.slice(2, 42),
+      decodeBytes32ToOid(branchData.tipCommitCid),
       body.inputs || {}
     );
 

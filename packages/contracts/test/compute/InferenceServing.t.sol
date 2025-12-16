@@ -28,8 +28,8 @@ contract InferenceServingTest is Test {
         vm.deal(user1, 10 ether);
         vm.deal(provider1, 10 ether);
 
-        // Deploy contracts
-        registry = new ComputeRegistry(owner);
+        // Deploy contracts (new constructor: owner, identityRegistry, banManager, minProviderStake)
+        registry = new ComputeRegistry(owner, address(0), address(0), 0.01 ether);
         ledger = new LedgerManager(address(registry), owner);
         inference = new InferenceServing(address(registry), address(ledger), owner);
 

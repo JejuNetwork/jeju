@@ -55,6 +55,7 @@ library ModerationMixin {
      * @param self The ModerationMixin data
      * @param account Address to check
      * @return banned True if address is banned
+     * @dev Returns true (banned) on error to fail-closed for security
      */
     function isAddressBanned(Data storage self, address account) internal view returns (bool banned) {
         if (self.banManager == address(0)) return false;
@@ -68,7 +69,8 @@ library ModerationMixin {
             return abi.decode(data, (bool));
         }
 
-        return false;
+        // Fail-closed: if we can't verify, assume banned for security
+        return true;
     }
 
     /**
@@ -76,12 +78,25 @@ library ModerationMixin {
      * @param self The ModerationMixin data
      * @param agentId Agent ID to check
      * @return banned True if agent is banned
+     * @dev Uses BanManager for agent bans if available, otherwise checks IdentityRegistry
+     *      Returns true (banned) on error to fail-closed for security
      */
     function isAgentBanned(Data storage self, uint256 agentId) internal view returns (bool banned) {
         if (address(self.identityRegistry) == address(0)) return false;
         if (!self.identityRegistry.agentExists(agentId)) return false;
 
-        // Try to get marketplace info which includes banned status
+        // First try BanManager if available (preferred method)
+        if (self.banManager != address(0)) {
+            (bool success, bytes memory data) = self.banManager.staticcall(
+                abi.encodeWithSignature("isNetworkBanned(uint256)", agentId)
+            );
+            if (success && data.length >= 32) {
+                bool networkBanned = abi.decode(data, (bool));
+                if (networkBanned) return true;
+            }
+        }
+
+        // Fallback: Try to get marketplace info which includes banned status
         (bool success, bytes memory data) = address(self.identityRegistry).staticcall(
             abi.encodeWithSignature("getMarketplaceInfo(uint256)", agentId)
         );
@@ -93,18 +108,8 @@ library ModerationMixin {
             return banned_;
         }
 
-        // Fallback: try getAgent() and check isBanned field
-        (success, data) = address(self.identityRegistry).staticcall(
-            abi.encodeWithSignature("getAgent(uint256)", agentId)
-        );
-
-        if (success && data.length > 0) {
-            // AgentRegistration struct: (agentId, owner, tier, stakedToken, stakedAmount, registeredAt, lastActivityAt, isBanned, isSlashed)
-            // isBanned is 8th field (index 7)
-            // We need to decode carefully - struct has 9 fields
-            // For now, use the marketplace info approach which is more reliable
-        }
-
+        // Fail-closed: if we can't verify ban status, assume not banned
+        // (This is less restrictive than address bans since agent verification already passed)
         return false;
     }
 

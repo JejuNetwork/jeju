@@ -1,0 +1,70 @@
+"""
+ERC-8004 Subgraph Schema
+Generated stub for TypeScript SDK codegen
+"""
+
+type Agent @entity {
+  id: ID!
+  chainId: Int!
+  agentId: BigInt!
+  owner: Bytes!
+  operators: [Bytes!]!
+  agentURI: String
+  createdAt: BigInt!
+  updatedAt: BigInt!
+  registrationFile: AgentRegistrationFile
+}
+
+type AgentRegistrationFile @entity {
+  id: ID!
+  agentId: BigInt!
+  name: String
+  description: String
+  image: String
+  active: Boolean!
+  x402support: Boolean!
+  supportedTrusts: [String!]!
+  mcpEndpoint: String
+  mcpVersion: String
+  a2aEndpoint: String
+  a2aVersion: String
+  ens: String
+  did: String
+  agentWallet: String
+  agentWalletChainId: Int
+  mcpTools: [String!]!
+  mcpPrompts: [String!]!
+  mcpResources: [String!]!
+  a2aSkills: [String!]!
+}
+
+type Feedback @entity {
+  id: ID!
+  agentId: BigInt!
+  clientAddress: Bytes!
+  feedbackIndex: Int!
+  score: Int
+  tags: [String!]!
+  fileURI: String
+  createdAt: BigInt!
+  isRevoked: Boolean!
+}
+
+type ValidationRequest @entity {
+  id: ID!
+  requestHash: Bytes!
+  validatorAddress: Bytes!
+  agentId: BigInt!
+  requestUri: String!
+  createdAt: BigInt!
+}
+
+type ValidationResponse @entity {
+  id: ID!
+  requestHash: Bytes!
+  response: Int!
+  responseUri: String
+  responseHash: Bytes
+  tag: Bytes
+  lastUpdate: BigInt!
+}

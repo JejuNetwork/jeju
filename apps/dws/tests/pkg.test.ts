@@ -11,7 +11,8 @@ import { app } from '../src/server';
 setDefaultTimeout(10000);
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
-const SKIP = process.env.CI === 'true' || process.env.SKIP_INTEGRATION === 'true';
+// Only skip if explicitly requested, not by default in CI
+const SKIP = process.env.SKIP_INTEGRATION === 'true';
 
 // Helper to create a minimal package tarball
 function createMockTarball(name: string, version: string): { base64: string; buffer: Buffer } {

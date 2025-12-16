@@ -3,7 +3,7 @@ pragma solidity ^0.8.26;
 
 /**
  * @title IPackageRegistry
- * @notice Interface for the decentralized NPM package registry
+ * @notice Interface for the decentralized package registry (JejuPkg)
  */
 interface IPackageRegistry {
     // ============ Structs ============

@@ -12,6 +12,7 @@ import { PullRequestsManager } from '../../git/pull-requests';
 import { SocialManager } from '../../git/social';
 import { SearchManager } from '../../git/search';
 import { FederationManager } from '../../git/federation';
+import { decodeBytes32ToOid } from '../../git/oid-utils';
 import {
   createPackfile,
   extractPackfile,
@@ -112,7 +113,7 @@ export function createGitRouter(ctx: GitContext): Hono {
       defaultBranch: 'main',
       branches: branches.map((b) => ({
         name: b.name,
-        tipCommit: b.tipCommitCid.slice(2, 42),
+        tipCommit: decodeBytes32ToOid(b.tipCommitCid),
         lastPusher: b.lastPusher,
         updatedAt: Number(b.updatedAt),
         protected: b.protected,
@@ -652,7 +653,7 @@ export function createGitRouter(ctx: GitContext): Hono {
     const branch = await repoManager.getBranch(repo.repoId, ref);
     if (!branch) return c.json({ error: 'Branch not found' }, 404);
 
-    const commit = await objectStore.getCommit(branch.tipCommitCid.slice(2, 42));
+    const commit = await objectStore.getCommit(decodeBytes32ToOid(branch.tipCommitCid));
     if (!commit) return c.json({ error: 'Commit not found' }, 404);
 
     let currentTree = await objectStore.getTree(commit.tree);
@@ -722,7 +723,7 @@ export function createGitRouter(ctx: GitContext): Hono {
     if (!branch) return c.json({ error: 'Branch not found' }, 404);
 
     const objectStore = repoManager.getObjectStore(repo.repoId);
-    const commits = await objectStore.walkCommits(branch.tipCommitCid.slice(2, 42), limit);
+    const commits = await objectStore.walkCommits(decodeBytes32ToOid(branch.tipCommitCid), limit);
 
     return c.json({
       branch: ref,

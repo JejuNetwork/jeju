@@ -148,7 +148,7 @@ export class WorkflowEngine {
       return [];
     }
 
-    const headOid = repo.headCommitCid.slice(2, 42);
+    const headOid = decodeBytes32ToOid(repo.headCommitCid);
     const commit = await objectStore.getCommit(headOid);
     if (!commit) return [];
 

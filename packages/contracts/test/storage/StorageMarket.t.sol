@@ -29,8 +29,8 @@ contract StorageMarketTest is Test {
         vm.deal(user, 100 ether);
         vm.deal(provider, 10 ether);
 
-        // Deploy registry
-        registry = new StorageProviderRegistry(owner, address(0));
+        // Deploy registry (new constructor: owner, identityRegistry, banManager, minProviderStake)
+        registry = new StorageProviderRegistry(owner, address(0), address(0), 0.1 ether);
 
         // Deploy FeeConfig (2% storage upload fee by default)
         feeConfig = new FeeConfig(council, ceo, treasury, owner);

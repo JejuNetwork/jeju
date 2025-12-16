@@ -337,7 +337,7 @@ export class JejuPkgSDK {
     return Buffer.from(arrayBuffer);
   }
 
-  // Sync from upstream (npmjs.org)
+  // Sync from upstream (npmjs.org - for compatibility)
 
   async syncFromUpstream(name: string, authToken: string): Promise<{ synced: number }> {
     const response = await fetch(`${this.config.registryUrl}/-/registry/sync/${encodeURIComponent(name)}`, {
@@ -452,15 +452,15 @@ export class JejuPkgSDK {
   // Health check
 
   async healthCheck(): Promise<{ status: string; service: string }> {
-    // DWS NPM uses /npm/health endpoint
-    const response = await fetch(`${this.config.registryUrl}/npm/health`);
+    // DWS pkg registry uses /pkg/health endpoint (npm CLI compatible)
+    const response = await fetch(`${this.config.registryUrl}/pkg/health`);
     if (!response.ok) {
       throw new Error(`Health check failed: ${response.statusText}`);
     }
     return response.json() as Promise<{ status: string; service: string }>;
   }
 
-  // Registry URL helper for npm config
+  // Registry URL helper for npm/bun config (compatibility)
 
   getRegistryUrl(): string {
     return this.config.registryUrl;

@@ -9,6 +9,7 @@ export * from './types';
 // Core Git operations
 export { GitObjectStore } from './object-store';
 export { GitRepoManager, type RepoManagerConfig } from './repo-manager';
+export * from './oid-utils';
 export {
   PackfileWriter,
   PackfileReader,

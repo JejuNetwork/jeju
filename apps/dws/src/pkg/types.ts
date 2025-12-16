@@ -47,7 +47,7 @@ export interface Maintainer {
   addedAt: bigint;
 }
 
-// ============ Package Registry API Types (npm CLI compatible) ============
+// ============ Package Registry API Types (npm CLI compatible - for compatibility) ============
 
 export interface PkgPackageMetadata {
   _id: string;
@@ -449,7 +449,7 @@ export interface PkgRegistryConfig {
 }
 
 // ============ Legacy NPM Compatibility Aliases ============
-// For backwards compatibility with npm CLI
+// For backwards compatibility with npm CLI (kept for compatibility)
 
 export type NpmPackageMetadata = PkgPackageMetadata;
 export type NpmVersionMetadata = PkgVersionMetadata;

@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
 import "../../src/compute/ComputeRegistry.sol";
+import "../../src/registry/ProviderRegistryBase.sol";
 
 contract ComputeRegistryTest is Test {
     ComputeRegistry public registry;
@@ -18,7 +19,8 @@ contract ComputeRegistryTest is Test {
         vm.deal(provider1, 10 ether);
         vm.deal(provider2, 10 ether);
 
-        registry = new ComputeRegistry(owner);
+        // New constructor signature: (owner, identityRegistry, banManager, minProviderStake)
+        registry = new ComputeRegistry(owner, address(0), address(0), 0.01 ether);
     }
 
     function test_RegisterProvider() public {
@@ -40,7 +42,7 @@ contract ComputeRegistryTest is Test {
     function test_RegisterProviderInsufficientStake() public {
         vm.startPrank(provider1);
 
-        vm.expectRevert(abi.encodeWithSelector(ComputeRegistry.InsufficientStake.selector, 0.001 ether, 0.01 ether));
+        vm.expectRevert(abi.encodeWithSelector(ProviderRegistryBase.InsufficientStake.selector, 0.001 ether, 0.01 ether));
         registry.register{value: 0.001 ether}("Test Provider", "https://api.test.com", bytes32(uint256(1)));
 
         vm.stopPrank();
@@ -51,7 +53,7 @@ contract ComputeRegistryTest is Test {
 
         registry.register{value: 0.01 ether}("Test Provider", "https://api.test.com", bytes32(uint256(1)));
 
-        vm.expectRevert(ComputeRegistry.ProviderAlreadyRegistered.selector);
+        vm.expectRevert(ProviderRegistryBase.ProviderAlreadyRegistered.selector);
         registry.register{value: 0.01 ether}("Test Provider 2", "https://api2.test.com", bytes32(uint256(2)));
 
         vm.stopPrank();
@@ -156,6 +158,6 @@ contract ComputeRegistryTest is Test {
     }
 
     function test_Version() public view {
-        assertEq(registry.version(), "1.0.0");
+        assertEq(registry.version(), "2.0.0-base");
     }
 }

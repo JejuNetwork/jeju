@@ -221,6 +221,7 @@ library ERC8004ProviderMixin {
 
     /**
      * @dev Check if agent is banned via IdentityRegistry
+     * @dev Returns false (not banned) on error - agent verification already passed at this point
      */
     function _isAgentBanned(Data storage self, uint256 agentId) private view returns (bool) {
         if (address(self.identityRegistry) == address(0)) return false;
@@ -229,6 +230,7 @@ library ERC8004ProviderMixin {
         try self.identityRegistry.agentExists(agentId) returns (bool exists) {
             if (!exists) return false;
         } catch {
+            // If we can't verify existence, assume not banned (agent verification already passed)
             return false;
         }
 
@@ -244,6 +246,8 @@ library ERC8004ProviderMixin {
             return banned;
         }
 
+        // If we can't verify ban status, assume not banned
+        // Note: This is called after agent ownership is verified, so agent exists
         return false;
     }
 }

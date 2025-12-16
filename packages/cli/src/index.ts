@@ -129,7 +129,7 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} build`) + '            Build all components');
   console.log('  ' + chalk.cyan(`${cliName} clean`) + '            Clean build artifacts');
   console.log('  ' + chalk.cyan(`${cliName} cleanup`) + '          Clean up orphaned processes');
-  console.log('  ' + chalk.cyan(`${cliName} publish`) + '          Publish packages to npm');
+  console.log('  ' + chalk.cyan(`${cliName} publish`) + '          Publish packages to JejuPkg');
   console.log('  ' + chalk.cyan(`${cliName} apps`) + '             List all apps');
   console.log('  ' + chalk.cyan(`${cliName} ports`) + '            Check port configuration\n');
   

@@ -11,7 +11,8 @@ import { app } from '../src/server';
 
 setDefaultTimeout(10000);
 
-const SKIP = process.env.CI === 'true' || process.env.SKIP_INTEGRATION === 'true';
+// Only skip if explicitly requested, not by default in CI
+const SKIP = process.env.SKIP_INTEGRATION === 'true';
 
 describe.skipIf(SKIP)('Storage Backends', () => {
   let backend: BackendManager;

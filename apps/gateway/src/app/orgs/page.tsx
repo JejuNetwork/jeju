@@ -63,7 +63,7 @@ export default function OrganizationsPage() {
           verified?: boolean;
         }>;
         
-        // Enrich with package counts from npm registry
+        // Enrich with package counts from pkg registry
         orgs = await Promise.all(gitOrgs.map(async (org) => {
           let packageCount = 0;
           try {

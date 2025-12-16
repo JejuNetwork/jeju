@@ -10,7 +10,7 @@ import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 /**
  * @title PackageRegistry
  * @author Jeju Network
- * @notice On-chain registry for decentralized NPM packages
+ * @notice On-chain registry for decentralized packages (JejuPkg)
  * @dev Stores package metadata with content pointers to IPFS tarballs
  *
  * Architecture:

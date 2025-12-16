@@ -1,11 +1,9 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.26;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ProviderRegistryBase} from "../registry/ProviderRegistryBase.sol";
+import {ERC8004ProviderMixin} from "../registry/ERC8004ProviderMixin.sol";
 import {ICDNTypes} from "./ICDNTypes.sol";
-import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
-import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 /**
  * @title CDNRegistry
@@ -13,6 +11,7 @@ import {ModerationMixin} from "../moderation/ModerationMixin.sol";
  * @notice Registry for decentralized CDN providers and edge nodes
  * @dev Supports permissionless registration of edge nodes, cloud CDN providers,
  *      and hybrid configurations. Integrates with ERC-8004 for identity verification.
+ *      Provider registration inherits from ProviderRegistryBase for standardized patterns.
  *
  * Key Features:
  * - Permissionless edge node registration with staking
@@ -22,16 +21,10 @@ import {ModerationMixin} from "../moderation/ModerationMixin.sol";
  * - Usage reporting and billing settlement
  * - Integration with reputation system
  */
-contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
-    using ModerationMixin for ModerationMixin.Data;
+contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
+    using ERC8004ProviderMixin for ERC8004ProviderMixin.Data;
 
     // ============ State ============
-
-    /// @notice Moderation integration for ban checking
-    ModerationMixin.Data public moderation;
-
-    /// @notice Minimum stake required to register as provider
-    uint256 public minProviderStake = 0.01 ether;
 
     /// @notice Minimum stake required to register an edge node
     uint256 public minNodeStake = 0.001 ether;
@@ -50,9 +43,6 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
 
     /// @notice Provider regions (provider => Region[])
     mapping(address => Region[]) private _providerRegions;
-
-    /// @notice All registered provider addresses
-    address[] private _providerList;
 
     /// @notice Edge nodes by ID
     mapping(bytes32 => EdgeNode) private _edgeNodes;
@@ -84,49 +74,39 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
     /// @notice Billing records by user
     mapping(address => BillingRecord[]) private _billingRecords;
 
-    /// @notice ERC-8004 Identity Registry
-    IIdentityRegistry public identityRegistry;
-
-    /// @notice Whether to require ERC-8004 agent registration
-    bool public requireAgentRegistration;
-
-    /// @notice Agent ID to provider mapping
-    mapping(uint256 => address) private _agentToProvider;
-
-    /// @notice Provider count
-    uint256 public providerCount;
-
     /// @notice Node count
     uint256 public nodeCount;
 
     /// @notice Site count
     uint256 public siteCount;
 
+    // ============ Events ============
+
+    event ProviderRegistered(
+        address indexed provider, string name, ProviderType providerType, uint256 stake, uint256 agentId
+    );
+    event CDNProviderUpdated(address indexed provider); // Renamed to avoid conflict
+    event StakeSlashed(address indexed provider, uint256 amount, string reason);
+
     // ============ Errors ============
 
-    error InvalidAgentId();
-    error NotAgentOwner();
-    error AgentAlreadyLinked();
-    error AgentRequired();
-    error InsufficientStake(uint256 provided, uint256 required);
-    error ProviderAlreadyRegistered();
-    error ProviderNotRegistered();
     error NodeNotFound();
     error SiteNotFound();
     error NotSiteOwner();
     error NotNodeOperator();
     error InvalidEndpoint();
     error InvalidRegion();
-    error TransferFailed();
-    error UserIsBanned();
+    error InvalidProviderType();
+    error InvalidName();
 
     // ============ Constructor ============
 
-    constructor(address _owner, address _identityRegistry) Ownable(_owner) {
-        if (_identityRegistry != address(0)) {
-            identityRegistry = IIdentityRegistry(_identityRegistry);
-        }
-    }
+    constructor(
+        address _owner,
+        address _identityRegistry,
+        address _banManager,
+        uint256 _minProviderStake
+    ) ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake) {}
 
     // ============ Provider Registration ============
 
@@ -142,9 +122,13 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         string calldata endpoint,
         ProviderType providerType,
         bytes32 attestationHash
-    ) external payable nonReentrant {
-        if (requireAgentRegistration) revert AgentRequired();
-        _registerProviderInternal(name, endpoint, providerType, attestationHash, 0);
+    ) external payable nonReentrant whenNotPaused {
+        if (bytes(name).length == 0) revert InvalidName();
+        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
+        if (uint8(providerType) > uint8(ProviderType.RESIDENTIAL)) revert InvalidProviderType();
+
+        _registerProviderWithoutAgent(msg.sender);
+        _storeProviderData(msg.sender, name, endpoint, providerType, attestationHash, 0);
     }
 
     /**
@@ -161,33 +145,28 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         ProviderType providerType,
         bytes32 attestationHash,
         uint256 agentId
-    ) external payable nonReentrant {
-        if (address(identityRegistry) == address(0)) revert InvalidAgentId();
-        if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
-        if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
-        if (_agentToProvider[agentId] != address(0)) revert AgentAlreadyLinked();
+    ) external payable nonReentrant whenNotPaused {
+        if (bytes(name).length == 0) revert InvalidName();
+        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
+        if (uint8(providerType) > uint8(ProviderType.RESIDENTIAL)) revert InvalidProviderType();
 
-        _registerProviderInternal(name, endpoint, providerType, attestationHash, agentId);
-        _agentToProvider[agentId] = msg.sender;
+        _registerProviderWithAgent(msg.sender, agentId);
+        _storeProviderData(msg.sender, name, endpoint, providerType, attestationHash, agentId);
     }
 
-    function _registerProviderInternal(
+    /**
+     * @dev Store provider-specific data after base registration
+     */
+    function _storeProviderData(
+        address provider,
         string calldata name,
         string calldata endpoint,
         ProviderType providerType,
         bytes32 attestationHash,
         uint256 agentId
     ) internal {
-        // Check ban status
-        if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
-        if (agentId > 0 && moderation.isAgentBanned(agentId)) revert UserIsBanned();
-
-        if (_providers[msg.sender].registeredAt != 0) revert ProviderAlreadyRegistered();
-        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
-        if (msg.value < minProviderStake) revert InsufficientStake(msg.value, minProviderStake);
-
-        _providers[msg.sender] = Provider({
-            owner: msg.sender,
+        _providers[provider] = Provider({
+            owner: provider,
             name: name,
             endpoint: endpoint,
             providerType: providerType,
@@ -199,10 +178,17 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
             verified: false
         });
 
-        _providerList.push(msg.sender);
-        providerCount++;
+        emit ProviderRegistered(provider, name, providerType, msg.value, agentId);
+    }
 
-        emit ProviderRegistered(msg.sender, name, providerType, msg.value, agentId);
+    /**
+     * @dev Hook called by base contract during registration
+     */
+    function _onProviderRegistered(address provider, uint256 agentId, uint256 stake) internal override {
+        if (_providers[provider].registeredAt != 0) {
+            revert ProviderAlreadyRegistered();
+        }
+        // Provider data will be stored by _storeProviderData after this hook
     }
 
     // ============ Edge Node Registration ============
@@ -230,9 +216,9 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         ProviderType providerType,
         uint256 agentId
     ) external payable nonReentrant returns (bytes32 nodeId) {
-        if (address(identityRegistry) == address(0)) revert InvalidAgentId();
-        if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
-        if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
+        // Verify agent ownership
+        ERC8004ProviderMixin.verifyAgentOwnership(erc8004, msg.sender, agentId);
+        moderation.requireAgentNotBanned(agentId);
 
         return _registerEdgeNodeInternal(endpoint, region, providerType, agentId);
     }
@@ -244,8 +230,7 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         uint256 agentId
     ) internal returns (bytes32 nodeId) {
         // Check ban status
-        if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
-        if (agentId > 0 && moderation.isAgentBanned(agentId)) revert UserIsBanned();
+        moderation.requireNotBanned(msg.sender);
 
         if (bytes(endpoint).length == 0) revert InvalidEndpoint();
         if (msg.value < minNodeStake) revert InsufficientStake(msg.value, minNodeStake);
@@ -334,6 +319,27 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         node.status = NodeStatus.OFFLINE;
 
         emit EdgeNodeDeactivated(nodeId, node.operator, reason);
+    }
+
+    // ============ Provider Management ============
+
+    function deactivateProvider() external {
+        Provider storage provider = _providers[msg.sender];
+        if (provider.registeredAt == 0) revert ProviderNotRegistered();
+        if (!provider.active) revert ProviderNotActive();
+
+        provider.active = false;
+        emit ProviderDeactivated(msg.sender);
+    }
+
+    function reactivateProvider() external {
+        Provider storage provider = _providers[msg.sender];
+        if (provider.registeredAt == 0) revert ProviderNotRegistered();
+        if (provider.active) revert ProviderStillActive();
+        if (provider.stake < minProviderStake) revert InsufficientStake(provider.stake, minProviderStake);
+
+        provider.active = true;
+        emit ProviderReactivated(msg.sender);
     }
 
     // ============ Site Management ============
@@ -466,10 +472,12 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
     /**
      * @notice Add stake to provider
      */
-    function addProviderStake() external payable {
-        if (_providers[msg.sender].registeredAt == 0) revert ProviderNotRegistered();
-        _providers[msg.sender].stake += msg.value;
-        emit StakeAdded(msg.sender, msg.value);
+    function addProviderStake() external payable nonReentrant {
+        Provider storage provider = _providers[msg.sender];
+        if (provider.registeredAt == 0) revert ProviderNotRegistered();
+
+        provider.stake += msg.value;
+        emit StakeAdded(msg.sender, msg.value, provider.stake);
     }
 
     /**
@@ -479,7 +487,7 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         EdgeNode storage node = _edgeNodes[nodeId];
         if (node.operator != msg.sender) revert NotNodeOperator();
         node.stake += msg.value;
-        emit StakeAdded(msg.sender, msg.value);
+        emit StakeAdded(msg.sender, msg.value, node.stake);
     }
 
     /**
@@ -490,7 +498,7 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         if (provider.registeredAt == 0) revert ProviderNotRegistered();
         if (provider.stake < amount) revert InsufficientStake(provider.stake, amount);
         if (provider.stake - amount < minProviderStake && provider.active) {
-            revert InsufficientStake(provider.stake - amount, minProviderStake);
+            revert WithdrawalWouldBreachMinimum();
         }
 
         provider.stake -= amount;
@@ -531,19 +539,19 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         return _sites[siteId];
     }
 
-    function getActiveProviders() external view returns (address[] memory) {
+    function getActiveProviders() external view override returns (address[] memory) {
         uint256 activeCount = 0;
-        for (uint256 i = 0; i < _providerList.length; i++) {
-            if (_providers[_providerList[i]].active) {
+        for (uint256 i = 0; i < providerList.length; i++) {
+            if (_providers[providerList[i]].active) {
                 activeCount++;
             }
         }
 
         address[] memory active = new address[](activeCount);
         uint256 j = 0;
-        for (uint256 i = 0; i < _providerList.length; i++) {
-            if (_providers[_providerList[i]].active) {
-                active[j++] = _providerList[i];
+        for (uint256 i = 0; i < providerList.length; i++) {
+            if (_providers[providerList[i]].active) {
+                active[j++] = providerList[i];
             }
         }
 
@@ -583,44 +591,14 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         return _ownerSites[owner_];
     }
 
-    function getProviderByAgent(uint256 agentId) external view returns (address) {
-        return _agentToProvider[agentId];
-    }
-
     function getUsageRecords(bytes32 nodeId) external view returns (UsageRecord[] memory) {
         return _usageRecords[nodeId];
     }
 
     // ============ Admin Functions ============
 
-    function setMinProviderStake(uint256 _minStake) external onlyOwner {
-        minProviderStake = _minStake;
-    }
-
     function setMinNodeStake(uint256 _minStake) external onlyOwner {
         minNodeStake = _minStake;
-    }
-
-    function setIdentityRegistry(address _identityRegistry) external onlyOwner {
-        identityRegistry = IIdentityRegistry(_identityRegistry);
-        moderation.setIdentityRegistry(_identityRegistry);
-    }
-
-    function setBanManager(address _banManager) external onlyOwner {
-        moderation.setBanManager(_banManager);
-    }
-
-    function setRequireAgentRegistration(bool required) external onlyOwner {
-        requireAgentRegistration = required;
-    }
-
-    /**
-     * @notice Check if a provider/node operator is banned
-     * @param account Address to check
-     * @return banned True if banned
-     */
-    function isBanned(address account) external view returns (bool banned) {
-        return moderation.isAddressBanned(account);
     }
 
     function verifyProvider(address provider) external onlyOwner {
@@ -671,6 +649,7 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
             revert ProviderNotRegistered();
         }
         _capabilities[provider] = capabilities;
+        emit CDNProviderUpdated(provider);
     }
 
     function updateProviderPricing(
@@ -684,6 +663,7 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
             revert ProviderNotRegistered();
         }
         _pricing[provider] = pricing;
+        emit CDNProviderUpdated(provider);
     }
 
     function updateProviderRegions(Region[] calldata regions) external {
@@ -692,6 +672,6 @@ contract CDNRegistry is ICDNTypes, Ownable, ReentrancyGuard {
         for (uint256 i = 0; i < regions.length; i++) {
             _providerRegions[msg.sender].push(regions[i]);
         }
+        emit CDNProviderUpdated(msg.sender);
     }
 }
-

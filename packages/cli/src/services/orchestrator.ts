@@ -29,7 +29,7 @@ export interface ServiceConfig {
   cvm: boolean;
   computeBridge: boolean;
   git: boolean;
-  npm: boolean;
+  pkg: boolean;
 }
 
 export interface RunningService {
@@ -57,7 +57,7 @@ const DEFAULT_PORTS = {
   cvm: 4103,
   computeBridge: 4031, // DWS compute node port
   git: 4020,
-  npm: 4021,
+  pkg: 4021, // JejuPkg registry (npm CLI compatible)
 };
 
 async function isPortInUse(port: number): Promise<boolean> {
@@ -100,7 +100,7 @@ class ServicesOrchestrator {
       cvm: config.cvm ?? false,
       computeBridge: config.computeBridge ?? true, // DWS compute enabled by default
       git: config.git ?? true,
-      npm: config.npm ?? true,
+      pkg: config.pkg ?? true,
     };
 
     logger.step('Starting development services...');
@@ -116,7 +116,7 @@ class ServicesOrchestrator {
     if (enabledServices.cvm) await this.startCVM();
     if (enabledServices.computeBridge) await this.startComputeBridge();
     if (enabledServices.git) await this.startGit();
-    if (enabledServices.npm) await this.startNpm();
+    if (enabledServices.pkg) await this.startPkg();
 
     // Wait for services to be ready
     await this.waitForServices();
@@ -1245,39 +1245,39 @@ class ServicesOrchestrator {
     };
   }
 
-  private async startNpm(): Promise<void> {
-    const port = DEFAULT_PORTS.npm;
+  private async startPkg(): Promise<void> {
+    const port = DEFAULT_PORTS.pkg;
     
     if (await isPortInUse(port)) {
       logger.info(`JejuPkg already running on port ${port}`);
-      this.services.set('npm', {
+      this.services.set('pkg', {
         name: 'JejuPkg',
         type: 'server',
         port,
         url: `http://localhost:${port}`,
-        healthCheck: '/npm/health',
+        healthCheck: '/pkg/health', // JejuPkg registry endpoint
       });
       return;
     }
 
-    // NPM is now part of DWS - check if DWS is running
+    // Pkg registry is now part of DWS - check if DWS is running
     const dwsPort = DEFAULT_PORTS.storage;
     if (await isPortInUse(dwsPort)) {
-      // DWS is running, NPM is available at /npm routes
-      this.services.set('npm', {
+      // DWS is running, pkg registry is available at /pkg routes (npm CLI compatible)
+      this.services.set('pkg', {
         name: 'JejuPkg (via DWS)',
         type: 'server',
         port: dwsPort,
-        url: `http://localhost:${dwsPort}/npm`,
-        healthCheck: '/npm/health',
+        url: `http://localhost:${dwsPort}/pkg`,
+        healthCheck: '/pkg/health', // JejuPkg registry endpoint
       });
       logger.info(`JejuPkg available via DWS on port ${dwsPort}`);
       return;
     }
 
-    // Create mock npm registry for standalone testing
-    const server = await this.createMockNpm();
-    this.services.set('npm', {
+    // Create mock pkg registry for standalone testing
+    const server = await this.createMockPkg();
+    this.services.set('pkg', {
       name: 'JejuPkg (Mock)',
       type: 'mock',
       port,
@@ -1288,8 +1288,8 @@ class ServicesOrchestrator {
     logger.info(`JejuPkg mock service on port ${port}`);
   }
 
-  private async createMockNpm(): Promise<MockServer> {
-    const port = DEFAULT_PORTS.npm;
+  private async createMockPkg(): Promise<MockServer> {
+    const port = DEFAULT_PORTS.pkg;
     const packages = new Map<string, { name: string; versions: Record<string, object>; 'dist-tags': Record<string, string> }>();
 
     const server = Bun.serve({
@@ -1396,7 +1396,7 @@ class ServicesOrchestrator {
     logger.newline();
     logger.subheader('Development Services');
 
-    const sortOrder = ['inference', 'cql', 'oracle', 'indexer', 'jns', 'storage', 'cron', 'cvm', 'computeBridge', 'git', 'npm'];
+    const sortOrder = ['inference', 'cql', 'oracle', 'indexer', 'jns', 'storage', 'cron', 'cvm', 'computeBridge', 'git', 'pkg'];
     const sorted = Array.from(this.services.entries()).sort(
       ([a], [b]) => sortOrder.indexOf(a) - sortOrder.indexOf(b)
     );
@@ -1501,20 +1501,21 @@ class ServicesOrchestrator {
       env.NEXT_PUBLIC_JEJUGIT_URL = git.url!;
     }
 
-    const npm = this.services.get('npm');
-    if (npm) {
-      // NPM is part of DWS, but expose both URLs for compatibility
-      env.JEJUPKG_URL = npm.url!;
-      env.NEXT_PUBLIC_JEJUPKG_URL = npm.url!;
-      // For npm CLI configuration
-      env.npm_config_registry = npm.url!;
+    const pkg = this.services.get('pkg');
+    if (pkg) {
+      // Pkg registry is part of DWS, but expose both URLs for compatibility
+      env.JEJUPKG_URL = pkg.url!;
+      env.NEXT_PUBLIC_JEJUPKG_URL = pkg.url!;
+      // For npm CLI configuration (backwards compatibility)
+      env.npm_config_registry = pkg.url!;
     }
 
-    // DWS provides both Git and NPM - expose unified URL
-    const storage = this.services.get('storage');
+    // DWS provides both Git and Pkg registry - expose unified URL
     if (storage) {
       env.DWS_GIT_URL = `${storage.url}/git`;
-      env.DWS_NPM_URL = `${storage.url}/npm`;
+      env.DWS_PKG_URL = `${storage.url}/pkg`;
+      // Backwards compatibility alias
+      env.DWS_NPM_URL = `${storage.url}/pkg`;
     }
 
     return env;

@@ -1,6 +1,6 @@
 /**
  * Package Upstream Proxy (JejuPkg)
- * Caches and proxies packages from npmjs.org
+ * Caches and proxies packages from npmjs.org (for upstream compatibility)
  */
 
 import type { BackendManager } from '../storage/backends';

@@ -136,8 +136,20 @@ contract PaymasterFactory is Ownable {
         return deployedTokens;
     }
 
+    function getAllDeployments() external view returns (address[] memory) {
+        return deployedTokens;
+    }
+
     function getDeploymentsByOperator(address operator) external view returns (address[] memory) {
         return operatorDeployments[operator];
+    }
+
+    function getPaymaster(address token) external view returns (address) {
+        return deployments[token].paymaster;
+    }
+
+    function getVault(address token) external view returns (address) {
+        return deployments[token].vault;
     }
 
     function getStats() external view returns (uint256 total, uint256 active) {

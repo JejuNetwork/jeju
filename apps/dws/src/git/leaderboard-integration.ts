@@ -144,37 +144,75 @@ class LeaderboardIntegration {
     const byUser = Map.groupBy(batch, (c) => c.username);
 
     for (const [username, contributions] of byUser) {
-      const ok = await this.syncUser(username, contributions);
-      if (!ok) this.pending.push(...contributions);
+      const ok = await this.syncUserWithRetry(username, contributions, 0);
+      if (!ok) {
+        // Re-queue failed contributions
+        this.pending.push(...contributions);
+      }
+    }
+  }
+
+  private async syncUserWithRetry(
+    username: string,
+    contributions: GitContribution[],
+    retryCount: number
+  ): Promise<boolean> {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY_MS = 1000;
+
+    const delay = retryCount * RETRY_DELAY_MS;
+    if (delay > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10s timeout
+
+      const response = await fetch(`${GATEWAY_URL}/leaderboard/api/contributions/jeju-git`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'x-jeju-service': 'dws-git' },
+        body: JSON.stringify({
+          username,
+          source: 'jeju-git',
+          scores: calculateScores(contributions),
+          contributions: contributions.map((c) => ({
+            type: c.type,
+            repoId: c.repoId,
+            timestamp: c.timestamp,
+            metadata: c.metadata,
+          })),
+          timestamp: Date.now(),
+        }),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        if (retryCount < MAX_RETRIES) {
+          console.debug(`[Git Leaderboard] Retry ${retryCount + 1}/${MAX_RETRIES} for ${username}: ${response.status}`);
+          return this.syncUserWithRetry(username, contributions, retryCount + 1);
+        }
+        console.error(`[Git Leaderboard] Failed to sync user ${username} after retries: ${response.status} - ${errorText}`);
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      if (retryCount < MAX_RETRIES) {
+        console.debug(`[Git Leaderboard] Retry ${retryCount + 1}/${MAX_RETRIES} for ${username}: ${errorMessage}`);
+        return this.syncUserWithRetry(username, contributions, retryCount + 1);
+      }
+      console.error(`[Git Leaderboard] Failed to sync user ${username} after retries: ${errorMessage}`);
+      return false;
     }
   }
 
   private async syncUser(username: string, contributions: GitContribution[]): Promise<boolean> {
-    const response = await fetch(`${GATEWAY_URL}/leaderboard/api/contributions/jeju-git`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-jeju-service': 'dws-git' },
-      body: JSON.stringify({
-        username,
-        source: 'jeju-git',
-        scores: calculateScores(contributions),
-        contributions: contributions.map((c) => ({
-          type: c.type,
-          repoId: c.repoId,
-          timestamp: c.timestamp,
-          metadata: c.metadata,
-        })),
-        timestamp: Date.now(),
-      }),
-    }).catch((err: Error) => {
-      console.warn(`[Git Leaderboard] Failed to sync user ${username}: ${err.message}`);
-      return null;
-    });
-
-    if (response && !response.ok) {
-      console.warn(`[Git Leaderboard] Sync for ${username} returned ${response.status}`);
-    }
-
-    return response?.ok ?? false;
+    return this.syncUserWithRetry(username, contributions, 0);
   }
 }
 

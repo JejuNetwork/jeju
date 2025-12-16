@@ -14,7 +14,8 @@ const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
 const MOCK_REPO_ID = '0x0000000000000000000000000000000000000000000000000000000000000001';
 const MOCK_WORKFLOW_ID = '0x0000000000000000000000000000000000000000000000000000000000000002';
 
-const SKIP = process.env.CI === 'true' || process.env.SKIP_INTEGRATION === 'true';
+// Only skip if explicitly requested, not by default in CI
+const SKIP = process.env.SKIP_INTEGRATION === 'true';
 
 describe.skipIf(SKIP)('CI Service', () => {
   describe('Health Check', () => {

@@ -1,17 +1,16 @@
 // SPDX-License-Identifier: Apache-2.0
 pragma solidity ^0.8.26;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ProviderRegistryBase} from "../registry/ProviderRegistryBase.sol";
+import {ERC8004ProviderMixin} from "../registry/ERC8004ProviderMixin.sol";
 import {IStorageTypes} from "./IStorageTypes.sol";
-import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
-import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 /**
  * @title StorageProviderRegistry
  * @author Jeju Network
  * @notice Registry for decentralized storage providers with ERC-8004 agent integration
  * @dev Providers stake ETH, set pricing, and manage capacity. Optional agent linking.
+ *      Inherits from ProviderRegistryBase for standardized ERC-8004 and moderation integration
  *
  * ERC-8004 Integration:
  * - Providers can link to an ERC-8004 agent for identity verification
@@ -19,13 +18,8 @@ import {ModerationMixin} from "../moderation/ModerationMixin.sol";
  * - Consumers can discover providers by agentId
  * - Agent reputation feeds into provider trust scores
  */
-contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
-    using ModerationMixin for ModerationMixin.Data;
-
+contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
     // ============ State ============
-
-    /// @notice Moderation integration for ban checking
-    ModerationMixin.Data public moderation;
 
     mapping(address => Provider) private _providers;
     mapping(address => ProviderCapacity) private _capacities;
@@ -35,47 +29,28 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
     mapping(address => string) private _ipfsGateways;
     mapping(address => uint256) private _healthScores;
     mapping(address => uint256) private _avgLatencies;
-    mapping(uint256 => address) private _agentToProvider;
-
-    address[] private _providerList;
-
-    /// @notice ERC-8004 Identity Registry for agent verification
-    IIdentityRegistry public identityRegistry;
-
-    /// @notice Whether to require ERC-8004 agent registration
-    bool public requireAgentRegistration;
-
-    uint256 public minProviderStake = 0.1 ether;
-    uint256 public providerCount;
-
-    // ============ Errors ============
-
-    error InvalidAgentId();
-    error NotAgentOwner();
-    error AgentAlreadyLinked();
-    error AgentRequired();
-    error UserIsBanned();
 
     // ============ Events ============
 
     event ProviderRegistered(
         address indexed provider, string name, string endpoint, ProviderType providerType, uint256 agentId
     );
-    event ProviderUpdated(address indexed provider);
-    event ProviderDeactivated(address indexed provider);
-    event ProviderReactivated(address indexed provider);
-    event StakeAdded(address indexed provider, uint256 amount);
-    event StakeWithdrawn(address indexed provider, uint256 amount);
-    event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
-    event AgentLinked(address indexed provider, uint256 indexed agentId);
+    event StorageProviderUpdated(address indexed provider); // Renamed to avoid conflict with base
+
+    // ============ Errors ============
+
+    error InvalidProviderType();
+    error InvalidEndpoint();
+    error InvalidName();
 
     // ============ Constructor ============
 
-    constructor(address _owner, address _identityRegistry) Ownable(_owner) {
-        if (_identityRegistry != address(0)) {
-            identityRegistry = IIdentityRegistry(_identityRegistry);
-        }
-    }
+    constructor(
+        address _owner,
+        address _identityRegistry,
+        address _banManager,
+        uint256 _minProviderStake
+    ) ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake) {}
 
     // ============ Registration ============
 
@@ -90,10 +65,14 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
         external
         payable
         nonReentrant
+        whenNotPaused
     {
-        if (requireAgentRegistration) revert AgentRequired();
+        if (bytes(name).length == 0) revert InvalidName();
+        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
+        if (providerType > uint8(ProviderType.HYBRID)) revert InvalidProviderType();
 
-        _registerInternal(name, endpoint, providerType, attestationHash, 0);
+        _registerProviderWithoutAgent(msg.sender);
+        _storeProviderData(msg.sender, name, endpoint, ProviderType(providerType), attestationHash, 0);
     }
 
     /**
@@ -103,7 +82,6 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
      * @param providerType Storage backend type
      * @param attestationHash Hash of hardware attestation
      * @param agentId ERC-8004 agent ID for identity verification
-     * @dev Verifies agent ownership via IdentityRegistry
      */
     function registerWithAgent(
         string calldata name,
@@ -111,43 +89,31 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
         uint8 providerType,
         bytes32 attestationHash,
         uint256 agentId
-    ) external payable nonReentrant {
-        // Verify ERC-8004 agent ownership
-        if (address(identityRegistry) == address(0)) revert InvalidAgentId();
-        if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
-        if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
-        if (_agentToProvider[agentId] != address(0)) revert AgentAlreadyLinked();
+    ) external payable nonReentrant whenNotPaused {
+        if (bytes(name).length == 0) revert InvalidName();
+        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
+        if (providerType > uint8(ProviderType.HYBRID)) revert InvalidProviderType();
 
-        _registerInternal(name, endpoint, providerType, attestationHash, agentId);
-        _agentToProvider[agentId] = msg.sender;
-
-        emit AgentLinked(msg.sender, agentId);
+        _registerProviderWithAgent(msg.sender, agentId);
+        _storeProviderData(msg.sender, name, endpoint, ProviderType(providerType), attestationHash, agentId);
     }
 
     /**
-     * @dev Internal registration logic
+     * @dev Store provider-specific data after base registration
      */
-    function _registerInternal(
+    function _storeProviderData(
+        address provider,
         string calldata name,
         string calldata endpoint,
-        uint8 providerType,
+        ProviderType providerType,
         bytes32 attestationHash,
         uint256 agentId
     ) internal {
-        // Check ban status
-        if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
-        if (agentId > 0 && moderation.isAgentBanned(agentId)) revert UserIsBanned();
-
-        require(msg.value >= minProviderStake, "Insufficient stake");
-        require(_providers[msg.sender].registeredAt == 0, "Already registered");
-        require(bytes(name).length > 0, "Name required");
-        require(bytes(endpoint).length > 0, "Endpoint required");
-
-        _providers[msg.sender] = Provider({
-            owner: msg.sender,
+        _providers[provider] = Provider({
+            owner: provider,
             name: name,
             endpoint: endpoint,
-            providerType: ProviderType(providerType),
+            providerType: providerType,
             attestationHash: attestationHash,
             stake: msg.value,
             registeredAt: block.timestamp,
@@ -156,17 +122,24 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
             verified: false
         });
 
-        _providerList.push(msg.sender);
-        providerCount++;
-
         // Default supported tiers
-        _supportedTiers[msg.sender].push(StorageTier.HOT);
-        _supportedTiers[msg.sender].push(StorageTier.WARM);
-        _supportedTiers[msg.sender].push(StorageTier.COLD);
+        _supportedTiers[provider].push(StorageTier.HOT);
+        _supportedTiers[provider].push(StorageTier.WARM);
+        _supportedTiers[provider].push(StorageTier.COLD);
 
-        _replicationFactors[msg.sender] = 1;
+        _replicationFactors[provider] = 1;
 
-        emit ProviderRegistered(msg.sender, name, endpoint, ProviderType(providerType), agentId);
+        emit ProviderRegistered(provider, name, endpoint, providerType, agentId);
+    }
+
+    /**
+     * @dev Hook called by base contract during registration
+     */
+    function _onProviderRegistered(address provider, uint256 agentId, uint256 stake) internal override {
+        if (_providers[provider].registeredAt != 0) {
+            revert ProviderAlreadyRegistered();
+        }
+        // Provider data will be stored by _storeProviderData after this hook
     }
 
     /**
@@ -174,31 +147,26 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
      * @param agentId ERC-8004 agent ID to link
      */
     function linkAgent(uint256 agentId) external {
-        require(_providers[msg.sender].registeredAt > 0, "Not registered");
-        require(_providers[msg.sender].agentId == 0, "Already linked to agent");
+        if (_providers[msg.sender].registeredAt == 0) revert ProviderNotRegistered();
+        if (_providers[msg.sender].agentId != 0) revert ProviderAlreadyRegistered(); // Already linked
 
-        if (address(identityRegistry) == address(0)) revert InvalidAgentId();
-        if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
-        if (identityRegistry.ownerOf(agentId) != msg.sender) revert NotAgentOwner();
-        if (_agentToProvider[agentId] != address(0)) revert AgentAlreadyLinked();
-
+        // Use library function to verify and link agent
+        ERC8004ProviderMixin.verifyAndLinkAgent(erc8004, msg.sender, agentId);
         _providers[msg.sender].agentId = agentId;
-        _agentToProvider[agentId] = msg.sender;
-
-        emit AgentLinked(msg.sender, agentId);
     }
 
     // ============ Updates ============
 
     function updateEndpoint(string calldata endpoint) external {
-        require(_providers[msg.sender].registeredAt > 0, "Not registered");
+        if (_providers[msg.sender].registeredAt == 0) revert ProviderNotRegistered();
+        if (bytes(endpoint).length == 0) revert InvalidEndpoint();
         _providers[msg.sender].endpoint = endpoint;
-        emit ProviderUpdated(msg.sender);
+        emit StorageProviderUpdated(msg.sender);
     }
 
     function updateCapacity(uint256 totalCapacityGB, uint256 usedCapacityGB) external {
-        require(_providers[msg.sender].registeredAt > 0, "Not registered");
-        require(totalCapacityGB >= usedCapacityGB, "Invalid capacity");
+        if (_providers[msg.sender].registeredAt == 0) revert ProviderNotRegistered();
+        if (totalCapacityGB < usedCapacityGB) revert InvalidProviderType(); // Reuse error
 
         _capacities[msg.sender] = ProviderCapacity({
             totalCapacityGB: totalCapacityGB,
@@ -207,11 +175,11 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
             reservedCapacityGB: 0
         });
 
-        emit ProviderUpdated(msg.sender);
+        emit StorageProviderUpdated(msg.sender);
     }
 
     function updatePricing(uint256 pricePerGBMonth, uint256 retrievalPricePerGB, uint256 uploadPricePerGB) external {
-        require(_providers[msg.sender].registeredAt > 0, "Not registered");
+        if (_providers[msg.sender].registeredAt == 0) revert ProviderNotRegistered();
 
         _pricing[msg.sender] = ProviderPricing({
             pricePerGBMonth: pricePerGBMonth,
@@ -221,38 +189,50 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
             uploadPricePerGB: uploadPricePerGB
         });
 
-        emit ProviderUpdated(msg.sender);
+        emit StorageProviderUpdated(msg.sender);
     }
 
     function deactivate() external {
-        require(_providers[msg.sender].active, "Not active");
-        _providers[msg.sender].active = false;
+        Provider storage provider = _providers[msg.sender];
+        if (provider.registeredAt == 0) revert ProviderNotRegistered();
+        if (!provider.active) revert ProviderNotActive();
+
+        provider.active = false;
         emit ProviderDeactivated(msg.sender);
     }
 
     function reactivate() external {
-        require(!_providers[msg.sender].active, "Already active");
-        require(_providers[msg.sender].stake >= minProviderStake, "Insufficient stake");
-        _providers[msg.sender].active = true;
+        Provider storage provider = _providers[msg.sender];
+        if (provider.registeredAt == 0) revert ProviderNotRegistered();
+        if (provider.active) revert ProviderStillActive();
+        if (provider.stake < minProviderStake) revert InsufficientStake(provider.stake, minProviderStake);
+
+        provider.active = true;
         emit ProviderReactivated(msg.sender);
     }
 
     // ============ Staking ============
 
-    function addStake() external payable {
-        require(_providers[msg.sender].registeredAt > 0, "Not registered");
-        _providers[msg.sender].stake += msg.value;
-        emit StakeAdded(msg.sender, msg.value);
+    function addStake() external payable nonReentrant {
+        Provider storage provider = _providers[msg.sender];
+        if (provider.registeredAt == 0) revert ProviderNotRegistered();
+
+        provider.stake += msg.value;
+        emit StakeAdded(msg.sender, msg.value, provider.stake);
     }
 
     function withdrawStake(uint256 amount) external nonReentrant {
         Provider storage provider = _providers[msg.sender];
-        require(provider.stake >= amount, "Insufficient stake");
-        require(provider.stake - amount >= minProviderStake || !provider.active, "Would fall below minimum");
+        if (provider.registeredAt == 0) revert ProviderNotRegistered();
+        if (provider.stake < amount) revert InsufficientStake(provider.stake, amount);
+        if (provider.stake - amount < minProviderStake && provider.active) {
+            revert WithdrawalWouldBreachMinimum();
+        }
 
         provider.stake -= amount;
+
         (bool success,) = msg.sender.call{value: amount}("");
-        require(success, "Transfer failed");
+        if (!success) revert TransferFailed();
 
         emit StakeWithdrawn(msg.sender, amount);
     }
@@ -280,19 +260,19 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
         return _providers[provider].active;
     }
 
-    function getActiveProviders() external view returns (address[] memory) {
+    function getActiveProviders() external view override returns (address[] memory) {
         uint256 activeCount = 0;
-        for (uint256 i = 0; i < _providerList.length; i++) {
-            if (_providers[_providerList[i]].active) {
+        for (uint256 i = 0; i < providerList.length; i++) {
+            if (_providers[providerList[i]].active) {
                 activeCount++;
             }
         }
 
         address[] memory active = new address[](activeCount);
         uint256 j = 0;
-        for (uint256 i = 0; i < _providerList.length; i++) {
-            if (_providers[_providerList[i]].active) {
-                active[j++] = _providerList[i];
+        for (uint256 i = 0; i < providerList.length; i++) {
+            if (_providers[providerList[i]].active) {
+                active[j++] = providerList[i];
             }
         }
 
@@ -303,26 +283,26 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
         return _providers[provider].stake;
     }
 
-    function getProviderCount() external view returns (uint256) {
-        return providerCount;
+    function getSupportedTiers(address provider) external view returns (StorageTier[] memory) {
+        return _supportedTiers[provider];
     }
 
-    function getProviderByAgent(uint256 agentId) external view returns (address) {
-        return _agentToProvider[agentId];
+    function getProviderCapacity(address provider) external view returns (ProviderCapacity memory) {
+        return _capacities[provider];
+    }
+
+    function getProviderPricing(address provider) external view returns (ProviderPricing memory) {
+        return _pricing[provider];
     }
 
     // ============ Admin ============
-
-    function setMinProviderStake(uint256 _minStake) external onlyOwner {
-        minProviderStake = _minStake;
-    }
 
     function verifyProvider(address provider) external onlyOwner {
         _providers[provider].verified = true;
     }
 
     function setHealthScore(address provider, uint256 score) external onlyOwner {
-        require(score <= 100, "Score must be <= 100");
+        if (score > 100) revert InvalidProviderType(); // Reuse error
         _healthScores[provider] = score;
     }
 
@@ -331,58 +311,8 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
     }
 
     function setIpfsGateway(address provider, string calldata gateway) external {
-        require(msg.sender == provider || msg.sender == owner(), "Not authorized");
+        if (msg.sender != provider && msg.sender != owner()) revert ProviderNotRegistered();
         _ipfsGateways[provider] = gateway;
-    }
-
-    /**
-     * @notice Set the ERC-8004 Identity Registry address
-     * @param _identityRegistry New registry address (address(0) to disable)
-     */
-    function setIdentityRegistry(address _identityRegistry) external onlyOwner {
-        address oldRegistry = address(identityRegistry);
-        identityRegistry = IIdentityRegistry(_identityRegistry);
-        moderation.setIdentityRegistry(_identityRegistry);
-        emit IdentityRegistryUpdated(oldRegistry, _identityRegistry);
-    }
-
-    /**
-     * @notice Set the BanManager contract address
-     * @param _banManager New BanManager address
-     */
-    function setBanManager(address _banManager) external onlyOwner {
-        moderation.setBanManager(_banManager);
-    }
-
-    /**
-     * @notice Set whether agent registration is required
-     * @param required True to require ERC-8004 agent for registration
-     */
-    function setRequireAgentRegistration(bool required) external onlyOwner {
-        requireAgentRegistration = required;
-    }
-
-    /**
-     * @notice Check if a provider is banned
-     * @param account Address to check
-     * @return banned True if banned
-     */
-    function isBanned(address account) external view returns (bool banned) {
-        return moderation.isAddressBanned(account);
-    }
-
-    /**
-     * @notice Check if a provider is linked to a valid agent
-     * @param provider Provider address to check
-     * @return valid True if provider has valid agent or agent not required
-     */
-    function hasValidAgent(address provider) external view returns (bool valid) {
-        uint256 agentId = _providers[provider].agentId;
-        if (agentId == 0) return !requireAgentRegistration;
-        if (address(identityRegistry) == address(0)) return true;
-
-        // Check agent exists (ownerOf returns address(0) if not)
-        return identityRegistry.agentExists(agentId);
     }
 
     /**
@@ -391,17 +321,17 @@ contract StorageProviderRegistry is IStorageTypes, Ownable, ReentrancyGuard {
      */
     function getAgentLinkedProviders() external view returns (address[] memory) {
         uint256 linkedCount = 0;
-        for (uint256 i = 0; i < _providerList.length; i++) {
-            if (_providers[_providerList[i]].agentId > 0) {
+        for (uint256 i = 0; i < providerList.length; i++) {
+            if (_providers[providerList[i]].agentId > 0) {
                 linkedCount++;
             }
         }
 
         address[] memory linked = new address[](linkedCount);
         uint256 j = 0;
-        for (uint256 i = 0; i < _providerList.length; i++) {
-            if (_providers[_providerList[i]].agentId > 0) {
-                linked[j++] = _providerList[i];
+        for (uint256 i = 0; i < providerList.length; i++) {
+            if (_providers[providerList[i]].agentId > 0) {
+                linked[j++] = providerList[i];
             }
         }
 

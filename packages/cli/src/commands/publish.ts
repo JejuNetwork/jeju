@@ -1,10 +1,10 @@
 /**
- * jeju publish - Publish workspace packages to npm
+ * jeju publish - Publish workspace packages to JejuPkg
  * 
  * Handles:
  * - Converting workspace:* to real versions
  * - Building packages in correct order
- * - Publishing to npm
+ * - Publishing to JejuPkg registry (npm CLI compatible)
  * - Restoring workspace:* after publish
  */
 
@@ -34,7 +34,7 @@ interface PackageJson {
 }
 
 export const publishCommand = new Command('publish')
-  .description('Publish workspace packages to npm')
+  .description('Publish workspace packages to JejuPkg (npm CLI compatible)')
   .option('--dry-run', 'Simulate without publishing')
   .option('--skip-build', 'Skip building packages')
   .option('--package <name>', 'Publish specific package only')
@@ -108,7 +108,7 @@ export const publishCommand = new Command('publish')
       }
 
       // Phase 3: Publish
-      logger.step('Publishing to npm');
+      logger.step('Publishing to JejuPkg');
       for (const pkg of packagesToPublish) {
         const pkgPath = getPackagePath(rootDir, pkg);
         if (!existsSync(pkgPath)) continue;
