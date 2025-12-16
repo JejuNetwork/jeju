@@ -119,7 +119,7 @@ contract CloudPaymaster is BasePaymaster, Pausable {
         address _revenueWallet,
         address _owner
     ) BasePaymaster(_entryPoint) {
-        _transferOwnership(_owner);
+        if (_owner != msg.sender) _transferOwnership(_owner);
         require(_elizaOS != address(0), "Invalid elizaOS");
         require(_usdc != address(0), "Invalid USDC");
         require(_serviceRegistry != address(0), "Invalid registry");

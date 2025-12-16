@@ -37,35 +37,92 @@ export default function OrganizationsPage() {
 
   async function fetchOrganizations() {
     setLoading(true);
-    // In production, this would fetch from the git server and package registry
-    // For now, we'll show a placeholder UI
     
-    // Simulated organizations
-    const mockOrgs: Organization[] = [
-      {
-        id: '1',
-        name: 'jeju',
-        displayName: 'Jeju Network',
-        description: 'Core infrastructure for the Jeju decentralized network',
-        members: 12,
-        repositories: 15,
-        packages: 8,
-        createdAt: '2024-01-01T00:00:00Z',
-        verified: true,
-        reputationScore: 95,
-      },
-    ];
-    
-    setOrganizations(mockOrgs);
-    setLoading(false);
+    try {
+      // Fetch from DWS git server API
+      const gitServerUrl = process.env.NEXT_PUBLIC_GIT_SERVER_URL || 'http://localhost:4600';
+      const npmRegistryUrl = process.env.NEXT_PUBLIC_NPM_REGISTRY_URL || 'http://localhost:4700';
+      
+      // Get organizations from git server
+      const gitResponse = await fetch(`${gitServerUrl}/api/organizations`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      let orgs: Organization[] = [];
+      
+      if (gitResponse.ok) {
+        const gitOrgs = await gitResponse.json() as Array<{
+          name: string;
+          displayName?: string;
+          description?: string;
+          avatarUrl?: string;
+          website?: string;
+          memberCount: number;
+          repoCount: number;
+          createdAt: string;
+          verified?: boolean;
+        }>;
+        
+        // Enrich with package counts from npm registry
+        orgs = await Promise.all(gitOrgs.map(async (org) => {
+          let packageCount = 0;
+          try {
+            const pkgResponse = await fetch(`${npmRegistryUrl}/-/org/${org.name}/package`);
+            if (pkgResponse.ok) {
+              const packages = await pkgResponse.json() as string[];
+              packageCount = packages.length;
+            }
+          } catch {
+            // Continue without package count
+          }
+          
+          return {
+            id: org.name,
+            name: org.name,
+            displayName: org.displayName || org.name,
+            description: org.description,
+            avatarUrl: org.avatarUrl,
+            website: org.website,
+            members: org.memberCount,
+            repositories: org.repoCount,
+            packages: packageCount,
+            createdAt: org.createdAt,
+            verified: org.verified || false,
+            reputationScore: org.verified ? 90 : 50, // Default scores based on verification
+          };
+        }));
+      }
+      
+      setOrganizations(orgs);
+    } catch (error) {
+      console.error('Failed to fetch organizations:', error);
+      setOrganizations([]);
+    } finally {
+      setLoading(false);
+    }
   }
 
   async function fetchOrgMembers(orgName: string) {
-    // Mock members
-    setMembers([
-      { username: 'shaw', role: 'owner', joinedAt: '2024-01-01T00:00:00Z' },
-      { username: 'contributor1', role: 'admin', joinedAt: '2024-02-01T00:00:00Z' },
-    ]);
+    try {
+      const gitServerUrl = process.env.NEXT_PUBLIC_GIT_SERVER_URL || 'http://localhost:4600';
+      const response = await fetch(`${gitServerUrl}/api/organizations/${orgName}/members`, {
+        headers: { 'Accept': 'application/json' },
+      });
+      
+      if (response.ok) {
+        const memberData = await response.json() as Array<{
+          username: string;
+          role: 'owner' | 'admin' | 'member';
+          joinedAt: string;
+        }>;
+        setMembers(memberData);
+      } else {
+        setMembers([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch organization members:', error);
+      setMembers([]);
+    }
   }
 
   function selectOrg(org: Organization) {

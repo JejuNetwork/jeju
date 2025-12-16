@@ -1,0 +1,265 @@
+/**
+ * Dev Startup - Ensures infrastructure is running before app starts
+ * 
+ * Usage:
+ *   bun run dev-startup.ts && bun run src/server.ts
+ * 
+ * Or import and call:
+ *   import { ensureInfra } from '@jejunetwork/tests/dev-startup';
+ *   await ensureInfra();
+ */
+
+import { existsSync } from 'fs';
+import { join } from 'path';
+import type { Subprocess } from 'bun';
+
+const LOCALNET_PORT = 9545;
+const DWS_PORT = 4030;
+
+let localnetProcess: Subprocess | null = null;
+let dwsProcess: Subprocess | null = null;
+
+function findMonorepoRoot(): string {
+  let dir = process.cwd();
+  for (let i = 0; i < 10; i++) {
+    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+      return dir;
+    }
+    const parent = join(dir, '..');
+    if (parent === dir) break;
+    dir = parent;
+  }
+  return process.cwd();
+}
+
+async function checkRpc(port: number): Promise<boolean> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_chainId', params: [], id: 1 }),
+      signal: AbortSignal.timeout(2000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function checkDws(port: number): Promise<boolean> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${port}/health`, { signal: AbortSignal.timeout(2000) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function checkContractsDeployed(): Promise<boolean> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${LOCALNET_PORT}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_getCode',
+        params: ['0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9', 'latest'],
+        id: 1,
+      }),
+    });
+    const data = await response.json() as { result: string };
+    return data.result && data.result !== '0x' && data.result.length > 2;
+  } catch {
+    return false;
+  }
+}
+
+async function startLocalnet(rootDir: string): Promise<boolean> {
+  const anvil = Bun.which('anvil');
+  if (!anvil) {
+    console.log('⚠️  Anvil not found. Install foundry: curl -L https://foundry.paradigm.xyz | bash');
+    return false;
+  }
+
+  console.log('🔗 Starting localnet (anvil)...');
+  localnetProcess = Bun.spawn([anvil, '--port', String(LOCALNET_PORT), '--chain-id', '1337'], {
+    cwd: rootDir,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+
+  for (let i = 0; i < 30; i++) {
+    if (await checkRpc(LOCALNET_PORT)) {
+      console.log('✅ Localnet ready');
+      return true;
+    }
+    await Bun.sleep(500);
+  }
+  
+  console.log('❌ Localnet failed to start');
+  return false;
+}
+
+async function bootstrapContracts(rootDir: string): Promise<boolean> {
+  if (await checkContractsDeployed()) {
+    console.log('✅ Contracts already deployed');
+    return true;
+  }
+
+  console.log('📦 Bootstrapping contracts...');
+  const bootstrapScript = join(rootDir, 'scripts', 'bootstrap-localnet.ts');
+  
+  if (!existsSync(bootstrapScript)) {
+    console.log('⚠️  Bootstrap script not found, skipping');
+    return false;
+  }
+
+  try {
+    const proc = Bun.spawn(['bun', 'run', bootstrapScript], {
+      cwd: rootDir,
+      stdout: 'inherit',
+      stderr: 'inherit',
+      env: {
+        ...process.env,
+        L2_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
+        JEJU_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
+      },
+    });
+
+    const exitCode = await proc.exited;
+    if (exitCode === 0) {
+      console.log('✅ Contracts bootstrapped');
+      return true;
+    }
+  } catch (error) {
+    console.log(`⚠️  Bootstrap error: ${error}`);
+  }
+  return false;
+}
+
+async function startDws(rootDir: string): Promise<boolean> {
+  console.log('🌐 Starting DWS...');
+  
+  const dwsPath = join(rootDir, 'apps', 'dws');
+  if (!existsSync(dwsPath)) {
+    console.log('⚠️  DWS app not found');
+    return false;
+  }
+
+  dwsProcess = Bun.spawn(['bun', 'run', 'src/server/index.ts'], {
+    cwd: dwsPath,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: {
+      ...process.env,
+      PORT: String(DWS_PORT),
+      L2_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
+      JEJU_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
+    },
+  });
+
+  for (let i = 0; i < 30; i++) {
+    if (await checkDws(DWS_PORT)) {
+      console.log('✅ DWS ready');
+      return true;
+    }
+    await Bun.sleep(500);
+  }
+  
+  console.log('❌ DWS failed to start');
+  return false;
+}
+
+function setEnvVars(): void {
+  process.env.L2_RPC_URL = `http://127.0.0.1:${LOCALNET_PORT}`;
+  process.env.JEJU_RPC_URL = `http://127.0.0.1:${LOCALNET_PORT}`;
+  process.env.DWS_URL = `http://127.0.0.1:${DWS_PORT}`;
+  process.env.STORAGE_API_URL = `http://127.0.0.1:${DWS_PORT}/storage`;
+  process.env.COMPUTE_MARKETPLACE_URL = `http://127.0.0.1:${DWS_PORT}/compute`;
+  process.env.IPFS_GATEWAY = `http://127.0.0.1:${DWS_PORT}/cdn`;
+  process.env.CDN_URL = `http://127.0.0.1:${DWS_PORT}/cdn`;
+}
+
+export async function ensureInfra(): Promise<{
+  rpc: boolean;
+  contracts: boolean;
+  dws: boolean;
+}> {
+  const rootDir = findMonorepoRoot();
+  const result = { rpc: false, contracts: false, dws: false };
+
+  console.log('\n=== Jeju Dev Environment ===\n');
+
+  // Check/start RPC
+  if (await checkRpc(LOCALNET_PORT)) {
+    console.log('✅ Localnet already running');
+    result.rpc = true;
+  } else {
+    result.rpc = await startLocalnet(rootDir);
+  }
+
+  if (!result.rpc) {
+    console.log('\n❌ Cannot proceed without RPC\n');
+    return result;
+  }
+
+  // Bootstrap contracts (default true, set BOOTSTRAP_CONTRACTS=false to skip)
+  if (process.env.BOOTSTRAP_CONTRACTS !== 'false') {
+    result.contracts = await bootstrapContracts(rootDir);
+  } else {
+    result.contracts = await checkContractsDeployed();
+    console.log(result.contracts ? '✅ Contracts deployed' : '⚠️  No contracts (BOOTSTRAP_CONTRACTS=false)');
+  }
+
+  // Check/start DWS
+  if (await checkDws(DWS_PORT)) {
+    console.log('✅ DWS already running');
+    result.dws = true;
+  } else {
+    result.dws = await startDws(rootDir);
+  }
+
+  // Set environment variables
+  setEnvVars();
+
+  console.log('\n=== Environment Ready ===');
+  console.log(`  RPC:      http://127.0.0.1:${LOCALNET_PORT}`);
+  console.log(`  DWS:      http://127.0.0.1:${DWS_PORT}`);
+  console.log(`  Contracts: ${result.contracts ? 'deployed' : 'not deployed'}`);
+  console.log('');
+
+  return result;
+}
+
+export async function cleanup(): Promise<void> {
+  if (dwsProcess) {
+    dwsProcess.kill();
+    await dwsProcess.exited;
+  }
+  if (localnetProcess) {
+    localnetProcess.kill();
+    await localnetProcess.exited;
+  }
+}
+
+// Handle process exit
+process.on('SIGINT', async () => {
+  await cleanup();
+  process.exit(130);
+});
+
+process.on('SIGTERM', async () => {
+  await cleanup();
+  process.exit(143);
+});
+
+// Run if executed directly
+if (import.meta.main) {
+  const result = await ensureInfra();
+  if (!result.rpc) {
+    process.exit(1);
+  }
+}
+
+export default { ensureInfra, cleanup };
+

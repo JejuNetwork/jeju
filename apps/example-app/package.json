@@ -23,8 +23,7 @@
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "hono": "^4.7.0",
-    "viem": "^2.21.0",
-    "ethers": "^6.13.4"
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "@synthetixio/synpress": "^4.0.0",

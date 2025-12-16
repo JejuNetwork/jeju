@@ -351,8 +351,6 @@ export interface CrucibleConfig {
     autocratTreasury?: Address;
   };
   services: {
-    /** DWS unified endpoint for storage, compute, and CDN */
-    dwsUrl: string;
     computeMarketplace: string;
     storageApi: string;
     ipfsGateway: string;

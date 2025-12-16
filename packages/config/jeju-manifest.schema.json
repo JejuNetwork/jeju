@@ -198,6 +198,47 @@
             }
           }
         },
+        "cdn": {
+          "type": "object",
+          "description": "CDN and edge caching configuration",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Whether to use CDN for this app"
+            },
+            "regions": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Preferred CDN regions for edge caching"
+            },
+            "cacheRules": {
+              "type": "array",
+              "description": "Custom cache rules by path pattern",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pattern": { "type": "string", "description": "URL pattern (glob)" },
+                  "ttl": { "type": "number", "description": "TTL in seconds" },
+                  "staleWhileRevalidate": { "type": "number", "description": "SWR window in seconds" },
+                  "immutable": { "type": "boolean", "description": "Content-addressed immutable content" }
+                }
+              }
+            },
+            "apiCaching": {
+              "type": "object",
+              "description": "API response caching configuration",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "defaultTtl": { "type": "number" },
+                "varyHeaders": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "serviceWorker": {
+              "type": "boolean",
+              "description": "Enable service worker for offline support"
+            }
+          }
+        },
         "secrets": {
           "type": "object",
           "description": "Vault-backed secrets configuration",
@@ -266,15 +307,19 @@
         },
         "frontend": {
           "type": "object",
-          "description": "Frontend deployment to IPFS + JNS",
+          "description": "Frontend deployment to IPFS + JNS + CDN",
           "properties": {
             "ipfs": {
               "type": "boolean",
               "description": "Whether to deploy frontend to IPFS"
             },
+            "arweave": {
+              "type": "boolean",
+              "description": "Whether to deploy frontend to Arweave for permanent storage"
+            },
             "jnsName": {
               "type": "string",
-              "description": "JNS name for frontend resolution"
+              "description": "JNS name for frontend resolution (e.g., app.jeju)"
             },
             "buildDir": {
               "type": "string",
@@ -283,6 +328,33 @@
             "spa": {
               "type": "boolean",
               "description": "Whether this is a single-page application"
+            },
+            "fallbackOrigins": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Fallback HTTP origins if IPFS/Arweave unavailable"
+            }
+          }
+        },
+        "robustness": {
+          "type": "object",
+          "description": "Robustness and resilience configuration",
+          "properties": {
+            "multiOrigin": {
+              "type": "boolean",
+              "description": "Content stored on multiple origins (IPFS + Arweave + HTTP)"
+            },
+            "offlineSupport": {
+              "type": "boolean",
+              "description": "App works offline via service worker"
+            },
+            "p2pFallback": {
+              "type": "boolean",
+              "description": "Use P2P network as fallback when CDN unavailable"
+            },
+            "contentAddressed": {
+              "type": "boolean",
+              "description": "All assets use content-addressed URLs for integrity"
             }
           }
         }

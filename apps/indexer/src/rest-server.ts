@@ -11,7 +11,7 @@ import {
   StorageDeal, MarketplaceStats, OracleFeed, OracleOperator,
   OracleReport, OracleDispute, OracleSubscription, OracleNetworkStats,
 } from './model';
-import { formatEther } from 'viem';
+import { ethers } from 'ethers';
 
 const REST_PORT = parseInt(process.env.REST_PORT || '4352');
 
@@ -543,8 +543,8 @@ app.get('/api/marketplace/stats', asyncHandler(async (_req, res) => {
       agentLinkedProviders: agentLinkedCompute.length,
       totalRentals,
       activeRentals,
-      totalStakedETH: formatEther(totalComputeStake),
-      totalEarningsETH: formatEther(totalComputeEarnings),
+      totalStakedETH: ethers.formatEther(totalComputeStake),
+      totalEarningsETH: ethers.formatEther(totalComputeEarnings),
     },
     storage: {
       totalProviders: storageProviders.length,
@@ -554,7 +554,7 @@ app.get('/api/marketplace/stats', asyncHandler(async (_req, res) => {
       activeDeals,
       totalCapacityTB: (totalCapacity / 1024).toFixed(2),
       usedCapacityTB: (usedCapacity / 1024).toFixed(2),
-      totalStakedETH: formatEther(totalStorageStake),
+      totalStakedETH: ethers.formatEther(totalStorageStake),
     },
     crossService: {
       totalContainerImages: totalContainers,
@@ -915,8 +915,8 @@ app.get('/api/oracle/stats', asyncHandler(async (_req, res) => {
       total: operators.length,
       active: activeOperators.length,
       jailed: operators.filter(o => o.isJailed).length,
-      totalStakedETH: formatEther(totalStaked),
-      totalEarningsETH: formatEther(totalEarnings),
+      totalStakedETH: ethers.formatEther(totalStaked),
+      totalEarningsETH: ethers.formatEther(totalEarnings),
       avgParticipationScore: avgParticipation,
       avgAccuracyScore: avgAccuracy,
     },

@@ -207,7 +207,7 @@ export class TransactionExecutor {
     if (!bundler) {
       return { txHash: '', success: false, error: 'No bundler for chain' };
     }
-    return bundler.sendPrivateTransaction(tx, hints);
+    return bundler.sendPrivateTransaction(tx, hints ? { txHash: '0x' as `0x${string}`, ...hints } : undefined);
   }
 
   private async executeArbitrage(
@@ -269,7 +269,6 @@ export class TransactionExecutor {
     }
 
     const hash = await walletClient.sendTransaction({
-      chain: walletClient.chain,
       account: this.account,
       to: routerAddress as `0x${string}`,
       data: data as `0x${string}`,
@@ -498,7 +497,6 @@ export class TransactionExecutor {
     const frontrunGasPrice = context.gasPrice * 15n / 10n;
 
     const frontrunHash = await walletClient.sendTransaction({
-      chain: walletClient.chain,
       account: this.account,
       to: routerAddress as `0x${string}`,
       data: frontrunData,
@@ -513,7 +511,6 @@ export class TransactionExecutor {
     }
 
     const backrunHash = await walletClient.sendTransaction({
-      chain: walletClient.chain,
       account: this.account,
       to: routerAddress as `0x${string}`,
       data: backrunData,
@@ -582,7 +579,6 @@ export class TransactionExecutor {
     }
 
     const hash = await walletClient.sendTransaction({
-      chain: walletClient.chain,
       account: this.account,
       to: perpMarketAddress as `0x${string}`,
       data: data as `0x${string}`,

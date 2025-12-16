@@ -15,18 +15,20 @@
  * ```
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, formatUnits, getBalance, getBlockNumber, getChainId, sendTransaction, waitForTransactionReceipt, type Address, type Chain } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../../scripts/shared/chain-utils';
 
 const FOUNDRY_ACCOUNTS = [
   {
-    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-    privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-    expectedBalance: ethers.parseEther('10000'),
+    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address,
+    privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`,
+    expectedBalance: parseEther('10000'),
   },
   {
-    address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-    privateKey: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
-    expectedBalance: ethers.parseEther('10000'),
+    address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address,
+    privateKey: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as `0x${string}`,
+    expectedBalance: parseEther('10000'),
   },
 ] as const;
 
@@ -109,22 +111,24 @@ async function testL1RPC() {
   console.log('2️⃣  Testing L1 RPC...');
   
   try {
-    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:8545');
-    const blockNumber = await provider.getBlockNumber();
-    const network = await provider.getNetwork();
+    const rpcUrl = 'http://127.0.0.1:8545';
+    const chain = inferChainFromRpcUrl(rpcUrl);
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+    const blockNumber = await publicClient.getBlockNumber();
+    const chainId = await publicClient.getChainId();
     
     results.push({
       name: 'L1 RPC',
       passed: true,
       details: {
-        blockNumber,
-        chainId: Number(network.chainId),
+        blockNumber: Number(blockNumber),
+        chainId: Number(chainId),
       },
     });
     
     console.log(`   ✅ L1 RPC responding`);
     console.log(`   📊 Block: ${blockNumber}`);
-    console.log(`   🔗 Chain ID: ${network.chainId}\n`);
+    console.log(`   🔗 Chain ID: ${chainId}\n`);
   } catch (error) {
     results.push({
       name: 'L1 RPC',
@@ -142,25 +146,27 @@ async function testL2RPC() {
   console.log('3️⃣  Testing L2 RPC...');
   
   try {
-    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:9545');
-    const blockNumber = await provider.getBlockNumber();
-    const network = await provider.getNetwork();
-    const gasPrice = await provider.getFeeData();
+    const rpcUrl = 'http://127.0.0.1:9545';
+    const chain = inferChainFromRpcUrl(rpcUrl);
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
+    const blockNumber = await publicClient.getBlockNumber();
+    const chainId = await publicClient.getChainId();
+    const feeData = await publicClient.estimateGasPrice();
     
     results.push({
       name: 'L2 RPC',
       passed: true,
       details: {
-        blockNumber,
-        chainId: Number(network.chainId),
-        gasPrice: gasPrice.gasPrice?.toString(),
+        blockNumber: Number(blockNumber),
+        chainId: Number(chainId),
+        gasPrice: feeData.toString(),
       },
     });
     
     console.log(`   ✅ L2 RPC responding`);
     console.log(`   📊 Block: ${blockNumber}`);
-    console.log(`   🔗 Chain ID: ${network.chainId}`);
-    console.log(`   ⛽ Gas Price: ${ethers.formatUnits(gasPrice.gasPrice || 0, 'gwei')} gwei\n`);
+    console.log(`   🔗 Chain ID: ${chainId}`);
+    console.log(`   ⛽ Gas Price: ${formatUnits(feeData, 'gwei')} gwei\n`);
   } catch (error) {
     results.push({
       name: 'L2 RPC',
@@ -178,15 +184,17 @@ async function testPreFundedAccounts() {
   console.log('4️⃣  Verifying pre-funded accounts...');
   
   try {
-    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:9545');
+    const rpcUrl = 'http://127.0.0.1:9545';
+    const chain = inferChainFromRpcUrl(rpcUrl);
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
     
     for (const account of FOUNDRY_ACCOUNTS) {
-      const balance = await provider.getBalance(account.address);
+      const balance = await publicClient.getBalance({ address: account.address });
       
-      if (balance >= ethers.parseEther('1000')) {
-        console.log(`   ✅ ${account.address.slice(0, 10)}... has ${ethers.formatEther(balance)} ETH`);
+      if (balance >= parseEther('1000')) {
+        console.log(`   ✅ ${account.address.slice(0, 10)}... has ${formatEther(balance)} ETH`);
       } else {
-        console.log(`   ⚠️  ${account.address.slice(0, 10)}... balance low: ${ethers.formatEther(balance)} ETH`);
+        console.log(`   ⚠️  ${account.address.slice(0, 10)}... balance low: ${formatEther(balance)} ETH`);
       }
     }
     
@@ -213,17 +221,19 @@ async function testBlockProduction() {
   console.log('5️⃣  Testing block production...');
   
   try {
-    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:9545');
+    const rpcUrl = 'http://127.0.0.1:9545';
+    const chain = inferChainFromRpcUrl(rpcUrl);
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
     
-    const block1 = await provider.getBlockNumber();
+    const block1 = await publicClient.getBlockNumber();
     console.log(`   📊 Current block: ${block1}`);
     
     // Wait for 2 blocks (~4 seconds)
     console.log(`   ⏳ Waiting 5 seconds for new blocks...`);
     await new Promise(resolve => setTimeout(resolve, 5000));
     
-    const block2 = await provider.getBlockNumber();
-    const blocksProduced = block2 - block1;
+    const block2 = await publicClient.getBlockNumber();
+    const blocksProduced = Number(block2 - block1);
     
     if (blocksProduced >= 1) {
       console.log(`   ✅ Produced ${blocksProduced} blocks in 5 seconds`);
@@ -254,20 +264,23 @@ async function testTransactionExecution() {
   console.log('6️⃣  Testing transaction execution...');
   
   try {
-    const provider = new ethers.JsonRpcProvider('http://127.0.0.1:9545');
-    const wallet = new ethers.Wallet(FOUNDRY_ACCOUNTS[0].privateKey, provider);
+    const rpcUrl = 'http://127.0.0.1:9545';
+    const chain = inferChainFromRpcUrl(rpcUrl);
+    const account = privateKeyToAccount(FOUNDRY_ACCOUNTS[0].privateKey);
+    const walletClient = createWalletClient({ chain, transport: http(rpcUrl), account });
+    const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
     
     console.log('   📤 Sending test transaction...');
-    const tx = await wallet.sendTransaction({
+    const hash = await walletClient.sendTransaction({
       to: FOUNDRY_ACCOUNTS[1].address,
-      value: ethers.parseEther('0.1'),
+      value: parseEther('0.1'),
     });
     
-    console.log(`   📝 TX Hash: ${tx.hash}`);
+    console.log(`   📝 TX Hash: ${hash}`);
     
-    const receipt = await tx.wait();
+    const receipt = await waitForTransactionReceipt(publicClient, { hash });
     
-    if (receipt?.status === 1) {
+    if (receipt.status === 'success') {
       console.log(`   ✅ Transaction confirmed in block ${receipt.blockNumber}`);
       console.log(`   ⛽ Gas used: ${receipt.gasUsed.toString()}\n`);
       
@@ -275,8 +288,8 @@ async function testTransactionExecution() {
         name: 'Transaction Execution',
         passed: true,
         details: {
-          hash: tx.hash,
-          blockNumber: receipt.blockNumber,
+          hash,
+          blockNumber: Number(receipt.blockNumber),
           gasUsed: receipt.gasUsed.toString(),
         },
       });

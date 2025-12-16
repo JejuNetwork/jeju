@@ -270,13 +270,95 @@ export function AuthProvider({ children, config, wallet, onSessionChange }: Auth
     setSession(null);
   }, [wallet, setSession]);
 
-  // Link a social provider
-  const linkProvider = useCallback(async (_provider: SocialProvider | 'farcaster'): Promise<LinkedProvider> => {
+  // Link a social provider to existing session
+  const linkProvider = useCallback(async (provider: SocialProvider | 'farcaster'): Promise<LinkedProvider> => {
     if (!state.session) {
       throw new Error('Not authenticated');
     }
-    throw new Error('Not implemented');
-  }, [state.session]);
+
+    // Check if already linked
+    const existingLink = state.session.linkedProviders.find(p => p.provider === provider);
+    if (existingLink) {
+      return existingLink;
+    }
+
+    if (provider === 'farcaster') {
+      // Use SIWF flow for Farcaster
+      const channelResponse = await createAuthChannel();
+      window.open(channelResponse.url, '_blank', 'width=500,height=600');
+      
+      const response = await pollAuthChannel(channelResponse.channelToken);
+      if (!response.signature) {
+        throw new Error('Farcaster linking cancelled');
+      }
+
+      const linkedProvider: LinkedProvider = {
+        provider: 'farcaster',
+        providerId: response.fid?.toString() || '',
+        handle: response.username || '',
+        linkedAt: Date.now(),
+      };
+
+      // Update session with new linked provider
+      const updatedSession = {
+        ...state.session,
+        linkedProviders: [...state.session.linkedProviders, linkedProvider],
+      };
+      setSession(updatedSession);
+      
+      return linkedProvider;
+    }
+
+    // OAuth flow for other social providers
+    const oauth3ServerUrl = config.oauth3ServerUrl || process.env.NEXT_PUBLIC_OAUTH3_SERVER_URL || 'http://localhost:4100';
+    const callbackUrl = `${window.location.origin}/auth/callback`;
+    
+    // Initiate OAuth flow
+    const authUrl = `${oauth3ServerUrl}/oauth/${provider}/authorize?` + 
+      `redirect_uri=${encodeURIComponent(callbackUrl)}&` +
+      `state=${encodeURIComponent(JSON.stringify({ action: 'link', address: state.session.address }))}`;
+    
+    // Open popup for OAuth
+    const popup = window.open(authUrl, 'oauth-link', 'width=500,height=600');
+    if (!popup) {
+      throw new Error('Popup blocked - please allow popups for this site');
+    }
+
+    // Wait for callback
+    const linkedProvider = await new Promise<LinkedProvider>((resolve, reject) => {
+      const handleMessage = (event: MessageEvent) => {
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data?.type === 'oauth-link-success') {
+          window.removeEventListener('message', handleMessage);
+          popup.close();
+          resolve(event.data.provider as LinkedProvider);
+        } else if (event.data?.type === 'oauth-link-error') {
+          window.removeEventListener('message', handleMessage);
+          popup.close();
+          reject(new Error(event.data.error || 'OAuth linking failed'));
+        }
+      };
+      
+      window.addEventListener('message', handleMessage);
+      
+      // Timeout after 5 minutes
+      setTimeout(() => {
+        window.removeEventListener('message', handleMessage);
+        popup.close();
+        reject(new Error('OAuth linking timed out'));
+      }, 300000);
+    });
+
+    // Update session with new linked provider
+    const updatedSession = {
+      ...state.session,
+      linkedProviders: [...state.session.linkedProviders, linkedProvider],
+    };
+    setSession(updatedSession);
+    
+    return linkedProvider;
+  }, [state.session, config, setSession]);
 
   // Unlink a provider
   const unlinkProvider = useCallback(async (provider: SocialProvider | 'farcaster'): Promise<void> => {

@@ -1,12 +1,17 @@
 /**
- * Git HTTP Server - Smart HTTP Protocol for clone/push
+ * Git HTTP Server - Smart HTTP Protocol and Extended APIs
+ * Consolidated from apps/git and apps/dws
  */
 
 import { Hono } from 'hono';
 import type { Address, Hex } from 'viem';
 import type { BackendManager } from '../../storage/backends';
 import { GitRepoManager } from '../../git/repo-manager';
-import { GitObjectStore } from '../../git/object-store';
+import { IssuesManager } from '../../git/issues';
+import { PullRequestsManager } from '../../git/pull-requests';
+import { SocialManager } from '../../git/social';
+import { SearchManager } from '../../git/search';
+import { FederationManager } from '../../git/federation';
 import {
   createPackfile,
   extractPackfile,
@@ -15,7 +20,7 @@ import {
   createPktLines,
   createFlushPkt,
 } from '../../git/pack';
-import type { CreateRepoRequest, GitRef } from '../../git/types';
+import type { CreateRepoRequest, GitRef, CreateIssueRequest, UpdateIssueRequest, CreatePRRequest, UpdatePRRequest } from '../../git/types';
 import { trackGitContribution } from '../../git/leaderboard-integration';
 
 const GIT_AGENT = 'jeju-git/1.0.0';
@@ -23,13 +28,26 @@ const GIT_AGENT = 'jeju-git/1.0.0';
 interface GitContext {
   repoManager: GitRepoManager;
   backend: BackendManager;
+  issuesManager?: IssuesManager;
+  pullRequestsManager?: PullRequestsManager;
+  socialManager?: SocialManager;
+  searchManager?: SearchManager;
+  federationManager?: FederationManager;
 }
 
 export function createGitRouter(ctx: GitContext): Hono {
   const router = new Hono();
-  const { repoManager } = ctx;
+  const { repoManager, backend } = ctx;
+
+  // Initialize managers if not provided
+  const issuesManager = ctx.issuesManager || new IssuesManager({ backend });
+  const socialManager = ctx.socialManager || new SocialManager({ backend, repoManager });
+  const pullRequestsManager = ctx.pullRequestsManager || new PullRequestsManager({ backend, repoManager });
+  const searchManager = ctx.searchManager || new SearchManager({ repoManager, issuesManager, socialManager, backend });
 
   router.get('/health', (c) => c.json({ service: 'dws-git', status: 'healthy' }));
+
+  // ============ Repository CRUD ============
 
   router.get('/repos', async (c) => {
     const offset = parseInt(c.req.query('offset') || '0');
@@ -77,6 +95,8 @@ export function createGitRouter(ctx: GitContext): Hono {
     if (!repo) return c.json({ error: 'Repository not found' }, 404);
 
     const branches = await repoManager.getBranches(repo.repoId);
+    const starCount = socialManager.getStarCount(repo.repoId);
+    const forkCount = socialManager.getForkCount(repo.repoId);
 
     return c.json({
       repoId: repo.repoId,
@@ -84,8 +104,8 @@ export function createGitRouter(ctx: GitContext): Hono {
       name: repo.name,
       description: repo.description,
       visibility: repo.visibility === 0 ? 'public' : 'private',
-      starCount: Number(repo.starCount),
-      forkCount: Number(repo.forkCount),
+      starCount,
+      forkCount,
       createdAt: Number(repo.createdAt),
       updatedAt: Number(repo.updatedAt),
       archived: repo.archived,
@@ -119,7 +139,337 @@ export function createGitRouter(ctx: GitContext): Hono {
     });
   });
 
-  // Git Smart HTTP Protocol - info/refs
+  // ============ Issues API ============
+
+  router.get('/:owner/:name/issues', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const state = c.req.query('state') as 'open' | 'closed' | 'all' | undefined;
+    const page = parseInt(c.req.query('page') || '1');
+    const perPage = parseInt(c.req.query('per_page') || '30');
+
+    await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2));
+    const result = await issuesManager.listIssues(repo.repoId, { state, page, perPage });
+
+    return c.json(result);
+  });
+
+  router.post('/:owner/:name/issues', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const user = c.req.header('x-jeju-address') as Address;
+    if (!user) return c.json({ error: 'Authentication required' }, 401);
+
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const body = await c.req.json<CreateIssueRequest>();
+    await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2));
+    const result = await issuesManager.createIssue(repo.repoId, user, body);
+
+    trackGitContribution(user, repo.repoId, name, 'issue_open', { issueNumber: result.issue.number });
+
+    return c.json(result.issue, 201);
+  });
+
+  router.get('/:owner/:name/issues/:number', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const issueNumber = parseInt(c.req.param('number'));
+
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2));
+    const issue = await issuesManager.getIssue(repo.repoId, issueNumber);
+    if (!issue) return c.json({ error: 'Issue not found' }, 404);
+
+    return c.json(issue);
+  });
+
+  router.patch('/:owner/:name/issues/:number', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const issueNumber = parseInt(c.req.param('number'));
+    const user = c.req.header('x-jeju-address') as Address;
+    if (!user) return c.json({ error: 'Authentication required' }, 401);
+
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const body = await c.req.json<UpdateIssueRequest>();
+    await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2));
+    const result = await issuesManager.updateIssue(repo.repoId, issueNumber, user, body);
+
+    if (result.contributionEvent) {
+      trackGitContribution(user, repo.repoId, name, 'issue_close', { issueNumber });
+    }
+
+    return c.json(result.issue);
+  });
+
+  router.post('/:owner/:name/issues/:number/comments', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const issueNumber = parseInt(c.req.param('number'));
+    const user = c.req.header('x-jeju-address') as Address;
+    if (!user) return c.json({ error: 'Authentication required' }, 401);
+
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const { body: commentBody } = await c.req.json<{ body: string }>();
+    await issuesManager.getIssueIndex(repo.repoId, repo.metadataCid.slice(2));
+    const result = await issuesManager.addComment(repo.repoId, issueNumber, user, commentBody);
+
+    return c.json(result.comment, 201);
+  });
+
+  // ============ Pull Requests API ============
+
+  router.get('/:owner/:name/pulls', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const state = c.req.query('state') as 'open' | 'closed' | 'merged' | 'all' | undefined;
+    const page = parseInt(c.req.query('page') || '1');
+    const perPage = parseInt(c.req.query('per_page') || '30');
+
+    await pullRequestsManager.getPRIndex(repo.repoId, repo.metadataCid.slice(2));
+    const result = await pullRequestsManager.listPRs(repo.repoId, { state, page, perPage });
+
+    return c.json(result);
+  });
+
+  router.post('/:owner/:name/pulls', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const user = c.req.header('x-jeju-address') as Address;
+    if (!user) return c.json({ error: 'Authentication required' }, 401);
+
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const body = await c.req.json<CreatePRRequest>();
+    await pullRequestsManager.getPRIndex(repo.repoId, repo.metadataCid.slice(2));
+    const result = await pullRequestsManager.createPR(repo.repoId, user, body);
+
+    trackGitContribution(user, repo.repoId, name, 'pr_open', { prNumber: result.pr.number });
+
+    return c.json(result.pr, 201);
+  });
+
+  router.get('/:owner/:name/pulls/:number', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const prNumber = parseInt(c.req.param('number'));
+
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    await pullRequestsManager.getPRIndex(repo.repoId, repo.metadataCid.slice(2));
+    const pr = await pullRequestsManager.getPR(repo.repoId, prNumber);
+    if (!pr) return c.json({ error: 'Pull request not found' }, 404);
+
+    return c.json(pr);
+  });
+
+  router.post('/:owner/:name/pulls/:number/merge', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const prNumber = parseInt(c.req.param('number'));
+    const user = c.req.header('x-jeju-address') as Address;
+    if (!user) return c.json({ error: 'Authentication required' }, 401);
+
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const hasWrite = await repoManager.hasWriteAccess(repo.repoId, user);
+    if (!hasWrite) return c.json({ error: 'Write access denied' }, 403);
+
+    await pullRequestsManager.getPRIndex(repo.repoId, repo.metadataCid.slice(2));
+    const result = await pullRequestsManager.mergePR(repo.repoId, prNumber, user);
+
+    trackGitContribution(user, repo.repoId, name, 'pr_merge', { prNumber });
+
+    return c.json({ merged: true, sha: result.pr.headCommit });
+  });
+
+  // ============ Stars API ============
+
+  router.get('/:owner/:name/stargazers', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const page = parseInt(c.req.query('page') || '1');
+    const perPage = parseInt(c.req.query('per_page') || '30');
+
+    const result = await socialManager.getStargazers(repo.repoId, { page, perPage });
+    return c.json(result);
+  });
+
+  router.put('/:owner/:name/star', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const user = c.req.header('x-jeju-address') as Address;
+    if (!user) return c.json({ error: 'Authentication required' }, 401);
+
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const result = await socialManager.starRepo(repo.repoId, user);
+    return c.json(result, 204);
+  });
+
+  router.delete('/:owner/:name/star', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const user = c.req.header('x-jeju-address') as Address;
+    if (!user) return c.json({ error: 'Authentication required' }, 401);
+
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const result = await socialManager.unstarRepo(repo.repoId, user);
+    return c.json(result, 204);
+  });
+
+  // ============ Forks API ============
+
+  router.get('/:owner/:name/forks', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const page = parseInt(c.req.query('page') || '1');
+    const perPage = parseInt(c.req.query('per_page') || '30');
+
+    const result = await socialManager.getForks(repo.repoId, { page, perPage });
+    return c.json(result);
+  });
+
+  router.post('/:owner/:name/forks', async (c) => {
+    const owner = c.req.param('owner') as Address;
+    const name = c.req.param('name');
+    const user = c.req.header('x-jeju-address') as Address;
+    if (!user) return c.json({ error: 'Authentication required' }, 401);
+
+    const repo = await repoManager.getRepositoryByName(owner, name);
+    if (!repo) return c.json({ error: 'Repository not found' }, 404);
+
+    const { name: forkName } = await c.req.json<{ name?: string }>();
+    const result = await socialManager.forkRepo(repo.repoId, user, { name: forkName });
+
+    return c.json({ repoId: result.repo.repoId, cloneUrl: `${getBaseUrl(c)}/git/${user}/${result.repo.name}` }, 201);
+  });
+
+  // ============ Search API ============
+
+  router.get('/search/repositories', async (c) => {
+    const q = c.req.query('q') || '';
+    const page = parseInt(c.req.query('page') || '1');
+    const perPage = parseInt(c.req.query('per_page') || '30');
+    const sort = c.req.query('sort') as 'stars' | 'forks' | 'updated' | undefined;
+
+    const result = await searchManager.searchRepositories(q, { page, perPage, sort });
+    return c.json(result);
+  });
+
+  router.get('/search/code', async (c) => {
+    const q = c.req.query('q') || '';
+    const page = parseInt(c.req.query('page') || '1');
+    const perPage = parseInt(c.req.query('per_page') || '30');
+
+    const result = await searchManager.searchCode(q, { page, perPage });
+    return c.json(result);
+  });
+
+  router.get('/search/issues', async (c) => {
+    const q = c.req.query('q') || '';
+    const page = parseInt(c.req.query('page') || '1');
+    const perPage = parseInt(c.req.query('per_page') || '30');
+
+    const result = await searchManager.searchIssues(q, { page, perPage });
+    return c.json(result);
+  });
+
+  // ============ Federation API (ActivityPub) ============
+
+  if (ctx.federationManager) {
+    const federation = ctx.federationManager;
+
+    router.get('/.well-known/webfinger', (c) => {
+      const resource = c.req.query('resource');
+      if (!resource) return c.json({ error: 'resource parameter required' }, 400);
+
+      const result = federation.getWebFinger(resource);
+      if (!result) return c.json({ error: 'Resource not found' }, 404);
+
+      return c.json(result, 200, { 'Content-Type': 'application/jrd+json' });
+    });
+
+    router.get('/.well-known/nodeinfo', (c) => {
+      return c.json(federation.getNodeInfoLinks());
+    });
+
+    router.get('/.well-known/nodeinfo/2.1', (c) => {
+      return c.json(federation.getNodeInfo());
+    });
+
+    router.get('/users/:username', async (c) => {
+      const username = c.req.param('username');
+      const accept = c.req.header('Accept') || '';
+
+      if (!accept.includes('application/activity+json') && !accept.includes('application/ld+json')) {
+        return c.redirect(`${getBaseUrl(c)}/${username}`);
+      }
+
+      const user = await socialManager.getUserByName(username);
+      if (!user) return c.json({ error: 'User not found' }, 404);
+
+      const actor = federation.getUserActor(user);
+      return c.json(actor, 200, { 'Content-Type': 'application/activity+json' });
+    });
+
+    router.post('/users/:username/inbox', async (c) => {
+      const username = c.req.param('username');
+      const user = await socialManager.getUserByName(username);
+      if (!user) return c.json({ error: 'User not found' }, 404);
+
+      const activity = await c.req.json();
+      const actorUrl = `${getBaseUrl(c)}/users/${username}`;
+      const result = await federation.handleInboxActivity(actorUrl, activity);
+
+      if (result.response) {
+        await federation.deliverActivity(result.response);
+      }
+
+      return c.json({ accepted: result.accepted }, result.accepted ? 202 : 400);
+    });
+
+    router.get('/users/:username/outbox', async (c) => {
+      const username = c.req.param('username');
+      const user = await socialManager.getUserByName(username);
+      if (!user) return c.json({ error: 'User not found' }, 404);
+
+      const actorUrl = `${getBaseUrl(c)}/users/${username}`;
+      const page = parseInt(c.req.query('page') || '1');
+      const outbox = federation.getOutboxActivities(actorUrl, { page });
+
+      return c.json(outbox, 200, { 'Content-Type': 'application/activity+json' });
+    });
+  }
+
+  // ============ Git Smart HTTP Protocol ============
+
   router.get('/:owner/:name/info/refs', async (c) => {
     const owner = c.req.param('owner') as Address;
     const name = c.req.param('name');
@@ -150,7 +500,6 @@ export function createGitRouter(ctx: GitContext): Hono {
     });
   });
 
-  // Git upload-pack (fetch/clone)
   router.post('/:owner/:name/git-upload-pack', async (c) => {
     const owner = c.req.param('owner') as Address;
     const name = c.req.param('name');
@@ -200,7 +549,6 @@ export function createGitRouter(ctx: GitContext): Hono {
     });
   });
 
-  // Git receive-pack (push)
   router.post('/:owner/:name/git-receive-pack', async (c) => {
     const owner = c.req.param('owner') as Address;
     const name = c.req.param('name');
@@ -268,7 +616,8 @@ export function createGitRouter(ctx: GitContext): Hono {
     });
   });
 
-  // Object API (debugging/direct access)
+  // ============ Object & Contents API ============
+
   router.get('/:owner/:name/objects/:oid', async (c) => {
     const owner = c.req.param('owner') as Address;
     const name = c.req.param('name');

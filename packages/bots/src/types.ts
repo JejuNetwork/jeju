@@ -259,6 +259,10 @@ export interface RiskMetrics {
   sharpeRatio: number;
   sortinoRatio: number;
   calmarRatio: number;
+  annualizedReturn?: number;
+  volatility?: number;
+  skewness?: number;
+  kurtosis?: number;
 }
 
 // ============ Bot Stats ============

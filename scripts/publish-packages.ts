@@ -1,5 +1,10 @@
 #!/usr/bin/env bun
 /**
+ * @deprecated Migrate to CLI: `jeju publish`
+ * 
+ * This script will be migrated to CLI. For now, use:
+ *   bun run scripts/publish-packages.ts
+ * 
  * Publish network packages to npm
  * 
  * Handles:

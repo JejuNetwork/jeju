@@ -385,8 +385,9 @@ contract CreditPurchaseContract is Ownable, Pausable, ReentrancyGuard {
         // Calculate price per credit in payment token
         pricePerCredit = (paymentAmount * 1e18) / creditsOut;
 
-        // Calculate current slippage (simplified - would be more complex in production)
-        slippageBps = 0; // Assuming oracle provides exact price
+        // Oracle provides spot price, so slippage is 0 for direct purchases
+        // Slippage only applies when using DEX swaps which this contract doesn't do
+        slippageBps = 0;
     }
 
     // ============ Withdrawal Functions (Pull-Over-Push Pattern) ============

@@ -1,79 +1,72 @@
 {
-  "name": "council",
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "autocrat",
+  "displayName": "AI Council DAO",
   "version": "1.0.0",
-  "description": "AI Council DAO - Fully autonomous governance with AI CEO and council agents",
-  "type": "service",
-  "maintainer": "jeju-network",
-  "repository": "https://github.com/jejunetwork/jeju",
-  "endpoints": {
-    "a2a": "/a2a",
-    "mcp": "/mcp",
-    "rest": "/api/v1",
-    "health": "/health"
+  "type": "core",
+  "description": "Fully autonomous governance with AI CEO and council agents",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start",
+    "test": "bun test tests/integration"
   },
-  "capabilities": {
-    "governance": true,
-    "proposals": true,
-    "voting": true,
-    "futarchy": true,
-    "aiAgents": true,
-    "reputation": true,
-    "deepResearch": true
+  "ports": {
+    "main": 4007,
+    "api": 4008
   },
-  "integrations": {
-    "dws": "@jejunetwork/dws",
-    "leaderboard": "@jejunetwork/leaderboard",
-    "contracts": "@jejunetwork/contracts"
+  "dependencies": ["contracts", "config", "dws"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["governance", "dao", "ai", "council", "futarchy", "proposals", "voting"],
+  "jns": {
+    "name": "autocrat.jeju",
+    "description": "AI Council DAO - Autonomous Governance",
+    "url": "https://autocrat.jeju.network"
   },
-  "agents": [
-    {
-      "id": "eliza-ceo",
-      "name": "Eliza",
-      "role": "CEO",
-      "description": "AI CEO - Final decision maker for approved proposals",
-      "model": "claude-opus-4-5-20250514"
+  "healthCheck": {
+    "url": "http://localhost:4007/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": ["jeju-app", "governance", "dao", "proposals", "voting"],
+    "metadata": {
+      "category": "governance",
+      "provider": "jeju-network",
+      "features": ["ai-council", "futarchy", "deep-research"]
     },
-    {
-      "id": "council-treasury",
-      "name": "Treasury Guardian",
-      "role": "Council",
-      "description": "Reviews financial impact and treasury implications"
+    "trustModels": ["open", "staked"],
+    "x402Support": true,
+    "jnsName": "autocrat.jeju"
+  },
+  "decentralization": {
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "cacheRules": [
+        { "pattern": "/_next/static/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/api/**", "ttl": 0 },
+        { "pattern": "/**/*.html", "ttl": 300, "staleWhileRevalidate": 86400 }
+      ],
+      "serviceWorker": true
     },
-    {
-      "id": "council-code",
-      "name": "Code Guardian",
-      "role": "Council",
-      "description": "Reviews technical proposals and code changes"
+    "frontend": {
+      "ipfs": true,
+      "arweave": true,
+      "jnsName": "autocrat.jeju",
+      "buildDir": "app/.next",
+      "spa": false
     },
-    {
-      "id": "council-community",
-      "name": "Community Guardian",
-      "role": "Council",
-      "description": "Reviews community impact and social implications"
-    },
-    {
-      "id": "council-security",
-      "name": "Security Guardian",
-      "role": "Council",
-      "description": "Reviews security implications and risk assessment"
-    },
-    {
-      "id": "proposal-agent",
-      "name": "Proposal Assistant",
-      "role": "Intake",
-      "description": "Helps users craft high-quality proposals"
-    },
-    {
-      "id": "research-agent",
-      "name": "Deep Researcher",
-      "role": "Research",
-      "description": "Conducts deep research on approved proposals using Opus 4.5"
+    "robustness": {
+      "multiOrigin": true,
+      "offlineSupport": true,
+      "p2pFallback": true,
+      "contentAddressed": true
     }
-  ],
-  "contracts": {
-    "Council": "0x0000000000000000000000000000000000000000",
-    "ProposalRegistry": "0x0000000000000000000000000000000000000000",
-    "CEOAgent": "0x0000000000000000000000000000000000000000"
   },
   "testing": {
     "unit": {

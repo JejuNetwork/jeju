@@ -17,7 +17,9 @@
  *   FORCER_PRIVATE_KEY - (optional) Wallet to force-include and earn rewards
  */
 
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, formatEther, getLogs, decodeEventLog, watchContractEvent, getBlockNumber, getBalance, encodePacked, type Address, type PublicClient, type WalletClient } from 'viem';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../shared/chain-utils';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';
 
@@ -61,11 +63,13 @@ class ForcedInclusionMonitor {
   private stats: MonitorStats = { txQueued: 0, txIncluded: 0, txForced: 0, txExpired: 0, pendingCount: 0, alertCount: 0 };
   private isRunning = false;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private unwatchCallbacks: Array<() => void> = [];
 
   constructor(
-    private provider: ethers.Provider,
-    private forcedInclusion: ethers.Contract,
-    private forcerWallet: ethers.Wallet | null,
+    private publicClient: PublicClient,
+    private forcedInclusionAddress: Address,
+    private forcedInclusionAbi: ReturnType<typeof parseAbi>,
+    private walletClient: WalletClient | null,
     private inclusionWindow: bigint,
     private alertThreshold = 10,
     private checkInterval = 12000
@@ -76,21 +80,69 @@ class ForcedInclusionMonitor {
     this.isRunning = true;
 
     console.log('📡 Forced Inclusion Monitor Started');
-    console.log(`   Contract: ${await this.forcedInclusion.getAddress()}`);
+    console.log(`   Contract: ${this.forcedInclusionAddress}`);
     console.log(`   Inclusion window: ${this.inclusionWindow} blocks`);
     console.log(`   Alert threshold: ${this.alertThreshold} blocks before deadline`);
-    if (this.forcerWallet) {
-      console.log(`   Forcer wallet: ${this.forcerWallet.address}`);
+    if (this.walletClient?.account) {
+      console.log(`   Forcer wallet: ${this.walletClient.account.address}`);
     } else {
       console.log('   Forcer wallet: NONE (monitoring only)');
     }
     console.log('');
 
-    // Listen for events
-    this.forcedInclusion.on('TxQueued', this.handleTxQueued.bind(this));
-    this.forcedInclusion.on('TxIncluded', this.handleTxIncluded.bind(this));
-    this.forcedInclusion.on('TxForced', this.handleTxForced.bind(this));
-    this.forcedInclusion.on('TxExpired', this.handleTxExpired.bind(this));
+    // Load past events
+    await this.loadPastEvents();
+
+    // Watch for new events
+    const unwatchQueued = watchContractEvent(this.publicClient, {
+      address: this.forcedInclusionAddress,
+      abi: this.forcedInclusionAbi,
+      eventName: 'TxQueued',
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log });
+          this.handleTxQueued(decoded.args.txId, decoded.args.sender, decoded.args.fee, decoded.args.queuedAtBlock);
+        }
+      },
+    });
+
+    const unwatchIncluded = watchContractEvent(this.publicClient, {
+      address: this.forcedInclusionAddress,
+      abi: this.forcedInclusionAbi,
+      eventName: 'TxIncluded',
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log });
+          this.handleTxIncluded(decoded.args.txId, decoded.args.sequencer, decoded.args.batchRoot);
+        }
+      },
+    });
+
+    const unwatchForced = watchContractEvent(this.publicClient, {
+      address: this.forcedInclusionAddress,
+      abi: this.forcedInclusionAbi,
+      eventName: 'TxForced',
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log });
+          this.handleTxForced(decoded.args.txId, decoded.args.forcer, decoded.args.reward);
+        }
+      },
+    });
+
+    const unwatchExpired = watchContractEvent(this.publicClient, {
+      address: this.forcedInclusionAddress,
+      abi: this.forcedInclusionAbi,
+      eventName: 'TxExpired',
+      onLogs: (logs) => {
+        for (const log of logs) {
+          const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log });
+          this.handleTxExpired(decoded.args.txId, decoded.args.sender, decoded.args.refund);
+        }
+      },
+    });
+
+    this.unwatchCallbacks = [unwatchQueued, unwatchIncluded, unwatchForced, unwatchExpired];
 
     // Start periodic checks
     this.pollInterval = setInterval(() => this.checkPendingTxs(), this.checkInterval);
@@ -98,9 +150,64 @@ class ForcedInclusionMonitor {
     console.log('🔍 Monitoring for queued transactions...\n');
   }
 
+  private async loadPastEvents(): Promise<void> {
+    const currentBlock = await this.publicClient.getBlockNumber();
+    const fromBlock = currentBlock - BigInt(Number(this.inclusionWindow) + 100);
+
+    const [queuedLogs, includedLogs, forcedLogs, expiredLogs] = await Promise.all([
+      getLogs(this.publicClient, {
+        address: this.forcedInclusionAddress,
+        abi: this.forcedInclusionAbi,
+        eventName: 'TxQueued',
+        fromBlock,
+      }),
+      getLogs(this.publicClient, {
+        address: this.forcedInclusionAddress,
+        abi: this.forcedInclusionAbi,
+        eventName: 'TxIncluded',
+        fromBlock,
+      }),
+      getLogs(this.publicClient, {
+        address: this.forcedInclusionAddress,
+        abi: this.forcedInclusionAbi,
+        eventName: 'TxForced',
+        fromBlock,
+      }),
+      getLogs(this.publicClient, {
+        address: this.forcedInclusionAddress,
+        abi: this.forcedInclusionAbi,
+        eventName: 'TxExpired',
+        fromBlock,
+      }),
+    ]);
+
+    for (const log of queuedLogs) {
+      const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log });
+      this.handleTxQueued(decoded.args.txId, decoded.args.sender, decoded.args.fee, decoded.args.queuedAtBlock);
+    }
+
+    for (const log of includedLogs) {
+      const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log });
+      this.handleTxIncluded(decoded.args.txId, decoded.args.sequencer, decoded.args.batchRoot);
+    }
+
+    for (const log of forcedLogs) {
+      const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log });
+      this.handleTxForced(decoded.args.txId, decoded.args.forcer, decoded.args.reward);
+    }
+
+    for (const log of expiredLogs) {
+      const decoded = decodeEventLog({ abi: this.forcedInclusionAbi, ...log });
+      this.handleTxExpired(decoded.args.txId, decoded.args.sender, decoded.args.refund);
+    }
+  }
+
   stop(): void {
     this.isRunning = false;
-    this.forcedInclusion.removeAllListeners();
+    for (const unwatch of this.unwatchCallbacks) {
+      unwatch();
+    }
+    this.unwatchCallbacks = [];
     if (this.pollInterval) clearInterval(this.pollInterval);
     console.log('\nMonitor stopped');
     this.printStats();
@@ -123,7 +230,7 @@ class ForcedInclusionMonitor {
 
     console.log(`📥 [QUEUED] ${txId.slice(0, 10)}...`);
     console.log(`   Sender: ${sender.slice(0, 10)}...`);
-    console.log(`   Fee: ${ethers.formatEther(fee)} ETH`);
+    console.log(`   Fee: ${formatEther(fee)} ETH`);
     console.log(`   Deadline: block ${deadline}`);
     console.log('');
   }
@@ -154,7 +261,7 @@ class ForcedInclusionMonitor {
 
     console.log(`⚡ [FORCED] ${txId.slice(0, 10)}...`);
     console.log(`   Forcer: ${forcer.slice(0, 10)}...`);
-    console.log(`   Reward: ${ethers.formatEther(reward)} ETH`);
+    console.log(`   Reward: ${formatEther(reward)} ETH`);
     console.log('   ⚠️  Sequencer failed to include - slashing may apply');
     console.log('');
   }
@@ -170,17 +277,17 @@ class ForcedInclusionMonitor {
 
     console.log(`⏰ [EXPIRED] ${txId.slice(0, 10)}...`);
     console.log(`   Sender: ${sender.slice(0, 10)}...`);
-    console.log(`   Refund: ${ethers.formatEther(refund)} ETH`);
+    console.log(`   Refund: ${formatEther(refund)} ETH`);
     console.log('');
   }
 
   private async checkPendingTxs(): Promise<void> {
     if (this.pendingTxs.size === 0) return;
 
-    const currentBlock = await this.provider.getBlockNumber();
+    const currentBlock = await this.publicClient.getBlockNumber();
 
     for (const [txId, tx] of this.pendingTxs) {
-      const blocksRemaining = tx.deadline - currentBlock;
+      const blocksRemaining = tx.deadline - Number(currentBlock);
 
       // Alert if approaching deadline
       if (blocksRemaining <= this.alertThreshold && blocksRemaining > 0) {
@@ -190,38 +297,30 @@ class ForcedInclusionMonitor {
         console.log('');
       }
 
-      // Force include if past deadline and we have a forcer wallet
-      if (blocksRemaining <= 0 && this.forcerWallet && !tx.included && !tx.expired) {
+      // Force include if past deadline and we have a wallet client
+      if (blocksRemaining <= 0 && this.walletClient && !tx.included && !tx.expired) {
         await this.tryForceInclude(txId);
       }
     }
   }
 
-  private async tryForceInclude(txId: string): Promise<void> {
-    if (!this.forcerWallet) return;
+  private async tryForceInclude(txId: `0x${string}`): Promise<void> {
+    if (!this.walletClient) return;
 
     console.log(`⚡ Attempting to force-include ${txId.slice(0, 10)}...`);
 
-    try {
-      const contract = this.forcedInclusion.connect(this.forcerWallet) as ethers.Contract;
-      const tx = await contract.forceInclude(txId);
-      console.log(`   TX submitted: ${tx.hash}`);
-      
-      const receipt = await tx.wait();
-      console.log(`   ✅ Force-included in block ${receipt?.blockNumber}`);
-      console.log(`   💰 Check wallet for reward`);
-      console.log('');
-    } catch (error) {
-      const errorMsg = error instanceof Error ? error.message : String(error);
-      if (errorMsg.includes('TxAlreadyIncluded')) {
-        console.log(`   Already included by sequencer`);
-      } else if (errorMsg.includes('WindowNotExpired')) {
-        console.log(`   Window not yet expired`);
-      } else {
-        console.log(`   Failed: ${errorMsg.slice(0, 50)}`);
-      }
-      console.log('');
-    }
+    const hash = await this.walletClient.writeContract({
+      address: this.forcedInclusionAddress,
+      abi: this.forcedInclusionAbi,
+      functionName: 'forceInclude',
+      args: [txId],
+    });
+    console.log(`   TX submitted: ${hash}`);
+    
+    const receipt = await waitForTransactionReceipt(this.publicClient, { hash });
+    console.log(`   ✅ Force-included in block ${receipt.blockNumber}`);
+    console.log(`   💰 Check wallet for reward`);
+    console.log('');
   }
 
   printStats(): void {
@@ -244,30 +343,45 @@ class ForcedInclusionMonitor {
  * This function should be called by op-batcher before creating a batch
  */
 export async function getPendingForcedTxs(
-  provider: ethers.Provider,
-  forcedInclusionAddress: string
-): Promise<Array<{ txId: string; sender: string; data: string; gasLimit: bigint; deadline: number }>> {
-  const contract = new ethers.Contract(forcedInclusionAddress, FORCED_INCLUSION_ABI, provider);
-  const currentBlock = await provider.getBlockNumber();
-  const inclusionWindow = await contract.INCLUSION_WINDOW_BLOCKS();
+  publicClient: PublicClient,
+  forcedInclusionAddress: Address
+): Promise<Array<{ txId: `0x${string}`; sender: Address; data: `0x${string}`; gasLimit: bigint; deadline: number }>> {
+  const abi = parseAbi(FORCED_INCLUSION_ABI);
+  const currentBlock = await publicClient.getBlockNumber();
+  const inclusionWindow = await readContract(publicClient, {
+    address: forcedInclusionAddress,
+    abi,
+    functionName: 'INCLUSION_WINDOW_BLOCKS',
+  });
   
-  const pendingTxs: Array<{ txId: string; sender: string; data: string; gasLimit: bigint; deadline: number }> = [];
+  const pendingTxs: Array<{ txId: `0x${string}`; sender: Address; data: `0x${string}`; gasLimit: bigint; deadline: number }> = [];
   
   // Get all queued transactions by listening to past events
-  const filter = contract.filters.TxQueued();
-  const events = await contract.queryFilter(filter, currentBlock - Number(inclusionWindow) - 10);
+  const events = await getLogs(publicClient, {
+    address: forcedInclusionAddress,
+    abi,
+    eventName: 'TxQueued',
+    fromBlock: currentBlock - BigInt(Number(inclusionWindow) + 10),
+  });
   
-  for (const event of events) {
-    const txId = event.args?.[0] as string;
-    const queuedAtBlock = event.args?.[3] as bigint;
+  for (const log of events) {
+    const decoded = decodeEventLog({ abi, ...log });
+    const txId = decoded.args.txId as `0x${string}`;
+    const queuedAtBlock = decoded.args.queuedAtBlock as bigint;
     
     // Check if still pending
-    const txData = await contract.queuedTxs(txId);
+    const txData = await readContract(publicClient, {
+      address: forcedInclusionAddress,
+      abi,
+      functionName: 'queuedTxs',
+      args: [txId],
+    }) as { sender: Address; data: `0x${string}`; gasLimit: bigint; included: boolean; expired: boolean };
+    
     if (!txData.included && !txData.expired) {
       const deadline = Number(queuedAtBlock) + Number(inclusionWindow);
       
       // Prioritize transactions close to deadline
-      if (deadline - currentBlock <= 25) { // Last 25 blocks
+      if (deadline - Number(currentBlock) <= 25) { // Last 25 blocks
         pendingTxs.push({
           txId,
           sender: txData.sender,
@@ -290,12 +404,12 @@ export async function getPendingForcedTxs(
  * This should be integrated into op-batcher's batch building logic
  */
 export function generateForcedTxBatchData(
-  sender: string,
-  data: string,
+  sender: Address,
+  data: `0x${string}`,
   gasLimit: bigint
-): string {
+): `0x${string}` {
   // Format: 0x7e (forced tx marker) + sender + gasLimit + data
-  const encoded = ethers.solidityPacked(
+  const encoded = encodePacked(
     ['bytes1', 'address', 'uint256', 'bytes'],
     ['0x7e', sender, gasLimit, data]
   );
@@ -327,27 +441,35 @@ async function main(): Promise<void> {
     process.exit(1);
   }
 
-  const provider = new ethers.JsonRpcProvider(l1RpcUrl);
-  const forcedInclusion = new ethers.Contract(forcedInclusionAddress, FORCED_INCLUSION_ABI, provider);
+  const chain = inferChainFromRpcUrl(l1RpcUrl);
+  const publicClient = createPublicClient({ chain, transport: http(l1RpcUrl) });
+  const forcedInclusionAbi = parseAbi(FORCED_INCLUSION_ABI);
+  const forcedInclusionAddr = forcedInclusionAddress as Address;
 
   // Optional forcer wallet for automatic force-inclusion
-  let forcerWallet: ethers.Wallet | null = null;
+  let walletClient: WalletClient | null = null;
   const forcerKey = process.env.FORCER_PRIVATE_KEY;
   if (forcerKey) {
-    forcerWallet = new ethers.Wallet(forcerKey, provider);
-    const balance = await provider.getBalance(forcerWallet.address);
-    console.log(`Forcer wallet: ${forcerWallet.address}`);
-    console.log(`Forcer balance: ${ethers.formatEther(balance)} ETH`);
+    const account = privateKeyToAccount(forcerKey as `0x${string}`);
+    walletClient = createWalletClient({ chain, transport: http(l1RpcUrl), account });
+    const balance = await getBalance(publicClient, { address: account.address });
+    console.log(`Forcer wallet: ${account.address}`);
+    console.log(`Forcer balance: ${formatEther(balance)} ETH`);
   }
 
-  const inclusionWindow = await forcedInclusion.INCLUSION_WINDOW_BLOCKS();
+  const inclusionWindow = await readContract(publicClient, {
+    address: forcedInclusionAddr,
+    abi: forcedInclusionAbi,
+    functionName: 'INCLUSION_WINDOW_BLOCKS',
+  });
   console.log(`Inclusion window: ${inclusionWindow} blocks`);
   console.log('');
 
   const monitor = new ForcedInclusionMonitor(
-    provider,
-    forcedInclusion,
-    forcerWallet,
+    publicClient,
+    forcedInclusionAddr,
+    forcedInclusionAbi,
+    walletClient,
     inclusionWindow,
     alertThreshold,
     checkInterval

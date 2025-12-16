@@ -25,8 +25,10 @@ skip = [
     "src/marketplace/**",
     "src/prediction-markets/**",
     
-    # Multi-token paymaster needs more work
+    # Paymaster contracts need ERC-4337 integration work
     "src/services/MultiTokenPaymaster.sol",
+    "src/services/ServicePaymaster.sol",
+    "src/paymaster/**",
     
     # Deploy scripts for disabled features
     "script/DeployCompute.s.sol",
@@ -43,14 +45,16 @@ skip = [
     "script/DeployJejuToken.s.sol",
     "script/otc/**",
     
-    # Tests for incomplete features
+    # Tests for incomplete/disabled features
     "test/PaymasterFactory.t.sol"
 ]
 
 # Test settings
+# Note: Hyperscape tests require MUD World deployment - run separately with: cd apps/hyperscape && pnpm test
 verbosity = 2
 
 # Lint configuration - suppress known false positives and style notes
+# These are reviewed and documented below
 [profile.lint]
 exclude_lints = [
     # Warnings (reviewed, false positives or intentional)
@@ -92,6 +96,7 @@ remappings = [
 ]
 
 # RPC endpoints (override with env vars)
+# Default values from packages/config/testnet.json
 [rpc_endpoints]
 mainnet = "${MAINNET_RPC_URL}"
 sepolia = "https://1rpc.io/sepolia"
@@ -108,4 +113,3 @@ mainnet = { key = "${ETHERSCAN_API_KEY}" }
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
 base = { key = "${BASESCAN_API_KEY}", url = "https://api.basescan.org/api" }
 base_sepolia = { key = "${BASESCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api" }
-

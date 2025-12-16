@@ -13,7 +13,9 @@
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
-import { ethers } from 'ethers';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, formatEther, parseEther, formatUnits, getBalance, getChainId, type Address } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
 import { parseEther, formatEther, type Address } from 'viem';
 
 // Import shared utilities
@@ -85,13 +87,13 @@ const STAKING_ABI = [
 
 // ============ Test Setup ============
 
-let provider: ethers.JsonRpcProvider;
-let deployer: ethers.Wallet;
-let user: ethers.Wallet;
-let staker: ethers.Wallet;
-let paymentToken: ethers.Contract;
-let creditManager: ethers.Contract;
-let staking: ethers.Contract;
+let publicClient: ReturnType<typeof createPublicClient>;
+let deployerAccount: ReturnType<typeof privateKeyToAccount>;
+let userAccount: ReturnType<typeof privateKeyToAccount>;
+let stakerAccount: ReturnType<typeof privateKeyToAccount>;
+let deployerWalletClient: ReturnType<typeof createWalletClient>;
+let userWalletClient: ReturnType<typeof createWalletClient>;
+let stakerWalletClient: ReturnType<typeof createWalletClient>;
 let localnetAvailable = false;
 
 // Check localnet availability
@@ -111,28 +113,29 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Setup', () => {
   beforeAll(async () => {
     logger.info('Setting up payment integration tests...');
     
-    provider = new ethers.JsonRpcProvider(RPC_URL);
-    deployer = new ethers.Wallet(DEPLOYER_KEY, provider);
-    user = new ethers.Wallet(USER_KEY, provider);
-    staker = new ethers.Wallet(STAKER_KEY, provider);
+    const chain = inferChainFromRpcUrl(RPC_URL);
+    deployerAccount = privateKeyToAccount(DEPLOYER_KEY);
+    userAccount = privateKeyToAccount(USER_KEY);
+    stakerAccount = privateKeyToAccount(STAKER_KEY);
     
-    paymentToken = new ethers.Contract(ADDRESSES.paymentToken, ERC20_ABI, deployer);
-    creditManager = new ethers.Contract(ADDRESSES.creditManager, CREDIT_MANAGER_ABI, deployer);
-    staking = new ethers.Contract(ADDRESSES.staking, STAKING_ABI, deployer);
+    publicClient = createPublicClient({ chain, transport: http(RPC_URL) });
+    deployerWalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: deployerAccount });
+    userWalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: userAccount });
+    stakerWalletClient = createWalletClient({ chain, transport: http(RPC_URL), account: stakerAccount });
     
     logger.success('Test setup complete');
   });
 
   test('should connect to localnet', async () => {
-    const blockNumber = await provider.getBlockNumber();
+    const blockNumber = await publicClient.getBlockNumber();
     logger.info(`Connected to block ${blockNumber}`);
-    expect(blockNumber).toBeGreaterThanOrEqual(0);
+    expect(blockNumber).toBeGreaterThanOrEqual(0n);
   });
 
   test('should have test accounts funded', async () => {
-    const deployerBalance = await provider.getBalance(deployer.address);
-    const userBalance = await provider.getBalance(user.address);
-    const stakerBalance = await provider.getBalance(staker.address);
+    const deployerBalance = await publicClient.getBalance({ address: deployerAccount.address });
+    const userBalance = await publicClient.getBalance({ address: userAccount.address });
+    const stakerBalance = await publicClient.getBalance({ address: stakerAccount.address });
     
     logger.info(`Deployer: ${formatEther(deployerBalance)} ETH`);
     logger.info(`User: ${formatEther(userBalance)} ETH`);
@@ -264,8 +267,13 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Credit Manager', () =
     logger.info('Testing credit balance queries...');
     
     // Query user's balance
-    const balance = await creditManager.getBalance(user.address, ADDRESSES.paymentToken);
-    logger.info(`User balance: ${ethers.formatEther(balance)} tokens`);
+    const balance = await readContract(publicClient, {
+      address: ADDRESSES.creditManager,
+      abi: parseAbi(CREDIT_MANAGER_ABI),
+      functionName: 'getBalance',
+      args: [userAccount.address, ADDRESSES.paymentToken],
+    });
+    logger.info(`User balance: ${formatEther(balance)} tokens`);
     
     // Balance should be a valid bigint
     expect(typeof balance).toBe('bigint');
@@ -277,16 +285,18 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Credit Manager', () =
   test('should check credit sufficiency', async () => {
     logger.info('Testing credit sufficiency check...');
     
-    const testAmount = ethers.parseEther('1');
+    const testAmount = parseEther('1');
     
-    const [sufficient, available] = await creditManager.hasSufficientCredit(
-      user.address,
-      ADDRESSES.paymentToken,
-      testAmount
-    );
+    const result = await readContract(publicClient, {
+      address: ADDRESSES.creditManager,
+      abi: parseAbi(CREDIT_MANAGER_ABI),
+      functionName: 'hasSufficientCredit',
+      args: [userAccount.address, ADDRESSES.paymentToken, testAmount],
+    }) as [boolean, bigint];
+    const [sufficient, available] = result;
     
-    logger.info(`Required: ${ethers.formatEther(testAmount)}`);
-    logger.info(`Available: ${ethers.formatEther(available)}`);
+    logger.info(`Required: ${formatEther(testAmount)}`);
+    logger.info(`Available: ${formatEther(available)}`);
     logger.info(`Sufficient: ${sufficient}`);
     
     // Should return boolean and bigint
@@ -548,7 +558,7 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Cross-App Compatibili
     );
     
     expect(verification.valid).toBe(true);
-    expect(verification.signer?.toLowerCase()).toBe(user.address.toLowerCase());
+    expect(verification.signer?.toLowerCase()).toBe(userAccount.address.toLowerCase());
     
     logger.success('EIP-712 domain consistency verified');
   });
@@ -558,8 +568,8 @@ describe.skipIf(!localnetAvailable)('Payment Integration - Cross-App Compatibili
 
 describe.skipIf(!localnetAvailable)('Payment Integration - Summary', () => {
   test('should print test summary', async () => {
-    const blockNumber = await provider.getBlockNumber();
-    const chainId = (await provider.getNetwork()).chainId;
+    const blockNumber = await publicClient.getBlockNumber();
+    const chainId = await getChainId(publicClient);
     
     logger.separator();
     logger.box(`

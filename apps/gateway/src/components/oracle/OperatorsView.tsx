@@ -133,12 +133,72 @@ function OperatorRegistrationForm({
   onClose: () => void;
   onSuccess: () => void;
 }) {
+  const { address } = useAccount();
   const [workerKey, setWorkerKey] = useState('');
   const [stakingOracleId, setStakingOracleId] = useState('');
   const [agentId, setAgentId] = useState('');
+  const [isRegistering, setIsRegistering] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Note: This would integrate with OracleNetworkConnector contract
-  // For now, showing the UI structure
+  const handleRegister = async () => {
+    if (!workerKey || !address) {
+      setError('Worker key is required');
+      return;
+    }
+
+    setIsRegistering(true);
+    setError(null);
+
+    try {
+      // Import wagmi hooks dynamically to avoid SSR issues
+      const { writeContract, waitForTransactionReceipt } = await import('wagmi/actions');
+      const { getConfig } = await import('../../lib/wagmi-config');
+      
+      const config = getConfig();
+      
+      // OracleNetworkConnector ABI for registration
+      const ORACLE_NETWORK_ABI = [
+        {
+          name: 'registerOperator',
+          type: 'function',
+          stateMutability: 'nonpayable',
+          inputs: [
+            { name: 'workerKey', type: 'address' },
+            { name: 'stakingOracleId', type: 'bytes32' },
+            { name: 'agentId', type: 'uint256' },
+          ],
+          outputs: [],
+        },
+      ] as const;
+
+      // Get contract address from environment
+      const contractAddress = process.env.NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR;
+      if (!contractAddress) {
+        throw new Error('NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR not configured');
+      }
+
+      const hash = await writeContract(config, {
+        address: contractAddress as `0x${string}`,
+        abi: ORACLE_NETWORK_ABI,
+        functionName: 'registerOperator',
+        args: [
+          workerKey as `0x${string}`,
+          (stakingOracleId || '0x0000000000000000000000000000000000000000000000000000000000000000') as `0x${string}`,
+          BigInt(agentId || '0'),
+        ],
+      });
+
+      // Wait for confirmation
+      await waitForTransactionReceipt(config, { hash });
+      
+      onSuccess();
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Registration failed';
+      setError(message);
+    } finally {
+      setIsRegistering(false);
+    }
+  };
 
   return (
     <div className="card p-6">
@@ -213,19 +273,24 @@ function OperatorRegistrationForm({
           </div>
         </div>
 
+        {/* Error Display */}
+        {error && (
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-red-600 dark:text-red-400 text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Actions */}
         <div className="flex gap-2 justify-end pt-4">
-          <button className="button button-secondary" onClick={onClose}>
+          <button className="button button-secondary" onClick={onClose} disabled={isRegistering}>
             Cancel
           </button>
           <button
             className="button"
-            onClick={() => {
-              // Would call OracleNetworkConnector.registerOperator
-              onSuccess();
-            }}
+            onClick={handleRegister}
+            disabled={isRegistering || !workerKey}
           >
-            Register
+            {isRegistering ? 'Registering...' : 'Register'}
           </button>
         </div>
       </div>
@@ -234,15 +299,111 @@ function OperatorRegistrationForm({
 }
 
 function PerformanceMetrics() {
-  // Would integrate with OracleNetworkConnector to fetch actual metrics
-  const mockMetrics = {
-    reportsSubmitted: 1247,
-    reportsAccepted: 1235,
-    accuracy: 99.03,
-    uptime: 99.8,
+  const { address } = useAccount();
+  const [metrics, setMetrics] = useState({
+    reportsSubmitted: 0,
+    reportsAccepted: 0,
+    accuracy: 0,
+    uptime: 0,
     disputes: 0,
-    epoch: 42,
-  };
+    epoch: 0,
+  });
+  const [loading, setLoading] = useState(true);
+
+  // Fetch operator metrics from contract
+  useState(() => {
+    if (!address) return;
+
+    const fetchMetrics = async () => {
+      try {
+        const { readContract } = await import('wagmi/actions');
+        const { getConfig } = await import('../../lib/wagmi-config');
+        
+        const config = getConfig();
+        const contractAddress = process.env.NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR;
+        
+        if (!contractAddress) {
+          setLoading(false);
+          return;
+        }
+
+        const METRICS_ABI = [
+          {
+            name: 'getOperatorMetrics',
+            type: 'function',
+            stateMutability: 'view',
+            inputs: [{ name: 'operator', type: 'address' }],
+            outputs: [
+              { name: 'reportsSubmitted', type: 'uint256' },
+              { name: 'reportsAccepted', type: 'uint256' },
+              { name: 'disputesLost', type: 'uint256' },
+              { name: 'lastActiveEpoch', type: 'uint256' },
+            ],
+          },
+          {
+            name: 'currentEpoch',
+            type: 'function',
+            stateMutability: 'view',
+            inputs: [],
+            outputs: [{ name: '', type: 'uint256' }],
+          },
+        ] as const;
+
+        const [operatorMetrics, currentEpoch] = await Promise.all([
+          readContract(config, {
+            address: contractAddress as `0x${string}`,
+            abi: METRICS_ABI,
+            functionName: 'getOperatorMetrics',
+            args: [address],
+          }),
+          readContract(config, {
+            address: contractAddress as `0x${string}`,
+            abi: METRICS_ABI,
+            functionName: 'currentEpoch',
+          }),
+        ]);
+
+        const submitted = Number(operatorMetrics[0]);
+        const accepted = Number(operatorMetrics[1]);
+        const disputes = Number(operatorMetrics[2]);
+        const lastEpoch = Number(operatorMetrics[3]);
+        const epoch = Number(currentEpoch);
+
+        // Calculate uptime based on epoch participation
+        const uptime = epoch > 0 ? Math.min((lastEpoch / epoch) * 100, 100) : 0;
+
+        setMetrics({
+          reportsSubmitted: submitted,
+          reportsAccepted: accepted,
+          accuracy: submitted > 0 ? (accepted / submitted) * 100 : 0,
+          uptime: Math.round(uptime * 100) / 100,
+          disputes,
+          epoch,
+        });
+      } catch (err) {
+        console.error('Failed to fetch operator metrics:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchMetrics();
+  });
+
+  if (loading) {
+    return (
+      <div className="card p-6">
+        <div className="animate-pulse">
+          <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/3 mb-4" />
+          <div className="grid grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded" />
+            ))}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="card p-6">
@@ -254,19 +415,19 @@ function PerformanceMetrics() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div>
           <div className="text-xs text-gray-500 mb-1">Reports Submitted</div>
-          <div className="text-xl font-bold">{mockMetrics.reportsSubmitted.toLocaleString()}</div>
+          <div className="text-xl font-bold">{metrics.reportsSubmitted.toLocaleString()}</div>
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Acceptance Rate</div>
-          <div className="text-xl font-bold text-green-500">{mockMetrics.accuracy}%</div>
+          <div className="text-xl font-bold text-green-500">{metrics.accuracy.toFixed(2)}%</div>
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Uptime</div>
-          <div className="text-xl font-bold text-green-500">{mockMetrics.uptime}%</div>
+          <div className="text-xl font-bold text-green-500">{metrics.uptime}%</div>
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Disputes Lost</div>
-          <div className="text-xl font-bold">{mockMetrics.disputes}</div>
+          <div className="text-xl font-bold">{metrics.disputes}</div>
         </div>
       </div>
 
@@ -276,7 +437,7 @@ function PerformanceMetrics() {
             <Clock size={14} />
             Current Epoch
           </span>
-          <span className="font-mono">{mockMetrics.epoch}</span>
+          <span className="font-mono">{metrics.epoch}</span>
         </div>
       </div>
     </div>

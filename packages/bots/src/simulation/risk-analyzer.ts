@@ -15,6 +15,8 @@ export interface DrawdownAnalysis {
   maxDrawdownDuration: number;
   currentDrawdown: number;
   recoveryTime: number;
+  avgRecoveryDays?: number;
+  longestRecoveryDays?: number;
   drawdownPeriods: {
     start: Date;
     end: Date;

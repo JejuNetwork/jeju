@@ -31,8 +31,11 @@ import { computeCommand } from './commands/compute';
 import { initCommand } from './commands/init';
 import { appsCommand } from './commands/apps';
 import { portsCommand } from './commands/ports';
-import { serviceCommand } from './commands/service';
+import { buildCommand } from './commands/build';
+import { cleanCommand } from './commands/clean';
 import { cleanupCommand } from './commands/cleanup';
+import { serviceCommand } from './commands/service';
+import { publishCommand } from './commands/publish';
 
 const cli = getCliBranding();
 const networkName = getNetworkName();
@@ -87,8 +90,11 @@ program.addCommand(computeCommand);
 program.addCommand(initCommand);
 program.addCommand(appsCommand);
 program.addCommand(portsCommand);
-program.addCommand(serviceCommand);
+program.addCommand(buildCommand);
+program.addCommand(cleanCommand);
 program.addCommand(cleanupCommand);
+program.addCommand(serviceCommand);
+program.addCommand(publishCommand);
 
 // Default: show help
 program.action(() => {
@@ -115,20 +121,24 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} keys genesis`) + '     Generate production keys');
   console.log('  ' + chalk.cyan(`${cliName} deploy testnet`) + '   Deploy to testnet');
   console.log('  ' + chalk.cyan(`${cliName} deploy mainnet`) + '   Deploy to mainnet');
-  console.log('  ' + chalk.cyan(`${cliName} deploy token`) + '    Deploy token contracts');
-  console.log('  ' + chalk.cyan(`${cliName} deploy oif`) + '      Deploy OIF contracts');
-  console.log('  ' + chalk.cyan(`${cliName} deploy jns`) + '      Deploy JNS contracts');
-  console.log('  ' + chalk.cyan(`${cliName} deploy rollback`) + ' Rollback deployment\n');
+  console.log('  ' + chalk.cyan(`${cliName} deploy token`) + '     Deploy token contracts');
+  console.log('  ' + chalk.cyan(`${cliName} deploy oif`) + '       Deploy OIF contracts');
+  console.log('  ' + chalk.cyan(`${cliName} deploy jns`) + '       Deploy JNS contracts\n');
   
   console.log(chalk.bold('Utilities:\n'));
-  console.log('  ' + chalk.cyan(`${cliName} cleanup`) + '        Clean up orphaned processes\n');
+  console.log('  ' + chalk.cyan(`${cliName} build`) + '            Build all components');
+  console.log('  ' + chalk.cyan(`${cliName} clean`) + '            Clean build artifacts');
+  console.log('  ' + chalk.cyan(`${cliName} cleanup`) + '          Clean up orphaned processes');
+  console.log('  ' + chalk.cyan(`${cliName} publish`) + '          Publish packages to npm');
+  console.log('  ' + chalk.cyan(`${cliName} apps`) + '             List all apps');
+  console.log('  ' + chalk.cyan(`${cliName} ports`) + '            Check port configuration\n');
   
   console.log(chalk.bold('Services:\n'));
   console.log('  ' + chalk.cyan(`${cliName} service auto-update`) + '  Auto-update manager');
-  console.log('  ' + chalk.cyan(`${cliName} service bridge`) + '    Forced inclusion monitor');
-  console.log('  ' + chalk.cyan(`${cliName} service dispute`) + '   Fraud proof challenger');
-  console.log('  ' + chalk.cyan(`${cliName} service sequencer`) + ' Consensus coordinator');
-  console.log('  ' + chalk.cyan(`${cliName} service list`) + '     List running services\n');
+  console.log('  ' + chalk.cyan(`${cliName} service bridge`) + '      Forced inclusion monitor');
+  console.log('  ' + chalk.cyan(`${cliName} service dispute`) + '     Fraud proof challenger');
+  console.log('  ' + chalk.cyan(`${cliName} service sequencer`) + '   Consensus coordinator');
+  console.log('  ' + chalk.cyan(`${cliName} service list`) + '        List running services\n');
   
   console.log(chalk.bold('Federation:\n'));
   console.log('  ' + chalk.cyan(`${cliName} fork`) + '             Fork your own network');

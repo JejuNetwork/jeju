@@ -64,10 +64,24 @@ interface BridgeConfig {
 
 const UNISWAP_V2_ROUTER_ABI = parseAbi([
   'function getAmountsOut(uint256 amountIn, address[] calldata path) external view returns (uint256[] memory amounts)',
+  'function factory() external view returns (address)',
+]);
+
+const UNISWAP_V2_FACTORY_ABI = parseAbi([
+  'function getPair(address tokenA, address tokenB) external view returns (address pair)',
+]);
+
+const UNISWAP_V2_PAIR_ABI = parseAbi([
+  'function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
+  'function token0() external view returns (address)',
 ]);
 
 const UNISWAP_V3_QUOTER_ABI = parseAbi([
   'function quoteExactInputSingle(address tokenIn, address tokenOut, uint24 fee, uint256 amountIn, uint160 sqrtPriceLimitX96) external returns (uint256 amountOut)',
+]);
+
+const UNISWAP_V3_POOL_ABI = parseAbi([
+  'function liquidity() external view returns (uint128)',
 ]);
 
 // ============ Default Configurations ============
@@ -348,6 +362,7 @@ export class CrossChainArbitrage extends EventEmitter {
     const amountIn = parseUnits('1', 18); // 1 token
 
     let price: bigint;
+    let liquidity = 0n;
 
     if (dex.type === 'uniswap-v2') {
       const amounts = await client.readContract({
@@ -358,6 +373,41 @@ export class CrossChainArbitrage extends EventEmitter {
       }) as bigint[];
 
       price = amounts[1];
+
+      // Fetch liquidity from pair contract
+      try {
+        const factory = await client.readContract({
+          address: dex.router!,
+          abi: UNISWAP_V2_ROUTER_ABI,
+          functionName: 'factory',
+        }) as `0x${string}`;
+
+        const pairAddress = await client.readContract({
+          address: factory,
+          abi: UNISWAP_V2_FACTORY_ABI,
+          functionName: 'getPair',
+          args: [baseToken, quoteToken],
+        }) as `0x${string}`;
+
+        if (pairAddress !== '0x0000000000000000000000000000000000000000') {
+          const [reserve0, reserve1] = await client.readContract({
+            address: pairAddress,
+            abi: UNISWAP_V2_PAIR_ABI,
+            functionName: 'getReserves',
+          }) as [bigint, bigint, number];
+
+          const token0 = await client.readContract({
+            address: pairAddress,
+            abi: UNISWAP_V2_PAIR_ABI,
+            functionName: 'token0',
+          }) as `0x${string}`;
+
+          // Liquidity in quote token terms
+          liquidity = token0.toLowerCase() === baseToken.toLowerCase() ? reserve1 : reserve0;
+        }
+      } catch {
+        // Failed to get liquidity, continue with 0
+      }
     } else if (dex.type === 'uniswap-v3' && dex.quoter) {
       // V3 quote
       price = await client.readContract({
@@ -366,6 +416,9 @@ export class CrossChainArbitrage extends EventEmitter {
         functionName: 'quoteExactInputSingle',
         args: [baseToken, quoteToken, 3000, amountIn, 0n],
       }) as bigint;
+
+      // V3 liquidity is more complex - use quote amount as proxy
+      liquidity = price * 1000n; // Rough estimate based on 0.1% depth
     } else {
       return;
     }
@@ -375,7 +428,7 @@ export class CrossChainArbitrage extends EventEmitter {
       dex: dex.name,
       pair: pairKey,
       price,
-      liquidity: 0n, // Would need separate call
+      liquidity,
       timestamp: Date.now(),
     };
 
@@ -588,28 +641,57 @@ export class SolanaArbitrage {
   }
 
   /**
-   * Get quote from Raydium
+   * Get quote from Raydium via Jupiter aggregator
    */
   async getRaydiumQuote(
     inputMint: PublicKey,
     outputMint: PublicKey,
     amount: bigint
   ): Promise<bigint> {
-    // Would integrate with Raydium SDK
-    // For now, return placeholder
-    return amount;
+    return this.getJupiterQuote(inputMint, outputMint, amount, 'Raydium');
   }
 
   /**
-   * Get quote from Orca
+   * Get quote from Orca via Jupiter aggregator
    */
   async getOrcaQuote(
     inputMint: PublicKey,
     outputMint: PublicKey,
     amount: bigint
   ): Promise<bigint> {
-    // Would integrate with Orca SDK
-    return amount;
+    return this.getJupiterQuote(inputMint, outputMint, amount, 'Orca');
+  }
+
+  /**
+   * Get quote via Jupiter API with optional DEX filter
+   */
+  private async getJupiterQuote(
+    inputMint: PublicKey,
+    outputMint: PublicKey,
+    amount: bigint,
+    dexFilter?: string
+  ): Promise<bigint> {
+    const JUPITER_API = 'https://quote-api.jup.ag/v6';
+    
+    try {
+      let url = `${JUPITER_API}/quote?inputMint=${inputMint.toBase58()}&outputMint=${outputMint.toBase58()}&amount=${amount.toString()}&slippageBps=50`;
+      
+      // Filter to specific DEX if requested
+      if (dexFilter) {
+        url += `&onlyDirectRoutes=true&dexes=${dexFilter}`;
+      }
+
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Jupiter API error: ${response.statusText}`);
+      }
+
+      const data = await response.json() as { outAmount?: string };
+      return BigInt(data.outAmount || '0');
+    } catch (error) {
+      console.error(`Failed to get Jupiter quote for ${dexFilter || 'all'}:`, error);
+      return 0n;
+    }
   }
 
   /**

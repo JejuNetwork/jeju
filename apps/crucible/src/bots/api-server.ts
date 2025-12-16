@@ -26,7 +26,6 @@ import { cors } from 'hono/cors';
 import { serve } from '@hono/node-server';
 import { UnifiedBot, type UnifiedBotConfig, type TradeResult } from './unified-bot';
 import type { RebalanceAction, UnifiedPosition, PoolAnalysis } from './strategies/liquidity-manager';
-import type { ChainId } from './autocrat-types';
 
 // ============ Types ============
 
@@ -571,7 +570,7 @@ export async function startBotAPIServer(config: APIConfig): Promise<void> {
 
 export async function main(): Promise<void> {
   const botConfig: UnifiedBotConfig = {
-    evmChains: [1, 42161, 10, 8453] as ChainId[], // Ethereum, Arbitrum, Optimism, Base
+    evmChains: [1, 42161, 10, 8453] as any[], // Ethereum, Arbitrum, Optimism, Base
     solanaNetwork: (process.env.SOLANA_NETWORK as 'mainnet-beta' | 'devnet' | 'localnet') ?? 'mainnet-beta',
     evmPrivateKey: process.env.EVM_PRIVATE_KEY,
     solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,

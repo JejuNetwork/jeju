@@ -318,14 +318,14 @@ export class TradingBot {
         if (!evaluation.profitable) continue;
 
         this.metrics.opportunitiesDetected++;
-        this.metrics.byStrategy.SOLVER!.detected++;
+        this.metrics.byStrategy.SOLVER.detected++;
         const result = await this.solver.fill(intent);
         if (result.success) {
           this.metrics.opportunitiesExecuted++;
-          this.metrics.byStrategy.SOLVER!.executed++;
+          this.metrics.byStrategy.SOLVER.executed++;
         } else {
           this.metrics.opportunitiesFailed++;
-          this.metrics.byStrategy.SOLVER!.failed++;
+          this.metrics.byStrategy.SOLVER.failed++;
         }
       }
     }

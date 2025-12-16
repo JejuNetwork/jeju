@@ -457,12 +457,10 @@ contract JNSRegistrar is ERC721, Ownable, ReentrancyGuard, IJNSRegistrar {
             price += (yearlyPrice * remaining) / 365 days;
         }
 
-        // Apply agent discount if applicable
+        // Apply agent discount if user owns any ERC-8004 agent
         if (discountRecipient != address(0) && address(identityRegistry) != address(0)) {
-            // Check if user owns any agent
-            // Note: This is a simplified check - could be enhanced
-            uint256 balance = identityRegistry.balanceOf(discountRecipient);
-            if (balance > 0) {
+            uint256 agentCount = identityRegistry.balanceOf(discountRecipient);
+            if (agentCount > 0) {
                 price = price - (price * agentDiscountBps / 10000);
             }
         }

@@ -20,12 +20,12 @@ import { createCDNRouter } from './routes/cdn';
 import { createA2ARouter } from './routes/a2a';
 import { createMCPRouter } from './routes/mcp';
 import { createGitRouter } from './routes/git';
-import { createNpmRouter } from './routes/npm';
+import { createPkgRouter } from './routes/pkg';
 import { createCIRouter } from './routes/ci';
 import { createOAuth3Router } from './routes/oauth3';
 import { createBackendManager } from '../storage/backends';
 import { GitRepoManager } from '../git/repo-manager';
-import { NpmRegistryManager } from '../npm/registry-manager';
+import { PkgRegistryManager } from '../pkg/registry-manager';
 import { WorkflowEngine } from '../ci/workflow-engine';
 import { 
   createDecentralizedServices, 
@@ -132,14 +132,14 @@ const gitConfig = {
 
 const repoManager = new GitRepoManager(gitConfig, backendManager);
 
-// NPM configuration
-const npmConfig = {
+// Package registry configuration (JejuPkg)
+const pkgConfig = {
   rpcUrl: getEnvOrDefault('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
   packageRegistryAddress: getEnvOrDefault('PACKAGE_REGISTRY_ADDRESS', LOCALNET_DEFAULTS.packageRegistry) as Address,
   privateKey: process.env.DWS_PRIVATE_KEY as Hex | undefined,
 };
 
-const registryManager = new NpmRegistryManager(npmConfig, backendManager);
+const registryManager = new PkgRegistryManager(pkgConfig, backendManager);
 
 // CI configuration
 const ciConfig = {
@@ -190,7 +190,7 @@ app.get('/health', async (c) => {
       compute: { status: 'healthy' },
       cdn: { status: 'healthy' },
       git: { status: 'healthy' },
-      npm: { status: 'healthy' },
+      pkg: { status: 'healthy' },
       ci: { status: 'healthy' },
       oauth3: { status: process.env.OAUTH3_AGENT_URL ? 'available' : 'not-configured' },
     },
@@ -203,13 +203,13 @@ app.get('/', (c) => {
     name: 'DWS',
     description: 'Decentralized Web Services',
     version: '1.0.0',
-    services: ['storage', 'compute', 'cdn', 'git', 'npm', 'ci', 'oauth3'],
+    services: ['storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'oauth3'],
     endpoints: {
       storage: '/storage/*',
       compute: '/compute/*',
       cdn: '/cdn/*',
       git: '/git/*',
-      npm: '/npm/*',
+      pkg: '/pkg/*',
       ci: '/ci/*',
       oauth3: '/oauth3/*',
       a2a: '/a2a/*',
@@ -222,7 +222,7 @@ app.route('/storage', createStorageRouter(backendManager));
 app.route('/compute', createComputeRouter());
 app.route('/cdn', createCDNRouter());
 app.route('/git', createGitRouter({ repoManager, backend: backendManager }));
-app.route('/npm', createNpmRouter({ registryManager, backend: backendManager }));
+app.route('/pkg', createPkgRouter({ registryManager, backend: backendManager }));
 app.route('/ci', createCIRouter({ workflowEngine, repoManager, backend: backendManager }));
 app.route('/oauth3', createOAuth3Router());
 app.route('/a2a', createA2ARouter());
@@ -320,7 +320,7 @@ app.get('/.well-known/agent-card.json', (c) => {
       { name: 'compute', endpoint: `${baseUrl}/compute` },
       { name: 'cdn', endpoint: `${baseUrl}/cdn` },
       { name: 'git', endpoint: `${baseUrl}/git` },
-      { name: 'npm', endpoint: `${baseUrl}/npm` },
+      { name: 'pkg', endpoint: `${baseUrl}/pkg` },
       { name: 'ci', endpoint: `${baseUrl}/ci` },
       { name: 'oauth3', endpoint: `${baseUrl}/oauth3` },
     ],
@@ -353,7 +353,7 @@ if (import.meta.main) {
   console.log(`[DWS] Running at ${baseUrl}`);
   console.log(`[DWS] Environment: ${isProduction ? 'production' : 'development'}`);
   console.log(`[DWS] Git registry: ${gitConfig.repoRegistryAddress}`);
-  console.log(`[DWS] NPM registry: ${npmConfig.packageRegistryAddress}`);
+  console.log(`[DWS] Package registry: ${pkgConfig.packageRegistryAddress}`);
   console.log(`[DWS] Identity registry (ERC-8004): ${decentralizedConfig.identityRegistryAddress}`);
   
   if (decentralizedConfig.frontendCid) {

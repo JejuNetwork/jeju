@@ -33,7 +33,8 @@ test.describe('Gateway Deploy Paymaster', () => {
     expect(body!.toLowerCase()).toMatch(/deploy|paymaster|token/);
   });
 
-  test.skip('should deploy paymaster successfully', async ({ wallet, _page }) => {
+  test('should deploy paymaster successfully', async ({ page, wallet }) => {
+    // Deploy with elizaOS token
     await deployPaymaster(page, wallet, {
       token: 'elizaOS'
     });

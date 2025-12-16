@@ -371,11 +371,14 @@ contract WorkerRegistry is Ownable, ReentrancyGuard {
         worker.totalInvocations++;
         if (!success) worker.totalErrors++;
 
-        // Handle prepaid payment
+        // Handle prepaid payment - deduct from caller's prepaid balance
         if (worker.paymentMode == PaymentMode.PREPAID && worker.pricePerInvocation > 0) {
-            // Caller pays
-            // Note: In practice, the gateway/provider handles payment collection
-            // This is for on-chain tracking
+            uint256 price = worker.pricePerInvocation;
+            if (prepaidBalances[tx.origin] < price) revert InsufficientPrepaid();
+            
+            // Deduct from caller and credit to worker owner
+            prepaidBalances[tx.origin] -= price;
+            prepaidBalances[worker.owner] += price;
         }
 
         emit WorkerInvoked(workerId, msg.sender, tx.origin, success);

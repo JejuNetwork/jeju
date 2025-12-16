@@ -26,7 +26,7 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
       serverInfo: {
         name: 'dws-mcp',
         version: '1.0.0',
-        description: 'Decentralized Web Services - Storage, Compute, CDN, Git, NPM',
+        description: 'Decentralized Web Services - Storage, Compute, CDN, Git, Pkg',
       },
     });
   });
@@ -39,7 +39,7 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
         { uri: 'dws://compute/status', name: 'Compute Status', mimeType: 'application/json', description: 'Compute marketplace status and active jobs' },
         { uri: 'dws://cdn/stats', name: 'CDN Statistics', mimeType: 'application/json', description: 'CDN cache hit rates and edge node status' },
         { uri: 'dws://git/repos', name: 'Git Repositories', mimeType: 'application/json', description: 'List of Git repositories' },
-        { uri: 'dws://npm/packages', name: 'NPM Packages', mimeType: 'application/json', description: 'Published NPM packages' },
+        { uri: 'dws://pkg/packages', name: 'Packages', mimeType: 'application/json', description: 'Published packages' },
         { uri: 'dws://ci/runs', name: 'CI/CD Runs', mimeType: 'application/json', description: 'Recent workflow runs' },
       ],
     });
@@ -71,8 +71,8 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
       case 'dws://git/repos':
         data = await fetchResource('/git/repos');
         break;
-      case 'dws://npm/packages':
-        data = await fetchResource('/npm/api/packages');
+      case 'dws://pkg/packages':
+        data = await fetchResource('/pkg/-/v1/search?text=');
         break;
       case 'dws://ci/runs':
         data = { runs: [], total: 0 }; // CI runs need repo context

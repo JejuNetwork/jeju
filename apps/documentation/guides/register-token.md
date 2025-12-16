@@ -181,15 +181,28 @@ cast send $TOKEN_REGISTRY "setEnabled(address,bool)" \
 Keep your oracle price updated:
 
 ```typescript
-import { ethers } from 'ethers';
+import { createWalletClient, http, getContract } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
+import { jeju } from './chains';
+
+const account = privateKeyToAccount(PRIVATE_KEY);
+const client = createWalletClient({
+  account,
+  chain: jeju,
+  transport: http(),
+});
 
 async function updateOraclePrice() {
   // Fetch price from exchange API
   const price = await fetchPriceFromExchange();
   
   // Update oracle
-  const oracle = new ethers.Contract(ORACLE_ADDRESS, OracleAbi, wallet);
-  await oracle.updatePrice(price);
+  const oracle = getContract({
+    address: ORACLE_ADDRESS,
+    abi: OracleAbi,
+    client,
+  });
+  await oracle.write.updatePrice([price]);
 }
 
 // Run every hour
