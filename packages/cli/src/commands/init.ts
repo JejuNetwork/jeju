@@ -316,11 +316,12 @@ CQL_BLOCK_PRODUCER_ENDPOINT=http://localhost:4300
 CQL_DATABASE_ID=${config.databaseId}
 COMPUTE_CACHE_ENDPOINT=http://localhost:4200/cache
 KMS_ENDPOINT=http://localhost:4400
-STORAGE_API_ENDPOINT=http://localhost:4010
-IPFS_GATEWAY=http://localhost:4180
-CRON_ENDPOINT=http://localhost:4200/cron
+DWS_URL=http://localhost:4030
+STORAGE_API_ENDPOINT=http://localhost:4030/storage
+IPFS_GATEWAY=http://localhost:4030/ipfs
+CRON_ENDPOINT=http://localhost:4030/compute/cron
 WEBHOOK_BASE=http://localhost:4500
-JNS_GATEWAY_URL=http://localhost:4020
+JNS_GATEWAY_URL=http://localhost:4022
 
 # x402 Payments
 X402_ENABLED=${config.x402Enabled}

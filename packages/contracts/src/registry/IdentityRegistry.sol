@@ -10,41 +10,11 @@ import "./interfaces/IIdentityRegistry.sol";
 
 /**
  * @title IdentityRegistry
- * @author Jeju Network (adapted from ChaosChain Labs)
- * @notice ERC-8004 v2.0 compliant agent identity registry with optional staking and futarchy governance
- * @dev Each agent is represented as an ERC-721 NFT with optional stake tiers and on-chain metadata
- *
- * Key Features:
- * - Permissionless registration (anyone can register for free)
- * - Optional stake tiers: None, Small (.001 ETH), Medium (.01 ETH), High (.1 ETH)
- * - Futarchy-based governance for slashing and banning via predimarket
- * - Higher stakes act as reputation signal and spam deterrent
- * - Refundable deposits on voluntary de-registration
- * - Tag-based discovery for filtering agents
- * - A2A endpoint storage for agent communication
- * - Appeals mechanism for unfair bans
- *
- * Architecture:
- * - ERC-721 compliance makes agents browsable and transferable
- * - Multi-token staking support (ETH, elizaOS, CLANKER, VIRTUAL, etc.)
- * - Governance contract controls bans and slashing
- * - Predimarket integration for decentralized decision-making
- * - Reputation oracle aggregates multiple signals
- *
- * Integration with Jeju:
- * - Agents can earn fees through paymaster system
- * - Agent NFTs gate access to premium features
- * - Stake tiers influence trustworthiness scores
- * - Gateway UI provides full CRUD interface
- *
- * @custom:security-contact security@jeju.network
+ * @notice ERC-8004 v2.0 compliant agent identity registry with optional staking
  */
 contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdentityRegistry {
     using SafeERC20 for IERC20;
 
-    // ============ Enums ============
-
-    /// @notice Stake tier levels
     enum StakeTier {
         NONE, // Free registration, no stake
         SMALL, // .001 ETH (~$3.50)
@@ -53,9 +23,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
 
     }
 
-    // ============ Structs ============
-
-    /// @notice Agent registration data
     struct AgentRegistration {
         uint256 agentId;
         address owner;
@@ -98,23 +65,12 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
     /// @notice Tags per agent (for discovery)
     mapping(uint256 => string[]) private _agentTags;
 
-    /// @notice Reverse mapping: tag => agentIds
     mapping(string => uint256[]) private _tagToAgents;
-
-    /// @notice Supported stake tokens (ETH = address(0))
     address[] public supportedStakeTokens;
     mapping(address => bool) public isSupportedStakeToken;
-
-    /// @notice Total staked per token
     mapping(address => uint256) public totalStakedByToken;
-
-    /// @notice Governance contract (can slash/ban)
     address public governance;
-
-    /// @notice Reputation oracle contract
     address public reputationOracle;
-
-    // ============ Events ============
 
     event Registered(
         uint256 indexed agentId, address indexed owner, StakeTier tier, uint256 stakedAmount, string tokenURI
@@ -131,7 +87,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
     event StakeTokenAdded(address indexed token);
     event StakeTokenRemoved(address indexed token);
 
-    // ============ Errors ============
 
     error MetadataTooLarge();
     error KeyTooLong();
@@ -160,7 +115,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         _;
     }
 
-    // ============ Constructor ============
 
     constructor() ERC721("ERC-8004 Trustless Agent", "AGENT") {
         _nextAgentId = 1; // Start from 1, 0 is invalid
@@ -181,17 +135,12 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         _addSupportedToken(token);
     }
 
-    /**
-     * @notice Remove a supported stake token
-     * @param token Token address to remove
-     */
     function removeSupportedToken(address token) external onlyGovernance {
         require(isSupportedStakeToken[token], "Token not supported");
         require(totalStakedByToken[token] == 0, "Token has active stakes");
 
         isSupportedStakeToken[token] = false;
 
-        // Remove from array
         for (uint256 i = 0; i < supportedStakeTokens.length; i++) {
             if (supportedStakeTokens[i] == token) {
                 supportedStakeTokens[i] = supportedStakeTokens[supportedStakeTokens.length - 1];
@@ -203,9 +152,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         emit StakeTokenRemoved(token);
     }
 
-    /**
-     * @notice Update governance contract
-     */
     function setGovernance(address newGovernance) external onlyGovernance {
         require(newGovernance != address(0), "Invalid governance");
         address oldGovernance = governance;
@@ -222,28 +168,14 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         emit ReputationOracleUpdated(oldOracle, newOracle);
     }
 
-    /**
-     * @notice Pause registrations (emergency)
-     */
     function pause() external onlyGovernance {
         _pause();
     }
 
-    /**
-     * @notice Unpause registrations
-     */
     function unpause() external onlyGovernance {
         _unpause();
     }
 
-    // ============ Registration Functions ============
-
-    /**
-     * @notice Register a new agent with tokenURI and metadata (free, no stake)
-     * @param tokenURI_ The URI pointing to the agent's registration JSON file
-     * @param metadata Array of metadata entries to set for the agent
-     * @return agentId The newly assigned agent ID
-     */
     function register(string calldata tokenURI_, MetadataEntry[] calldata metadata)
         external
         nonReentrant
@@ -251,39 +183,19 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         returns (uint256 agentId)
     {
         agentId = _mintAgent(msg.sender, tokenURI_);
-
-        // Set metadata if provided
         if (metadata.length > 0) {
             _setMetadataBatch(agentId, metadata);
         }
     }
 
-    /**
-     * @notice Register a new agent with tokenURI only (free, no stake)
-     * @param tokenURI_ The URI pointing to the agent's registration JSON file
-     * @return agentId The newly assigned agent ID
-     */
     function register(string calldata tokenURI_) external nonReentrant whenNotPaused returns (uint256 agentId) {
         agentId = _mintAgent(msg.sender, tokenURI_);
     }
 
-    /**
-     * @notice Register a new agent without tokenURI (free, no stake)
-     * @dev The tokenURI can be set later using _setTokenURI() by the owner
-     * @return agentId The newly assigned agent ID
-     */
     function register() external nonReentrant whenNotPaused returns (uint256 agentId) {
         agentId = _mintAgent(msg.sender, "");
     }
 
-    /**
-     * @notice Register with optional stake for reputation boost
-     * @param tokenURI_ The URI pointing to the agent's registration JSON file
-     * @param metadata Array of metadata entries
-     * @param tier_ Stake tier (SMALL, MEDIUM, or HIGH)
-     * @param stakeToken_ Token to stake (address(0) for ETH)
-     * @return agentId The newly assigned agent ID
-     */
     function registerWithStake(
         string calldata tokenURI_,
         MetadataEntry[] calldata metadata,
@@ -295,37 +207,26 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
 
         uint256 requiredStake = getStakeAmount(tier_);
 
-        // Validate and collect stake
         if (stakeToken_ == address(0)) {
-            // ETH staking
             if (msg.value != requiredStake) revert InvalidStakeAmount();
         } else {
-            // ERC20 staking
             if (msg.value != 0) revert InvalidStakeAmount();
             IERC20(stakeToken_).safeTransferFrom(msg.sender, address(this), requiredStake);
         }
 
-        // Mint agent NFT
         agentId = _mintAgent(msg.sender, tokenURI_);
 
-        // Update stake info
         AgentRegistration storage agent = agents[agentId];
         agent.tier = tier_;
         agent.stakedToken = stakeToken_;
         agent.stakedAmount = requiredStake;
         totalStakedByToken[stakeToken_] += requiredStake;
 
-        // Set metadata if provided
         if (metadata.length > 0) {
             _setMetadataBatch(agentId, metadata);
         }
     }
 
-    /**
-     * @notice Increase stake tier (upgrade only)
-     * @param agentId Agent ID to upgrade
-     * @param newTier New stake tier (must be higher)
-     */
     function increaseStake(uint256 agentId, StakeTier newTier) external payable nonReentrant notBanned(agentId) {
         AgentRegistration storage agent = agents[agentId];
         if (msg.sender != agent.owner) revert NotAgentOwner();
@@ -335,7 +236,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         uint256 requiredStake = getStakeAmount(newTier);
         uint256 additionalStake = requiredStake - currentStake;
 
-        // Collect additional stake
         if (agent.stakedToken == address(0)) {
             if (msg.value != additionalStake) revert InvalidStakeAmount();
         } else {

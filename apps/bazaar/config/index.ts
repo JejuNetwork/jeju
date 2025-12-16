@@ -128,6 +128,6 @@ function getDefaultOifAggregatorUrl(): string {
   switch (NETWORK) {
     case 'mainnet': return 'https://oif.jeju.network';
     case 'testnet': return 'https://testnet-oif.jeju.network';
-    default: return 'http://localhost:4010';
+    default: return 'http://localhost:4030/oif';
   }
 }

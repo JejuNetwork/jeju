@@ -46,20 +46,20 @@ library ModerationMixin {
         if (!self.identityRegistry.agentExists(agentId)) return false;
 
         if (self.banManager != address(0)) {
-            (bool success, bytes memory data) = self.banManager.staticcall(
+            (bool banSuccess, bytes memory banData) = self.banManager.staticcall(
                 abi.encodeWithSignature("isNetworkBanned(uint256)", agentId)
             );
-            if (success && data.length >= 32) {
-                if (abi.decode(data, (bool))) return true;
+            if (banSuccess && banData.length >= 32) {
+                if (abi.decode(banData, (bool))) return true;
             }
         }
 
-        (bool success, bytes memory data) = address(self.identityRegistry).staticcall(
+        (bool regSuccess, bytes memory regData) = address(self.identityRegistry).staticcall(
             abi.encodeWithSignature("getMarketplaceInfo(uint256)", agentId)
         );
 
-        if (success && data.length >= 224) {
-            (,,,,,, bool banned) = abi.decode(data, (string, string, string, string, bool, uint8, bool));
+        if (regSuccess && regData.length >= 224) {
+            (,,,,,, bool banned) = abi.decode(regData, (string, string, string, string, bool, uint8, bool));
             return banned;
         }
 

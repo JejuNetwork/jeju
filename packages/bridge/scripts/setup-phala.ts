@@ -1,6 +1,8 @@
 #!/usr/bin/env bun
 
 /**
+ * @deprecated Use 'jeju deploy zkbridge-setup --phala' instead
+ * 
  * Phala TEE Setup Script
  *
  * Provisions a Phala TEE endpoint for secure attestation.
@@ -9,6 +11,9 @@
  * Requirements:
  * - Wallet with some PHA tokens (for gas)
  * - Or API key from Phala dashboard
+ *
+ * Usage:
+ *   jeju deploy zkbridge-setup --phala
  *
  * Environment variables (checked in order):
  * - PHALA_API_KEY: Direct API key

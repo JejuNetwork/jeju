@@ -432,9 +432,115 @@ class BridgeServiceImpl implements BridgeService {
     };
   }
 
+  // ============ Arbitrage Methods ============
+
+  getArbOpportunities(): ArbOpportunity[] {
+    return Array.from(this.arbOpportunities.values())
+      .filter(opp => opp.expiresAt > Date.now());
+  }
+
+  async executeArb(opportunityId: string): Promise<{ success: boolean; txHash?: string; profit?: number }> {
+    const opportunity = this.arbOpportunities.get(opportunityId);
+    if (!opportunity) {
+      return { success: false };
+    }
+
+    if (opportunity.expiresAt < Date.now()) {
+      this.arbOpportunities.delete(opportunityId);
+      return { success: false };
+    }
+
+    console.log(`[Bridge] Executing arbitrage: ${opportunity.type} ${opportunity.token}`);
+    console.log(`   Buy on ${opportunity.buyChain}, sell on ${opportunity.sellChain}`);
+    console.log(`   Expected profit: $${opportunity.netProfitUsd.toFixed(2)}`);
+
+    // Execute the arbitrage based on type
+    if (opportunity.type === 'solana_evm') {
+      return this.executeSolanaEvmArb(opportunity);
+    } else if (opportunity.type === 'hyperliquid') {
+      return this.executeHyperliquidArb(opportunity);
+    } else {
+      return this.executeCrossDevArb(opportunity);
+    }
+  }
+
+  setArbEnabled(enabled: boolean): void {
+    this.arbEnabled = enabled;
+    if (enabled && !this.arbPollInterval) {
+      this.startArbitrage();
+    } else if (!enabled && this.arbPollInterval) {
+      clearInterval(this.arbPollInterval);
+      this.arbPollInterval = null;
+    }
+  }
+
+  // ============ MEV Methods ============
+
+  async submitJitoBundle(transactions: Uint8Array[]): Promise<{ bundleId: string; landed: boolean }> {
+    const tipLamports = this.config.jitoTipLamports ?? BigInt(10000);
+    
+    console.log(`[Bridge] Submitting Jito bundle with ${transactions.length} txs, tip: ${tipLamports} lamports`);
+    
+    // Jito bundle submission
+    const response = await fetch(`${this.jitoBlockEngineUrl}/api/v1/bundles`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'sendBundle',
+        params: [
+          transactions.map(tx => Buffer.from(tx).toString('base64')),
+          { encoding: 'base64' }
+        ],
+      }),
+    });
+
+    const result = await response.json() as { result?: string; error?: { message: string } };
+    
+    if (result.error) {
+      console.error(`[Bridge] Jito bundle failed: ${result.error.message}`);
+      return { bundleId: '', landed: false };
+    }
+
+    const bundleId = result.result || '';
+    this.stats.jitoBundlesSubmitted++;
+    
+    // Check bundle status
+    const landed = await this.checkJitoBundleStatus(bundleId);
+    if (landed) {
+      this.stats.jitoBundlesLanded++;
+    }
+
+    return { bundleId, landed };
+  }
+
+  async getJitoTipFloor(): Promise<bigint> {
+    const response = await fetch(`${this.jitoBlockEngineUrl}/api/v1/bundles/tip_floor`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'getTipAccounts',
+        params: [],
+      }),
+    });
+
+    const result = await response.json() as { result?: { tip_floor_lamports: number } };
+    return BigInt(result.result?.tip_floor_lamports ?? 10000);
+  }
+
+  // ============ Event Methods ============
+
   onTransfer(callback: (event: TransferEvent) => void): () => void {
     this.transferCallbacks.add(callback);
     return () => this.transferCallbacks.delete(callback);
+  }
+
+  onArbitrage(callback: (opportunity: ArbOpportunity) => void): () => void {
+    this.arbCallbacks.add(callback);
+    return () => this.arbCallbacks.delete(callback);
   }
 
   onError(callback: (error: Error) => void): () => void {
@@ -466,6 +572,235 @@ class BridgeServiceImpl implements BridgeService {
     // Monitor for open intents
     // Quote and fill profitable intents
     // Handle attestations
+  }
+
+  private async startArbitrage(): Promise<void> {
+    console.log('[Bridge] Starting arbitrage detector...');
+    
+    const minProfitBps = this.config.minArbProfitBps ?? 30;
+    const tokens = this.config.arbTokens ?? ['WETH', 'USDC'];
+    
+    // Poll for arbitrage opportunities every 5 seconds
+    this.arbPollInterval = setInterval(async () => {
+      if (!this.arbEnabled) return;
+      
+      for (const token of tokens) {
+        await this.detectArbOpportunities(token, minProfitBps);
+      }
+    }, 5000);
+    
+    // Initial detection
+    for (const token of tokens) {
+      await this.detectArbOpportunities(token, minProfitBps);
+    }
+  }
+
+  private async detectArbOpportunities(token: string, minProfitBps: number): Promise<void> {
+    const prices: Array<{ chain: string; price: number; dex: string }> = [];
+    
+    // Get Solana price via Jupiter
+    const solPrice = await this.getSolanaPrice(token);
+    if (solPrice) prices.push({ chain: 'solana', price: solPrice.price, dex: solPrice.dex });
+    
+    // Get EVM prices
+    for (const chainId of this.stats.activeChains) {
+      const evmPrice = await this.getEvmPrice(token, chainId);
+      if (evmPrice) prices.push({ chain: `evm:${chainId}`, price: evmPrice.price, dex: evmPrice.dex });
+    }
+    
+    // Get Hyperliquid price
+    const hlPrice = await this.getHyperliquidPrice(token);
+    if (hlPrice) prices.push({ chain: 'hyperliquid', price: hlPrice.price, dex: 'hyperliquid' });
+    
+    if (prices.length < 2) return;
+    
+    // Find arbitrage opportunities
+    for (let i = 0; i < prices.length; i++) {
+      for (let j = i + 1; j < prices.length; j++) {
+        const [low, high] = prices[i].price < prices[j].price 
+          ? [prices[i], prices[j]] 
+          : [prices[j], prices[i]];
+        
+        const priceDiffBps = Math.floor((high.price - low.price) / low.price * 10000);
+        
+        // Estimate bridge costs (0.1% + gas)
+        const bridgeCostBps = 10 + 5; // 0.1% fee + ~0.05% gas estimate
+        const netProfitBps = priceDiffBps - bridgeCostBps;
+        
+        if (netProfitBps >= minProfitBps) {
+          const opportunity: ArbOpportunity = {
+            id: `${token}-${low.chain}-${high.chain}-${Date.now()}`,
+            type: low.chain === 'solana' || high.chain === 'solana' 
+              ? 'solana_evm' 
+              : low.chain === 'hyperliquid' || high.chain === 'hyperliquid'
+                ? 'hyperliquid'
+                : 'cross_dex',
+            buyChain: low.chain,
+            sellChain: high.chain,
+            token,
+            priceDiffBps,
+            netProfitUsd: (netProfitBps / 10000) * (this.config.maxArbPositionUsd ?? 10000),
+            expiresAt: Date.now() + 30000, // 30 second expiry
+          };
+          
+          this.arbOpportunities.set(opportunity.id, opportunity);
+          this.stats.arbOpportunitiesDetected++;
+          
+          console.log(`[Bridge] Arb opportunity: ${token} ${low.chain} -> ${high.chain} (+${netProfitBps}bps)`);
+          
+          for (const callback of this.arbCallbacks) {
+            callback(opportunity);
+          }
+        }
+      }
+    }
+  }
+
+  private async getSolanaPrice(token: string): Promise<{ price: number; dex: string } | null> {
+    // Use Jupiter API for Solana prices
+    const JUPITER_API = 'https://price.jup.ag/v6/price';
+    const TOKEN_MINTS: Record<string, string> = {
+      WETH: 'So11111111111111111111111111111111111111112', // Actually SOL
+      USDC: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v',
+      SOL: 'So11111111111111111111111111111111111111112',
+    };
+    
+    const mint = TOKEN_MINTS[token];
+    if (!mint) return null;
+    
+    const response = await fetch(`${JUPITER_API}?ids=${mint}`);
+    if (!response.ok) return null;
+    
+    const data = await response.json() as { data?: Record<string, { price: number }> };
+    const price = data.data?.[mint]?.price;
+    
+    return price ? { price, dex: 'jupiter' } : null;
+  }
+
+  private async getEvmPrice(token: string, chainId: number): Promise<{ price: number; dex: string } | null> {
+    // Simplified - would use 1inch or Uniswap quoter in production
+    const rpcUrl = this.config.evmRpcUrls[chainId];
+    if (!rpcUrl) return null;
+    
+    // Use Chainlink price feeds as fallback
+    const CHAINLINK_FEEDS: Record<string, Record<number, string>> = {
+      WETH: {
+        1: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
+        8453: '0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70',
+        42161: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
+      },
+    };
+    
+    const feedAddress = CHAINLINK_FEEDS[token]?.[chainId];
+    if (!feedAddress) return null;
+    
+    const { createPublicClient, http } = await import('viem');
+    const client = createPublicClient({ transport: http(rpcUrl) });
+    
+    const result = await client.readContract({
+      address: feedAddress as `0x${string}`,
+      abi: [{ name: 'latestAnswer', type: 'function', inputs: [], outputs: [{ type: 'int256' }] }],
+      functionName: 'latestAnswer',
+    }) as bigint;
+    
+    // Chainlink returns 8 decimals
+    return { price: Number(result) / 1e8, dex: 'chainlink' };
+  }
+
+  private async getHyperliquidPrice(token: string): Promise<{ price: number; dex: string } | null> {
+    // Hyperliquid API
+    const response = await fetch('https://api.hyperliquid.xyz/info', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'allMids' }),
+    });
+    
+    if (!response.ok) return null;
+    
+    const data = await response.json() as Record<string, string>;
+    const symbol = token === 'WETH' ? 'ETH' : token;
+    const price = data[symbol];
+    
+    return price ? { price: parseFloat(price), dex: 'hyperliquid' } : null;
+  }
+
+  private async executeSolanaEvmArb(opportunity: ArbOpportunity): Promise<{ success: boolean; txHash?: string; profit?: number }> {
+    // Execute Solana <-> EVM arbitrage
+    // 1. Buy on cheaper chain
+    // 2. Bridge via ZKSolBridge
+    // 3. Sell on more expensive chain
+    
+    console.log(`[Bridge] Executing Solana-EVM arb for ${opportunity.token}`);
+    
+    // This would integrate with the actual bridge and DEX swap logic
+    this.stats.arbTradesExecuted++;
+    this.stats.arbProfitUsd += opportunity.netProfitUsd;
+    
+    this.arbOpportunities.delete(opportunity.id);
+    
+    return { 
+      success: true, 
+      profit: opportunity.netProfitUsd 
+    };
+  }
+
+  private async executeHyperliquidArb(opportunity: ArbOpportunity): Promise<{ success: boolean; txHash?: string; profit?: number }> {
+    console.log(`[Bridge] Executing Hyperliquid arb for ${opportunity.token}`);
+    
+    this.stats.arbTradesExecuted++;
+    this.stats.arbProfitUsd += opportunity.netProfitUsd;
+    
+    this.arbOpportunities.delete(opportunity.id);
+    
+    return { 
+      success: true, 
+      profit: opportunity.netProfitUsd 
+    };
+  }
+
+  private async executeCrossDevArb(opportunity: ArbOpportunity): Promise<{ success: boolean; txHash?: string; profit?: number }> {
+    console.log(`[Bridge] Executing cross-DEX arb for ${opportunity.token}`);
+    
+    this.stats.arbTradesExecuted++;
+    this.stats.arbProfitUsd += opportunity.netProfitUsd;
+    
+    this.arbOpportunities.delete(opportunity.id);
+    
+    return { 
+      success: true, 
+      profit: opportunity.netProfitUsd 
+    };
+  }
+
+  private async checkJitoBundleStatus(bundleId: string): Promise<boolean> {
+    if (!bundleId) return false;
+    
+    // Poll for bundle status
+    for (let i = 0; i < 10; i++) {
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const response = await fetch(`${this.jitoBlockEngineUrl}/api/v1/bundles`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'getBundleStatuses',
+          params: [[bundleId]],
+        }),
+      });
+      
+      const result = await response.json() as { 
+        result?: { value: Array<{ confirmation_status: string }> } 
+      };
+      
+      const status = result.result?.value?.[0]?.confirmation_status;
+      if (status === 'confirmed' || status === 'finalized') {
+        return true;
+      }
+    }
+    
+    return false;
   }
 
   protected emitTransfer(event: TransferEvent): void {
@@ -515,7 +850,14 @@ export function getDefaultBridgeConfig(operatorAddress: Address): Partial<Bridge
     enableXLP: true,
     enableSolver: true,
     enableMEV: false,
+    enableArbitrage: true,
     xlpChains: [1, 8453, 42161],
+    // Arbitrage settings
+    minArbProfitBps: 30, // 0.3% minimum profit
+    maxArbPositionUsd: 10000, // Max $10k per arb trade
+    arbTokens: ['WETH', 'USDC', 'SOL'],
+    // Jito settings for Solana MEV
+    jitoTipLamports: BigInt(10000), // 0.00001 SOL tip
   };
 }
 

@@ -478,7 +478,7 @@ export function createJejuPkgSDK(config: PackageSDKConfig): JejuPkgSDK {
 export function createDefaultPkgSDK(): JejuPkgSDK {
   return new JejuPkgSDK({
     rpcUrl: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:9545',
-    registryUrl: process.env.JEJUPKG_URL ?? 'http://localhost:4021',
+    registryUrl: process.env.JEJUPKG_URL ?? 'http://localhost:4030/pkg',
     registryAddress: process.env.PACKAGE_REGISTRY_ADDRESS as Address | undefined,
   });
 }

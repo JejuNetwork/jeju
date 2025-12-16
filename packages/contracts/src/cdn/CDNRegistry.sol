@@ -7,88 +7,36 @@ import {ICDNTypes} from "./ICDNTypes.sol";
 
 /**
  * @title CDNRegistry
- * @author Jeju Network
  * @notice Registry for decentralized CDN providers and edge nodes
- * @dev Supports permissionless registration of edge nodes, cloud CDN providers,
- *      and hybrid configurations. Integrates with ERC-8004 for identity verification.
- *      Provider registration inherits from ProviderRegistryBase for standardized patterns.
- *
- * Key Features:
- * - Permissionless edge node registration with staking
- * - Support for cloud CDN providers (CloudFront, Cloudflare, etc.)
- * - Support for decentralized CDN networks (Fleek, Pipe, AIOZ)
- * - Geographic region tracking for optimal routing
- * - Usage reporting and billing settlement
- * - Integration with reputation system
  */
 contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
     using ERC8004ProviderMixin for ERC8004ProviderMixin.Data;
 
-    // ============ State ============
-
-    /// @notice Minimum stake required to register an edge node
     uint256 public minNodeStake = 0.001 ether;
-
-    /// @notice Provider data by address
     mapping(address => Provider) private _providers;
 
-    /// @notice Provider capabilities
     mapping(address => ProviderCapabilities) private _capabilities;
-
-    /// @notice Provider pricing
     mapping(address => ProviderPricing) private _pricing;
-
-    /// @notice Provider metrics
     mapping(address => ProviderMetrics) private _metrics;
-
-    /// @notice Provider regions (provider => Region[])
     mapping(address => Region[]) private _providerRegions;
-
-    /// @notice Edge nodes by ID
     mapping(bytes32 => EdgeNode) private _edgeNodes;
-
-    /// @notice Edge node metrics
     mapping(bytes32 => EdgeNodeMetrics) private _nodeMetrics;
-
-    /// @notice Operator to node IDs mapping
     mapping(address => bytes32[]) private _operatorNodes;
-
-    /// @notice Nodes by region
     mapping(Region => bytes32[]) private _regionNodes;
-
-    /// @notice All edge node IDs
     bytes32[] private _nodeList;
-
-    /// @notice Sites by ID
     mapping(bytes32 => Site) private _sites;
-
-    /// @notice Owner to site IDs
     mapping(address => bytes32[]) private _ownerSites;
-
-    /// @notice Invalidation requests
     mapping(bytes32 => InvalidationRequest) private _invalidations;
-
-    /// @notice Usage records by node
     mapping(bytes32 => UsageRecord[]) private _usageRecords;
-
-    /// @notice Billing records by user
     mapping(address => BillingRecord[]) private _billingRecords;
-
-    /// @notice Node count
     uint256 public nodeCount;
-
-    /// @notice Site count
     uint256 public siteCount;
-
-    // ============ Events ============
 
     event ProviderRegistered(
         address indexed provider, string name, ProviderType providerType, uint256 stake, uint256 agentId
     );
-    event CDNProviderUpdated(address indexed provider); // Renamed to avoid conflict
+    event CDNProviderUpdated(address indexed provider);
     event StakeSlashed(address indexed provider, uint256 amount, string reason);
-
-    // ============ Errors ============
 
     error NodeNotFound();
     error SiteNotFound();
@@ -99,7 +47,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
     error InvalidProviderType();
     error InvalidName();
 
-    // ============ Constructor ============
 
     constructor(
         address _owner,
@@ -108,15 +55,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         uint256 _minProviderStake
     ) ProviderRegistryBase(_owner, _identityRegistry, _banManager, _minProviderStake) {}
 
-    // ============ Provider Registration ============
-
-    /**
-     * @notice Register as a CDN provider (without ERC-8004 agent)
-     * @param name Provider display name
-     * @param endpoint API endpoint URL
-     * @param providerType Type of CDN provider
-     * @param attestationHash Hash of attestation/verification data
-     */
     function registerProvider(
         string calldata name,
         string calldata endpoint,
@@ -131,14 +69,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         _storeProviderData(msg.sender, name, endpoint, providerType, attestationHash, 0);
     }
 
-    /**
-     * @notice Register as a CDN provider with ERC-8004 agent verification
-     * @param name Provider display name
-     * @param endpoint API endpoint URL
-     * @param providerType Type of CDN provider
-     * @param attestationHash Hash of attestation data
-     * @param agentId ERC-8004 agent ID for identity verification
-     */
     function registerProviderWithAgent(
         string calldata name,
         string calldata endpoint,
@@ -154,9 +84,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         _storeProviderData(msg.sender, name, endpoint, providerType, attestationHash, agentId);
     }
 
-    /**
-     * @dev Store provider-specific data after base registration
-     */
     function _storeProviderData(
         address provider,
         string calldata name,
@@ -181,24 +108,12 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit ProviderRegistered(provider, name, providerType, msg.value, agentId);
     }
 
-    /**
-     * @dev Hook called by base contract during registration
-     */
     function _onProviderRegistered(address provider, uint256 agentId, uint256 stake) internal override {
         if (_providers[provider].registeredAt != 0) {
             revert ProviderAlreadyRegistered();
         }
-        // Provider data will be stored by _storeProviderData after this hook
     }
 
-    // ============ Edge Node Registration ============
-
-    /**
-     * @notice Register an edge node
-     * @param endpoint Edge node endpoint URL
-     * @param region Geographic region
-     * @param providerType Type of provider (decentralized, residential, etc.)
-     */
     function registerEdgeNode(
         string calldata endpoint,
         Region region,
@@ -207,19 +122,14 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         return _registerEdgeNodeInternal(endpoint, region, providerType, 0);
     }
 
-    /**
-     * @notice Register an edge node with ERC-8004 agent
-     */
     function registerEdgeNodeWithAgent(
         string calldata endpoint,
         Region region,
         ProviderType providerType,
         uint256 agentId
     ) external payable nonReentrant returns (bytes32 nodeId) {
-        // Verify agent ownership
         ERC8004ProviderMixin.verifyAgentOwnership(erc8004, msg.sender, agentId);
         moderation.requireAgentNotBanned(agentId);
-
         return _registerEdgeNodeInternal(endpoint, region, providerType, agentId);
     }
 
@@ -260,11 +170,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         return nodeId;
     }
 
-    // ============ Node Management ============
-
-    /**
-     * @notice Update edge node status
-     */
     function updateNodeStatus(bytes32 nodeId, NodeStatus status) external {
         EdgeNode storage node = _edgeNodes[nodeId];
         if (node.operator != msg.sender && msg.sender != owner()) revert NotNodeOperator();
@@ -275,9 +180,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit EdgeNodeStatusUpdated(nodeId, status);
     }
 
-    /**
-     * @notice Report edge node metrics
-     */
     function reportNodeMetrics(
         bytes32 nodeId,
         uint256 currentLoad,
@@ -299,7 +201,7 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
             requestsPerSecond: requestsPerSecond,
             bytesServedTotal: bytesServedTotal,
             requestsTotal: requestsTotal,
-            cacheSize: 0, // Can be updated separately
+            cacheSize: 0,
             cacheEntries: 0,
             cacheHitRate: cacheHitRate,
             avgResponseTime: avgResponseTime,
@@ -309,9 +211,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         node.lastSeen = block.timestamp;
     }
 
-    /**
-     * @notice Deactivate an edge node
-     */
     function deactivateNode(bytes32 nodeId, string calldata reason) external {
         EdgeNode storage node = _edgeNodes[nodeId];
         if (node.operator != msg.sender && msg.sender != owner()) revert NotNodeOperator();
@@ -321,7 +220,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit EdgeNodeDeactivated(nodeId, node.operator, reason);
     }
 
-    // ============ Provider Management ============
 
     function deactivateProvider() external {
         Provider storage provider = _providers[msg.sender];
@@ -342,11 +240,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit ProviderReactivated(msg.sender);
     }
 
-    // ============ Site Management ============
-
-    /**
-     * @notice Create a CDN site configuration
-     */
     function createSite(
         string calldata domain,
         string calldata origin
@@ -372,9 +265,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         return siteId;
     }
 
-    /**
-     * @notice Update site content hash (for cache invalidation)
-     */
     function updateSiteContent(bytes32 siteId, bytes32 contentHash) external {
         Site storage site = _sites[siteId];
         if (site.owner != msg.sender) revert NotSiteOwner();
@@ -385,11 +275,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit SiteUpdated(siteId, contentHash);
     }
 
-    // ============ Cache Invalidation ============
-
-    /**
-     * @notice Request cache invalidation
-     */
     function requestInvalidation(
         bytes32 siteId,
         string[] calldata paths,
@@ -416,9 +301,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         return requestId;
     }
 
-    /**
-     * @notice Mark invalidation as completed (called by nodes or coordinator)
-     */
     function completeInvalidation(bytes32 requestId, uint256 nodesProcessed) external onlyOwner {
         InvalidationRequest storage inv = _invalidations[requestId];
         inv.completed = true;
@@ -427,11 +309,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit InvalidationCompleted(requestId, nodesProcessed);
     }
 
-    // ============ Usage Reporting ============
-
-    /**
-     * @notice Report usage from an edge node
-     */
     function reportUsage(
         bytes32 nodeId,
         uint256 periodStart,
@@ -467,11 +344,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit UsageReported(nodeId, msg.sender, bytesEgress, requests, periodEnd - periodStart);
     }
 
-    // ============ Staking ============
-
-    /**
-     * @notice Add stake to provider
-     */
     function addProviderStake() external payable nonReentrant {
         Provider storage provider = _providers[msg.sender];
         if (provider.registeredAt == 0) revert ProviderNotRegistered();
@@ -480,9 +352,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit StakeAdded(msg.sender, msg.value, provider.stake);
     }
 
-    /**
-     * @notice Add stake to edge node
-     */
     function addNodeStake(bytes32 nodeId) external payable {
         EdgeNode storage node = _edgeNodes[nodeId];
         if (node.operator != msg.sender) revert NotNodeOperator();
@@ -490,9 +359,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit StakeAdded(msg.sender, msg.value, node.stake);
     }
 
-    /**
-     * @notice Withdraw provider stake
-     */
     function withdrawProviderStake(uint256 amount) external nonReentrant {
         Provider storage provider = _providers[msg.sender];
         if (provider.registeredAt == 0) revert ProviderNotRegistered();
@@ -509,7 +375,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         emit StakeWithdrawn(msg.sender, amount);
     }
 
-    // ============ View Functions ============
 
     function getProvider(address provider) external view returns (Provider memory) {
         return _providers[provider];
@@ -522,8 +387,8 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
             pricing: _pricing[provider],
             metrics: _metrics[provider],
             regions: _providerRegions[provider],
-            healthScore: 0, // Calculated off-chain
-            reputationScore: 0 // From reputation system
+            healthScore: 0,
+            reputationScore: 0
         });
     }
 
@@ -595,7 +460,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         return _usageRecords[nodeId];
     }
 
-    // ============ Admin Functions ============
 
     function setMinNodeStake(uint256 _minStake) external onlyOwner {
         minNodeStake = _minStake;
@@ -631,7 +495,6 @@ contract CDNRegistry is ICDNTypes, ProviderRegistryBase {
         }
         p.stake -= amount;
 
-        // Send slashed amount to owner (could be treasury)
         (bool success,) = owner().call{value: amount}("");
         if (!success) revert TransferFailed();
 

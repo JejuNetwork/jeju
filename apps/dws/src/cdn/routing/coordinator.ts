@@ -11,11 +11,21 @@
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { logger } from 'hono/logger';
-import { createPublicClient, createWalletClient, http, readContract, writeContract, waitForTransactionReceipt, type Address, type Chain } from 'viem';
+import { createPublicClient, createWalletClient, http, type Address } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
+import { base, baseSepolia, localhost } from 'viem/chains';
 import { GeoRouter, getGeoRouter } from './geo-router';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+
+function inferChainFromRpcUrl(rpcUrl: string) {
+  if (rpcUrl.includes('base-sepolia') || rpcUrl.includes('84532')) {
+    return baseSepolia;
+  }
+  if (rpcUrl.includes('base') && !rpcUrl.includes('localhost')) {
+    return base;
+  }
+  return localhost;
+}
 import type {
   CoordinatorConfig,
   ConnectedEdgeNode,
@@ -205,14 +215,14 @@ export class CDNCoordinator {
       : `0x${body.nodeId.padStart(64, '0')}`;
 
     try {
-      const onChainNode = await readContract(this.publicClient, {
+      const onChainNode = await this.publicClient.readContract({
         address: this.registryAddress,
         abi: CDN_REGISTRY_ABI,
         functionName: 'getEdgeNode',
         args: [nodeIdBytes as `0x${string}`],
       }) as { operator: Address };
       if (!onChainNode || onChainNode.operator === '0x0000000000000000000000000000000000000000') {
-        return c.json({ error: 'Node not registered on-chain' }, 400);
+        return c.json({ error: 'Node not registered on-chain' }, { status: 400 });
       }
     } catch {
       // Registry might not be deployed, allow registration anyway

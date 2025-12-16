@@ -470,12 +470,14 @@ export class YieldFarmingStrategy extends EventEmitter {
 
     for (const market of markets) {
       try {
-        const reserveData = await client.readContract({
+        const reserveDataRaw = await client.readContract({
           address: poolAddress,
           abi: AAVE_POOL_ABI,
           functionName: 'getReserveData',
           args: [market.address as Address],
-        }) as { currentLiquidityRate: bigint };
+        });
+        // Aave V3 returns tuple where index 2 is currentLiquidityRate
+        const reserveData = { currentLiquidityRate: (reserveDataRaw as readonly bigint[])[2] };
 
         // Convert ray (27 decimals) to APR percentage
         const supplyApr = Number(reserveData.currentLiquidityRate) / 1e27 * 100;
@@ -1077,30 +1079,14 @@ export class YieldFarmingStrategy extends EventEmitter {
         const tokenAddress = opp.tokens[0]?.address;
         if (!poolAddress || !tokenAddress) throw new Error('Missing Aave pool or token address');
 
-        const reserveData = await client.readContract({
+        const reserveDataRaw = await client.readContract({
           address: poolAddress,
           abi: AAVE_POOL_ABI,
           functionName: 'getReserveData',
           args: [tokenAddress as Address],
-        }) as readonly [
-          bigint, // configuration
-          bigint, // liquidityIndex
-          bigint, // currentLiquidityRate (ray, 27 decimals)
-          bigint, // variableBorrowIndex
-          bigint, // currentVariableBorrowRate
-          bigint, // currentStableBorrowRate
-          bigint, // lastUpdateTimestamp
-          number, // id
-          Address, // aTokenAddress
-          Address, // stableDebtTokenAddress
-          Address, // variableDebtTokenAddress
-          Address, // interestRateStrategyAddress
-          bigint, // accruedToTreasury
-          bigint, // unbacked
-          bigint  // isolationModeTotalDebt
-        ];
-
-        const currentLiquidityRateRay = reserveData[2];
+        });
+        // Index 2 is currentLiquidityRate in Aave V3 getReserveData response
+        const currentLiquidityRateRay = (reserveDataRaw as readonly bigint[])[2];
         onChainApr = parseFloat(formatUnits(currentLiquidityRateRay, 27)) * 100;
       } else if (opp.protocol === 'compound-v3') {
         method = 'compound_supply_rate';
@@ -1186,7 +1172,7 @@ export class YieldFarmingStrategy extends EventEmitter {
   }
 
   private getTokenAddress(chainId: ChainId, symbol: string): string | undefined {
-    const tokens: Record<ChainId, Record<string, string>> = {
+    const tokens: Partial<Record<ChainId, Record<string, string>>> = {
       1: {
         USDC: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
         USDT: '0xdAC17F958D2ee523a2206206994597C13D831ec7',
@@ -1210,7 +1196,7 @@ export class YieldFarmingStrategy extends EventEmitter {
         DAI: '0x50c5725949A6F0c72E6C4a641F24049A917DB0Cb',
         WETH: '0x4200000000000000000000000000000000000006',
       },
-    } as Record<ChainId, Record<string, string>>;
+    };
 
     return tokens[chainId]?.[symbol];
   }
@@ -1287,6 +1273,7 @@ export class YieldFarmingStrategy extends EventEmitter {
     };
   }
 }
+
 
 
 

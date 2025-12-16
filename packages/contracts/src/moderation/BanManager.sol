@@ -6,82 +6,41 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
 /**
  * @title BanManager
- * @author Jeju Network
  * @notice Manages network-level and app-specific bans for agent identity system
- * @dev Separates app-level bans from network-level bans for granular moderation
- *
- * Key Features:
- * - Network bans: Block agent from ALL Jeju apps
- * - App-specific bans: Block agent from specific apps only
- * - On-Notice status: Immediate flags by staked users
- * - Governance and ModerationMarketplace integration
- * - Event-driven cache updates for performance
- * - Ban reason storage for transparency
- * - Appeal integration via futarchy markets
- *
- * Integration:
- * - RegistryGovernance calls ban functions after futarchy approval
- * - ModerationMarketplace handles stake-based moderation
- * - NetworkBanCache listens to events for real-time updates
- * - All apps query isAccessAllowed() before granting access
- *
- * @custom:security-contact security@jeju.network
  */
 contract BanManager is Ownable, Pausable {
-    // ============ Enums ============
-
     enum BanType {
         NONE,
-        ON_NOTICE, // Immediate flag, pending market resolution
-        CHALLENGED, // Target staked, market active
-        PERMANENT // Market resolved, ban confirmed
-
+        ON_NOTICE,
+        CHALLENGED,
+        PERMANENT
     }
-
-    // ============ Structs ============
 
     struct BanRecord {
         bool isBanned;
         uint256 bannedAt;
         string reason;
-        bytes32 proposalId; // Link to governance proposal
+        bytes32 proposalId;
     }
 
     struct ExtendedBanRecord {
         bool isBanned;
         BanType banType;
         uint256 bannedAt;
-        uint256 expiresAt; // 0 = permanent
+        uint256 expiresAt;
         string reason;
         bytes32 proposalId;
-        address reporter; // Who initiated the ban
-        bytes32 caseId; // ModerationMarketplace case ID
+        address reporter;
+        bytes32 caseId;
     }
 
-    // ============ State Variables ============
-
-    /// @notice Network-wide bans (affects ALL apps)
     mapping(uint256 => BanRecord) public networkBans;
-
-    /// @notice Extended ban records with more metadata
     mapping(uint256 => ExtendedBanRecord) public extendedBans;
-
-    /// @notice Address-based bans for quick lookup
     mapping(address => ExtendedBanRecord) public addressBans;
-
-    /// @notice App-specific bans: agentId => appId => BanRecord
     mapping(uint256 => mapping(bytes32 => BanRecord)) public appBans;
-
-    /// @notice Track which apps an agent is banned from
     mapping(uint256 => bytes32[]) private _agentAppBans;
-
-    /// @notice Governance contract authorized to ban/unban
     address public governance;
-
-    /// @notice Authorized moderation contracts (ModerationMarketplace)
     mapping(address => bool) public authorizedModerators;
-
-    // ============ Events ============
 
     event NetworkBanApplied(uint256 indexed agentId, string reason, bytes32 indexed proposalId, uint256 timestamp);
 
@@ -105,7 +64,6 @@ contract BanManager is Ownable, Pausable {
 
     event AddressBanRemoved(address indexed target);
 
-    // ============ Errors ============
 
     error OnlyGovernance();
     error OnlyModerator();
@@ -115,7 +73,6 @@ contract BanManager is Ownable, Pausable {
     error InvalidAgentId();
     error InvalidAddress();
 
-    // ============ Modifiers ============
 
     modifier onlyGovernance() {
         if (msg.sender != governance && msg.sender != owner()) {
@@ -131,22 +88,12 @@ contract BanManager is Ownable, Pausable {
         _;
     }
 
-    // ============ Constructor ============
 
     constructor(address _governance, address initialOwner) Ownable(initialOwner) {
         require(_governance != address(0), "Invalid governance");
         governance = _governance;
     }
 
-    // ============ Core Ban Functions ============
-
-    /**
-     * @notice Ban agent from entire network (all apps)
-     * @param agentId Agent ID to ban
-     * @param reason Reason for ban
-     * @param proposalId Governance proposal ID
-     * @dev Only callable by governance contract after futarchy approval
-     */
     function banFromNetwork(uint256 agentId, string calldata reason, bytes32 proposalId)
         external
         onlyGovernance
@@ -161,13 +108,6 @@ contract BanManager is Ownable, Pausable {
         emit NetworkBanApplied(agentId, reason, proposalId, block.timestamp);
     }
 
-    /**
-     * @notice Ban agent from specific app only
-     * @param agentId Agent ID to ban
-     * @param appId App identifier (keccak256 of app name)
-     * @param reason Reason for ban
-     * @param proposalId Governance proposal ID
-     */
     function banFromApp(uint256 agentId, bytes32 appId, string calldata reason, bytes32 proposalId)
         external
         onlyGovernance
