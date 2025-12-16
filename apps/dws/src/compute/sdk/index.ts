@@ -6,4 +6,5 @@
 export * from './trigger-integration';
 export * from './training';
 export * from './distributed-training';
+export * from './p2p';
 

@@ -87,7 +87,7 @@ export class HTTPProviderAdapter implements CDNProviderAdapter {
     const response = await fetch(fullUrl, {
       method: options.method ?? 'GET',
       headers,
-      body: options.body,
+      body: options.body ? new Uint8Array(options.body) : undefined,
       signal: options.timeout ? AbortSignal.timeout(options.timeout) : undefined,
     }).catch((e: Error) => ({ error: e.message }));
 

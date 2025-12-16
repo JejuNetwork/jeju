@@ -11,6 +11,7 @@
 import { describe, test, expect } from 'bun:test';
 import { DEFAULT_BOTS, getDefaultBotsForNetwork, createTradingBotOptions } from './default-bots';
 import type { DefaultBotConfig } from './default-bots';
+import type { ChainId } from './autocrat-types';
 
 describe('Trading Bot Integration', () => {
   describe('Default Bot Configuration Integration', () => {
@@ -169,7 +170,7 @@ describe('Data Flow Validation', () => {
     
     // Verify chains are properly mapped
     options.chains.forEach(chain => {
-      expect(botConfig.chains.includes(chain.chainId)).toBe(true);
+      expect(botConfig.chains.includes(chain.chainId as ChainId)).toBe(true);
       expect(chain.name).toBeTruthy();
       expect(chain.rpcUrl).toBeTruthy();
     });

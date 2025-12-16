@@ -2,6 +2,7 @@
 pragma solidity ^0.8.26;
 
 import {AgentGated} from "./AgentGated.sol";
+import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 /**
@@ -47,7 +48,8 @@ abstract contract Moderated is AgentGated {
         address _identityRegistry,
         address _banManager,
         address _owner
-    ) AgentGated(_identityRegistry) Ownable(_owner) {
+    ) AgentGated(_identityRegistry) {
+        _transferOwnership(_owner);
         if (_banManager != address(0)) {
             moderation.setBanManager(_banManager);
         }

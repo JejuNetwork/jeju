@@ -3,8 +3,18 @@
  */
 
 import { createPublicClient, http, formatEther, isAddress as viemIsAddress, type Address, type PublicClient } from 'viem';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { base, baseSepolia, localhost } from 'viem/chains';
 import { readContract } from 'viem/actions';
+
+function inferChainFromRpcUrl(rpcUrl: string) {
+  if (rpcUrl.includes('base-sepolia') || rpcUrl.includes('84532')) {
+    return baseSepolia;
+  }
+  if (rpcUrl.includes('base') && !rpcUrl.includes('localhost')) {
+    return base;
+  }
+  return localhost;
+}
 import type { AutocratConfig } from './types';
 import {
   COUNCIL_ABI, CEO_AGENT_ABI, ZERO_ADDRESS,
@@ -20,6 +30,11 @@ export class AutocratBlockchain {
   readonly councilDeployed: boolean;
   readonly ceoDeployed: boolean;
   private readonly config: AutocratConfig;
+  
+  // Wrapper object for CEO Agent contract calls
+  readonly ceoAgent: {
+    getAllModels: () => Promise<string[]>;
+  };
 
   constructor(config: AutocratConfig) {
     this.config = config;
@@ -32,6 +47,18 @@ export class AutocratBlockchain {
     this.ceoAgentAddress = config.contracts.ceoAgent as Address;
     this.councilDeployed = viemIsAddress(config.contracts.council) && config.contracts.council !== ZERO_ADDRESS;
     this.ceoDeployed = viemIsAddress(config.contracts.ceoAgent) && config.contracts.ceoAgent !== ZERO_ADDRESS;
+    
+    // Initialize ceoAgent wrapper
+    this.ceoAgent = {
+      getAllModels: async () => {
+        if (!this.ceoDeployed) return [];
+        return await readContract(this.client, {
+          address: this.ceoAgentAddress,
+          abi: CEO_AGENT_ABI,
+          functionName: 'getAllModels',
+        }) as string[];
+      },
+    };
   }
 
   async getProposal(proposalId: string): Promise<{ proposal: ProposalFromContract; votes: AutocratVoteFromContract[] } | null> {

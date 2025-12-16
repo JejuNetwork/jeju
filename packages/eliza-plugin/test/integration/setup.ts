@@ -173,8 +173,7 @@ async function startServices(): Promise<void> {
   const root = findRoot();
   
   const services = [
-    { name: "Storage", dir: "apps/storage", port: 4010, cmd: "bun run dev:api" },
-    { name: "Compute", dir: "apps/compute", port: 4007, cmd: "bun run dev" },
+    { name: "DWS", dir: "apps/dws", port: 4030, cmd: "bun run dev" },
     { name: "Gateway", dir: "apps/gateway", port: 4003, cmd: "bun run start:a2a" },
   ];
   

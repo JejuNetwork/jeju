@@ -313,20 +313,20 @@ export class CovenantRepository<T extends Record<string, unknown>> {
     
     for (const e of entities) {
       const pk = this.metadata.primaryKeys[0] ?? 'id';
-      const id = e[pk];
+      const id = (e as Record<string, unknown>)[pk];
 
       if (id && await this.findById(id as string | number)) {
         // Update existing
-        const { [pk]: _, ...data } = e;
+        const { [pk]: _, ...data } = e as Record<string, unknown>;
         await this.client.update(
           this.tableName,
-          data,
+          data as Partial<T>,
           `${pk} = $${Object.keys(data).length + 1}`,
           [id]
         );
       } else {
         // Insert new
-        await this.client.insert(this.tableName, e);
+        await this.client.insert(this.tableName, e as Record<string, unknown>);
       }
     }
 
@@ -334,7 +334,8 @@ export class CovenantRepository<T extends Record<string, unknown>> {
   }
 
   async insert(entity: T | T[]): Promise<QueryResult<T>> {
-    return this.client.insert(this.tableName, entity as Record<string, unknown> | Record<string, unknown>[]);
+    const result = await this.client.insert(this.tableName, entity as Record<string, unknown> | Record<string, unknown>[]);
+    return result as QueryResult<T>;
   }
 
   async update(
@@ -364,11 +365,11 @@ export class CovenantRepository<T extends Record<string, unknown>> {
   }
 
   async softDelete(criteria: Partial<T>): Promise<QueryResult<T>> {
-    return this.update(criteria, { deleted_at: new Date().toISOString() } as Partial<T>);
+    return this.update(criteria, { deleted_at: new Date().toISOString() } as unknown as Partial<T>);
   }
 
   async restore(criteria: Partial<T>): Promise<QueryResult<T>> {
-    return this.update(criteria, { deleted_at: null } as Partial<T>);
+    return this.update(criteria, { deleted_at: null } as unknown as Partial<T>);
   }
 
   async exists(where: Partial<T>): Promise<boolean> {
@@ -451,11 +452,9 @@ export interface CovenantDataSourceOptions {
 export class CovenantDataSource {
   private client: CovenantSQLClient;
   private manager: CovenantEntityManager;
-  private options: CovenantDataSourceOptions;
   private _isInitialized = false;
 
   constructor(options: CovenantDataSourceOptions) {
-    this.options = options;
     this.client = options.client;
     this.manager = new CovenantEntityManager(this.client);
   }

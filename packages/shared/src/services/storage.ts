@@ -56,7 +56,7 @@ class StorageServiceImpl implements StorageService {
   }
 
   async upload(data: Uint8Array | Blob, name: string, options?: UploadOptions): Promise<UploadResult> {
-    const blob = data instanceof Uint8Array ? new Blob([data]) : data;
+    const blob = data instanceof Uint8Array ? new Blob([data.buffer]) : data;
     const tier = options?.tier ?? this.defaultTier;
 
     if (this.available) {

@@ -279,7 +279,7 @@ export class JejuGitClient {
 
 // Create default client from environment
 export function createJejuGitClient(): JejuGitClient {
-  const baseUrl = process.env.JEJUGIT_URL ?? 'http://localhost:4020';
+  const baseUrl = process.env.JEJUGIT_URL ?? 'http://localhost:4030/git';
   const authToken = process.env.JEJUGIT_AUTH_TOKEN;
 
   return new JejuGitClient({ baseUrl, authToken });
