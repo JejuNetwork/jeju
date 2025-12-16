@@ -24,7 +24,7 @@
   "tags": ["protocol", "infrastructure", "paymaster", "nodes", "staking", "liquidity", "elizaOS", "multi-token", "intents", "cross-chain", "oif", "aggregator", "solver"],
   "jns": {
     "name": "gateway.jeju",
-    "description": "Protocol Infrastructure Hub for Jeju Network",
+    "description": "Protocol Infrastructure Hub for the Network",
     "url": "https://gateway.jeju.network"
   },
   "agent": {

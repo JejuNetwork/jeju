@@ -194,7 +194,7 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
         emit RequestCreated(requestId, msg.sender, amount, targetChainId);
     }
 
-    function fulfillRequest(bytes32 requestId, bytes calldata proof) external nonReentrant {
+    function fulfillRequest(bytes32 requestId, bytes calldata /* proof */) external nonReentrant {
         LiquidityRequest storage request = requests[requestId];
         if (request.createdAt == 0) revert RequestNotFound();
         if (request.fulfilled) revert RequestAlreadyFulfilled();
