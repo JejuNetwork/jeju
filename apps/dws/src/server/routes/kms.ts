@@ -103,7 +103,9 @@ export function createKMSRouter(): Hono {
     const keyId = crypto.randomUUID();
     
     // Generate a mock key for now (in production, would use actual MPC)
-    const privateKey = `0x${crypto.randomUUID().replace(/-/g, '')}` as Hex;
+    const randomBytes = new Uint8Array(32);
+    crypto.getRandomValues(randomBytes);
+    const privateKey = `0x${Array.from(randomBytes).map(b => b.toString(16).padStart(2, '0')).join('')}` as Hex;
     const { privateKeyToAccount } = await import('viem/accounts');
     const account = privateKeyToAccount(privateKey as `0x${string}`);
 

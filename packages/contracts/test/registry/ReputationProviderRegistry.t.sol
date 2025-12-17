@@ -108,7 +108,7 @@ contract ReputationProviderRegistryTest is Test {
 
     function test_ProposeAddProvider() public {
         vm.prank(alice);
-        bytes32 proposalId = registry.proposeAddProvider{value: 0.001 ether}(
+        bytes32 proposalId = registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "New Provider",
             "A new reputation provider",
@@ -128,7 +128,7 @@ contract ReputationProviderRegistryTest is Test {
 
     function test_VoteOnProposal() public {
         vm.prank(alice);
-        bytes32 proposalId = registry.proposeAddProvider{value: 0.001 ether}(
+        bytes32 proposalId = registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "New Provider",
             "Description",
@@ -153,7 +153,7 @@ contract ReputationProviderRegistryTest is Test {
 
     function test_CannotVoteTwice() public {
         vm.prank(alice);
-        bytes32 proposalId = registry.proposeAddProvider{value: 0.001 ether}(
+        bytes32 proposalId = registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "New Provider",
             "Description",
@@ -170,7 +170,7 @@ contract ReputationProviderRegistryTest is Test {
 
     function test_AddOpinion() public {
         vm.prank(alice);
-        bytes32 proposalId = registry.proposeAddProvider{value: 0.001 ether}(
+        bytes32 proposalId = registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "New Provider",
             "Description",
@@ -195,7 +195,7 @@ contract ReputationProviderRegistryTest is Test {
 
     function test_AdvanceToCouncilReview() public {
         vm.prank(alice);
-        bytes32 proposalId = registry.proposeAddProvider{value: 0.001 ether}(
+        bytes32 proposalId = registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "New Provider",
             "Description",
@@ -218,7 +218,7 @@ contract ReputationProviderRegistryTest is Test {
 
     function test_CouncilApproval() public {
         vm.prank(alice);
-        bytes32 proposalId = registry.proposeAddProvider{value: 0.001 ether}(
+        bytes32 proposalId = registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "New Provider",
             "A great new provider",
@@ -244,7 +244,7 @@ contract ReputationProviderRegistryTest is Test {
 
     function test_CouncilRejection() public {
         vm.prank(alice);
-        bytes32 proposalId = registry.proposeAddProvider{value: 0.001 ether}(
+        bytes32 proposalId = registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "New Provider",
             "Description",
@@ -267,7 +267,7 @@ contract ReputationProviderRegistryTest is Test {
 
     function test_ExecuteApprovedProposal() public {
         vm.prank(alice);
-        bytes32 proposalId = registry.proposeAddProvider{value: 0.001 ether}(
+        bytes32 proposalId = registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "New Provider",
             "Description",
@@ -303,7 +303,7 @@ contract ReputationProviderRegistryTest is Test {
 
         // Propose removal
         vm.prank(alice);
-        bytes32 proposalId = registry.proposeRemoveProvider{value: 0.001 ether}(address(provider1));
+        bytes32 proposalId = registry.proposeRemoveProvider{value: 0.01 ether}(address(provider1));
 
         ReputationProviderRegistry.Proposal memory p = registry.getProposal(proposalId);
         assertEq(uint(p.proposalType), uint(ReputationProviderRegistry.ProposalType.REMOVE_PROVIDER));
@@ -315,7 +315,7 @@ contract ReputationProviderRegistryTest is Test {
         registry.initializeProvider(address(provider1), "Provider 1", "Desc", 5000);
 
         vm.prank(alice);
-        bytes32 proposalId = registry.proposeUpdateWeight{value: 0.001 ether}(
+        bytes32 proposalId = registry.proposeUpdateWeight{value: 0.01 ether}(
             address(provider1),
             7000
         );
@@ -380,7 +380,7 @@ contract ReputationProviderRegistryTest is Test {
     function test_InvalidWeight() public {
         vm.prank(alice);
         vm.expectRevert(ReputationProviderRegistry.InvalidWeight.selector);
-        registry.proposeAddProvider{value: 0.001 ether}(
+        registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "New Provider",
             "Description",
@@ -394,7 +394,7 @@ contract ReputationProviderRegistryTest is Test {
 
         vm.prank(alice);
         vm.expectRevert(ReputationProviderRegistry.ProviderExists.selector);
-        registry.proposeAddProvider{value: 0.001 ether}(
+        registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "Duplicate",
             "Description",
@@ -408,7 +408,7 @@ contract ReputationProviderRegistryTest is Test {
 
         vm.prank(alice);
         vm.expectRevert();
-        registry.proposeAddProvider{value: 0.001 ether}(
+        registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "New Provider",
             "Description",
@@ -420,7 +420,7 @@ contract ReputationProviderRegistryTest is Test {
 
         // Should work now
         vm.prank(alice);
-        registry.proposeAddProvider{value: 0.001 ether}(
+        registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "New Provider",
             "Description",
@@ -430,7 +430,7 @@ contract ReputationProviderRegistryTest is Test {
 
     function test_GetAllProposals() public {
         vm.prank(alice);
-        registry.proposeAddProvider{value: 0.001 ether}(
+        registry.proposeAddProvider{value: 0.01 ether}(
             address(provider1),
             "Provider 1",
             "Description",
@@ -438,7 +438,7 @@ contract ReputationProviderRegistryTest is Test {
         );
 
         vm.prank(bob);
-        registry.proposeAddProvider{value: 0.001 ether}(
+        registry.proposeAddProvider{value: 0.01 ether}(
             address(provider2),
             "Provider 2",
             "Description",

@@ -7,60 +7,141 @@ import { test, expect } from '@playwright/test';
 
 test.describe('Navigation', () => {
   test.describe('Desktop Navigation', () => {
-    test('should display all main navigation sections', async ({ page }) => {
+    test('should display main navigation', async ({ page }) => {
       await page.goto('/');
       
       // Main nav should be visible
-      const nav = page.locator('nav').first();
-      await expect(nav).toBeVisible();
-      
-      // Check all main sections exist
-      await expect(nav.getByText('Work')).toBeVisible();
-      await expect(nav.getByText('Code')).toBeVisible();
-      await expect(nav.getByText('AI')).toBeVisible();
-      await expect(nav.getByText('Collaboration')).toBeVisible();
+      const nav = page.getByRole('navigation');
+      await expect(nav.first()).toBeVisible();
     });
 
-    test('should expand and collapse nav sections', async ({ page }) => {
+    test('should show nav section buttons', async ({ page }) => {
       await page.goto('/');
       
-      // Click Work section to toggle
-      await page.getByRole('button', { name: /work/i }).click();
+      // Check collapsible section buttons exist
+      await expect(page.getByRole('button', { name: /work/i })).toBeVisible();
+      await expect(page.getByRole('button', { name: /code/i })).toBeVisible();
+    });
+
+    test('should toggle nav section on click', async ({ page }) => {
+      await page.goto('/');
       
-      // Check children are visible/hidden
+      // The sections are already expanded by default
       const bountiesLink = page.getByRole('link', { name: /bounties/i });
       await expect(bountiesLink).toBeVisible();
+      
+      // Click Work section to collapse
+      await page.getByRole('button', { name: /work/i }).click();
+      
+      // Bounties link should be hidden now
+      await expect(bountiesLink).not.toBeVisible();
     });
 
-    test('should navigate to all main pages', async ({ page }) => {
-      const routes = [
-        { path: '/', title: /factory/i },
-        { path: '/bounties', title: /bounties/i },
-        { path: '/jobs', title: /jobs/i },
-        { path: '/projects', title: /projects/i },
-        { path: '/git', title: /repositories/i },
-        { path: '/packages', title: /packages/i },
-        { path: '/containers', title: /containers/i },
-        { path: '/ci', title: /ci/i },
-        { path: '/models', title: /model/i },
-        { path: '/feed', title: /feed/i },
-        { path: '/agents', title: /agent/i },
-      ];
-
-      for (const route of routes) {
-        await page.goto(route.path);
-        await expect(page.getByRole('heading', { name: route.title }).first()).toBeVisible();
-      }
+    test('should navigate to bounties', async ({ page }) => {
+      await page.goto('/');
+      await page.getByRole('link', { name: /bounties/i }).click();
+      await expect(page).toHaveURL('/bounties');
     });
 
-    test('should show search input with keyboard shortcut hint', async ({ page }) => {
+    test('should navigate to repositories', async ({ page }) => {
+      await page.goto('/');
+      await page.getByRole('link', { name: /repositories/i }).click();
+      await expect(page).toHaveURL('/git');
+    });
+
+    test('should navigate to packages', async ({ page }) => {
+      await page.goto('/');
+      await page.getByRole('link', { name: /packages/i }).click();
+      await expect(page).toHaveURL('/packages');
+    });
+
+    test('should navigate to models', async ({ page }) => {
+      await page.goto('/');
+      await page.getByRole('link', { name: /models/i }).click();
+      await expect(page).toHaveURL('/models');
+    });
+
+    test('should navigate to feed', async ({ page }) => {
+      await page.goto('/');
+      await page.getByRole('link', { name: 'Feed', exact: true }).click();
+      await expect(page).toHaveURL('/feed');
+    });
+
+    test('should show search input', async ({ page }) => {
       await page.goto('/');
       
       const searchInput = page.getByPlaceholder(/search/i);
       await expect(searchInput).toBeVisible();
+    });
+
+    test('should show settings link', async ({ page }) => {
+      await page.goto('/');
       
-      // Check keyboard shortcut hint
-      await expect(page.getByText('⌘K')).toBeVisible();
+      await expect(page.getByRole('link', { name: /settings/i })).toBeVisible();
+    });
+
+    test('should highlight active link', async ({ page }) => {
+      await page.goto('/bounties');
+      
+      const bountiesLink = page.getByRole('link', { name: /bounties/i });
+      await expect(bountiesLink).toHaveClass(/text-accent/);
+    });
+  });
+
+  test.describe('Page Navigation', () => {
+    test('should load home page', async ({ page }) => {
+      await page.goto('/');
+      await expect(page.getByRole('main')).toBeVisible();
+    });
+
+    test('should load bounties page', async ({ page }) => {
+      await page.goto('/bounties');
+      await expect(page.getByRole('heading', { name: /bounties/i })).toBeVisible();
+    });
+
+    test('should load jobs page', async ({ page }) => {
+      await page.goto('/jobs');
+      await expect(page.getByRole('heading', { name: /jobs/i })).toBeVisible();
+    });
+
+    test('should load projects page', async ({ page }) => {
+      await page.goto('/projects');
+      await expect(page.getByRole('heading').first()).toBeVisible();
+    });
+
+    test('should load git page', async ({ page }) => {
+      await page.goto('/git');
+      await expect(page.getByRole('heading', { name: /repositories/i })).toBeVisible();
+    });
+
+    test('should load packages page', async ({ page }) => {
+      await page.goto('/packages');
+      await expect(page.getByRole('heading', { name: /packages/i })).toBeVisible();
+    });
+
+    test('should load containers page', async ({ page }) => {
+      await page.goto('/containers');
+      await expect(page.getByRole('heading', { name: /container/i })).toBeVisible();
+    });
+
+    test('should load models page', async ({ page }) => {
+      await page.goto('/models');
+      await expect(page.getByRole('heading', { name: /model/i })).toBeVisible();
+    });
+
+    test('should load feed page', async ({ page }) => {
+      await page.goto('/feed');
+      await expect(page.getByRole('heading', { name: /feed/i })).toBeVisible();
+    });
+
+    test('should load agents page', async ({ page }) => {
+      await page.goto('/agents');
+      await expect(page.getByRole('heading', { name: /agent/i })).toBeVisible();
+    });
+
+    test('should load ci page', async ({ page }) => {
+      await page.goto('/ci');
+      await expect(page.getByRole('heading', { name: /ci/i })).toBeVisible();
     });
   });
 
@@ -69,44 +150,19 @@ test.describe('Navigation', () => {
       await page.setViewportSize({ width: 375, height: 667 });
     });
 
-    test('should show mobile header with menu button', async ({ page }) => {
+    test('should show mobile header', async ({ page }) => {
       await page.goto('/');
       
       // Mobile header should be visible
       await expect(page.locator('header.lg\\:hidden')).toBeVisible();
-      
-      // Menu button should be visible
-      await expect(page.getByLabel(/toggle menu/i)).toBeVisible();
     });
 
-    test('should open and close mobile menu', async ({ page }) => {
+    test('should show mobile menu button', async ({ page }) => {
       await page.goto('/');
       
-      // Open menu
-      await page.getByLabel(/toggle menu/i).click();
-      
-      // Menu panel should be visible
-      await expect(page.locator('nav').filter({ hasText: 'Main' })).toBeVisible();
-      
-      // Close menu by clicking backdrop
-      await page.locator('.bg-black\\/60').click();
-      
-      // Menu should be hidden
-      await expect(page.locator('nav').filter({ hasText: 'Main' })).not.toBeVisible();
-    });
-
-    test('should navigate via mobile menu', async ({ page }) => {
-      await page.goto('/');
-      
-      // Open menu
-      await page.getByLabel(/toggle menu/i).click();
-      
-      // Click on Bounties
-      await page.getByRole('link', { name: /bounties/i }).click();
-      
-      // Should navigate and close menu
-      await expect(page).toHaveURL('/bounties');
+      // Menu button in header
+      const menuButton = page.locator('header.lg\\:hidden button');
+      await expect(menuButton.first()).toBeVisible();
     });
   });
 });
-

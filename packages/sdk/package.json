@@ -11,46 +11,6 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
-    },
-    "./compute": {
-      "types": "./dist/compute/index.d.ts",
-      "import": "./dist/compute/index.js"
-    },
-    "./storage": {
-      "types": "./dist/storage/index.d.ts",
-      "import": "./dist/storage/index.js"
-    },
-    "./defi": {
-      "types": "./dist/defi/index.d.ts",
-      "import": "./dist/defi/index.js"
-    },
-    "./governance": {
-      "types": "./dist/governance/index.d.ts",
-      "import": "./dist/governance/index.js"
-    },
-    "./names": {
-      "types": "./dist/names/index.d.ts",
-      "import": "./dist/names/index.js"
-    },
-    "./identity": {
-      "types": "./dist/identity/index.d.ts",
-      "import": "./dist/identity/index.js"
-    },
-    "./validation": {
-      "types": "./dist/validation/index.d.ts",
-      "import": "./dist/validation/index.js"
-    },
-    "./crosschain": {
-      "types": "./dist/crosschain/index.d.ts",
-      "import": "./dist/crosschain/index.js"
-    },
-    "./payments": {
-      "types": "./dist/payments/index.d.ts",
-      "import": "./dist/payments/index.js"
-    },
-    "./a2a": {
-      "types": "./dist/a2a/index.d.ts",
-      "import": "./dist/a2a/index.js"
     }
   },
   "files": ["dist"],

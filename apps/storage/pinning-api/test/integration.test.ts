@@ -48,9 +48,14 @@ describe('ContentModerationService', () => {
       expect(result.violationType).toBe(ContentViolationType.NONE);
     });
 
-    it('scans image content with low confidence (no ML models)', async () => {
-      // PNG header
-      const content = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+    it('scans image content with perceptual hash', async () => {
+      // PNG header + some data
+      const content = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+        0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
+        0x00, 0x00, 0x00, 0x10, 0x00, 0x00, 0x00, 0x10,
+        ...Array(100).fill(0x80), // Gray pixels
+      ]);
       const result = await moderation.scan(content, {
         mimeType: 'image/png',
         filename: 'image.png',
@@ -58,29 +63,42 @@ describe('ContentModerationService', () => {
       });
 
       expect(result.safe).toBe(true);
-      expect(result.confidence).toBe(30); // Low - no ML integration yet
+      expect(result.confidence).toBe(80); // Now has perceptual hash
     });
 
-    it('rejects video content (not yet implemented)', async () => {
-      const content = Buffer.from('fake video content');
-      await expect(
-        moderation.scan(content, {
-          mimeType: 'video/mp4',
-          filename: 'video.mp4',
-          size: content.length,
-        })
-      ).rejects.toThrow('Video content scanning not implemented');
+    it('scans video content with frame extraction', async () => {
+      // Fake MP4 with ftyp box
+      const content = Buffer.alloc(1000);
+      content.writeUInt32BE(8, 0);
+      content.write('ftyp', 4);
+      const result = await moderation.scan(content, {
+        mimeType: 'video/mp4',
+        filename: 'video.mp4',
+        size: content.length,
+      });
+
+      expect(result.safe).toBe(true);
+      expect(result.confidence).toBe(70);
     });
 
-    it('rejects archive content (not yet implemented)', async () => {
-      const content = Buffer.from('fake zip content');
-      await expect(
-        moderation.scan(content, {
-          mimeType: 'application/zip',
-          filename: 'archive.zip',
-          size: content.length,
-        })
-      ).rejects.toThrow('Archive content scanning not implemented');
+    it('scans archive content recursively', async () => {
+      // Empty zip (just end of central directory)
+      const content = Buffer.from([
+        0x50, 0x4b, 0x05, 0x06, // End of central directory signature
+        0x00, 0x00, 0x00, 0x00, // Disk numbers
+        0x00, 0x00, 0x00, 0x00, // Entry counts
+        0x00, 0x00, 0x00, 0x00, // Size
+        0x00, 0x00, 0x00, 0x00, // Offset
+        0x00, 0x00, // Comment length
+      ]);
+      const result = await moderation.scan(content, {
+        mimeType: 'application/zip',
+        filename: 'archive.zip',
+        size: content.length,
+      });
+
+      expect(result.safe).toBe(true);
+      expect(result.confidence).toBe(85);
     });
   });
 

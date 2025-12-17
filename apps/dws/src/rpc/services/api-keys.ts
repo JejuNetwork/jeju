@@ -19,8 +19,12 @@ export interface ApiKeyRecord {
   isActive: boolean;
 }
 
-// Initialize state on module load
-initializeState().catch(console.error);
+// Initialize state on module load (non-blocking)
+initializeState().catch((err) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('[RPC API Keys] Running without CQL:', err.message);
+  }
+});
 
 // Local cache for key -> id mapping (for fast validation without async)
 const localKeyCache = new Map<string, string>();

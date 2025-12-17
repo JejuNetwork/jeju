@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {FederationBase} from "./FederationBase.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
@@ -16,13 +16,8 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
  * - FederatedSolver aggregates solver data across networks
  * - Routes intent fills to best solver regardless of network
  * - Coordinates slashing across networks via governance
- *
- * Integration:
- * - Works with NetworkRegistry for network discovery
- * - Works with FederatedIdentity for solver identity
- * - Works with local SolverRegistry for stake verification
  */
-contract FederatedSolver is ReentrancyGuard {
+contract FederatedSolver is FederationBase {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
@@ -46,10 +41,10 @@ contract FederatedSolver is ReentrancyGuard {
         uint256 avgFillTime;
     }
 
-    uint256 public immutable localChainId;
-    address public oracle;
-    address public governance;
-    address public networkRegistry;
+    // ============================================================================
+    // State
+    // ============================================================================
+
     address public localSolverRegistry;
 
     mapping(bytes32 => FederatedSolverInfo) public federatedSolvers;
@@ -61,18 +56,28 @@ contract FederatedSolver is ReentrancyGuard {
 
     mapping(address => bool) public authorizedReporters;
 
+    // ============================================================================
+    // Events
+    // ============================================================================
+
     event SolverFederated(bytes32 indexed federatedId, address indexed solver, uint256 indexed homeChainId);
     event SolverUpdated(bytes32 indexed federatedId, uint256 stake, uint256 totalFills, uint256 successfulFills);
     event SolverDeactivated(bytes32 indexed federatedId);
     event RouteAdded(uint256 indexed sourceChainId, uint256 indexed destChainId, bytes32 indexed federatedSolverId);
     event FillReported(bytes32 indexed federatedId, bytes32 indexed orderId, bool success, uint256 fillTime);
 
+    // ============================================================================
+    // Errors
+    // ============================================================================
+
     error SolverExists();
     error SolverNotFound();
     error UnauthorizedReporter();
-    error NotGovernance();
-    error InvalidChain();
     error SolverInactive();
+
+    // ============================================================================
+    // Constructor
+    // ============================================================================
 
     constructor(
         uint256 _localChainId,
@@ -80,18 +85,13 @@ contract FederatedSolver is ReentrancyGuard {
         address _governance,
         address _networkRegistry,
         address _localSolverRegistry
-    ) {
-        localChainId = _localChainId;
-        oracle = _oracle;
-        governance = _governance;
-        networkRegistry = _networkRegistry;
+    ) FederationBase(_localChainId, _oracle, _governance, _networkRegistry) {
         localSolverRegistry = _localSolverRegistry;
     }
 
-    modifier onlyGovernance() {
-        if (msg.sender != governance) revert NotGovernance();
-        _;
-    }
+    // ============================================================================
+    // Modifiers
+    // ============================================================================
 
     modifier onlyAuthorizedReporter() {
         if (!authorizedReporters[msg.sender] && msg.sender != oracle) {
@@ -100,13 +100,17 @@ contract FederatedSolver is ReentrancyGuard {
         _;
     }
 
+    // ============================================================================
+    // Federation Functions
+    // ============================================================================
+
     function federateLocalSolver(uint256[] calldata supportedChains) external nonReentrant {
-        bytes32 federatedId = computeFederatedSolverId(msg.sender, localChainId);
+        bytes32 federatedId = computeFederatedSolverId(msg.sender, LOCAL_CHAIN_ID);
         if (federatedSolvers[federatedId].federatedAt != 0) revert SolverExists();
 
         federatedSolvers[federatedId] = FederatedSolverInfo({
             solverAddress: msg.sender,
-            homeChainId: localChainId,
+            homeChainId: LOCAL_CHAIN_ID,
             supportedChains: supportedChains,
             totalStake: 0,
             totalFills: 0,
@@ -115,20 +119,13 @@ contract FederatedSolver is ReentrancyGuard {
             isActive: true
         });
 
-        solverToFederatedId[msg.sender][localChainId] = federatedId;
+        solverToFederatedId[msg.sender][LOCAL_CHAIN_ID] = federatedId;
         allSolverIds.push(federatedId);
         totalFederatedSolvers++;
 
-        for (uint256 i = 0; i < supportedChains.length; i++) {
-            for (uint256 j = 0; j < supportedChains.length; j++) {
-                if (i != j) {
-                    routeSolvers[supportedChains[i]][supportedChains[j]].push(federatedId);
-                    emit RouteAdded(supportedChains[i], supportedChains[j], federatedId);
-                }
-            }
-        }
+        _addRoutes(supportedChains, federatedId);
 
-        emit SolverFederated(federatedId, msg.sender, localChainId);
+        emit SolverFederated(federatedId, msg.sender, LOCAL_CHAIN_ID);
     }
 
     function registerRemoteSolver(
@@ -138,7 +135,7 @@ contract FederatedSolver is ReentrancyGuard {
         uint256 stake,
         bytes calldata attestation
     ) external onlyAuthorizedReporter nonReentrant {
-        if (homeChainId == localChainId) revert InvalidChain();
+        if (homeChainId == LOCAL_CHAIN_ID) revert InvalidChain();
 
         bytes32 federatedId = computeFederatedSolverId(solverAddress, homeChainId);
         if (federatedSolvers[federatedId].federatedAt != 0) revert SolverExists();
@@ -166,14 +163,7 @@ contract FederatedSolver is ReentrancyGuard {
         allSolverIds.push(federatedId);
         totalFederatedSolvers++;
 
-        for (uint256 i = 0; i < supportedChains.length; i++) {
-            for (uint256 j = 0; j < supportedChains.length; j++) {
-                if (i != j) {
-                    routeSolvers[supportedChains[i]][supportedChains[j]].push(federatedId);
-                    emit RouteAdded(supportedChains[i], supportedChains[j], federatedId);
-                }
-            }
-        }
+        _addRoutes(supportedChains, federatedId);
 
         emit SolverFederated(federatedId, solverAddress, homeChainId);
     }
@@ -211,12 +201,15 @@ contract FederatedSolver is ReentrancyGuard {
         emit FillReported(federatedId, orderId, success, fillTime);
     }
 
+    // ============================================================================
+    // Admin Functions
+    // ============================================================================
+
     function deactivateSolver(bytes32 federatedId) external onlyGovernance {
         FederatedSolverInfo storage solver = federatedSolvers[federatedId];
         if (solver.federatedAt == 0) revert SolverNotFound();
 
         solver.isActive = false;
-
         emit SolverDeactivated(federatedId);
     }
 
@@ -224,13 +217,28 @@ contract FederatedSolver is ReentrancyGuard {
         authorizedReporters[reporter] = authorized;
     }
 
-    function setOracle(address _oracle) external onlyGovernance {
-        oracle = _oracle;
+    function setLocalSolverRegistry(address _registry) external onlyGovernance {
+        localSolverRegistry = _registry;
     }
 
-    function setGovernance(address _governance) external onlyGovernance {
-        governance = _governance;
+    // ============================================================================
+    // Internal Functions
+    // ============================================================================
+
+    function _addRoutes(uint256[] calldata supportedChains, bytes32 federatedId) internal {
+        for (uint256 i = 0; i < supportedChains.length; i++) {
+            for (uint256 j = 0; j < supportedChains.length; j++) {
+                if (i != j) {
+                    routeSolvers[supportedChains[i]][supportedChains[j]].push(federatedId);
+                    emit RouteAdded(supportedChains[i], supportedChains[j], federatedId);
+                }
+            }
+        }
     }
+
+    // ============================================================================
+    // View Functions
+    // ============================================================================
 
     function computeFederatedSolverId(address solver, uint256 chainId) public pure returns (bytes32) {
         return keccak256(abi.encodePacked("jeju:solver:", chainId, ":", solver));
@@ -302,4 +310,3 @@ contract FederatedSolver is ReentrancyGuard {
         return "1.0.0";
     }
 }
-

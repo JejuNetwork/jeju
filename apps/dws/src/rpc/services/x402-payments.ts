@@ -43,8 +43,12 @@ const X402_ENABLED = process.env.X402_ENABLED !== 'false';
 
 export const RPC_PRICING = { standard: 100n, archive: 500n, trace: 1000n } as const;
 
-// Initialize state on module load
-initializeState().catch(console.error);
+// Initialize state on module load (non-blocking)
+initializeState().catch((err) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('[X402 Payments] Running without CQL:', err.message);
+  }
+});
 
 export const isX402Enabled = () => X402_ENABLED && PAYMENT_RECIPIENT !== ZERO_ADDRESS;
 

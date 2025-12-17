@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {FederationBase} from "./FederationBase.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
@@ -16,14 +16,8 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
  * - FederatedIdentity bridges identities across networks
  * - Uses oracle attestations for cross-chain verification
  * - Integrates with governance for dispute resolution
- *
- * Flow:
- * 1. Agent registers on origin network's IdentityRegistry
- * 2. Agent requests federation via this contract
- * 3. Oracle attests identity exists on origin
- * 4. Other networks can verify agent's federated identity
  */
-contract FederatedIdentity is ReentrancyGuard {
+contract FederatedIdentity is FederationBase {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
@@ -44,12 +38,12 @@ contract FederatedIdentity is ReentrancyGuard {
         bytes32 attestationHash;
     }
 
-    uint256 public immutable localChainId;
-    address public oracle;
-    address public governance;
-    address public networkRegistry;
-    address public localIdentityRegistry;
+    // ============================================================================
+    // State
+    // ============================================================================
 
+    address public localIdentityRegistry;
+    
     mapping(bytes32 => FederatedAgent) public federatedAgents;
     mapping(uint256 => mapping(uint256 => bytes32)) public agentToFederatedId;
     mapping(bytes32 => CrossNetworkAttestation[]) public attestations;
@@ -57,6 +51,10 @@ contract FederatedIdentity is ReentrancyGuard {
 
     bytes32[] public allFederatedIds;
     uint256 public totalFederatedAgents;
+
+    // ============================================================================
+    // Events
+    // ============================================================================
 
     event AgentFederated(
         bytes32 indexed federatedId,
@@ -69,14 +67,20 @@ contract FederatedIdentity is ReentrancyGuard {
     event ReputationUpdated(bytes32 indexed federatedId, uint256 oldScore, uint256 newScore);
     event AttesterUpdated(address indexed attester, bool authorized);
 
+    // ============================================================================
+    // Errors
+    // ============================================================================
+
     error InvalidOrigin();
     error AlreadyFederated();
     error NotFederated();
     error UnauthorizedAttester();
     error InvalidAttestation();
-    error NotGovernance();
     error AgentInactive();
-    error InvalidSignature();
+
+    // ============================================================================
+    // Constructor
+    // ============================================================================
 
     constructor(
         uint256 _localChainId,
@@ -84,18 +88,13 @@ contract FederatedIdentity is ReentrancyGuard {
         address _governance,
         address _networkRegistry,
         address _localIdentityRegistry
-    ) {
-        localChainId = _localChainId;
-        oracle = _oracle;
-        governance = _governance;
-        networkRegistry = _networkRegistry;
+    ) FederationBase(_localChainId, _oracle, _governance, _networkRegistry) {
         localIdentityRegistry = _localIdentityRegistry;
     }
 
-    modifier onlyGovernance() {
-        if (msg.sender != governance) revert NotGovernance();
-        _;
-    }
+    // ============================================================================
+    // Modifiers
+    // ============================================================================
 
     modifier onlyAuthorizedAttester() {
         if (!authorizedAttesters[msg.sender] && msg.sender != oracle) {
@@ -104,18 +103,21 @@ contract FederatedIdentity is ReentrancyGuard {
         _;
     }
 
+    // ============================================================================
+    // Federation Functions
+    // ============================================================================
+
     function federateLocalAgent(uint256 localAgentId, bytes calldata ownershipProof) external nonReentrant {
-        bytes32 federatedId = computeFederatedId(localChainId, localAgentId);
+        bytes32 federatedId = computeFederatedId(LOCAL_CHAIN_ID, localAgentId);
         if (federatedAgents[federatedId].federatedAt != 0) revert AlreadyFederated();
 
-        bytes32 messageHash = keccak256(abi.encodePacked(localChainId, localAgentId, msg.sender));
-        address signer = messageHash.toEthSignedMessageHash().recover(ownershipProof);
-        if (signer != msg.sender) revert InvalidSignature();
+        bytes32 messageHash = keccak256(abi.encodePacked(LOCAL_CHAIN_ID, localAgentId, msg.sender));
+        if (!_verifySignature(messageHash, ownershipProof, msg.sender)) revert InvalidSignature();
 
         bytes32 registryHash = keccak256(abi.encodePacked(localIdentityRegistry, localAgentId));
 
         federatedAgents[federatedId] = FederatedAgent({
-            originChainId: localChainId,
+            originChainId: LOCAL_CHAIN_ID,
             originAgentId: localAgentId,
             originOwner: msg.sender,
             originRegistryHash: registryHash,
@@ -124,11 +126,11 @@ contract FederatedIdentity is ReentrancyGuard {
             reputationScore: 100
         });
 
-        agentToFederatedId[localChainId][localAgentId] = federatedId;
+        agentToFederatedId[LOCAL_CHAIN_ID][localAgentId] = federatedId;
         allFederatedIds.push(federatedId);
         totalFederatedAgents++;
 
-        emit AgentFederated(federatedId, localChainId, localAgentId, msg.sender);
+        emit AgentFederated(federatedId, LOCAL_CHAIN_ID, localAgentId, msg.sender);
     }
 
     function registerRemoteAgent(
@@ -138,7 +140,7 @@ contract FederatedIdentity is ReentrancyGuard {
         bytes32 originRegistryHash,
         bytes calldata oracleAttestation
     ) external onlyAuthorizedAttester nonReentrant {
-        if (originChainId == localChainId) revert InvalidOrigin();
+        if (originChainId == LOCAL_CHAIN_ID) revert InvalidOrigin();
 
         bytes32 federatedId = computeFederatedId(originChainId, originAgentId);
         if (federatedAgents[federatedId].federatedAt != 0) revert AlreadyFederated();
@@ -169,7 +171,7 @@ contract FederatedIdentity is ReentrancyGuard {
 
         attestations[federatedId].push(
             CrossNetworkAttestation({
-                targetChainId: localChainId,
+                targetChainId: LOCAL_CHAIN_ID,
                 attestedAt: block.timestamp,
                 attester: attester,
                 attestationHash: attestationHash
@@ -177,7 +179,7 @@ contract FederatedIdentity is ReentrancyGuard {
         );
 
         emit AgentFederated(federatedId, originChainId, originAgentId, originOwner);
-        emit CrossNetworkAttested(federatedId, localChainId, attester);
+        emit CrossNetworkAttested(federatedId, LOCAL_CHAIN_ID, attester);
     }
 
     function attestCrossNetwork(
@@ -203,6 +205,10 @@ contract FederatedIdentity is ReentrancyGuard {
         emit CrossNetworkAttested(federatedId, targetChainId, msg.sender);
     }
 
+    // ============================================================================
+    // Admin Functions
+    // ============================================================================
+
     function updateReputation(bytes32 federatedId, uint256 newScore) external onlyGovernance {
         FederatedAgent storage agent = federatedAgents[federatedId];
         if (agent.federatedAt == 0) revert NotFederated();
@@ -218,7 +224,6 @@ contract FederatedIdentity is ReentrancyGuard {
         if (agent.federatedAt == 0) revert NotFederated();
 
         agent.isActive = false;
-
         emit AgentDefederated(federatedId);
     }
 
@@ -227,13 +232,13 @@ contract FederatedIdentity is ReentrancyGuard {
         emit AttesterUpdated(attester, authorized);
     }
 
-    function setOracle(address _oracle) external onlyGovernance {
-        oracle = _oracle;
+    function setLocalIdentityRegistry(address _registry) external onlyGovernance {
+        localIdentityRegistry = _registry;
     }
 
-    function setGovernance(address _governance) external onlyGovernance {
-        governance = _governance;
-    }
+    // ============================================================================
+    // View Functions
+    // ============================================================================
 
     function computeFederatedId(uint256 chainId, uint256 agentId) public pure returns (bytes32) {
         return keccak256(abi.encodePacked("jeju:federated:", chainId, ":", agentId));
@@ -259,7 +264,10 @@ contract FederatedIdentity is ReentrancyGuard {
         return false;
     }
 
-    function verifyIdentity(uint256 originChainId, uint256 originAgentId) external view returns (bool isValid, bytes32 federatedId, uint256 reputation) {
+    function verifyIdentity(
+        uint256 originChainId, 
+        uint256 originAgentId
+    ) external view returns (bool isValid, bytes32 federatedId, uint256 reputation) {
         federatedId = agentToFederatedId[originChainId][originAgentId];
         if (federatedId == bytes32(0)) return (false, bytes32(0), 0);
 
@@ -275,4 +283,3 @@ contract FederatedIdentity is ReentrancyGuard {
         return "1.0.0";
     }
 }
-

@@ -11,6 +11,7 @@ export * from './bridge';
 export * from './residential-proxy';
 export * from './edge-coordinator';
 export * from './hybrid-torrent';
+export * from './updater';
 
 import { type NodeClient } from '../contracts';
 import { createComputeService, type ComputeService } from './compute';

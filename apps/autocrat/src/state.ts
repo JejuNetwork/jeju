@@ -1,14 +1,15 @@
 /**
- * Decentralized State Management for Council
+ * Decentralized State Management for Autocrat
  * 
- * Persists council state (proposals, votes, research) to CovenantSQL.
- * DECENTRALIZED: No fallbacks - CQL is required for production.
+ * Persists governance state (proposals, votes, research) to CovenantSQL.
+ * CQL is REQUIRED - automatically configured per network.
  */
 
 import { getCQL, type CQLClient } from "@jejunetwork/db";
 import { getCacheClient, type CacheClient } from "@jejunetwork/shared";
+import { getCurrentNetwork } from "@jejunetwork/config";
 
-const CQL_DATABASE_ID = process.env.COVENANTSQL_DATABASE_ID ?? "council";
+const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? "autocrat";
 
 // Types
 export interface Proposal {
@@ -51,8 +52,8 @@ let initialized = false;
 
 async function getCQLClient(): Promise<CQLClient> {
   if (!cqlClient) {
+    // CQL URL is automatically resolved from network config
     cqlClient = getCQL({
-      blockProducerEndpoint: process.env.CQL_BLOCK_PRODUCER_ENDPOINT ?? 'http://localhost:4300',
       databaseId: CQL_DATABASE_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
@@ -60,9 +61,10 @@ async function getCQLClient(): Promise<CQLClient> {
     
     const healthy = await cqlClient.isHealthy();
     if (!healthy) {
+      const network = getCurrentNetwork();
       throw new Error(
-        'Autocrat requires CovenantSQL for decentralized state.\n' +
-        'Set CQL_BLOCK_PRODUCER_ENDPOINT or start: docker compose up -d'
+        `Autocrat requires CovenantSQL for decentralized state (network: ${network}).\n` +
+        'Ensure CQL is running: docker compose up -d cql'
       );
     }
     

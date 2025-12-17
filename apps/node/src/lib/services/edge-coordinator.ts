@@ -1,16 +1,16 @@
 /**
  * Edge Node Coordinator
- * 
+ *
  * Coordinates edge nodes for:
  * - CDN content distribution
  * - P2P content routing
  * - Load balancing
  * - Cache coherence
- * 
- * Uses gossip protocol for decentralized coordination.
+ *
+ * Uses HTTP-based gossip protocol for decentralized coordination.
  */
 
-import { createHash, randomBytes } from 'crypto';
+import { randomBytes } from 'crypto';
 import type { Address } from 'viem';
 
 // ============================================================================
@@ -79,17 +79,15 @@ export class EdgeCoordinator {
   private config: EdgeCoordinatorConfig;
   private peers: Map<string, EdgeNodeInfo> = new Map();
   private contentIndex: Map<string, ContentLocation> = new Map();
-  private localCache: Map<string, Buffer> = new Map();
-  private ws: WebSocket | null = null;
   private gossipInterval: ReturnType<typeof setInterval> | null = null;
   private cleanupInterval: ReturnType<typeof setInterval> | null = null;
   private seenMessages: Set<string> = new Set();
-  private messageHandlers: Map<string, (msg: GossipMessage) => void> = new Map();
+  private pendingQueries: Map<string, { resolve: (nodes: string[]) => void; results: string[] }> = new Map();
   private running = false;
+  private server: ReturnType<typeof Bun.serve> | null = null;
 
   constructor(config: EdgeCoordinatorConfig) {
     this.config = config;
-    this.setupMessageHandlers();
   }
 
   /**
@@ -101,20 +99,22 @@ export class EdgeCoordinator {
 
     console.log(`[EdgeCoordinator] Starting node ${this.config.nodeId}`);
 
+    // Start HTTP server for receiving gossip messages
+    this.server = Bun.serve({
+      port: this.config.listenPort,
+      fetch: (req) => this.handleRequest(req),
+    });
+
     // Connect to bootstrap nodes
     await this.connectToBootstrapNodes();
 
     // Start gossip protocol
-    this.gossipInterval = setInterval(() => {
-      this.gossip();
-    }, this.config.gossipInterval);
+    this.gossipInterval = setInterval(() => this.gossip(), this.config.gossipInterval);
 
     // Cleanup stale peers
-    this.cleanupInterval = setInterval(() => {
-      this.cleanupStalePeers();
-    }, 60000);
+    this.cleanupInterval = setInterval(() => this.cleanupStalePeers(), 60000);
 
-    console.log('[EdgeCoordinator] Started');
+    console.log(`[EdgeCoordinator] Started on port ${this.config.listenPort}`);
   }
 
   /**
@@ -124,12 +124,8 @@ export class EdgeCoordinator {
     if (!this.running) return;
     this.running = false;
 
-    if (this.gossipInterval) {
-      clearInterval(this.gossipInterval);
-    }
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-    }
+    if (this.gossipInterval) clearInterval(this.gossipInterval);
+    if (this.cleanupInterval) clearInterval(this.cleanupInterval);
 
     // Announce departure
     await this.broadcast({
@@ -138,15 +134,12 @@ export class EdgeCoordinator {
       sender: this.config.nodeId,
       timestamp: Date.now(),
       ttl: 3,
-      payload: {
-        action: 'leave',
-        nodeId: this.config.nodeId,
-      },
+      payload: { action: 'leave', nodeId: this.config.nodeId },
     });
 
-    // Close connections
-    for (const [peerId] of this.peers) {
-      await this.disconnectPeer(peerId);
+    if (this.server) {
+      this.server.stop();
+      this.server = null;
     }
 
     console.log('[EdgeCoordinator] Stopped');
@@ -170,7 +163,6 @@ export class EdgeCoordinator {
    * Announce content availability
    */
   async announceContent(contentHash: string, size: number): Promise<void> {
-    // Update local index
     const existing = this.contentIndex.get(contentHash);
     if (existing) {
       if (!existing.nodeIds.includes(this.config.nodeId)) {
@@ -186,19 +178,13 @@ export class EdgeCoordinator {
       });
     }
 
-    // Broadcast to network
     await this.broadcast({
       type: 'cache_update',
       id: this.generateMessageId(),
       sender: this.config.nodeId,
       timestamp: Date.now(),
       ttl: 5,
-      payload: {
-        action: 'add',
-        contentHash,
-        size,
-        nodeId: this.config.nodeId,
-      },
+      payload: { action: 'add', contentHash, size, nodeId: this.config.nodeId },
     });
   }
 
@@ -213,34 +199,24 @@ export class EdgeCoordinator {
     }
 
     // Query the network
+    const queryId = this.generateMessageId();
+    
     return new Promise((resolve) => {
-      const queryId = this.generateMessageId();
-      const results: string[] = [];
-      const timeout = setTimeout(() => {
-        this.messageHandlers.delete(queryId);
-        resolve(results);
+      this.pendingQueries.set(queryId, { resolve, results: [] });
+
+      setTimeout(() => {
+        const pending = this.pendingQueries.get(queryId);
+        this.pendingQueries.delete(queryId);
+        resolve(pending?.results ?? []);
       }, 5000);
 
-      // Register handler for responses
-      this.messageHandlers.set(queryId, (msg: GossipMessage) => {
-        if (msg.type === 'response') {
-          const nodeId = msg.payload.nodeId as string;
-          if (nodeId && !results.includes(nodeId)) {
-            results.push(nodeId);
-          }
-        }
-      });
-
-      // Broadcast query
       this.broadcast({
         type: 'query',
         id: queryId,
         sender: this.config.nodeId,
         timestamp: Date.now(),
         ttl: 3,
-        payload: {
-          contentHash,
-        },
+        payload: { contentHash },
       });
     });
   }
@@ -252,7 +228,6 @@ export class EdgeCoordinator {
     const nodeIds = await this.queryContent(contentHash);
     if (nodeIds.length === 0) return null;
 
-    // Score nodes by latency and load
     let bestNode: EdgeNodeInfo | null = null;
     let bestScore = Infinity;
 
@@ -260,8 +235,7 @@ export class EdgeCoordinator {
       const node = this.peers.get(nodeId);
       if (!node) continue;
 
-      // Score = latency + (utilization * 100)
-      const score = node.metrics.avgLatencyMs + (node.metrics.cacheUtilization * 100);
+      const score = node.metrics.avgLatencyMs + node.metrics.cacheUtilization * 100;
       if (score < bestScore) {
         bestScore = score;
         bestNode = node;
@@ -271,104 +245,38 @@ export class EdgeCoordinator {
     return bestNode;
   }
 
-  /**
-   * Warm content to nearby nodes
-   */
-  async warmContent(contentHash: string, data: Buffer, targetRegions?: string[]): Promise<void> {
-    const candidates = Array.from(this.peers.values())
-      .filter((peer) => {
-        if (targetRegions && !targetRegions.includes(peer.region)) return false;
-        if (peer.metrics.cacheUtilization > 0.9) return false;
-        return true;
-      })
-      .sort((a, b) => a.metrics.avgLatencyMs - b.metrics.avgLatencyMs)
-      .slice(0, 5);
-
-    for (const peer of candidates) {
-      // Send warm request
-      await this.sendToPeer(peer.nodeId, {
-        type: 'cache_update',
-        id: this.generateMessageId(),
-        sender: this.config.nodeId,
-        timestamp: Date.now(),
-        ttl: 1,
-        payload: {
-          action: 'warm',
-          contentHash,
-          size: data.length,
-          // In production, send actual content or CID
-        },
-      });
-    }
-  }
-
   // ============================================================================
   // Private Methods
   // ============================================================================
 
-  private setupMessageHandlers(): void {
-    // Built-in handlers are set up in handleMessage
-  }
+  private async handleRequest(req: Request): Promise<Response> {
+    const url = new URL(req.url);
 
-  private async connectToBootstrapNodes(): Promise<void> {
-    for (const node of this.config.bootstrapNodes) {
-      await this.connectToPeer(node);
+    if (url.pathname === '/gossip' && req.method === 'POST') {
+      const msg = (await req.json()) as GossipMessage;
+      const response = await this.handleGossipMessage(msg);
+      return Response.json(response ?? { ok: true });
     }
+
+    if (url.pathname === '/health') {
+      return Response.json({ status: 'ok', nodeId: this.config.nodeId, peers: this.peers.size });
+    }
+
+    return new Response('Not Found', { status: 404 });
   }
 
-  private async connectToPeer(endpoint: string): Promise<void> {
-    const wsUrl = endpoint.replace(/^https?/, 'wss');
-    const ws = new WebSocket(`${wsUrl}/gossip`);
-
-    ws.onopen = () => {
-      // Send hello
-      ws.send(JSON.stringify({
-        type: 'announce',
-        id: this.generateMessageId(),
-        sender: this.config.nodeId,
-        timestamp: Date.now(),
-        ttl: 1,
-        payload: {
-          action: 'join',
-          nodeInfo: this.getLocalNodeInfo(),
-        },
-      }));
-    };
-
-    ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data as string) as GossipMessage;
-      this.handleMessage(msg, ws);
-    };
-
-    ws.onerror = (error) => {
-      console.error(`[EdgeCoordinator] Peer connection error:`, error);
-    };
-
-    ws.onclose = () => {
-      // Remove from peers if tracked
-    };
-  }
-
-  private async disconnectPeer(peerId: string): Promise<void> {
-    this.peers.delete(peerId);
-  }
-
-  private handleMessage(msg: GossipMessage, source: WebSocket): void {
+  private async handleGossipMessage(msg: GossipMessage): Promise<GossipMessage | null> {
     // Deduplicate
-    if (this.seenMessages.has(msg.id)) return;
+    if (this.seenMessages.has(msg.id)) return null;
     this.seenMessages.add(msg.id);
 
     // Prune old messages
     if (this.seenMessages.size > 10000) {
-      const oldest = Array.from(this.seenMessages).slice(0, 5000);
-      oldest.forEach((id) => this.seenMessages.delete(id));
+      const toDelete = Array.from(this.seenMessages).slice(0, 5000);
+      toDelete.forEach((id) => this.seenMessages.delete(id));
     }
 
-    // Check if there's a registered handler
-    const handler = this.messageHandlers.get(msg.id);
-    if (handler) {
-      handler(msg);
-    }
+    let response: GossipMessage | null = null;
 
     switch (msg.type) {
       case 'announce':
@@ -376,7 +284,11 @@ export class EdgeCoordinator {
         break;
 
       case 'query':
-        this.handleQuery(msg, source);
+        response = this.handleQuery(msg);
+        break;
+
+      case 'response':
+        this.handleResponse(msg);
         break;
 
       case 'cache_update':
@@ -384,7 +296,7 @@ export class EdgeCoordinator {
         break;
 
       case 'ping':
-        this.handlePing(msg, source);
+        response = this.handlePing(msg);
         break;
 
       case 'peer_list':
@@ -392,50 +304,53 @@ export class EdgeCoordinator {
         break;
     }
 
-    // Propagate if TTL > 0
+    // Propagate if TTL > 1
     if (msg.ttl > 1) {
-      this.broadcast({
-        ...msg,
-        ttl: msg.ttl - 1,
-      });
+      this.broadcast({ ...msg, ttl: msg.ttl - 1 });
     }
+
+    return response;
   }
 
   private handleAnnounce(msg: GossipMessage): void {
     const action = msg.payload.action as string;
-    const nodeId = msg.payload.nodeId as string;
 
     if (action === 'join') {
       const nodeInfo = msg.payload.nodeInfo as EdgeNodeInfo;
-      this.peers.set(nodeInfo.nodeId, {
-        ...nodeInfo,
-        lastSeen: Date.now(),
-      });
+      this.peers.set(nodeInfo.nodeId, { ...nodeInfo, lastSeen: Date.now() });
       console.log(`[EdgeCoordinator] Peer joined: ${nodeInfo.nodeId}`);
     } else if (action === 'leave') {
+      const nodeId = msg.payload.nodeId as string;
       this.peers.delete(nodeId);
       console.log(`[EdgeCoordinator] Peer left: ${nodeId}`);
     }
   }
 
-  private handleQuery(msg: GossipMessage, source: WebSocket): void {
+  private handleQuery(msg: GossipMessage): GossipMessage | null {
     const contentHash = msg.payload.contentHash as string;
     const location = this.contentIndex.get(contentHash);
 
     if (location && location.nodeIds.includes(this.config.nodeId)) {
-      // We have this content, respond
-      source.send(JSON.stringify({
+      return {
         type: 'response',
         id: msg.id,
         sender: this.config.nodeId,
         timestamp: Date.now(),
         ttl: 1,
-        payload: {
-          contentHash,
-          nodeId: this.config.nodeId,
-          endpoint: `https://${this.config.nodeId}`, // Replace with actual endpoint
-        },
-      }));
+        payload: { contentHash, nodeId: this.config.nodeId, endpoint: this.getLocalEndpoint() },
+      };
+    }
+
+    return null;
+  }
+
+  private handleResponse(msg: GossipMessage): void {
+    const pending = this.pendingQueries.get(msg.id);
+    if (pending) {
+      const nodeId = msg.payload.nodeId as string;
+      if (!pending.results.includes(nodeId)) {
+        pending.results.push(nodeId);
+      }
     }
   }
 
@@ -447,9 +362,7 @@ export class EdgeCoordinator {
     if (action === 'add') {
       const existing = this.contentIndex.get(contentHash);
       if (existing) {
-        if (!existing.nodeIds.includes(nodeId)) {
-          existing.nodeIds.push(nodeId);
-        }
+        if (!existing.nodeIds.includes(nodeId)) existing.nodeIds.push(nodeId);
         existing.lastUpdated = Date.now();
         existing.popularity++;
       } else {
@@ -464,79 +377,78 @@ export class EdgeCoordinator {
       const existing = this.contentIndex.get(contentHash);
       if (existing) {
         existing.nodeIds = existing.nodeIds.filter((id) => id !== nodeId);
-        if (existing.nodeIds.length === 0) {
-          this.contentIndex.delete(contentHash);
-        }
+        if (existing.nodeIds.length === 0) this.contentIndex.delete(contentHash);
       }
     }
   }
 
-  private handlePing(msg: GossipMessage, source: WebSocket): void {
-    source.send(JSON.stringify({
+  private handlePing(msg: GossipMessage): GossipMessage {
+    return {
       type: 'pong',
       id: msg.id,
       sender: this.config.nodeId,
       timestamp: Date.now(),
       ttl: 1,
-      payload: {
-        metrics: this.getLocalMetrics(),
-      },
-    }));
+      payload: { metrics: this.getLocalMetrics() },
+    };
   }
 
   private handlePeerList(msg: GossipMessage): void {
     const peers = msg.payload.peers as EdgeNodeInfo[];
     for (const peer of peers) {
       if (!this.peers.has(peer.nodeId) && peer.nodeId !== this.config.nodeId) {
-        // Connect to new peer
-        this.connectToPeer(peer.endpoint);
+        // Add to known peers
+        this.peers.set(peer.nodeId, { ...peer, lastSeen: Date.now() });
       }
     }
   }
 
-  private async broadcast(msg: GossipMessage): Promise<void> {
-    // For now, we'd need WebSocket connections to all peers
-    // In production, use actual P2P connections
-    for (const peer of this.peers.values()) {
-      await this.sendToPeer(peer.nodeId, msg);
+  private async connectToBootstrapNodes(): Promise<void> {
+    for (const endpoint of this.config.bootstrapNodes) {
+      await this.sendToPeer(endpoint, {
+        type: 'announce',
+        id: this.generateMessageId(),
+        sender: this.config.nodeId,
+        timestamp: Date.now(),
+        ttl: 1,
+        payload: { action: 'join', nodeInfo: this.getLocalNodeInfo() },
+      });
     }
   }
 
-  private async sendToPeer(peerId: string, msg: GossipMessage): Promise<void> {
-    const peer = this.peers.get(peerId);
-    if (!peer) return;
+  private async broadcast(msg: GossipMessage): Promise<void> {
+    const promises = Array.from(this.peers.values()).map((peer) =>
+      this.sendToPeer(peer.endpoint, msg).catch(() => {})
+    );
+    await Promise.allSettled(promises);
+  }
 
-    // Send via HTTP/WebSocket
-    await fetch(`${peer.endpoint}/gossip`, {
+  private async sendToPeer(endpoint: string, msg: GossipMessage): Promise<void> {
+    await fetch(`${endpoint}/gossip`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(msg),
-    }).catch(() => {
-      // Peer might be unreachable
-    });
+      signal: AbortSignal.timeout(5000),
+    }).catch(() => {});
   }
 
   private gossip(): void {
-    // Send peer list to random peers
     const peerList = Array.from(this.peers.values()).slice(0, 10);
     const randomPeers = this.getRandomPeers(3);
 
     for (const peer of randomPeers) {
-      this.sendToPeer(peer.nodeId, {
+      // Share peer list
+      this.sendToPeer(peer.endpoint, {
         type: 'peer_list',
         id: this.generateMessageId(),
         sender: this.config.nodeId,
         timestamp: Date.now(),
         ttl: 1,
-        payload: {
-          peers: peerList,
-        },
+        payload: { peers: peerList },
       });
-    }
 
-    // Ping random peers
-    for (const peer of randomPeers) {
-      this.sendToPeer(peer.nodeId, {
+      // Ping
+      this.sendToPeer(peer.endpoint, {
         type: 'ping',
         id: this.generateMessageId(),
         sender: this.config.nodeId,
@@ -548,8 +460,8 @@ export class EdgeCoordinator {
   }
 
   private cleanupStalePeers(): void {
+    const staleThreshold = 5 * 60 * 1000;
     const now = Date.now();
-    const staleThreshold = 5 * 60 * 1000; // 5 minutes
 
     for (const [nodeId, peer] of this.peers) {
       if (now - peer.lastSeen > staleThreshold) {
@@ -575,7 +487,7 @@ export class EdgeCoordinator {
     return {
       nodeId: this.config.nodeId,
       operator: this.config.operator,
-      endpoint: `https://localhost:${this.config.listenPort}`,
+      endpoint: this.getLocalEndpoint(),
       region: this.config.region,
       capabilities: {
         maxCacheSizeMb: 512,
@@ -589,6 +501,10 @@ export class EdgeCoordinator {
       lastSeen: Date.now(),
       version: '1.0.0',
     };
+  }
+
+  private getLocalEndpoint(): string {
+    return `http://localhost:${this.config.listenPort}`;
   }
 
   private getLocalMetrics(): EdgeMetrics {
@@ -613,4 +529,3 @@ export class EdgeCoordinator {
 export function createEdgeCoordinator(config: EdgeCoordinatorConfig): EdgeCoordinator {
   return new EdgeCoordinator(config);
 }
-

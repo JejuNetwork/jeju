@@ -1,12 +1,7 @@
 import { Hono } from 'hono';
 import type { InferenceRequest } from '../../types';
-import type { Address, Hex } from 'viem';
-import { computeJobState, initializeDWSState } from '../../state.js';
-import { createP2PNetwork } from '../../compute/sdk/p2p';
-
-// Training blob storage
-const trainingBlobs = new Map<string, Uint8Array>();
-const MAX_BLOB_SIZE = 100 * 1024 * 1024; // 100MB
+import type { Address } from 'viem';
+import { computeJobState, initializeState } from '../../services/state';
 
 type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -30,8 +25,10 @@ const activeJobs = new Set<string>();
 const MAX_CONCURRENT = 5;
 const DEFAULT_TIMEOUT = 300000;
 
-// Initialize CQL state
-initializeDWSState().catch(console.error);
+// Initialize state (non-blocking)
+initializeState().catch((err) => {
+  console.warn('[Compute] State initialization warning:', err.message);
+});
 
 const SHELL_CONFIG: Record<string, { path: string; args: (cmd: string) => string[] }> = {
   bash: { path: '/bin/bash', args: (cmd) => ['-c', cmd] },
@@ -59,10 +56,26 @@ export function createComputeRouter(): Hono {
     const inferenceUrl = process.env.INFERENCE_API_URL;
     const body = await c.req.json<InferenceRequest>();
     
+    // If no inference backend, return mock response for dev/testing
     if (!inferenceUrl) {
-      return c.json({ error: 'INFERENCE_API_URL not configured' }, 503);
+      return c.json({
+        id: `chatcmpl-${Date.now()}`,
+        object: 'chat.completion',
+        created: Math.floor(Date.now() / 1000),
+        model: body.model ?? 'dws-mock',
+        choices: [{
+          index: 0,
+          message: {
+            role: 'assistant',
+            content: 'This is a mock response from DWS compute. Set INFERENCE_API_URL to connect to a real model.',
+          },
+          finish_reason: 'stop',
+        }],
+        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+      });
     }
 
+    // Proxy to actual inference backend
     const response = await fetch(`${inferenceUrl}/v1/chat/completions`, {
       method: 'POST',
       headers: {
@@ -85,10 +98,22 @@ export function createComputeRouter(): Hono {
     const inferenceUrl = process.env.INFERENCE_API_URL;
     const body = await c.req.json<{ input: string | string[]; model?: string }>();
     
+    // If no inference backend, return mock embeddings for dev/testing
     if (!inferenceUrl) {
-      return c.json({ error: 'INFERENCE_API_URL not configured' }, 503);
+      const inputs = Array.isArray(body.input) ? body.input : [body.input];
+      return c.json({
+        object: 'list',
+        data: inputs.map((_, i) => ({
+          object: 'embedding',
+          index: i,
+          embedding: Array.from({ length: 1536 }, () => Math.random() * 2 - 1),
+        })),
+        model: body.model ?? 'text-embedding-mock',
+        usage: { prompt_tokens: 10, total_tokens: 10 },
+      });
     }
 
+    // Proxy to actual embeddings backend
     const response = await fetch(`${inferenceUrl}/v1/embeddings`, {
       method: 'POST',
       headers: {
@@ -207,85 +232,6 @@ export function createComputeRouter(): Hono {
       })),
       total: rows.length,
     });
-  });
-
-  // Training P2P Gossip endpoint
-  app.post('/training/gossip', async (c) => {
-    const registryAddress = process.env.IDENTITY_REGISTRY_ADDRESS as Address | undefined;
-    if (!registryAddress) {
-      return c.json({ error: 'IDENTITY_REGISTRY_ADDRESS not configured' }, 503);
-    }
-
-    const body = await c.req.json<{
-      type: string;
-      runId: Hex;
-      sender: Address;
-      timestamp: number;
-      payload: string;
-      signature: Hex;
-    }>();
-
-    const p2p = createP2PNetwork({
-      rpcUrl: process.env.RPC_URL ?? 'http://localhost:8545',
-      identityRegistryAddress: registryAddress,
-      selfEndpoint: process.env.DWS_ENDPOINT ?? 'http://localhost:3000',
-    });
-
-    await p2p.handleGossip(body);
-    return c.json({ received: true });
-  });
-
-  // Training Blob Storage
-  app.get('/training/blob/:hash', async (c) => {
-    const hash = c.req.param('hash');
-    const blob = trainingBlobs.get(hash);
-
-    if (!blob) {
-      return c.json({ error: 'Blob not found' }, 404);
-    }
-
-    return new Response(new Uint8Array(blob), {
-      headers: { 'Content-Type': 'application/octet-stream' },
-    });
-  });
-
-  app.post('/training/blob', async (c) => {
-    const data = await c.req.arrayBuffer();
-    if (data.byteLength > MAX_BLOB_SIZE) {
-      return c.json({ error: `Blob too large (max ${MAX_BLOB_SIZE} bytes)` }, 413);
-    }
-
-    const bytes = new Uint8Array(data);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', bytes);
-    const hash = '0x' + Array.from(new Uint8Array(hashBuffer))
-      .map(b => b.toString(16).padStart(2, '0'))
-      .join('');
-
-    trainingBlobs.set(hash, bytes);
-    return c.json({ hash, size: bytes.length }, 201);
-  });
-
-  // LLM Judging endpoint for training
-  app.post('/judging/score', async (c) => {
-    const judgingUrl = process.env.JUDGING_API_URL;
-    const body = await c.req.json<{ preparedData: object; archetype: string }>();
-
-    if (!judgingUrl) {
-      return c.json({ error: 'JUDGING_API_URL not configured' }, 503);
-    }
-
-    const response = await fetch(judgingUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return c.json({ error: `Judging backend error: ${errorText}` }, response.status as 400 | 500 | 502 | 503);
-    }
-
-    return c.json(await response.json());
   });
 
   return app;

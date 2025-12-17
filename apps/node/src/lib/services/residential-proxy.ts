@@ -1,31 +1,51 @@
 /**
- * Residential Proxy Service
- * 
- * Connects to the proxy coordinator and handles proxy requests.
- * Uses WebSocket for real-time coordination and HTTP CONNECT for proxy forwarding.
+ * Residential Proxy Service - Production Implementation
+ *
+ * Provides residential proxy capabilities with:
+ * - Authenticated proxy requests via signed tokens
+ * - HTTP CONNECT tunneling for HTTPS
+ * - WebSocket coordination with coordinator
+ * - On-chain registration and rewards
+ * - Prometheus metrics export
+ * - Health check endpoint
+ * - Graceful shutdown with connection draining
+ * - Circuit breaker for coordinator communication
  */
 
-import { type Address } from 'viem';
+import { type Address, verifyMessage, hashMessage } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { type NodeClient, getChain } from '../contracts';
 import { PROXY_REGISTRY_ABI } from '../abis';
 import net from 'net';
-import tls from 'tls';
 import http from 'http';
 import https from 'https';
+import { WebSocket } from 'ws';
+import { z } from 'zod';
+import { Registry, Counter, Histogram, Gauge } from 'prom-client';
+import { createHash, randomBytes } from 'crypto';
+
+// ============================================================================
+// Configuration Schema
+// ============================================================================
+
+const ProxyConfigSchema = z.object({
+  coordinatorWsUrl: z.string().url(),
+  localPort: z.number().min(1024).max(65535),
+  maxConcurrentRequests: z.number().min(1).max(1000),
+  bandwidthLimitMbps: z.number().min(1),
+  allowedPorts: z.array(z.number()),
+  blockedDomains: z.array(z.string()),
+  stakeAmount: z.bigint(),
+  authTokenTtlMs: z.number().default(30000),
+  metricsPort: z.number().optional(),
+  drainTimeoutMs: z.number().default(30000),
+});
+
+export type ProxyConfig = z.infer<typeof ProxyConfigSchema>;
 
 // ============================================================================
 // Types
 // ============================================================================
-
-export interface ProxyConfig {
-  coordinatorWsUrl: string;
-  localPort: number;
-  maxConcurrentRequests: number;
-  bandwidthLimitMbps: number;
-  allowedPorts: number[];
-  blockedDomains: string[];
-  stakeAmount: bigint;
-}
 
 export interface ProxyState {
   isRegistered: boolean;
@@ -37,23 +57,102 @@ export interface ProxyState {
   earnings: bigint;
 }
 
-export interface ProxyRequest {
-  id: string;
-  targetHost: string;
-  targetPort: number;
-  method: string;
-  encrypted: boolean;
+interface AuthToken {
+  nodeId: string;
+  requestId: string;
   timestamp: number;
+  signature: string;
 }
 
-interface ProxyMetrics {
-  requestsTotal: number;
-  requestsSuccessful: number;
-  requestsFailed: number;
-  bytesUpload: number;
-  bytesDownload: number;
-  avgLatencyMs: number;
-  activeConnections: number;
+// ============================================================================
+// Prometheus Metrics
+// ============================================================================
+
+const metricsRegistry = new Registry();
+
+const proxyRequestsTotal = new Counter({
+  name: 'proxy_requests_total',
+  help: 'Total proxy requests',
+  labelNames: ['method', 'status'],
+  registers: [metricsRegistry],
+});
+
+const proxyRequestDuration = new Histogram({
+  name: 'proxy_request_duration_seconds',
+  help: 'Proxy request duration',
+  labelNames: ['method'],
+  buckets: [0.01, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10],
+  registers: [metricsRegistry],
+});
+
+const proxyBytesTransferred = new Counter({
+  name: 'proxy_bytes_transferred_total',
+  help: 'Total bytes transferred',
+  labelNames: ['direction'],
+  registers: [metricsRegistry],
+});
+
+const proxyActiveConnections = new Gauge({
+  name: 'proxy_active_connections',
+  help: 'Active proxy connections',
+  registers: [metricsRegistry],
+});
+
+const proxyCoordinatorConnected = new Gauge({
+  name: 'proxy_coordinator_connected',
+  help: 'Coordinator connection status',
+  registers: [metricsRegistry],
+});
+
+// ============================================================================
+// Circuit Breaker
+// ============================================================================
+
+class CircuitBreaker {
+  private failures = 0;
+  private lastFailure = 0;
+  private state: 'closed' | 'open' | 'half-open' = 'closed';
+
+  constructor(
+    private readonly threshold = 5,
+    private readonly resetTimeout = 30000
+  ) {}
+
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.state === 'open') {
+      if (Date.now() - this.lastFailure > this.resetTimeout) {
+        this.state = 'half-open';
+      } else {
+        throw new Error('Circuit breaker open');
+      }
+    }
+
+    try {
+      const result = await fn();
+      this.onSuccess();
+      return result;
+    } catch (error) {
+      this.onFailure();
+      throw error;
+    }
+  }
+
+  private onSuccess(): void {
+    this.failures = 0;
+    this.state = 'closed';
+  }
+
+  private onFailure(): void {
+    this.failures++;
+    this.lastFailure = Date.now();
+    if (this.failures >= this.threshold) {
+      this.state = 'open';
+    }
+  }
+
+  getState(): string {
+    return this.state;
+  }
 }
 
 // ============================================================================
@@ -65,56 +164,58 @@ export class ResidentialProxyService {
   private config: ProxyConfig;
   private ws: WebSocket | null = null;
   private server: http.Server | null = null;
+  private metricsServer: http.Server | null = null;
   private nodeId: `0x${string}` | null = null;
   private running = false;
-  private metrics: ProxyMetrics = {
-    requestsTotal: 0,
-    requestsSuccessful: 0,
-    requestsFailed: 0,
-    bytesUpload: 0,
-    bytesDownload: 0,
-    avgLatencyMs: 0,
-    activeConnections: 0,
-  };
+  private draining = false;
   private activeConnections = new Map<string, net.Socket>();
   private metricsReportInterval: ReturnType<typeof setInterval> | null = null;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
+  private coordinatorBreaker = new CircuitBreaker(5, 30000);
+  private validTokens = new Map<string, number>(); // requestId -> expiry
 
-  constructor(client: NodeClient, config: Partial<ProxyConfig> = {}) {
+  constructor(client: NodeClient, config: Partial<ProxyConfig>) {
     this.client = client;
-    this.config = {
+
+    // Validate config
+    this.config = ProxyConfigSchema.parse({
       coordinatorWsUrl: config.coordinatorWsUrl ?? 'wss://proxy.jejunetwork.org/ws',
       localPort: config.localPort ?? 4025,
-      maxConcurrentRequests: config.maxConcurrentRequests ?? 10,
+      maxConcurrentRequests: config.maxConcurrentRequests ?? 100,
       bandwidthLimitMbps: config.bandwidthLimitMbps ?? 100,
       allowedPorts: config.allowedPorts ?? [80, 443, 8080, 8443],
       blockedDomains: config.blockedDomains ?? [],
-      stakeAmount: config.stakeAmount ?? BigInt('100000000000000000'), // 0.1 ETH
-    };
+      stakeAmount: config.stakeAmount ?? BigInt('100000000000000000'),
+      ...config,
+    });
   }
 
-  /**
-   * Get current proxy state
-   */
+  // ============================================================================
+  // Public API
+  // ============================================================================
+
   async getState(address: Address): Promise<ProxyState | null> {
-    const nodeIds = await this.client.publicClient.readContract({
+    const nodeIds = (await this.client.publicClient.readContract({
       address: this.client.addresses.proxyRegistry,
       abi: PROXY_REGISTRY_ABI,
       functionName: 'getOperatorNodes',
       args: [address],
-    }) as readonly `0x${string}`[];
+    })) as readonly `0x${string}`[];
 
-    if (nodeIds.length === 0) {
-      return null;
-    }
+    if (nodeIds.length === 0) return null;
 
     const nodeId = nodeIds[0];
-    const node = await this.client.publicClient.readContract({
+    const node = (await this.client.publicClient.readContract({
       address: this.client.addresses.proxyRegistry,
       abi: PROXY_REGISTRY_ABI,
       functionName: 'getProxyNode',
       args: [nodeId],
-    }) as { status: number; requestsTotal: bigint; bytesTransferred: bigint; stake: bigint };
+    })) as {
+      status: number;
+      requestsTotal: bigint;
+      bytesTransferred: bigint;
+      stake: bigint;
+    };
 
     const statusMap: ProxyState['status'][] = ['online', 'busy', 'offline', 'suspended'];
 
@@ -124,14 +225,11 @@ export class ResidentialProxyService {
       status: statusMap[node.status] ?? 'offline',
       totalRequests: Number(node.requestsTotal),
       totalBytesTransferred: Number(node.bytesTransferred),
-      currentConnections: this.metrics.activeConnections,
+      currentConnections: this.activeConnections.size,
       earnings: node.stake,
     };
   }
 
-  /**
-   * Register as proxy node
-   */
   async register(): Promise<string> {
     if (!this.client.walletClient?.account) {
       throw new Error('Wallet not connected');
@@ -150,9 +248,6 @@ export class ResidentialProxyService {
     return hash;
   }
 
-  /**
-   * Start the proxy service
-   */
   async start(): Promise<void> {
     if (this.running) {
       console.warn('[Proxy] Already running');
@@ -160,8 +255,9 @@ export class ResidentialProxyService {
     }
 
     this.running = true;
+    this.draining = false;
 
-    // Get node ID from registration
+    // Get node ID
     const address = this.client.walletClient?.account?.address;
     if (address) {
       const state = await this.getState(address);
@@ -170,53 +266,47 @@ export class ResidentialProxyService {
       }
     }
 
-    // Start local proxy server
+    // Start servers
     await this.startProxyServer();
-
-    // Connect to coordinator
+    await this.startMetricsServer();
     await this.connectToCoordinator();
 
-    // Start metrics reporting
-    this.metricsReportInterval = setInterval(() => {
-      this.reportMetrics();
-    }, 60000); // Every minute
+    // Metrics reporting
+    this.metricsReportInterval = setInterval(() => this.reportMetrics(), 60000);
 
     console.log(`[Proxy] Started on port ${this.config.localPort}`);
   }
 
-  /**
-   * Stop the proxy service
-   */
   async stop(): Promise<void> {
     if (!this.running) return;
 
-    this.running = false;
+    console.log('[Proxy] Stopping (draining connections)...');
+    this.draining = true;
 
-    // Clear intervals
-    if (this.metricsReportInterval) {
-      clearInterval(this.metricsReportInterval);
-    }
-    if (this.reconnectTimeout) {
-      clearTimeout(this.reconnectTimeout);
+    // Stop accepting new connections
+    this.server?.close();
+
+    // Wait for active connections to drain
+    const drainStart = Date.now();
+    while (
+      this.activeConnections.size > 0 &&
+      Date.now() - drainStart < this.config.drainTimeoutMs
+    ) {
+      await new Promise((resolve) => setTimeout(resolve, 100));
     }
 
-    // Close all connections
+    // Force close remaining connections
     for (const [id, socket] of this.activeConnections) {
       socket.destroy();
       this.activeConnections.delete(id);
     }
 
-    // Close WebSocket
-    if (this.ws) {
-      this.ws.close();
-      this.ws = null;
-    }
-
-    // Close server
-    if (this.server) {
-      this.server.close();
-      this.server = null;
-    }
+    // Cleanup
+    this.running = false;
+    if (this.metricsReportInterval) clearInterval(this.metricsReportInterval);
+    if (this.reconnectTimeout) clearTimeout(this.reconnectTimeout);
+    if (this.ws) this.ws.close();
+    if (this.metricsServer) this.metricsServer.close();
 
     // Final metrics report
     await this.reportMetrics();
@@ -224,31 +314,51 @@ export class ResidentialProxyService {
     console.log('[Proxy] Stopped');
   }
 
-  /**
-   * Check if service is running
-   */
   isRunning(): boolean {
     return this.running;
   }
 
-  /**
-   * Get current metrics
-   */
-  getMetrics(): ProxyMetrics {
-    return { ...this.metrics };
+  async getMetrics(): Promise<string> {
+    return metricsRegistry.metrics();
+  }
+
+  getHealth(): { status: string; connections: number; coordinator: boolean } {
+    return {
+      status: this.running ? (this.draining ? 'draining' : 'healthy') : 'stopped',
+      connections: this.activeConnections.size,
+      coordinator: this.ws?.readyState === WebSocket.OPEN,
+    };
   }
 
   // ============================================================================
-  // Private Methods
+  // Server Setup
   // ============================================================================
 
   private async startProxyServer(): Promise<void> {
     this.server = http.createServer((req, res) => {
-      // Handle regular HTTP requests
+      // Health check endpoint
+      if (req.url === '/health') {
+        const health = this.getHealth();
+        res.writeHead(health.status === 'healthy' ? 200 : 503, {
+          'Content-Type': 'application/json',
+        });
+        res.end(JSON.stringify(health));
+        return;
+      }
+
+      // Readiness check
+      if (req.url === '/ready') {
+        const ready = this.running && !this.draining && this.ws?.readyState === WebSocket.OPEN;
+        res.writeHead(ready ? 200 : 503);
+        res.end(ready ? 'ready' : 'not ready');
+        return;
+      }
+
+      // Regular HTTP proxy
       this.handleHttpRequest(req, res);
     });
 
-    // Handle CONNECT method for HTTPS tunneling
+    // HTTPS tunneling
     this.server.on('connect', (req, clientSocket, head) => {
       this.handleConnectRequest(req, clientSocket, head);
     });
@@ -258,44 +368,161 @@ export class ResidentialProxyService {
     });
 
     await new Promise<void>((resolve) => {
-      this.server!.listen(this.config.localPort, () => {
-        resolve();
-      });
+      this.server!.listen(this.config.localPort, resolve);
     });
   }
 
-  private handleHttpRequest(req: http.IncomingMessage, res: http.ServerResponse): void {
-    const requestId = crypto.randomUUID();
-    const startTime = Date.now();
+  private async startMetricsServer(): Promise<void> {
+    if (!this.config.metricsPort) return;
 
-    // Validate request
-    if (!req.url) {
-      res.writeHead(400);
-      res.end('Bad Request');
+    this.metricsServer = http.createServer(async (req, res) => {
+      if (req.url === '/metrics') {
+        res.setHeader('Content-Type', metricsRegistry.contentType);
+        res.end(await this.getMetrics());
+      } else {
+        res.writeHead(404);
+        res.end('Not found');
+      }
+    });
+
+    await new Promise<void>((resolve) => {
+      this.metricsServer!.listen(this.config.metricsPort, resolve);
+    });
+
+    console.log(`[Proxy] Metrics server on port ${this.config.metricsPort}`);
+  }
+
+  // ============================================================================
+  // Authentication
+  // ============================================================================
+
+  private async validateAuthToken(req: http.IncomingMessage): Promise<boolean> {
+    const authHeader = req.headers['x-proxy-auth'];
+    if (!authHeader || typeof authHeader !== 'string') {
+      return false;
+    }
+
+    try {
+      const token: AuthToken = JSON.parse(Buffer.from(authHeader, 'base64').toString());
+
+      // Check token hasn't expired
+      if (Date.now() - token.timestamp > this.config.authTokenTtlMs) {
+        return false;
+      }
+
+      // Check not already used (replay protection)
+      if (this.validTokens.has(token.requestId)) {
+        return false;
+      }
+
+      // Verify signature from coordinator
+      const message = `${token.nodeId}:${token.requestId}:${token.timestamp}`;
+      const coordinatorAddress = process.env.PROXY_COORDINATOR_ADDRESS as Address;
+
+      if (!coordinatorAddress) {
+        console.warn('[Proxy] No coordinator address configured');
+        return false;
+      }
+
+      const isValid = await verifyMessage({
+        address: coordinatorAddress,
+        message,
+        signature: token.signature as `0x${string}`,
+      });
+
+      if (isValid) {
+        // Mark token as used
+        this.validTokens.set(token.requestId, Date.now() + this.config.authTokenTtlMs);
+
+        // Cleanup expired tokens
+        this.cleanupExpiredTokens();
+      }
+
+      return isValid;
+    } catch (error) {
+      console.error('[Proxy] Auth token validation error:', error);
+      return false;
+    }
+  }
+
+  private cleanupExpiredTokens(): void {
+    const now = Date.now();
+    for (const [requestId, expiry] of this.validTokens) {
+      if (expiry < now) {
+        this.validTokens.delete(requestId);
+      }
+    }
+  }
+
+  // ============================================================================
+  // Request Handling
+  // ============================================================================
+
+  private async handleHttpRequest(
+    req: http.IncomingMessage,
+    res: http.ServerResponse
+  ): Promise<void> {
+    const requestId = randomBytes(8).toString('hex');
+    const timer = proxyRequestDuration.startTimer({ method: 'http' });
+
+    // Check if draining
+    if (this.draining) {
+      res.writeHead(503, { 'Retry-After': '5' });
+      res.end('Service draining');
+      proxyRequestsTotal.inc({ method: 'http', status: 'rejected' });
       return;
     }
 
-    // Parse target URL
+    // Validate authentication
+    const isAuthenticated = await this.validateAuthToken(req);
+    if (!isAuthenticated) {
+      res.writeHead(401);
+      res.end('Unauthorized');
+      proxyRequestsTotal.inc({ method: 'http', status: 'unauthorized' });
+      timer();
+      return;
+    }
+
+    if (!req.url) {
+      res.writeHead(400);
+      res.end('Bad Request');
+      proxyRequestsTotal.inc({ method: 'http', status: 'bad_request' });
+      timer();
+      return;
+    }
+
+    // Parse target
     const targetUrl = new URL(req.url);
     const hostname = targetUrl.hostname;
     const port = parseInt(targetUrl.port) || (targetUrl.protocol === 'https:' ? 443 : 80);
 
-    // Check blocked domains
+    // Validate
     if (this.isBlocked(hostname)) {
       res.writeHead(403);
       res.end('Forbidden');
+      proxyRequestsTotal.inc({ method: 'http', status: 'blocked' });
+      timer();
       return;
     }
 
-    // Check allowed ports
     if (!this.config.allowedPorts.includes(port)) {
       res.writeHead(403);
       res.end('Port not allowed');
+      proxyRequestsTotal.inc({ method: 'http', status: 'port_blocked' });
+      timer();
       return;
     }
 
-    this.metrics.requestsTotal++;
-    this.metrics.activeConnections++;
+    // Check concurrent connections
+    if (this.activeConnections.size >= this.config.maxConcurrentRequests) {
+      res.writeHead(503);
+      res.end('Too many connections');
+      proxyRequestsTotal.inc({ method: 'http', status: 'overloaded' });
+      timer();
+      return;
+    }
+
+    proxyActiveConnections.inc();
 
     // Forward request
     const options: http.RequestOptions = {
@@ -303,55 +530,68 @@ export class ResidentialProxyService {
       port,
       path: targetUrl.pathname + targetUrl.search,
       method: req.method,
-      headers: req.headers,
+      headers: { ...req.headers, host: hostname },
+      timeout: 30000,
     };
 
-    const proxyReq = (targetUrl.protocol === 'https:' ? https : http).request(options, (proxyRes) => {
-      res.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
-      
-      let bytesReceived = 0;
-      proxyRes.on('data', (chunk: Buffer) => {
-        bytesReceived += chunk.length;
-        this.metrics.bytesDownload += chunk.length;
-      });
+    const proxyReq = (targetUrl.protocol === 'https:' ? https : http).request(
+      options,
+      (proxyRes) => {
+        res.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
 
-      proxyRes.pipe(res);
+        proxyRes.on('data', (chunk: Buffer) => {
+          proxyBytesTransferred.inc({ direction: 'download' }, chunk.length);
+        });
 
-      proxyRes.on('end', () => {
-        this.metrics.requestsSuccessful++;
-        this.metrics.activeConnections--;
-        this.updateLatency(Date.now() - startTime);
-      });
-    });
+        proxyRes.pipe(res);
+
+        proxyRes.on('end', () => {
+          proxyRequestsTotal.inc({ method: 'http', status: 'success' });
+          proxyActiveConnections.dec();
+          timer();
+        });
+      }
+    );
 
     proxyReq.on('error', (err) => {
       console.error(`[Proxy] Request ${requestId} failed:`, err.message);
-      this.metrics.requestsFailed++;
-      this.metrics.activeConnections--;
+      proxyRequestsTotal.inc({ method: 'http', status: 'error' });
+      proxyActiveConnections.dec();
       res.writeHead(502);
       res.end('Bad Gateway');
+      timer();
     });
 
-    let bytesSent = 0;
     req.on('data', (chunk: Buffer) => {
-      bytesSent += chunk.length;
-      this.metrics.bytesUpload += chunk.length;
+      proxyBytesTransferred.inc({ direction: 'upload' }, chunk.length);
     });
 
     req.pipe(proxyReq);
   }
 
-  private handleConnectRequest(
+  private async handleConnectRequest(
     req: http.IncomingMessage,
     clientSocket: net.Socket,
     head: Buffer
-  ): void {
-    const requestId = crypto.randomUUID();
-    const startTime = Date.now();
+  ): Promise<void> {
+    const requestId = randomBytes(8).toString('hex');
+    const timer = proxyRequestDuration.startTimer({ method: 'connect' });
+
+    // Validate authentication
+    const isAuthenticated = await this.validateAuthToken(req);
+    if (!isAuthenticated) {
+      clientSocket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
+      clientSocket.end();
+      proxyRequestsTotal.inc({ method: 'connect', status: 'unauthorized' });
+      timer();
+      return;
+    }
 
     if (!req.url) {
       clientSocket.write('HTTP/1.1 400 Bad Request\r\n\r\n');
       clientSocket.end();
+      proxyRequestsTotal.inc({ method: 'connect', status: 'bad_request' });
+      timer();
       return;
     }
 
@@ -362,115 +602,127 @@ export class ResidentialProxyService {
     if (this.isBlocked(hostname)) {
       clientSocket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
       clientSocket.end();
+      proxyRequestsTotal.inc({ method: 'connect', status: 'blocked' });
+      timer();
       return;
     }
 
     if (!this.config.allowedPorts.includes(port)) {
       clientSocket.write('HTTP/1.1 403 Forbidden\r\n\r\n');
       clientSocket.end();
+      proxyRequestsTotal.inc({ method: 'connect', status: 'port_blocked' });
+      timer();
       return;
     }
 
-    if (this.metrics.activeConnections >= this.config.maxConcurrentRequests) {
+    if (this.activeConnections.size >= this.config.maxConcurrentRequests) {
       clientSocket.write('HTTP/1.1 503 Service Unavailable\r\n\r\n');
       clientSocket.end();
+      proxyRequestsTotal.inc({ method: 'connect', status: 'overloaded' });
+      timer();
       return;
     }
 
-    this.metrics.requestsTotal++;
-    this.metrics.activeConnections++;
+    proxyActiveConnections.inc();
     this.activeConnections.set(requestId, clientSocket);
 
-    // Create tunnel to target
+    // Connect to target
     const serverSocket = net.connect(port, hostname, () => {
       clientSocket.write('HTTP/1.1 200 Connection Established\r\n\r\n');
-      
+
       if (head.length > 0) {
         serverSocket.write(head);
-        this.metrics.bytesUpload += head.length;
+        proxyBytesTransferred.inc({ direction: 'upload' }, head.length);
       }
 
-      // Pipe bidirectional
       serverSocket.pipe(clientSocket);
       clientSocket.pipe(serverSocket);
 
-      // Track bytes
       serverSocket.on('data', (chunk: Buffer) => {
-        this.metrics.bytesDownload += chunk.length;
+        proxyBytesTransferred.inc({ direction: 'download' }, chunk.length);
       });
 
       clientSocket.on('data', (chunk: Buffer) => {
-        this.metrics.bytesUpload += chunk.length;
+        proxyBytesTransferred.inc({ direction: 'upload' }, chunk.length);
       });
     });
 
-    const cleanup = () => {
-      this.metrics.activeConnections--;
+    const cleanup = (status: string) => {
+      proxyRequestsTotal.inc({ method: 'connect', status });
+      proxyActiveConnections.dec();
       this.activeConnections.delete(requestId);
-      this.metrics.requestsSuccessful++;
-      this.updateLatency(Date.now() - startTime);
       serverSocket.destroy();
       clientSocket.destroy();
+      timer();
     };
 
-    serverSocket.on('error', (err) => {
-      console.error(`[Proxy] CONNECT ${requestId} server error:`, err.message);
-      this.metrics.requestsFailed++;
-      cleanup();
+    serverSocket.on('error', () => cleanup('server_error'));
+    clientSocket.on('error', () => cleanup('client_error'));
+    serverSocket.on('close', () => cleanup('success'));
+    clientSocket.on('close', () => {
+      if (this.activeConnections.has(requestId)) {
+        cleanup('client_close');
+      }
     });
-
-    clientSocket.on('error', (err) => {
-      console.error(`[Proxy] CONNECT ${requestId} client error:`, err.message);
-      cleanup();
-    });
-
-    serverSocket.on('close', cleanup);
-    clientSocket.on('close', cleanup);
   }
+
+  // ============================================================================
+  // Coordinator Communication
+  // ============================================================================
 
   private async connectToCoordinator(): Promise<void> {
     if (!this.running) return;
 
-    const ws = new WebSocket(this.config.coordinatorWsUrl);
+    try {
+      await this.coordinatorBreaker.execute(async () => {
+        const ws = new WebSocket(this.config.coordinatorWsUrl);
 
-    ws.onopen = () => {
-      console.log('[Proxy] Connected to coordinator');
-      
-      // Register with coordinator
-      ws.send(JSON.stringify({
-        type: 'register',
-        nodeId: this.nodeId,
-        address: this.client.walletClient?.account?.address,
-        capabilities: {
-          maxConnections: this.config.maxConcurrentRequests,
-          bandwidthMbps: this.config.bandwidthLimitMbps,
-          allowedPorts: this.config.allowedPorts,
-        },
-      }));
-    };
+        ws.on('open', () => {
+          console.log('[Proxy] Connected to coordinator');
+          proxyCoordinatorConnected.set(1);
 
-    ws.onmessage = (event) => {
-      const message = JSON.parse(event.data as string);
-      this.handleCoordinatorMessage(message);
-    };
+          // Register
+          ws.send(
+            JSON.stringify({
+              type: 'register',
+              nodeId: this.nodeId,
+              address: this.client.walletClient?.account?.address,
+              capabilities: {
+                maxConnections: this.config.maxConcurrentRequests,
+                bandwidthMbps: this.config.bandwidthLimitMbps,
+                allowedPorts: this.config.allowedPorts,
+              },
+            })
+          );
+        });
 
-    ws.onerror = (error) => {
-      console.error('[Proxy] WebSocket error:', error);
-    };
+        ws.on('message', (data) => {
+          const message = JSON.parse(data.toString());
+          this.handleCoordinatorMessage(message);
+        });
 
-    ws.onclose = () => {
-      console.log('[Proxy] Disconnected from coordinator');
-      this.ws = null;
+        ws.on('error', (error) => {
+          console.error('[Proxy] WebSocket error:', error.message);
+        });
 
-      // Reconnect if still running
-      if (this.running) {
-        this.reconnectTimeout = setTimeout(() => {
-          this.connectToCoordinator();
-        }, 5000);
+        ws.on('close', () => {
+          console.log('[Proxy] Coordinator disconnected');
+          proxyCoordinatorConnected.set(0);
+          this.ws = null;
+
+          if (this.running && !this.draining) {
+            this.reconnectTimeout = setTimeout(() => this.connectToCoordinator(), 5000);
+          }
+        });
+
+        this.ws = ws;
+      });
+    } catch (error) {
+      console.error('[Proxy] Coordinator connection failed:', error);
+      if (this.running && !this.draining) {
+        this.reconnectTimeout = setTimeout(() => this.connectToCoordinator(), 10000);
       }
-    };
-
-    this.ws = ws;
+    }
   }
 
   private handleCoordinatorMessage(message: { type: string; [key: string]: unknown }): void {
@@ -479,13 +731,7 @@ export class ResidentialProxyService {
         console.log('[Proxy] Registered with coordinator');
         break;
 
-      case 'request':
-        // Handle incoming proxy request from coordinator
-        // This is for pull-based model where coordinator assigns requests
-        break;
-
       case 'block_domain':
-        // Add domain to blocklist
         const domain = message.domain as string;
         if (!this.config.blockedDomains.includes(domain)) {
           this.config.blockedDomains.push(domain);
@@ -493,16 +739,20 @@ export class ResidentialProxyService {
         break;
 
       case 'status_request':
-        // Respond with current status
-        this.ws?.send(JSON.stringify({
-          type: 'status',
-          metrics: this.metrics,
-          activeConnections: this.metrics.activeConnections,
-          timestamp: Date.now(),
-        }));
+        this.ws?.send(
+          JSON.stringify({
+            type: 'status',
+            health: this.getHealth(),
+            timestamp: Date.now(),
+          })
+        );
         break;
     }
   }
+
+  // ============================================================================
+  // Helpers
+  // ============================================================================
 
   private isBlocked(hostname: string): boolean {
     return this.config.blockedDomains.some(
@@ -510,26 +760,17 @@ export class ResidentialProxyService {
     );
   }
 
-  private updateLatency(latencyMs: number): void {
-    const total = this.metrics.requestsSuccessful + this.metrics.requestsFailed;
-    this.metrics.avgLatencyMs = 
-      (this.metrics.avgLatencyMs * (total - 1) + latencyMs) / total;
-  }
-
   private async reportMetrics(): Promise<void> {
-    if (!this.nodeId || !this.client.walletClient?.account) return;
+    if (!this.nodeId || !this.ws || this.ws.readyState !== WebSocket.OPEN) return;
 
-    // Report to coordinator via WebSocket
-    this.ws?.send(JSON.stringify({
-      type: 'metrics',
-      nodeId: this.nodeId,
-      metrics: {
-        ...this.metrics,
+    this.ws.send(
+      JSON.stringify({
+        type: 'metrics',
+        nodeId: this.nodeId,
+        health: this.getHealth(),
         timestamp: Date.now(),
-      },
-    }));
-
-    // Could also report on-chain periodically for rewards
+      })
+    );
   }
 }
 
@@ -541,6 +782,5 @@ export function createResidentialProxyService(
   client: NodeClient,
   config?: Partial<ProxyConfig>
 ): ResidentialProxyService {
-  return new ResidentialProxyService(client, config);
+  return new ResidentialProxyService(client, config ?? {});
 }
-

@@ -2,11 +2,12 @@
  * Decentralized State Management for Crucible
  * 
  * Persists agent, room, and bot state to CovenantSQL.
- * DECENTRALIZED: No fallbacks - CQL is required for production.
+ * CQL is REQUIRED - automatically configured per network.
  */
 
 import { getCQL, type CQLClient, type QueryParam } from "@jejunetwork/db";
 import { getCacheClient, type CacheClient } from "@jejunetwork/shared";
+import { getCurrentNetwork } from "@jejunetwork/config";
 import type {
   AgentDefinition,
   AgentState,
@@ -17,8 +18,7 @@ import type {
   OrgToolState,
 } from "./types";
 
-const CQL_DATABASE_ID = process.env.COVENANTSQL_DATABASE_ID ?? "crucible";
-const CQL_REQUIRED = process.env.CQL_REQUIRED !== "false";
+const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? "crucible";
 
 // CQL Client
 let cqlClient: CQLClient | null = null;
@@ -27,19 +27,22 @@ let initialized = false;
 
 async function getCQLClient(): Promise<CQLClient> {
   if (!cqlClient) {
-    const cqlNodes = process.env.COVENANTSQL_NODES;
+    // CQL URL is automatically resolved from network config
+    cqlClient = getCQL({
+      databaseId: CQL_DATABASE_ID,
+      timeout: 30000,
+      debug: process.env.NODE_ENV !== 'production',
+    });
     
-    if (!cqlNodes && CQL_REQUIRED) {
+    const healthy = await cqlClient.isHealthy();
+    if (!healthy) {
+      const network = getCurrentNetwork();
       throw new Error(
-        'Crucible requires CovenantSQL for decentralized state storage.\n' +
-        'Set COVENANTSQL_NODES environment variable or start stack:\n' +
-        '  docker compose up -d\n' +
-        '\n' +
-        'Or set CQL_REQUIRED=false for local testing only (not recommended for production).'
+        `Crucible requires CovenantSQL for decentralized state (network: ${network}).\n` +
+        'Ensure CQL is running: docker compose up -d cql'
       );
     }
     
-    cqlClient = getCQL();
     await ensureTablesExist();
   }
   return cqlClient;

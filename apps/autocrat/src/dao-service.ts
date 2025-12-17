@@ -20,24 +20,82 @@ import {
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia, localhost } from 'viem/chains';
 import type {
-  DAO,
-  DAOFull,
-  DAOConfig,
   CEOPersona,
   GovernanceParams,
   CouncilMemberConfig,
-  DAOContracts,
-  DAOAgents,
   FundingConfig,
   DAOStatus,
-  DAOStats,
-  PackageInfo,
-  RepoInfo,
-  ModelInfo,
-  FundingProject,
-  FundingEpoch,
-  FundingAllocation,
 } from './types';
+
+// Re-export types for convenience
+export type { CEOPersona, GovernanceParams, CouncilMemberConfig, FundingConfig, DAOStatus };
+
+// Internal types
+export interface DAO {
+  daoId: string;
+  name: string;
+  displayName: string;
+  description: string;
+  treasury: Address;
+  council: Address;
+  ceoAgent: Address;
+  feeConfig: Address;
+  ceoModelId: string;
+  manifestCid: string;
+  status: DAOStatus;
+  createdAt: number;
+  updatedAt: number;
+  creator: Address;
+}
+
+export interface DAOFull {
+  dao: DAO;
+  ceoPersona: CEOPersona;
+  params: GovernanceParams;
+  councilMembers: CouncilMemberConfig[];
+  linkedPackages: string[];
+  linkedRepos: string[];
+}
+
+export interface FundingProject {
+  projectId: string;
+  daoId: string;
+  projectType: 'package' | 'repo';
+  registryId: string;
+  name: string;
+  description: string;
+  primaryRecipient: Address;
+  additionalRecipients: Address[];
+  recipientShares: number[];
+  ceoWeight: number;
+  communityStake: bigint;
+  totalFunded: bigint;
+  status: number;
+  createdAt: number;
+  lastFundedAt: number;
+  proposer: Address;
+}
+
+export interface FundingEpoch {
+  epochId: number;
+  daoId: string;
+  startTime: number;
+  endTime: number;
+  totalBudget: bigint;
+  matchingPool: bigint;
+  distributed: bigint;
+  finalized: boolean;
+}
+
+export interface FundingAllocation {
+  projectId: string;
+  projectName: string;
+  ceoWeight: number;
+  communityStake: bigint;
+  stakerCount: number;
+  allocation: bigint;
+  allocationPercentage: number;
+}
 
 // ============ ABIs ============
 

@@ -1,6 +1,7 @@
 /**
  * Decentralized Services - storage and inference for council
  * Uses CovenantSQL for storage and DWS for compute
+ * Automatically configured per network from @jejunetwork/config
  */
 
 import {
@@ -10,10 +11,12 @@ import {
   proposalIndexState,
   type AutocratVote,
 } from './state.js';
+import { getDWSComputeUrl, getCurrentNetwork } from '@jejunetwork/config';
 
-// DWS endpoints for decentralized compute - REQUIRED
-const DWS_URL = process.env.DWS_URL ?? 'http://localhost:4030';
-const DWS_COMPUTE = `${DWS_URL}/compute`;
+// DWS endpoint is automatically resolved from network config
+function getDWSEndpoint(): string {
+  return getDWSComputeUrl();
+}
 
 // Bounded in-memory caches for performance (CQL is source of truth)
 const CACHE_MAX = 1000;

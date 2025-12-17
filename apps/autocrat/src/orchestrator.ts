@@ -15,21 +15,24 @@ import {
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
-import type {
-  AutocratConfig,
-  DAO,
-  DAOFull,
-  CEOPersona,
-  GovernanceParams,
-  Proposal,
-  CouncilVote,
-  CEODecision,
-  FundingProject,
-  FundingEpoch,
-} from './types';
+import { base, baseSepolia, localhost } from 'viem/chains';
+import type { CEOPersona, GovernanceParams } from './types';
 import { AutocratBlockchain } from './blockchain';
-import { DAOService, createDAOService, getDAOService } from './dao-service';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { DAOService, createDAOService, type DAOFull, type FundingProject } from './dao-service';
+
+// Config type for orchestrator
+interface AutocratConfig {
+  rpcUrl: string;
+  chainId: number;
+  daoRegistry: Address;
+  daoFunding: Address;
+}
+
+function inferChain(rpcUrl: string) {
+  if (rpcUrl.includes('mainnet') || rpcUrl.includes('base.org')) return base;
+  if (rpcUrl.includes('sepolia')) return baseSepolia;
+  return localhost;
+}
 import { initLocalServices, store, storeVote } from './local-services';
 import { makeTEEDecision, getTEEMode } from './tee';
 import { autocratAgentRuntime, type DeliberationRequest } from './agents';
@@ -140,7 +143,7 @@ export class AutocratOrchestrator {
   constructor(config: AutocratConfig, blockchain: AutocratBlockchain) {
     this.config = config;
     this.blockchain = blockchain;
-    const chain = inferChainFromRpcUrl(config.rpcUrl);
+    const chain = inferChain(config.rpcUrl);
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
