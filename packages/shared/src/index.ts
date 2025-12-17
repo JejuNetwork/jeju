@@ -13,12 +13,9 @@ export {
   type BanCheckConfig 
 } from './hooks/useBanStatus';
 
-// Components
-export { 
-  BanBanner, 
-  BanIndicator, 
-  BanOverlay 
-} from './components/BanBanner';
+// Components - exported from separate react entry point to avoid JSX issues
+// React components (BanBanner, BanIndicator, BanOverlay) are available via:
+// import { BanBanner } from '@jejunetwork/shared/react'
 
 // Moderation API
 export {
@@ -212,6 +209,43 @@ export {
   clearCache,
   type SWRegistrationOptions,
 } from './service-worker';
+
+// Redis Cluster
+export {
+  RedisClusterClient,
+  getRedisClient,
+  closeRedisClient,
+  type RedisClusterConfig,
+} from './cache/redis-cluster';
+
+// Database Replica Router
+export {
+  DatabaseReplicaRouter,
+  getDatabaseRouter,
+  closeDatabaseRouter,
+  type ReplicaRouterConfig,
+  type DatabaseNodeConfig,
+} from './db/replica-router';
+
+// Distributed Tracing
+export {
+  initTracing,
+  shutdownTracing,
+  getTracer,
+  startSpan,
+  withSpan,
+  withSpanSync,
+  extractContext,
+  injectContext,
+  getCurrentTraceId,
+  getCurrentSpanId,
+  Traced,
+  tracingMiddleware,
+  SpanKind,
+  SpanStatusCode,
+  type TracingConfig,
+} from './tracing';
+export type { Span, Context } from './tracing';
 
 // Protocol Servers
 export {

@@ -23,6 +23,9 @@ import { createContainersModule, type ContainersModule } from "./containers";
 import { createLaunchpadModule, type LaunchpadModule } from "./launchpad";
 import { createModerationModule, type ModerationModule } from "./moderation";
 import { createWorkModule, type WorkModule } from "./work";
+import { createStakingModule, type StakingModule } from "./staking";
+import { createDWSModule, type DWSModule } from "./dws";
+import { createFederationClient as createFedClient, type FederationClient, type FederationClientConfig } from "./federation";
 import { getServicesConfig, getChainConfig, getContractAddresses } from "./config";
 import { getNetworkName } from "@jejunetwork/config";
 
@@ -87,6 +90,12 @@ export interface JejuClient {
   readonly moderation: ModerationModule;
   /** Work - Bounties, projects, guardians */
   readonly work: WorkModule;
+  /** Staking - JEJU staking, node staking, RPC provider staking */
+  readonly staking: StakingModule;
+  /** DWS - Distributed Workflow System, triggers, jobs */
+  readonly dws: DWSModule;
+  /** Federation - Cross-chain network federation */
+  readonly federation: FederationClient;
 
   /** Get native balance */
   getBalance(): Promise<bigint>;
@@ -148,6 +157,16 @@ export async function createJejuClient(
     : createStubLaunchpadModule();
   const moderation = createModerationModule(wallet, network);
   const work = createWorkModule(wallet, network);
+  const staking = createStakingModule(wallet, network);
+  const dws = createDWSModule(wallet, network);
+  
+  // Create federation client from config
+  const federationConfig: FederationClientConfig = {
+    hubRpc: chainConfig.rpcUrl,
+    networkRegistry: contractAddresses.networkRegistry ?? "0x0000000000000000000000000000000000000000",
+    registryHub: contractAddresses.registryHub ?? "0x0000000000000000000000000000000000000000",
+  };
+  const federation = await createFedClient(federationConfig);
 
   const client: JejuClient = {
     network,
@@ -172,6 +191,9 @@ export async function createJejuClient(
     launchpad,
     moderation,
     work,
+    staking,
+    dws,
+    federation,
 
     getBalance: () => wallet.getBalance(),
     sendTransaction: (params) => wallet.sendTransaction(params),

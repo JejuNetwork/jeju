@@ -48,6 +48,8 @@ export * from "./launchpad";
 export * from "./federation";
 export * from "./moderation";
 export * from "./work";
+export * from "./staking";
+export * from "./dws";
 
 // Developer tools
 export * from "./git";

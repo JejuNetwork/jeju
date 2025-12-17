@@ -180,7 +180,7 @@ Return ONLY JSON:
     const hasCloud = this.config.cloudEndpoint && this.config.cloudEndpoint !== 'local';
     if (hasCloud && title && summary && description) {
       try {
-        const result = await assessProposalWithAI(title, summary, description, this.config.cloudEndpoint, process.env.CLOUD_API_KEY);
+        const result = await assessProposalWithAI(title, summary, description, this.config.cloudEndpoint ?? '', process.env.CLOUD_API_KEY);
         return {
           message: result.overallScore >= 90 ? `Ready: ${result.overallScore}/100` : `Needs work: ${result.overallScore}/100`,
           data: { ...result, readyToSubmit: result.overallScore >= 90, assessedBy: 'cloud' }
@@ -217,7 +217,7 @@ Return ONLY JSON:
       message: 'Ready to submit',
       data: {
         action: 'submitProposal',
-        contract: this.config.contracts.council,
+        contract: this.config.contracts?.council ?? ZERO_ADDRESS,
         params: { proposalType: params.proposalType, qualityScore, contentHash: params.contentHash, targetContract: params.targetContract || ZERO_ADDRESS, callData: params.callData || '0x', value: params.value || '0' },
         bond: formatEther(parseEther('0.001'))
       }
@@ -239,7 +239,7 @@ Return ONLY JSON:
   private prepareBackProposal(params: Record<string, unknown>): SkillResult {
     return {
       message: 'Ready to back',
-      data: { action: 'backProposal', contract: this.config.contracts.council, params: { proposalId: params.proposalId, stakeAmount: params.stakeAmount || '0', reputationWeight: params.reputationWeight || 0 } }
+      data: { action: 'backProposal', contract: this.config.contracts?.council ?? ZERO_ADDRESS, params: { proposalId: params.proposalId, stakeAmount: params.stakeAmount || '0', reputationWeight: params.reputationWeight || 0 } }
     };
   }
 
@@ -247,7 +247,7 @@ Return ONLY JSON:
     if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
     
     // Get from local storage first
-    const localVotes = getVotes(proposalId);
+    const localVotes = await getVotes(proposalId);
     if (localVotes.length > 0) {
       return { message: `${localVotes.length} votes`, data: { proposalId, votes: localVotes, source: 'local' } };
     }
@@ -258,7 +258,7 @@ Return ONLY JSON:
     return { message: `${result.votes.length} votes`, data: { proposalId, votes: this.blockchain.formatVotes(result.votes), source: 'chain' } };
   }
 
-  private submitVote(params: Record<string, unknown>): SkillResult {
+  private async submitVote(params: Record<string, unknown>): Promise<SkillResult> {
     const { proposalId, agentId, vote, reasoning, confidence } = params as { proposalId: string; agentId: string; vote: 'APPROVE' | 'REJECT' | 'ABSTAIN'; reasoning: string; confidence: number };
 
     if (!proposalId || !agentId || !vote) {
@@ -337,7 +337,8 @@ Return ONLY JSON:
 
   private async listModels(): Promise<SkillResult> {
     if (!this.blockchain.ceoDeployed) {
-      return { message: 'Contract not deployed', data: { models: [this.config.agents.ceo.model], currentModel: this.config.agents.ceo.model } };
+      const ceoModel = this.config.agents?.ceo?.model ?? 'default';
+      return { message: 'Contract not deployed', data: { models: [ceoModel], currentModel: ceoModel } };
     }
     const modelIds = await this.blockchain.ceoAgent.getAllModels() as string[];
     return { message: `${modelIds.length} models`, data: { models: modelIds } };
@@ -370,7 +371,7 @@ Return ONLY JSON:
   private prepareCastVeto(params: Record<string, unknown>): SkillResult {
     return {
       message: 'Ready to veto',
-      data: { action: 'castVetoVote', contract: this.config.contracts.council, params: { proposalId: params.proposalId, category: params.category, reasonHash: params.reason }, minStake: '0.01 ETH' }
+      data: { action: 'castVetoVote', contract: this.config.contracts?.council ?? ZERO_ADDRESS, params: { proposalId: params.proposalId, category: params.category, reasonHash: params.reason }, minStake: '0.01 ETH' }
     };
   }
 
@@ -400,9 +401,9 @@ Return ONLY JSON:
       return { message: 'LLM unavailable', data: { error: 'CEO decision requires DWS compute. Start with: docker compose up -d' } };
     }
 
-    const votes = getVotes(proposalId);
-    const approves = votes.filter(v => v.vote === 'APPROVE').length;
-    const rejects = votes.filter(v => v.vote === 'REJECT').length;
+    const votes = await getVotes(proposalId);
+    const approves = votes.filter((v: { vote: string }) => v.vote === 'APPROVE').length;
+    const rejects = votes.filter((v: { vote: string }) => v.vote === 'REJECT').length;
     const total = votes.length || 1;
 
     // Use real LLM for decision reasoning
@@ -411,7 +412,7 @@ Return ONLY JSON:
 Council votes: ${approves} approve, ${rejects} reject, ${total - approves - rejects} abstain
 
 Vote details:
-${votes.map(v => `- ${v.role}: ${v.vote} (${v.confidence}%) - ${v.reasoning}`).join('\n')}
+${votes.map((v: { role: string; vote: string; confidence: number; reasoning: string }) => `- ${v.role}: ${v.vote} (${v.confidence}%) - ${v.reasoning}`).join('\n')}
 
 Provide your decision as: APPROVED or REJECTED, with reasoning.`;
 

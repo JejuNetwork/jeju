@@ -2,12 +2,14 @@
  * CQL Sync Layer
  * 
  * STATUS: REFERENCE IMPLEMENTATION - Not wired into app entry point.
- * DEPENDENCY: Requires CovenantSQL service (not deployed).
+ * DEPENDENCY: Requires CovenantSQL service.
  * 
- * Would sync indexer data from PostgreSQL to CovenantSQL for decentralized reads.
+ * Syncs indexer data from PostgreSQL to CovenantSQL for decentralized reads.
+ * Uses centralized config for CQL endpoint.
  */
 
 import { CovenantSQLClient, type QueryResult } from '@jejunetwork/db';
+import { getCQLUrl } from '@jejunetwork/config';
 import type { DataSource, EntityMetadata } from 'typeorm';
 
 // ============================================================================
@@ -15,7 +17,6 @@ import type { DataSource, EntityMetadata } from 'typeorm';
 // ============================================================================
 
 const CQL_ENABLED = process.env.CQL_SYNC_ENABLED === 'true';
-const CQL_ENDPOINT = process.env.CQL_ENDPOINT ?? 'http://localhost:4020';
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'indexer-sync';
 const SYNC_INTERVAL_MS = parseInt(process.env.CQL_SYNC_INTERVAL ?? '30000');
 const BATCH_SIZE = parseInt(process.env.CQL_SYNC_BATCH_SIZE ?? '1000');
@@ -44,8 +45,9 @@ export class CQLSyncService {
   private running = false;
 
   constructor() {
+    // Use centralized config for CQL endpoint
     this.client = new CovenantSQLClient({
-      blockProducerEndpoint: CQL_ENDPOINT,
+      blockProducerEndpoint: getCQLUrl(),
       databaseId: CQL_DATABASE_ID,
     });
   }

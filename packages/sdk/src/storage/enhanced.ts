@@ -159,7 +159,8 @@ export function createEnhancedStorageModule(
   const apiUrl = services.storage.api;
   const gatewayUrl = services.storage.ipfsGateway;
   const arweaveGateway = 'https://arweave.net';
-  const kmsEndpoint = services.kms?.endpoint;
+  // KMS endpoint would be configured separately if needed
+  const kmsEndpoint: string | undefined = undefined;
 
   async function authHeaders(): Promise<Record<string, string>> {
     const timestamp = Date.now().toString();

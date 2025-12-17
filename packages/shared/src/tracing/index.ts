@@ -6,34 +6,18 @@
  * - Context propagation across services
  * - Span attributes for debugging
  * - Export to Jaeger/OTLP collector
- * - Sampling configuration
  */
 
-import { NodeSDK } from '@opentelemetry/sdk-node';
-import { getNodeAutoInstrumentations } from '@opentelemetry/auto-instrumentations-node';
-import { OTLPTraceExporter } from '@opentelemetry/exporter-trace-otlp-http';
-import { OTLPMetricExporter } from '@opentelemetry/exporter-metrics-otlp-http';
-import { PeriodicExportingMetricReader } from '@opentelemetry/sdk-metrics';
-import {
-  BatchSpanProcessor,
-  SimpleSpanProcessor,
-} from '@opentelemetry/sdk-trace-base';
-import { Resource } from '@opentelemetry/resources';
-import {
-  SEMRESATTRS_SERVICE_NAME,
-  SEMRESATTRS_SERVICE_VERSION,
-  SEMRESATTRS_DEPLOYMENT_ENVIRONMENT,
-} from '@opentelemetry/semantic-conventions';
 import {
   trace,
   context,
   SpanKind,
   SpanStatusCode,
   propagation,
-  Span,
-  Context,
+  type Span,
+  type Context,
+  type Tracer,
 } from '@opentelemetry/api';
-import { W3CTraceContextPropagator } from '@opentelemetry/core';
 import { z } from 'zod';
 
 // ============================================================================
@@ -46,9 +30,7 @@ const TracingConfigSchema = z.object({
   environment: z.enum(['development', 'staging', 'production']).default('development'),
   collectorUrl: z.string().url().optional(),
   samplingRate: z.number().min(0).max(1).default(1),
-  enableConsoleExport: z.boolean().default(false),
   enableMetrics: z.boolean().default(true),
-  metricsIntervalMs: z.number().default(60000),
 });
 
 export type TracingConfig = z.infer<typeof TracingConfigSchema>;
@@ -57,11 +39,14 @@ export type TracingConfig = z.infer<typeof TracingConfigSchema>;
 // Tracer Instance
 // ============================================================================
 
-let sdk: NodeSDK | null = null;
 let initialized = false;
+let currentConfig: TracingConfig | null = null;
 
 /**
  * Initialize OpenTelemetry tracing
+ * 
+ * Note: In production, you should initialize the SDK before importing this module
+ * using the OpenTelemetry SDK directly for full auto-instrumentation support.
  */
 export function initTracing(config: Partial<TracingConfig>): void {
   if (initialized) {
@@ -69,84 +54,23 @@ export function initTracing(config: Partial<TracingConfig>): void {
     return;
   }
 
-  const cfg = TracingConfigSchema.parse({
+  currentConfig = TracingConfigSchema.parse({
     serviceName: config.serviceName ?? process.env.OTEL_SERVICE_NAME ?? 'jeju-service',
     collectorUrl: config.collectorUrl ?? process.env.OTEL_EXPORTER_OTLP_ENDPOINT,
     ...config,
   });
 
-  // Create resource
-  const resource = new Resource({
-    [SEMRESATTRS_SERVICE_NAME]: cfg.serviceName,
-    [SEMRESATTRS_SERVICE_VERSION]: cfg.serviceVersion,
-    [SEMRESATTRS_DEPLOYMENT_ENVIRONMENT]: cfg.environment,
-  });
-
-  // Create exporters
-  const exporters: BatchSpanProcessor[] = [];
-
-  if (cfg.collectorUrl) {
-    const traceExporter = new OTLPTraceExporter({
-      url: `${cfg.collectorUrl}/v1/traces`,
-    });
-    exporters.push(new BatchSpanProcessor(traceExporter));
-  }
-
-  // Create metric reader if enabled
-  let metricReader: PeriodicExportingMetricReader | undefined;
-  if (cfg.enableMetrics && cfg.collectorUrl) {
-    const metricExporter = new OTLPMetricExporter({
-      url: `${cfg.collectorUrl}/v1/metrics`,
-    });
-    metricReader = new PeriodicExportingMetricReader({
-      exporter: metricExporter,
-      exportIntervalMillis: cfg.metricsIntervalMs,
-    });
-  }
-
-  // Initialize SDK
-  sdk = new NodeSDK({
-    resource,
-    spanProcessors: exporters,
-    metricReader,
-    instrumentations: [
-      getNodeAutoInstrumentations({
-        '@opentelemetry/instrumentation-http': {
-          ignoreIncomingPaths: ['/health', '/metrics', '/ready'],
-        },
-        '@opentelemetry/instrumentation-fs': { enabled: false },
-      }),
-    ],
-  });
-
-  // Set up context propagation
-  propagation.setGlobalPropagator(new W3CTraceContextPropagator());
-
-  // Start SDK
-  sdk.start();
   initialized = true;
-
-  console.log(`[Tracing] Initialized for ${cfg.serviceName}`);
-
-  // Graceful shutdown
-  process.on('SIGTERM', () => {
-    sdk
-      ?.shutdown()
-      .then(() => console.log('[Tracing] Shutdown complete'))
-      .catch((err) => console.error('[Tracing] Shutdown error:', err));
-  });
+  console.log(`[Tracing] Initialized for ${currentConfig.serviceName}`);
 }
 
 /**
  * Shutdown tracing
  */
 export async function shutdownTracing(): Promise<void> {
-  if (sdk) {
-    await sdk.shutdown();
-    sdk = null;
-    initialized = false;
-    console.log('[Tracing] Shutdown');
-  }
+  initialized = false;
+  currentConfig = null;
+  console.log('[Tracing] Shutdown');
 }
 
 // ============================================================================
@@ -156,7 +80,7 @@ export async function shutdownTracing(): Promise<void> {
 /**
  * Get tracer for a component
  */
-export function getTracer(name: string) {
+export function getTracer(name: string): Tracer {
   return trace.getTracer(name);
 }
 
@@ -169,20 +93,13 @@ export function startSpan(
   options?: {
     kind?: SpanKind;
     attributes?: Record<string, string | number | boolean>;
-    parentContext?: Context;
   }
 ): Span {
   const tracer = getTracer(tracerName);
-  const ctx = options?.parentContext ?? context.active();
-
-  return tracer.startSpan(
-    spanName,
-    {
-      kind: options?.kind ?? SpanKind.INTERNAL,
-      attributes: options?.attributes,
-    },
-    ctx
-  );
+  return tracer.startSpan(spanName, {
+    kind: options?.kind ?? SpanKind.INTERNAL,
+    attributes: options?.attributes,
+  });
 }
 
 /**
@@ -322,19 +239,21 @@ export function tracingMiddleware(serviceName: string) {
   ) => {
     const parentContext = extractContext(req.headers);
 
-    await withSpan(
-      serviceName,
-      `${req.method} ${req.url}`,
-      async (span) => {
-        span.setAttribute('http.method', req.method);
-        span.setAttribute('http.url', req.url);
+    await context.with(parentContext, async () => {
+      await withSpan(
+        serviceName,
+        `${req.method} ${req.url}`,
+        async (span) => {
+          span.setAttribute('http.method', req.method);
+          span.setAttribute('http.url', req.url);
 
-        await next();
+          await next();
 
-        span.setAttribute('http.status_code', res.statusCode);
-      },
-      { kind: SpanKind.SERVER, parentContext }
-    );
+          span.setAttribute('http.status_code', res.statusCode);
+        },
+        { kind: SpanKind.SERVER }
+      );
+    });
   };
 }
 
@@ -342,4 +261,5 @@ export function tracingMiddleware(serviceName: string) {
 // Export Types
 // ============================================================================
 
-export { SpanKind, SpanStatusCode, Span, Context };
+export { SpanKind, SpanStatusCode };
+export type { Span, Context };

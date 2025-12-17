@@ -151,7 +151,7 @@ export class AutocratBlockchain {
   async getCEOStatus(): Promise<{ currentModel: { modelId: string; name: string; provider: string; totalStaked?: string; benchmarkScore?: string }; stats: { totalDecisions: string; approvedDecisions: string; overriddenDecisions: string; approvalRate: string; overrideRate: string } }> {
     if (!this.ceoDeployed) {
       return {
-        currentModel: { modelId: this.config.agents.ceo.model, name: this.config.agents.ceo.name, provider: 'local' },
+        currentModel: { modelId: this.config.agents?.ceo?.model ?? 'local', name: this.config.agents?.ceo?.name ?? 'CEO', provider: 'local' },
         stats: { totalDecisions: '0', approvedDecisions: '0', overriddenDecisions: '0', approvalRate: '0%', overrideRate: '0%' }
       };
     }
@@ -283,11 +283,11 @@ export class AutocratBlockchain {
     if (!this.councilDeployed || !this.ceoDeployed) {
       return {
         totalProposals: '0',
-        ceo: { model: this.config.agents.ceo.model, decisions: '0', approvalRate: '0%' },
+        ceo: { model: this.config.agents?.ceo?.model ?? 'local', decisions: '0', approvalRate: '0%' },
         parameters: {
-          minQualityScore: this.config.parameters.minQualityScore.toString(),
-          autocratVotingPeriod: `${this.config.parameters.autocratVotingPeriod} seconds`,
-          gracePeriod: `${this.config.parameters.gracePeriod} seconds`
+          minQualityScore: (this.config.parameters?.minQualityScore ?? 70).toString(),
+          autocratVotingPeriod: `${this.config.parameters?.autocratVotingPeriod ?? 86400} seconds`,
+          gracePeriod: `${this.config.parameters?.gracePeriod ?? 86400} seconds`
         }
       };
     }
@@ -340,8 +340,8 @@ export class AutocratBlockchain {
         index: i,
         description: ['Financial review', 'Technical review', 'Community impact', 'Security assessment'][i]
       })),
-      votingPeriod: `${this.config.parameters.autocratVotingPeriod} seconds`,
-      gracePeriod: `${this.config.parameters.gracePeriod} seconds`
+      votingPeriod: `${this.config.parameters?.autocratVotingPeriod ?? 86400} seconds`,
+      gracePeriod: `${this.config.parameters?.gracePeriod ?? 86400} seconds`
     };
   }
 }

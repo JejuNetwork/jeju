@@ -155,6 +155,8 @@ export interface DAOContracts {
   packageRegistry: Address;
   repoRegistry: Address;
   modelRegistry: Address;
+  predimarket?: Address;
+  stakingManager?: Address;
 }
 
 export interface DAOAgents {

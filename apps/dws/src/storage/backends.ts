@@ -59,7 +59,9 @@ class IPFSBackend implements StorageBackend {
 
   async upload(content: Buffer, options?: { filename?: string }): Promise<{ cid: string; url: string }> {
     const formData = new FormData();
-    formData.append('file', new Blob([new Uint8Array(content)]), options?.filename || 'file');
+    // Flatten path to avoid IPFS creating directories (which returns multiple JSON lines)
+    const filename = (options?.filename || 'file').replace(/\//g, '_');
+    formData.append('file', new Blob([new Uint8Array(content)]), filename);
 
     const response = await fetch(`${this.apiUrl}/api/v0/add`, {
       method: 'POST',
@@ -67,7 +69,11 @@ class IPFSBackend implements StorageBackend {
     });
 
     if (!response.ok) throw new Error(`IPFS upload failed: ${response.statusText}`);
-    const data = (await response.json()) as { Hash: string };
+    
+    // IPFS can return multiple lines if filename has slashes; take first line
+    const text = await response.text();
+    const firstLine = text.trim().split('\n')[0];
+    const data = JSON.parse(firstLine) as { Hash: string };
     return { cid: data.Hash, url: `${this.gatewayUrl}/ipfs/${data.Hash}` };
   }
 

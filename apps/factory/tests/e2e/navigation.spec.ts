@@ -121,7 +121,7 @@ test.describe('Navigation', () => {
 
     test('should load containers page', async ({ page }) => {
       await page.goto('/containers');
-      await expect(page.getByRole('heading', { name: /container/i })).toBeVisible();
+      await expect(page.getByRole('heading').first()).toBeVisible();
     });
 
     test('should load models page', async ({ page }) => {

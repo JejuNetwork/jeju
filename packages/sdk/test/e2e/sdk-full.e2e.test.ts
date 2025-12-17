@@ -80,6 +80,8 @@ describe("JejuClient Core", () => {
   });
 
   test("getBalance returns bigint", async () => {
+    if (!env.chainRunning) return;
+    
     const balance = await deployer.getBalance();
     expect(typeof balance).toBe("bigint");
     expect(balance).toBeGreaterThan(0n);

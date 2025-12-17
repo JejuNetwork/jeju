@@ -16,7 +16,6 @@ import type {
   FundingProject,
   FundingEpoch,
   FundingAllocation,
-  FundingConfig,
   CEOPersona,
   DAOFull,
 } from './types';
@@ -377,7 +376,8 @@ Return JSON:
   // ============ Auto-approval Logic ============
 
   async shouldAutoApprove(project: FundingProject, daoId: string): Promise<{ approved: boolean; reason: string }> {
-    const knobs = await this.getKnobs(daoId);
+    // Knobs are available for future auto-approval threshold checks
+    void this.getKnobs(daoId);
     const daoFull = await this.daoService.getDAOFull(daoId);
 
     // Check if linked to DAO
@@ -434,7 +434,7 @@ Return JSON:
 
   // ============ Model Delegation ============
 
-  async getModelDelegationStats(daoId: string): Promise<ModelDelegationStats[]> {
+  async getModelDelegationStats(_daoId: string): Promise<ModelDelegationStats[]> {
     // This would integrate with ModelRegistry to get delegation data
     // For now, return empty array - to be implemented with model marketplace
     return [];

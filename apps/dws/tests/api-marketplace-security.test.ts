@@ -513,10 +513,10 @@ describe('Injection Attack Prevention', () => {
 });
 
 // ============================================================================
-// Full Flow Security Tests
+// Full Flow Security Tests (require CQL)
 // ============================================================================
 
-describe('Full Flow Security', () => {
+describe.skipIf(!CQL_AVAILABLE)('Full Flow Security', () => {
   test('should prevent key exposure in complete proxy flow', () => {
     const apiKey = 'sk-flow-security-test1234567890';
     const seller = '0x4444444444444444444444444444444444444444' as Address;

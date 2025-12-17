@@ -11,8 +11,8 @@
  * - Prometheus metrics export
  */
 
-import { Cluster, Redis } from 'ioredis';
-import { createHash, randomBytes, createCipheriv, createDecipheriv } from 'crypto';
+import { Cluster } from 'ioredis';
+import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 import { Registry, Counter, Histogram, Gauge } from 'prom-client';
 import { z } from 'zod';
 
@@ -178,7 +178,7 @@ export class RedisClusterClient {
           commandTimeout: this.config.commandTimeout,
           maxRetriesPerRequest: this.config.maxRetriesPerRequest,
           keyPrefix: this.config.keyPrefix,
-          enableOfflineQueue: this.config.enableOfflineQueue,
+          offlineQueue: this.config.enableOfflineQueue,
           lazyConnect: this.config.lazyConnect,
         },
         scaleReads: this.config.enableReadFromReplicas ? 'slave' : 'master',
@@ -677,7 +677,8 @@ export class RedisClusterClient {
 
   private crc16(data: Buffer): number {
     let crc = 0;
-    for (const byte of data) {
+    for (let i = 0; i < data.length; i++) {
+      const byte = data[i];
       crc = ((crc << 8) ^ CRC16_TABLE[((crc >> 8) ^ byte) & 0xff]) & 0xffff;
     }
     return crc;

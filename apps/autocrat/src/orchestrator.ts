@@ -16,8 +16,8 @@ import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
 import { base, baseSepolia, localhost } from 'viem/chains';
-import type { CEOPersona, GovernanceParams } from './types';
-import { AutocratBlockchain } from './blockchain';
+import type { CEOPersona } from './types';
+import type { AutocratBlockchain } from './blockchain';
 import { DAOService, createDAOService, type DAOFull, type FundingProject } from './dao-service';
 
 // Config type for orchestrator - accepts CouncilConfig or minimal config
@@ -42,21 +42,113 @@ import { initLocalServices, store, storeVote } from './local-services';
 import { makeTEEDecision, getTEEMode } from './tee';
 import { autocratAgentRuntime, type DeliberationRequest } from './agents';
 import { getResearchAgent, type ResearchRequest } from './research-agent';
-import { COUNCIL_ABI, type ProposalFromContract, type AutocratVoteFromContract } from './shared';
+import { type ProposalFromContract, type AutocratVoteFromContract } from './shared';
 
 // ============ ABIs ============
 
-const COUNCIL_WRITE_ABI = parseAbi([
-  ...COUNCIL_ABI.map((item) => {
-    if (typeof item === 'string') return item;
-    return JSON.stringify(item);
-  }) as string[],
-  'function castAutocratVote(bytes32 proposalId, uint8 vote, bytes32 reasoningHash) external',
-  'function finalizeAutocratVote(bytes32 proposalId) external',
-  'function recordResearch(bytes32 proposalId, bytes32 researchHash) external',
-  'function advanceToCEO(bytes32 proposalId) external',
-  'function executeProposal(bytes32 proposalId) external',
-]);
+// Use JSON ABI format to avoid abitype parsing issues with complex tuples
+const COUNCIL_WRITE_ABI = [
+  {
+    name: 'getActiveProposals',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'bytes32[]', name: '' }],
+  },
+  {
+    name: 'getProposal',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ type: 'bytes32', name: 'proposalId' }],
+    outputs: [{
+      type: 'tuple',
+      name: '',
+      components: [
+        { type: 'bytes32', name: 'proposalId' },
+        { type: 'address', name: 'proposer' },
+        { type: 'uint256', name: 'proposerAgentId' },
+        { type: 'uint8', name: 'proposalType' },
+        { type: 'uint8', name: 'status' },
+        { type: 'uint8', name: 'qualityScore' },
+        { type: 'uint256', name: 'createdAt' },
+        { type: 'uint256', name: 'autocratVoteEnd' },
+        { type: 'uint256', name: 'gracePeriodEnd' },
+        { type: 'bytes32', name: 'contentHash' },
+        { type: 'address', name: 'targetContract' },
+        { type: 'bytes', name: 'callData' },
+        { type: 'uint256', name: 'value' },
+        { type: 'uint256', name: 'totalStaked' },
+        { type: 'uint256', name: 'totalReputation' },
+        { type: 'uint256', name: 'backerCount' },
+        { type: 'bool', name: 'hasResearch' },
+        { type: 'bytes32', name: 'researchHash' },
+        { type: 'bool', name: 'ceoApproved' },
+        { type: 'bytes32', name: 'ceoDecisionHash' },
+      ],
+    }],
+  },
+  {
+    name: 'getAutocratVotes',
+    type: 'function',
+    stateMutability: 'view',
+    inputs: [{ type: 'bytes32', name: 'proposalId' }],
+    outputs: [{
+      type: 'tuple[]',
+      name: '',
+      components: [
+        { type: 'bytes32', name: 'proposalId' },
+        { type: 'address', name: 'councilAgent' },
+        { type: 'uint8', name: 'role' },
+        { type: 'uint8', name: 'vote' },
+        { type: 'bytes32', name: 'reasoningHash' },
+        { type: 'uint256', name: 'votedAt' },
+        { type: 'uint256', name: 'weight' },
+      ],
+    }],
+  },
+  {
+    name: 'castAutocratVote',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { type: 'bytes32', name: 'proposalId' },
+      { type: 'uint8', name: 'vote' },
+      { type: 'bytes32', name: 'reasoningHash' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'finalizeAutocratVote',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ type: 'bytes32', name: 'proposalId' }],
+    outputs: [],
+  },
+  {
+    name: 'recordResearch',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { type: 'bytes32', name: 'proposalId' },
+      { type: 'bytes32', name: 'researchHash' },
+    ],
+    outputs: [],
+  },
+  {
+    name: 'advanceToCEO',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ type: 'bytes32', name: 'proposalId' }],
+    outputs: [],
+  },
+  {
+    name: 'executeProposal',
+    type: 'function',
+    stateMutability: 'nonpayable',
+    inputs: [{ type: 'bytes32', name: 'proposalId' }],
+    outputs: [],
+  },
+] as const;
 
 const CEO_WRITE_ABI = parseAbi([
   'function recordDecision(bytes32 proposalId, bool approved, bytes32 decisionHash, bytes32 encryptedHash, uint256 confidenceScore, uint256 alignmentScore) external',
@@ -111,26 +203,10 @@ interface DAOStateStatus {
   errors: string[];
 }
 
-interface CEODecisionContext {
-  proposalId: string;
-  daoId: string;
-  persona: CEOPersona;
-  autocratVotes: Array<{
-    role: string;
-    vote: 'APPROVE' | 'REJECT' | 'ABSTAIN';
-    reasoning: string;
-    agentId: string;
-    confidence: number;
-    timestamp: number;
-  }>;
-  researchReport?: string;
-}
-
 // ============ Orchestrator Class ============
 
 export class AutocratOrchestrator {
   private readonly config: AutocratConfig;
-  private readonly blockchain: AutocratBlockchain;
   private readonly client: PublicClient;
   private readonly walletClient: WalletClient;
   private daoService: DAOService | null = null;
@@ -153,7 +229,6 @@ export class AutocratOrchestrator {
       chain,
       transport: http(config.rpcUrl),
     });
-    // @ts-expect-error viem version mismatch in monorepo
     this.walletClient = createWalletClient({
       chain,
       transport: http(config.rpcUrl),
@@ -286,7 +361,7 @@ export class AutocratOrchestrator {
   }
 
   private async processDAO(state: DAOState): Promise<void> {
-    const { daoId, daoFull, councilAddress } = state;
+    const { daoFull, councilAddress } = state;
     const daoName = daoFull.dao.name;
 
     try {
@@ -305,10 +380,10 @@ export class AutocratOrchestrator {
           address: councilAddress,
           abi: COUNCIL_WRITE_ABI,
           functionName: 'getProposal',
-          args: [proposalId],
-        })) as ProposalFromContract;
+          args: [proposalId as `0x${string}`],
+        })) as unknown as ProposalFromContract;
 
-        await this.processProposal(state, proposalId, proposal);
+        await this.processProposal(state, proposalId as string, proposal);
         state.processedCount++;
         this.totalProcessed++;
       }
@@ -366,8 +441,8 @@ export class AutocratOrchestrator {
       address: councilAddress,
       abi: COUNCIL_WRITE_ABI,
       functionName: 'getAutocratVotes',
-      args: [proposalId],
-    })) as AutocratVoteFromContract[];
+      args: [proposalId as `0x${string}`],
+    })) as unknown as AutocratVoteFromContract[];
 
     const shortId = proposalId.slice(0, 10);
 
@@ -411,6 +486,7 @@ export class AutocratOrchestrator {
 
           const voteValue = { APPROVE: 0, REJECT: 1, ABSTAIN: 2 }[vote.vote] ?? 2;
 
+          // @ts-expect-error viem version type mismatch in monorepo
           const hash = await this.walletClient.writeContract({
             address: councilAddress,
             abi: COUNCIL_WRITE_ABI,
@@ -426,7 +502,8 @@ export class AutocratOrchestrator {
 
     const now = Math.floor(Date.now() / 1000);
     if (now >= Number(proposal.autocratVoteEnd) && this.account) {
-      const hash = await this.walletClient.writeContract({
+      // @ts-expect-error viem version type mismatch in monorepo
+          const hash = await this.walletClient.writeContract({
         address: councilAddress,
         abi: COUNCIL_WRITE_ABI,
         functionName: 'finalizeAutocratVote',
@@ -466,7 +543,8 @@ export class AutocratOrchestrator {
     console.log(`[${daoName}:${shortId}] Key findings: ${report.keyFindings.slice(0, 2).join('; ')}`);
 
     if (this.account) {
-      const hash = await this.walletClient.writeContract({
+      // @ts-expect-error viem version type mismatch in monorepo
+          const hash = await this.walletClient.writeContract({
         address: councilAddress,
         abi: COUNCIL_WRITE_ABI,
         functionName: 'recordResearch',
@@ -487,7 +565,8 @@ export class AutocratOrchestrator {
     if (now < Number(proposal.autocratVoteEnd)) return;
 
     if (this.account) {
-      const hash = await this.walletClient.writeContract({
+      // @ts-expect-error viem version type mismatch in monorepo
+          const hash = await this.walletClient.writeContract({
         address: councilAddress,
         abi: COUNCIL_WRITE_ABI,
         functionName: 'advanceToCEO',
@@ -511,8 +590,8 @@ export class AutocratOrchestrator {
       address: councilAddress,
       abi: COUNCIL_WRITE_ABI,
       functionName: 'getAutocratVotes',
-      args: [proposalId],
-    })) as AutocratVoteFromContract[];
+      args: [proposalId as `0x${string}`],
+    })) as unknown as AutocratVoteFromContract[];
 
     const formattedVotes = votes.map((v) => ({
       role: ['Treasury', 'Code', 'Community', 'Security', 'Legal'][v.role] ?? 'Unknown',
@@ -522,15 +601,6 @@ export class AutocratOrchestrator {
       confidence: 75,
       timestamp: Date.now(),
     }));
-
-    // Build CEO decision context with persona
-    const ceoContext: CEODecisionContext = {
-      proposalId,
-      daoId: state.daoId,
-      persona,
-      autocratVotes: formattedVotes,
-      researchReport: proposal.hasResearch ? proposal.researchHash : undefined,
-    };
 
     // Get CEO analysis with persona context
     const ceoDecision = await autocratAgentRuntime.ceoDecision({
@@ -551,7 +621,7 @@ export class AutocratOrchestrator {
     });
 
     // Generate persona-styled response
-    const personaResponse = this.generatePersonaResponse(persona, teeDecision.approved, teeDecision.publicReasoning);
+    const personaResponse = this.generatePersonaResponse(persona, teeDecision.approved, teeDecision.publicReasoning, daoFull.dao.displayName);
 
     const decisionHash = await store({
       proposalId,
@@ -574,7 +644,8 @@ export class AutocratOrchestrator {
     console.log(`[${daoName}:${shortId}] "${personaResponse.slice(0, 100)}..."`);
 
     if (this.account && ceoAgentAddress && ceoAgentAddress !== '0x0000000000000000000000000000000000000000') {
-      const hash = await this.walletClient.writeContract({
+      // @ts-expect-error viem version type mismatch in monorepo
+          const hash = await this.walletClient.writeContract({
         address: ceoAgentAddress,
         abi: CEO_WRITE_ABI,
         functionName: 'recordDecision',
@@ -606,7 +677,8 @@ export class AutocratOrchestrator {
     }
 
     if (this.account) {
-      const hash = await this.walletClient.writeContract({
+      // @ts-expect-error viem version type mismatch in monorepo
+          const hash = await this.walletClient.writeContract({
         address: councilAddress,
         abi: COUNCIL_WRITE_ABI,
         functionName: 'executeProposal',
@@ -683,8 +755,8 @@ export class AutocratOrchestrator {
 
   // ============ Persona Response Generation ============
 
-  private generatePersonaResponse(persona: CEOPersona, approved: boolean, reasoning: string): string {
-    const templates = this.getPersonaTemplates(persona);
+  private generatePersonaResponse(persona: CEOPersona, approved: boolean, reasoning: string, daoDisplayName?: string): string {
+    const templates = this.getPersonaTemplates(persona, daoDisplayName);
     const decision = approved ? 'approval' : 'rejection';
 
     // Select template based on personality
@@ -713,62 +785,65 @@ export class AutocratOrchestrator {
     return response;
   }
 
-  private getPersonaTemplates(persona: CEOPersona): Record<string, Record<string, string>> {
-    // Check for specific personas with custom templates
-    if (persona.name.toLowerCase().includes('monkey king')) {
+  private getPersonaTemplates(persona: CEOPersona, daoName?: string): Record<string, Record<string, string>> {
+    const ceoName = persona.name;
+    const dao = daoName ?? 'the DAO';
+    
+    // Check for specific personas with custom templates (based on persona traits/personality)
+    if (ceoName.toLowerCase().includes('monkey king') || persona.personality?.toLowerCase().includes('mischievous')) {
       return {
         playful: {
           approval:
-            'The Monkey King approves. {reasoning}. Let this journey begin - together we shall reach the Western Paradise.',
+            `The ${ceoName} approves. {reasoning}. Let this journey begin - together we shall reach our destination.`,
           rejection:
-            'Even the Monkey King must decline this path. {reasoning}. Return with a stronger proposal, and we shall consider again.',
+            `Even the ${ceoName} must decline this path. {reasoning}. Return with a stronger proposal, and we shall consider again.`,
         },
         authoritative: {
-          approval: 'By my golden cudgel, it is decided. {reasoning}. The Great Sage Equal to Heaven grants passage.',
+          approval: `By my authority, it is decided. {reasoning}. The ${ceoName} grants passage.`,
           rejection:
-            'The Heavenly Court would not approve. {reasoning}. Refine your offering and return when worthy.',
+            `This path would not serve us well. {reasoning}. Refine your offering and return when worthy.`,
         },
         friendly: {
           approval:
-            'My friends, we move forward together. {reasoning}. The Monkey King stands with you on this adventure.',
+            `My friends, we move forward together. {reasoning}. The ${ceoName} stands with you on this adventure.`,
           rejection:
-            'Dear companions, not this time. {reasoning}. But do not despair - every setback is a lesson for the journey ahead.',
+            `Dear companions, not this time. {reasoning}. But do not despair - every setback is a lesson for the journey ahead.`,
         },
         formal: {
-          approval: 'After due consideration, approval is granted. {reasoning}. Proceed with the blessing of Babylon.',
-          rejection: 'After careful review, this proposal cannot proceed. {reasoning}. Please revise and resubmit.',
+          approval: `After due consideration, approval is granted. {reasoning}. Proceed with the blessing of ${dao}.`,
+          rejection: `After careful review, this proposal cannot proceed. {reasoning}. Please revise and resubmit.`,
         },
         professional: {
           approval:
-            'Decision: Approved. {reasoning}. The Babylon DAO moves forward with this initiative under the guidance of the Monkey King.',
+            `Decision: Approved. {reasoning}. ${dao} moves forward with this initiative under the guidance of the ${ceoName}.`,
           rejection:
-            'Decision: Declined. {reasoning}. The Monkey King invites refinement of this proposal for future consideration.',
+            `Decision: Declined. {reasoning}. The ${ceoName} invites refinement of this proposal for future consideration.`,
         },
       };
     }
 
-    // Default templates
+    // Default templates (use persona name and DAO name dynamically)
     return {
       playful: {
-        approval: 'Great news everyone. {reasoning}. Let\'s make it happen.',
-        rejection: 'Not quite there yet. {reasoning}. Keep iterating.',
+        approval: `Great news everyone. {reasoning}. Let's make it happen.`,
+        rejection: `Not quite there yet. {reasoning}. Keep iterating.`,
       },
       authoritative: {
-        approval: 'This proposal is approved. {reasoning}. Execute immediately.',
-        rejection: 'This proposal is rejected. {reasoning}. Do better.',
+        approval: `This proposal is approved by ${ceoName}. {reasoning}. Execute immediately.`,
+        rejection: `This proposal is rejected. {reasoning}. Do better.`,
       },
       friendly: {
-        approval: 'I\'m happy to approve this. {reasoning}. Looking forward to seeing the results.',
-        rejection: 'I appreciate the effort, but I can\'t approve this. {reasoning}. Let\'s work together on improvements.',
+        approval: `I'm happy to approve this. {reasoning}. Looking forward to seeing the results.`,
+        rejection: `I appreciate the effort, but I can't approve this. {reasoning}. Let's work together on improvements.`,
       },
       formal: {
-        approval: 'After thorough review, this proposal is approved. {reasoning}. Please proceed with implementation.',
+        approval: `After thorough review, this proposal is approved. {reasoning}. Please proceed with implementation.`,
         rejection:
-          'After careful consideration, this proposal is not approved. {reasoning}. Please address the concerns and resubmit.',
+          `After careful consideration, this proposal is not approved. {reasoning}. Please address the concerns and resubmit.`,
       },
       professional: {
-        approval: 'Decision: Approved. {reasoning}. Implementation may proceed.',
-        rejection: 'Decision: Not Approved. {reasoning}. Revision required before resubmission.',
+        approval: `Decision: Approved by ${ceoName}. {reasoning}. Implementation may proceed.`,
+        rejection: `Decision: Not Approved. {reasoning}. Revision required before resubmission.`,
       },
     };
   }

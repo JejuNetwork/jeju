@@ -219,7 +219,7 @@ export class RegistryIntegrationClient {
         functionName: 'getAgentProfile',
         args: [agentId],
       });
-      return this._parseProfile(profile);
+      return this._parseProfile(profile as Record<string, unknown>);
     }
     
     const exists = await readContract(this.client, {
