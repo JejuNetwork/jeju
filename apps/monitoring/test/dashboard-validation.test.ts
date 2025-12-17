@@ -61,7 +61,7 @@ const dashboardFiles = fs.readdirSync(DASHBOARD_DIR).filter(f => f.endsWith('.js
 // ============================================================================
 
 describe('Dashboard File Validation', () => {
-  test('should have all 11 required dashboard files', () => {
+  test('should have all 13 required dashboard files', () => {
     const requiredDashboards = [
       'jeju-overview.json',
       'blockchain-activity.json',
@@ -73,10 +73,12 @@ describe('Dashboard File Validation', () => {
       'prediction-markets.json',
       'system-status.json',
       'op-stack.json',
-      'subsquid-overview.json'
+      'subsquid-overview.json',
+      'oif-overview.json',
+      'oracle-network.json'
     ];
 
-    expect(dashboardFiles.length).toBe(11);
+    expect(dashboardFiles.length).toBe(13);
     for (const dashboard of requiredDashboards) {
       expect(dashboardFiles).toContain(dashboard);
     }
@@ -712,7 +714,8 @@ describe('Dashboard Query Validation', () => {
   test('should have proper Prometheus metric references', () => {
     const knownMetricPrefixes = [
       'up', 'prometheus_', 'op_node', 'op_batcher', 'op_proposer', 'op_challenger',
-      'reth_', 'eigenda_', 'subsquid', 'pg_', 'rate(', 'histogram_quantile'
+      'reth_', 'eigenda_', 'subsquid', 'pg_', 'rate(', 'histogram_quantile', 'jon_',
+      'increase(', 'time()'
     ];
 
     for (const file of dashboardFiles) {

@@ -181,7 +181,7 @@ export class ReputationSyncService extends EventEmitter {
     const agentIdRead = data.readBigUInt64LE(offset);
     offset += 8;
 
-    const nextFeedbackIndex = data.readBigUInt64LE(offset);
+    // Skip nextFeedbackIndex (8 bytes)
     offset += 8;
 
     const totalFeedbacks = data.readBigUInt64LE(offset);

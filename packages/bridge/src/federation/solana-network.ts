@@ -10,22 +10,18 @@ import {
   type Address,
   type Hex,
   parseAbi,
-  encodeAbiParameters,
-  parseAbiParameters,
-  keccak256,
-  toBytes,
 } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, sepolia } from 'viem/chains';
 import { Connection, PublicKey } from '@solana/web3.js';
 
 const NETWORK_REGISTRY_ABI = parseAbi([
-  'function registerNetwork(uint256 chainId, string name, string rpcUrl, string explorerUrl, string wsUrl, tuple(address identityRegistry, address solverRegistry, address inputSettler, address outputSettler, address liquidityVault, address governance, address oracle, address registryHub) contracts, bytes32 genesisHash) external payable',
+  'function registerNetwork(uint256 chainId, string name, string rpcUrl, string explorerUrl, string wsUrl, (address,address,address,address,address,address,address,address) contracts, bytes32 genesisHash) external payable',
   'function addStake(uint256 chainId) external payable',
   'function updateNetwork(uint256 chainId, string name, string rpcUrl, string explorerUrl, string wsUrl) external',
-  'function updateContracts(uint256 chainId, tuple(address identityRegistry, address solverRegistry, address inputSettler, address outputSettler, address liquidityVault, address governance, address oracle, address registryHub) contracts) external',
+  'function updateContracts(uint256 chainId, (address,address,address,address,address,address,address,address) contracts) external',
   'function establishTrust(uint256 sourceChainId, uint256 targetChainId) external',
-  'function getNetwork(uint256 chainId) view returns (tuple(uint256 chainId, string name, string rpcUrl, string explorerUrl, string wsUrl, address operator, tuple(address identityRegistry, address solverRegistry, address inputSettler, address outputSettler, address liquidityVault, address governance, address oracle, address registryHub) contracts, bytes32 genesisHash, uint256 registeredAt, uint256 stake, uint8 trustTier, bool isActive, bool isVerified, bool isSuperchain))',
+  'function getNetwork(uint256 chainId) view returns (uint256, string, string, string, string, address, (address,address,address,address,address,address,address,address), bytes32, uint256, uint256, uint8, bool, bool, bool)',
   'function isTrusted(uint256 sourceChainId, uint256 targetChainId) view returns (bool)',
   'function isMutuallyTrusted(uint256 chainA, uint256 chainB) view returns (bool)',
   'function canParticipateInConsensus(uint256 chainId) view returns (bool)',
@@ -39,7 +35,6 @@ const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 const SOLANA_CHAIN_ID = 101n;
 const SOLANA_DEVNET_CHAIN_ID = 102n;
 const MIN_STAKE = BigInt(1e18); // 1 ETH
-const VERIFICATION_STAKE = BigInt(10e18); // 10 ETH
 
 // 8004-solana program ID
 const AGENT_REGISTRY_PROGRAM_ID = 'HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp';

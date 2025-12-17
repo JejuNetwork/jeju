@@ -1,22 +1,5 @@
-/**
- * Oracle Integration Module
- * 
- * Provides permissionless price feeds for TFMM strategies using:
- * - Pyth Network (primary) - fully permissionless, real-time
- * - Chainlink (fallback) - battle-tested, wide coverage
- * - Uniswap TWAP (fallback) - on-chain, manipulation-resistant
- * 
- * Features:
- * - Multi-source price aggregation
- * - Staleness detection
- * - Deviation alerts
- * - Cross-chain price consistency
- */
-
 import { createPublicClient, http, type PublicClient, type Address, parseAbi } from 'viem';
 import type { EVMChainId, OraclePrice } from '../types';
-
-// ============ Pyth ABI ============
 
 const PYTH_ABI = parseAbi([
   'function getPriceUnsafe(bytes32 id) view returns ((int64 price, uint64 conf, int32 expo, uint256 publishTime))',
@@ -26,15 +9,11 @@ const PYTH_ABI = parseAbi([
   'function getUpdateFee(bytes[] calldata updateData) view returns (uint256)',
 ]);
 
-// ============ Chainlink ABI ============
-
 const CHAINLINK_ABI = parseAbi([
   'function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)',
   'function decimals() view returns (uint8)',
   'function description() view returns (string)',
 ]);
-
-// ============ Uniswap V3 TWAP ABI ============
 
 const UNISWAP_V3_POOL_ABI = parseAbi([
   'function observe(uint32[] calldata secondsAgos) view returns (int56[] tickCumulatives, uint160[] secondsPerLiquidityCumulativeX128s)',
@@ -42,8 +21,6 @@ const UNISWAP_V3_POOL_ABI = parseAbi([
   'function token0() view returns (address)',
   'function token1() view returns (address)',
 ]);
-
-// ============ Pyth Price Feed IDs ============
 
 const PYTH_PRICE_IDS: Record<string, `0x${string}`> = {
   'ETH/USD': '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
@@ -58,8 +35,6 @@ const PYTH_PRICE_IDS: Record<string, `0x${string}`> = {
   'AVAX/USD': '0x93da3352f9f1d105fdfe4971cfa80e9dd777bfc5d0f683ebb6e1294b92137bb7',
   'LINK/USD': '0x8ac0c70fff57e9aefdf5edf44b51d62c2d433653cbb2cf5cc06bb115af04d221',
 };
-
-// ============ Chainlink Feed Addresses ============
 
 const CHAINLINK_FEEDS: Record<EVMChainId, Record<string, Address>> = {
   1: {
@@ -99,8 +74,6 @@ const CHAINLINK_FEEDS: Record<EVMChainId, Record<string, Address>> = {
   1337: {},
 };
 
-// ============ Pyth Contract Addresses ============
-
 const PYTH_ADDRESSES: Partial<Record<EVMChainId, Address>> = {
   1: '0x4305FB66699C3B2702D4d05CF36551390A4c69C6',
   8453: '0x8250f4aF4B972684F7b336503E2D6dFeDeB1487a',
@@ -108,8 +81,6 @@ const PYTH_ADDRESSES: Partial<Record<EVMChainId, Address>> = {
   10: '0xff1a0f4744e8582DF1aE09D5611b887B6a12925C',
   56: '0x4D7E825f80bDf85e913E0DD2A2D54927e9dE1594',
 };
-
-// ============ Price Aggregator ============
 
 export class OracleAggregator {
   private clients: Map<EVMChainId, PublicClient> = new Map();
@@ -123,9 +94,6 @@ export class OracleAggregator {
     }
   }
 
-  /**
-   * Get price from best available source
-   */
   async getPrice(
     token: string,
     chainId: EVMChainId,
@@ -155,9 +123,6 @@ export class OracleAggregator {
     throw new Error(`No price available for ${token} on chain ${chainId}`);
   }
 
-  /**
-   * Get multiple prices in batch
-   */
   async getPrices(
     tokens: string[],
     chainId: EVMChainId,
@@ -175,9 +140,6 @@ export class OracleAggregator {
     return prices;
   }
 
-  /**
-   * Get price from Pyth Network
-   */
   private async getPythPrice(
     token: string,
     chainId: EVMChainId,
@@ -217,9 +179,6 @@ export class OracleAggregator {
     };
   }
 
-  /**
-   * Get price from Chainlink
-   */
   private async getChainlinkPrice(
     token: string,
     chainId: EVMChainId,
@@ -273,9 +232,6 @@ export class OracleAggregator {
     };
   }
 
-  /**
-   * Get TWAP price from Uniswap V3
-   */
   async getUniswapTWAP(
     poolAddress: Address,
     chainId: EVMChainId,
@@ -302,9 +258,6 @@ export class OracleAggregator {
     return { tick: twapTick, price };
   }
 
-  /**
-   * Calculate price from tick
-   */
   private tickToPrice(tick: number): bigint {
     // price = 1.0001 ^ tick
     const price = Math.pow(1.0001, tick);
@@ -367,8 +320,6 @@ export class OracleAggregator {
     };
   }
 }
-
-// ============ Token Address to Symbol Mapping ============
 
 export const TOKEN_SYMBOLS: Record<EVMChainId, Record<string, string>> = {
   1: {

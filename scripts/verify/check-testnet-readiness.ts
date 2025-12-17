@@ -128,10 +128,17 @@ async function checkAWSInfra() {
       const certs = JSON.parse(acmCheck.stdout.toString());
       const jejuCert = certs.CertificateSummaryList.find((c: {DomainName: string}) => c.DomainName === 'jeju.network');
       if (jejuCert) {
-      addResult(category, 'ACM Certificate', jejuCert.Status === 'ISSUED' ? 'pass' : 'warn', `Status: ${jejuCert.Status}`);
-    } else {
-      addResult(category, 'ACM Certificate', 'fail', 'Certificate not found');
+        addResult(category, 'ACM Certificate', jejuCert.Status === 'ISSUED' ? 'pass' : 'warn', `Status: ${jejuCert.Status}`);
+      } else {
+        addResult(category, 'ACM Certificate', 'fail', 'Certificate not found');
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Invalid JSON';
+      addResult(category, 'ACM Certificate', 'fail', `Failed to parse certificates: ${errorMsg}`);
     }
+  } else {
+    const errorMsg = acmCheck.stderr.toString() || 'Certificate check failed';
+    addResult(category, 'ACM Certificate', 'fail', errorMsg.split('\n')[0]);
   }
 }
 

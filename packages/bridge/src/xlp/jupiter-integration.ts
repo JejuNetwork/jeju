@@ -5,11 +5,8 @@
 
 import {
   Connection,
-  PublicKey,
   Keypair,
   VersionedTransaction,
-  TransactionMessage,
-  AddressLookupTableAccount,
 } from '@solana/web3.js';
 import { EventEmitter } from 'events';
 
@@ -132,7 +129,7 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter quote failed: ${error}`);
     }
 
-    return response.json();
+    return response.json() as Promise<JupiterQuote>;
   }
 
   /**
@@ -181,7 +178,7 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter swap failed: ${error}`);
     }
 
-    const swapData = await swapResponse.json();
+    const swapData = await swapResponse.json() as { swapTransaction: string };
     const swapTransaction = swapData.swapTransaction;
 
     // Deserialize and sign
@@ -243,7 +240,7 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter swap transaction failed: ${error}`);
     }
 
-    const swapData = await swapResponse.json();
+    const swapData = await swapResponse.json() as { swapTransaction: string; lastValidBlockHeight: number };
     const transactionBuf = Buffer.from(swapData.swapTransaction, 'base64');
     const transaction = VersionedTransaction.deserialize(transactionBuf);
 
@@ -262,7 +259,7 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter price API failed: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { data: Record<string, { price: number }> };
     const priceData = data.data[tokenMint];
     if (!priceData) {
       throw new Error(`Price not found for ${tokenMint}`);
@@ -280,7 +277,7 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter price API failed: ${response.statusText}`);
     }
 
-    const data = await response.json();
+    const data = await response.json() as { data: Record<string, { price: number }> };
     const prices: Record<string, number> = {};
 
     for (const mint of tokenMints) {
@@ -301,7 +298,7 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter token list failed: ${response.statusText}`);
     }
 
-    return response.json();
+    return response.json() as Promise<{ address: string; symbol: string; name: string; decimals: number }[]>;
   }
 
   /**
@@ -351,19 +348,12 @@ export class JupiterClient extends EventEmitter {
  */
 export class XLPJupiterFiller extends EventEmitter {
   private jupiter: JupiterClient;
-  private connection: Connection;
-  private keypair: Keypair | null = null;
   private running = false;
   private fillInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(config: JupiterConfig) {
     super();
     this.jupiter = new JupiterClient(config);
-    this.connection = new Connection(config.rpcUrl, 'confirmed');
-
-    if (config.keypair) {
-      this.keypair = Keypair.fromSecretKey(config.keypair);
-    }
   }
 
   /**

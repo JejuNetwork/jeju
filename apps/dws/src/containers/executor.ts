@@ -3,7 +3,8 @@
  * Supports both serverless (ephemeral) and dedicated (persistent) modes
  */
 
-import type { Address } from 'viem';
+import type { Address, PublicClient } from 'viem';
+import { createPublicClient, http } from 'viem';
 import type {
   ContainerImage,
   ContainerInstance,
@@ -17,6 +18,82 @@ import type {
 } from './types';
 import * as cache from './image-cache';
 import * as warmPool from './warm-pool';
+
+// Contract configuration
+const CONTAINER_REGISTRY_ADDRESS = process.env.CONTAINER_REGISTRY_ADDRESS as Address | undefined;
+const RPC_URL = process.env.RPC_URL || 'http://localhost:8545';
+
+// Container Registry ABI (minimal)
+const CONTAINER_REGISTRY_ABI = [
+  {
+    name: 'getRepoByName',
+    type: 'function',
+    inputs: [
+      { name: 'namespace', type: 'string' },
+      { name: 'name', type: 'string' },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'repoId', type: 'bytes32' },
+          { name: 'name', type: 'string' },
+          { name: 'namespace', type: 'string' },
+          { name: 'owner', type: 'address' },
+          { name: 'ownerAgentId', type: 'uint256' },
+          { name: 'description', type: 'string' },
+          { name: 'visibility', type: 'uint8' },
+          { name: 'tags', type: 'string[]' },
+          { name: 'createdAt', type: 'uint256' },
+          { name: 'updatedAt', type: 'uint256' },
+          { name: 'pullCount', type: 'uint256' },
+          { name: 'starCount', type: 'uint256' },
+          { name: 'isVerified', type: 'bool' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    name: 'getManifestByTag',
+    type: 'function',
+    inputs: [
+      { name: 'repoId', type: 'bytes32' },
+      { name: 'tag', type: 'string' },
+    ],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'manifestId', type: 'bytes32' },
+          { name: 'repoId', type: 'bytes32' },
+          { name: 'tag', type: 'string' },
+          { name: 'digest', type: 'string' },
+          { name: 'manifestUri', type: 'string' },
+          { name: 'manifestHash', type: 'bytes32' },
+          { name: 'size', type: 'uint256' },
+          { name: 'architectures', type: 'string[]' },
+          { name: 'layers', type: 'string[]' },
+          { name: 'publishedAt', type: 'uint256' },
+          { name: 'publisher', type: 'address' },
+          { name: 'buildInfo', type: 'string' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+] as const;
+
+let publicClient: PublicClient | null = null;
+
+function getPublicClient(): PublicClient {
+  if (!publicClient) {
+    publicClient = createPublicClient({ transport: http(RPC_URL) });
+  }
+  return publicClient;
+}
 
 // ============================================================================
 // Execution State
@@ -95,20 +172,49 @@ async function resolveImage(imageRef: string): Promise<ResolvedImage> {
 
   cache.recordCacheMiss();
 
-  // Would fetch from ContainerRegistry contract in production
-  // For now, return a mock image that requires pull
+  // Fetch from ContainerRegistry contract
+  if (!CONTAINER_REGISTRY_ADDRESS) {
+    throw new Error('CONTAINER_REGISTRY_ADDRESS not configured - cannot resolve image');
+  }
+
+  const client = getPublicClient();
+
+  // Get repository
+  const repo = await client.readContract({
+    address: CONTAINER_REGISTRY_ADDRESS,
+    abi: CONTAINER_REGISTRY_ABI,
+    functionName: 'getRepoByName',
+    args: [namespace ?? 'library', name ?? imageRef],
+  });
+
+  if (!repo || repo.repoId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+    throw new Error(`Image not found: ${namespace}/${name}`);
+  }
+
+  // Get manifest for tag
+  const manifest = await client.readContract({
+    address: CONTAINER_REGISTRY_ADDRESS,
+    abi: CONTAINER_REGISTRY_ABI,
+    functionName: 'getManifestByTag',
+    args: [repo.repoId, tagOrDigest ?? 'latest'],
+  });
+
+  if (!manifest || manifest.manifestId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+    throw new Error(`Tag not found: ${tagOrDigest ?? 'latest'} in ${namespace}/${name}`);
+  }
+
   return {
     image: {
-      repoId: crypto.randomUUID(),
-      namespace: namespace ?? 'library',
-      name: name ?? imageRef,
-      tag: tagOrDigest ?? 'latest',
-      digest: `sha256:${crypto.randomUUID().replace(/-/g, '')}`,
-      manifestCid: `Qm${crypto.randomUUID().replace(/-/g, '').slice(0, 44)}`,
-      layerCids: [],
-      size: 100 * 1024 * 1024, // 100MB default
-      architectures: ['amd64'],
-      publishedAt: Date.now(),
+      repoId: repo.repoId,
+      namespace: repo.namespace,
+      name: repo.name,
+      tag: manifest.tag,
+      digest: manifest.digest,
+      manifestCid: manifest.manifestUri,
+      layerCids: [...manifest.layers],
+      size: Number(manifest.size),
+      architectures: [...manifest.architectures],
+      publishedAt: Number(manifest.publishedAt),
     },
     cached: false,
     pullRequired: true,
@@ -116,32 +222,35 @@ async function resolveImage(imageRef: string): Promise<ResolvedImage> {
 }
 
 // ============================================================================
-// Image Pulling (simulated)
+// Image Pulling
 // ============================================================================
+
+const STORAGE_ENDPOINT = process.env.DWS_STORAGE_URL || 'http://localhost:4030/storage';
 
 async function pullImage(image: ContainerImage): Promise<number> {
   const startTime = Date.now();
 
-  // Simulate layer downloads (in production, fetch from IPFS)
-  const layerCount = Math.max(1, Math.floor(image.size / (30 * 1024 * 1024))); // ~30MB per layer
-
+  // Fetch layers from IPFS via storage endpoint
   const cachedLayers: LayerCache[] = [];
-  for (let i = 0; i < layerCount; i++) {
-    const layerDigest = `sha256:layer${i}-${image.digest.slice(7, 15)}`;
-    const layerCid = `Qm${crypto.randomUUID().replace(/-/g, '').slice(0, 44)}`;
-    const layerSize = Math.floor(image.size / layerCount);
-
+  
+  for (const layerCid of image.layerCids) {
     // Check if layer is already cached (deduplication)
-    let cachedLayer = cache.getCachedLayer(layerDigest);
+    let cachedLayer = cache.getCachedLayer(layerCid);
     if (!cachedLayer) {
-      // Simulate download (fast for simulation)
-      await new Promise((r) => setTimeout(r, 5));
+      // Fetch layer from storage
+      const response = await fetch(`${STORAGE_ENDPOINT}/download/${layerCid}`);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch layer ${layerCid}: ${response.status}`);
+      }
+      
+      const layerData = await response.arrayBuffer();
+      const layerSize = layerData.byteLength;
 
       cachedLayer = cache.cacheLayer(
-        layerDigest,
+        layerCid,
         layerCid,
         layerSize,
-        `/var/cache/containers/layers/${layerDigest}`
+        `/var/cache/containers/layers/${layerCid}`
       );
     }
 
@@ -159,42 +268,149 @@ async function pullImage(image: ContainerImage): Promise<number> {
 // ============================================================================
 
 interface ContainerRuntime {
-  create(instance: ContainerInstance, image: ContainerImage): Promise<{ endpoint: string; port: number }>;
+  create(instance: ContainerInstance, image: ContainerImage, request: ExecutionRequest): Promise<{ endpoint: string; port: number }>;
   start(instanceId: string): Promise<void>;
   stop(instanceId: string): Promise<void>;
   exec(instanceId: string, command: string[], env: Record<string, string>, input?: unknown): Promise<{ output: unknown; exitCode: number; logs: string }>;
 }
 
-// Simulated container runtime
-// In a real implementation, this would use Docker/containerd/Firecracker
+// Container runtime using Docker HTTP API
+const DOCKER_HOST = process.env.DOCKER_HOST || 'unix:///var/run/docker.sock';
+const DOCKER_API_URL = DOCKER_HOST.startsWith('unix://') 
+  ? 'http://localhost' // Unix socket will be handled separately
+  : DOCKER_HOST;
+
+async function dockerRequest(path: string, options: RequestInit = {}): Promise<Response> {
+  const url = `${DOCKER_API_URL}${path}`;
+  
+  if (DOCKER_HOST.startsWith('unix://')) {
+    // For unix sockets, use Bun's native fetch with unix socket
+    return fetch(url, {
+      ...options,
+      unix: DOCKER_HOST.replace('unix://', ''),
+    } as RequestInit);
+  }
+  
+  return fetch(url, options);
+}
+
 const runtime: ContainerRuntime = {
-  async create(_instance, _image) {
-    // Simulate container creation: ~10-50ms (fast for simulation)
-    await new Promise((r) => setTimeout(r, 10 + Math.random() * 40));
+  async create(instance, image, request) {
+    const containerConfig = {
+      Image: `${image.namespace}/${image.name}:${image.tag}`,
+      Cmd: request.command ?? [],
+      Env: Object.entries(request.env ?? {}).map(([k, v]) => `${k}=${v}`),
+      HostConfig: {
+        Memory: instance.resources.memoryMb * 1024 * 1024,
+        NanoCpus: instance.resources.cpuCores * 1e9,
+        PortBindings: {
+          '8080/tcp': [{ HostPort: '0' }], // Dynamic port assignment
+        },
+      },
+      ExposedPorts: {
+        '8080/tcp': {},
+      },
+      Labels: {
+        'dws.instance.id': instance.instanceId,
+      },
+    };
+
+    const createResponse = await dockerRequest('/v1.44/containers/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(containerConfig),
+    });
+
+    if (!createResponse.ok) {
+      const error = await createResponse.text();
+      throw new Error(`Failed to create container: ${error}`);
+    }
+
+    const { Id: containerId } = await createResponse.json() as { Id: string };
     
+    // Start the container
+    const startResponse = await dockerRequest(`/v1.44/containers/${containerId}/start`, {
+      method: 'POST',
+    });
+
+    if (!startResponse.ok) {
+      throw new Error(`Failed to start container: ${await startResponse.text()}`);
+    }
+
+    // Get the assigned port
+    const inspectResponse = await dockerRequest(`/v1.44/containers/${containerId}/json`);
+    const inspectData = await inspectResponse.json() as { 
+      NetworkSettings: { Ports: { '8080/tcp': { HostPort: string }[] } }
+    };
+    
+    const hostPort = parseInt(inspectData.NetworkSettings.Ports['8080/tcp'][0].HostPort, 10);
+
     return {
-      endpoint: `http://localhost:${8000 + Math.floor(Math.random() * 1000)}`,
-      port: 8000 + Math.floor(Math.random() * 1000),
+      endpoint: `http://localhost:${hostPort}`,
+      port: hostPort,
     };
   },
 
-  async start(_instanceId) {
-    // Simulate container start
-    await new Promise((r) => setTimeout(r, 5 + Math.random() * 15));
+  async start(instanceId) {
+    const response = await dockerRequest(`/v1.44/containers/${instanceId}/start`, {
+      method: 'POST',
+    });
+    if (!response.ok) {
+      throw new Error(`Failed to start container: ${await response.text()}`);
+    }
   },
 
-  async stop(_instanceId) {
-    await new Promise((r) => setTimeout(r, 5));
+  async stop(instanceId) {
+    const response = await dockerRequest(`/v1.44/containers/${instanceId}/stop`, {
+      method: 'POST',
+    });
+    if (!response.ok && response.status !== 304) { // 304 = already stopped
+      throw new Error(`Failed to stop container: ${await response.text()}`);
+    }
   },
 
-  async exec(_instanceId, command, _env, input) {
-    // Simulate execution
-    await new Promise((r) => setTimeout(r, 5 + Math.random() * 45));
+  async exec(instanceId, command, env, input) {
+    // Create exec instance
+    const execConfig = {
+      AttachStdout: true,
+      AttachStderr: true,
+      Cmd: command,
+      Env: Object.entries(env).map(([k, v]) => `${k}=${v}`),
+    };
+
+    const createExecResponse = await dockerRequest(`/v1.44/containers/${instanceId}/exec`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(execConfig),
+    });
+
+    if (!createExecResponse.ok) {
+      throw new Error(`Failed to create exec: ${await createExecResponse.text()}`);
+    }
+
+    const { Id: execId } = await createExecResponse.json() as { Id: string };
+
+    // Start exec with detach=false to get output
+    const startExecResponse = await dockerRequest(`/v1.44/exec/${execId}/start`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ Detach: false }),
+    });
+
+    if (!startExecResponse.ok) {
+      throw new Error(`Failed to start exec: ${await startExecResponse.text()}`);
+    }
+
+    const logs = await startExecResponse.text();
+
+    // Get exec info for exit code
+    const inspectExecResponse = await dockerRequest(`/v1.44/exec/${execId}/json`);
+    const execInfo = await inspectExecResponse.json() as { ExitCode: number };
 
     return {
-      output: { result: 'success', processed: input },
-      exitCode: 0,
-      logs: `[${new Date().toISOString()}] Executed command: ${command.join(' ')}`,
+      output: input ? { result: 'processed', input } : { result: 'success' },
+      exitCode: execInfo.ExitCode,
+      logs,
     };
   },
 };
@@ -263,7 +479,7 @@ export async function executeContainer(
     );
 
     // Create and start container
-    const { endpoint, port } = await runtime.create(instance, image);
+    const { endpoint, port } = await runtime.create(instance, image, request);
     await runtime.start(instanceId);
 
     warmPool.updateInstanceState(image.digest, instanceId, 'running', {

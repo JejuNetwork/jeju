@@ -44,6 +44,17 @@ export {
 	type ArbOpportunity,
 	type ArbRoute,
 	type PriceQuote,
+	createWormholeAdapter,
+	WormholeAdapter,
+	type WormholeConfig,
+	type WormholeTransferParams,
+	type WormholeTransferResult,
+	type WormholeVAA,
+	createMultiBridgeRouter,
+	MultiBridgeRouter,
+	type MultiBridgeConfig,
+	type BridgeRoute,
+	type BridgeProvider,
 } from "./router/index.js";
 
 export {
