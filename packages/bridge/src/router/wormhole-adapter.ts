@@ -214,8 +214,10 @@ export class WormholeAdapter extends EventEmitter {
     });
     await sourceClients.public.waitForTransactionReceipt({ hash: approveHash });
 
-    // Transfer tokens
-    const nonce = Math.floor(Math.random() * 1000000);
+    // Transfer tokens - use cryptographically secure nonce
+    const nonceBytes = new Uint8Array(4);
+    crypto.getRandomValues(nonceBytes);
+    const nonce = new DataView(nonceBytes.buffer).getUint32(0, false);
     const hash = await sourceClients.wallet.writeContract({
       address: tokenBridge,
       abi: WORMHOLE_TOKEN_BRIDGE_ABI,
@@ -305,7 +307,10 @@ export class WormholeAdapter extends EventEmitter {
     });
     await sourceClients.public.waitForTransactionReceipt({ hash: approveHash });
 
-    const nonce = Math.floor(Math.random() * 1000000);
+    // Use cryptographically secure nonce
+    const nonceBytes2 = new Uint8Array(4);
+    crypto.getRandomValues(nonceBytes2);
+    const nonce = new DataView(nonceBytes2.buffer).getUint32(0, false);
     const hash = await sourceClients.wallet.writeContract({
       address: tokenBridge,
       abi: WORMHOLE_TOKEN_BRIDGE_ABI,
@@ -386,7 +391,10 @@ export class WormholeAdapter extends EventEmitter {
     instructionData.writeUInt16LE(destWormholeChainId, offset);
     offset += 2;
 
-    instructionData.writeUInt32LE(Math.floor(Math.random() * 1000000), offset); // nonce
+    // Use cryptographically secure nonce
+    const solNonceBytes = new Uint8Array(4);
+    crypto.getRandomValues(solNonceBytes);
+    instructionData.writeUInt32LE(new DataView(solNonceBytes.buffer).getUint32(0, false), offset);
 
     // Create instruction (simplified)
     const instruction = new TransactionInstruction({

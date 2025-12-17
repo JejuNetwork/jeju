@@ -17,8 +17,8 @@ export const IS_TESTNET = NETWORK === 'testnet' || NETWORK === 'localnet';
 // Public RPC endpoints (defaults, can be overridden with *_RPC_URL env vars)
 export const RPC_URLS = {
   // Network
-  420691: process.env.JEJU_RPC_URL || 'https://rpc.jeju.network',
-  420690: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
+  420691: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org',
+  420690: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
   1337: process.env.LOCALNET_RPC_URL || 'http://localhost:9545',
   // Mainnets
   1: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
@@ -34,8 +34,8 @@ export const RPC_URLS = {
 
 // Public block explorers
 export const EXPLORER_URLS = {
-  420691: 'https://explorer.jeju.network',
-  420690: 'https://testnet-explorer.jeju.network',
+  420691: 'https://explorer.jejunetwork.org',
+  420690: 'https://testnet-explorer.jejunetwork.org',
   1337: 'http://localhost:4000',
   1: 'https://etherscan.io',
   42161: 'https://arbiscan.io',

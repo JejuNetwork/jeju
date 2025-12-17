@@ -39,7 +39,7 @@ Create `.env`:
 PRIVATE_KEY=0x...
 
 # Network
-RPC_URL=https://rpc.jeju.network
+RPC_URL=https://rpc.jejunetwork.org
 NETWORK=mainnet
 
 # Storage

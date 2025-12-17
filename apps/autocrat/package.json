@@ -21,6 +21,8 @@
     "@anthropic-ai/sdk": "^0.30.0",
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
+    "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/eliza-plugin": "workspace:*",
     "ai": "^5.0.52",
     "ethers": "^6.13.4",
     "hono": "^4.6.5",

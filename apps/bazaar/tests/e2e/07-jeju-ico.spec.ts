@@ -136,7 +136,7 @@ test.describe('Network ICO Page', () => {
     // Check docs link
     const docsLink = page.getByRole('link', { name: /Documentation/ })
     await expect(docsLink).toBeVisible()
-    await expect(docsLink).toHaveAttribute('href', 'https://docs.jeju.network')
+    await expect(docsLink).toHaveAttribute('href', 'https://docs.jejunetwork.org')
   })
 
   test('contribute button shows correct state when wallet not connected', async ({ page }) => {

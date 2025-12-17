@@ -75,7 +75,7 @@ Skip local setup and deploy directly to [Jeju Testnet →](/build/networks)
 ### 👤 Users
 Bridge assets, swap tokens, stake for rewards.
 
-[Open Gateway →](https://gateway.jeju.network)
+[Open Gateway →](https://gateway.jejunetwork.org)
 
 ### 👩‍💻 Developers
 Build apps, deploy contracts, integrate APIs.
@@ -98,8 +98,8 @@ Fork Jeju to create your own branded L2.
 
 | Network | Chain ID | RPC | Status |
 |---------|----------|-----|--------|
-| Mainnet | `420691` | `https://rpc.jeju.network` | 🟢 Live |
-| Testnet | `420690` | `https://testnet-rpc.jeju.network` | 🟢 Live |
+| Mainnet | `420691` | `https://rpc.jejunetwork.org` | 🟢 Live |
+| Testnet | `420690` | `https://testnet-rpc.jejunetwork.org` | 🟢 Live |
 
 [View full network details →](/build/networks)
 

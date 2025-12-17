@@ -127,7 +127,7 @@ cd packages/contracts
 
 # Deploy via multi-sig
 forge script script/DeployL2Mainnet.s.sol \
-  --rpc-url https://rpc.jeju.network \
+  --rpc-url https://rpc.jejunetwork.org \
   --slow
 
 # Submit to Safe
@@ -152,7 +152,7 @@ Proposal → Safe Queue → 2-day Timelock → Execution
 
 ### Endpoints
 
-Prometheus is available at https://prometheus.jeju.network for metrics. Grafana runs at https://grafana.jeju.network for dashboards. PagerDuty integration is configured internally for on-call routing.
+Prometheus is available at https://prometheus.jejunetwork.org for metrics. Grafana runs at https://grafana.jejunetwork.org for dashboards. PagerDuty integration is configured internally for on-call routing.
 
 ### Critical Alerts
 
@@ -200,7 +200,7 @@ bun run scripts/disaster-recovery.ts --network mainnet
 bun run scripts/verify-mainnet.ts
 
 # Manual checks
-curl https://rpc.jeju.network -X POST \
+curl https://rpc.jejunetwork.org -X POST \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 ```
@@ -221,9 +221,9 @@ curl https://rpc.jeju.network -X POST \
 
 ## Mainnet Details
 
-The mainnet chain ID is 420691. RPC is available at https://rpc.jeju.network and WebSocket at wss://ws.jeju.network. The block explorer runs at https://explorer.jeju.network. The L1 network is Ethereum mainnet with chain ID 1.
+The mainnet chain ID is 420691. RPC is available at https://rpc.jejunetwork.org and WebSocket at wss://ws.jejunetwork.org. The block explorer runs at https://explorer.jejunetwork.org. The L1 network is Ethereum mainnet with chain ID 1.
 
 ## Emergency Contacts
 
-The on-call engineer is reachable via PagerDuty. Security issues should be reported to security@jeju.network. Communications and public announcements go through comms@jeju.network.
+The on-call engineer is reachable via PagerDuty. Security issues should be reported to security@jejunetwork.org. Communications and public announcements go through comms@jejunetwork.org.
 

@@ -70,7 +70,7 @@
       "chainId": 420690,
       "name": "Jeju Testnet",
       "internalRpcUrl": "http://reth-sequencer.execution.svc.cluster.local:8545",
-      "externalRpcUrl": "https://testnet-rpc.jeju.network",
+      "externalRpcUrl": "https://testnet-rpc.jejunetwork.org",
       "status": "pending",
       "contracts": {
         "solverRegistry": "",

@@ -40,6 +40,9 @@ coverage/
 tmp/
 temp/
 
+# Local development data
+.data/
+
 # Forge/Foundry
 packages/contracts/cache/
 packages/contracts/out/

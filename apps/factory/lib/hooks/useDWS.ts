@@ -1,240 +1,507 @@
 /**
- * DWS React Hook
- * 
- * Provides decentralized DWS access with wallet authentication
+ * DWS (Decentralized Web Services) hooks
+ * React hooks for interacting with Git, Packages, CI/CD, and Compute
  */
 
-'use client';
+import { useState, useEffect, useCallback } from 'react';
+import { useAccount } from 'wagmi';
 
-import { useEffect, useState, useCallback } from 'react';
-import { useAccount, useWalletClient } from 'wagmi';
-import { privateKeyToAccount } from 'viem/accounts';
-import { dwsClient, type DWSHealth, type DWSNode } from '../services/dws';
+const DWS_API_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:4030';
 
-export interface UseDWSReturn {
-  // Status
-  isInitialized: boolean;
-  isConnected: boolean;
-  isLoading: boolean;
-  error: string | null;
-  
-  // Node info
-  nodes: DWSNode[];
-  nodeCount: number;
-  
-  // Health
-  health: DWSHealth | null;
-  
-  // Actions
-  refresh: () => Promise<void>;
-  checkHealth: () => Promise<DWSHealth>;
+// ============ Types ============
+
+interface DWSNode {
+  agentId: bigint;
+  endpoint: string;
+  latency?: number;
+  isBanned: boolean;
+  nodeTypes: string[];
+  stake: bigint;
 }
 
-export function useDWS(): UseDWSReturn {
-  const { address, isConnected } = useAccount();
-  const { data: walletClient } = useWalletClient();
-  
+interface DWSHealth {
+  status: 'healthy' | 'degraded' | 'unavailable';
+  services: Record<string, boolean>;
+  timestamp: number;
+  decentralized?: {
+    registeredNodes: number;
+    connectedPeers: number;
+    frontendCid: string;
+    p2pEnabled: boolean;
+  };
+}
+
+interface Repository {
+  id: string;
+  name: string;
+  owner: string;
+  description?: string;
+  isPrivate: boolean;
+  defaultBranch: string;
+  stars: number;
+  forks: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
+interface Package {
+  name: string;
+  version: string;
+  description?: string;
+  author: string;
+  license: string;
+  downloads: number;
+  publishedAt: number;
+}
+
+interface Workflow {
+  id: string;
+  name: string;
+  repoId: string;
+  triggers: string[];
+  active: boolean;
+}
+
+interface WorkflowRun {
+  id: string;
+  workflowId: string;
+  status: 'queued' | 'in_progress' | 'completed' | 'failed';
+  conclusion?: 'success' | 'failure' | 'cancelled';
+  startedAt: number;
+  completedAt?: number;
+}
+
+// ============ Base Hook ============
+
+function useDWSFetch<T>(
+  path: string,
+  options?: RequestInit
+): {
+  data: T | null;
+  error: Error | null;
+  isLoading: boolean;
+  refetch: () => void;
+} {
+  const [data, setData] = useState<T | null>(null);
+  const [error, setError] = useState<Error | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchData = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`${DWS_API_URL}${path}`, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          ...options?.headers,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`DWS request failed: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      setData(result);
+    } catch (err) {
+      setError(err instanceof Error ? err : new Error('Unknown error'));
+    } finally {
+      setIsLoading(false);
+    }
+  }, [path, options]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return { data, error, isLoading, refetch: fetchData };
+}
+
+// ============ Main DWS Hook ============
+
+export function useDWS() {
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [nodes, setNodes] = useState<DWSNode[]>([]);
   const [health, setHealth] = useState<DWSHealth | null>(null);
 
-  // Initialize DWS client when wallet connects
-  useEffect(() => {
-    const init = async () => {
-      setIsLoading(true);
-      setError(null);
-      
-      try {
-        await dwsClient.initialize({
-          rpcUrl: process.env.NEXT_PUBLIC_RPC_URL,
-          identityRegistryAddress: process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS as `0x${string}`,
-        });
-        
-        setIsInitialized(true);
-        setNodes(dwsClient.getConnectedNodes());
-        
-        // Check health
-        const healthStatus = await dwsClient.healthCheck();
-        setHealth(healthStatus);
-      } catch (err) {
-        console.error('[useDWS] Initialization error:', err);
-        setError(err instanceof Error ? err.message : 'Failed to initialize DWS');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    if (!dwsClient.isInitialized()) {
-      init();
-    } else {
-      setIsInitialized(true);
-      setNodes(dwsClient.getConnectedNodes());
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Update account when wallet changes
-  useEffect(() => {
-    if (walletClient && isConnected) {
-      // Create an account from the wallet client
-      // Note: In production, you'd use the wallet client directly for signing
-      // This is a simplified version
-      dwsClient.setAccount({
-        address: walletClient.account.address,
-        signMessage: async ({ message }) => {
-          return walletClient.signMessage({ message, account: walletClient.account });
-        },
-        signTransaction: async (tx) => {
-          return walletClient.signTransaction(tx as Parameters<typeof walletClient.signTransaction>[0]);
-        },
-        signTypedData: async (typedData) => {
-          return walletClient.signTypedData(typedData as Parameters<typeof walletClient.signTypedData>[0]);
-        },
-        type: 'local',
-        publicKey: '0x', // Not needed for our use case
-        source: 'custom',
-      });
-    }
-  }, [walletClient, isConnected]);
-
   const refresh = useCallback(async () => {
     setIsLoading(true);
+    setError(null);
+
     try {
-      await dwsClient.refreshNodes();
-      setNodes(dwsClient.getConnectedNodes());
+      const response = await fetch(`${DWS_API_URL}/health`);
+      if (!response.ok) {
+        throw new Error('DWS health check failed');
+      }
       
-      const healthStatus = await dwsClient.healthCheck();
-      setHealth(healthStatus);
+      const healthData: DWSHealth = await response.json();
+      setHealth(healthData);
+      setIsConnected(healthData.status === 'healthy');
+      setIsInitialized(true);
+
+      // Try to fetch nodes
+      try {
+        const nodesResponse = await fetch(`${DWS_API_URL}/api/nodes`);
+        if (nodesResponse.ok) {
+          const nodesData = await nodesResponse.json();
+          setNodes(nodesData.map((n: { agentId: number | string; endpoint: string; latency?: number; isBanned?: boolean; nodeTypes?: string[]; stake?: string | number }) => ({
+            ...n,
+            agentId: BigInt(n.agentId || 0),
+            stake: BigInt(n.stake || 0),
+          })));
+        }
+      } catch {
+        // Nodes endpoint may not exist
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to refresh');
+      setError(err instanceof Error ? err.message : 'Connection failed');
+      setIsConnected(false);
     } finally {
       setIsLoading(false);
     }
   }, []);
 
-  const checkHealth = useCallback(async () => {
-    const healthStatus = await dwsClient.healthCheck();
-    setHealth(healthStatus);
-    return healthStatus;
-  }, []);
+  useEffect(() => {
+    refresh();
+    // Refresh every 30 seconds
+    const interval = setInterval(refresh, 30000);
+    return () => clearInterval(interval);
+  }, [refresh]);
 
   return {
     isInitialized,
-    isConnected: isInitialized && nodes.length > 0,
+    isConnected,
     isLoading,
     error,
     nodes,
     nodeCount: nodes.length,
     health,
     refresh,
-    checkHealth,
   };
 }
 
-/**
- * Hook for Git operations via DWS
- */
+// ============ Git Hooks ============
+
 export function useDWSGit() {
-  const { isInitialized } = useDWS();
-  
+  const { address } = useAccount();
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    // Check DWS connectivity
+    fetch(`${DWS_API_URL}/health`)
+      .then(r => r.ok && setIsReady(true))
+      .catch(() => setIsReady(false));
+  }, []);
+
+  const listRepositories = useCallback(async (owner?: string): Promise<Repository[]> => {
+    const url = owner ? `/api/git/repos?owner=${owner}` : '/api/git/repos';
+    const response = await fetch(`${DWS_API_URL}${url}`);
+    if (!response.ok) throw new Error('Failed to fetch repositories');
+    return response.json();
+  }, []);
+
+  const getRepository = useCallback(async (owner: string, name: string): Promise<Repository> => {
+    const response = await fetch(`${DWS_API_URL}/api/git/repos/${owner}/${name}`);
+    if (!response.ok) throw new Error('Repository not found');
+    return response.json();
+  }, []);
+
+  const getRepoFiles = useCallback(async (
+    owner: string,
+    name: string,
+    path = '',
+    ref = 'main'
+  ): Promise<{ path: string; type: 'file' | 'dir'; size?: number }[]> => {
+    const response = await fetch(
+      `${DWS_API_URL}/api/git/repos/${owner}/${name}/files?path=${path}&ref=${ref}`
+    );
+    if (!response.ok) throw new Error('Failed to fetch files');
+    return response.json();
+  }, []);
+
+  const createRepository = useCallback(async (params: {
+    name: string;
+    description?: string;
+    isPrivate: boolean;
+  }): Promise<Repository> => {
+    const response = await fetch(`${DWS_API_URL}/api/git/repos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) throw new Error('Failed to create repository');
+    return response.json();
+  }, []);
+
   return {
-    listRepositories: dwsClient.listRepositories.bind(dwsClient),
-    getRepository: dwsClient.getRepository.bind(dwsClient),
-    createRepository: dwsClient.createRepository.bind(dwsClient),
-    getRepoFiles: dwsClient.getRepoFiles.bind(dwsClient),
-    getFileContent: dwsClient.getFileContent.bind(dwsClient),
-    cloneFromGitHub: dwsClient.cloneFromGitHub.bind(dwsClient),
-    isReady: isInitialized,
+    isReady,
+    listRepositories,
+    getRepository,
+    getRepoFiles,
+    createRepository,
   };
 }
 
-/**
- * Hook for Package operations via DWS
- */
+// ============ Package Hooks ============
+
 export function useDWSPackages() {
-  const { isInitialized } = useDWS();
-  
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    fetch(`${DWS_API_URL}/health`)
+      .then(r => r.ok && setIsReady(true))
+      .catch(() => setIsReady(false));
+  }, []);
+
+  const searchPackages = useCallback(async (query: string): Promise<Package[]> => {
+    const response = await fetch(`${DWS_API_URL}/api/packages/search?q=${query}`);
+    if (!response.ok) throw new Error('Search failed');
+    return response.json();
+  }, []);
+
+  const getPackage = useCallback(async (name: string, version?: string): Promise<Package> => {
+    const url = version ? `/api/packages/${name}/${version}` : `/api/packages/${name}`;
+    const response = await fetch(`${DWS_API_URL}${url}`);
+    if (!response.ok) throw new Error('Package not found');
+    return response.json();
+  }, []);
+
+  const publishPackage = useCallback(async (
+    tarball: Blob,
+    metadata: { name: string; version: string; description?: string; author: string; license: string }
+  ): Promise<Package> => {
+    const formData = new FormData();
+    formData.append('tarball', tarball);
+    formData.append('metadata', JSON.stringify(metadata));
+
+    const response = await fetch(`${DWS_API_URL}/api/packages`, {
+      method: 'POST',
+      body: formData,
+    });
+    if (!response.ok) throw new Error('Publish failed');
+    return response.json();
+  }, []);
+
   return {
-    searchPackages: dwsClient.searchPackages.bind(dwsClient),
-    getPackage: dwsClient.getPackage.bind(dwsClient),
-    publishPackage: dwsClient.publishPackage.bind(dwsClient),
-    mirrorFromNpm: dwsClient.mirrorFromNpm.bind(dwsClient),
-    isReady: isInitialized,
+    isReady,
+    searchPackages,
+    getPackage,
+    publishPackage,
   };
 }
 
-/**
- * Hook for Compute operations via DWS
- */
-export function useDWSCompute() {
-  const { isInitialized } = useDWS();
-  
-  return {
-    createTrainingJob: dwsClient.createTrainingJob.bind(dwsClient),
-    createInferenceJob: dwsClient.createInferenceJob.bind(dwsClient),
-    getJob: dwsClient.getJob.bind(dwsClient),
-    listJobs: dwsClient.listJobs.bind(dwsClient),
-    isReady: isInitialized,
-  };
-}
+// ============ CI/CD Hooks ============
 
-/**
- * Hook for Model Hub operations via DWS
- */
-export function useDWSModels() {
-  const { isInitialized } = useDWS();
-  
-  return {
-    listModels: dwsClient.listModels.bind(dwsClient),
-    getModel: dwsClient.getModel.bind(dwsClient),
-    uploadModel: dwsClient.uploadModel.bind(dwsClient),
-    runInference: dwsClient.runInference.bind(dwsClient),
-    isReady: isInitialized,
-  };
-}
-
-/**
- * Hook for Storage/IPFS operations via DWS
- */
-export function useDWSStorage() {
-  const { isInitialized } = useDWS();
-  
-  return {
-    uploadToIpfs: dwsClient.uploadToIpfs.bind(dwsClient),
-    downloadFromIpfs: dwsClient.downloadFromIpfs.bind(dwsClient),
-    uploadPermanent: dwsClient.uploadPermanent.bind(dwsClient),
-    isReady: isInitialized,
-  };
-}
-
-/**
- * Hook for CDN operations via DWS
- */
-export function useDWSCDN() {
-  const { isInitialized } = useDWS();
-  
-  return {
-    deploy: dwsClient.deployCDN.bind(dwsClient),
-    invalidate: dwsClient.invalidateCDN.bind(dwsClient),
-    resolveJNS: dwsClient.resolveJNS.bind(dwsClient),
-    isReady: isInitialized,
-  };
-}
-
-/**
- * Hook for CI/CD operations via DWS
- */
 export function useDWSCI() {
-  const { isInitialized } = useDWS();
-  
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    fetch(`${DWS_API_URL}/health`)
+      .then(r => r.ok && setIsReady(true))
+      .catch(() => setIsReady(false));
+  }, []);
+
+  const listWorkflows = useCallback(async (repoId?: string): Promise<Workflow[]> => {
+    const url = repoId ? `/api/ci/workflows?repoId=${repoId}` : '/api/ci/workflows';
+    const response = await fetch(`${DWS_API_URL}${url}`);
+    if (!response.ok) throw new Error('Failed to fetch workflows');
+    return response.json();
+  }, []);
+
+  const getWorkflowRuns = useCallback(async (workflowId: string): Promise<WorkflowRun[]> => {
+    const response = await fetch(`${DWS_API_URL}/api/ci/workflows/${workflowId}/runs`);
+    if (!response.ok) throw new Error('Failed to fetch runs');
+    return response.json();
+  }, []);
+
+  const triggerWorkflow = useCallback(async (
+    workflowId: string,
+    inputs?: Record<string, string>
+  ): Promise<WorkflowRun> => {
+    const response = await fetch(`${DWS_API_URL}/api/ci/workflows/${workflowId}/trigger`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ inputs }),
+    });
+    if (!response.ok) throw new Error('Failed to trigger workflow');
+    return response.json();
+  }, []);
+
+  const getRunLogs = useCallback(async (runId: string): Promise<string> => {
+    const response = await fetch(`${DWS_API_URL}/api/ci/runs/${runId}/logs`);
+    if (!response.ok) throw new Error('Failed to fetch logs');
+    return response.text();
+  }, []);
+
+  const cancelRun = useCallback(async (runId: string): Promise<void> => {
+    const response = await fetch(`${DWS_API_URL}/api/ci/runs/${runId}/cancel`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to cancel run');
+  }, []);
+
+  const rerunWorkflow = useCallback(async (runId: string): Promise<WorkflowRun> => {
+    const response = await fetch(`${DWS_API_URL}/api/ci/runs/${runId}/rerun`, {
+      method: 'POST',
+    });
+    if (!response.ok) throw new Error('Failed to rerun workflow');
+    return response.json();
+  }, []);
+
   return {
-    triggerWorkflow: dwsClient.triggerWorkflow.bind(dwsClient),
-    getWorkflow: dwsClient.getWorkflow.bind(dwsClient),
-    listWorkflows: dwsClient.listWorkflows.bind(dwsClient),
-    getWorkflowLogs: dwsClient.getWorkflowLogs.bind(dwsClient),
-    isReady: isInitialized,
+    isReady,
+    listWorkflows,
+    getWorkflowRuns,
+    triggerWorkflow,
+    getRunLogs,
+    cancelRun,
+    rerunWorkflow,
   };
 }
 
+// ============ Compute Hooks ============
+
+export function useDWSCompute() {
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    fetch(`${DWS_API_URL}/health`)
+      .then(r => r.ok && setIsReady(true))
+      .catch(() => setIsReady(false));
+  }, []);
+
+  const createTrainingJob = useCallback(async (params: {
+    modelId: string;
+    datasetId: string;
+    configUri: string;
+  }): Promise<{ jobId: string }> => {
+    const response = await fetch(`${DWS_API_URL}/api/compute/training`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) throw new Error('Failed to create training job');
+    return response.json();
+  }, []);
+
+  const createInferenceJob = useCallback(async (params: {
+    modelId: string;
+    input: Record<string, unknown>;
+  }): Promise<{ output: Record<string, unknown>; jobId: string }> => {
+    const response = await fetch(`${DWS_API_URL}/api/compute/inference`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) throw new Error('Failed to run inference');
+    return response.json();
+  }, []);
+
+  const getJobStatus = useCallback(async (jobId: string): Promise<{
+    status: 'pending' | 'running' | 'completed' | 'failed';
+    progress?: number;
+    output?: Record<string, unknown>;
+  }> => {
+    const response = await fetch(`${DWS_API_URL}/api/compute/jobs/${jobId}`);
+    if (!response.ok) throw new Error('Job not found');
+    return response.json();
+  }, []);
+
+  return {
+    isReady,
+    createTrainingJob,
+    createInferenceJob,
+    getJobStatus,
+  };
+}
+
+// ============ Models Hooks ============
+
+export function useDWSModels() {
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    fetch(`${DWS_API_URL}/health`)
+      .then(r => r.ok && setIsReady(true))
+      .catch(() => setIsReady(false));
+  }, []);
+
+  const listModels = useCallback(async (params?: {
+    type?: string;
+    search?: string;
+    sortBy?: string;
+  }): Promise<{
+    id: string;
+    name: string;
+    organization: string;
+    type: string;
+    downloads: number;
+    stars: number;
+  }[]> => {
+    const query = new URLSearchParams(params as Record<string, string>).toString();
+    const response = await fetch(`${DWS_API_URL}/api/models?${query}`);
+    if (!response.ok) throw new Error('Failed to fetch models');
+    return response.json();
+  }, []);
+
+  const getModel = useCallback(async (org: string, name: string): Promise<{
+    id: string;
+    name: string;
+    organization: string;
+    description: string;
+    type: string;
+    parameters: string;
+    downloads: number;
+    stars: number;
+    files: { name: string; size: string }[];
+  }> => {
+    const response = await fetch(`${DWS_API_URL}/api/models/${org}/${name}`);
+    if (!response.ok) throw new Error('Model not found');
+    return response.json();
+  }, []);
+
+  const uploadModel = useCallback(async (params: {
+    name: string;
+    organization: string;
+    description: string;
+    type: string;
+    license: string;
+    tags: string[];
+    weightsUri: string;
+  }): Promise<{ modelId: string }> => {
+    const response = await fetch(`${DWS_API_URL}/api/models`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!response.ok) throw new Error('Failed to upload model');
+    return response.json();
+  }, []);
+
+  const runInference = useCallback(async (
+    org: string,
+    name: string,
+    input: Record<string, unknown>
+  ): Promise<{ output: Record<string, unknown> }> => {
+    const response = await fetch(`${DWS_API_URL}/api/models/${org}/${name}/inference`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) throw new Error('Inference failed');
+    return response.json();
+  }, []);
+
+  return {
+    isReady,
+    listModels,
+    getModel,
+    uploadModel,
+    runInference,
+  };
+}

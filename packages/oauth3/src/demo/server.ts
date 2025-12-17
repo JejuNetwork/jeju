@@ -192,7 +192,7 @@ app.get('/', (c) => {
         </div>
 
         <div class="footer">
-          <p>Built on <a href="https://jeju.network">Jeju Network</a> · OAuth3 v0.1.0</p>
+          <p>Built on <a href="https://jejunetwork.org">Jeju Network</a> · OAuth3 v0.1.0</p>
         </div>
       </div>
 

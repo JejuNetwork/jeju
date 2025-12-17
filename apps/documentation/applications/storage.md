@@ -2,7 +2,7 @@
 
 Storage is Jeju's decentralized storage marketplace. It provides a unified API for uploading, pinning, and retrieving content across multiple backends — IPFS for decentralized storage, Arweave for permanent storage, and cloud for high-availability backup.
 
-**URLs:** Localnet at http://127.0.0.1:4010, testnet at https://storage-testnet.jeju.network, mainnet at https://storage.jeju.network
+**URLs:** Localnet at http://127.0.0.1:4010, testnet at https://storage-testnet.jejunetwork.org, mainnet at https://storage.jejunetwork.org
 
 ## Storage Providers
 
@@ -51,7 +51,7 @@ curl -X POST http://localhost:4010/api/upload \
 import { StorageClient } from '@jejunetwork/storage-sdk';
 
 const storage = new StorageClient({
-  endpoint: 'https://storage.jeju.network',
+  endpoint: 'https://storage.jejunetwork.org',
   wallet,
 });
 
@@ -74,7 +74,7 @@ When you upload, the API analyzes the file (size, type, options), selects provid
 
 ### Via Gateway (Public)
 
-Anyone can retrieve content via the public gateway at `https://storage.jeju.network/ipfs/{cid}` or with a path at `https://storage.jeju.network/ipfs/{cid}/{path}`.
+Anyone can retrieve content via the public gateway at `https://storage.jejunetwork.org/ipfs/{cid}` or with a path at `https://storage.jejunetwork.org/ipfs/{cid}/{path}`.
 
 ### Via API
 

@@ -20,7 +20,7 @@ describe('PUBLIC_RPCS', () => {
     expect(PUBLIC_RPCS[84532]).toBe('https://sepolia.base.org');
     expect(PUBLIC_RPCS[421614]).toBe('https://sepolia-rollup.arbitrum.io/rpc');
     expect(PUBLIC_RPCS[11155420]).toBe('https://sepolia.optimism.io');
-    expect(PUBLIC_RPCS[420690]).toBe('https://testnet-rpc.jeju.network');
+    expect(PUBLIC_RPCS[420690]).toBe('https://testnet-rpc.jejunetwork.org');
   });
 
   test('should have all mainnet chains', () => {
@@ -28,7 +28,7 @@ describe('PUBLIC_RPCS', () => {
     expect(PUBLIC_RPCS[8453]).toBe('https://mainnet.base.org');
     expect(PUBLIC_RPCS[42161]).toBe('https://arb1.arbitrum.io/rpc');
     expect(PUBLIC_RPCS[10]).toBe('https://mainnet.optimism.io');
-    expect(PUBLIC_RPCS[420691]).toBe('https://rpc.jeju.network');
+    expect(PUBLIC_RPCS[420691]).toBe('https://rpc.jejunetwork.org');
   });
 
   test('should return undefined for unknown chain', () => {

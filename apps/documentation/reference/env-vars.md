@@ -27,22 +27,22 @@ OPENAI_API_KEY=...
 ## RPC URLs
 
 ```bash
-JEJU_RPC_URL=https://rpc.jeju.network          # Override config
+JEJU_RPC_URL=https://rpc.jejunetwork.org          # Override config
 L1_RPC_URL=https://eth.llamarpc.com
-L2_RPC_URL=https://rpc.jeju.network
-VITE_RPC_URL=https://rpc.jeju.network          # Frontend (Vite)
-NEXT_PUBLIC_RPC_URL=https://rpc.jeju.network   # Frontend (Next.js)
+L2_RPC_URL=https://rpc.jejunetwork.org
+VITE_RPC_URL=https://rpc.jejunetwork.org          # Frontend (Vite)
+NEXT_PUBLIC_RPC_URL=https://rpc.jejunetwork.org   # Frontend (Next.js)
 ```
 
 ## Service URLs
 
 ```bash
-INDEXER_GRAPHQL_URL=https://indexer.jeju.network/graphql
-GATEWAY_API_URL=https://gateway.jeju.network
-GATEWAY_A2A_URL=https://gateway.jeju.network/a2a
-STORAGE_API_URL=https://storage.jeju.network
-COMPUTE_MARKETPLACE_URL=https://compute.jeju.network
-OIF_AGGREGATOR_URL=https://oif.jeju.network
+INDEXER_GRAPHQL_URL=https://indexer.jejunetwork.org/graphql
+GATEWAY_API_URL=https://gateway.jejunetwork.org
+GATEWAY_A2A_URL=https://gateway.jejunetwork.org/a2a
+STORAGE_API_URL=https://storage.jejunetwork.org
+COMPUTE_MARKETPLACE_URL=https://compute.jejunetwork.org
+OIF_AGGREGATOR_URL=https://oif.jejunetwork.org
 ```
 
 ## Contract Address Overrides
@@ -128,19 +128,19 @@ MAX_PAYMENT_AGE=300    # 5 minutes
 ### Vite (.env)
 ```bash
 VITE_NETWORK=mainnet
-VITE_RPC_URL=https://rpc.jeju.network
+VITE_RPC_URL=https://rpc.jejunetwork.org
 VITE_CHAIN_ID=420691
 VITE_WALLETCONNECT_PROJECT_ID=...
-VITE_INDEXER_URL=https://indexer.jeju.network/graphql
+VITE_INDEXER_URL=https://indexer.jejunetwork.org/graphql
 ```
 
 ### Next.js (.env.local)
 ```bash
 NEXT_PUBLIC_NETWORK=mainnet
-NEXT_PUBLIC_RPC_URL=https://rpc.jeju.network
+NEXT_PUBLIC_RPC_URL=https://rpc.jejunetwork.org
 NEXT_PUBLIC_CHAIN_ID=420691
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=...
-NEXT_PUBLIC_INDEXER_URL=https://indexer.jeju.network/graphql
+NEXT_PUBLIC_INDEXER_URL=https://indexer.jejunetwork.org/graphql
 ```
 
 ## File Templates

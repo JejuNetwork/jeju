@@ -114,8 +114,8 @@ describe('RPC Utilities', () => {
       console.log('\n   Example: Deployment with failover\n');
       
       new FailoverProvider([
-        'https://rpc.jeju.network',
-        'https://rpc-backup.jeju.network',
+        'https://rpc.jejunetwork.org',
+        'https://rpc-backup.jejunetwork.org',
         LOCALNET_RPC,
       ], 'Network');
 
@@ -129,8 +129,8 @@ describe('RPC Utilities', () => {
       console.log('\n   Example: Health monitoring\n');
       
       const endpoints = [
-        'https://rpc.jeju.network',
-        'https://testnet-rpc.jeju.network',
+        'https://rpc.jejunetwork.org',
+        'https://testnet-rpc.jejunetwork.org',
         LOCALNET_RPC,
       ];
 

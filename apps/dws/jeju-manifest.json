@@ -39,7 +39,7 @@
   "jns": {
     "name": "dws.jeju",
     "description": "Decentralized Web Services",
-    "url": "https://dws.jeju.network"
+    "url": "https://dws.jejunetwork.org"
   },
   "healthCheck": {
     "url": "http://localhost:4030/health",

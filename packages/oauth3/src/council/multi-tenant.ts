@@ -267,8 +267,8 @@ export class MultiTenantCouncilManager {
       owner: config.treasury ?? '0x0000000000000000000000000000000000000000' as Address,
       council: config.treasury ?? '0x0000000000000000000000000000000000000000' as Address,
       redirectUris: [
-        `https://${councilType}.jeju.network/auth/callback`,
-        `https://council.${councilType}.jeju.network/auth/callback`,
+        `https://${councilType}.jejunetwork.org/auth/callback`,
+        `https://council.${councilType}.jejunetwork.org/auth/callback`,
         'http://localhost:3000/auth/callback',
       ],
       allowedProviders: [
@@ -283,11 +283,11 @@ export class MultiTenantCouncilManager {
       createdAt: now,
       active: true,
       metadata: {
-        logoUri: `https://assets.jeju.network/councils/${councilType}/logo.png`,
-        policyUri: `https://${councilType}.jeju.network/privacy`,
-        termsUri: `https://${councilType}.jeju.network/terms`,
-        supportEmail: `support@${councilType}.jeju.network`,
-        webhookUrl: `https://api.${councilType}.jeju.network/webhooks/oauth3`,
+        logoUri: `https://assets.jejunetwork.org/councils/${councilType}/logo.png`,
+        policyUri: `https://${councilType}.jejunetwork.org/privacy`,
+        termsUri: `https://${councilType}.jejunetwork.org/terms`,
+        supportEmail: `support@${councilType}.jejunetwork.org`,
+        webhookUrl: `https://api.${councilType}.jejunetwork.org/webhooks/oauth3`,
       },
     };
 

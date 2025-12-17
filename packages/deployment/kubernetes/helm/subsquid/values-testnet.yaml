@@ -72,13 +72,13 @@ postgres:
 ingress:
   enabled: true
   hosts:
-    - host: testnet-indexer.jeju.network
+    - host: testnet-indexer.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: subsquid-testnet-tls
       hosts:
-        - testnet-indexer.jeju.network
+        - testnet-indexer.jejunetwork.org
 
 

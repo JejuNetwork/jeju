@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": "default-src 'self'; connect-src 'self' https://*.jeju.network https://*.base.org https://*.arbitrum.io https://*.optimism.io wss://*.jeju.network; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+      "csp": "default-src 'self'; connect-src 'self' https://*.jejunetwork.org https://*.base.org https://*.arbitrum.io https://*.optimism.io wss://*.jejunetwork.org; img-src 'self' data: https:; style-src 'self' 'unsafe-inline'; script-src 'self'"
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",

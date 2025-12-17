@@ -86,7 +86,7 @@ forge script script/DeployEIL.s.sol:DeployL1 \
 
 # Deploy CrossChainPaymaster to Jeju testnet
 forge script script/DeployEIL.s.sol:DeployL2 \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --broadcast --verify
 ```
 

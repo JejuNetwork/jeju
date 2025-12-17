@@ -24,7 +24,7 @@
   "jns": {
     "name": "indexer.jeju",
     "description": "Blockchain Indexer with GraphQL API",
-    "url": "https://indexer.jeju.network"
+    "url": "https://indexer.jejunetwork.org"
   },
   "healthCheck": {
     "url": "http://localhost:4350/graphql",

@@ -159,6 +159,56 @@ packages/bridge/
 └── config/                   # Network configs
 ```
 
+## Production Deployment
+
+### Required Environment Variables
+
+```bash
+# REQUIRED - No defaults (secrets)
+PRIVATE_KEY=0x...           # Relayer signing key
+BRIDGE_ADDRESS=0x...        # Deployed bridge contract
+LIGHT_CLIENT_ADDRESS=0x...  # Deployed light client
+BRIDGE_PROGRAM_ID=...       # Solana bridge program
+EVM_LIGHT_CLIENT_PROGRAM_ID=... # Solana EVM light client
+
+# REQUIRED - With dev defaults
+EVM_RPC_URL=https://...     # Production EVM RPC
+SOLANA_RPC_URL=https://...  # Production Solana RPC
+PROVER_ENDPOINT=https://... # SP1 prover service
+TEE_ENDPOINT=https://...    # TEE attestation service
+
+# OPTIONAL
+LOG_LEVEL=info              # debug, info, warn, error
+RELAYER_PORT=8081           # Relayer API port
+NODE_ENV=production         # Must be 'production' for prod
+```
+
+### Deployment Checklist
+
+1. **Environment**: Set `NODE_ENV=production` and all required env vars
+2. **Secrets**: Use a secrets manager (Vault, AWS Secrets Manager, etc.)
+3. **Health Check**: Verify `/monitoring/health` returns healthy
+4. **Metrics**: Configure metrics collection from `/monitoring/metrics`
+5. **Alerts**: Set up alerts for `status: unhealthy` or high latency
+
+### Rollback Procedure
+
+1. **Immediate**: Stop the relayer service
+2. **Contracts**: Contract upgrades use OpenZeppelin proxy pattern
+   - `pause()` the bridge to halt transfers
+   - Deploy new implementation
+   - `upgradeTo(newImpl)` via governance
+   - `unpause()` when verified
+3. **Pending Transfers**: All transfers in progress complete with old logic
+4. **Verification**: Run health checks and verify test transfer
+
+### Monitoring Endpoints
+
+- `GET /monitoring/health` - System health status
+- `GET /monitoring/metrics` - Prometheus-compatible metrics
+- `GET /monitoring/ready` - Kubernetes readiness probe
+- `GET /monitoring/live` - Kubernetes liveness probe
+
 ## Security
 
 - **ZK Proofs**: All state transitions verified cryptographically

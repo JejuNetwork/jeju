@@ -45,8 +45,8 @@ export class TrezorKeyring {
     await TrezorConnect.init({
       lazyLoad: false,
       manifest: {
-        email: 'support@jeju.network',
-        appUrl: 'https://wallet.jeju.network',
+        email: 'support@jejunetwork.org',
+        appUrl: 'https://wallet.jejunetwork.org',
         appName: 'Network Wallet',
       },
       transports: ['BridgeTransport', 'WebUsbTransport'],

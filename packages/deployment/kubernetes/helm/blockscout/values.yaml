@@ -69,14 +69,14 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
   hosts:
-    - host: explorer.testnet.jeju.network
+    - host: explorer.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: blockscout-tls
       hosts:
-        - explorer.testnet.jeju.network
+        - explorer.testnet.jejunetwork.org
 
 # External PostgreSQL (RDS)
 externalDatabase:

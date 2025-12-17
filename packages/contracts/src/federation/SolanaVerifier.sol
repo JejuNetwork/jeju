@@ -299,7 +299,7 @@ contract SolanaVerifier is Ownable {
      * @notice Parse a Wormhole VAA
      * @dev In production, this would call the Wormhole core bridge
      */
-    function parseVAA(bytes calldata vaa) internal view returns (ParsedVAA memory parsed) {
+    function parseVAA(bytes calldata vaa) internal pure returns (ParsedVAA memory parsed) {
         // Simplified parsing - production would verify guardian signatures
         // via wormhole.parseAndVerifyVM(vaa)
         

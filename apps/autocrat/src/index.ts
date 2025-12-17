@@ -1,20 +1,17 @@
 /**
  * Network Council - AI DAO Governance
  *
- * PRODUCTION ASSUMPTIONS:
- * 1. Ollama must be running at OLLAMA_URL (default: localhost:11434)
- *    - Required model: OLLAMA_MODEL (default: llama3.2:3b)
- *    - Without Ollama, AI features fall back to keyword-based heuristics
+ * DECENTRALIZED ARCHITECTURE - NO FALLBACKS:
+ * 1. CovenantSQL (CQL) required for state persistence
+ *    - Set CQL_BLOCK_PRODUCER_ENDPOINT or start: docker compose up -d
  *
- * 2. Contract deployment is OPTIONAL:
+ * 2. DWS Compute required for AI inference
+ *    - Set DWS_URL or start: docker compose up -d
+ *
+ * 3. Contract deployment is OPTIONAL:
  *    - ERC8004 registries (identity, reputation, validation) return empty when not deployed
  *    - Futarchy (council, predimarket) returns empty arrays when not deployed
  *    - Set addresses to 0x0 to explicitly disable
- *
- * 3. Data persistence:
- *    - Moderation flags/trust/stats are IN-MEMORY (lost on restart)
- *    - Research cache is IN-MEMORY with 1000 entry limit
- *    - Vote storage persists to .council-storage/ directory
  *
  * 4. Security:
  *    - OPERATOR_KEY or PRIVATE_KEY required for blockchain transactions
@@ -23,7 +20,6 @@
  * 5. Service ports:
  *    - Council API: PORT (default: 8010)
  *    - CEO Server: CEO_PORT (default: 8004, separate process)
- *    - Ollama: OLLAMA_URL (default: localhost:11434)
  */
 
 import { Hono } from 'hono';
@@ -44,6 +40,9 @@ import { getFutarchyClient, type FutarchyConfig } from './futarchy';
 import { getModerationSystem, initModeration, FlagType } from './moderation';
 import { getRegistryIntegrationClient, type RegistryIntegrationConfig } from './registry-integration';
 import type { CouncilConfig } from './types';
+import { DAOService, createDAOService } from './dao-service';
+import { getFundingOracle, type FundingOracle } from './funding-oracle';
+import type { CasualSubmission, CasualProposalCategory } from './proposal-assistant';
 
 const ZERO_ADDR = '0x0000000000000000000000000000000000000000' as `0x${string}`;
 const addr = (key: string) => (process.env[key] ?? ZERO_ADDR) as `0x${string}`;
@@ -52,14 +51,19 @@ const agent = (id: string, name: string, prompt: string) => ({ id, name, model: 
 function getConfig(): CouncilConfig {
   return {
     rpcUrl: process.env.RPC_URL ?? process.env.JEJU_RPC_URL ?? 'http://localhost:8545',
+    daoId: process.env.DEFAULT_DAO ?? 'jeju',
     contracts: {
       council: addr('COUNCIL_ADDRESS'),
-      proposalRegistry: addr('PROPOSAL_REGISTRY_ADDRESS'),
       ceoAgent: addr('CEO_AGENT_ADDRESS'),
+      treasury: addr('TREASURY_ADDRESS'),
+      feeConfig: addr('FEE_CONFIG_ADDRESS'),
+      daoRegistry: addr('DAO_REGISTRY_ADDRESS'),
+      daoFunding: addr('DAO_FUNDING_ADDRESS'),
       identityRegistry: addr('IDENTITY_REGISTRY_ADDRESS'),
       reputationRegistry: addr('REPUTATION_REGISTRY_ADDRESS'),
-      stakingManager: addr('STAKING_MANAGER_ADDRESS'),
-      predimarket: addr('PREDIMARKET_ADDRESS'),
+      packageRegistry: addr('PACKAGE_REGISTRY_ADDRESS'),
+      repoRegistry: addr('REPO_REGISTRY_ADDRESS'),
+      modelRegistry: addr('MODEL_REGISTRY_ADDRESS'),
     },
     agents: {
       ceo: agent('eliza-ceo', 'Eliza', 'AI CEO of Network DAO'),
@@ -71,14 +75,33 @@ function getConfig(): CouncilConfig {
       ],
       proposalAgent: agent('proposal-agent', 'Proposal Assistant', 'Help craft proposals'),
       researchAgent: agent('research-agent', 'Researcher', 'Deep research'),
+      fundingAgent: agent('funding-agent', 'Funding Oracle', 'Deep funding analysis'),
     },
     parameters: {
-      minQualityScore: 90,
-      councilVotingPeriod: 3 * 24 * 60 * 60,
-      gracePeriod: 24 * 60 * 60,
-      minBackers: 0,
-      minStakeForVeto: BigInt('10000000000000000'),
-      vetoThreshold: 30,
+      minQualityScore: 70,
+      councilVotingPeriod: 259200,
+      gracePeriod: 86400,
+      minProposalStake: BigInt('10000000000000000'),
+      quorumBps: 5000,
+    },
+    ceoPersona: {
+      name: 'CEO',
+      pfpCid: '',
+      description: 'AI governance leader',
+      personality: 'Professional and analytical',
+      traits: ['decisive', 'fair', 'strategic'],
+      voiceStyle: 'Clear and professional',
+      communicationTone: 'professional',
+      specialties: ['governance', 'strategy'],
+    },
+    fundingConfig: {
+      minStake: BigInt('1000000000000000'),
+      maxStake: BigInt('100000000000000000000'),
+      epochDuration: 2592000,
+      cooldownPeriod: 604800,
+      matchingMultiplier: 10000,
+      quadraticEnabled: true,
+      ceoWeightCap: 5000,
     },
     cloudEndpoint: 'local',
     computeEndpoint: 'local',
@@ -418,6 +441,174 @@ app.get('/api/v1/moderation/should-reject/:proposalId', (c) => {
   return c.json(result);
 });
 
+// DAO Registry API - Multi-tenant DAO management
+let daoService: DAOService | null = null;
+let fundingOracle: FundingOracle | null = null;
+
+const initDAOService = () => {
+  if (!daoService && config.contracts.daoRegistry !== ZERO_ADDR) {
+    daoService = createDAOService({
+      rpcUrl: config.rpcUrl,
+      chainId: parseInt(process.env.CHAIN_ID ?? '31337', 10),
+      daoRegistryAddress: config.contracts.daoRegistry,
+      daoFundingAddress: config.contracts.daoFunding,
+      privateKey: process.env.OPERATOR_KEY ?? process.env.PRIVATE_KEY,
+    });
+    fundingOracle = getFundingOracle();
+  }
+  return daoService;
+};
+
+app.get('/api/v1/dao/list', async (c) => {
+  const service = initDAOService();
+  if (!service) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const daoIds = await service.getAllDAOs();
+  const daos = await Promise.all(daoIds.map(id => service.getDAO(id)));
+  return c.json({ daos });
+});
+
+app.get('/api/v1/dao/active', async (c) => {
+  const service = initDAOService();
+  if (!service) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const daoIds = await service.getActiveDAOs();
+  const daos = await Promise.all(daoIds.map(id => service.getDAOFull(id)));
+  return c.json({ daos });
+});
+
+app.get('/api/v1/dao/:daoId', async (c) => {
+  const service = initDAOService();
+  if (!service) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const daoId = c.req.param('daoId');
+  const exists = await service.daoExists(daoId);
+  if (!exists) return c.json({ error: 'DAO not found' }, 404);
+  const dao = await service.getDAOFull(daoId);
+  return c.json(dao);
+});
+
+app.get('/api/v1/dao/:daoId/persona', async (c) => {
+  const service = initDAOService();
+  if (!service) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const persona = await service.getCEOPersona(c.req.param('daoId'));
+  return c.json(persona);
+});
+
+app.get('/api/v1/dao/:daoId/council', async (c) => {
+  const service = initDAOService();
+  if (!service) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const members = await service.getCouncilMembers(c.req.param('daoId'));
+  return c.json({ members });
+});
+
+app.get('/api/v1/dao/:daoId/packages', async (c) => {
+  const service = initDAOService();
+  if (!service) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const packages = await service.getLinkedPackages(c.req.param('daoId'));
+  return c.json({ packages });
+});
+
+app.get('/api/v1/dao/:daoId/repos', async (c) => {
+  const service = initDAOService();
+  if (!service) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const repos = await service.getLinkedRepos(c.req.param('daoId'));
+  return c.json({ repos });
+});
+
+// DAO Funding API
+app.get('/api/v1/dao/:daoId/funding/epoch', async (c) => {
+  const service = initDAOService();
+  if (!service) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const epoch = await service.getCurrentEpoch(c.req.param('daoId'));
+  return c.json({ epoch });
+});
+
+app.get('/api/v1/dao/:daoId/funding/projects', async (c) => {
+  const service = initDAOService();
+  if (!service) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const projects = await service.getActiveProjects(c.req.param('daoId'));
+  return c.json({ projects });
+});
+
+app.get('/api/v1/dao/:daoId/funding/allocations', async (c) => {
+  const service = initDAOService();
+  if (!service) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const allocations = await service.getFundingAllocations(c.req.param('daoId'));
+  return c.json({ allocations });
+});
+
+app.get('/api/v1/dao/:daoId/funding/summary', async (c) => {
+  initDAOService();
+  if (!fundingOracle) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const summary = await fundingOracle.getEpochSummary(c.req.param('daoId'));
+  return c.json(summary);
+});
+
+app.get('/api/v1/dao/:daoId/funding/recommendations', async (c) => {
+  initDAOService();
+  if (!fundingOracle) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const recommendations = await fundingOracle.generateCEORecommendations(c.req.param('daoId'));
+  return c.json(recommendations);
+});
+
+app.get('/api/v1/dao/:daoId/funding/knobs', async (c) => {
+  initDAOService();
+  if (!fundingOracle) return c.json({ error: 'DAO Registry not deployed' }, 503);
+  const knobs = await fundingOracle.getKnobs(c.req.param('daoId'));
+  return c.json(knobs);
+});
+
+// Casual Proposal API
+app.post('/api/v1/dao/:daoId/casual/assess', async (c) => {
+  const daoId = c.req.param('daoId');
+  const body = await c.req.json() as { category: CasualProposalCategory; title: string; content: string };
+  if (!body.category || !body.title || !body.content) {
+    return c.json({ error: 'category, title, and content are required' }, 400);
+  }
+  const submission: CasualSubmission = {
+    daoId,
+    category: body.category,
+    title: body.title,
+    content: body.content,
+  };
+  const assessment = await proposalAssistant.assessCasualSubmission(submission);
+  return c.json(assessment);
+});
+
+app.post('/api/v1/dao/:daoId/casual/help', async (c) => {
+  const daoId = c.req.param('daoId');
+  const body = await c.req.json() as { category: CasualProposalCategory; content: string };
+  if (!body.category) {
+    return c.json({ error: 'category is required' }, 400);
+  }
+  const help = await proposalAssistant.helpCraftSubmission(body.category, body.content ?? '', daoId);
+  return c.json(help);
+});
+
+app.get('/api/v1/casual/categories', (c) => {
+  const categories = proposalAssistant.getAllCategories();
+  return c.json({ categories });
+});
+
+// Orchestrator DAO status
+app.get('/api/v1/orchestrator/dao/:daoId', (c) => {
+  if (!orchestrator) return c.json({ error: 'Orchestrator not running' }, 503);
+  const status = orchestrator.getDAOStatus(c.req.param('daoId'));
+  if (!status) return c.json({ error: 'DAO not tracked' }, 404);
+  return c.json(status);
+});
+
+app.post('/api/v1/orchestrator/dao/:daoId/refresh', async (c) => {
+  if (!orchestrator) return c.json({ error: 'Orchestrator not running' }, 503);
+  await orchestrator.refreshDAO(c.req.param('daoId'));
+  return c.json({ success: true });
+});
+
+app.post('/api/v1/orchestrator/dao/:daoId/active', async (c) => {
+  if (!orchestrator) return c.json({ error: 'Orchestrator not running' }, 503);
+  const body = await c.req.json() as { active: boolean };
+  orchestrator.setDAOActive(c.req.param('daoId'), body.active ?? true);
+  return c.json({ success: true });
+});
+
 // Registry Integration API - Deep AI DAO integration
 const registryConfig: RegistryIntegrationConfig = {
   rpcUrl: config.rpcUrl,
@@ -603,14 +794,17 @@ async function runOrchestratorCycle(): Promise<OrchestratorTriggerResult> {
 app.get('/health', (c) => c.json({
   status: 'ok',
   service: 'jeju-council',
-  version: '2.1.0',
-  mode: 'local',
+  version: '3.0.0',
+  mode: 'multi-tenant',
   tee: getTEEMode(),
   orchestrator: orchestrator?.getStatus().running ?? false,
+  daoCount: orchestrator?.getStatus().daoCount ?? 0,
+  daoRegistry: config.contracts.daoRegistry !== ZERO_ADDR,
+  daoFunding: config.contracts.daoFunding !== ZERO_ADDR,
   erc8004: { identity: erc8004.identityDeployed, reputation: erc8004.reputationDeployed, validation: erc8004.validationDeployed },
   futarchy: { council: futarchy.councilDeployed, predimarket: futarchy.predimarketDeployed },
   registry: { integration: !!registryConfig.integrationContract, delegation: !!registryConfig.delegationRegistry },
-  endpoints: { a2a: '/a2a', mcp: '/mcp', rest: '/api/v1', agents: '/api/v1/agents', futarchy: '/api/v1/futarchy', moderation: '/api/v1/moderation', registry: '/api/v1/registry' },
+  endpoints: { a2a: '/a2a', mcp: '/mcp', rest: '/api/v1', dao: '/api/v1/dao', agents: '/api/v1/agents', futarchy: '/api/v1/futarchy', moderation: '/api/v1/moderation', registry: '/api/v1/registry' },
 }));
 
 // Prometheus metrics (excludes /metrics and /health from request count)
@@ -659,15 +853,25 @@ app.get('/metrics', () => {
 });
 
 app.get('/', (c) => c.json({
-  name: `${getNetworkName()} AI Council`,
-  version: '2.1.0',
-  description: 'Fully autonomous reputation-based DAO with AI CEO',
+  name: `${getNetworkName()} Autocrat`,
+  version: '3.0.0',
+  description: 'Multi-tenant DAO governance with AI CEOs and deep funding',
+  features: [
+    'Multi-DAO support (Jeju DAO, Babylon DAO, custom DAOs)',
+    'CEO personas with unique personalities',
+    'Casual proposal flow (opinions, suggestions, applications)',
+    'Deep funding with quadratic matching',
+    'Package and repo funding integration',
+  ],
   endpoints: {
     a2a: '/a2a',
     mcp: '/mcp',
     rest: '/api/v1',
+    dao: '/api/v1/dao',
     orchestrator: '/api/v1/orchestrator',
     proposals: '/api/v1/proposals',
+    casual: '/api/v1/dao/:daoId/casual',
+    funding: '/api/v1/dao/:daoId/funding',
     research: '/api/v1/research',
     agents: '/api/v1/agents',
     futarchy: '/api/v1/futarchy',
@@ -714,16 +918,18 @@ start();
 
 export default { port, fetch: app.fetch };
 export { app, config };
-export type { CouncilConfig } from './types';
+export type { CouncilConfig, CEOPersona, GovernanceParams, FundingConfig } from './types';
 export { createAutocratA2AServer } from './a2a-server';
 export { createAutocratMCPServer } from './mcp-server';
 export { getBlockchain, AutocratBlockchain } from './blockchain';
 export { createOrchestrator, type AutocratOrchestrator } from './orchestrator';
+export { DAOService, createDAOService, getDAOService, type DAO, type DAOFull, type FundingProject, type FundingEpoch, type FundingAllocation } from './dao-service';
+export { getFundingOracle, type FundingOracle, type FundingAnalysis, type EpochSummary, type CEOFundingRecommendation } from './funding-oracle';
 export { initLocalServices, store, retrieve, storeVote, getVotes } from './local-services';
 export { getTEEMode, makeTEEDecision, decryptReasoning } from './tee';
 export { getComputeTriggerClient, registerAutocratTriggers, startLocalCron } from './compute-trigger';
 export { autocratAgentRuntime, autocratAgentTemplates, getAgentByRole, type AgentVote, type DeliberationRequest, type CEODecisionRequest } from './agents';
-export { getProposalAssistant, ProposalAssistant, type ProposalDraft, type QualityAssessment, type SimilarProposal } from './proposal-assistant';
+export { getProposalAssistant, ProposalAssistant, type ProposalDraft, type QualityAssessment, type SimilarProposal, type CasualSubmission, type CasualAssessment, type CasualProposalCategory } from './proposal-assistant';
 export { getResearchAgent, ResearchAgent, generateResearchReport, quickScreenProposal, type ResearchRequest, type ResearchReport, type ResearchSection } from './research-agent';
 export { getERC8004Client, ERC8004Client, type ERC8004Config, type AgentIdentity, type AgentReputation } from './erc8004';
 export { getFutarchyClient, FutarchyClient, type FutarchyConfig, type FutarchyMarket } from './futarchy';

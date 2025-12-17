@@ -112,80 +112,80 @@ function getDefaultChainId(): string {
 
 function getDefaultRpcUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://rpc.jeju.network';
-    case 'testnet': return 'https://testnet-rpc.jeju.network';
+    case 'mainnet': return 'https://rpc.jejunetwork.org';
+    case 'testnet': return 'https://testnet-rpc.jejunetwork.org';
     default: return 'http://127.0.0.1:9545';
   }
 }
 
 function getDefaultWsUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'wss://ws.jeju.network';
-    case 'testnet': return 'wss://testnet-ws.jeju.network';
+    case 'mainnet': return 'wss://ws.jejunetwork.org';
+    case 'testnet': return 'wss://testnet-ws.jejunetwork.org';
     default: return 'ws://127.0.0.1:9546';
   }
 }
 
 function getDefaultIndexerUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://indexer.jeju.network/graphql';
-    case 'testnet': return 'https://testnet-indexer.jeju.network/graphql';
+    case 'mainnet': return 'https://indexer.jejunetwork.org/graphql';
+    case 'testnet': return 'https://testnet-indexer.jejunetwork.org/graphql';
     default: return 'http://127.0.0.1:4350/graphql';
   }
 }
 
 function getDefaultIndexerRestUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://indexer.jeju.network/api';
-    case 'testnet': return 'https://testnet-indexer.jeju.network/api';
+    case 'mainnet': return 'https://indexer.jejunetwork.org/api';
+    case 'testnet': return 'https://testnet-indexer.jejunetwork.org/api';
     default: return 'http://127.0.0.1:4352/api';
   }
 }
 
 function getDefaultIndexerA2AUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://indexer.jeju.network/a2a';
-    case 'testnet': return 'https://testnet-indexer.jeju.network/a2a';
+    case 'mainnet': return 'https://indexer.jejunetwork.org/a2a';
+    case 'testnet': return 'https://testnet-indexer.jejunetwork.org/a2a';
     default: return 'http://127.0.0.1:4351/api/a2a';
   }
 }
 
 function getDefaultIndexerMCPUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://indexer.jeju.network/mcp';
-    case 'testnet': return 'https://testnet-indexer.jeju.network/mcp';
+    case 'mainnet': return 'https://indexer.jejunetwork.org/mcp';
+    case 'testnet': return 'https://testnet-indexer.jejunetwork.org/mcp';
     default: return 'http://127.0.0.1:4353';
   }
 }
 
 function getDefaultRpcGatewayUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://rpc-gateway.jeju.network';
-    case 'testnet': return 'https://testnet-rpc-gateway.jeju.network';
+    case 'mainnet': return 'https://rpc-gateway.jejunetwork.org';
+    case 'testnet': return 'https://testnet-rpc-gateway.jejunetwork.org';
     default: return 'http://127.0.0.1:4004';
   }
 }
 
 function getDefaultIpfsApiUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://storage.jeju.network';
-    case 'testnet': return 'https://testnet-storage.jeju.network';
+    case 'mainnet': return 'https://storage.jejunetwork.org';
+    case 'testnet': return 'https://testnet-storage.jejunetwork.org';
     default: return 'http://127.0.0.1:3100';
   }
 }
 
 function getDefaultIpfsGatewayUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://ipfs.jeju.network';
-    case 'testnet': return 'https://testnet-ipfs.jeju.network';
+    case 'mainnet': return 'https://ipfs.jejunetwork.org';
+    case 'testnet': return 'https://testnet-ipfs.jejunetwork.org';
     default: return 'http://127.0.0.1:3100';
   }
 }
 
 function getDefaultOifAggregatorUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://oif.jeju.network/api';
-    case 'testnet': return 'https://testnet-oif.jeju.network/api';
+    case 'mainnet': return 'https://oif.jejunetwork.org/api';
+    case 'testnet': return 'https://testnet-oif.jejunetwork.org/api';
     default: return 'http://127.0.0.1:4010/api';
   }
 }
@@ -193,15 +193,15 @@ function getDefaultOifAggregatorUrl(): string {
 function getDefaultLeaderboardUrl(): string {
   switch (NETWORK) {
     case 'mainnet': 
-    case 'testnet': return 'https://leaderboard.jeju.network';
+    case 'testnet': return 'https://leaderboard.jejunetwork.org';
     default: return 'http://127.0.0.1:4005';
   }
 }
 
 function getDefaultExplorerUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://explorer.jeju.network';
-    case 'testnet': return 'https://testnet-explorer.jeju.network';
+    case 'mainnet': return 'https://explorer.jejunetwork.org';
+    case 'testnet': return 'https://testnet-explorer.jejunetwork.org';
     default: return 'http://127.0.0.1:4000';
   }
 }

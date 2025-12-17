@@ -1,0 +1,235 @@
+# Prometheus Configuration for Network Performance Monitoring
+# 
+# Scrapes metrics from:
+# - CDN edge nodes
+# - Residential proxy nodes
+# - P2P torrent seeders
+# - DNS sync service
+# - Redis cluster
+# - Database replicas
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'jeju-network'
+    environment: '${ENVIRONMENT}'
+
+# Alerting rules
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - alertmanager:9093
+
+scrape_configs:
+  # ============================================================================
+  # CDN Metrics
+  # ============================================================================
+  
+  - job_name: 'cdn-edge-nodes'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ['jeju-cdn']
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: cdn-edge
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+        action: keep
+        regex: 'true'
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        target_label: __address__
+        replacement: '${1}:$2'
+      - source_labels: [__meta_kubernetes_pod_label_region]
+        target_label: region
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: edge_node
+
+  - job_name: 'cloudfront-exporter'
+    static_configs:
+      - targets: ['cloudfront-exporter:9101']
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: cloud
+        replacement: aws
+
+  - job_name: 'cloud-cdn-exporter'
+    static_configs:
+      - targets: ['cloud-cdn-exporter:9102']
+    relabel_configs:
+      - target_label: cloud
+        replacement: gcp
+
+  # ============================================================================
+  # P2P / Torrent Metrics
+  # ============================================================================
+
+  - job_name: 'torrent-seeders'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ['jeju-storage']
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: torrent-seeder
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        target_label: __address__
+        replacement: '${1}:9100'
+      - source_labels: [__meta_kubernetes_pod_name]
+        target_label: seeder
+
+  - job_name: 'dht-nodes'
+    static_configs:
+      - targets:
+          - 'dht-node-1:9100'
+          - 'dht-node-2:9100'
+          - 'dht-node-3:9100'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: dht_node
+
+  # ============================================================================
+  # Residential Proxy Metrics
+  # ============================================================================
+
+  - job_name: 'proxy-coordinator'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ['jeju-proxy']
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: proxy-coordinator
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        target_label: __address__
+        replacement: '${1}:9090'
+
+  - job_name: 'proxy-nodes'
+    # Proxy nodes report via push gateway since they're behind NAT
+    static_configs:
+      - targets: ['pushgateway:9091']
+    honor_labels: true
+
+  # ============================================================================
+  # DNS Metrics
+  # ============================================================================
+
+  - job_name: 'dns-sync'
+    static_configs:
+      - targets: ['dns-sync:9103']
+    relabel_configs:
+      - target_label: service
+        replacement: dns-sync
+
+  - job_name: 'dns-health-checks'
+    static_configs:
+      - targets:
+          - '1.1.1.1:53'   # Cloudflare
+          - '8.8.8.8:53'   # Google (Route53 via)
+          - '9.9.9.9:53'   # Quad9
+    metrics_path: /probe
+    params:
+      module: [dns_jeju]
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__param_target]
+        target_label: dns_server
+      - target_label: __address__
+        replacement: blackbox-exporter:9115
+
+  # ============================================================================
+  # Redis Cluster Metrics
+  # ============================================================================
+
+  - job_name: 'redis-cluster'
+    static_configs:
+      - targets:
+          - 'redis-primary-0:9121'
+          - 'redis-primary-1:9121'
+          - 'redis-primary-2:9121'
+          - 'redis-replica-0:9121'
+          - 'redis-replica-1:9121'
+          - 'redis-replica-2:9121'
+    relabel_configs:
+      - source_labels: [__address__]
+        regex: 'redis-primary.*'
+        target_label: role
+        replacement: primary
+      - source_labels: [__address__]
+        regex: 'redis-replica.*'
+        target_label: role
+        replacement: replica
+
+  # ============================================================================
+  # Database Replica Metrics
+  # ============================================================================
+
+  - job_name: 'postgres-primary'
+    static_configs:
+      - targets: ['postgres-primary:9187']
+    relabel_configs:
+      - target_label: role
+        replacement: primary
+      - target_label: database
+        replacement: jeju
+
+  - job_name: 'postgres-replicas'
+    static_configs:
+      - targets:
+          - 'postgres-replica-0:9187'
+          - 'postgres-replica-1:9187'
+    relabel_configs:
+      - target_label: role
+        replacement: replica
+      - source_labels: [__address__]
+        regex: '(.+):.*'
+        target_label: replica
+
+  # ============================================================================
+  # Edge Coordinator Metrics
+  # ============================================================================
+
+  - job_name: 'edge-coordinator'
+    kubernetes_sd_configs:
+      - role: pod
+        namespaces:
+          names: ['jeju-cdn']
+    relabel_configs:
+      - source_labels: [__meta_kubernetes_pod_label_app]
+        action: keep
+        regex: edge-coordinator
+      - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_port]
+        target_label: __address__
+        replacement: '${1}:9104'
+
+  # ============================================================================
+  # Endpoint Registry Metrics (On-Chain)
+  # ============================================================================
+
+  - job_name: 'endpoint-registry-exporter'
+    static_configs:
+      - targets: ['endpoint-registry-exporter:9105']
+    scrape_interval: 60s  # On-chain data changes slowly
+
+  # ============================================================================
+  # Service Worker / Client Metrics
+  # ============================================================================
+
+  - job_name: 'client-metrics'
+    # Clients push metrics via gateway
+    static_configs:
+      - targets: ['pushgateway:9091']
+    honor_labels: true
+    params:
+      job: [sw-metrics]
+

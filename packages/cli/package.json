@@ -89,7 +89,7 @@
     "url": "git+https://github.com/elizaos/jeju.git",
     "directory": "packages/cli"
   },
-  "homepage": "https://jeju.network",
+  "homepage": "https://jejunetwork.org",
   "bugs": {
     "url": "https://github.com/elizaos/jeju/issues"
   },

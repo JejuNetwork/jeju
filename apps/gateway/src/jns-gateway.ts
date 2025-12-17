@@ -11,7 +11,7 @@
  * - ENS fallback for Ethereum interop
  *
  * @example
- * example.jeju.network → resolves example.jeju → contenthash → IPFS gateway
+ * example.jejunetwork.org → resolves example.jeju → contenthash → IPFS gateway
  */
 
 import { Hono, type Context } from 'hono';
@@ -264,7 +264,7 @@ export class JNSGateway {
     this.app.get('*', async (c) => {
       const host = c.req.header('host') ?? '';
 
-      // Check if this is a JNS subdomain (e.g., app.jeju.network)
+      // Check if this is a JNS subdomain (e.g., app.jejunetwork.org)
       const jnsMatch = host.match(/^([a-z0-9-]+)\.jeju\.(network|io|local)/);
       if (jnsMatch && jnsMatch[1]) {
         const name = `${jnsMatch[1]}.jeju`;
@@ -272,7 +272,7 @@ export class JNSGateway {
         return this.serveJNSContent(c, name, path);
       }
 
-      return c.text('JNS Gateway - Use *.jeju.network for name resolution', 200);
+      return c.text('JNS Gateway - Use *.jejunetwork.org for name resolution', 200);
     });
   }
 

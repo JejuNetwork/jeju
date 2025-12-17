@@ -67,7 +67,7 @@ Create `values-testnet.yaml`:
 ```yaml
 global:
   environment: testnet
-  domain: jeju.network
+  domain: jejunetwork.org
 
 relay:
   serviceAccount:
@@ -77,7 +77,7 @@ relay:
   config:
     keyRegistryAddress: "0x..."  # From contract deployment
     nodeRegistryAddress: "0x..."  # From contract deployment
-    covenantsqlNodes: "http://cql.testnet.jeju.network:8546"
+    covenantsqlNodes: "http://cql.testnet.jejunetwork.org:8546"
 
 kms:
   serviceAccount:
@@ -92,7 +92,7 @@ kms:
 relay:
   ingress:
     hosts:
-      - host: relay.testnet.jeju.network
+      - host: relay.testnet.jejunetwork.org
         paths:
           - path: /
             pathType: Prefix
@@ -122,7 +122,7 @@ NETWORK=testnet bun run scripts/helmfile.ts sync --only messaging
 | `relay.replicaCount` | Number of relay nodes | 3 |
 | `relay.config.port` | HTTP API port | 3200 |
 | `relay.config.wsPort` | WebSocket port | 3201 |
-| `relay.config.jejuRpcUrl` | Jeju L2 RPC URL | `https://testnet-rpc.jeju.network` |
+| `relay.config.jejuRpcUrl` | Jeju L2 RPC URL | `https://testnet-rpc.jejunetwork.org` |
 | `relay.config.keyRegistryAddress` | KeyRegistry contract | Required |
 | `relay.config.nodeRegistryAddress` | MessageNodeRegistry contract | Required |
 | `relay.config.covenantsqlNodes` | CovenantSQL endpoints | Required |

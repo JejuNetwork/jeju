@@ -7,412 +7,721 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
+interface IIdentityRegistryStaking {
+    function ownerOf(uint256 tokenId) external view returns (address);
+}
+
+interface IBanManagerStaking {
+    function isAddressBanned(address target) external view returns (bool);
+}
+
+interface IPriceOracleStaking {
+    function latestRoundData() external view returns (
+        uint80 roundId,
+        int256 answer,
+        uint256 startedAt,
+        uint256 updatedAt,
+        uint80 answeredInRound
+    );
+}
+
 /**
  * @title Staking
- * @notice Staking pool for paymaster gas subsidization and EIL cross-chain liquidity
+ * @author Jeju Network
+ * @notice Universal JEJU staking for all DWS services with USD-denominated tiers
+ * @dev Single staking position provides access to multiple services:
+ *      - RPC rate limits
+ *      - Storage quotas
+ *      - Compute allocation
+ *      - CDN bandwidth
+ *      - Oracle access
+ *
+ * Tier System:
+ * - Tiers based on USD value of JEJU stake
+ * - Reputation bonus increases effective stake value
+ * - Each service maps tiers to specific allocations
+ *
+ * Rate Limit Tiers (USD-denominated):
+ * - FREE:      $0    → Basic access (pay-per-use available)
+ * - BUILDER:   $10   → 10x free tier limits
+ * - PRO:       $100  → 100x free tier, priority access
+ * - UNLIMITED: $1000 → No limits, SLA guarantees
+ *
+ * @custom:security-contact security@jeju.network
  */
-contract Staking is ReentrancyGuard, Ownable, Pausable {
+contract Staking is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    IERC20 public immutable stakingToken;
-    uint256 public totalETHStaked;
-    uint256 public totalTokensStaked;
-    mapping(address => StakerPosition) public positions;
-    uint256 public ethFeesPerShare;
-    uint256 public tokenFeesPerShare;
-    mapping(address => uint256) public ethFeesPerSharePaid;
-    mapping(address => uint256) public tokenFeesPerSharePaid;
-    mapping(address => uint256) public pendingETHFees;
-    mapping(address => uint256) public pendingTokenFees;
-    address public paymaster;
-    address public eilPaymaster;
-    address public feeDistributor;
-    uint256 public minETHStake = 0.1 ether;
-    uint256 public minTokenStake = 100e18;
-    uint256 public constant MAX_ETH_UTILIZATION = 80;
-    uint256 public constant MAX_TOKEN_UTILIZATION = 70;
-    uint256 public constant UNBONDING_PERIOD = 7 days;
-    uint256 private constant PRECISION = 1e18;
+    // ═══════════════════════════════════════════════════════════════════════
+    //                              ENUMS
+    // ═══════════════════════════════════════════════════════════════════════
 
-    struct StakerPosition {
-        uint256 ethStaked;
-        uint256 tokensStaked;
+    enum Tier {
+        FREE,
+        BUILDER,
+        PRO,
+        UNLIMITED
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //                              STRUCTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    struct StakePosition {
+        uint256 stakedAmount;
         uint256 stakedAt;
-        uint256 ethUnbondingAmount;
-        uint256 tokenUnbondingAmount;
+        uint256 linkedAgentId;
+        uint256 reputationBonus;      // 0-5000 basis points (max 50% bonus)
+        uint256 unbondingAmount;
         uint256 unbondingStartTime;
         bool isActive;
+        bool isFrozen;                // Frozen by moderation
     }
 
-    // ============ Events ============
+    struct TierConfig {
+        uint256 minUsdValue;          // Minimum USD value (8 decimals)
+        uint256 rpcRateLimit;         // Requests per minute (0 = unlimited)
+        uint256 storageQuotaMB;       // Storage in MB (0 = unlimited)
+        uint256 computeCredits;       // Compute credits per month
+        uint256 cdnBandwidthGB;       // CDN bandwidth in GB (0 = unlimited)
+    }
 
-    event Staked(address indexed staker, uint256 ethAmount, uint256 tokenAmount);
-    event UnbondingStarted(address indexed staker, uint256 ethAmount, uint256 tokenAmount);
-    event Unstaked(address indexed staker, uint256 ethAmount, uint256 tokenAmount);
-    event FeesDistributed(uint256 ethFees, uint256 tokenFees, address indexed source);
-    event FeesClaimed(address indexed staker, uint256 amount);
-    event ETHProvided(address indexed to, uint256 amount, string purpose);
-    event TokensProvided(address indexed to, address token, uint256 amount, string purpose);
-    event PaymasterUpdated(address indexed oldPaymaster, address indexed newPaymaster);
-    event EILPaymasterUpdated(address indexed oldPaymaster, address indexed newPaymaster);
+    struct ServiceAllocation {
+        uint256 rpcUsed;
+        uint256 storageUsed;
+        uint256 computeUsed;
+        uint256 cdnUsed;
+        uint256 lastResetTimestamp;
+    }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //                              CONSTANTS
+    // ═══════════════════════════════════════════════════════════════════════
 
-    error InsufficientStake();
+    uint256 public constant UNBONDING_PERIOD = 7 days;
+    uint256 public constant MAX_REPUTATION_BONUS_BPS = 5000;
+    uint256 public constant BPS_DENOMINATOR = 10000;
+    uint256 public constant USD_DECIMALS = 8;
+    uint256 public constant ALLOCATION_RESET_PERIOD = 30 days;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //                              STATE
+    // ═══════════════════════════════════════════════════════════════════════
+
+    IERC20 public immutable jejuToken;
+
+    IIdentityRegistryStaking public identityRegistry;
+    IBanManagerStaking public banManager;
+    address public reputationProvider;
+    address public priceOracle;
+    uint256 public fallbackPrice = 1e7; // $0.10 default (8 decimals)
+
+    mapping(address => StakePosition) public positions;
+    mapping(Tier => TierConfig) public tierConfigs;
+    mapping(address => ServiceAllocation) public allocations;
+    mapping(address => bool) public whitelisted;
+    mapping(address => bool) public authorizedServices;
+
+    address public treasury;
+    uint256 public totalStaked;
+    uint256 public totalStakers;
+    mapping(Tier => uint256) public tierCounts;
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //                              EVENTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    event Staked(address indexed user, uint256 amount, Tier tier);
+    event UnbondingStarted(address indexed user, uint256 amount);
+    event Unstaked(address indexed user, uint256 amount);
+    event TierChanged(address indexed user, Tier oldTier, Tier newTier);
+    event AgentLinked(address indexed user, uint256 agentId);
+    event ReputationBonusUpdated(address indexed user, uint256 oldBonus, uint256 newBonus);
+    event StakeFrozen(address indexed user, string reason);
+    event StakeUnfrozen(address indexed user);
+    event ServiceUsageRecorded(
+        address indexed user,
+        string service,
+        uint256 amount
+    );
+    event TierConfigUpdated(Tier tier);
+    event AuthorizedServiceUpdated(address indexed service, bool authorized);
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //                              ERRORS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    error InvalidAmount();
     error InsufficientBalance();
-    error StillUnbonding();
+    error UserIsBanned();
+    error StakeIsFrozen();
     error NotUnbonding();
-    error OnlyAuthorized();
-    error TransferFailed();
-    error MaxUtilization();
+    error StillUnbonding();
+    error AlreadyLinked();
+    error AgentNotOwned();
+    error InvalidAddress();
+    error NotAuthorized();
+    error AllocationExceeded();
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //                              CONSTRUCTOR
+    // ═══════════════════════════════════════════════════════════════════════
 
-    constructor(address _stakingToken, address initialOwner) Ownable(initialOwner) {
-        require(_stakingToken != address(0), "Invalid token");
-        stakingToken = IERC20(_stakingToken);
+    constructor(
+        address _jejuToken,
+        address _identityRegistry,
+        address _priceOracle,
+        address _treasury,
+        address _owner
+    ) Ownable(_owner) {
+        if (_jejuToken == address(0)) revert InvalidAddress();
+        if (_treasury == address(0)) revert InvalidAddress();
+
+        jejuToken = IERC20(_jejuToken);
+        treasury = _treasury;
+
+        if (_identityRegistry != address(0)) {
+            identityRegistry = IIdentityRegistryStaking(_identityRegistry);
+        }
+        priceOracle = _priceOracle;
+
+        // Initialize tier configs (USD values in 8 decimals)
+        // FREE tier
+        tierConfigs[Tier.FREE] = TierConfig({
+            minUsdValue: 0,
+            rpcRateLimit: 10,        // 10 req/min
+            storageQuotaMB: 100,     // 100 MB
+            computeCredits: 10,      // 10 credits/month
+            cdnBandwidthGB: 1        // 1 GB/month
+        });
+
+        // BUILDER tier ($10)
+        tierConfigs[Tier.BUILDER] = TierConfig({
+            minUsdValue: 10e8,
+            rpcRateLimit: 100,       // 100 req/min
+            storageQuotaMB: 1000,    // 1 GB
+            computeCredits: 100,     // 100 credits/month
+            cdnBandwidthGB: 10       // 10 GB/month
+        });
+
+        // PRO tier ($100)
+        tierConfigs[Tier.PRO] = TierConfig({
+            minUsdValue: 100e8,
+            rpcRateLimit: 1000,      // 1000 req/min
+            storageQuotaMB: 10000,   // 10 GB
+            computeCredits: 1000,    // 1000 credits/month
+            cdnBandwidthGB: 100      // 100 GB/month
+        });
+
+        // UNLIMITED tier ($1000)
+        tierConfigs[Tier.UNLIMITED] = TierConfig({
+            minUsdValue: 1000e8,
+            rpcRateLimit: 0,         // Unlimited
+            storageQuotaMB: 0,       // Unlimited
+            computeCredits: 0,       // Unlimited
+            cdnBandwidthGB: 0        // Unlimited
+        });
     }
 
-
-    modifier updateFees(address account) {
-        _updatePendingFees(account);
-        _;
-    }
-
-    modifier onlyPaymaster() {
-        if (msg.sender != paymaster) revert OnlyAuthorized();
-        _;
-    }
-
-    modifier onlyEIL() {
-        if (msg.sender != eilPaymaster) revert OnlyAuthorized();
-        _;
-    }
-
-    modifier onlyFeeDistributor() {
-        if (msg.sender != feeDistributor) revert OnlyAuthorized();
-        _;
-    }
-
-    // ============ Staking Functions ============
+    // ═══════════════════════════════════════════════════════════════════════
+    //                         STAKING FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════════════
 
     /**
-     * @notice Stake ETH and/or tokens into the pool
-     * @param tokenAmount Amount of tokens to stake
-     * @dev Staked assets are used for BOTH paymaster and EIL liquidity
+     * @notice Stake JEJU tokens
+     * @param amount Amount of JEJU to stake
      */
-    function stake(uint256 tokenAmount) external payable nonReentrant whenNotPaused updateFees(msg.sender) {
-        if (msg.value < minETHStake && tokenAmount < minTokenStake) revert InsufficientStake();
+    function stake(uint256 amount) external nonReentrant whenNotPaused {
+        _stake(msg.sender, amount, 0);
+    }
 
-        StakerPosition storage pos = positions[msg.sender];
+    /**
+     * @notice Stake JEJU tokens and link to an ERC-8004 agent
+     * @param amount Amount of JEJU to stake
+     * @param agentId ERC-8004 agent ID to link
+     */
+    function stakeWithAgent(uint256 amount, uint256 agentId) external nonReentrant whenNotPaused {
+        _stake(msg.sender, amount, agentId);
+    }
 
-        if (msg.value > 0) {
-            pos.ethStaked += msg.value;
-            totalETHStaked += msg.value;
+    function _stake(address user, uint256 amount, uint256 agentId) internal {
+        if (amount == 0) revert InvalidAmount();
+        if (address(banManager) != address(0) && banManager.isAddressBanned(user)) {
+            revert UserIsBanned();
         }
 
-        if (tokenAmount > 0) {
-            stakingToken.safeTransferFrom(msg.sender, address(this), tokenAmount);
-            pos.tokensStaked += tokenAmount;
-            totalTokensStaked += tokenAmount;
-        }
+        StakePosition storage pos = positions[user];
+        Tier oldTier = getTier(user);
+        bool wasActive = pos.isActive;
+
+        jejuToken.safeTransferFrom(user, address(this), amount);
 
         if (!pos.isActive) {
             pos.isActive = true;
             pos.stakedAt = block.timestamp;
+            totalStakers++;
+        }
+        pos.stakedAmount += amount;
+        totalStaked += amount;
+
+        if (agentId > 0 && pos.linkedAgentId == 0) {
+            _linkAgent(user, agentId);
         }
 
-        emit Staked(msg.sender, msg.value, tokenAmount);
+        Tier newTier = getTier(user);
+        emit Staked(user, amount, newTier);
+
+        if (oldTier != newTier) {
+            _updateTierCounts(oldTier, newTier, wasActive);
+            emit TierChanged(user, oldTier, newTier);
+        } else if (!wasActive) {
+            tierCounts[newTier]++;
+        }
     }
 
     /**
-     * @notice Start unbonding stake
-     * @param ethAmount ETH amount to unbond
-     * @param tokenAmount Token amount to unbond
+     * @notice Link an ERC-8004 agent to stake position
+     * @param agentId Agent ID to link
      */
-    function startUnbonding(uint256 ethAmount, uint256 tokenAmount) external nonReentrant updateFees(msg.sender) {
-        StakerPosition storage pos = positions[msg.sender];
+    function linkAgent(uint256 agentId) external nonReentrant {
+        _linkAgent(msg.sender, agentId);
+    }
 
-        if (ethAmount > pos.ethStaked) revert InsufficientBalance();
-        if (tokenAmount > pos.tokensStaked) revert InsufficientBalance();
+    function _linkAgent(address user, uint256 agentId) internal {
+        StakePosition storage pos = positions[user];
+        if (pos.linkedAgentId != 0) revert AlreadyLinked();
+
+        if (address(identityRegistry) != address(0)) {
+            if (identityRegistry.ownerOf(agentId) != user) revert AgentNotOwned();
+        }
+
+        pos.linkedAgentId = agentId;
+        emit AgentLinked(user, agentId);
+    }
+
+    /**
+     * @notice Start unbonding stake (7-day waiting period)
+     * @param amount Amount to unbond
+     */
+    function startUnbonding(uint256 amount) external nonReentrant {
+        StakePosition storage pos = positions[msg.sender];
+
+        if (pos.isFrozen) revert StakeIsFrozen();
+        if (amount == 0) revert InvalidAmount();
+        if (amount > pos.stakedAmount) revert InsufficientBalance();
         if (pos.unbondingStartTime > 0) revert StillUnbonding();
 
-        pos.ethUnbondingAmount = ethAmount;
-        pos.tokenUnbondingAmount = tokenAmount;
+        Tier oldTier = getTier(msg.sender);
+
+        pos.unbondingAmount = amount;
         pos.unbondingStartTime = block.timestamp;
+        pos.stakedAmount -= amount;
+        totalStaked -= amount;
 
-        // Reduce staked amounts
-        pos.ethStaked -= ethAmount;
-        pos.tokensStaked -= tokenAmount;
-        totalETHStaked -= ethAmount;
-        totalTokensStaked -= tokenAmount;
+        Tier newTier = getTier(msg.sender);
 
-        emit UnbondingStarted(msg.sender, ethAmount, tokenAmount);
+        emit UnbondingStarted(msg.sender, amount);
+        if (oldTier != newTier) {
+            _updateTierCounts(oldTier, newTier, true);
+            emit TierChanged(msg.sender, oldTier, newTier);
+        }
     }
 
     /**
      * @notice Complete unstaking after unbonding period
      */
-    function completeUnstaking() external nonReentrant updateFees(msg.sender) {
-        StakerPosition storage pos = positions[msg.sender];
+    function completeUnstaking() external nonReentrant {
+        StakePosition storage pos = positions[msg.sender];
 
+        if (pos.isFrozen) revert StakeIsFrozen();
         if (pos.unbondingStartTime == 0) revert NotUnbonding();
-        if (block.timestamp < pos.unbondingStartTime + UNBONDING_PERIOD) revert StillUnbonding();
+        if (block.timestamp < pos.unbondingStartTime + UNBONDING_PERIOD) {
+            revert StillUnbonding();
+        }
 
-        uint256 ethAmount = pos.ethUnbondingAmount;
-        uint256 tokenAmount = pos.tokenUnbondingAmount;
+        uint256 amount = pos.unbondingAmount;
+        Tier currentTier = getTier(msg.sender);
 
-        pos.ethUnbondingAmount = 0;
-        pos.tokenUnbondingAmount = 0;
+        pos.unbondingAmount = 0;
         pos.unbondingStartTime = 0;
 
-        if (pos.ethStaked == 0 && pos.tokensStaked == 0) {
+        if (pos.stakedAmount == 0) {
             pos.isActive = false;
+            totalStakers--;
+            if (tierCounts[currentTier] > 0) {
+                tierCounts[currentTier]--;
+            }
         }
 
-        if (ethAmount > 0) {
-            (bool success,) = msg.sender.call{value: ethAmount}("");
-            if (!success) revert TransferFailed();
+        jejuToken.safeTransfer(msg.sender, amount);
+        emit Unstaked(msg.sender, amount);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //                         TIER & ALLOCATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * @notice Get user's current tier
+     * @param user User address
+     */
+    function getTier(address user) public view returns (Tier) {
+        if (whitelisted[user]) return Tier.UNLIMITED;
+
+        uint256 effectiveUsd = getEffectiveUsdValue(user);
+
+        if (effectiveUsd >= tierConfigs[Tier.UNLIMITED].minUsdValue) {
+            return Tier.UNLIMITED;
+        } else if (effectiveUsd >= tierConfigs[Tier.PRO].minUsdValue) {
+            return Tier.PRO;
+        } else if (effectiveUsd >= tierConfigs[Tier.BUILDER].minUsdValue) {
+            return Tier.BUILDER;
         }
-
-        if (tokenAmount > 0) {
-            stakingToken.safeTransfer(msg.sender, tokenAmount);
-        }
-
-        emit Unstaked(msg.sender, ethAmount, tokenAmount);
+        return Tier.FREE;
     }
 
     /**
-     * @notice Claim accumulated fees
+     * @notice Get effective USD value of stake (includes reputation bonus)
+     * @param user User address
      */
-    function claimFees() external nonReentrant updateFees(msg.sender) {
-        uint256 ethFees = pendingETHFees[msg.sender];
-        uint256 tokenFees = pendingTokenFees[msg.sender];
+    function getEffectiveUsdValue(address user) public view returns (uint256) {
+        StakePosition storage pos = positions[user];
+        if (!pos.isActive) return 0;
 
-        if (ethFees == 0 && tokenFees == 0) return;
+        uint256 jejuPrice = getJejuPrice();
+        uint256 baseUsd = (pos.stakedAmount * jejuPrice) / 1e18;
 
-        pendingETHFees[msg.sender] = 0;
-        pendingTokenFees[msg.sender] = 0;
-
-        // Fees are paid in staking token
-        uint256 totalFees = ethFees + tokenFees;
-        stakingToken.safeTransfer(msg.sender, totalFees);
-
-        emit FeesClaimed(msg.sender, totalFees);
-    }
-
-    // ============ Liquidity Provision Functions ============
-
-    /**
-     * @notice Provide ETH for paymaster gas sponsorship
-     * @param amount Amount of ETH needed
-     * @dev Only callable by authorized paymaster
-     */
-    function provideETHForGas(uint256 amount) external onlyPaymaster returns (bool) {
-        uint256 available = availableETH();
-        if (amount > available) revert MaxUtilization();
-
-        (bool success,) = paymaster.call{value: amount}("");
-        if (!success) revert TransferFailed();
-
-        emit ETHProvided(paymaster, amount, "gas-sponsorship");
-        return true;
+        // Apply reputation bonus
+        uint256 bonus = (baseUsd * pos.reputationBonus) / BPS_DENOMINATOR;
+        return baseUsd + bonus;
     }
 
     /**
-     * @notice Provide tokens for EIL cross-chain transfer
-     * @param amount Amount of tokens needed
-     * @dev Only callable by authorized EIL paymaster
+     * @notice Get JEJU price in USD (8 decimals)
      */
-    function provideTokensForEIL(uint256 amount) external onlyEIL returns (bool) {
-        uint256 available = availableTokens();
-        if (amount > available) revert MaxUtilization();
+    function getJejuPrice() public view returns (uint256) {
+        if (priceOracle == address(0)) return fallbackPrice;
 
-        stakingToken.safeTransfer(eilPaymaster, amount);
-
-        emit TokensProvided(eilPaymaster, address(stakingToken), amount, "eil-transfer");
-        return true;
-    }
-
-    /**
-     * @notice Provide ETH for EIL gas on destination chain
-     * @param amount Amount of ETH needed
-     * @dev Only callable by authorized EIL paymaster
-     */
-    function provideETHForEIL(uint256 amount) external onlyEIL returns (bool) {
-        uint256 available = availableETH();
-        if (amount > available) revert MaxUtilization();
-
-        (bool success,) = eilPaymaster.call{value: amount}("");
-        if (!success) revert TransferFailed();
-
-        emit ETHProvided(eilPaymaster, amount, "eil-gas");
-        return true;
-    }
-
-    // ============ Fee Distribution Functions ============
-
-    /**
-     * @notice Distribute fees from paymaster or EIL
-     * @param ethPoolFees Fees to distribute to ETH stakers
-     * @param tokenPoolFees Fees to distribute to token stakers
-     */
-    function distributeFees(uint256 ethPoolFees, uint256 tokenPoolFees) external nonReentrant onlyFeeDistributor {
-        uint256 totalFees = ethPoolFees + tokenPoolFees;
-        require(totalFees > 0, "No fees");
-
-        stakingToken.safeTransferFrom(msg.sender, address(this), totalFees);
-
-        if (totalETHStaked > 0 && ethPoolFees > 0) {
-            ethFeesPerShare += (ethPoolFees * PRECISION) / totalETHStaked;
-        }
-
-        if (totalTokensStaked > 0 && tokenPoolFees > 0) {
-            tokenFeesPerShare += (tokenPoolFees * PRECISION) / totalTokensStaked;
-        }
-
-        emit FeesDistributed(ethPoolFees, tokenPoolFees, msg.sender);
-    }
-
-    /**
-     * @notice Receive EIL fees directly (from XLP voucher fulfillment)
-     * @dev EIL can send fees directly in ETH or tokens
-     */
-    function receiveEILFees() external payable onlyEIL {
-        // Convert ETH fees to per-share accumulator
-        if (msg.value > 0 && totalETHStaked > 0) {
-            // ETH fees go to ETH stakers proportionally
-            ethFeesPerShare += (msg.value * PRECISION) / totalETHStaked;
-            emit FeesDistributed(msg.value, 0, msg.sender);
+        try IPriceOracleStaking(priceOracle).latestRoundData() returns (
+            uint80,
+            int256 answer,
+            uint256,
+            uint256 updatedAt,
+            uint80
+        ) {
+            // Check staleness (max 1 hour)
+            if (block.timestamp - updatedAt > 3600) return fallbackPrice;
+            if (answer <= 0) return fallbackPrice;
+            return uint256(answer);
+        } catch {
+            return fallbackPrice;
         }
     }
 
-    // ============ View Functions ============
-
     /**
-     * @notice Get available ETH for gas sponsorship
+     * @notice Get allocation for a specific service
+     * @param user User address
+     * @param service Service name ("rpc", "storage", "compute", "cdn")
      */
-    function availableETH() public view returns (uint256) {
-        if (totalETHStaked == 0) return 0;
-        uint256 currentBalance = address(this).balance;
-        return (currentBalance * MAX_ETH_UTILIZATION) / 100;
-    }
+    function getAllocation(
+        address user,
+        string calldata service
+    ) external view returns (uint256 limit, uint256 used, uint256 remaining) {
+        Tier tier = getTier(user);
+        TierConfig storage config = tierConfigs[tier];
+        ServiceAllocation storage alloc = allocations[user];
 
-    /**
-     * @notice Get available tokens for EIL
-     */
-    function availableTokens() public view returns (uint256) {
-        if (totalTokensStaked == 0) return 0;
-        uint256 currentBalance = stakingToken.balanceOf(address(this));
-        return (currentBalance * MAX_TOKEN_UTILIZATION) / 100;
-    }
+        // Reset allocation if period expired
+        bool needsReset = block.timestamp > alloc.lastResetTimestamp + ALLOCATION_RESET_PERIOD;
 
-    /**
-     * @notice Get staker position details
-     */
-    function getPosition(address staker)
-        external
-        view
-        returns (
-            uint256 ethStaked,
-            uint256 tokensStaked,
-            uint256 pendingFees,
-            uint256 unbondingETH,
-            uint256 unbondingTokens,
-            uint256 unbondingCompleteTime,
-            bool isActive
-        )
-    {
-        StakerPosition storage pos = positions[staker];
+        bytes32 serviceHash = keccak256(bytes(service));
+        
+        if (serviceHash == keccak256("rpc")) {
+            limit = config.rpcRateLimit;
+            used = needsReset ? 0 : alloc.rpcUsed;
+        } else if (serviceHash == keccak256("storage")) {
+            limit = config.storageQuotaMB;
+            used = needsReset ? 0 : alloc.storageUsed;
+        } else if (serviceHash == keccak256("compute")) {
+            limit = config.computeCredits;
+            used = needsReset ? 0 : alloc.computeUsed;
+        } else if (serviceHash == keccak256("cdn")) {
+            limit = config.cdnBandwidthGB;
+            used = needsReset ? 0 : alloc.cdnUsed;
+        }
 
-        ethStaked = pos.ethStaked;
-        tokensStaked = pos.tokensStaked;
-        pendingFees = _calculatePendingFees(staker);
-        unbondingETH = pos.ethUnbondingAmount;
-        unbondingTokens = pos.tokenUnbondingAmount;
-        unbondingCompleteTime = pos.unbondingStartTime > 0 ? pos.unbondingStartTime + UNBONDING_PERIOD : 0;
-        isActive = pos.isActive;
+        // 0 limit means unlimited
+        if (limit == 0) {
+            remaining = type(uint256).max;
+        } else {
+            remaining = used >= limit ? 0 : limit - used;
+        }
     }
 
     /**
-     * @notice Get pool statistics
+     * @notice Record service usage (called by authorized services)
+     * @param user User address
+     * @param service Service name
+     * @param amount Usage amount
      */
-    function getPoolStats()
-        external
-        view
-        returns (
-            uint256 totalETH,
-            uint256 totalTokens,
-            uint256 availableETHAmount,
-            uint256 availableTokenAmount,
-            uint256 ethUtilization,
-            uint256 tokenUtilization
-        )
-    {
-        totalETH = totalETHStaked;
-        totalTokens = totalTokensStaked;
-        availableETHAmount = availableETH();
-        availableTokenAmount = availableTokens();
+    function recordUsage(
+        address user,
+        string calldata service,
+        uint256 amount
+    ) external {
+        if (!authorizedServices[msg.sender]) revert NotAuthorized();
 
-        uint256 currentETH = address(this).balance;
-        uint256 currentTokens = stakingToken.balanceOf(address(this));
+        ServiceAllocation storage alloc = allocations[user];
 
-        ethUtilization = currentETH > 0 ? ((currentETH - availableETHAmount) * 100) / currentETH : 0;
-        tokenUtilization = currentTokens > 0 ? ((currentTokens - availableTokenAmount) * 100) / currentTokens : 0;
+        // Reset if period expired
+        if (block.timestamp > alloc.lastResetTimestamp + ALLOCATION_RESET_PERIOD) {
+            alloc.rpcUsed = 0;
+            alloc.storageUsed = 0;
+            alloc.computeUsed = 0;
+            alloc.cdnUsed = 0;
+            alloc.lastResetTimestamp = block.timestamp;
+        }
+
+        bytes32 serviceHash = keccak256(bytes(service));
+        
+        if (serviceHash == keccak256("rpc")) {
+            alloc.rpcUsed += amount;
+        } else if (serviceHash == keccak256("storage")) {
+            alloc.storageUsed += amount;
+        } else if (serviceHash == keccak256("compute")) {
+            alloc.computeUsed += amount;
+        } else if (serviceHash == keccak256("cdn")) {
+            alloc.cdnUsed += amount;
+        }
+
+        emit ServiceUsageRecorded(user, service, amount);
     }
 
-    // ============ Internal Functions ============
+    /**
+     * @notice Check if user has sufficient allocation
+     * @param user User address
+     * @param service Service name
+     * @param amount Required amount
+     */
+    function hasAllocation(
+        address user,
+        string calldata service,
+        uint256 amount
+    ) external view returns (bool) {
+        Tier tier = getTier(user);
+        TierConfig storage config = tierConfigs[tier];
+        ServiceAllocation storage alloc = allocations[user];
 
-    function _updatePendingFees(address account) internal {
-        if (account == address(0)) return;
+        bool needsReset = block.timestamp > alloc.lastResetTimestamp + ALLOCATION_RESET_PERIOD;
 
-        pendingETHFees[account] += _calculatePendingETHFees(account);
-        pendingTokenFees[account] += _calculatePendingTokenFees(account);
+        bytes32 serviceHash = keccak256(bytes(service));
+        uint256 limit;
+        uint256 used;
+        
+        if (serviceHash == keccak256("rpc")) {
+            limit = config.rpcRateLimit;
+            used = needsReset ? 0 : alloc.rpcUsed;
+        } else if (serviceHash == keccak256("storage")) {
+            limit = config.storageQuotaMB;
+            used = needsReset ? 0 : alloc.storageUsed;
+        } else if (serviceHash == keccak256("compute")) {
+            limit = config.computeCredits;
+            used = needsReset ? 0 : alloc.computeUsed;
+        } else if (serviceHash == keccak256("cdn")) {
+            limit = config.cdnBandwidthGB;
+            used = needsReset ? 0 : alloc.cdnUsed;
+        }
 
-        ethFeesPerSharePaid[account] = ethFeesPerShare;
-        tokenFeesPerSharePaid[account] = tokenFeesPerShare;
+        // 0 limit means unlimited
+        if (limit == 0) return true;
+        return used + amount <= limit;
     }
 
-    function _calculatePendingETHFees(address account) internal view returns (uint256) {
-        StakerPosition storage pos = positions[account];
-        if (pos.ethStaked == 0) return 0;
+    // ═══════════════════════════════════════════════════════════════════════
+    //                         REPUTATION
+    // ═══════════════════════════════════════════════════════════════════════
 
-        uint256 delta = ethFeesPerShare - ethFeesPerSharePaid[account];
-        return (pos.ethStaked * delta) / PRECISION;
+    /**
+     * @notice Update user's reputation bonus
+     * @dev Called by reputation provider
+     * @param user User address
+     * @param bonusBps Bonus in basis points (0-5000)
+     */
+    function updateReputationBonus(address user, uint256 bonusBps) external {
+        if (msg.sender != reputationProvider && msg.sender != owner()) {
+            revert NotAuthorized();
+        }
+        if (bonusBps > MAX_REPUTATION_BONUS_BPS) {
+            bonusBps = MAX_REPUTATION_BONUS_BPS;
+        }
+
+        StakePosition storage pos = positions[user];
+        uint256 oldBonus = pos.reputationBonus;
+        
+        if (oldBonus != bonusBps) {
+            Tier oldTier = getTier(user);
+            pos.reputationBonus = bonusBps;
+            Tier newTier = getTier(user);
+
+            emit ReputationBonusUpdated(user, oldBonus, bonusBps);
+
+            if (oldTier != newTier && pos.isActive) {
+                _updateTierCounts(oldTier, newTier, true);
+                emit TierChanged(user, oldTier, newTier);
+            }
+        }
     }
 
-    function _calculatePendingTokenFees(address account) internal view returns (uint256) {
-        StakerPosition storage pos = positions[account];
-        if (pos.tokensStaked == 0) return 0;
+    // ═══════════════════════════════════════════════════════════════════════
+    //                         MODERATION
+    // ═══════════════════════════════════════════════════════════════════════
 
-        uint256 delta = tokenFeesPerShare - tokenFeesPerSharePaid[account];
-        return (pos.tokensStaked * delta) / PRECISION;
+    /**
+     * @notice Freeze user's stake (moderation action)
+     * @param user User to freeze
+     * @param reason Reason for freezing
+     */
+    function freezeStake(address user, string calldata reason) external {
+        if (msg.sender != address(banManager) && msg.sender != owner()) {
+            revert NotAuthorized();
+        }
+
+        StakePosition storage pos = positions[user];
+        pos.isFrozen = true;
+        emit StakeFrozen(user, reason);
     }
 
-    function _calculatePendingFees(address account) internal view returns (uint256) {
-        return _calculatePendingETHFees(account) + _calculatePendingTokenFees(account) + pendingETHFees[account]
-            + pendingTokenFees[account];
+    /**
+     * @notice Unfreeze user's stake
+     * @param user User to unfreeze
+     */
+    function unfreezeStake(address user) external {
+        if (msg.sender != address(banManager) && msg.sender != owner()) {
+            revert NotAuthorized();
+        }
+
+        StakePosition storage pos = positions[user];
+        pos.isFrozen = false;
+        emit StakeUnfrozen(user);
     }
 
-    // ============ Admin Functions ============
+    /**
+     * @notice Slash user's stake (moderation action)
+     * @param user User to slash
+     * @param amount Amount to slash
+     */
+    function slash(address user, uint256 amount) external nonReentrant {
+        if (msg.sender != address(banManager) && msg.sender != owner()) {
+            revert NotAuthorized();
+        }
 
-    function setPaymaster(address _paymaster) external onlyOwner {
-        address old = paymaster;
-        paymaster = _paymaster;
-        emit PaymasterUpdated(old, _paymaster);
+        StakePosition storage pos = positions[user];
+        Tier oldTier = getTier(user);
+
+        uint256 slashAmount = amount > pos.stakedAmount ? pos.stakedAmount : amount;
+        pos.stakedAmount -= slashAmount;
+        totalStaked -= slashAmount;
+
+        // Send slashed amount to treasury
+        jejuToken.safeTransfer(treasury, slashAmount);
+
+        Tier newTier = getTier(user);
+        if (oldTier != newTier && pos.isActive) {
+            _updateTierCounts(oldTier, newTier, true);
+            emit TierChanged(user, oldTier, newTier);
+        }
     }
 
-    function setEILPaymaster(address _eilPaymaster) external onlyOwner {
-        address old = eilPaymaster;
-        eilPaymaster = _eilPaymaster;
-        emit EILPaymasterUpdated(old, _eilPaymaster);
+    // ═══════════════════════════════════════════════════════════════════════
+    //                         INTERNAL
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function _updateTierCounts(Tier oldTier, Tier newTier, bool wasActive) internal {
+        if (wasActive && tierCounts[oldTier] > 0) {
+            tierCounts[oldTier]--;
+        }
+        tierCounts[newTier]++;
     }
 
-    function setFeeDistributor(address _feeDistributor) external onlyOwner {
-        feeDistributor = _feeDistributor;
+    // ═══════════════════════════════════════════════════════════════════════
+    //                         VIEW FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function getPosition(address user) external view returns (StakePosition memory) {
+        return positions[user];
     }
 
-    function setMinStakes(uint256 _minETH, uint256 _minToken) external onlyOwner {
-        minETHStake = _minETH;
-        minTokenStake = _minToken;
+    function getTierConfig(Tier tier) external view returns (TierConfig memory) {
+        return tierConfigs[tier];
+    }
+
+    function getRateLimit(address user) external view returns (uint256) {
+        Tier tier = getTier(user);
+        return tierConfigs[tier].rpcRateLimit;
+    }
+
+    function getStakeRequirement(Tier tier) external view returns (uint256 usdValue, uint256 jejuAmount) {
+        usdValue = tierConfigs[tier].minUsdValue;
+        uint256 price = getJejuPrice();
+        if (price > 0) {
+            jejuAmount = (usdValue * 1e18) / price;
+        }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //                         ADMIN FUNCTIONS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    function setTierConfig(
+        Tier tier,
+        uint256 minUsdValue,
+        uint256 rpcRateLimit,
+        uint256 storageQuotaMB,
+        uint256 computeCredits,
+        uint256 cdnBandwidthGB
+    ) external onlyOwner {
+        tierConfigs[tier] = TierConfig({
+            minUsdValue: minUsdValue,
+            rpcRateLimit: rpcRateLimit,
+            storageQuotaMB: storageQuotaMB,
+            computeCredits: computeCredits,
+            cdnBandwidthGB: cdnBandwidthGB
+        });
+        emit TierConfigUpdated(tier);
+    }
+
+    function setAuthorizedService(address service, bool authorized) external onlyOwner {
+        authorizedServices[service] = authorized;
+        emit AuthorizedServiceUpdated(service, authorized);
+    }
+
+    function setWhitelisted(address user, bool status) external onlyOwner {
+        whitelisted[user] = status;
+    }
+
+    function setIdentityRegistry(address _registry) external onlyOwner {
+        identityRegistry = IIdentityRegistryStaking(_registry);
+    }
+
+    function setBanManager(address _banManager) external onlyOwner {
+        banManager = IBanManagerStaking(_banManager);
+    }
+
+    function setReputationProvider(address _provider) external onlyOwner {
+        reputationProvider = _provider;
+    }
+
+    function setPriceOracle(address _oracle) external onlyOwner {
+        priceOracle = _oracle;
+    }
+
+    function setFallbackPrice(uint256 _price) external onlyOwner {
+        fallbackPrice = _price;
+    }
+
+    function setTreasury(address _treasury) external onlyOwner {
+        if (_treasury == address(0)) revert InvalidAddress();
+        treasury = _treasury;
     }
 
     function pause() external onlyOwner {
@@ -421,12 +730,6 @@ contract Staking is ReentrancyGuard, Ownable, Pausable {
 
     function unpause() external onlyOwner {
         _unpause();
-    }
-
-    // ============ Receive ETH ============
-
-    receive() external payable {
-        // Accept ETH from paymasters returning unused gas
     }
 
     function version() external pure returns (string memory) {

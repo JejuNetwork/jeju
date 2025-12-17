@@ -18,19 +18,19 @@ ingress:
     # Performance optimizations
     alb.ingress.kubernetes.io/target-group-attributes: stickiness.enabled=false,deregistration_delay.timeout_seconds=30,load_balancing.algorithm.type=least_outstanding_requests
   hosts:
-    - host: rpc.jeju.network
+    - host: rpc.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
-    - host: ws.jeju.network
+    - host: ws.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: rpc-jeju-network-tls
+    - secretName: rpc-jejunetwork-org-tls
       hosts:
-        - rpc.jeju.network
-        - ws.jeju.network
+        - rpc.jejunetwork.org
+        - ws.jejunetwork.org
 
 autoscaling:
   enabled: true

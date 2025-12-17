@@ -14,12 +14,12 @@ forge script script/DeployLocalnet.s.sol \
 
 # Testnet
 PRIVATE_KEY=$KEY forge script script/DeployTestnet.s.sol \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --broadcast --verify
 
 # Mainnet (via Safe)
 forge script script/DeployMainnet.s.sol \
-  --rpc-url https://rpc.jeju.network \
+  --rpc-url https://rpc.jejunetwork.org \
   --slow
 # Then submit to multi-sig
 ```
@@ -180,7 +180,7 @@ forge script script/DeployOIF.s.sol:DeployInput \
 
 # Deploy OutputSettler on Jeju
 forge script script/DeployOIF.s.sol:DeployOutput \
-  --rpc-url https://rpc.jeju.network \
+  --rpc-url https://rpc.jejunetwork.org \
   --broadcast --verify
 ```
 

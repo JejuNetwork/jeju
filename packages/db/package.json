@@ -47,6 +47,7 @@
     "db"
   ],
   "dependencies": {
+    "@jejunetwork/config": "workspace:*",
     "viem": "2.41.2"
   },
   "devDependencies": {

@@ -73,7 +73,7 @@ export function getPurchaseUrl(params: {
   amount?: string;
   recipient?: string;
 }): string {
-  const baseUrl = 'https://wallet.jeju.network/purchase';
+  const baseUrl = 'https://wallet.jejunetwork.org/purchase';
   const searchParams = new URLSearchParams({
     type: params.type,
     ...(params.asset && { asset: params.asset }),
@@ -138,7 +138,7 @@ export function requiresExternalPurchase(): boolean {
 }
 
 export function getTermsUrl(): string {
-  const base = 'https://jeju.network/legal';
+  const base = 'https://jejunetwork.org/legal';
   
   if (isIOS()) return `${base}/terms-ios`;
   if (isAndroid()) return `${base}/terms-android`;
@@ -146,7 +146,7 @@ export function getTermsUrl(): string {
 }
 
 export function getPrivacyUrl(): string {
-  const base = 'https://jeju.network/legal';
+  const base = 'https://jejunetwork.org/legal';
   
   if (isIOS()) return `${base}/privacy-ios`;
   if (isAndroid()) return `${base}/privacy-android`;

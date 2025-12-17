@@ -24,14 +24,14 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
   hosts:
-    - host: leaderboard.testnet.jeju.network
+    - host: leaderboard.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: leaderboard-tls
       hosts:
-        - leaderboard.testnet.jeju.network
+        - leaderboard.testnet.jejunetwork.org
 
 resources:
   limits:

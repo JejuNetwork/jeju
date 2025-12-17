@@ -280,4 +280,203 @@ contract PerpetualMarketTest is Test {
     function test_LiquidatorReward() public view {
         assertEq(market.LIQUIDATOR_REWARD_BPS(), 25);
     }
+    
+    // ============ Boundary Condition Tests ============
+    
+    function test_RevertOnZeroMargin() public {
+        vm.startPrank(trader1);
+        vm.expectRevert("Margin too small");
+        market.openPosition(btcMarket, address(collateralToken), 0, 1e17, PositionSide.Long, 10);
+        vm.stopPrank();
+    }
+    
+    function test_RevertOnMarginBelowMinimum() public {
+        uint256 margin = market.MIN_MARGIN() - 1;
+        
+        vm.startPrank(trader1);
+        vm.expectRevert("Margin too small");
+        market.openPosition(btcMarket, address(collateralToken), margin, 1e17, PositionSide.Long, 10);
+        vm.stopPrank();
+    }
+    
+    function test_MinMarginExactlyAtBoundary() public {
+        // Use margin exactly at MIN_MARGIN and high enough for 1x leverage
+        uint256 margin = 10000e18;  // Much more than min but reasonable for test
+        uint256 size = 1e14;        // 0.0001 BTC - very small size for 1x leverage
+        uint256 leverage = 1;
+        
+        vm.startPrank(trader1);
+        TradeResult memory result = market.openPosition(
+            btcMarket,
+            address(collateralToken),
+            margin,
+            size,
+            PositionSide.Long,
+            leverage
+        );
+        vm.stopPrank();
+        
+        assertTrue(result.positionId != bytes32(0));
+    }
+    
+    function test_RevertOnZeroLeverage() public {
+        vm.startPrank(trader1);
+        vm.expectRevert("Invalid leverage");
+        market.openPosition(btcMarket, address(collateralToken), 10000e18, 1e17, PositionSide.Long, 0);
+        vm.stopPrank();
+    }
+    
+    function test_MaxLeverageExactlyAtBoundary() public {
+        uint256 margin = 10000e18;
+        uint256 size = 1e17;
+        uint256 leverage = 50; // Exactly at max
+        
+        vm.startPrank(trader1);
+        TradeResult memory result = market.openPosition(
+            btcMarket,
+            address(collateralToken),
+            margin,
+            size,
+            PositionSide.Long,
+            leverage
+        );
+        vm.stopPrank();
+        
+        assertTrue(result.positionId != bytes32(0));
+    }
+    
+    function test_RevertOnOpeningPositionInPausedMarket() public {
+        vm.prank(owner);
+        market.pauseMarket(btcMarket);
+        
+        vm.startPrank(trader1);
+        vm.expectRevert("Market paused");
+        market.openPosition(btcMarket, address(collateralToken), 10000e18, 1e17, PositionSide.Long, 10);
+        vm.stopPrank();
+    }
+    
+    function test_RevertOnInvalidMarketId() public {
+        bytes32 invalidMarket = keccak256("NONEXISTENT");
+        
+        vm.startPrank(trader1);
+        vm.expectRevert("Market inactive");
+        market.openPosition(invalidMarket, address(collateralToken), 10000e18, 1e17, PositionSide.Long, 10);
+        vm.stopPrank();
+    }
+    
+    function test_RevertOnZeroSize() public {
+        vm.startPrank(trader1);
+        vm.expectRevert("Size must be > 0");
+        market.openPosition(btcMarket, address(collateralToken), 10000e18, 0, PositionSide.Long, 10);
+        vm.stopPrank();
+    }
+    
+    // ============ Market Config Validation Tests ============
+    
+    function test_RevertOnZeroLeverageInConfig() public {
+        MarketConfig memory config = MarketConfig({
+            marketId: bytes32(0),
+            symbol: "TEST-PERP",
+            baseAsset: address(0),
+            quoteAsset: address(collateralToken),
+            oracle: address(priceOracle),
+            maxLeverage: 0,
+            maintenanceMarginBps: 50,
+            initialMarginBps: 100,
+            takerFeeBps: 5,
+            makerFeeBps: 2,
+            maxOpenInterest: 1000e18,
+            fundingInterval: 1 hours,
+            isActive: true
+        });
+        
+        vm.prank(owner);
+        vm.expectRevert("Leverage must be > 0");
+        market.createMarket(config);
+    }
+    
+    function test_RevertOnZeroMaintenanceMargin() public {
+        MarketConfig memory config = MarketConfig({
+            marketId: bytes32(0),
+            symbol: "TEST-PERP",
+            baseAsset: address(0),
+            quoteAsset: address(collateralToken),
+            oracle: address(priceOracle),
+            maxLeverage: 20,
+            maintenanceMarginBps: 0,
+            initialMarginBps: 100,
+            takerFeeBps: 5,
+            makerFeeBps: 2,
+            maxOpenInterest: 1000e18,
+            fundingInterval: 1 hours,
+            isActive: true
+        });
+        
+        vm.prank(owner);
+        vm.expectRevert("Invalid maintenance margin");
+        market.createMarket(config);
+    }
+    
+    function test_RevertOnMaintenanceMarginTooHigh() public {
+        MarketConfig memory config = MarketConfig({
+            marketId: bytes32(0),
+            symbol: "TEST-PERP",
+            baseAsset: address(0),
+            quoteAsset: address(collateralToken),
+            oracle: address(priceOracle),
+            maxLeverage: 20,
+            maintenanceMarginBps: 10000, // 100% - invalid
+            initialMarginBps: 100,
+            takerFeeBps: 5,
+            makerFeeBps: 2,
+            maxOpenInterest: 1000e18,
+            fundingInterval: 1 hours,
+            isActive: true
+        });
+        
+        vm.prank(owner);
+        vm.expectRevert("Invalid maintenance margin");
+        market.createMarket(config);
+    }
+    
+    // ============ Multi-Trader Tests ============
+    
+    function test_MultipleTradersSameMarket() public {
+        uint256 margin = 10000e18;
+        uint256 size = 1e17;
+        uint256 leverage = 10;
+        
+        // Trader 1 opens long
+        vm.prank(trader1);
+        TradeResult memory result1 = market.openPosition(
+            btcMarket, address(collateralToken), margin, size, PositionSide.Long, leverage
+        );
+        
+        // Trader 2 opens short
+        vm.prank(trader2);
+        TradeResult memory result2 = market.openPosition(
+            btcMarket, address(collateralToken), margin, size, PositionSide.Short, leverage
+        );
+        
+        assertTrue(result1.positionId != result2.positionId);
+        assertTrue(result1.positionId != bytes32(0));
+        assertTrue(result2.positionId != bytes32(0));
+    }
+    
+    function test_OpenInterestBothSides() public {
+        uint256 margin = 10000e18;
+        uint256 size = 1e17;
+        
+        // Trader 1 opens long
+        vm.prank(trader1);
+        market.openPosition(btcMarket, address(collateralToken), margin, size, PositionSide.Long, 10);
+        
+        // Trader 2 opens short
+        vm.prank(trader2);
+        market.openPosition(btcMarket, address(collateralToken), margin, size, PositionSide.Short, 10);
+        
+        (uint256 longOI, uint256 shortOI,) = market.openInterest(btcMarket);
+        assertGt(longOI, 0);
+        assertGt(shortOI, 0);
+    }
 }

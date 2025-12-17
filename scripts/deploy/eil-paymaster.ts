@@ -62,7 +62,7 @@ const L2_CHAINS: Record<string, L2ChainConfig> = {
   'jeju-testnet': {
     chainId: 420690,
     name: 'Testnet',
-    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
+    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
     l1ChainId: 11155111,
     type: 'op-stack',
   },

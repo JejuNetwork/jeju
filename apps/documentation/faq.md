@@ -1,6 +1,6 @@
 # FAQ
 
-> **TL;DR:** Jeju is an L2 with 200ms blocks, gasless tx (pay in any token), agent identity (ERC-8004), and cross-chain intents (ERC-7683). RPC at `rpc.jeju.network` (mainnet) or `testnet-rpc.jeju.network` (testnet).
+> **TL;DR:** Jeju is an L2 with 200ms blocks, gasless tx (pay in any token), agent identity (ERC-8004), and cross-chain intents (ERC-7683). RPC at `rpc.jejunetwork.org` (mainnet) or `testnet-rpc.jejunetwork.org` (testnet).
 
 ## Quick Answers
 
@@ -16,8 +16,8 @@ Ethereum L2 on OP-Stack. 200ms flashblocks. Native paymasters for gasless tx. ER
 ```typescript
 const RPC = {
   localnet: 'http://127.0.0.1:9545',
-  testnet: 'https://testnet-rpc.jeju.network',
-  mainnet: 'https://rpc.jeju.network',
+  testnet: 'https://testnet-rpc.jejunetwork.org',
+  mainnet: 'https://rpc.jejunetwork.org',
 };
 ```
 
@@ -38,13 +38,13 @@ const tx = await wallet.sendTransaction({
 - 7 days: L1 finality (for withdrawals)
 
 ### How to bridge assets?
-Fast (via XLPs): Instant, ~0.1% fee. Use gateway.jeju.network.
+Fast (via XLPs): Instant, ~0.1% fee. Use gateway.jejunetwork.org.
 Standard: 7-day withdrawal. Use native bridge contracts.
 
 ### How to deploy contracts?
 ```bash
 forge create src/MyContract.sol:MyContract \
-  --rpc-url https://rpc.jeju.network \
+  --rpc-url https://rpc.jejunetwork.org \
   --private-key $PRIVATE_KEY \
   --verify
 ```
@@ -108,18 +108,18 @@ export const jeju = defineChain({
   id: 420691,
   name: 'Jeju',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['https://rpc.jeju.network'] } },
-  blockExplorers: { default: { name: 'Explorer', url: 'https://explorer.jeju.network' } },
+  rpcUrls: { default: { http: ['https://rpc.jejunetwork.org'] } },
+  blockExplorers: { default: { name: 'Explorer', url: 'https://explorer.jejunetwork.org' } },
 });
 ```
 
 ### MetaMask
 ```
 Network Name: Jeju
-RPC URL: https://rpc.jeju.network
+RPC URL: https://rpc.jejunetwork.org
 Chain ID: 420691
 Currency: ETH
-Explorer: https://explorer.jeju.network
+Explorer: https://explorer.jejunetwork.org
 ```
 
 ## Test Accounts (Localnet Only)
@@ -144,13 +144,13 @@ const TEST_ACCOUNTS = [
 
 | Service | Local | Testnet | Mainnet |
 |---------|-------|---------|---------|
-| RPC | localhost:9545 | testnet-rpc.jeju.network | rpc.jeju.network |
-| Indexer | localhost:4350/graphql | testnet-indexer.jeju.network/graphql | indexer.jeju.network/graphql |
-| Gateway | localhost:4001 | testnet-gateway.jeju.network | gateway.jeju.network |
-| Explorer | - | testnet-explorer.jeju.network | explorer.jeju.network |
+| RPC | localhost:9545 | testnet-rpc.jejunetwork.org | rpc.jejunetwork.org |
+| Indexer | localhost:4350/graphql | testnet-indexer.jejunetwork.org/graphql | indexer.jejunetwork.org/graphql |
+| Gateway | localhost:4001 | testnet-gateway.jejunetwork.org | gateway.jejunetwork.org |
+| Explorer | - | testnet-explorer.jejunetwork.org | explorer.jejunetwork.org |
 
 ## Help
 
 - Discord: discord.gg/elizaos
 - GitHub: github.com/elizaos/jeju/issues
-- Status: status.jeju.network
+- Status: status.jejunetwork.org

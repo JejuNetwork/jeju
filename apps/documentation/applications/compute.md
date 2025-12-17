@@ -2,7 +2,7 @@
 
 Compute is Jeju's decentralized AI and GPU marketplace. It provides OpenAI-compatible inference APIs, SSH/Docker access to GPU servers, and a marketplace for compute providers. Think of it as a decentralized version of OpenAI combined with vast.ai.
 
-**URLs:** Localnet at http://127.0.0.1:4007, testnet at https://compute-testnet.jeju.network, mainnet at https://compute.jeju.network
+**URLs:** Localnet at http://127.0.0.1:4007, testnet at https://compute-testnet.jejunetwork.org, mainnet at https://compute.jejunetwork.org
 
 ## AI Inference
 
@@ -33,7 +33,7 @@ import OpenAI from 'openai';
 
 // Just change the baseURL
 const openai = new OpenAI({
-  baseURL: 'https://compute.jeju.network/v1',
+  baseURL: 'https://compute.jejunetwork.org/v1',
   apiKey: 'optional-for-public-models',
 });
 
@@ -99,7 +99,7 @@ This returns available providers with their hardware specs (GPUs, CPU, memory, s
 import { ComputeClient } from '@jejunetwork/compute-sdk';
 
 const compute = new ComputeClient({
-  endpoint: 'https://compute.jeju.network',
+  endpoint: 'https://compute.jejunetwork.org',
   wallet,
 });
 
@@ -115,7 +115,7 @@ console.log(session.ssh); // { host, port, username }
 
 ### SSH Access
 
-Once you have a session, connect directly with `ssh -p 2222 user@provider-node.example.com` or via the gateway with `ssh -p 2222 user@compute.jeju.network`.
+Once you have a session, connect directly with `ssh -p 2222 user@provider-node.example.com` or via the gateway with `ssh -p 2222 user@compute.jejunetwork.org`.
 
 ### Docker Support
 

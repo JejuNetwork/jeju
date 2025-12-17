@@ -1,7 +1,7 @@
 global:
   resolve_timeout: 5m
   smtp_smarthost: '${SMTP_HOST:-localhost:587}'
-  smtp_from: '${ALERT_FROM:-alerts@jeju.network}'
+  smtp_from: '${ALERT_FROM:-alerts@jejunetwork.org}'
   smtp_auth_username: '${SMTP_USER:-}'
   smtp_auth_password: '${SMTP_PASSWORD:-}'
 

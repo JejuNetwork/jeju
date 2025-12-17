@@ -103,7 +103,7 @@ async function checkAWSInfra() {
   }
   
   // Check Route53
-  const r53Check = await $`aws route53 list-hosted-zones-by-name --dns-name jeju.network`.quiet().nothrow();
+  const r53Check = await $`aws route53 list-hosted-zones-by-name --dns-name jejunetwork.org`.quiet().nothrow();
   if (r53Check.exitCode === 0) {
     try {
       const zones = JSON.parse(r53Check.stdout.toString());
@@ -126,7 +126,7 @@ async function checkAWSInfra() {
   if (acmCheck.exitCode === 0) {
     try {
       const certs = JSON.parse(acmCheck.stdout.toString());
-      const jejuCert = certs.CertificateSummaryList.find((c: {DomainName: string}) => c.DomainName === 'jeju.network');
+      const jejuCert = certs.CertificateSummaryList.find((c: {DomainName: string}) => c.DomainName === 'jejunetwork.org');
       if (jejuCert) {
         addResult(category, 'ACM Certificate', jejuCert.Status === 'ISSUED' ? 'pass' : 'warn', `Status: ${jejuCert.Status}`);
       } else {
@@ -391,7 +391,7 @@ function printResults() {
 ╚══════════════════════════════════════════════════════════════════════╝
 `);
 
-  const categories = [...new Set(results.map(r => r.category))];
+  const categories = Array.from(new Set(results.map(r => r.category)));
   
   for (const cat of categories) {
     console.log(`\n═══ ${cat} ═══`);

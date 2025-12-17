@@ -175,7 +175,7 @@ export function DWSStatus({ compact = false }: DWSStatusProps) {
         <div className="mt-4 pt-4 border-t border-factory-800">
           <h4 className="text-sm font-medium text-factory-400 mb-2">Active Nodes</h4>
           <div className="space-y-2 max-h-32 overflow-y-auto">
-            {nodes.map((node) => (
+            {nodes.map((node: { agentId: bigint; endpoint: string; latency?: number; isBanned: boolean }) => (
               <div 
                 key={node.agentId.toString()}
                 className="flex items-center justify-between text-xs p-2 rounded bg-factory-900/50"

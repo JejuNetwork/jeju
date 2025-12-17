@@ -43,8 +43,8 @@ const CHAINS: Record<number, ChainConfig> = {
   11155111: { chainId: 11155111, name: 'Sepolia', rpcUrl: process.env.SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com' },
   42161: { chainId: 42161, name: 'Arbitrum', rpcUrl: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc' },
   10: { chainId: 10, name: 'Optimism', rpcUrl: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io' },
-  420690: { chainId: 420690, name: 'Testnet', rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network' },
-  420691: { chainId: 420691, name: 'Mainnet', rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jeju.network' },
+  420690: { chainId: 420690, name: 'Testnet', rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org' },
+  420691: { chainId: 420691, name: 'Mainnet', rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org' },
   1337: { chainId: 1337, name: 'Anvil', rpcUrl: 'http://localhost:8545' },
 };
 

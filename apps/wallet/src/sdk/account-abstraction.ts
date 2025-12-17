@@ -205,7 +205,7 @@ export class AAClient {
     this.config = config;
     const contracts = getChainContracts(config.chainId);
     this.entryPoint = config.entryPointAddress ?? contracts.entryPoint ?? ENTRY_POINT_V06;
-    this.bundlerUrl = config.bundlerUrl ?? 'https://bundler.jeju.network';
+    this.bundlerUrl = config.bundlerUrl ?? 'https://bundler.jejunetwork.org';
     this.paymasterUrl = config.paymasterUrl;
   }
 

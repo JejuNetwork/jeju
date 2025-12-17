@@ -241,28 +241,39 @@ export class TEEBatcher {
   }
 
   private async generateAttestation(): Promise<TEEAttestation> {
+    // Check environment mode
+    const isProduction = process.env.NODE_ENV === 'production';
+    const requireRealTEE = process.env.REQUIRE_REAL_TEE === 'true';
+    
     // Check if Phala is available
     const phalaEndpoint = process.env.PHALA_ENDPOINT;
 
     if (phalaEndpoint) {
       // Use real Phala TEE attestation
-      try {
-        const { createPhalaClient } = await import('./phala-client.js');
-        const phalaClient = createPhalaClient({ endpoint: phalaEndpoint });
-        await phalaClient.initialize();
+      const { createPhalaClient } = await import('./phala-client.js');
+      const phalaClient = createPhalaClient({ endpoint: phalaEndpoint });
+      await phalaClient.initialize();
 
-        const attestation = await phalaClient.requestAttestation({
-          data: `0x${'00'.repeat(32)}` as `0x${string}`,
-          operatorAddress: `0x${'00'.repeat(20)}` as `0x${string}`,
-        });
+      const attestation = await phalaClient.requestAttestation({
+        data: `0x${'00'.repeat(32)}` as `0x${string}`,
+        operatorAddress: `0x${'00'.repeat(20)}` as `0x${string}`,
+      });
 
-        return phalaClient.toTEEAttestation(attestation);
-      } catch (error) {
-        console.warn('[TEE] Phala attestation failed, using mock:', error);
-      }
+      return phalaClient.toTEEAttestation(attestation);
     }
 
-    // Fall back to mock attestation for local development
+    // Production mode without TEE configured is a critical error
+    if (isProduction || requireRealTEE) {
+      throw new Error(
+        '[TEE] CRITICAL: Production requires real TEE attestation. ' +
+        'Configure PHALA_ENDPOINT, AWS_ENCLAVE_ID, or run in a GCP Confidential VM. ' +
+        'Mock attestations are only allowed in development mode (NODE_ENV !== production).'
+      );
+    }
+
+    // Development-only mock attestation
+    console.warn('[TEE] WARNING: Using mock attestation - DEVELOPMENT ONLY');
+    
     const measurement = new Uint8Array(32);
     crypto.getRandomValues(measurement);
 

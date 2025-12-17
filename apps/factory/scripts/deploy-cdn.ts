@@ -199,7 +199,7 @@ async function main() {
   const { values } = parseArgs({
     args: process.argv.slice(2),
     options: {
-      domain: { type: 'string', default: 'factory.jeju.network' },
+      domain: { type: 'string', default: 'factory.jejunetwork.org' },
       jns: { type: 'string', default: 'factory.jeju' },
       'skip-build': { type: 'boolean', default: false },
       'skip-warmup': { type: 'boolean', default: false },
@@ -262,7 +262,7 @@ async function main() {
   console.log(`\n   Access via:`);
   console.log(`   • CDN:     ${deployment.cdnUrl}`);
   console.log(`   • JNS:     https://${config.jnsName}.eth`);
-  console.log(`   • Gateway: https://factory.jeju.network`);
+  console.log(`   • Gateway: https://factory.jejunetwork.org`);
 }
 
 main().catch((err) => {

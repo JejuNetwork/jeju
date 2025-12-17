@@ -66,7 +66,7 @@
   "jeju-testnet": {
     "chainId": 420690,
     "deployer": null,
-    "_note": "Deploy when RPC is live at testnet-rpc.jeju.network",
+    "_note": "Deploy when RPC is live at testnet-rpc.jejunetwork.org",
     
     "tokens": {
       "USDC": "0x0000000000000000000000000000000000000000",
@@ -97,7 +97,7 @@
   "jeju": {
     "chainId": 420691,
     "deployer": null,
-    "_note": "Deploy when mainnet is live at rpc.jeju.network",
+    "_note": "Deploy when mainnet is live at rpc.jejunetwork.org",
     
     "tokens": {
       "USDC": "0x0000000000000000000000000000000000000000",

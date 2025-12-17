@@ -40,14 +40,14 @@ ingress:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
   hosts:
-    - host: bazaar.testnet.jeju.network
+    - host: bazaar.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: bazaar-tls
       hosts:
-        - bazaar.testnet.jeju.network
+        - bazaar.testnet.jejunetwork.org
 
 resources:
   limits:

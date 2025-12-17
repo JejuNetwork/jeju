@@ -66,8 +66,8 @@ interop:
 jeju superchain register \
   --chain-id 420691 \
   --name "Jeju Network" \
-  --rpc https://rpc.jeju.network \
-  --explorer https://explorer.jeju.network
+  --rpc https://rpc.jejunetwork.org \
+  --explorer https://explorer.jejunetwork.org
 ```
 
 ### Step 4: Apply to Optimism Foundation

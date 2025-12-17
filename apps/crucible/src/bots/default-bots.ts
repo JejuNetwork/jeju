@@ -67,20 +67,20 @@ export const DEFAULT_CHAINS: Record<string, TradingBotChain> = {
   jeju: {
     chainId: 420691,
     name: 'Network',
-    rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jeju.network',
+    rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org',
     blockTime: 200,
     isL2: true,
     nativeSymbol: 'ETH',
-    explorerUrl: 'https://explorer.jeju.network',
+    explorerUrl: 'https://explorer.jejunetwork.org',
   },
   jejuTestnet: {
     chainId: 420690,
     name: 'Testnet',
-    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
+    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
     blockTime: 200,
     isL2: true,
     nativeSymbol: 'ETH',
-    explorerUrl: 'https://testnet-explorer.jeju.network',
+    explorerUrl: 'https://testnet-explorer.jejunetwork.org',
   },
 };
 

@@ -92,7 +92,7 @@ describe('App CLI', () => {
       const config = {
         version: '1.0.0',
         network: 'testnet' as const,
-        rpcUrl: 'https://testnet-rpc.jeju.network',
+        rpcUrl: 'https://testnet-rpc.jejunetwork.org',
         chainId: 420691,
         privateKey: '',
         walletAddress: '',

@@ -70,14 +70,14 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
   hosts:
-    - host: analytics.jeju.network
+    - host: analytics.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: metabase-tls
       hosts:
-        - analytics.jeju.network
+        - analytics.jejunetwork.org
 
 serviceAccount:
   create: true

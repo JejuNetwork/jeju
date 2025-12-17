@@ -2,80 +2,42 @@
  * Decentralized State Management for DWS
  * 
  * Persists compute jobs, storage pins, git repos, and package registrations to CovenantSQL.
- * Falls back to in-memory storage for localnet/testing.
+ * CQL is REQUIRED - automatically configured per network.
  */
 
 import { getCQL, type CQLClient } from '@jejunetwork/db';
 import { getCacheClient, type CacheClient } from '@jejunetwork/shared';
+import { getCurrentNetwork } from '@jejunetwork/config';
 import type { Address } from 'viem';
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws';
-const NETWORK = process.env.NETWORK ?? 'localnet';
 
 let cqlClient: CQLClient | null = null;
 let cacheClient: CacheClient | null = null;
-let useFallback = false;
 let initialized = false;
 
-// In-memory fallback stores
-const memoryComputeJobs = new Map<string, ComputeJobRow>();
-const memoryStoragePins = new Map<string, StoragePinRow>();
-const memoryGitRepos = new Map<string, GitRepoRow>();
-const memoryPackages = new Map<string, PackageRow>();
-const memoryApiListings = new Map<string, ApiListingRow>();
-const memoryApiUserAccounts = new Map<string, ApiUserAccountRow>();
-
-let cqlInitPromise: Promise<CQLClient | null> | null = null;
-
-async function getCQLClient(): Promise<CQLClient | null> {
-  if (useFallback) return null;
-  
-  // Use a singleton promise to prevent multiple concurrent initializations
-  if (!cqlInitPromise) {
-    cqlInitPromise = initCQLClient();
-  }
-  
-  return cqlInitPromise;
-}
-
-async function initCQLClient(): Promise<CQLClient | null> {
-  if (cqlClient) return cqlClient;
-  
-  try {
+async function getCQLClient(): Promise<CQLClient> {
+  if (!cqlClient) {
+    // CQL URL is automatically resolved from network config
     cqlClient = getCQL({
-      blockProducerEndpoint: process.env.CQL_BLOCK_PRODUCER_ENDPOINT ?? 'http://localhost:4300',
       databaseId: CQL_DATABASE_ID,
-      timeout: 5000, // Reduce timeout for faster fallback
+      timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
     });
     
     const healthy = await cqlClient.isHealthy();
-    if (!healthy && (NETWORK === 'localnet' || NETWORK === 'Jeju')) {
-      console.log('[DWS State] CQL unavailable, using in-memory fallback');
-      useFallback = true;
-      cqlClient = null;
-      return null;
-    }
-    
     if (!healthy) {
+      const network = getCurrentNetwork();
       throw new Error(
-        'DWS requires CovenantSQL for decentralized state.\n' +
-        'Set CQL_BLOCK_PRODUCER_ENDPOINT or start: docker compose up -d'
+        `DWS requires CovenantSQL for decentralized state (network: ${network}).\n` +
+        'Ensure CQL is running: docker compose up -d cql'
       );
     }
     
     await ensureTablesExist();
-    return cqlClient;
-  } catch (error) {
-    // On connection error, fall back to in-memory
-    if (NETWORK === 'localnet' || NETWORK === 'Jeju') {
-      console.log('[DWS State] CQL connection failed, using in-memory fallback');
-      useFallback = true;
-      cqlClient = null;
-      return null;
-    }
-    throw error;
   }
+  
+  return cqlClient;
 }
 
 function getCache(): CacheClient {
@@ -311,77 +273,56 @@ export const computeJobState = {
     };
     
     const client = await getCQLClient();
-    if (client) {
-      await client.exec(
-        `INSERT INTO compute_jobs (job_id, command, shell, env, working_dir, timeout, status, output, exit_code, submitted_by, started_at, completed_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(job_id) DO UPDATE SET
-         status = excluded.status, output = excluded.output, exit_code = excluded.exit_code,
-         started_at = excluded.started_at, completed_at = excluded.completed_at`,
-        [
-          row.job_id, row.command, row.shell, row.env, row.working_dir, row.timeout,
-          row.status, row.output, row.exit_code, row.submitted_by, row.started_at,
-          row.completed_at, row.created_at,
-        ],
-        CQL_DATABASE_ID
-      );
-    } else {
-      memoryComputeJobs.set(row.job_id, row);
-    }
+    await client.exec(
+      `INSERT INTO compute_jobs (job_id, command, shell, env, working_dir, timeout, status, output, exit_code, submitted_by, started_at, completed_at, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(job_id) DO UPDATE SET
+       status = excluded.status, output = excluded.output, exit_code = excluded.exit_code,
+       started_at = excluded.started_at, completed_at = excluded.completed_at`,
+      [
+        row.job_id, row.command, row.shell, row.env, row.working_dir, row.timeout,
+        row.status, row.output, row.exit_code, row.submitted_by, row.started_at,
+        row.completed_at, row.created_at,
+      ],
+      CQL_DATABASE_ID
+    );
     
-    // Invalidate cache (ignore errors - cache may not have the key)
     getCache().delete(`job:${row.job_id}`).catch(() => {});
   },
   
   async get(jobId: string): Promise<ComputeJobRow | null> {
     const client = await getCQLClient();
-    if (client) {
-      const result = await client.query<ComputeJobRow>(
-        'SELECT * FROM compute_jobs WHERE job_id = ?',
-        [jobId],
-        CQL_DATABASE_ID
-      );
-      return result.rows[0] ?? null;
-    }
-    return memoryComputeJobs.get(jobId) ?? null;
+    const result = await client.query<ComputeJobRow>(
+      'SELECT * FROM compute_jobs WHERE job_id = ?',
+      [jobId],
+      CQL_DATABASE_ID
+    );
+    return result.rows[0] ?? null;
   },
   
   async list(params?: { submittedBy?: string; status?: string; limit?: number }): Promise<ComputeJobRow[]> {
     const client = await getCQLClient();
+    const conditions: string[] = [];
+    const values: Array<string | number> = [];
     
-    if (client) {
-      const conditions: string[] = [];
-      const values: Array<string | number> = [];
-      
-      if (params?.submittedBy) {
-        conditions.push('submitted_by = ?');
-        values.push(params.submittedBy.toLowerCase());
-      }
-      if (params?.status) {
-        conditions.push('status = ?');
-        values.push(params.status);
-      }
-      
-      const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-      values.push(params?.limit ?? 50);
-      
-      const result = await client.query<ComputeJobRow>(
-        `SELECT * FROM compute_jobs ${where} ORDER BY created_at DESC LIMIT ?`,
-        values,
-        CQL_DATABASE_ID
-      );
-      return result.rows;
-    }
-    
-    let rows = Array.from(memoryComputeJobs.values());
     if (params?.submittedBy) {
-      rows = rows.filter(r => r.submitted_by === params.submittedBy!.toLowerCase());
+      conditions.push('submitted_by = ?');
+      values.push(params.submittedBy.toLowerCase());
     }
     if (params?.status) {
-      rows = rows.filter(r => r.status === params.status);
+      conditions.push('status = ?');
+      values.push(params.status);
     }
-    rows.sort((a, b) => b.created_at - a.created_at);
-    return rows.slice(0, params?.limit ?? 50);
+    
+    const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
+    values.push(params?.limit ?? 50);
+    
+    const result = await client.query<ComputeJobRow>(
+      `SELECT * FROM compute_jobs ${where} ORDER BY created_at DESC LIMIT ?`,
+      values,
+      CQL_DATABASE_ID
+    );
+    return result.rows;
   },
   
   async getQueued(): Promise<ComputeJobRow[]> {
@@ -414,62 +355,47 @@ export const storagePinState = {
     };
     
     const client = await getCQLClient();
-    if (client) {
-      await client.exec(
-        `INSERT INTO storage_pins (cid, name, size_bytes, backend, tier, owner, permanent, created_at, expires_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(cid) DO UPDATE SET
-         name = excluded.name, backend = excluded.backend, tier = excluded.tier`,
-        [
-          row.cid, row.name, row.size_bytes, row.backend, row.tier,
-          row.owner, row.permanent, row.created_at, row.expires_at,
-        ],
-        CQL_DATABASE_ID
-      );
-    } else {
-      memoryStoragePins.set(row.cid, row);
-    }
+    await client.exec(
+      `INSERT INTO storage_pins (cid, name, size_bytes, backend, tier, owner, permanent, created_at, expires_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(cid) DO UPDATE SET
+       name = excluded.name, backend = excluded.backend, tier = excluded.tier`,
+      [
+        row.cid, row.name, row.size_bytes, row.backend, row.tier,
+        row.owner, row.permanent, row.created_at, row.expires_at,
+      ],
+      CQL_DATABASE_ID
+    );
   },
   
   async get(cid: string): Promise<StoragePinRow | null> {
     const client = await getCQLClient();
-    if (client) {
-      const result = await client.query<StoragePinRow>(
-        'SELECT * FROM storage_pins WHERE cid = ?',
-        [cid],
-        CQL_DATABASE_ID
-      );
-      return result.rows[0] ?? null;
-    }
-    return memoryStoragePins.get(cid) ?? null;
+    const result = await client.query<StoragePinRow>(
+      'SELECT * FROM storage_pins WHERE cid = ?',
+      [cid],
+      CQL_DATABASE_ID
+    );
+    return result.rows[0] ?? null;
   },
   
   async listByOwner(owner: Address): Promise<StoragePinRow[]> {
     const client = await getCQLClient();
-    if (client) {
-      const result = await client.query<StoragePinRow>(
-        'SELECT * FROM storage_pins WHERE owner = ? ORDER BY created_at DESC',
-        [owner.toLowerCase()],
-        CQL_DATABASE_ID
-      );
-      return result.rows;
-    }
-    return Array.from(memoryStoragePins.values())
-      .filter(r => r.owner === owner.toLowerCase())
-      .sort((a, b) => b.created_at - a.created_at);
+    const result = await client.query<StoragePinRow>(
+      'SELECT * FROM storage_pins WHERE owner = ? ORDER BY created_at DESC',
+      [owner.toLowerCase()],
+      CQL_DATABASE_ID
+    );
+    return result.rows;
   },
   
   async delete(cid: string): Promise<boolean> {
     const client = await getCQLClient();
-    if (client) {
-      const result = await client.exec(
-        'DELETE FROM storage_pins WHERE cid = ?',
-        [cid],
-        CQL_DATABASE_ID
-      );
-      return result.rowsAffected > 0;
-    }
-    return memoryStoragePins.delete(cid);
+    const result = await client.exec(
+      'DELETE FROM storage_pins WHERE cid = ?',
+      [cid],
+      CQL_DATABASE_ID
+    );
+    return result.rowsAffected > 0;
   },
 };
 
@@ -498,49 +424,37 @@ export const gitRepoState = {
     };
     
     const client = await getCQLClient();
-    if (client) {
-      await client.exec(
-        `INSERT INTO git_repos (repo_id, owner, name, description, default_branch, head_commit, is_public, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(repo_id) DO UPDATE SET
-         description = excluded.description, head_commit = excluded.head_commit, updated_at = excluded.updated_at`,
-        [
-          row.repo_id, row.owner, row.name, row.description, row.default_branch,
-          row.head_commit, row.is_public, row.created_at, row.updated_at,
-        ],
-        CQL_DATABASE_ID
-      );
-    } else {
-      memoryGitRepos.set(row.repo_id, row);
-    }
+    await client.exec(
+      `INSERT INTO git_repos (repo_id, owner, name, description, default_branch, head_commit, is_public, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(repo_id) DO UPDATE SET
+       description = excluded.description, head_commit = excluded.head_commit, updated_at = excluded.updated_at`,
+      [
+        row.repo_id, row.owner, row.name, row.description, row.default_branch,
+        row.head_commit, row.is_public, row.created_at, row.updated_at,
+      ],
+      CQL_DATABASE_ID
+    );
   },
   
   async get(repoId: string): Promise<GitRepoRow | null> {
     const client = await getCQLClient();
-    if (client) {
-      const result = await client.query<GitRepoRow>(
-        'SELECT * FROM git_repos WHERE repo_id = ?',
-        [repoId],
-        CQL_DATABASE_ID
-      );
-      return result.rows[0] ?? null;
-    }
-    return memoryGitRepos.get(repoId) ?? null;
+    const result = await client.query<GitRepoRow>(
+      'SELECT * FROM git_repos WHERE repo_id = ?',
+      [repoId],
+      CQL_DATABASE_ID
+    );
+    return result.rows[0] ?? null;
   },
   
   async listByOwner(owner: Address): Promise<GitRepoRow[]> {
     const client = await getCQLClient();
-    if (client) {
-      const result = await client.query<GitRepoRow>(
-        'SELECT * FROM git_repos WHERE owner = ? ORDER BY updated_at DESC',
-        [owner.toLowerCase()],
-        CQL_DATABASE_ID
-      );
-      return result.rows;
-    }
-    return Array.from(memoryGitRepos.values())
-      .filter(r => r.owner === owner.toLowerCase())
-      .sort((a, b) => b.updated_at - a.updated_at);
+    const result = await client.query<GitRepoRow>(
+      'SELECT * FROM git_repos WHERE owner = ? ORDER BY updated_at DESC',
+      [owner.toLowerCase()],
+      CQL_DATABASE_ID
+    );
+    return result.rows;
   },
 };
 
@@ -570,67 +484,46 @@ export const packageState = {
     };
     
     const client = await getCQLClient();
-    if (client) {
-      await client.exec(
-        `INSERT INTO packages (package_id, name, version, cid, owner, description, keywords, dependencies, downloads, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(name, version) DO UPDATE SET
-         cid = excluded.cid, description = excluded.description, keywords = excluded.keywords, dependencies = excluded.dependencies`,
-        [
-          row.package_id, row.name, row.version, row.cid, row.owner,
-          row.description, row.keywords, row.dependencies, row.downloads, row.created_at,
-        ],
-        CQL_DATABASE_ID
-      );
-    } else {
-      memoryPackages.set(row.package_id, row);
-    }
+    await client.exec(
+      `INSERT INTO packages (package_id, name, version, cid, owner, description, keywords, dependencies, downloads, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(name, version) DO UPDATE SET
+       cid = excluded.cid, description = excluded.description, keywords = excluded.keywords, dependencies = excluded.dependencies`,
+      [
+        row.package_id, row.name, row.version, row.cid, row.owner,
+        row.description, row.keywords, row.dependencies, row.downloads, row.created_at,
+      ],
+      CQL_DATABASE_ID
+    );
   },
   
   async get(name: string, version: string): Promise<PackageRow | null> {
     const client = await getCQLClient();
-    if (client) {
-      const result = await client.query<PackageRow>(
-        'SELECT * FROM packages WHERE name = ? AND version = ?',
-        [name, version],
-        CQL_DATABASE_ID
-      );
-      return result.rows[0] ?? null;
-    }
-    return Array.from(memoryPackages.values()).find(
-      p => p.name === name && p.version === version
-    ) ?? null;
+    const result = await client.query<PackageRow>(
+      'SELECT * FROM packages WHERE name = ? AND version = ?',
+      [name, version],
+      CQL_DATABASE_ID
+    );
+    return result.rows[0] ?? null;
   },
   
   async getLatest(name: string): Promise<PackageRow | null> {
     const client = await getCQLClient();
-    if (client) {
-      const result = await client.query<PackageRow>(
-        'SELECT * FROM packages WHERE name = ? ORDER BY created_at DESC LIMIT 1',
-        [name],
-        CQL_DATABASE_ID
-      );
-      return result.rows[0] ?? null;
-    }
-    return Array.from(memoryPackages.values())
-      .filter(p => p.name === name)
-      .sort((a, b) => b.created_at - a.created_at)[0] ?? null;
+    const result = await client.query<PackageRow>(
+      'SELECT * FROM packages WHERE name = ? ORDER BY created_at DESC LIMIT 1',
+      [name],
+      CQL_DATABASE_ID
+    );
+    return result.rows[0] ?? null;
   },
   
   async incrementDownloads(name: string, version: string): Promise<void> {
     const client = await getCQLClient();
-    if (client) {
-      await client.exec(
-        'UPDATE packages SET downloads = downloads + 1 WHERE name = ? AND version = ?',
-        [name, version],
-        CQL_DATABASE_ID
-      );
-    } else {
-      const pkg = Array.from(memoryPackages.values()).find(
-        p => p.name === name && p.version === version
-      );
-      if (pkg) pkg.downloads++;
-    }
+    await client.exec(
+      'UPDATE packages SET downloads = downloads + 1 WHERE name = ? AND version = ?',
+      [name, version],
+      CQL_DATABASE_ID
+    );
   },
 };
 
@@ -663,70 +556,49 @@ export const apiListingState = {
     };
     
     const client = await getCQLClient();
-    if (client) {
-      await client.exec(
-        `INSERT INTO api_listings (listing_id, provider_id, seller, key_vault_id, price_per_request, limits, access_control, status, total_requests, total_revenue, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(listing_id) DO UPDATE SET
-         price_per_request = excluded.price_per_request, limits = excluded.limits, access_control = excluded.access_control, status = excluded.status, updated_at = excluded.updated_at`,
-        [
-          row.listing_id, row.provider_id, row.seller, row.key_vault_id,
-          row.price_per_request, row.limits, row.access_control, row.status,
-          row.total_requests, row.total_revenue, row.created_at, row.updated_at,
-        ],
-        CQL_DATABASE_ID
-      );
-    } else {
-      memoryApiListings.set(row.listing_id, row);
-    }
+    await client.exec(
+      `INSERT INTO api_listings (listing_id, provider_id, seller, key_vault_id, price_per_request, limits, access_control, status, total_requests, total_revenue, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(listing_id) DO UPDATE SET
+       price_per_request = excluded.price_per_request, limits = excluded.limits, access_control = excluded.access_control, status = excluded.status, updated_at = excluded.updated_at`,
+      [
+        row.listing_id, row.provider_id, row.seller, row.key_vault_id,
+        row.price_per_request, row.limits, row.access_control, row.status,
+        row.total_requests, row.total_revenue, row.created_at, row.updated_at,
+      ],
+      CQL_DATABASE_ID
+    );
   },
   
   async get(listingId: string): Promise<ApiListingRow | null> {
     const client = await getCQLClient();
-    if (client) {
-      const result = await client.query<ApiListingRow>(
-        'SELECT * FROM api_listings WHERE listing_id = ?',
-        [listingId],
-        CQL_DATABASE_ID
-      );
-      return result.rows[0] ?? null;
-    }
-    return memoryApiListings.get(listingId) ?? null;
+    const result = await client.query<ApiListingRow>(
+      'SELECT * FROM api_listings WHERE listing_id = ?',
+      [listingId],
+      CQL_DATABASE_ID
+    );
+    return result.rows[0] ?? null;
   },
   
   async listBySeller(seller: Address): Promise<ApiListingRow[]> {
     const client = await getCQLClient();
-    if (client) {
-      const result = await client.query<ApiListingRow>(
-        'SELECT * FROM api_listings WHERE seller = ? ORDER BY created_at DESC',
-        [seller.toLowerCase()],
-        CQL_DATABASE_ID
-      );
-      return result.rows;
-    }
-    return Array.from(memoryApiListings.values())
-      .filter(r => r.seller === seller.toLowerCase())
-      .sort((a, b) => b.created_at - a.created_at);
+    const result = await client.query<ApiListingRow>(
+      'SELECT * FROM api_listings WHERE seller = ? ORDER BY created_at DESC',
+      [seller.toLowerCase()],
+      CQL_DATABASE_ID
+    );
+    return result.rows;
   },
   
   async incrementUsage(listingId: string, revenue: string): Promise<void> {
     const client = await getCQLClient();
-    if (client) {
-      await client.exec(
-        `UPDATE api_listings SET total_requests = total_requests + 1, 
-         total_revenue = CAST(CAST(total_revenue AS INTEGER) + ? AS TEXT), updated_at = ?
-         WHERE listing_id = ?`,
-        [parseInt(revenue), Date.now(), listingId],
-        CQL_DATABASE_ID
-      );
-    } else {
-      const listing = memoryApiListings.get(listingId);
-      if (listing) {
-        listing.total_requests++;
-        listing.total_revenue = (BigInt(listing.total_revenue) + BigInt(revenue)).toString();
-        listing.updated_at = Date.now();
-      }
-    }
+    await client.exec(
+      `UPDATE api_listings SET total_requests = total_requests + 1, 
+       total_revenue = CAST(CAST(total_revenue AS INTEGER) + ? AS TEXT), updated_at = ?
+       WHERE listing_id = ?`,
+      [parseInt(revenue), Date.now(), listingId],
+      CQL_DATABASE_ID
+    );
   },
 };
 
@@ -735,102 +607,66 @@ export const apiUserAccountState = {
   async getOrCreate(address: Address): Promise<ApiUserAccountRow> {
     const addr = address.toLowerCase();
     const now = Date.now();
-    
     const client = await getCQLClient();
-    if (client) {
-      const result = await client.query<ApiUserAccountRow>(
-        'SELECT * FROM api_user_accounts WHERE address = ?',
-        [addr],
-        CQL_DATABASE_ID
-      );
-      
-      if (result.rows[0]) return result.rows[0];
-      
-      const newAccount: ApiUserAccountRow = {
-        address: addr,
-        balance: '0',
-        total_spent: '0',
-        total_requests: 0,
-        active_listings: '[]',
-        created_at: now,
-        updated_at: now,
-      };
-      
-      await client.exec(
-        `INSERT INTO api_user_accounts (address, balance, total_spent, total_requests, active_listings, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)`,
-        [addr, '0', '0', 0, '[]', now, now],
-        CQL_DATABASE_ID
-      );
-      
-      return newAccount;
-    }
     
-    let account = memoryApiUserAccounts.get(addr);
-    if (!account) {
-      account = {
-        address: addr,
-        balance: '0',
-        total_spent: '0',
-        total_requests: 0,
-        active_listings: '[]',
-        created_at: now,
-        updated_at: now,
-      };
-      memoryApiUserAccounts.set(addr, account);
-    }
-    return account;
+    const result = await client.query<ApiUserAccountRow>(
+      'SELECT * FROM api_user_accounts WHERE address = ?',
+      [addr],
+      CQL_DATABASE_ID
+    );
+    
+    if (result.rows[0]) return result.rows[0];
+    
+    const newAccount: ApiUserAccountRow = {
+      address: addr,
+      balance: '0',
+      total_spent: '0',
+      total_requests: 0,
+      active_listings: '[]',
+      created_at: now,
+      updated_at: now,
+    };
+    
+    await client.exec(
+      `INSERT INTO api_user_accounts (address, balance, total_spent, total_requests, active_listings, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [addr, '0', '0', 0, '[]', now, now],
+      CQL_DATABASE_ID
+    );
+    
+    return newAccount;
   },
   
   async updateBalance(address: Address, delta: string): Promise<void> {
     const addr = address.toLowerCase();
     const now = Date.now();
     
-    // Ensure account exists first
     await this.getOrCreate(address);
     
     const client = await getCQLClient();
-    if (client) {
-      await client.exec(
-        `UPDATE api_user_accounts SET balance = CAST(CAST(balance AS INTEGER) + ? AS TEXT), updated_at = ?
-         WHERE address = ?`,
-        [parseInt(delta), now, addr],
-        CQL_DATABASE_ID
-      );
-    } else {
-      const account = memoryApiUserAccounts.get(addr);
-      if (account) {
-        account.balance = (BigInt(account.balance) + BigInt(delta)).toString();
-        account.updated_at = now;
-      }
-    }
+    await client.exec(
+      `UPDATE api_user_accounts SET balance = CAST(CAST(balance AS INTEGER) + ? AS TEXT), updated_at = ?
+       WHERE address = ?`,
+      [parseInt(delta), now, addr],
+      CQL_DATABASE_ID
+    );
   },
   
   async recordRequest(address: Address, cost: string): Promise<void> {
     const addr = address.toLowerCase();
     const now = Date.now();
-    
     const client = await getCQLClient();
-    if (client) {
-      await client.exec(
-        `UPDATE api_user_accounts SET 
-         total_requests = total_requests + 1,
-         total_spent = CAST(CAST(total_spent AS INTEGER) + ? AS TEXT),
-         balance = CAST(CAST(balance AS INTEGER) - ? AS TEXT),
-         updated_at = ?
-         WHERE address = ?`,
-        [parseInt(cost), parseInt(cost), now, addr],
-        CQL_DATABASE_ID
-      );
-    } else {
-      const account = memoryApiUserAccounts.get(addr);
-      if (account) {
-        account.total_requests++;
-        account.total_spent = (BigInt(account.total_spent) + BigInt(cost)).toString();
-        account.balance = (BigInt(account.balance) - BigInt(cost)).toString();
-        account.updated_at = now;
-      }
-    }
+    
+    await client.exec(
+      `UPDATE api_user_accounts SET 
+       total_requests = total_requests + 1,
+       total_spent = CAST(CAST(total_spent AS INTEGER) + ? AS TEXT),
+       balance = CAST(CAST(balance AS INTEGER) - ? AS TEXT),
+       updated_at = ?
+       WHERE address = ?`,
+      [parseInt(cost), parseInt(cost), now, addr],
+      CQL_DATABASE_ID
+    );
   },
 };
 
@@ -839,10 +675,10 @@ export async function initializeDWSState(): Promise<void> {
   if (initialized) return;
   await getCQLClient();
   initialized = true;
-  console.log(`[DWS State] Initialized (${useFallback ? 'in-memory fallback' : 'CQL'})`);
+  console.log('[DWS State] Initialized with CovenantSQL');
 }
 
-// Get state mode
-export function getStateMode(): 'cql' | 'memory' {
-  return useFallback ? 'memory' : 'cql';
+// Get state mode - always CQL, no fallbacks
+export function getStateMode(): 'cql' {
+  return 'cql';
 }

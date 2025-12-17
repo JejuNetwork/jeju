@@ -10,13 +10,13 @@ variable "enable_storage_cdn" {
 variable "storage_gateway_origin" {
   description = "Origin URL for storage gateway (e.g., IPFS gateway or storage API)"
   type        = string
-  default     = "gateway.jeju.network"
+  default     = "gateway.jejunetwork.org"
 }
 
 variable "jns_resolver_origin" {
   description = "JNS resolver API endpoint"
   type        = string
-  default     = "jns-resolver.jeju.network"
+  default     = "jns-resolver.jejunetwork.org"
 }
 
 variable "cache_ttl_default" {

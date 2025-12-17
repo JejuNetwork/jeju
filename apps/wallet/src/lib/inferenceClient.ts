@@ -83,7 +83,7 @@ export interface AvailableModel {
 // Auto-detect local gateway for development
 const isLocalDev = typeof window !== 'undefined' && window.location.hostname === 'localhost';
 const DEFAULT_GATEWAY = import.meta.env.VITE_JEJU_GATEWAY_URL || 
-  (isLocalDev ? 'http://localhost:4100' : 'https://compute.jeju.network');
+  (isLocalDev ? 'http://localhost:4100' : 'https://compute.jejunetwork.org');
 const DEFAULT_MODEL = 'jeju/llama-3.1-70b';
 
 const SYSTEM_PROMPT = `You are Network Wallet, an advanced AI assistant for decentralized finance.
@@ -122,7 +122,7 @@ class InferenceClient {
   constructor(config?: Partial<InferenceConfig>) {
     this.config = {
       gatewayUrl: config?.gatewayUrl || DEFAULT_GATEWAY,
-      rpcUrl: config?.rpcUrl || 'https://rpc.jeju.network',
+      rpcUrl: config?.rpcUrl || 'https://rpc.jejunetwork.org',
       walletAddress: config?.walletAddress || undefined as unknown as Address,
       preferredModel: config?.preferredModel || DEFAULT_MODEL,
       requireTEE: config?.requireTEE ?? false,

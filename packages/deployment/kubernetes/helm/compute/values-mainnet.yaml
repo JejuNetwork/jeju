@@ -1,7 +1,7 @@
 # Mainnet values for Jeju Compute Services
 
 common:
-  rpcUrl: "https://rpc.jeju.network"
+  rpcUrl: "https://rpc.jejunetwork.org"
   registryAddress: ""  # Set by CI/CD
   workerRegistryAddress: ""  # Set by CI/CD
 
@@ -56,7 +56,7 @@ ingress:
     nginx.ingress.kubernetes.io/rate-limit: "100"
     nginx.ingress.kubernetes.io/rate-limit-window: "1m"
   hosts:
-    - host: compute.jeju.network
+    - host: compute.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
@@ -70,7 +70,7 @@ ingress:
   tls:
     - secretName: compute-mainnet-tls
       hosts:
-        - compute.jeju.network
+        - compute.jejunetwork.org
 
 podDisruptionBudget:
   minAvailable: 2

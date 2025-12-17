@@ -5,13 +5,7 @@
 import { type Address } from 'viem';
 import { type NodeClient, getChain } from '../contracts';
 import { STORAGE_MARKET_ABI } from '../abis';
-
-// Lazy import to avoid native module issues
-type TorrentSeederServiceType = Awaited<ReturnType<typeof importTorrentSeeder>>;
-async function importTorrentSeeder() {
-  const mod = await import('./torrent-seeder');
-  return mod.TorrentSeederService;
-}
+import { HybridTorrentService, getHybridTorrentService } from './hybrid-torrent';
 
 export interface StorageServiceConfig {
   endpoint: string;
@@ -38,7 +32,7 @@ export interface SeedingStats {
 
 export class StorageService {
   private client: NodeClient;
-  private seeder: InstanceType<TorrentSeederServiceType> | null = null;
+  private torrent: HybridTorrentService | null = null;
 
   constructor(client: NodeClient) {
     this.client = client;
@@ -87,43 +81,46 @@ export class StorageService {
     privateKey: string,
     contentRegistryAddress: Address
   ): Promise<void> {
-    if (this.seeder) return;
+    if (this.torrent) return;
 
-    const TorrentSeederService = await importTorrentSeeder();
-    this.seeder = new TorrentSeederService({
+    this.torrent = getHybridTorrentService({
       rpcUrl: this.client.publicClient.transport.url ?? 'http://127.0.0.1:9545',
       privateKey,
       contentRegistryAddress,
-      maxTorrents: 100,
-      maxUploadRate: -1,
-      reportIntervalMs: 3600000,
-      blocklistSyncIntervalMs: 300000,
     });
 
-    await this.seeder.start();
+    await this.torrent.start();
   }
 
   async stopSeeding(): Promise<void> {
-    if (!this.seeder) return;
-    await this.seeder.stop();
-    this.seeder = null;
+    if (!this.torrent) return;
+    await this.torrent.stop();
+    this.torrent = null;
   }
 
   async addTorrent(magnetUri: string): Promise<string> {
-    if (!this.seeder) {
-      throw new Error('Seeder not started');
+    if (!this.torrent) {
+      throw new Error('Torrent service not started');
     }
-    return this.seeder.addTorrent(magnetUri);
+    const stats = await this.torrent.addTorrent(magnetUri);
+    return stats.infohash;
   }
 
   removeTorrent(infohash: string): void {
-    if (!this.seeder) return;
-    this.seeder.removeTorrent(infohash);
+    if (!this.torrent) return;
+    this.torrent.removeTorrent(infohash);
   }
 
   getSeedingStats(): SeedingStats | null {
-    if (!this.seeder) return null;
-    return this.seeder.getStats();
+    if (!this.torrent) return null;
+    const stats = this.torrent.getGlobalStats();
+    return {
+      torrentsSeeding: stats.torrentsActive,
+      totalBytesUploaded: stats.totalUpload,
+      totalPeersServed: stats.peers,
+      pendingRewards: stats.pendingRewards,
+      uptime: stats.uptime,
+    };
   }
 
   getTorrentList(): Array<{
@@ -132,16 +129,20 @@ export class StorageService {
     peersServed: number;
     startedAt: number;
   }> {
-    if (!this.seeder) return [];
-    return this.seeder.getTorrentList();
+    if (!this.torrent) return [];
+    return this.torrent.getAllStats().map((s) => ({
+      infohash: s.infohash,
+      bytesUploaded: s.uploaded,
+      peersServed: s.peers,
+      startedAt: 0, // Not tracked in new service
+    }));
   }
 
   isSeeding(): boolean {
-    return this.seeder !== null;
+    return this.torrent !== null;
   }
 }
 
 export function createStorageService(client: NodeClient): StorageService {
   return new StorageService(client);
 }
-

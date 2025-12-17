@@ -101,6 +101,10 @@ export interface ServicesConfig {
   oif: { aggregator: string };
   leaderboard: { api: string; ui: string };
   monitoring: { prometheus: string; grafana: string };
+  crucible: { api: string; executor: string };
+  cql: { blockProducer: string; miner: string };
+  dws: { api: string; compute: string };
+  autocrat: { api: string; a2a: string };
   externalRpcs?: Record<string, string>;
 }
 
@@ -278,6 +282,19 @@ export function getServicesConfig(network?: NetworkType): ServicesConfig {
       ui: getEnvService('LEADERBOARD_URL') || config.leaderboard.ui,
     },
     monitoring: config.monitoring,
+    crucible: config.crucible,
+    cql: {
+      blockProducer: getEnvService('CQL_BLOCK_PRODUCER_ENDPOINT') || getEnvService('CQL_URL') || config.cql.blockProducer,
+      miner: getEnvService('CQL_MINER_ENDPOINT') || config.cql.miner,
+    },
+    dws: {
+      api: getEnvService('DWS_URL') || getEnvService('DWS_API_URL') || config.dws.api,
+      compute: getEnvService('DWS_COMPUTE_URL') || config.dws.compute,
+    },
+    autocrat: {
+      api: getEnvService('AUTOCRAT_URL') || getEnvService('AUTOCRAT_API_URL') || config.autocrat.api,
+      a2a: getEnvService('AUTOCRAT_A2A_URL') || config.autocrat.a2a,
+    },
   };
 }
 
@@ -324,6 +341,45 @@ export function getL1RpcUrl(network?: NetworkType): string {
 
 export function getExplorerUrl(network?: NetworkType): string {
   return getServicesConfig(network).explorer;
+}
+
+// ============================================================================
+// Decentralized Services (CQL, DWS, Autocrat)
+// ============================================================================
+
+/** Get CovenantSQL block producer URL - for decentralized database */
+export function getCQLUrl(network?: NetworkType): string {
+  return getServicesConfig(network).cql.blockProducer;
+}
+
+/** Get CovenantSQL miner URL */
+export function getCQLMinerUrl(network?: NetworkType): string {
+  return getServicesConfig(network).cql.miner;
+}
+
+/** Get DWS (Decentralized Web Services) API URL */
+export function getDWSUrl(network?: NetworkType): string {
+  return getServicesConfig(network).dws.api;
+}
+
+/** Get DWS compute endpoint */
+export function getDWSComputeUrl(network?: NetworkType): string {
+  return getServicesConfig(network).dws.compute;
+}
+
+/** Get Autocrat (DAO governance) API URL */
+export function getAutocratUrl(network?: NetworkType): string {
+  return getServicesConfig(network).autocrat.api;
+}
+
+/** Get Autocrat A2A endpoint */
+export function getAutocratA2AUrl(network?: NetworkType): string {
+  return getServicesConfig(network).autocrat.a2a;
+}
+
+/** Get Crucible (execution) API URL */
+export function getCrucibleUrl(network?: NetworkType): string {
+  return getServicesConfig(network).crucible.api;
 }
 
 export function getBridgeContractAddress(

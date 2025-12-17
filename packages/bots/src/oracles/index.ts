@@ -264,9 +264,6 @@ export class OracleAggregator {
     return BigInt(Math.floor(price * 1e18));
   }
 
-  /**
-   * Convert token symbol to price pair
-   */
   private tokenToPair(token: string): string {
     const symbol = token.toUpperCase();
     if (symbol === 'WETH' || symbol === 'ETH') return 'ETH/USD';
@@ -274,25 +271,16 @@ export class OracleAggregator {
     return `${symbol}/USD`;
   }
 
-  /**
-   * Check if price is stale
-   */
   isStale(price: OraclePrice, maxAgeMs: number): boolean {
     return Date.now() - price.timestamp > maxAgeMs;
   }
 
-  /**
-   * Calculate price deviation between two prices
-   */
   calculateDeviation(price1: bigint, price2: bigint): number {
     const diff = price1 > price2 ? price1 - price2 : price2 - price1;
     const avg = (price1 + price2) / 2n;
     return Number((diff * 10000n) / avg); // Returns basis points
   }
 
-  /**
-   * Validate price against multiple sources
-   */
   async validatePrice(
     token: string,
     chainId: EVMChainId,

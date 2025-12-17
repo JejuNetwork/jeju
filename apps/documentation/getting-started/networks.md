@@ -16,23 +16,39 @@ bun run localnet:stop      # Stop
 bun run localnet:reset     # Reset to fresh state
 ```
 
+### Local Domain Routing
+
+When running `bun run dev`, a local proxy automatically starts that enables friendly domain URLs:
+
+| Service | URL |
+|---------|-----|
+| Gateway | `http://gateway.local.jejunetwork.org` |
+| Bazaar | `http://bazaar.local.jejunetwork.org` |
+| Docs | `http://docs.local.jejunetwork.org` |
+| RPC | `http://rpc.local.jejunetwork.org` |
+| Indexer | `http://indexer.local.jejunetwork.org` |
+
+This works automatically - DNS resolves `*.local.jejunetwork.org` to `127.0.0.1`, and the local Caddy proxy routes to the correct ports.
+
+To disable the proxy: `bun run dev --no-proxy`
+
 ## Testnet
 
 Public test network on Sepolia with chain ID 420690.
 
-The L2 RPC is at `https://testnet-rpc.jeju.network` with WebSocket at `wss://testnet-ws.jeju.network`. The Explorer is at `https://testnet-explorer.jeju.network`. The Indexer GraphQL is at `https://testnet-indexer.jeju.network/graphql`.
+The L2 RPC is at `https://testnet-rpc.jejunetwork.org` with WebSocket at `wss://testnet-ws.jejunetwork.org`. The Explorer is at `https://explorer.testnet.jejunetwork.org`. The Indexer GraphQL is at `https://testnet-indexer.jejunetwork.org/graphql`.
 
 To get testnet ETH, first obtain Sepolia ETH from [sepoliafaucet.com](https://sepoliafaucet.com), then bridge to Jeju testnet via Gateway.
 
-For wallet configuration, set Network Name to "Jeju Testnet", RPC URL to `https://testnet-rpc.jeju.network`, Chain ID to `420690`, Currency Symbol to "ETH", and Explorer to `https://testnet-explorer.jeju.network`.
+For wallet configuration, set Network Name to "Jeju Testnet", RPC URL to `https://testnet-rpc.jejunetwork.org`, Chain ID to `420690`, Currency Symbol to "ETH", and Explorer to `https://explorer.testnet.jejunetwork.org`.
 
 ## Mainnet
 
 Production network on Ethereum with chain ID 420691.
 
-The L2 RPC is at `https://rpc.jeju.network` with WebSocket at `wss://ws.jeju.network`. The Explorer is at `https://explorer.jeju.network`. The Indexer GraphQL is at `https://indexer.jeju.network/graphql`.
+The L2 RPC is at `https://rpc.jejunetwork.org` with WebSocket at `wss://ws.jejunetwork.org`. The Explorer is at `https://explorer.jejunetwork.org`. The Indexer GraphQL is at `https://indexer.jejunetwork.org/graphql`.
 
-For wallet configuration, set Network Name to "Jeju", RPC URL to `https://rpc.jeju.network`, Chain ID to `420691`, Currency Symbol to "ETH", and Explorer to `https://explorer.jeju.network`.
+For wallet configuration, set Network Name to "Jeju", RPC URL to `https://rpc.jejunetwork.org`, Chain ID to `420691`, Currency Symbol to "ETH", and Explorer to `https://explorer.jejunetwork.org`.
 
 ## Switching Networks
 

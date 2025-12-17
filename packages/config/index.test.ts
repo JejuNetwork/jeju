@@ -41,7 +41,7 @@ describe('Configuration Loaders', () => {
       
       expect(config.chainId).toBe(420691);
       expect(config.name).toBe('Jeju');
-      expect(config.rpcUrl).toBe('https://rpc.jeju.network');
+      expect(config.rpcUrl).toBe('https://rpc.jejunetwork.org');
       expect(config.l1ChainId).toBe(1); // Ethereum mainnet
       expect(config.flashblocksEnabled).toBe(true);
     });
@@ -51,7 +51,7 @@ describe('Configuration Loaders', () => {
       
       expect(config.chainId).toBe(420690);
       expect(config.name).toBe('Jeju Testnet');
-      expect(config.rpcUrl).toBe('https://testnet-rpc.jeju.network');
+      expect(config.rpcUrl).toBe('https://testnet-rpc.jejunetwork.org');
       expect(config.l1ChainId).toBe(11155111); // Sepolia
     });
 
@@ -170,7 +170,7 @@ describe('Configuration Loaders', () => {
       it('should get RPC URL from config', () => {
         cleanEnv();
         const rpcUrl = getRpcUrl('mainnet');
-        expect(rpcUrl).toBe('https://rpc.jeju.network');
+        expect(rpcUrl).toBe('https://rpc.jejunetwork.org');
       });
 
       it('should override with environment variable', () => {
@@ -184,7 +184,7 @@ describe('Configuration Loaders', () => {
       it('should get WebSocket URL from config', () => {
         cleanEnv();
         const wsUrl = getWsUrl('testnet');
-        expect(wsUrl).toBe('wss://testnet-ws.jeju.network');
+        expect(wsUrl).toBe('wss://testnet-ws.jejunetwork.org');
       });
 
       it('should override with environment variable', () => {
@@ -198,7 +198,7 @@ describe('Configuration Loaders', () => {
       it('should get explorer URL from config', () => {
         cleanEnv();
         const explorerUrl = getExplorerUrl('mainnet');
-        expect(explorerUrl).toBe('https://explorer.jeju.network');
+        expect(explorerUrl).toBe('https://explorer.jejunetwork.org');
       });
 
       it('should override with environment variable', () => {
@@ -324,7 +324,7 @@ describe('Configuration Loaders', () => {
       delete process.env.JEJU_NETWORK;
 
       const rpcUrl = getRpcUrl('testnet');
-      expect(rpcUrl).toBe('https://testnet-rpc.jeju.network');
+      expect(rpcUrl).toBe('https://testnet-rpc.jejunetwork.org');
     });
   });
 });

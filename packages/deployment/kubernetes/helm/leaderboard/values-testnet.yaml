@@ -16,7 +16,7 @@ ingress:
     alb.ingress.kubernetes.io/ssl-redirect: "443"
     alb.ingress.kubernetes.io/certificate-arn: "arn:aws:acm:us-east-1:502713364895:certificate/34c89eb5-a94f-406a-be3c-c40008f4f693"
   hosts:
-    - host: leaderboard.testnet.jeju.network
+    - host: leaderboard.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix

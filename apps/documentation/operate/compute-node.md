@@ -41,7 +41,7 @@ bun install
 ```bash
 # .env
 PRIVATE_KEY=0x...
-RPC_URL=https://rpc.jeju.network
+RPC_URL=https://rpc.jejunetwork.org
 COMPUTE_PORT=4007
 MODEL_BACKEND=ollama
 OLLAMA_HOST=http://localhost:11434

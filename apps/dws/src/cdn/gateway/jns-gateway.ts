@@ -5,9 +5,9 @@
  * Similar to eth.link / eth.limo for ENS, but for JNS.
  * 
  * URL patterns:
- * - myapp.jns.jeju.network -> Resolve myapp.jns to contenthash
- * - ipfs.jeju.network/ipfs/CID -> Direct IPFS access
- * - storage.jeju.network/api/... -> Storage API
+ * - myapp.jns.jejunetwork.org -> Resolve myapp.jns to contenthash
+ * - ipfs.jejunetwork.org/ipfs/CID -> Direct IPFS access
+ * - storage.jejunetwork.org/api/... -> Storage API
  */
 
 import { Hono, type Context } from 'hono';
@@ -40,7 +40,7 @@ export interface JNSGatewayConfig {
   jnsResolverAddress: Address;
   ipfsGateway: string;
   arweaveGateway: string;
-  domain: string; // e.g., "jeju.network"
+  domain: string; // e.g., "jejunetwork.org"
 }
 
 interface ContentHash {
@@ -162,12 +162,12 @@ export class JNSGateway {
       });
     });
 
-    // Wildcard subdomain handling (for *.jns.jeju.network)
+    // Wildcard subdomain handling (for *.jns.jejunetwork.org)
     this.app.get('/*', async (c) => {
       const host = c.req.header('host') ?? '';
       
       // Check if this is a JNS subdomain request
-      // e.g., myapp.jns.jeju.network
+      // e.g., myapp.jns.jejunetwork.org
       const jnsMatch = host.match(/^([^.]+)\.jns\./);
       if (jnsMatch && jnsMatch[1]) {
         const name = `${jnsMatch[1]}.jns`;
@@ -517,7 +517,7 @@ export async function startJNSGateway(): Promise<JNSGateway> {
     jnsResolverAddress: (process.env.JNS_RESOLVER_ADDRESS ?? '0x0000000000000000000000000000000000000000') as Address,
     ipfsGateway: process.env.IPFS_GATEWAY_URL ?? 'https://ipfs.io',
     arweaveGateway: process.env.ARWEAVE_GATEWAY_URL ?? 'https://arweave.net',
-    domain: process.env.JNS_DOMAIN ?? 'jeju.network',
+    domain: process.env.JNS_DOMAIN ?? 'jejunetwork.org',
   };
 
   const gateway = new JNSGateway(config);

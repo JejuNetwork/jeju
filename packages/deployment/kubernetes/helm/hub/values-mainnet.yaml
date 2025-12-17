@@ -1,6 +1,6 @@
 # Mainnet configuration
 network: "mainnet"
-rpcUrl: "https://rpc.jeju.network"
+rpcUrl: "https://rpc.jejunetwork.org"
 chainId: 420690
 
 services:

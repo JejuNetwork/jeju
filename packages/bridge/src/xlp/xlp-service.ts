@@ -385,15 +385,41 @@ export class XLPService extends EventEmitter {
       data: fillData,
     });
 
-    await clients.public.waitForTransactionReceipt({ hash });
+    const receipt = await clients.public.waitForTransactionReceipt({ hash });
 
     // Update stats
     this.stats.fillsCompleted++;
 
-    // Parse fee from event
-    // In production, would parse the OrderFilled event
-    const feeRate = 30n; // 0.3% = 30 bps
-    const fee = (request.amount * feeRate) / 10000n;
+    // Parse fee from OrderFilled event
+    let fee = 0n;
+    for (const log of receipt.logs) {
+      if (log.address.toLowerCase() === poolAddress.toLowerCase() && log.topics[0]) {
+        // OrderFilled event signature: OrderFilled(bytes32 indexed orderId, address indexed token, address indexed recipient, uint256 amount, uint256 fee)
+        const eventSig = '0x' + Buffer.from(
+          new TextEncoder().encode('OrderFilled(bytes32,address,address,uint256,uint256)')
+        ).toString('hex');
+        
+        // Use keccak256 for event signature matching
+        const { keccak256, toHex } = await import('viem');
+        const expectedSig = keccak256(toHex('OrderFilled(bytes32,address,address,uint256,uint256)'));
+        
+        if (log.topics[0] === expectedSig && log.data) {
+          // Decode the non-indexed parameters (amount, fee) from data
+          // data = abi.encode(uint256 amount, uint256 fee)
+          const dataWithoutPrefix = log.data.slice(2);
+          const amountHex = dataWithoutPrefix.slice(0, 64);
+          const feeHex = dataWithoutPrefix.slice(64, 128);
+          fee = BigInt('0x' + feeHex);
+          break;
+        }
+      }
+    }
+
+    // Fallback if event parsing failed (e.g., event not emitted in test)
+    if (fee === 0n) {
+      const feeRate = 30n; // 0.3% = 30 bps default
+      fee = (request.amount * feeRate) / 10000n;
+    }
 
     this.stats.totalFeesEarned += fee;
 

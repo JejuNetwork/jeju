@@ -19,7 +19,7 @@ import type {
 } from '../types.js';
 
 const VC_CONTEXT = 'https://www.w3.org/2018/credentials/v1';
-const OAUTH3_CONTEXT = 'https://jeju.network/credentials/oauth3/v1';
+const OAUTH3_CONTEXT = 'https://jejunetwork.org/credentials/oauth3/v1';
 
 export interface CredentialSchema {
   id: string;

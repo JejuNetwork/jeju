@@ -223,7 +223,7 @@ Examples:
     console.log(`  Auth:       http://localhost:4500/auth`);
     console.log(`  Health:     http://localhost:4500/health`);
 
-    console.log(chalk.dim(`\nDocumentation: https://docs.jeju.network/templates\n`));
+    console.log(chalk.dim(`\nDocumentation: https://docs.jejunetwork.org/templates\n`));
   });
 
 function formatDisplayName(name: string): string {

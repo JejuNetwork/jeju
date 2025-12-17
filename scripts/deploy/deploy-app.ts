@@ -479,7 +479,7 @@ async function main() {
     account.address
   );
 
-  const gatewayUrl = `https://${config.jnsName.replace('.jeju', '')}.jeju.network`;
+  const gatewayUrl = `https://${config.jnsName.replace('.jeju', '')}.jejunetwork.org`;
 
   console.log(`
 ╔══════════════════════════════════════════════════════════════╗

@@ -55,7 +55,7 @@ describe('IAP Compliance', () => {
         amount: '1.0',
       });
 
-      expect(url).toContain('https://wallet.jeju.network/purchase');
+      expect(url).toContain('https://wallet.jejunetwork.org/purchase');
       expect(url).toContain('type=crypto');
       expect(url).toContain('asset=ETH');
       expect(url).toContain('amount=1.0');

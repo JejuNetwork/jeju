@@ -22,7 +22,7 @@
   "jns": {
     "name": "bazaar.jeju",
     "description": "DeFi + NFT + Names Marketplace",
-    "url": "https://bazaar.jeju.network"
+    "url": "https://bazaar.jejunetwork.org"
   },
   "healthCheck": {
     "url": "http://localhost:4006",

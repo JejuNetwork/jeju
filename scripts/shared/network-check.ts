@@ -25,12 +25,12 @@ const NETWORK_CONFIGS: Record<NetworkType, { rpcUrl: string; chainId: number; na
     name: getLocalnetChain().name,
   },
   testnet: {
-    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
+    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
     chainId: 420690,
     name: 'Testnet',
   },
   mainnet: {
-    rpcUrl: process.env.JEJU_MAINNET_RPC_URL || 'https://rpc.jeju.network',
+    rpcUrl: process.env.JEJU_MAINNET_RPC_URL || 'https://rpc.jejunetwork.org',
     chainId: 420691,
     name: 'Mainnet',
   },

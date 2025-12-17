@@ -53,13 +53,13 @@ function getNetworkConfig(network: string): Omit<DeployConfig, "privateKey" | "f
     case "testnet":
       return {
         network: "testnet",
-        rpcUrl: process.env.JEJU_TESTNET_RPC_URL || "https://testnet-rpc.jeju.network",
+        rpcUrl: process.env.JEJU_TESTNET_RPC_URL || "https://testnet-rpc.jejunetwork.org",
         chainId: 420690,
       };
     case "mainnet":
       return {
         network: "mainnet",
-        rpcUrl: process.env.JEJU_MAINNET_RPC_URL || "https://rpc.jeju.network",
+        rpcUrl: process.env.JEJU_MAINNET_RPC_URL || "https://rpc.jejunetwork.org",
         chainId: 420692,
       };
     default:

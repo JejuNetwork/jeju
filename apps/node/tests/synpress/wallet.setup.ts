@@ -14,10 +14,10 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
   // Add networks
   await metamask.addNetwork({
     name: 'Testnet',
-    rpcUrl: 'https://testnet-rpc.jeju.network',
+    rpcUrl: 'https://testnet-rpc.jejunetwork.org',
     chainId: 420691,
     symbol: 'JEJU',
-    blockExplorerUrl: 'https://testnet-explorer.jeju.network',
+    blockExplorerUrl: 'https://testnet-explorer.jejunetwork.org',
   });
   
   await metamask.addNetwork({

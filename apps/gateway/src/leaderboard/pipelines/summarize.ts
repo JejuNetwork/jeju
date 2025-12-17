@@ -467,7 +467,7 @@ async function callLLM(apiKey: string, prompt: string): Promise<{ text: string; 
     headers: {
       'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://jeju.network',
+      'HTTP-Referer': 'https://jejunetwork.org',
     },
     body: JSON.stringify({
       model: LEADERBOARD_CONFIG.llm.model,

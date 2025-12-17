@@ -17,8 +17,15 @@ import type {
 import { ALL_PROVIDERS, PROVIDERS_BY_ID, getProvider } from './providers';
 import { apiListingState, apiUserAccountState, initializeDWSState } from '../state.js';
 
-// Initialize state on module load
-initializeDWSState().catch(console.error);
+// Initialize state on module load (non-blocking, graceful fallback for dev)
+initializeDWSState().catch((err) => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.warn('[API Marketplace] Running without CQL:', err.message);
+  } else {
+    console.error('[API Marketplace] CQL required in production:', err);
+    throw err;
+  }
+});
 
 // Provider health is ephemeral (not persisted)
 const providerHealth = new Map<string, ProviderHealth>();

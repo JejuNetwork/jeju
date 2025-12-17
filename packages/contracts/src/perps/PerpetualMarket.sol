@@ -74,8 +74,6 @@ contract PerpetualMarket is IPerpetualMarket, ReentrancyGuard, Ownable {
         priceOracle = IPriceOracle(_priceOracle);
     }
     
-    // ============ Modifiers ============
-    
     modifier marketActive(bytes32 marketId) {
         require(markets[marketId].isActive, "Market inactive");
         require(!marketPaused[marketId], "Market paused");
@@ -86,8 +84,6 @@ contract PerpetualMarket is IPerpetualMarket, ReentrancyGuard, Ownable {
         require(positions[positionId].isOpen, "Position not found");
         _;
     }
-    
-    // ============ Market Management ============
     
     function createMarket(MarketConfig calldata config) external onlyOwner returns (bytes32 marketId) {
         marketId = keccak256(abi.encodePacked(config.symbol, block.timestamp, allMarkets.length));
@@ -143,8 +139,6 @@ contract PerpetualMarket is IPerpetualMarket, ReentrancyGuard, Ownable {
     function setPriceOracle(address _priceOracle) external onlyOwner {
         priceOracle = IPriceOracle(_priceOracle);
     }
-    
-    // ============ Trading ============
     
     function openPosition(
         bytes32 marketId,
@@ -352,8 +346,6 @@ contract PerpetualMarket is IPerpetualMarket, ReentrancyGuard, Ownable {
         emit PositionModified(positionId, position.size, position.margin);
     }
     
-    // ============ Orders ============
-    
     function placeOrder(Order calldata order) external nonReentrant marketActive(order.marketId) returns (bytes32 orderId) {
         require(order.size > 0, "Size must be > 0");
         require(order.margin >= MIN_MARGIN, "Margin too small");
@@ -481,8 +473,6 @@ contract PerpetualMarket is IPerpetualMarket, ReentrancyGuard, Ownable {
         emit PositionOpened(positionId, order.trader, order.marketId, order.side, order.size, currentPrice);
     }
     
-    // ============ Liquidation ============
-    
     function liquidate(bytes32 positionId) external nonReentrant positionExists(positionId) returns (uint256 liquidatorReward) {
         Position storage position = positions[positionId];
         MarketConfig memory market = markets[position.marketId];
@@ -563,8 +553,6 @@ contract PerpetualMarket is IPerpetualMarket, ReentrancyGuard, Ownable {
         return PerpMath.calculateLiquidationPrice(position, market.maintenanceMarginBps);
     }
     
-    // ============ Funding ============
-    
     function updateFunding(bytes32 marketId) external marketActive(marketId) {
         FundingData storage funding = fundingData[marketId];
         
@@ -596,8 +584,6 @@ contract PerpetualMarket is IPerpetualMarket, ReentrancyGuard, Ownable {
         payment = PerpMath.calculateFundingPayment(position, funding.fundingIndex);
         position.entryFundingIndex = funding.fundingIndex;
     }
-    
-    // ============ View Functions ============
     
     function getPosition(bytes32 positionId) external view returns (Position memory) {
         return positions[positionId];

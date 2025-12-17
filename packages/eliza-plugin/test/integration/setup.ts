@@ -334,3 +334,6 @@ export async function teardownTestEnvironment(): Promise<void> {
   await stopServices();
 }
 
+// Export stopServices for direct use
+export { stopServices };
+

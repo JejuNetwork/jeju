@@ -23,7 +23,7 @@
   "jns": {
     "name": "monitoring.jeju",
     "description": "Network Monitoring Dashboard",
-    "url": "https://monitoring.jeju.network"
+    "url": "https://monitoring.jejunetwork.org"
   },
   "healthCheck": {
     "url": "http://localhost:9091/.well-known/agent-card.json",

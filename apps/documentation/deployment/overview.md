@@ -70,6 +70,6 @@ For localnet, secrets go in `.env.local` (gitignored). For testnet and mainnet, 
 
 Localnet has L2 RPC at `http://127.0.0.1:9545`, L1 RPC at `http://127.0.0.1:8545`, and Indexer at `http://127.0.0.1:4350/graphql`.
 
-Testnet has L2 RPC at `https://testnet-rpc.jeju.network`, Explorer at `https://testnet-explorer.jeju.network`, and Indexer at `https://testnet-indexer.jeju.network/graphql`.
+Testnet has L2 RPC at `https://testnet-rpc.jejunetwork.org`, Explorer at `https://testnet-explorer.jejunetwork.org`, and Indexer at `https://testnet-indexer.jejunetwork.org/graphql`.
 
-Mainnet has L2 RPC at `https://rpc.jeju.network`, Explorer at `https://explorer.jeju.network`, and Indexer at `https://indexer.jeju.network/graphql`.
+Mainnet has L2 RPC at `https://rpc.jejunetwork.org`, Explorer at `https://explorer.jejunetwork.org`, and Indexer at `https://indexer.jejunetwork.org/graphql`.

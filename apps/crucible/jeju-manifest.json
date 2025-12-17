@@ -23,7 +23,7 @@
   "jns": {
     "name": "crucible.jeju",
     "description": "Agent Orchestration Platform",
-    "url": "https://crucible.jeju.network"
+    "url": "https://crucible.jejunetwork.org"
   },
   "healthCheck": {
     "url": "http://localhost:4020/health",

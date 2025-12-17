@@ -1,11 +1,7 @@
 {
-<<<<<<< HEAD
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "autocrat",
   "displayName": "Autocrat DAO",
-=======
-  "name": "autocrat",
->>>>>>> f366b94a6d70f4413332aa59a46404d5738d631a
   "version": "1.0.0",
   "type": "core",
   "description": "AI-powered autonomous governance with futarchy, deep research, and multi-agent decision making",
@@ -35,7 +31,7 @@
   "jns": {
     "name": "autocrat.jeju",
     "description": "AI-Powered Autonomous Governance",
-    "url": "https://autocrat.jeju.network"
+    "url": "https://autocrat.jejunetwork.org"
   },
   "healthCheck": {
     "url": "http://localhost:4007/health",

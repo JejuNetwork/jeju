@@ -52,7 +52,7 @@ const AGENT_CARD = {
   description: 'Search and query the network documentation programmatically',
   url: `http://localhost:${PORT}/api/a2a`,
   preferredTransport: 'http',
-  provider: { organization: 'the network', url: 'https://jeju.network' },
+  provider: { organization: 'the network', url: 'https://jejunetwork.org' },
   version: '1.0.0',
   capabilities: { streaming: false, pushNotifications: false, stateTransitionHistory: false },
   defaultInputModes: ['text', 'data'],

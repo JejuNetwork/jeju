@@ -70,7 +70,7 @@ const jeju = defineChain({
   id: 420691,
   name: 'Jeju',
   nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['https://rpc.jeju.network'] } },
+  rpcUrls: { default: { http: ['https://rpc.jejunetwork.org'] } },
 });
 
 // Current and upcoming Superchain members
@@ -148,7 +148,7 @@ const SUPERCHAIN_L2S: SuperchainL2[] = [
   {
     name: 'Jeju',
     chainId: 420691,
-    rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jeju.network',
+    rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org',
     chain: jeju,
     superchainMember: true,
   },

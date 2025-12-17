@@ -13,19 +13,19 @@ import { join } from "path";
 
 const JEJU_NETWORKS = {
   devnet: {
-    rpc: "https://devnet-rpc.jeju.network",
+    rpc: "https://devnet-rpc.jejunetwork.org",
     chainId: 420689,
-    explorer: "https://devnet-explorer.jeju.network",
+    explorer: "https://devnet-explorer.jejunetwork.org",
   },
   testnet: {
-    rpc: "https://testnet-rpc.jeju.network",
+    rpc: "https://testnet-rpc.jejunetwork.org",
     chainId: 420690,
-    explorer: "https://testnet-explorer.jeju.network",
+    explorer: "https://testnet-explorer.jejunetwork.org",
   },
   mainnet: {
-    rpc: "https://rpc.jeju.network",
+    rpc: "https://rpc.jejunetwork.org",
     chainId: 420691,
-    explorer: "https://explorer.jeju.network",
+    explorer: "https://explorer.jejunetwork.org",
   },
 };
 

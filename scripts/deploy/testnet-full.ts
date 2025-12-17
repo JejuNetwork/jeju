@@ -21,8 +21,7 @@
 import { $ } from 'bun';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { createPublicClient, http, parseEther, formatEther, getBalance, type Chain } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { createPublicClient, http, parseEther, formatEther, type Chain } from 'viem';
 
 const ROOT = join(import.meta.dir, '../..');
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys');
@@ -136,9 +135,9 @@ async function checkWalletFunding() {
   const sepoliaChain: Chain = { id: 11155111, name: 'Sepolia', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://ethereum-sepolia-rpc.publicnode.com'] } } };
   const publicClient = createPublicClient({ chain: sepoliaChain, transport: http('https://ethereum-sepolia-rpc.publicnode.com') });
 
-  const adminBalance = await getBalance(publicClient, { address: adminKey.address as `0x${string}` });
-  const batcherBalance = await getBalance(publicClient, { address: batcherKey.address as `0x${string}` });
-  const proposerBalance = await getBalance(publicClient, { address: proposerKey.address as `0x${string}` });
+  const adminBalance = await publicClient.getBalance({ address: adminKey.address as `0x${string}` });
+  const batcherBalance = await publicClient.getBalance({ address: batcherKey.address as `0x${string}` });
+  const proposerBalance = await publicClient.getBalance({ address: proposerKey.address as `0x${string}` });
 
   const minAdminBalance = parseEther('0.3');
   const minOperatorBalance = parseEther('0.05');
@@ -196,7 +195,7 @@ async function waitForChainSync() {
     printStatus();
 
     try {
-      const response = await fetch('https://testnet-rpc.jeju.network', {
+      const response = await fetch('https://testnet-rpc.jejunetwork.org', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -238,7 +237,6 @@ async function deployBundler() {
 }
 
 async function verifyDeployment() {
-  // Verify RPC - use environment variable if available, otherwise default
   const rpcUrl = process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network';
   
   const rpcResponse = await fetch(rpcUrl, {
@@ -344,14 +342,14 @@ async function main() {
 ╚══════════════════════════════════════════════════════════════════════╝
 
 Testnet URLs:
-  RPC: https://testnet-rpc.jeju.network
-  WS:  wss://testnet-ws.jeju.network
-  Explorer: https://testnet-explorer.jeju.network
+  RPC: https://testnet-rpc.jejunetwork.org
+  WS:  wss://testnet-ws.jejunetwork.org
+  Explorer: https://testnet-explorer.jejunetwork.org
 
 Chain ID: 420690
 
 Next Steps:
-  1. Update nameservers for jeju.network to AWS Route53
+  1. Update nameservers for jejunetwork.org to AWS Route53
   2. Enable HTTPS: terraform apply -var="enable_https=true" -var="enable_cdn=true"
   3. Test cross-chain transfers
 `);

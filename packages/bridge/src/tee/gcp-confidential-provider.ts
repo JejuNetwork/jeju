@@ -356,12 +356,58 @@ export class GCPConfidentialProvider implements ITEEProvider {
 		};
 	}
 
-	private async verifyAttestationToken(_quote: Uint8Array): Promise<boolean> {
-		// In production:
-		// 1. Parse JWT token
-		// 2. Verify signature with Google's public keys
-		// 3. Validate claims (iss, aud, exp)
-		// 4. Check hardware attestation claims
+	private async verifyAttestationToken(quote: Uint8Array): Promise<boolean> {
+		// Simulated mode: verify structure is valid JWT with expected fields
+		if (!this.inConfidentialVM) {
+			return this.verifySimulatedToken(quote);
+		}
+
+		// Production: Real GCP attestation verification
+		// This requires the Google Cloud SDK or equivalent JWT verification
+		throw new Error(
+			"[GCPConfidential] Production attestation verification requires Google Cloud SDK. " +
+			"Install @google-cloud/attestation or implement JWT signature verification with Google's public keys."
+		);
+	}
+
+	private verifySimulatedToken(quote: Uint8Array): boolean {
+		// Validate simulated JWT structure
+		const tokenString = Buffer.from(quote).toString('utf-8');
+		const parts = tokenString.split('.');
+		
+		if (parts.length !== 3) {
+			console.error("[GCPConfidential] Invalid token: not a valid JWT format");
+			return false;
+		}
+
+		// Decode and validate payload
+		const payloadJson = Buffer.from(parts[1], 'base64url').toString('utf-8');
+		const claims = JSON.parse(payloadJson) as GCPAttestationToken['claims'];
+
+		// Verify required fields
+		if (!claims.iss || !claims.sub || !claims.aud) {
+			console.error("[GCPConfidential] Invalid token: missing required claims");
+			return false;
+		}
+
+		// Verify issuer
+		if (claims.iss !== "https://confidentialcomputing.googleapis.com/") {
+			console.error("[GCPConfidential] Invalid token: unexpected issuer");
+			return false;
+		}
+
+		// Verify token is not expired
+		const now = Math.floor(Date.now() / 1000);
+		if (claims.exp && claims.exp < now) {
+			console.error("[GCPConfidential] Invalid token: expired");
+			return false;
+		}
+
+		// Verify token is not from the future (issued time)
+		if (claims.iat && claims.iat > now + 60) {
+			console.error("[GCPConfidential] Invalid token: issued in the future");
+			return false;
+		}
 
 		return true;
 	}

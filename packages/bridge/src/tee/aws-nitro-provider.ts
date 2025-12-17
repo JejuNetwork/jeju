@@ -340,14 +340,46 @@ export class AWSNitroProvider implements ITEEProvider {
 		};
 	}
 
-	private async verifyNitroDocument(_quote: Uint8Array): Promise<boolean> {
-		// In production, verify the COSE-signed attestation document:
-		// 1. Parse CBOR structure
-		// 2. Verify signature chain to AWS root CA
-		// 3. Validate PCR values
-		// 4. Check timestamp
+	private async verifyNitroDocument(quote: Uint8Array): Promise<boolean> {
+		// Simulated mode: verify structure is valid JSON with expected fields
+		if (!this.isRealEnclave) {
+			return this.verifySimulatedDocument(quote);
+		}
 
-		// For now, return true for simulated attestations
+		// Production: Real Nitro attestation verification
+		// This requires the AWS Nitro SDK or equivalent CBOR/COSE parsing
+		throw new Error(
+			"[AWSNitro] Production attestation verification requires AWS Nitro SDK. " +
+			"Install @aws-sdk/client-nitro-enclaves-nsm or implement COSE signature verification."
+		);
+	}
+
+	private verifySimulatedDocument(quote: Uint8Array): boolean {
+		// Validate simulated attestation structure
+		const docString = Buffer.from(quote).toString('utf-8');
+		
+		const doc = JSON.parse(docString) as NitroAttestationDocument;
+		
+		// Verify required fields exist
+		if (!doc.moduleId || !doc.timestamp || !doc.digest) {
+			console.error("[AWSNitro] Invalid document: missing required fields");
+			return false;
+		}
+
+		// Verify PCRs exist
+		if (!doc.pcrs || typeof doc.pcrs[0] !== 'string') {
+			console.error("[AWSNitro] Invalid document: missing PCR values");
+			return false;
+		}
+
+		// Verify timestamp is recent (within 1 hour for simulated)
+		const now = Date.now();
+		const docTime = doc.timestamp;
+		if (Math.abs(now - docTime) > 3600000) {
+			console.error("[AWSNitro] Invalid document: timestamp too old or in future");
+			return false;
+		}
+
 		return true;
 	}
 }

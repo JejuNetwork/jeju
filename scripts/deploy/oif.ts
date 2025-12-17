@@ -36,11 +36,11 @@ const NETWORKS: Record<string, NetworkConfig[]> = {
     { chainId: 1337, name: 'Anvil', rpcUrl: 'http://localhost:8545', oracleType: 'simple' },
   ],
   testnet: [
-    { chainId: 420690, name: 'Testnet', rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network', oracleType: 'superchain' },
+    { chainId: 420690, name: 'Testnet', rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org', oracleType: 'superchain' },
     { chainId: 11155111, name: 'Sepolia', rpcUrl: process.env.SEPOLIA_RPC_URL || 'https://ethereum-sepolia-rpc.publicnode.com', oracleType: 'superchain' },
   ],
   mainnet: [
-    { chainId: 420691, name: 'Mainnet', rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jeju.network', oracleType: 'superchain' },
+    { chainId: 420691, name: 'Mainnet', rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org', oracleType: 'superchain' },
     { chainId: 1, name: 'Ethereum', rpcUrl: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com', oracleType: 'hyperlane' },
   ],
 };

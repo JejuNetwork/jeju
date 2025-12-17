@@ -25,7 +25,7 @@
   "jns": {
     "name": "node.jeju",
     "description": "Network Node Operator Dashboard",
-    "url": "https://node.jeju.network"
+    "url": "https://node.jejunetwork.org"
   },
   "healthCheck": {
     "url": "http://localhost:1420/health",

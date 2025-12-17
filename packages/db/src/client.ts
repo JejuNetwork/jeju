@@ -1,9 +1,13 @@
 /**
  * CovenantSQL Client with circuit breaker pattern
+ * 
+ * Automatically uses network-aware configuration from @jejunetwork/config.
+ * No env vars required - just set JEJU_NETWORK=localnet|testnet|mainnet.
  */
 
 import { toHex } from 'viem';
 import type { Address, Hex } from 'viem';
+import { getCQLUrl, getCQLMinerUrl } from '@jejunetwork/config';
 import type {
   CQLConfig, CQLConnection, CQLConnectionPool, CQLTransaction,
   DatabaseConfig, DatabaseInfo, ExecResult, QueryParam, QueryResult,
@@ -331,11 +335,22 @@ export class CQLClient {
 
 let cqlClient: CQLClient | null = null;
 
+/**
+ * Get a CQL client with automatic network-aware configuration.
+ * Configuration is resolved in this order:
+ * 1. Explicit config parameter
+ * 2. Environment variable override
+ * 3. Network-based config from services.json (based on JEJU_NETWORK)
+ */
 export function getCQL(config?: Partial<CQLConfig>): CQLClient {
   if (!cqlClient) {
+    // Use centralized config - network aware, no hardcoded defaults
+    const blockProducerEndpoint = config?.blockProducerEndpoint ?? getCQLUrl();
+    const minerEndpoint = config?.minerEndpoint ?? getCQLMinerUrl();
+    
     cqlClient = new CQLClient({
-      blockProducerEndpoint: config?.blockProducerEndpoint ?? process.env.CQL_BLOCK_PRODUCER_ENDPOINT ?? 'http://localhost:4300',
-      minerEndpoint: config?.minerEndpoint ?? process.env.CQL_MINER_ENDPOINT,
+      blockProducerEndpoint,
+      minerEndpoint,
       privateKey: config?.privateKey ?? (process.env.CQL_PRIVATE_KEY as Hex),
       databaseId: config?.databaseId ?? process.env.CQL_DATABASE_ID,
       timeout: config?.timeout ?? parseInt(process.env.CQL_TIMEOUT ?? '30000'),

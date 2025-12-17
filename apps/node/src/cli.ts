@@ -139,10 +139,10 @@ program
     
     switch (options.network) {
       case 'mainnet':
-        rpcUrl = 'https://rpc.jeju.network';
+        rpcUrl = 'https://rpc.jejunetwork.org';
         break;
       case 'testnet':
-        rpcUrl = 'https://testnet-rpc.jeju.network';
+        rpcUrl = 'https://testnet-rpc.jejunetwork.org';
         break;
     }
     
@@ -313,11 +313,11 @@ program
     
     switch (options.network) {
       case 'mainnet':
-        rpcUrl = 'https://rpc.jeju.network';
+        rpcUrl = 'https://rpc.jejunetwork.org';
         chainId = 420690;
         break;
       case 'testnet':
-        rpcUrl = 'https://testnet-rpc.jeju.network';
+        rpcUrl = 'https://testnet-rpc.jejunetwork.org';
         chainId = 420691;
         break;
     }

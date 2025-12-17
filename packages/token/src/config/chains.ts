@@ -241,8 +241,8 @@ export const jejuTestnet: ChainConfig = {
   chainId: 420690,
   chainType: 'evm',
   name: 'Jeju Testnet',
-  rpcUrl: process.env.JEJU_RPC_URL ?? 'https://testnet-rpc.jeju.network',
-  blockExplorerUrl: 'https://testnet-explorer.jeju.network',
+  rpcUrl: process.env.JEJU_RPC_URL ?? 'https://testnet-rpc.jejunetwork.org',
+  blockExplorerUrl: 'https://testnet-explorer.jejunetwork.org',
   nativeCurrency: {
     name: 'Ether',
     symbol: 'ETH',

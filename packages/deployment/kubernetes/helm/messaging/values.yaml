@@ -2,7 +2,7 @@
 
 global:
   environment: testnet
-  domain: jeju.network
+  domain: jejunetwork.org
 
 # Relay Node Configuration
 relay:
@@ -40,7 +40,7 @@ relay:
       nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
       nginx.ingress.kubernetes.io/websocket-services: "messaging-relay"
     hosts:
-      - host: relay.testnet.jeju.network
+      - host: relay.testnet.jejunetwork.org
         paths:
           - path: /
             pathType: Prefix
@@ -55,14 +55,14 @@ relay:
     nodeRegistryAddress: ""
     
     # Jeju L2 RPC
-    jejuRpcUrl: "https://testnet-rpc.jeju.network"
+    jejuRpcUrl: "https://testnet-rpc.jejunetwork.org"
     
     # CovenantSQL
     covenantsqlNodes: ""
     covenantsqlDatabaseId: "babylon-messaging"
     
     # IPFS for large payloads
-    ipfsGateway: "https://gateway.testnet.jeju.network"
+    ipfsGateway: "https://gateway.testnet.jejunetwork.org"
   
   autoscaling:
     enabled: true
@@ -104,7 +104,7 @@ kms:
     annotations:
       nginx.ingress.kubernetes.io/backend-protocol: "HTTPS"
     hosts:
-      - host: kms.testnet.jeju.network
+      - host: kms.testnet.jejunetwork.org
         paths:
           - path: /
             pathType: Prefix

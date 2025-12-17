@@ -17,6 +17,13 @@ const ADDRESSES: Record<number, Record<string, Address>> = {
     moderationMarketplace: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318' as Address,
     jobRegistry: '0x610178dA211FEF7D417bC0e6FeD39F05609AD788' as Address,
     feeDistributor: '0xB7f8BC63BbcaD18155201308C8f3540b07f84F5e' as Address,
+    // Psyche-compatible training contracts
+    trainingCoordinator: '0x59b670e9fA9D0A427751Af201D676719a970857b' as Address,
+    trainingRewards: '0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1' as Address,
+    trainingRegistry: '0x322813Fd9A801c5507c9544993c7AaB2F512aA34' as Address,
+    nodePerformanceOracle: '0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f' as Address,
+    computeRegistry: '0x4A679253410272dd5232B3Ff7cF5dbB88f295319' as Address,
+    mpcKeyRegistry: '0x7a2088a1bFc9d81c55368AE168C2C02570cB814F' as Address,
   },
   // Testnet (Base Sepolia)
   84532: {
@@ -32,6 +39,12 @@ const ADDRESSES: Record<number, Record<string, Address>> = {
     moderationMarketplace: '0x0000000000000000000000000000000000000000' as Address,
     jobRegistry: '0x0000000000000000000000000000000000000000' as Address,
     feeDistributor: '0x0000000000000000000000000000000000000000' as Address,
+    trainingCoordinator: '0x0000000000000000000000000000000000000000' as Address,
+    trainingRewards: '0x0000000000000000000000000000000000000000' as Address,
+    trainingRegistry: '0x0000000000000000000000000000000000000000' as Address,
+    nodePerformanceOracle: '0x0000000000000000000000000000000000000000' as Address,
+    computeRegistry: '0x0000000000000000000000000000000000000000' as Address,
+    mpcKeyRegistry: '0x0000000000000000000000000000000000000000' as Address,
   },
   // Mainnet (Base)
   8453: {
@@ -47,6 +60,12 @@ const ADDRESSES: Record<number, Record<string, Address>> = {
     moderationMarketplace: '0x0000000000000000000000000000000000000000' as Address,
     jobRegistry: '0x0000000000000000000000000000000000000000' as Address,
     feeDistributor: '0x0000000000000000000000000000000000000000' as Address,
+    trainingCoordinator: '0x0000000000000000000000000000000000000000' as Address,
+    trainingRewards: '0x0000000000000000000000000000000000000000' as Address,
+    trainingRegistry: '0x0000000000000000000000000000000000000000' as Address,
+    nodePerformanceOracle: '0x0000000000000000000000000000000000000000' as Address,
+    computeRegistry: '0x0000000000000000000000000000000000000000' as Address,
+    mpcKeyRegistry: '0x0000000000000000000000000000000000000000' as Address,
   },
 };
 

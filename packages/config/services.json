@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "lastUpdated": "2025-12-10",
+  "version": "1.1.0",
+  "lastUpdated": "2025-12-14",
   "description": "Service URLs for Jeju networks. Env overrides: VITE_/NEXT_PUBLIC_ + SERVICE_URL (e.g., VITE_INDEXER_URL)",
   
   "localnet": {
@@ -44,50 +44,74 @@
     "crucible": {
       "api": "http://127.0.0.1:4020",
       "executor": "http://127.0.0.1:4021"
+    },
+    "cql": {
+      "blockProducer": "http://127.0.0.1:4300",
+      "miner": "http://127.0.0.1:4301"
+    },
+    "dws": {
+      "api": "http://127.0.0.1:4030",
+      "compute": "http://127.0.0.1:4030/compute"
+    },
+    "autocrat": {
+      "api": "http://127.0.0.1:4040",
+      "a2a": "http://127.0.0.1:4040/a2a"
     }
   },
   
   "testnet": {
     "rpc": {
       "l1": "https://ethereum-sepolia-rpc.publicnode.com",
-      "l2": "https://testnet-rpc.jeju.network",
-      "ws": "wss://testnet-ws.jeju.network"
+      "l2": "https://testnet-rpc.jejunetwork.org",
+      "ws": "wss://testnet-ws.jejunetwork.org"
     },
-    "explorer": "https://testnet-explorer.jeju.network",
+    "explorer": "https://testnet-explorer.jejunetwork.org",
     "indexer": {
-      "graphql": "https://testnet-indexer.jeju.network/graphql",
-      "websocket": "wss://testnet-indexer.jeju.network/graphql"
+      "graphql": "https://testnet-indexer.jejunetwork.org/graphql",
+      "websocket": "wss://testnet-indexer.jejunetwork.org/graphql"
     },
     "gateway": {
-      "ui": "https://testnet-gateway.jeju.network",
-      "api": "https://testnet-api.jeju.network",
-      "a2a": "https://testnet-a2a.jeju.network",
-      "ws": "wss://testnet-ws.jeju.network"
+      "ui": "https://testnet-gateway.jejunetwork.org",
+      "api": "https://testnet-api.jejunetwork.org",
+      "a2a": "https://testnet-a2a.jejunetwork.org",
+      "ws": "wss://testnet-ws.jejunetwork.org"
     },
-    "rpcGateway": "https://testnet-rpc-gateway.jeju.network",
-    "bazaar": "https://testnet-bazaar.jeju.network",
+    "rpcGateway": "https://testnet-rpc-gateway.jejunetwork.org",
+    "bazaar": "https://testnet-bazaar.jejunetwork.org",
     "storage": {
-      "api": "https://testnet-storage.jeju.network",
-      "ipfsGateway": "https://testnet-ipfs.jeju.network"
+      "api": "https://testnet-storage.jejunetwork.org",
+      "ipfsGateway": "https://testnet-ipfs.jejunetwork.org"
     },
     "compute": {
-      "marketplace": "https://testnet-compute.jeju.network",
-      "nodeApi": "https://testnet-compute-api.jeju.network"
+      "marketplace": "https://testnet-compute.jejunetwork.org",
+      "nodeApi": "https://testnet-compute-api.jejunetwork.org"
     },
     "oif": {
-      "aggregator": "https://testnet-oif.jeju.network/api"
+      "aggregator": "https://testnet-oif.jejunetwork.org/api"
     },
     "leaderboard": {
-      "api": "https://leaderboard.jeju.network/api",
-      "ui": "https://leaderboard.jeju.network"
+      "api": "https://leaderboard.jejunetwork.org/api",
+      "ui": "https://leaderboard.jejunetwork.org"
     },
     "monitoring": {
-      "prometheus": "https://testnet-prometheus.jeju.network",
-      "grafana": "https://testnet-grafana.jeju.network"
+      "prometheus": "https://testnet-prometheus.jejunetwork.org",
+      "grafana": "https://testnet-grafana.jejunetwork.org"
     },
     "crucible": {
-      "api": "https://testnet-crucible.jeju.network",
-      "executor": "https://testnet-crucible-executor.jeju.network"
+      "api": "https://testnet-crucible.jejunetwork.org",
+      "executor": "https://testnet-crucible-executor.jejunetwork.org"
+    },
+    "cql": {
+      "blockProducer": "https://testnet-cql.jejunetwork.org",
+      "miner": "https://testnet-cql-miner.jejunetwork.org"
+    },
+    "dws": {
+      "api": "https://testnet-dws.jejunetwork.org",
+      "compute": "https://testnet-dws.jejunetwork.org/compute"
+    },
+    "autocrat": {
+      "api": "https://testnet-autocrat.jejunetwork.org",
+      "a2a": "https://testnet-autocrat.jejunetwork.org/a2a"
     },
     "externalRpcs": {
       "ethSepolia": "https://ethereum-sepolia-rpc.publicnode.com",
@@ -101,44 +125,56 @@
   "mainnet": {
     "rpc": {
       "l1": "https://eth.llamarpc.com",
-      "l2": "https://rpc.jeju.network",
-      "ws": "wss://ws.jeju.network"
+      "l2": "https://rpc.jejunetwork.org",
+      "ws": "wss://ws.jejunetwork.org"
     },
-    "explorer": "https://explorer.jeju.network",
+    "explorer": "https://explorer.jejunetwork.org",
     "indexer": {
-      "graphql": "https://indexer.jeju.network/graphql",
-      "websocket": "wss://indexer.jeju.network/graphql"
+      "graphql": "https://indexer.jejunetwork.org/graphql",
+      "websocket": "wss://indexer.jejunetwork.org/graphql"
     },
     "gateway": {
-      "ui": "https://gateway.jeju.network",
-      "api": "https://api.jeju.network",
-      "a2a": "https://a2a.jeju.network",
-      "ws": "wss://ws.jeju.network"
+      "ui": "https://gateway.jejunetwork.org",
+      "api": "https://api.jejunetwork.org",
+      "a2a": "https://a2a.jejunetwork.org",
+      "ws": "wss://ws.jejunetwork.org"
     },
-    "rpcGateway": "https://rpc-gateway.jeju.network",
-    "bazaar": "https://bazaar.jeju.network",
+    "rpcGateway": "https://rpc-gateway.jejunetwork.org",
+    "bazaar": "https://bazaar.jejunetwork.org",
     "storage": {
-      "api": "https://storage.jeju.network",
-      "ipfsGateway": "https://ipfs.jeju.network"
+      "api": "https://storage.jejunetwork.org",
+      "ipfsGateway": "https://ipfs.jejunetwork.org"
     },
     "compute": {
-      "marketplace": "https://compute.jeju.network",
-      "nodeApi": "https://compute-api.jeju.network"
+      "marketplace": "https://compute.jejunetwork.org",
+      "nodeApi": "https://compute-api.jejunetwork.org"
     },
     "oif": {
-      "aggregator": "https://oif.jeju.network/api"
+      "aggregator": "https://oif.jejunetwork.org/api"
     },
     "leaderboard": {
-      "api": "https://leaderboard.jeju.network/api",
-      "ui": "https://leaderboard.jeju.network"
+      "api": "https://leaderboard.jejunetwork.org/api",
+      "ui": "https://leaderboard.jejunetwork.org"
     },
     "monitoring": {
-      "prometheus": "https://prometheus.jeju.network",
-      "grafana": "https://grafana.jeju.network"
+      "prometheus": "https://prometheus.jejunetwork.org",
+      "grafana": "https://grafana.jejunetwork.org"
     },
     "crucible": {
-      "api": "https://crucible.jeju.network",
-      "executor": "https://crucible-executor.jeju.network"
+      "api": "https://crucible.jejunetwork.org",
+      "executor": "https://crucible-executor.jejunetwork.org"
+    },
+    "cql": {
+      "blockProducer": "https://cql.jejunetwork.org",
+      "miner": "https://cql-miner.jejunetwork.org"
+    },
+    "dws": {
+      "api": "https://dws.jejunetwork.org",
+      "compute": "https://dws.jejunetwork.org/compute"
+    },
+    "autocrat": {
+      "api": "https://autocrat.jejunetwork.org",
+      "a2a": "https://autocrat.jejunetwork.org/a2a"
     },
     "externalRpcs": {
       "ethereum": "https://eth.llamarpc.com",

@@ -96,6 +96,7 @@ export interface SwapIntent {
   amountOutMin: bigint;
   deadline: number;
   path: Address[];
+  pool?: Address;  // Pool address for liquidity calculations
 }
 
 export interface MempoolConfig {

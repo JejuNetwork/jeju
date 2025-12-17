@@ -34,8 +34,8 @@ locals {
   jns_registry_address              = "0x0000000000000000000000000000000000000000"
   
   # Service URLs
-  jeju_rpc_url        = "https://rpc.testnet.jeju.network"
-  storage_gateway_url = "https://storage.testnet.jeju.network"
+  jeju_rpc_url        = "https://rpc.testnet.jejunetwork.org"
+  storage_gateway_url = "https://storage.testnet.jejunetwork.org"
 }
 
 # ============================================================================

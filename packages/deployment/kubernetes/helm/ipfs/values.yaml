@@ -25,14 +25,14 @@ ingress:
     cert-manager.io/cluster-issuer: "letsencrypt-prod"
     nginx.ingress.kubernetes.io/proxy-body-size: "100m"
   hosts:
-    - host: ipfs.testnet.jeju.network
+    - host: ipfs.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: ipfs-tls
       hosts:
-        - ipfs.testnet.jeju.network
+        - ipfs.testnet.jejunetwork.org
 
 resources:
   limits:

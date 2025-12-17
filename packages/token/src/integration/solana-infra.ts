@@ -69,13 +69,13 @@ export interface SolanaTerraformConfig {
 
 const JEJU_SOLANA_NODES: Record<string, SolanaNodeConfig> = {
   'jeju-mainnet': {
-    rpcUrl: 'https://solana-rpc.jeju.network',
-    wsUrl: 'wss://solana-ws.jeju.network',
+    rpcUrl: 'https://solana-rpc.jejunetwork.org',
+    wsUrl: 'wss://solana-ws.jejunetwork.org',
     commitment: 'confirmed',
   },
   'jeju-devnet': {
-    rpcUrl: 'https://solana-devnet-rpc.jeju.network',
-    wsUrl: 'wss://solana-devnet-ws.jeju.network',
+    rpcUrl: 'https://solana-devnet-rpc.jejunetwork.org',
+    wsUrl: 'wss://solana-devnet-ws.jejunetwork.org',
     commitment: 'confirmed',
   },
   'solana-mainnet': {

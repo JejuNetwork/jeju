@@ -9,14 +9,14 @@ replicaCount: 2
 ingress:
   enabled: true
   hosts:
-    - host: ipfs.testnet.jeju.network
+    - host: ipfs.testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: ipfs-testnet-tls
       hosts:
-        - ipfs.testnet.jeju.network
+        - ipfs.testnet.jejunetwork.org
 
 persistence:
   enabled: true
@@ -25,7 +25,7 @@ persistence:
 
 env:
   - name: IPFS_GATEWAY_URL
-    value: "https://ipfs.testnet.jeju.network"
+    value: "https://ipfs.testnet.jejunetwork.org"
   - name: X402_ENABLED
     value: "true"
 

@@ -118,6 +118,31 @@ export {
   type PaymentConfig,
 } from './payments';
 
+// Container Deployment
+export {
+  createDeployment,
+  getDeployment,
+  listDeployments,
+  updateDeployment,
+  deploy,
+  stopDeployment,
+  deleteDeployment,
+  listToMarketplace,
+  unlistFromMarketplace,
+  addKMSKey,
+  addSecretRef,
+  recordRequest as recordDeploymentRequest,
+  getLogs as getDeploymentLogs,
+  getMarketplaceDeploymentStats,
+  getTemplates,
+  DEPLOYMENT_TEMPLATES,
+  type APIDeployment,
+  type ContainerSpec,
+  type WorkerSpec,
+  type DeploymentType,
+  type DeploymentStatus,
+} from './container-deployment';
+
 // ============================================================================
 // Initialize
 // ============================================================================

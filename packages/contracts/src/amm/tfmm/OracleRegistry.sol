@@ -4,9 +4,6 @@ pragma solidity ^0.8.26;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IOracleRegistry} from "./IOracleRegistry.sol";
 
-// ============ External Interfaces ============
-
-// Pyth oracle interface
 interface IPyth {
     struct Price {
         int64 price;
@@ -18,7 +15,6 @@ interface IPyth {
     function getPriceNoOlderThan(bytes32 id, uint256 age) external view returns (Price memory);
 }
 
-// Chainlink AggregatorV3 interface
 interface IChainlinkFeed {
     function latestRoundData() external view returns (
         uint80 roundId,
@@ -30,7 +26,6 @@ interface IChainlinkFeed {
     function decimals() external view returns (uint8);
 }
 
-// TWAP Oracle interface
 interface ITWAPOracle {
     function getPrice(address baseToken) external view returns (uint256);
     function isValidTWAP(address baseToken) external view returns (bool);
@@ -47,16 +42,12 @@ interface ITWAPOracle {
  */
 contract OracleRegistry is IOracleRegistry, Ownable {
 
-    // ============ Enums ============
-
     enum OracleType {
         CHAINLINK,
         PYTH,
         TWAP,
         CUSTOM
     }
-
-    // ============ Structs ============
 
     struct OracleInfo {
         address feed;           // Feed address (Chainlink aggregator, custom feed)
@@ -66,8 +57,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         OracleType oracleType;
         bool active;
     }
-
-    // ============ State Variables ============
 
     /// @notice Pyth oracle contract
     IPyth public pyth;
@@ -100,8 +89,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
     /// @notice Max deviation between primary and fallback (basis points)
     uint256 public maxPriceDeviation = 500; // 5%
 
-    // ============ Events ============
-
     event OracleRegistered(
         address indexed token,
         address feed,
@@ -118,15 +105,11 @@ contract OracleRegistry is IOracleRegistry, Ownable {
     event TWAPOracleUpdated(address indexed twapOracle);
     event FallbackUsed(address indexed token, OracleType fallbackType);
 
-    // ============ Errors ============
-
     error OracleNotFound(address token);
     error PriceStale(address token, uint256 staleness);
     error InvalidPrice(address token);
     error OracleInactive(address token);
     error PriceDeviationTooHigh(address token, uint256 deviation);
-
-    // ============ Constructor ============
 
     constructor(
         address pyth_,
@@ -138,18 +121,11 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         governance = governance_;
     }
 
-    // ============ Modifiers ============
-
     modifier onlyGovernance() {
         require(msg.sender == governance || msg.sender == owner(), "Not governance");
         _;
     }
 
-    // ============ Oracle Registration ============
-
-    /**
-     * @notice Register a Chainlink oracle
-     */
     function registerChainlinkOracle(
         address token,
         address feed,
@@ -169,9 +145,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         emit OracleRegistered(token, feed, bytes32(0), OracleType.CHAINLINK);
     }
 
-    /**
-     * @notice Register a Pyth oracle
-     */
     function registerPythOracle(
         address token,
         bytes32 pythId,
@@ -189,9 +162,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         emit OracleRegistered(token, address(pyth), pythId, OracleType.PYTH);
     }
 
-    /**
-     * @notice Register a TWAP oracle (uses TWAPOracle contract)
-     */
     function registerTWAPOracle(
         address token,
         uint256 heartbeat
@@ -208,9 +178,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         emit OracleRegistered(token, address(twapOracle), bytes32(0), OracleType.TWAP);
     }
 
-    /**
-     * @notice Register a custom oracle
-     */
     function registerOracle(
         address token,
         address feed,
@@ -229,10 +196,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         emit OracleRegistered(token, feed, bytes32(0), OracleType.CUSTOM);
     }
 
-    /**
-     * @notice Register a fallback oracle for a token
-     * @dev Used when primary oracle fails or is stale
-     */
     function registerFallbackOracle(
         address token,
         OracleType oracleType,
@@ -253,26 +216,15 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         emit FallbackOracleRegistered(token, feed, oracleType);
     }
 
-    /**
-     * @notice Deactivate an oracle
-     */
     function deactivateOracle(address token) external onlyOwner {
         oracles[token].active = false;
         emit OracleDeactivated(token);
     }
 
-    /**
-     * @notice Deactivate a fallback oracle
-     */
     function deactivateFallbackOracle(address token) external onlyOwner {
         fallbackOracles[token].active = false;
     }
 
-    // ============ Price Fetching ============
-
-    /**
-     * @inheritdoc IOracleRegistry
-     */
     function getPrice(address token) external view override returns (uint256 price) {
         OracleInfo storage info = oracles[token];
 
@@ -303,10 +255,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         }
     }
 
-    /**
-     * @notice Get price with fallback and deviation check
-     * @dev Returns both primary and fallback prices for comparison
-     */
     function getPriceWithValidation(address token) external view returns (
         uint256 primaryPrice,
         uint256 fallbackPrice,
@@ -333,9 +281,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         }
     }
 
-    /**
-     * @notice Try to get price from an oracle, returns success status
-     */
     function _tryGetPrice(OracleInfo storage info, address token) internal view returns (bool success, uint256 price) {
         if (info.feed == address(0) && info.pythId == bytes32(0)) {
             return (false, 0);
@@ -352,9 +297,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         }
     }
 
-    /**
-     * @inheritdoc IOracleRegistry
-     */
     function getPrices(address[] calldata tokens) external view override returns (uint256[] memory prices) {
         prices = new uint256[](tokens.length);
         for (uint256 i = 0; i < tokens.length; i++) {
@@ -362,9 +304,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         }
     }
 
-    /**
-     * @inheritdoc IOracleRegistry
-     */
     function isPriceStale(address token) external view override returns (bool) {
         OracleInfo storage info = oracles[token];
 
@@ -377,9 +316,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         return false;
     }
 
-    /**
-     * @inheritdoc IOracleRegistry
-     */
     function getOracleConfig(address token) external view override returns (OracleConfig memory config) {
         OracleInfo storage info = oracles[token];
         config = OracleConfig({
@@ -390,23 +326,13 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         });
     }
 
-    // ============ View Functions ============
-
-    /**
-     * @notice Get oracle type for a token
-     */
     function getOracleType(address token) external view returns (OracleType) {
         return oracles[token].oracleType;
     }
 
-    /**
-     * @notice Get Pyth price ID for a token
-     */
     function getPythId(address token) external view returns (bytes32) {
         return oracles[token].pythId;
     }
-
-    // ============ Admin Functions ============
 
     function setPyth(address pyth_) external onlyGovernance {
         pyth = IPyth(pyth_);
@@ -420,8 +346,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
     function setGovernance(address newGovernance) external onlyGovernance {
         governance = newGovernance;
     }
-
-    // ============ Internal Functions ============
 
     function _tryGetPythPrice(OracleInfo storage info) internal view returns (bool success, uint256 price) {
         try pyth.getPriceNoOlderThan(info.pythId, info.heartbeat) returns (IPyth.Price memory pythPrice) {
@@ -511,8 +435,6 @@ contract OracleRegistry is IOracleRegistry, Ownable {
         }
         success = true;
     }
-
-    // ============ Admin Functions ============
 
     function setTWAPOracle(address twapOracle_) external onlyGovernance {
         twapOracle = ITWAPOracle(twapOracle_);

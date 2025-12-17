@@ -7,9 +7,161 @@
  * - Uniswap V3 TWAP (fallback)
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test';
+import { describe, test, expect, beforeAll, beforeEach } from 'bun:test';
 import { OracleAggregator, TOKEN_SYMBOLS, getTokenSymbol } from './index';
 import type { EVMChainId, OraclePrice } from '../types';
+
+describe('OracleAggregator Class Tests', () => {
+  describe('Constructor', () => {
+    test('should create instance with empty config', () => {
+      const oracle = new OracleAggregator({});
+      expect(oracle).toBeInstanceOf(OracleAggregator);
+    });
+
+    test('should create instance with RPC URLs', () => {
+      const oracle = new OracleAggregator({
+        1: 'https://eth.example.com',
+        8453: 'https://base.example.com',
+      });
+      expect(oracle).toBeInstanceOf(OracleAggregator);
+    });
+  });
+
+  describe('isStale method', () => {
+    let oracle: OracleAggregator;
+
+    beforeEach(() => {
+      oracle = new OracleAggregator({});
+    });
+
+    test('should return false for fresh prices', () => {
+      const price: OraclePrice = {
+        token: 'ETH',
+        price: 300000000000n,
+        decimals: 8,
+        timestamp: Date.now(),
+        source: 'pyth',
+      };
+      expect(oracle.isStale(price, 60000)).toBe(false);
+    });
+
+    test('should return true for stale prices', () => {
+      const price: OraclePrice = {
+        token: 'ETH',
+        price: 300000000000n,
+        decimals: 8,
+        timestamp: Date.now() - 120000,
+        source: 'chainlink',
+      };
+      expect(oracle.isStale(price, 60000)).toBe(true);
+    });
+
+    test('should handle exact boundary - just inside threshold', () => {
+      const price: OraclePrice = {
+        token: 'ETH',
+        price: 300000000000n,
+        decimals: 8,
+        timestamp: Date.now() - 59999,
+        source: 'pyth',
+      };
+      expect(oracle.isStale(price, 60000)).toBe(false);
+    });
+
+    test('should handle exact boundary - just outside threshold', () => {
+      const price: OraclePrice = {
+        token: 'ETH',
+        price: 300000000000n,
+        decimals: 8,
+        timestamp: Date.now() - 60001,
+        source: 'pyth',
+      };
+      expect(oracle.isStale(price, 60000)).toBe(true);
+    });
+
+    test('should handle zero maxAge', () => {
+      const price: OraclePrice = {
+        token: 'ETH',
+        price: 300000000000n,
+        decimals: 8,
+        timestamp: Date.now(),
+        source: 'pyth',
+      };
+      // With zero maxAge, even current timestamp is stale
+      expect(oracle.isStale(price, 0)).toBe(true);
+    });
+
+    test('should handle very old timestamps', () => {
+      const price: OraclePrice = {
+        token: 'ETH',
+        price: 300000000000n,
+        decimals: 8,
+        timestamp: 0, // Unix epoch
+        source: 'chainlink',
+      };
+      expect(oracle.isStale(price, 60000)).toBe(true);
+    });
+  });
+
+  describe('calculateDeviation method', () => {
+    let oracle: OracleAggregator;
+
+    beforeEach(() => {
+      oracle = new OracleAggregator({});
+    });
+
+    test('should return 0 for identical prices', () => {
+      const price = 300000000000n;
+      expect(oracle.calculateDeviation(price, price)).toBe(0);
+    });
+
+    test('should calculate 0.1% deviation correctly', () => {
+      const price1 = 300000000000n;
+      const price2 = 300300000000n; // +0.1%
+      const deviation = oracle.calculateDeviation(price1, price2);
+      expect(deviation).toBeGreaterThanOrEqual(9);
+      expect(deviation).toBeLessThanOrEqual(11);
+    });
+
+    test('should calculate 1% deviation correctly', () => {
+      const price1 = 300000000000n;
+      const price2 = 303000000000n; // +1%
+      const deviation = oracle.calculateDeviation(price1, price2);
+      expect(deviation).toBeGreaterThan(95);
+      expect(deviation).toBeLessThan(105);
+    });
+
+    test('should handle inverted price order (a < b)', () => {
+      const price1 = 300000000000n;
+      const price2 = 303000000000n;
+      const dev1 = oracle.calculateDeviation(price1, price2);
+      const dev2 = oracle.calculateDeviation(price2, price1);
+      expect(dev1).toBe(dev2);
+    });
+
+    test('should handle very small prices', () => {
+      const price1 = 100n;
+      const price2 = 101n;
+      const deviation = oracle.calculateDeviation(price1, price2);
+      expect(deviation).toBeGreaterThan(0);
+    });
+
+    test('should handle large prices', () => {
+      const price1 = 10000000000000000000000n; // 100 trillion
+      const price2 = 10100000000000000000000n; // +1%
+      const deviation = oracle.calculateDeviation(price1, price2);
+      expect(deviation).toBeGreaterThan(95);
+      expect(deviation).toBeLessThan(105);
+    });
+
+    test('should handle 50% deviation', () => {
+      const price1 = 100n;
+      const price2 = 150n; // +50%
+      const deviation = oracle.calculateDeviation(price1, price2);
+      // Average is 125, diff is 50, so deviation = 50/125 * 10000 = 4000 bps
+      expect(deviation).toBe(4000);
+    });
+  });
+});
 
 describe('Oracle Integration - All Sources', () => {
   let oracle: OracleAggregator;

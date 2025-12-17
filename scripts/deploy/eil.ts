@@ -54,7 +54,7 @@ const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
   },
   testnet: {
     l1RpcUrl: process.env.SEPOLIA_RPC_URL || 'https://sepolia.ethereum.org',
-    l2RpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
+    l2RpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
     l1ChainId: 11155111,
     l2ChainId: 420690,
     l1CrossDomainMessenger: '0x4200000000000000000000000000000000000007', // Sepolia L1 messenger
@@ -63,7 +63,7 @@ const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
   },
   mainnet: {
     l1RpcUrl: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
-    l2RpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jeju.network',
+    l2RpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org',
     l1ChainId: 1,
     l2ChainId: 420691,
     l1CrossDomainMessenger: '0x4200000000000000000000000000000000000007',

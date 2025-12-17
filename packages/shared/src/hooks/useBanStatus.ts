@@ -94,8 +94,8 @@ function getDefaultRpcUrl(): string {
   if (envRpc) return envRpc;
   
   switch (network) {
-    case 'mainnet': return 'https://rpc.jeju.network';
-    case 'testnet': return 'https://testnet-rpc.jeju.network';
+    case 'mainnet': return 'https://rpc.jejunetwork.org';
+    case 'testnet': return 'https://testnet-rpc.jejunetwork.org';
     default: return 'http://localhost:9545';
   }
 }

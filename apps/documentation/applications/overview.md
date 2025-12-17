@@ -136,7 +136,7 @@ const { data } = useQuery({
 ### Agent Communication
 
 ```typescript
-const response = await fetch('https://gateway.jeju.network/a2a', {
+const response = await fetch('https://gateway.jejunetwork.org/a2a', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({

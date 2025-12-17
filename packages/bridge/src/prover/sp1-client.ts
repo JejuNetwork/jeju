@@ -425,7 +425,26 @@ export class SP1Client {
 		request: ProofRequest,
 		startTime: number,
 	): Promise<ProofResult> {
-		// Simulate proof generation time (faster in mock)
+		// Production guard: mock proofs are not allowed in production
+		const isProduction = process.env.NODE_ENV === "production";
+		const requireRealProof = process.env.REQUIRE_REAL_PROOFS === "true";
+
+		if (isProduction || requireRealProof) {
+			return {
+				id,
+				type: request.type,
+				proof: this.emptyProof(),
+				groth16: this.emptyGroth16(),
+				generationTimeMs: Date.now() - startTime,
+				success: false,
+				error:
+					"Mock proofs are disabled in production. " +
+					"Install SP1 toolchain (sp1up) or configure SUCCINCT_API_KEY for remote proving.",
+			};
+		}
+
+		// Development-only mock proof
+		console.warn(`[SP1] WARNING: Generating mock proof for ${request.type} - DEVELOPMENT ONLY`);
 		await Bun.sleep(100);
 
 		const proofBytes = new Uint8Array(256);

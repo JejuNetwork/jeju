@@ -35,7 +35,7 @@ bun install
 ```bash
 # .env
 PRIVATE_KEY=0x...
-RPC_URL=https://rpc.jeju.network
+RPC_URL=https://rpc.jejunetwork.org
 STORAGE_PORT=4010
 IPFS_REPO_PATH=/data/ipfs
 STORAGE_PRICE=1000000000000000  # 0.001 ETH per MB/month

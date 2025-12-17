@@ -456,6 +456,13 @@ export class SolanaClient {
   }
 
   /**
+   * Get the keypair for signing (null if not configured)
+   */
+  getKeypair(): Keypair | null {
+    return this.keypair ?? null;
+  }
+
+  /**
    * Send an instruction as a transaction
    */
   async sendInstruction(instruction: TransactionInstruction): Promise<string> {

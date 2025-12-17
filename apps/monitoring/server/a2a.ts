@@ -68,7 +68,7 @@ app.get('/.well-known/agent-card.json', (_req, res) => {
     description: 'Query blockchain metrics and system health via Prometheus',
     url: 'http://localhost:9091/api/a2a',
     preferredTransport: 'http',
-    provider: { organization: 'the network', url: 'https://jeju.network' },
+    provider: { organization: 'the network', url: 'https://jejunetwork.org' },
     version: '1.0.0',
     capabilities: { 
       streaming: false, 

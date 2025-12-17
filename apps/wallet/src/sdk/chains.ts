@@ -22,7 +22,7 @@ export const chains: Record<number, ChainConfig> = {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
       default: { http: ['https://eth.llamarpc.com'] },
-      jeju: { http: ['https://rpc.jeju.network/eth'] },
+      jeju: { http: ['https://rpc.jejunetwork.org/eth'] },
     },
     blockExplorers: {
       default: { name: 'Etherscan', url: 'https://etherscan.io' },
@@ -39,7 +39,7 @@ export const chains: Record<number, ChainConfig> = {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
       default: { http: ['https://mainnet.base.org'] },
-      jeju: { http: ['https://rpc.jeju.network/base'] },
+      jeju: { http: ['https://rpc.jejunetwork.org/base'] },
     },
     blockExplorers: {
       default: { name: 'BaseScan', url: 'https://basescan.org' },
@@ -56,7 +56,7 @@ export const chains: Record<number, ChainConfig> = {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
       default: { http: ['https://arb1.arbitrum.io/rpc'] },
-      jeju: { http: ['https://rpc.jeju.network/arbitrum'] },
+      jeju: { http: ['https://rpc.jejunetwork.org/arbitrum'] },
     },
     blockExplorers: {
       default: { name: 'Arbiscan', url: 'https://arbiscan.io' },
@@ -73,7 +73,7 @@ export const chains: Record<number, ChainConfig> = {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
       default: { http: ['https://mainnet.optimism.io'] },
-      jeju: { http: ['https://rpc.jeju.network/optimism'] },
+      jeju: { http: ['https://rpc.jejunetwork.org/optimism'] },
     },
     blockExplorers: {
       default: { name: 'Optimism Explorer', url: 'https://optimistic.etherscan.io' },
@@ -90,7 +90,7 @@ export const chains: Record<number, ChainConfig> = {
     nativeCurrency: { name: 'MATIC', symbol: 'MATIC', decimals: 18 },
     rpcUrls: {
       default: { http: ['https://polygon-rpc.com'] },
-      jeju: { http: ['https://rpc.jeju.network/polygon'] },
+      jeju: { http: ['https://rpc.jejunetwork.org/polygon'] },
     },
     blockExplorers: {
       default: { name: 'PolygonScan', url: 'https://polygonscan.com' },
@@ -107,7 +107,7 @@ export const chains: Record<number, ChainConfig> = {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
       default: { http: ['https://rpc.scroll.io'] },
-      jeju: { http: ['https://rpc.jeju.network/scroll'] },
+      jeju: { http: ['https://rpc.jejunetwork.org/scroll'] },
     },
     blockExplorers: {
       default: { name: 'Scrollscan', url: 'https://scrollscan.com' },
@@ -124,7 +124,7 @@ export const chains: Record<number, ChainConfig> = {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
       default: { http: ['https://mainnet.era.zksync.io'] },
-      jeju: { http: ['https://rpc.jeju.network/zksync'] },
+      jeju: { http: ['https://rpc.jejunetwork.org/zksync'] },
     },
     blockExplorers: {
       default: { name: 'zkSync Explorer', url: 'https://explorer.zksync.io' },
@@ -141,7 +141,7 @@ export const chains: Record<number, ChainConfig> = {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
       default: { http: ['https://sepolia.base.org'] },
-      jeju: { http: ['https://rpc.jeju.network/base-sepolia'] },
+      jeju: { http: ['https://rpc.jejunetwork.org/base-sepolia'] },
     },
     blockExplorers: {
       default: { name: 'BaseScan Sepolia', url: 'https://sepolia.basescan.org' },
@@ -177,10 +177,10 @@ export const chains: Record<number, ChainConfig> = {
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
       default: { http: [getBrandingRpcUrl(420691)] },
-      jeju: { http: ['https://l2.jeju.network/rpc'] },
+      jeju: { http: ['https://l2.jejunetwork.org/rpc'] },
     },
     blockExplorers: {
-      default: { name: 'Network Explorer', url: 'https://explorer.jeju.network' },
+      default: { name: 'Network Explorer', url: 'https://explorer.jejunetwork.org' },
     },
     eilSupported: true,
     oifSupported: true,

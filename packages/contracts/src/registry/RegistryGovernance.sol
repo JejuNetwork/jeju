@@ -163,6 +163,9 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
     address public treasury;
     address public guardianRewardPool;
 
+    // Reputation provider registry for weighted reputation aggregation
+    address public reputationProviderRegistry;
+
     // ============ Events ============
 
     event ProposalCreated(
@@ -192,6 +195,8 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
     event EnvironmentUpdated(Environment oldEnv, Environment newEnv);
     event MultiSigUpdated(uint256 threshold, uint256 total);
     event TreasuryUpdated(address oldTreasury, address newTreasury);
+
+    event ReputationProviderRegistryUpdated(address oldRegistry, address newRegistry);
 
     // ============ Errors ============
 
@@ -723,6 +728,38 @@ contract RegistryGovernance is Ownable, Pausable, ReentrancyGuard {
     function setGuardianRewardPool(address newPool) external onlyOwner {
         require(newPool != address(0), "Invalid pool");
         guardianRewardPool = newPool;
+    }
+
+    /**
+     * @notice Set the reputation provider registry
+     * @param newRegistry Address of ReputationProviderRegistry contract
+     */
+    function setReputationProviderRegistry(address newRegistry) external onlyOwner {
+        address oldRegistry = reputationProviderRegistry;
+        reputationProviderRegistry = newRegistry;
+        emit ReputationProviderRegistryUpdated(oldRegistry, newRegistry);
+    }
+
+    /**
+     * @notice Get aggregated reputation for an agent from provider registry
+     * @param agentId The agent ID to query
+     * @return weightedScore Weighted reputation score
+     */
+    function getAggregatedReputation(uint256 agentId) external view returns (uint256 weightedScore) {
+        if (reputationProviderRegistry == address(0)) {
+            return 5000; // Default 50% if no registry
+        }
+
+        // Call ReputationProviderRegistry.getAggregatedReputation(agentId)
+        (bool success, bytes memory data) = reputationProviderRegistry.staticcall(
+            abi.encodeWithSignature("getAggregatedReputation(uint256)", agentId)
+        );
+
+        if (success && data.length >= 32) {
+            (weightedScore,,) = abi.decode(data, (uint256, uint256[], uint256[]));
+        } else {
+            weightedScore = 5000;
+        }
     }
 
     function setEnvironment(Environment newEnv) external onlyOwner {

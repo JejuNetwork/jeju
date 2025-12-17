@@ -14,7 +14,7 @@
  * Features:
  * - Vercel-style TTL defaults and cache rules
  * - Geo-based routing to edge nodes
- * - JNS resolution gateway (*.jns.jeju.network)
+ * - JNS resolution gateway (*.jns.jejunetwork.org)
  * - Cache invalidation and warmup
  * - Usage-based billing with settlements
  * - Integration with ERC-8004 identity

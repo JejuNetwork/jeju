@@ -35,7 +35,7 @@ import { jejuChain } from '@jejunetwork/config';
 
 const client = createWalletClient({
   chain: jejuChain,
-  transport: http('https://rpc.jeju.network'),
+  transport: http('https://rpc.jejunetwork.org'),
 });
 
 // User pays gas in USDC instead of ETH

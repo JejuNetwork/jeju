@@ -90,7 +90,7 @@ const SUPPORTED_CHAINS: SupportedChain[] = [
   {
     chainId: ChainId.JEJU,
     name: 'Jeju Network',
-    rpcUrl: process.env.JEJU_RPC_URL ?? 'https://rpc.jeju.network',
+    rpcUrl: process.env.JEJU_RPC_URL ?? 'https://rpc.jejunetwork.org',
     identityRegistryAddress: '0x0000000000000000000000000000000000000000' as Address,
     accountFactoryAddress: '0x0000000000000000000000000000000000000000' as Address,
     intentRouterAddress: '0x0000000000000000000000000000000000000000' as Address,

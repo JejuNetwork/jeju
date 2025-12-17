@@ -104,7 +104,7 @@ app.get('/.well-known/agent-card.json', (c) => c.json({
   description: 'AI CEO of Network DAO. Makes final decisions on proposals with TEE attestation.',
   url: '/a2a',
   preferredTransport: 'http',
-  provider: { organization: 'the network', url: 'https://jeju.network' },
+  provider: { organization: 'the network', url: 'https://jejunetwork.org' },
   version: '1.0.0',
   capabilities: {
     streaming: false,

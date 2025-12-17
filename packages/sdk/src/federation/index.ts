@@ -9,7 +9,7 @@
  * 
  * @example
  * ```typescript
- * import { createFederationClient } from '@jejunetwork/sdk/federation';
+ * import { createFederationClient } from '@jejunetwork/sdk';
  * 
  * const federation = await createFederationClient({
  *   hubRpc: 'https://eth.llamarpc.com',
@@ -296,8 +296,11 @@ export async function createFederationClient(
     },
 
     async getStakedNetworks(): Promise<NetworkInfo[]> {
-      const all = await this.getAllNetworks();
-      return all.filter(n => n.trustTier >= TrustTier.STAKED && n.isActive);
+      const ids = await networkRegistry.getAllNetworkIds();
+      const networks = await Promise.all(
+        ids.map((id: bigint) => networkRegistry.getNetwork(id))
+      );
+      return networks.map(parseNetworkInfo).filter((n: NetworkInfo) => n.trustTier >= TrustTier.STAKED && n.isActive);
     },
 
     async getVerifiedNetworks(): Promise<NetworkInfo[]> {

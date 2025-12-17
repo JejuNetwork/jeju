@@ -178,14 +178,14 @@ ingress:
     nginx.ingress.kubernetes.io/limit-rps: "10"
     nginx.ingress.kubernetes.io/cors-allow-origin: "*"
   hosts:
-    - host: indexer.jeju.network
+    - host: indexer.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: subsquid-tls
       hosts:
-        - indexer.jeju.network
+        - indexer.jejunetwork.org
 
 monitoring:
   prometheus:

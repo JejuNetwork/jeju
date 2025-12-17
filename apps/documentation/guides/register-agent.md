@@ -104,7 +104,7 @@ curl -X POST http://localhost:4010/api/upload \
 
 ### Via Gateway UI
 
-1. Go to https://gateway.jeju.network/apps
+1. Go to https://gateway.jejunetwork.org/apps
 2. Click "Register App"
 3. Fill in:
    - Name

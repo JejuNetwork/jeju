@@ -352,7 +352,7 @@ export class NFTBridgeService extends EventEmitter {
         params.tokenUri
       );
     } else {
-      // ZK proof for EVM (placeholder - would use actual ZK prover)
+      // ZK proof for EVM - uses SP1 prover when configured
       proof = await this.generateZKProof(
         params.sourceChainId,
         params.sourceRequestId,
@@ -656,16 +656,73 @@ export class NFTBridgeService extends EventEmitter {
     tokenId: bigint,
     recipient: Address
   ): Promise<Hex> {
-    // In production, this would call SP1 prover or similar
-    // For now, generate a placeholder that the verifier would accept in test mode
+    // Use SP1 prover for ZK proof generation
+    const proverUrl = process.env.SP1_PROVER_URL;
+    const apiKey = process.env.SUCCINCT_API_KEY;
+    const isProduction = process.env.NODE_ENV === 'production';
+
+    if (proverUrl || apiKey) {
+      // Use remote SP1 prover
+      const { createSP1ProverClient } = await import('../prover/sp1-client.js');
+      const prover = createSP1ProverClient({
+        network: proverUrl ? 'local' : 'mainnet',
+        apiUrl: proverUrl,
+        apiKey,
+      });
+
+      await prover.initialize();
+
+      const proofResult = await prover.generateProof({
+        type: 'nft_bridge',
+        inputs: {
+          sourceChainId: BigInt(sourceChainId),
+          sourceRequestId,
+          destChainId: BigInt(destChainId),
+          nftContract,
+          tokenId,
+          recipient,
+        },
+      });
+
+      if (!proofResult.success) {
+        throw new Error(`ZK proof generation failed: ${proofResult.error}`);
+      }
+
+      // Encode the Groth16 proof for on-chain verification
+      return this.encodeGroth16Proof(proofResult.groth16);
+    }
+
+    // Development mode: generate deterministic test proof
+    if (isProduction) {
+      throw new Error(
+        'ZK proof generation requires SP1 prover in production. ' +
+        'Configure SP1_PROVER_URL or SUCCINCT_API_KEY environment variable.'
+      );
+    }
+
+    console.warn('[NFTBridge] WARNING: Using development mode proof - NOT FOR PRODUCTION');
     const proofData = keccak256(
       encodePacked(
-        ['uint256', 'bytes32', 'uint256', 'address', 'uint256', 'address'],
-        [BigInt(sourceChainId), sourceRequestId, BigInt(destChainId), nftContract, tokenId, recipient]
+        ['uint256', 'bytes32', 'uint256', 'address', 'uint256', 'address', 'string'],
+        [BigInt(sourceChainId), sourceRequestId, BigInt(destChainId), nftContract, tokenId, recipient, 'dev-mode-proof']
       )
     );
 
     return proofData;
+  }
+
+  private encodeGroth16Proof(groth16: { a: bigint[]; b: bigint[][]; c: bigint[] }): Hex {
+    // Encode Groth16 proof components for Solidity verifier
+    // Format: abi.encode(uint256[2] a, uint256[2][2] b, uint256[2] c)
+    const abiEncode = (values: bigint[]): string => 
+      values.map(v => v.toString(16).padStart(64, '0')).join('');
+    
+    const a = abiEncode(groth16.a);
+    const b0 = abiEncode(groth16.b[0]);
+    const b1 = abiEncode(groth16.b[1]);
+    const c = abiEncode(groth16.c);
+
+    return `0x${a}${b0}${b1}${c}` as Hex;
   }
 }
 

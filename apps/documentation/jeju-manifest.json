@@ -21,7 +21,7 @@
   "jns": {
     "name": "docs.jeju",
     "description": "Network Documentation",
-    "url": "https://docs.jeju.network"
+    "url": "https://docs.jejunetwork.org"
   },
   "healthCheck": {
     "url": "http://localhost:4004",

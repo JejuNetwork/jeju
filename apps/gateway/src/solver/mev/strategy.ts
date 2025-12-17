@@ -156,7 +156,7 @@ export class ExternalChainMevEngine extends EventEmitter {
       enableBuilderNet: true,
       enableProtect: true,
       alchemyApiKey: '',
-      jejuRpc: 'https://rpc.jeju.network',
+      jejuRpc: 'https://rpc.jejunetwork.org',
       ...config,
     };
     
@@ -515,15 +515,6 @@ export class ExternalChainMevEngine extends EventEmitter {
     const efficiency = 30n; // 30% of theoretical max
     
     return (rawProfit * efficiency) / 100n;
-  }
-
-  private estimatePriceImpact(swap: SwapIntent): number {
-    // Estimate price impact based on swap size
-    // Larger swaps have more impact
-    const amount = swap.amountIn || 0n;
-    if (amount > parseEther('100')) return 100; // 1% for large swaps
-    if (amount > parseEther('10')) return 50; // 0.5% for medium swaps
-    return 20; // 0.2% for small swaps
   }
 
   private calculateBackrunProfit(swap: SwapIntent, impactBps: number): bigint {

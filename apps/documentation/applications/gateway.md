@@ -2,7 +2,7 @@
 
 Gateway is the infrastructure portal for Jeju Network. It's where users bridge assets, stake tokens, register nodes, and manage infrastructure. Think of it as the control panel for interacting with Jeju's core protocol.
 
-**URLs:** Localnet at http://127.0.0.1:4001, testnet at https://gateway-testnet.jeju.network, mainnet at https://gateway.jeju.network
+**URLs:** Localnet at http://127.0.0.1:4001, testnet at https://gateway-testnet.jejunetwork.org, mainnet at https://gateway.jejunetwork.org
 
 ## Bridging
 

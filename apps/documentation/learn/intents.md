@@ -122,7 +122,7 @@ Source Chain (Arbitrum)              Destination Chain (Jeju)
 
 ## For Users
 
-Just use the [Gateway](https://gateway.jeju.network):
+Just use the [Gateway](https://gateway.jejunetwork.org):
 
 1. Connect wallet
 2. Select source chain and token
@@ -139,7 +139,7 @@ Become a solver to earn from spreads:
 # Register as solver
 cast send $SOLVER_REGISTRY "register()" \
   --value 0.5ether \
-  --rpc-url https://rpc.jeju.network
+  --rpc-url https://rpc.jejunetwork.org
 ```
 
 See [Become a Solver](/operate/solver) for full guide.

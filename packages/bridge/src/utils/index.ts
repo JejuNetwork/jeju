@@ -3,6 +3,9 @@
  */
 
 import { keccak_256 } from "@noble/hashes/sha3";
+
+// Re-export logger
+export { createLogger, type Logger, type LogLevel } from "./logger.js";
 import type { Hash32 } from "../types/index.js";
 import { toHash32 } from "../types/index.js";
 

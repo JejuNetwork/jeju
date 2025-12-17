@@ -74,9 +74,11 @@ export const IntentSchema = z.object({
   status: IntentStatusSchema,
   createdAt: z.number(),
   filledAt: z.number().optional(),
+  cancelledAt: z.number().optional(),
   
   // Execution details
   solver: AddressSchema.optional(),
+  txHash: z.string().optional(),
   inputSettlerTx: z.string().optional(),
   outputSettlerTx: z.string().optional(),
   attestationTx: z.string().optional(),
@@ -166,7 +168,7 @@ export const SolverSchema = z.object({
   status: SolverStatusSchema,
   stakedAmount: z.string(),
   registeredAt: z.number(),
-  lastActiveAt: z.number(),
+  lastActiveAt: z.number().optional(),
 });
 export type Solver = z.infer<typeof SolverSchema>;
 

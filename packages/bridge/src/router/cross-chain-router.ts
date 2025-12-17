@@ -488,49 +488,80 @@ export class CrossChainRouter {
     }
   }
 
-  private async executeEILStep(_step: RouteStep, _request: RouteRequest): Promise<{
+  private async executeEILStep(step: RouteStep, request: RouteRequest): Promise<{
     success: boolean;
     transactionHash?: string;
     error?: string;
   }> {
-    // Call CrossChainPaymaster.createVoucherRequest()
-    return { success: true };
+    const contracts = this.config.contracts[step.sourceChain];
+    if (!contracts?.eilPaymaster) {
+      return { success: false, error: `EIL paymaster not configured for chain ${step.sourceChain}` };
+    }
+    // EIL requires external paymaster integration - route through MultiBridgeRouter
+    return { 
+      success: false, 
+      error: 'EIL execution requires MultiBridgeRouter with configured paymaster. Use MultiBridgeRouter.transfer() instead.' 
+    };
   }
 
-  private async executeZKSolStep(_step: RouteStep, _request: RouteRequest): Promise<{
+  private async executeZKSolStep(step: RouteStep, request: RouteRequest): Promise<{
     success: boolean;
     transactionHash?: string;
     error?: string;
   }> {
-    // Call ZKBridge.initiateTransfer()
-    return { success: true };
+    const contracts = this.config.contracts[step.sourceChain];
+    if (!contracts?.zkBridge) {
+      return { success: false, error: `ZK Bridge not configured for chain ${step.sourceChain}` };
+    }
+    // ZK bridge execution requires EVMClient with wallet - route through MultiBridgeRouter
+    return { 
+      success: false, 
+      error: 'ZKSolBridge execution requires MultiBridgeRouter with configured EVMClient. Use MultiBridgeRouter.transfer() instead.' 
+    };
   }
 
-  private async executeHyperlaneStep(_step: RouteStep, _request: RouteRequest): Promise<{
+  private async executeHyperlaneStep(step: RouteStep, request: RouteRequest): Promise<{
     success: boolean;
     transactionHash?: string;
     error?: string;
   }> {
-    // Call Hyperlane Mailbox.dispatch()
-    return { success: true };
+    const contracts = this.config.contracts[step.sourceChain];
+    if (!contracts?.hyperlaneMailbox) {
+      return { success: false, error: `Hyperlane mailbox not configured for chain ${step.sourceChain}` };
+    }
+    // Hyperlane execution requires wallet client - route through MultiBridgeRouter
+    return { 
+      success: false, 
+      error: 'Hyperlane execution requires MultiBridgeRouter with configured wallet. Use MultiBridgeRouter.transfer() instead.' 
+    };
   }
 
-  private async executeCCIPStep(_step: RouteStep, _request: RouteRequest): Promise<{
+  private async executeCCIPStep(step: RouteStep, request: RouteRequest): Promise<{
     success: boolean;
     transactionHash?: string;
     error?: string;
   }> {
-    // Call CCIP Router.ccipSend()
-    return { success: true };
+    // CCIP execution requires CCIPAdapter - route through MultiBridgeRouter
+    return { 
+      success: false, 
+      error: 'CCIP execution requires MultiBridgeRouter with CCIPAdapter. Use MultiBridgeRouter.transfer() instead.' 
+    };
   }
 
-  private async executeOIFStep(_step: RouteStep, _request: RouteRequest): Promise<{
+  private async executeOIFStep(step: RouteStep, request: RouteRequest): Promise<{
     success: boolean;
     transactionHash?: string;
     error?: string;
   }> {
-    // Call InputSettler.open()
-    return { success: true };
+    const contracts = this.config.contracts[step.sourceChain];
+    if (!contracts?.oifInputSettler) {
+      return { success: false, error: `OIF input settler not configured for chain ${step.sourceChain}` };
+    }
+    // OIF execution requires wallet and settler integration - route through MultiBridgeRouter
+    return { 
+      success: false, 
+      error: 'OIF execution requires MultiBridgeRouter with configured OIF settler. Use MultiBridgeRouter.transfer() instead.' 
+    };
   }
 }
 

@@ -2,7 +2,7 @@
 
 Bazaar is Jeju's economic hub — a full-featured DeFi application with token swaps, liquidity pools, NFT marketplace, token launchpad, and JNS name trading. It's built on Uniswap V4 and designed for 200ms block times.
 
-**URLs:** Localnet at http://127.0.0.1:4006, testnet at https://bazaar-testnet.jeju.network, mainnet at https://bazaar.jeju.network
+**URLs:** Localnet at http://127.0.0.1:4006, testnet at https://bazaar-testnet.jejunetwork.org, mainnet at https://bazaar.jejunetwork.org
 
 ## Token Swapping
 

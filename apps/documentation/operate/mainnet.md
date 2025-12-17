@@ -7,10 +7,10 @@ Production deployment to Jeju mainnet.
 | Property | Value |
 |----------|-------|
 | Chain ID | `420691` |
-| RPC | `https://rpc.jeju.network` |
-| WebSocket | `wss://ws.jeju.network` |
-| Explorer | `https://explorer.jeju.network` |
-| Indexer | `https://indexer.jeju.network/graphql` |
+| RPC | `https://rpc.jejunetwork.org` |
+| WebSocket | `wss://ws.jejunetwork.org` |
+| Explorer | `https://explorer.jejunetwork.org` |
+| Indexer | `https://indexer.jejunetwork.org/graphql` |
 | L1 Network | Ethereum |
 
 ## Pre-Deployment Checklist
@@ -58,7 +58,7 @@ Includes safety checks:
 ```bash
 # Generate deployment tx
 forge script script/DeployMainnet.s.sol \
-  --rpc-url https://rpc.jeju.network \
+  --rpc-url https://rpc.jejunetwork.org \
   --slow
 
 # Submit to Safe
@@ -71,9 +71,9 @@ bun run scripts/deploy/submit-to-safe.ts \
 
 | Service | URL |
 |---------|-----|
-| Status | `https://status.jeju.network` |
-| Prometheus | `https://prometheus.jeju.network` |
-| Grafana | `https://grafana.jeju.network` |
+| Status | `https://status.jejunetwork.org` |
+| Prometheus | `https://prometheus.jejunetwork.org` |
+| Grafana | `https://grafana.jejunetwork.org` |
 
 ### Critical Alerts
 
@@ -119,7 +119,7 @@ bun run scripts/disaster-recovery.ts --network mainnet
 ## Emergency Contacts
 
 - On-call: PagerDuty
-- Security: security@jeju.network
-- Comms: comms@jeju.network
+- Security: security@jejunetwork.org
+- Comms: comms@jejunetwork.org
 
 

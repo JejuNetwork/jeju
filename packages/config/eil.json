@@ -95,7 +95,7 @@
     "hub": {
       "chainId": 420691,
       "name": "Jeju Mainnet",
-      "rpcUrl": "https://rpc.jeju.network",
+      "rpcUrl": "https://rpc.jejunetwork.org",
       "l1StakeManager": "",
       "crossChainPaymaster": "",
       "status": "planned"

@@ -452,14 +452,111 @@ export class ReputationSyncService extends EventEmitter {
    * Run a single sync cycle for all linked agents
    */
   async runSyncCycle(): Promise<void> {
-    // This would query a list of linked agents and sync their reputations
-    // For now, emit an event for monitoring
     this.emit('syncCycleStarted', { timestamp: Date.now() });
 
-    // In production, would iterate over registered federated identities
-    // and sync reputations where there's a significant difference
+    // Query recent ReputationSynced and FeedbackSubmitted events to find agents needing sync
+    const block = await this.publicClient.getBlockNumber();
+    const fromBlock = block - 1000n; // Last ~1000 blocks
 
-    this.emit('syncCycleCompleted', { timestamp: Date.now() });
+    const feedbackEvents = await this.publicClient.getLogs({
+      address: this.config.reputationRegistryAddress,
+      event: {
+        type: 'event',
+        name: 'FeedbackSubmitted',
+        inputs: [
+          { type: 'uint256', indexed: true, name: 'agentId' },
+          { type: 'address', indexed: true, name: 'from' },
+          { type: 'uint8', indexed: false, name: 'score' },
+        ],
+      },
+      fromBlock,
+      toBlock: block,
+    });
+
+    // Get unique agent IDs that received feedback recently
+    const agentIds = new Set<bigint>();
+    for (const event of feedbackEvents) {
+      if (event.args.agentId !== undefined) {
+        agentIds.add(event.args.agentId);
+      }
+    }
+
+    console.log(`[ReputationSync] Found ${agentIds.size} agents with recent feedback`);
+
+    // Sync each agent's reputation
+    let synced = 0;
+    let failed = 0;
+    for (const agentId of agentIds) {
+      const evmRep = await this.getEVMReputation(agentId);
+      if (!evmRep) continue;
+
+      // Check if this agent has a Solana counterpart
+      const solanaAgentId = await this.findLinkedSolanaAgent(agentId);
+      if (!solanaAgentId) continue;
+
+      const solanaRep = await this.getSolanaReputation(solanaAgentId);
+      if (!solanaRep) continue;
+
+      // Only sync if there's a significant difference (> 5 points)
+      const scoreDiff = Math.abs(evmRep.averageScore - solanaRep.averageScore);
+      if (scoreDiff > 5) {
+        // Sync from higher to lower
+        if (evmRep.averageScore > solanaRep.averageScore) {
+          const result = await this.syncEVMToSolana(agentId, solanaAgentId);
+          if (result) synced++;
+          else failed++;
+        } else {
+          const result = await this.syncSolanaToEVM(solanaAgentId, agentId);
+          if (result) synced++;
+          else failed++;
+        }
+      }
+    }
+
+    this.emit('syncCycleCompleted', { 
+      timestamp: Date.now(), 
+      agentsChecked: agentIds.size,
+      synced,
+      failed,
+    });
+  }
+
+  /**
+   * Find linked Solana agent ID for an EVM agent (via federated identity)
+   */
+  private async findLinkedSolanaAgent(evmAgentId: bigint): Promise<bigint | null> {
+    const federatedId = await this.publicClient.readContract({
+      address: this.config.federatedIdentityAddress,
+      abi: FEDERATED_IDENTITY_ABI,
+      functionName: 'getFederatedIdByOrigin',
+      args: [BigInt(this.config.evmChainId), evmAgentId],
+    }) as Hex;
+
+    if (!federatedId || federatedId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
+      return null;
+    }
+
+    // The federated ID encodes the Solana agent ID - extract it
+    // Format: keccak256(abi.encodePacked("jeju:federated:", chainId, ":", agentId))
+    // We need to query the FederatedIdentity contract for the Solana link
+    const FEDERATED_QUERY_ABI = parseAbi([
+      'function getLinkedAgents(bytes32 federatedId) view returns ((uint256 chainId, uint256 agentId, bool isActive)[])',
+    ]);
+
+    const linkedAgents = await this.publicClient.readContract({
+      address: this.config.federatedIdentityAddress,
+      abi: FEDERATED_QUERY_ABI,
+      functionName: 'getLinkedAgents',
+      args: [federatedId],
+    }) as Array<{ chainId: bigint; agentId: bigint; isActive: boolean }>;
+
+    for (const linked of linkedAgents) {
+      if ((linked.chainId === BigInt(SOLANA_CHAIN_ID) || linked.chainId === BigInt(SOLANA_DEVNET_CHAIN_ID)) && linked.isActive) {
+        return linked.agentId;
+      }
+    }
+
+    return null;
   }
 
   // ============ Private Methods ============

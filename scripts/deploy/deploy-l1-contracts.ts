@@ -256,7 +256,7 @@ NEXT STEPS
    NETWORK=testnet bun run packages/deployment/scripts/helmfile.ts sync
 
 3. Verify chain is producing blocks:
-   curl -X POST https://testnet-rpc.jeju.network -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+   curl -X POST https://testnet-rpc.jejunetwork.org -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 
 ═══════════════════════════════════════════════════════════════════════
 `);

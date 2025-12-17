@@ -42,6 +42,7 @@ import { federationCommand } from './commands/federation';
 import { superchainCommand } from './commands/superchain';
 import { dwsCommand } from './commands/dws';
 import { validateCommand } from './commands/validate';
+import { trainingCommand } from './commands/training';
 
 const cli = getCliBranding();
 const networkName = getNetworkName();
@@ -107,6 +108,7 @@ program.addCommand(infraCommand);
 program.addCommand(tokenCommand);
 program.addCommand(dwsCommand);
 program.addCommand(validateCommand);
+program.addCommand(trainingCommand);
 
 // Default: show help
 program.action(() => {
@@ -144,6 +146,15 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} publish`) + '          Publish packages to JejuPkg');
   console.log('  ' + chalk.cyan(`${cliName} apps`) + '             List all apps');
   console.log('  ' + chalk.cyan(`${cliName} ports`) + '            Check port configuration\n');
+  
+  console.log(chalk.bold('Training (Psyche):\n'));
+  console.log('  ' + chalk.cyan(`${cliName} training status`) + '            Check training service');
+  console.log('  ' + chalk.cyan(`${cliName} training create --model ...`) + ' Create training run');
+  console.log('  ' + chalk.cyan(`${cliName} training list`) + '              List training runs');
+  console.log('  ' + chalk.cyan(`${cliName} training join <run-id>`) + '     Join training run');
+  console.log('  ' + chalk.cyan(`${cliName} training claim <run-id>`) + '    Claim rewards');
+  console.log('  ' + chalk.cyan(`${cliName} training nodes`) + '             List compute nodes');
+  console.log('  ' + chalk.cyan(`${cliName} training models`) + '            List available models\n');
   
   console.log(chalk.bold('Services:\n'));
   console.log('  ' + chalk.cyan(`${cliName} service auto-update`) + '  Auto-update manager');

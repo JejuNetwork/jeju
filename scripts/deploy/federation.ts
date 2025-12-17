@@ -55,11 +55,11 @@ const CHAIN_CONFIGS: Record<NetworkType, { local: ChainConfig; hub: ChainConfig 
     hub: { chainId: 31337, rpcUrl: 'http://localhost:8545' },
   },
   testnet: {
-    local: { chainId: 420690, rpcUrl: 'https://testnet-rpc.jeju.network' },
+    local: { chainId: 420690, rpcUrl: 'https://testnet-rpc.jejunetwork.org' },
     hub: { chainId: 11155111, rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com' },
   },
   mainnet: {
-    local: { chainId: 420691, rpcUrl: 'https://rpc.jeju.network' },
+    local: { chainId: 420691, rpcUrl: 'https://rpc.jejunetwork.org' },
     hub: { chainId: 1, rpcUrl: 'https://eth.llamarpc.com' },
   },
 };

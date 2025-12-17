@@ -17,6 +17,56 @@ import type {
   SP1Proof,
 } from '../types/index.js';
 import { TransferStatus, toHash32 } from '../types/index.js';
+import { createLogger } from '../utils/logger.js';
+
+// ============ Logger ============
+
+const log = createLogger('relayer');
+
+// ============ Environment Validation ============
+
+// Strict check: NODE_ENV must be exactly 'production', not empty/undefined/typo
+const nodeEnv = (process.env.NODE_ENV ?? '').trim().toLowerCase();
+const isProduction = nodeEnv === 'production';
+const isLocalDev = nodeEnv === 'development' || nodeEnv === '';
+
+if (isProduction) {
+  log.info('Starting in PRODUCTION mode');
+} else {
+  log.warn('Starting in DEVELOPMENT mode - some defaults will be used', { nodeEnv });
+}
+
+/**
+ * Require an environment variable, with optional default for local dev
+ */
+function requireEnv(key: string, devDefault?: string): string {
+  const value = process.env[key];
+  if (value) return value;
+  
+  if (isLocalDev && devDefault !== undefined) {
+    log.warn(`Using dev default for ${key}`);
+    return devDefault;
+  }
+  
+  throw new Error(
+    `Missing required environment variable: ${key}. ` +
+    `Set it in your .env file or environment.`
+  );
+}
+
+/**
+ * Require a secret environment variable (no defaults allowed)
+ */
+function requireEnvSecret(key: string): string {
+  const value = process.env[key];
+  if (!value) {
+    throw new Error(
+      `Missing required secret: ${key}. ` +
+      `Secrets must be provided via environment variables - no defaults allowed.`
+    );
+  }
+  return value;
+}
 
 export interface RelayerConfig {
   port: number;
@@ -136,7 +186,7 @@ export class RelayerService {
   }
 
   async start(): Promise<void> {
-    console.log('[Relayer] Starting...');
+    log.info('Starting relayer service');
 
     await this.batcher.initialize();
 
@@ -149,7 +199,7 @@ export class RelayerService {
         lightClientAddress: chainConfig.lightClientAddress as `0x${string}`,
       });
       this.evmClients.set(chainConfig.chainId, client);
-      console.log(`[Relayer] EVM client for chain ${chainConfig.chainId}`);
+      log.info('EVM client initialized', { chainId: chainConfig.chainId });
     }
 
     const keypair = await this.loadSolanaKeypair();
@@ -162,15 +212,15 @@ export class RelayerService {
         this.config.solanaConfig.evmLightClientProgramId,
       ),
     });
-    console.log('[Relayer] Solana client ready');
+    log.info('Solana client initialized');
 
     this.startProcessingLoop();
     this.app.listen(this.config.port);
-    console.log(`[Relayer] Listening on port ${this.config.port}`);
+    log.info('Relayer listening', { port: this.config.port });
   }
 
   stop(): void {
-    console.log('[Relayer] Stopping...');
+    log.info('Stopping relayer');
     this.app.stop();
   }
 
@@ -207,13 +257,13 @@ export class RelayerService {
 
     // Ethereum sync committee update
     this.app.post('/ethereum/sync-committee', async () => {
-      console.log('[Relayer] Received sync committee update');
+      log.debug('Received sync committee update');
       return { status: 'accepted' };
     });
 
     // Ethereum light client update
     this.app.post('/ethereum/update', async () => {
-      console.log('[Relayer] Received Ethereum light client update');
+      log.debug('Received Ethereum light client update');
       return { status: 'accepted' };
     });
 
@@ -247,7 +297,7 @@ export class RelayerService {
   private async handleSolanaConsensus(
     snapshot: ConsensusSnapshot,
   ): Promise<void> {
-    console.log(`[Relayer] Received Solana consensus at slot ${snapshot.slot}`);
+    log.info('Received Solana consensus', { slot: snapshot.slot.toString() });
 
     if (snapshot.slot <= this.lastSolanaSlot) {
       return; // Already processed
@@ -270,7 +320,7 @@ export class RelayerService {
   }
 
   private async handleEthereumFinality(update: EthereumUpdate): Promise<void> {
-    console.log(`[Relayer] Received Ethereum finality at slot ${update.slot}`);
+    log.info('Received Ethereum finality', { slot: update.slot.toString() });
 
     if (update.slot <= this.lastEthereumSlot) {
       return;
@@ -297,7 +347,7 @@ export class RelayerService {
     source: 'evm' | 'solana',
   ): Promise<void> {
     const transferId = this.hashToHex(transfer.transferId);
-    console.log(`[Relayer] Received transfer ${transferId} from ${source}`);
+    log.info('Received transfer', { transferId, source });
 
     // Get source commitment
     let sourceCommitment:
@@ -333,7 +383,7 @@ export class RelayerService {
     // Generate proof for this consensus
     const proof = await this.generateSolanaConsensusProof(snapshot);
     if (!proof) {
-      console.error('[Relayer] Failed to generate Solana consensus proof');
+      log.error('Failed to generate Solana consensus proof');
       return;
     }
 
@@ -349,21 +399,16 @@ export class RelayerService {
           proof: proof.map((p) => BigInt(p)),
           publicInputs: [],
         });
-        console.log(
-          `[Relayer] Updated light client on chain ${chainId}: ${txHash}`,
-        );
+        log.info('Updated light client on EVM chain', { chainId, txHash });
       } catch (error) {
-        console.error(
-          `[Relayer] Failed to update light client on chain ${chainId}:`,
-          error,
-        );
+        log.error('Failed to update light client', { chainId, error: String(error) });
       }
     }
   }
 
   private async updateSolanaLightClient(update: EthereumUpdate): Promise<void> {
     if (!this.solanaClient) {
-      console.error('[Relayer] Solana client not initialized');
+      log.error('Solana client not initialized');
       return;
     }
 
@@ -371,7 +416,7 @@ export class RelayerService {
       // Generate ZK proof of Ethereum consensus using SP1 prover
       const proof = await this.generateSP1ProofForEthereumUpdate(update);
       if (!proof) {
-        console.error('[Relayer] Failed to generate Ethereum consensus proof');
+        log.error('Failed to generate Ethereum consensus proof');
         return;
       }
 
@@ -389,23 +434,41 @@ export class RelayerService {
       const payer = this.solanaClient.getPublicKey();
 
       if (!payer) {
-        console.error('[Relayer] No keypair configured for Solana');
+        log.error('No keypair configured for Solana');
         return;
       }
 
       const tx = new Transaction().add(instruction);
-      // In production, sign and send: await sendAndConfirmTransaction(connection, tx, [keypair])
-      console.log('[Relayer] Submitting EVM light client update to Solana');
-      console.log(`  Slot: ${update.slot}`);
-      console.log(`  Block: ${update.executionBlockNumber}`);
-      console.log(`  Transaction: ${tx.serialize().length} bytes`);
+      tx.feePayer = payer;
+
+      const connection = this.solanaClient.getConnection();
+      const { blockhash } = await connection.getLatestBlockhash();
+      tx.recentBlockhash = blockhash;
+
+      // Sign and submit the transaction
+      const keypair = this.solanaClient.getKeypair();
+      if (!keypair) {
+        log.error('No keypair available for signing');
+        return;
+      }
+
+      const { sendAndConfirmTransaction } = await import('@solana/web3.js');
+      const signature = await sendAndConfirmTransaction(
+        connection,
+        tx,
+        [keypair],
+        { commitment: 'confirmed' }
+      );
+
+      log.info('Submitted EVM light client update to Solana', {
+        slot: update.slot.toString(),
+        block: update.executionBlockNumber.toString(),
+        signature,
+      });
 
       this.stats.lightClientUpdates++;
     } catch (error) {
-      console.error(
-        '[Relayer] Failed to update Solana EVM light client:',
-        error,
-      );
+      log.error('Failed to update Solana EVM light client', { error: String(error) });
     }
   }
 
@@ -429,7 +492,7 @@ export class RelayerService {
       );
 
       if (!response.ok) {
-        console.error('[Relayer] Prover returned error:', response.status);
+        log.error('Prover returned error', { status: response.status });
         return null;
       }
 
@@ -437,10 +500,7 @@ export class RelayerService {
       this.stats.proofsGenerated++;
       return result;
     } catch (error) {
-      console.error(
-        '[Relayer] Failed to generate Ethereum consensus proof:',
-        error,
-      );
+      log.error('Failed to generate Ethereum consensus proof', { error: String(error) });
       return null;
     }
   }
@@ -539,10 +599,7 @@ export class RelayerService {
       this.stats.proofsGenerated++;
       return result.proof;
     } catch (error) {
-      console.error(
-        '[Relayer] Solana consensus proof generation failed:',
-        error,
-      );
+      log.error('Solana consensus proof generation failed', { error: String(error) });
       return null;
     }
   }
@@ -588,14 +645,12 @@ export class RelayerService {
       return;
     }
 
-    console.log(
-      `[Relayer] Processing batch with ${batch.transfers.length} transfers`,
-    );
+    log.info('Processing batch', { transferCount: batch.transfers.length });
 
     // Generate batch proof
     const proof = await this.generateBatchProof(batch.transfers);
     if (!proof) {
-      console.error('[Relayer] Failed to generate batch proof');
+      log.error('Failed to generate batch proof');
       return;
     }
 
@@ -635,7 +690,7 @@ export class RelayerService {
       this.stats.proofsGenerated++;
       return result;
     } catch (error) {
-      console.error('[Relayer] Batch proof generation failed:', error);
+      log.error('Batch proof generation failed', { error: String(error) });
       return null;
     }
   }
@@ -669,9 +724,7 @@ export class RelayerService {
           ? BigInt(pending.sourceCommitment.slot)
           : BigInt(0);
 
-      console.log(
-        `[Relayer] Completing transfer ${txId} on EVM chain ${transfer.destChain}`,
-      );
+      log.info('Completing transfer on EVM chain', { txId, chainId: transfer.destChain });
       const txHash = await client.completeTransfer({
         transferId: transfer.transferId,
         token:
@@ -684,12 +737,12 @@ export class RelayerService {
         proof: Array.from(proof.proof).map((b) => BigInt(b)),
         publicInputs: Array.from(proof.publicInputs).map((b) => BigInt(b)),
       });
-      console.log(`[Relayer] EVM transfer completed: ${txHash}`);
+      log.info('EVM transfer completed', { txHash });
 
       pending.status = TransferStatus.COMPLETED;
       this.stats.transfersProcessed++;
     } else if (this.solanaClient) {
-      console.log(`[Relayer] Completing transfer ${txId} on Solana`);
+      log.info('Completing transfer on Solana', { txId });
       const sourceSlot =
         pending.sourceCommitment && 'slot' in pending.sourceCommitment
           ? BigInt(pending.sourceCommitment.slot)
@@ -705,7 +758,7 @@ export class RelayerService {
         proof: proof.proof,
         publicInputs: proof.publicInputs,
       });
-      console.log(`[Relayer] Solana transfer completed: ${signature}`);
+      log.info('Solana transfer completed', { signature });
 
       pending.status = TransferStatus.COMPLETED;
       this.stats.transfersProcessed++;
@@ -747,25 +800,25 @@ export class RelayerService {
       process.env.HOME ?? '',
     );
 
-    try {
-      const keypairData = await Bun.file(keypairPath).json();
-      return Keypair.fromSecretKey(new Uint8Array(keypairData));
-    } catch (error) {
+    // Check file exists first
+    const file = Bun.file(keypairPath);
+    const exists = await file.exists();
+    
+    if (!exists) {
       // Only allow ephemeral keypair in local development
-      if (
-        process.env.NODE_ENV === 'development' ||
-        keypairPath.includes('localnet')
-      ) {
-        console.warn(
-          `[Relayer] Could not load keypair from ${keypairPath}, using ephemeral keypair for local dev`,
-        );
+      if (isLocalDev || keypairPath.includes('localnet')) {
+        log.warn('Keypair file not found, using ephemeral keypair for local dev', { keypairPath });
         return Keypair.generate();
       }
       throw new Error(
-        `Failed to load Solana keypair from ${keypairPath}: ${error}. ` +
-          `Ensure the keypair file exists and is valid JSON.`,
+        `Solana keypair file not found: ${keypairPath}. ` +
+        `Create a keypair with 'solana-keygen new' or set SOLANA_KEYPAIR to a valid path.`
       );
     }
+
+    const keypairData = await file.json();
+    log.info('Loaded Solana keypair', { keypairPath });
+    return Keypair.fromSecretKey(new Uint8Array(keypairData));
   }
 
   private getStats(): RelayerStats {
@@ -805,31 +858,21 @@ if (import.meta.main) {
     port: parseInt(process.env.RELAYER_PORT ?? '8081', 10),
     evmChains: [
       {
-        chainId: 31337 as ChainId,
-        rpcUrl: process.env.EVM_RPC_URL ?? 'http://127.0.0.1:8545',
-        bridgeAddress:
-          process.env.BRIDGE_ADDRESS ??
-          '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-        lightClientAddress:
-          process.env.LIGHT_CLIENT_ADDRESS ??
-          '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-        privateKey:
-          process.env.PRIVATE_KEY ??
-          '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+        chainId: (parseInt(process.env.EVM_CHAIN_ID ?? '31337', 10)) as ChainId,
+        rpcUrl: requireEnv('EVM_RPC_URL', 'http://127.0.0.1:8545'),
+        bridgeAddress: requireEnv('BRIDGE_ADDRESS'),
+        lightClientAddress: requireEnv('LIGHT_CLIENT_ADDRESS'),
+        privateKey: requireEnvSecret('PRIVATE_KEY'),
       },
     ],
     solanaConfig: {
-      rpcUrl: process.env.SOLANA_RPC_URL ?? 'http://127.0.0.1:8899',
-      bridgeProgramId:
-        process.env.BRIDGE_PROGRAM_ID ??
-        'TokenBridge11111111111111111111111111111111',
-      evmLightClientProgramId:
-        process.env.EVM_LIGHT_CLIENT_PROGRAM_ID ??
-        'EVMLightClient1111111111111111111111111111',
-      keypairPath: process.env.SOLANA_KEYPAIR ?? '~/.config/solana/id.json',
+      rpcUrl: requireEnv('SOLANA_RPC_URL', 'http://127.0.0.1:8899'),
+      bridgeProgramId: requireEnv('BRIDGE_PROGRAM_ID'),
+      evmLightClientProgramId: requireEnv('EVM_LIGHT_CLIENT_PROGRAM_ID'),
+      keypairPath: requireEnv('SOLANA_KEYPAIR', '~/.config/solana/id.json'),
     },
-    proverEndpoint: process.env.PROVER_ENDPOINT ?? 'http://127.0.0.1:8082',
-    teeEndpoint: process.env.TEE_ENDPOINT ?? 'http://127.0.0.1:8080',
+    proverEndpoint: requireEnv('PROVER_ENDPOINT', 'http://127.0.0.1:8082'),
+    teeEndpoint: requireEnv('TEE_ENDPOINT', 'http://127.0.0.1:8080'),
     batchSize: 10,
     batchTimeoutMs: 30000,
     retryAttempts: 3,
@@ -843,5 +886,5 @@ if (import.meta.main) {
     process.exit(0);
   });
 
-  relayer.start().catch(console.error);
+  relayer.start().catch((error) => log.error('Relayer startup failed', { error: String(error) }));
 }

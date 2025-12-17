@@ -19,6 +19,12 @@ variable "create_zone" {
   default = true
 }
 
+variable "enable_local_dns" {
+  description = "Enable local development DNS (*.local.domain -> 127.0.0.1)"
+  type        = bool
+  default     = true
+}
+
 locals {
   name_prefix = "jeju-${var.environment}"
   dns_name    = "${var.domain_name}."
@@ -48,6 +54,30 @@ locals {
   zone_id   = var.create_zone ? google_dns_managed_zone.main[0].id : data.google_dns_managed_zone.existing[0].id
 }
 
+# =============================================================================
+# LOCAL DEVELOPMENT DNS
+# Points *.local.domain to 127.0.0.1 for zero-config local development
+# =============================================================================
+resource "google_dns_record_set" "local_wildcard" {
+  count        = var.enable_local_dns ? 1 : 0
+  name         = "*.local.${local.dns_name}"
+  type         = "A"
+  ttl          = 300
+  managed_zone = local.zone_name
+  project      = var.project_id
+  rrdatas      = ["127.0.0.1"]
+}
+
+resource "google_dns_record_set" "local_root" {
+  count        = var.enable_local_dns ? 1 : 0
+  name         = "local.${local.dns_name}"
+  type         = "A"
+  ttl          = 300
+  managed_zone = local.zone_name
+  project      = var.project_id
+  rrdatas      = ["127.0.0.1"]
+}
+
 output "zone_name" {
   value = local.zone_name
 }
@@ -62,5 +92,17 @@ output "nameservers" {
 
 output "dns_name" {
   value = local.dns_name
+}
+
+output "local_dev_urls" {
+  description = "Local development URLs"
+  value = var.enable_local_dns ? {
+    gateway  = "http://gateway.local.${var.domain_name}"
+    bazaar   = "http://bazaar.local.${var.domain_name}"
+    docs     = "http://docs.local.${var.domain_name}"
+    indexer  = "http://indexer.local.${var.domain_name}"
+    rpc      = "http://rpc.local.${var.domain_name}"
+    crucible = "http://crucible.local.${var.domain_name}"
+  } : {}
 }
 
