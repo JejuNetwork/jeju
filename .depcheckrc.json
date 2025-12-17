@@ -1,0 +1,33 @@
+{
+  "ignorePatterns": [
+    "vendor/**",
+    "8004/**",
+    "**/node_modules/**",
+    "packages/contracts/lib/**",
+    "**/dist/**"
+  ],
+  "ignoreMatches": [
+    "@playwright/test",
+    "@synthetixio/synpress",
+    "knip",
+    "madge",
+    "depcheck",
+    "playwright",
+    "playwright-core",
+    "prettier",
+    "prettier-plugin-solidity",
+    "solhint",
+    "turbo",
+    "typedoc-plugin-markdown",
+    "bun",
+    "bun:test",
+    "@jejunetwork/*",
+    "@babylon/*",
+    "ethers",
+    "@aws-sdk/*",
+    "@google-cloud/*",
+    "prom-client"
+  ],
+  "skipMissing": false
+}
+

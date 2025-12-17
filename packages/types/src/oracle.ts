@@ -519,8 +519,11 @@ export const STANDARD_FEEDS = {
 
 /**
  * Compute feed ID from base and quote tokens
+ * @param _baseToken - The base token address
+ * @param _quoteToken - The quote token address  
+ * @returns The feed ID (use viem keccak256 implementation)
  */
-export function computeFeedId(baseToken: Address, quoteToken: Address): FeedId {
+export function computeFeedId(_baseToken: Address, _quoteToken: Address): FeedId {
   // Placeholder - actual implementation uses keccak256
   throw new Error('Use viem keccak256 implementation');
 }

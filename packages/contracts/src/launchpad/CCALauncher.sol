@@ -9,50 +9,10 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 /**
  * @title CCALauncher
  * @notice Continuous Clearing Auction (CCA) for fair token distribution
- * @dev Based on Uniswap's CCA design with custom fee distribution
- *
- * ============================================================================
- * UNISWAP PLATFORM vs SELF-DEPLOYED: FEE ANALYSIS
- * ============================================================================
- *
- * UNISWAP PLATFORM (Using their deployment):
- * ├── Auction Fees: NONE (no protocol fee on auction itself)
- * ├── Gas Costs: User pays for bids
- * ├── Post-Auction: Proceeds auto-migrate to Uniswap V4 pool
- * ├── Trading Fees: 0.3% default swap fee goes to LPs
- * ├── Control: Limited - their contracts, their rules
- * ├── Trust: High - audited by Uniswap team
- * └── Integration: Can't customize fee splits in auction
- *
- * SELF-DEPLOYED (This contract):
- * ├── Auction Fees: Configurable platform + referral fee
- * ├── Gas Costs: Same as Uniswap
- * ├── Post-Auction: We control liquidity migration
- * ├── Trading Fees: We can route to our FeeDistributor
- * ├── Control: Full - customize everything
- * ├── Trust: Lower initially - needs own audits
- * └── Integration: Direct integration with Vesting, FeeDistributor
- *
- * RECOMMENDATION:
- * - Use Uniswap for PUBLIC visibility and trust
- * - Use self-deployed for CONTROL and custom fee flows
- * - This contract is self-deployed version with full fee control
- *
- * ============================================================================
- *
- * CCA Mechanism:
- * 1. Tokens released gradually over auction duration
- * 2. Bidders submit bids with price caps
- * 3. Each block clears at uniform price
- * 4. Early bidders get lower prices (price increases over time)
- * 5. After auction, liquidity migrates to Uniswap V4
  */
 contract CCALauncher is Ownable2Step, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    // =============================================================================
-    // ERRORS
-    // =============================================================================
 
     error ZeroAddress();
     error ZeroAmount();
@@ -67,9 +27,6 @@ contract CCALauncher is Ownable2Step, ReentrancyGuard {
     error AlreadyMigrated();
     error InsufficientTokens();
 
-    // =============================================================================
-    // EVENTS
-    // =============================================================================
 
     event AuctionConfigured(
         uint256 startTime, uint256 duration, uint256 startPriceUsd, uint256 reservePriceUsd, uint256 totalTokens
@@ -80,74 +37,38 @@ contract CCALauncher is Ownable2Step, ReentrancyGuard {
     event LiquidityMigrated(address pool, uint256 tokenAmount, uint256 ethAmount);
     event FeesDistributed(uint256 platformFee, uint256 referralFee, uint256 creatorAmount);
 
-    // =============================================================================
-    // TYPES
-    // =============================================================================
-
     struct Bid {
-        /// @notice Bidder address
         address bidder;
-        /// @notice ETH/WETH amount committed
         uint256 amount;
-        /// @notice Maximum price willing to pay (USD with 8 decimals)
         uint256 maxPriceUsd;
-        /// @notice Block at which bid was placed
         uint256 blockPlaced;
-        /// @notice Whether bid has been settled
         bool settled;
-        /// @notice Tokens received (after settlement)
         uint256 tokensReceived;
-        /// @notice Referrer address (for referral fees)
         address referrer;
     }
 
     struct AuctionConfig {
-        /// @notice Start timestamp
         uint256 startTime;
-        /// @notice Duration in seconds
         uint256 duration;
-        /// @notice Starting price in USD (8 decimals)
         uint256 startPriceUsd;
-        /// @notice Reserve/floor price in USD
         uint256 reservePriceUsd;
-        /// @notice Total tokens for auction
         uint256 totalTokens;
-        /// @notice Tokens released per block (calculated)
         uint256 tokensPerBlock;
-        /// @notice Average block time (for calculation)
         uint256 avgBlockTime;
-        /// @notice Whether price decreases (Dutch) or increases
         bool isDutch;
     }
 
     struct FeeConfig {
-        /// @notice Platform fee in basis points
         uint16 platformFeeBps;
-        /// @notice Referral fee in basis points (paid from platform fee)
         uint16 referralFeeBps;
-        /// @notice Platform fee recipient
         address platformFeeRecipient;
-        /// @notice Creator/project recipient
         address creatorRecipient;
     }
 
-    // =============================================================================
-    // STATE
-    // =============================================================================
-
-    /// @notice Token being auctioned
     IERC20 public immutable auctionToken;
-
-    /// @notice Payment token (address(0) for ETH, or WETH/USDC)
     address public immutable paymentToken;
-
-    /// @notice Auction configuration
     AuctionConfig public config;
-
-    /// @notice Fee configuration
     FeeConfig public fees;
-
-    /// @notice All bids
     Bid[] public bids;
 
     /// @notice Bids by user

@@ -8,20 +8,9 @@ import {MPCKeyRegistry} from "../kms/MPCKeyRegistry.sol";
 
 /**
  * @title TrainingRegistry
- * @author Jeju Network
  * @notice Central registry for training runs, models, and TEE configuration
- * @dev Manages training run metadata, model checkpoints, and private run configuration
- *
- * Features:
- * - Register and track training runs
- * - Store model checkpoint history
- * - Configure TEE requirements for private runs
- * - Link runs to reward pools
- * - Model versioning and discovery
  */
 contract TrainingRegistry is Ownable, ReentrancyGuard {
-    // ============ Enums ============
-
     enum ModelStatus {
         Draft,
         Training,
@@ -40,7 +29,6 @@ contract TrainingRegistry is Ownable, ReentrancyGuard {
         Other
     }
 
-    // ============ Structs ============
 
     struct TrainingRunMetadata {
         bytes32 runId;
@@ -94,51 +82,20 @@ contract TrainingRegistry is Ownable, ReentrancyGuard {
         bool isPublic;
     }
 
-    // ============ State ============
-
-    /// @notice Training coordinator contract
     ITrainingCoordinator public coordinator;
-
-    /// @notice MPC key registry for private run keys
     MPCKeyRegistry public mpcKeyRegistry;
-
-    /// @notice Training run metadata by ID
     mapping(bytes32 => TrainingRunMetadata) public runMetadata;
-
-    /// @notice Model checkpoints by run ID
     mapping(bytes32 => ModelCheckpoint[]) public runCheckpoints;
-
-    /// @notice Private run configuration
     mapping(bytes32 => PrivateRunConfig) public privateRunConfigs;
-
-    /// @notice Participant allowlist for private runs (runId => address => allowed)
     mapping(bytes32 => mapping(address => bool)) public participantAllowlist;
-
-    /// @notice All training runs
     bytes32[] public allRuns;
-
-    /// @notice Runs by creator
     mapping(address => bytes32[]) public runsByCreator;
-
-    /// @notice Datasets by owner
     mapping(address => TrainingDataset[]) public datasetsByOwner;
-
-    /// @notice All dataset IDs
     bytes32[] public allDatasetIds;
-
-    /// @notice Dataset by ID
     mapping(bytes32 => TrainingDataset) public datasets;
-
-    /// @notice Approved TEE enclaves by provider
     mapping(TEEProvider => bytes32[]) public approvedEnclaves;
-
-    /// @notice Latest checkpoint per run
     mapping(bytes32 => bytes32) public latestCheckpointHash;
-
-    /// @notice Benchmark verifiers
     mapping(address => bool) public benchmarkVerifiers;
-
-    // ============ Events ============
 
     event TrainingRunRegistered(
         bytes32 indexed runId,

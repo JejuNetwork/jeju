@@ -1,0 +1,27 @@
+[package]
+name = "x402-facilitator"
+version = "0.1.0"
+description = "x402 Payment Protocol facilitator for Solana SPL tokens"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "x402_facilitator"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+
+[dependencies]
+anchor-lang = "0.30"
+anchor-spl = "0.30"
+solana-program = "1.18"
+
+[dev-dependencies]
+solana-program-test = "1.18"
+solana-sdk = "1.18"
+tokio = { version = "1", features = ["full"] }
+

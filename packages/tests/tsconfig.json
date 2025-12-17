@@ -1,15 +1,9 @@
 {
+  "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "target": "ESNext",
-    "module": "ESNext",
-    "moduleResolution": "bundler",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "declaration": false,
-    "noEmit": true
+    "outDir": "./dist",
+    "types": ["bun", "node"]
   },
-  "include": ["shared/**/*.ts"],
-  "exclude": ["node_modules", "../../vendor", "shared/synpress.config.base.ts", "shared/wallet-setup/**"]
+  "include": ["**/*.ts"],
+  "exclude": ["node_modules", "dist"]
 }
-
