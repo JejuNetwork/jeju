@@ -241,7 +241,7 @@ function scheduleFirstFit(nodes: ComputeNode[], context: SchedulingContext): Sch
 }
 
 // Round-robin: Distribute evenly
-function scheduleRoundRobin(nodes: ComputeNode[], context: SchedulingContext): ScheduleResult {
+function scheduleRoundRobin(nodes: ComputeNode[], _context: SchedulingContext): ScheduleResult {
   roundRobinIndex = (roundRobinIndex + 1) % nodes.length;
   const node = nodes[roundRobinIndex]!;
   return { nodeId: node.nodeId, score: 50, reason: `Round robin selection` };

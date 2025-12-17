@@ -67,18 +67,23 @@ interface NormalizedNFT {
   metadata?: string
 }
 
+type ModalMode = 'view' | 'sell'
+
 function NFTsPageContent() {
   const { address, isConnected } = useAccount()
   const searchParams = useSearchParams()
   const [filter, setFilter] = useState<'all' | 'my-nfts'>('all')
   const [sortBy, setSortBy] = useState<'recent' | 'price' | 'collection'>('recent')
-  const [showListModal, setShowListModal] = useState(false)
+  
+  // Single modal with mode switching
   const [selectedNFT, setSelectedNFT] = useState<NormalizedNFT | null>(null)
+  const [modalMode, setModalMode] = useState<ModalMode>('view')
   const [reservePrice, setReservePrice] = useState('')
   const [duration, setDuration] = useState('86400')
   const [buyoutPrice, setBuyoutPrice] = useState('')
 
   const hasMarketplace = hasNFTMarketplace(JEJU_CHAIN_ID)
+  const isOwner = selectedNFT?.owner?.toLowerCase() === address?.toLowerCase()
 
   useEffect(() => {
     const urlFilter = searchParams?.get('filter')
@@ -143,28 +148,45 @@ function NFTsPageContent() {
     return acc
   }, {} as Record<string, NormalizedNFT[]>)
 
+  const openNFT = (nft: NormalizedNFT) => {
+    setSelectedNFT(nft)
+    setModalMode('view')
+    setReservePrice('')
+    setBuyoutPrice('')
+  }
+
+  const closeModal = () => {
+    setSelectedNFT(null)
+    setModalMode('view')
+    setReservePrice('')
+    setBuyoutPrice('')
+  }
+
+  const handleList = () => {
+    // Would submit listing here
+    closeModal()
+  }
+
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-          🖼️ Items
+      <div className="mb-6 md:mb-8">
+        <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+          🖼️ NFTs
         </h1>
-        <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
-          Browse and trade digital items and collectibles
+        <p className="text-sm sm:text-base mb-4" style={{ color: 'var(--text-secondary)' }}>
+          Browse, collect, and trade digital items
         </p>
 
         {!hasMarketplace && (
-          <div className="card p-4 mb-6 border-bazaar-warning/50 bg-bazaar-warning/10">
-            <p className="text-bazaar-warning">
-              NFT Marketplace contracts not deployed. Marketplace features unavailable.
-            </p>
+          <div className="card p-3 mb-4 border-yellow-500/30 bg-yellow-500/10">
+            <p className="text-yellow-400 text-sm">Marketplace coming soon</p>
           </div>
         )}
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
-          <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+          <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
             <button
               onClick={() => setFilter('all')}
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
@@ -174,9 +196,8 @@ function NFTsPageContent() {
                 backgroundColor: filter === 'all' ? undefined : 'var(--bg-secondary)',
                 color: filter === 'all' ? undefined : 'var(--text-secondary)'
               }}
-              data-testid="filter-all-nfts"
             >
-              All Items
+              All NFTs
             </button>
             <button
               onClick={() => setFilter('my-nfts')}
@@ -188,97 +209,69 @@ function NFTsPageContent() {
                 backgroundColor: filter === 'my-nfts' ? undefined : 'var(--bg-secondary)',
                 color: filter === 'my-nfts' ? undefined : 'var(--text-secondary)'
               }}
-              data-testid="filter-my-nfts"
             >
-              My Items {!isConnected && '(Connect Wallet)'}
+              My Collection
             </button>
           </div>
 
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as 'recent' | 'price' | 'collection')}
-            className="input w-full sm:w-48 py-2"
-            data-testid="nft-sort-select"
+            className="input w-full sm:w-40 py-2 text-sm"
           >
-            <option value="recent">Recently Listed</option>
-            <option value="price">Price: Low to High</option>
-            <option value="collection">By Collection</option>
+            <option value="recent">Newest</option>
+            <option value="collection">Collection</option>
           </select>
-
-          {filter === 'my-nfts' && isConnected && sortedNFTs.length > 0 && (
-            <button
-              onClick={() => setShowListModal(true)}
-              className="btn-primary ml-auto w-full sm:w-auto"
-              data-testid="list-for-auction-button"
-            >
-              List for Auction
-            </button>
-          )}
         </div>
       </div>
 
       {/* Loading State */}
       {isLoading && (
-        <div className="flex justify-center py-20">
+        <div className="flex justify-center py-16">
           <LoadingSpinner size="lg" />
         </div>
       )}
 
       {/* Empty State */}
       {!isLoading && sortedNFTs.length === 0 && (
-        <div className="text-center py-20">
-          <div className="text-6xl md:text-7xl mb-4">🖼️</div>
-          <h3 className="text-xl md:text-2xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-            {filter === 'my-nfts' ? 'No Items in Your Collection' : 'No Items Found'}
+        <div className="text-center py-16">
+          <div className="text-5xl md:text-6xl mb-4">🖼️</div>
+          <h3 className="text-lg md:text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+            {filter === 'my-nfts' ? 'No NFTs Yet' : 'No NFTs Found'}
           </h3>
-          <p style={{ color: 'var(--text-secondary)' }}>
+          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
             {filter === 'my-nfts' 
-              ? "You don't own any items on the network yet."
-              : 'No items have been minted yet.'}
+              ? "You don't own any NFTs yet"
+              : 'No NFTs have been minted'}
           </p>
         </div>
       )}
 
       {/* NFT Grid */}
       {!isLoading && sortedNFTs.length > 0 && (
-        <div className="space-y-8">
+        <div className="space-y-6 md:space-y-8">
           {Object.entries(collections).map(([collectionName, nfts]) => (
             <div key={collectionName}>
-              <h2 className="text-xl md:text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+              <h2 className="text-lg md:text-xl font-bold mb-3 md:mb-4" style={{ color: 'var(--text-primary)' }}>
                 {collectionName}
               </h2>
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                 {nfts.map((nft) => (
                   <div
                     key={nft.id}
-                    className="card overflow-hidden group cursor-pointer"
-                    data-testid="nft-card"
-                    onClick={() => setSelectedNFT(nft)}
+                    className="card overflow-hidden group cursor-pointer active:scale-[0.98] transition-transform"
+                    onClick={() => openNFT(nft)}
                   >
-                    <div className="aspect-square bg-gradient-to-br from-bazaar-primary to-bazaar-purple flex items-center justify-center text-4xl md:text-5xl group-hover:scale-105 transition-transform">
+                    <div className="aspect-square bg-gradient-to-br from-bazaar-primary to-bazaar-purple flex items-center justify-center text-3xl md:text-4xl group-hover:scale-105 transition-transform">
                       🖼️
                     </div>
-                    <div className="p-3 md:p-4">
-                      <h3 className="font-semibold mb-1" style={{ color: 'var(--text-primary)' }}>
+                    <div className="p-2.5 md:p-3">
+                      <h3 className="font-semibold text-sm mb-0.5" style={{ color: 'var(--text-primary)' }}>
                         #{nft.tokenId}
                       </h3>
-                      <p className="text-xs md:text-sm mb-2" style={{ color: 'var(--text-tertiary)' }}>
+                      <p className="text-xs truncate" style={{ color: 'var(--text-tertiary)' }}>
                         {nft.contractName}
                       </p>
-                      <div className="flex items-center justify-between text-xs">
-                        <span style={{ color: 'var(--text-tertiary)' }}>Owner</span>
-                        <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
-                          {nft.owner?.slice(0, 4)}...{nft.owner?.slice(-3)}
-                        </span>
-                      </div>
-                      {nft.type === 'ERC1155' && nft.balance && (
-                        <div className="flex items-center justify-between text-xs mt-1">
-                          <span style={{ color: 'var(--text-tertiary)' }}>Qty</span>
-                          <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
-                            {nft.balance}
-                          </span>
-                        </div>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -288,150 +281,147 @@ function NFTsPageContent() {
         </div>
       )}
 
-      {/* NFT Detail Modal */}
-      {selectedNFT && !showListModal && (
+      {/* Unified NFT Modal */}
+      {selectedNFT && (
         <div 
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
           style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
-          onClick={() => setSelectedNFT(null)}
+          onClick={closeModal}
         >
           <div 
-            className="w-full max-w-md rounded-2xl border p-6"
+            className="w-full max-w-md rounded-2xl border overflow-hidden"
             style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <h2 className="text-xl md:text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-              #{selectedNFT.tokenId}
-            </h2>
-            <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>{selectedNFT.contractName}</p>
-            
-            <div className="aspect-square bg-gradient-to-br from-bazaar-primary to-bazaar-purple rounded-xl flex items-center justify-center text-6xl mb-4">
+            {/* NFT Image */}
+            <div className="aspect-[4/3] bg-gradient-to-br from-bazaar-primary to-bazaar-purple flex items-center justify-center text-6xl">
               🖼️
             </div>
             
-            <div className="space-y-2 mb-6 text-sm">
-              <div className="flex justify-between">
-                <span style={{ color: 'var(--text-tertiary)' }}>Contract</span>
-                <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
-                  {selectedNFT.contract?.slice(0, 10)}...
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span style={{ color: 'var(--text-tertiary)' }}>Type</span>
-                <span style={{ color: 'var(--text-primary)' }}>{selectedNFT.type}</span>
-              </div>
-              {selectedNFT.owner && (
-                <div className="flex justify-between">
-                  <span style={{ color: 'var(--text-tertiary)' }}>Owner</span>
-                  <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
-                    {selectedNFT.owner.slice(0, 10)}...
-                  </span>
+            <div className="p-5">
+              {/* Header */}
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+                    #{selectedNFT.tokenId}
+                  </h2>
+                  <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                    {selectedNFT.contractName}
+                  </p>
                 </div>
-              )}
-            </div>
-            
-            <div className="flex gap-3">
-              <button onClick={() => setSelectedNFT(null)} className="btn-secondary flex-1">
-                Close
-              </button>
-              {selectedNFT.owner?.toLowerCase() === address?.toLowerCase() && (
-                <button onClick={() => setShowListModal(true)} className="btn-primary flex-1">
-                  List for Sale
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* List for Auction Modal */}
-      {showListModal && selectedNFT && (
-        <div 
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
-        >
-          <div 
-            className="w-full max-w-md rounded-2xl border p-6"
-            style={{ backgroundColor: 'var(--surface)', borderColor: 'var(--border)' }}
-          >
-            <h2 className="text-xl md:text-2xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
-              List NFT for Auction
-            </h2>
-            <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
-              #{selectedNFT.tokenId} - {selectedNFT.contractName}
-            </p>
-            
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                  Reserve Price (ETH)
-                </label>
-                <input
-                  type="number"
-                  value={reservePrice}
-                  onChange={(e) => setReservePrice(e.target.value)}
-                  placeholder="0.1"
-                  step="0.001"
-                  className="input"
-                  data-testid="reserve-price-input"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                  Duration
-                </label>
-                <select 
-                  value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
-                  className="input"
+                <button
+                  onClick={closeModal}
+                  className="p-2 rounded-xl transition-colors"
+                  style={{ backgroundColor: 'var(--bg-secondary)' }}
                 >
-                  <option value="86400">1 Day</option>
-                  <option value="259200">3 Days</option>
-                  <option value="604800">7 Days</option>
-                  <option value="1209600">14 Days</option>
-                </select>
+                  ✕
+                </button>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2" style={{ color: 'var(--text-secondary)' }}>
-                  Instant Buy Price (Optional)
-                </label>
-                <input
-                  type="number"
-                  value={buyoutPrice}
-                  onChange={(e) => setBuyoutPrice(e.target.value)}
-                  placeholder="1.0"
-                  step="0.001"
-                  className="input"
-                />
-              </div>
-            </div>
+              {modalMode === 'view' ? (
+                <>
+                  {/* Details */}
+                  <div className="space-y-2 mb-5 text-sm">
+                    <div className="flex justify-between">
+                      <span style={{ color: 'var(--text-tertiary)' }}>Type</span>
+                      <span style={{ color: 'var(--text-primary)' }}>{selectedNFT.type}</span>
+                    </div>
+                    {selectedNFT.owner && (
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--text-tertiary)' }}>Owner</span>
+                        <span className="font-mono" style={{ color: 'var(--text-secondary)' }}>
+                          {selectedNFT.owner.slice(0, 8)}...{selectedNFT.owner.slice(-6)}
+                        </span>
+                      </div>
+                    )}
+                    {selectedNFT.balance && (
+                      <div className="flex justify-between">
+                        <span style={{ color: 'var(--text-tertiary)' }}>Quantity</span>
+                        <span style={{ color: 'var(--text-primary)' }}>{selectedNFT.balance}</span>
+                      </div>
+                    )}
+                  </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowListModal(false)
-                  setReservePrice('')
-                  setBuyoutPrice('')
-                }}
-                className="btn-secondary flex-1"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  setShowListModal(false)
-                  setSelectedNFT(null)
-                  setReservePrice('')
-                  setBuyoutPrice('')
-                }}
-                disabled={!reservePrice || parseFloat(reservePrice) <= 0}
-                className="btn-primary flex-1 disabled:opacity-50"
-                data-testid="confirm-list-button"
-              >
-                List NFT
-              </button>
+                  {/* Actions */}
+                  {isOwner && hasMarketplace ? (
+                    <button
+                      onClick={() => setModalMode('sell')}
+                      className="btn-primary w-full py-3"
+                    >
+                      List for Sale
+                    </button>
+                  ) : (
+                    <button onClick={closeModal} className="btn-secondary w-full py-3">
+                      Close
+                    </button>
+                  )}
+                </>
+              ) : (
+                <>
+                  {/* Sell Form */}
+                  <div className="space-y-4 mb-5">
+                    <div>
+                      <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                        Price (ETH)
+                      </label>
+                      <input
+                        type="number"
+                        value={reservePrice}
+                        onChange={(e) => setReservePrice(e.target.value)}
+                        placeholder="0.1"
+                        step="0.001"
+                        className="input"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                        Duration
+                      </label>
+                      <select 
+                        value={duration}
+                        onChange={(e) => setDuration(e.target.value)}
+                        className="input"
+                      >
+                        <option value="86400">1 Day</option>
+                        <option value="259200">3 Days</option>
+                        <option value="604800">7 Days</option>
+                        <option value="1209600">14 Days</option>
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-xs mb-1.5 block" style={{ color: 'var(--text-tertiary)' }}>
+                        Buy Now Price (optional)
+                      </label>
+                      <input
+                        type="number"
+                        value={buyoutPrice}
+                        onChange={(e) => setBuyoutPrice(e.target.value)}
+                        placeholder="1.0"
+                        step="0.001"
+                        className="input"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => setModalMode('view')}
+                      className="btn-secondary flex-1 py-3"
+                    >
+                      Back
+                    </button>
+                    <button
+                      onClick={handleList}
+                      disabled={!reservePrice || parseFloat(reservePrice) <= 0}
+                      className="btn-primary flex-1 py-3 disabled:opacity-50"
+                    >
+                      List NFT
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </div>
         </div>

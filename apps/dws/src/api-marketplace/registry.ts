@@ -160,7 +160,7 @@ export async function getAllListings(): Promise<APIListing[]> {
 /**
  * Get listings by provider
  */
-export async function getListingsByProvider(providerId: string): Promise<APIListing[]> {
+export async function getListingsByProvider(_providerId: string): Promise<APIListing[]> {
   // Would need to add provider_id query to state module
   // For now, return empty - callers should use getListingsBySeller
   return [];
@@ -179,7 +179,12 @@ export async function getActiveListings(): Promise<APIListing[]> {
  */
 export async function updateListing(
   id: string,
-  updates: Partial<Pick<APIListing, 'pricePerRequest' | 'limits' | 'accessControl' | 'active'>>
+  updates: {
+    pricePerRequest?: bigint;
+    limits?: Partial<UsageLimits>;
+    accessControl?: Partial<AccessControl>;
+    active?: boolean;
+  }
 ): Promise<APIListing> {
   const listing = await getListing(id);
   if (!listing) {
@@ -187,14 +192,16 @@ export async function updateListing(
   }
 
   // Re-save with updates
+  const updatedLimits = updates.limits ? { ...listing.limits, ...updates.limits } : listing.limits;
+  const updatedAccessControl = updates.accessControl ? { ...listing.accessControl, ...updates.accessControl } : listing.accessControl;
   await apiListingState.save({
     listingId: listing.id,
     providerId: listing.providerId,
     seller: listing.seller,
     keyVaultId: listing.keyVaultId,
     pricePerRequest: (updates.pricePerRequest ?? listing.pricePerRequest).toString(),
-    limits: updates.limits ? { ...listing.limits, ...updates.limits } : listing.limits,
-    accessControl: updates.accessControl ? { ...listing.accessControl, ...updates.accessControl } : listing.accessControl,
+    limits: updatedLimits as unknown as Record<string, number>,
+    accessControl: updatedAccessControl as unknown as Record<string, string[]>,
     status: updates.active !== undefined ? (updates.active ? 'active' : 'inactive') : (listing.active ? 'active' : 'inactive'),
   });
 
@@ -240,12 +247,13 @@ export function getMarketplaceStats(): MarketplaceStats {
  */
 export async function getAccount(address: Address): Promise<UserAccount | undefined> {
   const row = await apiUserAccountState.getOrCreate(address);
+  const listingIds = JSON.parse(row.active_listings) as string[];
   return {
     address: row.address as Address,
     balance: BigInt(row.balance),
     totalSpent: BigInt(row.total_spent),
     totalRequests: BigInt(row.total_requests),
-    subscriptions: JSON.parse(row.active_listings) as string[],
+    subscriptions: listingIds.map(id => ({ listingId: id, remainingRequests: 0n, periodEnd: 0 })),
   };
 }
 
@@ -265,12 +273,13 @@ export async function recordRequest(listingId: string, cost: bigint): Promise<vo
  */
 export async function getOrCreateAccount(address: Address): Promise<UserAccount> {
   const row = await apiUserAccountState.getOrCreate(address);
+  const listingIds = JSON.parse(row.active_listings) as string[];
   return {
     address: row.address as Address,
     balance: BigInt(row.balance),
     totalSpent: BigInt(row.total_spent),
     totalRequests: BigInt(row.total_requests),
-    subscriptions: JSON.parse(row.active_listings) as string[],
+    subscriptions: listingIds.map(id => ({ listingId: id, remainingRequests: 0n, periodEnd: 0 })),
   };
 }
 

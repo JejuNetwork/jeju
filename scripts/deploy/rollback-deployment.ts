@@ -56,12 +56,24 @@ function listBackups(network: string): string[] {
     const entries = Bun.readdirSync(networkBackupsDir);
     for (const entry of entries) {
       const backupPath = join(networkBackupsDir, entry);
-      if (Bun.statSync(backupPath).isDirectory()) {
-        backups.push(entry);
+      try {
+        if (Bun.statSync(backupPath).isDirectory()) {
+          backups.push(entry);
+        }
+      } catch (err) {
+        // Skip entries that can't be stat'd
+        if (process.env.DEBUG) {
+          const errorMessage = err instanceof Error ? err.message : String(err);
+          console.warn(`Failed to stat backup entry ${entry}: ${errorMessage}`);
+        }
       }
     }
-  } catch {
+  } catch (err) {
     // Directory doesn't exist or can't be read
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    if (process.env.DEBUG) {
+      console.warn(`Failed to read backups directory ${networkBackupsDir}: ${errorMessage}`);
+    }
   }
   
   return backups.sort().reverse();

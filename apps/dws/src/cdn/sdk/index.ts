@@ -350,6 +350,7 @@ export class CDNClient {
     }
 
     // Create new site
+    // @ts-expect-error viem ABI type inference
     const hash = await writeContract(this.walletClient, {
       address: this.registryAddress,
       abi: CDN_REGISTRY_ABI,

@@ -33,13 +33,13 @@ import {
   processWithdraw,
   getAccountInfo,
   getBalance,
-  create402Response,
+  create402Response as _create402Response,
   parsePaymentProof,
   getMinimumDeposit,
   calculateAffordableRequests,
   // Access control
   getRateLimitUsage,
-  accessControl,
+  accessControl as _accessControl,
   // Types
   type ProxyRequest,
   type CreateListingParams,
@@ -386,13 +386,13 @@ export function createAPIMarketplaceRouter(): Hono {
   // Accounts & Payments
   // ============================================================================
 
-  app.get('/account', (c) => {
+  app.get('/account', async (c) => {
     const userAddress = c.req.header('x-jeju-address') as Address;
     if (!userAddress) {
       return c.json({ error: 'Missing x-jeju-address header' }, 401);
     }
 
-    const account = getAccountInfo(userAddress);
+    const account = await getAccountInfo(userAddress);
     return c.json({
       address: userAddress,
       balance: account.balance.toString(),
@@ -465,18 +465,18 @@ export function createAPIMarketplaceRouter(): Hono {
     });
   });
 
-  app.get('/account/affordable/:listingId', (c) => {
+  app.get('/account/affordable/:listingId', async (c) => {
     const userAddress = c.req.header('x-jeju-address') as Address;
     if (!userAddress) {
       return c.json({ error: 'Missing x-jeju-address header' }, 401);
     }
 
-    const listing = getListing(c.req.param('listingId'));
+    const listing = await getListing(c.req.param('listingId'));
     if (!listing) {
       return c.json({ error: 'Listing not found' }, 404);
     }
 
-    const balance = getBalance(userAddress);
+    const balance = await getBalance(userAddress);
     const affordable = calculateAffordableRequests(balance, listing.pricePerRequest);
 
     return c.json({
@@ -490,13 +490,13 @@ export function createAPIMarketplaceRouter(): Hono {
   // Rate Limits
   // ============================================================================
 
-  app.get('/ratelimit/:listingId', (c) => {
+  app.get('/ratelimit/:listingId', async (c) => {
     const userAddress = c.req.header('x-jeju-address') as Address;
     if (!userAddress) {
       return c.json({ error: 'Missing x-jeju-address header' }, 401);
     }
 
-    const listing = getListing(c.req.param('listingId'));
+    const listing = await getListing(c.req.param('listingId'));
     if (!listing) {
       return c.json({ error: 'Listing not found' }, 404);
     }

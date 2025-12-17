@@ -35,7 +35,7 @@ export function createStorageRouter(backendManager: BackendManager): Hono {
     const cid = c.req.param('cid');
     const result = await backendManager.download(cid).catch((e: Error) => ({ error: e.message }));
     if ('error' in result) return c.json(result, 404);
-    return new Response(result.content, {
+    return new Response(new Uint8Array(result.content), {
       headers: {
         'Content-Type': 'application/octet-stream',
         'Content-Disposition': `attachment; filename="${cid}"`,
@@ -76,7 +76,7 @@ export function createStorageRouter(backendManager: BackendManager): Hono {
     const cid = c.req.param('cid');
     const result = await backendManager.download(cid).catch((e: Error) => ({ error: e.message }));
     if ('error' in result) return c.json({ error: 'Not found' }, 404);
-    return new Response(result.content, {
+    return new Response(new Uint8Array(result.content), {
       headers: { 'Content-Type': 'application/octet-stream', 'X-Ipfs-Path': `/ipfs/${cid}` },
     });
   });

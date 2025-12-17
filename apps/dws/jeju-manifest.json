@@ -68,13 +68,22 @@
         { "pattern": "/ipfs/**", "ttl": 31536000, "immutable": true },
         { "pattern": "/ipns/**", "ttl": 300, "staleWhileRevalidate": 3600 },
         { "pattern": "/ar/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/api/**", "ttl": 0 }
+        { "pattern": "/api/**", "ttl": 0 },
+        { "pattern": "/app/**", "ttl": 60, "staleWhileRevalidate": 3600 }
       ],
-      "serviceWorker": false
+      "serviceWorker": true
+    },
+    "frontend": {
+      "ipfs": true,
+      "arweave": true,
+      "jnsName": "dws.jeju",
+      "buildDir": "frontend",
+      "spa": true,
+      "fallbackOrigins": ["https://dws.jeju.network"]
     },
     "robustness": {
       "multiOrigin": true,
-      "offlineSupport": false,
+      "offlineSupport": true,
       "p2pFallback": true,
       "contentAddressed": true
     }

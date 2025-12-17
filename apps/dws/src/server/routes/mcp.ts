@@ -12,7 +12,7 @@ interface MCPContext {
 
 export function createMCPRouter(ctx: MCPContext = {}): Hono {
   const router = new Hono();
-  const { backend } = ctx;
+  const { backend: _backend } = ctx;
 
   // Initialize MCP connection
   router.post('/initialize', async (c) => {

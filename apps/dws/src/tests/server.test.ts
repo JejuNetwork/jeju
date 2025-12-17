@@ -64,7 +64,7 @@ describe('DWS Server', () => {
       expect(data.service).toBe('dws-compute');
     });
 
-    it('handles chat completion', async () => {
+    it('handles chat completion without backend', async () => {
       const res = await app.fetch(new Request('http://localhost/compute/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -73,11 +73,10 @@ describe('DWS Server', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }));
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(503);
 
       const data = await res.json();
-      expect(data.model).toBe('mock-model');
-      expect(data.choices).toHaveLength(1);
+      expect(data.error).toContain('INFERENCE_API_URL');
     });
   });
 

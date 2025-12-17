@@ -99,6 +99,10 @@ async function checkGitAccess(url: string): Promise<boolean> {
 
 async function ensureCorrectBranch(appPath: string, branch: string): Promise<void> {
   const currentBranch = await $`git -C ${appPath} branch --show-current`.nothrow().quiet();
+  if (currentBranch.exitCode !== 0) {
+    throw new Error(`Failed to get current branch for ${appPath}: ${currentBranch.stderr.toString()}`);
+  }
+  
   const current = currentBranch.stdout.toString().trim();
   
   if (current !== branch) {
@@ -106,8 +110,15 @@ async function ensureCorrectBranch(appPath: string, branch: string): Promise<voi
     const checkoutResult = await $`git -C ${appPath} checkout ${branch}`.nothrow().quiet();
     if (checkoutResult.exitCode !== 0) {
       // Branch might not exist locally, try fetching and checking out
-      await $`git -C ${appPath} fetch origin ${branch}`.nothrow().quiet();
-      await $`git -C ${appPath} checkout -b ${branch} origin/${branch}`.nothrow().quiet();
+      const fetchResult = await $`git -C ${appPath} fetch origin ${branch}`.nothrow().quiet();
+      if (fetchResult.exitCode !== 0) {
+        throw new Error(`Failed to fetch branch ${branch} for ${appPath}: ${fetchResult.stderr.toString()}`);
+      }
+      
+      const createBranchResult = await $`git -C ${appPath} checkout -b ${branch} origin/${branch}`.nothrow().quiet();
+      if (createBranchResult.exitCode !== 0) {
+        throw new Error(`Failed to checkout branch ${branch} for ${appPath}: ${createBranchResult.stderr.toString()}`);
+      }
     }
   }
 }
@@ -122,9 +133,17 @@ async function installDependencies(appPath: string, appName: string): Promise<bo
   const result = await $`cd ${appPath} && bun install --frozen-lockfile`.nothrow().quiet();
   
   if (result.exitCode !== 0) {
+    const errorMsg = result.stderr.toString() || result.stdout.toString();
+    console.log(`   ⚠️  Frozen lockfile install failed, trying without lockfile...`);
+    
     // Try without frozen lockfile
     const retryResult = await $`cd ${appPath} && bun install`.nothrow().quiet();
-    return retryResult.exitCode === 0;
+    if (retryResult.exitCode !== 0) {
+      const retryError = retryResult.stderr.toString() || retryResult.stdout.toString();
+      console.error(`   ❌ Failed to install dependencies for ${appName}`);
+      console.error(`   Error: ${retryError.split('\n')[0]}`);
+      return false;
+    }
   }
   
   return true;
@@ -246,21 +265,26 @@ async function main() {
   let timedOut = false;
   
   try {
-    const submodulePromise = $`git submodule update --init --recursive --depth 1 packages/contracts/lib/`.nothrow();
+    const submoduleProcess = $`git submodule update --init --recursive --depth 1 packages/contracts/lib/`.nothrow();
     const timeoutPromise = new Promise<{ exitCode: number; timedOut: boolean }>((resolve) => {
-      setTimeout(() => resolve({ exitCode: 124, timedOut: true }), 30000); // 30 second timeout
+      setTimeout(() => {
+        // Kill the submodule process if it's still running
+        submoduleProcess.kill();
+        resolve({ exitCode: 124, timedOut: true });
+      }, 30000); // 30 second timeout
     });
     
-    const result = await Promise.race([submodulePromise, timeoutPromise]);
+    const result = await Promise.race([submoduleProcess, timeoutPromise]);
     
     if ('timedOut' in result && result.timedOut) {
       timedOut = true;
-      contractLibsResult = { exitCode: 124, stderr: { toString: () => 'Operation timed out' } };
+      contractLibsResult = { exitCode: 124, stderr: { toString: () => 'Operation timed out after 30s' } };
     } else {
       contractLibsResult = result;
     }
   } catch (err) {
-    contractLibsResult = { exitCode: 1, stderr: { toString: () => String(err) } };
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    contractLibsResult = { exitCode: 1, stderr: { toString: () => errorMessage } };
   }
   
   if (contractLibsResult.exitCode === 0) {
@@ -364,7 +388,18 @@ async function main() {
 }
 
 main().catch((err) => {
-  console.error('⚠️  Setup warnings:', err.message);
-  // Exit with 0 to not break install
+  const errorMessage = err instanceof Error ? err.message : String(err);
+  const errorStack = err instanceof Error ? err.stack : undefined;
+  
+  console.error('\n❌ Setup failed:');
+  console.error(`   ${errorMessage}`);
+  if (errorStack && process.env.DEBUG) {
+    console.error('\nStack trace:');
+    console.error(errorStack);
+  }
+  console.error('\n⚠️  Setup completed with errors. Some features may not work.');
+  console.error('   You can re-run setup manually: bun run scripts/setup-apps.ts\n');
+  
+  // Exit with 0 to not break install, but log the error clearly
   process.exit(0);
 });

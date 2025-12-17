@@ -52,6 +52,8 @@ interface ConsensusSnapshot {
   blockTime: number;
   votes: ValidatorVote[];
   transactionsRoot: Uint8Array;
+  epoch: bigint;
+  epochStakesRoot: Uint8Array;
 }
 
 interface ValidatorVote {
@@ -255,7 +257,7 @@ export class RelayerService {
     const commitment: SolanaStateCommitment = {
       slot: snapshot.slot,
       bankHash: toHash32(new Uint8Array(snapshot.bankHash)),
-      epochStakes: toHash32(new Uint8Array(32)),
+      epochStakes: toHash32(new Uint8Array(snapshot.epochStakesRoot)),
       proof: null,
       provenAt: BigInt(0),
     };
@@ -343,7 +345,7 @@ export class RelayerService {
           bankHash:
             `0x${Buffer.from(snapshot.bankHash).toString('hex')}` as `0x${string}`,
           epochStakesRoot:
-            '0x0000000000000000000000000000000000000000000000000000000000000000',
+            `0x${Buffer.from(snapshot.epochStakesRoot).toString('hex')}` as `0x${string}`,
           proof: proof.map((p) => BigInt(p)),
           publicInputs: [],
         });

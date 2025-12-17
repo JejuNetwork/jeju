@@ -298,8 +298,8 @@ export class UpstreamProxy {
       break;
     }
 
-    if (lastError) {
-      console.error(`[Pkg Upstream] Failed to fetch ${packageName}: ${lastError.message}`);
+    if (lastError !== null) {
+      console.error(`[Pkg Upstream] Failed to fetch ${packageName}: ${(lastError as Error).message}`);
     }
 
     return null;

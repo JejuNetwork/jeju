@@ -3,140 +3,220 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { getNetworkTokens } from '@/lib/indexer-client'
+import { fetchTokens, type Token } from '@/lib/data-client'
 import { JEJU_CHAIN_ID } from '@/config/chains'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
+import { formatUnits } from 'viem'
 
-interface TokenCardProps {
-  address: string
-  creator: string
-  createdAt: string
+function formatNumber(num: number | bigint): string {
+  const n = typeof num === 'bigint' ? Number(num) : num
+  if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`
+  if (n >= 1e6) return `${(n / 1e6).toFixed(2)}M`
+  if (n >= 1e3) return `${(n / 1e3).toFixed(2)}K`
+  return n.toFixed(2)
 }
 
-function TokenCard({ address, creator, createdAt }: TokenCardProps) {
+function TokenCard({ token }: { token: Token }) {
+  const initials = token.symbol.slice(0, 2).toUpperCase()
+  const supplyFormatted = formatNumber(Number(formatUnits(token.totalSupply, token.decimals)))
+
   return (
     <Link
-      href={`/coins/${JEJU_CHAIN_ID}/${address}`}
-      className="card p-5 md:p-6 group"
+      href={`/coins/${JEJU_CHAIN_ID}/${token.address}`}
+      className="card p-5 group hover:scale-[1.02] transition-all"
     >
-      <div className="flex items-center gap-3 md:gap-4 mb-4">
-        <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-gradient-to-br from-bazaar-primary to-bazaar-purple flex items-center justify-center text-lg md:text-xl font-bold text-white group-hover:scale-110 transition-transform">
-          {address.slice(2, 4).toUpperCase()}
-        </div>
+      <div className="flex items-center gap-3 mb-4">
+        {token.logoUrl ? (
+          <img 
+            src={token.logoUrl} 
+            alt={token.symbol}
+            className="w-12 h-12 rounded-2xl"
+          />
+        ) : (
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-bazaar-primary to-bazaar-purple flex items-center justify-center text-lg font-bold text-white group-hover:scale-110 transition-transform">
+            {initials}
+          </div>
+        )}
         <div className="flex-1 min-w-0">
-          <h3 className="text-base md:text-lg font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
-            {address.slice(0, 6)}...{address.slice(-4)}
-          </h3>
-          <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>ERC20 Coin</p>
-        </div>
-      </div>
-      <div className="flex items-center justify-between text-sm">
-        <div>
-          <p style={{ color: 'var(--text-tertiary)' }}>Creator</p>
-          <p className="font-mono text-xs md:text-sm" style={{ color: 'var(--text-secondary)' }}>
-            {creator.slice(0, 6)}...{creator.slice(-4)}
+          <div className="flex items-center gap-2">
+            <h3 className="text-lg font-semibold truncate" style={{ color: 'var(--text-primary)' }}>
+              {token.name}
+            </h3>
+            {token.verified && (
+              <span className="text-blue-400 text-sm">✓</span>
+            )}
+          </div>
+          <p className="text-sm font-mono" style={{ color: 'var(--text-tertiary)' }}>
+            ${token.symbol}
           </p>
         </div>
-        <div className="text-right">
-          <p style={{ color: 'var(--text-tertiary)' }}>Created</p>
-          <p style={{ color: 'var(--text-secondary)' }}>{new Date(createdAt).toLocaleDateString()}</p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3 text-sm">
+        <div>
+          <p style={{ color: 'var(--text-tertiary)' }}>Supply</p>
+          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {supplyFormatted}
+          </p>
         </div>
+        <div>
+          <p style={{ color: 'var(--text-tertiary)' }}>Holders</p>
+          <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+            {token.holders ? formatNumber(token.holders) : '—'}
+          </p>
+        </div>
+        {token.volume24h !== undefined && (
+          <div>
+            <p style={{ color: 'var(--text-tertiary)' }}>24h Volume</p>
+            <p className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+              ${formatNumber(Number(formatUnits(token.volume24h, token.decimals)))}
+            </p>
+          </div>
+        )}
+        {token.priceChange24h !== undefined && (
+          <div>
+            <p style={{ color: 'var(--text-tertiary)' }}>24h Change</p>
+            <p className={`font-semibold ${token.priceChange24h >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+              {token.priceChange24h >= 0 ? '+' : ''}{token.priceChange24h.toFixed(2)}%
+            </p>
+          </div>
+        )}
+      </div>
+
+      <div className="mt-4 pt-3 border-t flex items-center justify-between" style={{ borderColor: 'var(--border)' }}>
+        <p className="text-xs font-mono" style={{ color: 'var(--text-tertiary)' }}>
+          {token.address.slice(0, 6)}...{token.address.slice(-4)}
+        </p>
+        <p className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+          {token.createdAt.toLocaleDateString()}
+        </p>
       </div>
     </Link>
   )
 }
 
-export default function TokensPage() {
+export default function CoinsPage() {
   const [filter, setFilter] = useState<'all' | 'verified' | 'new'>('all')
+  const [orderBy, setOrderBy] = useState<'volume' | 'recent' | 'holders'>('recent')
 
-  const { data: coins, isLoading, error } = useQuery({
-    queryKey: ['jeju-coins', filter],
-    queryFn: () => getNetworkTokens({ limit: 50 }),
-    refetchInterval: 10000,
+  const { data: tokens, isLoading, error, refetch } = useQuery({
+    queryKey: ['tokens', filter, orderBy],
+    queryFn: () => fetchTokens({
+      limit: 50,
+      verified: filter === 'verified' ? true : undefined,
+      orderBy,
+    }),
+    refetchInterval: 15000,
+    staleTime: 10000,
   })
+
+  // Filter by 'new' (last 7 days) on client side
+  const filteredTokens = filter === 'new' && tokens
+    ? tokens.filter(t => t.createdAt > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000))
+    : tokens
 
   return (
     <div>
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-3xl md:text-4xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-1" style={{ color: 'var(--text-primary)' }}>
             🪙 Coins
           </h1>
-          <p style={{ color: 'var(--text-secondary)' }}>Browse and trade coins on the network and beyond</p>
+          <p className="text-sm sm:text-base" style={{ color: 'var(--text-secondary)' }}>
+            Browse and trade tokens on the network
+          </p>
         </div>
-        <div className="flex gap-2 w-full md:w-auto">
-          <Link href="/coins/launch" className="btn-primary flex-1 md:flex-none text-center">
-            Launch Token
-          </Link>
-          <Link href="/coins/create" className="btn-secondary flex-1 md:flex-none text-center">
-            Simple Create
-          </Link>
-        </div>
+        <Link href="/coins/launch" className="btn-primary w-full md:w-auto text-center">
+          Create Token
+        </Link>
       </div>
 
-      {/* Filters */}
-      <div className="flex gap-2 md:gap-3 mb-6 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0">
-        {(['all', 'verified', 'new'] as const).map((f) => (
-          <button
-            key={f}
-            onClick={() => setFilter(f)}
-            className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
-              filter === f
-                ? 'bg-bazaar-primary text-white'
-                : 'hover:bg-[var(--bg-tertiary)]'
-            }`}
-            style={{ 
-              backgroundColor: filter === f ? undefined : 'var(--bg-secondary)',
-              color: filter === f ? undefined : 'var(--text-secondary)'
-            }}
+      {/* Filters & Sort */}
+      <div className="flex flex-col sm:flex-row gap-3 mb-6">
+        <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
+          {(['all', 'verified', 'new'] as const).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
+                filter === f ? 'bg-bazaar-primary text-white' : ''
+              }`}
+              style={filter !== f ? { 
+                backgroundColor: 'var(--bg-secondary)',
+                color: 'var(--text-secondary)'
+              } : undefined}
+            >
+              {f === 'all' ? 'All' : f === 'verified' ? '✓ Verified' : '🆕 New'}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex gap-2 sm:ml-auto">
+          <select
+            value={orderBy}
+            onChange={(e) => setOrderBy(e.target.value as typeof orderBy)}
+            className="input text-sm py-2"
           >
-            {f === 'all' ? 'All Coins' : f === 'verified' ? 'Verified' : 'New'}
-          </button>
-        ))}
+            <option value="recent">Most Recent</option>
+            <option value="volume">Top Volume</option>
+            <option value="holders">Most Holders</option>
+          </select>
+        </div>
       </div>
 
-      {/* Loading State */}
+      {/* Loading */}
       {isLoading && (
         <div className="flex justify-center py-20">
           <LoadingSpinner size="lg" />
         </div>
       )}
 
-      {/* Error State */}
+      {/* Error */}
       {error && (
-        <div className="card p-6 border-bazaar-error/50 bg-bazaar-error/10">
-          <p className="font-semibold mb-2 text-bazaar-error">Failed to load coins</p>
-          <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>{error.message}</p>
+        <div className="card p-6 border-red-500/30 bg-red-500/10">
+          <div className="flex items-start gap-3">
+            <span className="text-2xl">⚠️</span>
+            <div className="flex-1">
+              <p className="font-semibold mb-1 text-red-400">Unable to load tokens</p>
+              <p className="text-sm mb-3" style={{ color: 'var(--text-secondary)' }}>
+                {error instanceof Error ? error.message : 'Network error'}
+              </p>
+              <button onClick={() => refetch()} className="btn-secondary text-sm">
+                Retry
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Empty State */}
-      {coins && coins.length === 0 && (
-        <div className="text-center py-20">
-          <div className="text-6xl md:text-7xl mb-4">🪙</div>
-          <h3 className="text-xl md:text-2xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
-            No Coins Yet
+      {!isLoading && !error && filteredTokens?.length === 0 && (
+        <div className="text-center py-16">
+          <div className="text-5xl mb-4">🪙</div>
+          <h3 className="text-lg font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+            {filter === 'new' ? 'No New Tokens' : filter === 'verified' ? 'No Verified Tokens' : 'No Tokens Yet'}
           </h3>
-          <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
-            Be the first to create a coin on the network.
+          <p className="mb-4 text-sm" style={{ color: 'var(--text-secondary)' }}>
+            {filter === 'all' 
+              ? 'Be the first to create a token on the network'
+              : filter === 'verified'
+              ? 'No tokens have been verified yet'
+              : 'No tokens created in the last 7 days'}
           </p>
-          <Link href="/coins/create" className="btn-primary">
-            Create First Coin
-          </Link>
+          {filter === 'all' && (
+            <Link href="/coins/launch" className="btn-primary">
+              Create First Token
+            </Link>
+          )}
         </div>
       )}
 
-      {/* Coins Grid */}
-      {coins && coins.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-          {coins.map((coin) => (
-            <TokenCard
-              key={coin.id}
-              address={coin.address}
-              creator={coin.creator.address}
-              createdAt={coin.firstSeenAt}
-            />
+      {/* Tokens Grid */}
+      {!isLoading && !error && filteredTokens && filteredTokens.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredTokens.map((token) => (
+            <TokenCard key={token.address} token={token} />
           ))}
         </div>
       )}

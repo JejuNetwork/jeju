@@ -51,6 +51,7 @@ class ThresholdSignerService {
   private rateLimits = new Map<string, { count: number; resetAt: number }>();
   private processedRequests = new Set<string>();
   private stats = { requestsReceived: 0, signaturesIssued: 0, startTime: Date.now() };
+  private cleanupInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(privateKey: string, apiKey: string, allowedOrigins: string[] = []) {
     this.account = privateKeyToAccount(privateKey as `0x${string}`);
@@ -58,7 +59,14 @@ class ThresholdSignerService {
     this.apiKeyHash = createHash('sha256').update(apiKey).digest('hex');
     this.allowedOrigins = new Set(allowedOrigins);
     this.setupRoutes();
-    setInterval(() => this.cleanup(), 30_000);
+    this.cleanupInterval = setInterval(() => this.cleanup(), 30_000);
+  }
+  
+  stop(): void {
+    if (this.cleanupInterval) {
+      clearInterval(this.cleanupInterval);
+      this.cleanupInterval = null;
+    }
   }
 
   private cleanup(): void {

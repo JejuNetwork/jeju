@@ -6,14 +6,14 @@
  */
 
 import { Hono, type Context } from 'hono';
-import type { StatusCode } from 'hono/utils/http-status';
+import type { StatusCode as _StatusCode } from 'hono/utils/http-status';
 
 const OAUTH3_AGENT_URL = process.env.OAUTH3_AGENT_URL || 'http://localhost:4200';
 
 // Helper to proxy response with proper typing
 async function proxyJsonResponse(c: Context, response: Response): Promise<Response> {
   const data = await response.json();
-  return c.json(data, response.status as StatusCode);
+  return c.json(data, response.status as 200 | 400 | 401 | 403 | 404 | 500 | 502 | 503);
 }
 
 export function createOAuth3Router(): Hono {
@@ -36,7 +36,7 @@ export function createOAuth3Router(): Hono {
   app.get('/attestation', async (c) => {
     const response = await fetch(`${OAUTH3_AGENT_URL}/attestation`);
     if (!response.ok) {
-      return c.json({ error: 'Failed to get attestation' }, response.status as StatusCode);
+      return c.json({ error: 'Failed to get attestation' }, response.status as 400 | 401 | 403 | 404 | 500 | 502 | 503);
     }
     return c.json(await response.json());
   });

@@ -62,10 +62,15 @@ async function main() {
     transport: http(rpcUrl),
   });
   
-  await client.getBlockNumber().catch(() => {
-    console.error('Cannot connect to anvil. Run: anvil --port 9545');
+  try {
+    await client.getBlockNumber();
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : String(err);
+    console.error('Cannot connect to anvil.');
+    console.error(`Error: ${errorMessage}`);
+    console.error('Run: anvil --port 9545');
     process.exit(1);
-  });
+  }
   
   const deployerAccount = privateKeyToAccount(KEYS[0] as `0x${string}`);
   const walletClient = createWalletClient({

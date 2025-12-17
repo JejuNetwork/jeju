@@ -1,0 +1,151 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+
+import {IInsuranceFund, IPriceOracle} from "./interfaces/IPerps.sol";
+
+/**
+ * @title InsuranceFund
+ * @notice Protocol safety net for covering underwater positions
+ * @dev Accumulates fees from liquidations and covers deficits when traders default
+ */
+contract InsuranceFund is IInsuranceFund, ReentrancyGuard, Ownable {
+    using SafeERC20 for IERC20;
+
+    // Price oracle for valuation
+    IPriceOracle public priceOracle;
+    
+    // Authorized contracts that can withdraw/cover deficits
+    mapping(address => bool) public authorizedContracts;
+    
+    // Token balances
+    mapping(address => uint256) public tokenBalances;
+    address[] public supportedTokens;
+    mapping(address => bool) public isSupported;
+    
+    // Statistics
+    uint256 public totalDeposits;
+    uint256 public totalWithdrawals;
+    uint256 public totalDeficitsCovered;
+    
+    constructor(address _priceOracle, address _owner) Ownable(_owner) {
+        priceOracle = IPriceOracle(_priceOracle);
+    }
+    
+    // ============ Modifiers ============
+    
+    modifier onlyAuthorized() {
+        require(authorizedContracts[msg.sender] || msg.sender == owner(), "Not authorized");
+        _;
+    }
+    
+    // ============ Admin Functions ============
+    
+    function setAuthorizedContract(address contractAddr, bool authorized) external onlyOwner {
+        authorizedContracts[contractAddr] = authorized;
+    }
+    
+    function setPriceOracle(address _priceOracle) external onlyOwner {
+        priceOracle = IPriceOracle(_priceOracle);
+    }
+    
+    function addSupportedToken(address token) external onlyOwner {
+        if (!isSupported[token]) {
+            supportedTokens.push(token);
+            isSupported[token] = true;
+        }
+    }
+    
+    // ============ Fund Operations ============
+    
+    /**
+     * @notice Deposit funds into the insurance fund
+     * @param token Token to deposit
+     * @param amount Amount to deposit
+     */
+    function deposit(address token, uint256 amount) external nonReentrant {
+        require(amount > 0, "Amount must be > 0");
+        
+        IERC20(token).safeTransferFrom(msg.sender, address(this), amount);
+        
+        tokenBalances[token] += amount;
+        totalDeposits += amount;
+        
+        if (!isSupported[token]) {
+            supportedTokens.push(token);
+            isSupported[token] = true;
+        }
+        
+        emit FundDeposit(token, amount);
+    }
+    
+    /**
+     * @notice Withdraw funds from insurance fund (admin only)
+     * @param token Token to withdraw
+     * @param amount Amount to withdraw
+     */
+    function withdraw(address token, uint256 amount) external onlyOwner nonReentrant {
+        require(tokenBalances[token] >= amount, "Insufficient balance");
+        
+        tokenBalances[token] -= amount;
+        totalWithdrawals += amount;
+        
+        IERC20(token).safeTransfer(msg.sender, amount);
+        
+        emit FundWithdraw(token, amount);
+    }
+    
+    /**
+     * @notice Cover a trading deficit (called by trading contract)
+     * @param token Token needed to cover deficit
+     * @param amount Amount of deficit to cover
+     */
+    function coverDeficit(address token, uint256 amount) external onlyAuthorized nonReentrant {
+        uint256 balance = tokenBalances[token];
+        uint256 toCover = amount > balance ? balance : amount;
+        
+        if (toCover > 0) {
+            tokenBalances[token] -= toCover;
+            totalDeficitsCovered += toCover;
+            
+            IERC20(token).safeTransfer(msg.sender, toCover);
+            
+            emit DeficitCovered(bytes32(0), toCover);
+        }
+    }
+    
+    // ============ View Functions ============
+    
+    function getBalance(address token) external view returns (uint256) {
+        return tokenBalances[token];
+    }
+    
+    function getTotalValue() external view returns (uint256 totalValueUSD) {
+        for (uint256 i = 0; i < supportedTokens.length; i++) {
+            address token = supportedTokens[i];
+            uint256 balance = tokenBalances[token];
+            
+            if (balance > 0) {
+                (uint256 price, ) = priceOracle.getPrice(token);
+                totalValueUSD += (balance * price) / 1e18;
+            }
+        }
+    }
+    
+    function getSupportedTokens() external view returns (address[] memory) {
+        return supportedTokens;
+    }
+    
+    function getStats() external view returns (
+        uint256 deposits,
+        uint256 withdrawals,
+        uint256 deficitsCovered
+    ) {
+        return (totalDeposits, totalWithdrawals, totalDeficitsCovered);
+    }
+}
+

@@ -110,7 +110,7 @@ export function initializeContainerSystem(): void {
 export async function runContainer(
   request: ExecutionRequest,
   userAddress: Address,
-  options?: {
+  _options?: {
     preferredRegion?: string;
     schedulingStrategy?: scheduler.SchedulingStrategy;
   }
@@ -125,9 +125,9 @@ export async function runContainer(
  */
 export async function warmContainers(
   imageRef: string,
-  count: number,
-  resources: ExecutionRequest['resources'],
-  owner: Address
+  _count: number,
+  _resources: ExecutionRequest['resources'],
+  _owner: Address
 ): Promise<void> {
   // Queue for pre-warming
   cache.queuePrewarm({

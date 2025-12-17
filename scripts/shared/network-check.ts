@@ -69,8 +69,12 @@ async function checkRpc(rpcUrl: string): Promise<{ reachable: boolean; chainId: 
       chainId: parseInt(chainIdHex as string, 16),
       blockNumber: parseInt(blockNumberHex as string, 16),
     };
-  } catch {
+  } catch (err) {
     clearTimeout(timeout);
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    if (process.env.DEBUG) {
+      console.warn(`RPC check failed for ${rpcUrl}: ${errorMessage}`);
+    }
     return { reachable: false, chainId: null, blockNumber: null };
   }
 }
@@ -97,7 +101,11 @@ async function checkBalance(rpcUrl: string, address: string): Promise<boolean> {
     if (!data.result) return false;
     
     return BigInt(data.result) > BigInt(0);
-  } catch {
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+    if (process.env.DEBUG) {
+      console.warn(`Balance check failed for ${address} on ${rpcUrl}: ${errorMessage}`);
+    }
     return false;
   }
 }
@@ -137,7 +145,7 @@ export async function checkNetwork(network: NetworkType): Promise<NetworkCheckRe
   }
   
   // Check balance (only if deployer address is set)
-  const deployerAddress = process.env.DEPLOYER_ADDRESS || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
+  const deployerAddress = process.env.DEPLOYER_ADDRESS || process.env.DEPLOYER_PUBLIC_KEY || '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';
   const hasBalance = await checkBalance(config.rpcUrl, deployerAddress);
   
   if (!hasBalance) {

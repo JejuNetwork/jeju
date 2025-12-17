@@ -27,6 +27,8 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
+    "server": "bun run src/server.ts",
+    "server:dev": "CQL_DEBUG=true bun run src/server.ts",
     "test": "bun test",
     "clean": "rm -rf dist",
     "prepublishOnly": "bun run build"

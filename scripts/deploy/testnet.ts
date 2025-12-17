@@ -91,7 +91,19 @@ async function main() {
   // Verify if API key available
   if (process.env.ETHERSCAN_API_KEY) {
     console.log("\n📝 Verifying contracts...");
-    await $`bun run scripts/verify-contracts.ts --network ${NETWORK}`.nothrow();
+    const verifyScript = join(process.cwd(), 'scripts', 'verify-contracts.ts');
+    if (existsSync(verifyScript)) {
+      const verifyResult = await $`bun run ${verifyScript} --network ${NETWORK}`.nothrow();
+      if (verifyResult.exitCode !== 0) {
+        const errorMsg = verifyResult.stderr.toString() || verifyResult.stdout.toString();
+        console.warn(`⚠️  Contract verification failed: ${errorMsg.split('\n')[0]}`);
+      } else {
+        console.log("✅ Contracts verified");
+      }
+    } else {
+      console.log("⚠️  Verification script not found, skipping verification");
+      console.log("   To verify manually, use: forge verify-contract <address> <contract> --chain-id <chainId>");
+    }
   } else {
     console.log("\n💡 Set ETHERSCAN_API_KEY to auto-verify contracts");
   }

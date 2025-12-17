@@ -81,23 +81,100 @@ function namehash(name: string): Hex {
 }
 
 // Encode CID as contenthash (IPFS format)
+// Contenthash format: 0xe3 (ipfs namespace) + multihash bytes
+// Reference: https://github.com/ensdomains/content-hash/blob/master/src/content-hash.js
 function encodeContenthash(cid: string): Hex {
-  // For CIDv0 (starts with Qm), we need to convert to contenthash format
-  // Format: 0xe3 (ipfs namespace) + CID bytes
+  // Remove any protocol prefix
+  const cleanCid = cid.replace(/^ipfs:\/\//, '').replace(/^\/ipfs\//, '');
   
-  if (cid.startsWith('Qm')) {
-    // CIDv0 - base58 encoded multihash
-    // We'll use a simplified encoding for demo
-    // In production, use proper multibase/multihash encoding
-    const cidBytes = Buffer.from(cid);
-    const prefix = Buffer.from([0xe3, 0x01, 0x01, 0x70, 0x12, 0x20]); // ipfs + cidv1 + dag-pb + sha256 + 32 bytes
-    return ('0x' + Buffer.concat([prefix, cidBytes]).toString('hex')) as Hex;
+  // CIDv0 format (Qm...): base58 encoded multihash
+  // Multihash format: <hash-type><hash-length><hash>
+  // For SHA2-256: 0x12 (hash type) + 0x20 (32 bytes) + 32-byte hash = 34 bytes total
+  if (cleanCid.startsWith('Qm')) {
+    // Decode base58 CIDv0 to get multihash bytes
+    // CIDv0 is just the multihash, so we decode it directly
+    const multihash = decodeBase58(cleanCid);
+    
+    if (multihash.length < 34) {
+      throw new Error(`Invalid CIDv0 multihash length: expected 34 bytes, got ${multihash.length}`);
+    }
+    
+    // Verify it's SHA2-256 (0x12 0x20)
+    if (multihash[0] !== 0x12 || multihash[1] !== 0x20) {
+      throw new Error(`Unsupported multihash type: expected SHA2-256 (0x12 0x20), got 0x${multihash[0]!.toString(16)} 0x${multihash[1]!.toString(16)}`);
+    }
+    
+    // Encode as contenthash: 0xe3 (ipfs) + multihash bytes
+    return ('0x' + 'e3' + Buffer.from(multihash).toString('hex')) as Hex;
   }
   
-  // CIDv1 - already in the right format, just add namespace
-  const prefix = Buffer.from([0xe3, 0x01]);
-  const cidBytes = Buffer.from(cid, 'base64url');
-  return ('0x' + Buffer.concat([prefix, cidBytes]).toString('hex')) as Hex;
+  // CIDv1 format: multibase encoded
+  // Format: <multibase-prefix><cid-version><codec><multihash>
+  // Common prefixes: b (base32), z (base58), m (base64), u (base64url)
+  const multibasePrefix = cleanCid[0];
+  
+  if (multibasePrefix === 'b') {
+    // Base32 CIDv1
+    const cidBytes = Buffer.from(cleanCid.slice(1), 'base32');
+    // Extract multihash (skip version byte 0x01 and codec byte 0x70 for dag-pb)
+    // Multihash starts after version + codec
+    const multihashStart = 2; // Skip version (1 byte) and codec (1 byte)
+    const multihash = cidBytes.slice(multihashStart);
+    
+    // Encode as contenthash: 0xe3 (ipfs) + multihash bytes
+    return ('0x' + 'e3' + Buffer.from(multihash).toString('hex')) as Hex;
+  }
+  
+  if (multibasePrefix === 'z') {
+    // Base58 CIDv1
+    const cidBytes = decodeBase58(cleanCid.slice(1));
+    const multihashStart = 2; // Skip version + codec
+    const multihash = cidBytes.slice(multihashStart);
+    
+    return ('0x' + 'e3' + Buffer.from(multihash).toString('hex')) as Hex;
+  }
+  
+  throw new Error(
+    `Unsupported CID format: ${cleanCid.slice(0, 10)}...\n` +
+    'Supported formats: CIDv0 (Qm...), CIDv1 base32 (b...), CIDv1 base58 (z...)\n' +
+    'For other formats, install multiformats: bun add multiformats'
+  );
+}
+
+// Base58 decoding (simplified implementation)
+// Uses the Bitcoin base58 alphabet
+const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+
+function decodeBase58(input: string): Buffer {
+  let num = BigInt(0);
+  let leadingZeros = 0;
+  
+  // Count leading zeros (represented as '1' in base58)
+  for (let i = 0; i < input.length && input[i] === '1'; i++) {
+    leadingZeros++;
+  }
+  
+  // Convert base58 to BigInt
+  for (let i = leadingZeros; i < input.length; i++) {
+    const char = input[i];
+    if (!char) break;
+    
+    const index = BASE58_ALPHABET.indexOf(char);
+    if (index === -1) {
+      throw new Error(`Invalid base58 character: ${char}`);
+    }
+    num = num * BigInt(58) + BigInt(index);
+  }
+  
+  // Convert BigInt to bytes
+  const bytes: number[] = [];
+  while (num > 0n) {
+    bytes.unshift(Number(num % BigInt(256)));
+    num = num / BigInt(256);
+  }
+  
+  // Add leading zeros
+  return Buffer.from([...Array(leadingZeros).fill(0), ...bytes]);
 }
 
 // Build the app

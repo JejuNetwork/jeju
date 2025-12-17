@@ -17,13 +17,12 @@ export function Header() {
 
   const navItems = [
     { href: '/', label: 'Home', icon: '🏠' },
-    { href: '/coins', label: 'Coins', icon: '🪙' },
     { href: '/swap', label: 'Swap', icon: '🔄' },
     { href: '/pools', label: 'Pools', icon: '💧' },
-    { href: '/tfmm', label: 'TFMM', icon: '📈' },
-    { href: '/markets', label: 'Markets', icon: '📊' },
-    { href: '/items', label: 'Items', icon: '🖼️' },
-    { href: '/names', label: 'Names', icon: '🏷️' },
+    { href: '/perps', label: 'Perps', icon: '📈' },
+    { href: '/coins', label: 'Coins', icon: '🪙' },
+    { href: '/markets', label: 'Predict', icon: '🔮' },
+    { href: '/items', label: 'NFTs', icon: '🖼️' },
   ]
 
   useEffect(() => {

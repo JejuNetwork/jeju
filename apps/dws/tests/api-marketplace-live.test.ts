@@ -371,7 +371,7 @@ describe('Access Control Enforcement', () => {
   test('should block requests to unauthorized endpoints', async () => {
     // Create a listing with restricted endpoints
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key-for-test');
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,
@@ -398,7 +398,7 @@ describe('Access Control Enforcement', () => {
 
   test('should enforce method restrictions', async () => {
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key-for-test');
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,
@@ -422,7 +422,7 @@ describe('Access Control Enforcement', () => {
 
   test('should enforce domain restrictions', async () => {
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key-for-test');
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,
@@ -455,7 +455,7 @@ describe('Payment Enforcement', () => {
     // Don't deposit anything
     
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key');
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,

@@ -4,19 +4,19 @@
  */
 
 import type { Address, Hex } from 'viem';
+import type { PkgActivityType } from './types';
 
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4000';
 const MAX_RETRIES = 3;
 const RETRY_DELAY_MS = 1000;
 
-const ACTIVITY_SCORES: Record<string, number> = {
+const ACTIVITY_SCORES: Record<PkgActivityType, number> = {
   publish: 25,
   download: 0.01,
   deprecate: 5,
   transfer: 10,
+  star: 2,
 };
-
-export type PkgActivityType = keyof typeof ACTIVITY_SCORES;
 
 interface QueuedEvent {
   endpoint: string;

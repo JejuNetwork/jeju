@@ -161,21 +161,28 @@ These scripts are organized by category and called internally by CLI commands:
 ## Migration Status
 
 ✅ **Fully Migrated to CLI:**
-- `build.ts` → `jeju build`
-- `clean.ts` → `jeju clean`
-- `cleanup-processes.ts` → `jeju cleanup`
-- `list-apps.ts` → `jeju apps`
-- `check-ports.ts` → `jeju ports`
-- `publish-packages.ts` → `jeju publish`
-- `dev-with-vendor.ts` → `jeju dev --vendor-only`
-- `deploy.ts` → `jeju deploy`
-- `bootstrap-localnet.ts` → Integrated into `jeju dev`
-- `deploy-dao-full.ts` → `jeju deploy dao-full`
-- `validate-manifests.ts` → `jeju validate manifests`
-- All `deploy/*.ts` scripts → `jeju deploy <subcommand>`
-- All `packages/bridge/scripts/*.ts` → `jeju deploy zkbridge` / `jeju deploy zkbridge-setup`
-- All `packages/contracts/scripts/*.ts` → `jeju build abis` / `jeju deploy contracts-testnet` / `jeju deploy sync-configs`
-- All `packages/token/scripts/*.ts` → `jeju token deploy:*`
+- `build.ts` → `jeju build` (DELETED)
+- `clean.ts` → `jeju clean` (DELETED)
+- `cleanup-processes.ts` → `jeju cleanup` (DELETED)
+- `list-apps.ts` → `jeju apps` (DELETED)
+- `check-ports.ts` → `jeju ports` (DELETED)
+- `publish-packages.ts` → `jeju publish` (DELETED)
+- `dev.ts` → `jeju dev` (DELETED - was just a wrapper)
+- `dev-with-vendor.ts` → `jeju dev --vendor-only` (DELETED)
+- `deploy.ts` → `jeju deploy` (DELETED)
+- `bootstrap-localnet.ts` → Integrated into `jeju dev` (DELETED)
+- `deploy-dao-full.ts` → `jeju deploy dao-full` (moved to deploy/)
+- `validate-manifests.ts` → `jeju validate manifests` (DELETED - logic moved to CLI)
+- All `packages/bridge/scripts/*.ts` → DELETED (deploy scripts removed)
+- All `packages/contracts/scripts/*.ts` → DELETED (deploy scripts removed)
+- All `packages/token/scripts/*.ts` → DELETED (deploy scripts removed)
+
+✅ **Scripts That Remain (Internal Use):**
+- `deploy/testnet.ts` - Used by CLI for testnet contract deployment
+- `deploy/mainnet.ts` - Used by CLI for mainnet contract deployment
+- `deploy/oif.ts` - Used by CLI for OIF deployment
+- `deploy/testnet-full.ts` - Used by CLI for full testnet deployment
+- All other `deploy/*.ts` scripts - Used by `jeju deploy <subcommand>`
 
 ✅ **Organized into Folders:**
 - Bootstrap scripts → `bootstrap/`

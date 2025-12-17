@@ -8,12 +8,12 @@ import type {
   ContainerImage,
   ContainerInstance,
   ContainerResources,
-  ExecutionMode,
   ExecutionRequest,
   ExecutionResult,
   ExecutionMetrics,
   ComputePricing,
-  DEFAULT_PRICING,
+  LayerCache,
+  WarmPoolStats,
 } from './types';
 import * as cache from './image-cache';
 import * as warmPool from './warm-pool';
@@ -125,7 +125,7 @@ async function pullImage(image: ContainerImage): Promise<number> {
   // Simulate layer downloads (in production, fetch from IPFS)
   const layerCount = Math.max(1, Math.floor(image.size / (30 * 1024 * 1024))); // ~30MB per layer
 
-  const cachedLayers: cache.LayerCache[] = [];
+  const cachedLayers: LayerCache[] = [];
   for (let i = 0; i < layerCount; i++) {
     const layerDigest = `sha256:layer${i}-${image.digest.slice(7, 15)}`;
     const layerCid = `Qm${crypto.randomUUID().replace(/-/g, '').slice(0, 44)}`;
@@ -168,7 +168,7 @@ interface ContainerRuntime {
 // Simulated container runtime
 // In a real implementation, this would use Docker/containerd/Firecracker
 const runtime: ContainerRuntime = {
-  async create(instance, image) {
+  async create(_instance, _image) {
     // Simulate container creation: ~10-50ms (fast for simulation)
     await new Promise((r) => setTimeout(r, 10 + Math.random() * 40));
     
@@ -178,16 +178,16 @@ const runtime: ContainerRuntime = {
     };
   },
 
-  async start(instanceId) {
+  async start(_instanceId) {
     // Simulate container start
     await new Promise((r) => setTimeout(r, 5 + Math.random() * 15));
   },
 
-  async stop(instanceId) {
+  async stop(_instanceId) {
     await new Promise((r) => setTimeout(r, 5));
   },
 
-  async exec(instanceId, command, env, input) {
+  async exec(_instanceId, command, _env, input) {
     // Simulate execution
     await new Promise((r) => setTimeout(r, 5 + Math.random() * 45));
 
@@ -453,7 +453,7 @@ export interface ExecutorStats {
   avgColdStartMs: number;
   coldStartRate: number;
   cacheStats: cache.CacheStats;
-  poolStats: warmPool.WarmPoolStats[];
+  poolStats: WarmPoolStats[];
 }
 
 export function getExecutorStats(): ExecutorStats {

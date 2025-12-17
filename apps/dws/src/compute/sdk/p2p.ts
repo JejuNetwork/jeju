@@ -275,8 +275,8 @@ export class GossipNetwork {
             payload: Buffer.from(fullMessage.payload).toString('base64'),
             signature: fullMessage.signature,
           }),
-        }).catch(() => {
-          // Peer unreachable, will be removed on next discovery
+        }).catch((err) => {
+          console.warn(`[P2P] Failed to gossip to ${peer.endpoint}: ${err.message}`);
         });
       })
     );
@@ -321,7 +321,9 @@ export class GossipNetwork {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(raw),
-        }).catch(() => {});
+        }).catch((err) => {
+          console.warn(`[P2P] Failed to re-broadcast to ${peer.endpoint}: ${err.message}`);
+        });
       })
     );
   }

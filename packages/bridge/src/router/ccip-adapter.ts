@@ -19,7 +19,7 @@
  * - Arbitrage between CCIP and other bridges
  */
 
-import { type Address, type Hex, parseAbi, encodeFunctionData, decodeAbiParameters } from 'viem';
+import { type Address, type Hex, parseAbi } from 'viem';
 import type { PublicClient, WalletClient } from 'viem';
 
 // ============ CCIP Chain Selectors ============
@@ -69,24 +69,6 @@ const CCIP_ROUTER_ABI = parseAbi([
   'function isChainSupported(uint64 chainSelector) external view returns (bool)',
   // Get supported tokens
   'function getSupportedTokens(uint64 chainSelector) external view returns (address[])',
-]);
-
-const CCIP_RECEIVER_ABI = parseAbi([
-  // Handle incoming message
-  'function ccipReceive((bytes32 messageId, uint64 sourceChainSelector, bytes sender, bytes data, (address token, uint256 amount)[] destTokenAmounts) message) external',
-  // Get router address
-  'function getRouter() external view returns (address)',
-]);
-
-const TOKEN_POOL_ABI = parseAbi([
-  // Lock or burn tokens
-  'function lockOrBurn(address originalSender, bytes calldata receiver, uint256 amount, uint64 remoteChainSelector, bytes calldata extraArgs) external returns (bytes memory)',
-  // Release or mint tokens
-  'function releaseOrMint(bytes calldata originalSender, address receiver, uint256 amount, uint64 remoteChainSelector, bytes calldata sourcePoolData, bytes calldata offchainTokenData) external',
-  // Get pool type
-  'function getTokenType() external view returns (uint8)',
-  // Get supported chains
-  'function getSupportedChains() external view returns (uint64[])',
 ]);
 
 // ============ Types ============
@@ -179,12 +161,14 @@ export class CCIPAdapter {
     const client = this.publicClients.get(sourceChainId);
     if (!client) return [];
     
-    return client.readContract({
+    const tokens = await client.readContract({
       address: router,
       abi: CCIP_ROUTER_ABI,
       functionName: 'getSupportedTokens',
       args: [destSelector],
-    });
+    }) as readonly Address[];
+    
+    return [...tokens];
   }
 
   /**
@@ -211,22 +195,31 @@ export class CCIPAdapter {
       extraArgs: this.encodeExtraArgs(request.gasLimit ?? 200000n),
     };
     
-    // Get native fee
     const nativeFee = await client.readContract({
       address: router,
       abi: CCIP_ROUTER_ABI,
       functionName: 'getFee',
-      args: [destSelector, message],
-    });
+      args: [destSelector, {
+        receiver: message.receiver,
+        data: message.data,
+        tokenAmounts: message.tokenAmounts as readonly { token: Address; amount: bigint }[],
+        feeToken: message.feeToken,
+        extraArgs: message.extraArgs,
+      }],
+    }) as bigint;
     
-    // Get LINK fee
-    message.feeToken = linkToken;
     const linkFee = await client.readContract({
       address: router,
       abi: CCIP_ROUTER_ABI,
       functionName: 'getFee',
-      args: [destSelector, message],
-    });
+      args: [destSelector, {
+        receiver: message.receiver,
+        data: message.data,
+        tokenAmounts: message.tokenAmounts as readonly { token: Address; amount: bigint }[],
+        feeToken: linkToken,
+        extraArgs: message.extraArgs,
+      }],
+    }) as bigint;
     
     return { nativeFee, linkFee };
   }
@@ -256,23 +249,34 @@ export class CCIPAdapter {
       extraArgs: this.encodeExtraArgs(request.gasLimit ?? 200000n),
     };
     
-    // Get fee
     const publicClient = this.publicClients.get(request.sourceChainId);
     if (!publicClient) throw new Error('No public client');
+    
+    const messageForContract = {
+      receiver: message.receiver,
+      data: message.data,
+      tokenAmounts: message.tokenAmounts as readonly { token: Address; amount: bigint }[],
+      feeToken: message.feeToken,
+      extraArgs: message.extraArgs,
+    };
     
     const fee = await publicClient.readContract({
       address: router,
       abi: CCIP_ROUTER_ABI,
       functionName: 'getFee',
-      args: [destSelector, message],
-    });
+      args: [destSelector, messageForContract],
+    }) as bigint;
     
-    // Execute transfer
+    const account = walletClient.account;
+    if (!account) throw new Error('Wallet client has no account');
+    
     const hash = await walletClient.writeContract({
+      chain: null,
+      account,
       address: router,
       abi: CCIP_ROUTER_ABI,
       functionName: 'ccipSend',
-      args: [destSelector, message],
+      args: [destSelector, messageForContract],
       value: request.payInLink ? 0n : fee,
     });
     
@@ -353,18 +357,28 @@ export class CCIPAdapter {
     }
 
     // RMN proxy address (required by CCIP v1.5+)
-    const rmnProxy = process.env[`CCIP_RMN_PROXY_${params.chainId}`] || '0x0000000000000000000000000000000000000000';
+    const rmnProxyEnvKey = `CCIP_RMN_PROXY_${params.chainId}`;
+    const rmnProxy = process.env[rmnProxyEnvKey];
+    if (!rmnProxy) {
+      throw new Error(
+        `${rmnProxyEnvKey} not configured. Required for CCIP v1.5+. ` +
+        `Find the RMN proxy for chain ${params.chainId} at: https://docs.chain.link/ccip/supported-networks`
+      );
+    }
 
-    // Encode constructor arguments
-    const constructorArgs = [
+    const account = walletClient.account;
+    if (!account) throw new Error('Wallet client has no account');
+    
+    const constructorArgs: readonly [Address, readonly Address[], Address, Address] = [
       params.token,
-      [], // Empty allow list = permissionless
-      rmnProxy,
+      [],
+      rmnProxy as Address,
       router,
     ];
 
-    // Deploy the contract
     const hash = await walletClient.deployContract({
+      chain: null,
+      account,
       abi: POOL_DEPLOY_ABI,
       bytecode: poolBytecode as Hex,
       args: constructorArgs,
@@ -380,13 +394,14 @@ export class CCIPAdapter {
 
     console.log(`   Deployed pool at ${poolAddress}`);
 
-    // Configure remote chains
     if (chainUpdates.length > 0) {
       const configHash = await walletClient.writeContract({
+        chain: null,
+        account,
         address: poolAddress,
         abi: POOL_DEPLOY_ABI,
         functionName: 'applyChainUpdates',
-        args: [[], chainUpdates],
+        args: [[] as readonly bigint[], chainUpdates],
       });
       await publicClient.waitForTransactionReceipt({ hash: configHash });
       console.log(`   Configured ${chainUpdates.length} remote chains`);

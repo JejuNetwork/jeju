@@ -126,57 +126,115 @@ export class JNSClient {
     const node = computeNamehash(fullName);
 
     // Check if record exists
-    const exists = await readContract(this.client, {
-      address: this.registry,
-      abi: JNS_REGISTRY_ABI,
-      functionName: 'recordExists',
-      args: [node],
-    }).catch(() => false);
+    let exists: boolean;
+    try {
+      exists = await readContract(this.client, {
+        address: this.registry,
+        abi: JNS_REGISTRY_ABI,
+        functionName: 'recordExists',
+        args: [node],
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      if (process.env.DEBUG) {
+        console.warn(`Failed to check record existence for ${name}: ${errorMessage}`);
+      }
+      return null;
+    }
     if (!exists) return null;
 
     // Get resolver address
-    const resolverAddr = await readContract(this.client, {
-      address: this.registry,
-      abi: JNS_REGISTRY_ABI,
-      functionName: 'resolver',
-      args: [node],
-    }).catch(() => zeroAddress);
+    let resolverAddr: Address;
+    try {
+      resolverAddr = await readContract(this.client, {
+        address: this.registry,
+        abi: JNS_REGISTRY_ABI,
+        functionName: 'resolver',
+        args: [node],
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      if (process.env.DEBUG) {
+        console.warn(`Failed to get resolver for ${name}: ${errorMessage}`);
+      }
+      return null;
+    }
     if (resolverAddr === zeroAddress) return null;
 
     // Fetch all records
-    const [address, contenthash, appInfo] = await Promise.all([
-      readContract(this.client, {
-        address: resolverAddr,
-        abi: JNS_RESOLVER_ABI,
-        functionName: 'addr',
-        args: [node],
-      }).catch(() => null),
-      readContract(this.client, {
-        address: resolverAddr,
-        abi: JNS_RESOLVER_ABI,
-        functionName: 'contenthash',
-        args: [node],
-      }).catch(() => null),
-      readContract(this.client, {
-        address: resolverAddr,
-        abi: JNS_RESOLVER_ABI,
-        functionName: 'getAppInfo',
-        args: [node],
-      }).catch(() => [null, null, 0n, null, null, null] as [Address | null, `0x${string}` | null, bigint, string | null, string | null, `0x${string}` | null]),
-    ]);
+    let address: Address | null;
+    let contenthash: `0x${string}` | null;
+    let appInfo: [Address | null, `0x${string}` | null, bigint, string | null, string | null, `0x${string}` | null];
+    
+    try {
+      [address, contenthash, appInfo] = await Promise.all([
+        readContract(this.client, {
+          address: resolverAddr,
+          abi: JNS_RESOLVER_ABI,
+          functionName: 'addr',
+          args: [node],
+        }).catch((err) => {
+          if (process.env.DEBUG) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            console.warn(`Failed to get address for ${name}: ${errorMessage}`);
+          }
+          return null;
+        }),
+        readContract(this.client, {
+          address: resolverAddr,
+          abi: JNS_RESOLVER_ABI,
+          functionName: 'contenthash',
+          args: [node],
+        }).catch((err) => {
+          if (process.env.DEBUG) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            console.warn(`Failed to get contenthash for ${name}: ${errorMessage}`);
+          }
+          return null;
+        }),
+        readContract(this.client, {
+          address: resolverAddr,
+          abi: JNS_RESOLVER_ABI,
+          functionName: 'getAppInfo',
+          args: [node],
+        }).catch((err) => {
+          if (process.env.DEBUG) {
+            const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+            console.warn(`Failed to get app info for ${name}: ${errorMessage}`);
+          }
+          return [null, null, 0n, null, null, null] as [Address | null, `0x${string}` | null, bigint, string | null, string | null, `0x${string}` | null];
+        }),
+      ]);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+      if (process.env.DEBUG) {
+        console.warn(`Failed to fetch records for ${name}: ${errorMessage}`);
+      }
+      return null;
+    }
 
     // Fetch common text records
     const textKeys = ['url', 'description', 'avatar', 'com.github', 'com.twitter'];
     const texts: Record<string, string> = {};
     
     for (const key of textKeys) {
-      const value = await readContract(this.client, {
-        address: resolverAddr,
-        abi: JNS_RESOLVER_ABI,
-        functionName: 'text',
-        args: [node, key],
-      }).catch(() => '');
-      if (value) texts[key] = value;
+      try {
+        const value = await readContract(this.client, {
+          address: resolverAddr,
+          abi: JNS_RESOLVER_ABI,
+          functionName: 'text',
+          args: [node, key],
+        });
+        if (value && value !== '') {
+          texts[key] = value;
+        }
+      } catch (err) {
+        // Text records are optional, silently skip on error
+        if (process.env.DEBUG) {
+          const errorMessage = err instanceof Error ? err.message : 'Unknown error';
+          console.warn(`Failed to get text record ${key} for ${name}: ${errorMessage}`);
+        }
+      }
     }
 
     return {

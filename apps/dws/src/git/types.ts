@@ -377,6 +377,7 @@ export interface ActivityPubActivity {
   type: ActivityType;
   actor: string;
   object: string | ActivityPubObject;
+  result?: string; // For Fork activity
   published?: string;
   to?: string[];
   cc?: string[];

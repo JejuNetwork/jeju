@@ -9,7 +9,7 @@
  */
 
 import type { Address } from 'viem';
-import type { ProxyRequest, ProxyResponse, APIListing, APIProvider } from './types';
+import type { ProxyRequest, ProxyResponse, APIProvider } from './types';
 import { getListing, getProviderById, chargeUser, canAfford, recordRequest } from './registry';
 import { decryptKeyForRequest } from './key-vault';
 import { checkAccess, incrementRateLimit } from './access-control';

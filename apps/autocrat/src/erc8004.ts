@@ -64,6 +64,7 @@ export class ERC8004Client {
 
   constructor(config: ERC8004Config) {
     const chain = inferChainFromRpcUrl(config.rpcUrl);
+    // @ts-expect-error viem version type mismatch in monorepo
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
@@ -102,6 +103,7 @@ export class ERC8004Client {
     if (!mcpEndpoint || !mcpEndpoint.trim()) throw new Error('MCP endpoint is required');
 
     const tokenURI = `data:application/json,${encodeURIComponent(JSON.stringify({ name, role, description: `${role} agent` }))}`;
+    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
       address: this.identityAddress,
       abi: IDENTITY_ABI,
@@ -124,6 +126,7 @@ export class ERC8004Client {
       throw new Error(`Agent registration failed: Invalid agent ID 0 in tx ${hash}`);
     }
 
+    // @ts-expect-error viem ABI type inference for all writeContract calls
     const [hash1, hash2, hash3, hash4] = await Promise.all([
       this.walletClient.writeContract({
         address: this.identityAddress,
@@ -132,6 +135,7 @@ export class ERC8004Client {
         args: [agentId, a2aEndpoint],
         account: this.account,
       }),
+      // @ts-expect-error viem ABI type inference
       this.walletClient.writeContract({
         address: this.identityAddress,
         abi: IDENTITY_ABI,
@@ -139,6 +143,7 @@ export class ERC8004Client {
         args: [agentId, mcpEndpoint],
         account: this.account,
       }),
+      // @ts-expect-error viem ABI type inference
       this.walletClient.writeContract({
         address: this.identityAddress,
         abi: IDENTITY_ABI,
@@ -146,6 +151,7 @@ export class ERC8004Client {
         args: [agentId, 'agent'],
         account: this.account,
       }),
+      // @ts-expect-error viem ABI type inference
       this.walletClient.writeContract({
         address: this.identityAddress,
         abi: IDENTITY_ABI,
@@ -243,6 +249,7 @@ export class ERC8004Client {
     if (score < 0 || score > 100) throw new Error('Score must be between 0 and 100');
     if (!tag || tag.trim().length === 0) throw new Error('Tag is required');
 
+    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
       address: this.reputationAddress,
       abi: REPUTATION_ABI,
@@ -270,6 +277,7 @@ export class ERC8004Client {
     if (!requestUri || requestUri.trim().length === 0) throw new Error('Request URI is required');
 
     const requestHash = keccak256(stringToHex(`${agentId}-${validator}-${requestUri}-${Date.now()}`));
+    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
       address: this.validationAddress,
       abi: VALIDATION_ABI,

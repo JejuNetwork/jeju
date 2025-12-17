@@ -342,6 +342,8 @@ app.get('/_internal/peers', (c) => {
     peers: peers.map(p => ({ 
       agentId: p.agentId.toString(), 
       endpoint: p.endpoint, 
+      owner: p.owner,
+      stake: p.stake.toString(),
       isBanned: p.isBanned,
     })) 
   });

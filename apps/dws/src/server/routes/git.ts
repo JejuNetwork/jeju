@@ -20,7 +20,7 @@ import {
   createPktLines,
   createFlushPkt,
 } from '../../git/pack';
-import type { CreateRepoRequest, GitRef, CreateIssueRequest, UpdateIssueRequest, CreatePRRequest, UpdatePRRequest } from '../../git/types';
+import type { CreateRepoRequest, GitRef, CreateIssueRequest, UpdateIssueRequest, CreatePRRequest, UpdatePRRequest as _UpdatePRRequest } from '../../git/types';
 import { trackGitContribution } from '../../git/leaderboard-integration';
 
 const GIT_AGENT = 'jeju-git/1.0.0';
@@ -325,7 +325,7 @@ export function createGitRouter(ctx: GitContext): Hono {
     if (!repo) return c.json({ error: 'Repository not found' }, 404);
 
     const result = await socialManager.starRepo(repo.repoId, user);
-    return c.json(result, 204);
+    return c.json(result, 200);
   });
 
   router.delete('/:owner/:name/star', async (c) => {
@@ -338,7 +338,7 @@ export function createGitRouter(ctx: GitContext): Hono {
     if (!repo) return c.json({ error: 'Repository not found' }, 404);
 
     const result = await socialManager.unstarRepo(repo.repoId, user);
-    return c.json(result, 204);
+    return c.json(result, 200);
   });
 
   // ============ Forks API ============
@@ -495,7 +495,8 @@ export function createGitRouter(ctx: GitContext): Hono {
     }
 
     const refs = await repoManager.getRefs(repo.repoId);
-    return new Response(formatInfoRefs(service, refs), {
+    const body = formatInfoRefs(service, refs);
+    return new Response(typeof body === 'string' ? body : new Uint8Array(body), {
       headers: { 'Content-Type': `application/x-${service}-advertisement`, 'Cache-Control': 'no-cache' },
     });
   });
@@ -525,7 +526,8 @@ export function createGitRouter(ctx: GitContext): Hono {
     }
 
     if (wants.length === 0) {
-      return new Response(createPktLine('NAK'), {
+      const nakLine = createPktLine('NAK');
+      return new Response(typeof nakLine === 'string' ? nakLine : new Uint8Array(nakLine), {
         headers: { 'Content-Type': 'application/x-git-upload-pack-result' },
       });
     }
@@ -611,7 +613,8 @@ export function createGitRouter(ctx: GitContext): Hono {
     }
 
     const responseLines = ['unpack ok', ...results.map((r) => (r.success ? `ok ${r.ref}` : `ng ${r.ref} ${r.error}`))];
-    return new Response(createPktLines(responseLines), {
+    const pktLines = createPktLines(responseLines);
+    return new Response(typeof pktLines === 'string' ? pktLines : new Uint8Array(pktLines), {
       headers: { 'Content-Type': 'application/x-git-receive-pack-result', 'Cache-Control': 'no-cache' },
     });
   });

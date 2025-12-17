@@ -5,7 +5,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { formatEther, parseEther } from 'viem';
-import type { AutocratConfig } from './types';
+import type { AutocratConfig, AutocratVote } from './types';
 import { AutocratBlockchain } from './blockchain';
 import { autocratAgentRuntime, type DeliberationRequest } from './agents';
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config';
@@ -247,7 +247,7 @@ Return ONLY JSON:
     if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
     
     // Get from local storage first
-    const localVotes = getVotes(proposalId);
+    const localVotes = await getVotes(proposalId);
     if (localVotes.length > 0) {
       return { message: `${localVotes.length} votes`, data: { proposalId, votes: localVotes, source: 'local' } };
     }
@@ -258,7 +258,7 @@ Return ONLY JSON:
     return { message: `${result.votes.length} votes`, data: { proposalId, votes: this.blockchain.formatVotes(result.votes), source: 'chain' } };
   }
 
-  private submitVote(params: Record<string, unknown>): SkillResult {
+  private async submitVote(params: Record<string, unknown>): Promise<SkillResult> {
     const { proposalId, agentId, vote, reasoning, confidence } = params as { proposalId: string; agentId: string; vote: 'APPROVE' | 'REJECT' | 'ABSTAIN'; reasoning: string; confidence: number };
 
     if (!proposalId || !agentId || !vote) {
@@ -400,9 +400,9 @@ Return ONLY JSON:
       return { message: 'LLM unavailable', data: { error: 'CEO decision requires DWS compute. Start with: docker compose up -d' } };
     }
 
-    const votes = getVotes(proposalId);
-    const approves = votes.filter(v => v.vote === 'APPROVE').length;
-    const rejects = votes.filter(v => v.vote === 'REJECT').length;
+    const votes = await getVotes(proposalId);
+    const approves = votes.filter((v: AutocratVote) => v.vote === 'APPROVE').length;
+    const rejects = votes.filter((v: AutocratVote) => v.vote === 'REJECT').length;
     const total = votes.length || 1;
 
     // Use real LLM for decision reasoning
@@ -411,7 +411,7 @@ Return ONLY JSON:
 Council votes: ${approves} approve, ${rejects} reject, ${total - approves - rejects} abstain
 
 Vote details:
-${votes.map(v => `- ${v.role}: ${v.vote} (${v.confidence}%) - ${v.reasoning}`).join('\n')}
+${votes.map((v: AutocratVote) => `- ${v.role}: ${v.vote} (${v.confidence}%) - ${v.reasoning}`).join('\n')}
 
 Provide your decision as: APPROVED or REJECTED, with reasoning.`;
 

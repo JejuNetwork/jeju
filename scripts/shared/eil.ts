@@ -277,12 +277,15 @@ export class EILClient {
           clearTimeout(timeout);
           unwatch();
           const log = logs[0];
+          // Note: Signature is not emitted in VoucherIssued event
+          // It must be fetched separately or obtained from the XLP off-chain
+          // For now, we return empty string and the caller should fetch it if needed
           resolve({
             voucherId: log.args.voucherId || '0x',
             requestId: log.args.requestId || requestId,
             xlp: log.args.xlp || zeroAddress,
             fee: log.args.fee || 0n,
-            signature: '',
+            signature: '', // Signature not available from event - fetch separately if needed
           });
         },
       });

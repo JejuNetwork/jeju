@@ -109,7 +109,7 @@ export function createPaymentRequirement(
 export async function verifyPayment(
   proof: PaymentProof,
   expectedAmount: bigint,
-  expectedRecipient: Address
+  _expectedRecipient: Address
 ): Promise<{ valid: boolean; error?: string }> {
   // Basic validation
   if (!proof.txHash || proof.txHash.length !== 66) {

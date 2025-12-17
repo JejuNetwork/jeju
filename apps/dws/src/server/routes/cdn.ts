@@ -52,16 +52,15 @@ export function createCDNRouter(): Hono {
 
     const { entry, status } = cache.get(cacheKey);
     if (entry && (status === 'HIT' || status === 'STALE')) {
-      return new Response(entry.data, {
+      return new Response(new Uint8Array(entry.data), {
         headers: { ...entry.metadata.headers, 'X-Cache': status, 'X-Served-By': 'dws-cdn' },
       });
     }
 
-    const ipfsGateway = process.env.IPFS_GATEWAY_URL || 'https://ipfs.io';
     const result = await fetcher.fetch(`/ipfs/${cid}${path}`, undefined, { headers: {} });
 
     if (!result.success) {
-      return c.json({ error: result.error ?? 'Content not found' }, result.status || 404);
+      return c.json({ error: result.error ?? 'Content not found' }, (result.status || 404) as 400 | 401 | 403 | 404 | 500 | 502 | 503);
     }
 
     cache.set(cacheKey, result.body, {
@@ -72,7 +71,7 @@ export function createCDNRouter(): Hono {
       immutable: (result.headers['cache-control'] ?? '').includes('immutable'),
     });
 
-    return new Response(result.body, {
+    return new Response(new Uint8Array(result.body), {
       headers: { ...result.headers, 'X-Cache': 'MISS', 'X-Served-By': 'dws-cdn' },
     });
   });

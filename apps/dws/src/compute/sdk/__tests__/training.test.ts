@@ -714,15 +714,15 @@ describe('TrainingSDK edge cases', () => {
     });
 
     test('write operation propagates transaction errors', async () => {
-      const txError = new Error('Transaction reverted: InvalidConfig');
+      const txError = new Error('Transaction reverted: Unauthorized');
       mockWriteContract.mockRejectedValue(txError);
 
       await expect(
         sdk.createRun({
-          runId: '0xrunid' as Hex,
-          config: TrainingSDK.getDefaultLLMConfig(0, 0), // Invalid config
+          runId: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as Hex,
+          config: TrainingSDK.getDefaultLLMConfig(1000, 4),
           model: {
-            modelHash: '0xmodel' as Hex,
+            modelHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef' as Hex,
             hfRepo: 'test/model',
             maxSeqLen: 2048,
             coldStartWarmupSteps: 100,

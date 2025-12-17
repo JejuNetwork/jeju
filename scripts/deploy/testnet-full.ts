@@ -21,8 +21,7 @@
 import { $ } from 'bun';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { createPublicClient, http, parseEther, formatEther, getBalance, type Chain } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { createPublicClient, http, parseEther, formatEther, type Chain } from 'viem';
 
 const ROOT = join(import.meta.dir, '../..');
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys');
@@ -91,13 +90,15 @@ async function checkPrerequisites() {
   // Check AWS credentials
   const awsCheck = await $`aws sts get-caller-identity`.quiet().nothrow();
   if (awsCheck.exitCode !== 0) {
-    throw new Error('AWS credentials not configured');
+    const errorMsg = awsCheck.stderr.toString() || awsCheck.stdout.toString() || 'Unknown error';
+    throw new Error(`AWS credentials not configured: ${errorMsg.split('\n')[0]}`);
   }
 
   // Check kubectl
   const kubectlCheck = await $`kubectl cluster-info`.quiet().nothrow();
   if (kubectlCheck.exitCode !== 0) {
-    throw new Error('kubectl not configured or cluster not accessible');
+    const errorMsg = kubectlCheck.stderr.toString() || kubectlCheck.stdout.toString() || 'Unknown error';
+    throw new Error(`kubectl not configured or cluster not accessible: ${errorMsg.split('\n')[0]}`);
   }
 
   // Check terraform state
@@ -134,9 +135,9 @@ async function checkWalletFunding() {
   const sepoliaChain: Chain = { id: 11155111, name: 'Sepolia', nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 }, rpcUrls: { default: { http: ['https://ethereum-sepolia-rpc.publicnode.com'] } } };
   const publicClient = createPublicClient({ chain: sepoliaChain, transport: http('https://ethereum-sepolia-rpc.publicnode.com') });
 
-  const adminBalance = await getBalance(publicClient, { address: adminKey.address as `0x${string}` });
-  const batcherBalance = await getBalance(publicClient, { address: batcherKey.address as `0x${string}` });
-  const proposerBalance = await getBalance(publicClient, { address: proposerKey.address as `0x${string}` });
+  const adminBalance = await publicClient.getBalance({ address: adminKey.address as `0x${string}` });
+  const batcherBalance = await publicClient.getBalance({ address: batcherKey.address as `0x${string}` });
+  const proposerBalance = await publicClient.getBalance({ address: proposerKey.address as `0x${string}` });
 
   const minAdminBalance = parseEther('0.3');
   const minOperatorBalance = parseEther('0.05');
@@ -236,8 +237,9 @@ async function deployBundler() {
 }
 
 async function verifyDeployment() {
-  // Verify RPC
-  const rpcResponse = await fetch('https://testnet-rpc.jejunetwork.org', {
+  const rpcUrl = process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network';
+  
+  const rpcResponse = await fetch(rpcUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -248,9 +250,23 @@ async function verifyDeployment() {
     }),
   });
 
-  const rpcData = await rpcResponse.json() as { result?: string };
-  if (!rpcData.result || parseInt(rpcData.result, 16) !== 420690) {
-    throw new Error('RPC not returning correct chain ID');
+  if (!rpcResponse.ok) {
+    throw new Error(`RPC health check failed: HTTP ${rpcResponse.status} ${rpcResponse.statusText}`);
+  }
+
+  const rpcData = await rpcResponse.json() as { result?: string; error?: { message: string } };
+  
+  if (rpcData.error) {
+    throw new Error(`RPC error: ${rpcData.error.message}`);
+  }
+  
+  if (!rpcData.result) {
+    throw new Error('RPC returned no result');
+  }
+  
+  const chainId = parseInt(rpcData.result, 16);
+  if (chainId !== 420690) {
+    throw new Error(`RPC not returning correct chain ID: expected 420690, got ${chainId}`);
   }
 
   steps[11].message = 'All checks passed';

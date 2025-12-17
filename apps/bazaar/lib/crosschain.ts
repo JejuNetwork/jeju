@@ -68,7 +68,15 @@ export const SUPPORTED_CHAINS = [
   { chainId: 42161, name: 'Arbitrum' },
   { chainId: 10, name: 'Optimism' },
   { chainId: 420691, name: 'Network' },
+  { chainId: 101, name: 'Solana', isSolana: true },
+  { chainId: 102, name: 'Solana Devnet', isSolana: true },
 ] as const;
+
+export const SOLANA_CHAINS = [101, 102] as const;
+
+export function isSolanaChain(chainId: number): boolean {
+  return SOLANA_CHAINS.includes(chainId as 101 | 102);
+}
 
 // Common tokens across chains
 export const CROSS_CHAIN_TOKENS: Record<number, Record<string, Address>> = {

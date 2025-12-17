@@ -665,7 +665,45 @@ export class TrainingSDK {
     } as never) as Promise<T>;
   }
 
+  private validateConfig(config: CoordinatorConfig): void {
+    if (config.totalSteps <= 0) throw new Error('totalSteps must be positive');
+    if (config.minClients <= 0) throw new Error('minClients must be positive');
+    if (config.initMinClients < config.minClients) {
+      throw new Error('initMinClients must be >= minClients');
+    }
+    if (config.witnessNodes <= 0) throw new Error('witnessNodes must be positive');
+    if (config.witnessNodes > config.minClients) {
+      throw new Error('witnessNodes cannot exceed minClients');
+    }
+    if (config.globalBatchSizeStart <= 0) throw new Error('globalBatchSizeStart must be positive');
+    if (config.globalBatchSizeEnd < config.globalBatchSizeStart) {
+      throw new Error('globalBatchSizeEnd must be >= globalBatchSizeStart');
+    }
+    if (config.verificationPercent < 0 || config.verificationPercent > 100) {
+      throw new Error('verificationPercent must be 0-100');
+    }
+    if (config.warmupTime <= BigInt(0)) throw new Error('warmupTime must be positive');
+    if (config.cooldownTime <= BigInt(0)) throw new Error('cooldownTime must be positive');
+    if (config.maxRoundTrainTime <= BigInt(0)) throw new Error('maxRoundTrainTime must be positive');
+    if (config.roundWitnessTime <= BigInt(0)) throw new Error('roundWitnessTime must be positive');
+    if (config.epochTime <= BigInt(0)) throw new Error('epochTime must be positive');
+  }
+
+  private validateModel(model: ModelConfig): void {
+    if (!model.modelHash || model.modelHash === zeroHash) {
+      throw new Error('modelHash is required');
+    }
+    if (!model.hfRepo || model.hfRepo.length === 0) {
+      throw new Error('hfRepo is required');
+    }
+    if (model.maxSeqLen <= 0) throw new Error('maxSeqLen must be positive');
+    if (model.coldStartWarmupSteps < 0) throw new Error('coldStartWarmupSteps cannot be negative');
+  }
+
   async createRun(options: CreateRunOptions): Promise<Hash> {
+    this.validateConfig(options.config);
+    this.validateModel(options.model);
+
     const args = [
       options.runId,
       {

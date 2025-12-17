@@ -5,5 +5,16 @@
  * and earns fees for liquidity providers.
  */
 
-export { XLPService, createXLPService, type XLPConfig, type LiquidityPosition, type FillRequest, type RouteStats, type XLPStats } from './xlp-service';
+export {
+  XLPService,
+  createXLPService,
+  type XLPConfig,
+  type LiquidityPosition,
+  type FillRequest,
+  type RouteStats,
+  type XLPStats,
+  isSolanaChain,
+  getSolanaTokenMint,
+  getEvmTokenAddress,
+} from './xlp-service.js';
 

@@ -14,9 +14,9 @@ import {
 } from '@/hooks/useEIL'
 
 const TOKENS = [
-  { symbol: 'ETH', name: 'Ethereum', address: '0x0000000000000000000000000000000000000000' as Address },
-  { symbol: 'USDC', name: 'USD Coin', address: '0x0000000000000000000000000000000000000001' as Address },
-  { symbol: 'elizaOS', name: 'elizaOS Token', address: '0x0000000000000000000000000000000000000002' as Address },
+  { symbol: 'ETH', name: 'Ethereum', icon: '⟠', address: '0x0000000000000000000000000000000000000000' as Address },
+  { symbol: 'USDC', name: 'USD Coin', icon: '💵', address: '0x0000000000000000000000000000000000000001' as Address },
+  { symbol: 'JEJU', name: 'Jeju Token', icon: '🏝️', address: '0x0000000000000000000000000000000000000002' as Address },
 ]
 
 export default function SwapPage() {
@@ -27,19 +27,20 @@ export default function SwapPage() {
   const [outputToken, setOutputToken] = useState('USDC')
   const [sourceChainId, setSourceChainId] = useState(JEJU_CHAIN_ID)
   const [destChainId, setDestChainId] = useState(JEJU_CHAIN_ID)
-  const [showCrossChain, setShowCrossChain] = useState(false)
 
   const isCorrectChain = chain?.id === JEJU_CHAIN_ID
 
   const { isAvailable: eilAvailable, crossChainPaymaster } = useEILConfig()
   const { executeCrossChainSwap, swapStatus, isLoading: isSwapping, hash } = useCrossChainSwap(crossChainPaymaster)
   
-  const isCrossChain = showCrossChain && checkCrossChain(sourceChainId, destChainId)
+  const isCrossChain = checkCrossChain(sourceChainId, destChainId)
   const amount = inputAmount ? parseEther(inputAmount) : 0n
   const feeEstimate = useSwapFeeEstimate(sourceChainId, destChainId, amount)
 
   const sourceChain = SUPPORTED_CHAINS.find(c => c.id === sourceChainId)
   const destChain = SUPPORTED_CHAINS.find(c => c.id === destChainId)
+  const inputTokenInfo = TOKENS.find(t => t.symbol === inputToken)
+  const outputTokenInfo = TOKENS.find(t => t.symbol === outputToken)
 
   useEffect(() => {
     if (!inputAmount || parseFloat(inputAmount) <= 0) {
@@ -63,17 +64,17 @@ export default function SwapPage() {
 
   const handleSwap = async () => {
     if (!isConnected) {
-      toast.error('Connect wallet')
+      toast.error('Connect your wallet first')
       return
     }
 
     if (!inputAmount || parseFloat(inputAmount) <= 0) {
-      toast.error('Enter amount')
+      toast.error('Enter an amount')
       return
     }
 
     if (inputToken === outputToken && !isCrossChain) {
-      toast.error('Same token')
+      toast.error('Select different tokens')
       return
     }
 
@@ -84,7 +85,7 @@ export default function SwapPage() {
 
     if (isCrossChain) {
       if (!eilAvailable) {
-        toast.error('Cross-chain unavailable')
+        toast.error('Cross-chain swaps not available yet')
         return
       }
 
@@ -97,7 +98,7 @@ export default function SwapPage() {
       })
     } else {
       if (!isCorrectChain) {
-        toast.error('Switch to the network')
+        toast.error('Switch to the correct network')
         return
       }
 
@@ -112,173 +113,183 @@ export default function SwapPage() {
     }
   }
 
+  const swapTokens = () => {
+    setInputToken(outputToken)
+    setOutputToken(inputToken)
+    const temp = sourceChainId
+    setSourceChainId(destChainId)
+    setDestChainId(temp)
+  }
+
   return (
     <div className="max-w-lg mx-auto">
-      <h1 className="text-3xl md:text-4xl font-bold mb-8 text-center" style={{ color: 'var(--text-primary)' }}>
+      <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 md:mb-8 text-center" style={{ color: 'var(--text-primary)' }}>
         🔄 Swap
       </h1>
 
       {isConnected && !isCorrectChain && !isCrossChain && (
-        <div className="card p-4 mb-6 border-bazaar-error/50 bg-bazaar-error/10">
-          <p className="text-bazaar-error text-sm">Switch to the network (Chain {JEJU_CHAIN_ID})</p>
+        <div className="card p-4 mb-4 border-red-500/30 bg-red-500/10">
+          <p className="text-red-400 text-sm text-center">Switch to the correct network to swap</p>
         </div>
       )}
 
       <div className="card p-5 md:p-6">
-        {eilAvailable && (
-          <div className="flex items-center justify-between mb-4 pb-4 border-b" style={{ borderColor: 'var(--border)' }}>
-            <span className="text-sm" style={{ color: 'var(--text-secondary)' }}>Cross-Chain</span>
-            <button
-              onClick={() => setShowCrossChain(!showCrossChain)}
-              className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
-                showCrossChain ? 'bg-bazaar-accent text-white' : ''
-              }`}
-              style={{ 
-                backgroundColor: showCrossChain ? undefined : 'var(--bg-secondary)',
-                color: showCrossChain ? undefined : 'var(--text-secondary)'
-              }}
-            >
-              {showCrossChain ? 'ON' : 'OFF'}
-            </button>
-          </div>
-        )}
-
-        {showCrossChain && (
-          <div className="grid grid-cols-2 gap-3 mb-4 p-4 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <div>
-              <label className="text-xs mb-1 block" style={{ color: 'var(--text-tertiary)' }}>From</label>
+        {/* From Section */}
+        <div className="mb-2">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm" style={{ color: 'var(--text-tertiary)' }}>From</label>
+            {eilAvailable && (
               <select
                 value={sourceChainId}
                 onChange={(e) => setSourceChainId(Number(e.target.value))}
-                className="input py-2 text-sm"
+                className="text-xs px-2 py-1 rounded-lg border-0"
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
               >
-                {SUPPORTED_CHAINS.map((chain) => (
-                  <option key={chain.id} value={chain.id}>{chain.icon} {chain.name}</option>
+                {SUPPORTED_CHAINS.map((c) => (
+                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="text-xs mb-1 block" style={{ color: 'var(--text-tertiary)' }}>To</label>
-              <select
-                value={destChainId}
-                onChange={(e) => setDestChainId(Number(e.target.value))}
-                className="input py-2 text-sm"
-              >
-                {SUPPORTED_CHAINS.map((chain) => (
-                  <option key={chain.id} value={chain.id}>{chain.icon} {chain.name}</option>
-                ))}
-              </select>
-            </div>
+            )}
           </div>
-        )}
-
-        <div className="mb-4">
-          <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>From</label>
           <div className="flex gap-2">
             <input
               type="number"
               value={inputAmount}
               onChange={(e) => setInputAmount(e.target.value)}
               placeholder="0.0"
-              className="input flex-1 text-lg"
+              className="input flex-1 text-xl font-semibold"
             />
             <select
               value={inputToken}
               onChange={(e) => setInputToken(e.target.value)}
-              className="input w-28"
+              className="input w-32 font-medium"
             >
               {TOKENS.map((token) => (
-                <option key={token.symbol} value={token.symbol}>{token.symbol}</option>
+                <option key={token.symbol} value={token.symbol}>
+                  {token.icon} {token.symbol}
+                </option>
               ))}
             </select>
           </div>
         </div>
 
-        <div className="flex justify-center my-2">
+        {/* Swap Button */}
+        <div className="flex justify-center my-3">
           <button 
-            className="p-2.5 rounded-xl transition-all hover:scale-110"
+            className="p-2.5 rounded-xl transition-all hover:scale-110 active:scale-95"
             style={{ backgroundColor: 'var(--bg-secondary)' }}
-            onClick={() => {
-              setInputToken(outputToken)
-              setOutputToken(inputToken)
-              if (showCrossChain) {
-                const temp = sourceChainId
-                setSourceChainId(destChainId)
-                setDestChainId(temp)
-              }
-            }}
+            onClick={swapTokens}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
             </svg>
           </button>
         </div>
 
-        <div className="mb-6">
-          <label className="text-sm mb-2 block" style={{ color: 'var(--text-secondary)' }}>To</label>
+        {/* To Section */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm" style={{ color: 'var(--text-tertiary)' }}>To</label>
+            {eilAvailable && (
+              <select
+                value={destChainId}
+                onChange={(e) => setDestChainId(Number(e.target.value))}
+                className="text-xs px-2 py-1 rounded-lg border-0"
+                style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}
+              >
+                {SUPPORTED_CHAINS.map((c) => (
+                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                ))}
+              </select>
+            )}
+          </div>
           <div className="flex gap-2">
             <input
               type="number"
               value={outputAmount}
               placeholder="0.0"
               readOnly
-              className="input flex-1 text-lg"
+              className="input flex-1 text-xl font-semibold"
               style={{ backgroundColor: 'var(--bg-tertiary)' }}
             />
             <select
               value={outputToken}
               onChange={(e) => setOutputToken(e.target.value)}
-              className="input w-28"
+              className="input w-32 font-medium"
             >
               {TOKENS.map((token) => (
-                <option key={token.symbol} value={token.symbol}>{token.symbol}</option>
+                <option key={token.symbol} value={token.symbol}>
+                  {token.icon} {token.symbol}
+                </option>
               ))}
             </select>
           </div>
         </div>
 
+        {/* Cross-chain Info */}
         {isCrossChain && (
-          <div className="mb-4 p-3 rounded-xl text-xs space-y-1" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <div className="flex justify-between">
-              <span style={{ color: 'var(--text-tertiary)' }}>Route</span>
-              <span>{sourceChain?.icon} → {destChain?.icon}</span>
+          <div className="mb-4 p-3 rounded-xl text-sm" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-lg">🌉</span>
+              <span className="font-medium" style={{ color: 'var(--text-primary)' }}>Cross-Chain Swap</span>
             </div>
+            <div className="space-y-1.5">
+              <div className="flex justify-between">
+                <span style={{ color: 'var(--text-tertiary)' }}>Route</span>
+                <span style={{ color: 'var(--text-primary)' }}>{sourceChain?.icon} → {destChain?.icon}</span>
+              </div>
+              <div className="flex justify-between">
+                <span style={{ color: 'var(--text-tertiary)' }}>Time</span>
+                <span style={{ color: 'var(--text-primary)' }}>~{feeEstimate.estimatedTime}s</span>
+              </div>
+              <div className="flex justify-between">
+                <span style={{ color: 'var(--text-tertiary)' }}>Bridge Fee</span>
+                <span style={{ color: 'var(--text-primary)' }}>{formatEther(feeEstimate.totalFee)} ETH</span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Swap Summary */}
+        {inputAmount && outputAmount && !isCrossChain && (
+          <div className="mb-4 p-3 rounded-xl text-sm space-y-1.5" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             <div className="flex justify-between">
-              <span style={{ color: 'var(--text-tertiary)' }}>Time</span>
-              <span>~{feeEstimate.estimatedTime}s</span>
+              <span style={{ color: 'var(--text-tertiary)' }}>Rate</span>
+              <span style={{ color: 'var(--text-primary)' }}>
+                1 {inputToken} = {inputToken === 'ETH' ? '3,000' : '0.00033'} {outputToken}
+              </span>
             </div>
             <div className="flex justify-between">
               <span style={{ color: 'var(--text-tertiary)' }}>Fee</span>
-              <span>{formatEther(feeEstimate.totalFee)} ETH</span>
+              <span style={{ color: 'var(--text-primary)' }}>0.3%</span>
             </div>
           </div>
         )}
 
+        {/* Swap Button */}
         <button
           onClick={handleSwap}
-          disabled={!isConnected || isSwapping || (!isCorrectChain && !isCrossChain)}
-          className="btn-primary w-full py-4 text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          disabled={!isConnected || isSwapping || (!isCorrectChain && !isCrossChain) || !inputAmount}
+          className="btn-primary w-full py-4 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {!isConnected ? 'Connect Wallet' : isSwapping ? 'Swapping...' : 'Swap'}
+          {!isConnected 
+            ? 'Connect Wallet' 
+            : isSwapping 
+            ? 'Swapping...' 
+            : isCrossChain
+            ? `Swap to ${destChain?.name}`
+            : 'Swap'
+          }
         </button>
 
+        {/* Success Message */}
         {swapStatus === 'complete' && hash && (
-          <div className="mt-4 p-3 rounded-xl border border-bazaar-success/30 bg-bazaar-success/10">
-            <span className="text-sm text-bazaar-success">✓ Swap initiated</span>
+          <div className="mt-4 p-3 rounded-xl border border-green-500/30 bg-green-500/10 text-center">
+            <span className="text-sm text-green-400">✓ Swap initiated successfully</span>
           </div>
         )}
-      </div>
-
-      <div className="card p-4 mt-4 text-sm space-y-2">
-        <div className="flex justify-between">
-          <span style={{ color: 'var(--text-tertiary)' }}>Rate</span>
-          <span>1 {inputToken} = {inputToken === 'ETH' ? '3000' : '0.00033'} {outputToken}</span>
-        </div>
-        <div className="flex justify-between">
-          <span style={{ color: 'var(--text-tertiary)' }}>Fee</span>
-          <span>{formatEther(feeEstimate.totalFee)} ETH</span>
-        </div>
       </div>
     </div>
   )
 }
+

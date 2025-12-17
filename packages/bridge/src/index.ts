@@ -1,33 +1,9 @@
 /**
- * @jejunetwork/zksolbridge
- *
- * Permissionless Solana↔EVM ZK Light Client Interoperability Layer
- *
- * This package provides trustless cross-chain interoperability between
- * EVM chains (Ethereum, Base, Arbitrum, Optimism, BSC) and Solana using
- * zero-knowledge proofs for verification. No intermediaries, just math.
- *
- * Key Components:
- * - Solana Light Client on EVM (verified by ZK proofs of consensus)
- * - EVM Light Client on Solana (verified by ZK proofs of sync committee)
- * - Cross-Chain Token Bridge (burn/mint or lock/unlock)
- * - TEE Batching for efficient proof generation
- * - Self-hosted proving infrastructure
- * - Relayer service for orchestrating cross-chain transfers
- * - Health monitoring and metrics
- *
+ * @jejunetwork/zksolbridge - Permissionless Solana↔EVM ZK Bridge
  * @packageDocumentation
  */
 
-// =============================================================================
-// TYPE EXPORTS
-// =============================================================================
-
 export * from "./types/index.js";
-
-// =============================================================================
-// CLIENT EXPORTS
-// =============================================================================
 
 export {
 	createEVMClient,
@@ -45,12 +21,7 @@ export {
 	hyperliquidChain,
 } from "./clients/hyperliquid-client.js";
 
-// =============================================================================
-// ROUTER EXPORTS
-// =============================================================================
-
 export {
-	// Router
 	createRouter,
 	CrossChainRouter,
 	type RouterConfig,
@@ -62,14 +33,12 @@ export {
 	BridgeMechanism,
 	SUPPORTED_CHAINS,
 	ASTER_CONTRACTS,
-	// CCIP
 	createCCIPAdapter,
 	CCIPAdapter,
 	type CCIPTransferRequest,
 	type CCIPTransferResult,
 	CCIP_CHAIN_SELECTORS,
 	CCIP_ROUTERS,
-	// Arbitrage
 	createArbitrageDetector,
 	ArbitrageDetector,
 	type ArbOpportunity,
@@ -77,28 +46,17 @@ export {
 	type PriceQuote,
 } from "./router/index.js";
 
-// =============================================================================
-// TEE EXPORTS
-// =============================================================================
-
 export {
-	// Types
 	type AttestationRequest,
 	type AttestationResponse,
 	type AttestationVerification,
 	type AWSNitroConfig,
-	// AWS Nitro provider
 	AWSNitroProvider,
 	createAWSNitroProvider,
-	// GCP Confidential provider
 	createGCPConfidentialProvider,
-	// Mock provider (local dev)
 	createMockProvider,
-	// Phala provider (optional)
 	createPhalaClient,
-	// Batcher
 	createTEEBatcher,
-	// TEE Manager (unified interface)
 	createTEEManager,
 	type GCPConfidentialConfig,
 	GCPConfidentialProvider,
@@ -119,10 +77,6 @@ export {
 	type TEEProviderConfig,
 } from "./tee/index.js";
 
-// =============================================================================
-// PROVER EXPORTS
-// =============================================================================
-
 export {
 	createSP1Client,
 	type ProofRequest,
@@ -130,10 +84,6 @@ export {
 	SP1Client,
 	type SP1Config,
 } from "./prover/index.js";
-
-// =============================================================================
-// RELAYER EXPORTS
-// =============================================================================
 
 export {
 	createRelayerService,
@@ -143,10 +93,6 @@ export {
 	type SolanaChainConfig,
 } from "./relayer/index.js";
 
-// =============================================================================
-// XLP (Cross-chain Liquidity Provider) EXPORTS
-// =============================================================================
-
 export {
 	createXLPService,
 	XLPService,
@@ -155,11 +101,41 @@ export {
 	type FillRequest,
 	type RouteStats,
 	type XLPStats,
+	isSolanaChain,
+	getSolanaTokenMint,
+	getEvmTokenAddress,
 } from "./xlp/index.js";
 
-// =============================================================================
-// MONITORING EXPORTS
-// =============================================================================
+export {
+	FederatedIdentityBridge,
+	createFederatedIdentityBridge,
+	type FederatedIdentityConfig,
+	type SolanaAgent,
+	type FederatedAgent,
+	type CrossChainIdentityLink,
+} from "./identity/index.js";
+
+export {
+	NFTBridgeService,
+	createNFTBridgeService,
+	type NFTBridgeConfig,
+	type BridgeRequest as NFTBridgeRequest,
+	type SolanaNFTMetadata,
+	type CrossChainNFT,
+	BridgeStatus as NFTBridgeStatus,
+} from "./nft/index.js";
+
+export {
+	SolanaNetworkRegistry,
+	createSolanaNetworkRegistry,
+	registerSolanaNetworks,
+	establishSolanaTrust,
+	type NetworkRegistryConfig,
+	type SolanaNetworkConfig,
+	type NetworkContracts,
+	type SolanaNetworkInfo,
+	TrustTier,
+} from "./federation/index.js";
 
 export {
 	type ComponentHealth,
@@ -170,10 +146,6 @@ export {
 	type Metrics,
 	type SystemHealth,
 } from "./monitoring/index.js";
-
-// =============================================================================
-// LOCAL DEVELOPMENT
-// =============================================================================
 
 export {
 	type GenesisState,
@@ -190,9 +162,5 @@ export {
 	TEST_TOKENS,
 	type TestToken,
 } from "./local-dev/config.js";
-
-// =============================================================================
-// VERSION
-// =============================================================================
 
 export const VERSION = "0.1.0";

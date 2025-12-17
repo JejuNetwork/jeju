@@ -1,12 +1,12 @@
 import Link from 'next/link'
 
 const features = [
-  { href: '/coins', icon: '🪙', title: 'Coins' },
   { href: '/swap', icon: '🔄', title: 'Swap' },
   { href: '/pools', icon: '💧', title: 'Pools' },
-  { href: '/markets', icon: '📊', title: 'Markets' },
-  { href: '/items', icon: '🖼️', title: 'Items' },
-  { href: '/names', icon: '🏷️', title: 'Names' },
+  { href: '/perps', icon: '📈', title: 'Perps' },
+  { href: '/coins', icon: '🪙', title: 'Coins' },
+  { href: '/markets', icon: '🔮', title: 'Predict' },
+  { href: '/items', icon: '🖼️', title: 'NFTs' },
   { href: '/games', icon: '🎮', title: 'Games' },
 ]
 

@@ -35,8 +35,8 @@ describe.skipIf(SKIP)('Compute Service', () => {
   });
 
   describe('Chat Completions API', () => {
-    test('POST /compute/chat/completions without backend returns mock response', async () => {
-      // Without INFERENCE_API_URL, returns a clearly-labeled mock response
+    test('POST /compute/chat/completions without backend returns 503', async () => {
+      // Without INFERENCE_API_URL, returns a 503 error
       const res = await app.request('/compute/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -46,17 +46,13 @@ describe.skipIf(SKIP)('Compute Service', () => {
         }),
       });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(503);
 
       const body = await res.json();
-      expect(body.id).toBeDefined();
-      expect(body.object).toBe('chat.completion');
-      // Mock response clearly indicates it's a mock
-      expect(body.choices[0].message.content).toContain('mock response');
-      expect(body.choices[0].message.content).toContain('INFERENCE_API_URL');
+      expect(body.error).toBe('INFERENCE_API_URL not configured');
     });
 
-    test('POST /compute/chat/completions uses provided model in mock response', async () => {
+    test('POST /compute/chat/completions returns error when backend not configured', async () => {
       const res = await app.request('/compute/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,13 +62,13 @@ describe.skipIf(SKIP)('Compute Service', () => {
         }),
       });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(503);
 
       const body = await res.json();
-      expect(body.model).toBe('gpt-4o');
+      expect(body.error).toContain('INFERENCE_API_URL');
     });
 
-    test('POST /compute/chat/completions returns OpenAI-compatible structure', async () => {
+    test('POST /compute/chat/completions returns JSON error structure', async () => {
       const res = await app.request('/compute/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -82,19 +78,11 @@ describe.skipIf(SKIP)('Compute Service', () => {
         }),
       });
 
-      expect(res.status).toBe(200);
+      expect(res.status).toBe(503);
 
       const body = await res.json();
-      expect(body).toHaveProperty('id');
-      expect(body).toHaveProperty('object');
-      expect(body).toHaveProperty('created');
-      expect(body).toHaveProperty('model');
-      expect(body).toHaveProperty('choices');
-      expect(body.choices).toHaveLength(1);
-      expect(body.choices[0]).toHaveProperty('message');
-      expect(body.choices[0].message).toHaveProperty('role');
-      expect(body.choices[0].message).toHaveProperty('content');
-      expect(body).toHaveProperty('usage');
+      expect(body).toHaveProperty('error');
+      expect(typeof body.error).toBe('string');
     });
   });
 

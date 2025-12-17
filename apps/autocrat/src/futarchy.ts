@@ -60,6 +60,7 @@ export class FutarchyClient {
 
   constructor(config: FutarchyConfig) {
     const chain = inferChainFromRpcUrl(config.rpcUrl);
+    // @ts-expect-error viem version type mismatch in monorepo
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
@@ -146,6 +147,7 @@ export class FutarchyClient {
     if (!this.councilDeployed) return { success: false, error: 'Council not deployed' };
     if (!this.account) return { success: false, error: 'Wallet required' };
 
+    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
       address: this.councilAddress,
       abi: COUNCIL_ABI,
@@ -165,6 +167,7 @@ export class FutarchyClient {
     if (!m) return { success: false, error: 'No market for proposal' };
     if (!m.canResolve) return { success: false, error: `Cannot resolve yet. Deadline: ${new Date(m.deadline * 1000).toISOString()}` };
 
+    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
       address: this.councilAddress,
       abi: COUNCIL_ABI,
@@ -180,6 +183,7 @@ export class FutarchyClient {
     if (!this.councilDeployed) return { success: false, error: 'Council not deployed' };
     if (!this.account) return { success: false, error: 'Wallet required' };
 
+    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
       address: this.councilAddress,
       abi: COUNCIL_ABI,

@@ -11,7 +11,7 @@ import type {
   WarmPoolStats,
   ContainerEvent,
   ContainerEventHandler,
-  DEFAULT_WARMTH_CONFIG,
+  DEFAULT_WARMTH_CONFIG as _DEFAULT_WARMTH_CONFIG,
 } from './types';
 import type { Address } from 'viem';
 

@@ -103,7 +103,6 @@ export class EdgeNodeServer {
     const chain = inferChainFromRpcUrl(config.rpcUrl);
     // @ts-expect-error viem version type mismatch in monorepo
     this.publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
-    // @ts-expect-error viem version type mismatch in monorepo
     this.walletClient = createWalletClient({ account: this.account, chain, transport: http(config.rpcUrl) });
     this.registryAddress = config.registryAddress;
     
@@ -328,7 +327,7 @@ export class EdgeNodeServer {
 
       return c.json(
         { error: originResult.error, origin: originResult.origin },
-        { status: originResult.status || 502 }
+        (originResult.status || 502) as 400 | 401 | 403 | 404 | 500 | 502 | 503
       );
     }
 
@@ -641,6 +640,7 @@ export class EdgeNodeServer {
     setInterval(async () => {
       const metrics = this.getMetrics();
       
+      // @ts-expect-error viem ABI type inference
       const hash = await this.walletClient.writeContract({
         address: this.registryAddress,
         abi: CDN_REGISTRY_ABI,
@@ -680,6 +680,7 @@ export class EdgeNodeServer {
         message: usageData,
       });
 
+      // @ts-expect-error viem ABI type inference
       const hash = await this.walletClient.writeContract({
         address: this.registryAddress,
         abi: CDN_REGISTRY_ABI,

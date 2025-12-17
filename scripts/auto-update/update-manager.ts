@@ -69,18 +69,50 @@ async function getLatestVersion(): Promise<Version> {
       `https://api.github.com/repos/${CONFIG.GITHUB_REPO}/releases/latest`
     );
     
+    if (!response.ok) {
+      throw new Error(`GitHub API returned ${response.status}: ${response.statusText}`);
+    }
+    
     const release = await response.json() as GitHubRelease;
     
-    // Parse version from release notes or use defaults
-    // In a real implementation, this would parse the release notes
+    // Parse version from release notes
+    // Look for version strings in format: "reth: v1.0.3" or "op-node: v1.7.6"
+    let reth = 'v1.0.3'; // Default fallback
+    let opNode = 'v1.7.6'; // Default fallback
+    
+    if (release.body) {
+      const rethMatch = release.body.match(/reth[:\s]+v?(\d+\.\d+\.\d+)/i);
+      if (rethMatch) {
+        reth = rethMatch[1]!.startsWith('v') ? rethMatch[1]! : `v${rethMatch[1]}`;
+      }
+      
+      const opNodeMatch = release.body.match(/op[-_]?node[:\s]+v?(\d+\.\d+\.\d+)/i);
+      if (opNodeMatch) {
+        opNode = opNodeMatch[1]!.startsWith('v') ? opNodeMatch[1]! : `v${opNodeMatch[1]}`;
+      }
+    }
+    
+    // Also check tag_name for version
+    if (release.tag_name) {
+      const tagMatch = release.tag_name.match(/v?(\d+\.\d+\.\d+)/);
+      if (tagMatch) {
+        // Use tag as fallback if no specific versions found
+        if (reth === 'v1.0.3' && opNode === 'v1.7.6') {
+          reth = release.tag_name;
+          opNode = release.tag_name;
+        }
+      }
+    }
+    
     return {
-      reth: 'v1.0.3', // Would be parsed from release
-      opNode: 'v1.7.6', // Would be parsed from release
+      reth,
+      opNode,
       timestamp: new Date(release.published_at).getTime(),
     };
   } catch (error) {
-    console.error('Failed to fetch latest version:', error);
-    throw error;
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    console.error(`Failed to fetch latest version: ${errorMessage}`);
+    throw new Error(`Version check failed: ${errorMessage}`);
   }
 }
 

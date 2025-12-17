@@ -547,20 +547,19 @@ describe('DistributedTrainingClient edge cases', () => {
 
   describe('error handling', () => {
     test('propagates submit job errors', async () => {
-      mockWriteContract.mockRejectedValue(new Error('Contract error: InvalidConfig'));
+      mockWriteContract.mockRejectedValue(new Error('Contract error: Unauthorized'));
 
       await expect(
         client.submitJob({
-          name: 'bad-run',
-          baseModel: 'model',
-          datasetCid: 'Qm',
+          name: 'test-run',
+          baseModel: 'openai/gpt-2',
+          datasetCid: 'QmValid',
           training: {
-            totalSteps: 0, // Invalid
-            minNodes: 0,   // Invalid
-            batchSizeStart: 0,
-            batchSizeEnd: 0,
-            learningRate: 0,
-            maxSeqLen: 0,
+            totalSteps: 1000,
+            minNodes: 4,
+            batchSizeStart: 16,
+            batchSizeEnd: 64,
+            maxSeqLen: 2048,
           },
           privacyMode: PrivacyMode.Public,
         })

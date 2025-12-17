@@ -7,7 +7,6 @@ import type { Address, Hex } from 'viem';
 import type { BackendManager } from '../storage/backends';
 import type {
   GitUser,
-  Star,
   Fork,
   UserTier,
   ContributionEvent,
@@ -18,12 +17,6 @@ import type { GitRepoManager } from './repo-manager';
 export interface SocialManagerConfig {
   backend: BackendManager;
   repoManager: GitRepoManager;
-}
-
-interface UserIndex {
-  users: Map<Address, GitUser>;
-  stars: Map<Hex, Address[]>; // repoId -> users who starred
-  userStars: Map<Address, Hex[]>; // user -> repos they starred
 }
 
 export class SocialManager {

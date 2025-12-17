@@ -112,6 +112,7 @@ export interface Action {
   inputs?: Record<string, ActionInput>;
   outputs?: Record<string, ActionOutput>;
   runs: ActionRuns;
+  post?: { steps: WorkflowStep[] }; // Optional post-job steps (e.g., cache save)
 }
 
 export interface ActionInput {

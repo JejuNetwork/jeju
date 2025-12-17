@@ -9,6 +9,8 @@ export * from './moderation-contracts';
 export * from './randomColor';
 export * from './crosschain';
 
-// Re-export shared utilities when available
-// import { PAYMENT_TIERS as SharedPaymentTiers } from '../../../scripts/shared/x402';
+// Solana cross-chain integration
+export * from './solana-identity';
+export * from './solana-crosschain';
+export * from './solana-nft';
 

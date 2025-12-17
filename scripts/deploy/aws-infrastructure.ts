@@ -66,6 +66,12 @@ function banner(title: string) {
 
 async function runTerraform(tfDir: string, command: string, args: string[] = []): Promise<boolean> {
   const result = await $`cd ${tfDir} && terraform ${command} ${args}`.nothrow();
+  if (result.exitCode !== 0) {
+    const errorMsg = result.stderr.toString() || result.stdout.toString() || 'Unknown error';
+    if (process.env.DEBUG) {
+      console.error(`Terraform ${command} failed: ${errorMsg.split('\n')[0]}`);
+    }
+  }
   return result.exitCode === 0;
 }
 
@@ -76,25 +82,39 @@ async function checkTerraformBackend(network: Network): Promise<boolean> {
   // Check S3 bucket
   const bucketCheck = await $`aws s3 ls s3://${bucketName}`.quiet().nothrow();
   if (bucketCheck.exitCode !== 0) {
+    const errorMsg = bucketCheck.stderr.toString() || 'Bucket does not exist';
     console.log(`Creating S3 bucket: ${bucketName}`);
     
     const region = process.env.AWS_REGION || 'us-east-1';
-    if (region === 'us-east-1') {
-      await $`aws s3api create-bucket --bucket ${bucketName} --region ${region}`;
-    } else {
-      await $`aws s3api create-bucket --bucket ${bucketName} --region ${region} --create-bucket-configuration LocationConstraint=${region}`;
+    const createResult = region === 'us-east-1'
+      ? await $`aws s3api create-bucket --bucket ${bucketName} --region ${region}`.nothrow()
+      : await $`aws s3api create-bucket --bucket ${bucketName} --region ${region} --create-bucket-configuration LocationConstraint=${region}`.nothrow();
+    
+    if (createResult.exitCode !== 0) {
+      const createError = createResult.stderr.toString() || 'Unknown error';
+      throw new Error(`Failed to create S3 bucket: ${createError.split('\n')[0]}`);
     }
     
-    await $`aws s3api put-bucket-versioning --bucket ${bucketName} --versioning-configuration Status=Enabled`;
-    await $`aws s3api put-bucket-encryption --bucket ${bucketName} --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'`;
+    const versionResult = await $`aws s3api put-bucket-versioning --bucket ${bucketName} --versioning-configuration Status=Enabled`.nothrow();
+    if (versionResult.exitCode !== 0) {
+      const versionError = versionResult.stderr.toString() || 'Unknown error';
+      throw new Error(`Failed to enable versioning: ${versionError.split('\n')[0]}`);
+    }
+    
+    const encryptResult = await $`aws s3api put-bucket-encryption --bucket ${bucketName} --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'`.nothrow();
+    if (encryptResult.exitCode !== 0) {
+      const encryptError = encryptResult.stderr.toString() || 'Unknown error';
+      throw new Error(`Failed to enable encryption: ${encryptError.split('\n')[0]}`);
+    }
   }
   
   // Check DynamoDB table
   const tableCheck = await $`aws dynamodb describe-table --table-name ${tableName}`.quiet().nothrow();
   if (tableCheck.exitCode !== 0) {
+    const errorMsg = tableCheck.stderr.toString() || 'Table does not exist';
     console.log(`Creating DynamoDB table: ${tableName}`);
     
-    await $`aws dynamodb create-table \
+    const createTableResult = await $`aws dynamodb create-table \
       --table-name ${tableName} \
       --attribute-definitions AttributeName=LockID,AttributeType=S \
       --key-schema AttributeName=LockID,KeyType=HASH \

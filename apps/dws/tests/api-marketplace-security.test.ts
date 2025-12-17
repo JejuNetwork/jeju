@@ -538,13 +538,13 @@ describe('Full Flow Security', () => {
     expect(metadataStr).not.toContain(apiKey);
   });
 
-  test('should enforce payment before access', () => {
+  test('should enforce payment before access', async () => {
     const poorUser = '0x6666666666666666666666666666666666666666' as Address;
-    getOrCreateAccount(poorUser); // Create account with 0 balance
+    await getOrCreateAccount(poorUser); // Create account with 0 balance
 
     const seller = '0x7777777777777777777777777777777777777777' as Address;
     const vaultKey = storeKey('anthropic', seller, 'test-key');
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'anthropic',
       seller,
       keyVaultId: vaultKey.id,
@@ -561,7 +561,7 @@ describe('Full Flow Security', () => {
     expect(accessCheck.allowed).toBe(true);
 
     // But actual payment check would fail (tested in proxy)
-    const account = getOrCreateAccount(poorUser);
+    const account = await getOrCreateAccount(poorUser);
     expect(account.balance).toBe(0n);
     expect(account.balance < listing.pricePerRequest).toBe(true);
   });

@@ -69,6 +69,19 @@ export const WALLETCONNECT_PROJECT_ID = process.env.NEXT_PUBLIC_WALLETCONNECT_PR
 export const ALCHEMY_API_KEY = process.env.NEXT_PUBLIC_ALCHEMY_API_KEY;
 export const HELIUS_API_KEY = process.env.NEXT_PUBLIC_HELIUS_API_KEY;
 
+// Solana configuration
+export const SOLANA_RPC_URL = process.env.NEXT_PUBLIC_SOLANA_RPC_URL || getSolanaRpcUrl();
+export const SOLANA_CHAIN_ID = process.env.NEXT_PUBLIC_SOLANA_CHAIN_ID === 'mainnet' ? 101 : 102;
+export const SOLANA_AGENT_REGISTRY = 'HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp';
+
+function getSolanaRpcUrl(): string {
+  switch (NETWORK) {
+    case 'mainnet': return 'https://api.mainnet-beta.solana.com';
+    case 'testnet': return 'https://api.devnet.solana.com';
+    default: return 'http://localhost:8899';
+  }
+}
+
 // Payment recipient for bazaar transactions
 export const BAZAAR_PAYMENT_RECIPIENT = (process.env.NEXT_PUBLIC_BAZAAR_PAYMENT_RECIPIENT || ZERO) as Address;
 

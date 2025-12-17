@@ -46,7 +46,11 @@ async function checkPrerequisites(): Promise<boolean> {
   // Check op-deployer
   const opDeployerCheck = await $`which op-deployer`.quiet().nothrow();
   if (opDeployerCheck.exitCode !== 0) {
+    const errorMsg = opDeployerCheck.stderr.toString() || 'Command not found';
     console.log('❌ op-deployer not found');
+    if (process.env.DEBUG) {
+      console.log(`   Error: ${errorMsg.split('\n')[0]}`);
+    }
     console.log('   Install: go install github.com/ethereum-optimism/optimism/op-deployer@latest');
     console.log('   Or use: curl -L https://github.com/ethereum-optimism/optimism/releases/download/op-deployer/v1.0.0/op-deployer_linux_amd64 -o /usr/local/bin/op-deployer && chmod +x /usr/local/bin/op-deployer');
     return false;

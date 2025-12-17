@@ -280,13 +280,17 @@ class CompleteBootstrapper {
     const existingFile = join(process.cwd(), 'packages', 'contracts', 'deployments', 'localnet-addresses.json');
     if (existsSync(existingFile)) {
       try {
-        const addresses = await Bun.file(existingFile).json();
+        const addresses = await Bun.file(existingFile).json() as Record<string, string>;
         if (addresses.usdc) {
           console.log(`  ✅ USDC (existing): ${addresses.usdc}`);
           return addresses.usdc;
         }
-      } catch {
+      } catch (err) {
         // File doesn't exist or is invalid, continue to deploy
+        if (process.env.DEBUG) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          console.warn(`Failed to read existing addresses file: ${errorMsg}`);
+        }
       }
     }
 
@@ -309,13 +313,17 @@ class CompleteBootstrapper {
     const existingFile = join(process.cwd(), 'packages', 'contracts', 'deployments', 'localnet-addresses.json');
     if (existsSync(existingFile)) {
       try {
-        const addresses = await Bun.file(existingFile).json();
+        const addresses = await Bun.file(existingFile).json() as Record<string, string>;
         if (addresses.elizaOS) {
           console.log(`  ✅ elizaOS (existing): ${addresses.elizaOS}`);
           return addresses.elizaOS;
         }
-      } catch {
+      } catch (err) {
         // File doesn't exist or is invalid, continue to deploy
+        if (process.env.DEBUG) {
+          const errorMsg = err instanceof Error ? err.message : String(err);
+          console.warn(`Failed to read existing addresses file: ${errorMsg}`);
+        }
       }
     }
 

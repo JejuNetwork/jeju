@@ -111,7 +111,8 @@ export function createPkgRouter(ctx: PkgContext): Hono {
   // Sync package from upstream
   router.post('/-/sync/:package{.+}', async (c) => {
     const packageName = c.req.param('package').replace('%2f', '/').replace('%2F', '/');
-    const { versions } = await c.req.json<{ versions?: number }>().catch(() => ({}));
+    const body = await c.req.json<{ versions?: number }>().catch(() => ({ versions: undefined }));
+    const { versions } = body;
 
     const result = await upstreamProxy.syncPackage(packageName, { versions });
     return c.json(result);
@@ -138,7 +139,7 @@ export function createPkgRouter(ctx: PkgContext): Hono {
         if (user) {
           recordPackageDownload(user, localPkg.packageId, fullName, version);
         }
-        return new Response(tarball.content, {
+        return new Response(new Uint8Array(tarball.content), {
           headers: {
             'Content-Type': 'application/octet-stream',
             'Content-Disposition': `attachment; filename="${tarballName}"`,
@@ -151,7 +152,7 @@ export function createPkgRouter(ctx: PkgContext): Hono {
     // Try upstream with caching
     const upstreamTarball = await upstreamProxy.getTarball(fullName, version);
     if (upstreamTarball) {
-      return new Response(upstreamTarball, {
+      return new Response(new Uint8Array(upstreamTarball), {
         headers: {
           'Content-Type': 'application/octet-stream',
           'Content-Disposition': `attachment; filename="${tarballName}"`,

@@ -47,30 +47,50 @@ async function checkAWSInfra() {
   // Check AWS CLI configured
   const awsCheck = await $`aws sts get-caller-identity`.quiet().nothrow();
   if (awsCheck.exitCode !== 0) {
-    addResult(category, 'AWS CLI', 'fail', 'Not configured or no credentials');
+    const errorMsg = awsCheck.stderr.toString() || 'Unknown error';
+    addResult(category, 'AWS CLI', 'fail', `Not configured or no credentials: ${errorMsg.split('\n')[0]}`);
     return;
   }
   
-  const identity = JSON.parse(awsCheck.stdout.toString());
-  addResult(category, 'AWS CLI', 'pass', `Account: ${identity.Account}`);
+  let identity;
+  try {
+    identity = JSON.parse(awsCheck.stdout.toString());
+    addResult(category, 'AWS CLI', 'pass', `Account: ${identity.Account}`);
+  } catch (err) {
+    const errorMsg = err instanceof Error ? err.message : 'Invalid JSON';
+    addResult(category, 'AWS CLI', 'fail', `Failed to parse AWS identity: ${errorMsg}`);
+    return;
+  }
   
   // Check EKS cluster
   const eksCheck = await $`aws eks describe-cluster --name jeju-testnet --region us-east-1`.quiet().nothrow();
   if (eksCheck.exitCode === 0) {
-    const cluster = JSON.parse(eksCheck.stdout.toString());
-    addResult(category, 'EKS Cluster', 'pass', `Status: ${cluster.cluster.status}`);
+    try {
+      const cluster = JSON.parse(eksCheck.stdout.toString());
+      addResult(category, 'EKS Cluster', 'pass', `Status: ${cluster.cluster.status}`);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Invalid JSON';
+      addResult(category, 'EKS Cluster', 'fail', `Failed to parse cluster info: ${errorMsg}`);
+    }
   } else {
-    addResult(category, 'EKS Cluster', 'fail', 'Cluster not found');
+    const errorMsg = eksCheck.stderr.toString() || 'Cluster not found';
+    addResult(category, 'EKS Cluster', 'fail', errorMsg.split('\n')[0]);
   }
   
   // Check RDS
   const rdsCheck = await $`aws rds describe-db-instances --db-instance-identifier jeju-testnet-postgres --region us-east-1`.quiet().nothrow();
   if (rdsCheck.exitCode === 0) {
-    const db = JSON.parse(rdsCheck.stdout.toString());
-    const status = db.DBInstances[0]?.DBInstanceStatus || 'unknown';
-    addResult(category, 'RDS Database', status === 'available' ? 'pass' : 'warn', `Status: ${status}`);
+    try {
+      const db = JSON.parse(rdsCheck.stdout.toString());
+      const status = db.DBInstances[0]?.DBInstanceStatus || 'unknown';
+      addResult(category, 'RDS Database', status === 'available' ? 'pass' : 'warn', `Status: ${status}`);
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Invalid JSON';
+      addResult(category, 'RDS Database', 'fail', `Failed to parse DB info: ${errorMsg}`);
+    }
   } else {
-    addResult(category, 'RDS Database', 'fail', 'Database not found');
+    const errorMsg = rdsCheck.stderr.toString() || 'Database not found';
+    addResult(category, 'RDS Database', 'fail', errorMsg.split('\n')[0]);
   }
   
   // Check ECR repositories
@@ -78,25 +98,34 @@ async function checkAWSInfra() {
   if (ecrCheck.exitCode === 0) {
     addResult(category, 'ECR Repositories', 'pass', 'Repositories exist');
   } else {
-    addResult(category, 'ECR Repositories', 'fail', 'Repositories not found');
+    const errorMsg = ecrCheck.stderr.toString() || 'Repositories not found';
+    addResult(category, 'ECR Repositories', 'fail', errorMsg.split('\n')[0]);
   }
   
   // Check Route53
   const r53Check = await $`aws route53 list-hosted-zones-by-name --dns-name jejunetwork.org`.quiet().nothrow();
   if (r53Check.exitCode === 0) {
-    const zones = JSON.parse(r53Check.stdout.toString());
-    if (zones.HostedZones.length > 0) {
-      addResult(category, 'Route53 Zone', 'pass', `Zone ID: ${zones.HostedZones[0].Id}`);
-    } else {
-      addResult(category, 'Route53 Zone', 'fail', 'Zone not found');
+    try {
+      const zones = JSON.parse(r53Check.stdout.toString());
+      if (zones.HostedZones.length > 0) {
+        addResult(category, 'Route53 Zone', 'pass', `Zone ID: ${zones.HostedZones[0].Id}`);
+      } else {
+        addResult(category, 'Route53 Zone', 'fail', 'Zone not found');
+      }
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Invalid JSON';
+      addResult(category, 'Route53 Zone', 'fail', `Failed to parse zones: ${errorMsg}`);
     }
+  } else {
+    const errorMsg = r53Check.stderr.toString() || 'Zone check failed';
+    addResult(category, 'Route53 Zone', 'fail', errorMsg.split('\n')[0]);
   }
   
   // Check ACM certificate
   const acmCheck = await $`aws acm list-certificates --region us-east-1`.quiet().nothrow();
   if (acmCheck.exitCode === 0) {
-    const certs = JSON.parse(acmCheck.stdout.toString());
-    const jejuCert = certs.CertificateSummaryList.find((c: {DomainName: string}) => c.DomainName === 'jejunetwork.org');
+    const certs = JSON.parse(acmCheck.stdout.toString()) as { CertificateSummaryList: Array<{ DomainName: string; Status: string }> };
+    const jejuCert = certs.CertificateSummaryList.find(c => c.DomainName === 'jeju.network');
     if (jejuCert) {
       addResult(category, 'ACM Certificate', jejuCert.Status === 'ISSUED' ? 'pass' : 'warn', `Status: ${jejuCert.Status}`);
     } else {

@@ -5,7 +5,7 @@
  * DECENTRALIZED: No fallbacks - CQL is required for production.
  */
 
-import { getCQL, type CQLClient } from "@jejunetwork/db";
+import { getCQL, type CQLClient, type QueryParam } from "@jejunetwork/db";
 import { getCacheClient, type CacheClient } from "@jejunetwork/shared";
 import type {
   AgentDefinition,
@@ -40,7 +40,6 @@ async function getCQLClient(): Promise<CQLClient> {
     }
     
     cqlClient = getCQL();
-    await cqlClient.initialize();
     await ensureTablesExist();
   }
   return cqlClient;
@@ -222,7 +221,7 @@ export const agentState = {
   async list(filter?: { owner?: string; botType?: string; active?: boolean }): Promise<AgentDefinition[]> {
     const client = await getCQLClient();
     const conditions: string[] = [];
-    const params: unknown[] = [];
+    const params: QueryParam[] = [];
 
     if (filter?.owner) {
       conditions.push("owner = ?");
@@ -313,7 +312,7 @@ export const roomState = {
   async list(filter?: { owner?: string; roomType?: string }): Promise<Room[]> {
     const client = await getCQLClient();
     const conditions: string[] = [];
-    const params: unknown[] = [];
+    const params: QueryParam[] = [];
 
     if (filter?.owner) {
       conditions.push("owner = ?");

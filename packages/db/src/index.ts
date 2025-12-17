@@ -30,6 +30,9 @@
 // Client
 export { CQLClient, CQLClient as CovenantSQLClient, getCQL, resetCQL } from './client.js';
 
+// Server (for local development)
+export { CQLServer, createCQLServer } from './server.js';
+
 // Migration
 export {
   MigrationManager,
