@@ -25,6 +25,9 @@ import {
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, sepolia } from 'viem/chains';
 import { EventEmitter } from 'events';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('moderation-sync');
 
 const BAN_MANAGER_ABI = parseAbi([
   'function isBanned(uint256 agentId) view returns (bool)',
@@ -502,7 +505,7 @@ export class ModerationSyncService extends EventEmitter {
       await this.runSyncCycle();
     }, intervalMs);
 
-    console.log(`[ModerationSync] Auto-sync started with ${intervalMs}ms interval`);
+    log.info('Auto-sync started', { intervalMs });
   }
 
   /**
@@ -512,7 +515,7 @@ export class ModerationSyncService extends EventEmitter {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
-      console.log('[ModerationSync] Auto-sync stopped');
+      log.info('Auto-sync stopped');
     }
   }
 

@@ -1,0 +1,40 @@
+# ZKSolBridge Prometheus Configuration
+# For local development with docker-compose
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - '/etc/prometheus/alerts/*.yaml'
+
+scrape_configs:
+  # Relayer metrics
+  - job_name: 'zksolbridge-relayer'
+    static_configs:
+      - targets: ['relayer:8081']
+        labels:
+          component: 'relayer'
+    metrics_path: '/monitoring/metrics/prometheus'
+
+  # Prover metrics
+  - job_name: 'zksolbridge-prover'
+    static_configs:
+      - targets: ['prover:8082']
+        labels:
+          component: 'prover'
+    metrics_path: '/monitoring/metrics/prometheus'
+
+  # XLP metrics
+  - job_name: 'zksolbridge-xlp'
+    static_configs:
+      - targets: ['xlp:8083']
+        labels:
+          component: 'xlp'
+    metrics_path: '/monitoring/metrics/prometheus'
+
+  # Self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+

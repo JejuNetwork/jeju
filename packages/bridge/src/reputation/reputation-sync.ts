@@ -25,6 +25,9 @@ import {
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, sepolia } from 'viem/chains';
 import { EventEmitter } from 'events';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('reputation-sync');
 
 const REPUTATION_REGISTRY_ABI = parseAbi([
   'function getReputation(uint256 agentId) view returns (uint256)',
@@ -434,7 +437,7 @@ export class ReputationSyncService extends EventEmitter {
       await this.runSyncCycle();
     }, intervalMs);
 
-    console.log(`[ReputationSync] Auto-sync started with ${intervalMs}ms interval`);
+    log.info('Auto-sync started', { intervalMs });
   }
 
   /**
@@ -444,7 +447,7 @@ export class ReputationSyncService extends EventEmitter {
     if (this.syncInterval) {
       clearInterval(this.syncInterval);
       this.syncInterval = null;
-      console.log('[ReputationSync] Auto-sync stopped');
+      log.info('Auto-sync stopped');
     }
   }
 
@@ -481,7 +484,7 @@ export class ReputationSyncService extends EventEmitter {
       }
     }
 
-    console.log(`[ReputationSync] Found ${agentIds.size} agents with recent feedback`);
+    log.info('Found agents with recent feedback', { count: agentIds.size });
 
     // Sync each agent's reputation
     let synced = 0;

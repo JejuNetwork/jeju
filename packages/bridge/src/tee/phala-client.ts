@@ -18,6 +18,9 @@ import type {
 	TEEAttestation,
 } from "../types/index.js";
 import { toHash32 } from "../types/index.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("phala");
 
 // =============================================================================
 // TYPES
@@ -95,7 +98,7 @@ export class PhalaClient {
 		if (this.initialized) return;
 
 		if (this.config.useMock) {
-			console.log("[Phala] Initialized in mock mode");
+			log.info("Initialized in mock mode");
 			this.enclavePublicKey = new Uint8Array(33);
 			crypto.getRandomValues(this.enclavePublicKey);
 			this.enclavePublicKey[0] = 0x02;
@@ -118,9 +121,7 @@ export class PhalaClient {
 				enclave_id?: string;
 				public_key?: string;
 			};
-			console.log(
-				`[Phala] Connected to TEE enclave: ${healthData.enclave_id ?? "unknown"}`,
-			);
+			log.info("Connected to TEE enclave", { enclaveId: healthData.enclave_id ?? "unknown" });
 
 			if (healthData.public_key) {
 				this.enclavePublicKey = Buffer.from(healthData.public_key, "hex");
@@ -383,7 +384,7 @@ export function createPhalaClient(config?: Partial<PhalaConfig>): PhalaClient {
 	const endpoint = config?.endpoint ?? process.env.PHALA_ENDPOINT;
 
 	if (!endpoint) {
-		console.warn("[Phala] PHALA_ENDPOINT not set, using mock mode");
+		log.warn("PHALA_ENDPOINT not set, using mock mode");
 	}
 
 	return new PhalaClient({

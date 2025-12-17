@@ -27,6 +27,9 @@ import {
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, arbitrum, optimism, base } from 'viem/chains';
 import { EventEmitter } from 'events';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('xlp');
 
 // ============ Configuration ============
 
@@ -211,19 +214,18 @@ export class XLPService extends EventEmitter {
   }
 
   async initialize(): Promise<void> {
-    console.log('💧 Initializing XLP Service...');
-    console.log(`   Wallet: ${this.account.address}`);
+    log.info('Initializing XLP Service', { wallet: this.account.address });
 
     // Fetch current positions across all chains
     await this.fetchPositions();
 
     // Log current allocation
     const totalValue = await this.calculateTotalValue();
-    console.log(`   Total liquidity: $${formatUnits(totalValue, 6)}`);
+    log.info('Total liquidity loaded', { totalUsd: formatUnits(totalValue, 6) });
 
     for (const [key, position] of this.positions) {
       const pct = (Number(position.balance) / Number(totalValue) * 100).toFixed(1);
-      console.log(`   ${key}: ${formatUnits(position.balance, 6)} (${pct}%)`);
+      log.debug('Position loaded', { key, balance: formatUnits(position.balance, 6), percent: pct });
     }
   }
 
@@ -231,7 +233,7 @@ export class XLPService extends EventEmitter {
     if (this.running) return;
     this.running = true;
 
-    console.log('   Starting XLP service...');
+    log.info('Starting XLP service');
 
     // Monitor for fill requests every 2 seconds
     this.monitorInterval = setInterval(() => this.monitorFillRequests(), 2000);
@@ -270,7 +272,7 @@ export class XLPService extends EventEmitter {
     const tokenAddress = TOKENS[token]?.[chainId];
     if (!tokenAddress) throw new Error(`Token ${token} not supported on chain ${chainId}`);
 
-    console.log(`💧 Depositing ${formatUnits(amount, 6)} ${token} on chain ${chainId}`);
+    log.info('Depositing', { amount: formatUnits(amount, 6), token, chainId });
 
     // Approve token
     const approveData = encodeFunctionData({
@@ -304,7 +306,7 @@ export class XLPService extends EventEmitter {
     // Update position
     await this.fetchPosition(chainId, token);
 
-    console.log(`   ✓ Deposit complete: ${hash}`);
+    log.info('Deposit complete', { hash });
     return hash;
   }
 
@@ -321,7 +323,7 @@ export class XLPService extends EventEmitter {
     const tokenAddress = TOKENS[token]?.[chainId];
     if (!tokenAddress) throw new Error(`Token ${token} not supported on chain ${chainId}`);
 
-    console.log(`💧 Withdrawing ${formatUnits(amount, 6)} ${token} from chain ${chainId}`);
+    log.info('Withdrawing', { amount: formatUnits(amount, 6), token, chainId });
 
     const withdrawData = encodeFunctionData({
       abi: XLP_POOL_ABI,
@@ -340,7 +342,7 @@ export class XLPService extends EventEmitter {
     // Update position
     await this.fetchPosition(chainId, token);
 
-    console.log(`   ✓ Withdrawal complete: ${hash}`);
+    log.info('Withdrawal complete', { hash });
     return hash;
   }
 
@@ -366,11 +368,11 @@ export class XLPService extends EventEmitter {
     // Check we have sufficient balance
     const position = this.positions.get(`${request.destChain}-${request.token}`);
     if (!position || position.balance < request.amount) {
-      console.log(`[XLP] Insufficient balance to fill order ${request.orderId.slice(0, 10)}...`);
+      log.warn('Insufficient balance to fill order', { orderId: request.orderId.slice(0, 10) });
       return { success: false };
     }
 
-    console.log(`💧 Filling order ${request.orderId.slice(0, 10)}... ${formatUnits(request.amount, 6)} ${request.token}`);
+    log.info('Filling order', { orderId: request.orderId.slice(0, 10), amount: formatUnits(request.amount, 6), token: request.token });
 
     const fillData = encodeFunctionData({
       abi: XLP_POOL_ABI,
@@ -445,7 +447,7 @@ export class XLPService extends EventEmitter {
     // Update position
     await this.fetchPosition(request.destChain, request.token);
 
-    console.log(`   ✓ Fill complete: ${hash} | Fee: ${formatUnits(fee, 6)} ${request.token}`);
+    log.info('Fill complete', { hash, fee: formatUnits(fee, 6), token: request.token });
 
     this.emit('fill', {
       orderId: request.orderId,
@@ -494,7 +496,7 @@ export class XLPService extends EventEmitter {
       position.pendingFees = 0n;
     }
 
-    console.log(`💧 Claimed ${formatUnits(fees, 6)} ${token} in fees on chain ${chainId}`);
+    log.info('Claimed fees', { fees: formatUnits(fees, 6), token, chainId });
 
     return fees;
   }
@@ -523,7 +525,7 @@ export class XLPService extends EventEmitter {
       const diff = currentPct - Number(targetPct);
 
       if (Math.abs(diff) > REBALANCE_THRESHOLD_PERCENT) {
-        console.log(`[XLP] Chain ${chainId} off target: ${currentPct.toFixed(1)}% vs ${targetPct}%`);
+        log.debug('Chain off target', { chainId, currentPct: currentPct.toFixed(1), targetPct });
       }
     }
 
@@ -569,7 +571,7 @@ export class XLPService extends EventEmitter {
       optimizedAllocation[Number(largestChain)] += adjustment;
     }
 
-    console.log('[XLP] Optimized allocation:', optimizedAllocation);
+    log.info('Optimized allocation calculated', { allocation: optimizedAllocation });
 
     return optimizedAllocation;
   }

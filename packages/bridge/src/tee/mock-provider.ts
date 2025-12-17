@@ -16,6 +16,9 @@ import type {
 	TEECapability,
 	TEEProvider,
 } from "./types.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("mock-tee");
 
 export class MockTEEProvider implements ITEEProvider {
 	readonly provider: TEEProvider = "mock";
@@ -36,8 +39,7 @@ export class MockTEEProvider implements ITEEProvider {
 	async initialize(): Promise<void> {
 		if (this.initialized) return;
 
-		console.log("[MockTEE] Initialized mock TEE provider");
-		console.log(`[MockTEE] Enclave ID: ${this.enclaveId}`);
+		log.info("Initialized mock TEE provider", { enclaveId: this.enclaveId });
 		this.initialized = true;
 	}
 

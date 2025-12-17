@@ -27,6 +27,9 @@ import type {
 	TEECapability,
 	TEEProvider,
 } from "./types.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("gcp-tee");
 
 // =============================================================================
 // GCP CONFIDENTIAL PROVIDER
@@ -60,11 +63,11 @@ export class GCPConfidentialProvider implements ITEEProvider {
 		this.inConfidentialVM = await this.detectConfidentialVM();
 
 		if (this.inConfidentialVM) {
-			console.log("[GCPConfidential] Running in Confidential VM environment");
+			log.info("Running in Confidential VM environment");
 			await this.initializeConfidentialVM();
 		} else {
-			console.log(
-				"[GCPConfidential] Not in Confidential VM, using simulated mode",
+			log.info(
+				"Not in Confidential VM, using simulated mode",
 			);
 			this.instanceId = `gcp-sim-${Date.now().toString(36)}`;
 			this.publicKey = new Uint8Array(33);
@@ -244,8 +247,7 @@ export class GCPConfidentialProvider implements ITEEProvider {
 		crypto.getRandomValues(this.publicKey);
 		this.publicKey[0] = 0x02;
 
-		console.log(`[GCPConfidential] Instance ID: ${this.instanceId}`);
-		console.log(`[GCPConfidential] GPU TEE: ${this.hasGpuTEE}`);
+		log.info("GCP instance initialized", { instanceId: this.instanceId, gpuTee: this.hasGpuTEE });
 	}
 
 	private async detectGPUTEE(): Promise<boolean> {
@@ -376,7 +378,7 @@ export class GCPConfidentialProvider implements ITEEProvider {
 		const parts = tokenString.split('.');
 		
 		if (parts.length !== 3) {
-			console.error("[GCPConfidential] Invalid token: not a valid JWT format");
+			log.error("Invalid token: not a valid JWT format");
 			return false;
 		}
 
@@ -386,26 +388,26 @@ export class GCPConfidentialProvider implements ITEEProvider {
 
 		// Verify required fields
 		if (!claims.iss || !claims.sub || !claims.aud) {
-			console.error("[GCPConfidential] Invalid token: missing required claims");
+			log.error("Invalid token: missing required claims");
 			return false;
 		}
 
 		// Verify issuer
 		if (claims.iss !== "https://confidentialcomputing.googleapis.com/") {
-			console.error("[GCPConfidential] Invalid token: unexpected issuer");
+			log.error("Invalid token: unexpected issuer", { iss: claims.iss });
 			return false;
 		}
 
 		// Verify token is not expired
 		const now = Math.floor(Date.now() / 1000);
 		if (claims.exp && claims.exp < now) {
-			console.error("[GCPConfidential] Invalid token: expired");
+			log.error("Invalid token: expired", { exp: claims.exp, now });
 			return false;
 		}
 
 		// Verify token is not from the future (issued time)
 		if (claims.iat && claims.iat > now + 60) {
-			console.error("[GCPConfidential] Invalid token: issued in the future");
+			log.error("Invalid token: issued in the future", { iat: claims.iat, now });
 			return false;
 		}
 

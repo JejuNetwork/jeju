@@ -25,6 +25,9 @@ import {
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, sepolia, arbitrum, base, optimism } from 'viem/chains';
 import { EventEmitter } from 'events';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('wormhole');
 
 // Wormhole chain IDs (different from regular chain IDs)
 const WORMHOLE_CHAIN_IDS: Record<number, number> = {
@@ -502,7 +505,7 @@ export class WormholeAdapter extends EventEmitter {
     
     const response = await fetch(url);
     if (!response.ok) {
-      console.warn(`VAA not found: ${response.status}`);
+      log.warn('VAA not found', { status: response.status });
       return null;
     }
 

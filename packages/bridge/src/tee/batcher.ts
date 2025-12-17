@@ -12,6 +12,9 @@ import type {
   TEECacheEntry,
 } from '../types/index.js';
 import { toHash32 } from '../types/index.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('tee-batcher');
 
 interface BatchState {
   id: Hash32;
@@ -34,7 +37,7 @@ export class TEEBatcher {
 
   async initialize(): Promise<void> {
     this.attestation = await this.generateAttestation();
-    console.log('[TEE] Batcher initialized with attestation');
+    log.info('Batcher initialized with attestation');
   }
 
   async addTransfer(transfer: CrossChainTransfer): Promise<{
@@ -185,9 +188,7 @@ export class TEEBatcher {
     const batchId = this.hashToString(this.currentBatch.id);
     this.pendingBatches.set(batchId, this.currentBatch);
 
-    console.log(
-      `[TEE] Batch ${batchId.slice(0, 8)} ready with ${this.currentBatch.transfers.length} transfers`,
-    );
+    log.info('Batch ready', { batchId: batchId.slice(0, 8), transferCount: this.currentBatch.transfers.length });
 
     // Clear current
     this.currentBatch = null;
@@ -272,7 +273,7 @@ export class TEEBatcher {
     }
 
     // Development-only mock attestation
-    console.warn('[TEE] WARNING: Using mock attestation - DEVELOPMENT ONLY');
+    log.warn('Using mock attestation - DEVELOPMENT ONLY');
     
     const measurement = new Uint8Array(32);
     crypto.getRandomValues(measurement);

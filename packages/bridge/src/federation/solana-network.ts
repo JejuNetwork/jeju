@@ -14,6 +14,9 @@ import {
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, sepolia } from 'viem/chains';
 import { Connection, PublicKey } from '@solana/web3.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('solana-network');
 
 const NETWORK_REGISTRY_ABI = parseAbi([
   'function registerNetwork(uint256 chainId, string name, string rpcUrl, string explorerUrl, string wsUrl, (address,address,address,address,address,address,address,address) contracts, bytes32 genesisHash) external payable',
@@ -368,9 +371,9 @@ export async function registerSolanaNetworks(
   const mainnetInfo = await registry.getSolanaNetworkInfo(false);
   if (!mainnetInfo) {
     results.mainnet = await registry.registerSolanaNetwork(mainnetConfig, stakePerNetwork);
-    console.log(`Registered Solana Mainnet: ${results.mainnet}`);
+    log.info('Registered Solana Mainnet', { txHash: results.mainnet });
   } else {
-    console.log('Solana Mainnet already registered');
+    log.info('Solana Mainnet already registered');
   }
 
   // Register Solana Devnet
@@ -385,9 +388,9 @@ export async function registerSolanaNetworks(
   const devnetInfo = await registry.getSolanaNetworkInfo(true);
   if (!devnetInfo) {
     results.devnet = await registry.registerSolanaNetwork(devnetConfig, stakePerNetwork);
-    console.log(`Registered Solana Devnet: ${results.devnet}`);
+    log.info('Registered Solana Devnet', { txHash: results.devnet });
   } else {
-    console.log('Solana Devnet already registered');
+    log.info('Solana Devnet already registered');
   }
 
   return results;
@@ -411,7 +414,7 @@ export async function establishSolanaTrust(
     if (!isTrusted) {
       const hash = await registry.establishTrust(evmChainId, solanaChainId);
       txHashes.push(hash);
-      console.log(`Established trust: Chain ${evmChainId} -> Solana (${solanaIsDevnet ? 'devnet' : 'mainnet'}): ${hash}`);
+      log.info('Established trust', { evmChainId, network: solanaIsDevnet ? 'devnet' : 'mainnet', hash });
     }
   }
 

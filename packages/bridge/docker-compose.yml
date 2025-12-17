@@ -1,0 +1,134 @@
+# ZKSolBridge Docker Compose
+# Local development and testing configuration
+
+version: '3.8'
+
+services:
+  # Relayer Service - orchestrates cross-chain transfers
+  relayer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: relayer
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    environment:
+      - NODE_ENV=development
+      - PORT=8081
+      - LOG_LEVEL=debug
+      - EVM_RPC_URL=${EVM_RPC_URL:-http://host.docker.internal:8545}
+      - SOLANA_RPC_URL=${SOLANA_RPC_URL:-http://host.docker.internal:8899}
+      - BEACON_RPC_URL=${BEACON_RPC_URL:-http://host.docker.internal:5052}
+      - PROVER_ENDPOINT=http://prover:8082
+      - TEE_ENDPOINT=${TEE_ENDPOINT:-}
+      - BRIDGE_ADDRESS=${BRIDGE_ADDRESS:-}
+      - LIGHT_CLIENT_ADDRESS=${LIGHT_CLIENT_ADDRESS:-}
+      - PRIVATE_KEY=${PRIVATE_KEY:-}
+      - SOLANA_KEYPAIR=/app/keypair.json
+    volumes:
+      - ./keypair.json:/app/keypair.json:ro
+    depends_on:
+      - prover
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/monitoring/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - bridge-network
+
+  # Prover Service - generates ZK proofs
+  prover:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: prover
+    ports:
+      - "8082:8082"
+    environment:
+      - NODE_ENV=development
+      - PORT=8082
+      - LOG_LEVEL=debug
+      - SP1_PROGRAMS_DIR=/app/circuits
+      - USE_MOCK_PROOFS=${USE_MOCK_PROOFS:-true}
+      - SUCCINCT_API_KEY=${SUCCINCT_API_KEY:-}
+    volumes:
+      - ./circuits:/app/circuits:ro
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8082/monitoring/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - bridge-network
+
+  # XLP Service - instant liquidity provider
+  xlp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: xlp
+    ports:
+      - "8083:8083"
+    environment:
+      - NODE_ENV=development
+      - PORT=8083
+      - LOG_LEVEL=debug
+      - EVM_RPC_URL=${EVM_RPC_URL:-http://host.docker.internal:8545}
+      - SOLANA_RPC_URL=${SOLANA_RPC_URL:-http://host.docker.internal:8899}
+      - XLP_POOL_ADDRESS=${XLP_POOL_ADDRESS:-}
+      - PRIVATE_KEY=${PRIVATE_KEY:-}
+    depends_on:
+      - relayer
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/monitoring/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - bridge-network
+
+  # Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./deploy/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    networks:
+      - bridge-network
+
+  # Grafana for dashboards
+  grafana:
+    image: grafana/grafana:10.2.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./deploy/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./deploy/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+    networks:
+      - bridge-network
+
+networks:
+  bridge-network:
+    driver: bridge
+
+volumes:
+  prometheus-data:
+  grafana-data:
+

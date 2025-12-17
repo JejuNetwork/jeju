@@ -9,6 +9,9 @@ import {
   VersionedTransaction,
 } from '@solana/web3.js';
 import { EventEmitter } from 'events';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('jupiter');
 
 const JUPITER_API_V6 = 'https://quote-api.jup.ag/v6';
 const JUPITER_PRICE_API = 'https://price.jup.ag/v6';
@@ -382,7 +385,7 @@ export class XLPJupiterFiller extends EventEmitter {
 
     // Check price impact
     if (quote.priceImpactPct > 5) {
-      console.warn(`[XLPJupiter] High price impact: ${quote.priceImpactPct}%`);
+      log.warn('High price impact', { priceImpactPct: quote.priceImpactPct });
       return {
         success: false,
         error: `Price impact too high: ${quote.priceImpactPct}%`,
@@ -459,7 +462,7 @@ export class XLPJupiterFiller extends EventEmitter {
       await this.checkPendingOrders();
     }, 2000);
 
-    console.log('[XLPJupiter] Filler started');
+    log.info('Filler started');
   }
 
   /**
@@ -471,7 +474,7 @@ export class XLPJupiterFiller extends EventEmitter {
       clearInterval(this.fillInterval);
       this.fillInterval = null;
     }
-    console.log('[XLPJupiter] Filler stopped');
+    log.info('Filler stopped');
   }
 
   /**

@@ -21,6 +21,9 @@
 
 import { type Address, type Hex, parseAbi } from 'viem';
 import type { PublicClient, WalletClient } from 'viem';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('ccip');
 
 // ============ CCIP Chain Selectors ============
 
@@ -315,7 +318,7 @@ export class CCIPAdapter {
     const router = CCIP_ROUTERS[params.chainId];
     if (!router) throw new Error(`No CCIP router on chain ${params.chainId}`);
     
-    console.log(`Deploying ${params.poolType} pool for ${params.token} on chain ${params.chainId}`);
+    log.info('Deploying pool', { poolType: params.poolType, token: params.token, chainId: params.chainId });
 
     // Pool deployment ABI - simplified version of Chainlink's TokenPool
     const POOL_DEPLOY_ABI = parseAbi([
@@ -392,7 +395,7 @@ export class CCIPAdapter {
       throw new Error('Pool deployment failed - no contract address in receipt');
     }
 
-    console.log(`   Deployed pool at ${poolAddress}`);
+    log.info('Pool deployed', { poolAddress });
 
     if (chainUpdates.length > 0) {
       const configHash = await walletClient.writeContract({
@@ -404,7 +407,7 @@ export class CCIPAdapter {
         args: [[] as readonly bigint[], chainUpdates],
       });
       await publicClient.waitForTransactionReceipt({ hash: configHash });
-      console.log(`   Configured ${chainUpdates.length} remote chains`);
+      log.info('Configured remote chains', { count: chainUpdates.length });
     }
 
     // Cache the pool

@@ -1,0 +1,119 @@
+groups:
+  - name: zksolbridge
+    rules:
+      # Transfer Health
+      - alert: ZKSolBridgeHighFailureRate
+        expr: rate(zksolbridge_transfers_failed_total[5m]) / rate(zksolbridge_transfers_initiated_total[5m]) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          component: zksolbridge
+        annotations:
+          summary: "High transfer failure rate on ZKSolBridge"
+          description: "More than 10% of transfers are failing over the last 5 minutes"
+
+      - alert: ZKSolBridgeNoTransfers
+        expr: increase(zksolbridge_transfers_initiated_total[30m]) == 0
+        for: 30m
+        labels:
+          severity: warning
+          component: zksolbridge
+        annotations:
+          summary: "No transfers on ZKSolBridge"
+          description: "No transfers have been initiated in the last 30 minutes"
+
+      # Proof Generation
+      - alert: ZKSolBridgeSlowProofs
+        expr: zksolbridge_proof_generation_ms > 60000
+        for: 5m
+        labels:
+          severity: warning
+          component: zksolbridge
+        annotations:
+          summary: "Slow proof generation on ZKSolBridge"
+          description: "Proof generation is taking more than 60 seconds"
+
+      - alert: ZKSolBridgeProofBacklog
+        expr: zksolbridge_batch_size > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: zksolbridge
+        annotations:
+          summary: "Large proof backlog on ZKSolBridge"
+          description: "More than 100 transfers waiting for proof generation"
+
+      # Light Client Sync
+      - alert: ZKSolBridgeSolanaStale
+        expr: time() - zksolbridge_solana_slot / 2.5 > 300
+        for: 5m
+        labels:
+          severity: critical
+          component: zksolbridge
+        annotations:
+          summary: "Solana light client is stale"
+          description: "Solana light client hasn't updated in 5+ minutes"
+
+      - alert: ZKSolBridgeEthereumStale
+        expr: time() - zksolbridge_ethereum_slot * 12 > 600
+        for: 5m
+        labels:
+          severity: critical
+          component: zksolbridge
+        annotations:
+          summary: "Ethereum light client is stale"
+          description: "Ethereum light client hasn't updated in 10+ minutes"
+
+      # Service Health
+      - alert: ZKSolBridgeUnhealthy
+        expr: zksolbridge_health_status < 1
+        for: 2m
+        labels:
+          severity: critical
+          component: zksolbridge
+        annotations:
+          summary: "ZKSolBridge service is unhealthy"
+          description: "Bridge health status is {{ $value }}"
+
+      - alert: ZKSolBridgeComponentDown
+        expr: zksolbridge_component_health < 1
+        for: 2m
+        labels:
+          severity: warning
+          component: zksolbridge
+        annotations:
+          summary: "ZKSolBridge component degraded or down"
+          description: "Component {{ $labels.name }} is not healthy"
+
+      - alert: ZKSolBridgeHighLatency
+        expr: zksolbridge_component_latency_ms > 5000
+        for: 5m
+        labels:
+          severity: warning
+          component: zksolbridge
+        annotations:
+          summary: "High latency on ZKSolBridge component"
+          description: "Component {{ $labels.name }} latency is {{ $value }}ms"
+
+      # Resource Usage
+      - alert: ZKSolBridgeHighMemory
+        expr: zksolbridge_memory_usage_mb > 4096
+        for: 10m
+        labels:
+          severity: warning
+          component: zksolbridge
+        annotations:
+          summary: "High memory usage on ZKSolBridge"
+          description: "Memory usage is {{ $value }}MB"
+
+      # Transfer Latency
+      - alert: ZKSolBridgeSlowTransfers
+        expr: zksolbridge_transfer_duration_ms > 300000
+        for: 5m
+        labels:
+          severity: warning
+          component: zksolbridge
+        annotations:
+          summary: "Slow transfer completion"
+          description: "Average transfer time is {{ $value }}ms (>5 minutes)"
+
