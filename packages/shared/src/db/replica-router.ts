@@ -1,280 +1,312 @@
 /**
- * Database Read Replica Router
- * 
- * Intelligently routes database queries to:
- * - Primary: All writes, transactions, and real-time reads
- * - Replicas: Read-heavy queries, analytics, background jobs
- * 
- * Features:
- * - Connection pooling per endpoint
+ * Database Replica Router - Production Implementation
+ *
+ * Routes queries to primary or read replicas with:
+ * - Real PostgreSQL connections via pg Pool
  * - Health monitoring with automatic failover
- * - Lag-aware routing (skip replicas if too far behind)
- * - Query classification
+ * - Lag-aware routing (avoids stale replicas)
+ * - Connection pooling per node
+ * - Transaction support (always routes to primary)
+ * - Query classification (read vs write)
+ * - Prometheus metrics
+ * - Circuit breaker per node
  */
 
-import { Pool, type PoolConfig, type QueryResult } from 'pg';
+import { Pool, PoolClient, PoolConfig, QueryResult } from 'pg';
+import { z } from 'zod';
+import { Registry, Counter, Histogram, Gauge } from 'prom-client';
+
+// ============================================================================
+// Configuration Schema
+// ============================================================================
+
+const DatabaseNodeConfigSchema = z.object({
+  host: z.string(),
+  port: z.number().default(5432),
+  database: z.string(),
+  user: z.string(),
+  password: z.string(),
+  ssl: z.boolean().default(false),
+  maxConnections: z.number().default(20),
+  idleTimeoutMs: z.number().default(30000),
+  connectionTimeoutMs: z.number().default(5000),
+});
+
+const ReplicaRouterConfigSchema = z.object({
+  primary: DatabaseNodeConfigSchema,
+  replicas: z.array(DatabaseNodeConfigSchema).default([]),
+  maxReplicaLagMs: z.number().default(5000),
+  healthCheckIntervalMs: z.number().default(10000),
+  readPreference: z.enum(['primary', 'replica', 'nearest']).default('replica'),
+  circuitBreakerThreshold: z.number().default(5),
+  circuitBreakerResetMs: z.number().default(30000),
+});
+
+export type DatabaseNodeConfig = z.infer<typeof DatabaseNodeConfigSchema>;
+export type ReplicaRouterConfig = z.infer<typeof ReplicaRouterConfigSchema>;
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export interface ReplicaRouterConfig {
-  primary: DatabaseEndpoint;
-  replicas: DatabaseEndpoint[];
-  maxLagSeconds: number;
-  healthCheckIntervalMs: number;
-  failoverEnabled: boolean;
-  readFromPrimaryFallback: boolean;
-  logQueries: boolean;
-}
-
-export interface DatabaseEndpoint {
-  host: string;
-  port: number;
-  database: string;
-  user: string;
-  password: string;
-  ssl?: boolean;
-  maxConnections?: number;
-  region?: string;
-  name?: string;
-}
-
-interface EndpointHealth {
-  endpoint: DatabaseEndpoint;
+interface NodeState {
   pool: Pool;
+  config: DatabaseNodeConfig;
   healthy: boolean;
   lastCheck: number;
-  lagSeconds: number;
+  lagMs: number;
   latencyMs: number;
-  errors: number;
+  failures: number;
+  circuitOpen: boolean;
+  circuitOpenedAt: number;
 }
 
-export interface QueryOptions {
-  forceReplica?: boolean;
-  forcePrimary?: boolean;
+interface QueryOptions {
+  forceWritable?: boolean;
+  allowStale?: boolean;
   timeout?: number;
-  preferRegion?: string;
 }
 
-export interface RouterStats {
-  primaryQueries: number;
-  replicaQueries: number;
-  failovers: number;
-  avgPrimaryLatencyMs: number;
-  avgReplicaLatencyMs: number;
-  replicaLagSeconds: Record<string, number>;
-}
+// ============================================================================
+// Prometheus Metrics
+// ============================================================================
+
+const metricsRegistry = new Registry();
+
+const dbQueriesTotal = new Counter({
+  name: 'db_queries_total',
+  help: 'Total database queries',
+  labelNames: ['node', 'type', 'status'],
+  registers: [metricsRegistry],
+});
+
+const dbQueryDuration = new Histogram({
+  name: 'db_query_duration_seconds',
+  help: 'Query duration',
+  labelNames: ['node', 'type'],
+  buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5],
+  registers: [metricsRegistry],
+});
+
+const dbConnectionsActive = new Gauge({
+  name: 'db_connections_active',
+  help: 'Active connections per node',
+  labelNames: ['node'],
+  registers: [metricsRegistry],
+});
+
+const dbNodeHealth = new Gauge({
+  name: 'db_node_health',
+  help: 'Node health status',
+  labelNames: ['node'],
+  registers: [metricsRegistry],
+});
+
+const dbReplicaLag = new Gauge({
+  name: 'db_replica_lag_ms',
+  help: 'Replica lag in milliseconds',
+  labelNames: ['node'],
+  registers: [metricsRegistry],
+});
 
 // ============================================================================
 // Query Classification
 // ============================================================================
 
-type QueryType = 'read' | 'write' | 'transaction';
+const WRITE_PATTERNS = [
+  /^\s*INSERT\s/i,
+  /^\s*UPDATE\s/i,
+  /^\s*DELETE\s/i,
+  /^\s*CREATE\s/i,
+  /^\s*ALTER\s/i,
+  /^\s*DROP\s/i,
+  /^\s*TRUNCATE\s/i,
+  /^\s*GRANT\s/i,
+  /^\s*REVOKE\s/i,
+  /^\s*BEGIN\s/i,
+  /^\s*COMMIT\s/i,
+  /^\s*ROLLBACK\s/i,
+  /^\s*SAVEPOINT\s/i,
+  /^\s*LOCK\s/i,
+  /FOR\s+UPDATE/i,
+  /FOR\s+SHARE/i,
+];
 
-function classifyQuery(sql: string): QueryType {
-  const normalized = sql.trim().toUpperCase();
-  
-  // Explicit write operations
-  if (
-    normalized.startsWith('INSERT') ||
-    normalized.startsWith('UPDATE') ||
-    normalized.startsWith('DELETE') ||
-    normalized.startsWith('CREATE') ||
-    normalized.startsWith('ALTER') ||
-    normalized.startsWith('DROP') ||
-    normalized.startsWith('TRUNCATE') ||
-    normalized.startsWith('GRANT') ||
-    normalized.startsWith('REVOKE')
-  ) {
-    return 'write';
-  }
-  
-  // Transactions
-  if (
-    normalized.startsWith('BEGIN') ||
-    normalized.startsWith('COMMIT') ||
-    normalized.startsWith('ROLLBACK') ||
-    normalized.startsWith('SAVEPOINT')
-  ) {
-    return 'transaction';
-  }
-  
-  // Everything else is a read
-  return 'read';
+function isWriteQuery(sql: string): boolean {
+  return WRITE_PATTERNS.some((pattern) => pattern.test(sql));
 }
 
 // ============================================================================
-// Replica Router
+// Database Replica Router
 // ============================================================================
 
-export class ReplicaRouter {
+export class DatabaseReplicaRouter {
   private config: ReplicaRouterConfig;
-  private primaryHealth: EndpointHealth | null = null;
-  private replicaHealths: Map<string, EndpointHealth> = new Map();
+  private primary: NodeState;
+  private replicas: NodeState[] = [];
   private healthCheckInterval: ReturnType<typeof setInterval> | null = null;
-  private stats: RouterStats = {
-    primaryQueries: 0,
-    replicaQueries: 0,
-    failovers: 0,
-    avgPrimaryLatencyMs: 0,
-    avgReplicaLatencyMs: 0,
-    replicaLagSeconds: {},
-  };
+  private currentReplicaIndex = 0;
 
   constructor(config: Partial<ReplicaRouterConfig>) {
-    if (!config.primary) {
-      throw new Error('Primary endpoint is required');
-    }
-
-    this.config = {
+    this.config = ReplicaRouterConfigSchema.parse({
       primary: config.primary,
-      replicas: config.replicas ?? [],
-      maxLagSeconds: config.maxLagSeconds ?? 30,
-      healthCheckIntervalMs: config.healthCheckIntervalMs ?? 10000,
-      failoverEnabled: config.failoverEnabled ?? true,
-      readFromPrimaryFallback: config.readFromPrimaryFallback ?? true,
-      logQueries: config.logQueries ?? false,
+      ...config,
+    });
+
+    // Initialize primary
+    this.primary = this.createNodeState(this.config.primary, 'primary');
+
+    // Initialize replicas
+    for (const replicaConfig of this.config.replicas) {
+      this.replicas.push(this.createNodeState(replicaConfig, 'replica'));
+    }
+  }
+
+  private createNodeState(config: DatabaseNodeConfig, role: string): NodeState {
+    const poolConfig: PoolConfig = {
+      host: config.host,
+      port: config.port,
+      database: config.database,
+      user: config.user,
+      password: config.password,
+      ssl: config.ssl ? { rejectUnauthorized: false } : false,
+      max: config.maxConnections,
+      idleTimeoutMillis: config.idleTimeoutMs,
+      connectionTimeoutMillis: config.connectionTimeoutMs,
+    };
+
+    const pool = new Pool(poolConfig);
+
+    // Track connection events
+    pool.on('connect', () => {
+      dbConnectionsActive.inc({ node: config.host });
+    });
+
+    pool.on('remove', () => {
+      dbConnectionsActive.dec({ node: config.host });
+    });
+
+    pool.on('error', (err) => {
+      console.error(`[DB] Pool error on ${config.host}:`, err.message);
+    });
+
+    return {
+      pool,
+      config,
+      healthy: true,
+      lastCheck: 0,
+      lagMs: 0,
+      latencyMs: 0,
+      failures: 0,
+      circuitOpen: false,
+      circuitOpenedAt: 0,
     };
   }
 
-  async initialize(): Promise<void> {
-    // Create pool for primary
-    this.primaryHealth = await this.createEndpointHealth(this.config.primary, 'primary');
+  // ============================================================================
+  // Lifecycle
+  // ============================================================================
 
-    // Create pools for replicas
-    for (const replica of this.config.replicas) {
-      const name = replica.name ?? `${replica.host}:${replica.port}`;
-      const health = await this.createEndpointHealth(replica, name);
-      this.replicaHealths.set(name, health);
-    }
+  async start(): Promise<void> {
+    // Initial health check
+    await this.checkAllHealth();
 
-    // Start health checks
+    // Periodic health checks
     this.healthCheckInterval = setInterval(
-      () => this.runHealthChecks(),
+      () => this.checkAllHealth(),
       this.config.healthCheckIntervalMs
     );
 
-    // Initial health check
-    await this.runHealthChecks();
-
     console.log(
-      `[ReplicaRouter] Initialized with 1 primary and ${this.config.replicas.length} replicas`
+      `[DB] Router started with 1 primary and ${this.replicas.length} replicas`
     );
   }
 
-  async close(): Promise<void> {
+  async stop(): Promise<void> {
     if (this.healthCheckInterval) {
       clearInterval(this.healthCheckInterval);
     }
 
     // Close all pools
-    if (this.primaryHealth) {
-      await this.primaryHealth.pool.end();
+    await this.primary.pool.end();
+    for (const replica of this.replicas) {
+      await replica.pool.end();
     }
 
-    for (const health of this.replicaHealths.values()) {
-      await health.pool.end();
-    }
-
-    console.log('[ReplicaRouter] Closed');
+    console.log('[DB] Router stopped');
   }
 
-  /**
-   * Execute a query with automatic routing
-   */
-  async query<T extends QueryResult>(
+  // ============================================================================
+  // Query Execution
+  // ============================================================================
+
+  async query<T = Record<string, unknown>>(
     sql: string,
-    params?: (string | number | boolean | null)[],
-    options: QueryOptions = {}
-  ): Promise<T> {
-    const queryType = classifyQuery(sql);
-    const startTime = Date.now();
+    params?: unknown[],
+    options?: QueryOptions
+  ): Promise<QueryResult<T>> {
+    const isWrite = isWriteQuery(sql);
+    const node = this.selectNode(isWrite, options);
+    const nodeHost = node.config.host;
+    const queryType = isWrite ? 'write' : 'read';
 
-    // Determine which pool to use
-    let pool: Pool;
-    let isReplica = false;
+    const timer = dbQueryDuration.startTimer({ node: nodeHost, type: queryType });
 
-    if (options.forcePrimary || queryType === 'write' || queryType === 'transaction') {
-      // Must use primary
-      pool = this.getPrimaryPool();
-    } else if (options.forceReplica) {
-      // Force replica
-      const replicaPool = this.getHealthyReplicaPool(options.preferRegion);
-      if (replicaPool) {
-        pool = replicaPool;
-        isReplica = true;
-      } else if (this.config.readFromPrimaryFallback) {
-        pool = this.getPrimaryPool();
-        this.stats.failovers++;
-      } else {
-        throw new Error('No healthy replicas available');
-      }
-    } else {
-      // Read query - prefer replica
-      const replicaPool = this.getHealthyReplicaPool(options.preferRegion);
-      if (replicaPool) {
-        pool = replicaPool;
-        isReplica = true;
-      } else {
-        pool = this.getPrimaryPool();
-      }
-    }
-
-    // Execute query
     try {
-      const result = await pool.query(sql, params);
-      const latencyMs = Date.now() - startTime;
-
-      // Update stats
-      if (isReplica) {
-        this.stats.replicaQueries++;
-        this.stats.avgReplicaLatencyMs = 
-          (this.stats.avgReplicaLatencyMs * (this.stats.replicaQueries - 1) + latencyMs) / 
-          this.stats.replicaQueries;
-      } else {
-        this.stats.primaryQueries++;
-        this.stats.avgPrimaryLatencyMs = 
-          (this.stats.avgPrimaryLatencyMs * (this.stats.primaryQueries - 1) + latencyMs) / 
-          this.stats.primaryQueries;
+      // Check circuit breaker
+      if (node.circuitOpen) {
+        if (Date.now() - node.circuitOpenedAt > this.config.circuitBreakerResetMs) {
+          node.circuitOpen = false;
+          node.failures = 0;
+        } else if (!isWrite) {
+          // Try another replica
+          const alternateNode = this.selectNode(false, { ...options, allowStale: true });
+          if (alternateNode !== node) {
+            return this.query(sql, params, options);
+          }
+          throw new Error(`Circuit breaker open for ${nodeHost}`);
+        } else {
+          throw new Error(`Primary circuit breaker open`);
+        }
       }
 
-      if (this.config.logQueries) {
-        console.log(
-          `[ReplicaRouter] ${queryType} query on ${isReplica ? 'replica' : 'primary'}: ${latencyMs}ms`
-        );
-      }
+      const result = await node.pool.query<T>(sql, params);
+      dbQueriesTotal.inc({ node: nodeHost, type: queryType, status: 'success' });
 
-      return result as T;
+      // Reset failures on success
+      node.failures = 0;
+
+      return result;
     } catch (error) {
-      // Mark endpoint as potentially unhealthy
-      const endpoint = isReplica ? 'replica' : 'primary';
-      console.error(`[ReplicaRouter] Query failed on ${endpoint}:`, error);
+      dbQueriesTotal.inc({ node: nodeHost, type: queryType, status: 'error' });
+
+      // Track failures for circuit breaker
+      node.failures++;
+      if (node.failures >= this.config.circuitBreakerThreshold) {
+        node.circuitOpen = true;
+        node.circuitOpenedAt = Date.now();
+        console.warn(`[DB] Circuit breaker opened for ${nodeHost}`);
+      }
+
       throw error;
+    } finally {
+      timer();
     }
   }
 
-  /**
-   * Execute within a transaction (always on primary)
-   */
+  // ============================================================================
+  // Transactions
+  // ============================================================================
+
   async transaction<T>(
-    fn: (client: { query: typeof this.query }) => Promise<T>
+    fn: (client: PoolClient) => Promise<T>
   ): Promise<T> {
-    const pool = this.getPrimaryPool();
-    const client = await pool.connect();
+    // Transactions always go to primary
+    const client = await this.primary.pool.connect();
 
     try {
       await client.query('BEGIN');
-      
-      const boundQuery = async <R extends QueryResult>(
-        sql: string,
-        params?: (string | number | boolean | null)[]
-      ): Promise<R> => {
-        return client.query(sql, params) as Promise<R>;
-      };
-
-      const result = await fn({ query: boundQuery });
-
+      const result = await fn(client);
       await client.query('COMMIT');
       return result;
     } catch (error) {
@@ -285,162 +317,156 @@ export class ReplicaRouter {
     }
   }
 
-  /**
-   * Get connection stats
-   */
-  getStats(): RouterStats {
-    return { ...this.stats };
+  // ============================================================================
+  // Node Selection
+  // ============================================================================
+
+  private selectNode(isWrite: boolean, options?: QueryOptions): NodeState {
+    // Writes always go to primary
+    if (isWrite || options?.forceWritable) {
+      return this.primary;
+    }
+
+    // No replicas configured
+    if (this.replicas.length === 0) {
+      return this.primary;
+    }
+
+    // Filter healthy replicas
+    const healthyReplicas = this.replicas.filter((r) => {
+      if (!r.healthy || r.circuitOpen) return false;
+      if (!options?.allowStale && r.lagMs > this.config.maxReplicaLagMs) return false;
+      return true;
+    });
+
+    if (healthyReplicas.length === 0) {
+      // Fall back to primary if no healthy replicas
+      console.warn('[DB] No healthy replicas, using primary for read');
+      return this.primary;
+    }
+
+    // Select based on preference
+    switch (this.config.readPreference) {
+      case 'primary':
+        return this.primary;
+
+      case 'nearest':
+        // Select by lowest latency
+        return healthyReplicas.reduce((best, current) =>
+          current.latencyMs < best.latencyMs ? current : best
+        );
+
+      case 'replica':
+      default:
+        // Round-robin among healthy replicas
+        this.currentReplicaIndex = (this.currentReplicaIndex + 1) % healthyReplicas.length;
+        return healthyReplicas[this.currentReplicaIndex];
+    }
   }
 
-  /**
-   * Get health status of all endpoints
-   */
-  getHealthStatus(): {
-    primary: { healthy: boolean; latencyMs: number };
-    replicas: Array<{ name: string; healthy: boolean; lagSeconds: number; latencyMs: number }>;
+  // ============================================================================
+  // Health Checks
+  // ============================================================================
+
+  private async checkAllHealth(): Promise<void> {
+    await Promise.all([
+      this.checkNodeHealth(this.primary, true),
+      ...this.replicas.map((r) => this.checkNodeHealth(r, false)),
+    ]);
+  }
+
+  private async checkNodeHealth(node: NodeState, isPrimary: boolean): Promise<void> {
+    const startTime = Date.now();
+
+    try {
+      const client = await node.pool.connect();
+
+      try {
+        // Check connectivity
+        await client.query('SELECT 1');
+
+        // Check replication lag for replicas
+        if (!isPrimary) {
+          const lagResult = await client.query<{ lag: string }>(
+            `SELECT COALESCE(
+              EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp())) * 1000,
+              0
+            )::bigint as lag`
+          );
+          node.lagMs = parseInt(lagResult.rows[0]?.lag ?? '0', 10);
+          dbReplicaLag.set({ node: node.config.host }, node.lagMs);
+        }
+
+        node.healthy = true;
+        node.latencyMs = Date.now() - startTime;
+        node.lastCheck = Date.now();
+
+        dbNodeHealth.set({ node: node.config.host }, 1);
+      } finally {
+        client.release();
+      }
+    } catch (error) {
+      node.healthy = false;
+      node.lastCheck = Date.now();
+      dbNodeHealth.set({ node: node.config.host }, 0);
+
+      console.error(`[DB] Health check failed for ${node.config.host}:`, error);
+    }
+  }
+
+  // ============================================================================
+  // Stats & Metrics
+  // ============================================================================
+
+  getStats(): {
+    primary: { host: string; healthy: boolean; latencyMs: number };
+    replicas: Array<{
+      host: string;
+      healthy: boolean;
+      lagMs: number;
+      latencyMs: number;
+      circuitOpen: boolean;
+    }>;
   } {
     return {
       primary: {
-        healthy: this.primaryHealth?.healthy ?? false,
-        latencyMs: this.primaryHealth?.latencyMs ?? 0,
+        host: this.primary.config.host,
+        healthy: this.primary.healthy,
+        latencyMs: this.primary.latencyMs,
       },
-      replicas: Array.from(this.replicaHealths.entries()).map(([name, health]) => ({
-        name,
-        healthy: health.healthy,
-        lagSeconds: health.lagSeconds,
-        latencyMs: health.latencyMs,
+      replicas: this.replicas.map((r) => ({
+        host: r.config.host,
+        healthy: r.healthy,
+        lagMs: r.lagMs,
+        latencyMs: r.latencyMs,
+        circuitOpen: r.circuitOpen,
       })),
     };
   }
 
+  async getMetrics(): Promise<string> {
+    return metricsRegistry.metrics();
+  }
+
   // ============================================================================
-  // Private Methods
+  // Utility Methods
   // ============================================================================
 
-  private async createEndpointHealth(
-    endpoint: DatabaseEndpoint,
-    name: string
-  ): Promise<EndpointHealth> {
-    const poolConfig: PoolConfig = {
-      host: endpoint.host,
-      port: endpoint.port,
-      database: endpoint.database,
-      user: endpoint.user,
-      password: endpoint.password,
-      max: endpoint.maxConnections ?? 20,
-      idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 5000,
-      ssl: endpoint.ssl ? { rejectUnauthorized: false } : undefined,
-    };
-
-    const pool = new Pool(poolConfig);
-
-    // Handle pool errors
-    pool.on('error', (err) => {
-      console.error(`[ReplicaRouter] Pool error (${name}):`, err.message);
-    });
-
-    return {
-      endpoint,
-      pool,
-      healthy: true,
-      lastCheck: 0,
-      lagSeconds: 0,
-      latencyMs: 0,
-      errors: 0,
-    };
+  async getPrimaryClient(): Promise<PoolClient> {
+    return this.primary.pool.connect();
   }
 
-  private getPrimaryPool(): Pool {
-    if (!this.primaryHealth || !this.primaryHealth.healthy) {
-      if (!this.config.failoverEnabled) {
-        throw new Error('Primary database is unhealthy');
-      }
-
-      // Try to promote a replica (not implemented - would need external coordination)
-      throw new Error('Primary database is unhealthy and failover not configured');
-    }
-
-    return this.primaryHealth.pool;
+  async getReplicaClient(): Promise<PoolClient> {
+    const node = this.selectNode(false);
+    return node.pool.connect();
   }
 
-  private getHealthyReplicaPool(preferRegion?: string): Pool | null {
-    // Filter healthy replicas with acceptable lag
-    const healthy = Array.from(this.replicaHealths.values())
-      .filter(h => h.healthy && h.lagSeconds <= this.config.maxLagSeconds);
-
-    if (healthy.length === 0) {
-      return null;
-    }
-
-    // Prefer region if specified
-    if (preferRegion) {
-      const regional = healthy.filter(h => h.endpoint.region === preferRegion);
-      if (regional.length > 0) {
-        // Pick the one with lowest latency
-        regional.sort((a, b) => a.latencyMs - b.latencyMs);
-        return regional[0].pool;
-      }
-    }
-
-    // Pick the replica with lowest latency
-    healthy.sort((a, b) => a.latencyMs - b.latencyMs);
-    return healthy[0].pool;
+  isPrimaryHealthy(): boolean {
+    return this.primary.healthy && !this.primary.circuitOpen;
   }
 
-  private async runHealthChecks(): Promise<void> {
-    // Check primary
-    if (this.primaryHealth) {
-      await this.checkEndpointHealth(this.primaryHealth, false);
-    }
-
-    // Check replicas
-    await Promise.all(
-      Array.from(this.replicaHealths.values()).map(health =>
-        this.checkEndpointHealth(health, true)
-      )
-    );
-  }
-
-  private async checkEndpointHealth(
-    health: EndpointHealth,
-    isReplica: boolean
-  ): Promise<void> {
-    const startTime = Date.now();
-
-    try {
-      // Simple connectivity check
-      await health.pool.query('SELECT 1');
-
-      // For replicas, check replication lag
-      if (isReplica) {
-        const lagResult = await health.pool.query(`
-          SELECT 
-            CASE WHEN pg_is_in_recovery() 
-              THEN EXTRACT(EPOCH FROM (now() - pg_last_xact_replay_timestamp()))
-              ELSE 0 
-            END as lag_seconds
-        `);
-        
-        health.lagSeconds = parseFloat(lagResult.rows[0]?.lag_seconds ?? '0');
-        this.stats.replicaLagSeconds[health.endpoint.name ?? health.endpoint.host] = health.lagSeconds;
-      }
-
-      health.latencyMs = Date.now() - startTime;
-      health.healthy = true;
-      health.errors = 0;
-      health.lastCheck = Date.now();
-    } catch (error) {
-      health.errors++;
-      
-      // Mark unhealthy after 3 consecutive errors
-      if (health.errors >= 3) {
-        health.healthy = false;
-        console.warn(
-          `[ReplicaRouter] Endpoint marked unhealthy: ${health.endpoint.host}`
-        );
-      }
-    }
+  getHealthyReplicaCount(): number {
+    return this.replicas.filter((r) => r.healthy && !r.circuitOpen).length;
   }
 }
 
@@ -448,56 +474,50 @@ export class ReplicaRouter {
 // Factory
 // ============================================================================
 
-let globalRouter: ReplicaRouter | null = null;
+let instance: DatabaseReplicaRouter | null = null;
 
-export async function getReplicaRouter(
-  config?: Partial<ReplicaRouterConfig>
-): Promise<ReplicaRouter> {
-  if (!globalRouter) {
-    globalRouter = new ReplicaRouter({
+export function getDatabaseRouter(config?: Partial<ReplicaRouterConfig>): DatabaseReplicaRouter {
+  if (!instance) {
+    instance = new DatabaseReplicaRouter({
       primary: {
         host: process.env.DB_PRIMARY_HOST ?? 'localhost',
-        port: parseInt(process.env.DB_PRIMARY_PORT ?? '5432'),
+        port: parseInt(process.env.DB_PRIMARY_PORT ?? '5432', 10),
         database: process.env.DB_NAME ?? 'jeju',
         user: process.env.DB_USER ?? 'postgres',
         password: process.env.DB_PASSWORD ?? '',
         ssl: process.env.DB_SSL === 'true',
       },
-      replicas: parseReplicaEndpoints(process.env.DB_REPLICAS ?? ''),
-      maxLagSeconds: parseInt(process.env.DB_MAX_LAG_SECONDS ?? '30'),
+      replicas: parseReplicaConfig(process.env.DB_REPLICAS),
+      maxReplicaLagMs: parseInt(process.env.DB_MAX_REPLICA_LAG_MS ?? '5000', 10),
+      readPreference: (process.env.DB_READ_PREFERENCE as 'primary' | 'replica' | 'nearest') ?? 'replica',
       ...config,
     });
-
-    await globalRouter.initialize();
   }
-
-  return globalRouter;
+  return instance;
 }
 
-function parseReplicaEndpoints(replicasStr: string): DatabaseEndpoint[] {
+function parseReplicaConfig(replicasStr?: string): DatabaseNodeConfig[] {
   if (!replicasStr) return [];
 
-  return replicasStr.split(',').map(endpoint => {
-    const [hostPort, region] = endpoint.split('@');
-    const [host, portStr] = hostPort.split(':');
-    
+  return replicasStr.split(',').map((hostPort) => {
+    const [host, port] = hostPort.trim().split(':');
     return {
       host,
-      port: parseInt(portStr) || 5432,
+      port: parseInt(port ?? '5432', 10),
       database: process.env.DB_NAME ?? 'jeju',
       user: process.env.DB_USER ?? 'postgres',
       password: process.env.DB_PASSWORD ?? '',
       ssl: process.env.DB_SSL === 'true',
-      region,
-      name: hostPort,
+      maxConnections: 20,
+      idleTimeoutMs: 30000,
+      connectionTimeoutMs: 5000,
     };
   });
 }
 
-export async function closeReplicaRouter(): Promise<void> {
-  if (globalRouter) {
-    await globalRouter.close();
-    globalRouter = null;
+export async function closeDatabaseRouter(): Promise<void> {
+  if (instance) {
+    await instance.stop();
+    instance = null;
   }
 }
-

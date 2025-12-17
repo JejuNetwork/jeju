@@ -2,9 +2,13 @@
  * API Marketplace Tests
  *
  * Comprehensive test suite for the decentralized API marketplace
+ * Note: Some tests require CovenantSQL. They will be skipped when CQL is not available.
  */
 
 import { describe, test, expect, beforeEach, beforeAll, afterAll, mock } from 'bun:test';
+
+// Check if CQL is available
+const CQL_AVAILABLE = !!process.env.CQL_BLOCK_PRODUCER_ENDPOINT;
 import type { Address } from 'viem';
 
 // Mock fetch for provider tests
@@ -135,10 +139,10 @@ describe('Providers', () => {
 });
 
 // ============================================================================
-// Registry Tests
+// Registry Tests (require CQL)
 // ============================================================================
 
-describe('Registry', () => {
+describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
   const testApiKey = 'sk-test-key-12345678901234567890';
 
   test('should create a listing', async () => {
@@ -232,10 +236,10 @@ describe('Registry', () => {
 });
 
 // ============================================================================
-// Account Tests
+// Account Tests (require CQL)
 // ============================================================================
 
-describe('Accounts', () => {
+describe.skipIf(!CQL_AVAILABLE)('Accounts', () => {
   test('should create account on first access', async () => {
     const newUser = '0x9999999999999999999999999999999999999999' as Address;
     const account = await getOrCreateAccount(newUser);
@@ -641,7 +645,7 @@ describe('Access Control', () => {
 });
 
 // ============================================================================
-// Payment Tests
+// Payment Tests (some require CQL)
 // ============================================================================
 
 describe('Payments', () => {
@@ -669,7 +673,7 @@ describe('Payments', () => {
     expect(proof?.amount).toBe(1000000000000000n);
   });
 
-  test('should process deposit', async () => {
+  test.skipIf(!CQL_AVAILABLE)('should process deposit', async () => {
     const depositor = '0x2222222222222222222222222222222222222222' as Address;
 
     const result = await processDeposit({
@@ -705,10 +709,10 @@ describe('Payments', () => {
 });
 
 // ============================================================================
-// Integration Tests
+// Integration Tests (require CQL)
 // ============================================================================
 
-describe('Integration', () => {
+describe.skipIf(!CQL_AVAILABLE)('Integration', () => {
   test('should perform full listing creation flow', async () => {
     const seller = '0x3333333333333333333333333333333333333333' as Address;
     const apiKey = 'sk-integration-test-key-123456789';

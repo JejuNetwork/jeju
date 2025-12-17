@@ -46,7 +46,8 @@ export async function retrieve<T>(hash: string): Promise<T | null> {
 }
 
 async function checkDWSCompute(): Promise<boolean> {
-  const r = await fetch(`${DWS_COMPUTE}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+  const endpoint = getDWSEndpoint();
+  const r = await fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
   return r?.ok ?? false;
 }
 
@@ -56,7 +57,8 @@ interface InferenceRequest {
 }
 
 async function dwsGenerate(prompt: string, system: string): Promise<string> {
-  const r = await fetch(`${DWS_COMPUTE}/chat`, {
+  const endpoint = getDWSEndpoint();
+  const r = await fetch(`${endpoint}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -68,7 +70,10 @@ async function dwsGenerate(prompt: string, system: string): Promise<string> {
       max_tokens: 500,
     }),
   });
-  if (!r.ok) throw new Error(`DWS compute error: ${r.status}`);
+  if (!r.ok) {
+    const network = getCurrentNetwork();
+    throw new Error(`DWS compute error (network: ${network}): ${r.status}`);
+  }
   const data = await r.json() as { choices?: Array<{ message?: { content: string } }>; content?: string };
   return data.choices?.[0]?.message?.content ?? data.content ?? '';
 }
@@ -76,9 +81,10 @@ async function dwsGenerate(prompt: string, system: string): Promise<string> {
 export async function inference(request: InferenceRequest): Promise<string> {
   const dwsAvailable = await checkDWSCompute();
   if (!dwsAvailable) {
+    const network = getCurrentNetwork();
     throw new Error(
-      'DWS compute is required for decentralized inference.\n' +
-      'Set DWS_URL or start: docker compose up -d'
+      `DWS compute is required for decentralized inference (network: ${network}).\n` +
+      'Ensure DWS is running: docker compose up -d dws'
     );
   }
 
@@ -88,12 +94,12 @@ export async function inference(request: InferenceRequest): Promise<string> {
 }
 
 // Vote storage - persisted to CQL
-export async function storeVote(proposalId: string, vote: { role: string; vote: string; reasoning: string; confidence: number }): Promise<void> {
+export async function storeVote(proposalId: string, vote: { role: string; vote: string; reasoning: string; confidence: number; daoId?: string }): Promise<void> {
   const voteWithTime: AutocratVote = { ...vote, timestamp: Date.now() };
   await autocratVoteState.save(proposalId, voteWithTime);
   
   // Also store as generic object for audit trail
-  await store({ type: 'vote', proposalId, ...voteWithTime });
+  await store({ type: 'vote', proposalId, daoId: vote.daoId, ...voteWithTime });
 }
 
 export async function getVotes(proposalId: string): Promise<AutocratVote[]> {
@@ -119,9 +125,10 @@ Be specific and actionable.`;
 
   const dwsAvailable = await checkDWSCompute();
   if (!dwsAvailable) {
+    const network = getCurrentNetwork();
     throw new Error(
-      'DWS compute is required for research generation.\n' +
-      'Set DWS_URL or start: docker compose up -d'
+      `DWS compute is required for research generation (network: ${network}).\n` +
+      'Ensure DWS is running: docker compose up -d dws'
     );
   }
 

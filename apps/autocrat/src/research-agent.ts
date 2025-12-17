@@ -17,6 +17,8 @@ export interface ResearchRequest {
   proposalType?: string;
   references?: string[];
   depth?: 'quick' | 'standard' | 'deep';
+  daoId?: string;
+  daoName?: string;
 }
 
 export interface ResearchSection {

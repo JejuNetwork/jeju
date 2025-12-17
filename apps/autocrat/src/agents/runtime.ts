@@ -4,7 +4,7 @@
  */
 
 import { AgentRuntime, type Character, type UUID, type Plugin } from '@elizaos/core';
-import { getDWSUrl, getDWSComputeUrl, getCurrentNetwork } from '@jejunetwork/config';
+import { getDWSComputeUrl, getCurrentNetwork } from '@jejunetwork/config';
 import { autocratAgentTemplates, ceoAgent, type AutocratAgentTemplate } from './templates';
 import { autocratPlugin } from './autocrat-plugin';
 import { ceoPlugin } from './ceo-plugin';

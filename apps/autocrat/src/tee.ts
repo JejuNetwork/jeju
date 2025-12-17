@@ -19,6 +19,8 @@ import {
 
 export interface TEEDecisionContext {
   proposalId: string;
+  daoId?: string;
+  persona?: { name: string; personality: string; traits: string[]; communicationTone: string };
   autocratVotes: Array<{ role: string; vote: string; reasoning: string }>;
   researchReport?: string;
 }

@@ -20,12 +20,17 @@ import type { CEOPersona, GovernanceParams } from './types';
 import { AutocratBlockchain } from './blockchain';
 import { DAOService, createDAOService, type DAOFull, type FundingProject } from './dao-service';
 
-// Config type for orchestrator
-interface AutocratConfig {
+// Config type for orchestrator - accepts CouncilConfig or minimal config
+export interface AutocratConfig {
   rpcUrl: string;
-  chainId: number;
-  daoRegistry: Address;
-  daoFunding: Address;
+  chainId?: number;
+  daoRegistry?: Address;
+  daoFunding?: Address;
+  contracts?: {
+    daoRegistry: Address;
+    daoFunding: Address;
+    [key: string]: Address;
+  };
 }
 
 function inferChain(rpcUrl: string) {
@@ -140,18 +145,25 @@ export class AutocratOrchestrator {
   private fundingCheckInterval = 3600_000; // 1 hour
   private lastFundingCheck = 0;
 
-  constructor(config: AutocratConfig, blockchain: AutocratBlockchain) {
+  constructor(config: AutocratConfig, _blockchain: AutocratBlockchain) {
     this.config = config;
-    this.blockchain = blockchain;
     const chain = inferChain(config.rpcUrl);
+    // @ts-expect-error viem version mismatch in monorepo
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
     });
+    // @ts-expect-error viem version mismatch in monorepo
     this.walletClient = createWalletClient({
       chain,
       transport: http(config.rpcUrl),
     });
+  }
+
+  private inferChainId(rpcUrl: string): number {
+    if (rpcUrl.includes('8453')) return 8453;
+    if (rpcUrl.includes('84532')) return 84532;
+    return 31337;
   }
 
   // ============ Lifecycle Methods ============
@@ -167,12 +179,16 @@ export class AutocratOrchestrator {
       this.account = privateKeyToAccount(operatorKey as `0x${string}`);
     }
 
-    // Initialize DAO service
+    // Initialize DAO service - handle both config styles
+    const daoRegistryAddr = this.config.daoRegistry ?? this.config.contracts?.daoRegistry ?? ('0x0000000000000000000000000000000000000000' as Address);
+    const daoFundingAddr = this.config.daoFunding ?? this.config.contracts?.daoFunding ?? ('0x0000000000000000000000000000000000000000' as Address);
+    const chainId = this.config.chainId ?? this.inferChainId(this.config.rpcUrl);
+    
     this.daoService = createDAOService({
       rpcUrl: this.config.rpcUrl,
-      chainId: this.config.chainId,
-      daoRegistryAddress: this.config.daoRegistry,
-      daoFundingAddress: this.config.daoFunding,
+      chainId,
+      daoRegistryAddress: daoRegistryAddr,
+      daoFundingAddress: daoFundingAddr,
       privateKey: operatorKey,
     });
 
