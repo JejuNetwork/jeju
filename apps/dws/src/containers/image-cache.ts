@@ -284,3 +284,4 @@ export function clearCache(): void {
   cacheHits = 0;
   cacheMisses = 0;
 }
+

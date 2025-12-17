@@ -11,11 +11,6 @@ import {
   type PublicClient,
   type WalletClient,
   type Hash,
-  parseEther,
-  encodeFunctionData,
-  decodeEventLog,
-  keccak256,
-  toBytes,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia, localhost } from 'viem/chains';
@@ -904,6 +899,7 @@ export class DAOService {
 
     const chain = this.getChain(config.chainId);
 
+    // @ts-expect-error viem version mismatch in monorepo
     this.publicClient = createPublicClient({
       chain,
       transport: http(config.rpcUrl),

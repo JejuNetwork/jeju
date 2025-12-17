@@ -2,6 +2,30 @@
  * Storage Module - IPFS, multi-provider storage
  */
 
+// Re-export enhanced storage module
+export {
+  createEnhancedStorageModule,
+  type EnhancedStorageModule,
+  type EnhancedStorageStats,
+  type EnhancedUploadOptions,
+  type EnhancedUploadResult,
+  type ContentInfo,
+  type ContentTier,
+  type ContentCategory,
+  type StorageBackend,
+  type AccessPolicy,
+  type DownloadOptions,
+  // Policy builders
+  publicPolicy,
+  stakeGatedPolicy,
+  tokenGatedPolicy,
+  agentOwnerPolicy,
+  roleGatedPolicy,
+  // Encryption helpers
+  encryptForStorage,
+  decryptFromStorage,
+} from './enhanced';
+
 // viem types used for type safety
 import { parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";

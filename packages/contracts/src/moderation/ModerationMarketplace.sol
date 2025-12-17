@@ -338,6 +338,12 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     /// @notice Track quorum participant stake timestamps: target => reporter => stake age at report time
     mapping(address => mapping(address => uint256)) public quorumParticipantStakeAge;
 
+    /// @notice Track cases where evidence resolution failed (can be retried)
+    mapping(bytes32 => bool) public evidenceResolutionFailed;
+    
+    /// @notice Track cases where evidence resolution succeeded
+    mapping(bytes32 => bool) public evidenceResolutionComplete;
+
     // ═══════════════════════════════════════════════════════════════════════
     //                              EVENTS
     // ═══════════════════════════════════════════════════════════════════════
@@ -390,6 +396,10 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     event EvidenceRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
 
     event EvidenceResolutionFailed(bytes32 indexed caseId);
+    
+    event EvidenceRegistrationFailed(bytes32 indexed caseId);
+    
+    event EvidenceResolutionRetried(bytes32 indexed caseId, bool success);
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              ERRORS
@@ -882,6 +892,23 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         activeCase[target] = caseId;
         allCaseIds.push(caseId);
 
+        // Register case with EvidenceRegistry for evidence submissions
+        if (evidenceRegistry != address(0)) {
+            // Interface: registerCase(bytes32 caseId, uint256 createdAt, uint256 endsAt)
+            (bool success,) = evidenceRegistry.call(
+                abi.encodeWithSignature(
+                    "registerCase(bytes32,uint256,uint256)",
+                    caseId,
+                    block.timestamp,
+                    block.timestamp + DEFAULT_VOTING_PERIOD
+                )
+            );
+            // Don't revert if registration fails - case creation should succeed
+            if (!success) {
+                emit EvidenceRegistrationFailed(caseId);
+            }
+        }
+
         // Record reporter's auto-vote with quadratic weight
         votes[caseId][msg.sender] = Vote({
             position: VotePosition.YES,
@@ -1181,18 +1208,60 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         delete activeCase[banCase.target];
 
         // Notify EvidenceRegistry of resolution (if configured)
-        if (evidenceRegistry != address(0)) {
-            // Call resolveCase on EvidenceRegistry
-            // Interface: resolveCase(bytes32 caseId, bool outcomeWasAction)
-            (bool success,) = evidenceRegistry.call(
-                abi.encodeWithSignature("resolveCase(bytes32,bool)", caseId, banUpheld)
-            );
-            // Don't revert if evidence registry call fails - resolution should succeed
-            if (!success) {
-                // Emit event for tracking failed evidence resolution
-                emit EvidenceResolutionFailed(caseId);
-            }
+        _resolveEvidenceRegistry(caseId, banUpheld);
+    }
+
+    /**
+     * @notice Internal function to resolve evidence in registry
+     * @param caseId The case ID
+     * @param banUpheld Whether ban was upheld
+     */
+    function _resolveEvidenceRegistry(bytes32 caseId, bool banUpheld) internal {
+        if (evidenceRegistry == address(0)) {
+            evidenceResolutionComplete[caseId] = true;
+            return;
         }
+
+        // Interface: resolveCase(bytes32 caseId, bool outcomeWasAction)
+        (bool success,) = evidenceRegistry.call(
+            abi.encodeWithSignature("resolveCase(bytes32,bool)", caseId, banUpheld)
+        );
+        
+        if (success) {
+            evidenceResolutionComplete[caseId] = true;
+            evidenceResolutionFailed[caseId] = false;
+        } else {
+            evidenceResolutionFailed[caseId] = true;
+            emit EvidenceResolutionFailed(caseId);
+        }
+    }
+
+    /**
+     * @notice Retry failed evidence resolution
+     * @dev Can be called by anyone if resolution previously failed
+     * @param caseId The case to retry resolution for
+     */
+    function retryEvidenceResolution(bytes32 caseId) external nonReentrant caseExists(caseId) {
+        BanCase storage banCase = cases[caseId];
+        
+        // Must be resolved and evidence resolution must have failed
+        require(banCase.resolved, "Case not resolved");
+        require(evidenceResolutionFailed[caseId], "Resolution did not fail");
+        require(!evidenceResolutionComplete[caseId], "Already resolved");
+        require(evidenceRegistry != address(0), "No evidence registry");
+
+        bool banUpheld = banCase.outcome == MarketOutcome.BAN_UPHELD;
+
+        (bool success,) = evidenceRegistry.call(
+            abi.encodeWithSignature("resolveCase(bytes32,bool)", caseId, banUpheld)
+        );
+
+        if (success) {
+            evidenceResolutionComplete[caseId] = true;
+            evidenceResolutionFailed[caseId] = false;
+        }
+
+        emit EvidenceResolutionRetried(caseId, success);
     }
 
     /**

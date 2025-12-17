@@ -54,3 +54,4 @@ jobs:
             -H "Authorization: Bearer ${{ secrets.JEJUGIT_TOKEN }}" \
             -H "Content-Type: application/json" \
             -d '{"source": "github", "sourceUrl": "${{ github.server_url }}/${{ github.repository }}"}'
+

@@ -88,9 +88,22 @@ export interface CouncilMemberConfig {
 export interface GovernanceParams {
   minQualityScore: number;
   councilVotingPeriod: number;
+  autocratVotingPeriod?: number;
   gracePeriod: number;
   minProposalStake: bigint;
+  minBackers?: number;
+  minStakeForVeto?: bigint;
+  vetoThreshold?: number;
   quorumBps: number;
+}
+
+export interface AutocratVote {
+  role: string;
+  vote: string;
+  reasoning: string;
+  confidence: number;
+  timestamp: number;
+  daoId?: string;
 }
 
 export interface DAO {
@@ -577,15 +590,21 @@ export interface A2AResponse {
 
 export interface AutocratConfig {
   rpcUrl: string;
-  chainId: number;
-  daoRegistry: Address;
-  daoFunding: Address;
-  defaultDAO: string;
-  daos: Record<string, DAOConfig>;
-  cloudEndpoint: string;
-  computeEndpoint: string;
-  storageEndpoint: string;
-  teaEndpoint: string;
+  chainId?: number;
+  daoRegistry?: Address;
+  daoFunding?: Address;
+  defaultDAO?: string;
+  daoId?: string;
+  daos?: Record<string, DAOConfig>;
+  contracts?: DAOContracts;
+  agents?: DAOAgents;
+  parameters?: GovernanceParams;
+  ceoPersona?: CEOPersona;
+  fundingConfig?: FundingConfig;
+  cloudEndpoint?: string;
+  computeEndpoint?: string;
+  storageEndpoint?: string;
+  teaEndpoint?: string;
 }
 
 export interface CouncilConfig {
@@ -705,6 +724,3 @@ export interface FundingStats {
   totalDistributed: bigint;
   uniqueStakers: number;
 }
-
-// AutocratConfig is an alias for CouncilConfig for backwards compatibility
-export type AutocratConfig = CouncilConfig;

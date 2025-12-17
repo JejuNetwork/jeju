@@ -242,6 +242,28 @@ interface ComputeJobRow {
   created_at: number;
 }
 
+async function ensureComputeJobsTable(): Promise<void> {
+  if (!db) await initializeState();
+  
+  db!.run(`
+    CREATE TABLE IF NOT EXISTS compute_jobs (
+      job_id TEXT PRIMARY KEY,
+      command TEXT NOT NULL,
+      shell TEXT NOT NULL DEFAULT 'bash',
+      env TEXT NOT NULL DEFAULT '{}',
+      working_dir TEXT,
+      timeout INTEGER NOT NULL DEFAULT 300000,
+      status TEXT NOT NULL DEFAULT 'queued',
+      output TEXT DEFAULT '',
+      exit_code INTEGER,
+      submitted_by TEXT NOT NULL,
+      started_at INTEGER,
+      completed_at INTEGER,
+      created_at INTEGER NOT NULL
+    )
+  `);
+}
+
 export const computeJobState = {
   async save(job: {
     jobId: string;
@@ -257,25 +279,7 @@ export const computeJobState = {
     completedAt: number | null;
     submittedBy: string;
   }): Promise<void> {
-    if (!db) await initializeState();
-    
-    db!.run(`
-      CREATE TABLE IF NOT EXISTS compute_jobs (
-        job_id TEXT PRIMARY KEY,
-        command TEXT NOT NULL,
-        shell TEXT NOT NULL DEFAULT 'bash',
-        env TEXT NOT NULL DEFAULT '{}',
-        working_dir TEXT,
-        timeout INTEGER NOT NULL DEFAULT 300000,
-        status TEXT NOT NULL DEFAULT 'queued',
-        output TEXT DEFAULT '',
-        exit_code INTEGER,
-        submitted_by TEXT NOT NULL,
-        started_at INTEGER,
-        completed_at INTEGER,
-        created_at INTEGER NOT NULL
-      )
-    `);
+    await ensureComputeJobsTable();
     
     db!.run(`
       INSERT INTO compute_jobs (job_id, command, shell, env, working_dir, timeout, status, output, exit_code, submitted_by, started_at, completed_at, created_at)
@@ -304,7 +308,7 @@ export const computeJobState = {
   },
 
   async get(jobId: string): Promise<ComputeJobRow | null> {
-    if (!db) await initializeState();
+    await ensureComputeJobsTable();
     
     const row = db!.query<ComputeJobRow, [string]>(`
       SELECT * FROM compute_jobs WHERE job_id = ?
@@ -314,7 +318,7 @@ export const computeJobState = {
   },
 
   async getQueued(): Promise<ComputeJobRow[]> {
-    if (!db) await initializeState();
+    await ensureComputeJobsTable();
     
     return db!.query<ComputeJobRow, []>(`
       SELECT * FROM compute_jobs WHERE status = 'queued' ORDER BY created_at ASC
@@ -322,7 +326,7 @@ export const computeJobState = {
   },
 
   async list(opts: { submittedBy?: string; status?: string; limit: number }): Promise<ComputeJobRow[]> {
-    if (!db) await initializeState();
+    await ensureComputeJobsTable();
     
     let query = 'SELECT * FROM compute_jobs WHERE 1=1';
     const params: (string | number)[] = [];

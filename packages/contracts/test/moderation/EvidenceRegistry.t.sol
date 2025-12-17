@@ -185,6 +185,9 @@ contract EvidenceRegistryTest is Test {
     }
 
     function test_GetCaseEvidence() public {
+        // Warp to near end of voting period to avoid time weight bonus
+        vm.warp(block.timestamp + 6 days + 23 hours);
+        
         // Submit multiple pieces of evidence
         vm.prank(alice);
         registry.submitEvidence{value: 0.002 ether}(
@@ -206,8 +209,12 @@ contract EvidenceRegistryTest is Test {
             registry.getCaseEvidence(TEST_CASE_ID);
 
         assertEq(evidenceIds.length, 2);
-        assertEq(totalFor, 0.002 ether);
-        assertEq(totalAgainst, 0.003 ether);
+        // Time weight with ~1 hour remaining is ~10000 + 100 = 10100 BPS
+        // 0.002 * 10100 / 10000 = ~0.00202 ether (approximately equal)
+        assertGe(totalFor, 0.002 ether);
+        assertLe(totalFor, 0.00205 ether);
+        assertGe(totalAgainst, 0.003 ether);
+        assertLe(totalAgainst, 0.00305 ether);
         assertFalse(resolved);
     }
 

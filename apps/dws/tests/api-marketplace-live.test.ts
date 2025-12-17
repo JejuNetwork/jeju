@@ -3,10 +3,14 @@
  *
  * Tests against real API providers when keys are available.
  * These tests are skipped if the required API keys are not set.
+ * Note: These tests also require CovenantSQL for state management.
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
 import type { Address } from 'viem';
+
+// Check if CQL is available for state operations
+const CQL_AVAILABLE = !!process.env.CQL_BLOCK_PRODUCER_ENDPOINT;
 
 import {
   ALL_PROVIDERS,
@@ -364,14 +368,14 @@ describe('Tavily Live', () => {
 });
 
 // ============================================================================
-// Access Control Live Tests
+// Access Control Live Tests (require CQL)
 // ============================================================================
 
-describe('Access Control Enforcement', () => {
+describe.skipIf(!CQL_AVAILABLE)('Access Control Enforcement', () => {
   test('should block requests to unauthorized endpoints', async () => {
     // Create a listing with restricted endpoints
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key-for-test');
-    const listing = await createListing({
+    const listing = createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,
@@ -398,7 +402,7 @@ describe('Access Control Enforcement', () => {
 
   test('should enforce method restrictions', async () => {
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key-for-test');
-    const listing = await createListing({
+    const listing = createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,
@@ -422,7 +426,7 @@ describe('Access Control Enforcement', () => {
 
   test('should enforce domain restrictions', async () => {
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key-for-test');
-    const listing = await createListing({
+    const listing = createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,
@@ -446,16 +450,16 @@ describe('Access Control Enforcement', () => {
 });
 
 // ============================================================================
-// Payment Enforcement Tests
+// Payment Enforcement Tests (require CQL)
 // ============================================================================
 
-describe('Payment Enforcement', () => {
+describe.skipIf(!CQL_AVAILABLE)('Payment Enforcement', () => {
   test('should reject requests with insufficient balance', async () => {
     const poorUser: Address = '0x9999999999999999999999999999999999999999';
     // Don't deposit anything
     
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key');
-    const listing = await createListing({
+    const listing = createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,
@@ -501,3 +505,4 @@ describe('Test Summary', () => {
     expect(true).toBe(true);
   });
 });
+

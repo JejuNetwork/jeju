@@ -60,11 +60,15 @@ export function createNodeServices(
   const fullEdgeConfig: EdgeCoordinatorConfig = {
     nodeId: edgeConfig?.nodeId ?? crypto.randomUUID(),
     operator: operatorAddress,
+    privateKey: edgeConfig?.privateKey ?? process.env.PRIVATE_KEY ?? '0x' + '00'.repeat(32),
     listenPort: edgeConfig?.listenPort ?? 4020,
     gossipInterval: edgeConfig?.gossipInterval ?? 30000,
+    gossipFanout: edgeConfig?.gossipFanout ?? 6,
     maxPeers: edgeConfig?.maxPeers ?? 50,
     bootstrapNodes: edgeConfig?.bootstrapNodes ?? [],
     region: edgeConfig?.region ?? 'global',
+    staleThresholdMs: edgeConfig?.staleThresholdMs ?? 300000,
+    requireOnChainRegistration: edgeConfig?.requireOnChainRegistration ?? false,
     ...edgeConfig,
   };
 

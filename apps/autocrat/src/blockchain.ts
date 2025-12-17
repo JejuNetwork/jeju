@@ -44,10 +44,10 @@ export class AutocratBlockchain {
       chain,
       transport: http(config.rpcUrl),
     });
-    this.councilAddress = config.contracts.council as Address;
-    this.ceoAgentAddress = config.contracts.ceoAgent as Address;
-    this.councilDeployed = viemIsAddress(config.contracts.council) && config.contracts.council !== ZERO_ADDRESS;
-    this.ceoDeployed = viemIsAddress(config.contracts.ceoAgent) && config.contracts.ceoAgent !== ZERO_ADDRESS;
+    this.councilAddress = (config.contracts?.council ?? ZERO_ADDRESS) as Address;
+    this.ceoAgentAddress = (config.contracts?.ceoAgent ?? ZERO_ADDRESS) as Address;
+    this.councilDeployed = viemIsAddress(this.councilAddress) && this.councilAddress !== ZERO_ADDRESS;
+    this.ceoDeployed = viemIsAddress(this.ceoAgentAddress) && this.ceoAgentAddress !== ZERO_ADDRESS;
     
     // Initialize ceoAgent wrapper
     this.ceoAgent = {

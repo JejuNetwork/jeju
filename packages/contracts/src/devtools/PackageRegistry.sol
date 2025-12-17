@@ -437,3 +437,4 @@ contract PackageRegistry is Ownable, ReentrancyGuard {
         return scopeOwner[scope];
     }
 }
+
