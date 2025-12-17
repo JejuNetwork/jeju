@@ -2,11 +2,12 @@
  * Decentralized State Management for Gateway
  * 
  * Persists intents, routes, and solver data to CovenantSQL.
- * CQL is REQUIRED - no fallbacks.
+ * CQL is REQUIRED - automatically configured per network.
  */
 
 import { getCQL, type CQLClient } from '@jejunetwork/db';
 import { getCacheClient, type CacheClient } from '@jejunetwork/shared';
+import { getCurrentNetwork } from '@jejunetwork/config';
 import type { Intent, IntentRoute, Solver, SupportedChainId } from '@jejunetwork/types';
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'gateway';
@@ -17,8 +18,8 @@ let initialized = false;
 
 async function getCQLClient(): Promise<CQLClient> {
   if (!cqlClient) {
+    // CQL URL is automatically resolved from network config
     cqlClient = getCQL({
-      blockProducerEndpoint: process.env.CQL_BLOCK_PRODUCER_ENDPOINT ?? 'http://localhost:4300',
       databaseId: CQL_DATABASE_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
@@ -26,9 +27,10 @@ async function getCQLClient(): Promise<CQLClient> {
     
     const healthy = await cqlClient.isHealthy();
     if (!healthy) {
+      const network = getCurrentNetwork();
       throw new Error(
-        'Gateway requires CovenantSQL for decentralized state.\n' +
-        'Set CQL_BLOCK_PRODUCER_ENDPOINT or start: docker compose up -d'
+        `Gateway requires CovenantSQL for decentralized state (network: ${network}).\n` +
+        'Ensure CQL is running: docker compose up -d cql'
       );
     }
     

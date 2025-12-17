@@ -393,5 +393,5 @@ export async function teardownTestEnvironment(): Promise<void> {
 }
 
 // Export for easy testing
-export { isServiceHealthy, waitForService };
+export { isServiceHealthy, waitForService, stopServices };
 

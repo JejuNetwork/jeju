@@ -44,6 +44,16 @@ export function createS3Router(backend: BackendManager): Hono {
   // Service Operations
   // ============================================================================
 
+  // Health check (must come before wildcard routes)
+  router.get('/health', (c) => {
+    const stats = s3.getStats();
+    return c.json({
+      status: 'healthy',
+      service: 'dws-s3',
+      ...stats,
+    });
+  });
+
   // List buckets
   router.get('/', async (c) => {
     const owner = c.req.header('x-jeju-address');
@@ -55,16 +65,6 @@ export function createS3Router(backend: BackendManager): Hono {
         CreationDate: b.creationDate.toISOString(),
       })),
       Owner: { ID: owner ?? 'anonymous' },
-    });
-  });
-
-  // Health check
-  router.get('/health', (c) => {
-    const stats = s3.getStats();
-    return c.json({
-      status: 'healthy',
-      service: 'dws-s3',
-      ...stats,
     });
   });
 

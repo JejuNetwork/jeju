@@ -16,15 +16,19 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
  * Provider System:
  * - Each provider has an individual weight (0-10000 basis points)
  * - Aggregate reputation = weighted sum of individual provider scores
- * - Weights are initialized and can be updated via governance
+ * - Weights are normalized to sum to 10000 when calculating
+ * - Weights can be updated via governance
  *
  * Governance Flow:
- * 1. Anyone can propose changes by staking (min 0.001 ETH)
+ * 1. Anyone can propose changes by staking (min 0.01 ETH)
  * 2. Challenge period (7 days) for community to stake FOR/AGAINST
- * 3. Community can add opinions (stored on IPFS)
- * 4. AI Council receives all input and makes decision
- * 5. Timelock before execution (2 days)
- * 6. Stakes redistributed based on outcome
+ * 3. Community can add opinions with stake (also claimable)
+ * 4. Minimum quorum required for proposal to proceed
+ * 5. AI Council receives all input and makes decision
+ * 6. Timelock before execution (2 days)
+ * 7. Stakes redistributed based on outcome:
+ *    - Winners: stake + share of loser pool
+ *    - Losers: stake slashed (proposers slashed extra)
  *
  * @custom:security-contact security@jeju.network
  */
@@ -47,7 +51,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         APPROVED,          // Council approved, in timelock
         REJECTED,          // Council rejected
         EXECUTED,          // Successfully executed
-        CANCELLED          // Cancelled by proposer
+        CANCELLED          // Cancelled by proposer (with penalty)
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -58,7 +62,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         address providerContract;
         string name;
         string description;
-        uint256 weight;              // 0-10000 basis points
+        uint256 weight;              // 0-10000 basis points (raw weight)
         uint256 addedAt;
         bool isActive;
         bool isSuspended;
@@ -76,7 +80,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 proposedWeight;      // For ADD/UPDATE_WEIGHT
         address proposer;
         uint256 stake;
-        uint256 forStake;            // Total stake supporting proposal
+        uint256 forStake;            // Total stake supporting proposal (excluding proposer)
         uint256 againstStake;        // Total stake opposing proposal
         uint256 forCount;
         uint256 againstCount;
@@ -86,6 +90,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         ProposalStatus status;
         bytes32 councilDecisionHash; // IPFS hash of AI Council reasoning
         string councilReason;        // Brief reason from council
+        bool proposerClaimed;        // Whether proposer has claimed
     }
 
     struct Opinion {
@@ -96,6 +101,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         string ipfsHash;             // Detailed opinion on IPFS
         string summary;              // Brief summary
         uint256 timestamp;
+        bool claimed;                // Whether rewards have been claimed
     }
 
     struct Vote {
@@ -111,8 +117,9 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     //                              CONSTANTS
     // ═══════════════════════════════════════════════════════════════════════
 
-    uint256 public constant MIN_PROPOSAL_STAKE = 0.001 ether;
-    uint256 public constant MIN_VOTE_STAKE = 0.0005 ether;
+    uint256 public constant MIN_PROPOSAL_STAKE = 0.01 ether;   // Higher to prevent spam
+    uint256 public constant MIN_VOTE_STAKE = 0.001 ether;
+    uint256 public constant MIN_OPINION_STAKE = 0.0005 ether;
     uint256 public constant CHALLENGE_PERIOD = 7 days;
     uint256 public constant TIMELOCK_PERIOD = 2 days;
     uint256 public constant MAX_WEIGHT = 10000;
@@ -120,8 +127,15 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     uint256 public constant MAX_DESCRIPTION_LENGTH = 256;
     uint256 public constant MAX_SUMMARY_LENGTH = 280;
 
-    uint256 public constant WINNER_SHARE_BPS = 9000;   // 90% to winners
-    uint256 public constant PROTOCOL_FEE_BPS = 1000;   // 10% protocol fee
+    // Reward distribution
+    uint256 public constant WINNER_SHARE_BPS = 8500;           // 85% to winners
+    uint256 public constant PROTOCOL_FEE_BPS = 500;            // 5% protocol fee
+    uint256 public constant PROPOSER_SLASH_MULTIPLIER = 2;     // Failed proposers lose 2x
+    uint256 public constant CANCEL_PENALTY_BPS = 5000;         // 50% penalty for cancellation
+
+    // Quorum requirements
+    uint256 public constant MIN_QUORUM_STAKE = 0.1 ether;      // Minimum total stake for quorum
+    uint256 public constant MIN_QUORUM_VOTERS = 3;             // Minimum voters for quorum
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              STATE
@@ -136,7 +150,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     /// @notice Active provider count
     uint256 public activeProviderCount;
 
-    /// @notice Total weight of all active providers (should sum to ~10000)
+    /// @notice Total raw weight of all active providers
     uint256 public totalWeight;
 
     /// @notice Proposals by ID
@@ -157,11 +171,20 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     /// @notice Opinions on proposals
     mapping(bytes32 => Opinion[]) public proposalOpinions;
 
+    /// @notice User opinion index (for claiming)
+    mapping(bytes32 => mapping(address => uint256)) public userOpinionIndex;
+
+    /// @notice Whether user has submitted opinion on proposal
+    mapping(bytes32 => mapping(address => bool)) public hasOpined;
+
     /// @notice Council governance contract (authorized to make decisions)
     address public councilGovernance;
 
     /// @notice Treasury for protocol fees
     address public treasury;
+
+    /// @notice Total protocol fees collected
+    uint256 public totalProtocolFees;
 
     /// @notice Next proposal ID counter
     uint256 private _nextProposalId;
@@ -206,6 +229,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         bytes32 indexed proposalId,
         address indexed author,
         bool inFavor,
+        uint256 stake,
         string ipfsHash
     );
 
@@ -225,7 +249,14 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     event RewardsClaimed(
         bytes32 indexed proposalId,
         address indexed claimer,
-        uint256 amount
+        uint256 amount,
+        string claimType
+    );
+
+    event ProposalCancelled(
+        bytes32 indexed proposalId,
+        address indexed proposer,
+        uint256 penaltyAmount
     );
 
     event ProviderFeedbackRecorded(
@@ -234,6 +265,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         uint8 score
     );
 
+    event ProtocolFeesWithdrawn(address indexed to, uint256 amount);
     event CouncilGovernanceUpdated(address oldAddress, address newAddress);
     event TreasuryUpdated(address oldAddress, address newAddress);
 
@@ -253,14 +285,19 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     error TimelockNotComplete();
     error NotAuthorized();
     error AlreadyVoted();
+    error AlreadyOpined();
     error InvalidWeight();
     error NameTooLong();
     error DescriptionTooLong();
     error SummaryTooLong();
     error ProposalNotPending();
     error ProposalNotApproved();
+    error ProposalNotInReview();
     error NothingToClaim();
     error AlreadyClaimed();
+    error QuorumNotReached();
+    error NotProposer();
+    error CannotCancelAfterReview();
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              CONSTRUCTOR
@@ -417,28 +454,18 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
             proposedWeight: proposedWeight,
             proposer: msg.sender,
             stake: msg.value,
-            forStake: msg.value,  // Proposer automatically supports
+            forStake: 0,        // Proposer stake tracked separately
             againstStake: 0,
-            forCount: 1,
+            forCount: 0,        // Proposer not counted in voter count
             againstCount: 0,
             createdAt: block.timestamp,
             challengeEnds: block.timestamp + CHALLENGE_PERIOD,
             timelockEnds: 0,
             status: ProposalStatus.PENDING,
             councilDecisionHash: bytes32(0),
-            councilReason: ""
+            councilReason: "",
+            proposerClaimed: false
         });
-
-        // Record proposer's vote
-        proposalVotes[proposalId].push(Vote({
-            voter: msg.sender,
-            stake: msg.value,
-            reputation: 0, // Could fetch from reputation system
-            inFavor: true,
-            timestamp: block.timestamp,
-            claimed: false
-        }));
-        hasVoted[proposalId][msg.sender] = true;
 
         allProposalIds.push(proposalId);
 
@@ -465,6 +492,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         if (p.status != ProposalStatus.PENDING) revert ProposalNotPending();
         if (block.timestamp > p.challengeEnds) revert ChallengePeriodEnded();
         if (hasVoted[proposalId][msg.sender]) revert AlreadyVoted();
+        if (msg.sender == p.proposer) revert AlreadyVoted(); // Proposer cannot vote separately
 
         // Record vote
         uint256 voteIndex = proposalVotes[proposalId].length;
@@ -491,7 +519,7 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Add an opinion to a proposal
+     * @notice Add an opinion to a proposal with stake
      * @param proposalId The proposal
      * @param inFavor Whether opinion supports proposal
      * @param ipfsHash IPFS hash of detailed opinion
@@ -503,32 +531,74 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         string calldata ipfsHash,
         string calldata summary
     ) external payable nonReentrant whenNotPaused {
+        if (msg.value < MIN_OPINION_STAKE) revert InsufficientStake();
+        
         Proposal storage p = proposals[proposalId];
         if (p.createdAt == 0) revert ProposalNotFound();
         if (p.status != ProposalStatus.PENDING) revert ProposalNotPending();
         if (block.timestamp > p.challengeEnds) revert ChallengePeriodEnded();
         if (bytes(summary).length > MAX_SUMMARY_LENGTH) revert SummaryTooLong();
+        if (hasOpined[proposalId][msg.sender]) revert AlreadyOpined();
 
+        uint256 opinionIndex = proposalOpinions[proposalId].length;
         proposalOpinions[proposalId].push(Opinion({
             author: msg.sender,
-            stake: msg.value,  // Optional stake to show conviction
+            stake: msg.value,
             reputation: 0,
             inFavor: inFavor,
             ipfsHash: ipfsHash,
             summary: summary,
-            timestamp: block.timestamp
+            timestamp: block.timestamp,
+            claimed: false
         }));
 
-        // If staked, count toward vote totals
-        if (msg.value > 0) {
-            if (inFavor) {
-                p.forStake += msg.value;
-            } else {
-                p.againstStake += msg.value;
-            }
+        userOpinionIndex[proposalId][msg.sender] = opinionIndex;
+        hasOpined[proposalId][msg.sender] = true;
+
+        // Opinions with stake count toward vote totals
+        if (inFavor) {
+            p.forStake += msg.value;
+        } else {
+            p.againstStake += msg.value;
         }
 
-        emit OpinionAdded(proposalId, msg.sender, inFavor, ipfsHash);
+        emit OpinionAdded(proposalId, msg.sender, inFavor, msg.value, ipfsHash);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //                         PROPOSAL CANCELLATION
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * @notice Cancel a proposal (only proposer, only during challenge period)
+     * @dev Proposer loses 50% of stake as penalty, rest returned
+     * @param proposalId The proposal to cancel
+     */
+    function cancelProposal(bytes32 proposalId) external nonReentrant {
+        Proposal storage p = proposals[proposalId];
+        if (p.createdAt == 0) revert ProposalNotFound();
+        if (msg.sender != p.proposer) revert NotProposer();
+        if (p.status != ProposalStatus.PENDING) revert CannotCancelAfterReview();
+
+        ProposalStatus oldStatus = p.status;
+        p.status = ProposalStatus.CANCELLED;
+
+        // Calculate penalty
+        uint256 penalty = (p.stake * CANCEL_PENALTY_BPS) / 10000;
+        uint256 refund = p.stake - penalty;
+
+        // Add penalty to protocol fees
+        totalProtocolFees += penalty;
+        p.proposerClaimed = true;
+
+        // Return refund to proposer
+        if (refund > 0) {
+            (bool success,) = msg.sender.call{value: refund}("");
+            require(success, "Transfer failed");
+        }
+
+        emit ProposalCancelled(proposalId, msg.sender, penalty);
+        emit ProposalStatusChanged(proposalId, oldStatus, ProposalStatus.CANCELLED);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -544,6 +614,18 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         if (p.createdAt == 0) revert ProposalNotFound();
         if (p.status != ProposalStatus.PENDING) revert ProposalNotPending();
         if (block.timestamp <= p.challengeEnds) revert ChallengePeriodActive();
+
+        // Check quorum requirements
+        uint256 totalVoteStake = p.forStake + p.againstStake;
+        uint256 totalVoters = p.forCount + p.againstCount;
+        
+        if (totalVoteStake < MIN_QUORUM_STAKE || totalVoters < MIN_QUORUM_VOTERS) {
+            // Quorum not reached - auto-reject
+            ProposalStatus oldStatus = p.status;
+            p.status = ProposalStatus.REJECTED;
+            emit ProposalStatusChanged(proposalId, oldStatus, ProposalStatus.REJECTED);
+            return;
+        }
 
         ProposalStatus oldStatus = p.status;
         p.status = ProposalStatus.COUNCIL_REVIEW;
@@ -565,11 +647,12 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         bytes32 decisionHash,
         string calldata reason
     ) external {
-        if (msg.sender != councilGovernance && msg.sender != owner()) revert NotAuthorized();
+        // Only council can submit decisions (no owner bypass)
+        if (msg.sender != councilGovernance) revert NotAuthorized();
 
         Proposal storage p = proposals[proposalId];
         if (p.createdAt == 0) revert ProposalNotFound();
-        if (p.status != ProposalStatus.COUNCIL_REVIEW) revert ProposalNotPending();
+        if (p.status != ProposalStatus.COUNCIL_REVIEW) revert ProposalNotInReview();
 
         p.councilDecisionHash = decisionHash;
         p.councilReason = reason;
@@ -657,9 +740,12 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     function _removeProvider(address providerContract) internal {
         ReputationProvider storage p = providers[providerContract];
         
-        if (p.isActive) {
+        if (p.isActive && !p.isSuspended) {
             activeProviderCount--;
             totalWeight -= p.weight;
+        } else if (p.isActive && p.isSuspended) {
+            activeProviderCount--;
+            // Weight already removed when suspended
         }
         
         p.isActive = false;
@@ -683,7 +769,9 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     function _suspendProvider(address providerContract) internal {
         ReputationProvider storage p = providers[providerContract];
         p.isSuspended = true;
-        totalWeight -= p.weight;
+        if (p.isActive) {
+            totalWeight -= p.weight;
+        }
         
         emit ProviderSuspended(providerContract);
     }
@@ -691,7 +779,9 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     function _unsuspendProvider(address providerContract) internal {
         ReputationProvider storage p = providers[providerContract];
         p.isSuspended = false;
-        totalWeight += p.weight;
+        if (p.isActive) {
+            totalWeight += p.weight;
+        }
         
         emit ProviderUnsuspended(providerContract);
     }
@@ -707,43 +797,131 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     function claimRewards(bytes32 proposalId) external nonReentrant {
         Proposal storage p = proposals[proposalId];
         if (p.createdAt == 0) revert ProposalNotFound();
-        if (p.status != ProposalStatus.EXECUTED && p.status != ProposalStatus.REJECTED) {
+        
+        // Can only claim from executed, rejected, or cancelled proposals
+        if (p.status != ProposalStatus.EXECUTED && 
+            p.status != ProposalStatus.REJECTED &&
+            p.status != ProposalStatus.CANCELLED) {
             revert ProposalNotApproved();
         }
 
-        if (!hasVoted[proposalId][msg.sender]) revert NothingToClaim();
+        uint256 totalClaim = 0;
+        string memory claimType = "";
 
-        uint256 voteIndex = userVoteIndex[proposalId][msg.sender];
-        Vote storage v = proposalVotes[proposalId][voteIndex];
+        // Check if caller is proposer
+        if (msg.sender == p.proposer && !p.proposerClaimed) {
+            uint256 proposerClaim = _calculateProposerClaim(p);
+            if (proposerClaim > 0) {
+                totalClaim += proposerClaim;
+                p.proposerClaimed = true;
+                claimType = "proposer";
+            }
+        }
+
+        // Check if caller voted
+        if (hasVoted[proposalId][msg.sender]) {
+            uint256 voteIndex = userVoteIndex[proposalId][msg.sender];
+            Vote storage v = proposalVotes[proposalId][voteIndex];
+            
+            if (!v.claimed) {
+                uint256 voteClaim = _calculateVoteClaim(p, v);
+                if (voteClaim > 0) {
+                    totalClaim += voteClaim;
+                    v.claimed = true;
+                    claimType = bytes(claimType).length > 0 ? "proposer+vote" : "vote";
+                }
+            }
+        }
+
+        // Check if caller submitted opinion with stake
+        if (hasOpined[proposalId][msg.sender]) {
+            uint256 opinionIndex = userOpinionIndex[proposalId][msg.sender];
+            Opinion storage o = proposalOpinions[proposalId][opinionIndex];
+            
+            if (!o.claimed && o.stake > 0) {
+                uint256 opinionClaim = _calculateOpinionClaim(p, o);
+                if (opinionClaim > 0) {
+                    totalClaim += opinionClaim;
+                    o.claimed = true;
+                    claimType = bytes(claimType).length > 0 ? string(abi.encodePacked(claimType, "+opinion")) : "opinion";
+                }
+            }
+        }
+
+        if (totalClaim == 0) revert NothingToClaim();
+
+        (bool success,) = msg.sender.call{value: totalClaim}("");
+        require(success, "Transfer failed");
         
-        if (v.claimed) revert AlreadyClaimed();
-        v.claimed = true;
+        emit RewardsClaimed(proposalId, msg.sender, totalClaim, claimType);
+    }
 
-        // Determine if voter won
+    function _calculateProposerClaim(Proposal storage p) internal view returns (uint256) {
+        if (p.status == ProposalStatus.CANCELLED) {
+            return 0; // Already handled in cancelProposal
+        }
+
+        bool proposalPassed = p.status == ProposalStatus.EXECUTED;
+        
+        if (proposalPassed) {
+            // Proposer won - get back stake + share of opposing pool
+            uint256 losingPool = p.againstStake;
+            uint256 winningPool = p.forStake + p.stake; // Include proposer stake
+            
+            if (winningPool == 0) return p.stake;
+            
+            uint256 feeDeducted = (losingPool * PROTOCOL_FEE_BPS) / 10000;
+            uint256 distributablePool = losingPool - feeDeducted;
+            
+            uint256 share = (distributablePool * WINNER_SHARE_BPS * p.stake) / (winningPool * 10000);
+            return p.stake + share;
+        } else {
+            // Proposer lost - stake is slashed (with multiplier)
+            // But we still need to check if there's any remainder
+            return 0;
+        }
+    }
+
+    function _calculateVoteClaim(Proposal storage p, Vote storage v) internal view returns (uint256) {
         bool proposalPassed = p.status == ProposalStatus.EXECUTED;
         bool voterWon = (v.inFavor && proposalPassed) || (!v.inFavor && !proposalPassed);
 
-        uint256 claimAmount;
-        if (voterWon) {
-            // Get back stake + share of losing side
-            uint256 losingPool = proposalPassed ? p.againstStake : p.forStake;
-            uint256 winningPool = proposalPassed ? p.forStake : p.againstStake;
-            
-            if (winningPool > 0) {
-                uint256 share = (losingPool * WINNER_SHARE_BPS * v.stake) / (winningPool * 10000);
-                claimAmount = v.stake + share;
-            } else {
-                claimAmount = v.stake;
-            }
+        if (!voterWon) {
+            return 0; // Stake slashed
         }
-        // If voter lost, stake is forfeited (nothing to claim)
 
-        if (claimAmount > 0) {
-            (bool success,) = msg.sender.call{value: claimAmount}("");
-            require(success, "Transfer failed");
-            
-            emit RewardsClaimed(proposalId, msg.sender, claimAmount);
+        // Voter won
+        uint256 losingPool = proposalPassed ? p.againstStake : (p.forStake + p.stake);
+        uint256 winningPool = proposalPassed ? (p.forStake + p.stake) : p.againstStake;
+        
+        if (winningPool == 0) return v.stake;
+        
+        uint256 feeDeducted = (losingPool * PROTOCOL_FEE_BPS) / 10000;
+        uint256 distributablePool = losingPool - feeDeducted;
+        
+        uint256 share = (distributablePool * WINNER_SHARE_BPS * v.stake) / (winningPool * 10000);
+        return v.stake + share;
+    }
+
+    function _calculateOpinionClaim(Proposal storage p, Opinion storage o) internal view returns (uint256) {
+        bool proposalPassed = p.status == ProposalStatus.EXECUTED;
+        bool opinerWon = (o.inFavor && proposalPassed) || (!o.inFavor && !proposalPassed);
+
+        if (!opinerWon) {
+            return 0; // Stake slashed
         }
+
+        // Opiner won
+        uint256 losingPool = proposalPassed ? p.againstStake : (p.forStake + p.stake);
+        uint256 winningPool = proposalPassed ? (p.forStake + p.stake) : p.againstStake;
+        
+        if (winningPool == 0) return o.stake;
+        
+        uint256 feeDeducted = (losingPool * PROTOCOL_FEE_BPS) / 10000;
+        uint256 distributablePool = losingPool - feeDeducted;
+        
+        uint256 share = (distributablePool * WINNER_SHARE_BPS * o.stake) / (winningPool * 10000);
+        return o.stake + share;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -753,10 +931,11 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
     /**
      * @notice Get aggregated reputation score for an agent
      * @dev Queries all active providers and returns weighted average
+     *      Weights are normalized to sum to 10000 for calculation
      * @param agentId The agent ID to query
      * @return weightedScore Weighted reputation score (0-10000)
      * @return providerScores Individual scores from each provider
-     * @return providerWeights Weights used for each provider
+     * @return providerWeights Normalized weights used for each provider
      */
     function getAggregatedReputation(uint256 agentId) external view returns (
         uint256 weightedScore,
@@ -781,19 +960,26 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
             ReputationProvider storage p = providers[providerList[i]];
             if (!p.isActive || p.isSuspended) continue;
 
-            // Try to get score from provider
+            // Get score from provider
             uint256 score = _getProviderScore(p.providerContract, agentId);
             
+            // Calculate normalized weight
+            uint256 normalizedWeight = totalWeight > 0 
+                ? (p.weight * 10000) / totalWeight 
+                : 10000 / activeCount;
+            
             providerScores[idx] = score;
-            providerWeights[idx] = p.weight;
-            totalWeightedScore += score * p.weight;
+            providerWeights[idx] = normalizedWeight;
+            totalWeightedScore += score * normalizedWeight;
             idx++;
         }
 
-        if (totalWeight > 0) {
-            weightedScore = totalWeightedScore / totalWeight;
-        } else {
-            weightedScore = 5000; // Default 50%
+        // Divide by 10000 to get final score in 0-10000 range
+        weightedScore = totalWeightedScore / 10000;
+        
+        // Cap at 10000
+        if (weightedScore > 10000) {
+            weightedScore = 10000;
         }
     }
 
@@ -874,6 +1060,55 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         return allProposalIds;
     }
 
+    /**
+     * @notice Check if quorum is reached for a proposal
+     */
+    function isQuorumReached(bytes32 proposalId) external view returns (bool reached, uint256 currentStake, uint256 currentVoters) {
+        Proposal storage p = proposals[proposalId];
+        currentStake = p.forStake + p.againstStake;
+        currentVoters = p.forCount + p.againstCount;
+        reached = currentStake >= MIN_QUORUM_STAKE && currentVoters >= MIN_QUORUM_VOTERS;
+    }
+
+    /**
+     * @notice Get claimable amount for a user on a proposal
+     */
+    function getClaimableAmount(bytes32 proposalId, address user) external view returns (uint256) {
+        Proposal storage p = proposals[proposalId];
+        if (p.status != ProposalStatus.EXECUTED && 
+            p.status != ProposalStatus.REJECTED &&
+            p.status != ProposalStatus.CANCELLED) {
+            return 0;
+        }
+
+        uint256 total = 0;
+
+        // Proposer claim
+        if (user == p.proposer && !p.proposerClaimed) {
+            total += _calculateProposerClaim(p);
+        }
+
+        // Vote claim
+        if (hasVoted[proposalId][user]) {
+            uint256 voteIndex = userVoteIndex[proposalId][user];
+            Vote storage v = proposalVotes[proposalId][voteIndex];
+            if (!v.claimed) {
+                total += _calculateVoteClaim(p, v);
+            }
+        }
+
+        // Opinion claim
+        if (hasOpined[proposalId][user]) {
+            uint256 opinionIndex = userOpinionIndex[proposalId][user];
+            Opinion storage o = proposalOpinions[proposalId][opinionIndex];
+            if (!o.claimed && o.stake > 0) {
+                total += _calculateOpinionClaim(p, o);
+            }
+        }
+
+        return total;
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     //                         ADMIN FUNCTIONS
     // ═══════════════════════════════════════════════════════════════════════
@@ -915,18 +1150,40 @@ contract ReputationProviderRegistry is Ownable, Pausable, ReentrancyGuard {
         _unpause();
     }
 
-    function withdrawFees() external onlyOwner {
-        uint256 balance = address(this).balance;
-        if (balance > 0) {
-            (bool success,) = treasury.call{value: balance}("");
-            require(success, "Transfer failed");
-        }
+    function withdrawProtocolFees() external onlyOwner {
+        uint256 amount = totalProtocolFees;
+        if (amount == 0) revert NothingToClaim();
+        
+        totalProtocolFees = 0;
+        
+        (bool success,) = treasury.call{value: amount}("");
+        require(success, "Transfer failed");
+        
+        emit ProtocolFeesWithdrawn(treasury, amount);
+    }
+
+    /**
+     * @notice Emergency function for council to reject stuck proposals
+     * @dev Only for proposals stuck in COUNCIL_REVIEW for too long
+     */
+    function emergencyRejectProposal(bytes32 proposalId, string calldata reason) external onlyOwner {
+        Proposal storage p = proposals[proposalId];
+        if (p.createdAt == 0) revert ProposalNotFound();
+        if (p.status != ProposalStatus.COUNCIL_REVIEW) revert ProposalNotInReview();
+        
+        // Must be stuck for at least 30 days
+        require(block.timestamp > p.challengeEnds + 30 days, "Not stuck long enough");
+
+        ProposalStatus oldStatus = p.status;
+        p.status = ProposalStatus.REJECTED;
+        p.councilReason = reason;
+        
+        emit ProposalStatusChanged(proposalId, oldStatus, ProposalStatus.REJECTED);
     }
 
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 
     receive() external payable {}
 }
-

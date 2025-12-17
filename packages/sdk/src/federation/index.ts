@@ -9,7 +9,7 @@
  * 
  * @example
  * ```typescript
- * import { createFederationClient } from '@jejunetwork/sdk/federation';
+ * import { createFederationClient } from '@jejunetwork/sdk';
  * 
  * const federation = await createFederationClient({
  *   hubRpc: 'https://eth.llamarpc.com',

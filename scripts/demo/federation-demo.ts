@@ -309,7 +309,7 @@ async function main() {
   console.log('\n✅ Federation demo complete!\n');
   console.log('Next steps:');
   console.log('  1. Deploy to testnet: bun run scripts/deploy-federation.ts --network testnet');
-  console.log('  2. Use SDK: import { createFederationClient } from "@jejunetwork/sdk/federation"');
+  console.log('  2. Use SDK: import { createFederationClient } from "@jejunetwork/sdk"');
   console.log('  3. Run CLI: jeju federation status');
 }
 

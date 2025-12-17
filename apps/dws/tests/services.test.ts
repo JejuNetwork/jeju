@@ -73,7 +73,7 @@ describe('DWS Services', () => {
     const testContent = 'Hello, DWS S3!';
 
     test('list buckets (empty)', async () => {
-      const response = await fetch(`${BASE_URL}/s3/`);
+      const response = await fetch(`${BASE_URL}/s3`);
       expect(response.ok).toBe(true);
       
       const data = await response.json();
@@ -319,7 +319,7 @@ describe('DWS Services', () => {
 
   describe('Workers API', () => {
     test('list functions (empty)', async () => {
-      const response = await fetch(`${BASE_URL}/workers/`);
+      const response = await fetch(`${BASE_URL}/workers`);
       expect(response.ok).toBe(true);
       
       const data = await response.json();

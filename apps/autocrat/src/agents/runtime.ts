@@ -1,9 +1,10 @@
 /**
  * Autocrat Agent Runtime Manager - Multi-tenant DAO governance with ElizaOS
- * Uses DWS for decentralized compute - no local LLM fallbacks
+ * Uses DWS for decentralized compute - automatically configured per network.
  */
 
 import { AgentRuntime, type Character, type UUID, type Plugin } from '@elizaos/core';
+import { getDWSUrl, getDWSComputeUrl, getCurrentNetwork } from '@jejunetwork/config';
 import { autocratAgentTemplates, ceoAgent, type AutocratAgentTemplate } from './templates';
 import { autocratPlugin } from './autocrat-plugin';
 import { ceoPlugin } from './ceo-plugin';
@@ -55,18 +56,22 @@ interface CEOPersonaConfig {
   decisionStyle: string;
 }
 
-// ============ DWS Compute ============
+// ============ DWS Compute - Network aware ============
 
-const DWS_URL = process.env.DWS_URL ?? 'http://localhost:4030';
-const DWS_COMPUTE = `${DWS_URL}/compute`;
+// DWS URL is automatically resolved from network config
+function getDWSEndpoint(): string {
+  return getDWSComputeUrl();
+}
 
 export async function checkDWSCompute(): Promise<boolean> {
-  const r = await fetch(`${DWS_COMPUTE}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+  const endpoint = getDWSEndpoint();
+  const r = await fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
   return r?.ok ?? false;
 }
 
 export async function dwsGenerate(prompt: string, system: string, maxTokens = 500): Promise<string> {
-  const r = await fetch(`${DWS_COMPUTE}/chat`, {
+  const endpoint = getDWSEndpoint();
+  const r = await fetch(`${endpoint}/chat`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -78,7 +83,10 @@ export async function dwsGenerate(prompt: string, system: string, maxTokens = 50
       max_tokens: maxTokens,
     }),
   });
-  if (!r.ok) throw new Error(`DWS compute error: ${r.status}`);
+  if (!r.ok) {
+    const network = getCurrentNetwork();
+    throw new Error(`DWS compute error (network: ${network}): ${r.status}`);
+  }
   const data = (await r.json()) as { choices?: Array<{ message?: { content: string } }>; content?: string };
   return data.choices?.[0]?.message?.content ?? data.content ?? '';
 }
@@ -293,7 +301,11 @@ export class AutocratAgentRuntimeManager {
     }
 
     if (!this.dwsAvailable) {
-      throw new Error('DWS compute is required for agent deliberation.\n' + 'Set DWS_URL or start: docker compose up -d');
+      const network = getCurrentNetwork();
+      throw new Error(
+        `DWS compute is required for agent deliberation (network: ${network}).\n` +
+        'Ensure DWS is running: docker compose up -d dws'
+      );
     }
 
     // Build context-aware prompt
@@ -348,7 +360,11 @@ Include a confidence score (0-100) for your assessment.`;
     }
 
     if (!this.dwsAvailable) {
-      throw new Error('DWS compute is required for CEO decision.\n' + 'Set DWS_URL or start: docker compose up -d');
+      const network = getCurrentNetwork();
+      throw new Error(
+        `DWS compute is required for CEO decision (network: ${network}).\n` +
+        'Ensure DWS is running: docker compose up -d dws'
+      );
     }
 
     // Get persona-specific config

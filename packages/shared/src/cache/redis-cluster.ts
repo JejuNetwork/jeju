@@ -1,171 +1,144 @@
 /**
- * Redis Cluster Client
- * 
- * Provides high-performance caching with:
- * - Automatic sharding across nodes
+ * Redis Cluster Client - Production Implementation
+ *
+ * Uses ioredis for actual Redis Cluster connectivity with:
+ * - Automatic sharding via cluster mode
  * - Read replica routing
  * - Connection pooling
- * - Failover handling
- * - TEE-backed encryption (optional)
- * 
- * Compatible with both Redis Cluster and AWS ElastiCache.
+ * - Pipeline support for batch operations
+ * - AES-256-GCM encryption for sensitive data
+ * - Circuit breaker for fault tolerance
+ * - Prometheus metrics export
  */
 
+import { Cluster, Redis } from 'ioredis';
 import { createHash, randomBytes, createCipheriv, createDecipheriv } from 'crypto';
+import { Registry, Counter, Histogram, Gauge } from 'prom-client';
+import { z } from 'zod';
 
 // ============================================================================
-// Types
+// Configuration Schema
 // ============================================================================
 
-export interface RedisClusterConfig {
-  nodes: RedisNode[];
-  password?: string;
-  tls?: boolean;
-  poolSize: number;
-  connectTimeout: number;
-  commandTimeout: number;
-  retries: number;
-  enableReadReplicas: boolean;
-  keyPrefix: string;
-  encryptionKey?: string;  // 32 bytes hex for AES-256
-}
+const RedisNodeSchema = z.object({
+  host: z.string(),
+  port: z.number().min(1).max(65535),
+});
 
-export interface RedisNode {
-  host: string;
-  port: number;
-  role: 'primary' | 'replica';
-  slotStart?: number;
-  slotEnd?: number;
-}
+const RedisClusterConfigSchema = z.object({
+  nodes: z.array(RedisNodeSchema).min(1),
+  password: z.string().optional(),
+  tls: z.boolean().default(false),
+  connectTimeout: z.number().default(5000),
+  commandTimeout: z.number().default(5000),
+  maxRetriesPerRequest: z.number().default(3),
+  enableReadFromReplicas: z.boolean().default(true),
+  keyPrefix: z.string().default(''),
+  encryptionKey: z.string().length(64).optional(), // 32 bytes hex
+  enableOfflineQueue: z.boolean().default(true),
+  lazyConnect: z.boolean().default(false),
+});
 
-interface CacheEntry {
-  value: string;
-  ttl: number;
-  createdAt: number;
-  encrypted?: boolean;
-}
-
-interface ClusterStats {
-  nodes: number;
-  primaryNodes: number;
-  replicaNodes: number;
-  connectedNodes: number;
-  totalKeys: number;
-  memoryUsedBytes: number;
-  hits: number;
-  misses: number;
-  hitRate: number;
-}
+export type RedisClusterConfig = z.infer<typeof RedisClusterConfigSchema>;
 
 // ============================================================================
-// Hash Slot Calculation
+// Prometheus Metrics
 // ============================================================================
 
-const CRC16_TABLE = new Uint16Array(256);
-(() => {
-  for (let i = 0; i < 256; i++) {
-    let crc = i << 8;
-    for (let j = 0; j < 8; j++) {
-      crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
-    }
-    CRC16_TABLE[i] = crc & 0xFFFF;
-  }
-})();
+const metricsRegistry = new Registry();
 
-function crc16(data: Buffer): number {
-  let crc = 0;
-  for (const byte of data) {
-    crc = ((crc << 8) ^ CRC16_TABLE[((crc >> 8) ^ byte) & 0xFF]) & 0xFFFF;
-  }
-  return crc;
-}
+const redisOperationsTotal = new Counter({
+  name: 'redis_operations_total',
+  help: 'Total Redis operations',
+  labelNames: ['operation', 'status'],
+  registers: [metricsRegistry],
+});
 
-function calculateSlot(key: string): number {
-  // Check for hash tag {xxx}
-  const start = key.indexOf('{');
-  const end = key.indexOf('}', start + 1);
-  
-  const hashKey = start !== -1 && end !== -1 && end > start + 1
-    ? key.slice(start + 1, end)
-    : key;
-  
-  return crc16(Buffer.from(hashKey)) % 16384;
-}
+const redisOperationDuration = new Histogram({
+  name: 'redis_operation_duration_seconds',
+  help: 'Redis operation duration',
+  labelNames: ['operation'],
+  buckets: [0.001, 0.005, 0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1],
+  registers: [metricsRegistry],
+});
+
+const redisConnectionsGauge = new Gauge({
+  name: 'redis_connections_active',
+  help: 'Active Redis connections',
+  labelNames: ['node'],
+  registers: [metricsRegistry],
+});
+
+const redisCacheHits = new Counter({
+  name: 'redis_cache_hits_total',
+  help: 'Redis cache hits',
+  registers: [metricsRegistry],
+});
+
+const redisCacheMisses = new Counter({
+  name: 'redis_cache_misses_total',
+  help: 'Redis cache misses',
+  registers: [metricsRegistry],
+});
 
 // ============================================================================
-// Connection Pool
+// Circuit Breaker
 // ============================================================================
 
-interface Connection {
-  id: string;
-  node: RedisNode;
-  socket: WritableStream | null;
-  inUse: boolean;
-  lastUsed: number;
-  commands: number;
+interface CircuitBreakerState {
+  failures: number;
+  lastFailure: number;
+  state: 'closed' | 'open' | 'half-open';
 }
 
-class ConnectionPool {
-  private connections: Map<string, Connection[]> = new Map();
-  private config: RedisClusterConfig;
+class CircuitBreaker {
+  private state: CircuitBreakerState = {
+    failures: 0,
+    lastFailure: 0,
+    state: 'closed',
+  };
+  private readonly threshold: number;
+  private readonly resetTimeout: number;
 
-  constructor(config: RedisClusterConfig) {
-    this.config = config;
+  constructor(threshold = 5, resetTimeout = 30000) {
+    this.threshold = threshold;
+    this.resetTimeout = resetTimeout;
   }
 
-  async getConnection(node: RedisNode, forWrite: boolean): Promise<Connection> {
-    const nodeKey = `${node.host}:${node.port}`;
-    
-    if (!this.connections.has(nodeKey)) {
-      this.connections.set(nodeKey, []);
-    }
-    
-    const pool = this.connections.get(nodeKey)!;
-    
-    // Find available connection
-    let conn = pool.find(c => !c.inUse);
-    
-    if (!conn && pool.length < this.config.poolSize) {
-      // Create new connection
-      conn = await this.createConnection(node);
-      pool.push(conn);
-    }
-    
-    if (!conn) {
-      // Wait for a connection
-      await new Promise(resolve => setTimeout(resolve, 10));
-      return this.getConnection(node, forWrite);
-    }
-    
-    conn.inUse = true;
-    conn.lastUsed = Date.now();
-    return conn;
-  }
-
-  releaseConnection(conn: Connection): void {
-    conn.inUse = false;
-  }
-
-  private async createConnection(node: RedisNode): Promise<Connection> {
-    // In production, use actual TCP socket or Redis client
-    // This is a simplified mock for demonstration
-    return {
-      id: randomBytes(8).toString('hex'),
-      node,
-      socket: null,
-      inUse: false,
-      lastUsed: Date.now(),
-      commands: 0,
-    };
-  }
-
-  async close(): Promise<void> {
-    for (const pool of this.connections.values()) {
-      for (const conn of pool) {
-        // Close socket
+  async execute<T>(fn: () => Promise<T>): Promise<T> {
+    if (this.state.state === 'open') {
+      if (Date.now() - this.state.lastFailure > this.resetTimeout) {
+        this.state.state = 'half-open';
+      } else {
+        throw new Error('Circuit breaker is open');
       }
     }
-    this.connections.clear();
+
+    try {
+      const result = await fn();
+      this.onSuccess();
+      return result;
+    } catch (error) {
+      this.onFailure();
+      throw error;
+    }
+  }
+
+  private onSuccess(): void {
+    this.state.failures = 0;
+    this.state.state = 'closed';
+  }
+
+  private onFailure(): void {
+    this.state.failures++;
+    this.state.lastFailure = Date.now();
+    if (this.state.failures >= this.threshold) {
+      this.state.state = 'open';
+    }
+  }
+
+  getState(): CircuitBreakerState['state'] {
+    return this.state.state;
   }
 }
 
@@ -174,85 +147,73 @@ class ConnectionPool {
 // ============================================================================
 
 export class RedisClusterClient {
+  private cluster: Cluster;
   private config: RedisClusterConfig;
-  private pool: ConnectionPool;
-  private slots: Map<number, RedisNode> = new Map();
-  private replicas: Map<string, RedisNode[]> = new Map();
-  private localCache: Map<string, CacheEntry> = new Map();
-  private stats = { hits: 0, misses: 0 };
+  private circuitBreaker: CircuitBreaker;
+  private encryptionKey: Buffer | null = null;
 
   constructor(config: Partial<RedisClusterConfig>) {
-    this.config = {
-      nodes: config.nodes ?? [{ host: 'localhost', port: 6379, role: 'primary' }],
-      password: config.password,
-      tls: config.tls ?? false,
-      poolSize: config.poolSize ?? 10,
-      connectTimeout: config.connectTimeout ?? 5000,
-      commandTimeout: config.commandTimeout ?? 5000,
-      retries: config.retries ?? 3,
-      enableReadReplicas: config.enableReadReplicas ?? true,
-      keyPrefix: config.keyPrefix ?? '',
-      encryptionKey: config.encryptionKey,
-    };
+    // Validate configuration
+    this.config = RedisClusterConfigSchema.parse({
+      nodes: config.nodes ?? [{ host: 'localhost', port: 6379 }],
+      ...config,
+    });
 
-    this.pool = new ConnectionPool(this.config);
-    this.initializeSlots();
-  }
+    // Setup encryption key if provided
+    if (this.config.encryptionKey) {
+      this.encryptionKey = Buffer.from(this.config.encryptionKey, 'hex');
+    }
 
-  private initializeSlots(): void {
-    // Distribute slots across primary nodes
-    const primaryNodes = this.config.nodes.filter(n => n.role === 'primary');
-    const slotsPerNode = Math.ceil(16384 / primaryNodes.length);
+    // Initialize circuit breaker
+    this.circuitBreaker = new CircuitBreaker(5, 30000);
 
-    for (let i = 0; i < primaryNodes.length; i++) {
-      const node = primaryNodes[i];
-      const start = i * slotsPerNode;
-      const end = Math.min((i + 1) * slotsPerNode - 1, 16383);
-
-      node.slotStart = start;
-      node.slotEnd = end;
-
-      for (let slot = start; slot <= end; slot++) {
-        this.slots.set(slot, node);
+    // Create Redis Cluster connection
+    this.cluster = new Cluster(
+      this.config.nodes.map((n) => ({ host: n.host, port: n.port })),
+      {
+        redisOptions: {
+          password: this.config.password,
+          tls: this.config.tls ? {} : undefined,
+          connectTimeout: this.config.connectTimeout,
+          commandTimeout: this.config.commandTimeout,
+          maxRetriesPerRequest: this.config.maxRetriesPerRequest,
+          keyPrefix: this.config.keyPrefix,
+          enableOfflineQueue: this.config.enableOfflineQueue,
+          lazyConnect: this.config.lazyConnect,
+        },
+        scaleReads: this.config.enableReadFromReplicas ? 'slave' : 'master',
+        enableReadyCheck: true,
+        maxRedirections: 16,
+        retryDelayOnFailover: 100,
+        retryDelayOnClusterDown: 100,
+        retryDelayOnTryAgain: 100,
       }
-    }
+    );
 
-    // Group replicas by primary
-    for (const node of this.config.nodes.filter(n => n.role === 'replica')) {
-      // In a real implementation, replicas would be associated with their primary
-      // For simplicity, round-robin assign replicas to primaries
-      for (const primary of primaryNodes) {
-        const key = `${primary.host}:${primary.port}`;
-        if (!this.replicas.has(key)) {
-          this.replicas.set(key, []);
-        }
-        this.replicas.get(key)!.push(node);
-        break;
-      }
-    }
-  }
+    // Setup event handlers
+    this.cluster.on('connect', () => {
+      console.log('[Redis] Connected to cluster');
+    });
 
-  private getNodeForKey(key: string, forWrite: boolean): RedisNode {
-    const slot = calculateSlot(this.config.keyPrefix + key);
-    const primary = this.slots.get(slot);
+    this.cluster.on('ready', () => {
+      console.log('[Redis] Cluster ready');
+    });
 
-    if (!primary) {
-      throw new Error(`No node for slot ${slot}`);
-    }
+    this.cluster.on('error', (err) => {
+      console.error('[Redis] Cluster error:', err.message);
+    });
 
-    // For reads, optionally use replicas
-    if (!forWrite && this.config.enableReadReplicas) {
-      const primaryKey = `${primary.host}:${primary.port}`;
-      const nodeReplicas = this.replicas.get(primaryKey);
-      
-      if (nodeReplicas && nodeReplicas.length > 0) {
-        // Round-robin or random selection
-        const replica = nodeReplicas[Math.floor(Math.random() * nodeReplicas.length)];
-        return replica;
-      }
-    }
+    this.cluster.on('close', () => {
+      console.log('[Redis] Cluster connection closed');
+    });
 
-    return primary;
+    this.cluster.on('+node', (node) => {
+      redisConnectionsGauge.inc({ node: `${node.options.host}:${node.options.port}` });
+    });
+
+    this.cluster.on('-node', (node) => {
+      redisConnectionsGauge.dec({ node: `${node.options.host}:${node.options.port}` });
+    });
   }
 
   // ============================================================================
@@ -260,355 +221,536 @@ export class RedisClusterClient {
   // ============================================================================
 
   async get(key: string): Promise<string | null> {
-    const prefixedKey = this.config.keyPrefix + key;
-
-    // Check local cache first
-    const cached = this.localCache.get(prefixedKey);
-    if (cached && cached.createdAt + cached.ttl * 1000 > Date.now()) {
-      this.stats.hits++;
-      return this.maybeDecrypt(cached.value, cached.encrypted);
-    }
-
-    const node = this.getNodeForKey(key, false);
-    const conn = await this.pool.getConnection(node, false);
+    const timer = redisOperationDuration.startTimer({ operation: 'get' });
 
     try {
-      // Execute GET command
-      const value = await this.executeCommand(conn, ['GET', prefixedKey]);
-      
-      if (value === null) {
-        this.stats.misses++;
+      const result = await this.circuitBreaker.execute(() => this.cluster.get(key));
+      redisOperationsTotal.inc({ operation: 'get', status: 'success' });
+
+      if (result === null) {
+        redisCacheMisses.inc();
         return null;
       }
 
-      this.stats.hits++;
-      return this.maybeDecrypt(value, true);
+      redisCacheHits.inc();
+      return this.decrypt(result);
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'get', status: 'error' });
+      throw error;
     } finally {
-      this.pool.releaseConnection(conn);
+      timer();
     }
   }
 
-  async set(key: string, value: string, ttl?: number): Promise<void> {
-    const prefixedKey = this.config.keyPrefix + key;
-    const encryptedValue = this.maybeEncrypt(value);
-
-    const node = this.getNodeForKey(key, true);
-    const conn = await this.pool.getConnection(node, true);
+  async set(key: string, value: string, ttlSeconds?: number): Promise<void> {
+    const timer = redisOperationDuration.startTimer({ operation: 'set' });
+    const encryptedValue = this.encrypt(value);
 
     try {
-      const args = ['SET', prefixedKey, encryptedValue];
-      if (ttl) {
-        args.push('EX', ttl.toString());
-      }
-
-      await this.executeCommand(conn, args);
-
-      // Update local cache
-      this.localCache.set(prefixedKey, {
-        value: encryptedValue,
-        ttl: ttl ?? 3600,
-        createdAt: Date.now(),
-        encrypted: !!this.config.encryptionKey,
+      await this.circuitBreaker.execute(async () => {
+        if (ttlSeconds) {
+          await this.cluster.setex(key, ttlSeconds, encryptedValue);
+        } else {
+          await this.cluster.set(key, encryptedValue);
+        }
       });
+      redisOperationsTotal.inc({ operation: 'set', status: 'success' });
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'set', status: 'error' });
+      throw error;
     } finally {
-      this.pool.releaseConnection(conn);
+      timer();
     }
   }
 
   async delete(key: string): Promise<boolean> {
-    const prefixedKey = this.config.keyPrefix + key;
-
-    const node = this.getNodeForKey(key, true);
-    const conn = await this.pool.getConnection(node, true);
+    const timer = redisOperationDuration.startTimer({ operation: 'delete' });
 
     try {
-      const result = await this.executeCommand(conn, ['DEL', prefixedKey]);
-      this.localCache.delete(prefixedKey);
-      return result === 1;
+      const result = await this.circuitBreaker.execute(() => this.cluster.del(key));
+      redisOperationsTotal.inc({ operation: 'delete', status: 'success' });
+      return result > 0;
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'delete', status: 'error' });
+      throw error;
     } finally {
-      this.pool.releaseConnection(conn);
+      timer();
     }
   }
 
-  async mget(keys: string[]): Promise<Map<string, string | null>> {
-    const results = new Map<string, string | null>();
-
-    // Group keys by node
-    const nodeKeys = new Map<string, string[]>();
-    for (const key of keys) {
-      const node = this.getNodeForKey(key, false);
-      const nodeKey = `${node.host}:${node.port}`;
-      
-      if (!nodeKeys.has(nodeKey)) {
-        nodeKeys.set(nodeKey, []);
-      }
-      nodeKeys.get(nodeKey)!.push(key);
-    }
-
-    // Execute MGET on each node
-    await Promise.all(
-      Array.from(nodeKeys.entries()).map(async ([nodeKey, nodeKeyList]) => {
-        const node = this.config.nodes.find(
-          n => `${n.host}:${n.port}` === nodeKey
-        );
-        if (!node) return;
-
-        const conn = await this.pool.getConnection(node, false);
-        try {
-          const prefixedKeys = nodeKeyList.map(k => this.config.keyPrefix + k);
-          const values = await this.executeCommand(conn, ['MGET', ...prefixedKeys]);
-
-          for (let i = 0; i < nodeKeyList.length; i++) {
-            const value = Array.isArray(values) ? values[i] : null;
-            results.set(nodeKeyList[i], value ? this.maybeDecrypt(value, true) : null);
-          }
-        } finally {
-          this.pool.releaseConnection(conn);
-        }
-      })
-    );
-
-    return results;
-  }
-
-  async mset(entries: Array<{ key: string; value: string; ttl?: number }>): Promise<void> {
-    // Group entries by node
-    const nodeEntries = new Map<string, typeof entries>();
-    for (const entry of entries) {
-      const node = this.getNodeForKey(entry.key, true);
-      const nodeKey = `${node.host}:${node.port}`;
-      
-      if (!nodeEntries.has(nodeKey)) {
-        nodeEntries.set(nodeKey, []);
-      }
-      nodeEntries.get(nodeKey)!.push(entry);
-    }
-
-    // Execute on each node
-    await Promise.all(
-      Array.from(nodeEntries.entries()).map(async ([nodeKey, nodeEntriesList]) => {
-        const node = this.config.nodes.find(
-          n => `${n.host}:${n.port}` === nodeKey
-        );
-        if (!node) return;
-
-        const conn = await this.pool.getConnection(node, true);
-        try {
-          // Use pipeline for efficiency
-          for (const entry of nodeEntriesList) {
-            const prefixedKey = this.config.keyPrefix + entry.key;
-            const encryptedValue = this.maybeEncrypt(entry.value);
-
-            const args = ['SET', prefixedKey, encryptedValue];
-            if (entry.ttl) {
-              args.push('EX', entry.ttl.toString());
-            }
-
-            await this.executeCommand(conn, args);
-
-            this.localCache.set(prefixedKey, {
-              value: encryptedValue,
-              ttl: entry.ttl ?? 3600,
-              createdAt: Date.now(),
-              encrypted: !!this.config.encryptionKey,
-            });
-          }
-        } finally {
-          this.pool.releaseConnection(conn);
-        }
-      })
-    );
-  }
-
-  async expire(key: string, ttl: number): Promise<boolean> {
-    const prefixedKey = this.config.keyPrefix + key;
-
-    const node = this.getNodeForKey(key, true);
-    const conn = await this.pool.getConnection(node, true);
+  async exists(key: string): Promise<boolean> {
+    const timer = redisOperationDuration.startTimer({ operation: 'exists' });
 
     try {
-      const result = await this.executeCommand(conn, ['EXPIRE', prefixedKey, ttl.toString()]);
-      return result === 1;
+      const result = await this.circuitBreaker.execute(() => this.cluster.exists(key));
+      redisOperationsTotal.inc({ operation: 'exists', status: 'success' });
+      return result > 0;
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'exists', status: 'error' });
+      throw error;
     } finally {
-      this.pool.releaseConnection(conn);
+      timer();
     }
   }
 
   async ttl(key: string): Promise<number> {
-    const prefixedKey = this.config.keyPrefix + key;
-
-    const node = this.getNodeForKey(key, false);
-    const conn = await this.pool.getConnection(node, false);
+    const timer = redisOperationDuration.startTimer({ operation: 'ttl' });
 
     try {
-      return await this.executeCommand(conn, ['TTL', prefixedKey]);
+      const result = await this.circuitBreaker.execute(() => this.cluster.ttl(key));
+      redisOperationsTotal.inc({ operation: 'ttl', status: 'success' });
+      return result;
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'ttl', status: 'error' });
+      throw error;
     } finally {
-      this.pool.releaseConnection(conn);
+      timer();
     }
   }
 
-  async clear(): Promise<void> {
-    // Clear local cache
-    this.localCache.clear();
+  async expire(key: string, ttlSeconds: number): Promise<boolean> {
+    const timer = redisOperationDuration.startTimer({ operation: 'expire' });
 
-    // FLUSHDB on each primary node
-    const primaryNodes = this.config.nodes.filter(n => n.role === 'primary');
-    
-    await Promise.all(
-      primaryNodes.map(async (node) => {
-        const conn = await this.pool.getConnection(node, true);
-        try {
-          await this.executeCommand(conn, ['FLUSHDB']);
-        } finally {
-          this.pool.releaseConnection(conn);
-        }
-      })
-    );
+    try {
+      const result = await this.circuitBreaker.execute(() =>
+        this.cluster.expire(key, ttlSeconds)
+      );
+      redisOperationsTotal.inc({ operation: 'expire', status: 'success' });
+      return result === 1;
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'expire', status: 'error' });
+      throw error;
+    } finally {
+      timer();
+    }
   }
 
   // ============================================================================
-  // Stats
+  // Batch Operations with Pipelining
   // ============================================================================
 
-  async getStats(): Promise<ClusterStats> {
-    const primaryNodes = this.config.nodes.filter(n => n.role === 'primary');
-    const replicaNodes = this.config.nodes.filter(n => n.role === 'replica');
+  async mget(keys: string[]): Promise<Map<string, string | null>> {
+    if (keys.length === 0) return new Map();
 
-    let totalKeys = 0;
-    let memoryUsed = 0;
+    const timer = redisOperationDuration.startTimer({ operation: 'mget' });
 
-    // Query each primary for stats
-    for (const node of primaryNodes) {
-      const conn = await this.pool.getConnection(node, false);
-      try {
-        const info = await this.executeCommand(conn, ['INFO', 'memory']);
-        // Parse info string for memory stats
-        // Simplified
-      } finally {
-        this.pool.releaseConnection(conn);
+    try {
+      // Group keys by slot for optimal routing
+      const slotGroups = this.groupKeysBySlot(keys);
+      const results = new Map<string, string | null>();
+
+      // Execute pipelined MGET for each slot group
+      await Promise.all(
+        Array.from(slotGroups.entries()).map(async ([_slot, slotKeys]) => {
+          const pipeline = this.cluster.pipeline();
+
+          for (const key of slotKeys) {
+            pipeline.get(key);
+          }
+
+          const pipelineResults = await pipeline.exec();
+
+          if (pipelineResults) {
+            for (let i = 0; i < slotKeys.length; i++) {
+              const [err, value] = pipelineResults[i];
+              if (err) {
+                results.set(slotKeys[i], null);
+              } else {
+                const decrypted = value ? this.decrypt(value as string) : null;
+                results.set(slotKeys[i], decrypted);
+                if (decrypted) {
+                  redisCacheHits.inc();
+                } else {
+                  redisCacheMisses.inc();
+                }
+              }
+            }
+          }
+        })
+      );
+
+      redisOperationsTotal.inc({ operation: 'mget', status: 'success' });
+      return results;
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'mget', status: 'error' });
+      throw error;
+    } finally {
+      timer();
+    }
+  }
+
+  async mset(entries: Array<{ key: string; value: string; ttl?: number }>): Promise<void> {
+    if (entries.length === 0) return;
+
+    const timer = redisOperationDuration.startTimer({ operation: 'mset' });
+
+    try {
+      // Group by slot
+      const slotGroups = this.groupEntriesBySlot(entries);
+
+      await Promise.all(
+        Array.from(slotGroups.entries()).map(async ([_slot, slotEntries]) => {
+          const pipeline = this.cluster.pipeline();
+
+          for (const entry of slotEntries) {
+            const encrypted = this.encrypt(entry.value);
+            if (entry.ttl) {
+              pipeline.setex(entry.key, entry.ttl, encrypted);
+            } else {
+              pipeline.set(entry.key, encrypted);
+            }
+          }
+
+          await pipeline.exec();
+        })
+      );
+
+      redisOperationsTotal.inc({ operation: 'mset', status: 'success' });
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'mset', status: 'error' });
+      throw error;
+    } finally {
+      timer();
+    }
+  }
+
+  async mdelete(keys: string[]): Promise<number> {
+    if (keys.length === 0) return 0;
+
+    const timer = redisOperationDuration.startTimer({ operation: 'mdelete' });
+
+    try {
+      const slotGroups = this.groupKeysBySlot(keys);
+      let deleted = 0;
+
+      await Promise.all(
+        Array.from(slotGroups.entries()).map(async ([_slot, slotKeys]) => {
+          const pipeline = this.cluster.pipeline();
+
+          for (const key of slotKeys) {
+            pipeline.del(key);
+          }
+
+          const results = await pipeline.exec();
+          if (results) {
+            for (const [err, count] of results) {
+              if (!err && typeof count === 'number') {
+                deleted += count;
+              }
+            }
+          }
+        })
+      );
+
+      redisOperationsTotal.inc({ operation: 'mdelete', status: 'success' });
+      return deleted;
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'mdelete', status: 'error' });
+      throw error;
+    } finally {
+      timer();
+    }
+  }
+
+  // ============================================================================
+  // Hash Operations
+  // ============================================================================
+
+  async hget(key: string, field: string): Promise<string | null> {
+    const timer = redisOperationDuration.startTimer({ operation: 'hget' });
+
+    try {
+      const result = await this.circuitBreaker.execute(() => this.cluster.hget(key, field));
+      redisOperationsTotal.inc({ operation: 'hget', status: 'success' });
+      return result ? this.decrypt(result) : null;
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'hget', status: 'error' });
+      throw error;
+    } finally {
+      timer();
+    }
+  }
+
+  async hset(key: string, field: string, value: string): Promise<void> {
+    const timer = redisOperationDuration.startTimer({ operation: 'hset' });
+
+    try {
+      const encrypted = this.encrypt(value);
+      await this.circuitBreaker.execute(() => this.cluster.hset(key, field, encrypted));
+      redisOperationsTotal.inc({ operation: 'hset', status: 'success' });
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'hset', status: 'error' });
+      throw error;
+    } finally {
+      timer();
+    }
+  }
+
+  async hgetall(key: string): Promise<Record<string, string>> {
+    const timer = redisOperationDuration.startTimer({ operation: 'hgetall' });
+
+    try {
+      const result = await this.circuitBreaker.execute(() => this.cluster.hgetall(key));
+      redisOperationsTotal.inc({ operation: 'hgetall', status: 'success' });
+
+      const decrypted: Record<string, string> = {};
+      for (const [field, value] of Object.entries(result)) {
+        decrypted[field] = this.decrypt(value);
       }
+      return decrypted;
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'hgetall', status: 'error' });
+      throw error;
+    } finally {
+      timer();
     }
+  }
 
-    const total = this.stats.hits + this.stats.misses;
+  // ============================================================================
+  // List Operations
+  // ============================================================================
+
+  async lpush(key: string, ...values: string[]): Promise<number> {
+    const timer = redisOperationDuration.startTimer({ operation: 'lpush' });
+
+    try {
+      const encrypted = values.map((v) => this.encrypt(v));
+      const result = await this.circuitBreaker.execute(() =>
+        this.cluster.lpush(key, ...encrypted)
+      );
+      redisOperationsTotal.inc({ operation: 'lpush', status: 'success' });
+      return result;
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'lpush', status: 'error' });
+      throw error;
+    } finally {
+      timer();
+    }
+  }
+
+  async rpop(key: string): Promise<string | null> {
+    const timer = redisOperationDuration.startTimer({ operation: 'rpop' });
+
+    try {
+      const result = await this.circuitBreaker.execute(() => this.cluster.rpop(key));
+      redisOperationsTotal.inc({ operation: 'rpop', status: 'success' });
+      return result ? this.decrypt(result) : null;
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'rpop', status: 'error' });
+      throw error;
+    } finally {
+      timer();
+    }
+  }
+
+  async lrange(key: string, start: number, stop: number): Promise<string[]> {
+    const timer = redisOperationDuration.startTimer({ operation: 'lrange' });
+
+    try {
+      const result = await this.circuitBreaker.execute(() =>
+        this.cluster.lrange(key, start, stop)
+      );
+      redisOperationsTotal.inc({ operation: 'lrange', status: 'success' });
+      return result.map((v) => this.decrypt(v));
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'lrange', status: 'error' });
+      throw error;
+    } finally {
+      timer();
+    }
+  }
+
+  // ============================================================================
+  // Pub/Sub
+  // ============================================================================
+
+  async publish(channel: string, message: string): Promise<number> {
+    const timer = redisOperationDuration.startTimer({ operation: 'publish' });
+
+    try {
+      const result = await this.circuitBreaker.execute(() =>
+        this.cluster.publish(channel, message)
+      );
+      redisOperationsTotal.inc({ operation: 'publish', status: 'success' });
+      return result;
+    } catch (error) {
+      redisOperationsTotal.inc({ operation: 'publish', status: 'error' });
+      throw error;
+    } finally {
+      timer();
+    }
+  }
+
+  // ============================================================================
+  // Health & Metrics
+  // ============================================================================
+
+  async ping(): Promise<boolean> {
+    try {
+      const result = await this.cluster.ping();
+      return result === 'PONG';
+    } catch {
+      return false;
+    }
+  }
+
+  async getClusterInfo(): Promise<{
+    nodes: number;
+    connected: boolean;
+    circuitBreakerState: string;
+  }> {
+    const nodes = this.cluster.nodes('all');
+    const connected = await this.ping();
 
     return {
-      nodes: this.config.nodes.length,
-      primaryNodes: primaryNodes.length,
-      replicaNodes: replicaNodes.length,
-      connectedNodes: this.config.nodes.length, // Simplified
-      totalKeys,
-      memoryUsedBytes: memoryUsed,
-      hits: this.stats.hits,
-      misses: this.stats.misses,
-      hitRate: total > 0 ? this.stats.hits / total : 0,
+      nodes: nodes.length,
+      connected,
+      circuitBreakerState: this.circuitBreaker.getState(),
     };
   }
 
+  async getMetrics(): Promise<string> {
+    return metricsRegistry.metrics();
+  }
+
   // ============================================================================
-  // Helpers
+  // Lifecycle
   // ============================================================================
 
-  private async executeCommand(conn: Connection, args: string[]): Promise<string | number | null | string[]> {
-    // In production, use RESP protocol
-    // This is a mock implementation
-    conn.commands++;
-
-    // Simulate command execution
-    const command = args[0];
-    const key = args[1];
-
-    switch (command) {
-      case 'GET':
-        return this.localCache.get(key)?.value ?? null;
-      case 'SET':
-        return 'OK';
-      case 'DEL':
-        return this.localCache.delete(key) ? 1 : 0;
-      case 'EXPIRE':
-        return 1;
-      case 'TTL':
-        return -1;
-      default:
-        return null;
+  async connect(): Promise<void> {
+    if (this.config.lazyConnect) {
+      await this.cluster.connect();
     }
   }
 
-  private maybeEncrypt(value: string): string {
-    if (!this.config.encryptionKey) return value;
+  async disconnect(): Promise<void> {
+    await this.cluster.quit();
+    console.log('[Redis] Disconnected');
+  }
 
-    const key = Buffer.from(this.config.encryptionKey, 'hex');
+  // ============================================================================
+  // Private Helpers
+  // ============================================================================
+
+  private encrypt(value: string): string {
+    if (!this.encryptionKey) return value;
+
     const iv = randomBytes(16);
-    const cipher = createCipheriv('aes-256-gcm', key, iv);
-    
+    const cipher = createCipheriv('aes-256-gcm', this.encryptionKey, iv);
+
     let encrypted = cipher.update(value, 'utf8', 'hex');
     encrypted += cipher.final('hex');
     const authTag = cipher.getAuthTag();
 
-    return `${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
+    return `enc:${iv.toString('hex')}:${authTag.toString('hex')}:${encrypted}`;
   }
 
-  private maybeDecrypt(value: string, encrypted?: boolean): string {
-    if (!encrypted || !this.config.encryptionKey) return value;
+  private decrypt(value: string): string {
+    if (!this.encryptionKey || !value.startsWith('enc:')) return value;
 
     const parts = value.split(':');
-    if (parts.length !== 3) return value;
+    if (parts.length !== 4) return value;
 
-    const key = Buffer.from(this.config.encryptionKey, 'hex');
-    const iv = Buffer.from(parts[0], 'hex');
-    const authTag = Buffer.from(parts[1], 'hex');
-    const encryptedData = parts[2];
+    const iv = Buffer.from(parts[1], 'hex');
+    const authTag = Buffer.from(parts[2], 'hex');
+    const encrypted = parts[3];
 
-    const decipher = createDecipheriv('aes-256-gcm', key, iv);
+    const decipher = createDecipheriv('aes-256-gcm', this.encryptionKey, iv);
     decipher.setAuthTag(authTag);
 
-    let decrypted = decipher.update(encryptedData, 'hex', 'utf8');
+    let decrypted = decipher.update(encrypted, 'hex', 'utf8');
     decrypted += decipher.final('utf8');
 
     return decrypted;
   }
 
-  async close(): Promise<void> {
-    await this.pool.close();
+  private calculateSlot(key: string): number {
+    // Check for hash tag {xxx}
+    const start = key.indexOf('{');
+    const end = key.indexOf('}', start + 1);
+
+    const hashKey =
+      start !== -1 && end !== -1 && end > start + 1 ? key.slice(start + 1, end) : key;
+
+    return this.crc16(Buffer.from(hashKey)) % 16384;
+  }
+
+  private crc16(data: Buffer): number {
+    let crc = 0;
+    for (const byte of data) {
+      crc = ((crc << 8) ^ CRC16_TABLE[((crc >> 8) ^ byte) & 0xff]) & 0xffff;
+    }
+    return crc;
+  }
+
+  private groupKeysBySlot(keys: string[]): Map<number, string[]> {
+    const groups = new Map<number, string[]>();
+    for (const key of keys) {
+      const slot = this.calculateSlot(key);
+      const existing = groups.get(slot) ?? [];
+      existing.push(key);
+      groups.set(slot, existing);
+    }
+    return groups;
+  }
+
+  private groupEntriesBySlot(
+    entries: Array<{ key: string; value: string; ttl?: number }>
+  ): Map<number, Array<{ key: string; value: string; ttl?: number }>> {
+    const groups = new Map<number, Array<{ key: string; value: string; ttl?: number }>>();
+    for (const entry of entries) {
+      const slot = this.calculateSlot(entry.key);
+      const existing = groups.get(slot) ?? [];
+      existing.push(entry);
+      groups.set(slot, existing);
+    }
+    return groups;
   }
 }
 
+// CRC16 lookup table for Redis cluster slot calculation
+const CRC16_TABLE = new Uint16Array(256);
+(() => {
+  for (let i = 0; i < 256; i++) {
+    let crc = i << 8;
+    for (let j = 0; j < 8; j++) {
+      crc = crc & 0x8000 ? (crc << 1) ^ 0x1021 : crc << 1;
+    }
+    CRC16_TABLE[i] = crc & 0xffff;
+  }
+})();
+
 // ============================================================================
-// Factory
+// Factory with Singleton
 // ============================================================================
 
-let globalClient: RedisClusterClient | null = null;
+let instance: RedisClusterClient | null = null;
 
-export function getRedisClusterClient(config?: Partial<RedisClusterConfig>): RedisClusterClient {
-  if (!globalClient) {
-    globalClient = new RedisClusterClient({
+export function getRedisClient(config?: Partial<RedisClusterConfig>): RedisClusterClient {
+  if (!instance) {
+    instance = new RedisClusterClient({
       nodes: parseRedisNodes(process.env.REDIS_NODES ?? 'localhost:6379'),
       password: process.env.REDIS_PASSWORD,
       tls: process.env.REDIS_TLS === 'true',
-      enableReadReplicas: process.env.REDIS_ENABLE_REPLICAS !== 'false',
-      keyPrefix: process.env.REDIS_PREFIX ?? 'jeju:',
+      enableReadFromReplicas: process.env.REDIS_ENABLE_REPLICAS !== 'false',
+      keyPrefix: process.env.REDIS_KEY_PREFIX ?? 'jeju:',
       encryptionKey: process.env.REDIS_ENCRYPTION_KEY,
       ...config,
     });
   }
-  return globalClient;
+  return instance;
 }
 
-function parseRedisNodes(nodesStr: string): RedisNode[] {
-  return nodesStr.split(',').map((node, index) => {
-    const [hostPort, role] = node.split('@');
-    const [host, portStr] = hostPort.split(':');
-    return {
-      host,
-      port: parseInt(portStr) || 6379,
-      role: role === 'replica' ? 'replica' : 'primary',
-    };
+function parseRedisNodes(nodesStr: string): Array<{ host: string; port: number }> {
+  return nodesStr.split(',').map((node) => {
+    const [host, portStr] = node.trim().split(':');
+    return { host, port: parseInt(portStr) || 6379 };
   });
 }
 
-export function resetRedisClusterClient(): void {
-  if (globalClient) {
-    globalClient.close();
-    globalClient = null;
+export async function closeRedisClient(): Promise<void> {
+  if (instance) {
+    await instance.disconnect();
+    instance = null;
   }
 }
-

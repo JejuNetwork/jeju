@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "lastUpdated": "2025-12-10",
+  "version": "1.1.0",
+  "lastUpdated": "2025-12-14",
   "description": "Service URLs for Jeju networks. Env overrides: VITE_/NEXT_PUBLIC_ + SERVICE_URL (e.g., VITE_INDEXER_URL)",
   
   "localnet": {
@@ -44,6 +44,18 @@
     "crucible": {
       "api": "http://127.0.0.1:4020",
       "executor": "http://127.0.0.1:4021"
+    },
+    "cql": {
+      "blockProducer": "http://127.0.0.1:4300",
+      "miner": "http://127.0.0.1:4301"
+    },
+    "dws": {
+      "api": "http://127.0.0.1:4030",
+      "compute": "http://127.0.0.1:4030/compute"
+    },
+    "autocrat": {
+      "api": "http://127.0.0.1:4040",
+      "a2a": "http://127.0.0.1:4040/a2a"
     }
   },
   
@@ -88,6 +100,18 @@
     "crucible": {
       "api": "https://testnet-crucible.jejunetwork.org",
       "executor": "https://testnet-crucible-executor.jejunetwork.org"
+    },
+    "cql": {
+      "blockProducer": "https://testnet-cql.jejunetwork.org",
+      "miner": "https://testnet-cql-miner.jejunetwork.org"
+    },
+    "dws": {
+      "api": "https://testnet-dws.jejunetwork.org",
+      "compute": "https://testnet-dws.jejunetwork.org/compute"
+    },
+    "autocrat": {
+      "api": "https://testnet-autocrat.jejunetwork.org",
+      "a2a": "https://testnet-autocrat.jejunetwork.org/a2a"
     },
     "externalRpcs": {
       "ethSepolia": "https://ethereum-sepolia-rpc.publicnode.com",
@@ -139,6 +163,18 @@
     "crucible": {
       "api": "https://crucible.jejunetwork.org",
       "executor": "https://crucible-executor.jejunetwork.org"
+    },
+    "cql": {
+      "blockProducer": "https://cql.jejunetwork.org",
+      "miner": "https://cql-miner.jejunetwork.org"
+    },
+    "dws": {
+      "api": "https://dws.jejunetwork.org",
+      "compute": "https://dws.jejunetwork.org/compute"
+    },
+    "autocrat": {
+      "api": "https://autocrat.jejunetwork.org",
+      "a2a": "https://autocrat.jejunetwork.org/a2a"
     },
     "externalRpcs": {
       "ethereum": "https://eth.llamarpc.com",

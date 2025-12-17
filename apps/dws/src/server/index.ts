@@ -31,6 +31,7 @@ import { createKMSRouter } from './routes/kms';
 import { createVPNRouter } from './routes/vpn';
 import { createScrapingRouter } from './routes/scraping';
 import { createRPCRouter } from './routes/rpc';
+import { createEdgeRouter, handleEdgeWebSocket } from './routes/edge';
 import { createBackendManager } from '../storage/backends';
 import { initializeMarketplace } from '../api-marketplace';
 import { initializeContainerSystem } from '../containers';
@@ -220,7 +221,7 @@ app.get('/', (c) => {
     services: [
       'storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'oauth3', 
       'api-marketplace', 'containers', 's3', 'workers', 'kms', 
-      'vpn', 'scraping', 'rpc'
+      'vpn', 'scraping', 'rpc', 'edge'
     ],
     endpoints: {
       storage: '/storage/*',
@@ -240,6 +241,7 @@ app.get('/', (c) => {
       vpn: '/vpn/*',
       scraping: '/scraping/*',
       rpc: '/rpc/*',
+      edge: '/edge/*',
     },
   });
 });
@@ -263,6 +265,7 @@ app.route('/kms', createKMSRouter());
 app.route('/vpn', createVPNRouter());
 app.route('/scraping', createScrapingRouter());
 app.route('/rpc', createRPCRouter());
+app.route('/edge', createEdgeRouter());
 
 // Initialize services
 initializeMarketplace();

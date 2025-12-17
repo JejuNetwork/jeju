@@ -11,6 +11,10 @@ contract MockModerationMarketplace {
         evidenceRegistry = EvidenceRegistry(payable(_registry));
     }
 
+    function registerCase(bytes32 caseId, uint256 createdAt, uint256 endsAt) external {
+        evidenceRegistry.registerCase(caseId, createdAt, endsAt);
+    }
+
     function resolveCase(bytes32 caseId, bool outcomeWasAction) external {
         evidenceRegistry.resolveCase(caseId, outcomeWasAction);
     }
@@ -70,6 +74,9 @@ contract EvidenceRegistryTest is Test {
         );
 
         marketplace.setEvidenceRegistry(address(registry));
+
+        // Register the test case
+        marketplace.registerCase(TEST_CASE_ID, block.timestamp, block.timestamp + 7 days);
 
         // Fund test accounts
         vm.deal(alice, 10 ether);

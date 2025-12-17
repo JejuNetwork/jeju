@@ -71,3 +71,11 @@ export type { PerpMarket, PerpPosition, OpenPositionParams, ClosePositionParams 
 export { launchpadService, LaunchpadService, LaunchType } from './launchpad';
 export type { Launch, BondingCurveInfo, PresaleInfo, LaunchBondingCurveParams, LaunchICOParams } from './launchpad';
 
+// Wallet Edge (micro edge node)
+export { WalletEdgeService, getEdgeService, resetEdgeService } from './edge';
+export type { EdgeConfig, EdgeStats, CachedAsset } from './edge';
+
+// Auto-Updater
+export { UpdateService, getUpdateService, resetUpdateService } from './updater';
+export type { UpdateConfig, UpdateInfo, UpdateState, UpdateListener } from './updater';
+
