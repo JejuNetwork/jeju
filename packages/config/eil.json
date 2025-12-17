@@ -4,7 +4,7 @@
   "description": "EIL (Elastic Intent Liquidity) cross-chain configuration",
   "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
   "l2Messenger": "0x4200000000000000000000000000000000000007",
-  "supportedTokens": ["JEJU", "USDC", "USDT", "ETH", "WETH"],
+  "supportedTokens": ["JEJU", "USDC", "USDT", "ETH", "WETH", "BAT"],
   
   "localnet": {
     "hub": {
@@ -87,6 +87,21 @@
         "tokens": {
           "USDT": "0x337610d27c682E347C9cD60BD4b3b107C9d34dDd"
         }
+      },
+      "solana-devnet": {
+        "chainId": 103,
+        "name": "Solana Devnet",
+        "rpcUrl": "https://api.devnet.solana.com",
+        "type": "solana",
+        "status": "active",
+        "tokens": {
+          "USDC": "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU"
+        },
+        "programs": {
+          "tokenBridge": "TknBridge1111111111111111111111111111111111",
+          "x402Facilitator": "x4o2Faci11111111111111111111111111111111111",
+          "oifSolver": "GYSFWUUKUFAdtv1TgZ3GkGfdCxPNbyRj1jsW8VRK7hBs"
+        }
       }
     }
   },
@@ -110,7 +125,8 @@
         "status": "planned",
         "tokens": {
           "USDC": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-          "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7"
+          "USDT": "0xdAC17F958D2ee523a2206206994597C13D831ec7",
+          "BAT": "0x0D8775F648430679A709E98d2b0Cb6250d2887EF"
         }
       },
       "base": {
@@ -120,7 +136,8 @@
         "crossChainPaymaster": "",
         "status": "planned",
         "tokens": {
-          "USDC": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"
+          "USDC": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+          "BAT": "0x0D8775F648430679A709E98d2b0Cb6250d2887EF"
         }
       },
       "arbitrum": {
@@ -154,6 +171,22 @@
         "tokens": {
           "USDC": "0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d",
           "USDT": "0x55d398326f99059fF775485246999027B3197955"
+        }
+      },
+      "solana": {
+        "chainId": 101,
+        "name": "Solana",
+        "rpcUrl": "https://api.mainnet-beta.solana.com",
+        "type": "solana",
+        "status": "planned",
+        "tokens": {
+          "USDC": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+          "USDT": "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB"
+        },
+        "programs": {
+          "tokenBridge": "TknBridge1111111111111111111111111111111111",
+          "x402Facilitator": "x4o2Faci11111111111111111111111111111111111",
+          "oifSolver": "GYSFWUUKUFAdtv1TgZ3GkGfdCxPNbyRj1jsW8VRK7hBs"
         }
       }
     }

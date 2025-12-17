@@ -71,66 +71,67 @@ library JejuMath {
 
     /**
      * @notice Calculate natural logarithm ln(x) with 18-decimal precision
-     * @param x Input value (18 decimals), must be > 0
+     * @param x Input value (18 decimals), must be >= PRECISION (x >= 1)
      * @return result ln(x) with 18 decimals
-     * @dev Uses Taylor series for values close to 1, scaling for others
+     * @dev Reverts for x < 1 since result would be negative (use lnSigned instead)
+     *      Uses identity: ln(x) = k * ln(2) + ln(x / 2^k) where 2^k is chosen
+     *      so that x / 2^k is in range [1, 2)
      */
     function ln(uint256 x) internal pure returns (uint256 result) {
         if (x == 0) revert InvalidInput();
+        if (x < PRECISION) revert InvalidInput(); // ln(x) < 0 for x < 1, use lnSigned
         if (x == PRECISION) return 0;
 
-        // For x close to 1, use Taylor series: ln(1+y) ≈ y - y^2/2 + y^3/3 - y^4/4
-        if (x > PRECISION / 2 && x < (PRECISION * 3) / 2) {
-            return _lnTaylor(x);
+        // Use ln(x) = k * ln(2) + ln(x / 2^k)
+        // Find k such that x / 2^k is in [1, 2)
+        uint256 k = 0;
+        uint256 scaled = x;
+        
+        // Scale down by powers of 2 until scaled < 2
+        while (scaled >= 2 * PRECISION) {
+            scaled = scaled / 2;
+            k++;
         }
-
-        // For other values, use: ln(x) = ln(x/e^k) + k*ln(e) = ln(x/e^k) + k
-        // Scale x to be close to 1 for better Taylor approximation
-        if (x > PRECISION) {
-            // x > 1: find k such that x/e^k is close to 1
-            uint256 k = 0;
-            uint256 scaled = x;
-            while (scaled > 2 * PRECISION) {
-                scaled = (scaled * PRECISION) / E;
-                k++;
-            }
-            return _lnTaylor(scaled) + (k * PRECISION);
-        } else {
-            // x < 1: use ln(x) = -ln(1/x)
-            uint256 invX = (PRECISION * PRECISION) / x;
-            return PRECISION - ln(invX); // This effectively gives negative but we return as if positive offset
-        }
+        
+        // Now scaled is in [1, 2), use Taylor series for ln(scaled)
+        // result = k * ln(2) + ln(scaled)
+        result = k * LN_2 + _lnTaylorRange1to2(scaled);
     }
-
+    
     /**
-     * @notice Internal Taylor series for ln(x) where x is close to 1
+     * @notice Taylor series for ln(x) where x is in range [1, 2)
+     * @dev Uses ln(1+y) = y - y²/2 + y³/3 - y⁴/4 + ... for y = x - 1
+     *      Converges well for |y| < 1
      */
-    function _lnTaylor(uint256 x) private pure returns (uint256) {
-        // ln(1+y) ≈ y - y^2/2 + y^3/3 - y^4/4 for y = x - 1
-        int256 y = int256(x) - int256(PRECISION);
-        if (y == 0) return 0;
-
-        int256 result = y;
-        int256 term = y;
-
-        term = -(term * y) / int256(PRECISION) / 2;
-        result += term;
-        term = -(term * y) / int256(PRECISION) * 2 / 3;
-        result += term;
-        term = -(term * y) / int256(PRECISION) * 3 / 4;
-        result += term;
-        term = -(term * y) / int256(PRECISION) * 4 / 5;
-        result += term;
-
-        // Result can be negative for x < 1, but we handle that in the caller
-        return result >= 0 ? uint256(result) : 0;
+    function _lnTaylorRange1to2(uint256 x) private pure returns (uint256) {
+        if (x == PRECISION) return 0;
+        if (x >= 2 * PRECISION) revert InvalidInput();
+        
+        // y = x - 1, so y is in [0, 1)
+        uint256 y = x - PRECISION;
+        
+        // Compute powers of y
+        uint256 y2 = (y * y) / PRECISION;
+        uint256 y3 = (y2 * y) / PRECISION;
+        uint256 y4 = (y3 * y) / PRECISION;
+        uint256 y5 = (y4 * y) / PRECISION;
+        uint256 y6 = (y5 * y) / PRECISION;
+        uint256 y7 = (y6 * y) / PRECISION;
+        uint256 y8 = (y7 * y) / PRECISION;
+        
+        // ln(1+y) = y - y²/2 + y³/3 - y⁴/4 + y⁵/5 - y⁶/6 + y⁷/7 - y⁸/8
+        uint256 positive = y + (y3 / 3) + (y5 / 5) + (y7 / 7);
+        uint256 negative = (y2 / 2) + (y4 / 4) + (y6 / 6) + (y8 / 8);
+        
+        return positive > negative ? positive - negative : 0;
     }
 
     /**
-     * @notice Calculate signed natural logarithm
-     * @param x Input value (18 decimals)
-     * @return result Signed ln(x)
+     * @notice Calculate signed natural logarithm for any x > 0
+     * @param x Input value (18 decimals), must be > 0
+     * @return result Absolute value of ln(x)
      * @return isNegative True if result is negative (x < 1)
+     * @dev For x < 1: |ln(x)| = ln(1/x), and isNegative = true
      */
     function lnSigned(uint256 x) internal pure returns (uint256 result, bool isNegative) {
         if (x == 0) revert InvalidInput();
@@ -139,7 +140,7 @@ library JejuMath {
         if (x >= PRECISION) {
             return (ln(x), false);
         } else {
-            // x < 1: ln(x) is negative, so we compute -ln(1/x)
+            // x < 1: ln(x) = -ln(1/x), so compute ln(1/x) and flag negative
             uint256 invX = (PRECISION * PRECISION) / x;
             return (ln(invX), true);
         }
@@ -151,29 +152,43 @@ library JejuMath {
      * @notice Calculate square root with 18-decimal precision
      * @param x Input value (18 decimals)
      * @return result sqrt(x) with 18 decimals
-     * @dev Uses Babylonian method (Newton-Raphson)
+     * @dev Uses Babylonian method with bit-length based initial guess
      */
     function sqrt(uint256 x) internal pure returns (uint256 result) {
         if (x == 0) return 0;
         if (x == PRECISION) return PRECISION;
 
-        // Scale x to maintain precision: sqrt(x * 1e18) = sqrt(x) * 1e9
+        // We want sqrt(x) where x has 18 decimals
+        // sqrt(x) should also have 18 decimals
+        // So we compute: sqrt(x * 1e18) which gives us the right precision
+        
         uint256 scaled = x * PRECISION;
         
-        // Initial guess
-        result = scaled;
+        // Initial guess: find the highest bit set and use 2^(highestBit/2)
+        // This gives us a much better starting point than x itself
+        uint256 xAux = scaled;
+        result = 1;
         
-        // Babylonian method iterations
-        result = (result + scaled / result) / 2;
-        result = (result + scaled / result) / 2;
-        result = (result + scaled / result) / 2;
-        result = (result + scaled / result) / 2;
-        result = (result + scaled / result) / 2;
-        result = (result + scaled / result) / 2;
-        result = (result + scaled / result) / 2;
+        if (xAux >= 1 << 128) { xAux >>= 128; result <<= 64; }
+        if (xAux >= 1 << 64) { xAux >>= 64; result <<= 32; }
+        if (xAux >= 1 << 32) { xAux >>= 32; result <<= 16; }
+        if (xAux >= 1 << 16) { xAux >>= 16; result <<= 8; }
+        if (xAux >= 1 << 8) { xAux >>= 8; result <<= 4; }
+        if (xAux >= 1 << 4) { xAux >>= 4; result <<= 2; }
+        if (xAux >= 1 << 2) { result <<= 1; }
+        
+        // Babylonian method iterations (7 iterations is enough for 256-bit precision)
+        result = (result + scaled / result) >> 1;
+        result = (result + scaled / result) >> 1;
+        result = (result + scaled / result) >> 1;
+        result = (result + scaled / result) >> 1;
+        result = (result + scaled / result) >> 1;
+        result = (result + scaled / result) >> 1;
+        result = (result + scaled / result) >> 1;
 
         // Ensure we round down
-        if (result * result > scaled) {
+        uint256 resultSquared = result * result;
+        if (resultSquared > scaled) {
             result--;
         }
     }
@@ -232,6 +247,9 @@ library JejuMath {
      * @param buyYes True if buying YES, false for NO
      * @return shares Number of shares received
      * @dev Uses binary search to find shares that match the cost
+     *      Upper bound: At minimum price (near 0), cost ≈ shares * minPrice
+     *      So max shares ≈ cost / minPrice ≈ cost * 100 (for 1% min price)
+     *      We use b * ln(e^(cost/b)) as a tighter bound when possible
      */
     function lmsrSharesForCost(
         uint256 qYes,
@@ -240,14 +258,26 @@ library JejuMath {
         uint256 cost,
         bool buyYes
     ) internal pure returns (uint256 shares) {
+        if (cost == 0) return 0;
+        if (b == 0) revert DivisionByZero();
+
         uint256 costBefore = lmsrCost(qYes, qNo, b);
         uint256 targetCost = costBefore + cost;
 
-        // Binary search for shares
-        uint256 low = 0;
-        uint256 high = cost * 10; // Upper bound estimate
+        // Upper bound estimation:
+        // In LMSR, buying shares increases cost. The cheapest case is when 
+        // the outcome has probability near 0, where price ≈ 0.
+        // A reasonable upper bound is cost * b / PRECISION when prices are low,
+        // or cost * 100 as a safe maximum (assumes min price > 1%)
+        uint256 upperBound = (cost * b) / PRECISION;
+        if (upperBound < cost) upperBound = cost; // Handle small b
+        uint256 high = upperBound > cost * 100 ? cost * 100 : upperBound * 2;
+        if (high == 0) high = cost;
 
-        while (low < high) {
+        uint256 low = 0;
+
+        // Binary search with max 256 iterations (log2 of max uint256)
+        for (uint256 i = 0; i < 256 && low < high; i++) {
             uint256 mid = (low + high + 1) / 2;
             uint256 newQYes = buyYes ? qYes + mid : qYes;
             uint256 newQNo = buyYes ? qNo : qNo + mid;

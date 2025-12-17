@@ -1,11 +1,65 @@
 /**
  * Chain Configuration for x402 Facilitator
+ * 
+ * Addresses are loaded from:
+ * 1. Environment variables (X402_<CHAIN>_FACILITATOR_ADDRESS)
+ * 2. packages/config/contracts.json
+ * 3. Defaults (ZERO_ADDRESS if not deployed)
  */
 
 import type { Address } from 'viem';
 import type { ChainConfig, TokenConfig } from './types';
+import { readFileSync } from 'fs';
+import { resolve } from 'path';
 
 export const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000';
+
+interface ContractsConfig {
+  testnet?: { chainId: number; payments?: { x402Facilitator?: string }; tokens?: { usdc?: string } };
+  mainnet?: { chainId: number; payments?: { x402Facilitator?: string }; tokens?: { usdc?: string } };
+  external?: Record<string, {
+    chainId: number;
+    rpcUrl?: string;
+    payments?: { x402Facilitator?: string };
+    tokens?: { usdc?: string };
+  }>;
+}
+
+let contractsConfig: ContractsConfig = {};
+
+function loadContractsConfig(): ContractsConfig {
+  if (Object.keys(contractsConfig).length > 0) return contractsConfig;
+  
+  const configPath = resolve(process.cwd(), 'packages/config/contracts.json');
+  try {
+    contractsConfig = JSON.parse(readFileSync(configPath, 'utf-8')) as ContractsConfig;
+  } catch {
+    contractsConfig = {};
+  }
+  return contractsConfig;
+}
+
+function getEnvOrConfig(
+  envKey: string,
+  configPath: string[],
+  defaultValue: string
+): string {
+  // 1. Check environment variable
+  const envValue = process.env[envKey];
+  if (envValue) return envValue;
+  
+  // 2. Check contracts.json
+  const config = loadContractsConfig();
+  let value: unknown = config;
+  for (const key of configPath) {
+    value = (value as Record<string, unknown>)?.[key];
+    if (value === undefined) break;
+  }
+  if (typeof value === 'string' && value.length > 0) return value;
+  
+  // 3. Return default
+  return defaultValue;
+}
 
 function getRpcUrl(envKey: string, defaultUrl: string): string {
   const isProduction = process.env.NODE_ENV === 'production';
@@ -16,32 +70,23 @@ function getRpcUrl(envKey: string, defaultUrl: string): string {
   return url || defaultUrl;
 }
 
-function getUsdcAddress(envKey: string, defaultAddress: Address, network: string): Address {
-  const isProduction = process.env.NODE_ENV === 'production';
-  const address = process.env[envKey];
-  if (!address && isProduction && network !== 'jeju-testnet') {
-    throw new Error(`${envKey} must be set in production for ${network}`);
-  }
-  return (address || defaultAddress) as Address;
-}
-
 export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
   jeju: {
     chainId: 420691,
-    name: 'Network',
+    name: 'Jeju',
     network: 'jeju',
     rpcUrl: getRpcUrl('JEJU_RPC_URL', 'http://127.0.0.1:9545'),
-    usdc: getUsdcAddress('JEJU_USDC_ADDRESS', '0x0165878A594ca255338adfa4d48449f69242Eb8F', 'jeju'),
-    facilitator: (process.env.X402_FACILITATOR_ADDRESS || ZERO_ADDRESS) as Address,
+    usdc: getEnvOrConfig('JEJU_USDC_ADDRESS', ['mainnet', 'tokens', 'usdc'], '0x0165878A594ca255338adfa4d48449f69242Eb8F') as Address,
+    facilitator: getEnvOrConfig('X402_FACILITATOR_ADDRESS', ['mainnet', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
   'jeju-testnet': {
     chainId: 420690,
-    name: 'Testnet',
+    name: 'Jeju Testnet',
     network: 'jeju-testnet',
     rpcUrl: getRpcUrl('JEJU_TESTNET_RPC_URL', 'https://testnet-rpc.jejunetwork.org'),
-    usdc: ZERO_ADDRESS,
-    facilitator: ZERO_ADDRESS,
+    usdc: getEnvOrConfig('JEJU_TESTNET_USDC_ADDRESS', ['testnet', 'tokens', 'usdc'], '0x953F6516E5d2864cE7f13186B45dE418EA665EB2') as Address,
+    facilitator: getEnvOrConfig('X402_TESTNET_FACILITATOR_ADDRESS', ['testnet', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
   'base-sepolia': {
@@ -50,8 +95,8 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     network: 'base-sepolia',
     rpcUrl: getRpcUrl('BASE_SEPOLIA_RPC_URL', 'https://sepolia.base.org'),
     blockExplorer: 'https://sepolia.basescan.org',
-    usdc: getUsdcAddress('BASE_SEPOLIA_USDC_ADDRESS', '0x036CbD53842c5426634e7929541eC2318f3dCF7e', 'base-sepolia'),
-    facilitator: ZERO_ADDRESS,
+    usdc: getEnvOrConfig('BASE_SEPOLIA_USDC_ADDRESS', ['external', 'baseSepolia', 'tokens', 'usdc'], '0x036CbD53842c5426634e7929541eC2318f3dCF7e') as Address,
+    facilitator: getEnvOrConfig('X402_BASE_SEPOLIA_FACILITATOR_ADDRESS', ['external', 'baseSepolia', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
   base: {
@@ -60,8 +105,8 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     network: 'base',
     rpcUrl: getRpcUrl('BASE_RPC_URL', 'https://mainnet.base.org'),
     blockExplorer: 'https://basescan.org',
-    usdc: getUsdcAddress('BASE_USDC_ADDRESS', '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913', 'base'),
-    facilitator: ZERO_ADDRESS,
+    usdc: getEnvOrConfig('BASE_USDC_ADDRESS', ['external', 'base', 'tokens', 'usdc'], '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913') as Address,
+    facilitator: getEnvOrConfig('X402_BASE_FACILITATOR_ADDRESS', ['external', 'base', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
   sepolia: {
@@ -70,8 +115,8 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     network: 'sepolia',
     rpcUrl: getRpcUrl('SEPOLIA_RPC_URL', 'https://ethereum-sepolia-rpc.publicnode.com'),
     blockExplorer: 'https://sepolia.etherscan.io',
-    usdc: getUsdcAddress('SEPOLIA_USDC_ADDRESS', '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238', 'sepolia'),
-    facilitator: ZERO_ADDRESS,
+    usdc: getEnvOrConfig('SEPOLIA_USDC_ADDRESS', ['external', 'sepolia', 'tokens', 'usdc'], '0x1c7D4B196Cb0C7B01d743Fbc6116a902379C7238') as Address,
+    facilitator: getEnvOrConfig('X402_SEPOLIA_FACILITATOR_ADDRESS', ['external', 'sepolia', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   },
   ethereum: {
@@ -80,9 +125,69 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     network: 'ethereum',
     rpcUrl: getRpcUrl('ETHEREUM_RPC_URL', 'https://eth.llamarpc.com'),
     blockExplorer: 'https://etherscan.io',
-    usdc: getUsdcAddress('ETHEREUM_USDC_ADDRESS', '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', 'ethereum'),
-    facilitator: ZERO_ADDRESS,
+    usdc: getEnvOrConfig('ETHEREUM_USDC_ADDRESS', ['external', 'ethereum', 'tokens', 'usdc'], '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48') as Address,
+    facilitator: getEnvOrConfig('X402_ETHEREUM_FACILITATOR_ADDRESS', ['external', 'ethereum', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+  'arbitrum-sepolia': {
+    chainId: 421614,
+    name: 'Arbitrum Sepolia',
+    network: 'arbitrum-sepolia',
+    rpcUrl: getRpcUrl('ARBITRUM_SEPOLIA_RPC_URL', 'https://sepolia-rollup.arbitrum.io/rpc'),
+    blockExplorer: 'https://sepolia.arbiscan.io',
+    usdc: getEnvOrConfig('ARBITRUM_SEPOLIA_USDC_ADDRESS', ['external', 'arbitrumSepolia', 'tokens', 'usdc'], '0x75faf114eafb1BDbe2F0316DF893fd58CE46AA4d') as Address,
+    facilitator: getEnvOrConfig('X402_ARBITRUM_SEPOLIA_FACILITATOR_ADDRESS', ['external', 'arbitrumSepolia', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+  arbitrum: {
+    chainId: 42161,
+    name: 'Arbitrum One',
+    network: 'arbitrum',
+    rpcUrl: getRpcUrl('ARBITRUM_RPC_URL', 'https://arb1.arbitrum.io/rpc'),
+    blockExplorer: 'https://arbiscan.io',
+    usdc: getEnvOrConfig('ARBITRUM_USDC_ADDRESS', ['external', 'arbitrum', 'tokens', 'usdc'], '0xaf88d065e77c8cC2239327C5EDb3A432268e5831') as Address,
+    facilitator: getEnvOrConfig('X402_ARBITRUM_FACILITATOR_ADDRESS', ['external', 'arbitrum', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+  'optimism-sepolia': {
+    chainId: 11155420,
+    name: 'Optimism Sepolia',
+    network: 'optimism-sepolia',
+    rpcUrl: getRpcUrl('OPTIMISM_SEPOLIA_RPC_URL', 'https://sepolia.optimism.io'),
+    blockExplorer: 'https://sepolia-optimism.etherscan.io',
+    usdc: getEnvOrConfig('OPTIMISM_SEPOLIA_USDC_ADDRESS', ['external', 'optimismSepolia', 'tokens', 'usdc'], '0x5fd84259d66Cd46123540766Be93DFE6D43130D7') as Address,
+    facilitator: getEnvOrConfig('X402_OPTIMISM_SEPOLIA_FACILITATOR_ADDRESS', ['external', 'optimismSepolia', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+  optimism: {
+    chainId: 10,
+    name: 'Optimism',
+    network: 'optimism',
+    rpcUrl: getRpcUrl('OPTIMISM_RPC_URL', 'https://mainnet.optimism.io'),
+    blockExplorer: 'https://optimistic.etherscan.io',
+    usdc: getEnvOrConfig('OPTIMISM_USDC_ADDRESS', ['external', 'optimism', 'tokens', 'usdc'], '0x0b2C639c533813f4Aa9D7837CAf62653d097Ff85') as Address,
+    facilitator: getEnvOrConfig('X402_OPTIMISM_FACILITATOR_ADDRESS', ['external', 'optimism', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  },
+  'bsc-testnet': {
+    chainId: 97,
+    name: 'BSC Testnet',
+    network: 'bsc-testnet',
+    rpcUrl: getRpcUrl('BSC_TESTNET_RPC_URL', 'https://data-seed-prebsc-1-s1.bnbchain.org:8545'),
+    blockExplorer: 'https://testnet.bscscan.com',
+    usdc: getEnvOrConfig('BSC_TESTNET_USDT_ADDRESS', ['external', 'bscTestnet', 'tokens', 'usdt'], '0x337610d27c682E347C9cD60BD4b3b107C9d34dDd') as Address, // USDT on BSC testnet
+    facilitator: getEnvOrConfig('X402_BSC_TESTNET_FACILITATOR_ADDRESS', ['external', 'bscTestnet', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
+    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
+  },
+  bsc: {
+    chainId: 56,
+    name: 'BNB Chain',
+    network: 'bsc',
+    rpcUrl: getRpcUrl('BSC_RPC_URL', 'https://bsc-dataseed.bnbchain.org'),
+    blockExplorer: 'https://bscscan.com',
+    usdc: getEnvOrConfig('BSC_USDC_ADDRESS', ['external', 'bsc', 'tokens', 'usdc'], '0x8AC76a51cc950d9822D68b83fE1Ad97B32Cd580d') as Address,
+    facilitator: getEnvOrConfig('X402_BSC_FACILITATOR_ADDRESS', ['external', 'bsc', 'payments', 'x402Facilitator'], ZERO_ADDRESS) as Address,
+    nativeCurrency: { name: 'BNB', symbol: 'BNB', decimals: 18 },
   },
 };
 

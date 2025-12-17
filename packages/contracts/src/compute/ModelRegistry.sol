@@ -7,43 +7,30 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 /**
  * @title ModelRegistry
  * @notice On-chain registry for trained AI models
- * @dev Tracks model versions, IPFS hashes, HuggingFace repos, and TEE attestations
- *
- * Features:
- * - Register trained models with verifiable attestations
- * - Track model lineage (base model → LoRA adapter)
- * - Version management per archetype
- * - IPFS hash and HuggingFace repo linking
- * - TEE attestation for verifiable training
  */
 contract ModelRegistry is Ownable, ReentrancyGuard {
-    // =========================================================================
-    // Types
-    // =========================================================================
-
     enum ModelStatus {
-        PENDING, // Uploaded but not verified
-        ACTIVE, // Verified and available for use
-        DEPRECATED, // Superseded by newer version
-        REVOKED // Removed due to issues
-
+        PENDING,
+        ACTIVE,
+        DEPRECATED,
+        REVOKED
     }
 
     struct Model {
         bytes32 modelId;
-        string archetype; // e.g., "trader", "scammer", "degen"
-        string baseModel; // e.g., "Qwen/Qwen2.5-7B-Instruct"
+        string archetype;
+        string baseModel;
         uint256 version;
-        bytes32 modelHash; // IPFS CID hash
-        string hfRepo; // HuggingFace repository
-        bytes32 attestationHash; // TEE attestation proof
-        address trainer; // Address that submitted
+        bytes32 modelHash;
+        string hfRepo;
+        bytes32 attestationHash;
+        address trainer;
         uint256 trainedAt;
         uint256 registeredAt;
         ModelStatus status;
-        uint256 benchmarkScore; // 0-10000 (basis points)
-        bytes32 dataHash; // Hash of training data used
-        bytes32 parentModelId; // Previous version (if upgrade)
+        uint256 benchmarkScore;
+        bytes32 dataHash;
+        bytes32 parentModelId;
     }
 
     struct ArchetypeInfo {
@@ -52,34 +39,13 @@ contract ModelRegistry is Ownable, ReentrancyGuard {
         uint256 modelCount;
     }
 
-    // =========================================================================
-    // State
-    // =========================================================================
-
-    /// @notice All registered models
     mapping(bytes32 => Model) public models;
-
-    /// @notice Models by archetype
     mapping(string => bytes32[]) public archetypeModels;
-
-    /// @notice Archetype info
     mapping(string => ArchetypeInfo) public archetypes;
-
-    /// @notice All model IDs
     bytes32[] public allModelIds;
-
-    /// @notice Authorized trainers (TEE operators)
     mapping(address => bool) public authorizedTrainers;
-
-    /// @notice Minimum benchmark score to activate (basis points)
-    uint256 public minBenchmarkScore = 6000; // 60%
-
-    /// @notice Whether training is permissionless
+    uint256 public minBenchmarkScore = 6000;
     bool public permissionlessTraining = false;
-
-    // =========================================================================
-    // Events
-    // =========================================================================
 
     event ModelRegistered(
         bytes32 indexed modelId,
@@ -97,9 +63,6 @@ contract ModelRegistry is Ownable, ReentrancyGuard {
     event TrainerAuthorized(address indexed trainer, bool authorized);
     event MinBenchmarkUpdated(uint256 oldScore, uint256 newScore);
 
-    // =========================================================================
-    // Errors
-    // =========================================================================
 
     error ModelAlreadyExists();
     error ModelNotFound();
@@ -111,26 +74,8 @@ contract ModelRegistry is Ownable, ReentrancyGuard {
     error ModelNotActive();
     error InvalidAttestation();
 
-    // =========================================================================
-    // Constructor
-    // =========================================================================
-
     constructor() Ownable(msg.sender) {}
 
-    // =========================================================================
-    // Model Registration
-    // =========================================================================
-
-    /**
-     * @notice Register a new trained model
-     * @param archetype Model archetype (e.g., "trader")
-     * @param baseModel Base model identifier
-     * @param modelHash IPFS CID of the model weights
-     * @param hfRepo HuggingFace repository URL
-     * @param attestationHash TEE attestation proof
-     * @param dataHash Hash of training data
-     * @param benchmarkScore Initial benchmark score (0-10000)
-     */
     function registerModel(
         string calldata archetype,
         string calldata baseModel,
@@ -140,7 +85,6 @@ contract ModelRegistry is Ownable, ReentrancyGuard {
         bytes32 dataHash,
         uint256 benchmarkScore
     ) external nonReentrant returns (bytes32) {
-        // Validate trainer authorization
         if (!permissionlessTraining && !authorizedTrainers[msg.sender]) {
             revert UnauthorizedTrainer();
         }

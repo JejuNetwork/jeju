@@ -1,0 +1,161 @@
+# ============================================================================
+# Jeju Network Solver - Custom Configuration
+# 
+# Usage:
+#   helm install solver ./solver -f values.yaml -f values-jeju.yaml
+#
+# Capital Requirements:
+#   - Minimum: 1 ETH (~$3,000) - fills small intents up to 0.5 ETH
+#   - Recommended: 5 ETH (~$15,000) - fills most intents up to 2.5 ETH
+#   - Professional: 20 ETH (~$60,000) - fills large intents up to 10 ETH
+# ============================================================================
+
+# Override replica count for smaller deployment
+replicaCount: 2
+
+# Resource adjustments
+resources:
+  limits:
+    cpu: 1500m
+    memory: 3Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+# Disable autoscaling for smaller deployments
+autoscaling:
+  enabled: false
+
+# PDB for HA
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# Allow scheduling on any node
+nodeSelector: {}
+
+# Disable anti-affinity for smaller clusters
+affinity: {}
+
+# ============================================================================
+# Solver Configuration - Jeju Optimized
+# ============================================================================
+
+env:
+  - name: NODE_ENV
+    value: "production"
+  
+  - name: SOLVER_NAME
+    value: "jeju-network-solver"
+  
+  # Capital allocation
+  # Set these based on your funding tier:
+  #   Starter: MAX_INTENT_SIZE_ETH=0.5
+  #   Standard: MAX_INTENT_SIZE_ETH=2.5
+  #   Professional: MAX_INTENT_SIZE_ETH=10
+  - name: MAX_INTENT_SIZE_ETH
+    value: "2.5"
+  
+  # Profitability - 0.1% minimum profit margin
+  - name: MIN_PROFIT_BPS
+    value: "10"
+  
+  # Gas limits
+  - name: MAX_GAS_PRICE_GWEI
+    value: "100"
+  
+  # Enable Base chain integration
+  - name: ENABLE_BASE_CHAIN
+    value: "true"
+  
+  # Enable all permissionless protocols
+  - name: ENABLE_ACROSS
+    value: "true"
+  - name: ENABLE_UNISWAPX
+    value: "true"
+  - name: ENABLE_COW
+    value: "true"
+  
+  # MEV protection - recommended for mainnet
+  - name: ENABLE_MEV_PROTECTION
+    value: "true"
+  - name: USE_FLASHBOTS
+    value: "true"
+  - name: USE_MEV_SHARE
+    value: "true"
+  
+  # External integrations
+  - name: ENABLE_CHAINLINK_ORACLE
+    value: "true"
+  - name: ENABLE_DEX_AGGREGATOR
+    value: "true"
+
+# Chain configuration including Base, BSC, and Solana
+configMap:
+  enabled: true
+  data:
+    # All supported chains - EVM + Solana
+    SUPPORTED_CHAINS: "1,42161,8453,10,420691,84532,11155111,56,97,101,103"
+    
+    # Chain IDs
+    ETHEREUM_CHAIN_ID: "1"
+    ARBITRUM_CHAIN_ID: "42161"
+    BASE_CHAIN_ID: "8453"
+    BASE_SEPOLIA_CHAIN_ID: "84532"
+    OPTIMISM_CHAIN_ID: "10"
+    JEJU_CHAIN_ID: "420691"
+    SEPOLIA_CHAIN_ID: "11155111"
+    BSC_CHAIN_ID: "56"
+    BSC_TESTNET_CHAIN_ID: "97"
+    SOLANA_MAINNET_ID: "101"
+    SOLANA_DEVNET_ID: "103"
+    
+    # Priority chains for solving (process Jeju, Base, and Solana first)
+    PRIORITY_CHAINS: "420691,8453,101"
+    
+    # Capital allocation per chain (in ETH/SOL equivalent)
+    # Adjust based on your total capital and risk tolerance
+    CAPITAL_ALLOCATION: |
+      {
+        "420691": "2.0",
+        "8453": "1.5",
+        "56": "1.0",
+        "101": "50.0",
+        "1": "0.5",
+        "42161": "0.5",
+        "10": "0.5"
+      }
+    
+    # x402 facilitator addresses (fill in after deployment)
+    X402_FACILITATORS: |
+      {
+        "420691": "",
+        "8453": "",
+        "56": "",
+        "101": "x4o2Faci11111111111111111111111111111111111"
+      }
+    
+    # Routing optimization - route through Jeju for max revenue
+    ROUTE_THROUGH_JEJU: "true"
+    JEJU_HUB_FEE_BPS: "10"
+
+# ============================================================================
+# Funding Guide
+# 
+# To fund your solver:
+# 1. Generate a solver wallet: bun run scripts/deploy/generate-operator-keys.ts
+# 2. Fund the wallet on each chain you want to solve on:
+#    - Jeju: Send ETH to solver address
+#    - Base: Bridge ETH via https://bridge.base.org
+#    - Ethereum: Direct transfer
+#    - Arbitrum: Bridge via https://bridge.arbitrum.io
+#    - Optimism: Bridge via https://app.optimism.io/bridge
+# 3. Create Kubernetes secret:
+#    kubectl create secret generic solver-secrets \
+#      --from-literal=SOLVER_PRIVATE_KEY=0x... \
+#      --from-literal=ALCHEMY_API_KEY=... \
+#      --from-literal=RPC_URL_ETHEREUM=https://... \
+#      --from-literal=RPC_URL_BASE=https://mainnet.base.org \
+#      --from-literal=RPC_URL_JEJU=https://rpc.jejunetwork.org
+# 4. Deploy: helm install solver ./solver -f values.yaml -f values-jeju.yaml
+# ============================================================================

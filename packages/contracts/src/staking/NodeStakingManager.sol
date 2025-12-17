@@ -14,67 +14,27 @@ import {ISimplePriceOracle} from "../interfaces/IPriceOracle.sol";
 /**
  * @title NodeStakingManager
  * @notice Multi-token staking system for Jeju node operators
- * @dev V2-ready: Extensible for futarchy governance and token diversity bonuses
- *
- * Key Features:
- * - Stake ANY TokenRegistry token (elizaOS, CLANKER, VIRTUAL, etc.)
- * - Earn rewards in ANY token (operator's choice)
- * - Paymasters earn ETH fees (sustainable revenue)
- * - USD-denominated minimums (fair across all tokens)
- * - Anti-Sybil: ownership caps + performance requirements
- * - V2-ready: Hooks for governance and diversity bonuses
- *
- * Economics:
- * - Base: $100 USD/month per node
- * - Uptime bonus: 0.5x - 2x (based on 99%+)
- * - Geographic bonus: +50% (underserved regions)
- * - Paymaster fees: 5% to reward paymaster, 2% to staking paymaster (in ETH)
- *
- * V2 Features (hooks provided):
- * - Token diversity bonus: +25-50% for minority tokens
- * - Futarchy governance: Prediction market-based parameter updates
- * - Multi-oracle consensus: 3+ confirmations required
  */
 contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
-    // ============ Immutable Dependencies ============
-
     ITokenRegistry public immutable tokenRegistry;
     IPaymasterFactory public immutable paymasterFactory;
     ISimplePriceOracle public immutable priceOracle;
-
-    // ============ State Variables ============
-
-    // Node registry
     mapping(bytes32 => NodeStake) public nodes;
     mapping(address => bytes32[]) public operatorNodes;
     bytes32[] public allNodeIds;
-
-    // Performance tracking
     mapping(bytes32 => PerformanceMetrics) public performance;
-
-    // Operator tracking
     mapping(address => OperatorStats) public operatorStats;
-
-    // Token distribution
     mapping(address => TokenDistribution) public tokenDistribution;
     uint256 public totalStakedUSD;
-    uint256 public totalRewardsClaimedUSD; // Track globally to avoid DoS
-
-    // Geographic tracking
+    uint256 public totalRewardsClaimedUSD;
     mapping(Region => uint256) public nodesByRegion;
-
-    // Performance oracles
     mapping(address => bool) public isPerformanceOracle;
     address[] public performanceOracles;
-
-    // ERC-8004 Integration
     IIdentityRegistry public identityRegistry;
     bool public requireAgentRegistration;
-    mapping(uint256 => bytes32[]) public agentNodes; // agent ID => node IDs
-
-    // ============ Parameters (Governable) ============
+    mapping(uint256 => bytes32[]) public agentNodes;
 
     uint256 public minStakeUSD = 1000 ether;
     uint256 public baseRewardPerMonthUSD = 100 ether;
@@ -90,15 +50,12 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
 
     bool public tokenDiversityBonusEnabled = false;
 
-    // ============ Constants ============
-
     uint256 public constant MIN_STAKING_PERIOD = 7 days;
     uint256 public constant UPTIME_THRESHOLD = 9900;
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant MONTH_DURATION = 30 days;
     uint256 public constant DAY_DURATION = 1 days;
 
-    // ============ Errors ============
 
     error TokenNotRegistered(address token);
     error NoPaymasterForToken(address token);
@@ -118,8 +75,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
     error InvalidAgentId();
     error NotAgentOwner();
 
-    // ============ Constructor ============
-
     error InvalidAddress();
     error ZeroStake();
 
@@ -138,13 +93,9 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         tokenRegistry = ITokenRegistry(_tokenRegistry);
         paymasterFactory = IPaymasterFactory(_paymasterFactory);
         priceOracle = ISimplePriceOracle(_priceOracle);
-
-        // Initialize performance oracle
         performanceOracles.push(_performanceOracle);
         isPerformanceOracle[_performanceOracle] = true;
     }
-
-    // ============ Node Registration ============
 
     function registerNode(
         address stakingToken,
@@ -196,11 +147,9 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         Region region,
         uint256 operatorAgentId
     ) internal returns (bytes32 nodeId) {
-        // 0. Basic validations
         if (stakeAmount == 0) revert ZeroStake();
         if (stakingToken == address(0) || rewardToken == address(0)) revert InvalidAddress();
 
-        // 1. Validate tokens
         if (!tokenRegistry.isRegistered(stakingToken)) {
             revert TokenNotRegistered(stakingToken);
         }
@@ -214,7 +163,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             revert NoPaymasterForToken(rewardToken);
         }
 
-        // 2. Calculate USD value
         uint256 tokenPrice = priceOracle.getPrice(stakingToken);
         if (tokenPrice == 0) revert("Invalid token price");
         uint256 stakeValueUSD = (stakeAmount * tokenPrice) / 1e18;
@@ -223,12 +171,10 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             revert InsufficientStakeValue(stakeValueUSD, minStakeUSD);
         }
 
-        // 3. Check operator limits
         if (operatorStats[msg.sender].totalNodesActive >= maxNodesPerOperator) {
             revert TooManyNodes(operatorStats[msg.sender].totalNodesActive, maxNodesPerOperator);
         }
 
-        // 4. Check network ownership limit (skip if first registration)
         uint256 newOperatorStakeUSD = operatorStats[msg.sender].totalStakedUSD + stakeValueUSD;
         uint256 newTotalStakedUSD = totalStakedUSD + stakeValueUSD;
 
@@ -240,17 +186,13 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             }
         }
 
-        // 5. Transfer staking token (using SafeERC20)
         IERC20(stakingToken).safeTransferFrom(msg.sender, address(this), stakeAmount);
 
-        // 6. Generate node ID (with collision check)
         nodeId = keccak256(abi.encodePacked(msg.sender, rpcUrl, block.timestamp));
         if (nodes[nodeId].operator != address(0)) {
-            // Collision (extremely unlikely) - add nonce
             nodeId = keccak256(abi.encodePacked(msg.sender, rpcUrl, block.timestamp, gasleft()));
         }
 
-        // 7. Create node record
         nodes[nodeId] = NodeStake({
             nodeId: nodeId,
             operator: msg.sender,
@@ -268,7 +210,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             isSlashed: false
         });
 
-        // 8. Initialize performance (start at 100% uptime)
         performance[nodeId] = PerformanceMetrics({
             uptimeScore: 10000,
             requestsServed: 0,
@@ -276,7 +217,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             lastUpdateTime: block.timestamp
         });
 
-        // 9. Update tracking
         operatorNodes[msg.sender].push(nodeId);
         allNodeIds.push(nodeId);
 
@@ -293,13 +233,9 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         emit NodeRegistered(nodeId, msg.sender, stakingToken, rewardToken, stakeAmount, stakeValueUSD);
     }
 
-    // ============ Reward Claiming ============
-
-    /// @custom:security CEI pattern: Update all state before external calls
     function claimRewards(bytes32 nodeId) external nonReentrant {
         NodeStake storage node = nodes[nodeId];
 
-        // Validate
         if (node.operator == address(0)) revert NodeNotFound(nodeId);
         if (node.operator != msg.sender) revert Unauthorized();
         if (!node.isActive) revert NodeNotActive();
@@ -310,52 +246,41 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             revert MinimumPeriodNotMet(elapsed, MIN_STAKING_PERIOD);
         }
 
-        // Calculate rewards
         uint256 rewardsUSD = _calculateRewardsUSD(nodeId);
         if (rewardsUSD == 0) revert NothingToClaim();
 
-        // Cache values before state changes
         address rewardToken = node.rewardToken;
         address stakedToken = node.stakedToken;
-
-        // Convert to reward token
         uint256 rewardTokenPrice = priceOracle.getPrice(rewardToken);
         uint256 rewardAmount = (rewardsUSD * 1e18) / rewardTokenPrice;
 
-        // Calculate paymaster fees (in ETH)
         uint256 rewardPaymasterFee = (rewardsUSD * paymasterRewardCutBPS) / 10000;
         uint256 stakingPaymasterFee = 0;
 
-        // Only pay staking paymaster if different token
         if (stakedToken != rewardToken) {
             stakingPaymasterFee = (rewardsUSD * paymasterStakeCutBPS) / 10000;
         }
 
         uint256 totalFeesETH = _convertUSDToETH(rewardPaymasterFee + stakingPaymasterFee);
 
-        // Check ETH balance
         if (address(this).balance < totalFeesETH) {
             revert InsufficientETHForFees();
         }
 
-        // Get paymaster addresses before state updates
         address rewardPaymaster = paymasterFactory.getPaymaster(rewardToken);
         address stakingPaymaster = stakingPaymasterFee > 0 ? paymasterFactory.getPaymaster(stakedToken) : address(0);
 
-        // EFFECTS: Update ALL state BEFORE external calls (CEI pattern)
         node.lastClaimTime = block.timestamp;
         node.totalRewardsClaimed += rewardsUSD;
         operatorStats[msg.sender].lifetimeRewardsUSD += rewardsUSD;
         totalRewardsClaimedUSD += rewardsUSD;
 
-        // Emit events before external calls
         emit RewardsClaimed(nodeId, msg.sender, rewardToken, rewardAmount, totalFeesETH);
         emit PaymasterFeeDistributed(rewardPaymaster, rewardPaymasterFee, "reward");
         if (stakingPaymasterFee > 0) {
             emit PaymasterFeeDistributed(stakingPaymaster, stakingPaymasterFee, "staking");
         }
 
-        // INTERACTIONS: External calls last
         (bool success1,) = payable(rewardPaymaster).call{value: _convertUSDToETH(rewardPaymasterFee)}("");
         if (!success1) revert TransferFailed();
 
@@ -364,13 +289,9 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             if (!success2) revert TransferFailed();
         }
 
-        // Transfer rewards to operator
         IERC20(rewardToken).safeTransfer(msg.sender, rewardAmount);
     }
 
-    // ============ Node Deregistration ============
-
-    /// @custom:security CEI pattern: All state updates before external calls
     function deregisterNode(bytes32 nodeId) external nonReentrant {
         NodeStake storage node = nodes[nodeId];
 
@@ -383,7 +304,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             revert MinimumPeriodNotMet(elapsed, MIN_STAKING_PERIOD);
         }
 
-        // Cache ALL values before state changes
         address stakedToken = node.stakedToken;
         address rewardToken = node.rewardToken;
         uint256 stakedValueUSD = node.stakedValueUSD;
@@ -391,7 +311,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         bool wasActive = node.isActive;
         uint256 stakeToReturn = node.stakedAmount;
 
-        // Calculate rewards WHILE node is still active (before state changes)
         uint256 rewardsUSD = _calculateRewardsUSD(nodeId);
         uint256 rewardAmount = 0;
         uint256 rewardFee = 0;
@@ -416,7 +335,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             }
         }
 
-        // EFFECTS: Update ALL state BEFORE any external calls
         if (wasActive) {
             node.isActive = false;
             operatorStats[msg.sender].totalNodesActive--;
@@ -428,7 +346,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         }
         node.stakedAmount = 0;
 
-        // Update reward tracking
         if (rewardsUSD > 0) {
             node.lastClaimTime = block.timestamp;
             node.totalRewardsClaimed += rewardsUSD;
@@ -436,7 +353,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             totalRewardsClaimedUSD += rewardsUSD;
         }
 
-        // Emit events before external calls
         emit NodeDeregistered(nodeId, msg.sender);
         if (rewardsUSD > 0) {
             emit RewardsClaimed(nodeId, msg.sender, rewardToken, rewardAmount, _convertUSDToETH(rewardFee + stakeFee));
@@ -461,8 +377,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         IERC20(stakedToken).safeTransfer(msg.sender, stakeToReturn);
     }
 
-    // ============ Performance Updates ============
-
     function updatePerformance(bytes32 nodeId, uint256 uptimeScore, uint256 requestsServed, uint256 avgResponseTime)
         external
     {
@@ -473,8 +387,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         if (!node.isActive) revert NodeNotActive();
 
         PerformanceMetrics storage perf = performance[nodeId];
-
-        // Update metrics (EWMA: 80% old, 20% new)
         perf.uptimeScore = (perf.uptimeScore * 8 + uptimeScore * 2) / 10;
         perf.requestsServed = requestsServed;
         perf.avgResponseTime = avgResponseTime;
@@ -482,8 +394,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
 
         emit PerformanceUpdated(nodeId, perf.uptimeScore, perf.requestsServed, avgResponseTime);
     }
-
-    // ============ Reward Calculation ============
 
     function calculatePendingRewards(bytes32 nodeId) external view returns (uint256) {
         return _calculateRewardsUSD(nodeId);
@@ -526,10 +436,8 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
 
     function _calculateUptimeMultiplier(uint256 uptimeScore) internal view returns (uint256) {
         if (uptimeScore < UPTIME_THRESHOLD) {
-            // Below 99%: Linear from 0.5x to 1x
             return uptimeMultiplierMin + ((10000 - uptimeMultiplierMin) * uptimeScore) / UPTIME_THRESHOLD;
         } else {
-            // Above 99%: Linear from 1x to 2x
             uint256 excessUptime = uptimeScore - UPTIME_THRESHOLD;
             uint256 maxExcess = 10000 - UPTIME_THRESHOLD;
             return 10000 + ((uptimeMultiplierMax - 10000) * excessUptime) / maxExcess;
@@ -541,40 +449,31 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         if (totalNodes == 0) return false;
 
         uint256 regionNodes = nodesByRegion[region];
-
-        // Underserved if <15% of total nodes
         return (regionNodes * 100 / totalNodes) < 15;
     }
 
-    // V2: Token diversity bonus (implementation for future use)
     function _calculateTokenDiversityBonus(address token, uint256 baseReward) internal view returns (uint256) {
         if (!tokenDiversityBonusEnabled || totalStakedUSD == 0) return 0;
 
         uint256 tokenPercentage = (tokenDistribution[token].totalStakedUSD * 100) / totalStakedUSD;
 
         if (tokenPercentage < 5) {
-            return (baseReward * 5000) / 10000; // +50% (very rare)
+            return (baseReward * 5000) / 10000;
         } else if (tokenPercentage < 10) {
-            return (baseReward * tokenDiversityBonusBPS) / 10000; // +25% (minority)
+            return (baseReward * tokenDiversityBonusBPS) / 10000;
         } else if (tokenPercentage < 20) {
-            return (baseReward * 1000) / 10000; // +10% (uncommon)
+            return (baseReward * 1000) / 10000;
         }
         return 0;
     }
 
-    // ============ Internal Helpers ============
-
-    // ETH price constant (address(0) in oracle represents ETH)
-    // Note: On OP-Stack chains like Jeju, WETH is 0x4200000000000000000000000000000000000006
     address public constant ETH_ADDRESS = address(0);
 
     function _convertUSDToETH(uint256 amountUSD) internal view returns (uint256) {
         uint256 ethPrice = priceOracle.getPrice(ETH_ADDRESS);
-        if (ethPrice == 0) ethPrice = 3000e18; // Fallback to $3000 if oracle fails
+        if (ethPrice == 0) ethPrice = 3000e18;
         return (amountUSD * 1e18) / ethPrice;
     }
-
-    // ============ View Functions ============
 
     function getNodeInfo(bytes32 nodeId)
         external
@@ -609,8 +508,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
     function getAllNodes() external view returns (bytes32[] memory) {
         return allNodeIds;
     }
-
-    // ============ Admin Functions ============
 
     event ParameterUpdated(string parameter, uint256 oldValue, uint256 newValue);
 
@@ -661,7 +558,6 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         require(oracle != address(0), "Invalid oracle address");
         isPerformanceOracle[oracle] = false;
 
-        // Gas optimized: cache array length
         uint256 length = performanceOracles.length;
         for (uint256 i = 0; i < length; i++) {
             if (performanceOracles[i] == oracle) {
@@ -672,49 +568,28 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         }
     }
 
-    // V2: Enable token diversity bonus via governance
     function enableTokenDiversityBonus(bool enabled) external onlyOwner {
         tokenDiversityBonusEnabled = enabled;
     }
 
-    // ============ ERC-8004 Integration ============
-
     event IdentityRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event AgentRegistrationRequirementUpdated(bool required);
 
-    /**
-     * @notice Set the ERC-8004 Identity Registry
-     * @param _identityRegistry Address of the IdentityRegistry contract
-     */
     function setIdentityRegistry(address _identityRegistry) external onlyOwner {
         address oldRegistry = address(identityRegistry);
         identityRegistry = IIdentityRegistry(_identityRegistry);
         emit IdentityRegistryUpdated(oldRegistry, _identityRegistry);
     }
 
-    /**
-     * @notice Set whether agent registration is required for node operators
-     * @param required True to require agent registration
-     */
     function setRequireAgentRegistration(bool required) external onlyOwner {
         requireAgentRegistration = required;
         emit AgentRegistrationRequirementUpdated(required);
     }
 
-    /**
-     * @notice Get all nodes operated by an ERC-8004 agent
-     * @param agentId The agent ID to query
-     * @return Array of node IDs
-     */
     function getNodesByAgent(uint256 agentId) external view returns (bytes32[] memory) {
         return agentNodes[agentId];
     }
 
-    /**
-     * @notice Check if a node operator is a verified ERC-8004 agent
-     * @param nodeId Node to check
-     * @return True if operator is registered as an agent
-     */
     function isVerifiedAgent(bytes32 nodeId) external view returns (bool) {
         uint256 agentId = nodes[nodeId].operatorAgentId;
         if (agentId == 0) return false;
@@ -750,6 +625,5 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
         IERC20(token).safeTransfer(owner(), amount);
     }
 
-    // Allow contract to receive ETH for paymaster fees
     receive() external payable {}
 }

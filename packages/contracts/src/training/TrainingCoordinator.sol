@@ -9,30 +9,14 @@ import {MPCKeyRegistry} from "../kms/MPCKeyRegistry.sol";
 
 /**
  * @title TrainingCoordinator
- * @author Jeju Network
  * @notice Decentralized training run coordinator (EVM port of Psyche)
- * @dev Manages training epochs, rounds, witnessing, and health checks
- *
- * Architecture:
- * - State machine with 8 states: Uninitialized → WaitingForMembers → Warmup → RoundTrain → RoundWitness → Cooldown → (repeat or Finished)
- * - Clients join during WaitingForMembers, train during RoundTrain, witness during RoundWitness
- * - Witnesses use bloom filters to track participant activity
- * - Health checks allow removing non-participating nodes
- * - Supports both public and private (TEE+MPC encrypted) training runs
- *
- * Key differences from Psyche Solana:
- * - Uses block.timestamp instead of slot-based timing
- * - Integrates with EVM-native ComputeRegistry and MPCKeyRegistry
- * - Native ERC-20 token support for rewards (via TrainingRewards)
  */
 contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
     uint16 public constant MAX_CLIENTS = 256;
     uint8 public constant MAX_WITNESSES = 32;
     uint8 public constant NUM_STORED_ROUNDS = 4;
     uint8 public constant BLOOM_FALSE_RATE_PERCENT = 1;
-
-    // Quorum ratios (as percentages)
-    uint8 public constant WITNESS_QUORUM_PERCENT = 67; // 2/3 quorum
+    uint8 public constant WITNESS_QUORUM_PERCENT = 67;
 
     struct EpochState {
         Round[4] rounds;
@@ -64,43 +48,18 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         bytes32 mpcKeyId;
     }
 
-    /// @notice All training runs by ID
     mapping(bytes32 => Run) internal runs;
-
-    /// @notice Clients in each run (runId => client array)
     mapping(bytes32 => Client[]) internal runClients;
-
-    /// @notice Exited clients for historical lookups
     mapping(bytes32 => Client[]) internal exitedClients;
-
-    /// @notice Pending clients waiting to join (runId => client array)
     mapping(bytes32 => Client[]) internal pendingClients;
-
-    /// @notice Client address to index mapping (runId => client => index + 1, 0 = not found)
     mapping(bytes32 => mapping(address => uint16)) internal clientIndices;
-
-    /// @notice Witness submissions per round (runId => roundHeight => submissions)
     mapping(bytes32 => mapping(uint32 => WitnessSubmission[])) internal roundWitnesses;
-
-    /// @notice Who submitted a witness (runId => roundHeight => address => submitted)
     mapping(bytes32 => mapping(uint32 => mapping(address => bool))) internal witnessSubmitted;
-
-    /// @notice Active run IDs
     bytes32[] public activeRunIds;
-
-    /// @notice Run ID to active index mapping
     mapping(bytes32 => uint256) internal activeRunIndex;
-
-    /// @notice Compute registry for provider verification
     ComputeRegistry public computeRegistry;
-
-    /// @notice MPC key registry for private training
     MPCKeyRegistry public mpcKeyRegistry;
-
-    /// @notice Minimum stake required to participate
     uint256 public minParticipantStake = 0.1 ether;
-
-    /// @notice Fee to create a training run
     uint256 public runCreationFee = 0;
 
     error RunAlreadyExists();

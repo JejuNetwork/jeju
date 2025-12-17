@@ -1,24 +1,9 @@
 {
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    "target": "ES2022",
-    "module": "ESNext",
-    "lib": ["ES2022", "DOM", "DOM.Iterable"],
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
     "noEmit": true,
-    "strict": true,
-    "skipLibCheck": true,
-    "esModuleInterop": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "forceConsistentCasingInFileNames": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-    "noFallthroughCasesInSwitch": true,
-    "allowSyntheticDefaultImports": true,
-    "jsx": "react-jsx",
-    "types": ["bun"],
+    "composite": false,
+    "incremental": false,
     "paths": {
       "@/*": ["./*"],
       "@types/*": ["./types/*"],
@@ -30,27 +15,16 @@
     }
   },
   "include": [
-    "**/*.ts",
-    "**/*.tsx"
+    "scripts/**/*.ts",
+    "types/**/*.ts"
   ],
   "exclude": [
     "node_modules",
     "dist",
     "build",
     ".terraform",
-    "packages/contracts",
-    "lib",
-    "packages/deployment/kubernetes",
-    "packages/deployment/terraform",
-    "packages/deployment/kurtosis",
-    "apps",
-    "mud/**/*",
-    "**/*.test.ts",
-    "packages/tests/**/*",
-    "scripts/test-cloud-integration.ts",
-    "scripts/setup-localnet-cloud.ts",
-    "scripts/monitor-cloud-integration.ts"
+    "vendor",
+    "8004",
+    "**/*.test.ts"
   ]
 }
-
-

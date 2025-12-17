@@ -50,7 +50,8 @@
   ],
   "sideEffects": false,
   "scripts": {
-    "build": "node ../../node_modules/typescript/bin/tsc",
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "prepublishOnly": "bun run build"
   },
@@ -68,7 +69,7 @@
     "eil"
   ],
   "devDependencies": {
-    "typescript": "^5.3.3"
+    "typescript": "5.7.3"
   },
   "peerDependencies": {
     "zod": ">=3.0.0"
@@ -77,4 +78,3 @@
     "access": "public"
   }
 }
-

@@ -4,6 +4,7 @@ members = [
     "programs/oif-solver",
     "programs/evm-light-client",
     "programs/token-bridge",
+    "programs/x402-facilitator",
 ]
 resolver = "2"
 

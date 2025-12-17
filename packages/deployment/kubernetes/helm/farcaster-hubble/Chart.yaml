@@ -1,0 +1,19 @@
+apiVersion: v2
+name: farcaster-hubble
+description: Permissionless Farcaster Hub (Hubble) for Jeju Network
+type: application
+version: 1.0.0
+appVersion: "1.14.0"
+home: https://jejunetwork.org
+sources:
+  - https://github.com/farcasterxyz/hubble
+keywords:
+  - farcaster
+  - hub
+  - social
+  - decentralized
+  - jeju
+maintainers:
+  - name: Jeju Network
+    email: infra@jeju.network
+

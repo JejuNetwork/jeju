@@ -284,9 +284,9 @@ describe('Multi-tenant Council', () => {
   });
 
   test('each council has unique config', () => {
-    const jeju = manager.getCouncil('jeju' as 'jeju');
-    const babylon = manager.getCouncil('babylon' as 'babylon');
-    const eliza = manager.getCouncil('eliza' as 'eliza');
+    const jeju = manager.getCouncil('jeju' as const);
+    const babylon = manager.getCouncil('babylon' as const);
+    const eliza = manager.getCouncil('eliza' as const);
 
     expect(jeju?.config.name).toBe('Jeju Network Council');
     expect(babylon?.config.name).toBe('Babylon Game Council');
@@ -322,10 +322,10 @@ describe('Multi-tenant Council', () => {
   });
 
   test('validates council access', async () => {
-    const jeju = manager.getCouncil('jeju' as 'jeju')!;
+    const jeju = manager.getCouncil('jeju' as const)!;
 
     const ceoAccess = await manager.validateCouncilAccess(
-      'jeju' as 'jeju',
+      'jeju' as const,
       jeju.ceo.address
     );
 
@@ -333,7 +333,7 @@ describe('Multi-tenant Council', () => {
     expect(ceoAccess.roles).toContain('ceo');
 
     const randomAccess = await manager.validateCouncilAccess(
-      'jeju' as 'jeju',
+      'jeju' as const,
       '0x1234567890123456789012345678901234567890' as Address
     );
 
@@ -342,11 +342,11 @@ describe('Multi-tenant Council', () => {
   });
 
   test('updates council CEO', async () => {
-    await manager.updateCouncilCEO('jeju' as 'jeju', {
+    await manager.updateCouncilCEO('jeju' as const, {
       modelId: 'claude-sonnet-4-20250514',
     });
 
-    const jeju = manager.getCouncil('jeju' as 'jeju')!;
+    const jeju = manager.getCouncil('jeju' as const)!;
     expect(jeju.ceo.modelId).toBe('claude-sonnet-4-20250514');
   });
 

@@ -34,8 +34,8 @@
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
-    "hono": "^4.6.12",
-    "lru-cache": "^11.2.4",
+    "hono": "4.7.0",
+    "lru-cache": "11.2.4",
     "viem": "2.41.2"
   },
   "devDependencies": {

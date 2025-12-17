@@ -16,8 +16,8 @@ const logger = new Logger('cloud-a2a-e2e');
 
 // Test server
 let server: ReturnType<typeof Bun.serve> | null = null;
-let serverPort = 3333;
-let integration: { skillId: string; agentId: string } | null = null;
+const serverPort = 3333;
+const integration: { skillId: string; agentId: string } | null = null;
 
 describe('Cloud A2A E2E - Server Setup', () => {
   beforeAll(async () => {
