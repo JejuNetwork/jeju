@@ -11,17 +11,53 @@
  * - Graceful shutdown
  */
 
-import {
-  Route53Client,
-  ChangeResourceRecordSetsCommand,
-  ListResourceRecordSetsCommand,
-  type ResourceRecordSet,
-} from '@aws-sdk/client-route-53';
-import { DNS } from '@google-cloud/dns';
 import { ethers } from 'ethers';
 import { z } from 'zod';
 import { Registry, Counter, Gauge, Histogram } from 'prom-client';
-import http from 'http';
+import * as http from 'http';
+
+// AWS SDK types (optional - loaded dynamically)
+interface ResourceRecordSet {
+  Name?: string;
+  Type?: string;
+  TTL?: number;
+  ResourceRecords?: Array<{ Value?: string }>;
+  AliasTarget?: { DNSName?: string };
+}
+
+// Dynamic SDK storage - using any to allow dynamic loading
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let Route53ClientClass: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let ChangeResourceRecordSetsCommandClass: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let ListResourceRecordSetsCommandClass: any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let DNSClass: any;
+
+async function loadAWSSDK(): Promise<boolean> {
+  try {
+    const aws = await import('@aws-sdk/client-route-53');
+    Route53ClientClass = aws.Route53Client;
+    ChangeResourceRecordSetsCommandClass = aws.ChangeResourceRecordSetsCommand;
+    ListResourceRecordSetsCommandClass = aws.ListResourceRecordSetsCommand;
+    return true;
+  } catch {
+    console.warn('[DNSSync] AWS SDK not available - Route53 sync disabled');
+    return false;
+  }
+}
+
+async function loadGCPSDK(): Promise<boolean> {
+  try {
+    const gcp = await import('@google-cloud/dns');
+    DNSClass = gcp.DNS;
+    return true;
+  } catch {
+    console.warn('[DNSSync] GCP SDK not available - Cloud DNS sync disabled');
+    return false;
+  }
+}
 
 // ============================================================================
 // Configuration Schema
@@ -189,8 +225,10 @@ async function withRetry<T>(
 
 export class DNSSyncService {
   private config: DNSSyncConfig;
-  private route53Client: Route53Client | null = null;
-  private cloudDnsClient: DNS | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private route53Client: any = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private cloudDnsClient: any = null;
   private endpointRegistry: ethers.Contract | null = null;
   private healthResults = new Map<string, HealthCheckResult>();
   private auditLog: AuditLogEntry[] = [];
@@ -202,17 +240,26 @@ export class DNSSyncService {
 
   constructor(config: DNSSyncConfig) {
     this.config = DNSSyncConfigSchema.parse(config);
+    // SDK initialization happens async in start()
+  }
+
+  async start(): Promise<void> {
+    if (this.running) return;
+
+    // Load SDKs
+    await loadAWSSDK();
+    await loadGCPSDK();
 
     // Initialize Route53
-    if (this.config.providers.route53) {
-      this.route53Client = new Route53Client({
+    if (this.config.providers.route53 && Route53ClientClass) {
+      this.route53Client = new Route53ClientClass({
         region: this.config.providers.route53.region,
       });
     }
 
     // Initialize Cloud DNS
-    if (this.config.providers.cloudDns) {
-      this.cloudDnsClient = new DNS({
+    if (this.config.providers.cloudDns && DNSClass) {
+      this.cloudDnsClient = new DNSClass({
         projectId: this.config.providers.cloudDns.projectId,
       });
     }
@@ -227,16 +274,8 @@ export class DNSSyncService {
         wallet
       );
     }
-  }
 
-  // ============================================================================
-  // Lifecycle
-  // ============================================================================
-
-  async start(): Promise<void> {
-    if (this.running) return;
     this.running = true;
-
     console.log('[DNS Sync] Starting service...');
 
     // Start metrics server
@@ -261,6 +300,10 @@ export class DNSSyncService {
 
     console.log('[DNS Sync] Running');
   }
+
+  // ============================================================================
+  // Lifecycle
+  // ============================================================================
 
   stop(): void {
     if (!this.running) return;
@@ -345,16 +388,16 @@ export class DNSSyncService {
     const timer = dnsSyncDuration.startTimer({ provider: 'route53' });
 
     try {
-      const response = await withRetry(
+      const response = (await withRetry(
         () =>
           this.route53Client!.send(
-            new ListResourceRecordSetsCommand({
+            new ListResourceRecordSetsCommandClass({
               HostedZoneId: this.config.providers.route53!.zoneId,
             })
           ),
         this.config.retryAttempts,
         this.config.retryDelayMs
-      );
+      )) as { ResourceRecordSets?: ResourceRecordSet[] };
 
       const records: DNSRecord[] = [];
 
@@ -406,7 +449,7 @@ export class DNSSyncService {
       await withRetry(
         () =>
           this.route53Client!.send(
-            new ChangeResourceRecordSetsCommand({
+            new ChangeResourceRecordSetsCommandClass({
               HostedZoneId: this.config.providers.route53!.zoneId,
               ChangeBatch: { Changes: changes },
             })
@@ -716,7 +759,7 @@ export class DNSSyncService {
   getHealthyIPs(serviceName: string): string[] {
     const healthy: string[] = [];
 
-    for (const [key, result] of this.healthResults) {
+    for (const [key, result] of Array.from(this.healthResults.entries())) {
       if (key.startsWith(`${serviceName}:`) && result.healthy) {
         healthy.push(result.endpoint);
       }
@@ -742,7 +785,19 @@ export class DNSSyncService {
 // CLI Entry Point
 // ============================================================================
 
-if (import.meta.main) {
+// Check if running as main module
+// Uses require.main for Node.js compatibility, Bun.main for Bun
+function checkIsMain(): boolean {
+  if (typeof Bun !== 'undefined') {
+    return Bun.main;
+  }
+  // Node.js fallback
+  return typeof require !== 'undefined' && require.main === module;
+}
+
+const isMainModule = checkIsMain();
+
+if (isMainModule) {
   const config: DNSSyncConfig = {
     domain: process.env.DOMAIN ?? 'jejunetwork.org',
     providers: {

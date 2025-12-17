@@ -26,6 +26,10 @@ import { createWorkModule, type WorkModule } from "./work";
 import { createStakingModule, type StakingModule } from "./staking";
 import { createDWSModule, type DWSModule } from "./dws";
 import { createFederationClient as createFedClient, type FederationClient, type FederationClientConfig } from "./federation";
+import { createOTCModule, type OTCModule } from "./otc";
+import { createMessagingModule, type MessagingModule } from "./messaging";
+import { createDistributorModule, type DistributorModule } from "./distributor";
+import { createTrainingModule, type TrainingModule } from "./training";
 import { getServicesConfig, getChainConfig, getContractAddresses } from "./config";
 import { getNetworkName } from "@jejunetwork/config";
 
@@ -96,6 +100,14 @@ export interface JejuClient {
   readonly dws: DWSModule;
   /** Federation - Cross-chain network federation */
   readonly federation: FederationClient;
+  /** OTC - Over-the-counter token trading */
+  readonly otc: OTCModule;
+  /** Messaging - Decentralized messaging relay */
+  readonly messaging: MessagingModule;
+  /** Distributor - Airdrops, vesting, fees */
+  readonly distributor: DistributorModule;
+  /** Training - Decentralized AI training coordination */
+  readonly training: TrainingModule;
 
   /** Get native balance */
   getBalance(): Promise<bigint>;
@@ -167,6 +179,10 @@ export async function createJejuClient(
     registryHub: contractAddresses.registryHub ?? "0x0000000000000000000000000000000000000000",
   };
   const federation = await createFedClient(federationConfig);
+  const otc = createOTCModule(wallet, network);
+  const messaging = createMessagingModule(wallet, network);
+  const distributor = createDistributorModule(wallet, network);
+  const training = createTrainingModule(wallet, network);
 
   const client: JejuClient = {
     network,
@@ -194,6 +210,10 @@ export async function createJejuClient(
     staking,
     dws,
     federation,
+    otc,
+    messaging,
+    distributor,
+    training,
 
     getBalance: () => wallet.getBalance(),
     sendTransaction: (params) => wallet.sendTransaction(params),

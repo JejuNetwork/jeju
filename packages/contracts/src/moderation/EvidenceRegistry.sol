@@ -5,12 +5,6 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
-/**
- * @title EvidenceRegistry
- * @notice Community evidence submission for moderation cases with stake-weighted rewards
- * @dev Integrates with ModerationMarketplace. Evidence aligned with outcomes gets rewarded,
- *      opposed evidence is slashed. Time-weighted stakes incentivize early participation.
- */
 contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
     enum EvidencePosition { FOR_ACTION, AGAINST_ACTION }
     enum EvidenceStatus { ACTIVE, REWARDED, SLASHED }
@@ -88,9 +82,7 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
     event CaseResolved(bytes32 indexed caseId, bool outcomeWasAction, uint256 totalForStake, uint256 totalAgainstStake, uint256 protocolFees);
     event RewardsClaimed(bytes32 indexed evidenceId, address indexed claimer, uint256 amount, bool wasSubmitter);
     event ProtocolFeesWithdrawn(address indexed to, uint256 amount);
-    event ModerationMarketplaceUpdated(address oldAddress, address newAddress);
-    event ReputationProviderUpdated(address oldAddress, address newAddress);
-    event TreasuryUpdated(address oldAddress, address newAddress);
+    event ConfigUpdated(string indexed config, address oldVal, address newVal);
 
     error InsufficientStake();
     error SummaryTooLong();
@@ -107,10 +99,10 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
     error CaseNotResolved();
     error VotingEnded();
 
-    constructor(address _moderationMarketplace, address _reputationProvider, address _treasury, address _owner) Ownable(_owner) {
+    constructor(address _marketplace, address _repProvider, address _treasury, address _owner) Ownable(_owner) {
         if (_treasury == address(0)) revert InvalidAddress();
-        moderationMarketplace = _moderationMarketplace;
-        reputationProvider = _reputationProvider;
+        moderationMarketplace = _marketplace;
+        reputationProvider = _repProvider;
         treasury = _treasury;
     }
 
@@ -122,57 +114,27 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
         emit CaseRegistered(caseId, createdAt, endsAt);
     }
 
-    function submitEvidence(
-        bytes32 caseId,
-        string calldata ipfsHash,
-        string calldata summary,
-        EvidencePosition position
-    ) external payable nonReentrant whenNotPaused returns (bytes32 evidenceId) {
+    function submitEvidence(bytes32 caseId, string calldata ipfsHash, string calldata summary, EvidencePosition position) external payable nonReentrant whenNotPaused returns (bytes32 evidenceId) {
         if (msg.value < MIN_EVIDENCE_STAKE) revert InsufficientStake();
         if (bytes(summary).length > MAX_SUMMARY_LENGTH) revert SummaryTooLong();
 
         CaseEvidence storage ce = caseEvidence[caseId];
-        if (ce.caseCreatedAt == 0) revert CaseNotRegistered();
-        if (ce.resolved) revert CaseAlreadyResolved();
-        if (block.timestamp > ce.caseEndsAt) revert VotingEnded();
+        _validateActiveCase(ce);
         if (caseEvidenceCount[caseId] >= MAX_EVIDENCE_PER_CASE) revert MaxEvidenceReached();
 
         evidenceId = keccak256(abi.encodePacked(_nextEvidenceId++, caseId, msg.sender, block.timestamp));
-        uint256 timeWeight = _calculateTimeWeight(ce.caseEndsAt);
+        uint256 tw = _calculateTimeWeight(ce.caseEndsAt);
 
-        evidence[evidenceId] = Evidence({
-            evidenceId: evidenceId,
-            caseId: caseId,
-            submitter: msg.sender,
-            stake: msg.value,
-            submitterReputation: _getReputation(msg.sender),
-            ipfsHash: ipfsHash,
-            summary: summary,
-            position: position,
-            supportStake: 0,
-            opposeStake: 0,
-            supporterCount: 0,
-            opposerCount: 0,
-            submittedAt: block.timestamp,
-            timeWeight: timeWeight,
-            status: EvidenceStatus.ACTIVE,
-            submitterClaimed: false
-        });
+        evidence[evidenceId] = Evidence(evidenceId, caseId, msg.sender, msg.value, _getReputation(msg.sender), ipfsHash, summary, position, 0, 0, 0, 0, block.timestamp, tw, EvidenceStatus.ACTIVE, false);
 
         ce.evidenceIds.push(evidenceId);
         caseEvidenceCount[caseId]++;
-        
-        uint256 weightedStake = (msg.value * timeWeight) / 10000;
-        if (position == EvidencePosition.FOR_ACTION) {
-            ce.totalForStake += weightedStake;
-        } else {
-            ce.totalAgainstStake += weightedStake;
-        }
+        _addWeightedStake(ce, position, (msg.value * tw) / 10000);
 
         userEvidence[msg.sender].push(evidenceId);
         userCaseEvidence[caseId][msg.sender].push(evidenceId);
 
-        emit EvidenceSubmitted(evidenceId, caseId, msg.sender, msg.value, position, ipfsHash, timeWeight);
+        emit EvidenceSubmitted(evidenceId, caseId, msg.sender, msg.value, position, ipfsHash, tw);
     }
 
     function supportEvidence(bytes32 evidenceId, bool isSupporting, string calldata comment) external payable nonReentrant whenNotPaused {
@@ -183,45 +145,23 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
         if (e.submitter == msg.sender) revert CannotSupportOwnEvidence();
         
         CaseEvidence storage ce = caseEvidence[e.caseId];
-        if (ce.resolved) revert CaseAlreadyResolved();
-        if (block.timestamp > ce.caseEndsAt) revert VotingEnded();
+        _validateActiveCase(ce);
         if (hasSupported[evidenceId][msg.sender]) revert AlreadySupported();
         if (evidenceSupport[evidenceId].length >= MAX_SUPPORTS_PER_EVIDENCE) revert MaxSupportsReached();
 
-        uint256 timeWeight = _calculateTimeWeight(ce.caseEndsAt);
-        uint256 supportIndex = evidenceSupport[evidenceId].length;
-        
-        evidenceSupport[evidenceId].push(EvidenceSupport({
-            supporter: msg.sender,
-            stake: msg.value,
-            reputation: _getReputation(msg.sender),
-            isSupporting: isSupporting,
-            comment: comment,
-            timestamp: block.timestamp,
-            timeWeight: timeWeight,
-            claimed: false
-        }));
+        uint256 tw = _calculateTimeWeight(ce.caseEndsAt);
+        evidenceSupport[evidenceId].push(EvidenceSupport(msg.sender, msg.value, _getReputation(msg.sender), isSupporting, comment, block.timestamp, tw, false));
 
-        userSupportIndex[evidenceId][msg.sender] = supportIndex;
+        userSupportIndex[evidenceId][msg.sender] = evidenceSupport[evidenceId].length - 1;
         hasSupported[evidenceId][msg.sender] = true;
 
-        if (isSupporting) {
-            e.supportStake += msg.value;
-            e.supporterCount++;
-        } else {
-            e.opposeStake += msg.value;
-            e.opposerCount++;
-        }
+        if (isSupporting) { e.supportStake += msg.value; e.supporterCount++; }
+        else { e.opposeStake += msg.value; e.opposerCount++; }
 
-        uint256 weightedStake = (msg.value * timeWeight) / 10000;
-        bool addToFor = isSupporting ? e.position == EvidencePosition.FOR_ACTION : e.position != EvidencePosition.FOR_ACTION;
-        if (addToFor) {
-            ce.totalForStake += weightedStake;
-        } else {
-            ce.totalAgainstStake += weightedStake;
-        }
+        bool addToFor = isSupporting == (e.position == EvidencePosition.FOR_ACTION);
+        _addWeightedStake(ce, addToFor ? EvidencePosition.FOR_ACTION : EvidencePosition.AGAINST_ACTION, (msg.value * tw) / 10000);
 
-        emit EvidenceSupported(evidenceId, msg.sender, msg.value, isSupporting, comment, timeWeight);
+        emit EvidenceSupported(evidenceId, msg.sender, msg.value, isSupporting, comment, tw);
     }
 
     function resolveCase(bytes32 caseId, bool outcomeWasAction) external nonReentrant {
@@ -234,212 +174,162 @@ contract EvidenceRegistry is Ownable, Pausable, ReentrancyGuard {
         ce.resolved = true;
         ce.outcomeWasAction = outcomeWasAction;
 
-        uint256 totalPot = 0;
-        for (uint256 i = 0; i < ce.evidenceIds.length; i++) {
+        uint256 totalPot;
+        for (uint256 i; i < ce.evidenceIds.length; i++) {
             Evidence storage e = evidence[ce.evidenceIds[i]];
-            bool aligned = (e.position == EvidencePosition.FOR_ACTION) == outcomeWasAction;
-            e.status = aligned ? EvidenceStatus.REWARDED : EvidenceStatus.SLASHED;
+            e.status = ((e.position == EvidencePosition.FOR_ACTION) == outcomeWasAction) ? EvidenceStatus.REWARDED : EvidenceStatus.SLASHED;
             totalPot += e.stake + e.supportStake + e.opposeStake;
         }
 
-        uint256 protocolFee = (totalPot * PROTOCOL_FEE_BPS) / 10000;
-        ce.protocolFeesCollected = protocolFee;
-        totalProtocolFees += protocolFee;
+        ce.protocolFeesCollected = (totalPot * PROTOCOL_FEE_BPS) / 10000;
+        totalProtocolFees += ce.protocolFeesCollected;
 
-        emit CaseResolved(caseId, outcomeWasAction, ce.totalForStake, ce.totalAgainstStake, protocolFee);
+        emit CaseResolved(caseId, outcomeWasAction, ce.totalForStake, ce.totalAgainstStake, ce.protocolFeesCollected);
     }
 
     function claimRewards(bytes32 evidenceId) external nonReentrant {
-        (uint256 totalClaim, bool wasSubmitter) = _processClaimForEvidence(evidenceId, msg.sender);
-        if (totalClaim == 0) revert NothingToClaim();
-
-        (bool success,) = msg.sender.call{value: totalClaim}("");
-        require(success, "Transfer failed");
-
-        emit RewardsClaimed(evidenceId, msg.sender, totalClaim, wasSubmitter);
-    }
-
-    function batchClaimRewards(bytes32[] calldata evidenceIds) external nonReentrant {
-        uint256 totalClaim = 0;
-        for (uint256 i = 0; i < evidenceIds.length; i++) {
-            (uint256 claim,) = _processClaimForEvidence(evidenceIds[i], msg.sender);
-            totalClaim += claim;
-        }
-        if (totalClaim == 0) revert NothingToClaim();
-
-        (bool success,) = msg.sender.call{value: totalClaim}("");
-        require(success, "Transfer failed");
-    }
-
-    function _processClaimForEvidence(bytes32 evidenceId, address claimer) internal returns (uint256 totalClaim, bool wasSubmitter) {
         Evidence storage e = evidence[evidenceId];
-        if (e.submittedAt == 0) return (0, false);
+        if (e.submittedAt == 0) revert EvidenceNotFound();
+        if (!caseEvidence[e.caseId].resolved) revert CaseNotResolved();
+
+        (uint256 claim, bool wasSubmitter) = _processClaim(evidenceId, msg.sender);
+        if (claim == 0) revert NothingToClaim();
+
+        _transfer(msg.sender, claim);
+        emit RewardsClaimed(evidenceId, msg.sender, claim, wasSubmitter);
+    }
+
+    function batchClaimRewards(bytes32[] calldata ids) external nonReentrant {
+        uint256 total;
+        for (uint256 i; i < ids.length; i++) {
+            (uint256 claim,) = _processClaim(ids[i], msg.sender);
+            total += claim;
+        }
+        if (total == 0) revert NothingToClaim();
+        _transfer(msg.sender, total);
+    }
+
+    function _processClaim(bytes32 evidenceId, address claimer) internal returns (uint256 claim, bool wasSubmitter) {
+        Evidence storage e = evidence[evidenceId];
+        if (e.submittedAt == 0 || !caseEvidence[e.caseId].resolved) return (0, false);
 
         CaseEvidence storage ce = caseEvidence[e.caseId];
-        if (!ce.resolved) return (0, false);
 
         if (e.submitter == claimer && !e.submitterClaimed && e.stake > 0) {
-            totalClaim += _calculateClaim(e, ce, e.stake, true, true);
-            e.submitterClaimed = true;
-            wasSubmitter = true;
+            uint256 c = _calcClaim(ce, e.stake, e.status == EvidenceStatus.REWARDED, true);
+            if (c > 0) { claim += c; e.submitterClaimed = true; wasSubmitter = true; }
         }
 
         if (hasSupported[evidenceId][claimer]) {
-            uint256 idx = userSupportIndex[evidenceId][claimer];
-            EvidenceSupport storage support = evidenceSupport[evidenceId][idx];
-            if (!support.claimed && support.stake > 0) {
-                bool supporterWon = support.isSupporting ? e.status == EvidenceStatus.REWARDED : e.status == EvidenceStatus.SLASHED;
-                totalClaim += _calculateClaim(e, ce, support.stake, supporterWon, false);
-                support.claimed = true;
+            EvidenceSupport storage s = evidenceSupport[evidenceId][userSupportIndex[evidenceId][claimer]];
+            if (!s.claimed && s.stake > 0) {
+                bool won = s.isSupporting ? e.status == EvidenceStatus.REWARDED : e.status == EvidenceStatus.SLASHED;
+                uint256 c = _calcClaim(ce, s.stake, won, false);
+                if (c > 0) { claim += c; s.claimed = true; }
             }
         }
     }
 
-    function _calculateClaim(Evidence storage e, CaseEvidence storage ce, uint256 stake, bool won, bool isSubmitter) internal view returns (uint256) {
+    function _calcClaim(CaseEvidence storage ce, uint256 stake, bool won, bool isSubmitter) internal view returns (uint256) {
         if (!won) return 0;
-
-        (uint256 winningPool, uint256 losingPool) = _calculatePools(ce);
-        if (winningPool == 0) return stake;
-
-        uint256 distributablePool = losingPool - (losingPool * PROTOCOL_FEE_BPS) / 10000;
-        uint256 share = (distributablePool * WINNER_SHARE_BPS * stake) / (winningPool * 10000);
-        
-        if (isSubmitter) {
-            share += (distributablePool * SUBMITTER_BONUS_BPS * stake) / (winningPool * 10000);
-        }
-
+        (uint256 winPool, uint256 losePool) = _calcPools(ce);
+        if (winPool == 0) return stake;
+        uint256 dist = losePool - (losePool * PROTOCOL_FEE_BPS) / 10000;
+        uint256 share = (dist * WINNER_SHARE_BPS * stake) / (winPool * 10000);
+        if (isSubmitter) share += (dist * SUBMITTER_BONUS_BPS * stake) / (winPool * 10000);
         return stake + share;
     }
 
-    function _calculatePools(CaseEvidence storage ce) internal view returns (uint256 winningPool, uint256 losingPool) {
-        for (uint256 i = 0; i < ce.evidenceIds.length; i++) {
+    function _calcPools(CaseEvidence storage ce) internal view returns (uint256 win, uint256 lose) {
+        for (uint256 i; i < ce.evidenceIds.length; i++) {
             Evidence storage ev = evidence[ce.evidenceIds[i]];
-            uint256 evidenceTotal = ev.stake + ev.supportStake;
-            uint256 oppositionTotal = ev.opposeStake;
-            
-            if (ev.status == EvidenceStatus.REWARDED) {
-                winningPool += evidenceTotal;
-                losingPool += oppositionTotal;
-            } else {
-                losingPool += evidenceTotal;
-                winningPool += oppositionTotal;
-            }
+            uint256 evTotal = ev.stake + ev.supportStake;
+            if (ev.status == EvidenceStatus.REWARDED) { win += evTotal; lose += ev.opposeStake; }
+            else { lose += evTotal; win += ev.opposeStake; }
         }
     }
 
-    function _calculateTimeWeight(uint256 caseEndsAt) internal view returns (uint256) {
-        if (block.timestamp >= caseEndsAt) return 10000;
-        uint256 hoursRemaining = (caseEndsAt - block.timestamp) / 1 hours;
-        uint256 timeBonus = hoursRemaining * TIME_WEIGHT_BPS_PER_HOUR;
-        return 10000 + (timeBonus > MAX_TIME_BONUS_BPS ? MAX_TIME_BONUS_BPS : timeBonus);
+    function _validateActiveCase(CaseEvidence storage ce) internal view {
+        if (ce.caseCreatedAt == 0) revert CaseNotRegistered();
+        if (ce.resolved) revert CaseAlreadyResolved();
+        if (block.timestamp > ce.caseEndsAt) revert VotingEnded();
+    }
+
+    function _addWeightedStake(CaseEvidence storage ce, EvidencePosition pos, uint256 weighted) internal {
+        if (pos == EvidencePosition.FOR_ACTION) ce.totalForStake += weighted;
+        else ce.totalAgainstStake += weighted;
+    }
+
+    function _calculateTimeWeight(uint256 endsAt) internal view returns (uint256) {
+        if (block.timestamp >= endsAt) return 10000;
+        uint256 bonus = ((endsAt - block.timestamp) / 1 hours) * TIME_WEIGHT_BPS_PER_HOUR;
+        return 10000 + (bonus > MAX_TIME_BONUS_BPS ? MAX_TIME_BONUS_BPS : bonus);
     }
 
     function _getReputation(address user) internal view returns (uint256) {
         if (reputationProvider == address(0)) return 5000;
-        (bool success, bytes memory data) = reputationProvider.staticcall(abi.encodeWithSignature("getReputation(address)", user));
-        if (success && data.length >= 32) {
-            uint256 rep = abi.decode(data, (uint256));
-            return rep > 10000 ? 10000 : rep;
-        }
+        (bool ok, bytes memory data) = reputationProvider.staticcall(abi.encodeWithSignature("getReputation(address)", user));
+        if (ok && data.length >= 32) { uint256 r = abi.decode(data, (uint256)); return r > 10000 ? 10000 : r; }
         return 5000;
     }
 
-    function getCaseEvidence(bytes32 caseId) external view returns (bytes32[] memory, uint256, uint256, bool) {
-        CaseEvidence storage ce = caseEvidence[caseId];
+    function _transfer(address to, uint256 amount) internal {
+        (bool ok,) = to.call{value: amount}("");
+        require(ok, "Transfer failed");
+    }
+
+    function getCaseEvidence(bytes32 id) external view returns (bytes32[] memory, uint256, uint256, bool) {
+        CaseEvidence storage ce = caseEvidence[id];
         return (ce.evidenceIds, ce.totalForStake, ce.totalAgainstStake, ce.resolved);
     }
+    function getCaseEvidenceDetails(bytes32 id) external view returns (CaseEvidence memory) { return caseEvidence[id]; }
+    function getEvidence(bytes32 id) external view returns (Evidence memory) { return evidence[id]; }
+    function getEvidenceSupport(bytes32 id) external view returns (EvidenceSupport[] memory) { return evidenceSupport[id]; }
+    function getUserEvidence(address u) external view returns (bytes32[] memory) { return userEvidence[u]; }
+    function getUserCaseEvidence(bytes32 c, address u) external view returns (bytes32[] memory) { return userCaseEvidence[c][u]; }
 
-    function getCaseEvidenceDetails(bytes32 caseId) external view returns (CaseEvidence memory) {
-        return caseEvidence[caseId];
-    }
-
-    function getEvidence(bytes32 evidenceId) external view returns (Evidence memory) {
-        return evidence[evidenceId];
-    }
-
-    function getEvidenceSupport(bytes32 evidenceId) external view returns (EvidenceSupport[] memory) {
-        return evidenceSupport[evidenceId];
-    }
-
-    function getUserEvidence(address user) external view returns (bytes32[] memory) {
-        return userEvidence[user];
-    }
-
-    function getUserCaseEvidence(bytes32 caseId, address user) external view returns (bytes32[] memory) {
-        return userCaseEvidence[caseId][user];
-    }
-
-    function getClaimableAmount(bytes32 evidenceId, address user) external view returns (uint256) {
+    function getClaimableAmount(bytes32 evidenceId, address user) external view returns (uint256 total) {
         Evidence storage e = evidence[evidenceId];
-        if (e.submittedAt == 0) return 0;
-
+        if (e.submittedAt == 0 || !caseEvidence[e.caseId].resolved) return 0;
         CaseEvidence storage ce = caseEvidence[e.caseId];
-        if (!ce.resolved) return 0;
-
-        uint256 total = 0;
-        if (e.submitter == user && !e.submitterClaimed && e.stake > 0) {
-            total += _calculateClaim(e, ce, e.stake, e.status == EvidenceStatus.REWARDED, true);
-        }
-
+        if (e.submitter == user && !e.submitterClaimed && e.stake > 0)
+            total += _calcClaim(ce, e.stake, e.status == EvidenceStatus.REWARDED, true);
         if (hasSupported[evidenceId][user]) {
-            uint256 idx = userSupportIndex[evidenceId][user];
-            EvidenceSupport storage support = evidenceSupport[evidenceId][idx];
-            if (!support.claimed && support.stake > 0) {
-                bool supporterWon = support.isSupporting ? e.status == EvidenceStatus.REWARDED : e.status == EvidenceStatus.SLASHED;
-                total += _calculateClaim(e, ce, support.stake, supporterWon, false);
-            }
+            EvidenceSupport storage s = evidenceSupport[evidenceId][userSupportIndex[evidenceId][user]];
+            if (!s.claimed && s.stake > 0)
+                total += _calcClaim(ce, s.stake, s.isSupporting ? e.status == EvidenceStatus.REWARDED : e.status == EvidenceStatus.SLASHED, false);
         }
-        return total;
     }
 
-    function isCaseActive(bytes32 caseId) external view returns (bool) {
-        CaseEvidence storage ce = caseEvidence[caseId];
+    function isCaseActive(bytes32 id) external view returns (bool) {
+        CaseEvidence storage ce = caseEvidence[id];
         return ce.caseCreatedAt != 0 && !ce.resolved && block.timestamp <= ce.caseEndsAt;
     }
-
-    function getCurrentTimeWeight(bytes32 caseId) external view returns (uint256) {
-        CaseEvidence storage ce = caseEvidence[caseId];
-        if (ce.caseCreatedAt == 0) return 10000;
-        return _calculateTimeWeight(ce.caseEndsAt);
+    function getCurrentTimeWeight(bytes32 id) external view returns (uint256) {
+        CaseEvidence storage ce = caseEvidence[id];
+        return ce.caseCreatedAt == 0 ? 10000 : _calculateTimeWeight(ce.caseEndsAt);
     }
 
-    function setModerationMarketplace(address _moderationMarketplace) external onlyOwner {
-        emit ModerationMarketplaceUpdated(moderationMarketplace, _moderationMarketplace);
-        moderationMarketplace = _moderationMarketplace;
-    }
-
-    function setReputationProvider(address _reputationProvider) external onlyOwner {
-        emit ReputationProviderUpdated(reputationProvider, _reputationProvider);
-        reputationProvider = _reputationProvider;
-    }
-
-    function setTreasury(address _treasury) external onlyOwner {
-        if (_treasury == address(0)) revert InvalidAddress();
-        emit TreasuryUpdated(treasury, _treasury);
-        treasury = _treasury;
-    }
+    function setModerationMarketplace(address v) external onlyOwner { emit ConfigUpdated("marketplace", moderationMarketplace, v); moderationMarketplace = v; }
+    function setReputationProvider(address v) external onlyOwner { emit ConfigUpdated("reputation", reputationProvider, v); reputationProvider = v; }
+    function setTreasury(address v) external onlyOwner { if (v == address(0)) revert InvalidAddress(); emit ConfigUpdated("treasury", treasury, v); treasury = v; }
 
     function pause() external onlyOwner { _pause(); }
     function unpause() external onlyOwner { _unpause(); }
 
     function withdrawProtocolFees() external onlyOwner {
-        uint256 amount = totalProtocolFees;
-        if (amount == 0) revert NothingToClaim();
+        uint256 amt = totalProtocolFees;
+        if (amt == 0) revert NothingToClaim();
         totalProtocolFees = 0;
-        (bool success,) = treasury.call{value: amount}("");
-        require(success, "Transfer failed");
-        emit ProtocolFeesWithdrawn(treasury, amount);
+        _transfer(treasury, amt);
+        emit ProtocolFeesWithdrawn(treasury, amt);
     }
 
     function emergencyWithdraw() external onlyOwner {
-        uint256 balance = address(this).balance;
-        if (balance > 0) {
-            (bool success,) = treasury.call{value: balance}("");
-            require(success, "Transfer failed");
-        }
+        if (address(this).balance > 0) _transfer(treasury, address(this).balance);
     }
 
     function version() external pure returns (string memory) { return "2.0.0"; }
-
     receive() external payable {}
 }
+

@@ -188,7 +188,7 @@ describe.skipIf(!REDIS_AVAILABLE)('RedisClusterClient', () => {
   });
 });
 
-describe('RedisClusterClient with Encryption', () => {
+describe.skipIf(!REDIS_AVAILABLE)('RedisClusterClient with Encryption', () => {
   let client: RedisClusterClient;
 
   beforeAll(async () => {
@@ -216,7 +216,7 @@ describe('RedisClusterClient with Encryption', () => {
     }
   });
 
-  it.skipIf(!REDIS_AVAILABLE)('should encrypt and decrypt values transparently', async () => {
+  it('should encrypt and decrypt values transparently', async () => {
     const sensitiveData = 'super-secret-api-key-12345';
     
     await client.set('encrypted-key', sensitiveData);
@@ -225,7 +225,7 @@ describe('RedisClusterClient with Encryption', () => {
     expect(retrieved).toBe(sensitiveData);
   });
 
-  it.skipIf(!REDIS_AVAILABLE)('should handle special characters in encrypted data', async () => {
+  it('should handle special characters in encrypted data', async () => {
     const specialData = '{"api_key": "sk-123", "webhook": "https://example.com?a=1&b=2"}';
     
     await client.set('json-data', specialData);

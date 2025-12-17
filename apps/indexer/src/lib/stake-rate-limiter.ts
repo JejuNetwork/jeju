@@ -1,7 +1,12 @@
-import { createPublicClient, http, readContract, parseAbi, isAddress, type Address } from 'viem';
+import { createPublicClient, http, parseAbi, isAddress, type Address } from 'viem';
 import type { Request, Response, NextFunction } from 'express';
 import { loadNetworkConfig } from '../network-config';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { inferChainFromRpcUrl } from './chain-utils';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function readContract<T>(client: { readContract: (params: unknown) => Promise<unknown> }, params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[] }): Promise<T> {
+  return client.readContract(params) as Promise<T>;
+}
 
 export const RATE_LIMITS = { BANNED: 0, FREE: 100, BASIC: 1000, PRO: 10000, UNLIMITED: 0 } as const;
 export type RateTier = keyof typeof RATE_LIMITS;
@@ -22,7 +27,7 @@ const STAKING_ABI = parseAbi([
 ]);
 
 let contracts: {
-  publicClient: ReturnType<typeof createPublicClient>;
+  publicClient: { readContract: (params: unknown) => Promise<unknown> };
   identityAddress: Address | null;
   banAddress: Address | null;
   stakingAddress: Address | null;
@@ -55,14 +60,14 @@ async function getStakeTier(address: string): Promise<RateTier> {
   let tier: RateTier = 'FREE';
 
   if (identityAddress && banAddress) {
-    const agentId = await readContract(publicClient, {
+    const agentId = await readContract<bigint>(publicClient, {
       address: identityAddress,
       abi: IDENTITY_ABI,
       functionName: 'getAgentId',
       args: [address as Address],
     });
     if (agentId > 0n) {
-      const isBanned = await readContract(publicClient, {
+      const isBanned = await readContract<boolean>(publicClient, {
         address: banAddress,
         abi: BAN_ABI,
         functionName: 'isBanned',
@@ -77,7 +82,7 @@ async function getStakeTier(address: string): Promise<RateTier> {
   }
 
   if (stakingAddress) {
-    const stakeWei = await readContract(publicClient, {
+    const stakeWei = await readContract<bigint>(publicClient, {
       address: stakingAddress,
       abi: STAKING_ABI,
       functionName: 'getStake',

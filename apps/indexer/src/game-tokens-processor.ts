@@ -112,15 +112,15 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
             // ============ Gold.sol Events ============
 
             if (eventSig === GOLD_CLAIMED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: goldInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { player: string; amount: bigint; nonce: bigint } };
 
-                const player = decoded.args.player.toLowerCase();
-                const amount = BigInt(decoded.args.amount.toString());
-                const nonce = BigInt(decoded.args.nonce.toString());
+                const player = args.player.toLowerCase();
+                const amount = BigInt(args.amount.toString());
+                const nonce = BigInt(args.nonce.toString());
 
                 const playerAccount = accountFactory.getOrCreate(player, block.header.height, blockTimestamp);
                 const tokenContract = getOrCreateContract(contractAddress, block.header.height, blockTimestamp);
@@ -153,14 +153,14 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 ctx.log.info(`Gold claimed: ${player} claimed ${formatEther(amount)} gold (nonce: ${nonce})`);
             }
             else if (eventSig === GOLD_BURNED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: goldInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { player: string; amount: bigint } };
 
-                const player = decoded.args.player.toLowerCase();
-                const amount = BigInt(decoded.args.amount.toString());
+                const player = args.player.toLowerCase();
+                const amount = BigInt(args.amount.toString());
 
                 const playerAccount = accountFactory.getOrCreate(player, block.header.height, blockTimestamp);
                 const tokenContract = getOrCreateContract(contractAddress, block.header.height, blockTimestamp);
@@ -186,18 +186,18 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
             // ============ Items.sol Events ============
 
             else if (eventSig === ITEM_MINTED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: itemsInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { minter: string; itemId: bigint; amount: bigint; instanceId: string; stackable: boolean; rarity: number } };
 
-                const minter = decoded.args.minter.toLowerCase();
-                const itemId = BigInt(decoded.args.itemId.toString());
-                const amount = BigInt(decoded.args.amount.toString());
-                const instanceId = decoded.args.instanceId;
-                const stackable = decoded.args.stackable;
-                const rarity = decoded.args.rarity;
+                const minter = args.minter.toLowerCase();
+                const itemId = BigInt(args.itemId.toString());
+                const amount = BigInt(args.amount.toString());
+                const instanceId = args.instanceId;
+                const stackable = args.stackable;
+                const rarity = args.rarity;
 
                 const minterAccount = accountFactory.getOrCreate(minter, block.header.height, blockTimestamp);
                 const tokenContract = getOrCreateContract(contractAddress, block.header.height, blockTimestamp);
@@ -235,15 +235,15 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 ctx.log.info(`Item minted: ${minter} minted ${amount}x item #${itemId} (${rarityNames[rarity] || 'Unknown'}, ${stackable ? 'stackable' : 'unique'})`);
             }
             else if (eventSig === ITEM_BURNED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: itemsInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { player: string; itemId: bigint; amount: bigint } };
 
-                const player = decoded.args.player.toLowerCase();
-                const itemId = BigInt(decoded.args.itemId.toString());
-                const amount = BigInt(decoded.args.amount.toString());
+                const player = args.player.toLowerCase();
+                const itemId = BigInt(args.itemId.toString());
+                const amount = BigInt(args.amount.toString());
 
                 const playerAccount = accountFactory.getOrCreate(player, block.header.height, blockTimestamp);
                 const tokenContract = getOrCreateContract(contractAddress, block.header.height, blockTimestamp);
@@ -267,30 +267,30 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
                 ctx.log.info(`Item burned: ${player} burned ${amount}x item #${itemId}`);
             }
             else if (eventSig === ITEM_TYPE_CREATED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: itemsInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { itemId: bigint; name: string; stackable: boolean; rarity: number } };
 
-                const itemId = BigInt(decoded.args.itemId.toString());
-                const name = decoded.args.name;
-                const stackable = decoded.args.stackable;
-                const rarity = decoded.args.rarity;
+                const itemId = BigInt(args.itemId.toString());
+                const name = args.name;
+                const stackable = args.stackable;
+                const rarity = args.rarity;
 
                 ctx.log.info(`Item type created: #${itemId} "${name}" (${stackable ? 'stackable' : 'unique'}, rarity: ${rarity})`);
             }
             else if (eventSig === NFT_PROVENANCE) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: itemsInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { originalMinter: string; itemId: bigint; instanceId: string; mintedAt: bigint } };
 
-                const originalMinter = decoded.args.originalMinter.toLowerCase();
-                const itemId = BigInt(decoded.args.itemId.toString());
-                const instanceId = decoded.args.instanceId;
-                const mintedAt = BigInt(decoded.args.mintedAt.toString());
+                const originalMinter = args.originalMinter.toLowerCase();
+                const itemId = BigInt(args.itemId.toString());
+                const instanceId = args.instanceId;
+                const mintedAt = BigInt(args.mintedAt.toString());
 
                 ctx.log.info(`NFT Provenance: item #${itemId} originally minted by ${originalMinter} at ${mintedAt}`);
             }
@@ -298,16 +298,16 @@ export async function processGameTokenEvents(ctx: ProcessorContext<Store>): Prom
             // ============ ERC-1155 Transfer Events ============
 
             else if (eventSig === TRANSFER_SINGLE) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: itemsInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { operator: string; from: string; to: string; id: bigint; value: bigint } };
 
-                const from = decoded.args.from.toLowerCase();
-                const to = decoded.args.to.toLowerCase();
-                const id = BigInt(decoded.args.id.toString());
-                const value = BigInt(decoded.args.value.toString());
+                const from = args.from.toLowerCase();
+                const to = args.to.toLowerCase();
+                const id = BigInt(args.id.toString());
+                const value = BigInt(args.value.toString());
 
                 // Skip mint/burn events (already handled above)
                 if (from === ZERO_ADDRESS || to === ZERO_ADDRESS) continue;
