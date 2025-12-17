@@ -19,19 +19,19 @@ import {
   type Hex,
 } from 'viem';
 import { z } from 'zod';
-import type {
-  VPNNode,
-  VPNNodeQuery,
-  VPNConnection,
-  VPNConnectOptions,
-  VPNProtocol,
-  VPNConnectionStatus,
-  ContributionQuota,
-  ContributionSettings,
-  VPNProviderEarnings,
-  CountryCode,
-  CountryLegalStatus,
+import {
   VPN_LEGAL_COUNTRIES,
+  type VPNNode,
+  type VPNNodeQuery,
+  type VPNConnection,
+  type VPNConnectOptions,
+  type VPNProtocol,
+  type VPNConnectionStatus,
+  type ContributionQuota,
+  type ContributionSettings,
+  type VPNProviderEarnings,
+  type CountryCode,
+  type CountryLegalStatus,
 } from '@jejunetwork/types';
 
 // ============================================================================
@@ -340,6 +340,212 @@ export class VPNClient {
 
 export function createVPNClient(config: VPNSDKConfig): VPNClient {
   return new VPNClient(config);
+}
+
+// ============================================================================
+// Re-exports
+// ============================================================================
+
+// ============================================================================
+// x402 Payment Integration
+// ============================================================================
+
+export interface VPNPaymentParams {
+  resource: 'vpn:connect' | 'vpn:proxy' | 'vpn:bandwidth';
+  amount: bigint;
+}
+
+export interface VPNPaymentHeader {
+  header: string;
+  expiresAt: number;
+}
+
+/**
+ * Create x402 payment header for VPN services
+ */
+export async function createVPNPaymentHeader(
+  wallet: { address: string; signMessage: (msg: string) => Promise<string> },
+  config: VPNSDKConfig,
+  params: VPNPaymentParams,
+): Promise<VPNPaymentHeader> {
+  const timestamp = Math.floor(Date.now() / 1000);
+  const nonce = `${wallet.address}-${timestamp}-${Math.random().toString(36).slice(2, 8)}`;
+  
+  const message = `x402:exact:jeju:${config.contracts.vpnRegistry}:${params.amount}:0x0000000000000000000000000000000000000000:${params.resource}:${nonce}:${timestamp}`;
+  const signature = await wallet.signMessage(message);
+
+  const payload = {
+    scheme: 'exact',
+    network: 'jeju',
+    payTo: config.contracts.vpnRegistry,
+    amount: params.amount.toString(),
+    asset: '0x0000000000000000000000000000000000000000',
+    resource: params.resource,
+    nonce,
+    timestamp,
+    signature,
+  };
+
+  return {
+    header: `x402 ${Buffer.from(JSON.stringify(payload)).toString('base64')}`,
+    expiresAt: timestamp + 300,
+  };
+}
+
+// ============================================================================
+// A2A Integration
+// ============================================================================
+
+export interface VPNAgentClient {
+  /** Discover VPN agent capabilities */
+  discover(): Promise<VPNAgentCard>;
+  
+  /** Connect to VPN via A2A */
+  connect(countryCode?: string, protocol?: string): Promise<VPNConnectionResult>;
+  
+  /** Disconnect via A2A */
+  disconnect(connectionId: string): Promise<{ success: boolean; bytesTransferred: string }>;
+  
+  /** Make proxied request via A2A */
+  proxyRequest(url: string, options?: ProxyRequestOptions): Promise<ProxyResult>;
+  
+  /** Get contribution status via A2A */
+  getContribution(): Promise<ContributionStatus>;
+}
+
+export interface VPNAgentCard {
+  name: string;
+  description: string;
+  url: string;
+  skills: Array<{
+    id: string;
+    name: string;
+    description: string;
+    paymentRequired: boolean;
+  }>;
+}
+
+export interface VPNConnectionResult {
+  connectionId: string;
+  endpoint: string;
+  publicKey: string;
+  countryCode: string;
+}
+
+export interface ProxyRequestOptions {
+  method?: string;
+  headers?: Record<string, string>;
+  body?: string;
+  countryCode?: string;
+  paymentHeader?: string;
+}
+
+export interface ProxyResult {
+  status: number;
+  body: string;
+  exitNode?: string;
+  latencyMs?: number;
+}
+
+export interface ContributionStatus {
+  bytesUsed: string;
+  bytesContributed: string;
+  quotaRemaining: string;
+}
+
+/**
+ * Create A2A client for VPN agent
+ */
+export function createVPNAgentClient(
+  endpoint: string,
+  wallet: { address: string; signMessage: (msg: string) => Promise<string> },
+): VPNAgentClient {
+  let messageCounter = 0;
+
+  async function buildAuthHeaders(): Promise<Record<string, string>> {
+    const timestamp = Date.now().toString();
+    const message = `jeju-vpn:${timestamp}`;
+    const signature = await wallet.signMessage(message);
+
+    return {
+      'Content-Type': 'application/json',
+      'x-jeju-address': wallet.address,
+      'x-jeju-timestamp': timestamp,
+      'x-jeju-signature': signature,
+    };
+  }
+
+  async function callSkill<T>(
+    skillId: string,
+    params: Record<string, unknown>,
+    paymentHeader?: string,
+  ): Promise<T> {
+    const headers = await buildAuthHeaders();
+    if (paymentHeader) {
+      headers['x-payment'] = paymentHeader;
+    }
+
+    const messageId = `msg-${++messageCounter}-${Date.now()}`;
+    const body = {
+      jsonrpc: '2.0',
+      method: 'message/send',
+      params: {
+        message: {
+          messageId,
+          parts: [{ kind: 'data', data: { skillId, params } }],
+        },
+      },
+      id: messageCounter,
+    };
+
+    const response = await fetch(`${endpoint}/a2a`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body),
+    });
+
+    const result = await response.json() as {
+      jsonrpc: string;
+      result?: { parts: Array<{ kind: string; data?: T }> };
+      error?: { code: number; message: string };
+    };
+
+    if (result.error) {
+      throw new Error(`A2A error ${result.error.code}: ${result.error.message}`);
+    }
+
+    const dataPart = result.result?.parts.find(p => p.kind === 'data');
+    return dataPart?.data as T;
+  }
+
+  return {
+    async discover(): Promise<VPNAgentCard> {
+      const response = await fetch(`${endpoint}/.well-known/agent-card.json`);
+      return response.json();
+    },
+
+    async connect(countryCode?: string, protocol?: string): Promise<VPNConnectionResult> {
+      return callSkill('vpn_connect', { countryCode, protocol });
+    },
+
+    async disconnect(connectionId: string): Promise<{ success: boolean; bytesTransferred: string }> {
+      return callSkill('vpn_disconnect', { connectionId });
+    },
+
+    async proxyRequest(url: string, options?: ProxyRequestOptions): Promise<ProxyResult> {
+      return callSkill('proxy_request', {
+        url,
+        method: options?.method,
+        headers: options?.headers,
+        body: options?.body,
+        countryCode: options?.countryCode,
+      }, options?.paymentHeader);
+    },
+
+    async getContribution(): Promise<ContributionStatus> {
+      return callSkill('get_contribution', {});
+    },
+  };
 }
 
 // ============================================================================

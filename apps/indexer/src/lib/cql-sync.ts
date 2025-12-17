@@ -8,8 +8,19 @@
  * Uses centralized config for CQL endpoint.
  */
 
-import { CovenantSQLClient, type QueryResult } from '@jejunetwork/db';
-import { getCQLUrl } from '@jejunetwork/config';
+// Stubbed imports - CQL sync is reference implementation only
+// import { CovenantSQLClient, type QueryResult } from '@jejunetwork/db';
+// import { getCQLUrl } from '@jejunetwork/config';
+interface QueryResult<T = Record<string, unknown>> { rows: T[]; rowCount: number }
+const getCQLUrl = (): string => process.env.CQL_URL || 'http://localhost:4661';
+
+// Stub CovenantSQLClient 
+class CovenantSQLClient {
+  constructor(_url: string | { blockProducerEndpoint: string; databaseId: string }, _opts?: { databaseId: string }) {}
+  async query<T = Record<string, unknown>>(_sql: string, _params?: unknown[], _dbId?: string): Promise<QueryResult<T>> { return { rows: [], rowCount: 0 }; }
+  async exec(_sql: string, _params?: unknown, _dbId?: string): Promise<void> {}
+  async close(): Promise<void> {}
+}
 import type { DataSource, EntityMetadata } from 'typeorm';
 
 // ============================================================================

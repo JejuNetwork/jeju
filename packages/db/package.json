@@ -29,6 +29,7 @@
     "dev": "tsc --watch",
     "server": "bun run src/server.ts",
     "server:dev": "CQL_DEBUG=true bun run src/server.ts",
+    "mock-cql": "bun run src/mock-cql-server.ts",
     "test": "bun test",
     "clean": "rm -rf dist",
     "prepublishOnly": "bun run build"
@@ -48,6 +49,7 @@
   ],
   "dependencies": {
     "@jejunetwork/config": "workspace:*",
+    "hono": "^4.6.12",
     "viem": "2.41.2"
   },
   "devDependencies": {

@@ -663,13 +663,25 @@ export const apiUserAccountState = {
     const addr = address.toLowerCase();
     const now = Date.now();
     
-    await this.getOrCreate(address);
+    // Get current balance
+    const account = await this.getOrCreate(address);
+    // Parse current balance handling scientific notation
+    let currentBalance = 0n;
+    const balStr = String(account.balance);
+    if (balStr.includes('e') || balStr.includes('E')) {
+      currentBalance = BigInt(Math.round(parseFloat(balStr)));
+    } else if (balStr && balStr !== '') {
+      currentBalance = BigInt(balStr.split('.')[0]);
+    }
+    
+    // Calculate new balance
+    const deltaValue = BigInt(delta);
+    const newBalance = currentBalance + deltaValue;
     
     const client = await getCQLClient();
     await client.exec(
-      `UPDATE api_user_accounts SET balance = CAST(CAST(balance AS INTEGER) + ? AS TEXT), updated_at = ?
-       WHERE address = ?`,
-      [parseInt(delta), now, addr],
+      `UPDATE api_user_accounts SET balance = ?, updated_at = ? WHERE address = ?`,
+      [newBalance.toString(), now, addr],
       CQL_DATABASE_ID
     );
   },

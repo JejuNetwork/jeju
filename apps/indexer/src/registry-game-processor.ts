@@ -3,7 +3,7 @@
  * Handles: IdentityRegistry, ReputationRegistry, ValidationRegistry, BanManager, ReportingSystem
  */
 
-import { parseAbi, decodeEventLog, decodeAbiParameters, zeroHash, bytesToString, toHex } from 'viem';
+import { parseAbi, decodeEventLog, decodeAbiParameters, zeroHash, hexToString, toHex } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { 
@@ -337,7 +337,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 const key = args.key;
                 let value: string;
                 try {
-                    value = bytesToString(args.value);
+                    value = hexToString(args.value);
                 } catch {
                     value = args.value;
                 }

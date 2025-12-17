@@ -14,7 +14,6 @@ import { type NodeClient, getChain } from '../contracts';
 import { z } from 'zod';
 import { Registry, Counter, Histogram, Gauge } from 'prom-client';
 import { createHash, randomBytes } from 'crypto';
-import * as net from 'net';
 import * as dgram from 'dgram';
 
 // ============================================================================
@@ -74,19 +73,6 @@ export interface VPNSession {
   successful: boolean;
 }
 
-// ============================================================================
-// VPN Registry ABI
-// ============================================================================
-
-const VPN_REGISTRY_ABI = [
-  'function register(bytes2 countryCode, bytes32 regionHash, string endpoint, string wireguardPubKey, tuple(bool supportsWireGuard, bool supportsSOCKS5, bool supportsHTTPConnect, bool servesCDN, bool isVPNExit) capabilities) external payable',
-  'function getNode(address operator) external view returns (tuple(address operator, bytes2 countryCode, bytes32 regionHash, string endpoint, string wireguardPubKey, uint256 stake, uint256 registeredAt, uint256 lastSeen, tuple(bool supportsWireGuard, bool supportsSOCKS5, bool supportsHTTPConnect, bool servesCDN, bool isVPNExit) capabilities, bool active, uint256 totalBytesServed, uint256 totalSessions, uint256 successfulSessions))',
-  'function heartbeat() external',
-  'function recordSession(address nodeAddr, address client, uint256 bytesServed, bool successful) external',
-  'function isActive(address operator) external view returns (bool)',
-  'function allowedCountries(bytes2 countryCode) external view returns (bool)',
-  'function blockedCountries(bytes2 countryCode) external view returns (bool)',
-] as const;
 
 // ============================================================================
 // Prometheus Metrics
@@ -172,8 +158,12 @@ export class VPNExitService {
   // ============================================================================
 
   async getState(address: Address): Promise<VPNExitState | null> {
+    if (!this.client.addresses.vpnRegistry || this.client.addresses.vpnRegistry === '0x0000000000000000000000000000000000000000') {
+      return null;
+    }
+
     const node = await this.client.publicClient.readContract({
-      address: this.client.addresses.vpnRegistry as Address,
+      address: this.client.addresses.vpnRegistry,
       abi: VPN_REGISTRY_ABI,
       functionName: 'getNode',
       args: [address],
@@ -214,11 +204,15 @@ export class VPNExitService {
       throw new Error('Wallet not connected');
     }
 
+    if (!this.client.addresses.vpnRegistry || this.client.addresses.vpnRegistry === '0x0000000000000000000000000000000000000000') {
+      throw new Error('VPN Registry not deployed');
+    }
+
     // Check if country is allowed
     const countryBytes = `0x${Buffer.from(this.config.countryCode).toString('hex')}` as `0x${string}`;
     
     const isBlocked = await this.client.publicClient.readContract({
-      address: this.client.addresses.vpnRegistry as Address,
+      address: this.client.addresses.vpnRegistry,
       abi: VPN_REGISTRY_ABI,
       functionName: 'blockedCountries',
       args: [countryBytes],
@@ -243,7 +237,7 @@ export class VPNExitService {
     const hash = await this.client.walletClient.writeContract({
       chain: getChain(this.client.chainId),
       account: this.client.walletClient.account,
-      address: this.client.addresses.vpnRegistry as Address,
+      address: this.client.addresses.vpnRegistry,
       abi: VPN_REGISTRY_ABI,
       functionName: 'register',
       args: [countryBytes, regionHash, this.config.endpoint, this.config.publicKey, capabilities],
@@ -281,7 +275,7 @@ export class VPNExitService {
     this.running = false;
 
     // Close all client sessions
-    for (const [clientId, client] of this.clients) {
+    for (const [clientId] of this.clients) {
       await this.endSession(clientId, true);
     }
 
@@ -443,15 +437,20 @@ export class VPNExitService {
 
   private async sendHeartbeat(): Promise<void> {
     if (!this.running || !this.client.walletClient?.account) return;
+    if (!this.client.addresses.vpnRegistry || this.client.addresses.vpnRegistry === '0x0000000000000000000000000000000000000000') return;
 
-    await this.client.walletClient.writeContract({
-      chain: getChain(this.client.chainId),
-      account: this.client.walletClient.account,
-      address: this.client.addresses.vpnRegistry as Address,
-      abi: VPN_REGISTRY_ABI,
-      functionName: 'heartbeat',
-      args: [],
-    });
+    try {
+      await this.client.walletClient.writeContract({
+        chain: getChain(this.client.chainId),
+        account: this.client.walletClient.account,
+        address: this.client.addresses.vpnRegistry,
+        abi: VPN_REGISTRY_ABI,
+        functionName: 'heartbeat',
+        args: [],
+      });
+    } catch (error) {
+      console.error('[VPNExit] Heartbeat failed:', error);
+    }
   }
 
   private updateMetrics(): void {

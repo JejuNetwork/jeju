@@ -12,8 +12,9 @@
  * - Graceful shutdown
  */
 
-import { randomBytes, createHmac } from 'crypto';
+import { randomBytes } from 'crypto';
 import { type Address, recoverMessageAddress } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { WebSocket, WebSocketServer } from 'ws';
 import * as http from 'http';
 import { z } from 'zod';
@@ -149,6 +150,7 @@ const coordinatorGossipLatency = new Histogram({
 
 export class EdgeCoordinator {
   private config: EdgeCoordinatorConfig;
+  private account: ReturnType<typeof privateKeyToAccount>;
   private peers = new LRUCache<string, { ws: WebSocket; info: EdgeNodeInfo }>({
     max: 1000,
     ttl: 10 * 60 * 1000, // 10 minutes
@@ -183,6 +185,9 @@ export class EdgeCoordinator {
 
   constructor(config: EdgeCoordinatorConfig) {
     this.config = EdgeCoordinatorConfigSchema.parse(config);
+
+    // Initialize signing account
+    this.account = privateKeyToAccount(this.config.privateKey as `0x${string}`);
 
     // Setup on-chain integration
     if (this.config.rpcUrl && this.config.nodeRegistryAddress) {
@@ -402,11 +407,8 @@ export class EdgeCoordinator {
       payload: msg.payload,
     });
 
-    // Create HMAC signature using private key
-    // In production, use proper ECDSA signing with viem
-    const hmac = createHmac('sha256', this.config.privateKey);
-    hmac.update(messageData);
-    return `0x${hmac.digest('hex')}`;
+    // Use proper ECDSA signing with viem
+    return await this.account.signMessage({ message: messageData });
   }
 
   // ============================================================================
@@ -662,7 +664,8 @@ export class EdgeCoordinator {
 
   private async connectToPeer(endpoint: string): Promise<void> {
     try {
-      const wsUrl = endpoint.replace(/^https?/, 'wss');
+      // Convert HTTP to WebSocket protocol: http -> ws, https -> wss
+      const wsUrl = endpoint.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
       const ws = new WebSocket(`${wsUrl}/gossip`);
 
       ws.on('open', async () => {

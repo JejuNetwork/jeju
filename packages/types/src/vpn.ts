@@ -22,7 +22,7 @@ export const CountryCodeSchema = z.enum([
   // Americas
   'US', 'CA', 'MX', 'BR', 'AR', 'CL', 'CO', 'PE',
   // Europe
-  'GB', 'DE', 'FR', 'NL', 'CH', 'SE', 'NO', 'FI', 'DK', 'AT', 'BE', 'IE', 'ES', 'IT', 'PT', 'PL', 'CZ', 'RO', 'HU', 'GR',
+  'GB', 'DE', 'FR', 'NL', 'CH', 'SE', 'NO', 'FI', 'DK', 'AT', 'BE', 'IE', 'ES', 'IT', 'PT', 'PL', 'CZ', 'RO', 'HU', 'GR', 'IS',
   // Asia Pacific
   'JP', 'KR', 'SG', 'HK', 'TW', 'AU', 'NZ', 'IN', 'TH', 'MY', 'PH', 'ID', 'VN',
   // Middle East & Africa
@@ -52,7 +52,7 @@ export const VPN_LEGAL_COUNTRIES: CountryLegalStatus[] = [
   { countryCode: 'NL', vpnLegal: true, canBeExitNode: true, canBeClient: true, requiresExtraConsent: false, notes: 'Strong privacy laws' },
   { countryCode: 'CH', vpnLegal: true, canBeExitNode: true, canBeClient: true, requiresExtraConsent: false, notes: 'Strong privacy laws' },
   { countryCode: 'SE', vpnLegal: true, canBeExitNode: true, canBeClient: true, requiresExtraConsent: false, notes: 'Strong privacy laws' },
-  { countryCode: 'IS', vpnLegal: true, canBeExitNode: true, canBeClient: true, requiresExtraConsent: false, notes: 'Strong privacy laws' } as CountryLegalStatus,
+  { countryCode: 'IS', vpnLegal: true, canBeExitNode: true, canBeClient: true, requiresExtraConsent: false, notes: 'Strong privacy laws' },
 
   // Tier 2: Good jurisdictions
   { countryCode: 'US', vpnLegal: true, canBeExitNode: true, canBeClient: true, requiresExtraConsent: false, notes: 'ISP TOS may apply' },

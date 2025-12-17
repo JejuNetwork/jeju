@@ -65,27 +65,28 @@ services:
     restart: unless-stopped
 
   # ============================================================================
-  # CovenantSQL - Decentralized SQL Database with BFT Consensus
-  # Primary database for all apps (replaces centralized PostgreSQL)
+  # CQL - Decentralized SQL Database
+  # Local dev uses mock SQLite server; production uses full CovenantSQL
   # ============================================================================
-  covenantsql:
-    image: covenantsql/covenantsql:latest
+  cql:
+    build:
+      context: ./packages/db
+      dockerfile: Dockerfile.mock-cql
     container_name: jeju-cql
     hostname: cql
     ports:
       - "4661:4661"   # HTTP API
-      - "4663:4663"   # RPC
     environment:
-      - CQL_ADAPTER=http
-      - CQL_LOG_LEVEL=info
+      - CQL_PORT=4661
+      - CQL_DATA_DIR=/data
     volumes:
-      - cql-data:/var/lib/covenantsql
+      - cql-data:/data
     networks:
       - jeju
     healthcheck:
-      test: ["CMD", "curl", "-sf", "http://localhost:4661/v1/health"]
-      interval: 10s
-      timeout: 5s
+      test: ["CMD", "curl", "-sf", "http://localhost:4661/health"]
+      interval: 5s
+      timeout: 3s
       retries: 5
     restart: unless-stopped
 

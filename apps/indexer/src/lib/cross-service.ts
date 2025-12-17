@@ -206,7 +206,7 @@ export interface CrossServiceConfig {
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export class CrossServiceClient {
-  private publicClient: ReturnType<typeof createPublicClient>;
+  private publicClient: { readContract: (params: unknown) => Promise<unknown> };
   private computeRegistryAddress?: Address;
   private storageRegistryAddress?: Address;
   private identityRegistryAddress?: Address;

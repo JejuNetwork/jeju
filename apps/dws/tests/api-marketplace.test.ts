@@ -240,8 +240,11 @@ describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
 // ============================================================================
 
 describe.skipIf(!CQL_AVAILABLE)('Accounts', () => {
+  // Use unique addresses per test run to avoid accumulation issues
+  const testId = Date.now().toString(16).slice(-8);
+  
   test('should create account on first access', async () => {
-    const newUser = '0x9999999999999999999999999999999999999999' as Address;
+    const newUser = `0x${testId}999999999999999999999999999999` as Address;
     const account = await getOrCreateAccount(newUser);
 
     expect(account.address).toBe(newUser.toLowerCase());
@@ -250,37 +253,46 @@ describe.skipIf(!CQL_AVAILABLE)('Accounts', () => {
   });
 
   test('should deposit funds', async () => {
-    const depositUser = '0xdeposittest0000000000000000000000000001' as Address;
+    const depositUser = `0x${testId}deposit000000000000000000000001` as Address;
+    const beforeAccount = await getOrCreateAccount(depositUser);
+    const beforeBalance = beforeAccount.balance;
+    
     const account = await deposit(depositUser, 1000000000000000000n);
-    expect(account.balance).toBe(1000000000000000000n);
+    expect(account.balance).toBe(beforeBalance + 1000000000000000000n);
   });
 
   test('should withdraw funds', async () => {
-    await deposit(TEST_USER, 2000000000000000000n);
-    const account = await withdraw(TEST_USER, 500000000000000000n);
-    expect(account.balance).toBeGreaterThanOrEqual(500000000000000000n);
+    const withdrawUser = `0x${testId}withdraw00000000000000000000001` as Address;
+    await deposit(withdrawUser, 2000000000000000000n);
+    const beforeAccount = await getOrCreateAccount(withdrawUser);
+    const beforeBalance = beforeAccount.balance;
+    
+    const account = await withdraw(withdrawUser, 500000000000000000n);
+    expect(account.balance).toBe(beforeBalance - 500000000000000000n);
   });
 
   test('should fail withdrawal with insufficient balance', async () => {
-    const poorUser = '0x0000000000000000000000000000000000000002' as Address;
+    const poorUser = `0x${testId}poor00000000000000000000000002` as Address;
     await getOrCreateAccount(poorUser);
 
     await expect(withdraw(poorUser, 1000000000000000000n)).rejects.toThrow('Insufficient balance');
   });
 
   test('should charge user for request', async () => {
-    const chargeUser1 = '0x0000000000000000000000000000000000000003' as Address;
+    const chargeUser1 = `0x${testId}charge0000000000000000000000003` as Address;
     await deposit(chargeUser1, 1000000000000000000n);
+    const beforeAccount = await getOrCreateAccount(chargeUser1);
+    const beforeSpent = beforeAccount.totalSpent;
 
     const success = await chargeUser(chargeUser1, 100000000000000n);
     expect(success).toBe(true);
 
     const account = await getOrCreateAccount(chargeUser1);
-    expect(account.totalSpent).toBe(100000000000000n);
+    expect(account.totalSpent).toBe(beforeSpent + 100000000000000n);
   });
 
   test('should check affordability', async () => {
-    const richUser = '0x0000000000000000000000000000000000000004' as Address;
+    const richUser = `0x${testId}rich00000000000000000000000004` as Address;
     await deposit(richUser, 1000000000000000000n);
 
     expect(await canAfford(richUser, 100000000000000n)).toBe(true);
@@ -674,7 +686,12 @@ describe('Payments', () => {
   });
 
   test.skipIf(!CQL_AVAILABLE)('should process deposit', async () => {
-    const depositor = '0x2222222222222222222222222222222222222222' as Address;
+    const testId = Date.now().toString(16).slice(-8);
+    const depositor = `0x${testId}222222222222222222222222222222` as Address;
+
+    // Get initial balance (may be 0 or accumulated from previous runs)
+    const beforeAccount = await getOrCreateAccount(depositor);
+    const beforeBalance = beforeAccount.balance;
 
     const result = await processDeposit({
       amount: 1000000000000000000n,
@@ -682,7 +699,7 @@ describe('Payments', () => {
     });
 
     expect(result.success).toBe(true);
-    expect(result.newBalance).toBe(1000000000000000000n);
+    expect(result.newBalance).toBe(beforeBalance + 1000000000000000000n);
   });
 
   test('should check minimum deposit', () => {

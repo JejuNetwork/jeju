@@ -1,5 +1,16 @@
 /**
  * Network Node Services
+ *
+ * All services for running a Jeju network node:
+ * - Compute: GPU/CPU inference serving
+ * - Oracle: Price feeds and data oracles
+ * - Storage: Decentralized file storage
+ * - CDN: Content delivery network
+ * - VPN: WireGuard VPN exit node
+ * - Proxy: Residential proxy service
+ * - Torrent: P2P content distribution
+ * - Static Assets: Network default assets (UI, code)
+ * - Edge Coordinator: P2P node coordination
  */
 
 export * from './compute';
@@ -13,6 +24,7 @@ export * from './edge-coordinator';
 export * from './hybrid-torrent';
 export * from './updater';
 export * from './vpn-exit';
+export * from './static-assets';
 
 import { type NodeClient } from '../contracts';
 import { createComputeService, type ComputeService } from './compute';
@@ -24,6 +36,8 @@ import { createBridgeService, getDefaultBridgeConfig, type BridgeService, type B
 import { createResidentialProxyService, type ResidentialProxyService } from './residential-proxy';
 import { createEdgeCoordinator, type EdgeCoordinator, type EdgeCoordinatorConfig } from './edge-coordinator';
 import { getHybridTorrentService, type HybridTorrentService } from './hybrid-torrent';
+import { createVPNExitService, type VPNExitService, type VPNExitConfig } from './vpn-exit';
+import { createStaticAssetService, type StaticAssetService, type StaticAssetConfig } from './static-assets';
 
 export interface NodeServices {
   compute: ComputeService;
@@ -35,13 +49,23 @@ export interface NodeServices {
   proxy: ResidentialProxyService;
   edgeCoordinator: EdgeCoordinator;
   torrent: HybridTorrentService;
+  vpn: VPNExitService;
+  staticAssets: StaticAssetService;
+}
+
+export interface NodeServicesConfig {
+  bridge?: Partial<BridgeServiceConfig>;
+  edge?: Partial<EdgeCoordinatorConfig>;
+  vpn?: Partial<VPNExitConfig>;
+  staticAssets?: Partial<StaticAssetConfig>;
 }
 
 export function createNodeServices(
   client: NodeClient,
-  bridgeConfig?: Partial<BridgeServiceConfig>,
-  edgeConfig?: Partial<EdgeCoordinatorConfig>
+  config: NodeServicesConfig = {}
 ): NodeServices {
+  const { bridge: bridgeConfig, edge: edgeConfig, vpn: vpnConfig, staticAssets: staticConfig } = config;
+
   // Get operator address from config or use a placeholder for bridge
   const operatorAddress = bridgeConfig?.operatorAddress ?? '0x0000000000000000000000000000000000000000' as `0x${string}`;
 
@@ -83,5 +107,7 @@ export function createNodeServices(
     proxy: createResidentialProxyService(client),
     edgeCoordinator: createEdgeCoordinator(fullEdgeConfig),
     torrent: getHybridTorrentService(),
+    vpn: createVPNExitService(client, vpnConfig),
+    staticAssets: createStaticAssetService(client, staticConfig),
   };
 }

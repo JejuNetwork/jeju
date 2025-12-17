@@ -6,9 +6,8 @@ import { createPublicClient, http, parseAbi, type Address } from 'viem';
 import { inferChainFromRpcUrl } from './chain-utils';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function readContract<T>(client: ReturnType<typeof createPublicClient>, params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[] }): Promise<T> {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return (client as any).readContract(params) as Promise<T>;
+async function readContract<T>(client: { readContract: (params: unknown) => Promise<unknown> }, params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[] }): Promise<T> {
+  return client.readContract(params) as Promise<T>;
 }
 
 const IDENTITY_REGISTRY_ABI = parseAbi([

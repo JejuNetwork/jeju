@@ -7,24 +7,10 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 
-interface IIdentityRegistryStaking {
-    function ownerOf(uint256 tokenId) external view returns (address);
-}
+interface IIdentityRegistry { function ownerOf(uint256 tokenId) external view returns (address); }
+interface IBanManager { function isAddressBanned(address target) external view returns (bool); }
+interface IPriceOracle { function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80); }
 
-interface IBanManagerStaking {
-    function isAddressBanned(address target) external view returns (bool);
-}
-
-interface IPriceOracleStaking {
-    function latestRoundData() external view returns (uint80, int256, uint256, uint256, uint80);
-}
-
-/**
- * @title Staking
- * @notice Universal JEJU staking for DWS services with USD-denominated tiers
- * @dev Single stake provides access to RPC, storage, compute, CDN, and oracle services.
- *      Tiers: FREE ($0), BUILDER ($10), PRO ($100), UNLIMITED ($1000)
- */
 contract Staking is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
@@ -42,39 +28,21 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         bool isFrozen;
     }
 
-    struct TierConfig {
-        uint256 minUsdValue;
-        uint256 rpcRateLimit;
-        uint256 storageQuotaMB;
-        uint256 computeCredits;
-        uint256 cdnBandwidthGB;
-    }
-
-    struct ServiceAllocation {
-        uint256 rpcUsed;
-        uint256 storageUsed;
-        uint256 computeUsed;
-        uint256 cdnUsed;
-        uint256 periodStartTimestamp;
-    }
-
-    struct PriceData {
-        uint256 price;
-        uint256 timestamp;
-        bool isValid;
-    }
+    struct TierConfig { uint256 minUsdValue; uint256 rpcRateLimit; uint256 storageQuotaMB; uint256 computeCredits; uint256 cdnBandwidthGB; }
+    struct ServiceAllocation { uint256 rpcUsed; uint256 storageUsed; uint256 computeUsed; uint256 cdnUsed; uint256 periodStartTimestamp; }
+    struct PriceData { uint256 price; uint256 timestamp; bool isValid; }
 
     uint256 public constant UNBONDING_PERIOD = 7 days;
     uint256 public constant MAX_REPUTATION_BONUS_BPS = 5000;
-    uint256 public constant BPS_DENOMINATOR = 10000;
+    uint256 public constant BPS = 10000;
     uint256 public constant ALLOCATION_RESET_PERIOD = 30 days;
-    uint256 public constant MIN_STAKE_AMOUNT = 0.0001 ether;
-    uint256 public constant ORACLE_STALENESS_THRESHOLD = 1 hours;
-    uint256 public constant PRICE_DEVIATION_THRESHOLD_BPS = 5000;
+    uint256 public constant MIN_STAKE = 0.0001 ether;
+    uint256 public constant ORACLE_STALENESS = 1 hours;
+    uint256 public constant PRICE_DEVIATION_BPS = 5000;
 
     IERC20 public immutable jejuToken;
-    IIdentityRegistryStaking public identityRegistry;
-    IBanManagerStaking public banManager;
+    IIdentityRegistry public identityRegistry;
+    IBanManager public banManager;
     address public reputationProvider;
     address public primaryOracle;
     address public secondaryOracle;
@@ -127,13 +95,12 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     error InvalidPriceBounds();
     error InvalidService();
 
-    constructor(address _jejuToken, address _identityRegistry, address _primaryOracle, address _treasury, address _owner) Ownable(_owner) {
-        if (_jejuToken == address(0) || _treasury == address(0)) revert InvalidAddress();
-
-        jejuToken = IERC20(_jejuToken);
+    constructor(address _token, address _registry, address _oracle, address _treasury, address _owner) Ownable(_owner) {
+        if (_token == address(0) || _treasury == address(0)) revert InvalidAddress();
+        jejuToken = IERC20(_token);
         treasury = _treasury;
-        if (_identityRegistry != address(0)) identityRegistry = IIdentityRegistryStaking(_identityRegistry);
-        primaryOracle = _primaryOracle;
+        if (_registry != address(0)) identityRegistry = IIdentityRegistry(_registry);
+        primaryOracle = _oracle;
         lastKnownGoodPrice = fallbackPrice;
         lastPriceUpdateTime = block.timestamp;
 
@@ -143,17 +110,12 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         tierConfigs[Tier.UNLIMITED] = TierConfig(1000e8, 0, 0, 0, 0);
     }
 
-    function stake(uint256 amount) external nonReentrant whenNotPaused {
-        _stake(msg.sender, amount, 0);
-    }
-
-    function stakeWithAgent(uint256 amount, uint256 agentId) external nonReentrant whenNotPaused {
-        _stake(msg.sender, amount, agentId);
-    }
+    function stake(uint256 amount) external nonReentrant whenNotPaused { _stake(msg.sender, amount, 0); }
+    function stakeWithAgent(uint256 amount, uint256 agentId) external nonReentrant whenNotPaused { _stake(msg.sender, amount, agentId); }
 
     function _stake(address user, uint256 amount, uint256 agentId) internal {
         if (amount == 0) revert InvalidAmount();
-        if (amount < MIN_STAKE_AMOUNT) revert BelowMinimumStake();
+        if (amount < MIN_STAKE) revert BelowMinimumStake();
         if (address(banManager) != address(0) && banManager.isAddressBanned(user)) revert UserIsBanned();
 
         StakePosition storage pos = positions[user];
@@ -162,11 +124,7 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
 
         jejuToken.safeTransferFrom(user, address(this), amount);
 
-        if (!pos.isActive) {
-            pos.isActive = true;
-            pos.stakedAt = block.timestamp;
-            totalStakers++;
-        }
+        if (!pos.isActive) { pos.isActive = true; pos.stakedAt = block.timestamp; totalStakers++; }
         pos.stakedAmount += amount;
         totalStaked += amount;
 
@@ -174,18 +132,10 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
 
         Tier newTier = getTier(user);
         emit Staked(user, amount, newTier);
-
-        if (oldTier != newTier) {
-            _updateTierCounts(oldTier, newTier, wasActive);
-            emit TierChanged(user, oldTier, newTier);
-        } else if (!wasActive) {
-            tierCounts[newTier]++;
-        }
+        _handleTierChange(oldTier, newTier, wasActive);
     }
 
-    function linkAgent(uint256 agentId) external nonReentrant {
-        _linkAgent(msg.sender, agentId);
-    }
+    function linkAgent(uint256 agentId) external nonReentrant { _linkAgent(msg.sender, agentId); }
 
     function _linkAgent(address user, uint256 agentId) internal {
         StakePosition storage pos = positions[user];
@@ -208,12 +158,8 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         pos.stakedAmount -= amount;
         totalStaked -= amount;
 
-        Tier newTier = getTier(msg.sender);
         emit UnbondingStarted(msg.sender, amount);
-        if (oldTier != newTier) {
-            _updateTierCounts(oldTier, newTier, true);
-            emit TierChanged(msg.sender, oldTier, newTier);
-        }
+        _handleTierChange(oldTier, getTier(msg.sender), true);
     }
 
     function completeUnstaking() external nonReentrant {
@@ -223,7 +169,7 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         if (block.timestamp < pos.unbondingStartTime + UNBONDING_PERIOD) revert StillUnbonding();
 
         uint256 amount = pos.unbondingAmount;
-        Tier currentTier = getTier(msg.sender);
+        Tier tier = getTier(msg.sender);
 
         pos.unbondingAmount = 0;
         pos.unbondingStartTime = 0;
@@ -231,167 +177,150 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         if (pos.stakedAmount == 0) {
             pos.isActive = false;
             totalStakers--;
-            if (tierCounts[currentTier] > 0) tierCounts[currentTier]--;
+            if (tierCounts[tier] > 0) tierCounts[tier]--;
         }
 
         jejuToken.safeTransfer(msg.sender, amount);
         emit Unstaked(msg.sender, amount);
     }
 
+    function _handleTierChange(Tier oldTier, Tier newTier, bool wasActive) internal {
+        if (oldTier != newTier) {
+            if (wasActive && tierCounts[oldTier] > 0) tierCounts[oldTier]--;
+            tierCounts[newTier]++;
+            emit TierChanged(msg.sender, oldTier, newTier);
+        } else if (!wasActive) {
+            tierCounts[newTier]++;
+        }
+    }
+
     function getTier(address user) public view returns (Tier) {
         if (whitelisted[user]) return Tier.UNLIMITED;
-        uint256 effectiveUsd = getEffectiveUsdValue(user);
-        if (effectiveUsd >= tierConfigs[Tier.UNLIMITED].minUsdValue) return Tier.UNLIMITED;
-        if (effectiveUsd >= tierConfigs[Tier.PRO].minUsdValue) return Tier.PRO;
-        if (effectiveUsd >= tierConfigs[Tier.BUILDER].minUsdValue) return Tier.BUILDER;
+        uint256 usd = getEffectiveUsdValue(user);
+        if (usd >= tierConfigs[Tier.UNLIMITED].minUsdValue) return Tier.UNLIMITED;
+        if (usd >= tierConfigs[Tier.PRO].minUsdValue) return Tier.PRO;
+        if (usd >= tierConfigs[Tier.BUILDER].minUsdValue) return Tier.BUILDER;
         return Tier.FREE;
     }
 
     function getEffectiveUsdValue(address user) public view returns (uint256) {
         StakePosition storage pos = positions[user];
         if (!pos.isActive) return 0;
-        uint256 baseUsd = (pos.stakedAmount * getJejuPrice()) / 1e18;
-        return baseUsd + (baseUsd * pos.reputationBonus) / BPS_DENOMINATOR;
+        uint256 base = (pos.stakedAmount * getJejuPrice()) / 1e18;
+        return base + (base * pos.reputationBonus) / BPS;
     }
 
     function getJejuPrice() public view returns (uint256) {
-        PriceData memory primaryData = _getOraclePrice(primaryOracle);
-        
-        if (primaryData.isValid && primaryData.price >= minAllowedPrice && primaryData.price <= maxAllowedPrice) {
-            if (lastKnownGoodPrice == 0 || _calculateDeviation(primaryData.price, lastKnownGoodPrice) <= PRICE_DEVIATION_THRESHOLD_BPS) {
-                return primaryData.price;
-            }
-        }
+        PriceData memory p1 = _getOraclePrice(primaryOracle);
+        if (_isValidPrice(p1) && (lastKnownGoodPrice == 0 || _deviation(p1.price, lastKnownGoodPrice) <= PRICE_DEVIATION_BPS))
+            return p1.price;
 
         if (secondaryOracle != address(0)) {
-            PriceData memory secondaryData = _getOraclePrice(secondaryOracle);
-            if (secondaryData.isValid && secondaryData.price >= minAllowedPrice && secondaryData.price <= maxAllowedPrice) {
-                if (primaryData.isValid && _calculateDeviation(primaryData.price, secondaryData.price) <= 1000) {
-                    return (primaryData.price + secondaryData.price) / 2;
-                }
-                return secondaryData.price;
+            PriceData memory p2 = _getOraclePrice(secondaryOracle);
+            if (_isValidPrice(p2)) {
+                if (p1.isValid && _deviation(p1.price, p2.price) <= 1000) return (p1.price + p2.price) / 2;
+                return p2.price;
             }
         }
 
-        if (lastKnownGoodPrice > 0 && block.timestamp - lastPriceUpdateTime < 24 hours) {
-            return lastKnownGoodPrice;
-        }
+        if (lastKnownGoodPrice > 0 && block.timestamp - lastPriceUpdateTime < 24 hours) return lastKnownGoodPrice;
         return fallbackPrice;
     }
 
     function _getOraclePrice(address oracle) internal view returns (PriceData memory) {
         if (oracle == address(0)) return PriceData(0, 0, false);
+        try IPriceOracle(oracle).latestRoundData() returns (uint80, int256 ans, uint256, uint256 at, uint80) {
+            if (block.timestamp - at > ORACLE_STALENESS || ans <= 0) return PriceData(0, at, false);
+            return PriceData(uint256(ans), at, true);
+        } catch { return PriceData(0, 0, false); }
+    }
 
-        try IPriceOracleStaking(oracle).latestRoundData() returns (uint80, int256 answer, uint256, uint256 updatedAt, uint80) {
-            if (block.timestamp - updatedAt > ORACLE_STALENESS_THRESHOLD || answer <= 0) {
-                return PriceData(0, updatedAt, false);
-            }
-            return PriceData(uint256(answer), updatedAt, true);
-        } catch {
-            return PriceData(0, 0, false);
+    function _isValidPrice(PriceData memory d) internal view returns (bool) {
+        return d.isValid && d.price >= minAllowedPrice && d.price <= maxAllowedPrice;
+    }
+
+    function _deviation(uint256 a, uint256 b) internal pure returns (uint256) {
+        if (a == 0 || b == 0) return BPS;
+        uint256 lg = a > b ? a : b;
+        uint256 sm = a > b ? b : a;
+        return ((lg - sm) * BPS) / lg;
+    }
+
+    function _resetAllocationIfNeeded(ServiceAllocation storage alloc) internal {
+        if (block.timestamp > alloc.periodStartTimestamp + ALLOCATION_RESET_PERIOD) {
+            alloc.rpcUsed = 0;
+            alloc.computeUsed = 0;
+            alloc.cdnUsed = 0;
+            alloc.periodStartTimestamp = block.timestamp;
         }
     }
 
-    function _calculateDeviation(uint256 price1, uint256 price2) internal pure returns (uint256) {
-        if (price1 == 0 || price2 == 0) return BPS_DENOMINATOR;
-        uint256 larger = price1 > price2 ? price1 : price2;
-        uint256 smaller = price1 > price2 ? price2 : price1;
-        return ((larger - smaller) * BPS_DENOMINATOR) / larger;
-    }
-
-    function _getServiceData(Service service, TierConfig storage config, ServiceAllocation storage alloc, bool needsReset) internal view returns (uint256 limit, uint256 used) {
-        if (service == Service.RPC) return (config.rpcRateLimit, needsReset ? 0 : alloc.rpcUsed);
-        if (service == Service.STORAGE) return (config.storageQuotaMB, alloc.storageUsed);
-        if (service == Service.COMPUTE) return (config.computeCredits, needsReset ? 0 : alloc.computeUsed);
-        if (service == Service.CDN) return (config.cdnBandwidthGB, needsReset ? 0 : alloc.cdnUsed);
+    function _getServiceData(Service s, TierConfig storage c, ServiceAllocation storage a, bool reset) internal view returns (uint256 lim, uint256 used) {
+        if (s == Service.RPC) return (c.rpcRateLimit, reset ? 0 : a.rpcUsed);
+        if (s == Service.STORAGE) return (c.storageQuotaMB, a.storageUsed);
+        if (s == Service.COMPUTE) return (c.computeCredits, reset ? 0 : a.computeUsed);
+        if (s == Service.CDN) return (c.cdnBandwidthGB, reset ? 0 : a.cdnUsed);
         revert InvalidService();
     }
 
-    function _recordServiceUsage(Service service, ServiceAllocation storage alloc, uint256 amount) internal {
-        if (service == Service.RPC) alloc.rpcUsed += amount;
-        else if (service == Service.STORAGE) alloc.storageUsed += amount;
-        else if (service == Service.COMPUTE) alloc.computeUsed += amount;
-        else if (service == Service.CDN) alloc.cdnUsed += amount;
+    function _recordUsage(Service s, ServiceAllocation storage a, uint256 amt) internal {
+        if (s == Service.RPC) a.rpcUsed += amt;
+        else if (s == Service.STORAGE) a.storageUsed += amt;
+        else if (s == Service.COMPUTE) a.computeUsed += amt;
+        else if (s == Service.CDN) a.cdnUsed += amt;
     }
 
-    function getAllocation(address user, Service service) external view returns (uint256 limit, uint256 used, uint256 remaining) {
-        TierConfig storage config = tierConfigs[getTier(user)];
-        ServiceAllocation storage alloc = allocations[user];
-        bool needsReset = block.timestamp > alloc.periodStartTimestamp + ALLOCATION_RESET_PERIOD;
-        (limit, used) = _getServiceData(service, config, alloc, needsReset);
-        remaining = limit == 0 ? type(uint256).max : (used >= limit ? 0 : limit - used);
+    function getAllocation(address user, Service s) external view returns (uint256 lim, uint256 used, uint256 rem) {
+        ServiceAllocation storage a = allocations[user];
+        bool reset = block.timestamp > a.periodStartTimestamp + ALLOCATION_RESET_PERIOD;
+        (lim, used) = _getServiceData(s, tierConfigs[getTier(user)], a, reset);
+        rem = lim == 0 ? type(uint256).max : (used >= lim ? 0 : lim - used);
     }
 
-    function consumeAllocation(address user, Service service, uint256 amount) external returns (bool) {
+    function consumeAllocation(address user, Service s, uint256 amt) external returns (bool) {
         if (!authorizedServices[msg.sender]) revert NotAuthorized();
+        ServiceAllocation storage a = allocations[user];
+        _resetAllocationIfNeeded(a);
 
-        ServiceAllocation storage alloc = allocations[user];
-        if (block.timestamp > alloc.periodStartTimestamp + ALLOCATION_RESET_PERIOD) {
-            alloc.rpcUsed = 0;
-            alloc.computeUsed = 0;
-            alloc.cdnUsed = 0;
-            alloc.periodStartTimestamp = block.timestamp;
-        }
+        (uint256 lim, uint256 used) = _getServiceData(s, tierConfigs[getTier(user)], a, false);
+        if (lim != 0 && used + amt > lim) { emit AllocationExceeded(user, s, amt, lim - used); revert AllocationExceededError(); }
 
-        TierConfig storage config = tierConfigs[getTier(user)];
-        (uint256 limit, uint256 currentUsed) = _getServiceData(service, config, alloc, false);
-
-        if (limit != 0 && currentUsed + amount > limit) {
-            emit AllocationExceeded(user, service, amount, limit - currentUsed);
-            revert AllocationExceededError();
-        }
-
-        _recordServiceUsage(service, alloc, amount);
-        emit ServiceUsageRecorded(user, service, amount);
+        _recordUsage(s, a, amt);
+        emit ServiceUsageRecorded(user, s, amt);
         return true;
     }
 
-    function recordUsage(address user, Service service, uint256 amount) external {
+    function recordUsage(address user, Service s, uint256 amt) external {
         if (!authorizedServices[msg.sender]) revert NotAuthorized();
-
-        ServiceAllocation storage alloc = allocations[user];
-        if (block.timestamp > alloc.periodStartTimestamp + ALLOCATION_RESET_PERIOD) {
-            alloc.rpcUsed = 0;
-            alloc.computeUsed = 0;
-            alloc.cdnUsed = 0;
-            alloc.periodStartTimestamp = block.timestamp;
-        }
-
-        _recordServiceUsage(service, alloc, amount);
-        emit ServiceUsageRecorded(user, service, amount);
+        ServiceAllocation storage a = allocations[user];
+        _resetAllocationIfNeeded(a);
+        _recordUsage(s, a, amt);
+        emit ServiceUsageRecorded(user, s, amt);
     }
 
-    function reduceStorageUsage(address user, uint256 amount) external {
+    function reduceStorageUsage(address user, uint256 amt) external {
         if (!authorizedServices[msg.sender]) revert NotAuthorized();
-        ServiceAllocation storage alloc = allocations[user];
-        alloc.storageUsed = alloc.storageUsed >= amount ? alloc.storageUsed - amount : 0;
+        ServiceAllocation storage a = allocations[user];
+        a.storageUsed = a.storageUsed >= amt ? a.storageUsed - amt : 0;
     }
 
-    function hasAllocation(address user, Service service, uint256 amount) external view returns (bool) {
-        TierConfig storage config = tierConfigs[getTier(user)];
-        ServiceAllocation storage alloc = allocations[user];
-        bool needsReset = block.timestamp > alloc.periodStartTimestamp + ALLOCATION_RESET_PERIOD;
-        (uint256 limit, uint256 used) = _getServiceData(service, config, alloc, needsReset);
-        return limit == 0 || used + amount <= limit;
+    function hasAllocation(address user, Service s, uint256 amt) external view returns (bool) {
+        ServiceAllocation storage a = allocations[user];
+        (uint256 lim, uint256 used) = _getServiceData(s, tierConfigs[getTier(user)], a, block.timestamp > a.periodStartTimestamp + ALLOCATION_RESET_PERIOD);
+        return lim == 0 || used + amt <= lim;
     }
 
-    function updateReputationBonus(address user, uint256 bonusBps) external {
+    function updateReputationBonus(address user, uint256 bps) external {
         if (msg.sender != reputationProvider && msg.sender != owner()) revert NotAuthorized();
-        if (bonusBps > MAX_REPUTATION_BONUS_BPS) bonusBps = MAX_REPUTATION_BONUS_BPS;
+        if (bps > MAX_REPUTATION_BONUS_BPS) bps = MAX_REPUTATION_BONUS_BPS;
 
         StakePosition storage pos = positions[user];
-        uint256 oldBonus = pos.reputationBonus;
-        
-        if (oldBonus != bonusBps) {
+        uint256 old = pos.reputationBonus;
+        if (old != bps) {
             Tier oldTier = getTier(user);
-            pos.reputationBonus = bonusBps;
-            Tier newTier = getTier(user);
-
-            emit ReputationBonusUpdated(user, oldBonus, bonusBps);
-            if (oldTier != newTier && pos.isActive) {
-                _updateTierCounts(oldTier, newTier, true);
-                emit TierChanged(user, oldTier, newTier);
-            }
+            pos.reputationBonus = bps;
+            emit ReputationBonusUpdated(user, old, bps);
+            if (pos.isActive) _handleTierChange(oldTier, getTier(user), true);
         }
     }
 
@@ -407,98 +336,74 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         emit StakeUnfrozen(user);
     }
 
-    function slash(address user, uint256 amount, string calldata reason) external nonReentrant {
+    function slash(address user, uint256 amt, string calldata reason) external nonReentrant {
         if (msg.sender != address(banManager) && msg.sender != owner()) revert NotAuthorized();
 
         StakePosition storage pos = positions[user];
         Tier oldTier = getTier(user);
 
-        uint256 slashAmount = amount > pos.stakedAmount ? pos.stakedAmount : amount;
-        pos.stakedAmount -= slashAmount;
-        totalStaked -= slashAmount;
+        uint256 slashAmt = amt > pos.stakedAmount ? pos.stakedAmount : amt;
+        pos.stakedAmount -= slashAmt;
+        totalStaked -= slashAmt;
 
-        jejuToken.safeTransfer(treasury, slashAmount);
+        jejuToken.safeTransfer(treasury, slashAmt);
 
-        Tier newTier = getTier(user);
-        if (oldTier != newTier && pos.isActive) {
-            _updateTierCounts(oldTier, newTier, true);
-            emit TierChanged(user, oldTier, newTier);
-        }
-        emit Slashed(user, slashAmount, reason);
+        if (pos.isActive) _handleTierChange(oldTier, getTier(user), true);
+        emit Slashed(user, slashAmt, reason);
     }
 
-    function _updateTierCounts(Tier oldTier, Tier newTier, bool wasActive) internal {
-        if (wasActive && tierCounts[oldTier] > 0) tierCounts[oldTier]--;
-        tierCounts[newTier]++;
+    function getPosition(address u) external view returns (StakePosition memory) { return positions[u]; }
+    function getTierConfig(Tier t) external view returns (TierConfig memory) { return tierConfigs[t]; }
+    function getRateLimit(address u) external view returns (uint256) { return tierConfigs[getTier(u)].rpcRateLimit; }
+    function getServiceAllocation(address u) external view returns (ServiceAllocation memory) { return allocations[u]; }
+
+    function getStakeRequirement(Tier t) external view returns (uint256 usd, uint256 jeju) {
+        usd = tierConfigs[t].minUsdValue;
+        uint256 p = getJejuPrice();
+        if (p > 0) jeju = (usd * 1e18) / p;
     }
 
-    function getPosition(address user) external view returns (StakePosition memory) { return positions[user]; }
-    function getTierConfig(Tier tier) external view returns (TierConfig memory) { return tierConfigs[tier]; }
-    function getRateLimit(address user) external view returns (uint256) { return tierConfigs[getTier(user)].rpcRateLimit; }
-    function getServiceAllocation(address user) external view returns (ServiceAllocation memory) { return allocations[user]; }
-
-    function getStakeRequirement(Tier tier) external view returns (uint256 usdValue, uint256 jejuAmount) {
-        usdValue = tierConfigs[tier].minUsdValue;
-        uint256 price = getJejuPrice();
-        if (price > 0) jejuAmount = (usdValue * 1e18) / price;
-    }
-
-    function getPriceInfo() external view returns (uint256 currentPrice, uint256 lastGoodPrice, uint256 lastUpdateTime, address primary, address secondary) {
+    function getPriceInfo() external view returns (uint256, uint256, uint256, address, address) {
         return (getJejuPrice(), lastKnownGoodPrice, lastPriceUpdateTime, primaryOracle, secondaryOracle);
     }
 
-    function setTierConfig(Tier tier, uint256 minUsdValue, uint256 rpcRateLimit, uint256 storageQuotaMB, uint256 computeCredits, uint256 cdnBandwidthGB) external onlyOwner {
-        tierConfigs[tier] = TierConfig(minUsdValue, rpcRateLimit, storageQuotaMB, computeCredits, cdnBandwidthGB);
-        emit TierConfigUpdated(tier);
+    function setTierConfig(Tier t, uint256 usd, uint256 rpc, uint256 storage_, uint256 compute, uint256 cdn) external onlyOwner {
+        tierConfigs[t] = TierConfig(usd, rpc, storage_, compute, cdn);
+        emit TierConfigUpdated(t);
     }
 
-    function setAuthorizedService(address service, bool authorized) external onlyOwner {
-        authorizedServices[service] = authorized;
-        emit AuthorizedServiceUpdated(service, authorized);
+    function setAuthorizedService(address s, bool auth) external onlyOwner { authorizedServices[s] = auth; emit AuthorizedServiceUpdated(s, auth); }
+    function setWhitelisted(address u, bool v) external onlyOwner { whitelisted[u] = v; }
+    function setIdentityRegistry(address r) external onlyOwner { identityRegistry = IIdentityRegistry(r); }
+    function setBanManager(address b) external onlyOwner { banManager = IBanManager(b); }
+    function setReputationProvider(address p) external onlyOwner { reputationProvider = p; }
+
+    function setPrimaryOracle(address o) external onlyOwner { emit OracleUpdated(primaryOracle, o, true); primaryOracle = o; }
+    function setSecondaryOracle(address o) external onlyOwner { emit OracleUpdated(secondaryOracle, o, false); secondaryOracle = o; }
+
+    function setFallbackPrice(uint256 p) external onlyOwner {
+        if (p < minAllowedPrice || p > maxAllowedPrice) revert InvalidPriceBounds();
+        emit PriceUpdated(fallbackPrice, p, address(0));
+        fallbackPrice = p;
     }
 
-    function setWhitelisted(address user, bool status) external onlyOwner { whitelisted[user] = status; }
-    function setIdentityRegistry(address _registry) external onlyOwner { identityRegistry = IIdentityRegistryStaking(_registry); }
-    function setBanManager(address _banManager) external onlyOwner { banManager = IBanManagerStaking(_banManager); }
-    function setReputationProvider(address _provider) external onlyOwner { reputationProvider = _provider; }
-
-    function setPrimaryOracle(address _oracle) external onlyOwner {
-        emit OracleUpdated(primaryOracle, _oracle, true);
-        primaryOracle = _oracle;
-    }
-
-    function setSecondaryOracle(address _oracle) external onlyOwner {
-        emit OracleUpdated(secondaryOracle, _oracle, false);
-        secondaryOracle = _oracle;
-    }
-
-    function setFallbackPrice(uint256 _price) external onlyOwner {
-        if (_price < minAllowedPrice || _price > maxAllowedPrice) revert InvalidPriceBounds();
-        emit PriceUpdated(fallbackPrice, _price, address(0));
-        fallbackPrice = _price;
-    }
-
-    function setPriceBounds(uint256 _minPrice, uint256 _maxPrice) external onlyOwner {
-        if (_minPrice >= _maxPrice || _minPrice == 0) revert InvalidPriceBounds();
-        minAllowedPrice = _minPrice;
-        maxAllowedPrice = _maxPrice;
-        emit PriceBoundsUpdated(_minPrice, _maxPrice);
+    function setPriceBounds(uint256 min_, uint256 max_) external onlyOwner {
+        if (min_ >= max_ || min_ == 0) revert InvalidPriceBounds();
+        minAllowedPrice = min_;
+        maxAllowedPrice = max_;
+        emit PriceBoundsUpdated(min_, max_);
     }
 
     function updateLastKnownGoodPrice() external {
-        PriceData memory data = _getOraclePrice(primaryOracle);
-        if (data.isValid && data.price >= minAllowedPrice && data.price <= maxAllowedPrice) {
-            emit PriceUpdated(lastKnownGoodPrice, data.price, primaryOracle);
-            lastKnownGoodPrice = data.price;
+        PriceData memory d = _getOraclePrice(primaryOracle);
+        if (_isValidPrice(d)) {
+            emit PriceUpdated(lastKnownGoodPrice, d.price, primaryOracle);
+            lastKnownGoodPrice = d.price;
             lastPriceUpdateTime = block.timestamp;
         }
     }
 
-    function setTreasury(address _treasury) external onlyOwner {
-        if (_treasury == address(0)) revert InvalidAddress();
-        treasury = _treasury;
-    }
-
+    function setTreasury(address t) external onlyOwner { if (t == address(0)) revert InvalidAddress(); treasury = t; }
     function pause() external onlyOwner { _pause(); }
     function unpause() external onlyOwner { _unpause(); }
     function version() external pure returns (string memory) { return "2.0.0"; }
