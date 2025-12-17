@@ -97,6 +97,28 @@ scrape_configs:
           component: 'oracle'
     metrics_path: '/metrics'
 
+  # ZKSolBridge - Cross-chain Solana/EVM Bridge
+  - job_name: 'zksolbridge-relayer'
+    static_configs:
+      - targets: ['host.docker.internal:8081']
+        labels:
+          component: 'relayer'
+    metrics_path: '/monitoring/metrics/prometheus'
+
+  - job_name: 'zksolbridge-prover'
+    static_configs:
+      - targets: ['host.docker.internal:8082']
+        labels:
+          component: 'prover'
+    metrics_path: '/monitoring/metrics/prometheus'
+
+  - job_name: 'zksolbridge-xlp'
+    static_configs:
+      - targets: ['host.docker.internal:8083']
+        labels:
+          component: 'xlp'
+    metrics_path: '/monitoring/metrics/prometheus'
+
   # Prometheus self-monitoring
   - job_name: 'prometheus'
     static_configs:

@@ -1,0 +1,68 @@
+# ZKSolBridge Configuration
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: zksolbridge-config
+  namespace: jeju
+  labels:
+    app: zksolbridge
+data:
+  # Contract addresses (update after deployment)
+  bridge-address: "0x0000000000000000000000000000000000000000"
+  light-client-address: "0x0000000000000000000000000000000000000000"
+  xlp-pool-address: "0x0000000000000000000000000000000000000000"
+  
+  # Solana program IDs
+  bridge-program-id: "11111111111111111111111111111111"
+  evm-light-client-program-id: "11111111111111111111111111111111"
+  
+  # Chain configuration
+  evm-chain-id: "8453"
+  solana-network: "mainnet-beta"
+  
+  # Service configuration
+  batch-size: "10"
+  batch-timeout-ms: "5000"
+  proof-timeout-ms: "300000"
+
+---
+# Secret template (create with actual values)
+# kubectl create secret generic zksolbridge-secrets \
+#   --from-literal=evm-rpc-url='https://...' \
+#   --from-literal=solana-rpc-url='https://...' \
+#   --from-literal=private-key='0x...' \
+#   --from-literal=succinct-api-key='...'
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zksolbridge-secrets
+  namespace: jeju
+  labels:
+    app: zksolbridge
+type: Opaque
+stringData:
+  # PLACEHOLDER - Replace with actual values
+  evm-rpc-url: "https://mainnet.base.org"
+  solana-rpc-url: "https://api.mainnet-beta.solana.com"
+  private-key: ""
+  succinct-api-key: ""
+
+---
+# Solana keypair secret
+# kubectl create secret generic zksolbridge-solana-keypair \
+#   --from-file=keypair.json=/path/to/keypair.json
+
+apiVersion: v1
+kind: Secret
+metadata:
+  name: zksolbridge-solana-keypair
+  namespace: jeju
+  labels:
+    app: zksolbridge
+type: Opaque
+data:
+  # Base64-encoded keypair.json content
+  keypair.json: ""
+

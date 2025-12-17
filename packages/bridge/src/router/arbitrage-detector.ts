@@ -87,6 +87,10 @@ const SOLANA_TOKENS: Record<string, string> = {
   WETH: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs',
 };
 
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('arbitrage');
+
 // ============ Arbitrage Detector ============
 
 export class ArbitrageDetector {
@@ -107,7 +111,7 @@ export class ArbitrageDetector {
     if (this.running) return;
     this.running = true;
     
-    console.log('[Arb] Starting cross-chain arbitrage detector...');
+    log.info('Starting cross-chain arbitrage detector');
     
     // Poll every 5 seconds
     this.pollInterval = setInterval(() => this.detectOpportunities(), 5000);
@@ -205,7 +209,7 @@ export class ArbitrageDetector {
           route: this.buildArbRoute(buyChain, sellChain, token),
         });
         
-        console.log(`[Arb] SOL↔EVM: ${token} ${priceDiff.diffBps}bps | Net: $${netProfit.toFixed(2)}`);
+        log.debug('Solana-EVM opportunity', { token, diffBps: priceDiff.diffBps, netProfit: netProfit.toFixed(2) });
       }
     }
   }
@@ -261,7 +265,7 @@ export class ArbitrageDetector {
         ),
       });
       
-      console.log(`[Arb] Hyperliquid: ${pair} ${priceDiffBps.toFixed(0)}bps | Net: $${netProfit.toFixed(2)}`);
+      log.debug('Hyperliquid opportunity', { pair, diffBps: priceDiffBps.toFixed(0), netProfit: netProfit.toFixed(2) });
     }
   }
 
@@ -326,7 +330,7 @@ export class ArbitrageDetector {
         route: this.buildArbRoute(`evm:${minPrice.chainId}`, `evm:${maxPrice.chainId}`, token),
       });
       
-      console.log(`[Arb] Cross-chain: ${token} ${priceDiffBps}bps | ${minPrice.chainId}→${maxPrice.chainId} | Net: $${netProfit.toFixed(2)}`);
+      log.debug('Cross-chain opportunity', { token, diffBps: priceDiffBps, route: `${minPrice.chainId}→${maxPrice.chainId}`, netProfit: netProfit.toFixed(2) });
     }
   }
 
@@ -428,7 +432,7 @@ export class ArbitrageDetector {
         timestamp: Date.now(),
       };
     } catch (error) {
-      console.error(`Failed to get EVM price for ${token} on chain ${chainId}:`, error);
+      log.error('Failed to get EVM price', { token, chainId, error: String(error) });
       return null;
     }
   }
@@ -517,7 +521,7 @@ export class ArbitrageDetector {
         timestamp: Date.now(),
       };
     } catch (error) {
-      console.error(`Failed to get Uniswap quote for ${token}:`, error);
+      log.error('Failed to get Uniswap quote', { token, error: String(error) });
       return null;
     }
   }

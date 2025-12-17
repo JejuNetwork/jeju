@@ -10,6 +10,7 @@ import { existsSync, mkdirSync, readFileSync, symlinkSync, readdirSync } from 'f
 import { join, relative } from 'path';
 import { $ } from 'bun';
 import { discoverVendorApps } from './shared/discover-apps';
+import { hasJejuHostsBlock, getHostsBlockStatus, ensureHostsFile } from './shared/local-proxy';
 
 /**
  * Ensure workspace packages are properly symlinked in node_modules
@@ -378,10 +379,38 @@ async function main() {
     console.log('   ⚠️  Could not install Playwright browsers (run: bunx playwright install)\n');
   }
 
-  // 9. Summary
+  // 9. Check local development hosts file
+  console.log('🌐 Checking local development DNS...');
+  
+  if (hasJejuHostsBlock()) {
+    console.log('   ✅ Hosts file configured for local.jeju.network\n');
+  } else {
+    console.log('   ℹ️  Hosts file not configured for local development');
+    console.log('   ℹ️  This enables clean URLs like http://gateway.local.jeju.network\n');
+    
+    // Check if running interactively
+    const isInteractive = process.stdin.isTTY && !process.env.CI;
+    
+    if (isInteractive) {
+      console.log('   Would you like to configure the hosts file now? (requires sudo)');
+      console.log('   Run: bun run scripts/shared/local-proxy.ts hosts:add\n');
+    } else {
+      console.log('   To configure manually, run:');
+      console.log('   bun run scripts/shared/local-proxy.ts hosts:add\n');
+      
+      // Show what would be added
+      const status = getHostsBlockStatus();
+      console.log('   Or add these lines to /etc/hosts:');
+      console.log('   ' + status.expected.split('\n').join('\n   '));
+      console.log('');
+    }
+  }
+
+  // 10. Summary
   console.log('✅ Workspace setup complete\n');
   console.log('Next steps:');
   console.log('  • Start development: bun run dev');
+  console.log('  • Configure local DNS: bun run scripts/shared/local-proxy.ts hosts:add');
   console.log('  • Run all tests: bun test');
   console.log('  • Run wallet tests: bun run test:wallet');
   console.log('  • Build synpress cache: bun run synpress:cache\n');

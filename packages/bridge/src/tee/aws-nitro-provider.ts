@@ -27,6 +27,9 @@ import type {
 	TEECapability,
 	TEEProvider,
 } from "./types.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("aws-nitro");
 
 // =============================================================================
 // NITRO ENCLAVE PROVIDER
@@ -68,10 +71,10 @@ export class AWSNitroProvider implements ITEEProvider {
 		this.inNitroEnvironment = await this.detectNitroEnvironment();
 
 		if (this.inNitroEnvironment) {
-			console.log("[AWSNitro] Running in Nitro Enclave environment");
+			log.info("Running in Nitro Enclave environment");
 			await this.initializeEnclave();
 		} else {
-			console.log("[AWSNitro] Not in Nitro environment, using simulated mode");
+			log.info("Not in Nitro environment, using simulated mode");
 			this.enclaveId = `nitro-sim-${Date.now().toString(36)}`;
 			this.publicKey = new Uint8Array(33);
 			crypto.getRandomValues(this.publicKey);
@@ -249,7 +252,7 @@ export class AWSNitroProvider implements ITEEProvider {
 		crypto.getRandomValues(this.publicKey);
 		this.publicKey[0] = 0x02;
 
-		console.log(`[AWSNitro] Enclave ID: ${this.enclaveId}`);
+		log.info("Enclave initialized", { enclaveId: this.enclaveId });
 	}
 
 	private async requestNitroAttestation(
@@ -362,13 +365,13 @@ export class AWSNitroProvider implements ITEEProvider {
 		
 		// Verify required fields exist
 		if (!doc.moduleId || !doc.timestamp || !doc.digest) {
-			console.error("[AWSNitro] Invalid document: missing required fields");
+			log.error("Invalid document: missing required fields");
 			return false;
 		}
 
 		// Verify PCRs exist
 		if (!doc.pcrs || typeof doc.pcrs[0] !== 'string') {
-			console.error("[AWSNitro] Invalid document: missing PCR values");
+			log.error("Invalid document: missing PCR values");
 			return false;
 		}
 
@@ -376,7 +379,7 @@ export class AWSNitroProvider implements ITEEProvider {
 		const now = Date.now();
 		const docTime = doc.timestamp;
 		if (Math.abs(now - docTime) > 3600000) {
-			console.error("[AWSNitro] Invalid document: timestamp too old or in future");
+			log.error("Invalid document: timestamp too old or in future", { docTime, now });
 			return false;
 		}
 

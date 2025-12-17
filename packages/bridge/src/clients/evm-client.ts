@@ -17,6 +17,9 @@ import {
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts';
 import type { ChainId, Hash32 } from '../types/index.js';
 import { TransferStatus, toHash32 } from '../types/index.js';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('evm-client');
 
 const BRIDGE_ABI = parseAbi([
   'function initiateTransfer(address token, bytes32 recipient, uint256 amount, uint256 destChainId, bytes payload) payable returns (bytes32)',
@@ -124,7 +127,7 @@ export class EVMClient {
     });
 
     if (allowance < params.amount) {
-      console.log('Approving token transfer...');
+      log.debug('Approving token transfer');
       const approveTxHash = await this.walletClient.writeContract({
         chain: this.chain,
         account: this.requireAccount(),

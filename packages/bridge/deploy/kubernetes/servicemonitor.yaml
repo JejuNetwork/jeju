@@ -1,0 +1,65 @@
+# ZKSolBridge Prometheus ServiceMonitor
+# For use with Prometheus Operator
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: zksolbridge
+  namespace: jeju
+  labels:
+    app: zksolbridge
+    prometheus: jeju
+spec:
+  selector:
+    matchLabels:
+      app: zksolbridge
+  namespaceSelector:
+    matchNames:
+      - jeju
+  endpoints:
+    - port: health
+      path: /monitoring/metrics/prometheus
+      interval: 15s
+      scrapeTimeout: 10s
+
+---
+# PrometheusRule for alerting
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: zksolbridge-alerts
+  namespace: jeju
+  labels:
+    app: zksolbridge
+    prometheus: jeju
+spec:
+  groups:
+    - name: zksolbridge
+      rules:
+        - alert: ZKSolBridgeHighFailureRate
+          expr: rate(zksolbridge_transfers_failed_total[5m]) / rate(zksolbridge_transfers_initiated_total[5m]) > 0.1
+          for: 5m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High transfer failure rate on ZKSolBridge"
+            description: "More than 10% of transfers are failing"
+
+        - alert: ZKSolBridgeUnhealthy
+          expr: zksolbridge_health_status < 1
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "ZKSolBridge service is unhealthy"
+            description: "Bridge health status is {{ $value }}"
+
+        - alert: ZKSolBridgeSlowProofs
+          expr: zksolbridge_proof_generation_ms > 60000
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Slow proof generation on ZKSolBridge"
+            description: "Proof generation taking {{ $value }}ms"
+

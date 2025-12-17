@@ -1,0 +1,82 @@
+# ZKSolBridge Kubernetes Services
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: zksolbridge-relayer
+  namespace: jeju
+  labels:
+    app: zksolbridge
+    component: relayer
+spec:
+  type: ClusterIP
+  ports:
+    - name: api
+      port: 8080
+      targetPort: 8080
+    - name: health
+      port: 8081
+      targetPort: 8081
+  selector:
+    app: zksolbridge
+    component: relayer
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zksolbridge-prover
+  namespace: jeju
+  labels:
+    app: zksolbridge
+    component: prover
+spec:
+  type: ClusterIP
+  ports:
+    - name: api
+      port: 8082
+      targetPort: 8082
+  selector:
+    app: zksolbridge
+    component: prover
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zksolbridge-xlp
+  namespace: jeju
+  labels:
+    app: zksolbridge
+    component: xlp
+spec:
+  type: ClusterIP
+  ports:
+    - name: api
+      port: 8083
+      targetPort: 8083
+  selector:
+    app: zksolbridge
+    component: xlp
+
+---
+# External LoadBalancer for public access
+apiVersion: v1
+kind: Service
+metadata:
+  name: zksolbridge-external
+  namespace: jeju
+  labels:
+    app: zksolbridge
+  annotations:
+    cloud.google.com/neg: '{"ingress": true}'
+spec:
+  type: LoadBalancer
+  ports:
+    - name: api
+      port: 80
+      targetPort: 8080
+  selector:
+    app: zksolbridge
+    component: relayer
+

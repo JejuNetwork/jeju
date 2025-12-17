@@ -74,3 +74,17 @@ export { MultiChainDiscovery, getDiscovery, createDiscovery } from './multi-chai
 export type { ChainConfig, TokenConfig, MultiChainBalances } from './multi-chain-discovery';
 // Re-export with explicit name to avoid conflicts
 export type { TokenBalance as MultiChainTokenBalance } from './multi-chain-discovery';
+
+// Local Proxy - hosts file and Caddy reverse proxy management
+export {
+  hasJejuHostsBlock,
+  getHostsBlockStatus,
+  ensureHostsFile,
+  removeHostsBlock,
+  isCaddyInstalled,
+  installCaddy,
+  generateCaddyfile,
+  startProxy,
+  stopProxy,
+  getLocalUrls
+} from './local-proxy';

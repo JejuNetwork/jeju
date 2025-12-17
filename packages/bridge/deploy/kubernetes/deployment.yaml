@@ -1,0 +1,248 @@
+# ZKSolBridge Kubernetes Deployment
+# Deploy relayer, prover, and XLP services
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zksolbridge-relayer
+  namespace: jeju
+  labels:
+    app: zksolbridge
+    component: relayer
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: zksolbridge
+      component: relayer
+  template:
+    metadata:
+      labels:
+        app: zksolbridge
+        component: relayer
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8081"
+        prometheus.io/path: "/monitoring/metrics/prometheus"
+    spec:
+      serviceAccountName: zksolbridge
+      containers:
+        - name: relayer
+          image: gcr.io/PROJECT_ID/zksolbridge:latest
+          args: ["relayer"]
+          ports:
+            - name: api
+              containerPort: 8080
+            - name: health
+              containerPort: 8081
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "8081"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: EVM_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: zksolbridge-secrets
+                  key: evm-rpc-url
+            - name: SOLANA_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: zksolbridge-secrets
+                  key: solana-rpc-url
+            - name: PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: zksolbridge-secrets
+                  key: private-key
+            - name: BRIDGE_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  name: zksolbridge-config
+                  key: bridge-address
+            - name: LIGHT_CLIENT_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  name: zksolbridge-config
+                  key: light-client-address
+            - name: PROVER_ENDPOINT
+              value: "http://zksolbridge-prover:8082"
+          resources:
+            requests:
+              memory: "512Mi"
+              cpu: "500m"
+            limits:
+              memory: "2Gi"
+              cpu: "2000m"
+          livenessProbe:
+            httpGet:
+              path: /monitoring/live
+              port: 8081
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /monitoring/ready
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          volumeMounts:
+            - name: solana-keypair
+              mountPath: /app/keypair.json
+              subPath: keypair.json
+              readOnly: true
+      volumes:
+        - name: solana-keypair
+          secret:
+            secretName: zksolbridge-solana-keypair
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zksolbridge-prover
+  namespace: jeju
+  labels:
+    app: zksolbridge
+    component: prover
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zksolbridge
+      component: prover
+  template:
+    metadata:
+      labels:
+        app: zksolbridge
+        component: prover
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8082"
+        prometheus.io/path: "/monitoring/metrics/prometheus"
+    spec:
+      serviceAccountName: zksolbridge
+      containers:
+        - name: prover
+          image: gcr.io/PROJECT_ID/zksolbridge:latest
+          args: ["prover"]
+          ports:
+            - name: api
+              containerPort: 8082
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "8082"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: REQUIRE_REAL_PROOFS
+              value: "true"
+            - name: SUCCINCT_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: zksolbridge-secrets
+                  key: succinct-api-key
+                  optional: true
+          resources:
+            requests:
+              memory: "4Gi"
+              cpu: "2000m"
+            limits:
+              memory: "16Gi"
+              cpu: "8000m"
+          livenessProbe:
+            httpGet:
+              path: /monitoring/live
+              port: 8082
+            initialDelaySeconds: 30
+            periodSeconds: 60
+          readinessProbe:
+            httpGet:
+              path: /monitoring/ready
+              port: 8082
+            initialDelaySeconds: 10
+            periodSeconds: 30
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zksolbridge-xlp
+  namespace: jeju
+  labels:
+    app: zksolbridge
+    component: xlp
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: zksolbridge
+      component: xlp
+  template:
+    metadata:
+      labels:
+        app: zksolbridge
+        component: xlp
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8083"
+        prometheus.io/path: "/monitoring/metrics/prometheus"
+    spec:
+      serviceAccountName: zksolbridge
+      containers:
+        - name: xlp
+          image: gcr.io/PROJECT_ID/zksolbridge:latest
+          args: ["xlp"]
+          ports:
+            - name: api
+              containerPort: 8083
+          env:
+            - name: NODE_ENV
+              value: "production"
+            - name: PORT
+              value: "8083"
+            - name: LOG_LEVEL
+              value: "info"
+            - name: EVM_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: zksolbridge-secrets
+                  key: evm-rpc-url
+            - name: SOLANA_RPC_URL
+              valueFrom:
+                secretKeyRef:
+                  name: zksolbridge-secrets
+                  key: solana-rpc-url
+            - name: PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: zksolbridge-secrets
+                  key: private-key
+            - name: XLP_POOL_ADDRESS
+              valueFrom:
+                configMapKeyRef:
+                  name: zksolbridge-config
+                  key: xlp-pool-address
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+          livenessProbe:
+            httpGet:
+              path: /monitoring/live
+              port: 8083
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          readinessProbe:
+            httpGet:
+              path: /monitoring/ready
+              port: 8083
+            initialDelaySeconds: 5
+            periodSeconds: 10
+

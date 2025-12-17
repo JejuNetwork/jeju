@@ -27,6 +27,9 @@ import {
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, sepolia, arbitrum, base, optimism } from 'viem/chains';
 import { EventEmitter } from 'events';
+import { createLogger } from '../utils/logger.js';
+
+const log = createLogger('nft-bridge');
 
 const METAPLEX_TOKEN_METADATA_PROGRAM = new PublicKey('metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s');
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
@@ -700,7 +703,7 @@ export class NFTBridgeService extends EventEmitter {
       );
     }
 
-    console.warn('[NFTBridge] WARNING: Using development mode proof - NOT FOR PRODUCTION');
+    log.warn('Using development mode proof - NOT FOR PRODUCTION');
     const proofData = keccak256(
       encodePacked(
         ['uint256', 'bytes32', 'uint256', 'address', 'uint256', 'address', 'string'],

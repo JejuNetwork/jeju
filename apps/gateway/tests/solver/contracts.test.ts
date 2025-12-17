@@ -4,7 +4,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { parseEther, parseUnits, zeroAddress, parseAbi, encodeFunctionData, decodeFunctionData, getFunctionSelector } from 'viem';
+import { parseEther, parseUnits, zeroAddress, encodeFunctionData, decodeFunctionData, getFunctionSelector } from 'viem';
 import {
   OUTPUT_SETTLER_ABI,
   INPUT_SETTLER_ABI,
@@ -363,16 +363,14 @@ describe('Deployed Contract Verification', () => {
 describe('INPUT_SETTLER_ABI Coverage', () => {
   
   test('settle function exists with correct signature', () => {
-    const abi = parseAbi(INPUT_SETTLER_ABI);
-    const settle = abi.find(f => f.type === 'function' && f.name === 'settle');
+    const settle = INPUT_SETTLER_ABI.find(f => f.type === 'function' && f.name === 'settle');
     expect(settle).toBeDefined();
     expect(settle!.inputs.length).toBe(1);
     expect(settle!.inputs[0].type).toBe('bytes32');
   });
 
   test('canSettle function exists with correct signature', () => {
-    const abi = parseAbi(INPUT_SETTLER_ABI);
-    const canSettle = abi.find(f => f.type === 'function' && f.name === 'canSettle');
+    const canSettle = INPUT_SETTLER_ABI.find(f => f.type === 'function' && f.name === 'canSettle');
     expect(canSettle).toBeDefined();
     expect(canSettle!.inputs.length).toBe(1);
     expect(canSettle!.outputs?.length).toBe(1);
@@ -380,8 +378,7 @@ describe('INPUT_SETTLER_ABI Coverage', () => {
   });
 
   test('getOrder function returns tuple with expected fields', () => {
-    const abi = parseAbi(INPUT_SETTLER_ABI);
-    const getOrder = abi.find(f => f.type === 'function' && f.name === 'getOrder');
+    const getOrder = INPUT_SETTLER_ABI.find(f => f.type === 'function' && f.name === 'getOrder');
     expect(getOrder).toBeDefined();
     expect(getOrder!.outputs?.length).toBe(1);
     expect(getOrder!.outputs?.[0].type).toBe('tuple');
@@ -389,17 +386,15 @@ describe('INPUT_SETTLER_ABI Coverage', () => {
 });
 
 describe('ORACLE_ABI Coverage', () => {
-  const oracleAbi = parseAbi(ORACLE_ABI);
-  
   test('hasAttested function exists', () => {
-    const fn = oracleAbi.find(f => f.type === 'function' && f.name === 'hasAttested');
+    const fn = ORACLE_ABI.find(f => f.type === 'function' && f.name === 'hasAttested');
     expect(fn).toBeDefined();
     expect(fn!.inputs[0].type).toBe('bytes32');
     expect(fn!.outputs?.[0].type).toBe('bool');
   });
 
   test('submitAttestation function exists', () => {
-    const fn = oracleAbi.find(f => f.type === 'function' && f.name === 'submitAttestation');
+    const fn = ORACLE_ABI.find(f => f.type === 'function' && f.name === 'submitAttestation');
     expect(fn).toBeDefined();
     expect(fn!.inputs.length).toBe(2);
     expect(fn!.inputs[0].type).toBe('bytes32');

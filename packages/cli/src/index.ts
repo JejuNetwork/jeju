@@ -43,6 +43,7 @@ import { superchainCommand } from './commands/superchain';
 import { dwsCommand } from './commands/dws';
 import { validateCommand } from './commands/validate';
 import { trainingCommand } from './commands/training';
+import { proxyCommand } from './commands/proxy';
 
 const cli = getCliBranding();
 const networkName = getNetworkName();
@@ -109,6 +110,7 @@ program.addCommand(tokenCommand);
 program.addCommand(dwsCommand);
 program.addCommand(validateCommand);
 program.addCommand(trainingCommand);
+program.addCommand(proxyCommand);
 
 // Default: show help
 program.action(() => {
@@ -146,6 +148,14 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} publish`) + '          Publish packages to JejuPkg');
   console.log('  ' + chalk.cyan(`${cliName} apps`) + '             List all apps');
   console.log('  ' + chalk.cyan(`${cliName} ports`) + '            Check port configuration\n');
+  
+  console.log(chalk.bold('Local Proxy:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} proxy`) + '            Check proxy status');
+  console.log('  ' + chalk.cyan(`${cliName} proxy start`) + '      Start local reverse proxy');
+  console.log('  ' + chalk.cyan(`${cliName} proxy stop`) + '       Stop local reverse proxy');
+  console.log('  ' + chalk.cyan(`${cliName} proxy urls`) + '       Show local development URLs');
+  console.log('  ' + chalk.cyan(`${cliName} proxy hosts:add`) + '  Add hosts file entries (sudo)');
+  console.log('  ' + chalk.cyan(`${cliName} proxy hosts:remove`) + ' Remove hosts entries\n');
   
   console.log(chalk.bold('Training (Psyche):\n'));
   console.log('  ' + chalk.cyan(`${cliName} training status`) + '            Check training service');

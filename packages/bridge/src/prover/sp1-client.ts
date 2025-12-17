@@ -17,6 +17,9 @@ import { join } from "node:path";
 import { spawn } from "bun";
 import type { Groth16Proof, Hash32, SP1Proof } from "../types/index.js";
 import { toHash32 } from "../types/index.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("sp1");
 
 // =============================================================================
 // TYPES
@@ -103,13 +106,13 @@ export class SP1Client {
 		this.sp1Available = await this.checkSP1Available();
 
 		if (this.sp1Available) {
-			console.log("[SP1] SP1 toolchain detected");
+			log.info("SP1 toolchain detected");
 		} else if (this.config.useSuccinctNetwork && this.config.succinctApiKey) {
-			console.log("[SP1] Using Succinct Network for remote proving");
+			log.info("Using Succinct Network for remote proving");
 		} else if (this.config.useMock) {
-			console.log("[SP1] Using mock proofs (development mode)");
+			log.info("Using mock proofs (development mode)");
 		} else {
-			console.warn("[SP1] SP1 not available, falling back to mock proofs");
+			log.warn("SP1 not available, falling back to mock proofs");
 		}
 
 		this.initialized = true;
@@ -126,7 +129,7 @@ export class SP1Client {
 		const id = `proof_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
 		const startTime = Date.now();
 
-		console.log(`[SP1] Generating ${request.type} proof (${id})`);
+		log.info("Generating proof", { type: request.type, id });
 
 		// Try real proof generation first
 		if (this.sp1Available && !this.config.useMock) {
@@ -275,9 +278,7 @@ export class SP1Client {
 		const programPath = this.getProgramPath(request.type);
 
 		if (!existsSync(programPath)) {
-			console.warn(
-				`[SP1] Program not found at ${programPath}, falling back to mock`,
-			);
+			log.warn("Program not found, falling back to mock", { programPath });
 			return await this.generateMockProof(id, request, startTime);
 		}
 
@@ -294,8 +295,7 @@ export class SP1Client {
 
 		// Get cargo-prove path
 		const cargoProvePath = this.getCargoProvePath();
-		console.log(`[SP1] Using cargo-prove at: ${cargoProvePath}`);
-		console.log(`[SP1] Program path: ${programPath}`);
+		log.debug("Using SP1 toolchain", { cargoProvePath, programPath });
 
 		// Run SP1 prover with cargo-prove
 		// First, build the program if not already built
@@ -315,7 +315,7 @@ export class SP1Client {
 		const buildExitCode = await buildProc.exited;
 		if (buildExitCode !== 0) {
 			const stderr = await new Response(buildProc.stderr).text();
-			console.error(`[SP1] Build failed: ${stderr}`);
+			log.error("Build failed", { stderr });
 			return await this.generateMockProof(id, request, startTime);
 		}
 
@@ -347,13 +347,13 @@ export class SP1Client {
 
 		if (exitCode !== 0) {
 			const stderr = await new Response(proc.stderr).text();
-			console.error(`[SP1] Proof generation failed: ${stderr}`);
+			log.error("Proof generation failed", { stderr });
 			return await this.generateMockProof(id, request, startTime);
 		}
 
 		// Read output
 		if (!existsSync(outputPath)) {
-			console.warn("[SP1] Output file not found, using mock proof");
+			log.warn("Output file not found, using mock proof", { outputPath });
 			return await this.generateMockProof(id, request, startTime);
 		}
 		const outputData = JSON.parse(readFileSync(outputPath, "utf-8"));
@@ -389,7 +389,7 @@ export class SP1Client {
 
 		if (!response.ok) {
 			const error = await response.text();
-			console.error(`[SP1] Remote proving failed: ${error}`);
+			log.error("Remote proving failed", { error });
 			return {
 				id,
 				type: request.type,
@@ -444,7 +444,7 @@ export class SP1Client {
 		}
 
 		// Development-only mock proof
-		console.warn(`[SP1] WARNING: Generating mock proof for ${request.type} - DEVELOPMENT ONLY`);
+		log.warn("Generating mock proof - DEVELOPMENT ONLY", { type: request.type });
 		await Bun.sleep(100);
 
 		const proofBytes = new Uint8Array(256);

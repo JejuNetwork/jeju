@@ -21,6 +21,9 @@ import type {
 	TEEProvider,
 	TEEProviderConfig,
 } from "./types.js";
+import { createLogger } from "../utils/logger.js";
+
+const log = createLogger("tee-manager");
 
 export class TEEManager {
 	private config: TEEProviderConfig;
@@ -36,7 +39,7 @@ export class TEEManager {
 		if (this.initialized) return;
 
 		this.environment = await this.detectEnvironment();
-		console.log(`[TEE] Detected environment: ${this.environment.provider}`);
+		log.info("Detected environment", { provider: this.environment.provider });
 
 		this.provider = await this.selectProvider();
 		await this.provider.initialize();

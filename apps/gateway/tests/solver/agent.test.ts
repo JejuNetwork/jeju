@@ -60,10 +60,10 @@ describe('OutputSettler ABI Encoding', () => {
       data,
     });
 
-    expect(decoded[0]).toBe(orderId);
-    expect(decoded[1].toLowerCase()).toBe(token.toLowerCase());
-    expect(decoded[2]).toBe(amount);
-    expect(decoded[3].toLowerCase()).toBe(recipient.toLowerCase());
+    expect(decoded.args[0]).toBe(orderId);
+    expect((decoded.args[1] as string).toLowerCase()).toBe(token.toLowerCase());
+    expect(decoded.args[2]).toBe(amount);
+    expect((decoded.args[3] as string).toLowerCase()).toBe(recipient.toLowerCase());
   });
 
   test('should handle zero amount edge case', () => {
