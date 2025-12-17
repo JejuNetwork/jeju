@@ -279,6 +279,21 @@ abstract contract BaseOutputSettler is IOutputSettler, Ownable, ReentrancyGuard 
         return solverETH[solver];
     }
 
+    // ============ Abstract Functions ============
+
+    /**
+     * @notice Fill an order - must be implemented by subclasses
+     * @dev Required by IOutputSettler interface
+     * @param orderId Order ID to fill
+     * @param originData Data from origin chain
+     * @param fillerData Data provided by filler
+     */
+    function fill(
+        bytes32 orderId,
+        bytes calldata originData,
+        bytes calldata fillerData
+    ) external payable virtual override;
+
     // ============ Receive ============
 
     receive() external payable {}

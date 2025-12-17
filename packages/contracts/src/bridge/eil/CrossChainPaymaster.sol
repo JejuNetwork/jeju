@@ -82,71 +82,22 @@ interface IAppTokenPreference {
 
 /**
  * @title CrossChainPaymaster
- * @author Jeju Network
- * @notice EIL-compliant paymaster enabling trustless cross-chain transfers AND multi-token gas sponsorship
- * @dev Implements the Ethereum Interop Layer (EIL) protocol for atomic cross-chain swaps
- *      AND enables users to pay gas fees with any XLP-provided token.
- *
- * ## How Cross-Chain Works:
- *
- * 1. User locks tokens on source chain by calling `createVoucherRequest()`
- * 2. XLP (Cross-chain Liquidity Provider) sees the request and issues a voucher
- * 3. Voucher is used on both chains:
- *    - Source: XLP claims user's locked tokens
- *    - Destination: User receives XLP's tokens
- * 4. Atomic swap complete - no trust required
- *
- * ## How Gas Sponsorship Works:
- *
- * 1. XLPs deposit tokens and ETH into this paymaster
- * 2. Users can pay gas with ANY supported token (not just ETH)
- * 3. Paymaster converts token to ETH using oracle prices
- * 4. XLPs earn fees from both cross-chain transfers AND gas sponsorship
- * 5. Users never need to bridge - use whatever token gives best rate
- *
- * ## Security:
- * - XLPs must stake on L1 via L1StakeManager
- * - Failed fulfillments result in XLP stake slashing
- * - Users' funds are safe: either swap completes or they get refund
- * - Oracle price freshness checks prevent stale price exploitation
- *
- * @custom:security-contact security@jeju.network
+ * @notice EIL-compliant paymaster enabling trustless cross-chain transfers and multi-token gas sponsorship
  */
 contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
-    // ============ Constants ============
-
-    /// @notice Blocks until a voucher request expires if no XLP responds
-    uint256 public constant REQUEST_TIMEOUT = 50; // ~100 seconds on L2
-
-    /// @notice Blocks until a voucher expires after being issued
+    uint256 public constant REQUEST_TIMEOUT = 50;
     uint256 public constant VOUCHER_TIMEOUT = 100;
-
-    /// @notice Blocks before XLP can claim source funds (fraud proof window)
-    uint256 public constant CLAIM_DELAY = 150; // ~5 minutes
-
-    /// @notice Minimum fee for cross-chain transfer (prevents dust)
+    uint256 public constant CLAIM_DELAY = 150;
     uint256 public constant MIN_FEE = 0.0001 ether;
-
-    /// @notice Basis points denominator for percentage calculations
     uint256 public constant BASIS_POINTS = 10000;
-
-    /// @notice Default fee margin for gas sponsorship (10% = 1000 basis points)
     uint256 public constant DEFAULT_FEE_MARGIN = 1000;
 
-    // ============ State Variables ============
-
-    /// @notice L1 stake manager contract address (for stake verification)
     address public immutable l1StakeManager;
-
-    /// @notice Chain ID of this deployment
     uint256 public immutable chainId;
-
-    /// @notice Cross-domain messenger for L1↔L2 communication
-    /// @dev On OP Stack L2s, this is 0x4200000000000000000000000000000000000007
     ICrossDomainMessenger public messenger;
 
     /// @notice Price oracle for token conversions
@@ -213,7 +164,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     /// @notice Total gas fees collected (in selected tokens)
     uint256 public totalGasFeesCollected;
 
-    // ============ Multi-XLP Competition State ============
 
     /// @notice XLP statistics for competition tracking
     mapping(address => XLPStats) public xlpStats;
@@ -302,7 +252,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         bool useCrossChainLiquidity;
     }
 
-    // ============ Events ============
 
     event VoucherRequested(
         bytes32 indexed requestId,
@@ -372,7 +321,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
     event XLPStatsUpdated(address indexed xlp, uint256 totalBids, uint256 wonBids, uint256 totalVolume);
 
-    // ============ Errors ============
 
     error UnsupportedToken();
     error InsufficientAmount();
@@ -402,15 +350,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
     error XLPNotInAllowlist();
     error XLPAlreadyBid();
 
-    // ============ Constructor ============
 
-    /**
-     * @notice Initialize the CrossChainPaymaster
-     * @param _entryPoint ERC-4337 EntryPoint address
-     * @param _l1StakeManager L1 stake manager address for XLP verification
-     * @param _chainId Chain ID of this deployment
-     * @param _priceOracle Price oracle for token conversions (can be address(0) initially)
-     */
     constructor(IEntryPoint _entryPoint, address _l1StakeManager, uint256 _chainId, address _priceOracle, address _owner)
         BasePaymaster(_entryPoint)
     {
@@ -418,38 +358,23 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         require(_l1StakeManager != address(0), "Invalid stake manager");
         l1StakeManager = _l1StakeManager;
         chainId = _chainId;
-        // Default OP Stack L2 messenger address
         messenger = ICrossDomainMessenger(0x4200000000000000000000000000000000000007);
         if (_priceOracle != address(0)) {
             priceOracle = IPriceOracle(_priceOracle);
         }
     }
 
-    /// @dev Override to allow both EntryPoint v0.6 (no ERC-165) and v0.7 (with ERC-165)
     function _validateEntryPointInterface(IEntryPoint _entryPoint) internal view override {
-        // Check if EntryPoint has code (basic validation)
         require(address(_entryPoint).code.length > 0, "EntryPoint has no code");
-        // Try ERC-165 check, but don't fail if not supported (v0.6 compatibility)
         try IERC165(address(_entryPoint)).supportsInterface(type(IEntryPoint).interfaceId) returns (bool supported) {
             require(supported, "IEntryPoint interface mismatch");
-        } catch {
-            // EntryPoint v0.6 doesn't support ERC-165 - allow it
-        }
+        } catch {}
     }
 
-    /**
-     * @notice Set the cross-domain messenger address
-     * @param _messenger New messenger address
-     * @dev Only needed if not using default OP Stack address
-     */
     function setMessenger(address _messenger) external onlyOwner {
         messenger = ICrossDomainMessenger(_messenger);
     }
 
-    /**
-     * @notice Set the price oracle for token conversions
-     * @param _priceOracle New oracle address
-     */
     function setPriceOracle(address _priceOracle) external onlyOwner {
         require(_priceOracle != address(0), "Invalid oracle");
         address oldOracle = address(priceOracle);
@@ -457,10 +382,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         emit PriceOracleUpdated(oldOracle, _priceOracle);
     }
 
-    /**
-     * @notice Set the fee distributor for LP rewards
-     * @param _feeDistributor New distributor address
-     */
     function setFeeDistributor(address _feeDistributor) external onlyOwner {
         require(_feeDistributor != address(0), "Invalid distributor");
         address oldDistributor = address(feeDistributor);
@@ -468,20 +389,12 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         emit FeeDistributorUpdated(oldDistributor, _feeDistributor);
     }
 
-    /**
-     * @notice Set the app token preference registry
-     * @param _appTokenPreference New preference registry address
-     */
     function setAppTokenPreference(address _appTokenPreference) external onlyOwner {
         address oldPreference = address(appTokenPreference);
         appTokenPreference = IAppTokenPreference(_appTokenPreference);
         emit AppTokenPreferenceUpdated(oldPreference, _appTokenPreference);
     }
 
-    /**
-     * @notice Set the fee margin for gas sponsorship (fallback if FeeConfig not set)
-     * @param _feeMargin New margin in basis points (max 2000 = 20%)
-     */
     function setFeeMargin(uint256 _feeMargin) external onlyOwner {
         require(_feeMargin <= 2000, "Margin too high");
         uint256 oldMargin = feeMargin;
@@ -489,26 +402,16 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         emit FeeMarginUpdated(oldMargin, _feeMargin);
     }
 
-    /**
-     * @notice Set fee configuration contract (governance-controlled)
-     * @param _feeConfig Address of FeeConfig contract
-     */
     function setFeeConfig(address _feeConfig) external onlyOwner {
         address oldConfig = address(feeConfig);
         feeConfig = IFeeConfigCrossChain(_feeConfig);
         emit FeeConfigUpdated(oldConfig, _feeConfig);
     }
 
-    /**
-     * @notice Get current effective fee margin
-     */
     function getEffectiveFeeMargin() external view returns (uint256) {
         return _getFeeMargin();
     }
 
-    /**
-     * @dev Get current fee margin from FeeConfig or local value
-     */
     function _getFeeMargin() internal view returns (uint256) {
         if (address(feeConfig) != address(0)) {
             (,, uint16 crossChainMarginBps) = feeConfig.getDeFiFees();
@@ -519,29 +422,16 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
 
     event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
 
-    /**
-     * @notice Set maximum gas cost per transaction
-     * @param _maxGasCost New max gas cost in wei
-     */
     function setMaxGasCost(uint256 _maxGasCost) external onlyOwner {
         maxGasCost = _maxGasCost;
     }
 
-    // ============ Token Management ============
-
-    /**
-     * @notice Add or remove token support
-     * @param token Token address
-     * @param supported Whether to support this token
-     */
     function setTokenSupport(address token, bool supported) external onlyOwner {
         supportedTokens[token] = supported;
         emit TokenSupportUpdated(token, supported);
     }
 
-    // ============ Voucher Request (Source Chain) ============
 
-    /// @notice Create a cross-chain transfer request (reverse Dutch auction)
     function createVoucherRequest(
         address token,
         uint256 amount,
@@ -566,7 +456,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         );
     }
 
-    /// @notice Create a voucher request with an XLP allowlist (empty = any XLP)
     function createVoucherRequestWithAllowlist(
         address token,
         uint256 amount,
@@ -666,22 +555,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         }
     }
 
-    /**
-     * @notice Create a cross-chain transfer request using EIP-3009 (gasless for user)
-     * @dev User signs transferWithAuthorization off-chain, paymaster executes
-     * @param token EIP-3009 compliant token address
-     * @param amount Amount to transfer
-     * @param destinationToken Token to receive on destination
-     * @param destinationChainId Target chain ID
-     * @param recipient Address to receive tokens on destination
-     * @param gasOnDestination Gas to include on destination
-     * @param maxFee Maximum fee willing to pay
-     * @param feeIncrement Fee increase per block
-     * @param validAfter EIP-3009 validity start
-     * @param validBefore EIP-3009 validity end
-     * @param authNonce EIP-3009 nonce
-     * @param authSignature EIP-3009 authorization signature
-     */
     function createVoucherRequestGasless(
         address token,
         uint256 amount,
@@ -733,7 +606,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
             requestId, msg.sender, token, amount, destinationChainId, recipient, maxFee, block.number + REQUEST_TIMEOUT
         );
 
-        // Use EIP-3009 transferWithAuthorization (gasless for user)
         IEIP3009(token).transferWithAuthorization(
             msg.sender,
             address(this),
@@ -750,7 +622,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         }
     }
 
-    /// @notice Get current fee for a request (increases over time via reverse Dutch auction)
     function getCurrentFee(bytes32 requestId) public view returns (uint256 currentFee) {
         VoucherRequest storage request = voucherRequests[requestId];
         if (request.requester == address(0)) return 0;
@@ -760,9 +631,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         if (currentFee > request.maxFee) currentFee = request.maxFee;
     }
 
-    // ============ Multi-XLP Competition Functions ============
 
-    /// @notice Submit a bid to fulfill a request
     function submitBid(bytes32 requestId) external nonReentrant {
         VoucherRequest storage request = voucherRequests[requestId];
 
@@ -821,7 +690,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         if (request.refunded) revert RequestAlreadyRefunded();
         if (block.number <= request.deadline) revert RequestNotExpired();
 
-        // Cache for gas and CEI
         address requester = request.requester;
         address token = request.token;
         uint256 amount = request.amount;
@@ -833,7 +701,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         emit VoucherExpired(requestId, requester);
         emit FundsRefunded(requestId, requester, amount);
 
-        // Refund: ETH transfers amount+fee together, ERC20 transfers token then fee separately
         if (token == address(0)) {
             _transferETH(requester, amount + maxFee);
         } else {
@@ -842,13 +709,11 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         }
     }
 
-    /// @dev Safe ETH transfer with revert on failure
     function _transferETH(address to, uint256 amount) internal {
         (bool success,) = to.call{value: amount}("");
         if (!success) revert TransferFailed();
     }
 
-    // ============ XLP Liquidity Management ============
 
     function depositLiquidity(address token, uint256 amount) external nonReentrant {
         if (!supportedTokens[token]) revert UnsupportedToken();
@@ -887,10 +752,7 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         _transferETH(msg.sender, amount);
     }
 
-    // ============ Protocol Fee Claiming ============
 
-    /// @notice Claim accumulated protocol swap fees (treasury only)
-    /// @dev LP fees compound into reserves; this is just protocol's cut
     function claimProtocolFees() external nonReentrant returns (uint256 claimed) {
         address treasury = address(feeConfig) != address(0) ? feeConfig.getTreasury() : owner();
         require(msg.sender == treasury || msg.sender == owner(), "Only treasury");
@@ -903,14 +765,12 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         _transferETH(treasury, claimed);
     }
 
-    /// @notice Get pending protocol fees
     function getPendingProtocolFees() external view returns (uint256) {
         return protocolSwapFees;
     }
 
     event ProtocolFeesClaimed(address indexed treasury, uint256 amount);
 
-    /// @notice Permissionless exchange rate update from oracle
     function updateExchangeRate(address token) external {
         require(address(priceOracle) != address(0), "Oracle not set");
         require(supportedTokens[token], "Token not supported");
@@ -934,7 +794,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         }
     }
 
-    /// @notice Update XLP stake (called via L1 cross-chain message or owner)
     function updateXLPStake(address xlp, uint256 stake) external {
         bool isL1Message = msg.sender == address(messenger) && messenger.xDomainMessageSender() == l1StakeManager;
         require(msg.sender == owner() || isL1Message, "Unauthorized");
@@ -943,7 +802,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         emit XLPStakeVerified(xlp, stake);
     }
 
-    /// @notice Mark voucher fulfilled (called via L1 cross-chain message or owner)
     function markVoucherFulfilled(bytes32 voucherId) external {
         bool isL1Message = msg.sender == address(messenger) && messenger.xDomainMessageSender() == l1StakeManager;
         require(msg.sender == owner() || isL1Message, "Unauthorized");
@@ -955,7 +813,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         emit VoucherFulfilled(voucherId, request.recipient, vouchers[voucherId].amount);
     }
 
-    // ============ Voucher Issuance (XLP) ============
 
     /**
      * @notice Issue a voucher to fulfill a request (XLP only)
@@ -1099,7 +956,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         }
     }
 
-    // ============ Voucher Fulfillment (Destination Chain) ============
 
     /**
      * @notice Fulfill a voucher on the destination chain
@@ -1161,7 +1017,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         }
     }
 
-    // ============ Paymaster Validation (ERC-4337) ============
 
     /**
      * @notice Validate UserOp with multi-token gas payment support
@@ -1548,7 +1403,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         preferredToken = prefToken;
     }
 
-    // ============ View Functions ============
 
     /**
      * @notice Get XLP liquidity for a token
@@ -1682,7 +1536,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         oracleSet = address(priceOracle) != address(0);
     }
 
-    // ============ EntryPoint Funding ============
 
     /**
      * @notice Deposit ETH to EntryPoint for gas sponsorship
@@ -1701,7 +1554,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         entryPoint.depositTo{value: amount}(address(this));
     }
 
-    // ============ Embedded AMM (XLP Liquidity) ============
 
     /// @notice Swap fee in basis points (30 = 0.3%)
     uint256 public swapFeeBps = 30;
@@ -1890,7 +1742,6 @@ contract CrossChainPaymaster is BasePaymaster, ReentrancyGuard {
         currentFeeBps = swapFeeBps;
     }
 
-    // ============ Receive ETH ============
 
     receive() external payable {
         // Accept ETH for deposits and EntryPoint refunds

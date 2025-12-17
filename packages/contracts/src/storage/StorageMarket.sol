@@ -13,16 +13,12 @@ interface IFeeConfigStorage {
 
 /**
  * @title StorageMarket
- * @author Jeju Network
  * @notice Storage deal marketplace - creates, manages, and settles storage deals
- * @dev V2: Added governance-controlled platform fees via FeeConfig
  */
 contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
-    // ============ Constants ============
 
     uint256 public constant BPS_DENOMINATOR = 10000;
 
-    // ============ State ============
 
     StorageProviderRegistry public immutable registry;
 
@@ -53,8 +49,6 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
         uint256 ratedAt;
     }
 
-    // ============ Events ============
-
     event DealCreated(bytes32 indexed dealId, address indexed user, address indexed provider, string cid, uint256 cost);
     event DealConfirmed(bytes32 indexed dealId);
     event DealCompleted(bytes32 indexed dealId);
@@ -63,20 +57,16 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
     event DealExtended(bytes32 indexed dealId, uint256 newEndTime, uint256 additionalCost);
     event DealRated(bytes32 indexed dealId, uint8 score);
 
-    // ============ Events ============
-
     event PlatformFeeCollected(bytes32 indexed dealId, uint256 amount, uint256 feeBps);
     event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
     event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 
-    // ============ Constructor ============
 
     constructor(address _registry, address _treasury, address initialOwner) Ownable(initialOwner) {
         registry = StorageProviderRegistry(_registry);
         treasury = _treasury;
     }
 
-    // ============ Deal Creation ============
 
     function createDeal(
         address provider,
@@ -244,9 +234,6 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
         }
     }
 
-    /**
-     * @dev Get current platform fee in basis points from FeeConfig or local value
-     */
     function _getPlatformFeeBps() internal view returns (uint256) {
         if (address(feeConfig) != address(0)) {
             return feeConfig.getStorageUploadFee();
@@ -254,9 +241,6 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
         return platformFeeBps;
     }
 
-    /**
-     * @dev Get treasury address from FeeConfig or local value
-     */
     function _getTreasuryAddress() internal view returns (address) {
         if (address(feeConfig) != address(0)) {
             address configTreasury = feeConfig.getTreasury();
@@ -288,7 +272,6 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
         emit DealFailed(dealId, reason);
     }
 
-    // ============ Rating ============
 
     function rateDeal(bytes32 dealId, uint8 score, string calldata comment) external {
         StorageDeal storage deal = _deals[dealId];
@@ -387,20 +370,13 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
         return _providerRecords[provider];
     }
 
-    // ============ Admin Functions ============
 
-    /**
-     * @notice Set fee configuration contract (governance-controlled)
-     */
     function setFeeConfig(address _feeConfig) external onlyOwner {
         address oldConfig = address(feeConfig);
         feeConfig = IFeeConfigStorage(_feeConfig);
         emit FeeConfigUpdated(oldConfig, _feeConfig);
     }
 
-    /**
-     * @notice Set treasury address
-     */
     function setTreasury(address _treasury) external onlyOwner {
         require(_treasury != address(0), "Invalid treasury");
         address oldTreasury = treasury;
@@ -408,24 +384,15 @@ contract StorageMarket is IStorageTypes, ReentrancyGuard, Ownable {
         emit TreasuryUpdated(oldTreasury, _treasury);
     }
 
-    /**
-     * @notice Set platform fee (fallback if FeeConfig not set)
-     */
     function setPlatformFee(uint256 newFeeBps) external onlyOwner {
         require(newFeeBps <= 1000, "Fee too high"); // Max 10%
         platformFeeBps = newFeeBps;
     }
 
-    /**
-     * @notice Get current effective platform fee rate
-     */
     function getEffectivePlatformFee() external view returns (uint256) {
         return _getPlatformFeeBps();
     }
 
-    /**
-     * @notice Get platform fee statistics
-     */
     function getPlatformFeeStats()
         external
         view

@@ -1,0 +1,62 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "scripts/**/*.ts",
+    "packages/*/src/index.ts",
+    "packages/*/ts/index.ts",
+    "apps/*/src/index.ts",
+    "apps/*/src/main.tsx",
+    "apps/*/app/**/*.tsx"
+  ],
+  "project": [
+    "scripts/**/*.ts",
+    "packages/*/src/**/*.ts",
+    "packages/*/ts/**/*.ts",
+    "apps/*/src/**/*.{ts,tsx}",
+    "apps/*/app/**/*.{ts,tsx}",
+    "apps/*/lib/**/*.ts",
+    "apps/*/components/**/*.tsx"
+  ],
+  "ignore": [
+    "vendor/**",
+    "8004/**",
+    "**/node_modules/**",
+    "packages/contracts/lib/**",
+    "**/dist/**",
+    "**/*.config.ts",
+    "**/*.config.js",
+    "**/synpress.config.ts",
+    "**/playwright.config.ts",
+    "**/vite.config.ts",
+    "**/next.config.*",
+    "**/tailwind.config.*",
+    "**/postcss.config.*",
+    "**/tsconfig.json"
+  ],
+  "ignoreDependencies": [
+    "@playwright/test",
+    "@synthetixio/synpress",
+    "knip",
+    "madge",
+    "depcheck",
+    "playwright",
+    "playwright-core",
+    "prettier",
+    "prettier-plugin-solidity",
+    "solhint",
+    "turbo",
+    "typedoc-plugin-markdown",
+    "concurrently",
+    "autoprefixer",
+    "postcss",
+    "tailwindcss",
+    "bun",
+    "bun:test"
+  ],
+  "rules": {
+    "classMembers": "off",
+    "enumMembers": "off",
+    "nsExports": "off",
+    "nsTypes": "off"
+  }
+}

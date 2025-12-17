@@ -9,7 +9,6 @@ import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 import {INFTPaymaster, NFTVoucherRequest, NFTVoucher, NFTAssetType} from "./INFTEIL.sol";
 import {AssetLib} from "../../libraries/AssetLib.sol";
-import {EILUtils} from "../eil/EILUtils.sol";
 
 /**
  * @title NFTPaymaster

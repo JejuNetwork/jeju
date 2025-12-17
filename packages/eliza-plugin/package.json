@@ -24,7 +24,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@elizaos/core": "^1.6.0",
+    "@elizaos/core": "1.6.5",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/types": "workspace:*",
@@ -32,12 +32,11 @@
   },
   "devDependencies": {
     "@types/bun": "latest",
-    "typescript": "^5.3.3",
-    "prettier": "^3.2.5",
-    "execa": "^9.5.3"
+    "typescript": "5.7.3",
+    "prettier": "3.5.3"
   },
   "peerDependencies": {
-    "zod": "^3.22.4"
+    "zod": ">=3.22.4"
   },
   "publishConfig": {
     "access": "public"
@@ -74,4 +73,3 @@
     }
   }
 }
-

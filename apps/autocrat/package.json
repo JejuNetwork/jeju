@@ -17,24 +17,22 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@elizaos/core": "^1.6.4",
-    "@anthropic-ai/sdk": "^0.30.0",
+    "@elizaos/core": "1.6.5",
+    "@anthropic-ai/sdk": "0.30.1",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/eliza-plugin": "workspace:*",
-    "ai": "^5.0.52",
-    "ethers": "^6.13.4",
-    "hono": "^4.6.5",
-    "viem": "^2.21.0",
-    "zod": "^3.23.8"
+    "ai": "5.0.52",
+    "hono": "4.7.0",
+    "viem": "2.41.2",
+    "zod": "3.25.76"
   },
   "devDependencies": {
-    "@playwright/test": "^1.48.0",
-    "@synthetixio/synpress": "^4.0.0",
-    "@types/bun": "^1.1.0",
-    "typescript": "^5.5.4"
-  },
-  "optionalDependencies": {}
+    "@playwright/test": "1.57.0",
+    "@synthetixio/synpress": "4.1.1",
+    "@types/bun": "latest",
+    "typescript": "5.7.3"
+  }
 }

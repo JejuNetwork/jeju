@@ -1,40 +1,79 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "ui": "tui",
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
-      "outputs": ["dist/**", "build/**", ".next/**", "out/**"]
+      "inputs": [
+        "src/**",
+        "tsconfig.json",
+        "tsconfig.*.json",
+        "package.json",
+        "!**/*.test.ts",
+        "!**/*.test.tsx"
+      ],
+      "outputs": ["dist/**", "build/**", ".next/**", "out/**", "lib/**"]
+    },
+    "typecheck": {
+      "dependsOn": ["^typecheck"],
+      "inputs": ["src/**", "tsconfig.json", "tsconfig.*.json"],
+      "outputs": []
+    },
+    "lint": {
+      "inputs": [
+        "src/**",
+        "app/**",
+        "components/**",
+        "lib/**",
+        "hooks/**",
+        "config/**",
+        "types/**",
+        "eslint.config.js",
+        ".eslintrc*",
+        "tsconfig.json"
+      ],
+      "outputs": []
     },
     "test": {
-      "dependsOn": [],
+      "dependsOn": ["build"],
+      "inputs": ["src/**", "tests/**", "test/**", "**/*.test.ts", "**/*.test.tsx"],
       "outputs": ["coverage/**"],
-      "cache": false
-    },
-    "test:e2e": {
-      "dependsOn": [],
-      "cache": false
-    },
-    "test:integration": {
-      "dependsOn": [],
       "cache": false
     },
     "test:unit": {
       "dependsOn": [],
+      "inputs": ["src/**", "**/*.test.ts"],
+      "outputs": ["coverage/**"],
       "cache": false
     },
-    "lint": {
-      "outputs": []
+    "test:e2e": {
+      "dependsOn": ["build"],
+      "inputs": ["src/**", "tests/**"],
+      "cache": false
+    },
+    "test:integration": {
+      "dependsOn": ["build"],
+      "inputs": ["src/**", "tests/**"],
+      "cache": false
     },
     "dev": {
       "cache": false,
       "persistent": true
+    },
+    "clean": {
+      "cache": false
     }
   },
   "globalDependencies": [
-    "packages/contracts/deployments/**",
-    "packages/config/**/*.json",
-    "types/**/*.ts"
+    "tsconfig.base.json",
+    "eslint.config.js",
+    "packages/contracts/deployments/testnet.json",
+    "packages/contracts/deployments/mainnet.json"
+  ],
+  "globalPassThroughEnv": [
+    "NODE_ENV",
+    "CI",
+    "VERCEL",
+    "VERCEL_ENV"
   ]
 }
-
-
