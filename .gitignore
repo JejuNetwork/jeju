@@ -127,3 +127,6 @@ grass/
 .fork/google-cloud-sdk/
 test-ledger/
 circuits/8004/
+
+# CQL local development data
+.cql-data/

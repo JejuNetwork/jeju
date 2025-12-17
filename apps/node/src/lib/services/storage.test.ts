@@ -2,8 +2,8 @@
  * Storage Service Tests
  */
 
-import { describe, it, expect, beforeAll, mock } from 'bun:test';
-import { STORAGE_MARKET_ABI, CONTENT_REGISTRY_ABI } from '../abis';
+import { describe, it, expect } from 'bun:test';
+import { STORAGE_MARKET_ABI, CONTENT_REGISTRY_ABI, PROXY_REGISTRY_ABI } from '../abis';
 
 describe('Storage ABIs', () => {
   describe('STORAGE_MARKET_ABI', () => {
@@ -125,5 +125,43 @@ describe('Storage Service Integration', () => {
     const seederStats = CONTENT_REGISTRY_ABI.find(f => f.name === 'getSeederStats');
     expect(seederStats).toBeDefined();
     expect(seederStats?.outputs?.[0]?.type).toBe('tuple');
+  });
+});
+
+describe('PROXY_REGISTRY_ABI', () => {
+  it('has register function', () => {
+    const register = PROXY_REGISTRY_ABI.find(f => f.name === 'register');
+    expect(register).toBeDefined();
+    expect(register?.type).toBe('function');
+    expect(register?.stateMutability).toBe('payable');
+    expect(register?.inputs).toHaveLength(2);
+  });
+
+  it('has getNode function with correct output', () => {
+    const getNode = PROXY_REGISTRY_ABI.find(f => f.name === 'getNode');
+    expect(getNode).toBeDefined();
+    expect(getNode?.type).toBe('function');
+    expect(getNode?.stateMutability).toBe('view');
+    expect(getNode?.outputs?.[0]?.type).toBe('tuple');
+    
+    // Check tuple has expected components
+    const components = getNode?.outputs?.[0]?.components;
+    expect(components?.find(c => c.name === 'owner')).toBeDefined();
+    expect(components?.find(c => c.name === 'stake')).toBeDefined();
+    expect(components?.find(c => c.name === 'active')).toBeDefined();
+  });
+
+  it('has staking functions', () => {
+    const addStake = PROXY_REGISTRY_ABI.find(f => f.name === 'addStake');
+    const withdrawStake = PROXY_REGISTRY_ABI.find(f => f.name === 'withdrawStake');
+    
+    expect(addStake).toBeDefined();
+    expect(withdrawStake).toBeDefined();
+  });
+
+  it('has session recording function', () => {
+    const recordSession = PROXY_REGISTRY_ABI.find(f => f.name === 'recordSession');
+    expect(recordSession).toBeDefined();
+    expect(recordSession?.inputs).toHaveLength(3);
   });
 });

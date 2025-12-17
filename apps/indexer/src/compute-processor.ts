@@ -102,10 +102,6 @@ const computeStakingInterface = parseAbi([
   'event Unstaked(address indexed account, uint256 amount)',
   'event Slashed(address indexed account, uint256 amount, string reason)',
 ]);
-  'event StakeAdded(address indexed account, uint256 amount, uint256 newTotal)',
-  'event Unstaked(address indexed account, uint256 amount)',
-  'event Slashed(address indexed account, uint256 amount, string reason)',
-]);
 
 const COMPUTE_EVENT_SIGNATURES = new Set([
   PROVIDER_REGISTERED, PROVIDER_UPDATED, PROVIDER_DEACTIVATED, PROVIDER_REACTIVATED,
@@ -117,7 +113,7 @@ const COMPUTE_EVENT_SIGNATURES = new Set([
 ]);
 
 export function isComputeEvent(topic0: string): boolean {
-  return COMPUTE_EVENT_SIGNATURES.has(topic0);
+  return COMPUTE_EVENT_SIGNATURES.has(topic0 as `0x${string}`);
 }
 
 export async function processComputeEvents(ctx: ProcessorContext<Store>): Promise<void> {
@@ -165,7 +161,7 @@ export async function processComputeEvents(ctx: ProcessorContext<Store>): Promis
       const log = rawLog as unknown as LogData;
       const eventSig = log.topics[0];
 
-      if (!eventSig || !COMPUTE_EVENT_SIGNATURES.has(eventSig)) continue;
+      if (!eventSig || !COMPUTE_EVENT_SIGNATURES.has(eventSig as `0x${string}`)) continue;
 
       const txHash = log.transaction?.hash || `${header.hash}-${log.transactionIndex}`;
 

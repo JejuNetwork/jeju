@@ -12,15 +12,71 @@
  * - Graceful shutdown
  */
 
-import WebTorrent, { type Torrent } from 'webtorrent';
+// WebTorrent is loaded dynamically to handle async module loading
+let WebTorrent: WebTorrentConstructor | null = null;
+
+async function loadWebTorrent(): Promise<WebTorrentConstructor> {
+  if (WebTorrent) return WebTorrent;
+  const mod = await import('webtorrent');
+  WebTorrent = mod.default as unknown as WebTorrentConstructor;
+  return WebTorrent;
+}
+
+interface WebTorrentConstructor {
+  new (opts?: { dht?: boolean; tracker?: boolean; webSeeds?: boolean }): WebTorrentInstance;
+}
+
+// WebTorrent types
+interface WebTorrentWire {
+  peerId: string;
+}
+
+interface WebTorrentTorrent {
+  infoHash: string;
+  name: string;
+  length: number;
+  downloaded: number;
+  uploaded: number;
+  downloadSpeed: number;
+  uploadSpeed: number;
+  progress: number;
+  numPeers: number;
+  timeRemaining: number;
+  done: boolean;
+  files: Array<{
+    name: string;
+    length: number;
+    getBuffer: (cb: (err: Error | null, buf: Buffer | null) => void) => void;
+  }>;
+  destroy: () => void;
+  on(event: 'done', handler: () => void): void;
+  on(event: 'ready', handler: () => void): void;
+  on(event: 'upload' | 'download', handler: (bytes: number) => void): void;
+  on(event: 'wire', handler: (wire: WebTorrentWire) => void): void;
+  on(event: 'error', handler: (err: Error | string) => void): void;
+  on(event: string, handler: (...args: unknown[]) => void): void;
+}
+
+interface WebTorrentInstance {
+  torrents: WebTorrentTorrent[];
+  ready: boolean;
+  add: (magnetUri: string, opts: { announce: string[] }) => WebTorrentTorrent;
+  seed: (data: Buffer, opts: Record<string, unknown>) => WebTorrentTorrent;
+  get: (infohash: string) => WebTorrentTorrent | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  on: (event: string, handler: (...args: any[]) => void) => void;
+  destroy: (cb?: () => void) => void;
+}
+
+type Torrent = WebTorrentTorrent;
 import { Contract, JsonRpcProvider, Wallet } from 'ethers';
 import { createHash, randomBytes } from 'crypto';
 import type { Address } from 'viem';
 import { CONTENT_REGISTRY_ABI } from '../abis';
 import { z } from 'zod';
-import { Registry, Counter, Gauge, Histogram } from 'prom-client';
+import { Registry, Counter, Gauge } from 'prom-client';
 import { LRUCache } from 'lru-cache';
-import http from 'http';
+import * as http from 'http';
 
 // ============================================================================
 // Configuration Schema
@@ -37,7 +93,7 @@ const TorrentConfigSchema = z.object({
   rpcUrl: z.string().url().optional(),
   privateKey: z.string().optional(),
   contentRegistryAddress: z.string().optional(),
-  seedingOracleUrl: z.string().url(), // Required - no self-signing
+  seedingOracleUrl: z.string().url().optional(), // Optional in dev, required in prod
   reportIntervalMs: z.number().default(3600000),
   blocklistSyncIntervalMs: z.number().default(300000),
   metricsPort: z.number().optional(),
@@ -170,8 +226,8 @@ const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvw
 function base58Encode(buffer: Buffer): string {
   const digits = [0];
 
-  for (const byte of buffer) {
-    let carry = byte;
+  for (let idx = 0; idx < buffer.length; idx++) {
+    let carry = buffer[idx];
     for (let i = 0; i < digits.length; i++) {
       carry += digits[i] << 8;
       digits[i] = carry % 58;
@@ -190,8 +246,8 @@ function base58Encode(buffer: Buffer): string {
   }
 
   // Add leading zeros
-  for (const byte of buffer) {
-    if (byte === 0) {
+  for (let idx = 0; idx < buffer.length; idx++) {
+    if (buffer[idx] === 0) {
       result = '1' + result;
     } else {
       break;
@@ -207,7 +263,7 @@ function base58Encode(buffer: Buffer): string {
 
 export class HybridTorrentService {
   private config: HybridTorrentConfig;
-  private client: WebTorrent.Instance;
+  private client: WebTorrentInstance;
   private records = new LRUCache<string, TorrentRecord>({
     max: 10000,
     ttl: 24 * 60 * 60 * 1000, // 24 hours
@@ -238,18 +294,8 @@ export class HybridTorrentService {
       ...config,
     });
 
-    // Initialize WebTorrent with DHT
-    this.client = new WebTorrent({
-      dht: true,
-      tracker: { announce: this.config.trackers },
-      maxConns: this.config.maxPeers,
-      uploadLimit: this.config.uploadLimitBytes,
-      downloadLimit: this.config.downloadLimitBytes,
-    });
-
-    this.client.on('error', (err) => {
-      console.error('[HybridTorrent] Client error:', err.message);
-    });
+    // WebTorrent client is initialized lazily in start()
+    this.client = null as unknown as WebTorrentInstance;
 
     // Setup on-chain integration
     if (this.config.rpcUrl && this.config.contentRegistryAddress) {
@@ -265,6 +311,22 @@ export class HybridTorrentService {
     }
   }
 
+  private async initClient(): Promise<void> {
+    if (this.client) return;
+
+    const WT = await loadWebTorrent();
+    this.client = new WT({
+      dht: true,
+      tracker: true,
+      webSeeds: true,
+    });
+
+    this.client.on('error', (err: Error | string) => {
+      const message = typeof err === 'string' ? err : err.message;
+      console.error('[HybridTorrent] Client error:', message);
+    });
+  }
+
   // ============================================================================
   // Lifecycle
   // ============================================================================
@@ -273,6 +335,9 @@ export class HybridTorrentService {
     if (this.running) return;
     this.running = true;
     this.startTime = Date.now();
+
+    // Initialize WebTorrent client
+    await this.initClient();
 
     // Start metrics server
     if (this.config.metricsPort) {
@@ -311,9 +376,11 @@ export class HybridTorrentService {
     }
 
     // Destroy WebTorrent client
-    await new Promise<void>((resolve) => {
-      this.client.destroy(() => resolve());
-    });
+    if (this.client) {
+      await new Promise<void>((resolve) => {
+        this.client.destroy(() => resolve());
+      });
+    }
 
     console.log('[HybridTorrent] Stopped');
   }
@@ -329,7 +396,7 @@ export class HybridTorrentService {
           JSON.stringify({
             status: this.running ? 'healthy' : 'stopped',
             torrents: this.client.torrents.length,
-            peers: this.client.torrents.reduce((sum, t) => sum + t.numPeers, 0),
+            peers: this.client.torrents.reduce((sum: number, t: WebTorrentTorrent) => sum + t.numPeers, 0),
           })
         );
       } else {
@@ -391,7 +458,7 @@ export class HybridTorrentService {
         torrentActiveCount.set(this.client.torrents.length);
 
         // Track uploads
-        torrent.on('upload', (bytes) => {
+        torrent.on('upload', (bytes: number) => {
           const record = this.records.get(infohash);
           if (record) {
             record.bytesUploaded += bytes;
@@ -400,15 +467,15 @@ export class HybridTorrentService {
           torrentBytesUploaded.inc(bytes);
         });
 
-        torrent.on('download', (bytes) => {
+        torrent.on('download', (bytes: number) => {
           torrentBytesDownloaded.inc(bytes);
         });
 
-        torrent.on('wire', (wire) => {
+        torrent.on('wire', (wire: WebTorrentWire) => {
           const record = this.records.get(infohash);
           if (record) record.peersServed.add(wire.peerId);
           torrentPeersTotal.set(
-            this.client.torrents.reduce((sum, t) => sum + t.numPeers, 0)
+            this.client.torrents.reduce((sum: number, t: WebTorrentTorrent) => sum + t.numPeers, 0)
           );
         });
 
@@ -435,9 +502,10 @@ export class HybridTorrentService {
         resolve(this.getTorrentStats(infohash));
       });
 
-      torrent.on('error', (err) => {
+      torrent.on('error', (err: Error | string) => {
         clearTimeout(timeout);
-        reject(new Error(`Torrent error: ${err.message}`));
+        const message = typeof err === 'string' ? err : err.message;
+        reject(new Error(`Torrent error: ${message}`));
       });
     });
   }
@@ -455,10 +523,12 @@ export class HybridTorrentService {
     }
 
     return new Promise((resolve, reject) => {
-      const torrent = this.client.seed(data, {
+      // Cast options - WebTorrent types are overly restrictive
+      const opts = {
         announce: this.config.trackers,
         name: name ?? `content-${Date.now()}`,
-      });
+      } as Parameters<typeof this.client.seed>[1];
+      const torrent = this.client.seed(data, opts);
 
       torrent.on('ready', () => {
         const infohash = torrent.infoHash;
@@ -476,7 +546,7 @@ export class HybridTorrentService {
 
         torrentActiveCount.set(this.client.torrents.length);
 
-        torrent.on('upload', (bytes) => {
+        torrent.on('upload', (bytes: number) => {
           const record = this.records.get(infohash);
           if (record) {
             record.bytesUploaded += bytes;
@@ -485,7 +555,7 @@ export class HybridTorrentService {
           torrentBytesUploaded.inc(bytes);
         });
 
-        torrent.on('wire', (wire) => {
+        torrent.on('wire', (wire: WebTorrentWire) => {
           const record = this.records.get(infohash);
           if (record) record.peersServed.add(wire.peerId);
         });
@@ -493,8 +563,9 @@ export class HybridTorrentService {
         resolve(this.getTorrentStats(infohash));
       });
 
-      torrent.on('error', (err) => {
-        reject(new Error(`Seed error: ${err.message}`));
+      torrent.on('error', (err: Error | string) => {
+        const message = typeof err === 'string' ? err : err.message;
+        reject(new Error(`Seed error: ${message}`));
       });
     });
   }
@@ -579,7 +650,7 @@ export class HybridTorrentService {
     if (!file) throw new Error('No files in torrent');
 
     return new Promise((resolve, reject) => {
-      file.getBuffer((err, buffer) => {
+      file.getBuffer((err: Error | null, buffer: Buffer | null) => {
         if (err) reject(err);
         else if (buffer) resolve(buffer);
         else reject(new Error('Empty buffer'));
@@ -597,7 +668,7 @@ export class HybridTorrentService {
 
     try {
       const buffer = await new Promise<Buffer>((resolve, reject) => {
-        file.getBuffer((err, buf) => {
+        file.getBuffer((err: Error | null, buf: Buffer | null) => {
           if (err) reject(err);
           else if (buf) resolve(buf);
           else reject(new Error('Empty buffer'));
@@ -621,6 +692,10 @@ export class HybridTorrentService {
   ): Promise<OracleAttestation> {
     if (!this.wallet) {
       throw new Error('Wallet required for attestation');
+    }
+
+    if (!this.config.seedingOracleUrl) {
+      throw new Error('Seeding oracle URL required for attestation - no self-signing allowed in production');
     }
 
     const nonce = randomBytes(16).toString('hex');
@@ -659,7 +734,7 @@ export class HybridTorrentService {
   private async reportAllSeeding(): Promise<void> {
     if (!this.contentRegistry || !this.wallet) return;
 
-    for (const [infohash, record] of this.records.entries()) {
+    for (const [infohash, record] of Array.from(this.records.entries())) {
       if (record.bytesUploaded === 0) continue;
 
       try {
@@ -718,7 +793,7 @@ export class HybridTorrentService {
           this.blocklist.add(hash);
 
           // Stop seeding blocked content
-          for (const [infohash, record] of this.records.entries()) {
+          for (const [infohash, record] of Array.from(this.records.entries())) {
             if (record.contentHash === hash) {
               this.removeTorrent(infohash);
             }

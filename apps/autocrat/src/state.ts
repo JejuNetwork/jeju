@@ -5,7 +5,7 @@
  * CQL is REQUIRED - automatically configured per network.
  */
 
-import { getCQL, type CQLClient } from "@jejunetwork/db";
+import { getCQL, type CQLClient, type QueryParam } from "@jejunetwork/db";
 import { getCacheClient, type CacheClient } from "@jejunetwork/shared";
 import { getCurrentNetwork } from "@jejunetwork/config";
 
@@ -232,7 +232,7 @@ export const proposalState = {
   async update(id: string, updates: Partial<Proposal>): Promise<void> {
     const client = await getCQLClient();
     const sets: string[] = ["updated_at = ?"];
-    const params: unknown[] = [Date.now()];
+    const params: QueryParam[] = [Date.now()];
 
     if (updates.title !== undefined) {
       sets.push("title = ?");

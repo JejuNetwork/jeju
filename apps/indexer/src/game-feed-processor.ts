@@ -2,7 +2,7 @@
  * Game Feed Processor - Indexes GameFeedOracle events
  */
 
-import { keccak256, stringToHex, parseAbi } from 'viem';
+import { keccak256, stringToHex, parseAbi, decodeEventLog } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { 
@@ -68,64 +68,76 @@ export async function processGameFeedEvents(ctx: ProcessorContext<Store>): Promi
             const txHash = log.transaction.hash;
             
             if (eventSig === FEED_POST) {
-                const decoded = gameFeedInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: gameFeedInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { sessionId: string; postId: string; author: string; content: string; gameDay: number; timestamp: bigint } };
                 
                 feedPosts.push(new GameFeedPost({
                     id: `${txHash}-${log.logIndex}`,
-                    sessionId: decoded.args.sessionId,
-                    postId: decoded.args.postId,
-                    author: decoded.args.author,
-                    content: decoded.args.content,
-                    gameDay: decoded.args.gameDay,
-                    timestamp: new Date(Number(decoded.args.timestamp) * 1000),
-                    isSystemMessage: decoded.args.author === ZERO_ADDRESS,
+                    sessionId: args.sessionId,
+                    postId: args.postId,
+                    author: args.author,
+                    content: args.content,
+                    gameDay: args.gameDay,
+                    timestamp: new Date(Number(args.timestamp) * 1000),
+                    isSystemMessage: args.author === ZERO_ADDRESS,
                     blockNumber: BigInt(block.header.height),
                     transactionHash: txHash
                 }));
             }
             else if (eventSig === MARKET_UPDATE) {
-                const decoded = gameFeedInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: gameFeedInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { sessionId: string; yesOdds: number; noOdds: number; totalVolume: bigint; gameDay: number; timestamp: bigint } };
                 
                 marketUpdates.push(new GameMarketUpdate({
                     id: `${txHash}-${log.logIndex}`,
-                    sessionId: decoded.args.sessionId,
-                    yesOdds: decoded.args.yesOdds,
-                    noOdds: decoded.args.noOdds,
-                    totalVolume: BigInt(decoded.args.totalVolume.toString()),
-                    gameDay: decoded.args.gameDay,
-                    timestamp: new Date(Number(decoded.args.timestamp) * 1000),
+                    sessionId: args.sessionId,
+                    yesOdds: args.yesOdds,
+                    noOdds: args.noOdds,
+                    totalVolume: BigInt(args.totalVolume.toString()),
+                    gameDay: args.gameDay,
+                    timestamp: new Date(Number(args.timestamp) * 1000),
                     blockNumber: BigInt(block.header.height),
                     transactionHash: txHash
                 }));
             }
             else if (eventSig === PHASE_CHANGE) {
-                const decoded = gameFeedInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: gameFeedInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { sessionId: string; phase: string; day: number; timestamp: bigint } };
                 
                 phaseChanges.push(new GamePhaseChange({
                     id: `${txHash}-${log.logIndex}`,
-                    sessionId: decoded.args.sessionId,
-                    phase: decoded.args.phase,
-                    day: decoded.args.day,
-                    timestamp: new Date(Number(decoded.args.timestamp) * 1000),
+                    sessionId: args.sessionId,
+                    phase: args.phase,
+                    day: args.day,
+                    timestamp: new Date(Number(args.timestamp) * 1000),
                     blockNumber: BigInt(block.header.height),
                     transactionHash: txHash
                 }));
             }
             else if (eventSig === SKILL_EVENT) {
-                const decoded = gameFeedInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: gameFeedInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { player: string; skillName: string; newLevel: number; totalXp: bigint } };
                 
-                const player = decoded.args.player.toLowerCase();
+                const player = args.player.toLowerCase();
                 
                 skillEvents.push(new PlayerSkillEvent({
                     id: `${txHash}-${log.logIndex}`,
                     player,
-                    skillName: decoded.args.skillName,
-                    newLevel: decoded.args.newLevel,
-                    totalXp: BigInt(decoded.args.totalXp.toString()),
+                    skillName: args.skillName,
+                    newLevel: args.newLevel,
+                    totalXp: BigInt(args.totalXp.toString()),
                     timestamp: blockTimestamp,
                     blockNumber: BigInt(block.header.height),
                     transactionHash: txHash
@@ -133,25 +145,28 @@ export async function processGameFeedEvents(ctx: ProcessorContext<Store>): Promi
                 
                 const stats = getOrCreatePlayerStats(playerStats, player, blockTimestamp);
                 stats.totalSkillEvents++;
-                if (decoded.args.newLevel > stats.highestSkillLevel) {
-                    stats.highestSkillLevel = decoded.args.newLevel;
-                    stats.highestSkillName = decoded.args.skillName;
+                if (args.newLevel > stats.highestSkillLevel) {
+                    stats.highestSkillLevel = args.newLevel;
+                    stats.highestSkillName = args.skillName;
                 }
                 stats.lastActive = blockTimestamp;
             }
             else if (eventSig === DEATH_EVENT) {
-                const decoded = gameFeedInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: gameFeedInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { player: string; killer: string; location: string; timestamp: bigint } };
                 
-                const player = decoded.args.player.toLowerCase();
-                const killerAddr = decoded.args.killer;
+                const player = args.player.toLowerCase();
+                const killerAddr = args.killer;
                 
                 deathEvents.push(new PlayerDeathEvent({
                     id: `${txHash}-${log.logIndex}`,
                     player,
                     killer: killerAddr !== ZERO_ADDRESS ? killerAddr.toLowerCase() : null,
-                    location: decoded.args.location,
-                    timestamp: new Date(Number(decoded.args.timestamp) * 1000),
+                    location: args.location,
+                    timestamp: new Date(Number(args.timestamp) * 1000),
                     blockNumber: BigInt(block.header.height),
                     transactionHash: txHash
                 }));
@@ -161,17 +176,20 @@ export async function processGameFeedEvents(ctx: ProcessorContext<Store>): Promi
                 stats.lastActive = blockTimestamp;
             }
             else if (eventSig === KILL_EVENT) {
-                const decoded = gameFeedInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: gameFeedInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { killer: string; victim: string; method: string; timestamp: bigint } };
                 
-                const killer = decoded.args.killer.toLowerCase();
+                const killer = args.killer.toLowerCase();
                 
                 killEvents.push(new PlayerKillEvent({
                     id: `${txHash}-${log.logIndex}`,
                     killer,
-                    victim: decoded.args.victim.toLowerCase(),
-                    method: decoded.args.method,
-                    timestamp: new Date(Number(decoded.args.timestamp) * 1000),
+                    victim: args.victim.toLowerCase(),
+                    method: args.method,
+                    timestamp: new Date(Number(args.timestamp) * 1000),
                     blockNumber: BigInt(block.header.height),
                     transactionHash: txHash
                 }));
@@ -181,17 +199,20 @@ export async function processGameFeedEvents(ctx: ProcessorContext<Store>): Promi
                 stats.lastActive = blockTimestamp;
             }
             else if (eventSig === ACHIEVEMENT) {
-                const decoded = gameFeedInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: gameFeedInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { player: string; achievementId: string; achievementType: string; value: bigint } };
                 
-                const player = decoded.args.player.toLowerCase();
+                const player = args.player.toLowerCase();
                 
                 achievements.push(new PlayerAchievement({
                     id: `${txHash}-${log.logIndex}`,
                     player,
-                    achievementId: decoded.args.achievementId,
-                    achievementType: decoded.args.achievementType,
-                    value: BigInt(decoded.args.value.toString()),
+                    achievementId: args.achievementId,
+                    achievementType: args.achievementType,
+                    value: BigInt(args.value.toString()),
                     timestamp: blockTimestamp,
                     blockNumber: BigInt(block.header.height),
                     transactionHash: txHash

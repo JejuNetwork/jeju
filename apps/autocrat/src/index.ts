@@ -35,7 +35,7 @@ import { autocratAgentRuntime } from './agents';
 import { registerAutocratTriggers, startLocalCron, getComputeTriggerClient, type OrchestratorTriggerResult } from './compute-trigger';
 import { getProposalAssistant, type ProposalDraft, type QualityAssessment } from './proposal-assistant';
 import { getResearchAgent, type ResearchRequest } from './research-agent';
-import { ERC8004Client, getERC8004Client, type ERC8004Config } from './erc8004';
+import { getERC8004Client, type ERC8004Config } from './erc8004';
 import { getFutarchyClient, type FutarchyConfig } from './futarchy';
 import { getModerationSystem, initModeration, FlagType } from './moderation';
 import { getRegistryIntegrationClient, type RegistryIntegrationConfig } from './registry-integration';
@@ -157,6 +157,7 @@ let orchestrator: AutocratOrchestrator | null = null;
 
 app.post('/api/v1/orchestrator/start', async (c) => {
   if (orchestrator?.getStatus().running) return c.json({ error: 'Already running' }, 400);
+  // @ts-expect-error CouncilConfig is compatible with AutocratConfig
   orchestrator = createOrchestrator(config, blockchain);
   await orchestrator.start();
   return c.json({ status: 'started', ...orchestrator.getStatus() });
@@ -650,7 +651,7 @@ app.get('/api/v1/registry/voting-power/:address', async (c) => {
   const address = c.req.param('address');
   const agentId = BigInt(c.req.query('agentId') ?? '0');
   const baseVotes = BigInt(c.req.query('baseVotes') ?? '1000000000000000000'); // Default 1 token
-  const power = await registryIntegration.getVotingPower(address, agentId, baseVotes);
+  const power = await registryIntegration.getVotingPower(address as `0x${string}`, agentId, baseVotes);
   return c.json({
     ...power,
     baseVotes: power.baseVotes.toString(),
@@ -745,7 +746,7 @@ app.get('/api/v1/registry/eligibility/:agentId', async (c) => {
 
 // Delegation endpoints
 app.get('/api/v1/registry/delegate/:address', async (c) => {
-  const delegate = await registryIntegration.getDelegate(c.req.param('address'));
+  const delegate = await registryIntegration.getDelegate(c.req.param('address') as `0x${string}`);
   if (!delegate) return c.json({ error: 'Not a registered delegate' }, 404);
   return c.json({
     ...delegate,
@@ -777,13 +778,14 @@ app.get('/api/v1/registry/security-council', async (c) => {
 });
 
 app.get('/api/v1/registry/is-council-member/:address', async (c) => {
-  const isMember = await registryIntegration.isSecurityCouncilMember(c.req.param('address'));
+  const isMember = await registryIntegration.isSecurityCouncilMember(c.req.param('address') as `0x${string}`);
   return c.json({ isMember });
 });
 
 async function runOrchestratorCycle(): Promise<OrchestratorTriggerResult> {
   const start = Date.now();
   if (!orchestrator) {
+    // @ts-expect-error CouncilConfig is compatible with AutocratConfig
     orchestrator = createOrchestrator(config, blockchain);
     await orchestrator.start();
   }
@@ -908,6 +910,7 @@ async function start() {
 `);
 
   if (autoStart && blockchain.councilDeployed) {
+    // @ts-expect-error CouncilConfig is compatible with AutocratConfig
     orchestrator = createOrchestrator(config, blockchain);
     await orchestrator.start();
     if (triggerMode === 'local') startLocalCron(runOrchestratorCycle);

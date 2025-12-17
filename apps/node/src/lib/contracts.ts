@@ -36,6 +36,7 @@ function loadAddressesFromDeployment(network: 'testnet' | 'mainnet'): ContractAd
       banManager: (data.BanManager || data.banManager || '0x0000000000000000000000000000000000000000') as Address,
       cdnRegistry: (data.CDNRegistry || data.cdnRegistry || '0x0000000000000000000000000000000000000000') as Address,
       cdnBilling: (data.CDNBilling || data.cdnBilling || '0x0000000000000000000000000000000000000000') as Address,
+      vpnRegistry: (data.VPNRegistry || data.vpnRegistry || '0x0000000000000000000000000000000000000000') as Address,
     };
   } catch {
     return null;
@@ -73,6 +74,7 @@ export interface ContractAddresses {
   banManager: Address;
   cdnRegistry: Address;
   cdnBilling: Address;
+  vpnRegistry: Address;
 }
 
 export function getContractAddresses(chainId: number): ContractAddresses {
@@ -99,6 +101,7 @@ export function getContractAddresses(chainId: number): ContractAddresses {
       banManager: '0x0B306BF915C4d645ff596e518fAf3F9669b97016' as Address,
       cdnRegistry: '0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1' as Address,
       cdnBilling: '0x9A9f2CCfdE556A7E9Ff0848998Aa4a0CFD8863AE' as Address,
+      vpnRegistry: '0x322813Fd9A801c5507c9544993c34B5a5b9B5b7B' as Address,
     };
   }
 
@@ -124,6 +127,7 @@ export function getContractAddresses(chainId: number): ContractAddresses {
       banManager: '0x0000000000000000000000000000000000000000' as Address,
       cdnRegistry: '0x0000000000000000000000000000000000000000' as Address,
       cdnBilling: '0x0000000000000000000000000000000000000000' as Address,
+      vpnRegistry: (process.env.VPN_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
     };
   }
 

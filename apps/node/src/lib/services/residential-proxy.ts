@@ -12,13 +12,13 @@
  * - Circuit breaker for coordinator communication
  */
 
-import { type Address, verifyMessage, hashMessage } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { type Address, verifyMessage } from 'viem';
 import { type NodeClient, getChain } from '../contracts';
 import { PROXY_REGISTRY_ABI } from '../abis';
-import net from 'net';
-import http from 'http';
-import https from 'https';
+import * as net from 'net';
+import * as http from 'http';
+import * as https from 'https';
+import type { Duplex } from 'stream';
 import { WebSocket } from 'ws';
 import { z } from 'zod';
 import { Registry, Counter, Histogram, Gauge } from 'prom-client';
@@ -168,7 +168,7 @@ export class ResidentialProxyService {
   private nodeId: `0x${string}` | null = null;
   private running = false;
   private draining = false;
-  private activeConnections = new Map<string, net.Socket>();
+  private activeConnections = new Map<string, net.Socket | Duplex>();
   private metricsReportInterval: ReturnType<typeof setInterval> | null = null;
   private reconnectTimeout: ReturnType<typeof setTimeout> | null = null;
   private coordinatorBreaker = new CircuitBreaker(5, 30000);
@@ -195,53 +195,63 @@ export class ResidentialProxyService {
   // ============================================================================
 
   async getState(address: Address): Promise<ProxyState | null> {
-    const nodeIds = (await this.client.publicClient.readContract({
-      address: this.client.addresses.proxyRegistry,
-      abi: PROXY_REGISTRY_ABI,
-      functionName: 'getOperatorNodes',
-      args: [address],
-    })) as readonly `0x${string}`[];
-
-    if (nodeIds.length === 0) return null;
-
-    const nodeId = nodeIds[0];
+    // Get node info directly by address
     const node = (await this.client.publicClient.readContract({
       address: this.client.addresses.proxyRegistry,
       abi: PROXY_REGISTRY_ABI,
-      functionName: 'getProxyNode',
-      args: [nodeId],
+      functionName: 'getNode',
+      args: [address],
     })) as {
-      status: number;
-      requestsTotal: bigint;
-      bytesTransferred: bigint;
+      owner: Address;
+      regionCode: `0x${string}`;
+      endpoint: string;
       stake: bigint;
+      registeredAt: bigint;
+      totalBytesServed: bigint;
+      totalSessions: bigint;
+      successfulSessions: bigint;
+      active: boolean;
     };
 
-    const statusMap: ProxyState['status'][] = ['online', 'busy', 'offline', 'suspended'];
+    // Not registered if registeredAt is 0
+    if (node.registeredAt === BigInt(0)) return null;
+
+    // Derive status from active flag and connection count
+    let status: ProxyState['status'] = 'offline';
+    if (node.active) {
+      status = this.activeConnections.size >= this.config.maxConcurrentRequests ? 'busy' : 'online';
+    }
 
     return {
       isRegistered: true,
-      nodeId,
-      status: statusMap[node.status] ?? 'offline',
-      totalRequests: Number(node.requestsTotal),
-      totalBytesTransferred: Number(node.bytesTransferred),
+      nodeId: address as `0x${string}`, // Use address as nodeId since contract uses address-based lookup
+      status,
+      totalRequests: Number(node.totalSessions),
+      totalBytesTransferred: Number(node.totalBytesServed),
       currentConnections: this.activeConnections.size,
       earnings: node.stake,
     };
   }
 
-  async register(): Promise<string> {
+  async register(regionCode?: string): Promise<string> {
     if (!this.client.walletClient?.account) {
       throw new Error('Wallet not connected');
     }
+
+    // Hash region code (e.g., "US" -> keccak256("US"))
+    const region = regionCode ?? process.env.PROXY_REGION ?? 'GLOBAL';
+    const regionHash = `0x${createHash('sha256').update(region).digest('hex')}` as `0x${string}`;
+
+    // Get endpoint URL for callback
+    const endpoint = `http://localhost:${this.config.localPort}`;
 
     const hash = await this.client.walletClient.writeContract({
       chain: getChain(this.client.chainId),
       account: this.client.walletClient.account,
       address: this.client.addresses.proxyRegistry,
       abi: PROXY_REGISTRY_ABI,
-      functionName: 'registerProxyNode',
-      args: [this.config.bandwidthLimitMbps, this.config.maxConcurrentRequests],
+      functionName: 'register',
+      args: [regionHash, endpoint],
       value: this.config.stakeAmount,
     });
 
@@ -296,7 +306,8 @@ export class ResidentialProxyService {
     }
 
     // Force close remaining connections
-    for (const [id, socket] of this.activeConnections) {
+    const entries = Array.from(this.activeConnections.entries());
+    for (const [id, socket] of entries) {
       socket.destroy();
       this.activeConnections.delete(id);
     }
@@ -359,7 +370,7 @@ export class ResidentialProxyService {
     });
 
     // HTTPS tunneling
-    this.server.on('connect', (req, clientSocket, head) => {
+    this.server.on('connect', (req, clientSocket: Duplex, head) => {
       this.handleConnectRequest(req, clientSocket, head);
     });
 
@@ -447,7 +458,7 @@ export class ResidentialProxyService {
 
   private cleanupExpiredTokens(): void {
     const now = Date.now();
-    for (const [requestId, expiry] of this.validTokens) {
+    for (const [requestId, expiry] of Array.from(this.validTokens.entries())) {
       if (expiry < now) {
         this.validTokens.delete(requestId);
       }
@@ -534,26 +545,27 @@ export class ResidentialProxyService {
       timeout: 30000,
     };
 
-    const proxyReq = (targetUrl.protocol === 'https:' ? https : http).request(
-      options,
-      (proxyRes) => {
-        res.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
+    const proxyReq: http.ClientRequest = targetUrl.protocol === 'https:'
+      ? https.request(options as https.RequestOptions)
+      : http.request(options);
 
-        proxyRes.on('data', (chunk: Buffer) => {
-          proxyBytesTransferred.inc({ direction: 'download' }, chunk.length);
-        });
+    proxyReq.on('response', (proxyRes: http.IncomingMessage) => {
+      res.writeHead(proxyRes.statusCode ?? 200, proxyRes.headers);
 
-        proxyRes.pipe(res);
+      proxyRes.on('data', (chunk: Buffer) => {
+        proxyBytesTransferred.inc({ direction: 'download' }, chunk.length);
+      });
 
-        proxyRes.on('end', () => {
-          proxyRequestsTotal.inc({ method: 'http', status: 'success' });
-          proxyActiveConnections.dec();
-          timer();
-        });
-      }
-    );
+      proxyRes.pipe(res);
 
-    proxyReq.on('error', (err) => {
+      proxyRes.on('end', () => {
+        proxyRequestsTotal.inc({ method: 'http', status: 'success' });
+        proxyActiveConnections.dec();
+        timer();
+      });
+    });
+
+    proxyReq.on('error', (err: Error) => {
       console.error(`[Proxy] Request ${requestId} failed:`, err.message);
       proxyRequestsTotal.inc({ method: 'http', status: 'error' });
       proxyActiveConnections.dec();
@@ -571,7 +583,7 @@ export class ResidentialProxyService {
 
   private async handleConnectRequest(
     req: http.IncomingMessage,
-    clientSocket: net.Socket,
+    clientSocket: Duplex,
     head: Buffer
   ): Promise<void> {
     const requestId = randomBytes(8).toString('hex');

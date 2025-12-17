@@ -12,10 +12,11 @@
  * - Graceful shutdown
  */
 
-import { createHash, randomBytes, createHmac } from 'crypto';
-import { type Address, verifyMessage, hashMessage, recoverMessageAddress } from 'viem';
+import { randomBytes } from 'crypto';
+import { type Address, recoverMessageAddress } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { WebSocket, WebSocketServer } from 'ws';
-import http from 'http';
+import * as http from 'http';
 import { z } from 'zod';
 import { Registry, Counter, Gauge, Histogram } from 'prom-client';
 import { LRUCache } from 'lru-cache';
@@ -149,10 +150,11 @@ const coordinatorGossipLatency = new Histogram({
 
 export class EdgeCoordinator {
   private config: EdgeCoordinatorConfig;
+  private account: ReturnType<typeof privateKeyToAccount>;
   private peers = new LRUCache<string, { ws: WebSocket; info: EdgeNodeInfo }>({
     max: 1000,
     ttl: 10 * 60 * 1000, // 10 minutes
-    dispose: (value, key) => {
+    dispose: (value, _key) => {
       if (value.ws.readyState === WebSocket.OPEN) {
         value.ws.close();
       }
@@ -183,6 +185,9 @@ export class EdgeCoordinator {
 
   constructor(config: EdgeCoordinatorConfig) {
     this.config = EdgeCoordinatorConfigSchema.parse(config);
+
+    // Initialize signing account
+    this.account = privateKeyToAccount(this.config.privateKey as `0x${string}`);
 
     // Setup on-chain integration
     if (this.config.rpcUrl && this.config.nodeRegistryAddress) {
@@ -240,7 +245,7 @@ export class EdgeCoordinator {
     if (this.cleanupInterval) clearInterval(this.cleanupInterval);
 
     // Close all peer connections
-    for (const [nodeId, peer] of this.peers.entries()) {
+    for (const [_nodeId, peer] of Array.from(this.peers.entries())) {
       peer.ws.close();
     }
 
@@ -310,7 +315,7 @@ export class EdgeCoordinator {
 
       ws.on('close', () => {
         // Remove peer associated with this socket
-        for (const [nodeId, peer] of this.peers.entries()) {
+        for (const [nodeId, peer] of Array.from(this.peers.entries())) {
           if (peer.ws === ws) {
             this.peers.delete(nodeId);
             coordinatorPeersTotal.dec();
@@ -402,11 +407,8 @@ export class EdgeCoordinator {
       payload: msg.payload,
     });
 
-    // Create HMAC signature using private key
-    // In production, use proper ECDSA signing with viem
-    const hmac = createHmac('sha256', this.config.privateKey);
-    hmac.update(messageData);
-    return `0x${hmac.digest('hex')}`;
+    // Use proper ECDSA signing with viem
+    return await this.account.signMessage({ message: messageData });
   }
 
   // ============================================================================
@@ -414,9 +416,15 @@ export class EdgeCoordinator {
   // ============================================================================
 
   private async handleMessage(msg: GossipMessage, source: WebSocket | null): Promise<void> {
+    const startTime = Date.now();
+
     // Deduplicate
     if (this.seenMessages.has(msg.id)) return;
     this.seenMessages.set(msg.id, true);
+
+    // Track message latency from send time
+    const latencyMs = startTime - msg.timestamp;
+    coordinatorGossipLatency.observe(latencyMs / 1000);
 
     coordinatorMessagesTotal.inc({ type: msg.type, direction: 'received' });
 
@@ -656,7 +664,8 @@ export class EdgeCoordinator {
 
   private async connectToPeer(endpoint: string): Promise<void> {
     try {
-      const wsUrl = endpoint.replace(/^https?/, 'wss');
+      // Convert HTTP to WebSocket protocol: http -> ws, https -> wss
+      const wsUrl = endpoint.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
       const ws = new WebSocket(`${wsUrl}/gossip`);
 
       ws.on('open', async () => {
@@ -696,7 +705,7 @@ export class EdgeCoordinator {
   private cleanupStalePeers(): void {
     const now = Date.now();
 
-    for (const [nodeId, peer] of this.peers.entries()) {
+    for (const [nodeId, peer] of Array.from(this.peers.entries())) {
       if (now - peer.info.lastSeen > this.config.staleThresholdMs) {
         peer.ws.close();
         this.peers.delete(nodeId);
@@ -709,8 +718,6 @@ export class EdgeCoordinator {
 
   private getRandomPeers(count: number): Array<{ ws: WebSocket; info: EdgeNodeInfo }> {
     const allPeers = Array.from(this.peers.values());
-    const result: Array<{ ws: WebSocket; info: EdgeNodeInfo }> = [];
-
     const shuffled = [...allPeers].sort(() => Math.random() - 0.5);
     return shuffled.slice(0, Math.min(count, shuffled.length));
   }
@@ -762,7 +769,8 @@ export class EdgeCoordinator {
     return new Promise((resolve) => {
       const queryId = this.generateMessageId();
       const results: string[] = [];
-      const timeout = setTimeout(() => {
+      // Timeout to collect responses - not cleared early to gather all available results
+      setTimeout(() => {
         this.messageHandlers.delete(queryId);
         resolve(results);
       }, 5000);

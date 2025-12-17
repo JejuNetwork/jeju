@@ -6,6 +6,5 @@ services:
       POSTGRES_DB: squid
       POSTGRES_PASSWORD: postgres
     ports:
-      - "${DB_PORT}:5432"
-      # command: ["postgres", "-c", "log_statement=all"]
+      - "${DB_PORT:-23798}:5432"
     shm_size: 1gb

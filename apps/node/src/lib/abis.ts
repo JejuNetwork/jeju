@@ -550,3 +550,282 @@ export const CDN_REGISTRY_ABI = [
   },
 ] as const;
 
+export const PROXY_REGISTRY_ABI = [
+  // Registration
+  {
+    type: 'function',
+    name: 'register',
+    inputs: [
+      { name: 'regionCode', type: 'bytes32' },
+      { name: 'endpoint', type: 'string' },
+    ],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    name: 'updateNode',
+    inputs: [
+      { name: 'regionCode', type: 'bytes32' },
+      { name: 'endpoint', type: 'string' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'deactivate',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  {
+    type: 'function',
+    name: 'reactivate',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  // Staking
+  {
+    type: 'function',
+    name: 'addStake',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  {
+    type: 'function',
+    name: 'withdrawStake',
+    inputs: [{ name: 'amount', type: 'uint256' }],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  // View functions
+  {
+    type: 'function',
+    name: 'getNode',
+    inputs: [{ name: 'addr', type: 'address' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'owner', type: 'address' },
+          { name: 'regionCode', type: 'bytes32' },
+          { name: 'endpoint', type: 'string' },
+          { name: 'stake', type: 'uint256' },
+          { name: 'registeredAt', type: 'uint256' },
+          { name: 'totalBytesServed', type: 'uint256' },
+          { name: 'totalSessions', type: 'uint256' },
+          { name: 'successfulSessions', type: 'uint256' },
+          { name: 'active', type: 'bool' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'isActive',
+    inputs: [{ name: 'addr', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getActiveNodes',
+    inputs: [],
+    outputs: [{ name: '', type: 'address[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getNodesByRegion',
+    inputs: [{ name: 'regionCode', type: 'bytes32' }],
+    outputs: [{ name: '', type: 'address[]' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getNodeStake',
+    inputs: [{ name: 'addr', type: 'address' }],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getNodeCount',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'minNodeStake',
+    inputs: [],
+    outputs: [{ name: '', type: 'uint256' }],
+    stateMutability: 'view',
+  },
+  // Session recording (coordinator only)
+  {
+    type: 'function',
+    name: 'recordSession',
+    inputs: [
+      { name: 'node', type: 'address' },
+      { name: 'bytesServed', type: 'uint256' },
+      { name: 'successful', type: 'bool' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  // Events
+  {
+    type: 'event',
+    name: 'NodeRegistered',
+    inputs: [
+      { name: 'node', type: 'address', indexed: true },
+      { name: 'regionCode', type: 'bytes32', indexed: true },
+      { name: 'stake', type: 'uint256', indexed: false },
+      { name: 'endpoint', type: 'string', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'SessionRecorded',
+    inputs: [
+      { name: 'node', type: 'address', indexed: true },
+      { name: 'bytesServed', type: 'uint256', indexed: false },
+      { name: 'successful', type: 'bool', indexed: false },
+    ],
+  },
+] as const;
+
+export const VPN_REGISTRY_ABI = [
+  // Registration
+  {
+    type: 'function',
+    name: 'register',
+    inputs: [
+      { name: 'countryCode', type: 'bytes2' },
+      { name: 'regionHash', type: 'bytes32' },
+      { name: 'endpoint', type: 'string' },
+      { name: 'wireguardPubKey', type: 'string' },
+      {
+        name: 'capabilities',
+        type: 'tuple',
+        components: [
+          { name: 'supportsWireGuard', type: 'bool' },
+          { name: 'supportsSOCKS5', type: 'bool' },
+          { name: 'supportsHTTPConnect', type: 'bool' },
+          { name: 'servesCDN', type: 'bool' },
+          { name: 'isVPNExit', type: 'bool' },
+        ],
+      },
+    ],
+    outputs: [],
+    stateMutability: 'payable',
+  },
+  // Get node info
+  {
+    type: 'function',
+    name: 'getNode',
+    inputs: [{ name: 'operator', type: 'address' }],
+    outputs: [
+      {
+        name: '',
+        type: 'tuple',
+        components: [
+          { name: 'operator', type: 'address' },
+          { name: 'countryCode', type: 'bytes2' },
+          { name: 'regionHash', type: 'bytes32' },
+          { name: 'endpoint', type: 'string' },
+          { name: 'wireguardPubKey', type: 'string' },
+          { name: 'stake', type: 'uint256' },
+          { name: 'registeredAt', type: 'uint256' },
+          { name: 'lastSeen', type: 'uint256' },
+          {
+            name: 'capabilities',
+            type: 'tuple',
+            components: [
+              { name: 'supportsWireGuard', type: 'bool' },
+              { name: 'supportsSOCKS5', type: 'bool' },
+              { name: 'supportsHTTPConnect', type: 'bool' },
+              { name: 'servesCDN', type: 'bool' },
+              { name: 'isVPNExit', type: 'bool' },
+            ],
+          },
+          { name: 'active', type: 'bool' },
+          { name: 'totalBytesServed', type: 'uint256' },
+          { name: 'totalSessions', type: 'uint256' },
+          { name: 'successfulSessions', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  // Heartbeat
+  {
+    type: 'function',
+    name: 'heartbeat',
+    inputs: [],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  // Record session
+  {
+    type: 'function',
+    name: 'recordSession',
+    inputs: [
+      { name: 'nodeAddr', type: 'address' },
+      { name: 'client', type: 'address' },
+      { name: 'bytesServed', type: 'uint256' },
+      { name: 'successful', type: 'bool' },
+    ],
+    outputs: [],
+    stateMutability: 'nonpayable',
+  },
+  // View functions
+  {
+    type: 'function',
+    name: 'isActive',
+    inputs: [{ name: 'operator', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'allowedCountries',
+    inputs: [{ name: 'countryCode', type: 'bytes2' }],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'blockedCountries',
+    inputs: [{ name: 'countryCode', type: 'bytes2' }],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  // Events
+  {
+    type: 'event',
+    name: 'NodeRegistered',
+    inputs: [
+      { name: 'operator', type: 'address', indexed: true },
+      { name: 'countryCode', type: 'bytes2', indexed: true },
+      { name: 'stake', type: 'uint256', indexed: false },
+    ],
+  },
+  {
+    type: 'event',
+    name: 'VPNSessionRecorded',
+    inputs: [
+      { name: 'node', type: 'address', indexed: true },
+      { name: 'client', type: 'address', indexed: true },
+      { name: 'bytesServed', type: 'uint256', indexed: false },
+      { name: 'successful', type: 'bool', indexed: false },
+    ],
+  },
+] as const;
+

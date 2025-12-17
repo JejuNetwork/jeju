@@ -48,10 +48,19 @@ export * from "./launchpad";
 export * from "./federation";
 export * from "./moderation";
 export * from "./work";
+export * from "./staking";
+export * from "./dws";
+export * from "./otc";
+export * from "./messaging";
+export * from "./distributor";
+export * from "./training";
 
 // Developer tools
 export * from "./git";
 export * from "./packages";
+
+// VPN
+export * from "./vpn";
 
 // Wallet utilities
 export * from "./wallet";
@@ -81,4 +90,13 @@ export type {
   ProposalStatus,
   ProposalType,
   VoteType,
+} from "@jejunetwork/types";
+
+export type {
+  VPNNode,
+  VPNConnection,
+  VPNProtocol,
+  ContributionQuota,
+  ContributionSettings,
+  CountryCode,
 } from "@jejunetwork/types";

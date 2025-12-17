@@ -384,10 +384,114 @@ async function checkApplicationContracts() {
   }
 }
 
-function printResults() {
+async function checkNetworkInfrastructure(network: string) {
+  const category = 'Network Infrastructure';
+  const isMainnet = network === 'mainnet';
+  const envSuffix = isMainnet ? 'mainnet' : 'testnet';
+  
+  // Redis connectivity check
+  const redisHost = process.env.REDIS_HOST || (isMainnet ? 'redis.jejunetwork.org' : 'redis.testnet.jejunetwork.org');
+  const redisPort = parseInt(process.env.REDIS_PORT || '6379');
+  
+  const redisCheck = await $`nc -z -w 2 ${redisHost} ${redisPort}`.quiet().nothrow();
+  if (redisCheck.exitCode === 0) {
+    addResult(category, 'Redis Cluster', 'pass', `${redisHost}:${redisPort} reachable`);
+  } else {
+    addResult(category, 'Redis Cluster', 'warn', `${redisHost}:${redisPort} not reachable (may need VPN)`);
+  }
+  
+  // Check PostgreSQL primary
+  const dbHost = process.env.DB_PRIMARY_HOST || (isMainnet ? 'db.jejunetwork.org' : 'db.testnet.jejunetwork.org');
+  const dbPort = parseInt(process.env.DB_PRIMARY_PORT || '5432');
+  
+  const dbCheck = await $`nc -z -w 2 ${dbHost} ${dbPort}`.quiet().nothrow();
+  if (dbCheck.exitCode === 0) {
+    addResult(category, 'PostgreSQL Primary', 'pass', `${dbHost}:${dbPort} reachable`);
+  } else {
+    addResult(category, 'PostgreSQL Primary', 'warn', `${dbHost}:${dbPort} not reachable (may need VPN)`);
+  }
+  
+  // CloudFront CDN check
+  const cdnCheck = await $`aws cloudfront list-distributions --query "DistributionList.Items[?contains(Aliases.Items, 'cdn.jejunetwork.org')]"`.quiet().nothrow();
+  if (cdnCheck.exitCode === 0) {
+    const dists = JSON.parse(cdnCheck.stdout.toString() || '[]');
+    if (dists.length > 0) {
+      addResult(category, 'CloudFront CDN', 'pass', `${dists.length} distribution(s) configured`);
+    } else {
+      addResult(category, 'CloudFront CDN', 'warn', 'No distributions found');
+    }
+  } else {
+    addResult(category, 'CloudFront CDN', 'warn', 'Could not check (AWS credentials)');
+  }
+  
+  // GCP Cloud CDN check (optional)
+  const gcpCheck = await $`gcloud compute backend-services list --format=json 2>/dev/null`.quiet().nothrow();
+  if (gcpCheck.exitCode === 0) {
+    const backends = JSON.parse(gcpCheck.stdout.toString() || '[]');
+    if (backends.length > 0) {
+      addResult(category, 'GCP Cloud CDN', 'pass', `${backends.length} backend service(s)`);
+    } else {
+      addResult(category, 'GCP Cloud CDN', 'warn', 'No backends configured');
+    }
+  } else {
+    addResult(category, 'GCP Cloud CDN', 'skip', 'GCP not configured');
+  }
+  
+  // DNS resolution check
+  const dnsTargets = [
+    isMainnet ? 'api.jejunetwork.org' : 'api.testnet.jejunetwork.org',
+    isMainnet ? 'rpc.jejunetwork.org' : 'rpc.testnet.jejunetwork.org',
+  ];
+  
+  for (const target of dnsTargets) {
+    const dnsCheck = await $`dig +short ${target}`.quiet().nothrow();
+    if (dnsCheck.exitCode === 0 && dnsCheck.stdout.toString().trim()) {
+      addResult(category, `DNS: ${target}`, 'pass', dnsCheck.stdout.toString().trim().split('\n')[0]);
+    } else {
+      addResult(category, `DNS: ${target}`, 'warn', 'Not resolving');
+    }
+  }
+  
+  // Helm charts validation
+  const helmDir = join(ROOT, 'packages/deployment/kubernetes/helm');
+  if (existsSync(helmDir)) {
+    const criticalCharts = ['gateway', 'indexer', 'rpc-gateway'];
+    let validCount = 0;
+    
+    for (const chart of criticalCharts) {
+      const chartPath = join(helmDir, chart);
+      if (existsSync(join(chartPath, 'Chart.yaml'))) {
+        const lintCheck = await $`helm lint ${chartPath}`.quiet().nothrow();
+        if (lintCheck.exitCode === 0) {
+          validCount++;
+        }
+      }
+    }
+    
+    addResult(category, 'Helm Charts', validCount === criticalCharts.length ? 'pass' : 'warn', 
+      `${validCount}/${criticalCharts.length} validated`);
+  }
+  
+  // Terraform state check
+  const tfDir = join(ROOT, `packages/deployment/terraform/environments/${envSuffix}`);
+  if (existsSync(tfDir)) {
+    const tfCheck = await $`terraform -chdir=${tfDir} state list 2>/dev/null | head -5`.quiet().nothrow();
+    if (tfCheck.exitCode === 0 && tfCheck.stdout.toString().trim()) {
+      const resourceCount = tfCheck.stdout.toString().trim().split('\n').length;
+      addResult(category, 'Terraform State', 'pass', `${resourceCount}+ resources tracked`);
+    } else {
+      addResult(category, 'Terraform State', 'warn', 'No state file or not initialized');
+    }
+  } else {
+    addResult(category, 'Terraform', 'skip', `${envSuffix} environment not configured`);
+  }
+}
+
+function printResults(network: string) {
+  const networkName = network.charAt(0).toUpperCase() + network.slice(1);
   console.log(`
 ╔══════════════════════════════════════════════════════════════════════╗
-║  the network - Testnet Readiness Report                             ║
+║  Jeju Network - ${networkName} Readiness Report                            ║
 ╚══════════════════════════════════════════════════════════════════════╝
 `);
 
@@ -429,15 +533,23 @@ SUMMARY
 `);
   
   if (failed === 0) {
-    console.log('🎉 All critical checks passed. Ready for testnet deployment.\n');
+    console.log(`🎉 All critical checks passed. Ready for ${network} deployment.\n`);
   } else {
-    console.log('⚠️  Fix the failed items above before deploying to testnet.\n');
+    console.log(`⚠️  Fix the failed items above before deploying to ${network}.\n`);
     process.exit(1);
   }
 }
 
 async function main() {
-  console.log('Running testnet readiness checks...\n');
+  // Parse network from args or default to testnet
+  const network = process.argv[2] || 'testnet';
+  
+  if (!['testnet', 'mainnet'].includes(network)) {
+    console.error(`Invalid network: ${network}. Use 'testnet' or 'mainnet'.`);
+    process.exit(1);
+  }
+  
+  console.log(`Running ${network} readiness checks...\n`);
   
   await checkAWSInfra();
   await checkKubernetes();
@@ -447,8 +559,9 @@ async function main() {
   await checkL2Genesis();
   await checkChainStatus();
   await checkApplicationContracts();
+  await checkNetworkInfrastructure(network);
   
-  printResults();
+  printResults(network);
 }
 
 main().catch(err => {

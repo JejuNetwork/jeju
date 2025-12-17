@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { InferenceRequest } from '../../types';
 import type { Address } from 'viem';
-import { computeJobState, initializeState } from '../../services/state';
+import { computeJobState, initializeDWSState } from '../../state.js';
 
 type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -25,10 +25,8 @@ const activeJobs = new Set<string>();
 const MAX_CONCURRENT = 5;
 const DEFAULT_TIMEOUT = 300000;
 
-// Initialize state (non-blocking)
-initializeState().catch((err) => {
-  console.warn('[Compute] State initialization warning:', err.message);
-});
+// Initialize CQL state
+initializeDWSState().catch(console.error);
 
 const SHELL_CONFIG: Record<string, { path: string; args: (cmd: string) => string[] }> = {
   bash: { path: '/bin/bash', args: (cmd) => ['-c', cmd] },

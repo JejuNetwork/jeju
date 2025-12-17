@@ -15,6 +15,7 @@ import type { Address, Hex } from 'viem';
 import type { Context, Next } from 'hono';
 import type { ServiceHealth } from '../types';
 import { createStorageRouter } from './routes/storage';
+import { createStorageRouterV2 } from './routes/storage-v2';
 import { createComputeRouter } from './routes/compute';
 import { createCDNRouter } from './routes/cdn';
 import { createA2ARouter } from './routes/a2a';
@@ -247,6 +248,7 @@ app.get('/', (c) => {
 });
 
 app.route('/storage', createStorageRouter(backendManager));
+app.route('/storage/v2', createStorageRouterV2());
 app.route('/compute', createComputeRouter());
 app.route('/cdn', createCDNRouter());
 app.route('/git', createGitRouter({ repoManager, backend: backendManager }));

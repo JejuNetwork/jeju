@@ -82,7 +82,7 @@ const DEAL_STATUS_MAP: StorageDealStatus[] = [
 ];
 
 export function isStorageEvent(topic0: string): boolean {
-  return STORAGE_TOPIC_SET.has(topic0);
+  return STORAGE_TOPIC_SET.has(topic0 as `0x${string}`);
 }
 
 export async function processStorageEvents(ctx: ProcessorContext<Store>): Promise<void> {
@@ -157,17 +157,17 @@ export async function processStorageEvents(ctx: ProcessorContext<Store>): Promis
       
       if (topic0 === EVENT_SIGNATURES.ProviderRegistered) {
         const providerAddr = '0x' + topics[1].slice(26);
-        const decoded = decodeEventLog({
+        const { args } = decodeEventLog({
           abi: ABI.providerRegistered,
           topics: topics as [`0x${string}`, ...`0x${string}`[]],
           data: log.data as `0x${string}`,
-        });
+        }) as { args: { provider: string; name: string; endpoint: string; providerType: number; agentId: bigint } };
         
         const provider = await getOrCreateProvider(providerAddr, timestamp);
-        provider.name = decoded.args.name;
-        provider.endpoint = decoded.args.endpoint;
-        provider.providerType = PROVIDER_TYPES_MAP[Number(decoded.args.providerType)] ?? StorageProviderType.IPFS_NODE;
-        provider.agentId = Number(decoded.args.agentId) || undefined;
+        provider.name = args.name;
+        provider.endpoint = args.endpoint;
+        provider.providerType = PROVIDER_TYPES_MAP[Number(args.providerType)] ?? StorageProviderType.IPFS_NODE;
+        provider.agentId = Number(args.agentId) || undefined;
         provider.isActive = true;
         provider.registeredAt = timestamp;
         provider.lastUpdated = timestamp;
@@ -221,15 +221,15 @@ export async function processStorageEvents(ctx: ProcessorContext<Store>): Promis
         const dealId = topics[1];
         const userAddr = '0x' + topics[2].slice(26);
         const providerAddr = '0x' + topics[3].slice(26);
-        const decoded = decodeEventLog({
+        const { args } = decodeEventLog({
           abi: ABI.dealCreated,
           topics: topics as [`0x${string}`, ...`0x${string}`[]],
           data: log.data as `0x${string}`,
-        });
+        }) as { args: { dealId: string; user: string; provider: string; cid: string; cost: bigint } };
         
         const user = accountFactory.getOrCreate(userAddr, header.height, timestamp);
         const provider = await getOrCreateProvider(providerAddr, timestamp);
-        const cost = BigInt(decoded.args.cost);
+        const cost = BigInt(args.cost);
         
         deals.set(dealId, new StorageDeal({
           id: dealId,
@@ -237,7 +237,7 @@ export async function processStorageEvents(ctx: ProcessorContext<Store>): Promis
           user,
           provider,
           status: StorageDealStatus.PENDING,
-          cid: decoded.args.cid,
+          cid: args.cid,
           sizeBytes: 0n,
           tier: StorageTier.WARM,
           totalCost: cost,

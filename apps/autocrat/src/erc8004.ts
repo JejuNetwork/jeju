@@ -126,8 +126,8 @@ export class ERC8004Client {
       throw new Error(`Agent registration failed: Invalid agent ID 0 in tx ${hash}`);
     }
 
-    // @ts-expect-error viem ABI type inference for all writeContract calls
     const [hash1, hash2, hash3, hash4] = await Promise.all([
+      // @ts-expect-error viem ABI type inference for all writeContract calls
       this.walletClient.writeContract({
         address: this.identityAddress,
         abi: IDENTITY_ABI,
@@ -229,12 +229,13 @@ export class ERC8004Client {
     const recentFeedback: AgentReputation['recentFeedback'] = [];
 
     if (count > 0n) {
-      const [clients, scores, tag1s] = await readContract(this.client, {
+      const feedbackResult = await readContract(this.client, {
         address: this.reputationAddress,
         abi: REPUTATION_ABI,
         functionName: 'readAllFeedback',
         args: [agentId, [], ZERO32, ZERO32, false],
-      }) as [Address[], number[], `0x${string}`[]];
+      }) as unknown as [Address[], number[], `0x${string}`[]];
+      const [clients, scores, tag1s] = feedbackResult;
       for (let i = 0; i < Math.min(clients.length, 10); i++) {
         recentFeedback.push({ client: clients[i], score: scores[i], tag: tag1s[i] });
       }

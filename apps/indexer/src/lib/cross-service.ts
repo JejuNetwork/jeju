@@ -1,5 +1,10 @@
-import { createPublicClient, http, readContract, keccak256, stringToHex, type Address, type Chain } from 'viem';
+import { createPublicClient, http, keccak256, stringToHex, type Address, type Chain } from 'viem';
 import { parseAbi } from 'viem';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function readContract<T>(client: { readContract: (params: unknown) => Promise<unknown> }, params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[] }): Promise<T> {
+  return client.readContract(params) as Promise<T>;
+}
 
 export interface CrossServiceProvider {
   address: string;
@@ -201,7 +206,7 @@ export interface CrossServiceConfig {
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export class CrossServiceClient {
-  private publicClient: ReturnType<typeof createPublicClient>;
+  private publicClient: { readContract: (params: unknown) => Promise<unknown> };
   private computeRegistryAddress?: Address;
   private storageRegistryAddress?: Address;
   private identityRegistryAddress?: Address;
@@ -241,7 +246,7 @@ export class CrossServiceClient {
     let banned = false;
 
     if (this.computeRegistryAddress) {
-      const addr = await readContract(this.publicClient, {
+      const addr = await readContract<string>(this.publicClient, {
         address: this.computeRegistryAddress,
         abi: COMPUTE_REGISTRY_ABI,
         functionName: 'getProviderByAgent',
@@ -251,7 +256,7 @@ export class CrossServiceClient {
     }
 
     if (this.storageRegistryAddress) {
-      const addr = await readContract(this.publicClient, {
+      const addr = await readContract<string>(this.publicClient, {
         address: this.storageRegistryAddress,
         abi: STORAGE_REGISTRY_ABI,
         functionName: 'getProviderByAgent',
@@ -261,7 +266,7 @@ export class CrossServiceClient {
     }
 
     if (this.banManagerAddress) {
-      banned = await readContract(this.publicClient, {
+      banned = await readContract<boolean>(this.publicClient, {
         address: this.banManagerAddress,
         abi: BAN_MANAGER_ABI,
         functionName: 'isBanned',
@@ -291,13 +296,13 @@ export class CrossServiceClient {
     }> = [];
 
     // Get agents tagged as both compute and storage providers
-    const computeAgents = await readContract(this.publicClient, {
+    const computeAgents = await readContract<bigint[]>(this.publicClient, {
       address: this.identityRegistryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getAgentsByTag',
       args: ['compute'],
     }) as bigint[];
-    const storageAgents = await readContract(this.publicClient, {
+    const storageAgents = await readContract<bigint[]>(this.publicClient, {
       address: this.identityRegistryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'getAgentsByTag',
@@ -310,7 +315,7 @@ export class CrossServiceClient {
       if (computeSet.has(agentId.toString())) {
         const providers = await this.getProvidersByAgent(agentId);
         if (providers.compute && providers.storage && !providers.banned) {
-          const owner = await readContract(this.publicClient, {
+          const owner = await readContract<string>(this.publicClient, {
             address: this.identityRegistryAddress!,
             abi: IDENTITY_REGISTRY_ABI,
             functionName: 'ownerOf',
@@ -340,7 +345,7 @@ export class CrossServiceClient {
   }): Promise<string[]> {
     if (!this.storageRegistryAddress) return [];
 
-    const providers = await readContract(this.publicClient, {
+    const providers = await readContract<string[]>(this.publicClient, {
       address: this.storageRegistryAddress,
       abi: STORAGE_REGISTRY_ABI,
       functionName: 'getActiveProviders',
@@ -348,7 +353,7 @@ export class CrossServiceClient {
     const candidates: string[] = [];
 
     for (const addr of providers) {
-      const provider = await readContract(this.publicClient, {
+      const provider = await readContract<{ endpoint?: string; stakeAmount?: bigint; stake?: bigint; isActive?: boolean; active?: boolean; agentId: bigint }>(this.publicClient, {
         address: this.storageRegistryAddress!,
         abi: STORAGE_REGISTRY_ABI,
         functionName: 'getProvider',
@@ -376,7 +381,7 @@ export class CrossServiceClient {
   }): Promise<string[]> {
     if (!this.computeRegistryAddress) return [];
 
-    const providers = await readContract(this.publicClient, {
+    const providers = await readContract<string[]>(this.publicClient, {
       address: this.computeRegistryAddress,
       abi: COMPUTE_REGISTRY_ABI,
       functionName: 'getActiveProviders',
@@ -384,7 +389,7 @@ export class CrossServiceClient {
     const candidates: string[] = [];
 
     for (const addr of providers) {
-      const isActive = await readContract(this.publicClient, {
+      const isActive = await readContract<boolean>(this.publicClient, {
         address: this.computeRegistryAddress!,
         abi: COMPUTE_REGISTRY_ABI,
         functionName: 'isActive',
@@ -392,7 +397,7 @@ export class CrossServiceClient {
       });
       if (!isActive) continue;
 
-      const provider = await readContract(this.publicClient, {
+      const provider = await readContract<{ endpoint?: string; stakeAmount?: bigint; stake?: bigint; isActive?: boolean; active?: boolean; agentId: bigint }>(this.publicClient, {
         address: this.computeRegistryAddress!,
         abi: COMPUTE_REGISTRY_ABI,
         functionName: 'getProvider',
@@ -413,7 +418,7 @@ export class CrossServiceClient {
    */
   async isAgentBanned(agentId: bigint): Promise<boolean> {
     if (!this.banManagerAddress) return false;
-    return await readContract(this.publicClient, {
+    return await readContract<boolean>(this.publicClient, {
       address: this.banManagerAddress,
       abi: BAN_MANAGER_ABI,
       functionName: 'isBanned',
@@ -464,7 +469,7 @@ export class CrossServiceClient {
 
     // Compute providers
     if (this.computeRegistryAddress) {
-      const computeProviders = await readContract(this.publicClient, {
+      const computeProviders = await readContract<string[]>(this.publicClient, {
         address: this.computeRegistryAddress,
         abi: COMPUTE_REGISTRY_ABI,
         functionName: 'getActiveProviders',
@@ -472,7 +477,7 @@ export class CrossServiceClient {
       stats.compute.totalProviders = computeProviders.length;
       
       for (const addr of computeProviders) {
-        const provider = await readContract(this.publicClient, {
+        const provider = await readContract<{ endpoint?: string; stakeAmount?: bigint; stake?: bigint; isActive?: boolean; active?: boolean; agentId: bigint }>(this.publicClient, {
           address: this.computeRegistryAddress!,
           abi: COMPUTE_REGISTRY_ABI,
           functionName: 'getProvider',
@@ -491,7 +496,7 @@ export class CrossServiceClient {
 
     // Storage providers
     if (this.storageRegistryAddress) {
-      const storageProviders = await readContract(this.publicClient, {
+      const storageProviders = await readContract<string[]>(this.publicClient, {
         address: this.storageRegistryAddress,
         abi: STORAGE_REGISTRY_ABI,
         functionName: 'getActiveProviders',
@@ -499,7 +504,7 @@ export class CrossServiceClient {
       stats.storage.totalProviders = storageProviders.length;
       
       for (const addr of storageProviders) {
-        const provider = await readContract(this.publicClient, {
+        const provider = await readContract<{ endpoint?: string; stakeAmount?: bigint; stake?: bigint; isActive?: boolean; active?: boolean; agentId: bigint }>(this.publicClient, {
           address: this.storageRegistryAddress!,
           abi: STORAGE_REGISTRY_ABI,
           functionName: 'getProvider',
@@ -557,5 +562,5 @@ export const CROSS_SERVICE_EVENTS = {
 export const CROSS_SERVICE_EVENT_SET = new Set(Object.values(CROSS_SERVICE_EVENTS));
 
 export function isCrossServiceEvent(topic0: string): boolean {
-  return CROSS_SERVICE_EVENT_SET.has(topic0);
+  return CROSS_SERVICE_EVENT_SET.has(topic0 as `0x${string}`);
 }

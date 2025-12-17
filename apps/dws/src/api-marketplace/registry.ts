@@ -281,11 +281,25 @@ export async function recordRequest(listingId: string, cost: bigint): Promise<vo
 export async function getOrCreateAccount(address: Address): Promise<UserAccount> {
   const row = await apiUserAccountState.getOrCreate(address);
   const listingIds = JSON.parse(row.active_listings) as string[];
+  // Handle both string and number values from database, including scientific notation
+  const parseBalance = (val: string | number | null | undefined): bigint => {
+    if (val === null || val === undefined || val === '') return 0n;
+    const strVal = String(val);
+    // Handle scientific notation (e.g., "1.0e+18")
+    if (strVal.includes('e') || strVal.includes('E')) {
+      const num = parseFloat(strVal);
+      if (!Number.isFinite(num)) return 0n;
+      // Round to avoid floating point issues
+      return BigInt(Math.round(num));
+    }
+    // Handle regular integers
+    return BigInt(strVal.split('.')[0]); // Remove any decimal part
+  };
   return {
     address: row.address as Address,
-    balance: BigInt(row.balance),
-    totalSpent: BigInt(row.total_spent),
-    totalRequests: BigInt(row.total_requests),
+    balance: parseBalance(row.balance),
+    totalSpent: parseBalance(row.total_spent),
+    totalRequests: BigInt(row.total_requests ?? 0),
     subscriptions: listingIds.map(id => ({ listingId: id, remainingRequests: 0n, periodEnd: 0 })),
   };
 }

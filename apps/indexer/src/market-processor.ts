@@ -2,7 +2,7 @@
  * Market Processor - Indexes NetworkMarket and PredictionOracle events
  */
 
-import { keccak256, stringToHex, parseAbi } from 'viem';
+import { keccak256, stringToHex, parseAbi, decodeEventLog } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { Account, PredictionMarket, MarketTrade, MarketPosition, OracleGame } from './model';
@@ -63,14 +63,17 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
             
             if (eventSig === MARKET_CREATED) {
                 const sessionId = log.topics[1];
-                const decoded = marketInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: marketInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { sessionId: string; question: string; liquidity: bigint } };
                 
                 markets.set(sessionId, new PredictionMarket({
                     id: sessionId,
                     sessionId,
-                    question: decoded.args.question,
-                    liquidityB: BigInt(decoded.args.liquidity.toString()),
+                    question: args.question,
+                    liquidityB: BigInt(args.liquidity.toString()),
                     yesShares: 0n,
                     noShares: 0n,
                     totalVolume: 0n,
@@ -84,11 +87,14 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
                 const market = markets.get(sessionId);
                 if (!market) continue;
                 
-                const decoded = marketInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: marketInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { sessionId: string; trader: string; outcome: boolean; shares: bigint; cost: bigint } };
                 
-                const shares = BigInt(decoded.args.shares.toString());
-                const cost = BigInt(decoded.args.cost.toString());
+                const shares = BigInt(args.shares.toString());
+                const cost = BigInt(args.cost.toString());
                 const totalShares = market.yesShares + market.noShares;
                 const yesPercent = totalShares > 0n ? (market.yesShares * 10000n) / totalShares : 5000n;
                 const trader = accountFactory.getOrCreate(buyer, block.header.height, blockTimestamp);
@@ -97,7 +103,7 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
                     id: `${txHash}-${log.logIndex}`,
                     market,
                     trader,
-                    outcome: decoded.args.outcome,
+                    outcome: args.outcome,
                     isBuy: true,
                     shares,
                     cost,
@@ -106,7 +112,7 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
                 }));
                 
                 const position = getOrCreatePosition(sessionId, buyer, market, trader, blockTimestamp);
-                if (decoded.args.outcome) {
+                if (args.outcome) {
                     position.yesShares = position.yesShares + shares;
                 } else {
                     position.noShares = position.noShares + shares;
@@ -121,11 +127,14 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
                 const market = markets.get(sessionId);
                 if (!market) continue;
                 
-                const decoded = marketInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: marketInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { sessionId: string; trader: string; outcome: boolean; shares: bigint; payout: bigint } };
                 
-                const shares = BigInt(decoded.args.shares.toString());
-                const payout = BigInt(decoded.args.payout.toString());
+                const shares = BigInt(args.shares.toString());
+                const payout = BigInt(args.payout.toString());
                 const totalShares = market.yesShares + market.noShares;
                 const yesPercent = totalShares > 0n ? (market.yesShares * 10000n) / totalShares : 5000n;
                 const trader = accountFactory.getOrCreate(seller, block.header.height, blockTimestamp);
@@ -134,7 +143,7 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
                     id: `${txHash}-${log.logIndex}`,
                     market,
                     trader,
-                    outcome: decoded.args.outcome,
+                    outcome: args.outcome,
                     isBuy: false,
                     shares,
                     cost: payout,
@@ -143,7 +152,7 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
                 }));
                 
                 const position = getOrCreatePosition(sessionId, seller, market, trader, blockTimestamp);
-                if (decoded.args.outcome) {
+                if (args.outcome) {
                     position.yesShares = position.yesShares - shares;
                 } else {
                     position.noShares = position.noShares - shares;
@@ -157,11 +166,14 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
                 const market = markets.get(sessionId);
                 if (!market) continue;
                 
-                const decoded = marketInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: marketInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { sessionId: string; outcome: boolean } };
                 
                 market.resolved = true;
-                market.outcome = decoded.args.outcome;
+                market.outcome = args.outcome;
             }
             else if (eventSig === PAYOUT_CLAIMED) {
                 const sessionId = log.topics[1];
@@ -169,23 +181,29 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
                 const position = positions.get(`${sessionId}-${trader}`);
                 if (!position) continue;
                 
-                const decoded = marketInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: marketInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { sessionId: string; trader: string; amount: bigint } };
                 
                 position.hasClaimed = true;
-                position.totalReceived = position.totalReceived + BigInt(decoded.args.amount.toString());
+                position.totalReceived = position.totalReceived + BigInt(args.amount.toString());
                 position.lastUpdated = blockTimestamp;
             }
             else if (eventSig === GAME_COMMITTED) {
                 const sessionId = log.topics[1];
-                const decoded = marketInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: marketInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { sessionId: string; question: string; commitment: string; startTime: bigint } };
                 
                 oracleGames.set(sessionId, new OracleGame({
                     id: sessionId,
                     sessionId,
-                    question: decoded.args.question,
-                    commitment: decoded.args.commitment,
+                    question: args.question,
+                    commitment: args.commitment,
                     committedAt: blockTimestamp,
                     finalized: false,
                     winners: [],
@@ -197,17 +215,20 @@ export async function processMarketEvents(ctx: ProcessorContext<Store>): Promise
                 const game = oracleGames.get(sessionId);
                 if (!game) continue;
                 
-                const decoded = marketInterface.parseLog({ topics: log.topics, data: log.data });
-                if (!decoded) continue;
+                const { args } = decodeEventLog({
+                    abi: marketInterface,
+                    data: log.data as `0x${string}`,
+                    topics: log.topics as [`0x${string}`, ...`0x${string}`[]]
+                }) as { args: { sessionId: string; outcome: boolean; endTime: bigint; teeQuote: string; winnersCount: bigint } };
                 
                 game.finalized = true;
                 game.revealedAt = blockTimestamp;
-                game.outcome = decoded.args.outcome;
+                game.outcome = args.outcome;
                 
                 const market = markets.get(sessionId);
                 if (market) {
                     market.resolved = true;
-                    market.outcome = decoded.args.outcome;
+                    market.outcome = args.outcome;
                 }
             }
         }

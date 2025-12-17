@@ -42,8 +42,8 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
             
             if (eventSig === NODE_REGISTERED) {
                 const nodeId = log.topics[1];
-                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
-                if (!decoded || decoded.eventName !== 'NodeRegistered') continue;
+                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` }) as { eventName: string; args: { nodeId: string; operator: string; stakedToken: string; stakedAmount: bigint; rpcUrl: string; region: number } };
+                if (decoded.eventName !== 'NodeRegistered') continue;
                 
                 nodes.set(nodeId, new NodeStake({
                     id: nodeId,
@@ -64,7 +64,7 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
             }
             else if (eventSig === PERFORMANCE_UPDATED) {
                 const nodeId = log.topics[1];
-                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
+                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` }) as { eventName: string; args: { nodeId: string; uptimeScore: bigint; requestsServed: bigint; avgResponseTime: bigint } };
                 if (decoded.eventName !== 'PerformanceUpdated') continue;
                 
                 const node = nodes.get(nodeId);
@@ -87,7 +87,7 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
             }
             else if (eventSig === REWARDS_CLAIMED) {
                 const nodeId = log.topics[1];
-                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
+                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` }) as { eventName: string; args: { nodeId: string; operator: string; rewardToken: string; amount: bigint; paymasterFeesETH: bigint } };
                 if (decoded.eventName !== 'RewardsClaimed') continue;
                 
                 const node = nodes.get(nodeId);
@@ -119,7 +119,7 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
             }
             else if (eventSig === PROPOSAL_CREATED) {
                 const proposalId = log.topics[1];
-                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
+                const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` }) as { eventName: string; args: { proposalId: string; parameter: string; currentValue: bigint; proposedValue: bigint; proposer: string } };
                 if (decoded.eventName !== 'ProposalCreated') continue;
                 
                 const proposal = new GovernanceProposal({
@@ -154,7 +154,7 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
                 const proposalId = log.topics[1];
                 const proposal = proposals.get(proposalId);
                 if (proposal) {
-                    const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
+                    const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` }) as { eventName: string; args: { proposalId: string; outcome: boolean } };
                     if (decoded.eventName !== 'ProposalExecuted') continue;
                     
                     proposal.executed = true;
@@ -175,7 +175,7 @@ export async function processNodeStakingEvents(ctx: ProcessorContext<Store>): Pr
                 const proposalId = log.topics[1];
                 const proposal = proposals.get(proposalId);
                 if (proposal) {
-                    const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` });
+                    const decoded = decodeEventLog({ abi: nodeStakingInterface, topics: log.topics as [`0x${string}`, ...`0x${string}`[]], data: log.data as `0x${string}` }) as { eventName: string; args: { proposalId: string; admin: string; reason: string } };
                     if (decoded.eventName !== 'ProposalVetoed') continue;
                     
                     proposal.vetoed = true;

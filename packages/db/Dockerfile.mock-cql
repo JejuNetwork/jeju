@@ -1,0 +1,23 @@
+# Mock CQL Server for Local Development
+FROM oven/bun:1
+
+WORKDIR /app
+
+# Install hono directly (standalone package.json)
+RUN echo '{"name":"mock-cql","dependencies":{"hono":"^4.6.12"}}' > package.json && bun install
+
+# Copy mock server
+COPY src/mock-cql-server.ts ./src/
+
+# Create data directory
+RUN mkdir -p /data
+
+ENV CQL_DATA_DIR=/data
+ENV CQL_PORT=4661
+
+EXPOSE 4661
+
+HEALTHCHECK --interval=5s --timeout=3s --start-period=5s --retries=3 \
+  CMD curl -sf http://localhost:4661/health || exit 1
+
+CMD ["bun", "run", "src/mock-cql-server.ts"]

@@ -1,0 +1,114 @@
+{
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "otto",
+  "displayName": "Otto",
+  "version": "1.0.0",
+  "type": "core",
+  "description": "Decentralized multi-platform AI trading agent - Trade, bridge, and launch tokens via Discord, Telegram, and WhatsApp",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build",
+    "start": "bun run start",
+    "test": "bun run test"
+  },
+  "ports": {
+    "api": 4030,
+    "webhooks": 4031
+  },
+  "dependencies": ["contracts", "config", "dws", "gateway", "bazaar", "crucible"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["agents", "trading", "ai", "discord", "telegram", "whatsapp", "defi", "cross-chain"],
+  "jns": {
+    "name": "otto.jeju",
+    "description": "Multi-Platform Trading Agent",
+    "url": "https://otto.jejunetwork.org"
+  },
+  "healthCheck": {
+    "url": "http://localhost:4030/health",
+    "interval": 30000
+  },
+  "env": {
+    "DISCORD_BOT_TOKEN": {
+      "required": false,
+      "description": "Discord bot token for Discord integration"
+    },
+    "DISCORD_APPLICATION_ID": {
+      "required": false,
+      "description": "Discord application ID for slash commands"
+    },
+    "TELEGRAM_BOT_TOKEN": {
+      "required": false,
+      "description": "Telegram bot token for Telegram integration"
+    },
+    "TWILIO_ACCOUNT_SID": {
+      "required": false,
+      "description": "Twilio account SID for WhatsApp integration"
+    },
+    "TWILIO_AUTH_TOKEN": {
+      "required": false,
+      "description": "Twilio auth token for WhatsApp integration"
+    },
+    "TWILIO_WHATSAPP_NUMBER": {
+      "required": false,
+      "description": "Twilio WhatsApp number (format: whatsapp:+1234567890)"
+    }
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": ["jeju-app", "trading", "defi", "cross-chain", "ai-agent"],
+    "metadata": {
+      "category": "trading",
+      "provider": "jeju-network",
+      "features": ["swap", "bridge", "token-launch", "portfolio", "limit-orders", "cross-chain"]
+    },
+    "trustModels": ["open", "staked"],
+    "x402Support": true,
+    "jnsName": "otto.jeju"
+  },
+  "decentralization": {
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "cacheRules": [
+        { "pattern": "/static/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/api/**", "ttl": 0 },
+        { "pattern": "/webhooks/**", "ttl": 0 }
+      ],
+      "serviceWorker": false
+    },
+    "frontend": {
+      "ipfs": true,
+      "arweave": true,
+      "jnsName": "otto.jeju",
+      "buildDir": "dist",
+      "spa": false
+    },
+    "robustness": {
+      "multiOrigin": true,
+      "offlineSupport": false,
+      "p2pFallback": true,
+      "contentAddressed": true
+    }
+  },
+  "testing": {
+    "unit": {
+      "command": "bun run test",
+      "timeout": 120000
+    },
+    "integration": {
+      "command": "bun test src/tests/integration.test.ts",
+      "timeout": 300000,
+      "requiresServices": true
+    },
+    "e2e": {
+      "command": "bunx playwright test tests/synpress",
+      "timeout": 300000,
+      "requiresChain": true
+    }
+  }
+}
+

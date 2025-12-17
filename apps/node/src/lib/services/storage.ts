@@ -26,7 +26,6 @@ export interface SeedingStats {
   torrentsSeeding: number;
   totalBytesUploaded: number;
   totalPeersServed: number;
-  pendingRewards: bigint;
   uptime: number;
 }
 
@@ -118,7 +117,6 @@ export class StorageService {
       torrentsSeeding: stats.torrentsActive,
       totalBytesUploaded: stats.totalUpload,
       totalPeersServed: stats.peers,
-      pendingRewards: stats.pendingRewards,
       uptime: stats.uptime,
     };
   }

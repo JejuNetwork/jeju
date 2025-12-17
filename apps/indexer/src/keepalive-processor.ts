@@ -47,7 +47,7 @@ const ABI = {
 };
 
 export function isKeepaliveEvent(topic0: string): boolean {
-  return KEEPALIVE_EVENT_SET.has(topic0);
+  return KEEPALIVE_EVENT_SET.has(topic0 as `0x${string}`);
 }
 
 const STATUS_MAP: Record<number, KeepaliveStatus> = {
@@ -97,16 +97,16 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
 
       switch (eventSig) {
         case EVENTS.KEEPALIVE_REGISTERED: {
-          const decoded = decodeEventLog({
+          const { args } = decodeEventLog({
             abi: ABI.keepalive,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          });
+          }) as { args: readonly [string, string, string, bigint] };
 
-          const keepaliveId = decoded.args[0] as string;
-          const ownerAddr = decoded.args[1] as string;
-          const jnsNode = decoded.args[2] as string;
-          const agentId = decoded.args[3] as bigint;
+          const keepaliveId = args[0];
+          const ownerAddr = args[1];
+          const jnsNode = args[2];
+          const agentId = args[3];
 
           const owner = accountFactory.getOrCreate(ownerAddr, header.height, blockTimestamp);
 
@@ -133,15 +133,15 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.RESOURCE_ADDED: {
-          const decoded = decodeEventLog({
+          const { args } = decodeEventLog({
             abi: ABI.keepalive,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          });
+          }) as { args: readonly [string, number, string] };
 
-          const keepaliveId = decoded.args[0] as string;
-          const resourceType = Number(decoded.args[1]);
-          const identifier = decoded.args[2] as string;
+          const keepaliveId = args[0];
+          const resourceType = Number(args[1]);
+          const identifier = args[2];
 
           const keepalive = keepalives.get(keepaliveId);
           if (!keepalive) {
@@ -171,17 +171,17 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.HEALTH_CHECKED: {
-          const decoded = decodeEventLog({
+          const { args } = decodeEventLog({
             abi: ABI.keepalive,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          });
+          }) as { args: readonly [string, number, bigint, number, number] };
 
-          const keepaliveId = decoded.args[0] as string;
-          const status = Number(decoded.args[1]);
-          const balance = decoded.args[2] as bigint;
-          const healthyResources = Number(decoded.args[3]);
-          const totalResources = Number(decoded.args[4]);
+          const keepaliveId = args[0];
+          const status = Number(args[1]);
+          const balance = args[2];
+          const healthyResources = Number(args[3]);
+          const totalResources = Number(args[4]);
 
           const keepalive = keepalives.get(keepaliveId);
           if (keepalive) {
@@ -217,14 +217,14 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.STATUS_CHANGED: {
-          const decoded = decodeEventLog({
+          const { args } = decodeEventLog({
             abi: ABI.keepalive,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          });
+          }) as { args: readonly [string, number, number] };
 
-          const keepaliveId = decoded.args[0] as string;
-          const newStatus = Number(decoded.args[2]);
+          const keepaliveId = args[0];
+          const newStatus = Number(args[2]);
 
           const keepalive = keepalives.get(keepaliveId);
           if (keepalive) {
@@ -234,15 +234,15 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.AUTO_FUNDED: {
-          const decoded = decodeEventLog({
+          const { args } = decodeEventLog({
             abi: ABI.keepalive,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          });
+          }) as { args: readonly [string, bigint, string] };
 
-          const keepaliveId = decoded.args[0] as string;
-          const amount = decoded.args[1] as bigint;
-          const vault = decoded.args[2] as string;
+          const keepaliveId = args[0];
+          const amount = args[1];
+          const vault = args[2];
 
           const keepalive = keepalives.get(keepaliveId);
           if (keepalive && amount > 0n) {
@@ -269,16 +269,16 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.MIRROR_REGISTERED: {
-          const decoded = decodeEventLog({
+          const { args } = decodeEventLog({
             abi: ABI.mirror,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          });
+          }) as { args: readonly [string, string, string, string] };
 
-          const mirrorId = decoded.args[0] as string;
-          const ensNode = decoded.args[1] as string;
-          const jnsNode = decoded.args[2] as string;
-          const ownerAddr = decoded.args[3] as string;
+          const mirrorId = args[0];
+          const ensNode = args[1];
+          const jnsNode = args[2];
+          const ownerAddr = args[3];
 
           const owner = accountFactory.getOrCreate(ownerAddr, header.height, blockTimestamp);
 
@@ -302,14 +302,14 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.MIRROR_SYNCED: {
-          const decoded = decodeEventLog({
+          const { args } = decodeEventLog({
             abi: ABI.mirror,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          });
+          }) as { args: readonly [string, string, bigint] };
 
-          const mirrorId = decoded.args[0] as string;
-          const ethBlockNumber = decoded.args[2] as bigint;
+          const mirrorId = args[0];
+          const ethBlockNumber = args[2];
 
           const mirror = mirrors.get(mirrorId);
           if (mirror) {
@@ -334,14 +334,14 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
         }
 
         case EVENTS.SYNC_FAILED: {
-          const decoded = decodeEventLog({
+          const { args } = decodeEventLog({
             abi: ABI.mirror,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          });
+          }) as { args: readonly [string, string] };
 
-          const mirrorId = decoded.args[0] as string;
-          const reason = decoded.args[1] as string;
+          const mirrorId = args[0];
+          const reason = args[1];
 
           const mirror = mirrors.get(mirrorId);
 

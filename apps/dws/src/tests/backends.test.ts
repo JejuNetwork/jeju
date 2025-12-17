@@ -20,7 +20,7 @@ describe('Storage Backends', () => {
 
   it('uploads to local backend', async () => {
     const content = Buffer.from('test content');
-    const result = await manager.upload(content, { filename: 'test.txt' });
+    const result = await manager.upload(content, { filename: 'test.txt', preferredBackend: 'local' });
 
     expect(result.cid).toBeDefined();
     expect(result.backend).toBe('local');

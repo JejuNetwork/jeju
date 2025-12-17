@@ -12,7 +12,7 @@
  * - Circuit breaker per node
  */
 
-import { Pool, PoolClient, PoolConfig, QueryResult } from 'pg';
+import { Pool, PoolClient, PoolConfig, QueryResult, QueryResultRow } from 'pg';
 import { z } from 'zod';
 import { Registry, Counter, Histogram, Gauge } from 'prom-client';
 
@@ -123,9 +123,9 @@ const WRITE_PATTERNS = [
   /^\s*TRUNCATE\s/i,
   /^\s*GRANT\s/i,
   /^\s*REVOKE\s/i,
-  /^\s*BEGIN\s/i,
-  /^\s*COMMIT\s/i,
-  /^\s*ROLLBACK\s/i,
+  /^\s*BEGIN\b/i,
+  /^\s*COMMIT\b/i,
+  /^\s*ROLLBACK\b/i,
   /^\s*SAVEPOINT\s/i,
   /^\s*LOCK\s/i,
   /FOR\s+UPDATE/i,
@@ -162,7 +162,7 @@ export class DatabaseReplicaRouter {
     }
   }
 
-  private createNodeState(config: DatabaseNodeConfig, role: string): NodeState {
+  private createNodeState(config: DatabaseNodeConfig, _role: string): NodeState {
     const poolConfig: PoolConfig = {
       host: config.host,
       port: config.port,
@@ -240,7 +240,7 @@ export class DatabaseReplicaRouter {
   // Query Execution
   // ============================================================================
 
-  async query<T = Record<string, unknown>>(
+  async query<T extends QueryResultRow = QueryResultRow>(
     sql: string,
     params?: unknown[],
     options?: QueryOptions
@@ -486,6 +486,9 @@ export function getDatabaseRouter(config?: Partial<ReplicaRouterConfig>): Databa
         user: process.env.DB_USER ?? 'postgres',
         password: process.env.DB_PASSWORD ?? '',
         ssl: process.env.DB_SSL === 'true',
+        maxConnections: parseInt(process.env.DB_MAX_CONNECTIONS ?? '20', 10),
+        idleTimeoutMs: parseInt(process.env.DB_IDLE_TIMEOUT_MS ?? '30000', 10),
+        connectionTimeoutMs: parseInt(process.env.DB_CONNECTION_TIMEOUT_MS ?? '5000', 10),
       },
       replicas: parseReplicaConfig(process.env.DB_REPLICAS),
       maxReplicaLagMs: parseInt(process.env.DB_MAX_REPLICA_LAG_MS ?? '5000', 10),

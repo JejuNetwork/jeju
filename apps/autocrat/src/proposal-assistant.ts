@@ -9,7 +9,7 @@
  */
 
 import { keccak256, stringToHex, encodePacked, type Address } from 'viem';
-import { privateKeyToAccount, signMessage } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 import { AutocratBlockchain } from './blockchain';
 import { indexProposal, findSimilarProposals } from './local-services';
 import { checkDWSCompute, dwsGenerate } from './agents/runtime';
@@ -183,11 +183,6 @@ const WEIGHTS: Record<keyof QualityCriteria, number> = {
   riskAssessment: 0.15,
   costBenefit: 0.1,
 };
-
-// ============ Utility Functions ============
-
-const keywordScore = (text: string, keywords: string[], base: number, per: number): number =>
-  Math.min(100, base + keywords.filter((k) => text.includes(k)).length * per);
 
 // ============ Proposal Assistant Class ============
 
@@ -669,7 +664,7 @@ Return JSON: {"title":"...","summary":"...","description":"..."}`;
     );
 
     const account = privateKeyToAccount(assessorKey as `0x${string}`);
-    const signature = await signMessage({ account, message: { raw: messageHash } });
+    const signature = await account.signMessage({ message: { raw: messageHash } });
 
     return {
       contentHash,

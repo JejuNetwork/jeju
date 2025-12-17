@@ -3,7 +3,7 @@
  * Handles: IdentityRegistry, ReputationRegistry, ValidationRegistry, BanManager, ReportingSystem
  */
 
-import { parseAbi, decodeEventLog, decodeAbiParameters, zeroHash, bytesToString, toHex } from 'viem';
+import { parseAbi, decodeEventLog, decodeAbiParameters, zeroHash, hexToString, toHex } from 'viem';
 import { Store } from '@subsquid/typeorm-store';
 import { ProcessorContext } from './processor';
 import { 
@@ -110,11 +110,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
             // ============ IdentityRegistry Events ============
 
             if (topic0 === AGENT_REGISTERED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: identityRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; owner: string; tier: number; stakedAmount: bigint; tokenURI: string } };
 
                 const agentId = BigInt(log.topics[1]);
                 const id = agentId.toString();
@@ -125,17 +125,17 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                     id,
                     agentId,
                     owner,
-                    tokenURI: decoded.args.tokenURI,
-                    name: decoded.args.tokenURI || `Agent #${id}`,
+                    tokenURI: args.tokenURI,
+                    name: args.tokenURI || `Agent #${id}`,
                     tags: [],
-                    stakeTier: Number(decoded.args.tier),
+                    stakeTier: Number(args.tier),
                     stakeToken: ZERO_ADDRESS,
-                    stakeAmount: BigInt(decoded.args.stakedAmount.toString()),
+                    stakeAmount: BigInt(args.stakedAmount.toString()),
                     stakeWithdrawn: false,
                     isSlashed: false,
                     isBanned: false,
                     registeredAt: blockTimestamp,
-                    depositedAt: decoded.args.stakedAmount > 0n ? BigInt(block.header.timestamp) : 0n,
+                    depositedAt: args.stakedAmount > 0n ? BigInt(block.header.timestamp) : 0n,
                     lastActivityAt: blockTimestamp,
                     active: true,
                     // Marketplace fields - initialized as empty/default
@@ -150,19 +150,19 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === STAKE_INCREASED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: identityRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; oldTier: number; newTier: number; addedAmount: bigint } };
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
                 if (!agent) continue;
 
-                const oldTier = Number(decoded.args.oldTier);
-                const newTier = Number(decoded.args.newTier);
-                const addedAmount = BigInt(decoded.args.addedAmount.toString());
+                const oldTier = Number(args.oldTier);
+                const newTier = Number(args.newTier);
+                const addedAmount = BigInt(args.addedAmount.toString());
 
                 agent.stakeTier = newTier;
                 agent.stakeAmount = agent.stakeAmount + addedAmount;
@@ -182,17 +182,17 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === STAKE_WITHDRAWN) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: identityRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; owner: string; amount: bigint } };
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
                 if (!agent) continue;
 
-                const amount = BigInt(decoded.args.amount.toString());
+                const amount = BigInt(args.amount.toString());
 
                 stakeEvents.push(new AgentStakeEvent({
                     id: `${txHash}-${log.logIndex}`,
@@ -214,11 +214,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 agent.active = false;
             }
             else if (topic0 === AGENT_BANNED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: identityRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; reason: string } };
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
@@ -232,7 +232,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                     agent,
                     isBan: true,
                     banType: 'registry',
-                    reason: decoded.args.reason,
+                    reason: args.reason,
                     timestamp: blockTimestamp,
                     txHash,
                     blockNumber: block.header.height
@@ -257,17 +257,17 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === AGENT_SLASHED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: identityRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; slashAmount: bigint; reason: string } };
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
                 if (!agent) continue;
 
-                const slashAmount = BigInt(decoded.args.slashAmount.toString());
+                const slashAmount = BigInt(args.slashAmount.toString());
 
                 agent.isSlashed = true;
                 agent.stakeAmount = agent.stakeAmount - slashAmount;
@@ -277,25 +277,25 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                     id: `${txHash}-${log.logIndex}`,
                     agent,
                     slashAmount,
-                    reason: decoded.args.reason,
+                    reason: args.reason,
                     timestamp: blockTimestamp,
                     txHash,
                     blockNumber: block.header.height
                 }));
             }
             else if (topic0 === TAGS_UPDATED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: identityRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; tags: readonly string[] } };
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
                 if (!agent) continue;
 
                 const oldTags = [...agent.tags];
-                const newTags = decoded.args.tags as string[];
+                const newTags = [...args.tags];
                 agent.tags = newTags;
                 agent.lastActivityAt = blockTimestamp;
 
@@ -310,36 +310,36 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === AGENT_URI_UPDATED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: identityRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; newTokenURI: string } };
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
                 if (!agent) continue;
 
-                agent.tokenURI = decoded.args.newTokenURI;
+                agent.tokenURI = args.newTokenURI;
                 agent.lastActivityAt = blockTimestamp;
             }
             else if (topic0 === METADATA_SET) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: identityRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; indexedKey: string; key: string; value: `0x${string}` } };
 
                 const agentId = BigInt(log.topics[1]);
                 const agent = await getOrCreateAgent(agentId, blockTimestamp);
                 if (!agent) continue;
 
-                const key = decoded.args.key;
+                const key = args.key;
                 let value: string;
                 try {
-                    value = bytesToString(decoded.args.value as `0x${string}`);
+                    value = hexToString(args.value);
                 } catch {
-                    value = toHex(decoded.args.value as Uint8Array);
+                    value = args.value;
                 }
 
                 // Update agent fields based on key
@@ -353,7 +353,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 else if (key === 'x402Support') {
                     // x402Support is encoded as bool - decode it properly
                     try {
-                        const decodedBool = decodeAbiParameters([{ type: 'bool' }], decoded.args.value as `0x${string}`)[0];
+                        const decodedBool = decodeAbiParameters([{ type: 'bool' }], args.value)[0];
                         agent.x402Support = decodedBool;
                         value = decodedBool ? 'true' : 'false'; // Store as readable string
                     } catch {
@@ -393,11 +393,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
             // ============ ReputationRegistry Events ============
 
             else if (topic0 === NEW_FEEDBACK) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: reputationRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; clientAddress: string; score: number; tag1: string; tag2: string; fileuri: string; filehash: string } };
 
                 const agentId = BigInt(log.topics[1]);
                 const clientAddress = '0x' + log.topics[2].slice(26);
@@ -410,11 +410,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                     id: `${txHash}-${log.logIndex}`,
                     agent,
                     client,
-                    score: Number(decoded.args.score),
-                    tag1: decoded.args.tag1 !== zeroHash ? decoded.args.tag1 : null,
-                    tag2: decoded.args.tag2 !== zeroHash ? decoded.args.tag2 : null,
-                    fileUri: decoded.args.fileuri || null,
-                    fileHash: decoded.args.filehash !== zeroHash ? decoded.args.filehash : null,
+                    score: Number(args.score),
+                    tag1: args.tag1 !== zeroHash ? args.tag1 : null,
+                    tag2: args.tag2 !== zeroHash ? args.tag2 : null,
+                    fileUri: args.fileuri || null,
+                    fileHash: args.filehash !== zeroHash ? args.filehash : null,
                     isRevoked: false,
                     timestamp: blockTimestamp,
                     txHash,
@@ -422,44 +422,44 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === FEEDBACK_REVOKED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: reputationRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; clientAddress: string; feedbackIndex: bigint } };
 
                 // Mark existing feedback as revoked
                 const agentId = BigInt(log.topics[1]);
                 const clientAddress = '0x' + log.topics[2].slice(26);
-                const feedbackIndex = decoded.args.feedbackIndex;
+                const feedbackIndex = args.feedbackIndex;
 
                 // We'd need to look up the existing feedback and mark it revoked
                 // For now, we just log this event
                 ctx.log.info(`Feedback revoked: agent ${agentId}, client ${clientAddress}, index ${feedbackIndex}`);
             }
             else if (topic0 === RESPONSE_APPENDED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: reputationRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; clientAddress: string; feedbackIndex: bigint; responder: string; responseUri: string; responseHash: string } };
 
                 const agentId = BigInt(log.topics[1]);
                 const clientAddress = '0x' + log.topics[2].slice(26);
-                const responderAddress = decoded.args.responder;
+                const responderAddress = args.responder;
                 
                 const responder = accountFactory.getOrCreate(responderAddress, block.header.height, blockTimestamp);
 
                 // Find the feedback entry - for now we create a reference by constructing an ID
                 // In production, we'd need to look up the actual feedback entity
-                const feedbackId = `${agentId}-${clientAddress}-${decoded.args.feedbackIndex}`;
+                const feedbackId = `${agentId}-${clientAddress}-${args.feedbackIndex}`;
 
                 feedbackResponses.push(new FeedbackResponse({
                     id: `${txHash}-${log.logIndex}`,
                     feedback: { id: feedbackId } as AgentFeedback, // Reference by ID
                     responder,
-                    responseUri: decoded.args.responseUri,
-                    responseHash: decoded.args.responseHash !== zeroHash ? decoded.args.responseHash : null,
+                    responseUri: args.responseUri,
+                    responseHash: args.responseHash !== zeroHash ? args.responseHash : null,
                     timestamp: blockTimestamp,
                     txHash,
                     blockNumber: block.header.height
@@ -469,11 +469,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
             // ============ ValidationRegistry Events ============
 
             else if (topic0 === VALIDATION_REQUEST) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: validationRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { validatorAddress: string; agentId: bigint; requestUri: string; requestHash: string } };
 
                 const validatorAddress = '0x' + log.topics[1].slice(26);
                 const agentId = BigInt(log.topics[2]);
@@ -483,11 +483,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 const validator = accountFactory.getOrCreate(validatorAddress, block.header.height, blockTimestamp);
 
                 validations.push(new AgentValidation({
-                    id: decoded.args.requestHash,
+                    id: args.requestHash,
                     agent,
                     validator,
-                    requestUri: decoded.args.requestUri,
-                    requestHash: decoded.args.requestHash,
+                    requestUri: args.requestUri,
+                    requestHash: args.requestHash,
                     status: 'pending',
                     requestedAt: blockTimestamp,
                     requestTxHash: txHash,
@@ -495,21 +495,21 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === VALIDATION_RESPONSE) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: validationRegistryInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { validatorAddress: string; agentId: bigint; requestHash: string; response: number; responseUri: string; responseHash: string; tag: string } };
 
                 const requestHash = log.topics[3];
                 
                 // Find and update the validation
                 const existingValidation = await ctx.store.get(AgentValidation, requestHash);
                 if (existingValidation) {
-                    existingValidation.response = Number(decoded.args.response);
-                    existingValidation.responseUri = decoded.args.responseUri || null;
-                    existingValidation.responseHash = decoded.args.responseHash !== zeroHash ? decoded.args.responseHash : null;
-                    existingValidation.tag = decoded.args.tag !== zeroHash ? decoded.args.tag : null;
+                    existingValidation.response = Number(args.response);
+                    existingValidation.responseUri = args.responseUri || null;
+                    existingValidation.responseHash = args.responseHash !== zeroHash ? args.responseHash : null;
+                    existingValidation.tag = args.tag !== zeroHash ? args.tag : null;
                     existingValidation.status = 'responded';
                     existingValidation.respondedAt = blockTimestamp;
                     existingValidation.responseTxHash = txHash;
@@ -521,11 +521,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
             // ============ BanManager Events ============
 
             else if (topic0 === NETWORK_BAN_APPLIED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: banManagerInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; reason: string; proposalId: string; timestamp: bigint } };
 
                 const agentId = BigInt(log.topics[1]);
                 const proposalId = log.topics[2];
@@ -540,7 +540,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                     agent,
                     isBan: true,
                     banType: 'network',
-                    reason: decoded.args.reason,
+                    reason: args.reason,
                     proposalId,
                     timestamp: blockTimestamp,
                     txHash,
@@ -548,11 +548,11 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                 }));
             }
             else if (topic0 === APP_BAN_APPLIED) {
-                const decoded = decodeEventLog({
+                const { args } = decodeEventLog({
                   abi: banManagerInterface,
                   topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
                   data: log.data as `0x${string}`,
-                });
+                }) as { args: { agentId: bigint; appId: string; reason: string; proposalId: string; timestamp: bigint } };
 
                 const agentId = BigInt(log.topics[1]);
                 const appId = log.topics[2];
@@ -568,7 +568,7 @@ export async function processRegistryEvents(ctx: ProcessorContext<Store>): Promi
                     isBan: true,
                     banType: 'app',
                     appId,
-                    reason: decoded.args.reason,
+                    reason: args.reason,
                     proposalId,
                     timestamp: blockTimestamp,
                     txHash,

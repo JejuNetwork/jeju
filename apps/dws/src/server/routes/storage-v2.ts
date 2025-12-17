@@ -1,0 +1,369 @@
+/**
+ * Storage Routes V2 - Enhanced multi-backend storage API
+ * 
+ * Features:
+ * - Content tiering (System, Popular, Private)
+ * - Multi-backend selection
+ * - WebTorrent/Arweave support
+ * - Popularity tracking
+ * - Regional prefetching
+ */
+
+import { Hono } from 'hono';
+import { getMultiBackendManager, MultiBackendManager } from '../../storage/multi-backend';
+import type { ContentTier, ContentCategory, StorageBackendType } from '../../storage/types';
+
+export function createStorageRouterV2(): Hono {
+  const router = new Hono();
+  const manager = getMultiBackendManager();
+
+  // ============================================================================
+  // Health & Stats
+  // ============================================================================
+
+  router.get('/health', async (c) => {
+    const backends = manager.listBackends();
+    const health = await manager.healthCheck();
+    const stats = manager.getNodeStats();
+    
+    return c.json({
+      service: 'dws-storage-v2',
+      status: 'healthy',
+      backends,
+      health,
+      stats,
+    });
+  });
+
+  router.get('/stats', async (c) => {
+    const stats = manager.getNodeStats();
+    return c.json(stats);
+  });
+
+  // ============================================================================
+  // Upload
+  // ============================================================================
+
+  router.post('/upload', async (c) => {
+    const formData = await c.req.formData();
+    const file = formData.get('file');
+    if (!(file instanceof File)) {
+      return c.json({ error: 'file required' }, 400);
+    }
+
+    const content = Buffer.from(await file.arrayBuffer());
+    
+    // Parse options from form
+    const tier = (formData.get('tier') as ContentTier) ?? 'popular';
+    const category = (formData.get('category') as ContentCategory) ?? 'data';
+    const encrypt = formData.get('encrypt') === 'true';
+    const permanent = formData.get('permanent') === 'true';
+    const backendsStr = formData.get('backends') as string | null;
+    const preferredBackends = backendsStr?.split(',').filter(Boolean) as StorageBackendType[] | undefined;
+    const accessPolicy = formData.get('accessPolicy') as string | undefined;
+
+    const result = await manager.upload(content, {
+      filename: file.name,
+      contentType: file.type,
+      tier,
+      category,
+      encrypt,
+      preferredBackends,
+      accessPolicy,
+    });
+
+    // Also upload to Arweave if permanent
+    if (permanent) {
+      const permanentResult = await manager.uploadPermanent(content, {
+        filename: file.name,
+        contentType: file.type,
+        tier,
+        category,
+      });
+      return c.json(permanentResult);
+    }
+
+    return c.json(result);
+  });
+
+  router.post('/upload/json', async (c) => {
+    const body = await c.req.json() as {
+      data: object;
+      tier?: ContentTier;
+      category?: ContentCategory;
+      name?: string;
+      encrypt?: boolean;
+    };
+
+    const content = Buffer.from(JSON.stringify(body.data));
+    
+    const result = await manager.upload(content, {
+      filename: body.name ?? 'data.json',
+      contentType: 'application/json',
+      tier: body.tier ?? 'popular',
+      category: body.category ?? 'data',
+      encrypt: body.encrypt,
+    });
+
+    return c.json(result);
+  });
+
+  router.post('/upload/permanent', async (c) => {
+    const formData = await c.req.formData();
+    const file = formData.get('file');
+    if (!(file instanceof File)) {
+      return c.json({ error: 'file required' }, 400);
+    }
+
+    const content = Buffer.from(await file.arrayBuffer());
+    const tier = (formData.get('tier') as ContentTier) ?? 'popular';
+    const category = (formData.get('category') as ContentCategory) ?? 'data';
+
+    const result = await manager.uploadPermanent(content, {
+      filename: file.name,
+      contentType: file.type,
+      tier,
+      category,
+    });
+
+    return c.json(result);
+  });
+
+  // ============================================================================
+  // Download
+  // ============================================================================
+
+  router.get('/download/:cid', async (c) => {
+    const cid = c.req.param('cid');
+    const region = c.req.header('x-region') ?? c.req.header('cf-ipcountry') ?? 'unknown';
+    const preferredBackend = c.req.query('backend') as StorageBackendType | undefined;
+    const decrypt = c.req.query('decrypt') === 'true';
+    const decryptionKeyId = c.req.header('x-decryption-key-id');
+
+    const result = await manager.download(cid, {
+      region,
+      preferredBackends: preferredBackend ? [preferredBackend] : undefined,
+      decryptionKeyId: decrypt ? decryptionKeyId : undefined,
+    }).catch((e: Error) => ({ error: e.message }));
+
+    if ('error' in result) {
+      return c.json({ error: 'Not found' }, 404);
+    }
+
+    const metadata = result.metadata;
+    const contentType = metadata?.contentType ?? 'application/octet-stream';
+
+    return new Response(new Uint8Array(result.content), {
+      headers: {
+        'Content-Type': contentType,
+        'Content-Length': String(result.content.length),
+        'X-Backend': result.backend,
+        'X-Latency-Ms': String(result.latencyMs),
+        'X-From-Cache': String(result.fromCache),
+        ...(metadata?.tier && { 'X-Content-Tier': metadata.tier }),
+      },
+    });
+  });
+
+  router.get('/download/:cid/json', async (c) => {
+    const cid = c.req.param('cid');
+    const region = c.req.header('x-region') ?? 'unknown';
+
+    const result = await manager.download(cid, { region }).catch((e: Error) => ({ error: e.message }));
+
+    if ('error' in result) {
+      return c.json({ error: 'Not found' }, 404);
+    }
+
+    const data = JSON.parse(result.content.toString('utf-8'));
+    return c.json(data);
+  });
+
+  // ============================================================================
+  // Content Management
+  // ============================================================================
+
+  router.get('/content/:cid', async (c) => {
+    const cid = c.req.param('cid');
+    const metadata = manager.getMetadata(cid);
+
+    if (!metadata) {
+      return c.json({ error: 'Not found' }, 404);
+    }
+
+    return c.json(metadata);
+  });
+
+  router.get('/content', async (c) => {
+    const tier = c.req.query('tier') as ContentTier | undefined;
+    const category = c.req.query('category') as ContentCategory | undefined;
+    const limit = parseInt(c.req.query('limit') ?? '100', 10);
+    const offset = parseInt(c.req.query('offset') ?? '0', 10);
+
+    let items = tier 
+      ? manager.listByTier(tier)
+      : category 
+        ? manager.listByCategory(category)
+        : [...manager.listByTier('system'), ...manager.listByTier('popular'), ...manager.listByTier('private')];
+
+    const total = items.length;
+    items = items.slice(offset, offset + limit);
+
+    return c.json({ items, total, limit, offset });
+  });
+
+  router.get('/exists/:cid', async (c) => {
+    const cid = c.req.param('cid');
+    const exists = await manager.exists(cid);
+    return c.json({ cid, exists });
+  });
+
+  // ============================================================================
+  // Popularity & Regional
+  // ============================================================================
+
+  router.get('/popular', async (c) => {
+    const limit = parseInt(c.req.query('limit') ?? '100', 10);
+    const popular = manager.getPopularContent(limit);
+    return c.json({ items: popular });
+  });
+
+  router.get('/underseeded', async (c) => {
+    const minSeeders = parseInt(c.req.query('min') ?? '3', 10);
+    const underseeded = manager.getUnderseededContent(minSeeders);
+    return c.json({ items: underseeded });
+  });
+
+  router.get('/regional/:region', async (c) => {
+    const region = c.req.param('region');
+    const popularity = manager.getRegionalPopularity(region);
+    return c.json(popularity);
+  });
+
+  // ============================================================================
+  // WebTorrent
+  // ============================================================================
+
+  router.get('/torrent/:cid', async (c) => {
+    const cid = c.req.param('cid');
+    const metadata = manager.getMetadata(cid);
+
+    if (!metadata || !metadata.addresses.magnetUri) {
+      return c.json({ error: 'Torrent not found' }, 404);
+    }
+
+    return c.json({
+      cid,
+      magnetUri: metadata.addresses.magnetUri,
+      infoHash: metadata.addresses.cid,
+      size: metadata.size,
+      tier: metadata.tier,
+    });
+  });
+
+  router.get('/magnet/:cid', async (c) => {
+    const cid = c.req.param('cid');
+    const metadata = manager.getMetadata(cid);
+
+    if (!metadata || !metadata.addresses.magnetUri) {
+      return c.text('Magnet URI not found', 404);
+    }
+
+    // Return magnet URI as text for easy copy
+    c.header('Content-Type', 'text/plain');
+    return c.text(metadata.addresses.magnetUri);
+  });
+
+  // ============================================================================
+  // Arweave
+  // ============================================================================
+
+  router.get('/arweave/:txId', async (c) => {
+    const txId = c.req.param('txId');
+    
+    const result = await manager.download(txId, {
+      preferredBackends: ['arweave'],
+    }).catch((e: Error) => ({ error: e.message }));
+
+    if ('error' in result) {
+      return c.json({ error: 'Not found' }, 404);
+    }
+
+    const contentType = result.metadata?.contentType ?? 'application/octet-stream';
+
+    return new Response(new Uint8Array(result.content), {
+      headers: {
+        'Content-Type': contentType,
+        'X-Arweave-Tx': txId,
+      },
+    });
+  });
+
+  // ============================================================================
+  // IPFS Compatibility
+  // ============================================================================
+
+  router.post('/api/v0/add', async (c) => {
+    const formData = await c.req.formData();
+    const file = formData.get('file');
+    if (!(file instanceof File)) {
+      return c.json({ error: 'file required' }, 400);
+    }
+
+    const content = Buffer.from(await file.arrayBuffer());
+    const result = await manager.upload(content, {
+      filename: file.name,
+      contentType: file.type,
+      tier: 'popular',
+    });
+
+    // Return IPFS-compatible response
+    return c.json({
+      Hash: result.cid,
+      Size: String(result.size),
+      Name: file.name,
+    });
+  });
+
+  router.post('/api/v0/id', async (c) => {
+    const health = await manager.healthCheck();
+    const allHealthy = Object.values(health).every(h => h);
+
+    if (!allHealthy) {
+      return c.json({ error: 'Storage backends unhealthy' }, 503);
+    }
+
+    const backends = manager.listBackends();
+
+    return c.json({
+      ID: 'dws-storage-v2',
+      AgentVersion: 'dws/2.0.0',
+      Addresses: [],
+      Backends: backends,
+    });
+  });
+
+  router.get('/ipfs/:cid', async (c) => {
+    const cid = c.req.param('cid');
+    const region = c.req.header('x-region') ?? 'unknown';
+
+    const result = await manager.download(cid, { region }).catch((e: Error) => ({ error: e.message }));
+
+    if ('error' in result) {
+      return c.json({ error: 'Not found' }, 404);
+    }
+
+    const contentType = result.metadata?.contentType ?? 'application/octet-stream';
+
+    return new Response(new Uint8Array(result.content), {
+      headers: {
+        'Content-Type': contentType,
+        'X-Ipfs-Path': `/ipfs/${cid}`,
+        'X-Backend': result.backend,
+      },
+    });
+  });
+
+  return router;
+}
+

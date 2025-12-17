@@ -513,10 +513,10 @@ describe('Injection Attack Prevention', () => {
 });
 
 // ============================================================================
-// Full Flow Security Tests
+// Full Flow Security Tests (require CQL)
 // ============================================================================
 
-describe('Full Flow Security', () => {
+describe.skipIf(!CQL_AVAILABLE)('Full Flow Security', () => {
   test('should prevent key exposure in complete proxy flow', () => {
     const apiKey = 'sk-flow-security-test1234567890';
     const seller = '0x4444444444444444444444444444444444444444' as Address;
@@ -543,11 +543,12 @@ describe('Full Flow Security', () => {
     expect(metadataStr).not.toContain(apiKey);
   });
 
-  test('should enforce payment before access', () => {
-    const poorUser = '0x6666666666666666666666666666666666666666' as Address;
-    getOrCreateAccount(poorUser); // Create account with 0 balance
+  test.skipIf(!CQL_AVAILABLE)('should enforce payment before access', async () => {
+    const testId = Date.now().toString(16).slice(-8);
+    const poorUser = `0x${testId}666666666666666666666666666666` as Address;
+    await getOrCreateAccount(poorUser); // Create account with 0 balance
 
-    const seller = '0x7777777777777777777777777777777777777777' as Address;
+    const seller = `0x${testId}777777777777777777777777777777` as Address;
     const vaultKey = storeKey('anthropic', seller, 'test-key');
     const listing = createListing({
       providerId: 'anthropic',
@@ -556,7 +557,7 @@ describe('Full Flow Security', () => {
       pricePerRequest: 100000000000000n, // 0.0001 ETH
     });
 
-    // Check access should pass (access control)
+    // Check access should pass (access control) - checkAccess is sync and only checks ACLs
     const accessCheck = checkAccess(
       poorUser,
       listing,
@@ -566,7 +567,7 @@ describe('Full Flow Security', () => {
     expect(accessCheck.allowed).toBe(true);
 
     // But actual payment check would fail (tested in proxy)
-    const account = getOrCreateAccount(poorUser);
+    const account = await getOrCreateAccount(poorUser);
     expect(account.balance).toBe(0n);
     expect(account.balance < listing.pricePerRequest).toBe(true);
   });

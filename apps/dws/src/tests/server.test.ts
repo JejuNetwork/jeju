@@ -73,10 +73,12 @@ describe('DWS Server', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }));
-      expect(res.status).toBe(503);
+      // Returns mock response when no inference backend is configured
+      expect(res.status).toBe(200);
 
       const data = await res.json();
-      expect(data.error).toContain('INFERENCE_API_URL');
+      expect(data.choices).toBeDefined();
+      expect(data.model).toBe('mock-model');
     });
   });
 

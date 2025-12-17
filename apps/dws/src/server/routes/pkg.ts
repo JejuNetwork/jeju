@@ -59,8 +59,15 @@ export function createPkgRouter(ctx: PkgContext): Hono {
     const size = parseInt(c.req.query('size') || '20');
     const from = parseInt(c.req.query('from') || '0');
 
-    // Search local packages first
-    const localPackages = await registryManager.searchPackages(text, from, size);
+    // Search local packages first, fallback to empty if blockchain unavailable
+    let localPackages: Awaited<ReturnType<typeof registryManager.searchPackages>> = [];
+    
+    try {
+      localPackages = await registryManager.searchPackages(text, from, size);
+    } catch (error) {
+      console.warn('[Pkg] Blockchain unavailable for search:', (error as Error).message);
+      // Return empty results when blockchain is unavailable
+    }
 
     const result: PkgSearchResult = {
       objects: localPackages.map((pkg) => ({

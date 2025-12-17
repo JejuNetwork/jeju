@@ -136,6 +136,26 @@ async function ensureTablesExist(): Promise<void> {
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS api_keys (
+      id TEXT PRIMARY KEY,
+      key_hash TEXT UNIQUE NOT NULL,
+      address TEXT NOT NULL,
+      name TEXT NOT NULL,
+      tier TEXT NOT NULL DEFAULT 'FREE',
+      created_at INTEGER NOT NULL,
+      last_used_at INTEGER NOT NULL DEFAULT 0,
+      request_count INTEGER NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1
+    )`,
+    `CREATE TABLE IF NOT EXISTS x402_credits (
+      address TEXT PRIMARY KEY,
+      balance TEXT NOT NULL DEFAULT '0',
+      updated_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS x402_nonces (
+      nonce TEXT PRIMARY KEY,
+      used_at INTEGER NOT NULL
+    )`,
   ];
   
   const indexes = [
@@ -148,6 +168,8 @@ async function ensureTablesExist(): Promise<void> {
     'CREATE INDEX IF NOT EXISTS idx_triggers_owner ON cron_triggers(owner)',
     'CREATE INDEX IF NOT EXISTS idx_listings_seller ON api_listings(seller)',
     'CREATE INDEX IF NOT EXISTS idx_listings_provider ON api_listings(provider_id)',
+    'CREATE INDEX IF NOT EXISTS idx_api_keys_address ON api_keys(address)',
+    'CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)',
   ];
   
   for (const ddl of tables) {
@@ -641,13 +663,25 @@ export const apiUserAccountState = {
     const addr = address.toLowerCase();
     const now = Date.now();
     
-    await this.getOrCreate(address);
+    // Get current balance
+    const account = await this.getOrCreate(address);
+    // Parse current balance handling scientific notation
+    let currentBalance = 0n;
+    const balStr = String(account.balance);
+    if (balStr.includes('e') || balStr.includes('E')) {
+      currentBalance = BigInt(Math.round(parseFloat(balStr)));
+    } else if (balStr && balStr !== '') {
+      currentBalance = BigInt(balStr.split('.')[0]);
+    }
+    
+    // Calculate new balance
+    const deltaValue = BigInt(delta);
+    const newBalance = currentBalance + deltaValue;
     
     const client = await getCQLClient();
     await client.exec(
-      `UPDATE api_user_accounts SET balance = CAST(CAST(balance AS INTEGER) + ? AS TEXT), updated_at = ?
-       WHERE address = ?`,
-      [parseInt(delta), now, addr],
+      `UPDATE api_user_accounts SET balance = ?, updated_at = ? WHERE address = ?`,
+      [newBalance.toString(), now, addr],
       CQL_DATABASE_ID
     );
   },
@@ -665,6 +699,151 @@ export const apiUserAccountState = {
        updated_at = ?
        WHERE address = ?`,
       [parseInt(cost), parseInt(cost), now, addr],
+      CQL_DATABASE_ID
+    );
+  },
+};
+
+// API Key State Operations (for RPC rate limiting)
+interface ApiKeyRow {
+  id: string;
+  key_hash: string;
+  address: string;
+  name: string;
+  tier: string;
+  created_at: number;
+  last_used_at: number;
+  request_count: number;
+  is_active: number;
+}
+
+export const apiKeyState = {
+  async save(record: {
+    id: string;
+    keyHash: string;
+    address: string;
+    name: string;
+    tier: string;
+    createdAt: number;
+  }): Promise<void> {
+    const client = await getCQLClient();
+    await client.exec(
+      `INSERT INTO api_keys (id, key_hash, address, name, tier, created_at, last_used_at, request_count, is_active)
+       VALUES (?, ?, ?, ?, ?, ?, 0, 0, 1)`,
+      [record.id, record.keyHash, record.address.toLowerCase(), record.name, record.tier, record.createdAt],
+      CQL_DATABASE_ID
+    );
+  },
+
+  async getByHash(keyHash: string): Promise<ApiKeyRow | null> {
+    const client = await getCQLClient();
+    const result = await client.query<ApiKeyRow>(
+      'SELECT * FROM api_keys WHERE key_hash = ?',
+      [keyHash],
+      CQL_DATABASE_ID
+    );
+    return result.rows[0] ?? null;
+  },
+
+  async getById(id: string): Promise<ApiKeyRow | null> {
+    const client = await getCQLClient();
+    const result = await client.query<ApiKeyRow>(
+      'SELECT * FROM api_keys WHERE id = ?',
+      [id],
+      CQL_DATABASE_ID
+    );
+    return result.rows[0] ?? null;
+  },
+
+  async listByAddress(address: Address): Promise<ApiKeyRow[]> {
+    const client = await getCQLClient();
+    const result = await client.query<ApiKeyRow>(
+      'SELECT * FROM api_keys WHERE LOWER(address) = ? ORDER BY created_at DESC',
+      [address.toLowerCase()],
+      CQL_DATABASE_ID
+    );
+    return result.rows;
+  },
+
+  async recordUsage(keyHash: string): Promise<void> {
+    const client = await getCQLClient();
+    await client.exec(
+      'UPDATE api_keys SET last_used_at = ?, request_count = request_count + 1 WHERE key_hash = ?',
+      [Date.now(), keyHash],
+      CQL_DATABASE_ID
+    );
+  },
+
+  async revoke(id: string): Promise<boolean> {
+    const client = await getCQLClient();
+    const result = await client.exec(
+      'UPDATE api_keys SET is_active = 0 WHERE id = ?',
+      [id],
+      CQL_DATABASE_ID
+    );
+    return result.rowsAffected > 0;
+  },
+};
+
+// X402 Payment State Operations
+export const x402State = {
+  async getCredits(address: string): Promise<bigint> {
+    const client = await getCQLClient();
+    const result = await client.query<{ balance: string }>(
+      'SELECT balance FROM x402_credits WHERE LOWER(address) = ?',
+      [address.toLowerCase()],
+      CQL_DATABASE_ID
+    );
+    return result.rows[0] ? BigInt(result.rows[0].balance) : 0n;
+  },
+
+  async addCredits(address: string, amount: bigint): Promise<void> {
+    const addr = address.toLowerCase();
+    const now = Date.now();
+    const client = await getCQLClient();
+    
+    await client.exec(
+      `INSERT INTO x402_credits (address, balance, updated_at)
+       VALUES (?, ?, ?)
+       ON CONFLICT(address) DO UPDATE SET 
+       balance = CAST(CAST(balance AS INTEGER) + ? AS TEXT), updated_at = ?`,
+      [addr, amount.toString(), now, amount.toString(), now],
+      CQL_DATABASE_ID
+    );
+  },
+
+  async deductCredits(address: string, amount: bigint): Promise<boolean> {
+    const current = await this.getCredits(address);
+    if (current < amount) return false;
+    
+    const addr = address.toLowerCase();
+    const now = Date.now();
+    const client = await getCQLClient();
+    
+    await client.exec(
+      `UPDATE x402_credits SET balance = CAST(CAST(balance AS INTEGER) - ? AS TEXT), updated_at = ?
+       WHERE LOWER(address) = ?`,
+      [amount.toString(), now, addr],
+      CQL_DATABASE_ID
+    );
+    return true;
+  },
+
+  async isNonceUsed(nonceKey: string): Promise<boolean> {
+    const client = await getCQLClient();
+    const result = await client.query<{ nonce: string }>(
+      'SELECT nonce FROM x402_nonces WHERE nonce = ?',
+      [nonceKey],
+      CQL_DATABASE_ID
+    );
+    return result.rows.length > 0;
+  },
+
+  async markNonceUsed(nonceKey: string): Promise<void> {
+    const client = await getCQLClient();
+    await client.exec(
+      'INSERT INTO x402_nonces (nonce, used_at) VALUES (?, ?) ON CONFLICT DO NOTHING',
+      [nonceKey, Date.now()],
       CQL_DATABASE_ID
     );
   },

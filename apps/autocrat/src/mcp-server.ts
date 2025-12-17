@@ -142,7 +142,7 @@ export class AutocratMCPServer {
     if (typeIndex === -1) return { error: 'Invalid type' };
     return {
       transaction: {
-        to: this.config.contracts.council,
+        to: this.config.contracts?.council ?? ZERO_ADDRESS,
         method: 'submitProposal',
         params: { proposalType: typeIndex, qualityScore: parseInt(args.qualityScore, 10), contentHash: args.contentHash, targetContract: args.targetContract || ZERO_ADDRESS, callData: args.callData || '0x', value: args.value || '0' },
         bond: '0.001 ETH'

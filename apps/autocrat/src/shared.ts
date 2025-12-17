@@ -3,8 +3,8 @@
  */
 
 export const COUNCIL_ABI = [
-  'function getProposal(bytes32) view returns (tuple(bytes32 proposalId, address proposer, uint256 proposerAgentId, uint8 proposalType, uint8 status, uint8 qualityScore, uint256 createdAt, uint256 autocratVoteEnd, uint256 gracePeriodEnd, bytes32 contentHash, address targetContract, bytes callData, uint256 value, uint256 totalStaked, uint256 totalReputation, uint256 backerCount, bool hasResearch, bytes32 researchHash, bool ceoApproved, bytes32 ceoDecisionHash))',
-  'function getAutocratVotes(bytes32) view returns (tuple(bytes32 proposalId, address councilAgent, uint8 role, uint8 vote, bytes32 reasoningHash, uint256 votedAt, uint256 weight)[])',
+  'function getProposal(bytes32) view returns (tuple(bytes32, address, uint256, uint8, uint8, uint8, uint256, uint256, uint256, bytes32, address, bytes, uint256, uint256, uint256, uint256, bool, bytes32, bool, bytes32))',
+  'function getAutocratVotes(bytes32) view returns (tuple(bytes32, address, uint8, uint8, bytes32, uint256, uint256)[])',
   'function getActiveProposals() view returns (bytes32[])',
   'function getAllProposals() view returns (bytes32[])',
   'function proposalCount() view returns (uint256)',
@@ -14,11 +14,11 @@ export const COUNCIL_ABI = [
 ] as const;
 
 export const CEO_AGENT_ABI = [
-  'function getCurrentModel() view returns (tuple(string modelId, string modelName, string provider, address nominatedBy, uint256 totalStaked, uint256 totalReputation, uint256 nominatedAt, bool isActive, uint256 decisionsCount, uint256 approvedDecisions, uint256 benchmarkScore))',
-  'function getCEOStats() view returns (string currentModelId, uint256 totalDecisions, uint256 approvedDecisions, uint256 overriddenDecisions, uint256 approvalRate, uint256 overrideRate)',
-  'function getDecision(bytes32) view returns (tuple(bytes32 proposalId, string modelId, bool approved, bytes32 decisionHash, bytes32 encryptedHash, bytes32 contextHash, uint256 decidedAt, uint256 confidenceScore, uint256 alignmentScore, bool disputed, bool overridden))',
+  'function getCurrentModel() view returns (tuple(string, string, string, address, uint256, uint256, uint256, bool, uint256, uint256, uint256))',
+  'function getCEOStats() view returns (string, uint256, uint256, uint256, uint256, uint256)',
+  'function getDecision(bytes32) view returns (tuple(bytes32, string, bool, bytes32, bytes32, bytes32, uint256, uint256, uint256, bool, bool))',
   'function getAllModels() view returns (string[])',
-  'function getModel(string) view returns (tuple(string modelId, string modelName, string provider, address nominatedBy, uint256 totalStaked, uint256 totalReputation, uint256 nominatedAt, bool isActive, uint256 decisionsCount, uint256 approvedDecisions, uint256 benchmarkScore))',
+  'function getModel(string) view returns (tuple(string, string, string, address, uint256, uint256, uint256, bool, uint256, uint256, uint256))',
   'function getRecentDecisions(uint256) view returns (bytes32[])',
 ] as const;
 

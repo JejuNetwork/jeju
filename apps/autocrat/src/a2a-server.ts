@@ -183,7 +183,7 @@ Return ONLY JSON:
     const hasCloud = this.config.cloudEndpoint && this.config.cloudEndpoint !== 'local';
     if (hasCloud && title && summary && description) {
       try {
-        const result = await assessProposalWithAI(title, summary, description, this.config.cloudEndpoint, process.env.CLOUD_API_KEY);
+        const result = await assessProposalWithAI(title, summary, description, this.config.cloudEndpoint ?? '', process.env.CLOUD_API_KEY);
         return {
           message: result.overallScore >= 90 ? `Ready: ${result.overallScore}/100` : `Needs work: ${result.overallScore}/100`,
           data: { ...result, readyToSubmit: result.overallScore >= 90, assessedBy: 'cloud' }
@@ -220,7 +220,7 @@ Return ONLY JSON:
       message: 'Ready to submit',
       data: {
         action: 'submitProposal',
-        contract: this.config.contracts.council,
+        contract: this.config.contracts?.council ?? ZERO_ADDRESS,
         params: { proposalType: params.proposalType, qualityScore, contentHash: params.contentHash, targetContract: params.targetContract || ZERO_ADDRESS, callData: params.callData || '0x', value: params.value || '0' },
         bond: formatEther(parseEther('0.001'))
       }
@@ -242,7 +242,7 @@ Return ONLY JSON:
   private prepareBackProposal(params: Record<string, unknown>): SkillResult {
     return {
       message: 'Ready to back',
-      data: { action: 'backProposal', contract: this.config.contracts.council, params: { proposalId: params.proposalId, stakeAmount: params.stakeAmount || '0', reputationWeight: params.reputationWeight || 0 } }
+      data: { action: 'backProposal', contract: this.config.contracts?.council ?? ZERO_ADDRESS, params: { proposalId: params.proposalId, stakeAmount: params.stakeAmount || '0', reputationWeight: params.reputationWeight || 0 } }
     };
   }
 
@@ -340,7 +340,8 @@ Return ONLY JSON:
 
   private async listModels(): Promise<SkillResult> {
     if (!this.blockchain.ceoDeployed) {
-      return { message: 'Contract not deployed', data: { models: [this.config.agents.ceo.model], currentModel: this.config.agents.ceo.model } };
+      const ceoModel = this.config.agents?.ceo?.model ?? 'default';
+      return { message: 'Contract not deployed', data: { models: [ceoModel], currentModel: ceoModel } };
     }
     const modelIds = await this.blockchain.ceoAgent.getAllModels() as string[];
     return { message: `${modelIds.length} models`, data: { models: modelIds } };
@@ -373,7 +374,7 @@ Return ONLY JSON:
   private prepareCastVeto(params: Record<string, unknown>): SkillResult {
     return {
       message: 'Ready to veto',
-      data: { action: 'castVetoVote', contract: this.config.contracts.council, params: { proposalId: params.proposalId, category: params.category, reasonHash: params.reason }, minStake: '0.01 ETH' }
+      data: { action: 'castVetoVote', contract: this.config.contracts?.council ?? ZERO_ADDRESS, params: { proposalId: params.proposalId, category: params.category, reasonHash: params.reason }, minStake: '0.01 ETH' }
     };
   }
 

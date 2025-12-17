@@ -433,6 +433,74 @@ export class EdgeCache {
   }
 
   /**
+   * Get most popular content by access count
+   */
+  getPopularContent(limit = 100): Array<{ key: string; accessCount: number; size: number }> {
+    const entries: Array<{ key: string; accessCount: number; size: number }> = [];
+    
+    for (const entry of this.cache.values()) {
+      entries.push({
+        key: entry.key,
+        accessCount: entry.accessCount,
+        size: entry.data.length,
+      });
+    }
+
+    return entries
+      .sort((a, b) => b.accessCount - a.accessCount)
+      .slice(0, limit);
+  }
+
+  /**
+   * Get content that should be prefetched to other regions
+   * Returns keys with high access counts that aren't yet widely distributed
+   */
+  getContentForRegionalPrefetch(
+    minAccessCount = 10,
+    maxAge = 3600000 // 1 hour
+  ): Array<{ key: string; data: Buffer; accessCount: number }> {
+    const now = Date.now();
+    const results: Array<{ key: string; data: Buffer; accessCount: number }> = [];
+
+    for (const entry of this.cache.values()) {
+      // Only consider content that:
+      // 1. Has significant access count
+      // 2. Is fresh (not about to expire)
+      // 3. Is not immutable (already widely cached)
+      if (
+        entry.accessCount >= minAccessCount &&
+        now - entry.createdAt < maxAge &&
+        !entry.metadata.immutable
+      ) {
+        results.push({
+          key: entry.key,
+          data: entry.data,
+          accessCount: entry.accessCount,
+        });
+      }
+    }
+
+    return results.sort((a, b) => b.accessCount - a.accessCount);
+  }
+
+  /**
+   * Warm cache with content from another region
+   */
+  warmFromRegion(entries: Array<{ key: string; data: Buffer; metadata: Partial<CacheEntryMetadata> }>): number {
+    let warmed = 0;
+    
+    for (const entry of entries) {
+      // Don't overwrite existing entries
+      if (!this.has(entry.key)) {
+        this.set(entry.key, entry.data, entry.metadata);
+        warmed++;
+      }
+    }
+
+    return warmed;
+  }
+
+  /**
    * Reset statistics
    */
   resetStats(): void {

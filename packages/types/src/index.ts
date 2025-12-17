@@ -15,3 +15,4 @@ export * from './nft-eil';
 export * from './oif';
 export * from './oracle';
 export * from './torrent';
+export * from './vpn';

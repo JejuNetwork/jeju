@@ -20,7 +20,7 @@ import {
   createPktLines,
   createFlushPkt,
 } from '../../git/pack';
-import type { CreateRepoRequest, GitRef, CreateIssueRequest, UpdateIssueRequest, CreatePRRequest, UpdatePRRequest as _UpdatePRRequest } from '../../git/types';
+import type { CreateRepoRequest, GitRef, CreateIssueRequest, UpdateIssueRequest, CreatePRRequest, UpdatePRRequest as _UpdatePRRequest, Repository } from '../../git/types';
 import { trackGitContribution } from '../../git/leaderboard-integration';
 
 const GIT_AGENT = 'jeju-git/1.0.0';
@@ -52,8 +52,25 @@ export function createGitRouter(ctx: GitContext): Hono {
   router.get('/repos', async (c) => {
     const offset = parseInt(c.req.query('offset') || '0');
     const limit = parseInt(c.req.query('limit') || '20');
-    const repos = await repoManager.getAllRepositories(offset, limit);
-    const total = await repoManager.getRepositoryCount();
+    
+    // Try blockchain first, fallback to empty list if unavailable
+    let repos: Repository[] = [];
+    let total = 0;
+    
+    try {
+      repos = await repoManager.getAllRepositories(offset, limit);
+      total = await repoManager.getRepositoryCount();
+    } catch (error) {
+      console.warn('[Git] Blockchain unavailable, returning empty repos list:', (error as Error).message);
+      // Return empty list when blockchain is unavailable
+      return c.json({
+        repositories: [],
+        total: 0,
+        offset,
+        limit,
+        warning: 'Blockchain unavailable - repository list from on-chain registry not accessible',
+      });
+    }
 
     return c.json({
       repositories: repos.map((r) => ({
@@ -123,20 +140,28 @@ export function createGitRouter(ctx: GitContext): Hono {
 
   router.get('/users/:address/repos', async (c) => {
     const address = c.req.param('address') as Address;
-    const repos = await repoManager.getUserRepositories(address);
-
-    return c.json({
-      repositories: repos.map((r) => ({
-        repoId: r.repoId,
-        owner: r.owner,
-        name: r.name,
-        description: r.description,
-        visibility: r.visibility === 0 ? 'public' : 'private',
-        starCount: Number(r.starCount),
-        createdAt: Number(r.createdAt),
-        cloneUrl: `${getBaseUrl(c)}/git/${r.owner}/${r.name}`,
-      })),
-    });
+    
+    try {
+      const repos = await repoManager.getUserRepositories(address);
+      return c.json({
+        repositories: repos.map((r) => ({
+          repoId: r.repoId,
+          owner: r.owner,
+          name: r.name,
+          description: r.description,
+          visibility: r.visibility === 0 ? 'public' : 'private',
+          starCount: Number(r.starCount),
+          createdAt: Number(r.createdAt),
+          cloneUrl: `${getBaseUrl(c)}/git/${r.owner}/${r.name}`,
+        })),
+      });
+    } catch (error) {
+      console.warn('[Git] Blockchain unavailable for user repos:', (error as Error).message);
+      return c.json({
+        repositories: [],
+        warning: 'Blockchain unavailable - user repositories not accessible',
+      });
+    }
   });
 
   // ============ Issues API ============

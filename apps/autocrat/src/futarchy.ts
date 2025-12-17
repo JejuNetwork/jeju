@@ -217,6 +217,7 @@ export class FutarchyClient {
     if (!this.predimarketDeployed) throw new Error('Predimarket not deployed');
     if (!this.account) throw new Error('Wallet required');
 
+    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.marketAddress,
       abi: MARKET_ABI,
