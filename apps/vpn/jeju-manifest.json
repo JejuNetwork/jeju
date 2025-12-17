@@ -1,0 +1,32 @@
+{
+  "name": "Jeju VPN",
+  "slug": "vpn",
+  "version": "0.1.0",
+  "description": "Free, decentralized VPN powered by the community. Unlimited VPN access in exchange for contributing bandwidth to the network.",
+  "category": "infrastructure",
+  "repository": "https://github.com/jejunetwork/jeju",
+  "homepage": "https://vpn.jeju.network",
+  "license": "MIT",
+  "features": [
+    "wireguard",
+    "socks5-proxy",
+    "cdn-serving",
+    "fair-contribution",
+    "earning-mode"
+  ],
+  "platforms": ["desktop", "mobile", "browser"],
+  "dependencies": {
+    "contracts": {
+      "VPNRegistry": "^1.0.0"
+    },
+    "services": {
+      "vpn-coordinator": "^1.0.0",
+      "edge-coordinator": "^1.0.0"
+    }
+  },
+  "ports": {
+    "dev": 1421,
+    "wireguard": 51820
+  }
+}
+

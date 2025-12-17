@@ -46,8 +46,8 @@
       "executor": "http://127.0.0.1:4021"
     },
     "cql": {
-      "blockProducer": "http://127.0.0.1:4300",
-      "miner": "http://127.0.0.1:4301"
+      "blockProducer": "http://127.0.0.1:4661",
+      "miner": "http://127.0.0.1:4663"
     },
     "dws": {
       "api": "http://127.0.0.1:4030",

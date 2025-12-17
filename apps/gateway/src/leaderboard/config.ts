@@ -1,18 +1,19 @@
 /**
  * Leaderboard Configuration
  * 
- * Centralized config with sensible defaults - minimal env overrides needed.
+ * Uses centralized network config - no env overrides needed for CQL.
  */
 
 import { CHAIN_ID, CONTRACTS, NETWORK } from '../config/index.js';
 import { CHAIN_IDS } from '../config/networks.js';
+import { getCQLUrl } from '@jejunetwork/config';
 
-// Database configuration
+// Database configuration - uses network-aware CQL endpoint
 export const LEADERBOARD_DB = {
   /** CQL database ID */
   databaseId: process.env.LEADERBOARD_CQL_DATABASE_ID || 'leaderboard',
-  /** CQL block producer endpoint */
-  endpoint: process.env.CQL_BLOCK_PRODUCER_ENDPOINT || 'http://localhost:4300',
+  /** CQL block producer endpoint - automatically from network config */
+  endpoint: getCQLUrl(),
   /** Request timeout in ms */
   timeout: 30000,
   /** Enable debug logging */

@@ -60,7 +60,7 @@ export async function processEILEvents(ctx: ProcessorContext<Store>): Promise<vo
             const log = rawLog as unknown as LogData
             const eventSig = log.topics[0]
 
-            if (!eventSig || !EIL_EVENT_SIGNATURES.has(eventSig)) continue
+            if (!eventSig || !EIL_EVENT_SIGNATURES.has(eventSig as `0x${string}`)) continue
 
             const txHash = log.transaction?.hash || `${header.hash}-${log.transactionIndex}`
 
