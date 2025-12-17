@@ -29,7 +29,7 @@ function createAgentCard(options: {
     preferredTransport: 'http',
     provider: {
       organization: NETWORK_NAME,
-      url: 'https://jeju.network',
+      url: 'https://jejunetwork.org',
     },
     version: options.version || '1.0.0',
     capabilities: {

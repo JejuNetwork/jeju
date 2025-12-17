@@ -188,7 +188,7 @@ test.describe('Liquidity Page - XLP Section', () => {
     await page.click('text=Cross-Chain XLP')
     
     const registerLink = page.locator('a:has-text("Register as XLP")')
-    await expect(registerLink).toHaveAttribute('href', 'https://gateway.jeju.network?tab=xlp')
+    await expect(registerLink).toHaveAttribute('href', 'https://gateway.jejunetwork.org?tab=xlp')
   })
 })
 

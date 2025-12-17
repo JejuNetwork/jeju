@@ -20,14 +20,14 @@ ingress:
     alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
     alb.ingress.kubernetes.io/ssl-redirect: "443"
   hosts:
-    - host: testnet-crucible.jeju.network
+    - host: testnet-crucible.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
     - secretName: crucible-tls
       hosts:
-        - testnet-crucible.jeju.network
+        - testnet-crucible.jejunetwork.org
 
 config:
   network: testnet
@@ -40,12 +40,12 @@ config:
     serviceRegistry: "0x0000000000000000000000000000000000000000"
     autocratTreasury: "0x0000000000000000000000000000000000000000"
   services:
-    computeMarketplace: https://testnet-compute.jeju.network
-    storageApi: https://testnet-storage.jeju.network
-    ipfsGateway: https://testnet-ipfs.jeju.network
-    indexerGraphql: https://testnet-indexer.jeju.network/graphql
-    cqlEndpoint: https://testnet-cql.jeju.network
-    dexCacheUrl: https://testnet-storage.jeju.network/cache
+    computeMarketplace: https://testnet-compute.jejunetwork.org
+    storageApi: https://testnet-storage.jejunetwork.org
+    ipfsGateway: https://testnet-ipfs.jejunetwork.org
+    indexerGraphql: https://testnet-indexer.jejunetwork.org/graphql
+    cqlEndpoint: https://testnet-cql.jejunetwork.org
+    dexCacheUrl: https://testnet-storage.jejunetwork.org/cache
 
 # MEV + LP Bot configuration for testnet
 bot:

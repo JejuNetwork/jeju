@@ -4,7 +4,7 @@ The Indexer provides a GraphQL API for blockchain data queries.
 
 ## Endpoints
 
-Localnet uses `http://127.0.0.1:4350/graphql` with WebSocket at `ws://127.0.0.1:4350/graphql`. Testnet uses `https://testnet-indexer.jeju.network/graphql` with WebSocket at `wss://testnet-indexer.jeju.network/graphql`. Mainnet uses `https://indexer.jeju.network/graphql` with WebSocket at `wss://indexer.jeju.network/graphql`.
+Localnet uses `http://127.0.0.1:4350/graphql` with WebSocket at `ws://127.0.0.1:4350/graphql`. Testnet uses `https://testnet-indexer.jejunetwork.org/graphql` with WebSocket at `wss://testnet-indexer.jejunetwork.org/graphql`. Mainnet uses `https://indexer.jejunetwork.org/graphql` with WebSocket at `wss://indexer.jejunetwork.org/graphql`.
 
 ## Schema Overview
 
@@ -92,7 +92,7 @@ subscription IntentUpdates($user: String!) {
 ### JavaScript
 
 ```typescript
-const response = await fetch('https://indexer.jeju.network/graphql', {
+const response = await fetch('https://indexer.jejunetwork.org/graphql', {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
@@ -108,7 +108,7 @@ const { data } = await response.json();
 import { ApolloClient, InMemoryCache, gql } from '@apollo/client';
 
 const client = new ApolloClient({
-  uri: 'https://indexer.jeju.network/graphql',
+  uri: 'https://indexer.jejunetwork.org/graphql',
   cache: new InMemoryCache(),
 });
 

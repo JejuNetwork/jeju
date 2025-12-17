@@ -70,7 +70,7 @@ NETWORK=testnet bun run k8s:deploy
 # 3. Contracts
 cd packages/contracts
 forge script script/DeployTestnet.s.sol \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --broadcast \
   --verify
 
@@ -130,7 +130,7 @@ cd packages/contracts
 
 # Deploy core contracts
 PRIVATE_KEY=$DEPLOYER_PRIVATE_KEY forge script script/DeployTestnet.s.sol \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --broadcast \
   --verify
 ```
@@ -140,7 +140,7 @@ PRIVATE_KEY=$DEPLOYER_PRIVATE_KEY forge script script/DeployTestnet.s.sol \
 ```bash
 # OIF only
 forge script script/DeployOIF.s.sol \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --broadcast --verify
 
 # EIL (L1 contracts on Sepolia)
@@ -150,7 +150,7 @@ forge script script/DeployEIL.s.sol:DeployL1 \
 
 # Paymaster system
 forge script script/DeployMultiTokenSystem.s.sol \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --broadcast --verify
 ```
 
@@ -206,7 +206,7 @@ bun run test:e2e --network testnet
 
 ### Endpoints
 
-Prometheus is available at https://testnet-prometheus.jeju.network for metrics collection. Grafana runs at https://testnet-grafana.jeju.network for dashboards and visualization. Alertmanager is at https://testnet-alerts.jeju.network for alert routing and management.
+Prometheus is available at https://testnet-prometheus.jejunetwork.org for metrics collection. Grafana runs at https://testnet-grafana.jejunetwork.org for dashboards and visualization. Alertmanager is at https://testnet-alerts.jejunetwork.org for alert routing and management.
 
 ### Key Metrics
 
@@ -280,5 +280,5 @@ terraform apply -var-file=testnet.tfvars
 
 ## Testnet Details
 
-The testnet chain ID is 420690. RPC is available at https://testnet-rpc.jeju.network and WebSocket at wss://testnet-ws.jeju.network. The block explorer runs at https://testnet-explorer.jeju.network. The L1 network is Sepolia with chain ID 11155111.
+The testnet chain ID is 420690. RPC is available at https://testnet-rpc.jejunetwork.org and WebSocket at wss://testnet-ws.jejunetwork.org. The block explorer runs at https://testnet-explorer.jejunetwork.org. The L1 network is Sepolia with chain ID 11155111.
 

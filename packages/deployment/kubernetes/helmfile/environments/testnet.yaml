@@ -159,8 +159,8 @@ l1_chain_id: "11155111"
 l2_chain_id: "420690"
 
 # Domains
-rpc_domain: testnet-rpc.jeju.network
-ws_domain: testnet-ws.jeju.network
+rpc_domain: testnet-rpc.jejunetwork.org
+ws_domain: testnet-ws.jejunetwork.org
 
 # Rate limiting (relaxed for testnet)
 rate_limit:

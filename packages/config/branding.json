@@ -27,23 +27,23 @@
   },
 
   "urls": {
-    "website": "https://jeju.network",
-    "docs": "https://docs.jeju.network",
+    "website": "https://jejunetwork.org",
+    "docs": "https://docs.jejunetwork.org",
     "explorer": {
-      "testnet": "https://testnet-explorer.jeju.network",
-      "mainnet": "https://explorer.jeju.network"
+      "testnet": "https://testnet-explorer.jejunetwork.org",
+      "mainnet": "https://explorer.jejunetwork.org"
     },
     "rpc": {
-      "testnet": "https://testnet-rpc.jeju.network",
-      "mainnet": "https://rpc.jeju.network"
+      "testnet": "https://testnet-rpc.jejunetwork.org",
+      "mainnet": "https://rpc.jejunetwork.org"
     },
     "api": {
-      "testnet": "https://testnet-api.jeju.network",
-      "mainnet": "https://api.jeju.network"
+      "testnet": "https://testnet-api.jejunetwork.org",
+      "mainnet": "https://api.jejunetwork.org"
     },
     "gateway": {
-      "testnet": "https://testnet.jeju.network",
-      "mainnet": "https://app.jeju.network"
+      "testnet": "https://testnet.jejunetwork.org",
+      "mainnet": "https://app.jejunetwork.org"
     },
     "github": "https://github.com/jeju-network/jeju",
     "twitter": "https://twitter.com/jejunetwork",
@@ -91,13 +91,13 @@
 
   "legal": {
     "companyName": "Jeju Network Foundation",
-    "termsUrl": "https://jeju.network/terms",
-    "privacyUrl": "https://jeju.network/privacy",
+    "termsUrl": "https://jejunetwork.org/terms",
+    "privacyUrl": "https://jejunetwork.org/privacy",
     "copyrightYear": 2024
   },
 
   "support": {
-    "email": "support@jeju.network",
+    "email": "support@jejunetwork.org",
     "discordChannel": "#support"
   },
 

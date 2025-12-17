@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.26;
 
-import {Test, console2} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {NetworkRegistry} from "../../src/federation/NetworkRegistry.sol";
 import {RegistryHub} from "../../src/federation/RegistryHub.sol";
 import {RegistrySyncOracle} from "../../src/federation/RegistrySyncOracle.sol";
@@ -62,6 +62,7 @@ contract FederationIntegrationTest is Test {
         guardian2 = makeAddr("guardian2");
         guardian3 = makeAddr("guardian3");
 
+        vm.deal(deployer, 100 ether);
         vm.deal(hubOperator, 100 ether);
         vm.deal(jejuOperator, 100 ether);
         vm.deal(fork1Operator, 100 ether);
@@ -150,6 +151,7 @@ contract FederationIntegrationTest is Test {
         assertEq(networkRegistry.activeNetworks(), 3);
 
         // === PHASE 2: AI Evaluation & Governance Approval ===
+        uint256 baseTime = block.timestamp;
 
         // Get proposal ID for Jeju
         bytes32 proposalId = _getProposalId(JEJU_CHAIN_ID);
@@ -158,8 +160,8 @@ contract FederationIntegrationTest is Test {
         vm.prank(aiOracle);
         governance.submitAIEvaluation(proposalId, 95, 90, 85, 80);
 
-        // Wait for market voting
-        vm.warp(block.timestamp + 8 days);
+        // Wait for market voting (7+ days)
+        vm.warp(baseTime + 8 days);
         governance.resolveMarketVoting(proposalId);
 
         // Autocrat approves (sets timelockEnds = now + 7 days)
@@ -171,8 +173,10 @@ contract FederationIntegrationTest is Test {
             "Network meets quality standards"
         );
 
-        // Wait for timelock (7+ days after autocrat decision)
-        vm.warp(block.timestamp + 8 days);
+        // Wait for timelock (7+ days after autocrat decision at t+8 days)
+        // timelockEnds = (baseTime + 8 days) + 7 days = baseTime + 15 days
+        // So we need to warp to at least baseTime + 16 days
+        vm.warp(baseTime + 16 days);
 
         // Execute
         governance.executeProposal(proposalId);
@@ -415,10 +419,47 @@ contract FederationIntegrationTest is Test {
      * @notice Test sequencer rotation across verified networks
      */
     function test_SequencerRotationMultipleNetworks() public {
-        // Create multiple verified networks
-        _createVerifiedNetwork(JEJU_CHAIN_ID, jejuOperator);
-        _createVerifiedNetwork(FORK1_CHAIN_ID, fork1Operator);
-        _createVerifiedNetwork(FORK2_CHAIN_ID, fork2Operator);
+        // Create multiple verified networks with explicit time tracking
+        uint256 currentTime = block.timestamp;
+        
+        // First network
+        _registerNetworkInRegistry(JEJU_CHAIN_ID, jejuOperator, 10 ether);
+        bytes32 proposalId1 = _getProposalId(JEJU_CHAIN_ID);
+        vm.prank(aiOracle);
+        governance.submitAIEvaluation(proposalId1, 90, 90, 90, 90);
+        vm.warp(currentTime + 8 days);
+        governance.resolveMarketVoting(proposalId1);
+        vm.prank(councilGovernance);
+        governance.submitAutocratDecision(proposalId1, true, keccak256("approved1"), "Approved");
+        vm.warp(currentTime + 16 days);
+        governance.executeProposal(proposalId1);
+        currentTime = currentTime + 16 days;
+        
+        // Second network
+        _registerNetworkInRegistry(FORK1_CHAIN_ID, fork1Operator, 10 ether);
+        bytes32 proposalId2 = _getProposalId(FORK1_CHAIN_ID);
+        vm.prank(aiOracle);
+        governance.submitAIEvaluation(proposalId2, 90, 90, 90, 90);
+        vm.warp(currentTime + 8 days);
+        governance.resolveMarketVoting(proposalId2);
+        vm.prank(councilGovernance);
+        governance.submitAutocratDecision(proposalId2, true, keccak256("approved2"), "Approved");
+        vm.warp(currentTime + 16 days);
+        governance.executeProposal(proposalId2);
+        currentTime = currentTime + 16 days;
+        
+        // Third network
+        _registerNetworkInRegistry(FORK2_CHAIN_ID, fork2Operator, 10 ether);
+        bytes32 proposalId3 = _getProposalId(FORK2_CHAIN_ID);
+        vm.prank(aiOracle);
+        governance.submitAIEvaluation(proposalId3, 90, 90, 90, 90);
+        vm.warp(currentTime + 8 days);
+        governance.resolveMarketVoting(proposalId3);
+        vm.prank(councilGovernance);
+        governance.submitAutocratDecision(proposalId3, true, keccak256("approved3"), "Approved");
+        vm.warp(currentTime + 16 days);
+        governance.executeProposal(proposalId3);
+        currentTime = currentTime + 16 days;
 
         // Get verified chains
         uint256[] memory verified = governance.getVerifiedChainIds();
@@ -428,22 +469,22 @@ contract FederationIntegrationTest is Test {
         uint256 seq1 = governance.getCurrentSequencer();
         assertEq(seq1, JEJU_CHAIN_ID);
 
-        // Rotate
-        vm.warp(block.timestamp + 2 days);
+        // Rotate (rotationInterval = 1 day)
+        vm.warp(currentTime + 2 days);
         governance.rotateSequencer();
 
         uint256 seq2 = governance.getCurrentSequencer();
         assertEq(seq2, FORK1_CHAIN_ID);
 
         // Rotate again
-        vm.warp(block.timestamp + 2 days);
+        vm.warp(currentTime + 4 days);
         governance.rotateSequencer();
 
         uint256 seq3 = governance.getCurrentSequencer();
         assertEq(seq3, FORK2_CHAIN_ID);
 
         // Wraps around
-        vm.warp(block.timestamp + 2 days);
+        vm.warp(currentTime + 6 days);
         governance.rotateSequencer();
 
         uint256 seq4 = governance.getCurrentSequencer();
@@ -549,8 +590,8 @@ contract FederationIntegrationTest is Test {
     }
 
     function _createVerifiedNetwork(uint256 chainId, address operator) internal {
-        uint256 startTime = block.timestamp;
-
+        uint256 baseTime = block.timestamp;
+        
         _registerNetworkInRegistry(chainId, operator, 10 ether);
 
         bytes32 proposalId = _getProposalId(chainId);
@@ -558,13 +599,16 @@ contract FederationIntegrationTest is Test {
         vm.prank(aiOracle);
         governance.submitAIEvaluation(proposalId, 90, 90, 90, 90);
 
-        vm.warp(startTime + 8 days);
+        // Wait for market voting to end (MARKET_VOTING_PERIOD = 7 days)
+        vm.warp(baseTime + 8 days);
         governance.resolveMarketVoting(proposalId);
 
         vm.prank(councilGovernance);
         governance.submitAutocratDecision(proposalId, true, keccak256("approved"), "Approved");
 
-        vm.warp(startTime + 16 days);
+        // Wait for timelock (TIMELOCK_PERIOD = 7 days after autocrat decision)
+        // timelockEnds = (baseTime + 8 days) + 7 days = baseTime + 15 days
+        vm.warp(baseTime + 16 days);
         governance.executeProposal(proposalId);
     }
 }

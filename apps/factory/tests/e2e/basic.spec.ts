@@ -96,4 +96,68 @@ test.describe('Factory App', () => {
     // Check for agents marketplace heading
     await expect(page.getByRole('main').getByRole('heading', { name: /agent/i })).toBeVisible();
   });
+
+  test('should navigate to CI/CD page', async ({ page }) => {
+    await page.goto('/ci');
+    
+    // Check for CI/CD heading
+    await expect(page.getByRole('main').getByRole('heading', { name: /ci/i })).toBeVisible();
+  });
+
+  test('should navigate to repository detail page', async ({ page }) => {
+    await page.goto('/git/jeju/factory');
+    
+    // Check for repository name in the main heading (not nav)
+    await expect(page.locator('h1').filter({ hasText: 'jeju' })).toBeVisible();
+    
+    // Check for code tab button
+    await expect(page.getByRole('button', { name: /code/i }).first()).toBeVisible();
+  });
+
+  test('should navigate to user profile page', async ({ page }) => {
+    await page.goto('/profile/0x1234567890abcdef');
+    
+    // Check for profile content
+    await expect(page.getByRole('main')).toBeVisible();
+  });
+
+  test('should have responsive mobile navigation', async ({ page }) => {
+    // Set mobile viewport
+    await page.setViewportSize({ width: 375, height: 667 });
+    await page.goto('/');
+    
+    // Mobile nav header should be visible (the header with lg:hidden class)
+    await expect(page.locator('header.lg\\:hidden')).toBeVisible();
+  });
+
+  test('should navigate to package detail page', async ({ page }) => {
+    // Using URL-encoded scope for @jejunetwork
+    await page.goto('/packages/%40jejunetwork/jeju-sdk');
+    
+    // Check for package name in the heading (be specific to avoid nav heading)
+    await expect(page.getByRole('heading', { name: /@jejunetwork\/jeju-sdk/i }).first()).toBeVisible();
+  });
+
+  test('should navigate to model detail page', async ({ page }) => {
+    await page.goto('/models/jeju/llama-3-jeju-ft');
+    
+    // Check for model heading (be specific)
+    await expect(page.getByRole('heading', { name: /llama-3-jeju-ft/i }).first()).toBeVisible();
+    
+    // Check for tabs
+    await expect(page.getByRole('button', { name: /model card/i })).toBeVisible();
+  });
+
+  test('should show inference tab on model page', async ({ page }) => {
+    await page.goto('/models/jeju/llama-3-jeju-ft');
+    
+    // Click inference tab
+    await page.getByRole('button', { name: /inference/i }).click();
+    
+    // Check for input textarea
+    await expect(page.locator('textarea')).toBeVisible();
+    
+    // Check for generate button
+    await expect(page.getByRole('button', { name: /generate/i })).toBeVisible();
+  });
 });

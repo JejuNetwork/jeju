@@ -289,7 +289,7 @@ bun run dev
 ```bash
 # Deploy contract to testnet
 forge script deploy/Deploy.s.sol:DeployGaslessNFT \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --private-key $DEPLOYER_KEY \
   --broadcast --verify
 

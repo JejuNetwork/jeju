@@ -4,7 +4,7 @@
 project_id = "gen-lang-client-0955518213"
 region     = "us-central1"
 
-domain_name     = "jeju.network"
+domain_name     = "jejunetwork.org"
 create_dns_zone = true
 
 enable_cloud_armor = true

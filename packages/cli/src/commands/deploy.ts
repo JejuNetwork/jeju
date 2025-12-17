@@ -305,11 +305,11 @@ export const deployCommand = new Command('deploy')
     logger.header('DONE');
     
     if (network === 'testnet') {
-      logger.keyValue('RPC', 'https://rpc.testnet.jeju.network');
-      logger.keyValue('Explorer', 'https://explorer.testnet.jeju.network');
+      logger.keyValue('RPC', 'https://testnet-rpc.jejunetwork.org');
+      logger.keyValue('Explorer', 'https://explorer.testnet.jejunetwork.org');
     } else {
-      logger.keyValue('RPC', 'https://rpc.jeju.network');
-      logger.keyValue('Explorer', 'https://explorer.jeju.network');
+      logger.keyValue('RPC', 'https://rpc.jejunetwork.org');
+      logger.keyValue('Explorer', 'https://explorer.jejunetwork.org');
     }
   });
 

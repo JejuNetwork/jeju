@@ -309,7 +309,7 @@ resource "kubernetes_ingress_v1" "api" {
 
   spec {
     rule {
-      host = var.environment == "mainnet" ? "crucible.jeju.network" : "${var.environment}-crucible.jeju.network"
+      host = var.environment == "mainnet" ? "crucible.jejunetwork.org" : "${var.environment}-crucible.jejunetwork.org"
       http {
         path {
           path      = "/"

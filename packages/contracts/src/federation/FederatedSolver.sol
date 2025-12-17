@@ -261,7 +261,7 @@ contract FederatedSolver is ReentrancyGuard {
                 ? (solver.successfulFills * 10000) / solver.totalFills
                 : 10000;
 
-            uint256 score = (solver.totalStake / 1e18) * rate;
+            uint256 score = (solver.totalStake * rate) / 1e18;
 
             if (score > bestScore) {
                 bestScore = score;

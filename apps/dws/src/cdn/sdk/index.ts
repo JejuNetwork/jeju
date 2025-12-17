@@ -200,7 +200,7 @@ export class CDNClient {
 
     const cdnUrl = options.jnsName 
       ? `https://${options.jnsName}.jns.eth`
-      : `https://cdn.jeju.network/${siteId}`;
+      : `https://cdn.jejunetwork.org/${siteId}`;
 
     return {
       siteId,

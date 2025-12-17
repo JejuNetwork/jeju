@@ -61,7 +61,7 @@ forge create src/MyTokenOracle.sol:MyTokenOracle \
 
 ### Via Gateway UI
 
-1. Go to https://gateway.jeju.network/tokens
+1. Go to https://gateway.jejunetwork.org/tokens
 2. Click "Register Token"
 3. Enter:
    - Token address

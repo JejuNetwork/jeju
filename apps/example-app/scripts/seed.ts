@@ -64,7 +64,7 @@ async function seedOAuth3Registry() {
       logoUri: '',
       policyUri: '',
       termsUri: '',
-      supportEmail: 'dev@jeju.network',
+      supportEmail: 'dev@jejunetwork.org',
       webhookUrl: `http://localhost:${process.env.PORT || 4500}/webhooks/oauth3`,
     },
   });

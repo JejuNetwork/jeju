@@ -7,7 +7,7 @@ variable "environment" {
 }
 
 variable "domain_name" {
-  description = "Primary domain name (e.g., jeju.network)"
+  description = "Primary domain name (e.g., jejunetwork.org)"
   type        = string
 }
 

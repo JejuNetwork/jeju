@@ -127,8 +127,8 @@ export const JEJU_MAINNET_CONFIG = {
     chainId: 420691, // Jeju Mainnet chain ID (TBD)
     chainType: 'evm' as const,
     name: 'Jeju Network',
-    rpcUrl: process.env.JEJU_MAINNET_RPC_URL ?? 'https://rpc.jeju.network',
-    blockExplorerUrl: 'https://explorer.jeju.network',
+    rpcUrl: process.env.JEJU_MAINNET_RPC_URL ?? 'https://rpc.jejunetwork.org',
+    blockExplorerUrl: 'https://explorer.jejunetwork.org',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     hyperlaneMailbox: '', // Set after Hyperlane deployment
     hyperlaneIgp: '', // Set after Hyperlane deployment
@@ -243,7 +243,7 @@ export const JEJU_TOKEN_METADATA = {
   description: 'The native token of the Jeju Network - an EVM chain for agents and humans.',
 
   // Social links
-  website: 'https://jeju.network',
-  docs: 'https://docs.jeju.network',
+  website: 'https://jejunetwork.org',
+  docs: 'https://docs.jejunetwork.org',
   github: 'https://github.com/jeju-network',
 };

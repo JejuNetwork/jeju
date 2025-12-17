@@ -24,10 +24,10 @@ export const jejuMainnet = defineChain({
   name: 'Network',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://rpc.jeju.network'] },
+    default: { http: ['https://rpc.jejunetwork.org'] },
   },
   blockExplorers: {
-    default: { name: 'Network Explorer', url: 'https://explorer.jeju.network' },
+    default: { name: 'Network Explorer', url: 'https://explorer.jejunetwork.org' },
   },
 })
 
@@ -36,10 +36,10 @@ export const jejuTestnet = defineChain({
   name: 'Testnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet-rpc.jeju.network'] },
+    default: { http: ['https://testnet-rpc.jejunetwork.org'] },
   },
   blockExplorers: {
-    default: { name: 'Network Testnet Explorer', url: 'https://testnet-explorer.jeju.network' },
+    default: { name: 'Network Testnet Explorer', url: 'https://testnet-explorer.jejunetwork.org' },
   },
   testnet: true,
 })
@@ -80,8 +80,8 @@ export const EVM_RPC_URLS: Record<EvmChainIds, string[]> = {
       ? [`https://eth-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`]
       : []),
   ],
-  [EvmChainIds.mainnetChain]: ['https://rpc.jeju.network'],
-  [EvmChainIds.testnetChain]: ['https://testnet-rpc.jeju.network'],
+  [EvmChainIds.mainnetChain]: ['https://rpc.jejunetwork.org'],
+  [EvmChainIds.testnetChain]: ['https://testnet-rpc.jejunetwork.org'],
   [EvmChainIds.localnetChain]: [process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:9545'],
 }
 
@@ -112,8 +112,8 @@ export const CHAIN_NATIVE_SYMBOL: Record<EvmChainIds, string> = {
 export const CHAIN_BLOCK_EXPLORER: Record<EvmChainIds, string> = {
   [EvmChainIds.EthereumMainnet]: 'https://etherscan.io',
   [EvmChainIds.EthereumSepolia]: 'https://sepolia.etherscan.io',
-  [EvmChainIds.mainnetChain]: 'https://explorer.jeju.network',
-  [EvmChainIds.testnetChain]: 'https://testnet-explorer.jeju.network',
+  [EvmChainIds.mainnetChain]: 'https://explorer.jejunetwork.org',
+  [EvmChainIds.testnetChain]: 'https://testnet-explorer.jejunetwork.org',
   [EvmChainIds.localnetChain]: 'http://localhost:4004',
 }
 

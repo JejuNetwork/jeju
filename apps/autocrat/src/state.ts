@@ -9,7 +9,6 @@ import { getCQL, type CQLClient } from "@jejunetwork/db";
 import { getCacheClient, type CacheClient } from "@jejunetwork/shared";
 
 const CQL_DATABASE_ID = process.env.COVENANTSQL_DATABASE_ID ?? "council";
-const CQL_REQUIRED = process.env.CQL_REQUIRED !== "false";
 
 // Types
 export interface Proposal {
@@ -52,20 +51,21 @@ let initialized = false;
 
 async function getCQLClient(): Promise<CQLClient> {
   if (!cqlClient) {
-    const cqlNodes = process.env.COVENANTSQL_NODES;
+    cqlClient = getCQL({
+      blockProducerEndpoint: process.env.CQL_BLOCK_PRODUCER_ENDPOINT ?? 'http://localhost:4300',
+      databaseId: CQL_DATABASE_ID,
+      timeout: 30000,
+      debug: process.env.NODE_ENV !== 'production',
+    });
     
-    if (!cqlNodes && CQL_REQUIRED) {
+    const healthy = await cqlClient.isHealthy();
+    if (!healthy) {
       throw new Error(
-        'Council requires CovenantSQL for decentralized state storage.\n' +
-        'Set COVENANTSQL_NODES environment variable or start stack:\n' +
-        '  docker compose up -d\n' +
-        '\n' +
-        'Or set CQL_REQUIRED=false for local testing only (not recommended for production).'
+        'Autocrat requires CovenantSQL for decentralized state.\n' +
+        'Set CQL_BLOCK_PRODUCER_ENDPOINT or start: docker compose up -d'
       );
     }
     
-    cqlClient = getCQL();
-    await cqlClient.initialize();
     await ensureTablesExist();
   }
   return cqlClient;

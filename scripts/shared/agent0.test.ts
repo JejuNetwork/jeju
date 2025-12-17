@@ -317,7 +317,7 @@ describe('Registration File Structure Validation', () => {
     
     const regFile = buildRegistrationFile(
       manifest, 
-      'https://test.jeju.network', 
+      'https://test.jejunetwork.org', 
       '0xDEADBEEF'
     );
     
@@ -336,12 +336,12 @@ describe('Registration File Structure Validation', () => {
     
     const a2a = endpoints.find(e => e.type === 'a2a');
     expect(a2a).toBeDefined();
-    expect(a2a?.value).toBe('https://test.jeju.network/a2a');
+    expect(a2a?.value).toBe('https://test.jejunetwork.org/a2a');
     expect(a2a?.meta?.version).toBe('0.30');
     
     const mcp = endpoints.find(e => e.type === 'mcp');
     expect(mcp).toBeDefined();
-    expect(mcp?.value).toBe('https://test.jeju.network/mcp');
+    expect(mcp?.value).toBe('https://test.jejunetwork.org/mcp');
     
     // Metadata structure
     const metadata = regFile.metadata as Record<string, string>;

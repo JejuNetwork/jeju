@@ -94,12 +94,12 @@ Frontend apps use `VITE_` or `NEXT_PUBLIC_` prefixes:
 
 ```bash
 # Vite apps (Gateway)
-VITE_RPC_URL=https://rpc.jeju.network
+VITE_RPC_URL=https://rpc.jejunetwork.org
 VITE_CHAIN_ID=420691
 VITE_WALLETCONNECT_PROJECT_ID=...
 
 # Next.js apps (Bazaar)
-NEXT_PUBLIC_RPC_URL=https://rpc.jeju.network
+NEXT_PUBLIC_RPC_URL=https://rpc.jejunetwork.org
 NEXT_PUBLIC_CHAIN_ID=420691
 NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=...
 ```

@@ -11,13 +11,9 @@ import {
   type AutocratVote,
 } from './state.js';
 
-// DWS endpoints for decentralized compute
+// DWS endpoints for decentralized compute - REQUIRED
 const DWS_URL = process.env.DWS_URL ?? 'http://localhost:4030';
 const DWS_COMPUTE = `${DWS_URL}/compute`;
-
-// Fallback to local Ollama if DWS compute unavailable
-const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2:3b';
 
 // Bounded in-memory caches for performance (CQL is source of truth)
 const CACHE_MAX = 1000;
@@ -51,21 +47,6 @@ async function checkDWSCompute(): Promise<boolean> {
   return r?.ok ?? false;
 }
 
-async function checkOllama(): Promise<boolean> {
-  const r = await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
-  return r?.ok ?? false;
-}
-
-async function ollamaGenerate(prompt: string, system: string): Promise<string> {
-  const r = await fetch(`${OLLAMA_URL}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: OLLAMA_MODEL, prompt, system, stream: false, options: { temperature: 0.7, num_predict: 500 } }),
-  });
-  if (!r.ok) throw new Error(`Ollama error: ${r.status}`);
-  return ((await r.json()) as { response: string }).response;
-}
-
 interface InferenceRequest {
   messages: Array<{ role: string; content: string }>;
   systemPrompt?: string;
@@ -90,23 +71,17 @@ async function dwsGenerate(prompt: string, system: string): Promise<string> {
 }
 
 export async function inference(request: InferenceRequest): Promise<string> {
-  // Try DWS compute first for decentralized inference
   const dwsAvailable = await checkDWSCompute();
-  if (dwsAvailable) {
-    const prompt = request.messages.map(m => `${m.role}: ${m.content}`).join('\n');
-    const system = request.systemPrompt ?? 'You are a helpful AI assistant for DAO governance.';
-    return dwsGenerate(prompt, system);
-  }
-
-  // Fallback to local Ollama
-  const ollamaAvailable = await checkOllama();
-  if (!ollamaAvailable) {
-    throw new Error('LLM unavailable: Neither DWS compute nor Ollama available');
+  if (!dwsAvailable) {
+    throw new Error(
+      'DWS compute is required for decentralized inference.\n' +
+      'Set DWS_URL or start: docker compose up -d'
+    );
   }
 
   const prompt = request.messages.map(m => `${m.role}: ${m.content}`).join('\n');
   const system = request.systemPrompt ?? 'You are a helpful AI assistant for DAO governance.';
-  return ollamaGenerate(prompt, system);
+  return dwsGenerate(prompt, system);
 }
 
 // Vote storage - persisted to CQL
@@ -139,25 +114,16 @@ Be specific and actionable.`;
 
   const system = 'You are a research analyst for DAO governance. Provide thorough, objective analysis.';
 
-  // Try DWS compute first
   const dwsAvailable = await checkDWSCompute();
-  if (dwsAvailable) {
-    const report = await dwsGenerate(prompt, system);
-    const result = { report, model: 'dws-compute', completedAt: Date.now() };
-    evict(researchCache);
-    researchCache.set(proposalId, result);
-    await store({ type: 'research', proposalId, ...result });
-    return result;
+  if (!dwsAvailable) {
+    throw new Error(
+      'DWS compute is required for research generation.\n' +
+      'Set DWS_URL or start: docker compose up -d'
+    );
   }
 
-  // Fallback to Ollama
-  const ollamaAvailable = await checkOllama();
-  if (!ollamaAvailable) {
-    throw new Error('LLM unavailable: Cannot generate research');
-  }
-
-  const report = await ollamaGenerate(prompt, system);
-  const result = { report, model: OLLAMA_MODEL, completedAt: Date.now() };
+  const report = await dwsGenerate(prompt, system);
+  const result = { report, model: 'dws-compute', completedAt: Date.now() };
   evict(researchCache);
   researchCache.set(proposalId, result);
   await store({ type: 'research', proposalId, ...result });
@@ -183,17 +149,16 @@ export async function initLocalServices(): Promise<void> {
   if (initialized) return;
   await initStorage();
   const dwsUp = await checkDWSCompute();
-  const ollamaUp = await checkOllama();
   const proposalIndex = await proposalIndexState.getAll();
   console.log(`[Services] Storage: CovenantSQL (decentralized)`);
   console.log(`[Services] Proposal index: ${proposalIndex.size} entries`);
   console.log(`[Services] DWS Compute: ${dwsUp ? 'ready' : 'NOT AVAILABLE'}`);
-  console.log(`[Services] Ollama fallback: ${ollamaUp ? `ready (${OLLAMA_MODEL})` : 'NOT AVAILABLE'}`);
+  if (!dwsUp) {
+    console.warn('[Services] WARNING: DWS compute not available - inference will fail');
+  }
   initialized = true;
 }
 
 export function isInitialized(): boolean {
   return initialized;
 }
-
-export { checkOllama, ollamaGenerate, OLLAMA_URL, OLLAMA_MODEL };

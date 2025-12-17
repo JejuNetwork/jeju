@@ -70,9 +70,9 @@ const TESTNET_CHAINS: ChainConfig[] = [
   {
     chainId: 420690,
     name: 'Testnet',
-    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jeju.network',
+    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
     oracleType: 'superchain',
-    explorerUrl: 'https://testnet-explorer.jeju.network',
+    explorerUrl: 'https://testnet-explorer.jejunetwork.org',
   },
 ];
 

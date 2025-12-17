@@ -25,6 +25,12 @@ import { createCIRouter } from './routes/ci';
 import { createOAuth3Router } from './routes/oauth3';
 import { createAPIMarketplaceRouter } from './routes/api-marketplace';
 import { createContainerRouter } from './routes/containers';
+import { createS3Router } from './routes/s3';
+import { createWorkersRouter } from './routes/workers';
+import { createKMSRouter } from './routes/kms';
+import { createVPNRouter } from './routes/vpn';
+import { createScrapingRouter } from './routes/scraping';
+import { createRPCRouter } from './routes/rpc';
 import { createBackendManager } from '../storage/backends';
 import { initializeMarketplace } from '../api-marketplace';
 import { initializeContainerSystem } from '../containers';
@@ -35,8 +41,6 @@ import {
   createDecentralizedServices, 
   type P2PCoordinator, 
   type DistributedRateLimiter,
-  type DecentralizedFrontend,
-  type NodeDiscovery,
 } from '../decentralized';
 
 // Rate limiter store
@@ -197,6 +201,12 @@ app.get('/health', async (c) => {
       pkg: { status: 'healthy' },
       ci: { status: 'healthy' },
       oauth3: { status: process.env.OAUTH3_AGENT_URL ? 'available' : 'not-configured' },
+      s3: { status: 'healthy' },
+      workers: { status: 'healthy' },
+      kms: { status: 'healthy' },
+      vpn: { status: 'healthy' },
+      scraping: { status: 'healthy' },
+      rpc: { status: 'healthy' },
     },
     backends: { available: backends, health: backendHealth },
   });
@@ -207,7 +217,11 @@ app.get('/', (c) => {
     name: 'DWS',
     description: 'Decentralized Web Services',
     version: '1.0.0',
-    services: ['storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'oauth3', 'api-marketplace', 'containers'],
+    services: [
+      'storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'oauth3', 
+      'api-marketplace', 'containers', 's3', 'workers', 'kms', 
+      'vpn', 'scraping', 'rpc'
+    ],
     endpoints: {
       storage: '/storage/*',
       compute: '/compute/*',
@@ -220,6 +234,12 @@ app.get('/', (c) => {
       containers: '/containers/*',
       a2a: '/a2a/*',
       mcp: '/mcp/*',
+      s3: '/s3/*',
+      workers: '/workers/*',
+      kms: '/kms/*',
+      vpn: '/vpn/*',
+      scraping: '/scraping/*',
+      rpc: '/rpc/*',
     },
   });
 });
@@ -235,6 +255,14 @@ app.route('/api', createAPIMarketplaceRouter());
 app.route('/containers', createContainerRouter());
 app.route('/a2a', createA2ARouter());
 app.route('/mcp', createMCPRouter());
+
+// New DWS services
+app.route('/s3', createS3Router(backendManager));
+app.route('/workers', createWorkersRouter(backendManager));
+app.route('/kms', createKMSRouter());
+app.route('/vpn', createVPNRouter());
+app.route('/scraping', createScrapingRouter());
+app.route('/rpc', createRPCRouter());
 
 // Initialize services
 initializeMarketplace();
@@ -312,9 +340,9 @@ app.get('/_internal/peers', (c) => {
   const peers = p2pCoordinator?.getPeers() ?? [];
   return c.json({ 
     peers: peers.map(p => ({ 
-      nodeId: p.nodeId, 
+      agentId: p.agentId.toString(), 
       endpoint: p.endpoint, 
-      status: p.status 
+      isBanned: p.isBanned,
     })) 
   });
 });
@@ -335,6 +363,12 @@ app.get('/.well-known/agent-card.json', (c) => {
       { name: 'pkg', endpoint: `${baseUrl}/pkg` },
       { name: 'ci', endpoint: `${baseUrl}/ci` },
       { name: 'oauth3', endpoint: `${baseUrl}/oauth3` },
+      { name: 's3', endpoint: `${baseUrl}/s3`, description: 'S3-compatible object storage' },
+      { name: 'workers', endpoint: `${baseUrl}/workers`, description: 'Serverless functions' },
+      { name: 'kms', endpoint: `${baseUrl}/kms`, description: 'Key management service' },
+      { name: 'vpn', endpoint: `${baseUrl}/vpn`, description: 'VPN/Proxy service' },
+      { name: 'scraping', endpoint: `${baseUrl}/scraping`, description: 'Web scraping service' },
+      { name: 'rpc', endpoint: `${baseUrl}/rpc`, description: 'Multi-chain RPC service' },
     ],
     a2aEndpoint: `${baseUrl}/a2a`,
     mcpEndpoint: `${baseUrl}/mcp`,

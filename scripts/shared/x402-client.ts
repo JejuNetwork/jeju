@@ -269,7 +269,7 @@ export const CHAIN_CONFIGS: Record<number, { name: string; rpcUrl: string; usdc:
   },
   420690: {
     name: 'Testnet',
-    rpcUrl: 'https://testnet-rpc.jeju.network',
+    rpcUrl: 'https://testnet-rpc.jejunetwork.org',
     usdc: '0x0000000000000000000000000000000000000000' as Address,
   },
   11155111: {

@@ -131,7 +131,7 @@ ingress:
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
   hosts:
-    - host: compute.jeju.network
+    - host: compute.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
@@ -145,7 +145,7 @@ ingress:
   tls:
     - secretName: compute-tls
       hosts:
-        - compute.jeju.network
+        - compute.jejunetwork.org
 
 # Service account
 serviceAccount:

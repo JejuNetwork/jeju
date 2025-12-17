@@ -10,7 +10,7 @@ spec:
   acme:
     # Staging server for testing
     server: https://acme-staging-v02.api.letsencrypt.org/directory
-    email: ops@jeju.network  # Change to your email
+    email: ops@jejunetwork.org  # Change to your email
     privateKeySecretRef:
       name: letsencrypt-staging
     solvers:
@@ -27,7 +27,7 @@ spec:
   acme:
     # Production server
     server: https://acme-v02.api.letsencrypt.org/directory
-    email: ops@jeju.network  # Change to your email
+    email: ops@jejunetwork.org  # Change to your email
     privateKeySecretRef:
       name: letsencrypt-prod
     solvers:

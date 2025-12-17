@@ -326,6 +326,9 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     /// @notice External GitHub reputation provider (optional)
     IGitHubReputationProvider public gitHubReputationProvider;
 
+    /// @notice Evidence registry for community evidence submissions
+    address public evidenceRegistry;
+
     /// @notice Track which reporter has reported which target (for quorum)
     mapping(address => mapping(address => bool)) public hasReportedTarget;
 
@@ -383,6 +386,10 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     event QuorumReached(address indexed target, bytes32 indexed caseId, uint256 reportCount);
 
     event EvidenceAdded(bytes32 indexed caseId, bytes32 evidenceHash, string note);
+
+    event EvidenceRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
+
+    event EvidenceResolutionFailed(bytes32 indexed caseId);
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              ERRORS
@@ -1172,6 +1179,20 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
 
         // Clear active case
         delete activeCase[banCase.target];
+
+        // Notify EvidenceRegistry of resolution (if configured)
+        if (evidenceRegistry != address(0)) {
+            // Call resolveCase on EvidenceRegistry
+            // Interface: resolveCase(bytes32 caseId, bool outcomeWasAction)
+            (bool success,) = evidenceRegistry.call(
+                abi.encodeWithSignature("resolveCase(bytes32,bool)", caseId, banUpheld)
+            );
+            // Don't revert if evidence registry call fails - resolution should succeed
+            if (!success) {
+                // Emit event for tracking failed evidence resolution
+                emit EvidenceResolutionFailed(caseId);
+            }
+        }
     }
 
     /**
@@ -1858,6 +1879,16 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         emit ConfigUpdated(
             "gitHubReputationProvider", uint256(uint160(address(gitHubReputationProvider))), uint256(uint160(provider))
         );
+    }
+
+    /**
+     * @notice Set the evidence registry contract
+     * @param registry Address of EvidenceRegistry contract
+     */
+    function setEvidenceRegistry(address registry) external onlyOwner {
+        address oldRegistry = evidenceRegistry;
+        evidenceRegistry = registry;
+        emit EvidenceRegistryUpdated(oldRegistry, registry);
     }
 
     function pause() external onlyOwner {

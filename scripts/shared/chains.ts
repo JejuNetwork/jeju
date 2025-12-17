@@ -8,13 +8,13 @@ export const PUBLIC_RPCS: Record<number, string> = {
   84532: 'https://sepolia.base.org',
   421614: 'https://sepolia-rollup.arbitrum.io/rpc',
   11155420: 'https://sepolia.optimism.io',
-  420690: 'https://testnet-rpc.jeju.network',
+  420690: 'https://testnet-rpc.jejunetwork.org',
   // Mainnets
   1: 'https://eth.llamarpc.com',
   8453: 'https://mainnet.base.org',
   42161: 'https://arb1.arbitrum.io/rpc',
   10: 'https://mainnet.optimism.io',
-  420691: 'https://rpc.jeju.network',
+  420691: 'https://rpc.jejunetwork.org',
 };
 
 export const CHAIN_NAMES: Record<number, string> = {

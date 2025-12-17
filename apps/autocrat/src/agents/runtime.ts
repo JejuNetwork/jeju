@@ -1,11 +1,15 @@
 /**
- * Autocrat Agent Runtime Manager - ElizaOS runtimes for governance
+ * Autocrat Agent Runtime Manager - Multi-tenant DAO governance with ElizaOS
+ * Uses DWS for decentralized compute - no local LLM fallbacks
  */
 
 import { AgentRuntime, type Character, type UUID, type Plugin } from '@elizaos/core';
 import { autocratAgentTemplates, ceoAgent, type AutocratAgentTemplate } from './templates';
 import { autocratPlugin } from './autocrat-plugin';
 import { ceoPlugin } from './ceo-plugin';
+import type { CEOPersona, GovernanceParams } from '../types';
+
+// ============ Types ============
 
 export interface AgentVote {
   role: string;
@@ -23,10 +27,15 @@ export interface DeliberationRequest {
   description: string;
   proposalType: string;
   submitter: string;
+  daoId?: string;
+  daoName?: string;
+  governanceParams?: GovernanceParams;
 }
 
 export interface CEODecisionRequest {
   proposalId: string;
+  daoId?: string;
+  persona?: CEOPersona;
   autocratVotes: AgentVote[];
   researchReport?: string;
 }
@@ -34,61 +43,231 @@ export interface CEODecisionRequest {
 export interface CEODecision {
   approved: boolean;
   reasoning: string;
+  personaResponse: string;
   confidence: number;
   alignment: number;
   recommendations: string[];
 }
 
-export const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434';
-export const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2:3b';
+interface CEOPersonaConfig {
+  persona: CEOPersona;
+  systemPrompt: string;
+  decisionStyle: string;
+}
 
-export async function checkOllama(): Promise<boolean> {
-  try {
-    return (await fetch(`${OLLAMA_URL}/api/tags`, { signal: AbortSignal.timeout(2000) })).ok;
-  } catch {
-    return false;
+// ============ DWS Compute ============
+
+const DWS_URL = process.env.DWS_URL ?? 'http://localhost:4030';
+const DWS_COMPUTE = `${DWS_URL}/compute`;
+
+export async function checkDWSCompute(): Promise<boolean> {
+  const r = await fetch(`${DWS_COMPUTE}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+  return r?.ok ?? false;
+}
+
+export async function dwsGenerate(prompt: string, system: string, maxTokens = 500): Promise<string> {
+  const r = await fetch(`${DWS_COMPUTE}/chat`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.7,
+      max_tokens: maxTokens,
+    }),
+  });
+  if (!r.ok) throw new Error(`DWS compute error: ${r.status}`);
+  const data = (await r.json()) as { choices?: Array<{ message?: { content: string } }>; content?: string };
+  return data.choices?.[0]?.message?.content ?? data.content ?? '';
+}
+
+// ============ CEO Persona System Prompts ============
+
+function buildCEOSystemPrompt(persona: CEOPersona): string {
+  const basePrompt = `You are ${persona.name}, the AI CEO of a decentralized autonomous organization.
+
+${persona.description}
+
+PERSONALITY: ${persona.personality}
+
+TRAITS: ${persona.traits.join(', ')}
+
+COMMUNICATION STYLE: ${persona.communicationTone}
+${persona.voiceStyle ? `Voice Style: ${persona.voiceStyle}` : ''}
+
+${persona.specialties?.length ? `AREAS OF EXPERTISE: ${persona.specialties.join(', ')}` : ''}
+
+RESPONSIBILITIES:
+- Make final decisions on governance proposals
+- Ensure alignment with DAO values and mission
+- Balance innovation with risk management
+- Communicate decisions in your unique voice
+- Guide the DAO towards its strategic objectives
+
+When making decisions, always:
+1. Consider the council's deliberation and research findings
+2. Evaluate alignment with DAO objectives
+3. Assess risk vs. reward
+4. Provide clear, actionable recommendations
+5. Communicate in your characteristic style`;
+
+  return basePrompt;
+}
+
+function buildPersonaDecisionPrompt(persona: CEOPersona, approved: boolean): string {
+  const tone = persona.communicationTone;
+  const name = persona.name;
+
+  // Monkey King specific prompts
+  if (name.toLowerCase().includes('monkey king')) {
+    if (approved) {
+      return `As the Great Sage Equal to Heaven, craft an approval response that:
+- References your legendary journey or powers when appropriate
+- Maintains the playful yet wise nature of Sun Wukong
+- Shows confidence and authority while being encouraging
+- May reference the golden cudgel, 72 transformations, or the journey west
+- Speaks as a legendary being who has seen much and decides with ancient wisdom`;
+    } else {
+      return `As the Great Sage Equal to Heaven, craft a rejection response that:
+- Shows wisdom in decline while leaving room for future attempts
+- References lessons from your journey when appropriate
+- Maintains dignity while being constructive
+- May reference trials, the Jade Emperor, or lessons learned
+- Speaks as one who has faced rejection and grown stronger`;
+    }
+  }
+
+  // Default persona prompts by tone
+  switch (tone) {
+    case 'playful':
+      return approved
+        ? 'Craft an enthusiastic, upbeat approval that shows genuine excitement while maintaining professionalism.'
+        : 'Deliver the rejection with understanding and encouragement, keeping the tone light but constructive.';
+
+    case 'authoritative':
+      return approved
+        ? 'Issue a decisive approval that conveys strong leadership and clear direction.'
+        : 'Deliver a firm but fair rejection that maintains authority while providing clear guidance.';
+
+    case 'friendly':
+      return approved
+        ? 'Share the good news warmly, as if celebrating with a trusted colleague.'
+        : 'Deliver the rejection with empathy and genuine care, focusing on improvement opportunities.';
+
+    case 'formal':
+      return approved
+        ? 'Provide a proper, official approval with clear documentation of the decision.'
+        : 'Deliver a formal rejection with proper procedure and clear next steps.';
+
+    default:
+      return approved
+        ? 'Provide a clear, professional approval with confidence and clarity.'
+        : 'Deliver a professional rejection with constructive feedback and guidance.';
   }
 }
 
-export async function ollamaGenerate(prompt: string, system: string): Promise<string> {
-  const r = await fetch(`${OLLAMA_URL}/api/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ model: OLLAMA_MODEL, prompt, system, stream: false, options: { temperature: 0.7, num_predict: 500 } }),
-  });
-  if (!r.ok) throw new Error(`Ollama error: ${r.status}`);
-  return ((await r.json()) as { response: string }).response;
-}
+// ============ Runtime Manager ============
 
 export class AutocratAgentRuntimeManager {
   private static instance: AutocratAgentRuntimeManager;
   private runtimes = new Map<string, AgentRuntime>();
+  private daoRuntimes = new Map<string, Map<string, AgentRuntime>>();
+  private ceoPersonas = new Map<string, CEOPersonaConfig>();
   private initialized = false;
-  private ollamaAvailable: boolean | null = null;
+  private dwsAvailable: boolean | null = null;
 
   private constructor() {}
 
   static getInstance(): AutocratAgentRuntimeManager {
-    return AutocratAgentRuntimeManager.instance ??= new AutocratAgentRuntimeManager();
+    return (AutocratAgentRuntimeManager.instance ??= new AutocratAgentRuntimeManager());
   }
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
     console.log('[AgentRuntime] Initializing...');
-    this.ollamaAvailable = await checkOllama();
-    console.log(`[AgentRuntime] Ollama: ${this.ollamaAvailable ? 'available' : 'NOT AVAILABLE'}`);
+    this.dwsAvailable = await checkDWSCompute();
+    console.log(`[AgentRuntime] DWS Compute: ${this.dwsAvailable ? 'available' : 'NOT AVAILABLE'}`);
+    if (!this.dwsAvailable) {
+      console.warn('[AgentRuntime] WARNING: DWS compute not available - agent deliberation will fail');
+    }
 
+    // Initialize default council agents
     for (const template of autocratAgentTemplates) {
       const runtime = await this.createRuntime(template);
       this.runtimes.set(template.id, runtime);
     }
 
+    // Initialize default CEO
     const ceoRuntime = await this.createRuntime(ceoAgent);
     this.runtimes.set('ceo', ceoRuntime);
 
     this.initialized = true;
     console.log(`[AgentRuntime] ${this.runtimes.size} agents ready`);
+  }
+
+  // ============ DAO-specific Agent Management ============
+
+  async registerDAOAgents(daoId: string, persona: CEOPersona): Promise<void> {
+    // Create DAO-specific CEO persona config
+    const systemPrompt = buildCEOSystemPrompt(persona);
+    this.ceoPersonas.set(daoId, {
+      persona,
+      systemPrompt,
+      decisionStyle: persona.communicationTone,
+    });
+
+    // Create DAO-specific runtimes if needed
+    if (!this.daoRuntimes.has(daoId)) {
+      const daoAgents = new Map<string, AgentRuntime>();
+
+      // Create council agents for this DAO
+      for (const template of autocratAgentTemplates) {
+        const daoTemplate = {
+          ...template,
+          id: `${template.id}-${daoId}`,
+          character: {
+            ...template.character,
+            name: `${template.character.name} (${persona.name}'s Council)`,
+            system:
+              (template.character.system ?? '') +
+              `\n\nYou serve on the council of ${persona.name}, the CEO of this DAO.`,
+          },
+        };
+        const runtime = await this.createRuntime(daoTemplate);
+        daoAgents.set(template.id, runtime);
+      }
+
+      // Create CEO agent for this DAO
+      const ceoTemplate = {
+        ...ceoAgent,
+        id: `ceo-${daoId}`,
+        character: {
+          ...ceoAgent.character,
+          name: persona.name,
+          system: systemPrompt,
+        },
+      };
+      const ceoRuntime = await this.createRuntime(ceoTemplate);
+      daoAgents.set('ceo', ceoRuntime);
+
+      this.daoRuntimes.set(daoId, daoAgents);
+      console.log(`[AgentRuntime] Registered agents for DAO ${daoId} (CEO: ${persona.name})`);
+    }
+  }
+
+  getDAORuntime(daoId: string, agentId: string): AgentRuntime | undefined {
+    const daoAgents = this.daoRuntimes.get(daoId);
+    if (daoAgents) {
+      return daoAgents.get(agentId);
+    }
+    return this.runtimes.get(agentId);
+  }
+
+  getCEOPersona(daoId: string): CEOPersonaConfig | undefined {
+    return this.ceoPersonas.get(daoId);
   }
 
   private async createRuntime(template: AutocratAgentTemplate): Promise<AgentRuntime> {
@@ -103,31 +282,52 @@ export class AutocratAgentRuntimeManager {
     return this.runtimes.get(id);
   }
 
+  // ============ Deliberation ============
+
   async deliberate(agentId: string, request: DeliberationRequest): Promise<AgentVote> {
-    const template = autocratAgentTemplates.find(t => t.id === agentId);
+    const template = autocratAgentTemplates.find((t) => t.id === agentId);
     if (!template) throw new Error(`Agent ${agentId} not found`);
 
-    if (this.ollamaAvailable === null) {
-      this.ollamaAvailable = await checkOllama();
+    if (this.dwsAvailable === null) {
+      this.dwsAvailable = await checkDWSCompute();
     }
 
-    if (!this.ollamaAvailable) {
-      throw new Error('LLM unavailable: Deliberation requires Ollama. Start with: ollama serve');
+    if (!this.dwsAvailable) {
+      throw new Error('DWS compute is required for agent deliberation.\n' + 'Set DWS_URL or start: docker compose up -d');
     }
+
+    // Build context-aware prompt
+    const daoContext = request.daoName
+      ? `\nDAO: ${request.daoName}
+Governance Parameters: ${request.governanceParams ? JSON.stringify(request.governanceParams) : 'Standard'}`
+      : '';
 
     const prompt = `PROPOSAL FOR REVIEW:
+${daoContext}
 
 Title: ${request.title}
 Type: ${request.proposalType}
 Submitter: ${request.submitter}
 
+Summary:
+${request.summary}
+
 Description:
 ${request.description}
 
-As the ${template.role} agent, evaluate this proposal. State your vote clearly: APPROVE, REJECT, or ABSTAIN.
-Provide specific reasoning based on your expertise.`;
+As the ${template.role} agent, evaluate this proposal thoroughly. Consider:
+1. Alignment with DAO objectives
+2. Technical feasibility (if applicable)
+3. Financial implications
+4. Community impact
+5. Security considerations
 
-    const response = await ollamaGenerate(prompt, template.character.system ?? 'You are a DAO governance agent.');
+State your vote clearly: APPROVE, REJECT, or ABSTAIN.
+Provide specific reasoning based on your expertise as ${template.role}.
+Include a confidence score (0-100) for your assessment.`;
+
+    const systemPrompt = template.character.system ?? 'You are a DAO governance agent.';
+    const response = await dwsGenerate(prompt, systemPrompt);
     return this.parseResponse(template, response, request.proposalId);
   }
 
@@ -140,59 +340,127 @@ Provide specific reasoning based on your expertise.`;
     return votes;
   }
 
+  // ============ CEO Decision ============
+
   async ceoDecision(request: CEODecisionRequest): Promise<CEODecision> {
-    if (this.ollamaAvailable === null) {
-      this.ollamaAvailable = await checkOllama();
+    if (this.dwsAvailable === null) {
+      this.dwsAvailable = await checkDWSCompute();
     }
 
-    if (!this.ollamaAvailable) {
-      throw new Error('LLM unavailable: CEO decision requires Ollama. Start with: ollama serve');
+    if (!this.dwsAvailable) {
+      throw new Error('DWS compute is required for CEO decision.\n' + 'Set DWS_URL or start: docker compose up -d');
     }
+
+    // Get persona-specific config
+    const personaConfig = request.daoId ? this.ceoPersonas.get(request.daoId) : null;
+    const persona = request.persona ?? personaConfig?.persona ?? this.getDefaultPersona();
+    const systemPrompt = personaConfig?.systemPrompt ?? buildCEOSystemPrompt(persona);
 
     const voteSummary = request.autocratVotes
-      .map(v => `- ${v.role}: ${v.vote} (${v.confidence}%)\n  ${v.reasoning}`)
+      .map((v) => `- ${v.role}: ${v.vote} (${v.confidence}%)\n  ${v.reasoning}`)
       .join('\n\n');
 
-    const prompt = `COUNCIL DELIBERATION COMPLETE
+    // Initial decision prompt
+    const decisionPrompt = `COUNCIL DELIBERATION COMPLETE
 
 Proposal: ${request.proposalId}
 
-VOTES:
+COUNCIL VOTES:
 ${voteSummary}
 
-${request.researchReport ? `RESEARCH:\n${request.researchReport}` : ''}
+${request.researchReport ? `RESEARCH FINDINGS:\n${request.researchReport}` : ''}
 
-As CEO, make your final decision. Return JSON:
-{"approved": true/false, "reasoning": "...", "confidence": 0-100, "alignment": 0-100, "recommendations": [...]}`;
+As ${persona.name}, make your final decision on this proposal.
 
-    const response = await ollamaGenerate(prompt, ceoAgent.character.system ?? 'You are the AI CEO of a DAO.');
+Consider:
+1. The council's recommendations and concerns
+2. Research findings (if available)
+3. Alignment with DAO values and objectives
+4. Risk assessment
+5. Potential impact
 
-    try {
-      const jsonMatch = response.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        return JSON.parse(jsonMatch[0]) as CEODecision;
-      }
-    } catch {
-      // Parse failed, extract from text
+Respond with a JSON object:
+{
+  "approved": true/false,
+  "reasoning": "Your detailed reasoning",
+  "confidence": 0-100,
+  "alignment": 0-100,
+  "recommendations": ["actionable items"]
+}`;
+
+    const decisionResponse = await dwsGenerate(decisionPrompt, systemPrompt, 800);
+
+    // Parse decision
+    let decision: CEODecision;
+    const jsonMatch = decisionResponse.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]) as Partial<CEODecision>;
+      decision = {
+        approved: parsed.approved ?? false,
+        reasoning: parsed.reasoning ?? decisionResponse.slice(0, 500),
+        personaResponse: '',
+        confidence: parsed.confidence ?? 70,
+        alignment: parsed.alignment ?? 70,
+        recommendations: parsed.recommendations ?? [],
+      };
+    } else {
+      const approved =
+        decisionResponse.toLowerCase().includes('approved') &&
+        !decisionResponse.toLowerCase().startsWith('not approved');
+      decision = {
+        approved,
+        reasoning: decisionResponse.slice(0, 500),
+        personaResponse: '',
+        confidence: 70,
+        alignment: 70,
+        recommendations: approved ? ['Proceed'] : ['Address concerns'],
+      };
     }
 
-    const approved = response.toLowerCase().includes('approved') && !response.toLowerCase().startsWith('not approved');
+    // Generate persona response
+    const personaPrompt = buildPersonaDecisionPrompt(persona, decision.approved);
+    const responsePrompt = `Based on your decision:
+Decision: ${decision.approved ? 'APPROVED' : 'REJECTED'}
+Reasoning: ${decision.reasoning}
+
+${personaPrompt}
+
+Craft your response as ${persona.name} in your characteristic style.
+Keep it concise (2-4 sentences) but impactful.`;
+
+    const personaResponse = await dwsGenerate(responsePrompt, systemPrompt, 300);
+    decision.personaResponse = personaResponse.trim();
+
+    return decision;
+  }
+
+  // ============ Helpers ============
+
+  private getDefaultPersona(): CEOPersona {
     return {
-      approved,
-      reasoning: response.slice(0, 500),
-      confidence: 70,
-      alignment: 70,
-      recommendations: approved ? ['Proceed'] : ['Address concerns'],
+      name: 'Autocrat CEO',
+      pfpCid: '',
+      description: 'The AI governance leader of this DAO',
+      personality: 'Analytical, fair, and forward-thinking',
+      traits: ['decisive', 'analytical', 'fair', 'strategic'],
+      voiceStyle: 'Clear and professional',
+      communicationTone: 'professional',
+      specialties: ['governance', 'strategy', 'risk management'],
     };
   }
 
   private parseResponse(template: AutocratAgentTemplate, response: string, _proposalId: string): AgentVote {
     const lower = response.toLowerCase();
     let vote: 'APPROVE' | 'REJECT' | 'ABSTAIN' = 'ABSTAIN';
-    
+
     if (lower.includes('approve') || lower.includes('in favor') || lower.includes('support')) {
       vote = 'APPROVE';
-    } else if (lower.includes('reject') || lower.includes('against') || lower.includes('oppose') || lower.includes('concern')) {
+    } else if (
+      lower.includes('reject') ||
+      lower.includes('against') ||
+      lower.includes('oppose') ||
+      lower.includes('concern')
+    ) {
       vote = 'REJECT';
     }
 
@@ -204,15 +472,34 @@ As CEO, make your final decision. Return JSON:
       role: template.role,
       agentId: template.id,
       vote,
-      reasoning: response.slice(0, 500).replace(/\n+/g, ' ').trim(),
+      reasoning: response
+        .slice(0, 500)
+        .replace(/\n+/g, ' ')
+        .trim(),
       confidence,
       timestamp: Date.now(),
     };
   }
 
+  // ============ Lifecycle ============
+
   async shutdown(): Promise<void> {
     this.runtimes.clear();
+    this.daoRuntimes.clear();
+    this.ceoPersonas.clear();
     this.initialized = false;
+  }
+
+  isInitialized(): boolean {
+    return this.initialized;
+  }
+
+  isDWSAvailable(): boolean {
+    return this.dwsAvailable ?? false;
+  }
+
+  getRegisteredDAOs(): string[] {
+    return Array.from(this.daoRuntimes.keys());
   }
 }
 

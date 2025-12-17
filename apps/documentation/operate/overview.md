@@ -126,6 +126,6 @@ Operators can be slashed for:
 
 - [Discord #operators](https://discord.gg/elizaos)
 - [GitHub Issues](https://github.com/elizaos/jeju/issues)
-- [Status Page](https://status.jeju.network)
+- [Status Page](https://status.jejunetwork.org)
 
 

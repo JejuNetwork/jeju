@@ -59,6 +59,8 @@
     "@jejunetwork/oauth3": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/ui": "workspace:*",
+    "@jejunetwork/eliza-plugin": "workspace:*",
     "@ledgerhq/hw-app-eth": "^7.0.0",
     "@ledgerhq/hw-transport": "^6.31.13",
     "@ledgerhq/hw-transport-webhid": "^6.30.9",

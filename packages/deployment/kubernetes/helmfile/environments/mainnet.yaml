@@ -184,8 +184,8 @@ l1_chain_id: "1"
 l2_chain_id: "420691"
 
 # Domains
-rpc_domain: rpc.jeju.network
-ws_domain: ws.jeju.network
+rpc_domain: rpc.jejunetwork.org
+ws_domain: ws.jejunetwork.org
 
 # Rate limiting (production)
 rate_limit:

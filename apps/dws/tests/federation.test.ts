@@ -41,7 +41,7 @@ describe('Federation', () => {
     });
 
     federation = new FederationManager({
-      instanceUrl: 'https://git.jeju.network',
+      instanceUrl: 'https://git.jejunetwork.org',
       instanceName: 'Jeju Git',
       instanceDescription: 'Decentralized Git hosting',
       repoManager: mockRepoManager as never,
@@ -69,15 +69,15 @@ describe('Federation', () => {
 
   describe('WebFinger', () => {
     it('should resolve acct: format', () => {
-      const result = federation.getWebFinger('acct:testuser@git.jeju.network');
+      const result = federation.getWebFinger('acct:testuser@git.jejunetwork.org');
 
       expect(result).not.toBeNull();
-      expect(result?.subject).toBe('acct:testuser@git.jeju.network');
+      expect(result?.subject).toBe('acct:testuser@git.jejunetwork.org');
       expect(result?.links?.length).toBeGreaterThan(0);
     });
 
     it('should resolve user URL format', () => {
-      const result = federation.getWebFinger('https://git.jeju.network/users/testuser');
+      const result = federation.getWebFinger('https://git.jejunetwork.org/users/testuser');
 
       expect(result).not.toBeNull();
       expect(result?.subject).toContain('testuser');
@@ -194,8 +194,8 @@ describe('Federation', () => {
 
     it('should create Follow activity', () => {
       const activity = federation.createFollowActivity(
-        'https://git.jeju.network/users/alice',
-        'https://git.jeju.network/users/bob'
+        'https://git.jejunetwork.org/users/alice',
+        'https://git.jejunetwork.org/users/bob'
       );
 
       expect(activity.type).toBe('Follow');
@@ -211,11 +211,11 @@ describe('Federation', () => {
         id: 'https://other.instance/activities/123',
         type: 'Follow' as const,
         actor: 'https://other.instance/users/alice',
-        object: 'https://git.jeju.network/users/testuser',
+        object: 'https://git.jejunetwork.org/users/testuser',
       };
 
       const result = await federation.handleInboxActivity(
-        'https://git.jeju.network/users/testuser',
+        'https://git.jejunetwork.org/users/testuser',
         followActivity
       );
 
@@ -229,11 +229,11 @@ describe('Federation', () => {
         id: 'https://other.instance/activities/456',
         type: 'Like' as const,
         actor: 'https://other.instance/users/bob',
-        object: 'https://git.jeju.network/repos/testuser/test-repo',
+        object: 'https://git.jejunetwork.org/repos/testuser/test-repo',
       };
 
       const result = await federation.handleInboxActivity(
-        'https://git.jeju.network/repos/testuser/test-repo',
+        'https://git.jejunetwork.org/repos/testuser/test-repo',
         likeActivity
       );
 
@@ -243,7 +243,7 @@ describe('Federation', () => {
 
   describe('Outbox', () => {
     it('should return empty outbox for new actor', () => {
-      const outbox = federation.getOutboxActivities('https://git.jeju.network/users/testuser');
+      const outbox = federation.getOutboxActivities('https://git.jejunetwork.org/users/testuser');
 
       expect(outbox.type).toBe('OrderedCollection');
       expect(outbox.totalItems).toBe(0);

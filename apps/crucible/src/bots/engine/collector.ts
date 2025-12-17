@@ -65,7 +65,7 @@ const jejuChain: Chain = {
   name: 'Network',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://rpc.jeju.network'] },
+    default: { http: ['https://rpc.jejunetwork.org'] },
   },
 };
 
@@ -74,7 +74,7 @@ const jejuTestnet: Chain = {
   name: 'Testnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['https://testnet-rpc.jeju.network'] },
+    default: { http: ['https://testnet-rpc.jejunetwork.org'] },
   },
 };
 

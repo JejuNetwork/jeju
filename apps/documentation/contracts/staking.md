@@ -18,7 +18,7 @@ Each node entry tracks the operator address, endpoint URL, staked token and amou
 # Register node with JEJU stake
 cast send $NODE_STAKING_MANAGER \
   "register(string,address,uint256)" \
-  "https://mynode.jeju.network" \
+  "https://mynode.jejunetwork.org" \
   $JEJU_TOKEN \
   $(cast --to-wei 1000) \
   --rpc-url $RPC_URL \

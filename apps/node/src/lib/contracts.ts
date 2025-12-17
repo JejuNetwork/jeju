@@ -24,6 +24,7 @@ function loadAddressesFromDeployment(network: 'testnet' | 'mainnet'): ContractAd
       inferenceServing: (data.InferenceServing || data.inferenceServing || '0x0000000000000000000000000000000000000000') as Address,
       triggerRegistry: (data.TriggerRegistry || data.triggerRegistry || '0x0000000000000000000000000000000000000000') as Address,
       storageMarket: (data.StorageMarket || data.storageMarket || '0x0000000000000000000000000000000000000000') as Address,
+      contentRegistry: (data.ContentRegistry || data.contentRegistry || '0x0000000000000000000000000000000000000000') as Address,
       oracleStakingManager: (data.OracleStakingManager || data.oracleStakingManager || '0x0000000000000000000000000000000000000000') as Address,
       feedRegistry: (data.FeedRegistry || data.feedRegistry || '0x0000000000000000000000000000000000000000') as Address,
       reportVerifier: (data.ReportVerifier || data.reportVerifier || '0x0000000000000000000000000000000000000000') as Address,
@@ -60,6 +61,7 @@ export interface ContractAddresses {
   inferenceServing: Address;
   triggerRegistry: Address;
   storageMarket: Address;
+  contentRegistry: Address;
   oracleStakingManager: Address;
   feedRegistry: Address;
   reportVerifier: Address;
@@ -85,6 +87,7 @@ export function getContractAddresses(chainId: number): ContractAddresses {
       inferenceServing: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9' as Address,
       triggerRegistry: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707' as Address,
       storageMarket: '0x0165878A594ca255338adfa4d48449f69242Eb8F' as Address,
+      contentRegistry: '0x68B1D87F95878fE05B998F19b66F4baba5De1aed' as Address,
       oracleStakingManager: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853' as Address,
       feedRegistry: '0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6' as Address,
       reportVerifier: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318' as Address,
@@ -109,6 +112,7 @@ export function getContractAddresses(chainId: number): ContractAddresses {
       inferenceServing: (process.env.INFERENCE_SERVING || '0x0000000000000000000000000000000000000000') as Address,
       triggerRegistry: (process.env.TRIGGER_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
       storageMarket: (process.env.STORAGE_MARKET || '0x0000000000000000000000000000000000000000') as Address,
+      contentRegistry: (process.env.CONTENT_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
       oracleStakingManager: (process.env.ORACLE_STAKING_MANAGER || '0x0000000000000000000000000000000000000000') as Address,
       feedRegistry: (process.env.FEED_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
       reportVerifier: (process.env.REPORT_VERIFIER || '0x0000000000000000000000000000000000000000') as Address,

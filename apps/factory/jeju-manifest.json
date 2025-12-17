@@ -37,7 +37,7 @@
   "jns": {
     "name": "factory.jeju",
     "description": "Developer coordination and collaboration hub",
-    "url": "https://factory.jeju.network"
+    "url": "https://factory.jejunetwork.org"
   },
   "healthCheck": {
     "url": "http://localhost:4009/api/health",

@@ -14,8 +14,8 @@ export interface RPCEndpoint {
 // Default endpoints - update with actual IPs after deployment
 const DEFAULT_ENDPOINTS: RPCEndpoint[] = [
   // Primary DNS endpoints
-  { url: 'https://rpc.jeju.network', priority: 1, type: 'dns', region: 'global' },
-  { url: 'https://testnet-rpc.jeju.network', priority: 1, type: 'dns', region: 'global' },
+  { url: 'https://rpc.jejunetwork.org', priority: 1, type: 'dns', region: 'global' },
+  { url: 'https://testnet-rpc.jejunetwork.org', priority: 1, type: 'dns', region: 'global' },
   
   // Direct IP fallbacks (update after deployment)
   // AWS us-east-1

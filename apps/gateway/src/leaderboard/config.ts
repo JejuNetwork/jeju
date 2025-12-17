@@ -64,8 +64,8 @@ export const LEADERBOARD_DOMAIN = {
 
 function getDomainDefault(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'leaderboard.jeju.network';
-    case 'testnet': return 'testnet-leaderboard.jeju.network';
+    case 'mainnet': return 'leaderboard.jejunetwork.org';
+    case 'testnet': return 'testnet-leaderboard.jejunetwork.org';
     default: return 'localhost:4001';
   }
 }

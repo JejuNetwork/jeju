@@ -22,11 +22,11 @@ Add to your MCP client configuration:
 {
   "mcpServers": {
     "jeju-gateway": {
-      "url": "https://gateway.jeju.network/mcp",
+      "url": "https://gateway.jejunetwork.org/mcp",
       "transport": "http"
     },
     "jeju-indexer": {
-      "url": "https://indexer.jeju.network/mcp",
+      "url": "https://indexer.jejunetwork.org/mcp",
       "transport": "http"
     }
   }

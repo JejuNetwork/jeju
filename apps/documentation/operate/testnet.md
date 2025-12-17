@@ -7,10 +7,10 @@ Deploy to Jeju testnet for staging.
 | Property | Value |
 |----------|-------|
 | Chain ID | `420690` |
-| RPC | `https://testnet-rpc.jeju.network` |
-| WebSocket | `wss://testnet-ws.jeju.network` |
-| Explorer | `https://testnet-explorer.jeju.network` |
-| Indexer | `https://testnet-indexer.jeju.network/graphql` |
+| RPC | `https://testnet-rpc.jejunetwork.org` |
+| WebSocket | `wss://testnet-ws.jejunetwork.org` |
+| Explorer | `https://testnet-explorer.jejunetwork.org` |
+| Indexer | `https://testnet-indexer.jejunetwork.org/graphql` |
 | L1 Network | Sepolia |
 
 ## Prerequisites
@@ -37,7 +37,7 @@ ETHERSCAN_API_KEY=...
 ## Get Testnet ETH
 
 1. Get Sepolia ETH from [sepoliafaucet.com](https://sepoliafaucet.com)
-2. Bridge to Jeju testnet at [testnet-gateway.jeju.network](https://testnet-gateway.jeju.network)
+2. Bridge to Jeju testnet at [testnet-gateway.jejunetwork.org](https://testnet-gateway.jejunetwork.org)
 
 ## Deploy
 
@@ -62,7 +62,7 @@ helmfile -e testnet sync
 # 3. Contracts
 cd ../../../packages/contracts
 forge script script/DeployTestnet.s.sol \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --broadcast --verify
 
 # 4. Verify
@@ -76,12 +76,12 @@ cd packages/contracts
 
 # All contracts
 forge script script/DeployTestnet.s.sol \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --broadcast --verify
 
 # Specific system
 forge script script/DeployOIF.s.sol \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --broadcast --verify
 ```
 
@@ -99,8 +99,8 @@ git commit -am "chore: update testnet addresses"
 
 | Service | URL |
 |---------|-----|
-| Prometheus | `https://testnet-prometheus.jeju.network` |
-| Grafana | `https://testnet-grafana.jeju.network` |
+| Prometheus | `https://testnet-prometheus.jejunetwork.org` |
+| Grafana | `https://testnet-grafana.jejunetwork.org` |
 
 ## Troubleshooting
 

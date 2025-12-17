@@ -14,19 +14,19 @@ ingress:
     alb.ingress.kubernetes.io/wafv2-acl-arn: ""  # No WAF for testnet
     alb.ingress.kubernetes.io/shield-advanced-protection: "false"
   hosts:
-    - host: testnet-rpc.jeju.network
+    - host: testnet-rpc.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
-    - host: testnet-ws.jeju.network
+    - host: testnet-ws.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: testnet-rpc-jeju-network-tls
+    - secretName: testnet-rpc-jejunetwork-org-tls
       hosts:
-        - testnet-rpc.jeju.network
-        - testnet-ws.jeju.network
+        - testnet-rpc.jejunetwork.org
+        - testnet-ws.jejunetwork.org
 
 autoscaling:
   enabled: false

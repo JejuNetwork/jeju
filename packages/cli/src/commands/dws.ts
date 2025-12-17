@@ -239,8 +239,8 @@ async function startDws(options: { network: string; port: string }): Promise<voi
   const rpcUrl = options.network === 'localnet'
     ? `http://localhost:${DEFAULT_PORTS.l2Rpc}`
     : options.network === 'testnet'
-      ? 'https://rpc.testnet.jeju.network'
-      : 'https://rpc.jeju.network';
+      ? 'https://testnet-rpc.jejunetwork.org'
+      : 'https://rpc.jejunetwork.org';
 
   logger.step(`Starting DWS server on port ${options.port}...`);
   logger.keyValue('Network', options.network);

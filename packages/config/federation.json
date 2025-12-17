@@ -23,9 +23,9 @@
     "jeju-testnet": {
       "chainId": 420690,
       "name": "Jeju Testnet",
-      "rpcUrl": "https://testnet-rpc.jeju.network",
-      "explorerUrl": "https://testnet-explorer.jeju.network",
-      "wsUrl": "wss://testnet-ws.jeju.network",
+      "rpcUrl": "https://testnet-rpc.jejunetwork.org",
+      "explorerUrl": "https://testnet-explorer.jejunetwork.org",
+      "wsUrl": "wss://testnet-ws.jejunetwork.org",
       "contracts": {
         "identityRegistry": "",
         "solverRegistry": "",
@@ -44,9 +44,9 @@
     "jeju-mainnet": {
       "chainId": 420691,
       "name": "Jeju Mainnet",
-      "rpcUrl": "https://rpc.jeju.network",
-      "explorerUrl": "https://explorer.jeju.network",
-      "wsUrl": "wss://ws.jeju.network",
+      "rpcUrl": "https://rpc.jejunetwork.org",
+      "explorerUrl": "https://explorer.jejunetwork.org",
+      "wsUrl": "wss://ws.jejunetwork.org",
       "contracts": {
         "identityRegistry": "",
         "solverRegistry": "",
@@ -89,8 +89,8 @@
 
   "discovery": {
     "endpoints": [
-      "https://federation.jeju.network/api/networks",
-      "https://api.jeju.network/federation/networks"
+      "https://federation.jejunetwork.org/api/networks",
+      "https://api.jejunetwork.org/federation/networks"
     ],
     "refreshIntervalSeconds": 300,
     "cacheEnabled": true

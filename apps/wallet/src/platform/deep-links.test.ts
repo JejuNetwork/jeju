@@ -23,7 +23,7 @@ describe('Deep Links', () => {
     });
 
     it('should parse universal links', () => {
-      const result = parseDeepLink('https://wallet.jeju.network/swap?token=USDC');
+      const result = parseDeepLink('https://wallet.jejunetwork.org/swap?token=USDC');
       
       expect(result).not.toBeNull();
       expect(result?.action).toBe('swap');
@@ -65,12 +65,12 @@ describe('Deep Links', () => {
   describe('buildUniversalLink', () => {
     it('should build universal link', () => {
       const link = buildUniversalLink('send');
-      expect(link).toBe('https://wallet.jeju.network/send');
+      expect(link).toBe('https://wallet.jejunetwork.org/send');
     });
 
     it('should build universal link with params', () => {
       const link = buildUniversalLink('send', { to: '0x1234' });
-      expect(link).toContain('https://wallet.jeju.network/send');
+      expect(link).toContain('https://wallet.jejunetwork.org/send');
       expect(link).toContain('to=0x1234');
     });
   });
@@ -85,7 +85,7 @@ describe('Deep Links', () => {
         memo: 'test payment',
       });
 
-      expect(link).toContain('https://wallet.jeju.network/send');
+      expect(link).toContain('https://wallet.jejunetwork.org/send');
       expect(link).toContain('to=0x1234');
       expect(link).toContain('amount=1.0');
       expect(link).toContain('token=ETH');

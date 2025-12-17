@@ -7,12 +7,18 @@ variable "environment" {
 }
 
 variable "domain_name" {
-  description = "Primary domain name (e.g., jeju.network)"
+  description = "Primary domain name (e.g., jejunetwork.org)"
   type        = string
 }
 
 variable "create_zone" {
   description = "Whether to create a new hosted zone (false if zone already exists)"
+  type        = bool
+  default     = true
+}
+
+variable "enable_local_dns" {
+  description = "Enable local development DNS (*.local.domain -> 127.0.0.1)"
   type        = bool
   default     = true
 }
@@ -55,6 +61,29 @@ locals {
   nameservers = var.create_zone ? aws_route53_zone.main[0].name_servers : data.aws_route53_zone.existing[0].name_servers
 }
 
+# =============================================================================
+# LOCAL DEVELOPMENT DNS
+# Points *.local.domain to 127.0.0.1 for zero-config local development
+# Enables: gateway.local.jejunetwork.org, bazaar.local.jejunetwork.org, etc.
+# =============================================================================
+resource "aws_route53_record" "local_wildcard" {
+  count   = var.enable_local_dns ? 1 : 0
+  zone_id = local.zone_id
+  name    = "*.local"
+  type    = "A"
+  ttl     = 300
+  records = ["127.0.0.1"]
+}
+
+resource "aws_route53_record" "local_root" {
+  count   = var.enable_local_dns ? 1 : 0
+  zone_id = local.zone_id
+  name    = "local"
+  type    = "A"
+  ttl     = 300
+  records = ["127.0.0.1"]
+}
+
 # Outputs
 output "zone_id" {
   description = "Route53 zone ID"
@@ -74,5 +103,17 @@ output "nameservers" {
 output "zone_arn" {
   description = "Route53 zone ARN"
   value       = var.create_zone ? aws_route53_zone.main[0].arn : data.aws_route53_zone.existing[0].arn
+}
+
+output "local_dev_urls" {
+  description = "Local development URLs (requires local reverse proxy)"
+  value = var.enable_local_dns ? {
+    gateway  = "http://gateway.local.${var.domain_name}"
+    bazaar   = "http://bazaar.local.${var.domain_name}"
+    docs     = "http://docs.local.${var.domain_name}"
+    indexer  = "http://indexer.local.${var.domain_name}"
+    rpc      = "http://rpc.local.${var.domain_name}"
+    crucible = "http://crucible.local.${var.domain_name}"
+  } : {}
 }
 

@@ -59,7 +59,7 @@ variable "availability_zones" {
 variable "domain_name" {
   description = "Base domain name"
   type        = string
-  default     = "jeju.network"
+  default     = "jejunetwork.org"
 }
 
 variable "create_route53_zone" {

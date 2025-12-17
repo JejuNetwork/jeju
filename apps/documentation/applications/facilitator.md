@@ -2,7 +2,7 @@
 
 Facilitator is the x402 payment verification and settlement service. When services require payment via the x402 protocol, the Facilitator verifies EIP-712 signatures and executes on-chain settlement.
 
-**URLs:** Localnet at http://127.0.0.1:3402, testnet at https://facilitator-testnet.jeju.network, mainnet at https://facilitator.jeju.network
+**URLs:** Localnet at http://127.0.0.1:3402, testnet at https://facilitator-testnet.jejunetwork.org, mainnet at https://facilitator.jejunetwork.org
 
 ## How It Works
 

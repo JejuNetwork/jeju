@@ -229,7 +229,7 @@ resource "aws_lb_listener_rule" "rpc" {
 
   condition {
     host_header {
-      values = ["rpc.${var.environment == "mainnet" ? "" : "${var.environment}."}jeju.network"]
+      values = ["rpc.${var.environment == "mainnet" ? "" : "${var.environment}."}jejunetwork.org"]
     }
   }
 }
@@ -247,7 +247,7 @@ resource "aws_lb_listener_rule" "indexer" {
 
   condition {
     host_header {
-      values = ["indexer.${var.environment == "mainnet" ? "" : "${var.environment}."}jeju.network"]
+      values = ["indexer.${var.environment == "mainnet" ? "" : "${var.environment}."}jejunetwork.org"]
     }
   }
 }

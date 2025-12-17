@@ -1,8 +1,17 @@
 /**
- * Council DAO Types
+ * Council DAO Types - Multi-tenant Version
  */
 
 import type { Address } from 'viem';
+
+// ============ Enums ============
+
+export enum DAOStatus {
+  PENDING = 0,
+  ACTIVE = 1,
+  PAUSED = 2,
+  ARCHIVED = 3,
+}
 
 export enum ProposalStatus {
   DRAFT = 0,
@@ -34,16 +43,190 @@ export enum ProposalType {
   EMERGENCY = 9,
 }
 
+export enum CasualProposalCategory {
+  OPINION = 'opinion',
+  SUGGESTION = 'suggestion',
+  PROPOSAL = 'proposal',
+  MEMBER_APPLICATION = 'member_application',
+  PACKAGE_FUNDING = 'package_funding',
+  REPO_FUNDING = 'repo_funding',
+  PARAMETER_CHANGE = 'parameter_change',
+  CEO_MODEL_CHANGE = 'ceo_model_change',
+}
+
+export enum FundingStatus {
+  PROPOSED = 0,
+  ACCEPTED = 1,
+  ACTIVE = 2,
+  PAUSED = 3,
+  COMPLETED = 4,
+  REJECTED = 5,
+}
+
+// ============ DAO Types ============
+
+export interface CEOPersona {
+  name: string;
+  pfpCid: string;
+  description: string;
+  personality: string;
+  traits: string[];
+  voiceStyle: string;
+  communicationTone: 'formal' | 'friendly' | 'professional' | 'playful' | 'authoritative';
+  specialties: string[];
+}
+
+export interface CouncilMemberConfig {
+  member: Address;
+  agentId: bigint;
+  role: string;
+  weight: number;
+  addedAt: number;
+  isActive: boolean;
+}
+
+export interface GovernanceParams {
+  minQualityScore: number;
+  councilVotingPeriod: number;
+  gracePeriod: number;
+  minProposalStake: bigint;
+  quorumBps: number;
+}
+
+export interface DAO {
+  daoId: string;
+  name: string;
+  displayName: string;
+  description: string;
+  treasury: Address;
+  council: Address;
+  ceoAgent: Address;
+  feeConfig: Address;
+  ceoModelId: string;
+  manifestCid: string;
+  status: DAOStatus;
+  createdAt: number;
+  updatedAt: number;
+  creator: Address;
+}
+
+export interface DAOFull {
+  dao: DAO;
+  ceoPersona: CEOPersona;
+  params: GovernanceParams;
+  councilMembers: CouncilMemberConfig[];
+  linkedPackages: string[];
+  linkedRepos: string[];
+}
+
+export interface DAOConfig {
+  daoId: string;
+  name: string;
+  displayName: string;
+  ceoPersona: CEOPersona;
+  governanceParams: GovernanceParams;
+  fundingConfig: FundingConfig;
+  contracts: DAOContracts;
+  agents: DAOAgents;
+}
+
+export interface DAOContracts {
+  council: Address;
+  ceoAgent: Address;
+  treasury: Address;
+  feeConfig: Address;
+  daoRegistry: Address;
+  daoFunding: Address;
+  identityRegistry: Address;
+  reputationRegistry: Address;
+  packageRegistry: Address;
+  repoRegistry: Address;
+  modelRegistry: Address;
+}
+
+export interface DAOAgents {
+  ceo: AgentConfig;
+  council: AgentConfig[];
+  proposalAgent: AgentConfig;
+  researchAgent: AgentConfig;
+  fundingAgent: AgentConfig;
+}
+
+// ============ Funding Types ============
+
+export interface FundingConfig {
+  minStake: bigint;
+  maxStake: bigint;
+  epochDuration: number;
+  cooldownPeriod: number;
+  matchingMultiplier: number;
+  quadraticEnabled: boolean;
+  ceoWeightCap: number;
+}
+
+export interface FundingProject {
+  projectId: string;
+  daoId: string;
+  projectType: 'package' | 'repo';
+  registryId: string;
+  name: string;
+  description: string;
+  primaryRecipient: Address;
+  additionalRecipients: Address[];
+  recipientShares: number[];
+  ceoWeight: number;
+  communityStake: bigint;
+  totalFunded: bigint;
+  status: FundingStatus;
+  createdAt: number;
+  lastFundedAt: number;
+  proposer: Address;
+}
+
+export interface FundingEpoch {
+  epochId: number;
+  daoId: string;
+  startTime: number;
+  endTime: number;
+  totalBudget: bigint;
+  matchingPool: bigint;
+  distributed: bigint;
+  finalized: boolean;
+}
+
+export interface FundingStake {
+  amount: bigint;
+  epochId: number;
+  timestamp: number;
+  withdrawn: boolean;
+}
+
+export interface FundingAllocation {
+  projectId: string;
+  projectName: string;
+  ceoWeight: number;
+  communityStake: bigint;
+  stakerCount: number;
+  allocation: bigint;
+  allocationPercentage: number;
+}
+
+// ============ Proposal Types ============
+
 export interface Proposal {
   id: string;
+  daoId: string;
   proposer: Address;
   proposerAgentId: bigint;
   title: string;
   summary: string;
   description: string;
   proposalType: ProposalType;
+  casualCategory: CasualProposalCategory;
   status: ProposalStatus;
   qualityScore: number;
+  alignmentScore: number;
+  relevanceScore: number;
   createdAt: number;
   submittedAt: number;
   councilVoteStart: number;
@@ -67,17 +250,59 @@ export interface Proposal {
   commentary: ProposalComment[];
   tags: string[];
   relatedProposals: string[];
+  linkedPackage: string | null;
+  linkedRepo: string | null;
+}
+
+export interface CasualProposal {
+  id: string;
+  daoId: string;
+  proposer: Address;
+  category: CasualProposalCategory;
+  title: string;
+  content: string;
+  stake: bigint;
+  alignmentScore: number;
+  relevanceScore: number;
+  clarityScore: number;
+  status: 'pending' | 'reviewing' | 'accepted' | 'rejected' | 'needs_revision';
+  aiAssessment: AIAssessment | null;
+  councilFeedback: string[];
+  ceoFeedback: string | null;
+  linkedPackageId: string | null;
+  linkedRepoId: string | null;
+  createdAt: number;
+  updatedAt: number;
+  convertedToProposalId: string | null;
+}
+
+export interface AIAssessment {
+  isAligned: boolean;
+  alignmentReason: string;
+  isRelevant: boolean;
+  relevanceReason: string;
+  isClear: boolean;
+  clarityReason: string;
+  suggestions: string[];
+  improvedVersion: string | null;
+  recommendedCategory: CasualProposalCategory;
+  shouldAccept: boolean;
+  overallFeedback: string;
 }
 
 export interface ProposalDraft {
+  daoId: string;
   title: string;
   summary: string;
   description: string;
   proposalType: ProposalType;
+  casualCategory?: CasualProposalCategory;
   targetContract?: Address;
   calldata?: string;
   value?: bigint;
   tags?: string[];
+  linkedPackageId?: string;
+  linkedRepoId?: string;
 }
 
 export interface QualityAssessment {
@@ -97,6 +322,8 @@ export interface QualityAssessment {
   readyToSubmit: boolean;
 }
 
+// ============ Council Types ============
+
 export enum CouncilRole {
   TREASURY = 0,
   CODE = 1,
@@ -106,6 +333,7 @@ export enum CouncilRole {
 
 export interface CouncilAgent {
   id: string;
+  daoId: string;
   address: Address;
   agentId: bigint;
   role: CouncilRole;
@@ -127,6 +355,7 @@ export enum VoteType {
 
 export interface CouncilVote {
   proposalId: string;
+  daoId: string;
   councilAgentId: string;
   role: CouncilRole;
   vote: VoteType;
@@ -139,6 +368,7 @@ export interface CouncilVote {
 
 export interface CouncilDeliberation {
   proposalId: string;
+  daoId: string;
   round: number;
   startedAt: number;
   endedAt: number;
@@ -148,8 +378,11 @@ export interface CouncilDeliberation {
   requiredChanges: string[];
 }
 
+// ============ CEO Types ============
+
 export interface CEODecision {
   proposalId: string;
+  daoId: string;
   approved: boolean;
   reasoning: string;
   encryptedReasoning: string;
@@ -159,22 +392,41 @@ export interface CEODecision {
   decidedAt: number;
   confidence: number;
   alignmentScore: number;
+  personaResponse: string;
 }
 
 export interface CEOState {
+  daoId: string;
+  persona: CEOPersona;
   currentProposals: string[];
   pendingDecisions: number;
   totalDecisions: number;
   approvalRate: number;
   lastDecision: number;
   modelVersion: string;
+  modelId: string;
   contextHash: string;
   encryptedState: string;
 }
 
+export interface CEOModelCandidate {
+  modelId: string;
+  name: string;
+  description: string;
+  provider: string;
+  benchmarkScore: number;
+  alignmentScore: number;
+  votes: number;
+  delegations: number;
+  status: 'candidate' | 'active' | 'deprecated';
+}
+
+// ============ Reputation Types ============
+
 export interface ProposerReputation {
   address: Address;
   agentId: bigint;
+  daoId: string;
   totalProposals: number;
   approvedProposals: number;
   rejectedProposals: number;
@@ -195,8 +447,11 @@ export interface BackerInfo {
   signature: string;
 }
 
+// ============ Research Types ============
+
 export interface ResearchReport {
   proposalId: string;
+  daoId: string;
   researcher: string;
   model: string;
   startedAt: number;
@@ -221,8 +476,11 @@ export interface ResearchSection {
   confidence: number;
 }
 
+// ============ Veto Types ============
+
 export interface VetoVote {
   proposalId: string;
+  daoId: string;
   voter: Address;
   agentId: bigint;
   reason: string;
@@ -244,6 +502,7 @@ export enum VetoCategory {
 
 export interface ProposalComment {
   proposalId: string;
+  daoId: string;
   author: Address;
   authorAgentId: bigint;
   content: string;
@@ -256,8 +515,11 @@ export interface ProposalComment {
   downvotes: number;
 }
 
+// ============ Market Types ============
+
 export interface VetoMarket {
   proposalId: string;
+  daoId: string;
   marketId: string;
   createdAt: number;
   closesAt: number;
@@ -268,8 +530,11 @@ export interface VetoMarket {
   outcome: boolean | null;
 }
 
+// ============ Execution Types ============
+
 export interface ExecutionPlan {
   proposalId: string;
+  daoId: string;
   steps: ExecutionStep[];
   totalValue: bigint;
   estimatedGas: bigint;
@@ -289,10 +554,13 @@ export interface ExecutionStep {
   executedAt: number | null;
 }
 
+// ============ Communication Types ============
+
 export interface A2AMessage {
   messageId: string;
   from: string;
   to: string;
+  daoId: string;
   skillId: string;
   params: Record<string, unknown>;
   timestamp: number;
@@ -305,31 +573,29 @@ export interface A2AResponse {
   error: string | null;
 }
 
+// ============ Configuration Types ============
+
+export interface AutocratConfig {
+  rpcUrl: string;
+  chainId: number;
+  daoRegistry: Address;
+  daoFunding: Address;
+  defaultDAO: string;
+  daos: Record<string, DAOConfig>;
+  cloudEndpoint: string;
+  computeEndpoint: string;
+  storageEndpoint: string;
+  teaEndpoint: string;
+}
+
 export interface CouncilConfig {
   rpcUrl: string;
-  contracts: {
-    council: Address;
-    proposalRegistry: Address;
-    ceoAgent: Address;
-    identityRegistry: Address;
-    reputationRegistry: Address;
-    stakingManager: Address;
-    predimarket: Address;
-  };
-  agents: {
-    ceo: AgentConfig;
-    council: AgentConfig[];
-    proposalAgent: AgentConfig;
-    researchAgent: AgentConfig;
-  };
-  parameters: {
-    minQualityScore: number;
-    councilVotingPeriod: number;
-    gracePeriod: number;
-    minBackers: number;
-    minStakeForVeto: bigint;
-    vetoThreshold: number;
-  };
+  daoId: string;
+  contracts: DAOContracts;
+  agents: DAOAgents;
+  parameters: GovernanceParams;
+  ceoPersona: CEOPersona;
+  fundingConfig: FundingConfig;
   cloudEndpoint: string;
   computeEndpoint: string;
   storageEndpoint: string;
@@ -341,4 +607,101 @@ export interface AgentConfig {
   model: string;
   endpoint: string;
   systemPrompt: string;
+  persona?: CEOPersona;
+}
+
+// ============ Package/Repo Types ============
+
+export interface PackageInfo {
+  packageId: string;
+  name: string;
+  description: string;
+  version: string;
+  maintainers: Address[];
+  cid: string;
+  daoId: string | null;
+  fundingStatus: FundingStatus;
+  totalFunded: bigint;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface RepoInfo {
+  repoId: string;
+  name: string;
+  description: string;
+  owner: Address;
+  collaborators: Address[];
+  contentCid: string;
+  daoId: string | null;
+  fundingStatus: FundingStatus;
+  totalFunded: bigint;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ============ Model Types ============
+
+export interface ModelInfo {
+  modelId: string;
+  name: string;
+  description: string;
+  provider: string;
+  huggingFaceRepo: string;
+  ipfsHash: string;
+  benchmarkScore: number;
+  alignmentScore: number;
+  isActive: boolean;
+  daoUsages: string[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ModelDelegation {
+  delegator: Address;
+  modelId: string;
+  daoId: string;
+  amount: bigint;
+  delegatedAt: number;
+}
+
+// ============ Event Types ============
+
+export interface AutocratEvent {
+  eventType: string;
+  daoId: string;
+  data: Record<string, unknown>;
+  timestamp: number;
+  blockNumber: number;
+  transactionHash: string;
+}
+
+// ============ Statistics Types ============
+
+export interface DAOStats {
+  daoId: string;
+  totalProposals: number;
+  activeProposals: number;
+  approvedProposals: number;
+  rejectedProposals: number;
+  totalStaked: bigint;
+  totalFunded: bigint;
+  uniqueProposers: number;
+  averageQualityScore: number;
+  averageApprovalTime: number;
+  ceoApprovalRate: number;
+  linkedPackages: number;
+  linkedRepos: number;
+}
+
+export interface FundingStats {
+  daoId: string;
+  currentEpoch: number;
+  epochBudget: bigint;
+  matchingPool: bigint;
+  totalProjects: number;
+  activeProjects: number;
+  totalStaked: bigint;
+  totalDistributed: bigint;
+  uniqueStakers: number;
 }

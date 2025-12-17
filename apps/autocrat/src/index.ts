@@ -1,20 +1,17 @@
 /**
  * Network Council - AI DAO Governance
  *
- * PRODUCTION ASSUMPTIONS:
- * 1. Ollama must be running at OLLAMA_URL (default: localhost:11434)
- *    - Required model: OLLAMA_MODEL (default: llama3.2:3b)
- *    - Without Ollama, AI features fall back to keyword-based heuristics
+ * DECENTRALIZED ARCHITECTURE - NO FALLBACKS:
+ * 1. CovenantSQL (CQL) required for state persistence
+ *    - Set CQL_BLOCK_PRODUCER_ENDPOINT or start: docker compose up -d
  *
- * 2. Contract deployment is OPTIONAL:
+ * 2. DWS Compute required for AI inference
+ *    - Set DWS_URL or start: docker compose up -d
+ *
+ * 3. Contract deployment is OPTIONAL:
  *    - ERC8004 registries (identity, reputation, validation) return empty when not deployed
  *    - Futarchy (council, predimarket) returns empty arrays when not deployed
  *    - Set addresses to 0x0 to explicitly disable
- *
- * 3. Data persistence:
- *    - Moderation flags/trust/stats are IN-MEMORY (lost on restart)
- *    - Research cache is IN-MEMORY with 1000 entry limit
- *    - Vote storage persists to .council-storage/ directory
  *
  * 4. Security:
  *    - OPERATOR_KEY or PRIVATE_KEY required for blockchain transactions
@@ -23,7 +20,6 @@
  * 5. Service ports:
  *    - Council API: PORT (default: 8010)
  *    - CEO Server: CEO_PORT (default: 8004, separate process)
- *    - Ollama: OLLAMA_URL (default: localhost:11434)
  */
 
 import { Hono } from 'hono';

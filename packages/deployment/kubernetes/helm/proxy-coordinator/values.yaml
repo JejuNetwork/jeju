@@ -100,7 +100,7 @@ ingress:
   className: "nginx"
   annotations: {}
   hosts:
-    - host: proxy.jeju.network
+    - host: proxy.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix

@@ -22,7 +22,7 @@
     "default_popup": "popup.html"
   },
   "author": "Jeju Network",
-  "homepage_url": "https://wallet.jeju.network",
+  "homepage_url": "https://wallet.jejunetwork.org",
   "background": {
     "scripts": ["background.js"],
     "persistent": true
@@ -51,7 +51,7 @@
   ],
   "browser_specific_settings": {
     "gecko": {
-      "id": "{jeju-wallet@jeju.network}",
+      "id": "{jeju-wallet@jejunetwork.org}",
       "strict_min_version": "91.0"
     }
   }

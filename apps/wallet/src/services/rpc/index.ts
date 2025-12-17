@@ -18,7 +18,7 @@ export const SUPPORTED_CHAINS = {
 export type SupportedChainId = keyof typeof SUPPORTED_CHAINS;
 
 // Network RPC endpoints
-const JEJU_RPC_BASE = import.meta.env.VITE_JEJU_RPC_URL || 'https://rpc.jeju.network';
+const JEJU_RPC_BASE = import.meta.env.VITE_JEJU_RPC_URL || 'https://rpc.jejunetwork.org';
 
 export function getNetworkRpc(chainId: SupportedChainId): string {
   const chainNames: Record<SupportedChainId, string> = {

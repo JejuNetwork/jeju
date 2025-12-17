@@ -23,6 +23,9 @@ import {
   Sparkles,
   Bot,
   Users,
+  Play,
+  Database,
+  Rocket,
 } from 'lucide-react';
 import { clsx } from 'clsx';
 
@@ -45,6 +48,7 @@ const navigation = [
       { name: 'Repositories', href: '/git', icon: GitBranch },
       { name: 'Packages', href: '/packages', icon: Package },
       { name: 'Containers', href: '/containers', icon: Box },
+      { name: 'CI/CD', href: '/ci', icon: Play },
     ]
   },
   { 
@@ -52,7 +56,7 @@ const navigation = [
     icon: Brain,
     children: [
       { name: 'Models', href: '/models', icon: Brain },
-      { name: 'Datasets', href: '/datasets', icon: Package },
+      { name: 'Datasets', href: '/datasets', icon: Database },
       { name: 'Training', href: '/training', icon: Sparkles },
     ]
   },

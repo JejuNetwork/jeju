@@ -75,8 +75,40 @@ import {
   listNamesForSaleAction,
 } from "./actions/bazaar";
 
-// Extended Actions - Moderation
+// Extended Actions - Moderation (basic)
 import { reportAgentAction, listModerationCasesAction } from "./actions/moderation";
+
+// Extended Actions - Moderation (full)
+import {
+  submitEvidenceAction,
+  supportEvidenceAction,
+  getEvidenceAction,
+  listCaseEvidenceAction,
+  claimEvidenceRewardAction,
+  createCaseAction,
+  getCaseAction,
+  listCasesAction,
+  appealCaseAction,
+  issueLabelAction,
+  getLabelsAction,
+  checkTrustAction,
+} from "./actions/moderation-full";
+
+// Extended Actions - Work (Bounties/Projects)
+import {
+  createBountyAction,
+  listBountiesAction,
+  claimBountyAction,
+  submitWorkAction,
+  approveSubmissionAction,
+  rejectSubmissionAction,
+  createProjectAction,
+  listProjectsAction,
+  createTaskAction,
+  getTasksAction,
+  registerGuardianAction,
+  listGuardiansAction,
+} from "./actions/work";
 
 // Extended Actions - Nodes
 import { listNodesAction, getNodeStatsAction } from "./actions/nodes";
@@ -187,9 +219,37 @@ export const jejuPlugin: Plugin = {
     listNftsAction,
     listNamesForSaleAction,
 
-    // === Moderation ===
+    // === Moderation (basic) ===
     reportAgentAction,
     listModerationCasesAction,
+
+    // === Moderation (evidence & cases) ===
+    submitEvidenceAction,
+    supportEvidenceAction,
+    getEvidenceAction,
+    listCaseEvidenceAction,
+    claimEvidenceRewardAction,
+    createCaseAction,
+    getCaseAction,
+    listCasesAction,
+    appealCaseAction,
+    issueLabelAction,
+    getLabelsAction,
+    checkTrustAction,
+
+    // === Work (Bounties/Projects) ===
+    createBountyAction,
+    listBountiesAction,
+    claimBountyAction,
+    submitWorkAction,
+    approveSubmissionAction,
+    rejectSubmissionAction,
+    createProjectAction,
+    listProjectsAction,
+    createTaskAction,
+    getTasksAction,
+    registerGuardianAction,
+    listGuardiansAction,
 
     // === Infrastructure ===
     listNodesAction,

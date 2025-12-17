@@ -228,37 +228,42 @@ export class ContentModerationService {
     _context: ScanContext,
     startTime: number
   ): Promise<ContentScanResult> {
-    let nsfwScore = 0;
-    let csamScore = 0;
+    // Image scanning requires ML models for CSAM/NSFW detection
+    // Currently only checks blocklist - ML integration required for production
+    //
+    // TODO: Integrate with:
+    // - PhotoDNA API (Microsoft) for CSAM hash matching
+    // - NSFWJS or similar for content classification
+    // - HuggingFace models for additional detection
 
-    // Use NSFW.js or similar if available
-    if (this.config.enableLocalScanning) {
-      // Simplified scoring - in production, use actual ML model
-      // This would integrate with:
-      // - nsfwjs for NSFW detection
-      // - PhotoDNA API for CSAM
-      // - HuggingFace models for classification
+    const contentHash = this.hashContent(content);
 
-      // For now, basic heuristics
-      const header = content.slice(0, 16);
-
-      // Check for known bad signatures (placeholder)
-      if (this.hasKnownBadSignature(header)) {
-        csamScore = 95;
-      }
+    // Only reliable check: is content already in blocklist?
+    if (this.blocklist.has(contentHash)) {
+      return {
+        safe: false,
+        violationType: ContentViolationType.CSAM,
+        confidence: 100,
+        scanDuration: Date.now() - startTime,
+        details: {
+          csamScore: 100,
+          nsfwScore: 0,
+          malwareDetected: false,
+          sensitiveDataFound: false,
+        },
+      };
     }
 
-    const safe = csamScore < this.config.csamThreshold * 100 &&
-                 nsfwScore < this.config.nsfwThreshold * 100;
-
+    // Without ML models, we cannot reliably detect CSAM/NSFW
+    // Return safe=true with LOW confidence to indicate manual review may be needed
     return {
-      safe,
-      violationType: csamScore > 90 ? ContentViolationType.CSAM : ContentViolationType.NONE,
-      confidence: Math.max(csamScore, nsfwScore, 50),
+      safe: true,
+      violationType: ContentViolationType.NONE,
+      confidence: 30, // Low confidence - ML models not integrated
       scanDuration: Date.now() - startTime,
       details: {
-        csamScore,
-        nsfwScore,
+        csamScore: 0,
+        nsfwScore: 0,
         malwareDetected: false,
         sensitiveDataFound: false,
       },
@@ -268,22 +273,14 @@ export class ContentModerationService {
   private async scanVideo(
     _content: Buffer,
     _context: ScanContext,
-    startTime: number
+    _startTime: number
   ): Promise<ContentScanResult> {
-    // Video scanning would extract key frames and scan each
-    // For now, pass through with low confidence
-    return {
-      safe: true,
-      violationType: ContentViolationType.NONE,
-      confidence: 50,
-      scanDuration: Date.now() - startTime,
-      details: {
-        csamScore: 0,
-        nsfwScore: 0,
-        malwareDetected: false,
-        sensitiveDataFound: false,
-      },
-    };
+    // Video scanning requires frame extraction + ML models
+    // MUST be implemented before production use
+    throw new Error(
+      'Video content scanning not implemented. ' +
+      'Videos cannot be uploaded until CSAM detection is integrated.'
+    );
   }
 
   private async scanText(
@@ -340,22 +337,14 @@ export class ContentModerationService {
   private async scanArchive(
     _content: Buffer,
     _context: ScanContext,
-    startTime: number
+    _startTime: number
   ): Promise<ContentScanResult> {
-    // Archive scanning would extract and scan each file
-    // For now, pass through
-    return {
-      safe: true,
-      violationType: ContentViolationType.NONE,
-      confidence: 50,
-      scanDuration: Date.now() - startTime,
-      details: {
-        csamScore: 0,
-        nsfwScore: 0,
-        malwareDetected: false,
-        sensitiveDataFound: false,
-      },
-    };
+    // Archive scanning requires extraction + recursive scanning
+    // MUST be implemented before production use
+    throw new Error(
+      'Archive content scanning not implemented. ' +
+      'Archives cannot be uploaded until extraction and scanning is integrated.'
+    );
   }
 
   // ============ Helpers ============
@@ -371,11 +360,6 @@ export class ContentModerationService {
       mimeType === 'application/gzip' ||
       mimeType === 'application/x-7z-compressed'
     );
-  }
-
-  private hasKnownBadSignature(_header: Buffer): boolean {
-    // Placeholder - in production, check against PhotoDNA hashes
-    return false;
   }
 
   private async ensureBlocklistSynced(): Promise<void> {

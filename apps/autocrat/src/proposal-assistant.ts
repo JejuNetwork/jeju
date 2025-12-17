@@ -7,7 +7,8 @@
 import { keccak256, stringToHex, encodePacked, type Address } from 'viem';
 import { privateKeyToAccount, signMessage } from 'viem/accounts';
 import { AutocratBlockchain } from './blockchain';
-import { checkOllama, ollamaGenerate, indexProposal, findSimilarProposals } from './local-services';
+import { indexProposal, findSimilarProposals } from './local-services';
+import { checkDWSCompute, dwsGenerate } from './agents/runtime';
 import { parseJson } from './utils';
 
 export interface ProposalDraft {
@@ -78,17 +79,11 @@ export class ProposalAssistant {
   constructor(_blockchain: AutocratBlockchain) {} // Reserved for future content indexing
 
   async assessQuality(draft: ProposalDraft): Promise<QualityAssessment> {
-    const ollamaUp = await checkOllama();
-    if (!ollamaUp) {
-      console.warn('[ProposalAssistant] Ollama unavailable - using keyword heuristics for assessment');
-      return this.assessWithHeuristics(draft);
+    const dwsUp = await checkDWSCompute();
+    if (!dwsUp) {
+      throw new Error('DWS compute is required for proposal assessment. Start with: docker compose up -d');
     }
-    try {
-      return await this.assessWithAI(draft);
-    } catch (err) {
-      console.warn('[ProposalAssistant] Ollama inference failed, falling back to heuristics:', (err as Error).message);
-      return this.assessWithHeuristics(draft);
-    }
+    return this.assessWithAI(draft);
   }
 
   private async assessWithAI(draft: ProposalDraft): Promise<QualityAssessment> {
@@ -105,14 +100,11 @@ SCORING (0-100 each): clarity, completeness, feasibility, alignment, impact, ris
 
 Return: {"clarity":N,"completeness":N,"feasibility":N,"alignment":N,"impact":N,"riskAssessment":N,"costBenefit":N,"feedback":["..."],"blockers":["..."],"suggestions":["..."]}`;
 
-    const response = await ollamaGenerate(prompt, 'DAO governance expert. Return only valid JSON.');
+    const response = await dwsGenerate(prompt, 'DAO governance expert. Return only valid JSON.');
     const parsed = parseJson<QualityCriteria & { feedback: string[]; blockers: string[]; suggestions: string[] }>(response);
 
-    // Validate parsed criteria are reasonable (all should be numbers between 0-100)
-    if (!parsed || typeof parsed.clarity !== 'number' || parsed.clarity === 0) {
-      console.warn('[ProposalAssistant] AI response parsing failed - falling back to heuristics');
-      console.warn('[ProposalAssistant] Raw response:', response.slice(0, 200));
-      return this.assessWithHeuristics(draft);
+    if (!parsed || typeof parsed.clarity !== 'number') {
+      throw new Error(`Invalid AI response: ${response.slice(0, 200)}`);
     }
 
     const criteria: QualityCriteria = {
@@ -133,7 +125,7 @@ Return: {"clarity":N,"completeness":N,"feasibility":N,"alignment":N,"impact":N,"
       blockers: parsed.blockers ?? [],
       suggestions: parsed.suggestions ?? [],
       readyToSubmit: overallScore >= 90,
-      assessedBy: 'ollama',
+      assessedBy: 'dws',
     };
   }
 
@@ -180,9 +172,8 @@ Return: {"clarity":N,"completeness":N,"feasibility":N,"alignment":N,"impact":N,"
   }
 
   async improveProposal(draft: ProposalDraft, criterion: keyof QualityCriteria): Promise<string> {
-    if (!await checkOllama()) {
-      console.warn(`[ProposalAssistant] Ollama unavailable - returning static hint for ${criterion}`);
-      return HINTS[criterion];
+    if (!await checkDWSCompute()) {
+      throw new Error('DWS compute is required for proposal improvement. Start with: docker compose up -d');
     }
 
     const prompts: Record<keyof QualityCriteria, string> = {
@@ -195,14 +186,14 @@ Return: {"clarity":N,"completeness":N,"feasibility":N,"alignment":N,"impact":N,"
       costBenefit: `Add cost breakdown and ROI analysis:\n\n${draft.description}`,
     };
 
-    return ollamaGenerate(prompts[criterion], 'DAO governance expert helping improve proposals.');
+    return dwsGenerate(prompts[criterion], 'DAO governance expert helping improve proposals.');
   }
 
   async generateProposal(idea: string, proposalType: number): Promise<ProposalDraft> {
     const typeName = PROPOSAL_TYPES[proposalType] ?? 'GENERAL';
 
-    if (!await checkOllama()) {
-      console.warn('[ProposalAssistant] Ollama unavailable - generating template-based proposal');
+    if (!await checkDWSCompute()) {
+      throw new Error('DWS compute is required for proposal generation. Start with: docker compose up -d');
       return {
         title: `Proposal: ${idea.slice(0, 50)}`,
         summary: idea.slice(0, 200),
@@ -220,7 +211,7 @@ Create: 1. Title (concise) 2. Summary (2-3 sentences) 3. Description with Proble
 
 Return JSON: {"title":"...","summary":"...","description":"..."}`;
 
-    const response = await ollamaGenerate(prompt, 'DAO governance expert. Generate professional proposals.');
+    const response = await dwsGenerate(prompt, 'DAO governance expert. Generate professional proposals.');
     const parsed = parseJson<{ title: string; summary: string; description: string | Record<string, unknown> }>(response);
 
     if (!parsed) return { title: idea.slice(0, 100), summary: idea, description: response, proposalType };

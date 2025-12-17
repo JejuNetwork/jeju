@@ -40,7 +40,7 @@ NODE_ENDPOINT=https://rpc.mynode.com
 
 # Network
 NETWORK=mainnet
-L2_RPC_URL=https://rpc.jeju.network  # Peer nodes
+L2_RPC_URL=https://rpc.jejunetwork.org  # Peer nodes
 
 # Staking
 PRIVATE_KEY=0x...  # Operator wallet
@@ -116,7 +116,7 @@ cast send $NODE_STAKING_MANAGER \
 cast call $NODE_STAKING_MANAGER "getNodeByOperator(address)" $YOUR_ADDRESS
 
 # Check in Gateway UI
-# https://gateway.jeju.network/nodes
+# https://gateway.jejunetwork.org/nodes
 ```
 
 ## Monitoring

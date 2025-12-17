@@ -79,7 +79,7 @@ helmfile -e testnet sync
 # 3. Contracts
 cd ../../../contracts
 forge script script/DeployTestnet.s.sol \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --broadcast --verify
 ```
 

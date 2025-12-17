@@ -86,48 +86,48 @@ function getDefaultChainId(): string {
 
 function getDefaultRpcUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://rpc.jeju.network';
-    case 'testnet': return 'https://testnet-rpc.jeju.network';
+    case 'mainnet': return 'https://rpc.jejunetwork.org';
+    case 'testnet': return 'https://testnet-rpc.jejunetwork.org';
     default: return 'http://localhost:9545';
   }
 }
 
 function getDefaultIndexerUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://indexer.jeju.network/graphql';
-    case 'testnet': return 'https://testnet-indexer.jeju.network/graphql';
+    case 'mainnet': return 'https://indexer.jejunetwork.org/graphql';
+    case 'testnet': return 'https://testnet-indexer.jejunetwork.org/graphql';
     default: return 'http://localhost:4350/graphql';
   }
 }
 
 function getDefaultIpfsApiUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://storage.jeju.network';
-    case 'testnet': return 'https://testnet-storage.jeju.network';
+    case 'mainnet': return 'https://storage.jejunetwork.org';
+    case 'testnet': return 'https://testnet-storage.jejunetwork.org';
     default: return 'http://localhost:3100';
   }
 }
 
 function getDefaultIpfsGatewayUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://ipfs.jeju.network';
-    case 'testnet': return 'https://testnet-ipfs.jeju.network';
+    case 'mainnet': return 'https://ipfs.jejunetwork.org';
+    case 'testnet': return 'https://testnet-ipfs.jejunetwork.org';
     default: return 'http://localhost:3100';
   }
 }
 
 function getDefaultExplorerUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://explorer.jeju.network';
-    case 'testnet': return 'https://testnet-explorer.jeju.network';
+    case 'mainnet': return 'https://explorer.jejunetwork.org';
+    case 'testnet': return 'https://testnet-explorer.jejunetwork.org';
     default: return 'http://localhost:4000';
   }
 }
 
 function getDefaultOifAggregatorUrl(): string {
   switch (NETWORK) {
-    case 'mainnet': return 'https://oif.jeju.network';
-    case 'testnet': return 'https://testnet-oif.jeju.network';
+    case 'mainnet': return 'https://oif.jejunetwork.org';
+    case 'testnet': return 'https://testnet-oif.jejunetwork.org';
     default: return 'http://localhost:4030/oif';
   }
 }

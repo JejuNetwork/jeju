@@ -264,7 +264,7 @@ export function generateWakePage(data: WakePageData): string {
         </div>
       </div>
       
-      <a href="https://gateway.jeju.network/fund/${data.vaultAddress}" class="fund-button" id="fundButton">
+      <a href="https://gateway.jejunetwork.org/fund/${data.vaultAddress}" class="fund-button" id="fundButton">
         ⚡ Fund & Wake Up
       </a>
       
@@ -273,7 +273,7 @@ export function generateWakePage(data: WakePageData): string {
       </div>
       
       <p class="info-text">
-        This app runs on the <a href="https://jeju.network" target="_blank">the network</a> - 
+        This app runs on the <a href="https://jejunetwork.org" target="_blank">the network</a> - 
         a decentralized compute platform. Once funded, the app will automatically restart 
         and become available at <strong>${escapeHtml(data.jnsName)}</strong>.
       </p>

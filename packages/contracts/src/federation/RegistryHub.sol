@@ -416,7 +416,7 @@ contract RegistryHub is Ownable, ReentrancyGuard {
 
         // Decode VAA payload (simplified)
         // Real implementation would use Wormhole SDK
-        (bytes32 programId, string memory name) = abi.decode(vaa, (bytes32, string));
+        (bytes32 programId, ) = abi.decode(vaa, (bytes32, string));
 
         bytes32 registryId = computeRegistryId(
             WORMHOLE_SOLANA,

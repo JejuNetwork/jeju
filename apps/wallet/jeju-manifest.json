@@ -28,7 +28,7 @@
   "jns": {
     "name": "wallet.jeju",
     "description": "Network Agentic Wallet",
-    "url": "https://wallet.jeju.network"
+    "url": "https://wallet.jejunetwork.org"
   },
   "healthCheck": {
     "url": "http://localhost:4015/health",
@@ -65,7 +65,7 @@
       "jnsName": "wallet.jeju",
       "buildDir": "dist",
       "spa": true,
-      "fallbackOrigins": ["https://wallet.jeju.network"]
+      "fallbackOrigins": ["https://wallet.jejunetwork.org"]
     },
     "robustness": {
       "multiOrigin": true,

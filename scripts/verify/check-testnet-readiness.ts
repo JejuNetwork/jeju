@@ -82,7 +82,7 @@ async function checkAWSInfra() {
   }
   
   // Check Route53
-  const r53Check = await $`aws route53 list-hosted-zones-by-name --dns-name jeju.network`.quiet().nothrow();
+  const r53Check = await $`aws route53 list-hosted-zones-by-name --dns-name jejunetwork.org`.quiet().nothrow();
   if (r53Check.exitCode === 0) {
     const zones = JSON.parse(r53Check.stdout.toString());
     if (zones.HostedZones.length > 0) {
@@ -96,7 +96,7 @@ async function checkAWSInfra() {
   const acmCheck = await $`aws acm list-certificates --region us-east-1`.quiet().nothrow();
   if (acmCheck.exitCode === 0) {
     const certs = JSON.parse(acmCheck.stdout.toString());
-    const jejuCert = certs.CertificateSummaryList.find((c: {DomainName: string}) => c.DomainName === 'jeju.network');
+    const jejuCert = certs.CertificateSummaryList.find((c: {DomainName: string}) => c.DomainName === 'jejunetwork.org');
     if (jejuCert) {
       addResult(category, 'ACM Certificate', jejuCert.Status === 'ISSUED' ? 'pass' : 'warn', `Status: ${jejuCert.Status}`);
     } else {

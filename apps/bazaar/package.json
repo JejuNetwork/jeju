@@ -31,6 +31,8 @@
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
+    "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/ui": "workspace:*",
     "next": "^14.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",

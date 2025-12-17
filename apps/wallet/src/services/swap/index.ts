@@ -7,7 +7,7 @@ import type { Address, Hex } from 'viem';
 import { SupportedChainId } from '../rpc';
 import { oracleService, type TokenPrice } from '../oracle';
 
-const JEJU_SOLVER_URL = import.meta.env.VITE_JEJU_SOLVER_URL || 'https://solver.jeju.network/api';
+const JEJU_SOLVER_URL = import.meta.env.VITE_JEJU_SOLVER_URL || 'https://solver.jejunetwork.org/api';
 
 interface Token {
   chainId: SupportedChainId;

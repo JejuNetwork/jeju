@@ -4,7 +4,7 @@ Jeju is Ethereum-compatible. Standard JSON-RPC methods work as expected.
 
 ## Endpoints
 
-Localnet uses `http://127.0.0.1:9545` with WebSocket at `ws://127.0.0.1:9546`. Testnet uses `https://testnet-rpc.jeju.network` with WebSocket at `wss://testnet-ws.jeju.network`. Mainnet uses `https://rpc.jeju.network` with WebSocket at `wss://ws.jeju.network`.
+Localnet uses `http://127.0.0.1:9545` with WebSocket at `ws://127.0.0.1:9546`. Testnet uses `https://testnet-rpc.jejunetwork.org` with WebSocket at `wss://testnet-ws.jejunetwork.org`. Mainnet uses `https://rpc.jejunetwork.org` with WebSocket at `wss://ws.jejunetwork.org`.
 
 ## Standard Methods
 
@@ -15,7 +15,7 @@ All standard Ethereum JSON-RPC methods are supported.
 Get the latest block number:
 
 ```bash
-curl -X POST https://rpc.jeju.network \
+curl -X POST https://rpc.jejunetwork.org \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 ```
@@ -25,7 +25,7 @@ curl -X POST https://rpc.jeju.network \
 Get account balance:
 
 ```bash
-curl -X POST https://rpc.jeju.network \
+curl -X POST https://rpc.jejunetwork.org \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"eth_getBalance","params":["0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266","latest"],"id":1}'
 ```
@@ -66,7 +66,7 @@ import { jeju } from './chains';
 
 const client = createPublicClient({
   chain: jeju,
-  transport: http('https://rpc.jeju.network'),
+  transport: http('https://rpc.jejunetwork.org'),
 });
 
 const balance = await client.getBalance({
@@ -77,9 +77,9 @@ const balance = await client.getBalance({
 ### cast (Foundry)
 
 ```bash
-cast balance 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --rpc-url https://rpc.jeju.network
-cast block latest --rpc-url https://rpc.jeju.network
-cast call $CONTRACT "balanceOf(address)" $USER --rpc-url https://rpc.jeju.network
+cast balance 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266 --rpc-url https://rpc.jejunetwork.org
+cast block latest --rpc-url https://rpc.jejunetwork.org
+cast call $CONTRACT "balanceOf(address)" $USER --rpc-url https://rpc.jejunetwork.org
 ```
 
 ## WebSocket Subscriptions
@@ -87,7 +87,7 @@ cast call $CONTRACT "balanceOf(address)" $USER --rpc-url https://rpc.jeju.networ
 ### Subscribe to New Blocks
 
 ```javascript
-const ws = new WebSocket('wss://ws.jeju.network');
+const ws = new WebSocket('wss://ws.jejunetwork.org');
 
 ws.send(JSON.stringify({
   jsonrpc: '2.0',

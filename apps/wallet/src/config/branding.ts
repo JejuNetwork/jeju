@@ -9,8 +9,8 @@
 const NETWORK_NAME = import.meta.env.VITE_NETWORK_NAME || 'Jeju';
 
 // URLs from environment or defaults
-const RPC_MAINNET = import.meta.env.VITE_RPC_MAINNET || 'https://rpc.jeju.network';
-const RPC_TESTNET = import.meta.env.VITE_RPC_TESTNET || 'https://rpc.testnet.jeju.network';
+const RPC_MAINNET = import.meta.env.VITE_RPC_MAINNET || 'https://rpc.jejunetwork.org';
+const RPC_TESTNET = import.meta.env.VITE_RPC_TESTNET || 'https://rpc.testnet.jejunetwork.org';
 const RPC_LOCALNET = import.meta.env.VITE_RPC_LOCALNET || 'http://localhost:9545';
 
 export interface UrlsBranding {
@@ -51,11 +51,11 @@ export function getUrls(): UrlsBranding {
       testnet: RPC_TESTNET,
       localnet: RPC_LOCALNET,
     },
-    gateway: import.meta.env.VITE_JEJU_GATEWAY_URL || 'https://compute.jeju.network',
-    indexer: import.meta.env.VITE_JEJU_INDEXER_URL || 'https://indexer.jeju.network',
+    gateway: import.meta.env.VITE_JEJU_GATEWAY_URL || 'https://compute.jejunetwork.org',
+    indexer: import.meta.env.VITE_JEJU_INDEXER_URL || 'https://indexer.jejunetwork.org',
     explorer: {
-      mainnet: import.meta.env.VITE_EXPLORER_MAINNET || 'https://explorer.jeju.network',
-      testnet: import.meta.env.VITE_EXPLORER_TESTNET || 'https://explorer.testnet.jeju.network',
+      mainnet: import.meta.env.VITE_EXPLORER_MAINNET || 'https://explorer.jejunetwork.org',
+      testnet: import.meta.env.VITE_EXPLORER_TESTNET || 'https://explorer.testnet.jejunetwork.org',
     },
   };
 }

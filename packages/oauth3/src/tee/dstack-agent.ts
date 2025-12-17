@@ -891,7 +891,7 @@ export class DstackAuthAgent {
     const credential: VerifiableCredential = {
       '@context': [
         'https://www.w3.org/2018/credentials/v1',
-        'https://jeju.network/credentials/oauth3/v1',
+        'https://jejunetwork.org/credentials/oauth3/v1',
       ],
       type: ['VerifiableCredential', 'OAuth3IdentityCredential'],
       id: credentialId,

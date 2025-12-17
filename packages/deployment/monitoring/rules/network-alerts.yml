@@ -1,0 +1,330 @@
+# Prometheus Alerting Rules for Jeju Network Performance
+# 
+# Covers:
+# - CDN performance degradation
+# - P2P network health
+# - Proxy availability
+# - DNS failover
+# - Cache/Database issues
+
+groups:
+  # ============================================================================
+  # CDN Alerts
+  # ============================================================================
+  - name: cdn
+    rules:
+      - alert: CDNCacheHitRateLow
+        expr: |
+          sum(rate(cdn_cache_hits_total[5m])) / 
+          sum(rate(cdn_requests_total[5m])) < 0.7
+        for: 10m
+        labels:
+          severity: warning
+          service: cdn
+        annotations:
+          summary: "CDN cache hit rate below 70%"
+          description: "Cache hit rate is {{ $value | humanizePercentage }}. Check cache configuration and content popularity."
+          
+      - alert: CDNCacheHitRateCritical
+        expr: |
+          sum(rate(cdn_cache_hits_total[5m])) / 
+          sum(rate(cdn_requests_total[5m])) < 0.5
+        for: 5m
+        labels:
+          severity: critical
+          service: cdn
+        annotations:
+          summary: "CDN cache hit rate critically low"
+          description: "Cache hit rate is {{ $value | humanizePercentage }}. Origin servers may be overloaded."
+
+      - alert: CDNLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum(rate(cdn_response_time_seconds_bucket[5m])) by (le)) > 0.5
+        for: 5m
+        labels:
+          severity: warning
+          service: cdn
+        annotations:
+          summary: "CDN p95 latency above 500ms"
+          description: "p95 latency is {{ $value | humanizeDuration }}. Check edge node health."
+
+      - alert: CDNEdgeNodeDown
+        expr: up{job="cdn-edge-nodes"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: cdn
+        annotations:
+          summary: "CDN edge node {{ $labels.edge_node }} is down"
+          description: "Edge node in {{ $labels.region }} has been down for 2 minutes."
+
+      - alert: CDNOriginErrors
+        expr: |
+          sum(rate(cdn_origin_errors_total[5m])) / 
+          sum(rate(cdn_origin_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: warning
+          service: cdn
+        annotations:
+          summary: "CDN origin error rate above 5%"
+          description: "{{ $value | humanizePercentage }} of origin requests are failing."
+
+  # ============================================================================
+  # P2P / Torrent Alerts
+  # ============================================================================
+  - name: p2p
+    rules:
+      - alert: P2PPeersLow
+        expr: sum(torrent_active_peers) < 10
+        for: 15m
+        labels:
+          severity: warning
+          service: p2p
+        annotations:
+          summary: "P2P network has fewer than 10 active peers"
+          description: "Only {{ $value }} peers connected. Content distribution may be slow."
+
+      - alert: DHTNodesCritical
+        expr: sum(torrent_dht_nodes) < 50
+        for: 10m
+        labels:
+          severity: critical
+          service: p2p
+        annotations:
+          summary: "DHT network is critically small"
+          description: "Only {{ $value }} DHT nodes available. Peer discovery severely impacted."
+
+      - alert: TorrentSeederDown
+        expr: up{job="torrent-seeders"} == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: p2p
+        annotations:
+          summary: "Torrent seeder {{ $labels.seeder }} is down"
+          description: "Seeder has been unreachable for 5 minutes."
+
+      - alert: P2PBandwidthSaturation
+        expr: |
+          sum(rate(torrent_bytes_uploaded_total[5m])) > 
+          (sum(torrent_upload_limit_bytes) * 0.9)
+        for: 10m
+        labels:
+          severity: warning
+          service: p2p
+        annotations:
+          summary: "P2P upload bandwidth near saturation"
+          description: "Using {{ $value | humanize }}B/s of available bandwidth."
+
+  # ============================================================================
+  # Residential Proxy Alerts
+  # ============================================================================
+  - name: proxy
+    rules:
+      - alert: ProxyNodesLow
+        expr: sum(proxy_registered_nodes) < 5
+        for: 10m
+        labels:
+          severity: warning
+          service: proxy
+        annotations:
+          summary: "Fewer than 5 proxy nodes available"
+          description: "Only {{ $value }} nodes registered. Capacity may be limited."
+
+      - alert: ProxyLatencyHigh
+        expr: |
+          histogram_quantile(0.95, sum(rate(proxy_request_duration_seconds_bucket[5m])) by (le)) > 2
+        for: 5m
+        labels:
+          severity: warning
+          service: proxy
+        annotations:
+          summary: "Proxy p95 latency above 2 seconds"
+          description: "p95 latency is {{ $value | humanizeDuration }}."
+
+      - alert: ProxyErrorRateHigh
+        expr: |
+          sum(rate(proxy_requests_total{status="error"}[5m])) / 
+          sum(rate(proxy_requests_total[5m])) > 0.1
+        for: 5m
+        labels:
+          severity: critical
+          service: proxy
+        annotations:
+          summary: "Proxy error rate above 10%"
+          description: "{{ $value | humanizePercentage }} of requests are failing."
+
+      - alert: ProxyCoordinatorDown
+        expr: up{job="proxy-coordinator"} == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: proxy
+        annotations:
+          summary: "Proxy coordinator is down"
+          description: "Node coordination is unavailable. New requests will fail."
+
+  # ============================================================================
+  # DNS Alerts
+  # ============================================================================
+  - name: dns
+    rules:
+      - alert: DNSProviderDown
+        expr: dns_provider_healthy == 0
+        for: 5m
+        labels:
+          severity: warning
+          service: dns
+        annotations:
+          summary: "DNS provider {{ $labels.provider }} is down"
+          description: "Failover to other providers is active."
+
+      - alert: AllDNSProvidersDown
+        expr: sum(dns_provider_healthy) == 0
+        for: 2m
+        labels:
+          severity: critical
+          service: dns
+        annotations:
+          summary: "All DNS providers are down"
+          description: "Domain resolution failing. Direct IP fallback should be active."
+
+      - alert: DNSSyncFailed
+        expr: time() - dns_last_sync_timestamp > 600
+        for: 5m
+        labels:
+          severity: warning
+          service: dns
+        annotations:
+          summary: "DNS sync has not run in 10 minutes"
+          description: "DNS records may be out of date across providers."
+
+      - alert: DNSLatencyHigh
+        expr: dns_resolution_latency_ms > 500
+        for: 5m
+        labels:
+          severity: warning
+          service: dns
+        annotations:
+          summary: "DNS resolution latency above 500ms for {{ $labels.provider }}"
+          description: "Latency is {{ $value }}ms."
+
+  # ============================================================================
+  # Cache Alerts
+  # ============================================================================
+  - name: cache
+    rules:
+      - alert: RedisCacheHitRateLow
+        expr: |
+          sum(rate(redis_hits_total[5m])) / 
+          (sum(rate(redis_hits_total[5m])) + sum(rate(redis_misses_total[5m]))) < 0.8
+        for: 10m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Redis cache hit rate below 80%"
+          description: "Hit rate is {{ $value | humanizePercentage }}."
+
+      - alert: RedisMemoryHigh
+        expr: |
+          redis_memory_used_bytes / redis_memory_max_bytes > 0.9
+        for: 5m
+        labels:
+          severity: warning
+          service: cache
+        annotations:
+          summary: "Redis memory usage above 90%"
+          description: "Node {{ $labels.node }} using {{ $value | humanizePercentage }} of memory."
+
+      - alert: RedisPrimaryDown
+        expr: up{job="redis-cluster", role="primary"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: cache
+        annotations:
+          summary: "Redis primary node is down"
+          description: "Primary {{ $labels.instance }} is unreachable. Failover should trigger."
+
+  # ============================================================================
+  # Database Alerts
+  # ============================================================================
+  - name: database
+    rules:
+      - alert: DatabaseReplicationLagHigh
+        expr: pg_replication_lag_seconds > 30
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Database replication lag above 30 seconds"
+          description: "Replica {{ $labels.replica }} is {{ $value | humanizeDuration }} behind."
+
+      - alert: DatabaseReplicationLagCritical
+        expr: pg_replication_lag_seconds > 120
+        for: 2m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database replication lag above 2 minutes"
+          description: "Replica {{ $labels.replica }} should be excluded from read routing."
+
+      - alert: DatabaseConnectionsHigh
+        expr: pg_stat_activity_count > 400
+        for: 5m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Database connections above 400"
+          description: "{{ $value }} active connections. Max is typically 500."
+
+      - alert: DatabaseReplicaDown
+        expr: up{job="postgres-replicas"} == 0
+        for: 2m
+        labels:
+          severity: warning
+          service: database
+        annotations:
+          summary: "Database replica {{ $labels.replica }} is down"
+          description: "Reads will be routed to other replicas or primary."
+
+      - alert: DatabasePrimaryDown
+        expr: up{job="postgres-primary"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          service: database
+        annotations:
+          summary: "Database primary is down"
+          description: "All writes will fail. Immediate failover required."
+
+  # ============================================================================
+  # Edge Coordinator Alerts
+  # ============================================================================
+  - name: edge-coordinator
+    rules:
+      - alert: EdgeCoordinatorPeersLow
+        expr: edge_coordinator_connected_peers < 3
+        for: 10m
+        labels:
+          severity: warning
+          service: edge-coordinator
+        annotations:
+          summary: "Edge coordinator has fewer than 3 peers"
+          description: "Only {{ $value }} peers connected. Cache coherence may be degraded."
+
+      - alert: EdgeCoordinatorGossipFailed
+        expr: time() - edge_coordinator_last_gossip_timestamp > 120
+        for: 5m
+        labels:
+          severity: warning
+          service: edge-coordinator
+        annotations:
+          summary: "Edge coordinator gossip stalled"
+          description: "No gossip messages in 2 minutes. Network may be partitioned."
+

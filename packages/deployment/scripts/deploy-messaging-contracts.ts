@@ -18,12 +18,12 @@ import { readFileSync, writeFileSync, existsSync } from 'fs';
 // Network configurations
 const NETWORKS = {
   testnet: {
-    rpcUrl: process.env.JEJU_TESTNET_RPC_URL ?? 'https://testnet-rpc.jeju.network',
+    rpcUrl: process.env.JEJU_TESTNET_RPC_URL ?? 'https://testnet-rpc.jejunetwork.org',
     chainId: 11235813,
     name: 'Testnet',
   },
   mainnet: {
-    rpcUrl: process.env.JEJU_MAINNET_RPC_URL ?? 'https://rpc.jeju.network',
+    rpcUrl: process.env.JEJU_MAINNET_RPC_URL ?? 'https://rpc.jejunetwork.org',
     chainId: 11235814,
     name: 'Mainnet',
   },

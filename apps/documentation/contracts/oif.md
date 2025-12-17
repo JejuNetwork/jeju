@@ -103,7 +103,7 @@ forge script script/DeployOIF.s.sol \
 
 # Testnet with verification
 PRIVATE_KEY=$DEPLOYER_PRIVATE_KEY forge script script/DeployOIF.s.sol \
-  --rpc-url https://testnet-rpc.jeju.network \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
   --broadcast --verify
 ```
 

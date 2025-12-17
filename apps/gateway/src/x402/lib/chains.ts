@@ -39,7 +39,7 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     chainId: 420690,
     name: 'Testnet',
     network: 'jeju-testnet',
-    rpcUrl: getRpcUrl('JEJU_TESTNET_RPC_URL', 'https://testnet-rpc.jeju.network'),
+    rpcUrl: getRpcUrl('JEJU_TESTNET_RPC_URL', 'https://testnet-rpc.jejunetwork.org'),
     usdc: ZERO_ADDRESS,
     facilitator: ZERO_ADDRESS,
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },

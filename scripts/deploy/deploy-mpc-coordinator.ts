@@ -148,7 +148,7 @@ async function main() {
   console.log(`  export MPC_TOTAL_PARTIES=${totalParties}`);
   
   if (network !== 'localnet') {
-    console.log(`  export MPC_COORDINATOR_ENDPOINT=https://mpc.jeju.network/${network}`);
+    console.log(`  export MPC_COORDINATOR_ENDPOINT=https://mpc.jejunetwork.org/${network}`);
   }
 }
 
@@ -162,10 +162,10 @@ function generatePartyEndpoints(network: Network, count: number): string[] {
         endpoints.push(`http://localhost:${basePort + i}`);
         break;
       case 'testnet':
-        endpoints.push(`https://mpc-party-${i + 1}.testnet.jeju.network`);
+        endpoints.push(`https://mpc-party-${i + 1}.testnet.jejunetwork.org`);
         break;
       case 'mainnet':
-        endpoints.push(`https://mpc-party-${i + 1}.jeju.network`);
+        endpoints.push(`https://mpc-party-${i + 1}.jejunetwork.org`);
         break;
     }
   }

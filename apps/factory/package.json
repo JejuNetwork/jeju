@@ -22,6 +22,8 @@
     "@jejunetwork/messaging": "workspace:*",
     "@jejunetwork/oauth3": "workspace:*",
     "@jejunetwork/types": "workspace:*",
+    "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/ui": "workspace:*",
     "next": "^14.2.0",
     "react": "^18.3.0",
     "react-dom": "^18.3.0",

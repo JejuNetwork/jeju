@@ -186,12 +186,47 @@ export const CHAIN_CONFIG = {
   testnet: {
     chainId: 420691,
     name: 'Testnet',
-    rpcUrl: 'https://rpc.testnet.jeju.network',
+    rpcUrl: 'https://testnet-rpc.jejunetwork.org',
   },
   mainnet: {
     chainId: 42069,
     name: 'Network',
-    rpcUrl: 'https://rpc.jeju.network',
+    rpcUrl: 'https://rpc.jejunetwork.org',
+  },
+} as const;
+
+export const DOMAIN_CONFIG = {
+  domain: 'jejunetwork.org',
+  localDomain: 'local.jejunetwork.org',
+  
+  // Local development URLs (require proxy)
+  local: {
+    gateway: 'http://gateway.local.jejunetwork.org',
+    bazaar: 'http://bazaar.local.jejunetwork.org',
+    docs: 'http://docs.local.jejunetwork.org',
+    indexer: 'http://indexer.local.jejunetwork.org',
+    rpc: 'http://rpc.local.jejunetwork.org',
+    crucible: 'http://crucible.local.jejunetwork.org',
+  },
+  
+  // Testnet URLs
+  testnet: {
+    gateway: 'https://gateway.testnet.jejunetwork.org',
+    bazaar: 'https://bazaar.testnet.jejunetwork.org',
+    docs: 'https://docs.testnet.jejunetwork.org',
+    rpc: 'https://testnet-rpc.jejunetwork.org',
+    ws: 'wss://testnet-ws.jejunetwork.org',
+    indexer: 'https://testnet-indexer.jejunetwork.org',
+  },
+  
+  // Mainnet URLs
+  mainnet: {
+    gateway: 'https://gateway.jejunetwork.org',
+    bazaar: 'https://bazaar.jejunetwork.org',
+    docs: 'https://docs.jejunetwork.org',
+    rpc: 'https://rpc.jejunetwork.org',
+    ws: 'wss://ws.jejunetwork.org',
+    indexer: 'https://indexer.jejunetwork.org',
   },
 } as const;
 

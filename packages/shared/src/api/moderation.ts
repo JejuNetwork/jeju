@@ -111,6 +111,117 @@ export interface TransactionRequest {
   description: string;
 }
 
+// ============ Evidence Types ============
+
+export interface EvidenceSubmission {
+  evidenceId: string;
+  caseId: string;
+  submitter: string;
+  stake: string;
+  submitterReputation: number;
+  ipfsHash: string;
+  summary: string;
+  position: 'FOR_ACTION' | 'AGAINST_ACTION';
+  supportStake: string;
+  opposeStake: string;
+  supporterCount: number;
+  opposerCount: number;
+  submittedAt: number;
+  status: 'ACTIVE' | 'REWARDED' | 'SLASHED';
+}
+
+export interface EvidenceSupport {
+  supporter: string;
+  stake: string;
+  reputation: number;
+  isSupporting: boolean;
+  comment: string;
+  timestamp: number;
+  claimed: boolean;
+}
+
+export interface CaseEvidenceSummary {
+  caseId: string;
+  evidenceIds: string[];
+  totalForStake: string;
+  totalAgainstStake: string;
+  resolved: boolean;
+}
+
+// ============ Reputation Provider Types ============
+
+export interface ReputationProvider {
+  providerContract: string;
+  name: string;
+  description: string;
+  weight: number; // 0-10000 basis points
+  addedAt: number;
+  isActive: boolean;
+  isSuspended: boolean;
+  totalFeedbackCount: number;
+  accuracyScore: number;
+  lastFeedbackAt: number;
+}
+
+export interface ReputationProviderProposal {
+  proposalId: string;
+  proposalType: 'ADD_PROVIDER' | 'REMOVE_PROVIDER' | 'UPDATE_WEIGHT' | 'SUSPEND_PROVIDER' | 'UNSUSPEND_PROVIDER';
+  targetProvider: string;
+  providerName: string;
+  providerDescription: string;
+  proposedWeight: number;
+  proposer: string;
+  stake: string;
+  forStake: string;
+  againstStake: string;
+  forCount: number;
+  againstCount: number;
+  createdAt: number;
+  challengeEnds: number;
+  timelockEnds: number;
+  status: 'PENDING' | 'COUNCIL_REVIEW' | 'APPROVED' | 'REJECTED' | 'EXECUTED' | 'CANCELLED';
+  councilDecisionHash: string;
+  councilReason: string;
+}
+
+export interface AggregatedReputation {
+  weightedScore: number;
+  providerScores: number[];
+  providerWeights: number[];
+}
+
+// ============ Staking Types ============
+
+export type StakingTier = 'FREE' | 'BUILDER' | 'PRO' | 'UNLIMITED';
+
+export interface StakingPosition {
+  stakedAmount: string;
+  stakedAt: number;
+  linkedAgentId: number;
+  reputationBonus: number;
+  unbondingAmount: string;
+  unbondingStartTime: number;
+  isActive: boolean;
+  isFrozen: boolean;
+  tier: StakingTier;
+  effectiveUsdValue: string;
+}
+
+export interface StakingTierConfig {
+  minUsdValue: string;
+  rpcRateLimit: number;
+  storageQuotaMB: number;
+  computeCredits: number;
+  cdnBandwidthGB: number;
+}
+
+export interface ServiceAllocation {
+  service: string;
+  limit: number;
+  used: number;
+  remaining: number;
+}
+
 // ============ Constants ============
 
 export const BAN_TYPES = { NONE: 0, ON_NOTICE: 1, CHALLENGED: 2, PERMANENT: 3 } as const;
@@ -491,3 +602,60 @@ export class ModerationAPI {
 export function createModerationAPI(config: ModerationConfig = {}): ModerationAPI {
   return new ModerationAPI(config);
 }
+
+// ============ Evidence Registry ABI ============
+
+export const EVIDENCE_REGISTRY_ABI = [
+  { name: 'submitEvidence', type: 'function', stateMutability: 'payable', inputs: [{ name: 'caseId', type: 'bytes32' }, { name: 'ipfsHash', type: 'string' }, { name: 'summary', type: 'string' }, { name: 'position', type: 'uint8' }], outputs: [{ name: 'evidenceId', type: 'bytes32' }] },
+  { name: 'supportEvidence', type: 'function', stateMutability: 'payable', inputs: [{ name: 'evidenceId', type: 'bytes32' }, { name: 'isSupporting', type: 'bool' }, { name: 'comment', type: 'string' }], outputs: [] },
+  { name: 'claimRewards', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'evidenceId', type: 'bytes32' }], outputs: [] },
+  { name: 'getCaseEvidence', type: 'function', stateMutability: 'view', inputs: [{ name: 'caseId', type: 'bytes32' }], outputs: [{ name: 'evidenceIds', type: 'bytes32[]' }, { name: 'totalFor', type: 'uint256' }, { name: 'totalAgainst', type: 'uint256' }, { name: 'resolved', type: 'bool' }] },
+  { name: 'getEvidence', type: 'function', stateMutability: 'view', inputs: [{ name: 'evidenceId', type: 'bytes32' }], outputs: [{ type: 'tuple', components: [{ name: 'evidenceId', type: 'bytes32' }, { name: 'caseId', type: 'bytes32' }, { name: 'submitter', type: 'address' }, { name: 'stake', type: 'uint256' }, { name: 'submitterReputation', type: 'uint256' }, { name: 'ipfsHash', type: 'string' }, { name: 'summary', type: 'string' }, { name: 'position', type: 'uint8' }, { name: 'supportStake', type: 'uint256' }, { name: 'opposeStake', type: 'uint256' }, { name: 'supporterCount', type: 'uint256' }, { name: 'opposerCount', type: 'uint256' }, { name: 'submittedAt', type: 'uint256' }, { name: 'status', type: 'uint8' }] }] },
+  { name: 'getClaimableAmount', type: 'function', stateMutability: 'view', inputs: [{ name: 'evidenceId', type: 'bytes32' }, { name: 'user', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'MIN_EVIDENCE_STAKE', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+] as const;
+
+// ============ Reputation Provider Registry ABI ============
+
+export const REPUTATION_PROVIDER_REGISTRY_ABI = [
+  { name: 'proposeAddProvider', type: 'function', stateMutability: 'payable', inputs: [{ name: 'providerContract', type: 'address' }, { name: 'name', type: 'string' }, { name: 'description', type: 'string' }, { name: 'proposedWeight', type: 'uint256' }], outputs: [{ name: 'proposalId', type: 'bytes32' }] },
+  { name: 'proposeRemoveProvider', type: 'function', stateMutability: 'payable', inputs: [{ name: 'providerContract', type: 'address' }], outputs: [{ name: 'proposalId', type: 'bytes32' }] },
+  { name: 'proposeUpdateWeight', type: 'function', stateMutability: 'payable', inputs: [{ name: 'providerContract', type: 'address' }, { name: 'newWeight', type: 'uint256' }], outputs: [{ name: 'proposalId', type: 'bytes32' }] },
+  { name: 'vote', type: 'function', stateMutability: 'payable', inputs: [{ name: 'proposalId', type: 'bytes32' }, { name: 'supports', type: 'bool' }], outputs: [] },
+  { name: 'addOpinion', type: 'function', stateMutability: 'payable', inputs: [{ name: 'proposalId', type: 'bytes32' }, { name: 'supports', type: 'bool' }, { name: 'ipfsHash', type: 'string' }, { name: 'summary', type: 'string' }], outputs: [] },
+  { name: 'getAggregatedReputation', type: 'function', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ name: 'weightedScore', type: 'uint256' }, { name: 'providerScores', type: 'uint256[]' }, { name: 'providerWeights', type: 'uint256[]' }] },
+  { name: 'getProvider', type: 'function', stateMutability: 'view', inputs: [{ name: 'providerContract', type: 'address' }], outputs: [{ type: 'tuple', components: [{ name: 'providerContract', type: 'address' }, { name: 'name', type: 'string' }, { name: 'description', type: 'string' }, { name: 'weight', type: 'uint256' }, { name: 'addedAt', type: 'uint256' }, { name: 'isActive', type: 'bool' }, { name: 'isSuspended', type: 'bool' }, { name: 'totalFeedbackCount', type: 'uint256' }, { name: 'accuracyScore', type: 'uint256' }, { name: 'lastFeedbackAt', type: 'uint256' }] }] },
+  { name: 'getAllProviders', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address[]' }] },
+  { name: 'getActiveProviders', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'address[]' }] },
+  { name: 'getProposal', type: 'function', stateMutability: 'view', inputs: [{ name: 'proposalId', type: 'bytes32' }], outputs: [{ type: 'tuple', components: [{ name: 'proposalId', type: 'bytes32' }, { name: 'proposalType', type: 'uint8' }, { name: 'targetProvider', type: 'address' }, { name: 'providerName', type: 'string' }, { name: 'providerDescription', type: 'string' }, { name: 'proposedWeight', type: 'uint256' }, { name: 'proposer', type: 'address' }, { name: 'stake', type: 'uint256' }, { name: 'forStake', type: 'uint256' }, { name: 'againstStake', type: 'uint256' }, { name: 'forCount', type: 'uint256' }, { name: 'againstCount', type: 'uint256' }, { name: 'createdAt', type: 'uint256' }, { name: 'challengeEnds', type: 'uint256' }, { name: 'timelockEnds', type: 'uint256' }, { name: 'status', type: 'uint8' }, { name: 'councilDecisionHash', type: 'bytes32' }, { name: 'councilReason', type: 'string' }] }] },
+  { name: 'totalWeight', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'activeProviderCount', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+] as const;
+
+// ============ Staking ABI ============
+
+export const STAKING_ABI = [
+  { name: 'stake', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
+  { name: 'stakeWithAgent', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }, { name: 'agentId', type: 'uint256' }], outputs: [] },
+  { name: 'startUnbonding', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'amount', type: 'uint256' }], outputs: [] },
+  { name: 'completeUnstaking', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] },
+  { name: 'getTier', type: 'function', stateMutability: 'view', inputs: [{ name: 'user', type: 'address' }], outputs: [{ name: '', type: 'uint8' }] },
+  { name: 'getEffectiveUsdValue', type: 'function', stateMutability: 'view', inputs: [{ name: 'user', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'getRateLimit', type: 'function', stateMutability: 'view', inputs: [{ name: 'user', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'getAllocation', type: 'function', stateMutability: 'view', inputs: [{ name: 'user', type: 'address' }, { name: 'service', type: 'string' }], outputs: [{ name: 'limit', type: 'uint256' }, { name: 'used', type: 'uint256' }, { name: 'remaining', type: 'uint256' }] },
+  { name: 'hasAllocation', type: 'function', stateMutability: 'view', inputs: [{ name: 'user', type: 'address' }, { name: 'service', type: 'string' }, { name: 'amount', type: 'uint256' }], outputs: [{ name: '', type: 'bool' }] },
+  { name: 'getPosition', type: 'function', stateMutability: 'view', inputs: [{ name: 'user', type: 'address' }], outputs: [{ type: 'tuple', components: [{ name: 'stakedAmount', type: 'uint256' }, { name: 'stakedAt', type: 'uint256' }, { name: 'linkedAgentId', type: 'uint256' }, { name: 'reputationBonus', type: 'uint256' }, { name: 'unbondingAmount', type: 'uint256' }, { name: 'unbondingStartTime', type: 'uint256' }, { name: 'isActive', type: 'bool' }, { name: 'isFrozen', type: 'bool' }] }] },
+  { name: 'getTierConfig', type: 'function', stateMutability: 'view', inputs: [{ name: 'tier', type: 'uint8' }], outputs: [{ type: 'tuple', components: [{ name: 'minUsdValue', type: 'uint256' }, { name: 'rpcRateLimit', type: 'uint256' }, { name: 'storageQuotaMB', type: 'uint256' }, { name: 'computeCredits', type: 'uint256' }, { name: 'cdnBandwidthGB', type: 'uint256' }] }] },
+  { name: 'getJejuPrice', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'totalStaked', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+  { name: 'totalStakers', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ name: '', type: 'uint256' }] },
+] as const;
+
+// ============ Staking Tier Names ============
+
+export const STAKING_TIER_NAMES: Record<number, StakingTier> = {
+  0: 'FREE',
+  1: 'BUILDER',
+  2: 'PRO',
+  3: 'UNLIMITED'
+};

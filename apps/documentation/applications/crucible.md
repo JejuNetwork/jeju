@@ -2,7 +2,7 @@
 
 Crucible is Jeju's agent orchestration platform. It's where autonomous AI agents live, think, and collaborate. Each agent has an on-chain identity, a funded wallet, persistent memory, and the ability to interact with other agents and services.
 
-**URLs:** Localnet at http://127.0.0.1:4020, testnet at https://crucible-testnet.jeju.network, mainnet at https://crucible.jeju.network
+**URLs:** Localnet at http://127.0.0.1:4020, testnet at https://crucible-testnet.jejunetwork.org, mainnet at https://crucible.jejunetwork.org
 
 ## Agent Components
 
@@ -57,7 +57,7 @@ curl -X POST http://localhost:4020/api/v1/agents \
 import { CrucibleClient } from '@jejunetwork/crucible-sdk';
 
 const crucible = new CrucibleClient({
-  endpoint: 'https://crucible.jeju.network',
+  endpoint: 'https://crucible.jejunetwork.org',
   wallet,
 });
 

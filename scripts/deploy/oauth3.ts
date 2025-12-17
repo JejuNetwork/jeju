@@ -46,8 +46,8 @@ const DEFAULT_COUNCILS: Record<string, CouncilAppConfig> = {
     description: 'Official OAuth3 app for Jeju Network governance',
     council: '0x0000000000000000000000000000000000000000' as Address,
     redirectUris: [
-      'https://jeju.network/auth/callback',
-      'https://council.jeju.network/auth/callback',
+      'https://jejunetwork.org/auth/callback',
+      'https://council.jejunetwork.org/auth/callback',
       'http://localhost:3000/auth/callback',
     ],
   },
@@ -56,8 +56,8 @@ const DEFAULT_COUNCILS: Record<string, CouncilAppConfig> = {
     description: 'Official OAuth3 app for Babylon game platform',
     council: '0x0000000000000000000000000000000000000000' as Address,
     redirectUris: [
-      'https://babylon.jeju.network/auth/callback',
-      'https://play.babylon.jeju.network/auth/callback',
+      'https://babylon.jejunetwork.org/auth/callback',
+      'https://play.babylon.jejunetwork.org/auth/callback',
       'http://localhost:3001/auth/callback',
     ],
   },
@@ -66,8 +66,8 @@ const DEFAULT_COUNCILS: Record<string, CouncilAppConfig> = {
     description: 'Official OAuth3 app for ElizaOS AI agent framework',
     council: '0x0000000000000000000000000000000000000000' as Address,
     redirectUris: [
-      'https://eliza.jeju.network/auth/callback',
-      'https://agents.eliza.jeju.network/auth/callback',
+      'https://eliza.jejunetwork.org/auth/callback',
+      'https://agents.eliza.jejunetwork.org/auth/callback',
       'http://localhost:3002/auth/callback',
     ],
   },

@@ -35,7 +35,7 @@ Typical spreads: 0.05% - 0.5%
 ```bash
 cast send $SOLVER_REGISTRY "register()" \
   --value 0.5ether \
-  --rpc-url https://rpc.jeju.network \
+  --rpc-url https://rpc.jejunetwork.org \
   --private-key $PK
 ```
 
@@ -131,11 +131,11 @@ cast send $INPUT_SETTLER "claimPayment(bytes32)" $INTENT_ID \
 ```bash
 # Initiate
 cast send $SOLVER_REGISTRY "initiateUnstake()" \
-  --rpc-url https://rpc.jeju.network --private-key $PK
+  --rpc-url https://rpc.jejunetwork.org --private-key $PK
 
 # After 7 days
 cast send $SOLVER_REGISTRY "completeUnstake()" \
-  --rpc-url https://rpc.jeju.network --private-key $PK
+  --rpc-url https://rpc.jejunetwork.org --private-key $PK
 ```
 
 

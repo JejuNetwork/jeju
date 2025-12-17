@@ -1,7 +1,7 @@
 # Testnet values for Jeju Compute Services
 
 common:
-  rpcUrl: "https://testnet-rpc.jeju.network"
+  rpcUrl: "https://testnet-rpc.jejunetwork.org"
   registryAddress: ""  # Set by CI/CD
   workerRegistryAddress: ""  # Set by CI/CD
   
@@ -29,7 +29,7 @@ mpcNode:
 
 ingress:
   hosts:
-    - host: compute-testnet.jeju.network
+    - host: compute-testnet.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
@@ -43,4 +43,4 @@ ingress:
   tls:
     - secretName: compute-testnet-tls
       hosts:
-        - compute-testnet.jeju.network
+        - compute-testnet.jejunetwork.org

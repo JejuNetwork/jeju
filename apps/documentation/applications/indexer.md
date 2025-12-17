@@ -2,7 +2,7 @@
 
 Indexer is Jeju's blockchain data API. It continuously processes blocks, transactions, and events, storing them in a queryable database. All Jeju apps use the Indexer's GraphQL API to display on-chain data.
 
-**URLs:** Localnet at http://127.0.0.1:4350/graphql, testnet at https://indexer-testnet.jeju.network/graphql, mainnet at https://indexer.jeju.network/graphql
+**URLs:** Localnet at http://127.0.0.1:4350/graphql, testnet at https://indexer-testnet.jejunetwork.org/graphql, mainnet at https://indexer.jejunetwork.org/graphql
 
 ## Why Use the Indexer
 
@@ -333,7 +333,7 @@ Configure in AWS Secrets Manager or environment:
 docker build -t jeju-indexer .
 docker run -p 4003:4003 \
   -e DATABASE_URL=postgres://user:pass@db:5432/jeju \
-  -e RPC_URL=https://rpc.jeju.network \
+  -e RPC_URL=https://rpc.jejunetwork.org \
   jeju-indexer
 ```
 

@@ -21,6 +21,8 @@ import { createA2AModule, type A2AModule } from "./a2a";
 import { createGamesModule, type GamesModule } from "./games";
 import { createContainersModule, type ContainersModule } from "./containers";
 import { createLaunchpadModule, type LaunchpadModule } from "./launchpad";
+import { createModerationModule, type ModerationModule } from "./moderation";
+import { createWorkModule, type WorkModule } from "./work";
 import { getServicesConfig, getChainConfig, getContractAddresses } from "./config";
 import { getNetworkName } from "@jejunetwork/config";
 
@@ -81,6 +83,10 @@ export interface JejuClient {
   readonly containers: ContainersModule;
   /** Launchpad - Token and NFT launches */
   readonly launchpad: LaunchpadModule;
+  /** Moderation - Evidence registry, cases, reputation labels */
+  readonly moderation: ModerationModule;
+  /** Work - Bounties, projects, guardians */
+  readonly work: WorkModule;
 
   /** Get native balance */
   getBalance(): Promise<bigint>;
@@ -140,6 +146,8 @@ export async function createJejuClient(
   const launchpad = contractAddresses.tokenLaunchpad
     ? createLaunchpadModule(wallet, network)
     : createStubLaunchpadModule();
+  const moderation = createModerationModule(wallet, network);
+  const work = createWorkModule(wallet, network);
 
   const client: JejuClient = {
     network,
@@ -162,6 +170,8 @@ export async function createJejuClient(
     games,
     containers,
     launchpad,
+    moderation,
+    work,
 
     getBalance: () => wallet.getBalance(),
     sendTransaction: (params) => wallet.sendTransaction(params),

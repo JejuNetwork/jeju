@@ -2,7 +2,7 @@
 
 Monitoring provides the observability stack for Jeju — Prometheus for metrics collection, Grafana for dashboards, Alertmanager for alert routing, and an A2A server for agent-queryable metrics.
 
-**URLs:** A2A at http://127.0.0.1:9091, Prometheus at http://127.0.0.1:9090, Grafana at http://127.0.0.1:3000. Production uses https://monitoring.jeju.network.
+**URLs:** A2A at http://127.0.0.1:9091, Prometheus at http://127.0.0.1:9090, Grafana at http://127.0.0.1:3000. Production uses https://monitoring.jejunetwork.org.
 
 ## Stack Components
 
@@ -170,7 +170,7 @@ This deploys Prometheus, Grafana, Alertmanager, and the A2A server with pre-conf
 
 Local Grafana runs at http://localhost:3000 with default credentials admin/admin.
 
-Production Grafana uses GitHub OAuth SSO at https://grafana.jeju.network.
+Production Grafana uses GitHub OAuth SSO at https://grafana.jejunetwork.org.
 
 ## Troubleshooting
 

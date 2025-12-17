@@ -21,3 +21,18 @@ export {
   createDWSSDK,
   type DWSSDKConfig,
 } from './sdk';
+
+// RPC Gateway
+export * from './rpc';
+
+// Oracle Node
+export * from './oracle';
+
+// Solver
+export { SolverAgent, LiquidityManager, EventMonitor, StrategyEngine } from './solver';
+export * from './solver/metrics';
+export * from './solver/contracts';
+export * from './solver/external';
+
+// Shared chains
+export * from './shared/chains';

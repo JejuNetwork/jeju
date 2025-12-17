@@ -105,8 +105,8 @@ const CHAIN_IDS: Record<NetworkType, number> = {
 
 const DEFAULT_RPC: Record<NetworkType, string> = {
   localnet: 'http://localhost:9545',
-  testnet: 'https://testnet-rpc.jeju.network',
-  mainnet: 'https://rpc.jeju.network',
+  testnet: 'https://testnet-rpc.jejunetwork.org',
+  mainnet: 'https://rpc.jejunetwork.org',
 };
 
 function loadJsonFile<T>(path: string): T | null {

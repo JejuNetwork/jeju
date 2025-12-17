@@ -6,7 +6,7 @@ project_id       = "your-gcp-project-id"
 region           = "us-central1"
 secondary_region = "us-east1"
 
-domain_name     = "jeju.network"
+domain_name     = "jejunetwork.org"
 create_dns_zone = false  # Use existing zone from testnet
 
 enable_cloud_armor = true

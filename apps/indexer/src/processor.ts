@@ -15,7 +15,7 @@
  * 
  * @example Environment configuration
  * ```bash
- * RPC_ETH_HTTP=https://rpc.jeju.network  # Required: Network RPC endpoint
+ * RPC_ETH_HTTP=https://rpc.jejunetwork.org  # Required: Network RPC endpoint
  * START_BLOCK=0                           # Optional: Starting block (default: 0)
  * ```
  */

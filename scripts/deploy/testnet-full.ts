@@ -194,7 +194,7 @@ async function waitForChainSync() {
     printStatus();
 
     try {
-      const response = await fetch('https://testnet-rpc.jeju.network', {
+      const response = await fetch('https://testnet-rpc.jejunetwork.org', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -237,7 +237,7 @@ async function deployBundler() {
 
 async function verifyDeployment() {
   // Verify RPC
-  const rpcResponse = await fetch('https://testnet-rpc.jeju.network', {
+  const rpcResponse = await fetch('https://testnet-rpc.jejunetwork.org', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -326,14 +326,14 @@ async function main() {
 ╚══════════════════════════════════════════════════════════════════════╝
 
 Testnet URLs:
-  RPC: https://testnet-rpc.jeju.network
-  WS:  wss://testnet-ws.jeju.network
-  Explorer: https://testnet-explorer.jeju.network
+  RPC: https://testnet-rpc.jejunetwork.org
+  WS:  wss://testnet-ws.jejunetwork.org
+  Explorer: https://testnet-explorer.jejunetwork.org
 
 Chain ID: 420690
 
 Next Steps:
-  1. Update nameservers for jeju.network to AWS Route53
+  1. Update nameservers for jejunetwork.org to AWS Route53
   2. Enable HTTPS: terraform apply -var="enable_https=true" -var="enable_cdn=true"
   3. Test cross-chain transfers
 `);

@@ -159,7 +159,7 @@ async function callAgent(endpoint, skill, params) {
 }
 
 const result = await callAgent(
-  'https://myagent.jeju.network/a2a',
+  'https://myagent.jejunetwork.org/a2a',
   'greet',
   { name: 'Alice' }
 );

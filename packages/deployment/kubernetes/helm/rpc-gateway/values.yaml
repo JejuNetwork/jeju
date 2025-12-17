@@ -66,19 +66,19 @@ ingress:
     # Shield (set per environment)
     alb.ingress.kubernetes.io/shield-advanced-protection: "false"
   hosts:
-    - host: rpc.jeju.network
+    - host: rpc.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
-    - host: ws.jeju.network
+    - host: ws.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: rpc-jeju-network-tls
+    - secretName: rpc-jejunetwork-org-tls
       hosts:
-        - rpc.jeju.network
-        - ws.jeju.network
+        - rpc.jejunetwork.org
+        - ws.jejunetwork.org
 
 resources:
   limits:

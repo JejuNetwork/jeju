@@ -66,7 +66,7 @@ api:
 ingress:
   enabled: true
   hosts:
-    - host: indexer.jeju.network
+    - host: indexer.jejunetwork.org
       paths:
         - path: /
           pathType: Prefix
@@ -112,7 +112,7 @@ curl http://localhost:4350/graphql \
   -d '{"query":"{ blocks(limit: 1) { number } }"}'
 
 # Or use ingress (if configured)
-curl https://indexer.jeju.network/graphql \
+curl https://indexer.jejunetwork.org/graphql \
   -H "Content-Type: application/json" \
   -d '{"query":"{ blocks(limit: 1) { number } }"}'
 ```

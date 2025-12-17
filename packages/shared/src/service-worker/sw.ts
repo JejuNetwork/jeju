@@ -10,15 +10,15 @@ const API_CACHE = 'jeju-api-v1';
 
 // JNS Gateway URLs for fallback
 const JNS_GATEWAYS = [
-  'https://jns.jeju.network',
-  'https://ipfs.jeju.network',
+  'https://jns.jejunetwork.org',
+  'https://ipfs.jejunetwork.org',
   'https://cloudflare-ipfs.com',
   'https://dweb.link',
 ];
 
 // IPFS Gateways for fallback
 const IPFS_GATEWAYS = [
-  'https://ipfs.jeju.network',
+  'https://ipfs.jejunetwork.org',
   'https://cloudflare-ipfs.com',
   'https://dweb.link',
   'https://ipfs.io',

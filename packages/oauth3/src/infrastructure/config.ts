@@ -20,8 +20,8 @@ export const CHAIN_IDS = {
 
 export const RPC_URLS: Record<NetworkType, string> = {
   localnet: 'http://localhost:9545',
-  testnet: 'https://testnet.jeju.network',
-  mainnet: 'https://mainnet.jeju.network',
+  testnet: 'https://testnet.jejunetwork.org',
+  mainnet: 'https://mainnet.jejunetwork.org',
 } as const;
 
 export const DEFAULT_RPC = process.env.JEJU_RPC_URL || RPC_URLS.localnet;
@@ -35,14 +35,14 @@ export const DWS_ENDPOINTS: Record<NetworkType, { base: string; api: string; gat
     gateway: 'http://localhost:4030/storage/ipfs',
   },
   testnet: {
-    base: 'https://dws.testnet.jeju.network',
-    api: 'https://dws.testnet.jeju.network/storage/api/v0',
-    gateway: 'https://dws.testnet.jeju.network/storage/ipfs',
+    base: 'https://dws.testnet.jejunetwork.org',
+    api: 'https://dws.testnet.jejunetwork.org/storage/api/v0',
+    gateway: 'https://dws.testnet.jejunetwork.org/storage/ipfs',
   },
   mainnet: {
-    base: 'https://dws.jeju.network',
-    api: 'https://dws.jeju.network/storage/api/v0',
-    gateway: 'https://dws.jeju.network/storage/ipfs',
+    base: 'https://dws.jejunetwork.org',
+    api: 'https://dws.jejunetwork.org/storage/api/v0',
+    gateway: 'https://dws.jejunetwork.org/storage/ipfs',
   },
 } as const;
 

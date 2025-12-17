@@ -122,7 +122,7 @@ Ends: ${new Date(Number(rental.endTime) * 1000).toLocaleString()}`,
   examples: [
     [
       { name: "user", content: { text: "Get SSH access for rental 0x1234..." } },
-      { name: "agent", content: { text: "SSH Access Details: Host: compute-1.jeju.network..." } },
+      { name: "agent", content: { text: "SSH Access Details: Host: compute-1.jejunetwork.org..." } },
     ],
   ],
 };

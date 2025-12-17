@@ -30,7 +30,7 @@ export function parseDeepLink(url: string): DeepLinkParams | null {
       return { action, params };
     }
 
-    if (parsed.hostname === 'wallet.jeju.network') {
+    if (parsed.hostname === 'wallet.jejunetwork.org') {
       const pathParts = parsed.pathname.split('/').filter(Boolean);
       const action = pathParts[0] ?? 'open';
       const params: Record<string, string> = {};
@@ -59,7 +59,7 @@ export function buildUniversalLink(action: string, params: Record<string, string
   const searchParams = new URLSearchParams(params);
   const queryString = searchParams.toString();
   
-  return `https://wallet.jeju.network/${action}${queryString ? `?${queryString}` : ''}`;
+  return `https://wallet.jejunetwork.org/${action}${queryString ? `?${queryString}` : ''}`;
 }
 
 const callbacks: Map<string, DeepLinkCallback[]> = new Map();

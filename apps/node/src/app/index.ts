@@ -65,7 +65,7 @@ export interface AppConfig {
 const DEFAULT_CONFIG: AppConfig = {
   version: '1.0.0',
   network: 'testnet',
-  rpcUrl: 'https://testnet-rpc.jeju.network',
+  rpcUrl: 'https://testnet-rpc.jejunetwork.org',
   chainId: 420691,
   privateKey: '',
   walletAddress: '',
@@ -194,8 +194,8 @@ async function cmdSetup(): Promise<void> {
   const network = await prompt('  Network (testnet/mainnet)', config.network);
   config.network = network as 'testnet' | 'mainnet';
   config.rpcUrl = config.network === 'mainnet' 
-    ? 'https://rpc.jeju.network' 
-    : 'https://testnet-rpc.jeju.network';
+    ? 'https://rpc.jejunetwork.org' 
+    : 'https://testnet-rpc.jejunetwork.org';
   config.chainId = config.network === 'mainnet' ? 420690 : 420691;
   
   // Wallet
@@ -505,7 +505,7 @@ ${chalk.bold('Quick Start:')}
   if (values.network) {
     const config = loadConfig();
     config.network = values.network as 'testnet' | 'mainnet';
-    config.rpcUrl = config.network === 'mainnet' ? 'https://rpc.jeju.network' : 'https://testnet-rpc.jeju.network';
+    config.rpcUrl = config.network === 'mainnet' ? 'https://rpc.jejunetwork.org' : 'https://testnet-rpc.jejunetwork.org';
     config.chainId = config.network === 'mainnet' ? 420690 : 420691;
     saveConfig(config);
   }

@@ -1,8 +1,10 @@
 /**
  * RPC Gateway Module
- * Multi-chain RPC proxy with stake-based rate limiting
+ * @deprecated RPC functionality has moved to DWS. This re-exports for backwards compatibility.
+ * Use @jeju/dws for new code.
  */
 
+// Re-export from DWS for backwards compatibility
 export { rpcApp, startRpcServer } from './server.js';
 export { CHAINS, getChain, isChainSupported, getMainnetChains, getTestnetChains, type ChainConfig } from './config/chains.js';
 export { rateLimiter, RATE_LIMITS, getRateLimitStats, type RateTier } from './middleware/rate-limiter.js';
@@ -26,3 +28,6 @@ export {
   type X402PaymentHeader,
   type X402Network,
 } from './services/x402-payments.js';
+
+// Note: For new code, import directly from DWS
+console.warn('[Gateway/RPC] RPC functionality has moved to DWS. Consider importing from @jeju/dws instead.');

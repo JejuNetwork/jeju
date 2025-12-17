@@ -239,7 +239,7 @@ export function useIntentHistory() {
     try {
       // In production, call the indexer API
       const response = await fetch(
-        `https://api.jeju.network/oif/intents?user=${address}`
+        `https://api.jejunetwork.org/oif/intents?user=${address}`
       );
 
       if (response.ok) {

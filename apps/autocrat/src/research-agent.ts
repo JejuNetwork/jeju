@@ -7,7 +7,7 @@
  */
 
 import { keccak256, stringToHex } from 'viem';
-import { checkOllama, ollamaGenerate, OLLAMA_MODEL } from './local-services';
+import { checkDWSCompute, dwsGenerate } from './agents/runtime';
 import { parseJson } from './utils';
 
 export interface ResearchRequest {
@@ -147,21 +147,13 @@ export class ResearchAgent {
       }
     }
 
-    // Fall back to local Ollama
-    const ollamaUp = await checkOllama();
-    
-    let report: ResearchReport;
-    if (!ollamaUp) {
-      console.warn('[ResearchAgent] Ollama unavailable - using keyword-based heuristics');
-      report = this.generateHeuristicReport(request, requestHash, startedAt);
-    } else {
-      try {
-        report = await this.generateAIReport(request, requestHash, startedAt, depth);
-      } catch (err) {
-        console.warn('[ResearchAgent] Ollama inference failed, falling back to heuristics:', (err as Error).message);
-        report = this.generateHeuristicReport(request, requestHash, startedAt);
-      }
+    // Use DWS compute - required
+    const dwsUp = await checkDWSCompute();
+    if (!dwsUp) {
+      throw new Error('DWS compute is required for research. Start with: docker compose up -d');
     }
+    
+    const report = await this.generateAIReport(request, requestHash, startedAt, depth);
 
     evictOldest();
     cache.set(requestHash, report);
@@ -246,7 +238,7 @@ ${request.references?.length ? `References: ${request.references.join(', ')}` : 
 Return JSON:
 {"summary":"...","recommendation":"proceed|reject|modify","confidenceLevel":0-100,"riskLevel":"low|medium|high|critical","keyFindings":[],"concerns":[],"alternatives":[],"sections":[{"title":"...","content":"...","confidence":0-100}]}`;
 
-    const response = await ollamaGenerate(prompt, 'DAO research analyst. Thorough, objective. Return only valid JSON.');
+    const response = await dwsGenerate(prompt, 'DAO research analyst. Thorough, objective. Return only valid JSON.');
 
     type ParsedReport = { summary: string; recommendation: string; confidenceLevel: number; riskLevel: string; keyFindings: string[]; concerns: string[]; alternatives: string[]; sections: ResearchSection[] };
     const parsed = parseJson<ParsedReport>(response);
@@ -262,7 +254,7 @@ Return JSON:
     const risk = ['low', 'medium', 'high', 'critical'].includes(parsed.riskLevel) ? parsed.riskLevel : 'medium';
 
     return {
-      proposalId: request.proposalId, requestHash, model: OLLAMA_MODEL,
+      proposalId: request.proposalId, requestHash, model: 'dws-compute',
       sections: parsed.sections ?? [],
       recommendation: rec as ResearchReport['recommendation'],
       confidenceLevel: typeof parsed.confidenceLevel === 'number' ? parsed.confidenceLevel : 60,
@@ -335,9 +327,8 @@ Return JSON:
   }
 
   async factCheck(claim: string, context: string): Promise<FactCheckResult> {
-    if (!await checkOllama()) {
-      console.warn('[ResearchAgent] Ollama unavailable - fact-check returning unverified');
-      return { claim, verified: false, confidence: 0, explanation: 'Fact-checking requires LLM. Ollama unavailable.' };
+    if (!await checkDWSCompute()) {
+      throw new Error('DWS compute is required for fact-checking. Start with: docker compose up -d');
     }
 
     const prompt = `Fact-check this claim:
@@ -347,7 +338,7 @@ Context: ${context}
 
 Return JSON: {"verified":true/false,"confidence":0-100,"explanation":"...","sources":["..."]}`;
 
-    const response = await ollamaGenerate(prompt, 'Fact-checker. Be objective and cite reasoning.');
+    const response = await dwsGenerate(prompt, 'Fact-checker. Be objective and cite reasoning.');
     const parsed = parseJson<Omit<FactCheckResult, 'claim'>>(response);
 
     return parsed

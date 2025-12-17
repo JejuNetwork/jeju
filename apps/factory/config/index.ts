@@ -49,7 +49,7 @@ export const FEATURES = {
 // ============ JNS Configuration ============
 export const JNS_CONFIG = {
   name: 'factory.jeju',
-  gateway: process.env.NEXT_PUBLIC_JNS_GATEWAY || 'https://jns.jeju.network',
+  gateway: process.env.NEXT_PUBLIC_JNS_GATEWAY || 'https://jns.jejunetwork.org',
   resolver: process.env.NEXT_PUBLIC_JNS_RESOLVER || '0x0000000000000000000000000000000000000000',
 };
 

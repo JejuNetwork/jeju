@@ -11,17 +11,19 @@ import { logger } from '../lib/logger';
 import { startLocalnet, stopLocalnet, getChainStatus, bootstrapContracts } from '../lib/chain';
 import { discoverApps } from '../lib/testing';
 import { createOrchestrator, type ServicesOrchestrator } from '../services/orchestrator';
-import { DEFAULT_PORTS, WELL_KNOWN_KEYS, type AppManifest } from '../types';
+import { DEFAULT_PORTS, WELL_KNOWN_KEYS, DOMAIN_CONFIG, type AppManifest } from '../types';
 
 interface RunningService {
   name: string;
   port?: number;
+  url?: string;
   process?: ReturnType<typeof execa>;
 }
 
 const runningServices: RunningService[] = [];
 let isShuttingDown = false;
 let servicesOrchestrator: ServicesOrchestrator | null = null;
+let proxyEnabled = false;
 
 export const devCommand = new Command('dev')
   .description('Start development environment (localnet + apps)')
@@ -33,6 +35,7 @@ export const devCommand = new Command('dev')
   .option('--no-inference', 'Skip starting inference service')
   .option('--no-services', 'Skip all simulated services')
   .option('--no-apps', 'Skip starting apps (same as --minimal)')
+  .option('--no-proxy', 'Skip starting local domain proxy')
   .option('--bootstrap', 'Force contract bootstrap even if already deployed')
   .action(async (options) => {
     if (options.stop) {
@@ -54,7 +57,7 @@ export const devCommand = new Command('dev')
     await startDev(options);
   });
 
-async function startDev(options: { minimal?: boolean; only?: string; skip?: string; inference?: boolean; services?: boolean; bootstrap?: boolean; noApps?: boolean }) {
+async function startDev(options: { minimal?: boolean; only?: string; skip?: string; inference?: boolean; services?: boolean; bootstrap?: boolean; noApps?: boolean; proxy?: boolean }) {
   logger.header('JEJU DEV');
 
   const rootDir = process.cwd();
@@ -86,6 +89,11 @@ async function startDev(options: { minimal?: boolean; only?: string; skip?: stri
     } else {
       logger.debug('Contracts already bootstrapped');
     }
+  }
+
+  // Start local domain proxy (unless disabled)
+  if (options.proxy !== false) {
+    await startLocalProxy(rootDir);
   }
 
   // Start development services (inference, storage, etc.)
@@ -121,6 +129,35 @@ async function startDev(options: { minimal?: boolean; only?: string; skip?: stri
   await waitForever();
 }
 
+async function startLocalProxy(rootDir: string): Promise<void> {
+  const proxyScript = join(rootDir, 'scripts/shared/local-proxy.ts');
+  if (!existsSync(proxyScript)) {
+    logger.debug('Local proxy script not found, skipping');
+    return;
+  }
+
+  logger.step('Starting local domain proxy...');
+  
+  // Import and start the proxy
+  const { startProxy, isCaddyInstalled } = await import(proxyScript);
+  
+  // Check if Caddy is available
+  const caddyInstalled = await isCaddyInstalled();
+  if (!caddyInstalled) {
+    logger.warn('Caddy not installed - local domains disabled');
+    logger.info('  Install with: brew install caddy (macOS) or apt install caddy (Linux)');
+    logger.info('  Apps available at localhost ports instead');
+    return;
+  }
+  
+  const started = await startProxy();
+  if (started) {
+    proxyEnabled = true;
+    logger.success('Local proxy running');
+    logger.info(`  Access apps at *.${DOMAIN_CONFIG.localDomain}`);
+  }
+}
+
 async function stopDev() {
   logger.header('STOPPING');
 
@@ -136,6 +173,15 @@ function setupSignalHandlers() {
 
     logger.newline();
     logger.step('Shutting down...');
+
+    // Stop local proxy
+    if (proxyEnabled) {
+      const proxyScript = join(process.cwd(), 'scripts/shared/local-proxy.ts');
+      if (existsSync(proxyScript)) {
+        const { stopProxy } = await import(proxyScript);
+        await stopProxy();
+      }
+    }
 
     // Stop orchestrated services
     if (servicesOrchestrator) {
@@ -277,10 +323,14 @@ function printReady(rpcUrl: string, services: RunningService[], orchestrator: Se
   logger.info('Press Ctrl+C to stop\n');
 
   logger.subheader('Chain');
-  logger.table([
-    { label: 'L1 RPC', value: `http://127.0.0.1:${DEFAULT_PORTS.l1Rpc}`, status: 'ok' },
-    { label: 'L2 RPC', value: rpcUrl, status: 'ok' },
-  ]);
+  const chainRows = [
+    { label: 'L1 RPC', value: `http://127.0.0.1:${DEFAULT_PORTS.l1Rpc}`, status: 'ok' as const },
+    { label: 'L2 RPC', value: rpcUrl, status: 'ok' as const },
+  ];
+  if (proxyEnabled) {
+    chainRows.push({ label: 'L2 RPC (domain)', value: DOMAIN_CONFIG.local.rpc, status: 'ok' as const });
+  }
+  logger.table(chainRows);
 
   // Print orchestrated services
   if (orchestrator) {
@@ -290,9 +340,30 @@ function printReady(rpcUrl: string, services: RunningService[], orchestrator: Se
   if (services.length > 0) {
     logger.subheader('Apps');
     for (const svc of services) {
-      const url = svc.port ? `http://127.0.0.1:${svc.port}` : 'running';
-      logger.table([{ label: svc.name, value: url, status: 'ok' }]);
+      const port = svc.port;
+      const portUrl = port ? `http://127.0.0.1:${port}` : 'running';
+      
+      // Show local domain URL if proxy is enabled
+      if (proxyEnabled && port) {
+        const domainName = svc.name.toLowerCase().replace(/\s+/g, '-');
+        const localUrl = `http://${domainName}.${DOMAIN_CONFIG.localDomain}`;
+        logger.table([{ label: svc.name, value: `${localUrl} (port ${port})`, status: 'ok' }]);
+      } else {
+        logger.table([{ label: svc.name, value: portUrl, status: 'ok' }]);
+      }
     }
+  }
+
+  // Show local domain info
+  if (proxyEnabled) {
+    logger.newline();
+    logger.subheader('Local Domains');
+    logger.info(`All apps accessible at *.${DOMAIN_CONFIG.localDomain}`);
+    logger.table([
+      { label: 'Gateway', value: DOMAIN_CONFIG.local.gateway, status: 'ok' },
+      { label: 'Bazaar', value: DOMAIN_CONFIG.local.bazaar, status: 'ok' },
+      { label: 'Docs', value: DOMAIN_CONFIG.local.docs, status: 'ok' },
+    ]);
   }
 
   logger.subheader('Test Wallet');
