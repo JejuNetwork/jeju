@@ -9,8 +9,7 @@
  */
 
 import { describe, test, expect } from 'bun:test';
-import { generatePrivateKey, privateKeyToAccount, parseEther, parseUnits, formatEther } from 'viem';
-import { generateMnemonic, mnemonicToAccount } from 'viem/accounts';
+import { generatePrivateKey, privateKeyToAccount, parseEther, parseUnits } from 'viem';
 import {
   EILClient,
   estimateCrossChainFee,

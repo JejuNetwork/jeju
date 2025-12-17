@@ -15,7 +15,7 @@
  *   bun run scripts/setup-testnet-deployer.ts
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, sendTransaction, waitForTransactionReceipt, readContract, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, sendTransaction, waitForTransactionReceipt, type Address } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { parseAbi } from 'viem';
 import { writeFileSync, existsSync, mkdirSync, readFileSync } from 'fs';

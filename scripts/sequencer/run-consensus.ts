@@ -6,7 +6,7 @@
  * This is the decentralized sequencer selection and block finalization service.
  */
 
-import { createPublicClient, http, getBlockNumber, readContract, type Address } from 'viem';
+import { createPublicClient, http, getBlockNumber, type Address } from 'viem';
 import { parseAbi } from 'viem';
 import { ConsensusAdapter } from './integration/consensus-adapter';
 import { readFileSync, existsSync } from 'fs';

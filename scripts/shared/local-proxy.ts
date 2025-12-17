@@ -16,7 +16,6 @@
  */
 
 import { existsSync, mkdirSync, writeFileSync, unlinkSync, readFileSync } from 'fs';
-import { join } from 'path';
 import { $ } from 'bun';
 
 const DOMAIN = 'local.jeju.network';

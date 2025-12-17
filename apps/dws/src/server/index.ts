@@ -33,6 +33,7 @@ import { createVPNRouter } from './routes/vpn';
 import { createScrapingRouter } from './routes/scraping';
 import { createRPCRouter } from './routes/rpc';
 import { createEdgeRouter, handleEdgeWebSocket } from './routes/edge';
+import rlaifRoutes from './routes/rlaif';
 import { createBackendManager } from '../storage/backends';
 import { initializeMarketplace } from '../api-marketplace';
 import { initializeContainerSystem } from '../containers';
@@ -222,7 +223,7 @@ app.get('/', (c) => {
     services: [
       'storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'oauth3', 
       'api-marketplace', 'containers', 's3', 'workers', 'kms', 
-      'vpn', 'scraping', 'rpc', 'edge'
+      'vpn', 'scraping', 'rpc', 'edge', 'rlaif'
     ],
     endpoints: {
       storage: '/storage/*',
@@ -243,6 +244,7 @@ app.get('/', (c) => {
       scraping: '/scraping/*',
       rpc: '/rpc/*',
       edge: '/edge/*',
+      rlaif: '/rlaif/*',
     },
   });
 });
@@ -268,6 +270,7 @@ app.route('/vpn', createVPNRouter());
 app.route('/scraping', createScrapingRouter());
 app.route('/rpc', createRPCRouter());
 app.route('/edge', createEdgeRouter());
+app.route('/rlaif', rlaifRoutes);
 
 // Initialize services
 initializeMarketplace();

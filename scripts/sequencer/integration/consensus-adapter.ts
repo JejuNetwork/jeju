@@ -1,4 +1,4 @@
-import { keccak256, stringToBytes, encodePacked, hashMessage, recoverAddress, zeroHash, type Address, type PublicClient } from 'viem';
+import { keccak256, stringToBytes, encodePacked, recoverAddress, zeroHash, type Address, type PublicClient } from 'viem';
 
 interface Sequencer {
   address: string;

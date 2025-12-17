@@ -6,11 +6,11 @@
  * This script is safe to fail - it's a best-effort setup
  */
 
-import { existsSync, mkdirSync, readFileSync, symlinkSync, readdirSync } from 'fs';
+import { existsSync, mkdirSync, readFileSync, symlinkSync } from 'fs';
 import { join, relative } from 'path';
 import { $ } from 'bun';
 import { discoverVendorApps } from './shared/discover-apps';
-import { hasJejuHostsBlock, getHostsBlockStatus, ensureHostsFile } from './shared/local-proxy';
+import { hasJejuHostsBlock, getHostsBlockStatus } from './shared/local-proxy';
 
 /**
  * Ensure workspace packages are properly symlinked in node_modules
@@ -134,7 +134,6 @@ async function installDependencies(appPath: string, appName: string): Promise<bo
   const result = await $`cd ${appPath} && bun install --frozen-lockfile`.nothrow().quiet();
   
   if (result.exitCode !== 0) {
-    const errorMsg = result.stderr.toString() || result.stdout.toString();
     console.log(`   ⚠️  Frozen lockfile install failed, trying without lockfile...`);
     
     // Try without frozen lockfile

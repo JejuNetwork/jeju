@@ -2,7 +2,7 @@
  * Challenger Adapter - monitors L2 outputs and creates dispute games for invalid ones
  */
 
-import { createPublicClient, createWalletClient, http, readContract, writeContract, waitForTransactionReceipt, getBlock, zeroAddress, zeroHash, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, readContract, waitForTransactionReceipt, getBlock, zeroAddress, zeroHash, type Address, type PublicClient, type WalletClient } from 'viem';
 import { parseAbi } from 'viem';
 import { inferChainFromRpcUrl } from '../../shared/chain-utils';
 

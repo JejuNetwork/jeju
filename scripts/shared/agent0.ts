@@ -1,4 +1,4 @@
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, type Chain, keccak256, stringToBytes, zeroAddress } from 'viem';
+import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, type Chain, keccak256, stringToBytes } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';

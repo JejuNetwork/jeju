@@ -9,7 +9,7 @@ import type { AutocratConfig, AutocratVote } from './types';
 import { AutocratBlockchain } from './blockchain';
 import { autocratAgentRuntime, type DeliberationRequest } from './agents';
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config';
-import { storeVote, getVotes, generateResearch, getResearch, store, checkOllama, ollamaGenerate, OLLAMA_MODEL } from './local-services';
+import { storeVote, getVotes, generateResearch, getResearch, store, inference } from './local-services';
 import { ZERO_ADDRESS, assessClarity, assessCompleteness, assessFeasibility, assessAlignment, assessImpact, assessRisk, assessCostBenefit, calculateQualityScore, assessProposalWithAI } from './shared';
 import { getTEEMode } from './tee';
 
@@ -134,11 +134,6 @@ export class AutocratA2AServer {
     const agent = (params.agent as string) ?? 'ceo';
     if (!message) return { message: 'Error', data: { error: 'Missing message parameter' } };
 
-    const ollamaUp = await checkOllama();
-    if (!ollamaUp) {
-      return { message: 'LLM unavailable', data: { error: 'Ollama not running. Start with: ollama serve' } };
-    }
-
     const systemPrompts: Record<string, string> = {
       ceo: 'You are Eliza, AI CEO of Network DAO. Make decisive governance decisions.',
       treasury: 'You are the Treasury Guardian. Analyze financial implications.',
@@ -147,16 +142,22 @@ export class AutocratA2AServer {
       security: 'You are the Security Guardian. Identify risks and vulnerabilities.',
     };
 
-    const response = await ollamaGenerate(message, systemPrompts[agent] ?? systemPrompts.ceo);
-    return { message: `${agent} responded`, data: { agent, model: OLLAMA_MODEL, response, timestamp: new Date().toISOString() } };
+    try {
+      const response = await inference({
+        messages: [{ role: 'user', content: message }],
+        systemPrompt: systemPrompts[agent] ?? systemPrompts.ceo,
+      });
+      return { message: `${agent} responded`, data: { agent, model: 'dws-compute', response, timestamp: new Date().toISOString() } };
+    } catch (error) {
+      return { message: 'LLM unavailable', data: { error: error instanceof Error ? error.message : 'DWS compute not available' } };
+    }
   }
 
   private async assessProposal(params: Record<string, unknown>): Promise<SkillResult> {
     const { title, summary, description } = params as { title?: string; summary?: string; description?: string };
 
     // Try AI assessment first
-    const ollamaUp = await checkOllama();
-    if (ollamaUp && title && summary && description) {
+    if (title && summary && description) {
       const prompt = `Assess this DAO proposal and return JSON scores 0-100:
 
 Title: ${title}
@@ -167,12 +168,15 @@ Return ONLY JSON:
 {"clarity":N,"completeness":N,"feasibility":N,"alignment":N,"impact":N,"riskAssessment":N,"costBenefit":N,"feedback":[],"blockers":[],"suggestions":[]}`;
 
       try {
-        const response = await ollamaGenerate(prompt, 'You are a DAO proposal evaluator. Return only valid JSON.');
+        const response = await inference({
+          messages: [{ role: 'user', content: prompt }],
+          systemPrompt: 'You are a DAO proposal evaluator. Return only valid JSON.',
+        });
         const parsed = JSON.parse(response) as { clarity: number; completeness: number; feasibility: number; alignment: number; impact: number; riskAssessment: number; costBenefit: number; feedback: string[]; blockers: string[]; suggestions: string[] };
         const overallScore = calculateQualityScore(parsed);
         return {
           message: overallScore >= 90 ? `Ready: ${overallScore}/100` : `Needs work: ${overallScore}/100`,
-          data: { overallScore, criteria: parsed, feedback: parsed.feedback, blockers: parsed.blockers, suggestions: parsed.suggestions, readyToSubmit: overallScore >= 90, assessedBy: 'ollama' }
+          data: { overallScore, criteria: parsed, feedback: parsed.feedback, blockers: parsed.blockers, suggestions: parsed.suggestions, readyToSubmit: overallScore >= 90, assessedBy: 'dws-compute' }
         };
       } catch {
         // Fall through to heuristic
@@ -290,11 +294,6 @@ Return ONLY JSON:
     const { proposalId, title, description, proposalType, submitter } = params as { proposalId: string; title?: string; description?: string; proposalType?: string; submitter?: string };
     if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
 
-    const ollamaUp = await checkOllama();
-    if (!ollamaUp) {
-      return { message: 'LLM unavailable', data: { error: 'Deliberation requires Ollama. Start with: ollama serve' } };
-    }
-
     const request: DeliberationRequest = {
       proposalId,
       title: title ?? 'Untitled',
@@ -352,11 +351,6 @@ Return ONLY JSON:
     const description = (params.description as string) ?? 'Proposal for DAO governance';
     if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
 
-    const ollamaUp = await checkOllama();
-    if (!ollamaUp) {
-      return { message: 'LLM unavailable', data: { error: 'Research requires Ollama. Start with: ollama serve' } };
-    }
-
     const research = await generateResearch(proposalId, description);
     return {
       message: 'Research complete',
@@ -399,11 +393,6 @@ Return ONLY JSON:
   private async makeCEODecision(proposalId: string): Promise<SkillResult> {
     if (!proposalId) return { message: 'Error', data: { error: 'Missing proposalId' } };
 
-    const ollamaUp = await checkOllama();
-    if (!ollamaUp) {
-      return { message: 'LLM unavailable', data: { error: 'CEO decision requires Ollama. Start with: ollama serve' } };
-    }
-
     const votes = await getVotes(proposalId);
     const approves = votes.filter((v: AutocratVote) => v.vote === 'APPROVE').length;
     const rejects = votes.filter((v: AutocratVote) => v.vote === 'REJECT').length;
@@ -419,25 +408,32 @@ ${votes.map((v: AutocratVote) => `- ${v.role}: ${v.vote} (${v.confidence}%) - ${
 
 Provide your decision as: APPROVED or REJECTED, with reasoning.`;
 
-    const response = await ollamaGenerate(prompt, 'You are Eliza, AI CEO of Network DAO. Make decisive, well-reasoned governance decisions.');
-    const approved = response.toLowerCase().includes('approved') && !response.toLowerCase().includes('rejected');
+    try {
+      const response = await inference({
+        messages: [{ role: 'user', content: prompt }],
+        systemPrompt: 'You are Eliza, AI CEO of Network DAO. Make decisive, well-reasoned governance decisions.',
+      });
+      const approved = response.toLowerCase().includes('approved') && !response.toLowerCase().includes('rejected');
 
-    const decision = {
-      proposalId,
-      approved,
-      confidenceScore: Math.round((Math.max(approves, rejects) / total) * 100),
-      alignmentScore: Math.round(((approves + rejects) / total) * 100),
-      autocratVotes: { approve: approves, reject: rejects, abstain: total - approves - rejects },
-      reasoning: response.slice(0, 500),
-      recommendations: approved ? ['Proceed with implementation'] : ['Address council concerns'],
-      timestamp: new Date().toISOString(),
-      model: OLLAMA_MODEL,
-      teeMode: getTEEMode()
-    };
+      const decision = {
+        proposalId,
+        approved,
+        confidenceScore: Math.round((Math.max(approves, rejects) / total) * 100),
+        alignmentScore: Math.round(((approves + rejects) / total) * 100),
+        autocratVotes: { approve: approves, reject: rejects, abstain: total - approves - rejects },
+        reasoning: response.slice(0, 500),
+        recommendations: approved ? ['Proceed with implementation'] : ['Address council concerns'],
+        timestamp: new Date().toISOString(),
+        model: 'dws-compute',
+        teeMode: getTEEMode()
+      };
 
-    await store({ type: 'ceo_decision', ...decision });
+      await store({ type: 'ceo_decision', ...decision });
 
-    return { message: `CEO: ${approved ? 'APPROVED' : 'REJECTED'}`, data: decision };
+      return { message: `CEO: ${approved ? 'APPROVED' : 'REJECTED'}`, data: decision };
+    } catch (error) {
+      return { message: 'LLM unavailable', data: { error: error instanceof Error ? error.message : 'DWS compute not available' } };
+    }
   }
 
   getRouter(): Hono {

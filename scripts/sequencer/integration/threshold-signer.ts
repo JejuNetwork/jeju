@@ -1,5 +1,5 @@
-import { keccak256, encodePacked, signMessage, recoverAddress, type Address } from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { keccak256, encodePacked, signMessage, recoverAddress } from 'viem';
+import { type PrivateKeyAccount } from 'viem/accounts';
 
 interface SignatureShare {
   sequencer: string;

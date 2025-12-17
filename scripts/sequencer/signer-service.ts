@@ -8,7 +8,7 @@
  */
 
 import { Hono } from 'hono';
-import { signMessage, signTypedData, type Address } from 'viem';
+import { signMessage, signTypedData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { createHash, randomBytes } from 'crypto';
 
@@ -175,7 +175,7 @@ export class SignatureCollector {
     const results = await Promise.all(
       Array.from(this.peerUrls.entries())
         .filter(([addr]) => !signers.includes(addr))
-        .map(async ([addr, url]) => {
+        .map(async ([_addr, url]) => {
           const ctrl = new AbortController();
           const tid = setTimeout(() => ctrl.abort(), this.timeout);
           try {

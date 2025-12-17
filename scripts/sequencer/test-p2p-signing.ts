@@ -11,7 +11,7 @@
  */
 
 import { spawn, type Subprocess } from 'bun';
-import { createPublicClient, createWalletClient, http, encodeDeployData, getContractAddress, readContract, writeContract, waitForTransactionReceipt, getChainId, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, encodeDeployData, getContractAddress, readContract, waitForTransactionReceipt, getChainId, type Address, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
 import { inferChainFromRpcUrl } from '../shared/chain-utils';
@@ -155,7 +155,6 @@ class P2PSigningTest {
 
     const batchData = '0xdeadbeefcafebabe' as `0x${string}`;
     const requestId = `test-${Date.now()}`;
-    const chainId = await getChainId(this.publicClient);
 
     // Get the digest from the contract (matches the contract's _hashTypedData)
     const nonce = await readContract(this.publicClient, {

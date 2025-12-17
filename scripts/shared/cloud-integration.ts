@@ -5,8 +5,8 @@
  * New code should import directly from the vendor package.
  */
 
-import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, type Chain, parseEther, zeroHash, encodeBytes32String, keccak256, stringToBytes, type TransactionReceipt } from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, type Chain, parseEther, zeroHash, encodeBytes32String, keccak256, stringToBytes } from 'viem';
+import { type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
 import type { Logger } from './logger';

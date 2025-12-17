@@ -4,10 +4,9 @@
 
 import { createPublicClient, createWalletClient, http, type PublicClient, type WalletClient, type Address, keccak256 as viemKeccak256, stringToBytes, parseEther, formatEther, zeroAddress, encodePacked, type Chain, type TransactionReceipt } from 'viem';
 import { type PrivateKeyAccount } from 'viem/accounts';
-import { readContract, waitForTransactionReceipt, watchEvent, getBalance } from 'viem/actions';
+import { readContract, waitForTransactionReceipt, watchEvent } from 'viem/actions';
 import { parseAbi } from 'viem';
 import { MerkleTree } from 'merkletreejs';
-import { inferChainFromRpcUrl } from './chain-utils';
 
 // Use viem keccak256 that works with buffers
 const keccak256 = (data: Buffer | Uint8Array | string): Buffer => {

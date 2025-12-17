@@ -8,7 +8,7 @@
 
 import { createPublicClient, createWalletClient, http, type Address, parseEther, formatEther, keccak256, toUtf8Bytes, type Chain } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { deployContract, readContract, waitForTransactionReceipt, getBalance } from 'viem/actions';
+import { deployContract, waitForTransactionReceipt, getBalance } from 'viem/actions';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 

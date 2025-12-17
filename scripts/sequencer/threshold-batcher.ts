@@ -22,7 +22,7 @@
  */
 
 import { Hono } from 'hono';
-import { createPublicClient, createWalletClient, http, keccak256, stringToBytes, encodeAbiParameters, concat, getBalance, readContract, writeContract, waitForTransactionReceipt, getChainId, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, keccak256, stringToBytes, encodeAbiParameters, concat, getBalance, readContract, waitForTransactionReceipt, getChainId, type Address, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
 import { readFileSync, existsSync } from 'fs';

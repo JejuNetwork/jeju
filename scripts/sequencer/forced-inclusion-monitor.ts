@@ -17,8 +17,8 @@
  *   FORCER_PRIVATE_KEY - (optional) Wallet to force-include and earn rewards
  */
 
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, formatEther, getLogs, decodeEventLog, watchContractEvent, getBlockNumber, getBalance, encodePacked, type Address, type PublicClient, type WalletClient } from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, waitForTransactionReceipt, formatEther, getLogs, decodeEventLog, watchContractEvent, getBlockNumber, getBalance, encodePacked, type Address, type PublicClient, type WalletClient } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../shared/chain-utils';
 import { readFileSync, existsSync } from 'fs';
 import { join } from 'path';

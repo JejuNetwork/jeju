@@ -4,7 +4,7 @@
  * Tests that all training components are properly integrated
  */
 
-import { createPublicClient, http, parseEther, keccak256, encodePacked } from 'viem';
+import { createPublicClient, http } from 'viem';
 import { foundry } from 'viem/chains';
 
 const RPC_URL = process.env.RPC_URL || 'http://localhost:8545';
@@ -15,20 +15,6 @@ const CONTRACTS = {
   trainingRewards: '0x4ed7c70F96B99c776995fB64377f0d4aB3B0e1C1' as const,
   nodePerformanceOracle: '0xa85233C63b9Ee964Add6F2cffe00Fd84eb32338f' as const,
 };
-
-// Minimal ABIs for testing
-const TRAINING_COORDINATOR_ABI = [
-  { name: 'getRunState', type: 'function', inputs: [{ name: 'runId', type: 'bytes32' }], outputs: [{ name: '', type: 'uint8' }], stateMutability: 'view' },
-] as const;
-
-const NODE_PERFORMANCE_ABI = [
-  { name: 'getOptimalNodes', type: 'function', inputs: [
-    { name: 'count', type: 'uint256' },
-    { name: 'minGpuTier', type: 'uint8' },
-    { name: 'minBandwidth', type: 'uint256' },
-    { name: 'minScore', type: 'uint256' },
-  ], outputs: [{ name: '', type: 'address[]' }], stateMutability: 'view' },
-] as const;
 
 async function verifyTraining() {
   console.log('=== TRAINING INTEGRATION VERIFICATION ===\n');
