@@ -5,7 +5,13 @@
 import { type Address } from 'viem';
 import { type NodeClient, getChain } from '../contracts';
 import { STORAGE_MARKET_ABI } from '../abis';
-import { TorrentSeederService } from './torrent-seeder';
+
+// Lazy import to avoid native module issues
+type TorrentSeederServiceType = Awaited<ReturnType<typeof importTorrentSeeder>>;
+async function importTorrentSeeder() {
+  const mod = await import('./torrent-seeder');
+  return mod.TorrentSeederService;
+}
 
 export interface StorageServiceConfig {
   endpoint: string;
@@ -32,7 +38,7 @@ export interface SeedingStats {
 
 export class StorageService {
   private client: NodeClient;
-  private seeder: TorrentSeederService | null = null;
+  private seeder: InstanceType<TorrentSeederServiceType> | null = null;
 
   constructor(client: NodeClient) {
     this.client = client;
@@ -83,6 +89,7 @@ export class StorageService {
   ): Promise<void> {
     if (this.seeder) return;
 
+    const TorrentSeederService = await importTorrentSeeder();
     this.seeder = new TorrentSeederService({
       rpcUrl: this.client.publicClient.transport.url ?? 'http://127.0.0.1:9545',
       privateKey,

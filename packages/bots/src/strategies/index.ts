@@ -11,3 +11,7 @@ export * from './tfmm';
 export { CrossChainArbitrage, SolanaArbitrage } from './cross-chain-arbitrage';
 export type { CrossChainArbConfig, SolanaArbConfig } from './cross-chain-arbitrage';
 
+// Perpetuals Strategies
+export { FundingArbitrageBot, LiquidationBot } from './perps';
+export type { FundingArbConfig, LiquidationBotConfig } from './perps';
+

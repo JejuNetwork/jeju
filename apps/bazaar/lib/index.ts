@@ -1,6 +1,6 @@
 export * from './erc8004';
 export { checkTradeAllowed } from './banCheck';
-// x402 types re-exported from local implementation (TODO: migrate to shared lib)
+// x402 types from local implementation
 export * from './x402';
 export * from './paymaster';
 export * from './markets/lmsrPricing';

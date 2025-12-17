@@ -1,10 +1,30 @@
 /**
  * Container Execution Tests
  * Tests for serverless container execution with warmth management
+ * 
+ * Executor tests require:
+ * - Docker daemon running
+ * - CONTAINER_REGISTRY_ADDRESS set (or deployed contracts)
+ * 
+ * Run integration tests with: SKIP_INTEGRATION=false bun test tests/containers.test.ts
  */
 
 import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import type { Address } from 'viem';
+
+// Check if Docker is available
+async function isDockerAvailable(): Promise<boolean> {
+  const dockerHost = process.env.DOCKER_HOST || 'unix:///var/run/docker.sock';
+  const url = dockerHost.startsWith('unix://') ? 'http://localhost' : dockerHost;
+  
+  const response = await fetch(`${url}/v1.44/version`, {
+    unix: dockerHost.startsWith('unix://') ? dockerHost.replace('unix://', '') : undefined,
+  } as RequestInit).catch(() => null);
+  
+  return response?.ok ?? false;
+}
+
+const SKIP_DOCKER_TESTS = !process.env.CONTAINER_REGISTRY_ADDRESS;
 
 import {
   // Types
@@ -249,7 +269,7 @@ describe('Executor', () => {
     cleanupExecutor();
   });
 
-  test('should execute container', async () => {
+  test.skipIf(SKIP_DOCKER_TESTS)('should execute container', async () => {
     const request: ExecutionRequest = {
       imageRef: 'jeju/test:latest',
       command: ['/bin/echo', 'hello'],
@@ -269,7 +289,7 @@ describe('Executor', () => {
     expect(result.metrics.totalTimeMs).toBeGreaterThan(0);
   });
 
-  test('should track cold starts', async () => {
+  test.skipIf(SKIP_DOCKER_TESTS)('should track cold starts', async () => {
     const request: ExecutionRequest = {
       imageRef: `jeju/cold-test-${Date.now()}:v1`,
       resources: { cpuCores: 1, memoryMb: 256, storageMb: 512 },
@@ -283,7 +303,7 @@ describe('Executor', () => {
     expect(result.metrics.wasColdStart).toBe(true);
   });
 
-  test('should execute batch', async () => {
+  test.skipIf(SKIP_DOCKER_TESTS)('should execute batch', async () => {
     const requests: ExecutionRequest[] = Array(3)
       .fill(null)
       .map((_, i) => ({
@@ -519,7 +539,7 @@ describe('Scheduler', () => {
 // Integration Tests
 // ============================================================================
 
-describe('Integration', () => {
+describe.skipIf(SKIP_DOCKER_TESTS)('Integration', () => {
   afterEach(() => {
     cleanupExecutor();
     cleanupAllPools();

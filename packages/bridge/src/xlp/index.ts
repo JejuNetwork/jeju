@@ -18,3 +18,16 @@ export {
   getEvmTokenAddress,
 } from './xlp-service.js';
 
+export {
+  JupiterClient,
+  createJupiterClient,
+  XLPJupiterFiller,
+  createXLPJupiterFiller,
+  type JupiterConfig,
+  type JupiterQuote,
+  type JupiterRoutePlan,
+  type JupiterSwapResult,
+  type JupiterPrice,
+  SOLANA_TOKENS,
+} from './jupiter-integration.js';
+

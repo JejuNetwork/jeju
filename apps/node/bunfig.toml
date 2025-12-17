@@ -1,0 +1,2 @@
+# Bun configuration for node app
+# Synpress tests should be run with playwright, not bun test

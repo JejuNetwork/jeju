@@ -346,14 +346,14 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     const amount = this.config.tradeSize;
 
     // Get quotes from all aggregators for A -> B
-    const forwardQuotes = await this.getAllQuotes(chainId, tokenA, tokenB, amount, symbolA);
+    const forwardQuotes = await this.getAllQuotes(chainId, tokenA, tokenB, amount);
 
     // Get quotes from all aggregators for B -> A
     // Use best forward output as input for reverse
     const bestForward = forwardQuotes.sort((a, b) => Number(b.outputAmount - a.outputAmount))[0];
     if (!bestForward) return;
 
-    const reverseQuotes = await this.getAllQuotes(chainId, tokenB, tokenA, bestForward.outputAmount, symbolB);
+    const reverseQuotes = await this.getAllQuotes(chainId, tokenB, tokenA, bestForward.outputAmount);
 
     // Find best arbitrage path
     const bestReverse = reverseQuotes.sort((a, b) => Number(b.outputAmount - a.outputAmount))[0];
@@ -409,8 +409,7 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     chainId: number,
     inputToken: Address,
     outputToken: Address,
-    amount: bigint,
-    _inputSymbol: string
+    amount: bigint
   ): Promise<AggregatorQuote[]> {
     const quotes: AggregatorQuote[] = [];
 

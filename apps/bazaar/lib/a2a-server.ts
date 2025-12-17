@@ -1,10 +1,3 @@
-/**
- * Bazaar A2A Server
- * 
- * Agent-to-agent interface for the marketplace.
- * Supports token launches, ICO participation, and marketplace operations.
- */
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
 import { NETWORK_NAME } from '@/config';
@@ -43,10 +36,6 @@ function createAgentCard(options: {
   };
 }
 
-// ============================================================================
-// Types
-// ============================================================================
-
 interface A2ARequest {
   jsonrpc: string;
   method: string;
@@ -63,10 +52,6 @@ interface SkillResult {
   message: string;
   data: Record<string, unknown>;
 }
-
-// ============================================================================
-// Agent Card
-// ============================================================================
 
 const BAZAAR_SKILLS = [
     // Token Launch Skills
@@ -101,6 +86,27 @@ const BAZAAR_SKILLS = [
     // Analytics Skills
     { id: 'get-market-stats', name: 'Get Market Stats', description: 'Get overall marketplace statistics', tags: ['query', 'stats'] },
     { id: 'get-trending', name: 'Get Trending', description: 'Get trending tokens and collections', tags: ['query', 'trending'] },
+    
+    // TFMM / Smart Pool Skills
+    { id: 'list-tfmm-pools', name: 'List Smart Pools', description: 'Get all TFMM auto-rebalancing pools', tags: ['query', 'tfmm', 'pools'] },
+    { id: 'get-tfmm-pool', name: 'Get Smart Pool Details', description: 'Get details of a specific TFMM pool', tags: ['query', 'tfmm'] },
+    { id: 'get-tfmm-strategies', name: 'Get TFMM Strategies', description: 'Get available rebalancing strategies', tags: ['query', 'tfmm', 'strategies'] },
+    { id: 'get-tfmm-oracles', name: 'Get Oracle Status', description: 'Get status of price oracles (Pyth, Chainlink, TWAP)', tags: ['query', 'tfmm', 'oracles'] },
+    { id: 'prepare-tfmm-deposit', name: 'Prepare Smart Pool Deposit', description: 'Prepare transaction to deposit into a TFMM pool', tags: ['action', 'tfmm', 'deposit'] },
+    { id: 'prepare-tfmm-withdraw', name: 'Prepare Smart Pool Withdraw', description: 'Prepare transaction to withdraw from a TFMM pool', tags: ['action', 'tfmm', 'withdraw'] },
+    { id: 'get-tfmm-performance', name: 'Get Pool Performance', description: 'Get historical performance metrics for a TFMM pool', tags: ['query', 'tfmm', 'performance'] },
+    
+    // Perpetuals Skills
+    { id: 'list-perp-markets', name: 'List Perp Markets', description: 'Get all perpetual futures markets', tags: ['query', 'perps'] },
+    { id: 'get-perp-market', name: 'Get Perp Market', description: 'Get details of a perpetual market', tags: ['query', 'perps'] },
+    { id: 'get-perp-position', name: 'Get Position', description: 'Get details of a perpetual position', tags: ['query', 'perps', 'position'] },
+    { id: 'prepare-perp-open', name: 'Prepare Open Position', description: 'Prepare transaction to open a perpetual position', tags: ['action', 'perps'] },
+    { id: 'prepare-perp-close', name: 'Prepare Close Position', description: 'Prepare transaction to close a perpetual position', tags: ['action', 'perps'] },
+    { id: 'get-perp-funding', name: 'Get Funding Rate', description: 'Get current funding rate for a market', tags: ['query', 'perps', 'funding'] },
+    
+    // Charts & Analytics
+    { id: 'get-token-chart', name: 'Get Token Chart', description: 'Get price chart data for a token', tags: ['query', 'charts'] },
+    { id: 'get-top-tokens', name: 'Get Top Tokens', description: 'Get top tokens by volume or market cap', tags: ['query', 'analytics'] },
 ];
 
 export const BAZAAR_AGENT_CARD = createAgentCard({
@@ -108,10 +114,6 @@ export const BAZAAR_AGENT_CARD = createAgentCard({
   description: 'Decentralized marketplace for token launches, ICOs, and NFT trading',
   skills: BAZAAR_SKILLS,
 });
-
-// ============================================================================
-// Skill Execution
-// ============================================================================
 
 async function executeSkill(skillId: string, params: Record<string, unknown>): Promise<SkillResult> {
   switch (skillId) {
@@ -390,6 +392,314 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
       };
     }
 
+    // TFMM / Smart Pool Skills
+    case 'list-tfmm-pools': {
+      return {
+        message: 'Available TFMM Smart Pools',
+        data: {
+          pools: [
+            {
+              address: '0x1234...5678',
+              name: 'Momentum ETH/BTC',
+              strategy: 'momentum',
+              tokens: ['ETH', 'BTC'],
+              tvl: '2400000',
+              apy: 12.5,
+              volume24h: '890000',
+            },
+            {
+              address: '0x2345...6789',
+              name: 'Mean Reversion Stables',
+              strategy: 'mean_reversion',
+              tokens: ['USDC', 'USDT', 'DAI'],
+              tvl: '1200000',
+              apy: 8.2,
+              volume24h: '450000',
+            },
+          ],
+          totalTvl: '4180000',
+          totalPools: 3,
+        },
+      };
+    }
+
+    case 'get-tfmm-pool': {
+      const poolAddress = params.poolAddress as string;
+      return {
+        message: `Smart Pool details for ${poolAddress}`,
+        data: {
+          address: poolAddress,
+          name: 'Momentum ETH/BTC',
+          strategy: 'momentum',
+          tokens: [
+            { symbol: 'ETH', weight: 60, targetWeight: 65 },
+            { symbol: 'BTC', weight: 40, targetWeight: 35 },
+          ],
+          tvl: '2400000',
+          apy: 12.5,
+          volume24h: '890000',
+          performance: {
+            return7d: 3.2,
+            return30d: 8.5,
+            sharpe: 1.8,
+            maxDrawdown: -12.3,
+          },
+        },
+      };
+    }
+
+    case 'get-tfmm-strategies': {
+      return {
+        message: 'Available TFMM strategies',
+        data: {
+          strategies: [
+            {
+              type: 'momentum',
+              name: 'Momentum',
+              description: 'Allocates more to assets with positive price momentum',
+              performance: { return30d: 8.5, sharpe: 1.8 },
+            },
+            {
+              type: 'mean_reversion',
+              name: 'Mean Reversion',
+              description: 'Rebalances when assets deviate from historical averages',
+              performance: { return30d: 5.2, sharpe: 2.1 },
+            },
+            {
+              type: 'trend_following',
+              name: 'Trend Following',
+              description: 'Follows medium-term price trends using moving averages',
+              performance: { return30d: 12.1, sharpe: 1.5 },
+            },
+          ],
+        },
+      };
+    }
+
+    case 'get-tfmm-oracles': {
+      return {
+        message: 'Oracle status (Pyth > Chainlink > TWAP)',
+        data: {
+          priority: ['pyth', 'chainlink', 'twap'],
+          tokens: {
+            ETH: { source: 'pyth', price: '3450.00', lastUpdate: Date.now() - 5000, healthy: true },
+            BTC: { source: 'pyth', price: '97500.00', lastUpdate: Date.now() - 3000, healthy: true },
+            USDC: { source: 'chainlink', price: '1.00', lastUpdate: Date.now() - 10000, healthy: true },
+          },
+        },
+      };
+    }
+
+    case 'prepare-tfmm-deposit': {
+      const { poolAddress, amounts } = params as { poolAddress: string; amounts: Record<string, string> };
+      return {
+        message: `Prepare deposit to Smart Pool ${poolAddress}`,
+        data: {
+          action: 'sign-and-send',
+          transaction: {
+            to: poolAddress,
+            data: '0x...',
+            value: '0',
+          },
+          approvalRequired: true,
+          estimatedShares: '1000.00',
+        },
+      };
+    }
+
+    case 'prepare-tfmm-withdraw': {
+      const { poolAddress, shares } = params as { poolAddress: string; shares: string };
+      return {
+        message: `Prepare withdrawal from Smart Pool ${poolAddress}`,
+        data: {
+          action: 'sign-and-send',
+          transaction: {
+            to: poolAddress,
+            data: '0x...',
+            value: '0',
+          },
+          estimatedAmounts: { ETH: '0.5', BTC: '0.008' },
+        },
+      };
+    }
+
+    case 'get-tfmm-performance': {
+      const poolAddress = params.poolAddress as string;
+      return {
+        message: `Performance metrics for ${poolAddress}`,
+        data: {
+          returns: {
+            '1d': 0.5,
+            '7d': 3.2,
+            '30d': 8.5,
+            '90d': 22.1,
+          },
+          risk: {
+            sharpe: 1.8,
+            sortino: 2.1,
+            maxDrawdown: -12.3,
+            volatility: 15.2,
+          },
+          rebalances: {
+            count30d: 12,
+            avgGas: '0.002',
+            lastRebalance: Date.now() - 86400000,
+          },
+        },
+      };
+    }
+
+    // Perpetuals Skills
+    case 'list-perp-markets': {
+      return {
+        message: 'Available perpetual markets',
+        data: {
+          markets: [
+            {
+              marketId: 'BTC-PERP',
+              symbol: 'BTC-PERP',
+              markPrice: '97500.00',
+              fundingRate: 0.01,
+              openInterest: '25400000',
+              maxLeverage: 50,
+            },
+            {
+              marketId: 'ETH-PERP',
+              symbol: 'ETH-PERP',
+              markPrice: '3450.00',
+              fundingRate: 0.0085,
+              openInterest: '12300000',
+              maxLeverage: 50,
+            },
+          ],
+        },
+      };
+    }
+
+    case 'get-perp-market': {
+      const marketId = params.marketId as string;
+      return {
+        message: `Market details for ${marketId}`,
+        data: {
+          marketId,
+          symbol: marketId,
+          markPrice: '97500.00',
+          indexPrice: '97480.00',
+          fundingRate: 0.01,
+          nextFunding: Date.now() + 1800000,
+          openInterest: { long: '15000000', short: '10400000' },
+          volume24h: '125000000',
+          takerFee: 0.0005,
+          makerFee: 0.0002,
+        },
+      };
+    }
+
+    case 'get-perp-position': {
+      const { positionId, address } = params as { positionId?: string; address?: string };
+      return {
+        message: 'Position details',
+        data: {
+          positionId: positionId || '0x...',
+          market: 'BTC-PERP',
+          side: 'long',
+          size: '0.5',
+          entryPrice: '96500.00',
+          markPrice: '97500.00',
+          margin: '1000.00',
+          leverage: 48.25,
+          unrealizedPnl: '500.00',
+          liquidationPrice: '94520.00',
+        },
+      };
+    }
+
+    case 'prepare-perp-open': {
+      const { marketId, side, size, leverage, margin } = params as { marketId: string; side: string; size: string; leverage: number; margin: string };
+      return {
+        message: `Prepare ${side} position on ${marketId}`,
+        data: {
+          action: 'sign-and-send',
+          transaction: {
+            to: process.env.NEXT_PUBLIC_PERP_MARKET,
+            data: '0x...',
+            value: '0',
+          },
+          approvalRequired: true,
+          estimatedEntry: '97500.00',
+          estimatedLiquidation: side === 'long' ? '95000.00' : '100000.00',
+        },
+      };
+    }
+
+    case 'prepare-perp-close': {
+      const positionId = params.positionId as string;
+      return {
+        message: `Prepare close position ${positionId}`,
+        data: {
+          action: 'sign-and-send',
+          transaction: {
+            to: process.env.NEXT_PUBLIC_PERP_MARKET,
+            data: '0x...',
+            value: '0',
+          },
+          estimatedPnl: '500.00',
+          estimatedFee: '24.38',
+        },
+      };
+    }
+
+    case 'get-perp-funding': {
+      const marketId = params.marketId as string;
+      return {
+        message: `Funding rate for ${marketId}`,
+        data: {
+          marketId,
+          currentRate: 0.01,
+          predictedRate: 0.012,
+          nextFundingTime: Date.now() + 1800000,
+          history: [
+            { time: Date.now() - 3600000, rate: 0.008 },
+            { time: Date.now() - 7200000, rate: 0.009 },
+            { time: Date.now() - 10800000, rate: 0.007 },
+          ],
+        },
+      };
+    }
+
+    // Charts & Analytics
+    case 'get-token-chart': {
+      const { tokenAddress, interval } = params as { tokenAddress: string; interval: string };
+      return {
+        message: `Chart data for ${tokenAddress}`,
+        data: {
+          token: tokenAddress,
+          interval: interval || '1h',
+          candles: [
+            { time: Date.now() - 3600000, open: 100, high: 105, low: 98, close: 103, volume: '50000' },
+            { time: Date.now() - 7200000, open: 98, high: 102, low: 96, close: 100, volume: '45000' },
+          ],
+          currentPrice: 103,
+          change24h: 5.2,
+        },
+      };
+    }
+
+    case 'get-top-tokens': {
+      const { sortBy, limit } = params as { sortBy?: string; limit?: number };
+      return {
+        message: 'Top tokens',
+        data: {
+          tokens: [
+            { symbol: 'ETH', price: '3450.00', volume24h: '5000000000', change24h: 2.5 },
+            { symbol: 'BTC', price: '97500.00', volume24h: '15000000000', change24h: 1.8 },
+            { symbol: 'JEJU', price: '0.05', volume24h: '2500000', change24h: 15.5 },
+          ],
+          sortedBy: sortBy || 'volume',
+        },
+      };
+    }
+
     default:
       return {
         message: 'Unknown skill',
@@ -397,10 +707,6 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
       };
   }
 }
-
-// ============================================================================
-// Request Handlers
-// ============================================================================
 
 export async function handleA2ARequest(request: NextRequest): Promise<NextResponse> {
   const body = await request.json() as A2ARequest;

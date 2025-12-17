@@ -18,7 +18,16 @@
  */
 
 import type { Address, Hex } from 'viem';
-import { ArbitrageExecutor, createArbitrageExecutor } from './arbitrage-executor';
+
+// Lazy import to avoid native module issues with @solana/web3.js
+type ArbitrageExecutorModule = typeof import('./arbitrage-executor');
+let arbExecutorModule: ArbitrageExecutorModule | null = null;
+async function getArbitrageExecutorModule(): Promise<ArbitrageExecutorModule> {
+  if (!arbExecutorModule) {
+    arbExecutorModule = await import('./arbitrage-executor');
+  }
+  return arbExecutorModule;
+}
 
 // ============ Types ============
 
@@ -58,7 +67,6 @@ export interface BridgeServiceConfig {
   arbTokens?: string[];
   
   // Solana MEV settings
-  solanaRpcUrl?: string;
   jitoTipLamports?: bigint;
   
   // Risk settings
@@ -178,26 +186,37 @@ class BridgeServiceImpl implements BridgeService {
   // Jito settings
   private jitoBlockEngineUrl = 'https://mainnet.block-engine.jito.wtf';
 
-  // Arbitrage executor
-  private arbExecutor: ArbitrageExecutor | null = null;
+  // Arbitrage executor (lazily initialized)
+  private arbExecutor: Awaited<ReturnType<ArbitrageExecutorModule['createArbitrageExecutor']>> | null = null;
+  private arbExecutorInitPromise: Promise<void> | null = null;
 
   constructor(config: BridgeServiceConfig) {
     this.config = config;
     this.arbEnabled = config.enableArbitrage ?? false;
+  }
 
-    // Initialize arbitrage executor if we have a private key
-    if (config.privateKey && config.enableArbitrage) {
+  private async initArbExecutor(): Promise<void> {
+    if (this.arbExecutor || !this.config.privateKey || !this.config.enableArbitrage) return;
+    if (this.arbExecutorInitPromise) {
+      await this.arbExecutorInitPromise;
+      return;
+    }
+    
+    this.arbExecutorInitPromise = (async () => {
+      const { createArbitrageExecutor } = await getArbitrageExecutorModule();
       this.arbExecutor = createArbitrageExecutor({
-        evmPrivateKey: config.privateKey,
+        evmPrivateKey: this.config.privateKey!,
         solanaPrivateKey: process.env.SOLANA_PRIVATE_KEY,
-        evmRpcUrls: config.evmRpcUrls,
-        solanaRpcUrl: config.solanaRpcUrl,
+        evmRpcUrls: this.config.evmRpcUrls,
+        solanaRpcUrl: this.config.solanaRpcUrl,
         zkBridgeEndpoint: process.env.ZK_BRIDGE_ENDPOINT,
         oneInchApiKey: process.env.ONEINCH_API_KEY,
         maxSlippageBps: 50,
-        jitoTipLamports: config.jitoTipLamports ?? BigInt(10000),
+        jitoTipLamports: this.config.jitoTipLamports ?? BigInt(10000),
       });
-    }
+    })();
+    
+    await this.arbExecutorInitPromise;
   }
 
   async start(): Promise<void> {
@@ -594,6 +613,9 @@ class BridgeServiceImpl implements BridgeService {
 
   private async startArbitrage(): Promise<void> {
     console.log('[Bridge] Starting arbitrage detector...');
+    
+    // Lazy initialize the arbitrage executor
+    await this.initArbExecutor();
     
     const minProfitBps = this.config.minArbProfitBps ?? 30;
     const tokens = this.config.arbTokens ?? ['WETH', 'USDC'];

@@ -18,8 +18,8 @@ const FEDERATED_IDENTITY_ABI = parseAbi([
   'function registerRemoteAgent(uint256 originChainId, uint256 originAgentId, address originOwner, bytes32 originRegistryHash, bytes calldata oracleAttestation) external',
   'function attestCrossNetwork(bytes32 federatedId, uint256 targetChainId, bytes calldata proof) external',
   'function computeFederatedId(uint256 chainId, uint256 agentId) external pure returns (bytes32)',
-  'function getFederatedAgent(bytes32 federatedId) external view returns (tuple(uint256 originChainId, uint256 originAgentId, address originOwner, bytes32 originRegistryHash, uint256 federatedAt, bool isActive, uint256 reputationScore))',
-  'function verifyIdentity(uint256 originChainId, uint256 originAgentId) external view returns (bool isValid, bytes32 federatedId, uint256 reputation)',
+  'function getFederatedAgent(bytes32 federatedId) external view returns (uint256, uint256, address, bytes32, uint256, bool, uint256)',
+  'function verifyIdentity(uint256 originChainId, uint256 originAgentId) external view returns (bool, bytes32, uint256)',
   'event AgentFederated(bytes32 indexed federatedId, uint256 indexed originChainId, uint256 originAgentId, address indexed originOwner)',
   'event CrossNetworkAttested(bytes32 indexed federatedId, uint256 indexed targetChainId, address attester)',
 ]);
@@ -27,7 +27,7 @@ const FEDERATED_IDENTITY_ABI = parseAbi([
 const IDENTITY_REGISTRY_ABI = parseAbi([
   'function getAgentId(address agentAddress) external view returns (uint256)',
   'function ownerOf(uint256 tokenId) external view returns (address)',
-  'function getAgent(uint256 agentId) external view returns (tuple(uint256 agentId, address owner, uint8 tier, address stakedToken, uint256 stakedAmount, uint256 registeredAt, uint256 lastActivityAt, bool isBanned, bool isSlashed))',
+  'function getAgent(uint256 agentId) external view returns (uint256, address, uint8, address, uint256, uint256, uint256, bool, bool)',
 ]);
 
 const SOLANA_CHAIN_ID = 101n; // Mainnet

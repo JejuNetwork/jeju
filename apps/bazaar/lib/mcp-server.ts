@@ -1,15 +1,5 @@
-/**
- * Bazaar MCP Server
- * 
- * Model Context Protocol interface for the Bazaar marketplace.
- */
-
 import type { NextRequest } from 'next/server';
 import { NextResponse } from 'next/server';
-
-// ============================================================================
-// Server Configuration
-// ============================================================================
 
 const SERVER_INFO = {
   name: 'jeju-bazaar',
@@ -25,6 +15,15 @@ const RESOURCES = [
   { uri: 'bazaar://collections', name: 'NFT Collections', description: 'All NFT collections on marketplace', mimeType: 'application/json' },
   { uri: 'bazaar://stats', name: 'Market Stats', description: 'Overall marketplace statistics', mimeType: 'application/json' },
   { uri: 'bazaar://trending', name: 'Trending', description: 'Trending tokens and collections', mimeType: 'application/json' },
+  // TFMM Resources
+  { uri: 'bazaar://tfmm/pools', name: 'Smart Pools', description: 'All TFMM auto-rebalancing pools', mimeType: 'application/json' },
+  { uri: 'bazaar://tfmm/strategies', name: 'TFMM Strategies', description: 'Available rebalancing strategies', mimeType: 'application/json' },
+  { uri: 'bazaar://tfmm/oracles', name: 'Oracle Status', description: 'Price oracle status (Pyth, Chainlink, TWAP)', mimeType: 'application/json' },
+  // Perps Resources
+  { uri: 'bazaar://perps/markets', name: 'Perp Markets', description: 'All perpetual futures markets', mimeType: 'application/json' },
+  { uri: 'bazaar://perps/funding', name: 'Funding Rates', description: 'Current funding rates', mimeType: 'application/json' },
+  // Charts Resources
+  { uri: 'bazaar://charts/top', name: 'Top Tokens', description: 'Top tokens by volume', mimeType: 'application/json' },
 ];
 
 const TOOLS = [
@@ -165,11 +164,141 @@ const TOOLS = [
       required: ['address'],
     },
   },
+  // TFMM / Smart Pool Tools
+  {
+    name: 'list_tfmm_pools',
+    description: 'List all TFMM auto-rebalancing pools',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'get_tfmm_pool',
+    description: 'Get details of a specific TFMM pool',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        poolAddress: { type: 'string', description: 'Pool contract address' },
+      },
+      required: ['poolAddress'],
+    },
+  },
+  {
+    name: 'get_tfmm_strategies',
+    description: 'Get available TFMM strategies',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'prepare_tfmm_deposit',
+    description: 'Prepare transaction to deposit into a TFMM pool',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        poolAddress: { type: 'string', description: 'Pool address' },
+        amounts: { type: 'object', description: 'Token amounts to deposit' },
+      },
+      required: ['poolAddress', 'amounts'],
+    },
+  },
+  {
+    name: 'prepare_tfmm_withdraw',
+    description: 'Prepare transaction to withdraw from a TFMM pool',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        poolAddress: { type: 'string', description: 'Pool address' },
+        shares: { type: 'string', description: 'LP shares to withdraw' },
+      },
+      required: ['poolAddress', 'shares'],
+    },
+  },
+  // Perpetuals Tools
+  {
+    name: 'list_perp_markets',
+    description: 'List all perpetual futures markets',
+    inputSchema: {
+      type: 'object',
+      properties: {},
+    },
+  },
+  {
+    name: 'get_perp_market',
+    description: 'Get details of a perpetual market',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        marketId: { type: 'string', description: 'Market ID (e.g., BTC-PERP)' },
+      },
+      required: ['marketId'],
+    },
+  },
+  {
+    name: 'get_perp_position',
+    description: 'Get position details',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        positionId: { type: 'string', description: 'Position ID' },
+        address: { type: 'string', description: 'Trader address' },
+      },
+    },
+  },
+  {
+    name: 'prepare_perp_open',
+    description: 'Prepare transaction to open a perpetual position',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        marketId: { type: 'string', description: 'Market ID' },
+        side: { type: 'string', description: 'long or short' },
+        size: { type: 'string', description: 'Position size' },
+        leverage: { type: 'number', description: 'Leverage (1-50)' },
+        margin: { type: 'string', description: 'Margin amount' },
+      },
+      required: ['marketId', 'side', 'size', 'leverage', 'margin'],
+    },
+  },
+  {
+    name: 'prepare_perp_close',
+    description: 'Prepare transaction to close a position',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        positionId: { type: 'string', description: 'Position ID to close' },
+      },
+      required: ['positionId'],
+    },
+  },
+  // Charts & Analytics Tools
+  {
+    name: 'get_token_chart',
+    description: 'Get price chart data for a token',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        tokenAddress: { type: 'string', description: 'Token contract address' },
+        interval: { type: 'string', description: '1m, 5m, 15m, 1h, 4h, 1d' },
+        limit: { type: 'number', description: 'Number of candles' },
+      },
+      required: ['tokenAddress'],
+    },
+  },
+  {
+    name: 'get_top_tokens',
+    description: 'Get top tokens by volume or market cap',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        sortBy: { type: 'string', description: 'volume, mcap, or change' },
+        limit: { type: 'number', description: 'Number of results' },
+      },
+    },
+  },
 ];
-
-// ============================================================================
-// Request Handlers
-// ============================================================================
 
 export async function handleMCPRequest(request: NextRequest, endpoint: string): Promise<NextResponse> {
   switch (endpoint) {

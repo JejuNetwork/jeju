@@ -18,8 +18,8 @@ import {
   http,
   type Address,
   type Hex,
+  type Chain,
   parseAbi,
-  encodeFunctionData,
   keccak256,
   encodePacked,
   toBytes,
@@ -37,7 +37,7 @@ const CROSS_CHAIN_NFT_BRIDGE_ABI = parseAbi([
   'function completeBridge(uint256 sourceChainId, bytes32 sourceRequestId, address nftContract, uint256 tokenId, address recipient, string tokenUri, bytes proof) external',
   'function cancelBridge(bytes32 requestId) external',
   'function calculateBridgeFee(address nftContract) view returns (uint256)',
-  'function getRequest(bytes32 requestId) view returns (tuple(bytes32 requestId, address sender, address nftContract, uint256 tokenId, uint256 destChainId, bytes32 destRecipient, string tokenUri, uint256 timestamp, uint8 status))',
+  'function getRequest(bytes32 requestId) view returns (bytes32, address, address, uint256, uint256, bytes32, string, uint256, uint8)',
   'function isTransferCompleted(uint256 sourceChainId, bytes32 sourceRequestId) view returns (bool)',
   'event BridgeInitiated(bytes32 indexed requestId, address indexed sender, address indexed nftContract, uint256 tokenId, uint256 destChainId, bytes32 destRecipient)',
   'event BridgeCompleted(bytes32 indexed requestId, address indexed recipient, address indexed nftContract, uint256 tokenId, uint256 sourceChainId)',
@@ -52,7 +52,7 @@ const ERC721_ABI = parseAbi([
   'function getApproved(uint256 tokenId) view returns (address)',
 ]);
 
-const CHAINS: Record<number, { chain: typeof mainnet; name: string }> = {
+const CHAINS: Record<number, { chain: Chain; name: string }> = {
   1: { chain: mainnet, name: 'Ethereum' },
   11155111: { chain: sepolia, name: 'Sepolia' },
   42161: { chain: arbitrum, name: 'Arbitrum' },
@@ -401,8 +401,8 @@ export class NFTBridgeService extends EventEmitter {
 
     const mint = new PublicKey(params.mint);
     
-    // Get NFT metadata
-    const metadata = await this.getSolanaNFTMetadata(params.mint);
+    // Verify NFT exists and get metadata (validates ownership)
+    await this.getSolanaNFTMetadata(params.mint);
     
     // Generate request ID
     const requestId = keccak256(

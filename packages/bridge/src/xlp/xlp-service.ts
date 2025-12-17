@@ -40,8 +40,6 @@ const SUPPORTED_EVM_CHAINS = {
 // Solana chain IDs (101 = mainnet, 102 = devnet)
 const SOLANA_CHAIN_IDS = [101, 102] as const;
 
-// For compatibility with existing code
-const SUPPORTED_CHAINS = SUPPORTED_EVM_CHAINS;
 
 // XLP Contract ABI
 const XLP_POOL_ABI = parseAbi([
@@ -194,7 +192,7 @@ export class XLPService extends EventEmitter {
     // Initialize clients for each chain
     for (const [chainIdStr, rpcUrl] of Object.entries(config.rpcUrls)) {
       const chainId = Number(chainIdStr);
-      const chainConfig = SUPPORTED_CHAINS[chainId as keyof typeof SUPPORTED_CHAINS];
+      const chainConfig = SUPPORTED_EVM_CHAINS[chainId as keyof typeof SUPPORTED_EVM_CHAINS];
       if (!chainConfig) continue;
 
       const publicClient = createPublicClient({
@@ -208,7 +206,7 @@ export class XLPService extends EventEmitter {
         transport: http(rpcUrl),
       });
 
-      this.clients.set(chainId, { public: publicClient, wallet: walletClient } as ChainClients);
+      this.clients.set(chainId, { public: publicClient, wallet: walletClient });
     }
   }
 
@@ -515,7 +513,7 @@ export class XLPService extends EventEmitter {
     // Analyze 24h volumes per route
     const chainInflows: Record<number, bigint> = {};
 
-    for (const [_, stats] of this.routeVolumes) {
+    for (const stats of this.routeVolumes.values()) {
       // Destination chain needs liquidity to fill
       chainInflows[stats.destChain] = (chainInflows[stats.destChain] || 0n) + stats.volume24h;
     }
