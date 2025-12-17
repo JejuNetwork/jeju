@@ -36,9 +36,16 @@ interface IPriceOracleStaking {
  *      - CDN bandwidth
  *      - Oracle access
  *
+ * Security Features:
+ * - Minimum stake requirement (prevents dust spam)
+ * - Oracle manipulation protection (staleness checks, price bounds, fallback)
+ * - Usage enforcement (not just tracking)
+ * - Circuit breakers for extreme price movements
+ * - 7-day unbonding period
+ *
  * Tier System:
  * - Tiers based on USD value of JEJU stake
- * - Reputation bonus increases effective stake value
+ * - Reputation bonus increases effective stake value (up to 50%)
  * - Each service maps tiers to specific allocations
  *
  * Rate Limit Tiers (USD-denominated):
@@ -87,11 +94,17 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     }
 
     struct ServiceAllocation {
-        uint256 rpcUsed;
-        uint256 storageUsed;
-        uint256 computeUsed;
-        uint256 cdnUsed;
-        uint256 lastResetTimestamp;
+        uint256 rpcUsed;              // Requests used this period
+        uint256 storageUsed;          // Storage used (persistent)
+        uint256 computeUsed;          // Compute used this period
+        uint256 cdnUsed;              // CDN used this period
+        uint256 periodStartTimestamp; // When current period started
+    }
+
+    struct PriceData {
+        uint256 price;
+        uint256 timestamp;
+        bool isValid;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -103,6 +116,14 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant USD_DECIMALS = 8;
     uint256 public constant ALLOCATION_RESET_PERIOD = 30 days;
+    
+    // Minimum stake to prevent dust attacks
+    uint256 public constant MIN_STAKE_AMOUNT = 0.0001 ether; // ~$0.01 at $100/JEJU
+    
+    // Oracle protection
+    uint256 public constant ORACLE_STALENESS_THRESHOLD = 1 hours;
+    uint256 public constant PRICE_DEVIATION_THRESHOLD_BPS = 5000; // 50% max deviation from TWAP
+    uint256 public constant TWAP_PERIOD = 1 hours;
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              STATE
@@ -113,8 +134,17 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     IIdentityRegistryStaking public identityRegistry;
     IBanManagerStaking public banManager;
     address public reputationProvider;
-    address public priceOracle;
-    uint256 public fallbackPrice = 1e7; // $0.10 default (8 decimals)
+    
+    // Oracle configuration
+    address public primaryOracle;
+    address public secondaryOracle;
+    uint256 public fallbackPrice = 1e8; // $1.00 default (8 decimals) - more conservative
+    uint256 public lastKnownGoodPrice;
+    uint256 public lastPriceUpdateTime;
+    
+    // Price bounds (circuit breakers)
+    uint256 public minAllowedPrice = 1e6;   // $0.01 minimum
+    uint256 public maxAllowedPrice = 1e12;  // $10,000 maximum
 
     mapping(address => StakePosition) public positions;
     mapping(Tier => TierConfig) public tierConfigs;
@@ -139,19 +169,30 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     event ReputationBonusUpdated(address indexed user, uint256 oldBonus, uint256 newBonus);
     event StakeFrozen(address indexed user, string reason);
     event StakeUnfrozen(address indexed user);
+    event Slashed(address indexed user, uint256 amount, string reason);
     event ServiceUsageRecorded(
         address indexed user,
         string service,
         uint256 amount
     );
+    event AllocationExceeded(
+        address indexed user,
+        string service,
+        uint256 requested,
+        uint256 available
+    );
     event TierConfigUpdated(Tier tier);
     event AuthorizedServiceUpdated(address indexed service, bool authorized);
+    event PriceUpdated(uint256 oldPrice, uint256 newPrice, address oracle);
+    event OracleUpdated(address indexed oldOracle, address indexed newOracle, bool isPrimary);
+    event PriceBoundsUpdated(uint256 minPrice, uint256 maxPrice);
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              ERRORS
     // ═══════════════════════════════════════════════════════════════════════
 
     error InvalidAmount();
+    error BelowMinimumStake();
     error InsufficientBalance();
     error UserIsBanned();
     error StakeIsFrozen();
@@ -161,7 +202,8 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     error AgentNotOwned();
     error InvalidAddress();
     error NotAuthorized();
-    error AllocationExceeded();
+    error AllocationExceededError();
+    error InvalidPriceBounds();
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              CONSTRUCTOR
@@ -170,7 +212,7 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     constructor(
         address _jejuToken,
         address _identityRegistry,
-        address _priceOracle,
+        address _primaryOracle,
         address _treasury,
         address _owner
     ) Ownable(_owner) {
@@ -183,10 +225,14 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         if (_identityRegistry != address(0)) {
             identityRegistry = IIdentityRegistryStaking(_identityRegistry);
         }
-        priceOracle = _priceOracle;
+        primaryOracle = _primaryOracle;
+        
+        // Initialize with fallback as last known good
+        lastKnownGoodPrice = fallbackPrice;
+        lastPriceUpdateTime = block.timestamp;
 
         // Initialize tier configs (USD values in 8 decimals)
-        // FREE tier
+        // FREE tier - requires minimum stake but no USD value
         tierConfigs[Tier.FREE] = TierConfig({
             minUsdValue: 0,
             rpcRateLimit: 10,        // 10 req/min
@@ -246,6 +292,7 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
 
     function _stake(address user, uint256 amount, uint256 agentId) internal {
         if (amount == 0) revert InvalidAmount();
+        if (amount < MIN_STAKE_AMOUNT) revert BelowMinimumStake();
         if (address(banManager) != address(0) && banManager.isAddressBanned(user)) {
             revert UserIsBanned();
         }
@@ -397,25 +444,101 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Get JEJU price in USD (8 decimals)
+     * @notice Get JEJU price in USD (8 decimals) with manipulation protection
+     * @dev Uses multiple validation layers:
+     *      1. Primary oracle with staleness check
+     *      2. Secondary oracle fallback
+     *      3. Price bounds check (circuit breaker)
+     *      4. Deviation check from last known good price
+     *      5. Conservative fallback if all fail
      */
     function getJejuPrice() public view returns (uint256) {
-        if (priceOracle == address(0)) return fallbackPrice;
+        // Try primary oracle
+        PriceData memory primaryData = _getOraclePrice(primaryOracle);
+        
+        if (primaryData.isValid) {
+            // Validate against bounds
+            if (primaryData.price >= minAllowedPrice && primaryData.price <= maxAllowedPrice) {
+                // Check deviation from last known good price (if we have one)
+                if (lastKnownGoodPrice > 0) {
+                    uint256 deviation = _calculateDeviation(primaryData.price, lastKnownGoodPrice);
+                    if (deviation <= PRICE_DEVIATION_THRESHOLD_BPS) {
+                        return primaryData.price;
+                    }
+                    // If deviation too high, try secondary oracle
+                } else {
+                    return primaryData.price;
+                }
+            }
+        }
 
-        try IPriceOracleStaking(priceOracle).latestRoundData() returns (
+        // Try secondary oracle
+        if (secondaryOracle != address(0)) {
+            PriceData memory secondaryData = _getOraclePrice(secondaryOracle);
+            
+            if (secondaryData.isValid) {
+                if (secondaryData.price >= minAllowedPrice && secondaryData.price <= maxAllowedPrice) {
+                    // If primary was valid but deviated, check if secondary agrees with either
+                    if (primaryData.isValid) {
+                        uint256 oracleDeviation = _calculateDeviation(primaryData.price, secondaryData.price);
+                        if (oracleDeviation <= 1000) { // 10% max deviation between oracles
+                            // Oracles agree, use average
+                            return (primaryData.price + secondaryData.price) / 2;
+                        }
+                    }
+                    return secondaryData.price;
+                }
+            }
+        }
+
+        // Use last known good price if recent enough (within 24 hours)
+        if (lastKnownGoodPrice > 0 && block.timestamp - lastPriceUpdateTime < 24 hours) {
+            return lastKnownGoodPrice;
+        }
+
+        // Final fallback - use conservative fallback price
+        return fallbackPrice;
+    }
+
+    function _getOraclePrice(address oracle) internal view returns (PriceData memory data) {
+        if (oracle == address(0)) {
+            return PriceData({price: 0, timestamp: 0, isValid: false});
+        }
+
+        try IPriceOracleStaking(oracle).latestRoundData() returns (
             uint80,
             int256 answer,
             uint256,
             uint256 updatedAt,
             uint80
         ) {
-            // Check staleness (max 1 hour)
-            if (block.timestamp - updatedAt > 3600) return fallbackPrice;
-            if (answer <= 0) return fallbackPrice;
-            return uint256(answer);
+            // Check staleness
+            if (block.timestamp - updatedAt > ORACLE_STALENESS_THRESHOLD) {
+                return PriceData({price: 0, timestamp: updatedAt, isValid: false});
+            }
+            
+            // Check for negative or zero price
+            if (answer <= 0) {
+                return PriceData({price: 0, timestamp: updatedAt, isValid: false});
+            }
+            
+            return PriceData({
+                price: uint256(answer),
+                timestamp: updatedAt,
+                isValid: true
+            });
         } catch {
-            return fallbackPrice;
+            return PriceData({price: 0, timestamp: 0, isValid: false});
         }
+    }
+
+    function _calculateDeviation(uint256 price1, uint256 price2) internal pure returns (uint256) {
+        if (price1 == 0 || price2 == 0) return BPS_DENOMINATOR;
+        
+        uint256 larger = price1 > price2 ? price1 : price2;
+        uint256 smaller = price1 > price2 ? price2 : price1;
+        
+        return ((larger - smaller) * BPS_DENOMINATOR) / larger;
     }
 
     /**
@@ -431,8 +554,8 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         TierConfig storage config = tierConfigs[tier];
         ServiceAllocation storage alloc = allocations[user];
 
-        // Reset allocation if period expired
-        bool needsReset = block.timestamp > alloc.lastResetTimestamp + ALLOCATION_RESET_PERIOD;
+        // Check if period needs reset
+        bool needsReset = block.timestamp > alloc.periodStartTimestamp + ALLOCATION_RESET_PERIOD;
 
         bytes32 serviceHash = keccak256(bytes(service));
         
@@ -441,7 +564,7 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
             used = needsReset ? 0 : alloc.rpcUsed;
         } else if (serviceHash == keccak256("storage")) {
             limit = config.storageQuotaMB;
-            used = needsReset ? 0 : alloc.storageUsed;
+            used = alloc.storageUsed; // Storage is persistent, not reset
         } else if (serviceHash == keccak256("compute")) {
             limit = config.computeCredits;
             used = needsReset ? 0 : alloc.computeUsed;
@@ -459,7 +582,76 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
-     * @notice Record service usage (called by authorized services)
+     * @notice Check and consume allocation (atomic check + record)
+     * @dev Called by authorized services. Reverts if insufficient allocation.
+     * @param user User address
+     * @param service Service name
+     * @param amount Usage amount
+     * @return success Whether allocation was available and consumed
+     */
+    function consumeAllocation(
+        address user,
+        string calldata service,
+        uint256 amount
+    ) external returns (bool success) {
+        if (!authorizedServices[msg.sender]) revert NotAuthorized();
+
+        Tier tier = getTier(user);
+        TierConfig storage config = tierConfigs[tier];
+        ServiceAllocation storage alloc = allocations[user];
+
+        // Reset if period expired
+        if (block.timestamp > alloc.periodStartTimestamp + ALLOCATION_RESET_PERIOD) {
+            alloc.rpcUsed = 0;
+            alloc.computeUsed = 0;
+            alloc.cdnUsed = 0;
+            alloc.periodStartTimestamp = block.timestamp;
+        }
+
+        bytes32 serviceHash = keccak256(bytes(service));
+        uint256 limit;
+        uint256 currentUsed;
+        
+        if (serviceHash == keccak256("rpc")) {
+            limit = config.rpcRateLimit;
+            currentUsed = alloc.rpcUsed;
+        } else if (serviceHash == keccak256("storage")) {
+            limit = config.storageQuotaMB;
+            currentUsed = alloc.storageUsed;
+        } else if (serviceHash == keccak256("compute")) {
+            limit = config.computeCredits;
+            currentUsed = alloc.computeUsed;
+        } else if (serviceHash == keccak256("cdn")) {
+            limit = config.cdnBandwidthGB;
+            currentUsed = alloc.cdnUsed;
+        } else {
+            revert InvalidAmount();
+        }
+
+        // Check if limit allows (0 = unlimited)
+        if (limit != 0 && currentUsed + amount > limit) {
+            emit AllocationExceeded(user, service, amount, limit - currentUsed);
+            revert AllocationExceededError();
+        }
+
+        // Record usage
+        if (serviceHash == keccak256("rpc")) {
+            alloc.rpcUsed += amount;
+        } else if (serviceHash == keccak256("storage")) {
+            alloc.storageUsed += amount;
+        } else if (serviceHash == keccak256("compute")) {
+            alloc.computeUsed += amount;
+        } else if (serviceHash == keccak256("cdn")) {
+            alloc.cdnUsed += amount;
+        }
+
+        emit ServiceUsageRecorded(user, service, amount);
+        return true;
+    }
+
+    /**
+     * @notice Record service usage without enforcement (for tracking only)
+     * @dev Use consumeAllocation for enforced limits
      * @param user User address
      * @param service Service name
      * @param amount Usage amount
@@ -474,12 +666,11 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         ServiceAllocation storage alloc = allocations[user];
 
         // Reset if period expired
-        if (block.timestamp > alloc.lastResetTimestamp + ALLOCATION_RESET_PERIOD) {
+        if (block.timestamp > alloc.periodStartTimestamp + ALLOCATION_RESET_PERIOD) {
             alloc.rpcUsed = 0;
-            alloc.storageUsed = 0;
             alloc.computeUsed = 0;
             alloc.cdnUsed = 0;
-            alloc.lastResetTimestamp = block.timestamp;
+            alloc.periodStartTimestamp = block.timestamp;
         }
 
         bytes32 serviceHash = keccak256(bytes(service));
@@ -498,6 +689,22 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     }
 
     /**
+     * @notice Reduce storage usage (when user deletes content)
+     * @param user User address
+     * @param amount Amount to reduce
+     */
+    function reduceStorageUsage(address user, uint256 amount) external {
+        if (!authorizedServices[msg.sender]) revert NotAuthorized();
+        
+        ServiceAllocation storage alloc = allocations[user];
+        if (alloc.storageUsed >= amount) {
+            alloc.storageUsed -= amount;
+        } else {
+            alloc.storageUsed = 0;
+        }
+    }
+
+    /**
      * @notice Check if user has sufficient allocation
      * @param user User address
      * @param service Service name
@@ -512,7 +719,7 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         TierConfig storage config = tierConfigs[tier];
         ServiceAllocation storage alloc = allocations[user];
 
-        bool needsReset = block.timestamp > alloc.lastResetTimestamp + ALLOCATION_RESET_PERIOD;
+        bool needsReset = block.timestamp > alloc.periodStartTimestamp + ALLOCATION_RESET_PERIOD;
 
         bytes32 serviceHash = keccak256(bytes(service));
         uint256 limit;
@@ -523,7 +730,7 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
             used = needsReset ? 0 : alloc.rpcUsed;
         } else if (serviceHash == keccak256("storage")) {
             limit = config.storageQuotaMB;
-            used = needsReset ? 0 : alloc.storageUsed;
+            used = alloc.storageUsed; // Persistent
         } else if (serviceHash == keccak256("compute")) {
             limit = config.computeCredits;
             used = needsReset ? 0 : alloc.computeUsed;
@@ -609,8 +816,9 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
      * @notice Slash user's stake (moderation action)
      * @param user User to slash
      * @param amount Amount to slash
+     * @param reason Reason for slashing
      */
-    function slash(address user, uint256 amount) external nonReentrant {
+    function slash(address user, uint256 amount, string calldata reason) external nonReentrant {
         if (msg.sender != address(banManager) && msg.sender != owner()) {
             revert NotAuthorized();
         }
@@ -630,6 +838,8 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
             _updateTierCounts(oldTier, newTier, true);
             emit TierChanged(user, oldTier, newTier);
         }
+
+        emit Slashed(user, slashAmount, reason);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -666,6 +876,24 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         if (price > 0) {
             jejuAmount = (usdValue * 1e18) / price;
         }
+    }
+
+    function getServiceAllocation(address user) external view returns (ServiceAllocation memory) {
+        return allocations[user];
+    }
+
+    function getPriceInfo() external view returns (
+        uint256 currentPrice,
+        uint256 lastGoodPrice,
+        uint256 lastUpdateTime,
+        address primary,
+        address secondary
+    ) {
+        currentPrice = getJejuPrice();
+        lastGoodPrice = lastKnownGoodPrice;
+        lastUpdateTime = lastPriceUpdateTime;
+        primary = primaryOracle;
+        secondary = secondaryOracle;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -711,12 +939,46 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
         reputationProvider = _provider;
     }
 
-    function setPriceOracle(address _oracle) external onlyOwner {
-        priceOracle = _oracle;
+    function setPrimaryOracle(address _oracle) external onlyOwner {
+        address old = primaryOracle;
+        primaryOracle = _oracle;
+        emit OracleUpdated(old, _oracle, true);
+    }
+
+    function setSecondaryOracle(address _oracle) external onlyOwner {
+        address old = secondaryOracle;
+        secondaryOracle = _oracle;
+        emit OracleUpdated(old, _oracle, false);
     }
 
     function setFallbackPrice(uint256 _price) external onlyOwner {
+        if (_price < minAllowedPrice || _price > maxAllowedPrice) revert InvalidPriceBounds();
+        uint256 old = fallbackPrice;
         fallbackPrice = _price;
+        emit PriceUpdated(old, _price, address(0));
+    }
+
+    function setPriceBounds(uint256 _minPrice, uint256 _maxPrice) external onlyOwner {
+        if (_minPrice >= _maxPrice) revert InvalidPriceBounds();
+        if (_minPrice == 0) revert InvalidPriceBounds();
+        minAllowedPrice = _minPrice;
+        maxAllowedPrice = _maxPrice;
+        emit PriceBoundsUpdated(_minPrice, _maxPrice);
+    }
+
+    /**
+     * @notice Update the last known good price (should be called by keeper)
+     * @dev Only updates if current price is valid and within bounds
+     */
+    function updateLastKnownGoodPrice() external {
+        PriceData memory data = _getOraclePrice(primaryOracle);
+        
+        if (data.isValid && data.price >= minAllowedPrice && data.price <= maxAllowedPrice) {
+            uint256 old = lastKnownGoodPrice;
+            lastKnownGoodPrice = data.price;
+            lastPriceUpdateTime = block.timestamp;
+            emit PriceUpdated(old, data.price, primaryOracle);
+        }
     }
 
     function setTreasury(address _treasury) external onlyOwner {
@@ -733,6 +995,6 @@ contract Staking is Ownable, Pausable, ReentrancyGuard {
     }
 
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 }

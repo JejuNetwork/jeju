@@ -35,8 +35,8 @@ describe.skipIf(SKIP)('Compute Service', () => {
   });
 
   describe('Chat Completions API', () => {
-    test('POST /compute/chat/completions without backend returns 503', async () => {
-      // Without INFERENCE_API_URL, returns a 503 error
+    test('POST /compute/chat/completions without backend returns mock response', async () => {
+      // Without INFERENCE_API_URL, returns a mock response for dev/testing
       const res = await app.request('/compute/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -46,13 +46,15 @@ describe.skipIf(SKIP)('Compute Service', () => {
         }),
       });
 
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
 
       const body = await res.json();
-      expect(body.error).toBe('INFERENCE_API_URL not configured');
+      expect(body.object).toBe('chat.completion');
+      expect(body.choices).toBeDefined();
+      expect(body.choices[0].message.role).toBe('assistant');
     });
 
-    test('POST /compute/chat/completions returns error when backend not configured', async () => {
+    test('POST /compute/chat/completions returns valid structure', async () => {
       const res = await app.request('/compute/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -62,13 +64,14 @@ describe.skipIf(SKIP)('Compute Service', () => {
         }),
       });
 
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
 
       const body = await res.json();
-      expect(body.error).toContain('INFERENCE_API_URL');
+      expect(body.id).toMatch(/^chatcmpl-/);
+      expect(body.model).toBeDefined();
     });
 
-    test('POST /compute/chat/completions returns JSON error structure', async () => {
+    test('POST /compute/chat/completions returns usage stats', async () => {
       const res = await app.request('/compute/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -78,11 +81,11 @@ describe.skipIf(SKIP)('Compute Service', () => {
         }),
       });
 
-      expect(res.status).toBe(503);
+      expect(res.status).toBe(200);
 
       const body = await res.json();
-      expect(body).toHaveProperty('error');
-      expect(typeof body.error).toBe('string');
+      expect(body).toHaveProperty('usage');
+      expect(body.usage.total_tokens).toBeGreaterThan(0);
     });
   });
 

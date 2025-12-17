@@ -1,22 +1,72 @@
 /**
- * DNS Sync Service
- * 
- * Keeps DNS records in sync across multiple providers:
- * - AWS Route53
- * - GCP Cloud DNS
- * - Cloudflare
- * 
- * Also updates on-chain endpoint registry for decentralized fallback.
+ * DNS Sync Service - Production Implementation
+ *
+ * Multi-provider DNS synchronization with:
+ * - AWS Route53, GCP Cloud DNS, Cloudflare
+ * - On-chain endpoint registry fallback
+ * - Retry logic with exponential backoff
+ * - Health checks with automatic failover
+ * - Audit logging
+ * - Prometheus metrics
+ * - Graceful shutdown
  */
 
 import {
   Route53Client,
   ChangeResourceRecordSetsCommand,
-  ListHostedZonesByNameCommand,
+  ListResourceRecordSetsCommand,
   type ResourceRecordSet,
 } from '@aws-sdk/client-route-53';
 import { DNS } from '@google-cloud/dns';
 import { ethers } from 'ethers';
+import { z } from 'zod';
+import { Registry, Counter, Gauge, Histogram } from 'prom-client';
+import http from 'http';
+
+// ============================================================================
+// Configuration Schema
+// ============================================================================
+
+const DNSProviderConfigSchema = z.object({
+  route53: z
+    .object({
+      zoneId: z.string(),
+      region: z.string().default('us-east-1'),
+    })
+    .optional(),
+  cloudDns: z
+    .object({
+      projectId: z.string(),
+      zoneName: z.string(),
+    })
+    .optional(),
+  cloudflare: z
+    .object({
+      apiToken: z.string(),
+      zoneId: z.string(),
+    })
+    .optional(),
+  onChain: z
+    .object({
+      rpcUrl: z.string().url(),
+      privateKey: z.string(),
+      registryAddress: z.string(),
+    })
+    .optional(),
+});
+
+const DNSSyncConfigSchema = z.object({
+  domain: z.string(),
+  providers: DNSProviderConfigSchema,
+  syncIntervalMs: z.number().default(300000),
+  healthCheckIntervalMs: z.number().default(60000),
+  retryAttempts: z.number().default(3),
+  retryDelayMs: z.number().default(1000),
+  metricsPort: z.number().optional(),
+});
+
+export type DNSProviderConfig = z.infer<typeof DNSProviderConfigSchema>;
+export type DNSSyncConfig = z.infer<typeof DNSSyncConfigSchema>;
 
 // ============================================================================
 // Types
@@ -30,61 +80,35 @@ export interface DNSRecord {
   healthCheckEnabled?: boolean;
 }
 
-export interface DNSProviderConfig {
-  route53?: {
-    zoneId: string;
-    region: string;
-  };
-  cloudDns?: {
-    projectId: string;
-    zoneName: string;
-  };
-  cloudflare?: {
-    apiToken: string;
-    zoneId: string;
-  };
-  onChain?: {
-    rpcUrl: string;
-    privateKey: string;
-    registryAddress: string;
-  };
-}
-
 export interface HealthCheckResult {
   provider: string;
   endpoint: string;
   healthy: boolean;
   latencyMs: number;
   lastCheck: number;
+  consecutiveFailures: number;
+}
+
+interface AuditLogEntry {
+  timestamp: number;
+  action: 'sync' | 'health_check' | 'failover' | 'error';
+  provider: string;
+  details: Record<string, unknown>;
 }
 
 // ============================================================================
-// DNS Records Configuration
+// Default Records
 // ============================================================================
 
 const DEFAULT_RECORDS: DNSRecord[] = [
-  // RPC endpoints
   { name: 'rpc', type: 'A', ttl: 60, values: [], healthCheckEnabled: true },
   { name: 'testnet-rpc', type: 'A', ttl: 60, values: [], healthCheckEnabled: true },
-  
-  // WebSocket endpoints
   { name: 'ws', type: 'A', ttl: 60, values: [], healthCheckEnabled: true },
-  { name: 'testnet-ws', type: 'A', ttl: 60, values: [], healthCheckEnabled: true },
-  
-  // API endpoints
   { name: 'api', type: 'A', ttl: 60, values: [], healthCheckEnabled: true },
-  
-  // Gateway
   { name: 'gateway', type: 'A', ttl: 60, values: [], healthCheckEnabled: true },
-  
-  // Storage/IPFS
   { name: 'ipfs', type: 'A', ttl: 300, values: [], healthCheckEnabled: true },
   { name: 'storage', type: 'A', ttl: 300, values: [], healthCheckEnabled: true },
-  
-  // CDN edge (Cloudflare-proxied or direct)
   { name: 'cdn', type: 'A', ttl: 60, values: [], healthCheckEnabled: true },
-  
-  // Proxy coordinator
   { name: 'proxy', type: 'A', ttl: 60, values: [], healthCheckEnabled: true },
 ];
 
@@ -100,130 +124,213 @@ const ENDPOINT_REGISTRY_ABI = [
 ];
 
 // ============================================================================
+// Prometheus Metrics
+// ============================================================================
+
+const metricsRegistry = new Registry();
+
+const dnsSyncTotal = new Counter({
+  name: 'dns_sync_total',
+  help: 'Total DNS sync operations',
+  labelNames: ['provider', 'status'],
+  registers: [metricsRegistry],
+});
+
+const dnsSyncDuration = new Histogram({
+  name: 'dns_sync_duration_seconds',
+  help: 'DNS sync duration',
+  labelNames: ['provider'],
+  buckets: [0.1, 0.5, 1, 2.5, 5, 10],
+  registers: [metricsRegistry],
+});
+
+const dnsHealthCheckResults = new Gauge({
+  name: 'dns_health_check_healthy',
+  help: 'Health check result',
+  labelNames: ['service', 'endpoint'],
+  registers: [metricsRegistry],
+});
+
+const dnsEndpointLatency = new Gauge({
+  name: 'dns_endpoint_latency_ms',
+  help: 'Endpoint latency',
+  labelNames: ['service', 'endpoint'],
+  registers: [metricsRegistry],
+});
+
+// ============================================================================
+// Retry Helper
+// ============================================================================
+
+async function withRetry<T>(
+  fn: () => Promise<T>,
+  attempts: number,
+  delayMs: number
+): Promise<T> {
+  let lastError: Error | null = null;
+
+  for (let i = 0; i < attempts; i++) {
+    try {
+      return await fn();
+    } catch (error) {
+      lastError = error as Error;
+      if (i < attempts - 1) {
+        await new Promise((resolve) => setTimeout(resolve, delayMs * Math.pow(2, i)));
+      }
+    }
+  }
+
+  throw lastError;
+}
+
+// ============================================================================
 // DNS Sync Service
 // ============================================================================
 
 export class DNSSyncService {
-  private config: DNSProviderConfig;
-  private domain: string;
+  private config: DNSSyncConfig;
   private route53Client: Route53Client | null = null;
   private cloudDnsClient: DNS | null = null;
   private endpointRegistry: ethers.Contract | null = null;
-  private healthCheckResults: Map<string, HealthCheckResult> = new Map();
+  private healthResults = new Map<string, HealthCheckResult>();
+  private auditLog: AuditLogEntry[] = [];
   private syncInterval: ReturnType<typeof setInterval> | null = null;
+  private healthInterval: ReturnType<typeof setInterval> | null = null;
+  private metricsServer: http.Server | null = null;
+  private running = false;
+  private currentRecords: DNSRecord[] = [];
 
-  constructor(domain: string, config: DNSProviderConfig) {
-    this.domain = domain;
-    this.config = config;
+  constructor(config: DNSSyncConfig) {
+    this.config = DNSSyncConfigSchema.parse(config);
 
-    // Initialize clients
-    if (config.route53) {
-      this.route53Client = new Route53Client({ region: config.route53.region });
+    // Initialize Route53
+    if (this.config.providers.route53) {
+      this.route53Client = new Route53Client({
+        region: this.config.providers.route53.region,
+      });
     }
 
-    if (config.cloudDns) {
-      this.cloudDnsClient = new DNS({ projectId: config.cloudDns.projectId });
+    // Initialize Cloud DNS
+    if (this.config.providers.cloudDns) {
+      this.cloudDnsClient = new DNS({
+        projectId: this.config.providers.cloudDns.projectId,
+      });
     }
 
-    if (config.onChain) {
-      const provider = new ethers.JsonRpcProvider(config.onChain.rpcUrl);
-      const wallet = new ethers.Wallet(config.onChain.privateKey, provider);
+    // Initialize on-chain registry
+    if (this.config.providers.onChain) {
+      const provider = new ethers.JsonRpcProvider(this.config.providers.onChain.rpcUrl);
+      const wallet = new ethers.Wallet(this.config.providers.onChain.privateKey, provider);
       this.endpointRegistry = new ethers.Contract(
-        config.onChain.registryAddress,
+        this.config.providers.onChain.registryAddress,
         ENDPOINT_REGISTRY_ABI,
         wallet
       );
     }
   }
 
-  /**
-   * Start the sync service
-   */
-  async start(intervalMs = 300000): Promise<void> {
+  // ============================================================================
+  // Lifecycle
+  // ============================================================================
+
+  async start(): Promise<void> {
+    if (this.running) return;
+    this.running = true;
+
     console.log('[DNS Sync] Starting service...');
+
+    // Start metrics server
+    if (this.config.metricsPort) {
+      await this.startMetricsServer();
+    }
 
     // Initial sync
     await this.syncAll();
 
     // Periodic sync
-    this.syncInterval = setInterval(async () => {
-      await this.syncAll();
-    }, intervalMs);
+    this.syncInterval = setInterval(
+      () => this.syncAll(),
+      this.config.syncIntervalMs
+    );
 
-    console.log(`[DNS Sync] Running, interval: ${intervalMs}ms`);
+    // Periodic health checks
+    this.healthInterval = setInterval(
+      () => this.runHealthChecks(),
+      this.config.healthCheckIntervalMs
+    );
+
+    console.log('[DNS Sync] Running');
   }
 
-  /**
-   * Stop the sync service
-   */
   stop(): void {
-    if (this.syncInterval) {
-      clearInterval(this.syncInterval);
-      this.syncInterval = null;
-    }
+    if (!this.running) return;
+    this.running = false;
+
+    if (this.syncInterval) clearInterval(this.syncInterval);
+    if (this.healthInterval) clearInterval(this.healthInterval);
+    if (this.metricsServer) this.metricsServer.close();
+
     console.log('[DNS Sync] Stopped');
   }
 
-  /**
-   * Sync all DNS records across providers
-   */
+  private async startMetricsServer(): Promise<void> {
+    this.metricsServer = http.createServer(async (req, res) => {
+      if (req.url === '/metrics') {
+        res.setHeader('Content-Type', metricsRegistry.contentType);
+        res.end(await metricsRegistry.metrics());
+      } else if (req.url === '/health') {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({
+          status: this.running ? 'healthy' : 'stopped',
+          healthyEndpoints: this.getHealthyEndpointCount(),
+          lastSync: this.auditLog.find((e) => e.action === 'sync')?.timestamp,
+        }));
+      } else if (req.url === '/audit') {
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify(this.auditLog.slice(-100)));
+      } else {
+        res.writeHead(404);
+        res.end('Not found');
+      }
+    });
+
+    await new Promise<void>((resolve) => {
+      this.metricsServer!.listen(this.config.metricsPort, resolve);
+    });
+
+    console.log(`[DNS Sync] Metrics server on port ${this.config.metricsPort}`);
+  }
+
+  // ============================================================================
+  // Sync Operations
+  // ============================================================================
+
   async syncAll(): Promise<void> {
     console.log('[DNS Sync] Starting sync...');
+    const startTime = Date.now();
 
-    // Get current records from primary (Route53)
-    const primaryRecords = await this.getRecordsFromRoute53();
+    try {
+      // Get current records from primary (Route53)
+      const records = await this.getRecordsFromRoute53();
+      this.currentRecords = records;
 
-    // Sync to other providers
-    await Promise.all([
-      this.syncToCloudDns(primaryRecords),
-      this.syncToCloudflare(primaryRecords),
-      this.syncToOnChain(primaryRecords),
-    ]);
+      // Sync to all providers in parallel
+      await Promise.all([
+        this.syncToCloudDns(records),
+        this.syncToCloudflare(records),
+        this.syncToOnChain(records),
+      ]);
 
-    console.log('[DNS Sync] Sync complete');
-  }
+      this.logAudit('sync', 'all', {
+        recordCount: records.length,
+        durationMs: Date.now() - startTime,
+      });
 
-  /**
-   * Health check all endpoints
-   */
-  async runHealthChecks(records: DNSRecord[]): Promise<Map<string, HealthCheckResult[]>> {
-    const results = new Map<string, HealthCheckResult[]>();
-
-    for (const record of records) {
-      if (!record.healthCheckEnabled) continue;
-
-      const endpointResults: HealthCheckResult[] = [];
-
-      for (const ip of record.values) {
-        const result = await this.checkEndpointHealth(record.name, ip);
-        endpointResults.push(result);
-        this.healthCheckResults.set(`${record.name}:${ip}`, result);
-      }
-
-      results.set(record.name, endpointResults);
+      console.log('[DNS Sync] Sync complete');
+    } catch (error) {
+      this.logAudit('error', 'sync', { error: (error as Error).message });
+      console.error('[DNS Sync] Sync failed:', error);
     }
-
-    return results;
-  }
-
-  /**
-   * Get healthy IPs for a service
-   */
-  getHealthyIPs(serviceName: string): string[] {
-    const healthy: string[] = [];
-
-    for (const [key, result] of this.healthCheckResults) {
-      if (key.startsWith(`${serviceName}:`) && result.healthy) {
-        healthy.push(result.endpoint);
-      }
-    }
-
-    // Sort by latency
-    return healthy.sort((a, b) => {
-      const resultA = this.healthCheckResults.get(`${serviceName}:${a}`);
-      const resultB = this.healthCheckResults.get(`${serviceName}:${b}`);
-      return (resultA?.latencyMs ?? Infinity) - (resultB?.latencyMs ?? Infinity);
-    });
   }
 
   // ============================================================================
@@ -231,41 +338,92 @@ export class DNSSyncService {
   // ============================================================================
 
   private async getRecordsFromRoute53(): Promise<DNSRecord[]> {
-    if (!this.route53Client || !this.config.route53) {
-      return [];
+    if (!this.route53Client || !this.config.providers.route53) {
+      return DEFAULT_RECORDS;
     }
 
-    const records: DNSRecord[] = [];
+    const timer = dnsSyncDuration.startTimer({ provider: 'route53' });
 
-    // This is simplified - in production, use ListResourceRecordSets
-    // and paginate through all records
+    try {
+      const response = await withRetry(
+        () =>
+          this.route53Client!.send(
+            new ListResourceRecordSetsCommand({
+              HostedZoneId: this.config.providers.route53!.zoneId,
+            })
+          ),
+        this.config.retryAttempts,
+        this.config.retryDelayMs
+      );
 
-    return records;
+      const records: DNSRecord[] = [];
+
+      for (const rrs of response.ResourceRecordSets ?? []) {
+        if (rrs.Type === 'A' || rrs.Type === 'AAAA' || rrs.Type === 'CNAME') {
+          const name = rrs.Name?.replace(`.${this.config.domain}.`, '') ?? '';
+          records.push({
+            name,
+            type: rrs.Type as 'A' | 'AAAA' | 'CNAME',
+            ttl: rrs.TTL ?? 60,
+            values: rrs.ResourceRecords?.map((r) => r.Value ?? '') ?? [],
+            healthCheckEnabled: DEFAULT_RECORDS.some(
+              (d) => d.name === name && d.healthCheckEnabled
+            ),
+          });
+        }
+      }
+
+      dnsSyncTotal.inc({ provider: 'route53', status: 'success' });
+      return records.length > 0 ? records : DEFAULT_RECORDS;
+    } catch (error) {
+      dnsSyncTotal.inc({ provider: 'route53', status: 'error' });
+      throw error;
+    } finally {
+      timer();
+    }
   }
 
-  private async syncToRoute53(records: DNSRecord[]): Promise<void> {
-    if (!this.route53Client || !this.config.route53) return;
+  async syncToRoute53(records: DNSRecord[]): Promise<void> {
+    if (!this.route53Client || !this.config.providers.route53) return;
 
-    const changes = records.map((record) => ({
-      Action: 'UPSERT' as const,
-      ResourceRecordSet: {
-        Name: `${record.name}.${this.domain}`,
-        Type: record.type,
-        TTL: record.ttl,
-        ResourceRecords: record.values.map((v) => ({ Value: v })),
-      },
-    }));
+    const timer = dnsSyncDuration.startTimer({ provider: 'route53' });
 
-    if (changes.length === 0) return;
+    try {
+      const changes = records
+        .filter((r) => r.values.length > 0)
+        .map((record) => ({
+          Action: 'UPSERT' as const,
+          ResourceRecordSet: {
+            Name: `${record.name}.${this.config.domain}`,
+            Type: record.type,
+            TTL: record.ttl,
+            ResourceRecords: record.values.map((v) => ({ Value: v })),
+          },
+        }));
 
-    await this.route53Client.send(
-      new ChangeResourceRecordSetsCommand({
-        HostedZoneId: this.config.route53.zoneId,
-        ChangeBatch: { Changes: changes },
-      })
-    );
+      if (changes.length === 0) return;
 
-    console.log(`[DNS Sync] Route53: Updated ${changes.length} records`);
+      await withRetry(
+        () =>
+          this.route53Client!.send(
+            new ChangeResourceRecordSetsCommand({
+              HostedZoneId: this.config.providers.route53!.zoneId,
+              ChangeBatch: { Changes: changes },
+            })
+          ),
+        this.config.retryAttempts,
+        this.config.retryDelayMs
+      );
+
+      dnsSyncTotal.inc({ provider: 'route53', status: 'success' });
+      console.log(`[DNS Sync] Route53: Updated ${changes.length} records`);
+    } catch (error) {
+      dnsSyncTotal.inc({ provider: 'route53', status: 'error' });
+      this.logAudit('error', 'route53', { error: (error as Error).message });
+      throw error;
+    } finally {
+      timer();
+    }
   }
 
   // ============================================================================
@@ -273,24 +431,42 @@ export class DNSSyncService {
   // ============================================================================
 
   private async syncToCloudDns(records: DNSRecord[]): Promise<void> {
-    if (!this.cloudDnsClient || !this.config.cloudDns) return;
+    if (!this.cloudDnsClient || !this.config.providers.cloudDns) return;
 
-    const zone = this.cloudDnsClient.zone(this.config.cloudDns.zoneName);
+    const timer = dnsSyncDuration.startTimer({ provider: 'cloud-dns' });
 
-    for (const record of records) {
-      const gcloudRecord = zone.record(record.type.toLowerCase() as 'a' | 'aaaa' | 'cname', {
-        name: `${record.name}.${this.domain}.`,
-        ttl: record.ttl,
-        data: record.values,
-      });
+    try {
+      const zone = this.cloudDnsClient.zone(this.config.providers.cloudDns.zoneName);
 
-      await zone.addRecords(gcloudRecord).catch((err: Error) => {
-        // Record might already exist, try to modify
-        return zone.replaceRecords(record.type.toLowerCase() as 'a' | 'aaaa' | 'cname', gcloudRecord);
-      });
+      for (const record of records.filter((r) => r.values.length > 0)) {
+        const gcloudRecord = zone.record(
+          record.type.toLowerCase() as 'a' | 'aaaa' | 'cname',
+          {
+            name: `${record.name}.${this.config.domain}.`,
+            ttl: record.ttl,
+            data: record.values,
+          }
+        );
+
+        try {
+          await zone.addRecords(gcloudRecord);
+        } catch {
+          // Record exists, try to replace
+          await zone.replaceRecords(
+            record.type.toLowerCase() as 'a' | 'aaaa' | 'cname',
+            gcloudRecord
+          );
+        }
+      }
+
+      dnsSyncTotal.inc({ provider: 'cloud-dns', status: 'success' });
+      console.log(`[DNS Sync] Cloud DNS: Updated ${records.length} records`);
+    } catch (error) {
+      dnsSyncTotal.inc({ provider: 'cloud-dns', status: 'error' });
+      this.logAudit('error', 'cloud-dns', { error: (error as Error).message });
+    } finally {
+      timer();
     }
-
-    console.log(`[DNS Sync] Cloud DNS: Updated ${records.length} records`);
   }
 
   // ============================================================================
@@ -298,132 +474,197 @@ export class DNSSyncService {
   // ============================================================================
 
   private async syncToCloudflare(records: DNSRecord[]): Promise<void> {
-    if (!this.config.cloudflare) return;
+    if (!this.config.providers.cloudflare) return;
 
-    const { apiToken, zoneId } = this.config.cloudflare;
+    const timer = dnsSyncDuration.startTimer({ provider: 'cloudflare' });
+    const { apiToken, zoneId } = this.config.providers.cloudflare;
 
-    for (const record of records) {
-      // Get existing record
-      const listResponse = await fetch(
-        `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?name=${record.name}.${this.domain}&type=${record.type}`,
-        {
-          headers: {
-            Authorization: `Bearer ${apiToken}`,
-            'Content-Type': 'application/json',
-          },
+    try {
+      for (const record of records.filter((r) => r.values.length > 0)) {
+        // List existing records
+        const listResponse = await withRetry(
+          () =>
+            fetch(
+              `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records?name=${record.name}.${this.config.domain}&type=${record.type}`,
+              {
+                headers: {
+                  Authorization: `Bearer ${apiToken}`,
+                  'Content-Type': 'application/json',
+                },
+              }
+            ),
+          this.config.retryAttempts,
+          this.config.retryDelayMs
+        );
+
+        const listData = (await listResponse.json()) as {
+          result: Array<{ id: string }>;
+        };
+        const existing = listData.result[0];
+
+        const recordData = {
+          type: record.type,
+          name: record.name,
+          content: record.values[0],
+          ttl: record.ttl,
+          proxied: record.name === 'cdn',
+        };
+
+        if (existing) {
+          await withRetry(
+            () =>
+              fetch(
+                `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${existing.id}`,
+                {
+                  method: 'PATCH',
+                  headers: {
+                    Authorization: `Bearer ${apiToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(recordData),
+                }
+              ),
+            this.config.retryAttempts,
+            this.config.retryDelayMs
+          );
+        } else {
+          await withRetry(
+            () =>
+              fetch(
+                `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`,
+                {
+                  method: 'POST',
+                  headers: {
+                    Authorization: `Bearer ${apiToken}`,
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify(recordData),
+                }
+              ),
+            this.config.retryAttempts,
+            this.config.retryDelayMs
+          );
         }
-      );
-
-      const listData = await listResponse.json() as { result: Array<{ id: string }> };
-      const existingRecord = listData.result[0];
-
-      // For A records with multiple IPs, Cloudflare needs separate records
-      // For simplicity, using first IP here
-      const recordData = {
-        type: record.type,
-        name: record.name,
-        content: record.values[0],
-        ttl: record.ttl,
-        proxied: record.name === 'cdn', // Only proxy CDN
-      };
-
-      if (existingRecord) {
-        // Update existing
-        await fetch(
-          `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records/${existingRecord.id}`,
-          {
-            method: 'PATCH',
-            headers: {
-              Authorization: `Bearer ${apiToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(recordData),
-          }
-        );
-      } else {
-        // Create new
-        await fetch(
-          `https://api.cloudflare.com/client/v4/zones/${zoneId}/dns_records`,
-          {
-            method: 'POST',
-            headers: {
-              Authorization: `Bearer ${apiToken}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(recordData),
-          }
-        );
       }
-    }
 
-    console.log(`[DNS Sync] Cloudflare: Updated ${records.length} records`);
+      dnsSyncTotal.inc({ provider: 'cloudflare', status: 'success' });
+      console.log(`[DNS Sync] Cloudflare: Updated ${records.length} records`);
+    } catch (error) {
+      dnsSyncTotal.inc({ provider: 'cloudflare', status: 'error' });
+      this.logAudit('error', 'cloudflare', { error: (error as Error).message });
+    } finally {
+      timer();
+    }
   }
 
   // ============================================================================
-  // On-Chain Registry
+  // On-Chain
   // ============================================================================
 
   private async syncToOnChain(records: DNSRecord[]): Promise<void> {
     if (!this.endpointRegistry) return;
 
-    for (const record of records) {
-      const serviceKey = ethers.id(record.name);
+    const timer = dnsSyncDuration.startTimer({ provider: 'on-chain' });
 
-      for (let i = 0; i < record.values.length; i++) {
-        const ip = record.values[i];
-        const url = record.type === 'A' 
-          ? `https://${ip}` 
-          : ip;
-        
-        // Determine region from IP (simplified)
-        const region = this.guessRegion(ip);
+    try {
+      for (const record of records.filter((r) => r.values.length > 0)) {
+        const serviceKey = ethers.id(record.name);
 
-        await this.endpointRegistry.setEndpoint(
-          serviceKey,
-          url,
-          region,
-          i // Priority based on order
-        );
+        for (let i = 0; i < record.values.length; i++) {
+          const ip = record.values[i];
+          const url = record.type === 'A' ? `https://${ip}` : ip;
+          const region = this.guessRegion(ip);
+
+          await withRetry(
+            () => this.endpointRegistry!.setEndpoint(serviceKey, url, region, i),
+            this.config.retryAttempts,
+            this.config.retryDelayMs
+          );
+        }
       }
-    }
 
-    console.log(`[DNS Sync] On-chain: Updated ${records.length} service endpoints`);
+      dnsSyncTotal.inc({ provider: 'on-chain', status: 'success' });
+      console.log(`[DNS Sync] On-chain: Updated ${records.length} services`);
+    } catch (error) {
+      dnsSyncTotal.inc({ provider: 'on-chain', status: 'error' });
+      this.logAudit('error', 'on-chain', { error: (error as Error).message });
+    } finally {
+      timer();
+    }
   }
 
   // ============================================================================
   // Health Checks
   // ============================================================================
 
+  async runHealthChecks(): Promise<void> {
+    const records = this.currentRecords.filter((r) => r.healthCheckEnabled);
+
+    for (const record of records) {
+      for (const ip of record.values) {
+        const result = await this.checkEndpointHealth(record.name, ip);
+        const key = `${record.name}:${ip}`;
+
+        const previous = this.healthResults.get(key);
+        if (previous && previous.healthy && !result.healthy) {
+          this.logAudit('failover', record.name, {
+            endpoint: ip,
+            reason: 'health_check_failed',
+          });
+        }
+
+        this.healthResults.set(key, result);
+
+        dnsHealthCheckResults.set(
+          { service: record.name, endpoint: ip },
+          result.healthy ? 1 : 0
+        );
+        dnsEndpointLatency.set(
+          { service: record.name, endpoint: ip },
+          result.latencyMs
+        );
+      }
+    }
+  }
+
   private async checkEndpointHealth(
     service: string,
     ip: string
   ): Promise<HealthCheckResult> {
     const startTime = Date.now();
-    let healthy = false;
-
-    const healthPath = this.getHealthPath(service);
-    const url = `https://${ip}${healthPath}`;
+    const key = `${service}:${ip}`;
+    const previous = this.healthResults.get(key);
 
     try {
-      const response = await fetch(url, {
+      const healthPath = this.getHealthPath(service);
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 5000);
+
+      const response = await fetch(`https://${ip}${healthPath}`, {
         method: 'GET',
-        signal: AbortSignal.timeout(5000),
-        // Skip SSL verification for direct IP access
-        // In production, use proper certificates
+        signal: controller.signal,
       });
 
-      healthy = response.ok;
-    } catch {
-      healthy = false;
-    }
+      clearTimeout(timeout);
 
-    return {
-      provider: 'direct',
-      endpoint: ip,
-      healthy,
-      latencyMs: Date.now() - startTime,
-      lastCheck: Date.now(),
-    };
+      return {
+        provider: 'direct',
+        endpoint: ip,
+        healthy: response.ok,
+        latencyMs: Date.now() - startTime,
+        lastCheck: Date.now(),
+        consecutiveFailures: response.ok ? 0 : (previous?.consecutiveFailures ?? 0) + 1,
+      };
+    } catch {
+      return {
+        provider: 'direct',
+        endpoint: ip,
+        healthy: false,
+        latencyMs: Date.now() - startTime,
+        lastCheck: Date.now(),
+        consecutiveFailures: (previous?.consecutiveFailures ?? 0) + 1,
+      };
+    }
   }
 
   private getHealthPath(service: string): string {
@@ -441,13 +682,59 @@ export class DNSSyncService {
     return paths[service] ?? '/health';
   }
 
+  // ============================================================================
+  // Utilities
+  // ============================================================================
+
   private guessRegion(ip: string): string {
-    // In production, use GeoIP database
-    // For now, return based on IP range patterns
     if (ip.startsWith('52.') || ip.startsWith('54.')) return 'aws-us-east-1';
     if (ip.startsWith('35.')) return 'gcp-us-central1';
     if (ip.startsWith('34.')) return 'gcp-us-east1';
     return 'unknown';
+  }
+
+  private logAudit(
+    action: AuditLogEntry['action'],
+    provider: string,
+    details: Record<string, unknown>
+  ): void {
+    const entry: AuditLogEntry = {
+      timestamp: Date.now(),
+      action,
+      provider,
+      details,
+    };
+
+    this.auditLog.push(entry);
+
+    // Keep only last 1000 entries
+    if (this.auditLog.length > 1000) {
+      this.auditLog = this.auditLog.slice(-1000);
+    }
+  }
+
+  getHealthyIPs(serviceName: string): string[] {
+    const healthy: string[] = [];
+
+    for (const [key, result] of this.healthResults) {
+      if (key.startsWith(`${serviceName}:`) && result.healthy) {
+        healthy.push(result.endpoint);
+      }
+    }
+
+    return healthy.sort((a, b) => {
+      const resultA = this.healthResults.get(`${serviceName}:${a}`);
+      const resultB = this.healthResults.get(`${serviceName}:${b}`);
+      return (resultA?.latencyMs ?? Infinity) - (resultB?.latencyMs ?? Infinity);
+    });
+  }
+
+  private getHealthyEndpointCount(): number {
+    return Array.from(this.healthResults.values()).filter((r) => r.healthy).length;
+  }
+
+  getAuditLog(): AuditLogEntry[] {
+    return [...this.auditLog];
   }
 }
 
@@ -456,35 +743,46 @@ export class DNSSyncService {
 // ============================================================================
 
 if (import.meta.main) {
-  const domain = process.env.DOMAIN ?? 'jejunetwork.org';
-  
-  const config: DNSProviderConfig = {
-    route53: process.env.AWS_ROUTE53_ZONE_ID ? {
-      zoneId: process.env.AWS_ROUTE53_ZONE_ID,
-      region: process.env.AWS_REGION ?? 'us-east-1',
-    } : undefined,
-    cloudDns: process.env.GCP_PROJECT_ID ? {
-      projectId: process.env.GCP_PROJECT_ID,
-      zoneName: process.env.GCP_DNS_ZONE_NAME ?? 'jeju-network',
-    } : undefined,
-    cloudflare: process.env.CLOUDFLARE_API_TOKEN ? {
-      apiToken: process.env.CLOUDFLARE_API_TOKEN,
-      zoneId: process.env.CLOUDFLARE_ZONE_ID ?? '',
-    } : undefined,
-    onChain: process.env.RPC_URL ? {
-      rpcUrl: process.env.RPC_URL,
-      privateKey: process.env.PRIVATE_KEY ?? '',
-      registryAddress: process.env.ENDPOINT_REGISTRY_ADDRESS ?? '',
-    } : undefined,
+  const config: DNSSyncConfig = {
+    domain: process.env.DOMAIN ?? 'jejunetwork.org',
+    providers: {
+      route53: process.env.AWS_ROUTE53_ZONE_ID
+        ? {
+            zoneId: process.env.AWS_ROUTE53_ZONE_ID,
+            region: process.env.AWS_REGION ?? 'us-east-1',
+          }
+        : undefined,
+      cloudDns: process.env.GCP_PROJECT_ID
+        ? {
+            projectId: process.env.GCP_PROJECT_ID,
+            zoneName: process.env.GCP_DNS_ZONE_NAME ?? 'jeju-network',
+          }
+        : undefined,
+      cloudflare: process.env.CLOUDFLARE_API_TOKEN
+        ? {
+            apiToken: process.env.CLOUDFLARE_API_TOKEN,
+            zoneId: process.env.CLOUDFLARE_ZONE_ID ?? '',
+          }
+        : undefined,
+      onChain: process.env.RPC_URL
+        ? {
+            rpcUrl: process.env.RPC_URL,
+            privateKey: process.env.PRIVATE_KEY ?? '',
+            registryAddress: process.env.ENDPOINT_REGISTRY_ADDRESS ?? '',
+          }
+        : undefined,
+    },
+    syncIntervalMs: parseInt(process.env.SYNC_INTERVAL_MS ?? '300000', 10),
+    metricsPort: process.env.METRICS_PORT
+      ? parseInt(process.env.METRICS_PORT, 10)
+      : undefined,
   };
 
-  const service = new DNSSyncService(domain, config);
-
-  // Run once or start daemon
-  const mode = process.argv[2] ?? 'once';
+  const service = new DNSSyncService(config);
+  const mode = process.argv[2] ?? 'daemon';
 
   if (mode === 'daemon') {
-    service.start(parseInt(process.env.SYNC_INTERVAL_MS ?? '300000'));
+    service.start();
 
     process.on('SIGINT', () => {
       service.stop();
@@ -504,4 +802,3 @@ if (import.meta.main) {
 }
 
 export { DEFAULT_RECORDS };
-

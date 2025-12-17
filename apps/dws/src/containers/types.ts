@@ -232,3 +232,4 @@ export type ContainerEvent =
   | { type: 'scale_down'; imageDigest: string; newCount: number };
 
 export type ContainerEventHandler = (event: ContainerEvent) => void;
+

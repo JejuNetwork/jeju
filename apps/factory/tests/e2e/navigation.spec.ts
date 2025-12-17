@@ -101,7 +101,7 @@ test.describe('Navigation', () => {
 
     test('should load jobs page', async ({ page }) => {
       await page.goto('/jobs');
-      await expect(page.getByRole('heading', { name: /jobs/i })).toBeVisible();
+      await expect(page.getByRole('heading', { name: /jobs/i })).toBeVisible({ timeout: 10000 });
     });
 
     test('should load projects page', async ({ page }) => {

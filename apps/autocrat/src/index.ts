@@ -6,7 +6,7 @@
  *    - Set CQL_BLOCK_PRODUCER_ENDPOINT or start: docker compose up -d
  *
  * 2. DWS Compute required for AI inference
- *    - Set DWS_URL or start: docker compose up -d
+ *    - Automatically configured per network (JEJU_NETWORK=localnet|testnet|mainnet)
  *
  * 3. Contract deployment is OPTIONAL:
  *    - ERC8004 registries (identity, reputation, validation) return empty when not deployed
@@ -35,7 +35,7 @@ import { autocratAgentRuntime } from './agents';
 import { registerAutocratTriggers, startLocalCron, getComputeTriggerClient, type OrchestratorTriggerResult } from './compute-trigger';
 import { getProposalAssistant, type ProposalDraft, type QualityAssessment } from './proposal-assistant';
 import { getResearchAgent, type ResearchRequest } from './research-agent';
-import { getERC8004Client, type ERC8004Config } from './erc8004';
+import { ERC8004Client, getERC8004Client, type ERC8004Config } from './erc8004';
 import { getFutarchyClient, type FutarchyConfig } from './futarchy';
 import { getModerationSystem, initModeration, FlagType } from './moderation';
 import { getRegistryIntegrationClient, type RegistryIntegrationConfig } from './registry-integration';
@@ -788,7 +788,7 @@ async function runOrchestratorCycle(): Promise<OrchestratorTriggerResult> {
     await orchestrator.start();
   }
   const status = orchestrator.getStatus();
-  return { cycleCount: status.cycleCount, processedProposals: status.processedProposals, duration: Date.now() - start };
+  return { cycleCount: status.cycleCount, processedProposals: status.totalProcessed, duration: Date.now() - start };
 }
 
 app.get('/health', (c) => c.json({
@@ -844,7 +844,7 @@ app.get('/metrics', () => {
     `council_orchestrator_cycles ${orch?.cycleCount ?? 0}`,
     '# HELP council_proposals_processed Total proposals processed',
     '# TYPE council_proposals_processed counter',
-    `council_proposals_processed ${orch?.processedProposals ?? 0}`,
+    `council_proposals_processed ${orch?.totalProcessed ?? 0}`,
     '# HELP council_moderation_flags_active Active moderation flags',
     '# TYPE council_moderation_flags_active gauge',
     `council_moderation_flags_active ${activeFlags}`,
