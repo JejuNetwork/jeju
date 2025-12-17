@@ -67,8 +67,8 @@ function banner(title: string) {
 async function runTerraform(tfDir: string, command: string, args: string[] = []): Promise<boolean> {
   const result = await $`cd ${tfDir} && terraform ${command} ${args}`.nothrow();
   if (result.exitCode !== 0) {
-    const errorMsg = result.stderr.toString() || result.stdout.toString() || 'Unknown error';
     if (process.env.DEBUG) {
+      const errorMsg = result.stderr.toString() || result.stdout.toString() || 'Unknown error';
       console.error(`Terraform ${command} failed: ${errorMsg.split('\n')[0]}`);
     }
   }
@@ -82,7 +82,6 @@ async function checkTerraformBackend(network: Network): Promise<boolean> {
   // Check S3 bucket
   const bucketCheck = await $`aws s3 ls s3://${bucketName}`.quiet().nothrow();
   if (bucketCheck.exitCode !== 0) {
-    const errorMsg = bucketCheck.stderr.toString() || 'Bucket does not exist';
     console.log(`Creating S3 bucket: ${bucketName}`);
     
     const region = process.env.AWS_REGION || 'us-east-1';
@@ -111,10 +110,9 @@ async function checkTerraformBackend(network: Network): Promise<boolean> {
   // Check DynamoDB table
   const tableCheck = await $`aws dynamodb describe-table --table-name ${tableName}`.quiet().nothrow();
   if (tableCheck.exitCode !== 0) {
-    const errorMsg = tableCheck.stderr.toString() || 'Table does not exist';
     console.log(`Creating DynamoDB table: ${tableName}`);
     
-    const createTableResult = await $`aws dynamodb create-table \
+    await $`aws dynamodb create-table \
       --table-name ${tableName} \
       --attribute-definitions AttributeName=LockID,AttributeType=S \
       --key-schema AttributeName=LockID,KeyType=HASH \

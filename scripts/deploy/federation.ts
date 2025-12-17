@@ -19,11 +19,9 @@ import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { waitForTransactionReceipt, getBalance } from 'viem/actions';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
-import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 const ROOT = join(import.meta.dir, '../..');
 const CONTRACTS_DIR = join(ROOT, 'packages/contracts');
-const CONFIG_DIR = join(ROOT, 'packages/config');
 
 type NetworkType = 'localnet' | 'testnet' | 'mainnet';
 

@@ -18,7 +18,7 @@
  *   THRESHOLD - Required signatures (default: 3)
  */
 
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, writeContract, waitForTransactionReceipt, encodeFunctionData, getLogs, decodeEventLog, zeroAddress, getChainId, getBytecode, isAddress, keccak256, stringToBytes, getContractAddress, formatEther, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, readContract, waitForTransactionReceipt, encodeFunctionData, getLogs, decodeEventLog, zeroAddress, getBytecode, isAddress, keccak256, stringToBytes, getContractAddress, formatEther, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../shared/chain-utils';
 import { readFileSync, writeFileSync, existsSync } from 'fs';

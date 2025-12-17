@@ -18,7 +18,7 @@
  *   XLP_KEY - XLP private key for initial liquidity
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, readContract, writeContract, waitForTransactionReceipt, zeroAddress, sendTransaction, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, getBalance, waitForTransactionReceipt, zeroAddress, sendTransaction, type Address } from 'viem';
 import { privateKeyToAccount, generatePrivateKey } from 'viem/accounts';
 import { parseAbi } from 'viem';
 import { inferChainFromRpcUrl } from '../shared/chain-utils';
@@ -121,7 +121,6 @@ async function deployToChain(
   const chainObj = inferChainFromRpcUrl(chain.rpc);
   const publicClient = createPublicClient({ chain: chainObj, transport: http(chain.rpc) });
   const account = privateKeyToAccount(deployerPrivateKey);
-  const walletClient = createWalletClient({ account, chain: chainObj, transport: http(chain.rpc) });
   
   const balance = await getBalanceFormatted(publicClient, account.address);
   log(`Deployer balance: ${balance} ETH`);

@@ -15,7 +15,6 @@ import {
   createWalletClient,
   http,
   parseEther,
-  formatEther,
   type Address,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
@@ -178,12 +177,6 @@ async function loadDeployment(network: string): Promise<DeploymentConfig | null>
   return content ? (JSON.parse(content) as DeploymentConfig) : null;
 }
 
-async function saveDeployment(network: string, config: DeploymentConfig): Promise<void> {
-  const dir = join(__dirname, '..', '..', 'config', 'deployments');
-  await mkdir(dir, { recursive: true });
-  const path = join(dir, `${network}.json`);
-  await writeFile(path, JSON.stringify(config, null, 2));
-}
 
 function printHelp(): void {
   console.log(`
@@ -220,7 +213,6 @@ Examples:
 async function deployContracts(network: string): Promise<void> {
   console.log(`\nDeploying DAO contracts to ${network}...`);
 
-  const chainConfig = getChainConfig(network);
   const privateKey = process.env.DEPLOYER_KEY ?? process.env.PRIVATE_KEY;
   if (!privateKey) {
     throw new Error('DEPLOYER_KEY or PRIVATE_KEY required');

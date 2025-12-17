@@ -14,7 +14,7 @@
  */
 
 import { createPublicClient, createWalletClient, http, parseEther, formatEther, getChainId, type Address, type Chain } from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 import { waitForTransactionReceipt, getBalance, readContract } from 'viem/actions';
 import { parseAbi } from 'viem';
 import { Logger } from '../shared/logger';

@@ -12,17 +12,12 @@
  * 4. Creates Cannon-compatible proof data
  */
 
-import { createPublicClient, http, keccak256, stringToBytes, encodeAbiParameters, decodeAbiParameters, encodePacked, concat, zeroPadValue, signMessage, recoverAddress, hashMessage, type Address, type PublicClient } from 'viem';
+import { createPublicClient, http, keccak256, stringToBytes, encodeAbiParameters, decodeAbiParameters, encodePacked, concat, zeroPadValue, signMessage, recoverAddress, type Address, type PublicClient } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../shared/chain-utils';
 
 // ============ Types ============
 
-interface StateRoot {
-  outputRoot: string;
-  l2BlockNumber: bigint;
-  timestamp: bigint;
-}
 
 interface ProofData {
   version: number;
@@ -44,12 +39,6 @@ interface CannonProof {
   claimant: string;
 }
 
-interface L2OutputProof {
-  version: string;
-  stateRoot: string;
-  messagePasserStorageRoot: string;
-  latestBlockhash: string;
-}
 
 // Cannon MIPS instruction encoding (simplified)
 const CANNON_OPCODES = {

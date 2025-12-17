@@ -75,6 +75,7 @@
     "cleanup": "jeju cleanup",
     "build": "bun run docs:generate && jeju build",
     "lint": "eslint scripts --ext ts",
+    "typecheck": "NODE_OPTIONS='--max-old-space-size=8192' tsc --noEmit",
     "test": "bun run packages/cli/src/index.ts test apps --no-docker",
     "test:core": "bun run packages/cli/src/index.ts test --phase=unit",
     "test:packages": "bun run packages/cli/src/index.ts test packages",

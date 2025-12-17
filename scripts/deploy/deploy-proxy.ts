@@ -12,7 +12,7 @@
  *   TREASURY_ADDRESS - Address to receive protocol fees (optional, defaults to deployer)
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, getContractAddress, type Address, type Chain } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, getContractAddress, type Address } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { waitForTransactionReceipt, readContract, getBalance } from 'viem/actions';
 import { parseAbi } from 'viem';
@@ -122,8 +122,6 @@ Deployer:   ${account.address}
 
   // Load artifacts
   console.log('Loading contract artifacts...');
-  const registryArtifact = await loadArtifact('ProxyRegistry');
-  const paymentArtifact = await loadArtifact('ProxyPayment');
 
   // Deploy ProxyRegistry
   console.log('\n1. Deploying ProxyRegistry...');

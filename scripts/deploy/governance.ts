@@ -14,8 +14,8 @@
  *   bun scripts/deploy-governance.ts --network mainnet
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, encodeFunctionData, getContractAddress, zeroAddress, zeroHash, keccak256, getAddress, type Address, type Chain } from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, encodeFunctionData, getContractAddress, zeroAddress, zeroHash, getAddress, type Address, type Chain } from 'viem';
+import { privateKeyToAccount } from 'viem/accounts';
 import { waitForTransactionReceipt, getBalance, readContract, getLogs, decodeEventLog } from 'viem/actions';
 import { parseAbi } from 'viem';
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';

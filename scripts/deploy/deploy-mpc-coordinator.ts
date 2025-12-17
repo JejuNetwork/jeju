@@ -12,7 +12,7 @@
  */
 
 import { parseArgs } from 'util';
-import { getMPCCoordinator, resetMPCCoordinator, getMPCConfig, type MPCCoordinatorConfig } from '../../packages/kms/src/mpc/index.js';
+import { getMPCCoordinator, resetMPCCoordinator, getMPCConfig } from '../../packages/kms/src/mpc/index.js';
 import { toHex, type Address } from 'viem';
 
 type Network = 'localnet' | 'testnet' | 'mainnet';

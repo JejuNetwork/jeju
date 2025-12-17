@@ -17,7 +17,7 @@
 import { spawn } from 'bun';
 import { existsSync, readdirSync, statSync } from 'fs';
 import { join, relative } from 'path';
-import { createPublicClient, createWalletClient, http, type Address, type Hex, keccak256, toBytes, toHex } from 'viem';
+import { createPublicClient, createWalletClient, http, type Address, type Hex, keccak256, toBytes } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia, localhost } from 'viem/chains';
 

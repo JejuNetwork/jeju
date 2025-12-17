@@ -18,7 +18,7 @@
 
 import { createPublicClient, createWalletClient, http, keccak256, toUtf8Bytes, concat, encodeDeployData, getContractAddress, type Address, type Chain, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { waitForTransactionReceipt, readContract } from 'viem/actions';
+import { waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
 import { existsSync, mkdirSync } from 'fs';
 

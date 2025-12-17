@@ -16,8 +16,6 @@ import {
   http,
   type Address,
   type Hex,
-  keccak256,
-  toBytes,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 

@@ -10,7 +10,6 @@ import {
   http,
   type Address,
   type Hex,
-  parseAbi,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry, baseSepolia, base } from 'viem/chains';

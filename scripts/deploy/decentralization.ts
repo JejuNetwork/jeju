@@ -11,7 +11,7 @@
 import { execSync } from 'child_process';
 import { writeFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { createPublicClient, http, formatEther, parseEther, getBalance, getCode, getBlockNumber, type Address } from 'viem';
+import { createPublicClient, http, formatEther, getBalance, getCode, getBlockNumber, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { readContract } from 'viem/actions';
 import { parseAbi } from 'viem';

@@ -13,7 +13,7 @@
  *   L2_RPC_URL - L2 RPC endpoint for state verification (optional)
  */
 
-import { createPublicClient, createWalletClient, http, formatEther, parseEther, getBalance, getBlock, readContract, writeContract, waitForTransactionReceipt, getLogs, decodeEventLog, keccak256, stringToBytes, concat, zeroPadValue, zeroAddress, zeroHash, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, formatEther, getBalance, getBlock, readContract, waitForTransactionReceipt, getLogs, decodeEventLog, keccak256, stringToBytes, concat, zeroPadValue, zeroAddress, zeroHash, type Address, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
 import { readFileSync, existsSync } from 'fs';

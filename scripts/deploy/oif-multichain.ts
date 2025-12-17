@@ -14,7 +14,7 @@
  *   bun run scripts/deploy/oif-multichain.ts [--chain <chainId>] [--all] [--verify]
  */
 
-import { createPublicClient, http, parseEther, formatEther, getChainId, getBalance, type Chain, type Address } from 'viem';
+import { createPublicClient, http, formatEther, getChainId, getBalance, type Chain } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { Logger } from '../shared/logger';
 import { readFileSync, writeFileSync, existsSync } from 'fs';

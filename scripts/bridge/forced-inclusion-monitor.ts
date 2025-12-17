@@ -5,7 +5,7 @@
  * ENV: L1_RPC_URL, FORCED_INCLUSION_ADDRESS, MONITOR_PRIVATE_KEY (optional)
  */
 
-import { createPublicClient, createWalletClient, http, formatEther, readContract, writeContract, waitForTransactionReceipt, getBlockNumber, watchContractEvent, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, formatEther, readContract, waitForTransactionReceipt, getBlockNumber, watchContractEvent, type Address, type PublicClient, type WalletClient } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
 import { existsSync, readFileSync } from 'fs';
