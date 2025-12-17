@@ -5,7 +5,7 @@
 import { randomBytes, createHash } from 'crypto';
 import type { Address } from 'viem';
 import { registerApiKey, revokeApiKey, type RateTier } from '../middleware/rate-limiter.js';
-import { apiKeyState, initializeState } from '../../services/state.js';
+import { apiKeyState, initializeDWSState } from '../../state.js';
 
 export interface ApiKeyRecord {
   id: string;
@@ -19,12 +19,8 @@ export interface ApiKeyRecord {
   isActive: boolean;
 }
 
-// Initialize state on module load (non-blocking)
-initializeState().catch((err) => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.warn('[RPC API Keys] Running without CQL:', err.message);
-  }
-});
+// Initialize CQL state
+initializeDWSState().catch(console.error);
 
 // Local cache for key -> id mapping (for fast validation without async)
 const localKeyCache = new Map<string, string>();

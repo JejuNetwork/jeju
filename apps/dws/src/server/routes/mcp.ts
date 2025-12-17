@@ -4,6 +4,7 @@
  */
 
 import { Hono } from 'hono';
+import { getDWSUrl } from '@jejunetwork/config';
 import type { BackendManager } from '../../storage/backends';
 
 interface MCPContext {
@@ -48,7 +49,7 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
   // Read resource content
   router.post('/resources/read', async (c) => {
     const body = await c.req.json<{ uri: string }>();
-    const baseUrl = process.env.DWS_BASE_URL || 'http://localhost:4030';
+    const baseUrl = getDWSUrl();
 
     const fetchResource = async (path: string): Promise<Record<string, unknown>> => {
       const response = await fetch(`${baseUrl}${path}`);
@@ -164,7 +165,7 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
   // Execute tool
   router.post('/tools/call', async (c) => {
     const body = await c.req.json<{ name: string; arguments: Record<string, string | number> }>();
-    const baseUrl = process.env.DWS_BASE_URL || 'http://localhost:4030';
+    const baseUrl = getDWSUrl();
     const address = c.req.header('x-jeju-address') || '0x0000000000000000000000000000000000000000';
 
     switch (body.name) {

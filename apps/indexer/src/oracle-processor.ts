@@ -105,7 +105,7 @@ const ABI = {
 };
 
 export function isOracleEvent(topic0: string): boolean {
-  return ORACLE_EVENT_SET.has(topic0);
+  return ORACLE_EVENT_SET.has(topic0 as `0x${string}`);
 }
 
 // Category detection via keyword matching
@@ -152,18 +152,18 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
       const log = rawLog as unknown as LogData;
       const eventSig = log.topics[0];
 
-      if (!eventSig || !ORACLE_EVENT_SET.has(eventSig)) continue;
+      if (!eventSig || !ORACLE_EVENT_SET.has(eventSig as `0x${string}`)) continue;
       const txHash = log.transaction?.hash || `${header.hash}-${log.transactionIndex}`;
 
       // Feed Events
       if (eventSig === EVENTS.FEED_CREATED) {
-        const decoded = decodeEventLog({
+        const { args } = decodeEventLog({
           abi: ABI.registry,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
           data: log.data as `0x${string}`,
-        });
+        }) as { args: { feedId: string; symbol: string; baseToken: string; quoteToken: string; creator: string } };
         const feedId = log.topics[1];
-        const [symbol, baseToken, quoteToken] = [decoded.args.symbol, decoded.args.baseToken, decoded.args.quoteToken] as [string, string, string];
+        const [symbol, baseToken, quoteToken] = [args.symbol, args.baseToken, args.quoteToken];
         feeds.set(feedId, new OracleFeed({
           id: feedId, feedId, symbol, baseToken, quoteToken,
           decimals: 8, heartbeatSeconds: 3600, // defaults, can be fetched from contract if needed
@@ -187,17 +187,17 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
 
       // Operator Events
       if (eventSig === EVENTS.OPERATOR_REGISTERED) {
-        const decoded = decodeEventLog({
+        const { args } = decodeEventLog({
           abi: ABI.connector,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
           data: log.data as `0x${string}`,
-        });
+        }) as { args: { operatorId: string; stakingOracleId: string; agentId: bigint; workerKey: string } };
         const operatorId = log.topics[1];
-        const workerKey = (decoded.args.workerKey as string).toLowerCase();
+        const workerKey = args.workerKey.toLowerCase();
         accountFactory.getOrCreate(workerKey, header.height, blockTimestamp);
         operators.set(operatorId, new OracleOperator({
           id: operatorId, address: workerKey,
-          identityId: BigInt(decoded.args[2]?.toString() || '0'),
+          identityId: BigInt(args.agentId.toString()),
           stakedAmount: 0n,
           isActive: true, isJailed: false, delegatedAmount: 0n, totalSlashed: 0n,
           reportsSubmitted: 0, reportsAccepted: 0, disputesAgainst: 0, disputesLost: 0,
@@ -218,16 +218,16 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
       }
 
       if (eventSig === EVENTS.PERFORMANCE_RECORDED) {
-        const decoded = decodeEventLog({
+        const { args } = decodeEventLog({
           abi: ABI.connector,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
           data: log.data as `0x${string}`,
-        });
+        }) as { args: { operatorId: string; epoch: bigint; reportsSubmitted: bigint; reportsAccepted: bigint } };
         const operatorId = log.topics[1];
         const op = operators.get(operatorId) || await ctx.store.get(OracleOperator, operatorId);
         if (op) {
-          op.reportsSubmitted += Number(decoded.args.reportsSubmitted);
-          op.reportsAccepted += Number(decoded.args.reportsAccepted);
+          op.reportsSubmitted += Number(args.reportsSubmitted);
+          op.reportsAccepted += Number(args.reportsAccepted);
           op.lastActiveAt = blockTimestamp;
           operators.set(operatorId, op);
         }
@@ -235,13 +235,13 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
 
       // Committee Events
       if (eventSig === EVENTS.COMMITTEE_FORMED) {
-        const decoded = decodeEventLog({
+        const { args } = decodeEventLog({
           abi: ABI.committee,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
           data: log.data as `0x${string}`,
-        });
+        }) as { args: { feedId: string; round: bigint; members: readonly string[]; leader: string; activeUntil: bigint } };
         const feedId = log.topics[1];
-        const members = decoded.args.members as string[];
+        const members = args.members;
         const feed = feeds.get(feedId) || await ctx.store.get(OracleFeed, feedId);
         
         for (const memberAddr of members) {
@@ -283,17 +283,17 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
 
       // Report Events
       if (eventSig === EVENTS.REPORT_SUBMITTED) {
-        const decoded = decodeEventLog({
+        const { args } = decodeEventLog({
           abi: ABI.reporting,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
           data: log.data as `0x${string}`,
-        });
+        }) as { args: { feedId: string; reportHash: string; price: bigint; confidence: bigint; round: bigint; signatureCount: bigint } };
         const feedId = log.topics[1];
-        const reportHash = decoded.args.reportHash as string;
-        const price = BigInt(decoded.args.price.toString());
-        const confidence = BigInt(decoded.args.confidence.toString());
-        const round = BigInt(decoded.args[3].toString());
-        const signatureCount = Number(decoded.args[4]);
+        const reportHash = args.reportHash;
+        const price = BigInt(args.price.toString());
+        const confidence = BigInt(args.confidence.toString());
+        const round = BigInt(args.round.toString());
+        const signatureCount = Number(args.signatureCount);
         const feed = feeds.get(feedId) || await ctx.store.get(OracleFeed, feedId);
         const submitter = accountFactory.getOrCreate(log.address.toLowerCase(), header.height, blockTimestamp);
 
@@ -327,17 +327,17 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
 
       // Dispute Events
       if (eventSig === EVENTS.DISPUTE_OPENED) {
-        const decoded = decodeEventLog({
+        const { args } = decodeEventLog({
           abi: ABI.dispute,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
           data: log.data as `0x${string}`,
-        });
+        }) as { args: { disputeId: string; reportHash: string; feedId: string; disputer: string; bond: bigint; reason: number } };
         const disputeId = log.topics[1];
-        const reportHash = decoded.args.reportHash as string;
-        const feedId = decoded.args.feedId as string;
-        const disputerAddr = (decoded.args.disputer as string).toLowerCase();
-        const bond = BigInt(decoded.args[3].toString());
-        const reasonCode = Number(decoded.args[4]);
+        const reportHash = args.reportHash;
+        const feedId = args.feedId;
+        const disputerAddr = args.disputer.toLowerCase();
+        const bond = BigInt(args.bond.toString());
+        const reasonCode = Number(args.reason);
         const reasonLabels = ['PRICE_DEVIATION', 'STALE_DATA', 'INVALID_SIGNATURES', 'SOURCE_MANIPULATION', 'OTHER'];
         const reason = reasonLabels[reasonCode] || 'UNKNOWN';
 
@@ -365,33 +365,36 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
       }
 
       if (eventSig === EVENTS.DISPUTE_CHALLENGED) {
-        const decoded = decodeEventLog({
+        const { args } = decodeEventLog({
           abi: ABI.dispute,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
           data: log.data as `0x${string}`,
-        });
+        }) as { args: { disputeId: string; challenger: string; additionalBond: bigint } };
         const disputeId = log.topics[1];
         const dispute = disputes.get(disputeId) || await ctx.store.get(OracleDispute, disputeId);
         if (dispute) {
           dispute.status = OracleDisputeStatus.CHALLENGED;
-          dispute.challenger = accountFactory.getOrCreate((decoded.args.challenger as string).toLowerCase(), header.height, blockTimestamp);
-          dispute.challengeBond = BigInt(decoded.args.additionalBond.toString());
+          dispute.challenger = accountFactory.getOrCreate(args.challenger.toLowerCase(), header.height, blockTimestamp);
+          dispute.challengeBond = BigInt(args.additionalBond.toString());
           disputes.set(disputeId, dispute);
         }
       }
 
       if (eventSig === EVENTS.DISPUTE_RESOLVED) {
-        const decoded = ABI.dispute.parseLog({ topics: log.topics, data: log.data });
-        if (!decoded) continue;
+        const { args } = decodeEventLog({
+          abi: ABI.dispute,
+          topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
+          data: log.data as `0x${string}`,
+        }) as { args: { disputeId: string; outcome: number; slashedAmount: bigint; reward: bigint } };
         const disputeId = log.topics[1];
         const dispute = disputes.get(disputeId) || await ctx.store.get(OracleDispute, disputeId);
         if (dispute) {
           dispute.status = OracleDisputeStatus.RESOLVED;
           dispute.resolvedAt = blockTimestamp;
-          const outcome = Number(decoded.args[0]);
+          const outcome = Number(args.outcome);
           dispute.outcome = outcome === 0 ? OracleDisputeOutcome.VALID : 
                            outcome === 1 ? OracleDisputeOutcome.INVALID : OracleDisputeOutcome.PENDING;
-          dispute.slashedAmount = BigInt(decoded.args[1].toString());
+          dispute.slashedAmount = BigInt(args.slashedAmount.toString());
           disputes.set(disputeId, dispute);
         }
       }
@@ -417,16 +420,16 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
 
       // Subscription Events
       if (eventSig === EVENTS.SUBSCRIPTION_CREATED) {
-        const decoded = decodeEventLog({
+        const { args } = decodeEventLog({
           abi: ABI.subscription,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
           data: log.data as `0x${string}`,
-        });
+        }) as { args: { subscriptionId: string; subscriber: string; feedIds: readonly string[]; duration: bigint; amountPaid: bigint } };
         const subId = log.topics[1];
         const subscriberAddr = ('0x' + log.topics[2].slice(26)).toLowerCase();
-        const feedIdsList = decoded.args.feedIds as string[];
-        const duration = Number(decoded.args.duration);
-        const amountPaid = BigInt(decoded.args[2].toString());
+        const feedIdsList = [...args.feedIds];
+        const duration = Number(args.duration);
+        const amountPaid = BigInt(args.amountPaid.toString());
 
         subscriptions.set(subId, new OracleSubscription({
           id: subId, subscriptionId: BigInt(subId),
@@ -460,15 +463,15 @@ export async function processOracleEvents(ctx: ProcessorContext<Store>): Promise
 
       // Attestation Events
       if (eventSig === EVENTS.ATTESTATION_WRITTEN) {
-        const decoded = decodeEventLog({
+        const { args } = decodeEventLog({
           abi: ABI.connector,
           topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
           data: log.data as `0x${string}`,
-        });
+        }) as { args: { operatorId: string; agentId: bigint; tag: string; score: number } };
         const operatorId = log.topics[1];
         const agentId = BigInt(log.topics[2]);
-        const tag = decoded.args.tag as string;
-        const score = Number(decoded.args.score);
+        const tag = args.tag;
+        const score = Number(args.score);
         const op = operators.get(operatorId) || await ctx.store.get(OracleOperator, operatorId);
 
         if (op) {

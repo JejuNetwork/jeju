@@ -2,8 +2,14 @@
  * ERC-8004 Registry Integration for Indexer
  */
 
-import { createPublicClient, http, readContract, parseAbi, type Address } from 'viem';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { createPublicClient, http, parseAbi, type Address } from 'viem';
+import { inferChainFromRpcUrl } from './chain-utils';
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function readContract<T>(client: ReturnType<typeof createPublicClient>, params: { address: Address; abi: readonly unknown[]; functionName: string; args?: readonly unknown[] }): Promise<T> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return (client as any).readContract(params) as Promise<T>;
+}
 
 const IDENTITY_REGISTRY_ABI = parseAbi([
   'function getAgentId(address agentAddress) external view returns (uint256)',
@@ -36,14 +42,14 @@ export async function checkUserBan(userAddress: string): Promise<BanCheckResult>
 
   const publicClient = getPublicClient();
   
-  const agentId = await readContract(publicClient, {
+  const agentId = await readContract<bigint>(publicClient, {
     address: identityRegistryAddress as Address,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getAgentId',
     args: [userAddress as Address],
   });
   
-  const isBanned = await readContract(publicClient, {
+  const isBanned = await readContract<boolean>(publicClient, {
     address: banManagerAddress as Address,
     abi: BAN_MANAGER_ABI,
     functionName: 'isBanned',
@@ -51,7 +57,7 @@ export async function checkUserBan(userAddress: string): Promise<BanCheckResult>
   });
 
   if (isBanned) {
-    const reason = await readContract(publicClient, {
+    const reason = await readContract<string>(publicClient, {
       address: banManagerAddress as Address,
       abi: BAN_MANAGER_ABI,
       functionName: 'getBanReason',

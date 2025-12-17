@@ -111,6 +111,16 @@ export function getContractAddresses(network: NetworkType): ContractAddresses {
     // Cross-chain
     inputSettler: tryGetContract("crosschain", "InputSettler"),
     solverRegistry: tryGetContract("crosschain", "SolverRegistry"),
+
+    // Staking
+    staking: tryGetContract("staking", "Staking"),
+    nodeStakingManager: tryGetContract("staking", "NodeStakingManager"),
+    rpcProviderRegistry: tryGetContract("rpc", "RPCProviderRegistry"),
+
+    // Federation
+    networkRegistry: tryGetContract("federation", "NetworkRegistry"),
+    registryHub: tryGetContract("federation", "RegistryHub"),
+    federationGovernance: tryGetContract("federation", "FederationGovernance"),
   };
 }
 

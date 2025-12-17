@@ -8,14 +8,26 @@
  * - Content routing
  */
 
-import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'bun:test';
-import { HybridTorrentService } from '../../../apps/node/src/lib/services/hybrid-torrent';
+import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
 import { EdgeCoordinator } from '../../../apps/node/src/lib/services/edge-coordinator';
 
-describe('HybridTorrentService', () => {
-  let service: HybridTorrentService;
+// Check if WebTorrent native modules are available
+let HybridTorrentService: typeof import('../../../apps/node/src/lib/services/hybrid-torrent').HybridTorrentService | null = null;
+let WEBTORRENT_AVAILABLE = false;
+
+try {
+  // Try to load WebTorrent to check if native modules are available
+  HybridTorrentService = (await import('../../../apps/node/src/lib/services/hybrid-torrent')).HybridTorrentService;
+  WEBTORRENT_AVAILABLE = true;
+} catch {
+  console.log('[Test] WebTorrent native modules not available, skipping HybridTorrentService tests');
+}
+
+describe.skipIf(!WEBTORRENT_AVAILABLE)('HybridTorrentService', () => {
+  let service: InstanceType<NonNullable<typeof HybridTorrentService>>;
 
   beforeAll(async () => {
+    if (!HybridTorrentService) throw new Error('HybridTorrentService not loaded');
     service = new HybridTorrentService({
       trackers: ['wss://tracker.openwebtorrent.com'],
       maxPeers: 10,

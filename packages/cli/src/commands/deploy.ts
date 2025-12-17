@@ -610,10 +610,10 @@ deployCommand
     }
   });
 
-// Check subcommand - comprehensive testnet readiness check
+// Check subcommand - comprehensive deployment readiness check
 deployCommand
   .command('check')
-  .description('Comprehensive readiness check for deployment')
+  .description('Comprehensive readiness check for deployment (infrastructure, keys, contracts, network)')
   .argument('[network]', 'testnet | mainnet', 'testnet')
   .action(async (networkArg) => {
     const network = networkArg as NetworkType;
@@ -623,8 +623,9 @@ deployCommand
       return;
     }
 
-    // Import and run the comprehensive check script
-    const { $ } = await import('execa');
+    logger.header(`DEPLOYMENT CHECK - ${network.toUpperCase()}`);
+
+    // Run the comprehensive check script
     const rootDir = findMonorepoRoot();
     const checkScript = join(rootDir, 'scripts/verify/check-testnet-readiness.ts');
     
@@ -633,7 +634,7 @@ deployCommand
       return;
     }
 
-    await execa('bun', ['run', checkScript], {
+    await execa('bun', ['run', checkScript, network], {
       cwd: rootDir,
       stdio: 'inherit',
     });

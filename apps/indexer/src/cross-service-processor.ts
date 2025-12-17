@@ -59,7 +59,7 @@ const EVENT_SIGNATURES = {
 const CROSS_SERVICE_TOPIC_SET = new Set(Object.values(EVENT_SIGNATURES));
 
 export function isCrossServiceProcessorEvent(topic0: string): boolean {
-  return CROSS_SERVICE_TOPIC_SET.has(topic0);
+  return CROSS_SERVICE_TOPIC_SET.has(topic0 as `0x${string}`);
 }
 
 /**
@@ -82,7 +82,7 @@ export async function processCrossServiceEvents(ctx: ProcessorContext<Store>): P
       const log = rawLog as unknown as LogData;
       const eventSig = log.topics[0];
 
-      if (!eventSig || !CROSS_SERVICE_TOPIC_SET.has(eventSig)) continue;
+      if (!eventSig || !CROSS_SERVICE_TOPIC_SET.has(eventSig as `0x${string}`)) continue;
 
       const txHash = log.transaction?.hash || `${header.hash}-${log.transactionIndex}`;
 

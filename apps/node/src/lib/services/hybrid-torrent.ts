@@ -12,8 +12,19 @@
  * - Graceful shutdown
  */
 
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const WebTorrent = require('webtorrent');
+// WebTorrent is loaded dynamically to handle async module loading
+let WebTorrent: WebTorrentConstructor | null = null;
+
+async function loadWebTorrent(): Promise<WebTorrentConstructor> {
+  if (WebTorrent) return WebTorrent;
+  const mod = await import('webtorrent');
+  WebTorrent = mod.default as unknown as WebTorrentConstructor;
+  return WebTorrent;
+}
+
+interface WebTorrentConstructor {
+  new (opts?: { dht?: boolean; tracker?: boolean; webSeeds?: boolean }): WebTorrentInstance;
+}
 
 // WebTorrent types
 interface WebTorrentWire {
@@ -283,19 +294,8 @@ export class HybridTorrentService {
       ...config,
     });
 
-    // Initialize WebTorrent with DHT
-    this.client = new WebTorrent({
-      dht: true,
-      tracker: { announce: this.config.trackers },
-      maxConns: this.config.maxPeers,
-      uploadLimit: this.config.uploadLimitBytes,
-      downloadLimit: this.config.downloadLimitBytes,
-    });
-
-    this.client.on('error', (err: Error | string) => {
-      const message = typeof err === 'string' ? err : err.message;
-      console.error('[HybridTorrent] Client error:', message);
-    });
+    // WebTorrent client is initialized lazily in start()
+    this.client = null as unknown as WebTorrentInstance;
 
     // Setup on-chain integration
     if (this.config.rpcUrl && this.config.contentRegistryAddress) {
@@ -311,6 +311,22 @@ export class HybridTorrentService {
     }
   }
 
+  private async initClient(): Promise<void> {
+    if (this.client) return;
+
+    const WT = await loadWebTorrent();
+    this.client = new WT({
+      dht: true,
+      tracker: true,
+      webSeeds: true,
+    });
+
+    this.client.on('error', (err: Error | string) => {
+      const message = typeof err === 'string' ? err : err.message;
+      console.error('[HybridTorrent] Client error:', message);
+    });
+  }
+
   // ============================================================================
   // Lifecycle
   // ============================================================================
@@ -319,6 +335,9 @@ export class HybridTorrentService {
     if (this.running) return;
     this.running = true;
     this.startTime = Date.now();
+
+    // Initialize WebTorrent client
+    await this.initClient();
 
     // Start metrics server
     if (this.config.metricsPort) {
@@ -357,9 +376,11 @@ export class HybridTorrentService {
     }
 
     // Destroy WebTorrent client
-    await new Promise<void>((resolve) => {
-      this.client.destroy(() => resolve());
-    });
+    if (this.client) {
+      await new Promise<void>((resolve) => {
+        this.client.destroy(() => resolve());
+      });
+    }
 
     console.log('[HybridTorrent] Stopped');
   }

@@ -11,7 +11,7 @@ import {
   OIFChainStats, OIFSlashEvent, OIFAttestation,
   OIFIntentStatus, OIFSettlementStatus, OIFOracleType
 } from './model'
-import { keccak256, stringToHex } from 'viem'
+import { keccak256, stringToHex, decodeAbiParameters } from 'viem'
 import { createAccountFactory, BlockHeader, LogData } from './lib/entities'
 
 // Event signatures for InputSettler
@@ -45,7 +45,7 @@ const OIF_EVENT_SIGNATURES = new Set([
 ])
 
 export function isOIFEvent(topic0: string): boolean {
-  return OIF_EVENT_SIGNATURES.has(topic0)
+  return OIF_EVENT_SIGNATURES.has(topic0 as `0x${string}`)
 }
 
 export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<void> {
@@ -135,7 +135,7 @@ export async function processOIFEvents(ctx: ProcessorContext<Store>): Promise<vo
       const log = rawLog as unknown as LogData
       const eventSig = log.topics[0]
 
-      if (!eventSig || !OIF_EVENT_SIGNATURES.has(eventSig)) continue
+      if (!eventSig || !OIF_EVENT_SIGNATURES.has(eventSig as `0x${string}`)) continue
 
       const txHash = log.transaction?.hash || `${header.hash}-${log.transactionIndex}`
 
