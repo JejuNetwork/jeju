@@ -105,8 +105,8 @@ export const OTTO_COMMANDS = {
 
 export function getConfig(): OttoConfig {
   return {
-    port: parseInt(process.env.OTTO_PORT ?? '4030'),
-    webhookPort: parseInt(process.env.OTTO_WEBHOOK_PORT ?? '4031'),
+    port: parseInt(process.env.OTTO_PORT ?? '4040'),
+    webhookPort: parseInt(process.env.OTTO_WEBHOOK_PORT ?? '4041'),
     baseUrl: process.env.OTTO_BASE_URL ?? 'http://localhost:4030',
     
     discord: {

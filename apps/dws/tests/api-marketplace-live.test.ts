@@ -375,7 +375,7 @@ describe.skipIf(!CQL_AVAILABLE)('Access Control Enforcement', () => {
   test('should block requests to unauthorized endpoints', async () => {
     // Create a listing with restricted endpoints
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key-for-test');
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,
@@ -402,7 +402,7 @@ describe.skipIf(!CQL_AVAILABLE)('Access Control Enforcement', () => {
 
   test('should enforce method restrictions', async () => {
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key-for-test');
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,
@@ -426,7 +426,7 @@ describe.skipIf(!CQL_AVAILABLE)('Access Control Enforcement', () => {
 
   test('should enforce domain restrictions', async () => {
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key-for-test');
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,
@@ -455,11 +455,12 @@ describe.skipIf(!CQL_AVAILABLE)('Access Control Enforcement', () => {
 
 describe.skipIf(!CQL_AVAILABLE)('Payment Enforcement', () => {
   test('should reject requests with insufficient balance', async () => {
-    const poorUser: Address = '0x9999999999999999999999999999999999999999';
-    // Don't deposit anything
+    const testId = Date.now().toString(16).slice(-8);
+    const poorUser: Address = `0x${testId}999999999999999999999999999999` as Address;
+    // Don't deposit anything - account will be created with 0 balance
     
     const vaultKey = storeKey('openai', TEST_USER, 'fake-key');
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'openai',
       seller: TEST_USER,
       keyVaultId: vaultKey.id,
