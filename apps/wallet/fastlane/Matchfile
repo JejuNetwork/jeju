@@ -1,0 +1,10 @@
+# Matchfile for Network Wallet
+
+git_url(ENV['MATCH_GIT_URL'])
+storage_mode("git")
+type("appstore")
+app_identifier(["network.jeju.wallet"])
+username(ENV['APPLE_ID'])
+team_id(ENV['APPLE_TEAM_ID'])
+
+

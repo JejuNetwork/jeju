@@ -228,8 +228,8 @@ describe.skipIf(!CQL_AVAILABLE)('Registry', () => {
     expect(deepseekListings.length).toBeGreaterThan(0);
   });
 
-  test('should get marketplace stats', () => {
-    const stats = getMarketplaceStats();
+  test('should get marketplace stats', async () => {
+    const stats = await getMarketplaceStats();
     expect(stats.totalProviders).toBeGreaterThan(0);
     expect(stats.totalListings).toBeGreaterThanOrEqual(0);
   });

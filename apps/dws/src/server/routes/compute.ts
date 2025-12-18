@@ -54,53 +54,218 @@ export function createComputeRouter(): Hono {
   });
 
   app.post('/chat/completions', async (c) => {
-    const inferenceUrl = process.env.INFERENCE_API_URL;
     const body = await c.req.json<InferenceRequest>();
     
-    // If no inference backend, return mock response for dev/testing
-    if (!inferenceUrl) {
+    // Check if AWS Bedrock is available (credentials from AWS SDK default chain)
+    const bedrockEnabled = process.env.AWS_BEDROCK_ENABLED === 'true' || 
+      (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_REGION);
+
+    // Try inference providers in order of preference
+    // AWS Bedrock is checked first if AWS credentials are available
+    interface ProviderConfig {
+      id: string;
+      url: string;
+      env: string;
+      isBedrock?: boolean;
+      isAnthropic?: boolean;
+      key?: string;
+    }
+    
+    const providers: ProviderConfig[] = [
+      ...(bedrockEnabled ? [{ id: 'bedrock', url: 'bedrock', env: 'AWS_BEDROCK_ENABLED', isBedrock: true }] : []),
+      { id: 'groq', url: 'https://api.groq.com/openai/v1', env: 'GROQ_API_KEY' },
+      { id: 'openrouter', url: 'https://openrouter.ai/api/v1', env: 'OPENROUTER_API_KEY' },
+      { id: 'openai', url: 'https://api.openai.com/v1', env: 'OPENAI_API_KEY' },
+      { id: 'anthropic', url: 'https://api.anthropic.com/v1', env: 'ANTHROPIC_API_KEY', isAnthropic: true },
+      { id: 'together', url: 'https://api.together.xyz/v1', env: 'TOGETHER_API_KEY' },
+      { id: 'custom', url: process.env.INFERENCE_API_URL ?? '', env: 'INFERENCE_API_KEY' },
+    ];
+
+    // Find first available provider
+    let selectedProvider: ProviderConfig | null = null;
+    for (const p of providers) {
+      if (p.isBedrock && bedrockEnabled) {
+        selectedProvider = { ...p, key: 'bedrock' };
+        break;
+      }
+      const key = process.env[p.env];
+      if (key && p.url) {
+        selectedProvider = { ...p, key };
+        break;
+      }
+    }
+
+    // If no provider available, return error with setup instructions
+    if (!selectedProvider) {
+      return c.json({
+        error: 'No inference provider configured',
+        message: 'Set one of: AWS_BEDROCK_ENABLED=true (with AWS creds), GROQ_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY',
+        docs: 'Get a free API key from https://console.groq.com or use AWS Bedrock',
+      }, 503);
+    }
+
+    // Handle AWS Bedrock
+    if (selectedProvider.isBedrock) {
+      const region = process.env.AWS_REGION ?? 'us-east-1';
+      const modelId = body.model ?? 'anthropic.claude-3-haiku-20240307-v1:0';
+      
+      // Convert messages to Bedrock format (Anthropic Claude on Bedrock)
+      const systemMessage = body.messages.find(m => m.role === 'system')?.content ?? '';
+      const conversationMessages = body.messages.filter(m => m.role !== 'system');
+      
+      const bedrockBody = {
+        anthropic_version: 'bedrock-2023-05-31',
+        max_tokens: body.max_tokens ?? 1024,
+        system: systemMessage,
+        messages: conversationMessages.map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        })),
+      };
+
+      // Use AWS SDK v3 for Bedrock Runtime
+      const { BedrockRuntimeClient, InvokeModelCommand } = await import('@aws-sdk/client-bedrock-runtime');
+      const client = new BedrockRuntimeClient({ region });
+      
+      const command = new InvokeModelCommand({
+        modelId,
+        contentType: 'application/json',
+        accept: 'application/json',
+        body: JSON.stringify(bedrockBody),
+      });
+
+      const bedrockResponse = await client.send(command);
+      const responseBody = JSON.parse(new TextDecoder().decode(bedrockResponse.body)) as {
+        content: Array<{ text: string }>;
+        usage: { input_tokens: number; output_tokens: number };
+      };
+
+      // Convert to OpenAI format
+      return c.json({
+        id: `chatcmpl-bedrock-${Date.now()}`,
+        object: 'chat.completion',
+        created: Math.floor(Date.now() / 1000),
+        model: modelId,
+        provider: 'bedrock',
+        choices: [{
+          index: 0,
+          message: { role: 'assistant', content: responseBody.content[0]?.text ?? '' },
+          finish_reason: 'stop',
+        }],
+        usage: {
+          prompt_tokens: responseBody.usage.input_tokens,
+          completion_tokens: responseBody.usage.output_tokens,
+          total_tokens: responseBody.usage.input_tokens + responseBody.usage.output_tokens,
+        },
+      });
+    }
+
+    // Handle Anthropic's different API format
+    if (selectedProvider.isAnthropic) {
+      const anthropicBody = {
+        model: body.model ?? 'claude-3-haiku-20240307',
+        max_tokens: body.max_tokens ?? 1024,
+        messages: body.messages.filter(m => m.role !== 'system').map(m => ({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        })),
+        system: body.messages.find(m => m.role === 'system')?.content,
+      };
+
+      const response = await fetch(`${selectedProvider.url}/messages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': selectedProvider.key,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify(anthropicBody),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        return c.json({ error: `Anthropic error: ${errorText}`, provider: 'anthropic' }, response.status as 400 | 401 | 403 | 500);
+      }
+
+      const result = await response.json() as { content: Array<{ text: string }>; usage: { input_tokens: number; output_tokens: number } };
+      
+      // Convert to OpenAI format
       return c.json({
         id: `chatcmpl-${Date.now()}`,
         object: 'chat.completion',
         created: Math.floor(Date.now() / 1000),
-        model: body.model ?? 'dws-mock',
+        model: body.model ?? 'claude-3-haiku',
+        provider: 'anthropic',
         choices: [{
           index: 0,
-          message: {
-            role: 'assistant',
-            content: 'This is a mock response from DWS compute. Set INFERENCE_API_URL to connect to a real model.',
-          },
+          message: { role: 'assistant', content: result.content[0]?.text ?? '' },
           finish_reason: 'stop',
         }],
-        usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+        usage: { prompt_tokens: result.usage.input_tokens, completion_tokens: result.usage.output_tokens, total_tokens: result.usage.input_tokens + result.usage.output_tokens },
       });
     }
 
-    // Proxy to actual inference backend
-    const response = await fetch(`${inferenceUrl}/v1/chat/completions`, {
+    // OpenAI-compatible providers (Groq, OpenRouter, OpenAI, Together)
+    const response = await fetch(`${selectedProvider.url}/chat/completions`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(process.env.INFERENCE_API_KEY ? { 'Authorization': `Bearer ${process.env.INFERENCE_API_KEY}` } : {}),
+        'Authorization': `Bearer ${selectedProvider.key}`,
+        ...(selectedProvider.id === 'openrouter' ? { 'HTTP-Referer': 'https://jejunetwork.org', 'X-Title': 'Jeju Network' } : {}),
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        ...body,
+        model: body.model ?? (selectedProvider.id === 'groq' ? 'llama-3.3-70b-versatile' : body.model),
+      }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      return c.json({ error: `Inference backend error: ${errorText}` }, response.status as 400 | 401 | 403 | 404 | 500 | 502 | 503);
+      return c.json({ error: `${selectedProvider.id} error: ${errorText}`, provider: selectedProvider.id }, response.status as 400 | 401 | 403 | 500);
     }
 
     const result = await response.json();
-    return c.json(result);
+    return c.json({ ...result, provider: selectedProvider.id });
   });
 
   app.post('/embeddings', async (c) => {
-    const inferenceUrl = process.env.INFERENCE_API_URL;
     const body = await c.req.json<{ input: string | string[]; model?: string }>();
     
-    // If no inference backend, return mock embeddings for dev/testing
-    if (!inferenceUrl) {
+    // Check if AWS Bedrock is available
+    const bedrockEnabled = process.env.AWS_BEDROCK_ENABLED === 'true' || 
+      (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_REGION);
+
+    // Try embedding providers in order (Bedrock first if available)
+    interface EmbeddingProvider {
+      id: string;
+      url: string;
+      env: string;
+      isBedrock?: boolean;
+      key?: string;
+    }
+    
+    const providers: EmbeddingProvider[] = [
+      ...(bedrockEnabled ? [{ id: 'bedrock', url: 'bedrock', env: 'AWS_BEDROCK_ENABLED', isBedrock: true }] : []),
+      { id: 'openai', url: 'https://api.openai.com/v1', env: 'OPENAI_API_KEY' },
+      { id: 'together', url: 'https://api.together.xyz/v1', env: 'TOGETHER_API_KEY' },
+      { id: 'custom', url: process.env.INFERENCE_API_URL ?? '', env: 'INFERENCE_API_KEY' },
+    ];
+
+    let selectedProvider: EmbeddingProvider | null = null;
+    for (const p of providers) {
+      if (p.isBedrock && bedrockEnabled) {
+        selectedProvider = { ...p, key: 'bedrock' };
+        break;
+      }
+      const key = process.env[p.env];
+      if (key && p.url) {
+        selectedProvider = { ...p, key };
+        break;
+      }
+    }
+
+    if (!selectedProvider) {
+      // Return mock embeddings for dev/testing when no provider available
       const inputs = Array.isArray(body.input) ? body.input : [body.input];
       return c.json({
         object: 'list',
@@ -111,26 +276,73 @@ export function createComputeRouter(): Hono {
         })),
         model: body.model ?? 'text-embedding-mock',
         usage: { prompt_tokens: 10, total_tokens: 10 },
+        provider: 'mock',
+        message: 'Set AWS_BEDROCK_ENABLED=true or OPENAI_API_KEY for real embeddings',
       });
     }
 
-    // Proxy to actual embeddings backend
-    const response = await fetch(`${inferenceUrl}/v1/embeddings`, {
+    // Handle AWS Bedrock Titan Embeddings
+    if (selectedProvider.isBedrock) {
+      const region = process.env.AWS_REGION ?? 'us-east-1';
+      const modelId = body.model ?? 'amazon.titan-embed-text-v2:0';
+      const inputs = Array.isArray(body.input) ? body.input : [body.input];
+      
+      const { BedrockRuntimeClient, InvokeModelCommand } = await import('@aws-sdk/client-bedrock-runtime');
+      const client = new BedrockRuntimeClient({ region });
+      
+      const embeddings: number[][] = [];
+      let totalTokens = 0;
+      
+      for (const text of inputs) {
+        const command = new InvokeModelCommand({
+          modelId,
+          contentType: 'application/json',
+          accept: 'application/json',
+          body: JSON.stringify({ inputText: text }),
+        });
+        
+        const response = await client.send(command);
+        const responseBody = JSON.parse(new TextDecoder().decode(response.body)) as {
+          embedding: number[];
+          inputTextTokenCount: number;
+        };
+        
+        embeddings.push(responseBody.embedding);
+        totalTokens += responseBody.inputTextTokenCount;
+      }
+
+      return c.json({
+        object: 'list',
+        data: embeddings.map((embedding, i) => ({
+          object: 'embedding',
+          index: i,
+          embedding,
+        })),
+        model: modelId,
+        provider: 'bedrock',
+        usage: { prompt_tokens: totalTokens, total_tokens: totalTokens },
+      });
+    }
+
+    const response = await fetch(`${selectedProvider.url}/embeddings`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        ...(process.env.INFERENCE_API_KEY ? { 'Authorization': `Bearer ${process.env.INFERENCE_API_KEY}` } : {}),
+        'Authorization': `Bearer ${selectedProvider.key}`,
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify({
+        ...body,
+        model: body.model ?? 'text-embedding-3-small',
+      }),
     });
 
     if (!response.ok) {
       const errorText = await response.text();
-      return c.json({ error: `Embeddings backend error: ${errorText}` }, response.status as 400 | 401 | 403 | 404 | 500 | 502 | 503);
+      return c.json({ error: `${selectedProvider.id} embeddings error: ${errorText}`, provider: selectedProvider.id }, response.status as 400 | 401 | 403 | 500);
     }
 
     const result = await response.json();
-    return c.json(result);
+    return c.json({ ...result, provider: selectedProvider.id });
   });
 
   app.post('/jobs', async (c) => {

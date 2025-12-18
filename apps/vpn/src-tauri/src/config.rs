@@ -26,6 +26,18 @@ pub struct VPNConfig {
     /// Auto-connect on startup
     pub auto_connect: bool,
     
+    /// Start on system boot
+    pub auto_start: bool,
+    
+    /// Minimize to tray on close
+    pub minimize_to_tray: bool,
+    
+    /// Show notifications
+    pub show_notifications: bool,
+    
+    /// Adaptive bandwidth enabled
+    pub adaptive_bandwidth: bool,
+    
     /// Contribution settings
     pub contribution: ContributionConfig,
 }
@@ -68,12 +80,13 @@ impl Default for VPNConfig {
             chain_id: 420691,
             vpn_registry: "0x0000000000000000000000000000000000000000".to_string(),
             coordinator_url: "wss://vpn-coordinator.jeju.network".to_string(),
-            dns_servers: vec![
-                "1.1.1.1".to_string(),
-                "8.8.8.8".to_string(),
-            ],
+            dns_servers: vec!["1.1.1.1".to_string(), "8.8.8.8".to_string()],
             kill_switch: true,
             auto_connect: false,
+            auto_start: false,
+            minimize_to_tray: true,
+            show_notifications: true,
+            adaptive_bandwidth: true,
             contribution: ContributionConfig::default(),
         }
     }

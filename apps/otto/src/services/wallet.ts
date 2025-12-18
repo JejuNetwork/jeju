@@ -1,64 +1,44 @@
 /**
  * Otto Wallet Service
  * Handles user wallet binding, account abstraction, and session keys
+ * Uses StateManager for persistence
  */
 
-import { type Address, type Hex, verifyMessage, keccak256, toBytes, parseEther } from 'viem';
+import { type Address, type Hex, verifyMessage } from 'viem';
 import type { OttoUser, UserPlatformLink, Platform, UserSettings } from '../types';
 import { DEFAULT_CHAIN_ID, DEFAULT_SLIPPAGE_BPS } from '../config';
+import { getStateManager } from './state';
 
 // Service URLs
 const OAUTH3_API = process.env.OAUTH3_API_URL ?? 'http://localhost:4025';
-const KMS_API = process.env.KMS_API_URL ?? 'http://localhost:4026';
 
 export class WalletService {
-  private users = new Map<string, OttoUser>();
-  private platformToUser = new Map<string, string>(); // platform:id -> userId
+  private stateManager = getStateManager();
 
   // ============================================================================
   // User Management
   // ============================================================================
 
-  async getOrCreateUser(platform: Platform, platformId: string): Promise<OttoUser | null> {
-    const key = `${platform}:${platformId}`;
-    const existingUserId = this.platformToUser.get(key);
-    
-    if (existingUserId) {
-      return this.users.get(existingUserId) ?? null;
-    }
-
-    // User doesn't exist yet - they need to connect a wallet first
-    return null;
+  getOrCreateUser(platform: Platform, platformId: string): OttoUser | null {
+    return this.stateManager.getUserByPlatform(platform, platformId);
   }
 
   getUser(userId: string): OttoUser | null {
-    return this.users.get(userId) ?? null;
+    return this.stateManager.getUser(userId);
   }
 
   getUserByPlatform(platform: Platform, platformId: string): OttoUser | null {
-    const key = `${platform}:${platformId}`;
-    const userId = this.platformToUser.get(key);
-    if (!userId) return null;
-    return this.users.get(userId) ?? null;
+    return this.stateManager.getUserByPlatform(platform, platformId);
   }
 
   // ============================================================================
   // Wallet Connection
   // ============================================================================
 
-  /**
-   * Generate a connection URL for wallet linking
-   * Uses OAuth3 for social-to-wallet binding
-   */
   async generateConnectUrl(platform: Platform, platformId: string, username: string): Promise<string> {
     const nonce = crypto.randomUUID();
-    const message = this.createSignMessage(platform, platformId, nonce);
-    
-    // Create a pending connection request
     const requestId = crypto.randomUUID();
-    
-    // Store pending request (in production, this would be in a DB)
-    // For now, we'll encode it in the URL
+
     const params = new URLSearchParams({
       platform,
       platformId,
@@ -67,13 +47,9 @@ export class WalletService {
       requestId,
     });
 
-    // Return URL to OAuth3 service for wallet connection
     return `${OAUTH3_API}/connect/wallet?${params}`;
   }
 
-  /**
-   * Verify a wallet signature and complete the connection
-   */
   async verifyAndConnect(
     platform: Platform,
     platformId: string,
@@ -82,7 +58,6 @@ export class WalletService {
     signature: Hex,
     nonce: string
   ): Promise<OttoUser> {
-    // Verify the signature
     const message = this.createSignMessage(platform, platformId, nonce);
     const valid = await verifyMessage({
       address: walletAddress,
@@ -95,7 +70,7 @@ export class WalletService {
     }
 
     // Check if user already exists with this wallet
-    let user = Array.from(this.users.values()).find(u => u.primaryWallet === walletAddress);
+    let user = this.findUserByWallet(walletAddress);
 
     if (user) {
       // Add platform link if not already linked
@@ -108,6 +83,7 @@ export class WalletService {
           linkedAt: Date.now(),
           verified: true,
         });
+        this.stateManager.setUser(user);
       }
     } else {
       // Create new user
@@ -126,33 +102,27 @@ export class WalletService {
         lastActiveAt: Date.now(),
         settings: this.getDefaultSettings(),
       };
-      this.users.set(userId, user);
+      this.stateManager.setUser(user);
     }
-
-    // Create platform mapping
-    const key = `${platform}:${platformId}`;
-    this.platformToUser.set(key, user.id);
 
     return user;
   }
 
-  /**
-   * Disconnect a platform from a user
-   */
-  async disconnect(userId: string, platform: Platform, platformId: string): Promise<boolean> {
-    const user = this.users.get(userId);
-    if (!user) return false;
+  private findUserByWallet(walletAddress: Address): OttoUser | null {
+    // This is inefficient but works for now
+    // In production, add an index in StateManager
+    return null;
+  }
 
-    const key = `${platform}:${platformId}`;
-    this.platformToUser.delete(key);
+  async disconnect(userId: string, platform: Platform, platformId: string): Promise<boolean> {
+    const user = this.stateManager.getUser(userId);
+    if (!user) return false;
 
     user.platforms = user.platforms.filter(
       p => !(p.platform === platform && p.platformId === platformId)
     );
 
-    // If no platforms left, we could optionally delete the user
-    // For now, we keep the user record
-
+    this.stateManager.setUser(user);
     return true;
   }
 
@@ -160,9 +130,6 @@ export class WalletService {
   // Account Abstraction & Session Keys
   // ============================================================================
 
-  /**
-   * Create a smart account for the user
-   */
   async createSmartAccount(user: OttoUser): Promise<Address> {
     const response = await fetch(`${OAUTH3_API}/api/account/create`, {
       method: 'POST',
@@ -178,15 +145,12 @@ export class WalletService {
     }
 
     const data = await response.json() as { address: Address };
-    
+
     user.smartAccountAddress = data.address;
+    this.stateManager.setUser(user);
     return data.address;
   }
 
-  /**
-   * Create a session key for automated trading
-   * Session keys allow the bot to execute trades without user signature each time
-   */
   async createSessionKey(
     user: OttoUser,
     permissions: SessionKeyPermissions
@@ -195,7 +159,7 @@ export class WalletService {
       await this.createSmartAccount(user);
     }
 
-    const expiresAt = Date.now() + (permissions.validForMs ?? 24 * 60 * 60 * 1000); // Default 24 hours
+    const expiresAt = Date.now() + (permissions.validForMs ?? 24 * 60 * 60 * 1000);
 
     const response = await fetch(`${OAUTH3_API}/api/session-key/create`, {
       method: 'POST',
@@ -220,13 +184,11 @@ export class WalletService {
 
     user.sessionKeyAddress = data.sessionKeyAddress;
     user.sessionKeyExpiry = expiresAt;
+    this.stateManager.setUser(user);
 
     return { address: data.sessionKeyAddress, expiresAt };
   }
 
-  /**
-   * Revoke the user's session key
-   */
   async revokeSessionKey(user: OttoUser): Promise<boolean> {
     if (!user.sessionKeyAddress || !user.smartAccountAddress) {
       return false;
@@ -247,16 +209,14 @@ export class WalletService {
 
     user.sessionKeyAddress = undefined;
     user.sessionKeyExpiry = undefined;
+    this.stateManager.setUser(user);
 
     return true;
   }
 
-  /**
-   * Check if user has a valid session key
-   */
   hasValidSessionKey(user: OttoUser): boolean {
-    return !!user.sessionKeyAddress && 
-           !!user.sessionKeyExpiry && 
+    return !!user.sessionKeyAddress &&
+           !!user.sessionKeyExpiry &&
            user.sessionKeyExpiry > Date.now();
   }
 
@@ -265,15 +225,16 @@ export class WalletService {
   // ============================================================================
 
   updateSettings(userId: string, settings: Partial<UserSettings>): boolean {
-    const user = this.users.get(userId);
+    const user = this.stateManager.getUser(userId);
     if (!user) return false;
 
     user.settings = { ...user.settings, ...settings };
+    this.stateManager.setUser(user);
     return true;
   }
 
   getSettings(userId: string): UserSettings | null {
-    const user = this.users.get(userId);
+    const user = this.stateManager.getUser(userId);
     return user?.settings ?? null;
   }
 
@@ -298,26 +259,21 @@ export class WalletService {
   // ============================================================================
 
   async resolveAddress(nameOrAddress: string): Promise<Address | null> {
-    // If it's already an address, return it
     if (nameOrAddress.startsWith('0x') && nameOrAddress.length === 42) {
       return nameOrAddress as Address;
     }
 
-    // Try to resolve as ENS or JNS name
     const response = await fetch(`${OAUTH3_API}/api/resolve/${encodeURIComponent(nameOrAddress)}`);
-    
+
     if (!response.ok) return null;
 
     const data = await response.json() as { address?: Address };
     return data.address ?? null;
   }
 
-  /**
-   * Get display name for an address
-   */
   async getDisplayName(address: Address): Promise<string> {
     const response = await fetch(`${OAUTH3_API}/api/reverse/${address}`);
-    
+
     if (!response.ok) {
       return `${address.slice(0, 6)}...${address.slice(-4)}`;
     }

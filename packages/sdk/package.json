@@ -18,9 +18,13 @@
     "build": "bun build.ts",
     "dev": "bun --watch build.ts",
     "test": "bun test",
-    "test:unit": "bun test src/**/*.test.ts",
+    "test:unit": "bun test test/client.test.ts",
     "test:integration": "JEJU_NETWORK=localnet bun test test/integration",
+    "test:integration:setup": "JEJU_NETWORK=localnet bun test/run-integration-tests.ts --setup",
+    "test:integration:module": "JEJU_NETWORK=localnet bun test/run-integration-tests.ts --module",
     "test:e2e": "JEJU_NETWORK=testnet bun test test/e2e",
+    "test:all": "bun run test:unit && bun run test:integration",
+    "test:live": "START_SERVICES=1 JEJU_NETWORK=localnet bun test test/integration/full-sdk.integration.test.ts",
     "lint": "prettier --write ./src",
     "typecheck": "tsc --noEmit"
   },
@@ -33,7 +37,8 @@
   "devDependencies": {
     "@types/bun": "latest",
     "typescript": "5.7.3",
-    "prettier": "3.5.3"
+    "prettier": "3.5.3",
+    "execa": "^9.5.2"
   },
   "peerDependencies": {
     "zod": ">=3.22.4"

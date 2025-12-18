@@ -30,6 +30,15 @@ import { createOTCModule, type OTCModule } from "./otc";
 import { createMessagingModule, type MessagingModule } from "./messaging";
 import { createDistributorModule, type DistributorModule } from "./distributor";
 import { createTrainingModule, type TrainingModule } from "./training";
+import { createPerpsModule, type PerpsModule } from "./perps";
+import { createAMMModule, type AMMModule } from "./amm";
+import { createAgentsModule, type AgentsModule } from "./agents";
+import { createBridgeModule, type BridgeModule } from "./bridge";
+import { createOracleModule, type OracleModule } from "./oracle";
+import { createSequencerModule, type SequencerModule } from "./sequencer";
+import { createCDNModule, type CDNModule } from "./cdn";
+import { createVPNModule, type VPNModule } from "./vpn-module";
+import { createPredictionModule, type PredictionModule } from "./prediction";
 import { getServicesConfig, getChainConfig, getContractAddresses } from "./config";
 import { getNetworkName } from "@jejunetwork/config";
 
@@ -108,6 +117,24 @@ export interface JejuClient {
   readonly distributor: DistributorModule;
   /** Training - Decentralized AI training coordination */
   readonly training: TrainingModule;
+  /** Perps - Perpetual futures trading */
+  readonly perps: PerpsModule;
+  /** AMM - Automated market maker / DEX */
+  readonly amm: AMMModule;
+  /** Agents - AI agent vault management */
+  readonly agents: AgentsModule;
+  /** Bridge - Cross-chain bridging */
+  readonly bridge: BridgeModule;
+  /** Oracle - Price feeds and data oracles */
+  readonly oracle: OracleModule;
+  /** Sequencer - L2 sequencer management */
+  readonly sequencer: SequencerModule;
+  /** CDN - Content delivery network */
+  readonly cdn: CDNModule;
+  /** VPN - Decentralized VPN network */
+  readonly vpn: VPNModule;
+  /** Prediction - Prediction markets */
+  readonly prediction: PredictionModule;
 
   /** Get native balance */
   getBalance(): Promise<bigint>;
@@ -172,17 +199,35 @@ export async function createJejuClient(
   const staking = createStakingModule(wallet, network);
   const dws = createDWSModule(wallet, network);
   
-  // Create federation client from config
-  const federationConfig: FederationClientConfig = {
-    hubRpc: chainConfig.rpcUrl,
-    networkRegistry: contractAddresses.networkRegistry ?? "0x0000000000000000000000000000000000000000",
-    registryHub: contractAddresses.registryHub ?? "0x0000000000000000000000000000000000000000",
-  };
-  const federation = await createFedClient(federationConfig);
+  // Create federation client from config (only if contracts are deployed)
+  let federation: FederationClient;
+  if (contractAddresses.networkRegistry && contractAddresses.registryHub) {
+    try {
+      const federationConfig: FederationClientConfig = {
+        hubRpc: chainConfig.rpcUrl,
+        networkRegistry: contractAddresses.networkRegistry,
+        registryHub: contractAddresses.registryHub,
+      };
+      federation = await createFedClient(federationConfig);
+    } catch {
+      federation = createStubFederationClient();
+    }
+  } else {
+    federation = createStubFederationClient();
+  }
   const otc = createOTCModule(wallet, network);
   const messaging = createMessagingModule(wallet, network);
   const distributor = createDistributorModule(wallet, network);
   const training = createTrainingModule(wallet, network);
+  const perps = createPerpsModule(wallet, network);
+  const amm = createAMMModule(wallet, network);
+  const agents = createAgentsModule(wallet, network);
+  const bridge = createBridgeModule(wallet, network);
+  const oracle = createOracleModule(wallet, network);
+  const sequencer = createSequencerModule(wallet, network);
+  const cdn = createCDNModule(wallet, network);
+  const vpn = createVPNModule(wallet, network);
+  const prediction = createPredictionModule(wallet, network);
 
   const client: JejuClient = {
     network,
@@ -214,6 +259,15 @@ export async function createJejuClient(
     messaging,
     distributor,
     training,
+    perps,
+    amm,
+    agents,
+    bridge,
+    oracle,
+    sequencer,
+    cdn,
+    vpn,
+    prediction,
 
     getBalance: () => wallet.getBalance(),
     sendTransaction: (params) => wallet.sendTransaction(params),
@@ -309,5 +363,29 @@ function createStubLaunchpadModule(): LaunchpadModule {
     extendLPLock: notAvailable,
     getLPLock: notAvailable,
     listMyLPLocks: notAvailable,
+  };
+}
+
+function createStubFederationClient(): FederationClient {
+  const notAvailable = (): never => {
+    throw new Error("Federation contracts not deployed on this network");
+  };
+  return {
+    getNetwork: notAvailable,
+    getAllNetworks: notAvailable,
+    getStakedNetworks: notAvailable,
+    getVerifiedNetworks: notAvailable,
+    canParticipateInConsensus: notAvailable,
+    isSequencerEligible: notAvailable,
+    getChain: notAvailable,
+    getAllChains: notAvailable,
+    getRegistry: notAvailable,
+    getAllRegistries: notAvailable,
+    getRegistriesByType: notAvailable,
+    getRegistriesByChain: notAvailable,
+    isTrustedForConsensus: notAvailable,
+    joinFederation: notAvailable,
+    addStake: notAvailable,
+    registerRegistry: notAvailable,
   };
 }

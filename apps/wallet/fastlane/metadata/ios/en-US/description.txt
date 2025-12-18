@@ -1,0 +1,45 @@
+Network Wallet is an agentic multi-chain wallet that provides seamless cross-chain transactions without manual bridging.
+
+FEATURES:
+
+• SEAMLESS CROSS-CHAIN
+Transfer assets between chains without switching networks or manual bridging. The wallet automatically handles cross-chain operations through EIL (Ethereum Interop Layer).
+
+• INTENT-BASED TRANSACTIONS
+Express what you want to accomplish and let the wallet figure out the optimal execution path through OIF (Open Intents Framework).
+
+• ACCOUNT ABSTRACTION
+ERC-4337 smart accounts with social recovery, gas sponsorship, and batched transactions.
+
+• HARDWARE WALLET SUPPORT
+Secure your assets with Ledger and Trezor hardware wallets via Bluetooth.
+
+• AI-POWERED ASSISTANCE
+Get help understanding transactions, optimizing gas, and managing your portfolio.
+
+• MULTI-CHAIN SUPPORT
+Supports all major EVM chains including Ethereum, Base, Arbitrum, Optimism, Polygon, and more.
+
+• DEFI INTEGRATION
+Seamlessly interact with DEXs, lending protocols, and other DeFi applications.
+
+• PRIVACY FIRST
+Your keys, your crypto. All sensitive data is stored locally and encrypted with biometric protection.
+
+SUPPORTED NETWORKS:
+- Ethereum Mainnet
+- Base
+- Arbitrum One
+- Optimism
+- Polygon
+- And many more...
+
+SECURITY:
+- Face ID / Touch ID authentication
+- Hardware wallet support
+- Encrypted local storage
+- Open source and audited
+
+Network Wallet is open source software.
+
+

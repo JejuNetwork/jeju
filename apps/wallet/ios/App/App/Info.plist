@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-        <string>Jeju Wallet</string>
+	<string>Network Wallet</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -45,5 +45,62 @@
 	</array>
 	<key>UIViewControllerBasedStatusBarAppearance</key>
 	<true/>
+	
+	<!-- Deep Links (URL Schemes) -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>network.jeju.wallet</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>jeju</string>
+				<string>wc</string>
+			</array>
+		</dict>
+	</array>
+	
+	<!-- Face ID Usage Description -->
+	<key>NSFaceIDUsageDescription</key>
+	<string>Network Wallet uses Face ID to securely authenticate transactions and access your wallet.</string>
+	
+	<!-- Camera Usage (for QR scanning) -->
+	<key>NSCameraUsageDescription</key>
+	<string>Network Wallet uses the camera to scan QR codes for wallet addresses and WalletConnect.</string>
+	
+	<!-- Biometric Authentication -->
+	<key>NSLocalAuthenticationUsageDescription</key>
+	<string>Authenticate with biometrics to access your wallet securely.</string>
+	
+	<!-- App Transport Security -->
+	<key>NSAppTransportSecurity</key>
+	<dict>
+		<key>NSAllowsArbitraryLoads</key>
+		<false/>
+		<key>NSExceptionDomains</key>
+		<dict>
+			<key>localhost</key>
+			<dict>
+				<key>NSTemporaryExceptionAllowsInsecureHTTPLoads</key>
+				<true/>
+			</dict>
+		</dict>
+	</dict>
+	
+	<!-- Background Modes -->
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>fetch</string>
+		<string>remote-notification</string>
+	</array>
+	
+	<!-- Queried URL Schemes (for opening other apps) -->
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>metamask</string>
+		<string>rainbow</string>
+		<string>trust</string>
+		<string>uniswap</string>
+	</array>
 </dict>
 </plist>

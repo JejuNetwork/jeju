@@ -1,7 +1,6 @@
 /**
- * Otto Eliza Integration
+ * Otto Eliza Runtime
+ * Unified message processing with DWS AI fallback
  */
 
-export { ottoPlugin } from './plugin';
-export { ottoCharacter } from './character';
-
+export { processMessage, selectAction, extractEntities, actions } from './runtime';

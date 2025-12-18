@@ -270,8 +270,11 @@ export function createPkgRouter(ctx: PkgContext): Hono {
       return c.json({ error: 'Not authorized' }, 403);
     }
 
-    // In production, would actually deprecate the package
-    return c.json({ ok: true });
+    // Deprecation requires on-chain transaction (not yet implemented)
+    return c.json({
+      error: 'Package deprecation not available',
+      message: 'On-chain package deprecation is not yet implemented. Contact maintainers to deprecate packages.',
+    }, 501);
   });
 
   // Package metadata (catch-all, must be last)

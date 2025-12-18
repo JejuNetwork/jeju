@@ -1,0 +1,57 @@
+Network Wallet - Agentic Multi-Chain Wallet
+
+Network Wallet is a next-generation browser extension wallet that provides seamless cross-chain transactions without manual bridging or chain switching.
+
+🚀 KEY FEATURES:
+
+✅ SEAMLESS CROSS-CHAIN
+Transfer assets between chains automatically. No more switching networks or using bridges manually. The wallet handles everything through the Ethereum Interop Layer (EIL).
+
+✅ INTENT-BASED TRANSACTIONS
+Just tell the wallet what you want to do. The Open Intents Framework (OIF) figures out the optimal execution path across all supported chains.
+
+✅ SMART ACCOUNTS (ERC-4337)
+Account abstraction with social recovery, gas sponsorship, and batched transactions. Pay gas in any token or have dApps sponsor your transactions.
+
+✅ HARDWARE WALLET SUPPORT
+Connect your Ledger or Trezor hardware wallet for maximum security. Sign transactions securely without exposing your private keys.
+
+✅ AI-POWERED ASSISTANCE
+Get help understanding complex transactions, optimizing gas costs, and managing your portfolio intelligently.
+
+✅ MULTI-CHAIN NATIVE
+Built from the ground up for multi-chain. Supports Ethereum, Base, Arbitrum, Optimism, Polygon, and more. All chains work seamlessly together.
+
+✅ DEFI READY
+Interact with DEXs, lending protocols, NFT marketplaces, and other DeFi applications across all supported chains.
+
+🔒 SECURITY:
+• Your keys never leave your device
+• Encrypted local storage
+• Optional biometric authentication
+• Open source and auditable
+• Security audits by leading firms
+
+🌐 SUPPORTED NETWORKS:
+• Ethereum Mainnet
+• Base
+• Arbitrum One & Nova
+• Optimism
+• Polygon
+• zkSync Era
+• And many more...
+
+📱 COMPANION APPS:
+Network Wallet is also available as:
+• Desktop app (Windows, macOS, Linux)
+• Mobile app (iOS, Android)
+
+🔗 LEARN MORE:
+• Website: https://wallet.jejunetwork.org
+• Documentation: https://docs.jejunetwork.org
+• GitHub: https://github.com/jejunetwork/jeju
+• Support: https://discord.gg/jejunetwork
+
+Network Wallet is open source software developed by Jeju Network.
+
+

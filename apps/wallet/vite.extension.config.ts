@@ -65,6 +65,8 @@ export default defineConfig({
       '@hooks': resolve(__dirname, './src/hooks'),
       '@components': resolve(__dirname, './src/components'),
       '@platform': resolve(__dirname, './src/platform'),
+      // Fix zod v4 compatibility issue from monorepo dependencies
+      'zod/mini': 'zod',
     },
   },
   define: {
@@ -87,6 +89,19 @@ export default defineConfig({
         entryFileNames: '[name].js',
         chunkFileNames: 'chunks/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash][extname]',
+      },
+      // Externalize platform-specific and node-only imports for extension builds
+      external: (id) => {
+        // Tauri APIs
+        if (id.startsWith('@tauri-apps/')) return true;
+        // Capacitor APIs
+        if (id.startsWith('@capacitor/')) return true;
+        // Node-only modules
+        if (['webtorrent', 'fs', 'path', 'crypto', 'os', 'child_process', 'net', 'http', 'https', 'stream', 'buffer', 'util', 'events'].includes(id)) return true;
+        // Hardware wallet modules (use web versions in extension)
+        if (id.includes('@ledgerhq/hw-transport-node')) return true;
+        if (id.includes('@trezor/connect')) return true;
+        return false;
       },
     },
     minify: process.env.NODE_ENV === 'production',

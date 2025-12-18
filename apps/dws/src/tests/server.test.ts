@@ -73,12 +73,12 @@ describe('DWS Server', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }));
-      // Returns mock response when no inference backend is configured
-      expect(res.status).toBe(200);
+      // Returns 503 with helpful message when no inference provider is configured
+      expect(res.status).toBe(503);
 
-      const data = await res.json();
-      expect(data.choices).toBeDefined();
-      expect(data.model).toBe('mock-model');
+      const data = await res.json() as { error: string; docs: string };
+      expect(data.error).toBe('No inference provider configured');
+      expect(data.docs).toContain('groq.com');
     });
   });
 

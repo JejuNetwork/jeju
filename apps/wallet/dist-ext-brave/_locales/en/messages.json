@@ -1,0 +1,11 @@
+{
+  "appName": {
+    "message": "Network Wallet",
+    "description": "The name of the application"
+  },
+  "appDescription": {
+    "message": "Agentic multi-chain wallet with seamless cross-chain UX. No chain switching, no manual bridging.",
+    "description": "The description of the application"
+  }
+}
+

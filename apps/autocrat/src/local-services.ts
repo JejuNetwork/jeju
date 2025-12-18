@@ -58,12 +58,11 @@ interface InferenceRequest {
 
 async function dwsGenerate(prompt: string, system: string): Promise<string> {
   const endpoint = getDWSEndpoint();
-  // Use OpenAI-compatible endpoint
+  // Use OpenAI-compatible endpoint - DWS will select the best available model
   const r = await fetch(`${endpoint}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'llama3.2', // DWS will use configured inference backend
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: prompt },

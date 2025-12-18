@@ -8,3 +8,4 @@
 "msix\Assets\LargeTile.png"                                              "Assets\LargeTile.png"
 "msix\Assets\SplashScreen.png"                                           "Assets\SplashScreen.png"
 
+

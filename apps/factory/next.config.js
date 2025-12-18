@@ -22,8 +22,6 @@ const nextConfig = {
       { protocol: 'https', hostname: 'avatars.githubusercontent.com' },
     ],
   },
-  // Use Turbopack with empty config to silence warnings
-  turbopack: {},
   webpack: (config, { isServer }) => {
     // Fix browser-only module resolution
     if (!isServer) {
@@ -36,6 +34,15 @@ const nextConfig = {
         child_process: false,
       };
     }
+    
+    // Stub out problematic porto connector and its dependencies
+    const portoStub = require.resolve('./lib/stubs/porto-stub.js');
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'porto/internal': portoStub,
+      'porto': portoStub,
+      'zod/mini': require.resolve('zod'),
+    };
     
     // Ignore dynamic requires in problematic packages
     config.module = {

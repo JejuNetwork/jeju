@@ -15,7 +15,7 @@ const MPC_CONFIG = {
   maxConcurrentSessions: 100,
 };
 
-// In-memory key storage (would use actual KMS in production)
+// In-memory key storage (set MPC_COORDINATOR_URL for production MPC key management)
 interface StoredKey {
   keyId: string;
   owner: Address;
@@ -127,8 +127,6 @@ export function createKMSRouter(): Hono {
     };
 
     keys.set(keyId, key);
-
-    const mpcEnabled = !!process.env.MPC_COORDINATOR_URL;
     
     return c.json({
       keyId,
@@ -248,14 +246,16 @@ export function createKMSRouter(): Hono {
       return c.json({ error: 'Key not found' }, 404);
     }
 
-    // For demo purposes, sign immediately
-    // In production, this would initiate MPC signing session
-    const { privateKeyToAccount, signMessage } = await import('viem/accounts');
+    // Development mode: sign with locally-derived key
+    // Production: would initiate MPC signing session with threshold parties
+    const mpcEnabled = !!process.env.MPC_COORDINATOR_URL;
+    
+    const { privateKeyToAccount } = await import('viem/accounts');
     const { keccak256, toBytes } = await import('viem');
     
-    // Generate deterministic signature for demo
-    const mockPrivateKey = keccak256(toBytes(`${key.keyId}:${key.version}`));
-    const account = privateKeyToAccount(mockPrivateKey);
+    // Derive signing key from keyId (deterministic for development)
+    const derivedKey = keccak256(toBytes(`${key.keyId}:${key.version}`));
+    const account = privateKeyToAccount(derivedKey);
     
     const signature = await account.signMessage({
       message: { raw: toBytes(body.messageHash) },
@@ -266,6 +266,8 @@ export function createKMSRouter(): Hono {
       keyId: key.keyId,
       address: key.address,
       signedAt: Date.now(),
+      mode: mpcEnabled ? 'mpc' : 'development',
+      warning: mpcEnabled ? undefined : 'Signed with local key. Set MPC_COORDINATOR_URL for production MPC signing.',
     });
   });
 
@@ -279,14 +281,27 @@ export function createKMSRouter(): Hono {
       keyId?: string;
     }>();
 
-    // Simple encryption for demo (in production, use proper encryption)
-    const { keccak256, toBytes, toHex } = await import('viem');
-    const key = body.keyId ?? crypto.randomUUID();
-    const encrypted = keccak256(toBytes(`${body.data}:${key}`));
+    // AES-256-GCM encryption (development mode - key stored in memory)
+    const nodeCrypto = await import('crypto');
+    const { keccak256, toBytes } = await import('viem');
+    
+    // Generate or derive encryption key
+    const keyId = body.keyId ?? crypto.randomUUID();
+    const derivedKey = Buffer.from(keccak256(toBytes(keyId)).slice(2), 'hex');
+    
+    // Encrypt with AES-256-GCM
+    const iv = nodeCrypto.randomBytes(12);
+    const cipher = nodeCrypto.createCipheriv('aes-256-gcm', derivedKey, iv);
+    const encrypted = Buffer.concat([cipher.update(body.data, 'utf8'), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    
+    // Format: iv (12) + authTag (16) + ciphertext, base64 encoded
+    const ciphertext = Buffer.concat([iv, authTag, encrypted]).toString('base64');
 
     return c.json({
-      encrypted,
-      keyId: key,
+      encrypted: ciphertext,
+      keyId,
+      mode: process.env.MPC_COORDINATOR_URL ? 'mpc' : 'development',
     });
   });
 
@@ -298,9 +313,41 @@ export function createKMSRouter(): Hono {
 
     const mpcEnabled = !!process.env.MPC_COORDINATOR_URL;
     
+    // Decrypt with AES-256-GCM (development mode)
+    const nodeCrypto = await import('crypto');
+    const { keccak256, toBytes } = await import('viem');
+    
+    const data = Buffer.from(body.encrypted, 'base64');
+    const iv = data.subarray(0, 12);
+    const authTag = data.subarray(12, 28);
+    const ciphertext = data.subarray(28);
+    
+    const derivedKey = Buffer.from(keccak256(toBytes(body.keyId)).slice(2), 'hex');
+    const decipher = nodeCrypto.createDecipheriv('aes-256-gcm', derivedKey, iv);
+    decipher.setAuthTag(authTag);
+    
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+
+    return c.json({
+      decrypted,
+      keyId: body.keyId,
+      mode: mpcEnabled ? 'mpc' : 'development',
+      warning: mpcEnabled ? undefined : 'Running in development mode. Set MPC_COORDINATOR_URL for production MPC.',
+    });
+  });
+
+  // Legacy endpoint for backwards compatibility
+  router.post('/decrypt-mpc', async (c) => {
+    const body = await c.req.json<{
+      encrypted: string;
+      keyId: string;
+    }>();
+
+    const mpcEnabled = !!process.env.MPC_COORDINATOR_URL;
+    
     if (!mpcEnabled) {
       return c.json({
-        error: 'Decryption not available in development mode',
+        error: 'MPC decryption not available',
         message: 'MPC decryption requires MPC_COORDINATOR_URL to be configured',
         mode: 'development',
       }, 501);
@@ -337,9 +384,15 @@ export function createKMSRouter(): Hono {
 
     const id = crypto.randomUUID();
     const { keccak256, toBytes } = await import('viem');
+    const nodeCrypto = await import('crypto');
     
-    // Encrypt the value (simple demo encryption)
-    const encryptedValue = keccak256(toBytes(`${body.value}:${id}`));
+    // Encrypt the value with AES-256-GCM
+    const derivedKey = Buffer.from(keccak256(toBytes(id)).slice(2), 'hex');
+    const iv = nodeCrypto.randomBytes(12);
+    const cipher = nodeCrypto.createCipheriv('aes-256-gcm', derivedKey, iv);
+    const encrypted = Buffer.concat([cipher.update(body.value, 'utf8'), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    const encryptedValue = Buffer.concat([iv, authTag, encrypted]).toString('base64');
 
     const secret: Secret = {
       id,
@@ -426,12 +479,25 @@ export function createKMSRouter(): Hono {
       return c.json({ error: 'Secret expired' }, 410);
     }
 
-    // In production, would decrypt and return the actual value
+    // Decrypt the value with AES-256-GCM
+    const { keccak256, toBytes } = await import('viem');
+    const nodeCrypto = await import('crypto');
+    
+    const data = Buffer.from(secret.encryptedValue, 'base64');
+    const iv = data.subarray(0, 12);
+    const authTag = data.subarray(12, 28);
+    const ciphertext = data.subarray(28);
+    
+    const derivedKey = Buffer.from(keccak256(toBytes(secret.id)).slice(2), 'hex');
+    const decipher = nodeCrypto.createDecipheriv('aes-256-gcm', derivedKey, iv);
+    decipher.setAuthTag(authTag);
+    
+    const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString('utf8');
+    
     return c.json({
       id: secret.id,
       name: secret.name,
-      value: '[ENCRYPTED - requires MPC decryption]',
-      note: 'Actual decryption requires MPC key shares',
+      value: decrypted,
     });
   });
 

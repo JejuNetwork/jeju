@@ -1,12 +1,18 @@
 import { useState } from 'react';
 import { invoke } from '@tauri-apps/api/tauri';
-import { Shield, Globe, Zap, Database, Gauge, Info, ExternalLink, ChevronRight } from 'lucide-react';
+import { Shield, Globe, Zap, Gauge, Info, ExternalLink, ChevronRight, Power, Bell } from 'lucide-react';
 
 export function SettingsPanel() {
   const [killSwitch, setKillSwitch] = useState(true);
   const [autoConnect, setAutoConnect] = useState(false);
+  const [autoStart, setAutoStart] = useState(false);
+  const [minimizeToTray, setMinimizeToTray] = useState(true);
   const [adaptiveMode, setAdaptiveMode] = useState(true);
   const [dwsEnabled, setDwsEnabled] = useState(true);
+
+  const updateSetting = async (key: string, value: boolean) => {
+    await invoke('update_settings', { key, value });
+  };
 
   const toggleAdaptive = async () => {
     const newValue = !adaptiveMode;
@@ -63,13 +69,66 @@ export function SettingsPanel() {
               <div className="text-xs text-[#606070]">Connect when app starts</div>
             </div>
             <button
-              onClick={() => setAutoConnect(!autoConnect)}
+              onClick={() => {
+                setAutoConnect(!autoConnect);
+                updateSetting('auto_connect', !autoConnect);
+              }}
               className={`w-12 h-6 rounded-full transition-colors ${
                 autoConnect ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
               <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
                 autoConnect ? 'translate-x-6' : 'translate-x-0.5'
+              }`} />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Startup Settings */}
+      <div className="card">
+        <h3 className="font-medium mb-4 flex items-center gap-2">
+          <Power className="w-4 h-4 text-[#00cc6a]" />
+          Startup
+        </h3>
+
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Start on Boot</div>
+              <div className="text-xs text-[#606070]">Launch VPN when system starts</div>
+            </div>
+            <button
+              onClick={() => {
+                setAutoStart(!autoStart);
+                updateSetting('auto_start', !autoStart);
+              }}
+              className={`w-12 h-6 rounded-full transition-colors ${
+                autoStart ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
+              }`}
+            >
+              <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                autoStart ? 'translate-x-6' : 'translate-x-0.5'
+              }`} />
+            </button>
+          </div>
+
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="font-medium">Minimize to Tray</div>
+              <div className="text-xs text-[#606070]">Keep running in system tray</div>
+            </div>
+            <button
+              onClick={() => {
+                setMinimizeToTray(!minimizeToTray);
+                updateSetting('minimize_to_tray', !minimizeToTray);
+              }}
+              className={`w-12 h-6 rounded-full transition-colors ${
+                minimizeToTray ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
+              }`}
+            >
+              <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                minimizeToTray ? 'translate-x-6' : 'translate-x-0.5'
               }`} />
             </button>
           </div>

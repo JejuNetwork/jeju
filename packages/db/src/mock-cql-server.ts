@@ -10,6 +10,7 @@
 import { Database } from 'bun:sqlite';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
+import type { Context } from 'hono';
 
 const PORT = parseInt(process.env.CQL_PORT ?? '4661');
 const DATA_DIR = process.env.CQL_DATA_DIR ?? '.cql-data';
@@ -37,64 +38,89 @@ function getDb(databaseId: string): Database {
 }
 
 // Health check
-app.get('/v1/health', (c) => c.json({ status: 'healthy', mode: 'mock-sqlite' }));
-app.get('/health', (c) => c.json({ status: 'healthy', mode: 'mock-sqlite' }));
+function handleHealth(c: Context) {
+  return c.json({ status: 'healthy', mode: 'mock-sqlite' });
+}
+app.get('/v1/health', handleHealth);
+app.get('/api/v1/health', handleHealth);
+app.get('/health', handleHealth);
 
-// Query endpoint
-app.post('/v1/query', async (c) => {
-  const body = await c.req.json<{ database_id: string; query: string; params?: (string | number | null)[] }>();
-  const { database_id, query, params = [] } = body;
+// Status endpoint
+function handleStatus(c: Context) {
+  return c.json({ 
+    status: 'healthy', 
+    mode: 'mock-sqlite',
+    blockHeight: 0,
+    version: '1.0.0-mock',
+  });
+}
+app.get('/v1/status', handleStatus);
+app.get('/api/v1/status', handleStatus);
+
+// Combined query/exec handler - CQL client sends both to same endpoint
+interface CQLRequest {
+  database?: string;  // CQL client uses 'database'
+  database_id?: string;  // Legacy format
+  type?: 'query' | 'exec';  // CQL client specifies type
+  query?: string;  // Legacy format
+  sql?: string;  // CQL client uses 'sql'
+  params?: (string | number | null | boolean)[];
+}
+
+async function handleCQLQuery(c: Context) {
+  const body = await c.req.json<CQLRequest>();
   
-  const db = getDb(database_id);
+  // Support both formats
+  const databaseId = body.database ?? body.database_id ?? 'default';
+  const sql = body.sql ?? body.query ?? '';
+  const params = body.params ?? [];
+  const isExec = body.type === 'exec' || sql.trim().toUpperCase().match(/^(INSERT|UPDATE|DELETE|CREATE|DROP|ALTER)/);
+  
+  const db = getDb(databaseId);
   const start = performance.now();
   
   try {
-    const stmt = db.prepare(query);
-    const rows = stmt.all(...params);
-    const executionTime = Math.round(performance.now() - start);
+    const stmt = db.prepare(sql);
     
-    return c.json({
-      success: true,
-      rows,
-      rowCount: rows.length,
-      columns: rows.length > 0 ? Object.keys(rows[0] as Record<string, unknown>) : [],
-      executionTime,
-      blockHeight: 0,
-    });
+    if (isExec) {
+      const result = stmt.run(...params);
+      const executionTime = Math.round(performance.now() - start);
+      
+      return c.json({
+        success: true,
+        rowsAffected: result.changes,
+        lastInsertRowid: Number(result.lastInsertRowid),
+        executionTime,
+        blockHeight: 0,
+      });
+    } else {
+      const rows = stmt.all(...params);
+      const executionTime = Math.round(performance.now() - start);
+      
+      return c.json({
+        success: true,
+        rows,
+        rowCount: rows.length,
+        columns: rows.length > 0 ? Object.keys(rows[0] as Record<string, unknown>) : [],
+        executionTime,
+        blockHeight: 0,
+      });
+    }
   } catch (error) {
     const err = error as Error;
+    console.error(`[CQL Mock] Error executing SQL: ${sql}`, err.message);
     return c.json({ success: false, error: err.message }, 400);
   }
-});
+}
 
-// Execute endpoint (for INSERT, UPDATE, DELETE, CREATE, etc.)
-app.post('/v1/exec', async (c) => {
-  const body = await c.req.json<{ database_id: string; query: string; params?: (string | number | null)[] }>();
-  const { database_id, query, params = [] } = body;
-  
-  const db = getDb(database_id);
-  const start = performance.now();
-  
-  try {
-    const stmt = db.prepare(query);
-    const result = stmt.run(...params);
-    const executionTime = Math.round(performance.now() - start);
-    
-    return c.json({
-      success: true,
-      rowsAffected: result.changes,
-      lastInsertRowid: Number(result.lastInsertRowid),
-      executionTime,
-      blockHeight: 0,
-    });
-  } catch (error) {
-    const err = error as Error;
-    return c.json({ success: false, error: err.message }, 400);
-  }
-});
+// Mount on all possible endpoints
+app.post('/v1/query', handleCQLQuery);
+app.post('/api/v1/query', handleCQLQuery);
+app.post('/v1/exec', handleCQLQuery);
+app.post('/api/v1/exec', handleCQLQuery);
 
 // Database info
-app.get('/v1/databases/:id', (c) => {
+function handleDbInfo(c: Context) {
   const id = c.req.param('id');
   const db = getDb(id);
   
@@ -107,23 +133,29 @@ app.get('/v1/databases/:id', (c) => {
     tables: tables.length,
     mode: 'mock-sqlite',
   });
-});
+}
+app.get('/v1/databases/:id', handleDbInfo);
+app.get('/api/v1/databases/:id', handleDbInfo);
 
 // List databases
-app.get('/v1/databases', (c) => {
+function handleListDbs(c: Context) {
   const dbs = Array.from(databases.keys()).map(id => ({
     databaseId: id,
     status: 'active',
   }));
   return c.json({ databases: dbs });
-});
+}
+app.get('/v1/databases', handleListDbs);
+app.get('/api/v1/databases', handleListDbs);
 
 // Create database (no-op in SQLite mode, just ensures it exists)
-app.post('/v1/databases', async (c) => {
+async function handleCreateDb(c: Context) {
   const body = await c.req.json<{ database_id: string }>();
   getDb(body.database_id);
   return c.json({ success: true, databaseId: body.database_id });
-});
+}
+app.post('/v1/databases', handleCreateDb);
+app.post('/api/v1/databases', handleCreateDb);
 
 console.log(`
 ╔════════════════════════════════════════════════════════════╗
