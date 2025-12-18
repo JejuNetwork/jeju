@@ -134,9 +134,12 @@ Full documentation at [docs.jeju.network](https://docs.jeju.network)
 
 export default function PackageDetailPage() {
   const params = useParams();
-  const scope = params.scope as string;
+  const rawScope = params.scope as string;
   const name = params.name as string;
   const { isConnected } = useAccount();
+  
+  // Decode URL-encoded scope (e.g., %40jejunetwork -> @jejunetwork)
+  const scope = decodeURIComponent(rawScope);
   
   const [tab, setTab] = useState<PackageTab>('readme');
   const [selectedVersion, setSelectedVersion] = useState(mockPackage.version);

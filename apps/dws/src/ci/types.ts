@@ -14,62 +14,139 @@ export interface Workflow {
   triggers: WorkflowTrigger[];
   jobs: WorkflowJob[];
   env: Record<string, string>;
+  concurrency?: ConcurrencyConfig;
+  defaults?: WorkflowDefaults;
   createdAt: number;
   updatedAt: number;
   active: boolean;
+  source: 'jeju' | 'github';
+}
+
+export interface ConcurrencyConfig {
+  group: string;
+  cancelInProgress: boolean;
+}
+
+export interface WorkflowDefaults {
+  run?: {
+    shell?: string;
+    workingDirectory?: string;
+  };
 }
 
 export interface WorkflowTrigger {
-  type: 'push' | 'pull_request' | 'schedule' | 'workflow_dispatch' | 'release';
+  type: 'push' | 'pull_request' | 'schedule' | 'workflow_dispatch' | 'release' | 'workflow_call';
   branches?: string[];
+  branchesIgnore?: string[];
+  tags?: string[];
+  tagsIgnore?: string[];
   paths?: string[];
-  schedule?: string; // cron expression
-  types?: string[]; // for pull_request: opened, synchronize, etc.
+  pathsIgnore?: string[];
+  schedule?: string;
+  types?: string[];
+  inputs?: Record<string, WorkflowInput>;
+}
+
+export interface WorkflowInput {
+  description: string;
+  required?: boolean;
+  default?: string;
+  type?: 'string' | 'boolean' | 'number' | 'choice' | 'environment';
+  options?: string[];
 }
 
 export interface WorkflowJob {
   jobId: string;
   name: string;
-  runsOn: 'jeju-compute' | 'self-hosted';
-  needs?: string[]; // job dependencies
+  runsOn: string | string[];
+  needs?: string[];
+  if?: string;
   steps: WorkflowStep[];
   env?: Record<string, string>;
-  timeout?: number; // minutes
+  timeout?: number;
   continueOnError?: boolean;
+  strategy?: JobStrategy;
+  outputs?: Record<string, string>;
+  environment?: string | EnvironmentRef;
+  concurrency?: ConcurrencyConfig;
+  services?: Record<string, ServiceContainer>;
+  container?: ContainerConfig;
+}
+
+export interface JobStrategy {
+  matrix: MatrixConfig;
+  failFast?: boolean;
+  maxParallel?: number;
+}
+
+export interface MatrixConfig {
+  include?: Record<string, string | number | boolean>[];
+  exclude?: Record<string, string | number | boolean>[];
+  [key: string]: string[] | number[] | boolean[] | Record<string, string | number | boolean>[] | undefined;
+}
+
+export interface EnvironmentRef {
+  name: string;
+  url?: string;
+}
+
+export interface ServiceContainer {
+  image: string;
+  credentials?: { username: string; password: string };
+  env?: Record<string, string>;
+  ports?: string[];
+  volumes?: string[];
+  options?: string;
+}
+
+export interface ContainerConfig {
+  image: string;
+  credentials?: { username: string; password: string };
+  env?: Record<string, string>;
+  ports?: number[];
+  volumes?: string[];
+  options?: string;
 }
 
 export interface WorkflowStep {
   stepId: string;
   name?: string;
-  uses?: string; // action reference: actions/checkout@v4
-  run?: string; // shell command
-  with?: Record<string, string>; // action inputs
+  id?: string;
+  if?: string;
+  uses?: string;
+  run?: string;
+  with?: Record<string, string>;
   env?: Record<string, string>;
   workingDirectory?: string;
-  shell?: 'bash' | 'sh' | 'pwsh' | 'python';
+  shell?: 'bash' | 'sh' | 'pwsh' | 'python' | 'cmd';
   timeoutMinutes?: number;
   continueOnError?: boolean;
 }
 
 // ============ Run Types ============
 
-export type RunStatus = 'queued' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'skipped';
+export type RunStatus = 'queued' | 'in_progress' | 'completed' | 'failed' | 'cancelled' | 'skipped' | 'waiting';
 
 export interface WorkflowRun {
   runId: Hex;
   workflowId: Hex;
   repoId: Hex;
+  runNumber: number;
   triggeredBy: Address;
   triggerType: WorkflowTrigger['type'];
   branch: string;
   commitSha: string;
   status: RunStatus;
-  conclusion?: 'success' | 'failure' | 'cancelled' | 'skipped';
+  conclusion?: 'success' | 'failure' | 'cancelled' | 'skipped' | 'neutral';
   startedAt: number;
   completedAt?: number;
   jobs: JobRun[];
-  logs?: string;
-  artifacts?: Artifact[];
+  logsCid?: string;
+  artifacts: Artifact[];
+  environment?: string;
+  concurrencyGroup?: string;
+  inputs?: Record<string, string>;
+  prNumber?: number;
 }
 
 export interface JobRun {
@@ -81,7 +158,11 @@ export interface JobRun {
   completedAt?: number;
   steps: StepRun[];
   logs?: string;
+  logsCid?: string;
   runnerName?: string;
+  runnerId?: string;
+  matrixValues?: Record<string, string | number | boolean>;
+  outputs?: Record<string, string>;
 }
 
 export interface StepRun {
@@ -93,14 +174,106 @@ export interface StepRun {
   completedAt?: number;
   output?: string;
   exitCode?: number;
+  outputs?: Record<string, string>;
 }
 
 export interface Artifact {
   artifactId: string;
   name: string;
-  sizeByes: number;
+  sizeBytes: number;
   cid: string;
-  expiresAt?: number;
+  createdAt: number;
+  expiresAt: number;
+  paths: string[];
+}
+
+// ============ Runner Types ============
+
+export interface Runner {
+  runnerId: string;
+  name: string;
+  labels: string[];
+  nodeId: string;
+  nodeAddress: Address;
+  status: 'idle' | 'busy' | 'offline' | 'draining';
+  lastHeartbeat: number;
+  capabilities: RunnerCapabilities;
+  currentRun?: { runId: Hex; jobId: string };
+  registeredAt: number;
+  owner: Address;
+  selfHosted: boolean;
+}
+
+export interface RunnerCapabilities {
+  architecture: 'amd64' | 'arm64';
+  os: 'linux' | 'macos' | 'windows';
+  docker: boolean;
+  gpu: boolean;
+  gpuType?: string;
+  cpuCores: number;
+  memoryMb: number;
+  storageMb: number;
+}
+
+// ============ Environment Types ============
+
+export interface Environment {
+  environmentId: string;
+  repoId: Hex;
+  name: string;
+  url?: string;
+  protectionRules: ProtectionRules;
+  secrets: EnvironmentSecret[];
+  variables: Record<string, string>;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ProtectionRules {
+  requiredReviewers?: Address[];
+  waitTimer?: number;
+  preventSelfReview?: boolean;
+  deployBranchPolicy?: {
+    protectedBranches: boolean;
+    customBranches?: string[];
+  };
+}
+
+export interface EnvironmentSecret {
+  secretId: string;
+  name: string;
+  mpcKeyId: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ============ Secret Types ============
+
+export interface CISecret {
+  secretId: string;
+  repoId: Hex;
+  name: string;
+  mpcKeyId: string;
+  environment?: string;
+  createdAt: number;
+  updatedAt: number;
+}
+
+// ============ Log Types ============
+
+export interface LogEntry {
+  timestamp: number;
+  runId: string;
+  jobId: string;
+  stepId?: string;
+  level: 'info' | 'warn' | 'error' | 'debug' | 'group' | 'endgroup' | 'command';
+  message: string;
+  stream: 'stdout' | 'stderr';
+}
+
+export interface LogConfig {
+  retentionDays: number;
+  maxSizeBytes: number;
 }
 
 // ============ Action Types ============
@@ -112,13 +285,15 @@ export interface Action {
   inputs?: Record<string, ActionInput>;
   outputs?: Record<string, ActionOutput>;
   runs: ActionRuns;
-  post?: { steps: WorkflowStep[] }; // Optional post-job steps (e.g., cache save)
+  post?: { steps: WorkflowStep[] };
+  branding?: { icon: string; color: string };
 }
 
 export interface ActionInput {
   description: string;
   required?: boolean;
   default?: string;
+  deprecationMessage?: string;
 }
 
 export interface ActionOutput {
@@ -127,182 +302,113 @@ export interface ActionOutput {
 }
 
 export type ActionRuns =
-  | {
-      using: 'composite';
-      steps: WorkflowStep[];
-    }
-  | {
-      using: 'node16' | 'node20';
-      main: string;
-      pre?: string;
-      post?: string;
-    }
-  | {
-      using: 'docker';
-      image: string;
-      args?: string[];
-      env?: Record<string, string>;
-    };
+  | { using: 'composite'; steps: WorkflowStep[] }
+  | { using: 'node16' | 'node20'; main: string; pre?: string; post?: string }
+  | { using: 'docker'; image: string; args?: string[]; env?: Record<string, string>; entrypoint?: string };
 
-// ============ Jeju Workflow Config (jeju.yml) ============
+// ============ Workflow Config Types ============
 
 export interface JejuWorkflowConfig {
   name: string;
   description?: string;
+  run_name?: string;
 
-  on: {
-    push?: {
-      branches?: string[];
-      paths?: string[];
-    };
-    pull_request?: {
-      branches?: string[];
-      types?: string[];
-    };
-    schedule?: Array<{ cron: string }>;
-    workflow_dispatch?: {
-      inputs?: Record<
-        string,
-        {
-          description: string;
-          required?: boolean;
-          default?: string;
-          type?: 'string' | 'boolean' | 'number' | 'choice';
-          options?: string[];
-        }
-      >;
-    };
-    release?: {
-      types?: string[];
-    };
-  };
+  on: WorkflowOnConfig;
 
   env?: Record<string, string>;
+  defaults?: WorkflowDefaults;
+  concurrency?: string | ConcurrencyConfig;
 
   jobs: Record<string, JejuJobConfig>;
 }
 
+export type WorkflowOnConfig = {
+  push?: TriggerConfig;
+  pull_request?: TriggerConfig & { types?: string[] };
+  pull_request_target?: TriggerConfig & { types?: string[] };
+  schedule?: Array<{ cron: string }>;
+  workflow_dispatch?: { inputs?: Record<string, WorkflowInput> };
+  workflow_call?: { inputs?: Record<string, WorkflowInput>; outputs?: Record<string, ActionOutput>; secrets?: Record<string, { required?: boolean }> };
+  release?: { types?: string[] };
+  issues?: { types?: string[] };
+  issue_comment?: { types?: string[] };
+  create?: Record<string, never>;
+  delete?: Record<string, never>;
+  fork?: Record<string, never>;
+  watch?: { types?: string[] };
+};
+
+export interface TriggerConfig {
+  branches?: string[];
+  'branches-ignore'?: string[];
+  tags?: string[];
+  'tags-ignore'?: string[];
+  paths?: string[];
+  'paths-ignore'?: string[];
+}
+
 export interface JejuJobConfig {
   name?: string;
-  'runs-on': 'jeju-compute' | 'self-hosted' | string;
+  'runs-on': string | string[];
   needs?: string | string[];
+  if?: string;
   env?: Record<string, string>;
   'timeout-minutes'?: number;
   'continue-on-error'?: boolean;
+  strategy?: {
+    matrix?: MatrixConfig;
+    'fail-fast'?: boolean;
+    'max-parallel'?: number;
+  };
+  outputs?: Record<string, string>;
+  environment?: string | { name: string; url?: string };
+  concurrency?: string | ConcurrencyConfig;
+  services?: Record<string, ServiceContainer>;
+  container?: string | ContainerConfig;
+  permissions?: Record<string, string>;
 
   steps: Array<{
     id?: string;
     name?: string;
+    if?: string;
     uses?: string;
     run?: string;
     with?: Record<string, string>;
     env?: Record<string, string>;
     'working-directory'?: string;
-    shell?: 'bash' | 'sh' | 'pwsh' | 'python';
+    shell?: 'bash' | 'sh' | 'pwsh' | 'python' | 'cmd';
     'timeout-minutes'?: number;
     'continue-on-error'?: boolean;
   }>;
 }
 
-// ============ Built-in Actions ============
+// ============ Event Types ============
 
-export const BUILTIN_ACTIONS: Record<string, Action> = {
-  'jeju/checkout': {
-    name: 'Checkout',
-    description: 'Checkout a repository',
-    inputs: {
-      ref: { description: 'Branch/tag/commit to checkout', required: false },
-      path: { description: 'Relative path under $GITHUB_WORKSPACE', required: false },
-    },
-    runs: {
-      using: 'composite',
-      steps: [
-        {
-          stepId: 'checkout',
-          name: 'Checkout repository',
-          run: 'git clone ${{ github.repository_url }} . && git checkout ${{ inputs.ref || github.sha }}',
-        },
-      ],
-    },
-  },
-  'jeju/setup-bun': {
-    name: 'Setup Bun',
-    description: 'Setup Bun runtime',
-    inputs: {
-      'bun-version': { description: 'Bun version', required: false, default: 'latest' },
-    },
-    runs: {
-      using: 'composite',
-      steps: [
-        {
-          stepId: 'setup',
-          name: 'Install Bun',
-          run: 'curl -fsSL https://bun.sh/install | bash',
-        },
-      ],
-    },
-  },
-  'jeju/cache': {
-    name: 'Cache',
-    description: 'Cache dependencies using DWS storage',
-    inputs: {
-      path: { description: 'Path to cache', required: true },
-      key: { description: 'Cache key', required: true },
-      'restore-keys': { description: 'Restore keys (comma-separated prefixes)', required: false },
-    },
-    outputs: {
-      'cache-hit': { description: 'Whether cache was hit' },
-    },
-    runs: {
-      using: 'composite',
-      steps: [
-        {
-          stepId: 'cache-restore',
-          name: 'Restore cache',
-          run: `
-CACHE_KEY="\${{ inputs.key }}"
-CACHE_PATH="\${{ inputs.path }}"
-CACHE_DIR="\${JEJU_CACHE_DIR:-/tmp/jeju-cache}"
-mkdir -p "$CACHE_DIR"
+export type CIEvent =
+  | { type: 'push'; repoId: Hex; branch: string; commitSha: string; pusher: Address }
+  | { type: 'pull_request'; repoId: Hex; action: string; prNumber: number; headSha: string; baseBranch: string; author: Address }
+  | { type: 'release'; repoId: Hex; action: string; tagName: string; author: Address }
+  | { type: 'schedule'; repoId: Hex; workflowId: Hex }
+  | { type: 'workflow_dispatch'; repoId: Hex; workflowId: Hex; branch: string; triggeredBy: Address; inputs: Record<string, string> };
 
-# Check if cache exists in DWS storage
-CACHE_CID=$(curl -sf "\${DWS_URL:-http://localhost:4030}/storage/cache/$CACHE_KEY" 2>/dev/null | jq -r '.cid // empty')
+// ============ Concurrency Types ============
 
-if [ -n "$CACHE_CID" ]; then
-  echo "Cache hit: $CACHE_KEY"
-  curl -sf "\${DWS_URL:-http://localhost:4030}/storage/download/$CACHE_CID" > "$CACHE_DIR/$CACHE_KEY.tar.gz"
-  mkdir -p "$CACHE_PATH"
-  tar -xzf "$CACHE_DIR/$CACHE_KEY.tar.gz" -C "$CACHE_PATH"
-  echo "cache-hit=true" >> $GITHUB_OUTPUT
-else
-  echo "Cache miss: $CACHE_KEY"
-  echo "cache-hit=false" >> $GITHUB_OUTPUT
-fi
-`,
-        },
-      ],
-    },
-    post: {
-      steps: [
-        {
-          stepId: 'cache-save',
-          name: 'Save cache',
-          run: `
-CACHE_KEY="\${{ inputs.key }}"
-CACHE_PATH="\${{ inputs.path }}"
-CACHE_DIR="\${JEJU_CACHE_DIR:-/tmp/jeju-cache}"
+export interface ConcurrencyQueue {
+  group: string;
+  repoId: Hex;
+  pending: Hex[];
+  running?: Hex;
+}
 
-if [ -d "$CACHE_PATH" ]; then
-  tar -czf "$CACHE_DIR/$CACHE_KEY.tar.gz" -C "$CACHE_PATH" .
-  curl -sf -X POST "\${DWS_URL:-http://localhost:4030}/storage/upload" \
-    -F "file=@$CACHE_DIR/$CACHE_KEY.tar.gz" \
-    -F "key=$CACHE_KEY" > /dev/null
-  echo "Cache saved: $CACHE_KEY"
-fi
-`,
-        },
-      ],
-    },
-  },
-};
+// ============ Webhook Types ============
 
+export interface WebhookDelivery {
+  deliveryId: string;
+  repoId: Hex;
+  event: string;
+  payload: Record<string, unknown>;
+  signature: string;
+  deliveredAt: number;
+  responseStatus?: number;
+  responseBody?: string;
+}

@@ -138,9 +138,7 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
         },
       });
 
-       
-      // @ts-expect-error - permissionless library type mismatch with viem versions
-      smartAccountClient = createSmartAccountClient({
+smartAccountClient = createSmartAccountClient({
         account: smartAccount,
         chain,
         bundlerTransport: http(bundlerUrl),

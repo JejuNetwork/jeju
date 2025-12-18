@@ -80,22 +80,53 @@ async function verifyInfrastructure(): Promise<void> {
     details: { url: dwsUrl, healthy: dwsUp }
   });
 
-  // RPC
-  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:8545';
+  // RPC - Try multiple ports (8545 is standard, but docker may map to different ports)
+  const rpcPorts = ['8545', '32815', '9545', '32817'];
+  let rpcUrl = process.env.RPC_URL ?? '';
   let rpcUp = false;
-  try {
-    const r = await fetch(rpcUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
-      signal: AbortSignal.timeout(5000)
-    });
-    rpcUp = r.ok;
-  } catch {}
+  
+  if (rpcUrl) {
+    // Use provided RPC_URL
+    try {
+      const r = await fetch(rpcUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+        signal: AbortSignal.timeout(5000)
+      });
+      rpcUp = r.ok;
+    } catch {}
+  } else {
+    // Auto-detect RPC port
+    for (const port of rpcPorts) {
+      const testUrl = `http://localhost:${port}`;
+      try {
+        const r = await fetch(testUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),
+          signal: AbortSignal.timeout(2000)
+        });
+        if (r.ok) {
+          rpcUrl = testUrl;
+          rpcUp = true;
+          break;
+        }
+      } catch {}
+    }
+  }
+  
+  if (!rpcUrl) rpcUrl = 'http://localhost:8545';
+  
+  // Store detected RPC URL for other checks
+  if (rpcUp) {
+    detectedRpcUrl = rpcUrl;
+  }
+  
   log({
     component: 'RPC Node',
     status: rpcUp ? 'PASS' : 'FAIL',
-    message: rpcUp ? 'Blockchain node is reachable' : 'Blockchain node NOT REACHABLE',
+    message: rpcUp ? `Blockchain node is reachable at ${rpcUrl}` : 'Blockchain node NOT REACHABLE (tried ports: 8545, 32815, 9545, 32817)',
     details: { url: rpcUrl, healthy: rpcUp }
   });
 }
@@ -138,13 +169,16 @@ async function verifyContracts(): Promise<void> {
   }
 }
 
+// Detected RPC URL (set by verifyInfrastructure)
+let detectedRpcUrl = '';
+
 async function verifyDAORegistry(): Promise<void> {
   console.log('\n═══════════════════════════════════════════');
   console.log('  MULTI-DAO VERIFICATION');
   console.log('═══════════════════════════════════════════\n');
 
   const daoRegistryAddr = process.env.DAO_REGISTRY_ADDRESS;
-  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:8545';
+  const rpcUrl = detectedRpcUrl || process.env.RPC_URL || 'http://localhost:8545';
 
   if (!daoRegistryAddr || daoRegistryAddr === '0x0000000000000000000000000000000000000000') {
     log({
@@ -165,7 +199,7 @@ async function verifyDAORegistry(): Promise<void> {
         method: 'eth_call',
         params: [{
           to: daoRegistryAddr,
-          data: '0xa693a26e' // getAllDAOs() selector
+          data: '0x3cb2c68a' // getAllDAOs() selector
         }, 'latest'],
         id: 1
       }),
@@ -236,7 +270,7 @@ async function verifyAIAgents(): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'llama3.2',
+        // Use a model that works across providers (Groq defaults to llama-3.3-70b-versatile)
         messages: [
           { role: 'system', content: 'You are a test agent. Respond with exactly: TEST_OK' },
           { role: 'user', content: 'Verify connection' }
@@ -291,7 +325,7 @@ async function verifyFeeIntegration(): Promise<void> {
   }
 
   // Check if FeeConfig has council set
-  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:8545';
+  const rpcUrl = detectedRpcUrl || process.env.RPC_URL || 'http://localhost:8545';
   try {
     // Call council()
     const response = await fetch(rpcUrl, {

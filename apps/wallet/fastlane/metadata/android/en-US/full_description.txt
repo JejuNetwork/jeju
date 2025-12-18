@@ -34,3 +34,4 @@ Network Wallet is an agentic multi-chain wallet that provides seamless cross-cha
 
 Network Wallet is open source software. View the code at https://github.com/jejunetwork/jeju
 
+

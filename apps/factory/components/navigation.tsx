@@ -56,7 +56,7 @@ const navigation = [
     icon: Brain,
     children: [
       { name: 'Models', href: '/models', icon: Brain },
-      { name: 'Datasets', href: '/datasets', icon: Database },
+      { name: 'Datasets', href: '/models/datasets', icon: Database },
       { name: 'Training', href: '/training', icon: Sparkles },
     ]
   },

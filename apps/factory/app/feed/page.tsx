@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useAccount } from 'wagmi';
 import { 
   MessageSquare, 
@@ -16,13 +16,36 @@ import {
   TrendingUp,
   Bell,
   Settings,
-  ExternalLink
+  ExternalLink,
+  Loader2,
+  RefreshCw
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { farcasterClient, type Cast, type FarcasterUser } from '@/lib/services/farcaster';
 
 type FeedTab = 'feed' | 'mentions' | 'highlights';
 
-const mockPosts = [
+interface PostData {
+  id: string;
+  author: {
+    name: string;
+    handle: string;
+    avatar: string;
+    fid: number;
+    verified?: boolean;
+  };
+  content: string;
+  timestamp: number;
+  likes: number;
+  recasts: number;
+  replies: number;
+  hasLiked: boolean;
+  hasRecasted: boolean;
+  isPinned?: boolean;
+}
+
+// Fallback mock data when Farcaster API isn't available
+const mockPosts: PostData[] = [
   {
     id: '1',
     author: {
@@ -103,6 +126,77 @@ export default function FeedPage() {
   const { isConnected, address } = useAccount();
   const [tab, setTab] = useState<FeedTab>('feed');
   const [newPost, setNewPost] = useState('');
+  const [posts, setPosts] = useState<PostData[]>(mockPosts);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isPosting, setIsPosting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const transformCastToPost = useCallback((cast: Cast): PostData => ({
+    id: cast.hash,
+    author: {
+      name: cast.author.displayName || cast.author.username,
+      handle: `@${cast.author.username}`,
+      avatar: cast.author.pfpUrl || 'https://via.placeholder.com/48',
+      fid: cast.author.fid,
+    },
+    content: cast.text,
+    timestamp: cast.timestamp,
+    likes: cast.reactions.likes,
+    recasts: cast.reactions.recasts,
+    replies: cast.replies,
+    hasLiked: false,
+    hasRecasted: false,
+  }), []);
+
+  const loadFeed = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const { casts } = await farcasterClient.getChannelFeed('factory', { limit: 20 });
+      setPosts(casts.map(transformCastToPost));
+    } catch (err) {
+      console.warn('Failed to load Farcaster feed, using mock data:', err);
+      // Keep using mock data
+    } finally {
+      setIsLoading(false);
+    }
+  }, [transformCastToPost]);
+
+  useEffect(() => {
+    loadFeed();
+  }, [loadFeed]);
+
+  const handlePost = async () => {
+    if (!newPost.trim() || !isConnected) return;
+    
+    setIsPosting(true);
+    try {
+      // In production, this would use the user's Farcaster signer
+      // For now, just add to local state as demo
+      const demoPost: PostData = {
+        id: `local-${Date.now()}`,
+        author: {
+          name: address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Anonymous',
+          handle: '@user',
+          avatar: 'https://via.placeholder.com/48',
+          fid: 0,
+        },
+        content: newPost,
+        timestamp: Date.now(),
+        likes: 0,
+        recasts: 0,
+        replies: 0,
+        hasLiked: false,
+        hasRecasted: false,
+      };
+      setPosts(prev => [demoPost, ...prev]);
+      setNewPost('');
+    } catch (err) {
+      setError('Failed to post');
+    } finally {
+      setIsPosting(false);
+    }
+  };
 
   const formatTime = (timestamp: number) => {
     const hours = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60));
@@ -125,6 +219,13 @@ export default function FeedPage() {
                 Factory Feed
               </h1>
               <div className="flex items-center gap-2">
+                <button
+                  onClick={loadFeed}
+                  disabled={isLoading}
+                  className="p-2 hover:bg-factory-800 rounded-lg transition-colors"
+                >
+                  <RefreshCw className={clsx('w-4 h-4 text-factory-400', isLoading && 'animate-spin')} />
+                </button>
                 {(['feed', 'mentions', 'highlights'] as const).map((t) => (
                   <button
                     key={t}
@@ -169,9 +270,14 @@ export default function FeedPage() {
                     </div>
                     <button 
                       className="btn btn-primary"
-                      disabled={!newPost.trim() || !isConnected}
+                      disabled={!newPost.trim() || !isConnected || isPosting}
+                      onClick={handlePost}
                     >
-                      <Send className="w-4 h-4" />
+                      {isPosting ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Send className="w-4 h-4" />
+                      )}
                       Cast
                     </button>
                   </div>
@@ -179,9 +285,17 @@ export default function FeedPage() {
               </div>
             </div>
 
+            {/* Loading State */}
+            {isLoading && posts.length === 0 && (
+              <div className="card p-12 text-center">
+                <Loader2 className="w-8 h-8 mx-auto mb-4 text-factory-400 animate-spin" />
+                <p className="text-factory-500">Loading feed...</p>
+              </div>
+            )}
+
             {/* Posts */}
             <div className="space-y-4">
-              {mockPosts.map((post) => (
+              {posts.map((post) => (
                 <div 
                   key={post.id} 
                   className={clsx(

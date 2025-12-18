@@ -12,6 +12,7 @@ import { OttoAgent } from './agent';
 import { chatApi } from './web/chat-api';
 import { frameApi } from './web/frame';
 import { miniappApi } from './web/miniapp';
+import { startLimitOrderMonitor, stopLimitOrderMonitor } from './eliza/runtime';
 import type { TelegramWebhookPayload, TwilioWebhookPayload, DiscordWebhookPayload, FarcasterFramePayload } from './types';
 
 const app = new Hono();
@@ -185,8 +186,11 @@ app.route('/frame', frameApi);
 
 app.route('/miniapp', miniappApi);
 
+// Handle trailing slash
+app.get('/miniapp/', (c) => c.redirect('/miniapp'));
+
 // Redirect root to miniapp
-app.get('/', (c) => c.redirect('/miniapp/'));
+app.get('/', (c) => c.redirect('/miniapp'));
 
 // ============================================================================
 // API Endpoints
@@ -409,6 +413,9 @@ async function main() {
   
   // Start agent (connects to enabled platforms)
   await agent.start();
+
+  // Start limit order monitor
+  startLimitOrderMonitor();
   
   // Start HTTP server
   const port = config.port;
@@ -443,12 +450,14 @@ async function main() {
 // Handle graceful shutdown
 process.on('SIGINT', async () => {
   console.log('\n[Otto] Shutting down...');
+  stopLimitOrderMonitor();
   await agent.stop();
   process.exit(0);
 });
 
 process.on('SIGTERM', async () => {
   console.log('\n[Otto] Shutting down...');
+  stopLimitOrderMonitor();
   await agent.stop();
   process.exit(0);
 });

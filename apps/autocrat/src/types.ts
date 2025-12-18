@@ -726,3 +726,185 @@ export interface FundingStats {
   totalDistributed: bigint;
   uniqueStakers: number;
 }
+
+// ============ Bug Bounty Types ============
+
+export enum BountySeverity {
+  LOW = 0,        // $500-$2.5k - Minor bugs, theoretical issues
+  MEDIUM = 1,     // $2.5k-$10k - DoS, information disclosure
+  HIGH = 2,       // $10k-$25k - 51% attack, MPC exposure, privilege escalation
+  CRITICAL = 3,   // $25k-$50k - RCE, wallet drain, TEE bypass
+}
+
+export enum VulnerabilityType {
+  FUNDS_AT_RISK = 0,
+  WALLET_DRAIN = 1,
+  REMOTE_CODE_EXECUTION = 2,
+  TEE_BYPASS = 3,
+  CONSENSUS_ATTACK = 4,
+  MPC_KEY_EXPOSURE = 5,
+  PRIVILEGE_ESCALATION = 6,
+  DENIAL_OF_SERVICE = 7,
+  INFORMATION_DISCLOSURE = 8,
+  OTHER = 9,
+}
+
+export enum BountySubmissionStatus {
+  PENDING = 0,
+  VALIDATING = 1,
+  GUARDIAN_REVIEW = 2,
+  CEO_REVIEW = 3,
+  APPROVED = 4,
+  PAID = 5,
+  REJECTED = 6,
+  DUPLICATE = 7,
+  DISPUTED = 8,
+  WITHDRAWN = 9,
+}
+
+export enum ValidationResult {
+  PENDING = 0,
+  VERIFIED = 1,
+  LIKELY_VALID = 2,
+  NEEDS_MORE_INFO = 3,
+  INVALID = 4,
+  SANDBOX_ERROR = 5,
+}
+
+export interface BountySubmission {
+  submissionId: string;
+  researcher: Address;
+  researcherAgentId: bigint;
+  severity: BountySeverity;
+  vulnType: VulnerabilityType;
+  title: string;
+  summary: string;
+  description: string;
+  encryptedReportCid: string;
+  encryptionKeyId: string;
+  proofOfConceptHash: string;
+  affectedComponents: string[];
+  stepsToReproduce: string[];
+  suggestedFix: string;
+  stake: bigint;
+  submittedAt: number;
+  validatedAt: number;
+  resolvedAt: number;
+  status: BountySubmissionStatus;
+  validationResult: ValidationResult;
+  validationNotes: string;
+  rewardAmount: bigint;
+  guardianApprovals: number;
+  guardianRejections: number;
+  fixCommitHash: string;
+  disclosureDate: number;
+  researcherDisclosed: boolean;
+}
+
+export interface BountyGuardianVote {
+  submissionId: string;
+  guardian: Address;
+  agentId: bigint;
+  approved: boolean;
+  suggestedReward: bigint;
+  feedback: string;
+  votedAt: number;
+}
+
+export interface BountySeverityConfig {
+  minReward: bigint;
+  maxReward: bigint;
+  minGuardianApprovals: number;
+  validationTimeout: number;
+  reviewTimeout: number;
+}
+
+export interface BountyValidationRequest {
+  submissionId: string;
+  sandboxJobId: string;
+  requestedAt: number;
+  completedAt: number;
+  result: ValidationResult;
+  executionLogs: string;
+  computeCost: bigint;
+}
+
+export interface BountySubmissionDraft {
+  severity: BountySeverity;
+  vulnType: VulnerabilityType;
+  title: string;
+  summary: string;
+  description: string;
+  affectedComponents: string[];
+  stepsToReproduce: string[];
+  proofOfConcept: string;
+  suggestedFix: string;
+  stake: string;
+}
+
+export interface BountyAssessment {
+  severityScore: number;
+  impactScore: number;
+  exploitabilityScore: number;
+  isImmediateThreat: boolean;
+  estimatedReward: bigint;
+  validationPriority: 'critical' | 'high' | 'medium' | 'low';
+  feedback: string[];
+  readyToSubmit: boolean;
+}
+
+export interface ResearcherStats {
+  address: Address;
+  totalSubmissions: number;
+  approvedCount: number;
+  totalEarned: bigint;
+  reputation: number;
+}
+
+export interface BountyPoolStats {
+  totalPool: bigint;
+  totalPaidOut: bigint;
+  pendingPayouts: bigint;
+  activeSubmissions: number;
+  guardianCount: number;
+}
+
+export const SEVERITY_LABELS: Record<BountySeverity, string> = {
+  [BountySeverity.LOW]: 'Low',
+  [BountySeverity.MEDIUM]: 'Medium',
+  [BountySeverity.HIGH]: 'High',
+  [BountySeverity.CRITICAL]: 'Critical',
+};
+
+export const SEVERITY_REWARDS: Record<BountySeverity, { min: string; max: string }> = {
+  [BountySeverity.LOW]: { min: '$500', max: '$2,500' },
+  [BountySeverity.MEDIUM]: { min: '$2,500', max: '$10,000' },
+  [BountySeverity.HIGH]: { min: '$10,000', max: '$25,000' },
+  [BountySeverity.CRITICAL]: { min: '$25,000', max: '$50,000' },
+};
+
+export const VULNERABILITY_TYPE_LABELS: Record<VulnerabilityType, string> = {
+  [VulnerabilityType.FUNDS_AT_RISK]: 'Funds at Risk',
+  [VulnerabilityType.WALLET_DRAIN]: 'Wallet Drain',
+  [VulnerabilityType.REMOTE_CODE_EXECUTION]: 'Remote Code Execution',
+  [VulnerabilityType.TEE_BYPASS]: 'TEE/Enclave Bypass',
+  [VulnerabilityType.CONSENSUS_ATTACK]: 'Consensus Attack (51%)',
+  [VulnerabilityType.MPC_KEY_EXPOSURE]: 'MPC Key Exposure',
+  [VulnerabilityType.PRIVILEGE_ESCALATION]: 'Privilege Escalation',
+  [VulnerabilityType.DENIAL_OF_SERVICE]: 'Denial of Service',
+  [VulnerabilityType.INFORMATION_DISCLOSURE]: 'Information Disclosure',
+  [VulnerabilityType.OTHER]: 'Other Security Issue',
+};
+
+export const SUBMISSION_STATUS_LABELS: Record<BountySubmissionStatus, string> = {
+  [BountySubmissionStatus.PENDING]: 'Pending Review',
+  [BountySubmissionStatus.VALIDATING]: 'Validating',
+  [BountySubmissionStatus.GUARDIAN_REVIEW]: 'Guardian Review',
+  [BountySubmissionStatus.CEO_REVIEW]: 'CEO Review',
+  [BountySubmissionStatus.APPROVED]: 'Approved',
+  [BountySubmissionStatus.PAID]: 'Paid',
+  [BountySubmissionStatus.REJECTED]: 'Rejected',
+  [BountySubmissionStatus.DUPLICATE]: 'Duplicate',
+  [BountySubmissionStatus.DISPUTED]: 'Disputed',
+  [BountySubmissionStatus.WITHDRAWN]: 'Withdrawn',
+};

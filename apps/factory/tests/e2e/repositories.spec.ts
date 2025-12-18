@@ -142,5 +142,51 @@ test.describe('Repositories', () => {
       await expect(page.getByRole('link', { name: /view all workflows/i })).toBeVisible();
     });
   });
+
+  test.describe('Create Repository', () => {
+    test('should display new repository form', async ({ page }) => {
+      await page.goto('/git/new');
+      
+      // Should show create page
+      await expect(page.getByRole('heading', { name: /create a new repository/i })).toBeVisible();
+    });
+
+    test('should show repository name input', async ({ page }) => {
+      await page.goto('/git/new');
+      
+      const nameInput = page.getByPlaceholder(/my-awesome-project/i);
+      await expect(nameInput).toBeVisible();
+      await nameInput.fill('test-repo');
+      await expect(nameInput).toHaveValue('test-repo');
+    });
+
+    test('should show visibility options', async ({ page }) => {
+      await page.goto('/git/new');
+      
+      await expect(page.getByText(/public/i).first()).toBeVisible();
+      await expect(page.getByText(/private/i).first()).toBeVisible();
+    });
+
+    test('should show git remote setup info', async ({ page }) => {
+      await page.goto('/git/new');
+      
+      await expect(page.getByText(/git remote configuration/i)).toBeVisible();
+      await expect(page.getByText(/git.jeju.network/i).first()).toBeVisible();
+    });
+
+    test('should show readme and license options', async ({ page }) => {
+      await page.goto('/git/new');
+      
+      await expect(page.getByText(/add a readme file/i)).toBeVisible();
+      await expect(page.getByText(/license/i).first()).toBeVisible();
+    });
+
+    test('should have create button', async ({ page }) => {
+      await page.goto('/git/new');
+      
+      const createBtn = page.getByRole('button', { name: /create repository/i });
+      await expect(createBtn).toBeVisible();
+    });
+  });
 });
 

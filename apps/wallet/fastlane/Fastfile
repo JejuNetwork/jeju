@@ -1,0 +1,108 @@
+# Fastfile for Network Wallet
+# Supports iOS and Android deployment
+
+default_platform(:ios)
+
+# iOS lanes
+platform :ios do
+  desc "Push a new beta build to TestFlight"
+  lane :beta do
+    setup_ci if ENV['CI']
+    
+    increment_build_number(
+      build_number: ENV['BUILD_NUMBER'] || latest_testflight_build_number + 1,
+      xcodeproj: "ios/App/App.xcodeproj"
+    )
+    
+    build_app(
+      workspace: "ios/App/App.xcworkspace",
+      scheme: "App",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "NetworkWallet.ipa"
+    )
+    
+    upload_to_testflight(
+      skip_waiting_for_build_processing: true,
+      api_key_path: ENV['APP_STORE_CONNECT_API_KEY_PATH']
+    )
+  end
+
+  desc "Push a new release to the App Store"
+  lane :release do
+    setup_ci if ENV['CI']
+    
+    build_app(
+      workspace: "ios/App/App.xcworkspace",
+      scheme: "App",
+      configuration: "Release",
+      export_method: "app-store",
+      output_directory: "./build",
+      output_name: "NetworkWallet.ipa"
+    )
+    
+    upload_to_app_store(
+      skip_metadata: false,
+      skip_screenshots: true,
+      submit_for_review: false,
+      automatic_release: false,
+      force: true,
+      api_key_path: ENV['APP_STORE_CONNECT_API_KEY_PATH']
+    )
+  end
+
+  desc "Sync certificates and profiles"
+  lane :certificates do
+    match(
+      type: "appstore",
+      app_identifier: "network.jeju.wallet",
+      readonly: is_ci
+    )
+  end
+end
+
+# Android lanes
+platform :android do
+  desc "Push a new beta build to Play Store internal track"
+  lane :beta do
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: "android"
+    )
+    
+    upload_to_play_store(
+      track: "internal",
+      aab: "android/app/build/outputs/bundle/release/app-release.aab",
+      json_key: ENV['GOOGLE_PLAY_JSON_KEY'],
+      skip_upload_apk: true,
+      skip_upload_metadata: true,
+      skip_upload_changelogs: false,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+
+  desc "Push a new release to Play Store production"
+  lane :release do
+    gradle(
+      task: "bundle",
+      build_type: "Release",
+      project_dir: "android"
+    )
+    
+    upload_to_play_store(
+      track: "production",
+      aab: "android/app/build/outputs/bundle/release/app-release.aab",
+      json_key: ENV['GOOGLE_PLAY_JSON_KEY'],
+      skip_upload_apk: true,
+      skip_upload_metadata: false,
+      skip_upload_changelogs: false,
+      skip_upload_images: true,
+      skip_upload_screenshots: true
+    )
+  end
+end
+
+

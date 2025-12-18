@@ -76,7 +76,7 @@ import {
 } from "./actions/bazaar";
 
 // Extended Actions - Moderation (basic)
-import { reportAgentAction, listModerationCasesAction } from "./actions/moderation";
+import { reportAgentAction } from "./actions/moderation";
 
 // Extended Actions - Moderation (full)
 import {

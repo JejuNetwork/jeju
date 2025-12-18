@@ -3,7 +3,13 @@
  * Uses DWS for decentralized compute - automatically configured per network.
  */
 
-import { AgentRuntime, type Character, type UUID, type Plugin } from '@elizaos/core';
+// ElizaOS types - loaded dynamically to avoid import errors
+type AgentRuntime = { character: unknown; agentId: string; registerPlugin: (p: unknown) => Promise<void> };
+type Character = Record<string, unknown>;
+type UUID = string;
+type Plugin = Record<string, unknown>;
+let AgentRuntimeClass: (new (opts: { character: Character; agentId: UUID; plugins: Plugin[] }) => AgentRuntime) | null = null;
+
 import { getDWSComputeUrl, getCurrentNetwork } from '@jejunetwork/config';
 import { autocratAgentTemplates, ceoAgent, type AutocratAgentTemplate } from './templates';
 import { autocratPlugin } from './autocrat-plugin';
@@ -71,12 +77,11 @@ export async function checkDWSCompute(): Promise<boolean> {
 
 export async function dwsGenerate(prompt: string, system: string, maxTokens = 500): Promise<string> {
   const endpoint = getDWSEndpoint();
-  // Use OpenAI-compatible endpoint
+  // Use OpenAI-compatible endpoint - DWS selects the best available model
   const r = await fetch(`${endpoint}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: 'llama3.2', // DWS will use configured inference backend
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: prompt },
@@ -204,18 +209,25 @@ export class AutocratAgentRuntimeManager {
       console.warn('[AgentRuntime] WARNING: DWS compute not available - agent deliberation will fail');
     }
 
-    // Initialize default council agents
-    for (const template of autocratAgentTemplates) {
-      const runtime = await this.createRuntime(template);
-      this.runtimes.set(template.id, runtime);
+    // Try to initialize ElizaOS runtimes (may fail due to dependency issues)
+    try {
+      // Initialize default council agents
+      for (const template of autocratAgentTemplates) {
+        const runtime = await this.createRuntime(template);
+        this.runtimes.set(template.id, runtime);
+      }
+
+      // Initialize default CEO
+      const ceoRuntime = await this.createRuntime(ceoAgent);
+      this.runtimes.set('ceo', ceoRuntime);
+      console.log(`[AgentRuntime] ${this.runtimes.size} agents ready`);
+    } catch (e) {
+      // ElizaOS runtime failed - we can still use DWS directly for deliberation
+      console.warn('[AgentRuntime] ElizaOS runtime init failed, using DWS-only mode');
+      console.warn(`[AgentRuntime] Error: ${e instanceof Error ? e.message : String(e)}`);
     }
 
-    // Initialize default CEO
-    const ceoRuntime = await this.createRuntime(ceoAgent);
-    this.runtimes.set('ceo', ceoRuntime);
-
     this.initialized = true;
-    console.log(`[AgentRuntime] ${this.runtimes.size} agents ready`);
   }
 
   // ============ DAO-specific Agent Management ============
@@ -281,9 +293,19 @@ export class AutocratAgentRuntimeManager {
   }
 
   private async createRuntime(template: AutocratAgentTemplate): Promise<AgentRuntime> {
+    // Dynamically import ElizaOS to avoid load-time errors
+    if (!AgentRuntimeClass) {
+      const elizaos = await import('@elizaos/core');
+      // Use type assertion to handle ElizaOS version differences
+      AgentRuntimeClass = elizaos.AgentRuntime as unknown as typeof AgentRuntimeClass;
+    }
+    if (!AgentRuntimeClass) {
+      throw new Error('ElizaOS AgentRuntime not available');
+    }
     const character: Character = { ...template.character };
-    const plugins: Plugin[] = template.role === 'CEO' ? [ceoPlugin] : [autocratPlugin];
-    const runtime = new AgentRuntime({ character, agentId: template.id as UUID, plugins });
+    // Cast plugins to match ElizaOS Plugin type which has different structure
+    const plugins = (template.role === 'CEO' ? [ceoPlugin] : [autocratPlugin]) as unknown as Plugin[];
+    const runtime = new AgentRuntimeClass({ character, agentId: template.id as UUID, plugins });
     for (const plugin of plugins) await runtime.registerPlugin(plugin);
     return runtime;
   }

@@ -131,11 +131,11 @@ test.describe('Factory App', () => {
   });
 
   test('should navigate to package detail page', async ({ page }) => {
-    // Using URL-encoded scope for @jejunetwork
-    await page.goto('/packages/%40jejunetwork/jeju-sdk');
+    // Using URL-encoded scope for @jeju
+    await page.goto('/packages/%40jeju/sdk');
     
     // Check for package name in the heading (be specific to avoid nav heading)
-    await expect(page.getByRole('heading', { name: /@jejunetwork\/jeju-sdk/i }).first()).toBeVisible();
+    await expect(page.locator('h1').filter({ hasText: '@jeju/sdk' })).toBeVisible();
   });
 
   test('should navigate to model detail page', async ({ page }) => {

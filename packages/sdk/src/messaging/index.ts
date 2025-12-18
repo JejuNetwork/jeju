@@ -47,7 +47,7 @@ export interface MessagingKey {
   isActive: boolean;
 }
 
-export interface RegisterNodeParams {
+export interface RegisterMessagingNodeParams {
   endpoint: string;
   region: string;
   stake: bigint;
@@ -61,7 +61,7 @@ export interface RegisterKeyParams {
 
 export interface MessagingModule {
   // Node Registry
-  registerNode(params: RegisterNodeParams): Promise<{ nodeId: Hex; txHash: Hex }>;
+  registerNode(params: RegisterMessagingNodeParams): Promise<{ nodeId: Hex; txHash: Hex }>;
   getNode(nodeId: Hex): Promise<MessageNode | null>;
   getMyNodes(): Promise<MessageNode[]>;
   listActiveNodes(): Promise<MessageNode[]>;
@@ -288,7 +288,7 @@ export function createMessagingModule(
   const tryGetContract = (category: string, name: string): Address => {
     try {
       // @ts-expect-error - category names may vary by deployment
-      return getContractAddress(network, category, name) as Address;
+      return getContractAddress(category, name, network) as Address;
     } catch {
       return "0x0000000000000000000000000000000000000000" as Address;
     }

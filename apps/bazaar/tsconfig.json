@@ -1,17 +1,31 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "jsx": "react-jsx",
+    "jsx": "preserve",
     "allowJs": true,
     "noEmit": true,
     "incremental": true,
-    "plugins": [{ "name": "next" }],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
     "paths": {
-      "@/*": ["./*"],
-      "@/components/*": ["./components/*"],
-      "@/lib/*": ["./lib/*"],
-      "@/hooks/*": ["./hooks/*"],
-      "@/config/*": ["./config/*"]
+      "@/*": [
+        "./*"
+      ],
+      "@/components/*": [
+        "./components/*"
+      ],
+      "@/lib/*": [
+        "./lib/*"
+      ],
+      "@/hooks/*": [
+        "./hooks/*"
+      ],
+      "@/config/*": [
+        "./config/*"
+      ]
     }
   },
   "include": [
@@ -26,5 +40,9 @@
     "types/**/*.ts",
     ".next/types/**/*.ts"
   ],
-  "exclude": ["node_modules", "tests/**/*", "test/**/*"]
+  "exclude": [
+    "node_modules",
+    "tests/**/*",
+    "test/**/*"
+  ]
 }

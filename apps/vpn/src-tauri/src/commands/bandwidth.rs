@@ -19,3 +19,5 @@ pub async fn set_adaptive_mode(state: State<'_, AppState>, enabled: bool) -> Res
     Ok(())
 }
 
+
+

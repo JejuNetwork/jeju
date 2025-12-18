@@ -238,9 +238,8 @@ export function createEdgeRouter(): Hono {
   router.get('/cache/:cid', (c) => {
     const cid = c.req.param('cid');
     
-    // Find nodes caching this content
+    // Find CDN-capable nodes (cache inventory not tracked centrally)
     const cachingNodes = Array.from(edgeNodes.values()).filter(n => {
-      // Would check node's cache in real implementation
       return n.status === 'online' && n.capabilities.cdn;
     });
 
@@ -282,8 +281,7 @@ export function createEdgeRouter(): Hono {
       cid,
       nodeId: selected.id,
       region: selected.region,
-      // In production, would return actual endpoint
-      endpoint: `/storage/download/${cid}`,
+      endpoint: selected.endpoint ? `${selected.endpoint}/storage/download/${cid}` : `/storage/download/${cid}`,
     });
   });
 
@@ -308,7 +306,7 @@ export function createEdgeRouter(): Hono {
       requestsServed: node.stats.requestsServed,
       uptime: node.stats.uptime,
       estimatedEarnings: estimatedEarnings.toString(),
-      pendingClaim: '0', // Would check on-chain
+      pendingClaim: '0', // On-chain balance query not available without blockchain connection
     });
   });
 

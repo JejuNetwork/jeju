@@ -309,7 +309,7 @@ export class AuthService {
     const vault = this.getOrCreateVault(address);
     const now = Date.now();
     
-    // Simple encryption using address as key (in production, use proper KMS)
+    // Derive encryption key from address (AES-256-GCM)
     const key = createHash('sha256').update(address.toLowerCase()).digest();
     const encrypted = this.encrypt(value, key);
 
@@ -384,25 +384,40 @@ export class AuthService {
   }
 
   // ============================================================================
-  // Encryption Helpers (simple XOR for demo, use proper crypto in production)
+  // Encryption Helpers (AES-256-GCM)
   // ============================================================================
 
   private encrypt(plaintext: string, key: Buffer): string {
-    const input = Buffer.from(plaintext, 'utf8');
-    const output = Buffer.alloc(input.length);
-    for (let i = 0; i < input.length; i++) {
-      output[i] = input[i] ^ key[i % key.length];
-    }
-    return output.toString('base64');
+    const crypto = require('crypto');
+    // Use first 32 bytes as key, generate random IV
+    const aesKey = Buffer.alloc(32);
+    key.copy(aesKey, 0, 0, Math.min(key.length, 32));
+    const iv = crypto.randomBytes(12);
+    
+    const cipher = crypto.createCipheriv('aes-256-gcm', aesKey, iv);
+    const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+    const authTag = cipher.getAuthTag();
+    
+    // Format: iv (12) + authTag (16) + ciphertext
+    return Buffer.concat([iv, authTag, encrypted]).toString('base64');
   }
 
   private decrypt(ciphertext: string, key: Buffer): string {
-    const input = Buffer.from(ciphertext, 'base64');
-    const output = Buffer.alloc(input.length);
-    for (let i = 0; i < input.length; i++) {
-      output[i] = input[i] ^ key[i % key.length];
-    }
-    return output.toString('utf8');
+    const crypto = require('crypto');
+    const data = Buffer.from(ciphertext, 'base64');
+    
+    // Extract components
+    const iv = data.subarray(0, 12);
+    const authTag = data.subarray(12, 28);
+    const encrypted = data.subarray(28);
+    
+    const aesKey = Buffer.alloc(32);
+    key.copy(aesKey, 0, 0, Math.min(key.length, 32));
+    
+    const decipher = crypto.createDecipheriv('aes-256-gcm', aesKey, iv);
+    decipher.setAuthTag(authTag);
+    
+    return Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
   }
 
   // ============================================================================
