@@ -550,7 +550,7 @@ describe.skipIf(!CQL_AVAILABLE)('Full Flow Security', () => {
 
     const seller = `0x${testId}777777777777777777777777777777` as Address;
     const vaultKey = storeKey('anthropic', seller, 'test-key');
-    const listing = createListing({
+    const listing = await createListing({
       providerId: 'anthropic',
       seller,
       keyVaultId: vaultKey.id,

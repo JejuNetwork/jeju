@@ -2,7 +2,7 @@
  * Platform Adapter Types
  */
 
-import type { Platform, PlatformMessage, CommandResult, MessageEmbed, MessageButton } from '../types';
+import type { Platform, PlatformMessage, MessageEmbed, MessageButton } from '../types';
 
 export interface PlatformAdapter {
   platform: Platform;
