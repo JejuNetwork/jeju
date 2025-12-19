@@ -1,14 +1,19 @@
 /**
  * Research Agent - Deep analysis for DAO proposals
  * 
- * Supports multiple compute backends:
- * - Local Ollama (default)
- * - Decentralized compute marketplace (x402 payment)
+ * FULLY DECENTRALIZED - All compute via DWS network
+ * Supports compute marketplace for deep research
  */
 
+import { getDWSComputeUrl, getServiceUrl } from '@jejunetwork/config';
 import { keccak256, stringToHex } from 'viem';
 import { checkDWSCompute, dwsGenerate } from './agents/runtime';
 import { parseJson } from './utils';
+
+// DWS endpoint is resolved dynamically based on the current network
+function getComputeEndpoint(): string {
+  return process.env.COMPUTE_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl();
+}
 
 export interface ResearchRequest {
   proposalId: string;
@@ -66,8 +71,7 @@ const CACHE_MAX = 1000;
 const cache = new Map<string, ResearchReport>();
 const evictOldest = () => { if (cache.size >= CACHE_MAX) { const first = cache.keys().next().value; if (first) cache.delete(first); } };
 
-// Compute marketplace configuration
-const COMPUTE_URL = process.env.COMPUTE_URL ?? 'http://localhost:8020';
+// Compute marketplace configuration - uses DWS network
 const COMPUTE_ENABLED = process.env.COMPUTE_ENABLED === 'true';
 const COMPUTE_MODEL = process.env.COMPUTE_MODEL ?? 'claude-3-opus';
 
@@ -104,7 +108,8 @@ async function computeMarketplaceInference(prompt: string, systemPrompt: string)
     options: { maxTokens: 4096, temperature: 0.7 },
   };
 
-  const response = await fetch(`${COMPUTE_URL}/api/v1/inference`, {
+  const computeEndpoint = getComputeEndpoint();
+  const response = await fetch(`${computeEndpoint}/api/v1/inference`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
@@ -122,12 +127,9 @@ async function computeMarketplaceInference(prompt: string, systemPrompt: string)
 
 async function checkComputeMarketplace(): Promise<boolean> {
   if (!COMPUTE_ENABLED) return false;
-  try {
-    const response = await fetch(`${COMPUTE_URL}/health`);
-    return response.ok;
-  } catch {
-    return false;
-  }
+  const computeEndpoint = getComputeEndpoint();
+  const response = await fetch(`${computeEndpoint}/health`).catch(() => null);
+  return response?.ok ?? false;
 }
 
 export class ResearchAgent {

@@ -8,5 +8,6 @@ timeout = 30000
 # Retry flaky tests once
 retry = 1
 
-# Test paths - only run src and tests, not frontend (those use Playwright)
-root = ["src", "tests"]
+# Test pattern - match .test.ts and .spec.ts files but NOT in frontend/
+# Note: Playwright tests are in frontend/tests/*.spec.ts and should be run with npx playwright test
+# The bun test command should be: bun test src tests (not bun test with no args)

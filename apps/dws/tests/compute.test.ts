@@ -48,10 +48,18 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
       expect(res.status).toBe(200);
 
-      const body = await res.json();
+      const body = await res.json() as {
+        object: string;
+        choices: Array<{ message: { role: string } }>;
+        provider?: string;
+      };
       expect(body.object).toBe('chat.completion');
       expect(body.choices).toBeDefined();
       expect(body.choices[0].message.role).toBe('assistant');
+      // When no provider is configured, should return mock response
+      if (!process.env.GROQ_API_KEY && !process.env.OPENAI_API_KEY && !process.env.ANTHROPIC_API_KEY) {
+        expect(body.provider).toBe('mock');
+      }
     });
 
     test('POST /compute/chat/completions returns valid structure', async () => {
@@ -66,7 +74,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
       expect(res.status).toBe(200);
 
-      const body = await res.json();
+      const body = await res.json() as { id: string; model: string };
       expect(body.id).toMatch(/^chatcmpl-/);
       expect(body.model).toBeDefined();
     });
@@ -83,7 +91,7 @@ describe.skipIf(SKIP)('Compute Service', () => {
 
       expect(res.status).toBe(200);
 
-      const body = await res.json();
+      const body = await res.json() as { usage: { total_tokens: number } };
       expect(body).toHaveProperty('usage');
       expect(body.usage.total_tokens).toBeGreaterThan(0);
     });

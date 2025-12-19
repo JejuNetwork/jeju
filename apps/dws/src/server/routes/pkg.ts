@@ -172,23 +172,45 @@ export function createPkgRouter(ctx: PkgContext): Hono {
     return c.json({ error: 'Package not found' }, 404);
   });
 
-  // Specific version metadata
-  router.get('/:package{.+}/:version', async (c) => {
-    const packageName = c.req.param('package');
+  // Specific version metadata - handle scoped and unscoped packages
+  // Use explicit pattern to avoid greedy matching issues
+  router.get('/@:scope/:name/:version', async (c) => {
+    const scope = c.req.param('scope');
+    const name = c.req.param('name');
     const version = c.req.param('version');
-
-    if (packageName.startsWith('-/')) return c.json({ ok: true });
-
-    const fullName = packageName.replace('%2f', '/').replace('%2F', '/');
+    const fullName = `@${scope}/${name}`;
 
     // Try local first
-    const localMetadata = await registryManager.getPkgMetadata(fullName);
+    const localMetadata = await registryManager.getPkgMetadata(fullName).catch(() => null);
     if (localMetadata?.versions[version]) {
       return c.json(localMetadata.versions[version]);
     }
 
     // Try upstream
     const upstreamVersion = await upstreamProxy.getVersionMetadata(fullName, version);
+    if (upstreamVersion) {
+      return c.json(upstreamVersion, 200, { 'X-Served-From': 'upstream-cache' });
+    }
+
+    return c.json({ error: 'Not found' }, 404);
+  });
+
+  // Unscoped package version metadata
+  router.get('/:package/:version', async (c) => {
+    const packageName = c.req.param('package');
+    const version = c.req.param('version');
+
+    // Skip internal routes
+    if (packageName.startsWith('-')) return c.json({ ok: true });
+
+    // Try local first
+    const localMetadata = await registryManager.getPkgMetadata(packageName).catch(() => null);
+    if (localMetadata?.versions[version]) {
+      return c.json(localMetadata.versions[version]);
+    }
+
+    // Try upstream
+    const upstreamVersion = await upstreamProxy.getVersionMetadata(packageName, version);
     if (upstreamVersion) {
       return c.json(upstreamVersion, 200, { 'X-Served-From': 'upstream-cache' });
     }

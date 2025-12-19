@@ -123,13 +123,45 @@ bun run ios:run               # Run on simulator
 ```
 
 ### Testing
+
+#### Unit Tests
 ```bash
-bun run test              # Unit tests
+bun run test              # Run all unit tests (190+ tests)
 bun run test:watch        # Watch mode
-bun run test:coverage     # With coverage
-bun run test:e2e          # E2E tests (Playwright)
-bun run test:e2e:headed   # E2E with browser UI
+bun run test:coverage     # With coverage report
 ```
+
+#### E2E Tests (Playwright)
+```bash
+# Live E2E tests (requires localnet running)
+bun run test:e2e          # All live E2E tests (47+ tests)
+bun run test:e2e:live     # Same as above
+
+# Extension E2E tests (requires headed browser)
+bun run test:e2e:extension  # Test extension in Chrome (6 tests)
+
+# MetaMask integration tests (requires Synpress cache)
+bun run synpress:cache      # Create MetaMask wallet cache (first time)
+bun run test:e2e:metamask   # Run MetaMask E2E tests (10 tests)
+
+# All E2E tests
+bun run test:e2e:all        # Run all E2E test suites
+bun run test:e2e:headed     # Run with browser UI visible
+bun run test:e2e:debug      # Debug mode
+
+# CI-specific (with Xvfb for headed tests)
+bun run test:e2e:ci         # Run all E2E with virtual display
+bun run synpress:cache:ci   # Create cache with virtual display
+```
+
+#### Test Coverage
+| Test Type | Count | Description |
+|-----------|-------|-------------|
+| Unit Tests | 190+ | Core logic, hooks, services |
+| Live E2E | 47+ | App loading, RPC, transactions, UI |
+| Extension E2E | 6 | dApp connection, EIP-6963 |
+| MetaMask E2E | 10 | Wallet connection, signing, transactions |
+| **Total** | **253+** | All automated tests |
 
 ---
 
