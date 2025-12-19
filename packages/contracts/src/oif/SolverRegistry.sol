@@ -19,45 +19,19 @@ import {ISolverRegistry} from "./IOIF.sol";
  * 4. 8-day unbonding period for withdrawals
  */
 contract SolverRegistry is ISolverRegistry, Ownable, ReentrancyGuard, Pausable {
-    // ============ Constants ============
-
-    /// @notice Minimum stake to register as solver
     uint256 public constant MIN_STAKE = 0.5 ether;
-
-    /// @notice Unbonding period (8 days)
     uint256 public constant UNBONDING_PERIOD = 8 days;
-
-    /// @notice Slashing percentage (50%)
     uint256 public constant SLASH_PERCENT = 50;
-
-    /// @notice Maximum chains a solver can support
     uint256 public constant MAX_CHAINS = 50;
 
-    // ============ State Variables ============
-
-    /// @notice Solver stakes
     mapping(address => SolverStake) public stakes;
-
-    /// @notice Solver supported chains
     mapping(address => uint256[]) public solverChains;
-
-    /// @notice Total staked
     uint256 public totalStaked;
-
-    /// @notice Total slashed
     uint256 public totalSlashed;
-
-    /// @notice Active solver count
     uint256 public activeSolverCount;
-
-    /// @notice Authorized slashers
     mapping(address => bool) public authorizedSlashers;
-
-    /// @notice Fill counters
     mapping(address => uint256) public solverFillCount;
     mapping(address => uint256) public solverSuccessCount;
-
-    // ============ Structs ============
 
     struct SolverStake {
         uint256 stakedAmount;
@@ -68,14 +42,10 @@ contract SolverRegistry is ISolverRegistry, Ownable, ReentrancyGuard, Pausable {
         uint256 registeredAt;
     }
 
-    // ============ Events ============
-
     event ChainAdded(address indexed solver, uint256 chainId);
     event ChainRemoved(address indexed solver, uint256 chainId);
     event SlasherUpdated(address indexed slasher, bool authorized);
     event FillRecorded(address indexed solver, bytes32 indexed orderId, bool success);
-
-    // ============ Errors ============
 
     error InsufficientStake();
     error AlreadyRegistered();
@@ -90,13 +60,8 @@ contract SolverRegistry is ISolverRegistry, Ownable, ReentrancyGuard, Pausable {
     error InvalidAmount();
     error WithdrawalFailed();
 
-    // ============ Constructor ============
-
     constructor() Ownable(msg.sender) {}
 
-    // ============ Registration ============
-
-    /// @inheritdoc ISolverRegistry
     function register(uint256[] calldata chains) external payable override nonReentrant whenNotPaused {
         if (msg.value < MIN_STAKE) revert InsufficientStake();
         if (stakes[msg.sender].isActive) revert AlreadyRegistered();
@@ -194,8 +159,6 @@ contract SolverRegistry is ISolverRegistry, Ownable, ReentrancyGuard, Pausable {
         emit SolverStakeDeposited(msg.sender, 0, stake.stakedAmount);
     }
 
-    // ============ Chain Management ============
-
     function addChain(uint256 chainId) external nonReentrant whenNotPaused {
         if (!stakes[msg.sender].isActive) revert NotRegistered();
 
@@ -225,23 +188,16 @@ contract SolverRegistry is ISolverRegistry, Ownable, ReentrancyGuard, Pausable {
         revert ChainNotFound();
     }
 
-    // ============ Slashing ============
-
-    /// @inheritdoc ISolverRegistry
-    /// @custom:security CEI pattern: Update all state before external calls
     function slash(address solver, bytes32 orderId, uint256 amount, address victim) external override nonReentrant {
         if (!authorizedSlashers[msg.sender]) revert UnauthorizedSlasher();
 
         SolverStake storage stake = stakes[solver];
         if (!stake.isActive && stake.unbondingAmount == 0) revert NotRegistered();
 
-        // Calculate slash amount
         uint256 totalAvailable = stake.stakedAmount + stake.unbondingAmount;
         uint256 slashAmount = (totalAvailable * SLASH_PERCENT) / 100;
         if (slashAmount > amount) slashAmount = amount;
 
-        // EFFECTS: Update ALL state BEFORE external calls (CEI pattern)
-        // Deduct from stake
         if (stake.stakedAmount >= slashAmount) {
             stake.stakedAmount -= slashAmount;
         } else {
@@ -260,15 +216,10 @@ contract SolverRegistry is ISolverRegistry, Ownable, ReentrancyGuard, Pausable {
             activeSolverCount--;
         }
 
-        // Emit event before external calls
         emit SolverSlashed(solver, orderId, slashAmount);
-
-        // INTERACTIONS: External calls last
         (bool success,) = victim.call{value: slashAmount}("");
         if (!success) revert WithdrawalFailed();
     }
-
-    // ============ Fill Recording ============
 
     function recordFill(address solver, bytes32 orderId, bool success) external {
         if (!authorizedSlashers[msg.sender] && msg.sender != owner()) revert UnauthorizedSlasher();
@@ -280,8 +231,6 @@ contract SolverRegistry is ISolverRegistry, Ownable, ReentrancyGuard, Pausable {
 
         emit FillRecorded(solver, orderId, success);
     }
-
-    // ============ Admin ============
 
     function setSlasher(address slasher, bool authorized) external onlyOwner {
         authorizedSlashers[slasher] = authorized;
@@ -296,9 +245,6 @@ contract SolverRegistry is ISolverRegistry, Ownable, ReentrancyGuard, Pausable {
         _unpause();
     }
 
-    // ============ View Functions ============
-
-    /// @inheritdoc ISolverRegistry
     function getSolver(address solver) external view override returns (SolverInfo memory) {
         SolverStake storage stake = stakes[solver];
         return SolverInfo({

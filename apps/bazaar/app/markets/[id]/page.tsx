@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, use } from 'react';
 import { useAccount } from 'wagmi';
 import { TradingInterface } from '@/components/markets/TradingInterface';
 import { MarketChart } from '@/components/markets/MarketChart';
@@ -10,7 +10,7 @@ import { formatDistanceToNow } from 'date-fns';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 
 interface PageProps {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }
 
 function ClaimButton({ sessionId }: { sessionId: string }) {
@@ -28,7 +28,7 @@ function ClaimButton({ sessionId }: { sessionId: string }) {
 }
 
 export default function MarketPage({ params }: PageProps) {
-  const { id } = params;
+  const { id } = use(params);
   const { address } = useAccount();
   const { market, loading, error } = useMarket(id);
   const [selectedTab, setSelectedTab] = useState<'trade' | 'activity'>('trade');

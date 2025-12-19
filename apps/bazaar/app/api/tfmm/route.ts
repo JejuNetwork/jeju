@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createPublicClient, http, type Address } from 'viem'
-import { RPC_URL } from '@/config'
+
+// These will be used when implementing real on-chain calls
+// import { createPublicClient, http, type Address } from 'viem'
+// import { RPC_URL } from '@/config'
 
 /**
  * TFMM REST API
@@ -12,70 +14,8 @@ import { RPC_URL } from '@/config'
  * GET /api/tfmm?action=oracles - Get oracle status
  */
 
-// TFMM Pool ABI (subset for reading)
-const TFMM_POOL_ABI = [
-  {
-    name: 'getPoolInfo',
-    type: 'function',
-    inputs: [],
-    outputs: [
-      { name: 'tokens', type: 'address[]' },
-      { name: 'weights', type: 'uint256[]' },
-      { name: 'totalLiquidity', type: 'uint256' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    name: 'getStrategy',
-    type: 'function',
-    inputs: [],
-    outputs: [
-      { name: 'strategyType', type: 'uint8' },
-      { name: 'params', type: 'bytes' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    name: 'getCurrentWeights',
-    type: 'function',
-    inputs: [],
-    outputs: [{ name: 'weights', type: 'uint256[]' }],
-    stateMutability: 'view',
-  },
-  {
-    name: 'getTargetWeights',
-    type: 'function',
-    inputs: [],
-    outputs: [{ name: 'weights', type: 'uint256[]' }],
-    stateMutability: 'view',
-  },
-] as const
-
-// Oracle Registry ABI
-const ORACLE_REGISTRY_ABI = [
-  {
-    name: 'getPrice',
-    type: 'function',
-    inputs: [{ name: 'token', type: 'address' }],
-    outputs: [
-      { name: 'price', type: 'uint256' },
-      { name: 'timestamp', type: 'uint256' },
-      { name: 'source', type: 'uint8' },
-    ],
-    stateMutability: 'view',
-  },
-  {
-    name: 'getOracleStatus',
-    type: 'function',
-    inputs: [{ name: 'token', type: 'address' }],
-    outputs: [
-      { name: 'pythAvailable', type: 'bool' },
-      { name: 'chainlinkAvailable', type: 'bool' },
-      { name: 'twapAvailable', type: 'bool' },
-    ],
-    stateMutability: 'view',
-  },
-] as const
+// Note: TFMM_POOL_ABI and ORACLE_REGISTRY_ABI will be needed when implementing real on-chain calls
+// Currently using mock data for development
 
 // Mock data for development
 const MOCK_POOLS = [
@@ -229,8 +169,8 @@ export async function POST(request: NextRequest) {
 
   switch (action) {
     case 'create_pool': {
-      // Validate params
-      const { tokens, initialWeights, strategy, strategyParams } = params
+      // Validate params - strategyParams will be used when deploying real contract
+      const { tokens, initialWeights, strategy } = params
       if (!tokens || !initialWeights || !strategy) {
         return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 })
       }
@@ -244,7 +184,8 @@ export async function POST(request: NextRequest) {
     }
 
     case 'update_strategy': {
-      const { poolAddress, newStrategy, newParams } = params
+      // newParams will be used when implementing real strategy updates
+      const { poolAddress, newStrategy } = params
       if (!poolAddress || !newStrategy) {
         return NextResponse.json({ error: 'Missing pool address or strategy' }, { status: 400 })
       }

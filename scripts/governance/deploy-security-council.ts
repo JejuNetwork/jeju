@@ -18,7 +18,7 @@
  *   THRESHOLD - Required signatures (default: 3)
  */
 
-import { createPublicClient, createWalletClient, http, parseAbi, readContract, waitForTransactionReceipt, encodeFunctionData, getLogs, decodeEventLog, zeroAddress, getBytecode, isAddress, keccak256, stringToBytes, getContractAddress, formatEther, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseAbi, encodeFunctionData, zeroAddress, isAddress, keccak256, toBytes, getContractAddress, formatEther, decodeEventLog, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { inferChainFromRpcUrl } from '../shared/chain-utils';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
@@ -93,16 +93,12 @@ async function deploySafe(
   });
   console.log(`  TX: ${hash}`);
   
-  const receipt = await waitForTransactionReceipt(publicClient, { hash });
+  const receipt = await publicClient.waitForTransactionReceipt({ hash });
   
   // Parse ProxyCreation event to get Safe address
-  const logs = await getLogs(publicClient, {
-    address: SAFE_PROXY_FACTORY as Address,
-    abi: proxyFactoryAbi,
-    eventName: 'ProxyCreation',
-    fromBlock: receipt.blockNumber,
-    toBlock: receipt.blockNumber,
-  });
+  const logs = receipt.logs.filter((log: { address: string }) => 
+    log.address.toLowerCase() === SAFE_PROXY_FACTORY.toLowerCase()
+  );
   
   if (logs.length === 0) {
     throw new Error('ProxyCreation event not found');
@@ -111,10 +107,10 @@ async function deploySafe(
   const decoded = decodeEventLog({
     abi: proxyFactoryAbi,
     eventName: 'ProxyCreation',
-    topics: logs[0].topics,
+    topics: logs[0].topics as [`0x${string}`, ...`0x${string}`[]],
     data: logs[0].data,
   });
-  const safeAddress = decoded.args.proxy;
+  const safeAddress = (decoded.args as { proxy: Address }).proxy;
   
   return safeAddress;
 }
@@ -127,12 +123,12 @@ async function verifySafe(
   const safeAbi = parseAbi(SAFE_SINGLETON_ABI);
   
   const [owners, threshold] = await Promise.all([
-    readContract(publicClient, {
+    publicClient.readContract({
       address: safeAddress,
       abi: safeAbi,
       functionName: 'getOwners',
     }),
-    readContract(publicClient, {
+    publicClient.readContract({
       address: safeAddress,
       abi: safeAbi,
       functionName: 'getThreshold',
@@ -234,7 +230,7 @@ async function main(): Promise<void> {
   console.log('');
 
   // Check if Safe Factory is deployed
-  const factoryCode = await getBytecode(publicClient, { address: SAFE_PROXY_FACTORY as Address });
+  const factoryCode = await publicClient.getBytecode({ address: SAFE_PROXY_FACTORY as Address });
   if (factoryCode === undefined || factoryCode === '0x') {
     console.log('⚠️  Safe Proxy Factory not deployed on this network');
     console.log('   For localnet, Safe deployment is simulated');
@@ -242,7 +238,7 @@ async function main(): Promise<void> {
     console.log('');
     
     // For localnet, just output the intended configuration
-    const salt = keccak256(stringToBytes('security_council_safe'));
+    const salt = keccak256(toBytes('security_council_safe'));
     const initCodeHash = keccak256('0x' as `0x${string}`);
     const simulatedSafe = getContractAddress({
       from: SAFE_PROXY_FACTORY as Address,

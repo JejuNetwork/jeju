@@ -131,8 +131,6 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
         return hash == root;
     }
 
-    // ============ Views ============
-
     function canForceInclude(bytes32 txId) external view returns (bool) {
         QueuedTx storage q = queuedTxs[txId];
         return q.sender != address(0) && !q.included && !q.expired && block.number > q.queuedAtBlock + INCLUSION_WINDOW_BLOCKS;
@@ -160,8 +158,6 @@ contract ForcedInclusion is ReentrancyGuard, Pausable, Ownable {
         }
         return result;
     }
-
-    // ============ Admin ============
 
     function setSequencerRegistry(address _registry) external onlyOwner {
         emit SequencerRegistryUpdated(sequencerRegistry, _registry);
