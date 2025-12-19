@@ -19,8 +19,10 @@ export interface ApiKeyRecord {
   isActive: boolean;
 }
 
-// Initialize CQL state
-initializeDWSState().catch(console.error);
+// Initialize CQL state (skip in test to avoid connection errors)
+if (process.env.NODE_ENV !== 'test') {
+  initializeDWSState().catch(console.error);
+}
 
 // Local cache for key -> id mapping (for fast validation without async)
 const localKeyCache = new Map<string, string>();

@@ -24,8 +24,6 @@ import "../registry/IdentityRegistry.sol";
 contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
     using SafeERC20 for IERC20;
 
-    // ============ Enums ============
-
     enum ModelType {
         LLM,                // Large Language Model
         VISION,             // Computer Vision
@@ -54,8 +52,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
         GATED,              // Requires approval
         ENCRYPTED           // Encrypted, requires payment/key
     }
-
-    // ============ Structs ============
 
     struct Model {
         bytes32 modelId;
@@ -128,8 +124,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
         uint256 createdAt;
     }
 
-    // ============ State ============
-
     IdentityRegistry public immutable identityRegistry;
     address public computeRegistry;         // For inference integration
     address public datasetRegistry;         // For dataset references
@@ -162,8 +156,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
     // Fees
     uint256 public uploadFee = 0;               // Can be set for spam prevention
     uint256 public inferenceFeePercentage = 500; // 5% fee on inference
-
-    // ============ Events ============
 
     event ModelCreated(
         bytes32 indexed modelId,
@@ -211,8 +203,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
     error InsufficientPayment();
     error EndpointInactive();
 
-    // ============ Modifiers ============
-
     modifier modelExists(bytes32 modelId) {
         if (models[modelId].createdAt == 0) revert ModelNotFound();
         _;
@@ -223,8 +213,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
         _;
     }
 
-    // ============ Constructor ============
-
     constructor(
         address _identityRegistry,
         address _treasury,
@@ -233,8 +221,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
         identityRegistry = IdentityRegistry(payable(_identityRegistry));
         treasury = _treasury;
     }
-
-    // ============ Model Management ============
 
     /**
      * @notice Create a new model entry
@@ -372,8 +358,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
         emit ProvenanceRecorded(modelId, versionId, computeJobId);
     }
 
-    // ============ Access & Downloads ============
-
     /**
      * @notice Download/access a model (tracks downloads)
      */
@@ -426,8 +410,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
 
         emit ModelStarred(modelId, msg.sender, starred);
     }
-
-    // ============ Inference Endpoints ============
 
     /**
      * @notice Register an inference endpoint for a model
@@ -502,8 +484,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
         emit InferenceRequest(endpoint.endpointId, msg.sender, endpoint.pricePerRequest);
     }
 
-    // ============ View Functions ============
-
     function _getAgentIdForAddress(address addr) internal view returns (uint256) {
         // Would query indexer or iterate in production
         return 0;
@@ -558,8 +538,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
         }
         return result;
     }
-
-    // ============ Admin ============
 
     function setComputeRegistry(address _computeRegistry) external onlyOwner {
         computeRegistry = _computeRegistry;

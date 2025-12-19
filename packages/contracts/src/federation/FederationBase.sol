@@ -21,33 +21,14 @@ abstract contract FederationBase is ReentrancyGuard {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
-    // ============================================================================
-    // State
-    // ============================================================================
-
-    /// @notice Chain ID this contract is deployed on
     uint256 public immutable LOCAL_CHAIN_ID;
-
-    /// @notice Oracle for cross-chain verification
     address public oracle;
-
-    /// @notice Governance contract for access control
     address public governance;
-
-    /// @notice Reference to NetworkRegistry
     address public networkRegistry;
-
-    // ============================================================================
-    // Events
-    // ============================================================================
 
     event OracleUpdated(address indexed oldOracle, address indexed newOracle);
     event GovernanceUpdated(address indexed oldGovernance, address indexed newGovernance);
     event NetworkRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
-
-    // ============================================================================
-    // Errors
-    // ============================================================================
 
     error NotGovernance();
     error NotOracle();
@@ -58,10 +39,6 @@ abstract contract FederationBase is ReentrancyGuard {
     error NotFound();
     error NotActive();
     error InvalidSignature();
-
-    // ============================================================================
-    // Constructor
-    // ============================================================================
 
     constructor(
         uint256 _localChainId,
@@ -74,10 +51,6 @@ abstract contract FederationBase is ReentrancyGuard {
         governance = _governance;
         networkRegistry = _networkRegistry;
     }
-
-    // ============================================================================
-    // Modifiers
-    // ============================================================================
 
     modifier onlyGovernance() {
         if (msg.sender != governance) revert NotGovernance();
@@ -93,10 +66,6 @@ abstract contract FederationBase is ReentrancyGuard {
         if (msg.sender != oracle && msg.sender != governance) revert Unauthorized();
         _;
     }
-
-    // ============================================================================
-    // Admin Functions
-    // ============================================================================
 
     function setOracle(address _oracle) external onlyGovernance {
         if (_oracle == address(0)) revert ZeroAddress();
@@ -116,10 +85,6 @@ abstract contract FederationBase is ReentrancyGuard {
         networkRegistry = _networkRegistry;
     }
 
-    // ============================================================================
-    // Signature Verification
-    // ============================================================================
-
     function _verifySignature(
         bytes32 messageHash,
         bytes calldata signature,
@@ -128,10 +93,6 @@ abstract contract FederationBase is ReentrancyGuard {
         address signer = messageHash.toEthSignedMessageHash().recover(signature);
         return signer == expectedSigner;
     }
-
-    // ============================================================================
-    // ID Generation
-    // ============================================================================
 
     function _computeId(
         string memory prefix,

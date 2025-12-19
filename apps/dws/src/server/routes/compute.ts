@@ -25,8 +25,10 @@ const activeJobs = new Set<string>();
 const MAX_CONCURRENT = 5;
 const DEFAULT_TIMEOUT = 300000;
 
-// Initialize CQL state
-initializeDWSState().catch(console.error);
+// Initialize CQL state (skip in test environment to avoid connection errors)
+if (process.env.NODE_ENV !== 'test') {
+  initializeDWSState().catch(console.error);
+}
 
 const SHELL_CONFIG: Record<string, { path: string; args: (cmd: string) => string[] }> = {
   bash: { path: '/bin/bash', args: (cmd) => ['-c', cmd] },
@@ -43,13 +45,21 @@ export function createComputeRouter(): Hono {
   addTrainingRoutes(app);
 
   app.get('/health', async (c) => {
-    const queued = await computeJobState.getQueued();
+    let queuedCount = 0;
+    let cqlStatus = 'connected';
+    try {
+      const queued = await computeJobState.getQueued();
+      queuedCount = queued.length;
+    } catch {
+      cqlStatus = 'unavailable';
+    }
     return c.json({
       service: 'dws-compute',
       status: 'healthy',
       activeJobs: activeJobs.size,
       maxConcurrent: MAX_CONCURRENT,
-      queuedJobs: queued.length,
+      queuedJobs: queuedCount,
+      cqlStatus,
     });
   });
 
