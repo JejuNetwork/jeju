@@ -42,8 +42,6 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
-    // ============ Constants ============
-
     bytes32 public constant AUTHORIZATION_TYPEHASH = keccak256(
         "PaymentAuthorization(address merchant,address token,uint256 amount,uint256 deadline,bytes32 orderRef,uint256 nonce)"
     );
@@ -57,42 +55,18 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
     /// @notice Maximum operator fee (5%)
     uint256 public constant MAX_OPERATOR_FEE_BPS = 500;
 
-    // ============ State Variables ============
-
-    /// @notice Payment authorizations by ID
     mapping(bytes32 => PaymentAuthorization) public authorizations;
 
-    /// @notice Captured amounts per payment
     mapping(bytes32 => uint256) public capturedAmounts;
-
-    /// @notice Refunded amounts per payment
     mapping(bytes32 => uint256) public refundedAmounts;
-
-    /// @notice Supported payment tokens
     mapping(address => bool) public supportedTokens;
-
-    /// @notice Registered merchants
     mapping(address => bool) public registeredMerchants;
-
-    /// @notice Registered operators
     mapping(address => OperatorConfig) public operators;
-
-    /// @notice User nonces for replay protection
     mapping(address => uint256) public nonces;
-
-    /// @notice Protocol fee in basis points
-    uint256 public protocolFeeBps = 100; // 1% default
-
-    /// @notice Protocol fee recipient
+    uint256 public protocolFeeBps = 100;
     address public feeRecipient;
-
-    /// @notice Total protocol fees collected
     uint256 public totalProtocolFees;
-
-    /// @notice Total volume processed
     uint256 public totalVolume;
-
-    // ============ Errors ============
 
     error InvalidMerchant();
     error InvalidToken();
@@ -110,8 +84,6 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
     error OperatorFeeTooHigh();
     error TransferFailed();
 
-    // ============ Constructor ============
-
     constructor(
         address _owner,
         address _feeRecipient,
@@ -123,8 +95,6 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
             supportedTokens[_initialTokens[i]] = true;
         }
     }
-
-    // ============ Authorization Functions ============
 
     /**
      * @notice Authorize a payment (lock funds in escrow)
@@ -253,8 +223,6 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
         );
     }
 
-    // ============ Capture Functions ============
-
     /**
      * @notice Capture an authorized payment (transfer to merchant)
      * @param paymentId Payment to capture
@@ -349,8 +317,6 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
         _executeCapture(auth, request.captureAmount, request.fulfillmentRef, opConfig);
     }
 
-    // ============ Void Functions ============
-
     /**
      * @notice Void an authorization (return funds to payer)
      * @param paymentId Payment to void
@@ -398,8 +364,6 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
         emit PaymentVoided(paymentId, auth.payer, refundAmount);
     }
 
-    // ============ Refund Functions ============
-
     /**
      * @notice Refund a captured payment
      * @param paymentId Payment to refund
@@ -434,8 +398,6 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
 
         emit PaymentRefunded(paymentId, auth.payer, refundAmount, reason);
     }
-
-    // ============ View Functions ============
 
     /**
      * @notice Get payment details
@@ -479,8 +441,6 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
         return (totalVolume, totalProtocolFees, protocolFeeBps);
     }
 
-    // ============ Admin Functions ============
-
     function registerMerchant(address merchant, bool registered) external onlyOwner {
         registeredMerchants[merchant] = registered;
     }
@@ -521,8 +481,6 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
     function setFeeRecipient(address recipient) external onlyOwner {
         feeRecipient = recipient;
     }
-
-    // ============ Internal Functions ============
 
     function _executeCapture(
         PaymentAuthorization storage auth,

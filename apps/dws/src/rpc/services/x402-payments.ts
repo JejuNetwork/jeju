@@ -2,8 +2,10 @@ import type { Address } from 'viem';
 import { recoverAddress, hashMessage } from 'viem';
 import { x402State, initializeDWSState } from '../../state.js';
 
-// Initialize CQL state
-initializeDWSState().catch(console.error);
+// Initialize CQL state (skip in test to avoid connection errors)
+if (process.env.NODE_ENV !== 'test') {
+  initializeDWSState().catch(console.error);
+}
 
 export type X402Network = 'sepolia' | 'base' | 'base-sepolia' | 'ethereum' | 'jeju' | 'jeju-testnet';
 
@@ -46,12 +48,14 @@ const X402_ENABLED = process.env.X402_ENABLED !== 'false';
 
 export const RPC_PRICING = { standard: 100n, archive: 500n, trace: 1000n } as const;
 
-// Initialize state on module load (non-blocking)
-initializeDWSState().catch((err: Error) => {
-  if (process.env.NODE_ENV !== 'production') {
-    console.warn('[X402 Payments] Running without CQL:', err.message);
-  }
-});
+// Initialize state on module load (skip in test to avoid connection errors)
+if (process.env.NODE_ENV !== 'test') {
+  initializeDWSState().catch((err: Error) => {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn('[X402 Payments] Running without CQL:', err.message);
+    }
+  });
+}
 
 export const isX402Enabled = () => X402_ENABLED && PAYMENT_RECIPIENT !== ZERO_ADDRESS;
 

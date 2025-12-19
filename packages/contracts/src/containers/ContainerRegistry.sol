@@ -23,15 +23,11 @@ import "../registry/IdentityRegistry.sol";
  */
 contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
 
-    // ============ Enums ============
-
     enum Visibility {
         PUBLIC,
         PRIVATE,
         ORGANIZATION
     }
-
-    // ============ Structs ============
 
     struct Repository {
         bytes32 repoId;
@@ -83,8 +79,6 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         bool isValid;
     }
 
-    // ============ State ============
-
     IdentityRegistry public immutable identityRegistry;
     address public treasury;
 
@@ -116,8 +110,6 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
     uint256 public pushFee = 0;                 // Fee per push (spam prevention)
     uint256 public storageFeePerGB = 0;         // Storage fee
 
-    // ============ Events ============
-
     event RepositoryCreated(
         bytes32 indexed repoId,
         string indexed namespace,
@@ -140,8 +132,6 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
     event AccessRevoked(bytes32 indexed repoId, address indexed user);
     event NamespaceClaimed(string indexed namespace, address indexed owner);
 
-    // ============ Errors ============
-
     error RepoNotFound();
     error NotRepoOwner();
     error RepoNameTaken();
@@ -151,8 +141,6 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
     error LayerNotFound();
     error InvalidSignature();
     error InsufficientPayment();
-
-    // ============ Modifiers ============
 
     modifier repoExists(bytes32 repoId) {
         if (repositories[repoId].createdAt == 0) revert RepoNotFound();
@@ -172,8 +160,6 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         _;
     }
 
-    // ============ Constructor ============
-
     constructor(
         address _identityRegistry,
         address _treasury,
@@ -182,8 +168,6 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         identityRegistry = IdentityRegistry(payable(_identityRegistry));
         treasury = _treasury;
     }
-
-    // ============ Namespace Management ============
 
     /**
      * @notice Claim a namespace (organization or username)
@@ -201,8 +185,6 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         if (namespaceOwner[namespace] != msg.sender) revert NamespaceNotOwned();
         namespaceOwner[namespace] = newOwner;
     }
-
-    // ============ Repository Management ============
 
     /**
      * @notice Create a new container repository
@@ -377,8 +359,6 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         emit ImageSigned(manifest.manifestId, msg.sender);
     }
 
-    // ============ Access Control ============
-
     /**
      * @notice Grant access to private repository
      */
@@ -427,8 +407,6 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         emit RepositoryStarred(repoId, msg.sender, starred);
     }
 
-    // ============ View Functions ============
-
     function _getAgentIdForAddress(address addr) internal view returns (uint256) {
         return 0; // Would query indexer in production
     }
@@ -473,8 +451,6 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         }
         return result;
     }
-
-    // ============ Admin ============
 
     function setTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;

@@ -78,23 +78,31 @@ contract DeployDecentralization is Script {
         // Get chain ID for network-specific defaults
         uint256 chainId = block.chainid;
 
-        // Deploy mock dependencies for localnet if not provided
-        if (jejuToken == address(0) || identityRegistry == address(0) || reputationRegistry == address(0)) {
-            console.log("Deploying mock dependencies for local testing...");
-
+        // Deploy dependencies only if not provided
+        if (jejuToken == address(0)) {
             MockJEJUToken mockToken = new MockJEJUToken();
             jejuToken = address(mockToken);
             console.log("MockJEJUToken deployed:", jejuToken);
-
+        } else {
+            console.log("Using existing JEJUToken:", jejuToken);
+        }
+        
+        if (identityRegistry == address(0)) {
             IdentityRegistry idRegistry = new IdentityRegistry();
             identityRegistry = address(idRegistry);
             console.log("IdentityRegistry deployed:", identityRegistry);
-
+        } else {
+            console.log("Using existing IdentityRegistry:", identityRegistry);
+        }
+        
+        if (reputationRegistry == address(0)) {
             ReputationRegistry repRegistry = new ReputationRegistry(payable(identityRegistry));
             reputationRegistry = address(repRegistry);
             console.log("ReputationRegistry deployed:", reputationRegistry);
-            console.log("");
+        } else {
+            console.log("Using existing ReputationRegistry:", reputationRegistry);
         }
+        console.log("");
 
         // ============================================================
         // STAGE 2: CANNON FRAUD PROOF SYSTEM

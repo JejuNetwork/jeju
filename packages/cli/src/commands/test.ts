@@ -257,7 +257,9 @@ testCommand
     const apps = discoverApps(rootDir);
 
     for (const app of apps) {
-      const result = await runAppTests(rootDir, app.name, mode, options, testEnv);
+      // Use slug for file system lookup, falling back to name
+      const appSlug = app.slug || app.name;
+      const result = await runAppTests(rootDir, appSlug, mode, options, testEnv);
       results.push(result);
 
       if (!result.passed && options.ci) {

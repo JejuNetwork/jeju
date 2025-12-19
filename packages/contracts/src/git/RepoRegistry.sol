@@ -29,48 +29,20 @@ import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
  * @custom:security-contact security@jeju.network
  */
 contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
-    // ============ State Variables ============
-
-    /// @notice ERC-8004 Identity Registry for agent verification
     IIdentityRegistry public identityRegistry;
 
-    /// @notice All repositories by ID
     mapping(bytes32 => Repository) private _repositories;
-
-    /// @notice Owner + name to repoId mapping for lookups
     mapping(address => mapping(bytes32 => bytes32)) private _ownerNameToRepo;
-
-    /// @notice Branches per repository
     mapping(bytes32 => mapping(bytes32 => Branch)) private _branches;
-
-    /// @notice Branch names per repository (for enumeration)
     mapping(bytes32 => bytes32[]) private _branchNames;
-
-    /// @notice Collaborators per repository
     mapping(bytes32 => mapping(address => Collaborator)) private _collaborators;
-
-    /// @notice Collaborator addresses per repository (for enumeration)
     mapping(bytes32 => address[]) private _collaboratorAddresses;
-
-    /// @notice User's repositories (owned + collaborated)
     mapping(address => bytes32[]) private _userRepositories;
-
-    /// @notice Stars per repository per user
     mapping(bytes32 => mapping(address => bool)) private _stars;
-
-    /// @notice All repository IDs
     bytes32[] private _allRepoIds;
-
-    /// @notice Push events per repository (recent history)
     mapping(bytes32 => PushEvent[]) private _pushHistory;
-
-    /// @notice Maximum push history to keep per repo
     uint256 public constant MAX_PUSH_HISTORY = 100;
-
-    /// @notice Default branch name
     string public constant DEFAULT_BRANCH = "main";
-
-    // ============ Errors ============
 
     error RepoAlreadyExists();
     error RepoNotFound();
@@ -89,8 +61,6 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
     error InvalidAgentId();
     error NotAgentOwner();
     error CannotDeleteDefaultBranch();
-
-    // ============ Modifiers ============
 
     modifier repoExists(bytes32 repoId) {
         if (_repositories[repoId].createdAt == 0) revert RepoNotFound();
@@ -121,15 +91,11 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
         _;
     }
 
-    // ============ Constructor ============
-
     constructor(address _owner, address _identityRegistry) Ownable(_owner) {
         if (_identityRegistry != address(0)) {
             identityRegistry = IIdentityRegistry(_identityRegistry);
         }
     }
-
-    // ============ Repository Management ============
 
     /**
      * @notice Create a new repository
@@ -313,8 +279,6 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
         emit RepositoryForked(newRepoId, repoId, msg.sender);
     }
 
-    // ============ Branch Management ============
-
     /**
      * @notice Push commits to a branch (update tip)
      * @param repoId Repository ID
@@ -458,8 +422,6 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
         emit BranchProtectionSet(repoId, branch, protected_);
     }
 
-    // ============ Collaborator Management ============
-
     /**
      * @notice Add a collaborator to a repository
      */
@@ -530,8 +492,6 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
         emit CollaboratorRoleChanged(repoId, user, newRole);
     }
 
-    // ============ Social Features ============
-
     /**
      * @notice Star a repository
      */
@@ -555,8 +515,6 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
 
         emit RepositoryUnstarred(repoId, msg.sender);
     }
-
-    // ============ View Functions ============
 
     function getRepository(bytes32 repoId) external view returns (Repository memory) {
         return _repositories[repoId];
@@ -666,8 +624,6 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
         return _pushHistory[repoId];
     }
 
-    // ============ Internal Functions ============
-
     function _recordPush(
         bytes32 repoId,
         string calldata branch,
@@ -729,8 +685,6 @@ contract RepoRegistry is IRepoRegistry, Ownable, Pausable, ReentrancyGuard {
         }
         return string(buffer);
     }
-
-    // ============ Admin Functions ============
 
     function setIdentityRegistry(address _identityRegistry) external onlyOwner {
         identityRegistry = IIdentityRegistry(_identityRegistry);

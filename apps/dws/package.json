@@ -18,7 +18,7 @@
     "dev:all": "bun run dev & cd frontend && bun run dev",
     "start": "bun run src/server/index.ts",
     "node": "bun run src/node/index.ts",
-    "test": "bun test src/tests src/cdn/tests",
+    "test": "NODE_ENV=test bun test src/tests src/cdn/tests",
     "test:integration": "bun test src/tests src/cdn/tests tests/*.test.ts tests/integration",
     "test:frontend": "cd frontend && bun run test",
     "test:e2e": "cd frontend && bun run test:headed",

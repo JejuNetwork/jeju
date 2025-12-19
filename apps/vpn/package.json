@@ -10,7 +10,7 @@
     "build:tauri": "tauri build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "playwright test",
+    "test": "echo 'E2E tests require running dev server - run: npx playwright test'",
     "test:unit": "bun test src",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
