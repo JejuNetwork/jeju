@@ -616,17 +616,11 @@ export class PoCMonitor {
       throw new Error('IDENTITY_REGISTRY_ADDRESS environment variable required');
     }
 
-    const validationRegistryAddress = process.env.VALIDATION_REGISTRY_ADDRESS;
-    if (!validationRegistryAddress) {
-      throw new Error('VALIDATION_REGISTRY_ADDRESS environment variable required');
-    }
-
     return new PoCMonitor({
       chain,
       rpcUrl,
       validatorAddress: validatorAddress as Address,
       identityRegistryAddress: identityRegistryAddress as Address,
-      validationRegistryAddress: validationRegistryAddress as Address,
       checkInterval: Number(process.env.POC_CHECK_INTERVAL) || 60 * 60 * 1000, // 1 hour
       reverificationThreshold: Number(process.env.POC_REVERIFY_THRESHOLD) || 24 * 60 * 60 * 1000, // 24 hours
       enableRevocationWatch: process.env.POC_REVOCATION_WATCH !== 'false',
