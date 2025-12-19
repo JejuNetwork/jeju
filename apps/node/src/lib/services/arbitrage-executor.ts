@@ -17,6 +17,10 @@
 import {
   type Address,
   type Hex,
+  type PublicClient,
+  type WalletClient,
+  type Chain,
+  type Transport,
   createPublicClient,
   createWalletClient,
   http,
@@ -26,6 +30,12 @@ import {
 } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, arbitrum, optimism, base } from 'viem/chains';
+
+// Client types with generic chain/transport to avoid strict type checking issues
+interface EVMClientPair {
+  public: PublicClient<Transport, Chain>;
+  wallet: WalletClient<Transport, Chain>;
+}
 import {
   Connection,
   Keypair,
@@ -73,8 +83,7 @@ const SOLANA_MINTS: Record<string, { mint: string; decimals: number }> = {
   WETH: { mint: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs', decimals: 8 },
 };
 
-// 1inch Fusion API
-const ONEINCH_FUSION_API = 'https://fusion.1inch.io/v2.0';
+// 1inch Swap API
 const ONEINCH_SWAP_API = 'https://api.1inch.dev/swap/v6.0';
 
 // Jupiter API
@@ -133,15 +142,6 @@ interface JupiterSwapResponse {
   lastValidBlockHeight: number;
 }
 
-interface HyperliquidPosition {
-  coin: string;
-  szi: string;
-  entryPx: string;
-  positionValue: string;
-  unrealizedPnl: string;
-  leverage: { type: string; value: number };
-}
-
 // ============ Arbitrage Executor ============
 
 export class ArbitrageExecutor {
@@ -149,7 +149,7 @@ export class ArbitrageExecutor {
   private evmAccount: PrivateKeyAccount;
   private solanaKeypair: Keypair | null = null;
   private solanaConnection: Connection | null = null;
-  private evmClients: Map<number, { public: ReturnType<typeof createPublicClient>; wallet: ReturnType<typeof createWalletClient> }> = new Map();
+  private evmClients = new Map<number, EVMClientPair>();
 
   constructor(config: ExecutorConfig) {
     this.config = config;
@@ -174,13 +174,13 @@ export class ArbitrageExecutor {
       const publicClient = createPublicClient({
         chain: chainConfig.chain,
         transport: http(rpcUrl),
-      });
+      }) as PublicClient<Transport, Chain>;
 
       const walletClient = createWalletClient({
         account: this.evmAccount,
         chain: chainConfig.chain,
         transport: http(rpcUrl),
-      });
+      }) as WalletClient<Transport, Chain>;
 
       this.evmClients.set(chainId, { public: publicClient, wallet: walletClient });
     }
@@ -748,6 +748,8 @@ export class ArbitrageExecutor {
     if (quote.txData) {
       // Use 1inch tx data
       const hash = await clients.wallet.sendTransaction({
+        account: this.evmAccount,
+        chain: clients.wallet.chain,
         to: '0x1111111254EEB25477B68fb85Ed929f73A960582' as Address, // 1inch router
         data: quote.txData,
         value: 0n,
@@ -788,6 +790,8 @@ export class ArbitrageExecutor {
     });
 
     const approveHash = await clients.wallet.sendTransaction({
+      account: this.evmAccount,
+      chain: clients.wallet.chain,
       to: quote.inputToken as Address,
       data: approveData,
     });
@@ -811,6 +815,8 @@ export class ArbitrageExecutor {
     });
 
     const hash = await clients.wallet.sendTransaction({
+      account: this.evmAccount,
+      chain: clients.wallet.chain,
       to: routerAddress,
       data: swapData,
     });
@@ -980,16 +986,10 @@ export class ArbitrageExecutor {
 
     // Sign with EVM wallet (Hyperliquid uses EVM signing)
     const timestamp = Date.now();
-    const signPayload = {
-      ...orderPayload,
-      signatureChainId: '0xa4b1', // Arbitrum
-      hyperliquidChain: 'Mainnet',
-      nonce: timestamp,
-    };
-
-    // Note: Full signing implementation would use Hyperliquid SDK
-    // This is a simplified placeholder
-    console.log(`   Placing HL ${side} order: ${size.toFixed(4)} ${symbol} @ ${price}`);
+    const order = orderPayload.orders[0];
+    // Hyperliquid SDK integration required for production order execution
+    console.log(`   Placing HL ${side} order: ${size.toFixed(4)} ${symbol} @ ${price} (nonce: ${timestamp})`);
+    console.log(`   Order params: asset ${order.a}, sz ${order.s}, px ${order.p}`);
 
     return {
       success: true,

@@ -62,10 +62,10 @@
   "dependencies": {
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
-    "@tenkeylabs/dappwright": "^2.11.3",
-    "hono": "^4.0.0",
-    "pg": "^8.13.3",
-    "viem": "^2.7.15"
+    "@tenkeylabs/dappwright": "2.11.3",
+    "hono": "4.7.0",
+    "pg": "8.16.0",
+    "viem": "2.41.2"
   },
   "peerDependencies": {
     "@playwright/test": ">=1.55.1",

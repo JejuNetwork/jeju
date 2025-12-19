@@ -23,7 +23,7 @@ import type { Address } from 'viem';
 
 // Helper to safely get context variables
 function getContextVar<T>(c: Context, key: string): T | undefined {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+   
   return (c as unknown as { get: (k: string) => T | undefined }).get(key);
 }
 

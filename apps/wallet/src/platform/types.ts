@@ -6,6 +6,9 @@ export type PlatformType =
   | 'web'
   | 'chrome-extension'
   | 'firefox-extension'
+  | 'safari-extension'
+  | 'edge-extension'
+  | 'brave-extension'
   | 'tauri-macos'
   | 'tauri-windows'
   | 'tauri-linux'
@@ -13,6 +16,8 @@ export type PlatformType =
   | 'capacitor-android';
 
 export type PlatformCategory = 'web' | 'extension' | 'desktop' | 'mobile';
+
+export type BrowserType = 'chrome' | 'firefox' | 'safari' | 'edge' | 'brave' | 'opera' | 'unknown';
 
 export interface PlatformCapabilities {
   hasSecureStorage: boolean;

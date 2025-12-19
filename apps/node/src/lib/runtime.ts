@@ -244,8 +244,8 @@ function createBrowserAPI(): RuntimeAPI {
       ] as const;
 
       // Read Jeju token balance from environment or deployment
-      const jejuTokenAddress = process.env.JEJU_TOKEN_ADDRESS || config.jejuTokenAddress;
-      const stakingManagerAddress = process.env.NODE_STAKING_MANAGER || config.stakingManagerAddress;
+      const jejuTokenAddress = process.env.JEJU_TOKEN_ADDRESS;
+      const stakingManagerAddress = process.env.NODE_STAKING_MANAGER;
       
       let jejuBalance = 0n;
       let stakedBalance = 0n;

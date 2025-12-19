@@ -17,10 +17,8 @@ import { createHash } from 'crypto';
 import { z } from 'zod';
 import { Registry, Counter, Gauge, Histogram } from 'prom-client';
 import { LRUCache } from 'lru-cache';
-import { type Address } from 'viem';
 import { type NodeClient } from '../contracts';
 import { type HybridTorrentService, getHybridTorrentService } from './hybrid-torrent';
-import { CONTENT_REGISTRY_ABI } from '../abis';
 
 // ============================================================================
 // Configuration Schema
@@ -155,7 +153,6 @@ function getMimeType(filePath: string): string {
 
 export class StaticAssetService {
   private config: StaticAssetConfig;
-  private client: NodeClient | null;
   private torrent: HybridTorrentService | null = null;
   private server: http.Server | null = null;
   private metricsServer: http.Server | null = null;
@@ -169,12 +166,16 @@ export class StaticAssetService {
     ttl: 24 * 60 * 60 * 1000, // 24 hours
   });
 
+  // Cache stats for hit rate calculation
+  private cacheHits = 0;
+  private cacheMisses = 0;
+
   // Network asset manifest
   private manifest: AssetManifest | null = null;
   private manifestRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
-  constructor(client: NodeClient | null, config: Partial<StaticAssetConfig> = {}) {
-    this.client = client;
+  constructor(_client: NodeClient | null, config: Partial<StaticAssetConfig> = {}) {
+    // Note: client parameter reserved for future on-chain manifest support
     this.config = StaticAssetConfigSchema.parse({
       ...config,
       cachePath: config.cachePath ?? './cache/assets',
@@ -331,10 +332,12 @@ export class StaticAssetService {
     if (cached) {
       cached.lastAccessed = Date.now();
       cached.accessCount++;
+      this.cacheHits++;
       assetCacheHits.inc();
       return cached;
     }
 
+    this.cacheMisses++;
     assetCacheMisses.inc();
 
     // Check disk cache
@@ -463,66 +466,28 @@ export class StaticAssetService {
   // ============================================================================
 
   private async refreshManifest(): Promise<void> {
-    // Try on-chain manifest first
-    if (this.client) {
-      try {
-        const manifestHash = await this.client.publicClient.readContract({
-          address: this.client.addresses.contentRegistry,
-          abi: CONTENT_REGISTRY_ABI,
-          functionName: 'getNetworkManifest',
-          args: [],
-        }) as string;
-
-        if (manifestHash && manifestHash !== '0x') {
-          // Fetch manifest from IPFS/torrent
-          const manifestData = await this.fetchManifestData(manifestHash);
-          if (manifestData) {
-            this.manifest = manifestData;
-            console.log(`[StaticAssets] Loaded manifest v${manifestData.version} with ${manifestData.assets.length} assets`);
-            return;
-          }
-        }
-      } catch (error) {
-        console.warn('[StaticAssets] Failed to load on-chain manifest:', error);
-      }
-    }
-
-    // Fallback to URL-based manifest
+    // Try URL-based manifest first (primary method)
     if (this.config.manifestUrl) {
       try {
         const data = await this.fetchFromCDN(this.config.manifestUrl);
         if (data) {
           this.manifest = JSON.parse(data.toString()) as AssetManifest;
           console.log(`[StaticAssets] Loaded manifest v${this.manifest.version} from URL`);
+          return;
         }
       } catch (error) {
         console.warn('[StaticAssets] Failed to load manifest from URL:', error);
       }
     }
-  }
 
-  private async fetchManifestData(hash: string): Promise<AssetManifest | null> {
-    // Try torrent first
-    if (this.torrent) {
-      try {
-        const magnetUri = `magnet:?xt=urn:btih:${hash}`;
-        const stats = await this.torrent.addTorrent(magnetUri);
-        const data = await this.torrent.getContent(stats.infohash);
-        return JSON.parse(data.toString()) as AssetManifest;
-      } catch {
-        // Fall through to CDN
-      }
-    }
-
-    // Try CDN
-    if (this.config.cdnFallbackUrl) {
-      const data = await this.fetchFromCDN(`${this.config.cdnFallbackUrl}/manifest/${hash}.json`);
-      if (data) {
-        return JSON.parse(data.toString()) as AssetManifest;
-      }
-    }
-
-    return null;
+    // Note: On-chain manifest support requires ContentRegistry to have getNetworkManifest()
+    // This is not yet implemented - when added, use:
+    // const manifestHash = await this.client.publicClient.readContract({
+    //   address: this.client.addresses.contentRegistry,
+    //   abi: CONTENT_REGISTRY_ABI,
+    //   functionName: 'getNetworkManifest',
+    //   args: [],
+    // }) as string;
   }
 
   // ============================================================================
@@ -562,10 +527,11 @@ export class StaticAssetService {
     sizeBytes: number;
     hitRate: number;
   } {
+    const total = this.cacheHits + this.cacheMisses;
     return {
       entries: this.assetCache.size,
       sizeBytes: this.assetCache.calculatedSize ?? 0,
-      hitRate: 0, // Would calculate from counters
+      hitRate: total > 0 ? this.cacheHits / total : 0,
     };
   }
 

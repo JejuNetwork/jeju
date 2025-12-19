@@ -21,6 +21,9 @@ import { logger } from '../lib/logger';
 import { createTestOrchestrator, TestOrchestrator } from '../services/test-orchestrator';
 import { createDockerOrchestrator, type TestProfile } from '../services/docker-orchestrator';
 import { discoverApps } from '../lib/testing';
+import type { TestMode, TestResult, CoverageReport } from '../types/test';
+
+export type { TestMode };
 
 const MODE_TO_PROFILE: Record<TestMode, TestProfile> = {
   unit: 'chain',
@@ -30,24 +33,6 @@ const MODE_TO_PROFILE: Record<TestMode, TestProfile> = {
   infra: 'services',
   smoke: 'chain',
 };
-
-export type TestMode = 'unit' | 'integration' | 'e2e' | 'full' | 'infra' | 'smoke';
-
-interface TestResult {
-  name: string;
-  passed: boolean;
-  duration: number;
-  skipped?: boolean;
-  coverage?: number;
-  output?: string;
-}
-
-interface CoverageReport {
-  lines: { total: number; covered: number; percent: number };
-  functions: { total: number; covered: number; percent: number };
-  branches: { total: number; covered: number; percent: number };
-  deadCode?: string[];
-}
 
 interface ManifestTesting {
   unit?: { command?: string; timeout?: number };

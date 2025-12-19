@@ -18,7 +18,6 @@ import {
   type PoCRevocation,
   type PoCVerificationEvent,
   type PoCEventListener,
-  type AgentPoCStatus,
 } from './types';
 import { PoCVerifier } from './verifier';
 import { PoCRegistryClient, createRegistryClient } from './registry-client';
@@ -341,7 +340,6 @@ export class PoCMonitor {
   private async runChecks(): Promise<void> {
     if (!this.isRunning) return;
 
-    const now = Date.now();
     const agents = Array.from(this.monitoredAgents.values());
 
     // Process in batches

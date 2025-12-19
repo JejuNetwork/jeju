@@ -3,9 +3,11 @@
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
+use crate::bandwidth::AdaptiveBandwidthManager;
 use crate::config::VPNConfig;
 use crate::contribution::ContributionManager;
-use crate::vpn::{VPNConnection, VPNManager};
+use crate::dws::{DWSManager, DWSConfig};
+use crate::vpn::VPNManager;
 
 /// Main application state
 pub struct AppState {
@@ -14,6 +16,12 @@ pub struct AppState {
     
     /// Contribution manager handles fair sharing
     pub contribution: Arc<RwLock<ContributionManager>>,
+    
+    /// Adaptive bandwidth manager
+    pub bandwidth: Arc<RwLock<AdaptiveBandwidthManager>>,
+    
+    /// DWS integration manager
+    pub dws: Arc<RwLock<DWSManager>>,
     
     /// Configuration
     pub config: Arc<RwLock<VPNConfig>>,
@@ -35,6 +43,8 @@ impl AppState {
         Self {
             vpn: Arc::new(RwLock::new(VPNManager::new())),
             contribution: Arc::new(RwLock::new(ContributionManager::new())),
+            bandwidth: Arc::new(RwLock::new(AdaptiveBandwidthManager::new())),
+            dws: Arc::new(RwLock::new(DWSManager::new(DWSConfig::default()))),
             config: Arc::new(RwLock::new(VPNConfig::default())),
             session: Arc::new(RwLock::new(None)),
         }

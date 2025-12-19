@@ -1,0 +1,75 @@
+{
+  "$schema": "./vrf.schema.json",
+  "description": "Chainlink VRF v2.5 Configuration for Jeju Network",
+  "lastUpdated": "2024-12-17",
+  "documentation": "https://docs.chain.link/vrf",
+  
+  "chains": {
+    "420691": {
+      "coordinator": "0x0000000000000000000000000000000000000000",
+      "wrapper": "0x0000000000000000000000000000000000000000",
+      "linkToken": "0x0000000000000000000000000000000000000000",
+      "linkEthFeed": "0x0000000000000000000000000000000000000000",
+      "keyHash": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "callbackGasLimit": 2500000,
+      "requestConfirmations": 3,
+      "numWords": 1,
+      "status": "pending_deployment"
+    },
+    "1": {
+      "coordinator": "0x271682DEB8C4E0901D1a1550aD2e64D568E69909",
+      "wrapper": "0x5A861794B927983406fCE1D062e00b9368d97Df6",
+      "linkToken": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+      "linkEthFeed": "0xDC530D9457755926550b59e8ECcdaE7624181557",
+      "keyHash": "0x8af398995b04c28e9951adb9721ef74c74f93e6a478f39e7e0777be13527e7ef",
+      "callbackGasLimit": 2500000,
+      "requestConfirmations": 3,
+      "numWords": 1,
+      "status": "reference"
+    },
+    "8453": {
+      "coordinator": "0xd5D517aBE5cF79B7e95eC98dB0f0277788aFF634",
+      "wrapper": "0x7539Afb0aF8B5d4A41a54e4C9e8ebFB0a3d4F02b",
+      "linkToken": "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196",
+      "linkEthFeed": "0xb85765935B4d9Ab6f841c9a00690Da5F34368bc0",
+      "keyHash": "0x00b2a59adb47e68e1dae3b3f4da05b2c9c99b0e8f7b9f9a6f3d32b96acba4a7e",
+      "callbackGasLimit": 2500000,
+      "requestConfirmations": 3,
+      "numWords": 1,
+      "status": "reference"
+    },
+    "42161": {
+      "coordinator": "0x41034678D6C633D8a95c75e1138A360a28bA15d1",
+      "wrapper": "0x2D159AE3bFf04a10A355B608D22BDEC092e934fa",
+      "linkToken": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
+      "linkEthFeed": "0xb7c8Fb1dB45007F98A68Da0588e1AA524C317f27",
+      "keyHash": "0x72d2b016bb5b62912afea355ebf33b91319f828738b111b723b78696b9847b63",
+      "callbackGasLimit": 2500000,
+      "requestConfirmations": 3,
+      "numWords": 1,
+      "status": "reference"
+    }
+  },
+  
+  "jejuVrfConfig": {
+    "description": "Configuration for Jeju-operated VRF service",
+    "pricing": {
+      "linkPremiumPpm": 500000,
+      "nativePremiumPpm": 500000,
+      "flatFeeLinkPpm": 100000,
+      "flatFeeNativePpm": 100000
+    },
+    "limits": {
+      "maxGasLimit": 2500000,
+      "maxNumWords": 500,
+      "minRequestConfirmations": 1,
+      "maxRequestConfirmations": 200
+    },
+    "governance": {
+      "feeRecipient": "treasury",
+      "feeUpdateProposalRequired": true,
+      "maxFeeIncreaseBps": 2000
+    }
+  }
+}
+

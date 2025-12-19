@@ -67,7 +67,7 @@ interface IStorageTypes {
         uint256 uploadPricePerGB;
     }
 
-    struct ProviderInfo {
+    struct StorageProviderInfo {
         Provider provider;
         ProviderCapacity capacity;
         ProviderPricing pricing;

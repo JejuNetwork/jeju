@@ -210,10 +210,11 @@ export function createS3Router(backend: BackendManager): Hono {
     }
   });
 
-  // Get object
+  // Get object (also handles HEAD via Hono routing)
   router.get('/:bucket/:key{.+}', async (c) => {
     const bucket = c.req.param('bucket');
     const key = c.req.param('key');
+    const isHead = c.req.method === 'HEAD';
 
     // Check for presigned URL
     const signature = c.req.query('X-DWS-Signature');
@@ -229,6 +230,28 @@ export function createS3Router(backend: BackendManager): Hono {
     }
 
     try {
+      // For HEAD requests, use headObject to avoid fetching the body
+      if (isHead) {
+        const result = await s3.headObject(bucket, key);
+        
+        const headers = new Headers();
+        headers.set('Content-Type', result.contentType);
+        headers.set('Content-Length', String(result.contentLength));
+        headers.set('ETag', result.etag);
+        headers.set('Last-Modified', result.lastModified.toUTCString());
+        headers.set('x-amz-storage-class', result.storageClass);
+        
+        if (result.versionId) {
+          headers.set('x-amz-version-id', result.versionId);
+        }
+        
+        for (const [metaKey, value] of Object.entries(result.metadata)) {
+          headers.set(`x-amz-meta-${metaKey}`, value);
+        }
+        
+        return new Response(null, { status: 200, headers });
+      }
+      
       const ifNoneMatch = c.req.header('if-none-match');
       const ifModifiedSince = c.req.header('if-modified-since');
       const range = c.req.header('range');
@@ -267,35 +290,6 @@ export function createS3Router(backend: BackendManager): Hono {
       if (error instanceof NotModifiedError) {
         return c.body(null, 304);
       }
-      const { status, body } = handleError(error);
-      return c.json(body, status);
-    }
-  });
-
-  // Head object
-  router.on('HEAD', '/:bucket/:key{.+}', async (c) => {
-    const bucket = c.req.param('bucket');
-    const key = c.req.param('key');
-
-    try {
-      const result = await s3.headObject(bucket, key);
-
-      c.header('Content-Type', result.contentType);
-      c.header('Content-Length', String(result.contentLength));
-      c.header('ETag', result.etag);
-      c.header('Last-Modified', result.lastModified.toUTCString());
-      c.header('x-amz-storage-class', result.storageClass);
-
-      if (result.versionId) {
-        c.header('x-amz-version-id', result.versionId);
-      }
-
-      for (const [metaKey, value] of Object.entries(result.metadata)) {
-        c.header(`x-amz-meta-${metaKey}`, value);
-      }
-
-      return c.body(null, 200);
-    } catch (error) {
       const { status, body } = handleError(error);
       return c.json(body, status);
     }

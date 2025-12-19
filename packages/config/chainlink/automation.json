@@ -1,0 +1,63 @@
+{
+  "$schema": "./automation.schema.json",
+  "description": "Jeju Automation (Chainlink Keepers alternative) Configuration",
+  "lastUpdated": "2024-12-17",
+  
+  "chains": {
+    "420691": {
+      "registry": "0x0000000000000000000000000000000000000000",
+      "registrar": "0x0000000000000000000000000000000000000000",
+      "minBalance": "0.01",
+      "defaultGasLimit": 500000,
+      "maxGasLimit": 5000000,
+      "keeperRewardBps": 1000,
+      "protocolFeeBps": 500,
+      "status": "pending_deployment"
+    }
+  },
+  
+  "jejuAutomationConfig": {
+    "description": "Jeju-native automation service configuration",
+    "keeper": {
+      "minStakeEth": "1",
+      "maxKeepers": 100,
+      "selectionAlgorithm": "round_robin_weighted",
+      "performanceThreshold": 0.95
+    },
+    "upkeep": {
+      "minBalanceEth": "0.01",
+      "maxUpkeepsPerAddress": 100,
+      "defaultCheckGasLimit": 500000,
+      "defaultPerformGasLimit": 500000,
+      "minInterval": 60,
+      "maxInterval": 86400
+    },
+    "fees": {
+      "registrationFeeEth": "0",
+      "performPremiumBps": 1000,
+      "cancellationFeeBps": 0
+    },
+    "governance": {
+      "feeRecipient": "treasury",
+      "keeperApprovalRequired": false,
+      "parameterUpdateDelay": 172800
+    }
+  },
+  
+  "officialChainlinkAutomation": {
+    "description": "Reference: Official Chainlink Automation addresses (for comparison)",
+    "1": {
+      "registry": "0x6593c7De001fC8542bB1703532EE1E5aA0D458fD",
+      "registrar": "0xDb8e8e2ccb5C033938736aa89Fe4fa1eDfD15a1d"
+    },
+    "8453": {
+      "registry": "0xE226D5aCae908252CcA3F6CEFa577527650a9e1e",
+      "registrar": "0x4F59530cDd59c8E5F99fD2F8B35a8e8C1e9f57e0"
+    },
+    "42161": {
+      "registry": "0x75c0530885F385721fddC3C7e5f7AAa8F1d9FCc3",
+      "registrar": "0x4F3aF332A30973106Fe146Af0B4220bBBeA748eC"
+    }
+  }
+}
+

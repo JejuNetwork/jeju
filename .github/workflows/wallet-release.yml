@@ -39,10 +39,9 @@ jobs:
         id: version
         run: |
           VERSION="${{ env.VERSION }}"
-          VERSION="${VERSION#v}"  # Remove 'v' prefix if present
+          VERSION="${VERSION#v}"
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           
-          # Generate version code from version (e.g., 1.2.3 -> 10203)
           IFS='.' read -ra PARTS <<< "$VERSION"
           MAJOR="${PARTS[0]:-0}"
           MINOR="${PARTS[1]:-0}"
@@ -74,7 +73,7 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jeju-wallet-web-${{ needs.prepare.outputs.version }}
+          name: network-wallet-web-${{ needs.prepare.outputs.version }}
           path: apps/wallet/dist
 
   build-extensions:
@@ -83,7 +82,7 @@ jobs:
     needs: [prepare]
     strategy:
       matrix:
-        target: [chrome, firefox]
+        target: [chrome, firefox, safari, edge, brave]
     steps:
       - uses: actions/checkout@v4
       
@@ -95,14 +94,27 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
+      - name: Update version in manifest
+        run: |
+          for manifest in src/extension/manifest.*.json; do
+            sed -i 's/"version": "[^"]*"/"version": "${{ needs.prepare.outputs.version }}"/' "$manifest"
+          done
+
       - name: Build ${{ matrix.target }} extension
         run: EXT_TARGET=${{ matrix.target }} bun run build:ext
+
+      - name: Create extension package
+        run: |
+          cd dist-ext-${{ matrix.target }}
+          zip -r ../network-wallet-${{ matrix.target }}-${{ needs.prepare.outputs.version }}.zip .
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jeju-wallet-${{ matrix.target }}-${{ needs.prepare.outputs.version }}
-          path: apps/wallet/dist-ext-${{ matrix.target }}
+          name: network-wallet-${{ matrix.target }}-${{ needs.prepare.outputs.version }}
+          path: |
+            apps/wallet/dist-ext-${{ matrix.target }}
+            apps/wallet/network-wallet-${{ matrix.target }}-${{ needs.prepare.outputs.version }}.zip
 
   build-desktop:
     name: Build Desktop (${{ matrix.platform }})
@@ -156,12 +168,17 @@ jobs:
         run: bun install --frozen-lockfile
 
       - name: Update version in Tauri config
+        shell: bash
         run: |
           cd src-tauri
-          sed -i.bak 's/"version": "[^"]*"/"version": "${{ needs.prepare.outputs.version }}"/' tauri.conf.json
+          if [[ "$RUNNER_OS" == "macOS" ]]; then
+            sed -i '' 's/"version": "[^"]*"/"version": "${{ needs.prepare.outputs.version }}"/' tauri.conf.json
+          else
+            sed -i 's/"version": "[^"]*"/"version": "${{ needs.prepare.outputs.version }}"/' tauri.conf.json
+          fi
 
       - name: Setup macOS code signing
-        if: matrix.os == 'macos-latest' && secrets.APPLE_CERTIFICATE_BASE64 != ''
+        if: matrix.os == 'macos-latest' && env.APPLE_CERTIFICATE_BASE64 != ''
         env:
           APPLE_CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
@@ -187,10 +204,90 @@ jobs:
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: jeju-wallet-${{ matrix.platform }}-${{ needs.prepare.outputs.version }}
+          name: network-wallet-${{ matrix.platform }}-${{ needs.prepare.outputs.version }}
           path: |
             apps/wallet/src-tauri/target/${{ matrix.target }}/release/bundle/${{ matrix.bundle_type }}/*
             apps/wallet/src-tauri/target/${{ matrix.target }}/release/bundle/appimage/*.AppImage
+
+  # ============================================
+  # LINUX SNAP BUILD
+  # ============================================
+  build-snap:
+    name: Build Snap
+    runs-on: ubuntu-latest
+    needs: [prepare]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update version in snapcraft.yaml
+        run: |
+          sed -i "s/version: .*/version: '${{ needs.prepare.outputs.version }}'/" snap/snapcraft.yaml
+
+      - name: Build snap
+        uses: snapcore/action-build@v1
+        id: snapcraft
+        with:
+          path: apps/wallet
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-wallet-snap-${{ needs.prepare.outputs.version }}
+          path: ${{ steps.snapcraft.outputs.snap }}
+
+  # ============================================
+  # WINDOWS STORE (MSIX)
+  # ============================================
+  build-msix:
+    name: Build MSIX
+    runs-on: windows-latest
+    needs: [prepare, build-desktop]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download Windows build
+        uses: actions/download-artifact@v4
+        with:
+          name: network-wallet-windows-${{ needs.prepare.outputs.version }}
+          path: windows-build
+
+      - name: Update AppxManifest version
+        shell: pwsh
+        run: |
+          $manifest = Get-Content msix/AppxManifest.xml
+          $manifest = $manifest -replace 'Version="[^"]*"', 'Version="${{ needs.prepare.outputs.version }}.0"'
+          Set-Content msix/AppxManifest.xml $manifest
+
+      - name: Create MSIX package
+        shell: pwsh
+        run: |
+          # Find the executable
+          $exe = Get-ChildItem -Path windows-build -Filter "*.exe" -Recurse | Select-Object -First 1
+          if ($exe) {
+            Copy-Item $exe.FullName "Network Wallet.exe"
+          }
+          
+          # Create MSIX package
+          & makeappx pack /d . /p network-wallet-${{ needs.prepare.outputs.version }}.msix /l
+        working-directory: apps/wallet
+
+      - name: Sign MSIX (if certificate available)
+        if: env.WINDOWS_CERT_BASE64 != ''
+        shell: pwsh
+        env:
+          WINDOWS_CERT_BASE64: ${{ secrets.WINDOWS_CERT_BASE64 }}
+          WINDOWS_CERT_PASSWORD: ${{ secrets.WINDOWS_CERT_PASSWORD }}
+        run: |
+          $certBytes = [Convert]::FromBase64String($env:WINDOWS_CERT_BASE64)
+          [IO.File]::WriteAllBytes("cert.pfx", $certBytes)
+          & signtool sign /fd SHA256 /a /f cert.pfx /p $env:WINDOWS_CERT_PASSWORD network-wallet-${{ needs.prepare.outputs.version }}.msix
+        working-directory: apps/wallet
+
+      - name: Upload MSIX
+        uses: actions/upload-artifact@v4
+        with:
+          name: network-wallet-msix-${{ needs.prepare.outputs.version }}
+          path: apps/wallet/network-wallet-${{ needs.prepare.outputs.version }}.msix
 
   build-android:
     name: Build Android
@@ -237,13 +334,13 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: jeju-wallet-android-apk-${{ needs.prepare.outputs.version }}
+          name: network-wallet-android-apk-${{ needs.prepare.outputs.version }}
           path: apps/wallet/android/app/build/outputs/apk/release/*.apk
 
       - name: Upload AAB
         uses: actions/upload-artifact@v4
         with:
-          name: jeju-wallet-android-aab-${{ needs.prepare.outputs.version }}
+          name: network-wallet-android-aab-${{ needs.prepare.outputs.version }}
           path: apps/wallet/android/app/build/outputs/bundle/release/*.aab
 
   build-ios:
@@ -283,6 +380,7 @@ jobs:
         run: pod install
 
       - name: Setup code signing
+        if: env.IOS_CERTIFICATE_BASE64 != ''
         env:
           IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
           IOS_CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
@@ -302,7 +400,10 @@ jobs:
           echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
       - name: Build iOS Archive
+        if: env.IOS_CERTIFICATE_BASE64 != ''
         working-directory: apps/wallet/ios/App
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
         run: |
           xcodebuild -workspace App.xcworkspace \
             -scheme App \
@@ -314,7 +415,10 @@ jobs:
             DEVELOPMENT_TEAM="${{ secrets.IOS_TEAM_ID }}"
 
       - name: Export IPA
+        if: env.IOS_CERTIFICATE_BASE64 != ''
         working-directory: apps/wallet/ios/App
+        env:
+          IOS_CERTIFICATE_BASE64: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
         run: |
           xcodebuild -exportArchive \
             -archivePath build/App.xcarchive \
@@ -324,7 +428,7 @@ jobs:
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: jeju-wallet-ios-${{ needs.prepare.outputs.version }}
+          name: network-wallet-ios-${{ needs.prepare.outputs.version }}
           path: apps/wallet/ios/App/build/export/*.ipa
 
   # ============================================
@@ -333,7 +437,7 @@ jobs:
   attach-release:
     name: Attach to Release
     runs-on: ubuntu-latest
-    needs: [prepare, build-web, build-extensions, build-desktop, build-android, build-ios]
+    needs: [prepare, build-web, build-extensions, build-desktop, build-android, build-ios, build-snap, build-msix]
     if: github.event_name == 'release'
     permissions:
       contents: write
@@ -374,16 +478,17 @@ jobs:
       - name: Download Chrome extension
         uses: actions/download-artifact@v4
         with:
-          name: jeju-wallet-chrome-${{ needs.prepare.outputs.version }}
+          name: network-wallet-chrome-${{ needs.prepare.outputs.version }}
           path: chrome-ext
 
-      - name: Zip extension
-        run: cd chrome-ext && zip -r ../jeju-wallet-chrome.zip .
+      - name: Find and rename zip
+        run: |
+          find chrome-ext -name "*.zip" -exec mv {} network-wallet-chrome.zip \;
 
       - name: Publish to Chrome Web Store
         uses: mnao305/chrome-extension-upload@v5.0.0
         with:
-          file-path: jeju-wallet-chrome.zip
+          file-path: network-wallet-chrome.zip
           extension-id: ${{ secrets.CHROME_EXTENSION_ID }}
           client-id: ${{ secrets.CHROME_CLIENT_ID }}
           client-secret: ${{ secrets.CHROME_CLIENT_SECRET }}
@@ -399,19 +504,67 @@ jobs:
       - name: Download Firefox extension
         uses: actions/download-artifact@v4
         with:
-          name: jeju-wallet-firefox-${{ needs.prepare.outputs.version }}
+          name: network-wallet-firefox-${{ needs.prepare.outputs.version }}
           path: firefox-ext
 
-      - name: Zip extension
-        run: cd firefox-ext && zip -r ../jeju-wallet-firefox.zip .
+      - name: Find and rename zip
+        run: |
+          find firefox-ext -name "*.zip" -exec mv {} network-wallet-firefox.zip \;
 
       - name: Publish to Firefox Add-ons
         uses: yayuyokitano/firefox-addon@v0.0.6-alpha
         with:
           api_key: ${{ secrets.FIREFOX_API_KEY }}
           api_secret: ${{ secrets.FIREFOX_API_SECRET }}
-          guid: '{jeju-wallet@jeju.network}'
-          xpi_path: jeju-wallet-firefox.zip
+          guid: '{jeju-wallet@jejunetwork.org}'
+          xpi_path: network-wallet-firefox.zip
+
+  publish-edge:
+    name: Publish Edge Extension
+    runs-on: ubuntu-latest
+    needs: [prepare, build-extensions]
+    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.EDGE_PRODUCT_ID != ''
+    steps:
+      - name: Download Edge extension
+        uses: actions/download-artifact@v4
+        with:
+          name: network-wallet-edge-${{ needs.prepare.outputs.version }}
+          path: edge-ext
+
+      - name: Find and rename zip
+        run: |
+          find edge-ext -name "*.zip" -exec mv {} network-wallet-edge.zip \;
+
+      - name: Publish to Edge Add-ons
+        uses: nicovince/upload-edge-addon@v2
+        with:
+          product-id: ${{ secrets.EDGE_PRODUCT_ID }}
+          client-id: ${{ secrets.EDGE_CLIENT_ID }}
+          client-secret: ${{ secrets.EDGE_CLIENT_SECRET }}
+          access-token-url: ${{ secrets.EDGE_ACCESS_TOKEN_URL }}
+          zip: network-wallet-edge.zip
+
+  publish-snap:
+    name: Publish to Snap Store
+    runs-on: ubuntu-latest
+    needs: [prepare, build-snap]
+    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.SNAPCRAFT_TOKEN != ''
+    steps:
+      - name: Download snap
+        uses: actions/download-artifact@v4
+        with:
+          name: network-wallet-snap-${{ needs.prepare.outputs.version }}
+          path: snap-pkg
+
+      - name: Install Snapcraft
+        run: sudo snap install snapcraft --classic
+
+      - name: Login and publish
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_TOKEN }}
+        run: |
+          SNAP_FILE=$(find snap-pkg -name "*.snap" | head -1)
+          snapcraft upload "$SNAP_FILE" --release=stable
 
   publish-play-store:
     name: Publish to Google Play
@@ -419,11 +572,18 @@ jobs:
     needs: [prepare, build-android]
     if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.GOOGLE_PLAY_SERVICE_ACCOUNT != ''
     steps:
+      - uses: actions/checkout@v4
+      
       - name: Download Android AAB
         uses: actions/download-artifact@v4
         with:
-          name: jeju-wallet-android-aab-${{ needs.prepare.outputs.version }}
+          name: network-wallet-android-aab-${{ needs.prepare.outputs.version }}
           path: android-aab
+
+      - name: Create what's new file
+        run: |
+          mkdir -p whatsnew
+          cat apps/wallet/fastlane/metadata/android/en-US/changelogs/1.txt > whatsnew/whatsnew-en-US
 
       - name: Upload to Google Play (Internal)
         uses: r0adkll/upload-google-play@v1
@@ -433,7 +593,7 @@ jobs:
           releaseFiles: android-aab/*.aab
           track: internal
           status: completed
-          whatsNewDirectory: .
+          whatsNewDirectory: whatsnew
 
   publish-app-store:
     name: Publish to App Store
@@ -444,7 +604,7 @@ jobs:
       - name: Download iOS IPA
         uses: actions/download-artifact@v4
         with:
-          name: jeju-wallet-ios-${{ needs.prepare.outputs.version }}
+          name: network-wallet-ios-${{ needs.prepare.outputs.version }}
           path: ios-ipa
 
       - name: Upload to TestFlight
@@ -454,3 +614,25 @@ jobs:
           issuer-id: ${{ secrets.APPSTORE_ISSUER_ID }}
           api-key-id: ${{ secrets.APPSTORE_API_KEY_ID }}
           api-private-key: ${{ secrets.APPSTORE_API_PRIVATE_KEY }}
+
+  publish-microsoft-store:
+    name: Publish to Microsoft Store
+    runs-on: windows-latest
+    needs: [prepare, build-msix]
+    if: (github.event_name == 'release' || github.event.inputs.publish_stores) && secrets.MSSTORE_CLIENT_ID != ''
+    steps:
+      - name: Download MSIX
+        uses: actions/download-artifact@v4
+        with:
+          name: network-wallet-msix-${{ needs.prepare.outputs.version }}
+          path: msix-pkg
+
+      - name: Submit to Microsoft Store
+        uses: isaacrlevin/windows-store-action@v1.0
+        with:
+          command: submit
+          client-id: ${{ secrets.MSSTORE_CLIENT_ID }}
+          client-secret: ${{ secrets.MSSTORE_CLIENT_SECRET }}
+          tenant-id: ${{ secrets.MSSTORE_TENANT_ID }}
+          product-id: ${{ secrets.MSSTORE_PRODUCT_ID }}
+          package-path: msix-pkg/network-wallet-${{ needs.prepare.outputs.version }}.msix

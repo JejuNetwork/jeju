@@ -1,0 +1,49 @@
+{
+  "name": "@jeju/farcaster",
+  "version": "1.0.0",
+  "description": "Permissionless Farcaster integration for Jeju Network - No API keys required",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    },
+    "./hub": {
+      "types": "./dist/hub/index.d.ts",
+      "import": "./dist/hub/index.js"
+    },
+    "./frames": {
+      "types": "./dist/frames/index.d.ts",
+      "import": "./dist/frames/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "bun test",
+    "lint": "eslint src/",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@farcaster/hub-nodejs": "0.12.0",
+    "viem": "2.41.2"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "typescript": "5.7.3"
+  },
+  "peerDependencies": {
+    "viem": ">=2.0.0"
+  },
+  "keywords": [
+    "farcaster",
+    "hub",
+    "social",
+    "decentralized",
+    "jeju",
+    "permissionless"
+  ],
+  "author": "Jeju Network",
+  "license": "MIT"
+}

@@ -1,13 +1,62 @@
-import { defineConfig } from 'vite';
+import { defineConfig, Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
 import { copyFileSync, mkdirSync, existsSync, writeFileSync } from 'fs';
 
-const target = process.env.EXT_TARGET === 'firefox' ? 'firefox' : 'chrome';
+type ExtensionTarget = 'chrome' | 'firefox' | 'safari' | 'edge' | 'brave';
+
+const targetEnv = process.env.EXT_TARGET as ExtensionTarget | undefined;
+const validTargets: ExtensionTarget[] = ['chrome', 'firefox', 'safari', 'edge', 'brave'];
+const target: ExtensionTarget = targetEnv && validTargets.includes(targetEnv) ? targetEnv : 'chrome';
+
+// Map targets to manifest files
+const manifestMap: Record<ExtensionTarget, string> = {
+  chrome: 'src/extension/manifest.chrome.json',
+  firefox: 'src/extension/manifest.firefox.json',
+  safari: 'src/extension/manifest.safari.json',
+  edge: 'src/extension/manifest.edge.json',
+  brave: 'src/extension/manifest.chrome.json', // Brave uses Chrome MV3
+};
+
+// Plugin to stub platform-specific modules and problematic dependencies
+function stubModulesPlugin(): Plugin {
+  // Modules to stub - these either don't work in browser extensions
+  // or have incompatible dependencies (e.g., porto requires zod v4)
+  const stubbedModules = [
+    '@tauri-apps/api',
+    'webtorrent',
+    'porto', // Porto requires zod v4, stub it since we use native extension provider
+  ];
+
+  return {
+    name: 'stub-extension-modules',
+    resolveId(id) {
+      // Check for exact match or subpath imports
+      for (const mod of stubbedModules) {
+        if (id === mod || id.startsWith(mod + '/')) {
+          return `\0stub:${id}`;
+        }
+      }
+      return null;
+    },
+    load(id) {
+      if (id.startsWith('\0stub:')) {
+        // Return empty stub module
+        return `
+          export default {};
+          export const createClient = () => ({});
+          export const Porto = {};
+        `;
+      }
+      return null;
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
     react(),
+    stubModulesPlugin(),
     {
       name: 'extension-build',
       writeBundle() {
@@ -22,9 +71,7 @@ export default defineConfig({
         }
 
         // Copy manifest
-        const manifestSrc = target === 'firefox' 
-          ? 'src/extension/manifest.firefox.json'
-          : 'src/extension/manifest.chrome.json';
+        const manifestSrc = manifestMap[target];
         copyFileSync(manifestSrc, `${distDir}/manifest.json`);
 
         // Copy locales
@@ -54,6 +101,8 @@ export default defineConfig({
       '@hooks': resolve(__dirname, './src/hooks'),
       '@components': resolve(__dirname, './src/components'),
       '@platform': resolve(__dirname, './src/platform'),
+      // Fix zod v4 compatibility - redirect mini to main
+      'zod/mini': 'zod',
     },
   },
   define: {
@@ -76,6 +125,15 @@ export default defineConfig({
         entryFileNames: '[name].js',
         chunkFileNames: 'chunks/[name]-[hash].js',
         assetFileNames: 'assets/[name]-[hash][extname]',
+      },
+      // Externalize node-only modules
+      external: (id) => {
+        // Node-only modules
+        if (['fs', 'path', 'crypto', 'os', 'child_process', 'net', 'http', 'https', 'stream', 'buffer', 'util', 'events', 'zlib', 'url'].includes(id)) return true;
+        // Hardware wallet modules (use web versions in extension)
+        if (id.includes('@ledgerhq/hw-transport-node')) return true;
+        if (id.includes('@trezor/connect')) return true;
+        return false;
       },
     },
     minify: process.env.NODE_ENV === 'production',

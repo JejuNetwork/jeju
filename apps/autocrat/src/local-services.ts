@@ -58,7 +58,8 @@ interface InferenceRequest {
 
 async function dwsGenerate(prompt: string, system: string): Promise<string> {
   const endpoint = getDWSEndpoint();
-  const r = await fetch(`${endpoint}/chat`, {
+  // Use OpenAI-compatible endpoint - DWS will select the best available model
+  const r = await fetch(`${endpoint}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

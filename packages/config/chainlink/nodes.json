@@ -1,0 +1,129 @@
+{
+  "$schema": "./nodes.schema.json",
+  "description": "Chainlink Node Operator Configuration",
+  "lastUpdated": "2024-12-17",
+  
+  "infrastructure": {
+    "recommended": {
+      "provider": "aws",
+      "regions": {
+        "primary": "us-east-1",
+        "secondary": "eu-west-1",
+        "tertiary": "ap-northeast-1"
+      },
+      "notes": "Multi-region for redundancy and latency optimization"
+    },
+    "costOptimization": {
+      "strategy": "spot_with_fallback",
+      "spotInstanceTypes": ["m6i.large", "m5.large", "c6i.large"],
+      "onDemandFallback": true,
+      "estimatedMonthlyCostPerNode": {
+        "us-east-1": 150,
+        "eu-west-1": 165,
+        "ap-northeast-1": 180
+      }
+    },
+    "latencyOptimization": {
+      "notes": "Place nodes close to RPC providers and Chainlink infrastructure",
+      "chainlinkInfraRegions": ["us-east-1", "eu-west-1"],
+      "recommendedPlacement": {
+        "ethereum": "us-east-1",
+        "base": "us-east-1",
+        "arbitrum": "us-east-1",
+        "optimism": "us-east-1",
+        "bsc": "ap-southeast-1",
+        "polygon": "eu-west-1",
+        "avalanche": "us-west-2"
+      }
+    }
+  },
+  
+  "nodeConfig": {
+    "chainlink": {
+      "version": "2.9.1",
+      "image": "smartcontract/chainlink:2.9.1",
+      "resources": {
+        "cpu": "2",
+        "memory": "4Gi",
+        "storage": "100Gi"
+      },
+      "database": {
+        "type": "postgresql",
+        "version": "15",
+        "storage": "50Gi"
+      }
+    },
+    "environment": {
+      "LOG_LEVEL": "info",
+      "ETH_CHAIN_ID": "1",
+      "LINK_CONTRACT_ADDRESS": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+      "CHAINLINK_TLS_PORT": "0",
+      "SECURE_COOKIES": "false",
+      "ALLOW_ORIGINS": "*",
+      "DATABASE_TIMEOUT": "0",
+      "CHAINLINK_DEV": "false",
+      "FEATURE_EXTERNAL_INITIATORS": "true",
+      "FEATURE_FLUX_MONITOR": "true",
+      "ETH_GAS_BUMP_PERCENT": "20",
+      "ETH_GAS_BUMP_WEI": "5000000000",
+      "ETH_GAS_LIMIT_DEFAULT": "400000",
+      "ETH_GAS_PRICE_DEFAULT": "20000000000"
+    }
+  },
+  
+  "jobs": {
+    "vrf": {
+      "description": "VRF v2.5 job for Jeju network",
+      "template": "vrf-v2.5",
+      "chains": ["420691"]
+    },
+    "priceFeeds": {
+      "description": "Price feed jobs for Jeju oracle network",
+      "template": "direct-request",
+      "chains": ["420691"]
+    },
+    "automation": {
+      "description": "Keeper jobs for Jeju automation",
+      "template": "keeper",
+      "chains": ["420691"]
+    }
+  },
+  
+  "monitoring": {
+    "prometheus": {
+      "enabled": true,
+      "port": 9090,
+      "path": "/metrics"
+    },
+    "alerts": {
+      "nodeDown": {
+        "severity": "critical",
+        "threshold": "5m"
+      },
+      "highLatency": {
+        "severity": "warning",
+        "thresholdMs": 5000
+      },
+      "lowBalance": {
+        "severity": "warning",
+        "thresholdEth": "0.5"
+      },
+      "missedHeartbeat": {
+        "severity": "critical",
+        "threshold": "3"
+      }
+    }
+  },
+  
+  "security": {
+    "keyManagement": "aws_kms",
+    "tlsEnabled": true,
+    "apiRateLimit": 100,
+    "ipWhitelist": [],
+    "secrets": {
+      "provider": "aws_secrets_manager",
+      "rotation": "90d"
+    }
+  }
+}
+

@@ -1,0 +1,37 @@
+Network Wallet is an agentic multi-chain wallet that provides seamless cross-chain transactions without manual bridging.
+
+<b>Features:</b>
+
+• <b>Seamless Cross-Chain:</b> Transfer assets between chains without switching networks or manual bridging. The wallet automatically handles cross-chain operations through EIL (Ethereum Interop Layer).
+
+• <b>Intent-Based Transactions:</b> Express what you want to accomplish and let the wallet figure out the optimal execution path through OIF (Open Intents Framework).
+
+• <b>Account Abstraction:</b> ERC-4337 smart accounts with social recovery, gas sponsorship, and batched transactions.
+
+• <b>Hardware Wallet Support:</b> Secure your assets with Ledger and Trezor hardware wallets.
+
+• <b>AI-Powered Assistance:</b> Get help understanding transactions, optimizing gas, and managing your portfolio.
+
+• <b>Multi-Chain Support:</b> Supports all major EVM chains including Ethereum, Base, Arbitrum, Optimism, Polygon, and more.
+
+• <b>DeFi Integration:</b> Seamlessly interact with DEXs, lending protocols, and other DeFi applications.
+
+• <b>Privacy First:</b> Your keys, your crypto. All sensitive data is stored locally and encrypted.
+
+<b>Supported Networks:</b>
+- Ethereum Mainnet
+- Base
+- Arbitrum One
+- Optimism
+- Polygon
+- And many more...
+
+<b>Security:</b>
+- Biometric authentication
+- Hardware wallet support
+- Encrypted local storage
+- Open source and audited
+
+Network Wallet is open source software. View the code at https://github.com/jejunetwork/jeju
+
+

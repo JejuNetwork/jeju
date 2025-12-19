@@ -300,10 +300,15 @@ export function createWorkersRouter(backend: BackendManager): Hono {
       return c.json({ error: 'Function not found' }, 404);
     }
 
-    // TODO: Implement log storage and retrieval
+    const limit = parseInt(c.req.query('limit') ?? '100');
+    const since = parseInt(c.req.query('since') ?? '0');
+    
+    const logs = runtime.getLogs(fn.id, { limit, since });
+    
     return c.json({
-      logs: [],
-      message: 'Log retrieval not yet implemented',
+      functionId: fn.id,
+      logs,
+      count: logs.length,
     });
   });
 

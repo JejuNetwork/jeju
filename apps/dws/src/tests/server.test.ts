@@ -64,21 +64,26 @@ describe('DWS Server', () => {
       expect(data.service).toBe('dws-compute');
     });
 
-    it('handles chat completion without backend', async () => {
+    it('handles chat completion', async () => {
       const res = await app.fetch(new Request('http://localhost/compute/chat/completions', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          model: 'mock-model',
+          model: 'llama-3.3-70b-versatile',
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }));
-      // Returns mock response when no inference backend is configured
-      expect(res.status).toBe(200);
+      // Returns 200 when provider is configured, 503 otherwise
+      expect([200, 503]).toContain(res.status);
 
-      const data = await res.json();
-      expect(data.choices).toBeDefined();
-      expect(data.model).toBe('mock-model');
+      const data = await res.json() as { error?: string; docs?: string; choices?: unknown[] };
+      if (res.status === 503) {
+        expect(data.error).toBe('No inference provider configured');
+        expect(data.docs).toContain('groq.com');
+      } else {
+        // Provider is configured - expect a valid response
+        expect(data.choices).toBeDefined();
+      }
     });
   });
 

@@ -2,9 +2,51 @@
  * Platform Detection
  */
 
-import type { PlatformType, PlatformCategory, PlatformCapabilities, PlatformInfo } from './types';
+import type { PlatformType, PlatformCategory, PlatformCapabilities, PlatformInfo, BrowserType } from './types';
 
 let cachedPlatform: PlatformInfo | null = null;
+
+/**
+ * Detect the current browser type
+ */
+export function detectBrowser(): BrowserType {
+  if (typeof navigator === 'undefined') return 'unknown';
+  
+  const ua = navigator.userAgent.toLowerCase();
+  const vendor = navigator.vendor?.toLowerCase() ?? '';
+  
+  // Brave has a specific detection method
+  if ((navigator as Navigator & { brave?: { isBrave?: () => Promise<boolean> } }).brave?.isBrave) {
+    return 'brave';
+  }
+  
+  // Check for Edge (Chromium-based)
+  if (ua.includes('edg/') || ua.includes('edge/')) {
+    return 'edge';
+  }
+  
+  // Check for Opera
+  if (ua.includes('opr/') || ua.includes('opera')) {
+    return 'opera';
+  }
+  
+  // Check for Firefox
+  if (ua.includes('firefox')) {
+    return 'firefox';
+  }
+  
+  // Check for Safari (must be after Chrome check since Safari has chrome in UA)
+  if (ua.includes('safari') && !ua.includes('chrome') && vendor.includes('apple')) {
+    return 'safari';
+  }
+  
+  // Check for Chrome
+  if (ua.includes('chrome') && vendor.includes('google')) {
+    return 'chrome';
+  }
+  
+  return 'unknown';
+}
 
 function detectPlatformType(): PlatformType {
   if (typeof window === 'undefined') return 'web';
@@ -25,12 +67,26 @@ function detectPlatformType(): PlatformType {
     if (platform === 'android') return 'capacitor-android';
   }
 
-  // Check browser extension
-  if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
-    return 'chrome-extension';
+  // Check browser extensions - need to detect specific browser
+  const browserType = detectBrowser();
+  
+  // Safari Web Extension
+  if (typeof safari !== 'undefined' && 
+      (safari as { extension?: { dispatchMessage?: unknown } }).extension?.dispatchMessage) {
+    return 'safari-extension';
   }
-  if (typeof browser !== 'undefined' && (browser as { runtime?: { id?: string } }).runtime?.id) {
+  
+  // Firefox extension
+  if (typeof browser !== 'undefined' && 
+      (browser as { runtime?: { id?: string } }).runtime?.id) {
     return 'firefox-extension';
+  }
+  
+  // Chrome-based extensions (Chrome, Edge, Brave, Opera)
+  if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+    if (browserType === 'brave') return 'brave-extension';
+    if (browserType === 'edge') return 'edge-extension';
+    return 'chrome-extension';
   }
 
   return 'web';

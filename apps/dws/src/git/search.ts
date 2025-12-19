@@ -347,13 +347,16 @@ export class SearchManager {
 
   /**
    * Search users
+   * Note: User search requires an identity registry integration.
+   * Returns empty results when not configured.
    */
   async searchUsers(
     _query: string,
     _options: UserSearchOptions = {}
   ): Promise<UserSearchResult> {
-    // TODO: Implement user search when proper indexing is available
-    // For now, return empty results as user search requires proper indexing
+    // User search requires on-chain identity registry integration
+    // which is handled by the IdentityRegistry contract
+    console.debug('[GitSearch] User search not available - requires identity registry');
     return { totalCount: 0, items: [] };
   }
 

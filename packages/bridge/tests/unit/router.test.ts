@@ -199,7 +199,7 @@ describe("CrossChainRouter", () => {
 	});
 
 	describe("Route Execution", () => {
-		it("should execute valid route successfully", async () => {
+		it("should return error when contracts not configured", async () => {
 			const route = {
 				id: "test-route",
 				steps: [{
@@ -220,6 +220,35 @@ describe("CrossChainRouter", () => {
 			const request: RouteRequest = {
 				sourceChain: "eip155:8453",
 				destChain: "eip155:42161",
+				sourceToken: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+				destToken: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
+				amount: BigInt("1000000000"),
+				sender: "0x1234567890123456789012345678901234567890",
+				recipient: "0x1234567890123456789012345678901234567890",
+				slippageBps: 100,
+				preferTrustless: false,
+			};
+
+			// Without contracts configured, execution should return error
+			const result = await router.executeRoute(route, request);
+			expect(result.success).toBe(false);
+			expect(result.error).toBeDefined();
+			expect(result.error).toContain("not configured");
+		});
+
+		it("should succeed with empty route steps", async () => {
+			const route = {
+				id: "empty-route",
+				steps: [],
+				totalEstimatedTime: 0,
+				totalEstimatedFee: BigInt(0),
+				overallTrustLevel: "trustless" as const,
+				revenueOpportunity: BigInt(0),
+			};
+
+			const request: RouteRequest = {
+				sourceChain: "eip155:8453",
+				destChain: "eip155:8453",
 				sourceToken: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 				destToken: "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
 				amount: BigInt("1000000000"),

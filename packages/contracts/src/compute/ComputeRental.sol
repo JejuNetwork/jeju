@@ -15,31 +15,9 @@ interface IFeeConfigCompute {
 
 /**
  * @title ComputeRental
- * @author Jeju Network
  * @notice Decentralized compute resource rentals with ERC-8004 reputation integration
- * @dev Handles session lifecycle, SSH key storage, payment settlement, and reputation
- *
- * Key Features:
- * - Create rentals with escrow-based payments
- * - SSH public key storage for secure access
- * - Docker container specification support
- * - Startup script execution
- * - Provider session management
- * - Automatic refunds for unused time
- * - REPUTATION INTEGRATION via ERC-8004
- * - DISPUTE RESOLUTION with slashing
- * - ABUSE REPORTING for malicious users
- *
- * Reputation Integration:
- * - Providers can be rated by users after rental completion
- * - Users can be reported for abuse (CSAM, hacking, etc.)
- * - Dispute resolution allows arbitration of conflicts
- * - Bad actors can be banned via governance
- *
- * @custom:security-contact security@jeju.network
  */
 contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
-    // ============ Enums ============
 
     enum RentalStatus {
         PENDING, // Created but not started
@@ -78,7 +56,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
     }
 
-    // ============ Structs ============
 
     struct ComputeResources {
         GPUType gpuType;
@@ -251,7 +228,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     /// @notice Supported payment tokens (token => accepted)
     mapping(address => bool) public acceptedTokens;
 
-    // ============ Events ============
 
     event RentalCreated(
         bytes32 indexed rentalId,
@@ -310,7 +286,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     event CreditManagerUpdated(address indexed oldManager, address indexed newManager);
     event TokenAccepted(address indexed token, bool accepted);
 
-    // ============ Errors ============
     error InsufficientPayment(uint256 provided, uint256 required);
     error RentalNotFound();
     error RentalNotActive();
@@ -341,7 +316,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
     error TokenNotAccepted();
     error InsufficientCredit();
 
-    // ============ Modifiers ============
 
     modifier notBannedUser() {
         if (userRecords[msg.sender].banned) revert UserBannedError();
@@ -358,18 +332,13 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         _;
     }
 
-    // ============ Constructor ============
 
     constructor(address initialOwner, address _treasury) Ownable(initialOwner) {
         treasury = _treasury;
         arbitrators[initialOwner] = true;
     }
 
-    // ============ Provider Management ============
 
-    /**
-     * @notice Register or update provider compute resources
-     */
     function setProviderResources(
         ComputeResources calldata resources,
         ResourcePricing calldata pricing,
@@ -397,10 +366,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         emit ProviderResourcesUpdated(msg.sender, resources, pricing);
     }
 
-    /**
-     * @notice Link provider to ERC-8004 agent for reputation
-     * @param agentId The ERC-8004 agent ID
-     */
     function linkProviderAgent(uint256 agentId) external {
         if (address(identityRegistry) == address(0)) revert InvalidAgentId();
         if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
@@ -413,11 +378,7 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         emit ProviderAgentLinked(msg.sender, agentId);
     }
 
-    // ============ Rental Creation ============
 
-    /**
-     * @notice Create a new compute rental
-     */
     function createRental(
         address provider,
         uint256 durationHours,
@@ -485,10 +446,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         emit RentalCreated(rentalId, msg.sender, provider, durationHours, totalCost);
     }
 
-    /**
-     * @notice Create a rental on behalf of another user (for cross-chain flows)
-     * @dev Only callable by trusted settlement contracts (OIF OutputSettlers)
-     */
     function createRentalFor(
         address user,
         address provider,
@@ -546,15 +503,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         emit RentalCreated(rentalId, user, provider, durationHours, totalCost);
     }
 
-    /**
-     * @notice Create a rental using credit balance (multi-token support)
-     * @param provider Provider address
-     * @param durationHours Rental duration in hours
-     * @param sshPublicKey User's SSH public key
-     * @param containerImage Docker image to run
-     * @param startupScript Startup script to execute
-     * @param paymentToken Token address for payment (from CreditManager)
-     */
     function createRentalWithCredit(
         address provider,
         uint256 durationHours,
@@ -617,9 +565,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
     // ============ Provider Actions ============
 
-    /**
-     * @notice Provider confirms rental start with connection details
-     */
     function startRental(bytes32 rentalId, string calldata sshHost, uint16 sshPort, string calldata containerId)
         external
     {
@@ -638,18 +583,12 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         emit RentalStarted(rentalId, sshHost, sshPort, containerId);
     }
 
-    /**
-     * @notice Provider completes the rental
-     * @custom:security CEI pattern: Update all state before external calls
-     * @dev Platform fee is read from FeeConfig if set, otherwise uses local platformFeeBps
-     */
     function completeRental(bytes32 rentalId) external nonReentrant {
         Rental storage rental = rentals[rentalId];
         if (rental.rentalId == bytes32(0)) revert RentalNotFound();
         if (rental.provider != msg.sender) revert NotRentalProvider();
         if (rental.status != RentalStatus.ACTIVE) revert RentalNotActive();
 
-        // Cache values before state changes
         address user = rental.user;
         address provider = rental.provider;
         uint256 paidAmount = rental.paidAmount;
@@ -663,16 +602,12 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
             refundAmount = paidAmount - usedCost;
         }
 
-        // Calculate platform fee from governance-controlled FeeConfig or local value
         uint256 currentFeeBps = _getPlatformFeeBps();
         uint256 providerPayment = usedCost;
         uint256 platformFee = (usedCost * currentFeeBps) / 10000;
         providerPayment -= platformFee;
 
-        // Get treasury address from FeeConfig if set
         address treasuryAddr = _getTreasuryAddress();
-
-        // EFFECTS: Update ALL state BEFORE external calls (CEI pattern)
         rental.status = RentalStatus.COMPLETED;
         rental.refundedAmount = refundAmount;
 
@@ -683,14 +618,12 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         userRecords[user].completedRentals++;
         totalPlatformFeesCollected += platformFee;
 
-        // Emit event before external calls
         emit RentalCompleted(rentalId, actualDuration, refundAmount);
 
         if (platformFee > 0) {
             emit PlatformFeeCollected(rentalId, platformFee, currentFeeBps);
         }
 
-        // INTERACTIONS: External calls last
         if (refundAmount > 0) {
             (bool success,) = user.call{value: refundAmount}("");
             if (!success) revert TransferFailed();
@@ -707,9 +640,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    /**
-     * @dev Get current platform fee in basis points from FeeConfig or local value
-     */
     function _getPlatformFeeBps() internal view returns (uint256) {
         if (address(feeConfig) != address(0)) {
             return feeConfig.getRentalFee();
@@ -717,9 +647,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         return platformFeeBps;
     }
 
-    /**
-     * @dev Get treasury address from FeeConfig or local value
-     */
     function _getTreasuryAddress() internal view returns (address) {
         if (address(feeConfig) != address(0)) {
             address configTreasury = feeConfig.getTreasury();
@@ -730,17 +657,12 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         return treasury;
     }
 
-    // ============ Platform Fee Events ============
 
     event PlatformFeeCollected(bytes32 indexed rentalId, uint256 amount, uint256 feeBps);
     event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
 
     // ============ User Actions ============
 
-    /**
-     * @notice User cancels a pending rental
-     * @custom:security CEI pattern: Update all state before external calls
-     */
     function cancelRental(bytes32 rentalId) external nonReentrant {
         Rental storage rental = rentals[rentalId];
         if (rental.rentalId == bytes32(0)) revert RentalNotFound();
@@ -748,20 +670,15 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         if (rental.status == RentalStatus.ACTIVE) revert CannotCancelActiveRental();
         if (rental.status != RentalStatus.PENDING) revert RentalNotActive();
 
-        // Cache values before state changes
         uint256 refundAmount = rental.paidAmount;
         address provider = rental.provider;
 
-        // EFFECTS: Update ALL state BEFORE external calls (CEI pattern)
         rental.status = RentalStatus.CANCELLED;
         rental.refundedAmount = refundAmount;
         providerResources[provider].activeRentals--;
         userRecords[msg.sender].cancelledRentals++;
 
-        // Emit event before external calls
         emit RentalCancelled(rentalId, refundAmount);
-
-        // INTERACTIONS: External calls last
         (bool success,) = msg.sender.call{value: refundAmount}("");
         if (!success) revert TransferFailed();
     }
@@ -786,14 +703,7 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         emit RentalExtended(rentalId, additionalHours, additionalCost);
     }
 
-    // ============ Rating System ============
 
-    /**
-     * @notice Rate a completed rental
-     * @param rentalId The rental to rate
-     * @param score Score from 0-100
-     * @param comment Optional comment
-     */
     function rateRental(bytes32 rentalId, uint8 score, string calldata comment) external {
         Rental storage rental = rentals[rentalId];
         if (rental.rentalId == bytes32(0)) revert RentalNotFound();
@@ -931,7 +841,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    // ============ Abuse Reporting ============
 
     /**
      * @notice Report user abuse (providers can report)
@@ -964,7 +873,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         }
     }
 
-    // ============ View Functions ============
 
     function getRental(bytes32 rentalId) external view returns (Rental memory) {
         return rentals[rentalId];
@@ -1101,7 +1009,6 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         return rental.paidAmount / hourlyRate;
     }
 
-    // ============ Admin Functions ============
 
     function setPlatformFee(uint256 newFeeBps) external onlyOwner {
         require(newFeeBps <= 1000, "Fee too high"); // Max 10%

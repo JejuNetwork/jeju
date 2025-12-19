@@ -48,6 +48,17 @@ describe('JejuClient', () => {
     expect(client.messaging).toBeDefined();
     expect(client.distributor).toBeDefined();
     expect(client.training).toBeDefined();
+    // New modules
+    expect(client.perps).toBeDefined();
+    expect(client.amm).toBeDefined();
+    expect(client.agents).toBeDefined();
+    expect(client.bridge).toBeDefined();
+    expect(client.oracle).toBeDefined();
+    expect(client.sequencer).toBeDefined();
+    expect(client.cdn).toBeDefined();
+    expect(client.vpn).toBeDefined();
+    expect(client.models).toBeDefined();
+    expect(client.prediction).toBeDefined();
   });
 
   test('compute module has methods', () => {
@@ -156,6 +167,90 @@ describe('JejuClient', () => {
     expect(typeof client.training.submitTrainingStep).toBe('function');
     expect(typeof client.training.claimRewards).toBe('function');
     expect(typeof client.training.getRunProgress).toBe('function');
+  });
+
+  test('perps module has methods', () => {
+    expect(typeof client.perps.openPosition).toBe('function');
+    expect(typeof client.perps.closePosition).toBe('function');
+    expect(typeof client.perps.getMarket).toBe('function');
+    expect(typeof client.perps.placeOrder).toBe('function');
+    expect(client.perps.MAX_LEVERAGE).toBe(50);
+    expect(client.perps.MIN_MARGIN).toBeDefined();
+  });
+
+  test('amm module has methods', () => {
+    expect(typeof client.amm.getQuote).toBe('function');
+    expect(typeof client.amm.swapExactTokensForTokensV2).toBe('function');
+    expect(typeof client.amm.exactInputSingleV3).toBe('function');
+    expect(typeof client.amm.getV2Pool).toBe('function');
+    expect(typeof client.amm.createV2Pool).toBe('function');
+  });
+
+  test('agents module has methods', () => {
+    expect(typeof client.agents.createVault).toBe('function');
+    expect(typeof client.agents.deposit).toBe('function');
+    expect(typeof client.agents.spend).toBe('function');
+    expect(typeof client.agents.createRoom).toBe('function');
+    expect(client.agents.DEFAULT_SPEND_LIMIT).toBeDefined();
+  });
+
+  test('bridge module has methods', () => {
+    expect(typeof client.bridge.depositETH).toBe('function');
+    expect(typeof client.bridge.initiateWithdrawal).toBe('function');
+    expect(typeof client.bridge.sendHyperlaneMessage).toBe('function');
+    expect(typeof client.bridge.bridgeNFT).toBe('function');
+    expect(client.bridge.FINALIZATION_PERIOD).toBeDefined();
+  });
+
+  test('oracle module has methods', () => {
+    expect(typeof client.oracle.getLatestPrice).toBe('function');
+    expect(typeof client.oracle.getLatestRoundData).toBe('function');
+    expect(typeof client.oracle.registerOracle).toBe('function');
+    expect(typeof client.oracle.getFeedByPair).toBe('function');
+    expect(client.oracle.MAX_PRICE_AGE).toBeDefined();
+  });
+
+  test('sequencer module has methods', () => {
+    expect(typeof client.sequencer.registerSequencer).toBe('function');
+    expect(typeof client.sequencer.getCurrentSequencer).toBe('function');
+    expect(typeof client.sequencer.requestForcedInclusion).toBe('function');
+    expect(client.sequencer.MIN_SEQUENCER_STAKE).toBeDefined();
+    expect(client.sequencer.SLOT_DURATION).toBeDefined();
+  });
+
+  test('cdn module has methods', () => {
+    expect(typeof client.cdn.registerProvider).toBe('function');
+    expect(typeof client.cdn.registerNode).toBe('function');
+    expect(typeof client.cdn.createSite).toBe('function');
+    expect(typeof client.cdn.invalidateCache).toBe('function');
+    expect(client.cdn.MIN_NODE_STAKE).toBeDefined();
+  });
+
+  test('prediction module has methods', () => {
+    expect(typeof client.prediction.createMarket).toBe('function');
+    expect(typeof client.prediction.buyShares).toBe('function');
+    expect(typeof client.prediction.sellShares).toBe('function');
+    expect(typeof client.prediction.getMarket).toBe('function');
+    expect(typeof client.prediction.resolveMarket).toBe('function');
+  });
+
+  test('vpn module has methods', () => {
+    expect(typeof client.vpn.getAllNodes).toBe('function');
+    expect(typeof client.vpn.getActiveNodes).toBe('function');
+    expect(typeof client.vpn.registerNode).toBe('function');
+    expect(typeof client.vpn.getNodesByRegion).toBe('function');
+    expect(typeof client.vpn.getVPNStats).toBe('function');
+  });
+
+  test('models module has methods', () => {
+    expect(typeof client.models.getModel).toBe('function');
+    expect(typeof client.models.listModels).toBe('function');
+    expect(typeof client.models.searchModels).toBe('function');
+    expect(typeof client.models.createModel).toBe('function');
+    expect(typeof client.models.publishVersion).toBe('function');
+    expect(typeof client.models.getVersions).toBe('function');
+    expect(typeof client.models.getMetrics).toBe('function');
+    expect(typeof client.models.toggleStar).toBe('function');
   });
 });
 

@@ -4,7 +4,6 @@ pragma solidity ^0.8.26;
 import {AgentGated} from "./AgentGated.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 import {ModerationMixin} from "../moderation/ModerationMixin.sol";
-import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 
 /**
  * @title Moderated

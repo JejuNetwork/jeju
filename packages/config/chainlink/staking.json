@@ -1,0 +1,66 @@
+{
+  "$schema": "./staking.schema.json",
+  "description": "Chainlink LINK Staking v0.2 Configuration",
+  "lastUpdated": "2024-12-17",
+  "documentation": "https://docs.chain.link/chainlink-staking",
+  
+  "ethereum": {
+    "contractAddress": "0xBEa698E8B4Cd9CdD3D3Ba98aAeae5EC49a2D42E4",
+    "linkToken": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+    "minStake": "1",
+    "maxStakeCommunity": "15000",
+    "maxStakeNodeOperator": "75000",
+    "totalPoolCap": "45000000",
+    "unbondingPeriodDays": 28,
+    "claimPeriodDays": 7,
+    "estimatedApy": 4.75,
+    "slashingEnabled": true
+  },
+  
+  "recommendations": {
+    "description": "Recommended staking strategy for Jeju Network",
+    "phases": [
+      {
+        "phase": 1,
+        "name": "Initial Community Stake",
+        "linkAmount": 15000,
+        "purpose": "Earn staking rewards while building reputation",
+        "estimatedCostUsd": 225000,
+        "estimatedAnnualRewardLink": 712,
+        "notes": "Max community stake per address"
+      },
+      {
+        "phase": 2,
+        "name": "Node Operator Qualification",
+        "linkAmount": 75000,
+        "purpose": "Qualify for node operator slots and higher rewards",
+        "estimatedCostUsd": 1125000,
+        "estimatedAnnualRewardLink": 3562,
+        "requirements": [
+          "Running Chainlink node for 6+ months",
+          "99.9% uptime track record",
+          "Pass Chainlink's node operator review"
+        ]
+      }
+    ],
+    "currentPhase": 1,
+    "notes": "Start with Phase 1 to begin earning immediately while working toward node operator status"
+  },
+  
+  "governance": {
+    "stakingDecisions": "DAO_CONTROLLED",
+    "proposalThreshold": 100000,
+    "votingPeriodDays": 7,
+    "timelockDays": 2,
+    "parameters": {
+      "maxStakePercentOfTreasury": 20,
+      "minStakeAmount": 1000,
+      "rewardDistribution": {
+        "treasuryPercent": 70,
+        "operationalPercent": 20,
+        "communityPercent": 10
+      }
+    }
+  }
+}
+

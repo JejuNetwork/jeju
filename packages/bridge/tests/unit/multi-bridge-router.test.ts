@@ -179,10 +179,10 @@ describe("MultiBridgeRouter", () => {
 			expect(result.error).toContain("not available");
 		});
 
-		it("should use preferred provider when available", async () => {
+		it("should fall back to available provider when preferred is not configured", async () => {
 			const routerWithPreference = createMultiBridgeRouter({
 				enabledProviders: ["zksolbridge", "wormhole"],
-				preferredProvider: "wormhole",
+				preferredProvider: "wormhole", // Preferred but not configured
 				zksolbridgeConfig: {
 					contracts: {},
 					protocolFeeBps: 10,
@@ -191,6 +191,7 @@ describe("MultiBridgeRouter", () => {
 					enableMEV: false,
 					minArbProfitBps: 50,
 				},
+				// Note: wormholeConfig not provided, so wormhole won't be available
 			});
 
 			const params: TransferParams = {
@@ -202,8 +203,8 @@ describe("MultiBridgeRouter", () => {
 			};
 
 			const result = await routerWithPreference.transfer(params);
-			// Should select wormhole as preferred
-			expect(result.provider).toBe("wormhole");
+			// Falls back to zksolbridge since wormhole is not configured
+			expect(result.provider).toBe("zksolbridge");
 		});
 	});
 

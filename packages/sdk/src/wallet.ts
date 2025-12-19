@@ -116,10 +116,11 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
 
     // Only create smart account if contracts are deployed
     if (entryPoint && factoryAddress && entryPoint !== "0x") {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+       
       const smartAccount = await toSimpleSmartAccount({
         client: publicClient,
-        owner: account as any,
+        // @ts-expect-error - permissionless library expects specific account types
+        owner: account,
         entryPoint: {
           address: entryPoint,
           version: "0.7",
@@ -137,13 +138,12 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
         },
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      smartAccountClient = createSmartAccountClient({
+smartAccountClient = createSmartAccountClient({
         account: smartAccount,
         chain,
         bundlerTransport: http(bundlerUrl),
         paymaster: pimlicoClient,
-      } as any);
+      });
 
       effectiveAddress = smartAccount.address;
     }

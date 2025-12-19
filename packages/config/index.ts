@@ -105,6 +105,7 @@ export interface ServicesConfig {
   cql: { blockProducer: string; miner: string };
   dws: { api: string; compute: string };
   autocrat: { api: string; a2a: string };
+  kms: { api: string; mpc: string };
   externalRpcs?: Record<string, string>;
 }
 
@@ -294,6 +295,10 @@ export function getServicesConfig(network?: NetworkType): ServicesConfig {
     autocrat: {
       api: getEnvService('AUTOCRAT_URL') || getEnvService('AUTOCRAT_API_URL') || config.autocrat.api,
       a2a: getEnvService('AUTOCRAT_A2A_URL') || config.autocrat.a2a,
+    },
+    kms: {
+      api: getEnvService('KMS_URL') || getEnvService('KMS_API_URL') || config.kms.api,
+      mpc: getEnvService('KMS_MPC_URL') || config.kms.mpc,
     },
   };
 }

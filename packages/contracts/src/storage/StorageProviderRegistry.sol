@@ -205,8 +205,8 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         return _providers[provider];
     }
 
-    function getProviderInfo(address provider) external view returns (ProviderInfo memory) {
-        return ProviderInfo({
+    function getStorageProviderInfo(address provider) external view returns (IStorageTypes.StorageProviderInfo memory) {
+        return IStorageTypes.StorageProviderInfo({
             provider: _providers[provider],
             capacity: _capacities[provider],
             pricing: _pricing[provider],

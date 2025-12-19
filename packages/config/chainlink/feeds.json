@@ -1,0 +1,238 @@
+{
+  "$schema": "./feeds.schema.json",
+  "description": "Chainlink Data Feed addresses across all supported chains",
+  "lastUpdated": "2024-12-17",
+  "linkToken": {
+    "1": "0x514910771AF9Ca656af840dff83E8264EcF986CA",
+    "8453": "0x88Fb150BDc53A65fe94Dea0c9BA0a6dAf8C6e196",
+    "42161": "0xf97f4df75117a78c1A5a0DBb814Af92458539FB4",
+    "10": "0x350a791Bfc2C21F9Ed5d10980Dad2e2638ffa7f6",
+    "56": "0x404460C6A5EdE2D891e8297795264fDe62ADBB75",
+    "137": "0xb0897686c545045aFc77CF20eC7A532E3120E0F1",
+    "43114": "0x5947BB275c521040051D82396192181b413227A3",
+    "420691": "0x0000000000000000000000000000000000000000"
+  },
+  "chains": {
+    "1": {
+      "ETH/USD": {
+        "address": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "BTC/USD": {
+        "address": "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "USDC/USD": {
+        "address": "0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6",
+        "decimals": 8,
+        "heartbeatSeconds": 86400
+      },
+      "USDT/USD": {
+        "address": "0x3E7d1eAB13ad0104d2750B8863b489D65364e32D",
+        "decimals": 8,
+        "heartbeatSeconds": 86400
+      },
+      "LINK/USD": {
+        "address": "0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "DAI/USD": {
+        "address": "0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "AAVE/USD": {
+        "address": "0x547a514d5e3769680Ce22B2361c10Ea13619e8a9",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "UNI/USD": {
+        "address": "0x553303d460EE0afB37EdFf9bE42922D8FF63220e",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      }
+    },
+    "8453": {
+      "ETH/USD": {
+        "address": "0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70",
+        "decimals": 8,
+        "heartbeatSeconds": 1200
+      },
+      "BTC/USD": {
+        "address": "0x64c911996D3c6aC71E9b8A4D84E4aE3A91FEf81C",
+        "decimals": 8,
+        "heartbeatSeconds": 1200
+      },
+      "USDC/USD": {
+        "address": "0x7e860098F58bBFC8648a4311b374B1D669a2bc6B",
+        "decimals": 8,
+        "heartbeatSeconds": 86400
+      },
+      "LINK/USD": {
+        "address": "0x17CAb8FE31E32f08326e5E27412894e49B0f9D65",
+        "decimals": 8,
+        "heartbeatSeconds": 1200
+      },
+      "CBETH/USD": {
+        "address": "0xd7818272B9e248357d13057AAb0B417aF31E817d",
+        "decimals": 8,
+        "heartbeatSeconds": 1200
+      }
+    },
+    "42161": {
+      "ETH/USD": {
+        "address": "0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "BTC/USD": {
+        "address": "0x6ce185860a4963106506C203335A73A3d3fA5F8F",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "USDC/USD": {
+        "address": "0x50834F3163758fcC1Df9973b6e91f0F0F0434aD3",
+        "decimals": 8,
+        "heartbeatSeconds": 86400
+      },
+      "ARB/USD": {
+        "address": "0xb2A824043730FE05F3DA2efaFa1CBbe83fa548D6",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "LINK/USD": {
+        "address": "0x86E53CF1B870786351Da77A57575e79CB55812CB",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "GMX/USD": {
+        "address": "0xDB98056FecFff59D032aB628337A4887110df3dB",
+        "decimals": 8,
+        "heartbeatSeconds": 86400
+      }
+    },
+    "10": {
+      "ETH/USD": {
+        "address": "0x13e3Ee699D1909E989722E753853AE30b17e08c5",
+        "decimals": 8,
+        "heartbeatSeconds": 1200
+      },
+      "BTC/USD": {
+        "address": "0xD702DD976Fb76Fffc2D3963D037dfDae5b04E593",
+        "decimals": 8,
+        "heartbeatSeconds": 1200
+      },
+      "USDC/USD": {
+        "address": "0x16a9FA2FDa030272Ce99B29CF780dFA30361E0f3",
+        "decimals": 8,
+        "heartbeatSeconds": 86400
+      },
+      "OP/USD": {
+        "address": "0x0D276FC14719f9292D5C1eA2198673d1f4269246",
+        "decimals": 8,
+        "heartbeatSeconds": 1200
+      },
+      "LINK/USD": {
+        "address": "0xCc232dcFAAE6354cE191Bd574108c1aD03f86ceE",
+        "decimals": 8,
+        "heartbeatSeconds": 1200
+      }
+    },
+    "56": {
+      "ETH/USD": {
+        "address": "0x9ef1B8c0E4F7dc8bF5719Ea496883DC6401d5b2e",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "BTC/USD": {
+        "address": "0x264990fbd0A4796A3E3d8E37C4d5F87a3aCa5Ebf",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "BNB/USD": {
+        "address": "0x0567F2323251f0Aab15c8dFb1967E4e8A7D42aeE",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "USDC/USD": {
+        "address": "0x51597f405303C4377E36123cBc172b13269EA163",
+        "decimals": 8,
+        "heartbeatSeconds": 86400
+      },
+      "LINK/USD": {
+        "address": "0xca236E327F629f9Fc2c30A4E95775EbF0B89fac8",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "CAKE/USD": {
+        "address": "0xB6064eD41d4f67e353768aA239cA86f4F73665a1",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      }
+    },
+    "137": {
+      "ETH/USD": {
+        "address": "0xF9680D99D6C9589e2a93a78A04A279e509205945",
+        "decimals": 8,
+        "heartbeatSeconds": 1800
+      },
+      "BTC/USD": {
+        "address": "0xc907E116054Ad103354f2D350FD2514433D57F6f",
+        "decimals": 8,
+        "heartbeatSeconds": 1800
+      },
+      "MATIC/USD": {
+        "address": "0xAB594600376Ec9fD91F8e885dADF0CE036862dE0",
+        "decimals": 8,
+        "heartbeatSeconds": 1800
+      },
+      "USDC/USD": {
+        "address": "0xfE4A8cc5b5B2366C1B58Bea3858e81843581b2F7",
+        "decimals": 8,
+        "heartbeatSeconds": 86400
+      },
+      "LINK/USD": {
+        "address": "0xd9FFdb71EbE7496cC440152d43986Aae0AB76665",
+        "decimals": 8,
+        "heartbeatSeconds": 1800
+      }
+    },
+    "43114": {
+      "ETH/USD": {
+        "address": "0x976B3D034E162d8bD72D6b9C989d545b839003b0",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "BTC/USD": {
+        "address": "0x2779D32d5166BAaa2B2b658333bA7e6Ec0C65743",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "AVAX/USD": {
+        "address": "0x0A77230d17318075983913bC2145DB16C7366156",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      },
+      "USDC/USD": {
+        "address": "0xF096872672F44d6EBA71458D74fe67F9a77a23B9",
+        "decimals": 8,
+        "heartbeatSeconds": 86400
+      },
+      "LINK/USD": {
+        "address": "0x49ccd9ca821EfEab2b98c60dC60F518E765EDe9a",
+        "decimals": 8,
+        "heartbeatSeconds": 3600
+      }
+    }
+  },
+  "relayConfig": {
+    "updateThresholdBps": 50,
+    "minSourcesForConsensus": 2,
+    "maxStalenessSeconds": 3600,
+    "priorityChains": [1, 8453, 42161]
+  }
+}
+

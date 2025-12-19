@@ -768,14 +768,19 @@ class CompleteBootstrapper {
     const cmd = `cd packages/contracts && forge create ${path} \
       --rpc-url ${this.rpcUrl} \
       --private-key ${this.deployerKey} \
-      ${args.length > 0 ? `--constructor-args ${argsStr}` : ''} \
-      --json`;
+      --broadcast \
+      ${args.length > 0 ? `--constructor-args ${argsStr}` : ''} 2>/dev/null`;
 
     const output = execSync(cmd, { encoding: 'utf-8', maxBuffer: 50 * 1024 * 1024 });
-    const result = JSON.parse(output);
     
-    console.log(`  ✅ ${name}: ${result.deployedTo}`);
-    return result.deployedTo;
+    // Parse deployment output (format: "Deployed to: 0x...")
+    const match = output.match(/Deployed to: (0x[a-fA-F0-9]{40})/);
+    if (!match) {
+      throw new Error(`Failed to parse deployment output for ${name}: ${output}`);
+    }
+    
+    console.log(`  ✅ ${name}: ${match[1]}`);
+    return match[1];
   }
 
   private sendTx(to: string, signature: string, label: string | null): void {

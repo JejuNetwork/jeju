@@ -2,7 +2,7 @@
  * Decentralized State Management for DWS
  * 
  * Persists compute jobs, storage pins, git repos, and package registrations to CovenantSQL.
- * Falls back to in-memory state for development when CQL is not available.
+ * CQL is REQUIRED - no fallbacks. Run infrastructure before starting DWS.
  */
 
 import { getCQL, type CQLClient } from '@jejunetwork/db';
@@ -15,26 +15,8 @@ const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws';
 let cqlClient: CQLClient | null = null;
 let cacheClient: CacheClient | null = null;
 let initialized = false;
-let usingInMemoryFallback = false;
-
-// In-memory fallback stores for dev mode
-const inMemoryStores = {
-  computeJobs: new Map<string, ComputeJobRow>(),
-  storagePins: new Map<string, StoragePinRow>(),
-  gitRepos: new Map<string, GitRepoRow>(),
-  packages: new Map<string, PackageRow>(),
-  apiListings: new Map<string, ApiListingRow>(),
-  apiUserAccounts: new Map<string, ApiUserAccountRow>(),
-  apiKeys: new Map<string, ApiKeyRow>(),
-  x402Credits: new Map<string, { balance: string; updatedAt: number }>(),
-  x402Nonces: new Set<string>(),
-};
 
 async function getCQLClient(): Promise<CQLClient> {
-  if (usingInMemoryFallback) {
-    throw new Error('Using in-memory fallback - CQL not available');
-  }
-  
   if (!cqlClient) {
     // CQL URL is automatically resolved from network config
     cqlClient = getCQL({
@@ -46,16 +28,10 @@ async function getCQLClient(): Promise<CQLClient> {
     const healthy = await cqlClient.isHealthy();
     if (!healthy) {
       const network = getCurrentNetwork();
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error(
-          `DWS requires CovenantSQL for decentralized state (network: ${network}).\n` +
-          'Ensure CQL is running: docker compose up -d cql'
-        );
-      }
-      // In development, fall back to in-memory
-      console.warn(`[DWS State] CQL not available (network: ${network}), using in-memory fallback`);
-      usingInMemoryFallback = true;
-      throw new Error('CQL not available - using in-memory fallback');
+      throw new Error(
+        `DWS requires CovenantSQL for decentralized state (network: ${network}).\n` +
+        'Ensure CQL is running: docker compose up -d cql'
+      );
     }
     
     await ensureTablesExist();
@@ -601,11 +577,6 @@ export const apiListingState = {
       updated_at: now,
     };
     
-    if (usingInMemoryFallback) {
-      inMemoryStores.apiListings.set(listing.listingId, row);
-      return;
-    }
-    
     const client = await getCQLClient();
     await client.exec(
       `INSERT INTO api_listings (listing_id, provider_id, seller, key_vault_id, price_per_request, limits, access_control, status, total_requests, total_revenue, created_at, updated_at)
@@ -622,10 +593,6 @@ export const apiListingState = {
   },
   
   async get(listingId: string): Promise<ApiListingRow | null> {
-    if (usingInMemoryFallback) {
-      return inMemoryStores.apiListings.get(listingId) ?? null;
-    }
-    
     const client = await getCQLClient();
     const result = await client.query<ApiListingRow>(
       'SELECT * FROM api_listings WHERE listing_id = ?',
@@ -636,13 +603,6 @@ export const apiListingState = {
   },
   
   async listBySeller(seller: Address): Promise<ApiListingRow[]> {
-    if (usingInMemoryFallback) {
-      const sellerLower = seller.toLowerCase();
-      return Array.from(inMemoryStores.apiListings.values())
-        .filter(l => l.seller === sellerLower)
-        .sort((a, b) => b.created_at - a.created_at);
-    }
-    
     const client = await getCQLClient();
     const result = await client.query<ApiListingRow>(
       'SELECT * FROM api_listings WHERE seller = ? ORDER BY created_at DESC',
@@ -653,16 +613,6 @@ export const apiListingState = {
   },
   
   async incrementUsage(listingId: string, revenue: string): Promise<void> {
-    if (usingInMemoryFallback) {
-      const listing = inMemoryStores.apiListings.get(listingId);
-      if (listing) {
-        listing.total_requests++;
-        listing.total_revenue = String(BigInt(listing.total_revenue) + BigInt(revenue));
-        listing.updated_at = Date.now();
-      }
-      return;
-    }
-    
     const client = await getCQLClient();
     await client.exec(
       `UPDATE api_listings SET total_requests = total_requests + 1, 
@@ -672,6 +622,60 @@ export const apiListingState = {
       CQL_DATABASE_ID
     );
   },
+  
+  async listAll(limit = 100): Promise<ApiListingRow[]> {
+    const client = await getCQLClient();
+    const result = await client.query<ApiListingRow>(
+      'SELECT * FROM api_listings ORDER BY created_at DESC LIMIT ?',
+      [limit],
+      CQL_DATABASE_ID
+    );
+    return result.rows;
+  },
+  
+  async listByProvider(providerId: string): Promise<ApiListingRow[]> {
+    const client = await getCQLClient();
+    const result = await client.query<ApiListingRow>(
+      'SELECT * FROM api_listings WHERE provider_id = ? ORDER BY created_at DESC',
+      [providerId],
+      CQL_DATABASE_ID
+    );
+    return result.rows;
+  },
+  
+  async listActive(): Promise<ApiListingRow[]> {
+    const client = await getCQLClient();
+    const result = await client.query<ApiListingRow>(
+      `SELECT * FROM api_listings WHERE status = 'active' ORDER BY created_at DESC`,
+      [],
+      CQL_DATABASE_ID
+    );
+    return result.rows;
+  },
+  
+  async getStats(): Promise<{ totalListings: number; activeListings: number; totalRevenue: string }> {
+    const client = await getCQLClient();
+    const total = await client.query<{ count: number }>(
+      'SELECT COUNT(*) as count FROM api_listings',
+      [],
+      CQL_DATABASE_ID
+    );
+    const active = await client.query<{ count: number }>(
+      `SELECT COUNT(*) as count FROM api_listings WHERE status = 'active'`,
+      [],
+      CQL_DATABASE_ID
+    );
+    const revenue = await client.query<{ total: string }>(
+      'SELECT COALESCE(SUM(CAST(total_revenue AS INTEGER)), 0) as total FROM api_listings',
+      [],
+      CQL_DATABASE_ID
+    );
+    return {
+      totalListings: total.rows[0]?.count ?? 0,
+      activeListings: active.rows[0]?.count ?? 0,
+      totalRevenue: revenue.rows[0]?.total ?? '0',
+    };
+  },
 };
 
 // API User Account Operations
@@ -679,24 +683,6 @@ export const apiUserAccountState = {
   async getOrCreate(address: Address): Promise<ApiUserAccountRow> {
     const addr = address.toLowerCase();
     const now = Date.now();
-    
-    if (usingInMemoryFallback) {
-      let account = inMemoryStores.apiUserAccounts.get(addr);
-      if (!account) {
-        account = {
-          address: addr,
-          balance: '0',
-          total_spent: '0',
-          total_requests: 0,
-          active_listings: '[]',
-          created_at: now,
-          updated_at: now,
-        };
-        inMemoryStores.apiUserAccounts.set(addr, account);
-      }
-      return account;
-    }
-    
     const client = await getCQLClient();
     
     const result = await client.query<ApiUserAccountRow>(
@@ -746,15 +732,6 @@ export const apiUserAccountState = {
     const deltaValue = BigInt(delta);
     const newBalance = currentBalance + deltaValue;
     
-    if (usingInMemoryFallback) {
-      const acc = inMemoryStores.apiUserAccounts.get(addr);
-      if (acc) {
-        acc.balance = newBalance.toString();
-        acc.updated_at = now;
-      }
-      return;
-    }
-    
     const client = await getCQLClient();
     await client.exec(
       `UPDATE api_user_accounts SET balance = ?, updated_at = ? WHERE address = ?`,
@@ -766,18 +743,6 @@ export const apiUserAccountState = {
   async recordRequest(address: Address, cost: string): Promise<void> {
     const addr = address.toLowerCase();
     const now = Date.now();
-    
-    if (usingInMemoryFallback) {
-      const acc = inMemoryStores.apiUserAccounts.get(addr);
-      if (acc) {
-        acc.total_requests++;
-        acc.total_spent = String(BigInt(acc.total_spent) + BigInt(cost));
-        acc.balance = String(BigInt(acc.balance) - BigInt(cost));
-        acc.updated_at = now;
-      }
-      return;
-    }
-    
     const client = await getCQLClient();
     
     await client.exec(
@@ -941,27 +906,12 @@ export const x402State = {
 // Initialize state
 export async function initializeDWSState(): Promise<void> {
   if (initialized) return;
-  
-  try {
-    await getCQLClient();
-    initialized = true;
-    console.log('[DWS State] Initialized with CovenantSQL');
-  } catch {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('CQL required in production');
-    }
-    // In dev mode, we already set usingInMemoryFallback in getCQLClient
-    initialized = true;
-    console.log('[DWS State] Initialized with in-memory fallback (dev mode)');
-  }
+  await getCQLClient();
+  initialized = true;
+  console.log('[DWS State] Initialized with CovenantSQL');
 }
 
-// Get state mode
-export function getStateMode(): 'cql' | 'memory' {
-  return usingInMemoryFallback ? 'memory' : 'cql';
-}
-
-// Check if using in-memory fallback
-export function isUsingInMemoryFallback(): boolean {
-  return usingInMemoryFallback;
+// Get state mode - always CQL, no fallbacks
+export function getStateMode(): 'cql' {
+  return 'cql';
 }

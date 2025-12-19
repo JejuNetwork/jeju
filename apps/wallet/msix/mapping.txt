@@ -1,0 +1,11 @@
+[Files]
+"src-tauri\target\x86_64-pc-windows-msvc\release\Network Wallet.exe"    "Network Wallet.exe"
+"msix\Assets\StoreLogo.png"                                              "Assets\StoreLogo.png"
+"msix\Assets\Square150x150Logo.png"                                      "Assets\Square150x150Logo.png"
+"msix\Assets\Square44x44Logo.png"                                        "Assets\Square44x44Logo.png"
+"msix\Assets\Wide310x150Logo.png"                                        "Assets\Wide310x150Logo.png"
+"msix\Assets\SmallTile.png"                                              "Assets\SmallTile.png"
+"msix\Assets\LargeTile.png"                                              "Assets\LargeTile.png"
+"msix\Assets\SplashScreen.png"                                           "Assets\SplashScreen.png"
+
+

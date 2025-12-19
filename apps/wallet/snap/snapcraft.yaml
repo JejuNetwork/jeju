@@ -1,0 +1,103 @@
+name: network-wallet
+version: '0.1.0'
+summary: Agentic multi-chain wallet with seamless cross-chain UX
+description: |
+  Network Wallet is an agentic multi-chain wallet that provides seamless 
+  cross-chain transactions without manual bridging.
+  
+  Features:
+  - EIL (Ethereum Interop Layer) for trustless cross-chain transfers
+  - OIF (Open Intents Framework) for intent-based transactions
+  - ERC-4337 account abstraction
+  - Hardware wallet support (Ledger, Trezor)
+  - AI-powered transaction assistance
+  
+  Supports all major EVM chains including Ethereum, Base, Arbitrum, Optimism,
+  and more.
+
+grade: stable
+confinement: strict
+base: core22
+
+architectures:
+  - build-on: amd64
+  - build-on: arm64
+
+apps:
+  network-wallet:
+    command: network-wallet
+    desktop: usr/share/applications/network-wallet.desktop
+    extensions: [gnome]
+    plugs:
+      - home
+      - network
+      - network-bind
+      - browser-support
+      - password-manager-service
+      - desktop
+      - desktop-legacy
+      - wayland
+      - x11
+      - unity7
+      - gsettings
+      - opengl
+
+layout:
+  /usr/lib/$SNAPCRAFT_ARCH_TRIPLET/webkit2gtk-4.1:
+    bind: $SNAP/usr/lib/$SNAPCRAFT_ARCH_TRIPLET/webkit2gtk-4.1
+
+parts:
+  network-wallet:
+    plugin: nil
+    source: .
+    build-snaps:
+      - node/20/stable
+      - rustup/latest/stable
+    build-packages:
+      - libwebkit2gtk-4.1-dev
+      - libgtk-3-dev
+      - libappindicator3-dev
+      - librsvg2-dev
+      - patchelf
+      - libssl-dev
+      - wget
+      - curl
+    stage-packages:
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
+      - libappindicator3-1
+      - librsvg2-2
+    override-build: |
+      # Install bun
+      curl -fsSL https://bun.sh/install | bash
+      export PATH="$HOME/.bun/bin:$PATH"
+      
+      # Install Rust
+      rustup default stable
+      rustup target add x86_64-unknown-linux-gnu
+      
+      # Install dependencies
+      bun install --frozen-lockfile
+      
+      # Build Tauri app
+      bun run tauri build --target x86_64-unknown-linux-gnu
+      
+      # Copy binary
+      mkdir -p $SNAPCRAFT_PART_INSTALL/usr/bin
+      cp src-tauri/target/x86_64-unknown-linux-gnu/release/network-wallet $SNAPCRAFT_PART_INSTALL/usr/bin/
+      
+      # Copy desktop file
+      mkdir -p $SNAPCRAFT_PART_INSTALL/usr/share/applications
+      cp snap/local/network-wallet.desktop $SNAPCRAFT_PART_INSTALL/usr/share/applications/
+      
+      # Copy icons
+      mkdir -p $SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps
+      cp src-tauri/icons/128x128@2x.png $SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps/network-wallet.png
+
+slots:
+  dbus-network-wallet:
+    interface: dbus
+    bus: session
+    name: network.jeju.wallet
+
+

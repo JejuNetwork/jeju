@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>network.jeju.wallet</id>
+  <name>Network Wallet</name>
+  <summary>Agentic multi-chain wallet with seamless cross-chain UX</summary>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <developer_name>Jeju Network</developer_name>
+  
+  <description>
+    <p>
+      Network Wallet is an agentic multi-chain wallet that provides seamless 
+      cross-chain transactions without manual bridging.
+    </p>
+    <p>Features:</p>
+    <ul>
+      <li>EIL (Ethereum Interop Layer) for trustless cross-chain transfers</li>
+      <li>OIF (Open Intents Framework) for intent-based transactions</li>
+      <li>ERC-4337 account abstraction</li>
+      <li>Hardware wallet support (Ledger, Trezor)</li>
+      <li>AI-powered transaction assistance</li>
+    </ul>
+    <p>
+      Supports all major EVM chains including Ethereum, Base, Arbitrum, Optimism, and more.
+    </p>
+  </description>
+  
+  <launchable type="desktop-id">network.jeju.wallet.desktop</launchable>
+  
+  <screenshots>
+    <screenshot type="default">
+      <caption>Network Wallet main dashboard</caption>
+      <image>https://wallet.jejunetwork.org/screenshots/dashboard.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Cross-chain transfer</caption>
+      <image>https://wallet.jejunetwork.org/screenshots/cross-chain.png</image>
+    </screenshot>
+    <screenshot>
+      <caption>Transaction signing</caption>
+      <image>https://wallet.jejunetwork.org/screenshots/signing.png</image>
+    </screenshot>
+  </screenshots>
+  
+  <url type="homepage">https://wallet.jejunetwork.org</url>
+  <url type="bugtracker">https://github.com/jejunetwork/jeju/issues</url>
+  <url type="donation">https://jejunetwork.org/donate</url>
+  <url type="help">https://docs.jejunetwork.org</url>
+  
+  <provides>
+    <binary>network-wallet</binary>
+  </provides>
+  
+  <content_rating type="oars-1.1" />
+  
+  <releases>
+    <release version="0.1.0" date="2025-01-01">
+      <description>
+        <p>Initial release with core wallet functionality.</p>
+      </description>
+    </release>
+  </releases>
+  
+  <categories>
+    <category>Finance</category>
+    <category>Network</category>
+  </categories>
+  
+  <keywords>
+    <keyword>wallet</keyword>
+    <keyword>crypto</keyword>
+    <keyword>ethereum</keyword>
+    <keyword>blockchain</keyword>
+    <keyword>defi</keyword>
+    <keyword>web3</keyword>
+  </keywords>
+</component>
+
+

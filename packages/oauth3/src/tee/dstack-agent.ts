@@ -127,17 +127,19 @@ export class DstackAuthAgent {
       credentials: new Map(),
     };
 
-    // Initialize storage
-    this.decentralizedStore = {
-      storage: createOAuth3StorageService({
-        ipfsApiEndpoint: config.storageEndpoint,
-        ipfsGatewayEndpoint: config.storageEndpoint,
-      }),
-      jns: createOAuth3JNSService({
-        rpcUrl: config.chainRpcUrl,
-      }),
-      pendingAuths: new Map(),
-    };
+    // Initialize decentralized storage only if endpoints are configured
+    if (config.storageEndpoint || config.jnsGateway) {
+      this.decentralizedStore = {
+        storage: createOAuth3StorageService({
+          ipfsApiEndpoint: config.storageEndpoint,
+          ipfsGatewayEndpoint: config.storageEndpoint,
+        }),
+        jns: createOAuth3JNSService({
+          rpcUrl: config.chainRpcUrl,
+        }),
+        pendingAuths: new Map(),
+      };
+    }
 
     this.nodePrivateKey = toBytes(config.privateKey);
     this.nodeAccount = privateKeyToAccount(config.privateKey);

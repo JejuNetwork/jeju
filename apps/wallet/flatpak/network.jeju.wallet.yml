@@ -1,0 +1,56 @@
+app-id: network.jeju.wallet
+runtime: org.gnome.Platform
+runtime-version: '45'
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.rust-stable
+  - org.freedesktop.Sdk.Extension.node20
+
+command: network-wallet
+
+finish-args:
+  - --share=ipc
+  - --share=network
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --device=dri
+  - --filesystem=xdg-documents
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.freedesktop.Notifications
+  - --env=WEBKIT_DISABLE_COMPOSITING_MODE=1
+
+modules:
+  - name: webkit2gtk-4.1
+    buildsystem: cmake-ninja
+    config-opts:
+      - -DPORT=GTK
+      - -DCMAKE_BUILD_TYPE=Release
+      - -DENABLE_BUBBLEWRAP_SANDBOX=OFF
+      - -DENABLE_GAMEPAD=OFF
+      - -DENABLE_MINIBROWSER=OFF
+      - -DUSE_GTK4=OFF
+      - -DUSE_SOUP2=OFF
+    sources:
+      - type: archive
+        url: https://webkitgtk.org/releases/webkitgtk-2.42.5.tar.xz
+        sha256: placeholder
+
+  - name: network-wallet
+    buildsystem: simple
+    build-options:
+      append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node20/bin
+      env:
+        CARGO_HOME: /run/build/network-wallet/cargo
+    build-commands:
+      - npm install -g bun
+      - bun install --frozen-lockfile
+      - bun run tauri build --target x86_64-unknown-linux-gnu
+      - install -Dm755 src-tauri/target/x86_64-unknown-linux-gnu/release/network-wallet -t /app/bin/
+      - install -Dm644 flatpak/network.jeju.wallet.desktop -t /app/share/applications/
+      - install -Dm644 flatpak/network.jeju.wallet.metainfo.xml -t /app/share/metainfo/
+      - install -Dm644 src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/network.jeju.wallet.png
+    sources:
+      - type: dir
+        path: ..
+
+

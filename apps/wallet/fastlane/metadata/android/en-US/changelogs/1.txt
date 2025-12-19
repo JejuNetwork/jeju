@@ -1,0 +1,9 @@
+Initial release:
+- Multi-chain wallet with EIL cross-chain transfers
+- Intent-based transactions via OIF
+- ERC-4337 account abstraction
+- Hardware wallet support (Ledger, Trezor)
+- AI-powered transaction assistance
+- Support for Ethereum, Base, Arbitrum, Optimism, and more
+
+

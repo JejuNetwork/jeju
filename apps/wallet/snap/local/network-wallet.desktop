@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Network Wallet
+Comment=Agentic multi-chain wallet with seamless cross-chain UX
+Exec=network-wallet
+Icon=${SNAP}/usr/share/icons/hicolor/256x256/apps/network-wallet.png
+Terminal=false
+Type=Application
+Categories=Finance;Network;
+Keywords=wallet;crypto;ethereum;base;blockchain;
+StartupWMClass=network-wallet
+
+

@@ -105,9 +105,9 @@ export const OTTO_COMMANDS = {
 
 export function getConfig(): OttoConfig {
   return {
-    port: parseInt(process.env.OTTO_PORT ?? '4030'),
-    webhookPort: parseInt(process.env.OTTO_WEBHOOK_PORT ?? '4031'),
-    baseUrl: process.env.OTTO_BASE_URL ?? 'http://localhost:4030',
+    port: parseInt(process.env.OTTO_PORT ?? '4040'),
+    webhookPort: parseInt(process.env.OTTO_WEBHOOK_PORT ?? '4041'),
+    baseUrl: process.env.OTTO_BASE_URL ?? 'http://localhost:4040',
     
     discord: {
       enabled: !!process.env.DISCORD_BOT_TOKEN,
@@ -127,6 +127,23 @@ export function getConfig(): OttoConfig {
       twilioSid: process.env.TWILIO_ACCOUNT_SID,
       twilioToken: process.env.TWILIO_AUTH_TOKEN,
       phoneNumber: process.env.TWILIO_WHATSAPP_NUMBER,
+    },
+
+    farcaster: {
+      enabled: !!process.env.NEYNAR_API_KEY && !!process.env.FARCASTER_BOT_FID,
+      apiKey: process.env.NEYNAR_API_KEY,
+      botFid: parseInt(process.env.FARCASTER_BOT_FID ?? '0'),
+      signerUuid: process.env.FARCASTER_SIGNER_UUID,
+    },
+
+    twitter: {
+      enabled: !!process.env.TWITTER_BEARER_TOKEN,
+      apiKey: process.env.TWITTER_API_KEY,
+      apiSecret: process.env.TWITTER_API_SECRET,
+      accessToken: process.env.TWITTER_ACCESS_TOKEN,
+      accessSecret: process.env.TWITTER_ACCESS_SECRET,
+      bearerToken: process.env.TWITTER_BEARER_TOKEN,
+      botUsername: process.env.TWITTER_BOT_USERNAME ?? 'otto_agent',
     },
     
     trading: {

@@ -304,7 +304,7 @@ export function createDistributorModule(
   const tryGetContract = (category: string, name: string): Address => {
     try {
       // @ts-expect-error - category names may vary by deployment
-      return getContractAddress(network, category, name) as Address;
+      return getContractAddress(category, name, network) as Address;
     } catch {
       return "0x0000000000000000000000000000000000000000" as Address;
     }

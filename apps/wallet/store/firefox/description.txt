@@ -1,0 +1,36 @@
+Network Wallet - Agentic Multi-Chain Wallet
+
+Network Wallet is a next-generation browser extension wallet that provides seamless cross-chain transactions without manual bridging or chain switching.
+
+KEY FEATURES:
+
+• SEAMLESS CROSS-CHAIN - Transfer assets between chains automatically through the Ethereum Interop Layer (EIL)
+
+• INTENT-BASED TRANSACTIONS - Express what you want and let the Open Intents Framework (OIF) find the optimal path
+
+• SMART ACCOUNTS (ERC-4337) - Account abstraction with social recovery, gas sponsorship, and batched transactions
+
+• HARDWARE WALLET SUPPORT - Connect Ledger or Trezor for maximum security
+
+• AI-POWERED ASSISTANCE - Intelligent help for transactions, gas optimization, and portfolio management
+
+• MULTI-CHAIN NATIVE - Ethereum, Base, Arbitrum, Optimism, Polygon, and more
+
+SECURITY:
+• Your keys never leave your device
+• Encrypted local storage
+• Open source and auditable
+• Security audits by leading firms
+
+SUPPORTED NETWORKS:
+• Ethereum Mainnet
+• Base
+• Arbitrum One & Nova
+• Optimism
+• Polygon
+• zkSync Era
+• And many more...
+
+Network Wallet is open source software. Visit https://github.com/jejunetwork/jeju
+
+

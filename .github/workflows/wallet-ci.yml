@@ -87,7 +87,6 @@ jobs:
 
       - name: Start Jeju localnet (anvil)
         run: |
-          # Use anvil for CI (faster than Kurtosis)
           anvil --chain-id 1337 --port 9545 --block-time 1 --accounts 10 --balance 10000 &
           sleep 3
           curl -s -X POST http://localhost:9545 -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' | grep -q "0x539" && echo "Localnet running"
@@ -103,6 +102,102 @@ jobs:
         if: failure()
         with:
           name: e2e-test-results
+          path: |
+            apps/wallet/playwright-report
+            apps/wallet/test-results
+          retention-days: 7
+
+  e2e-extension-tests:
+    name: E2E Tests (Extension)
+    runs-on: ubuntu-latest
+    needs: [lint-typecheck]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: .
+
+      - name: Install Playwright browsers
+        run: bunx playwright install chromium --with-deps
+
+      - name: Install Xvfb
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Build Chrome extension
+        run: bun run build:ext:chrome
+
+      - name: Run extension E2E tests
+        run: xvfb-run --auto-servernum -- bun run test:e2e:extension
+        env:
+          DISPLAY: :99
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: extension-e2e-results
+          path: |
+            apps/wallet/playwright-report
+            apps/wallet/test-results
+          retention-days: 7
+
+  e2e-metamask-tests:
+    name: E2E Tests (MetaMask)
+    runs-on: ubuntu-latest
+    needs: [lint-typecheck, e2e-extension-tests]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install dependencies
+        run: bun install --frozen-lockfile
+        working-directory: .
+
+      - name: Install Playwright browsers
+        run: bunx playwright install chromium --with-deps
+
+      - name: Install Xvfb and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libnss3 libatk1.0-0 libatk-bridge2.0-0 libdrm2 libxkbcommon0 libgbm1
+
+      - name: Start Jeju localnet (anvil)
+        run: |
+          anvil --chain-id 1337 --port 9545 --block-time 1 --accounts 10 --balance 10000 &
+          sleep 3
+          curl -s -X POST http://localhost:9545 -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}' | grep -q "0x539" && echo "Localnet running"
+        working-directory: .
+
+      - name: Create Synpress cache
+        run: xvfb-run --auto-servernum -- bunx synpress tests/wallet-setup --force
+        env:
+          DISPLAY: :99
+        continue-on-error: true
+
+      - name: Run MetaMask E2E tests
+        run: xvfb-run --auto-servernum -- bun run test:e2e:metamask
+        env:
+          DISPLAY: :99
+          JEJU_RPC_URL: http://localhost:9545
+
+      - name: Upload test artifacts
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: metamask-e2e-results
           path: |
             apps/wallet/playwright-report
             apps/wallet/test-results
@@ -145,7 +240,7 @@ jobs:
     needs: [lint-typecheck]
     strategy:
       matrix:
-        target: [chrome, firefox]
+        target: [chrome, firefox, safari, edge, brave]
     steps:
       - uses: actions/checkout@v4
       
@@ -160,11 +255,16 @@ jobs:
       - name: Build ${{ matrix.target }} extension
         run: EXT_TARGET=${{ matrix.target }} bun run build:ext
 
+      - name: Zip extension
+        run: cd dist-ext-${{ matrix.target }} && zip -r ../network-wallet-${{ matrix.target }}.zip .
+
       - name: Upload extension artifact
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}-extension
-          path: apps/wallet/dist-ext-${{ matrix.target }}
+          path: |
+            apps/wallet/dist-ext-${{ matrix.target }}
+            apps/wallet/network-wallet-${{ matrix.target }}.zip
           retention-days: 7
 
   # ============================================
@@ -235,6 +335,30 @@ jobs:
         with:
           name: tauri-${{ matrix.platform }}
           path: apps/wallet/src-tauri/target/${{ matrix.target }}/release/bundle/${{ matrix.artifact }}
+          retention-days: 14
+
+  # ============================================
+  # LINUX SNAP BUILD
+  # ============================================
+  build-snap:
+    name: Build Snap
+    needs: [lint-typecheck]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Snapcraft
+        uses: snapcore/action-build@v1
+        id: snapcraft
+        with:
+          path: apps/wallet
+
+      - name: Upload snap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: snap-build
+          path: ${{ steps.snapcraft.outputs.snap }}
           retention-days: 14
 
   # ============================================
@@ -356,18 +480,15 @@ jobs:
           IOS_PROVISIONING_PROFILE_BASE64: ${{ secrets.IOS_PROVISIONING_PROFILE_BASE64 }}
           KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          # Create temporary keychain
           security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security default-keychain -s build.keychain
           security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
           security set-keychain-settings -t 3600 -u build.keychain
           
-          # Import certificate
           echo "$IOS_CERTIFICATE_BASE64" | base64 --decode > certificate.p12
           security import certificate.p12 -k build.keychain -P "$IOS_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
           security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" build.keychain
           
-          # Install provisioning profile
           mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
           echo "$IOS_PROVISIONING_PROFILE_BASE64" | base64 --decode > ~/Library/MobileDevice/Provisioning\ Profiles/profile.mobileprovision
 
@@ -402,3 +523,28 @@ jobs:
             apps/wallet/ios/App/build/Build/Products/Debug-iphonesimulator/*.app
           retention-days: 14
 
+  # ============================================
+  # BUILD SUMMARY
+  # ============================================
+  build-summary:
+    name: Build Summary
+    runs-on: ubuntu-latest
+    needs: [build-web, build-extensions, build-desktop, build-android, build-ios, build-snap, e2e-tests, e2e-extension-tests, e2e-metamask-tests]
+    if: always() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    steps:
+      - name: Check build status
+        run: |
+          echo "Build Summary:"
+          echo "=============="
+          echo "Web: ${{ needs.build-web.result }}"
+          echo "Extensions: ${{ needs.build-extensions.result }}"
+          echo "Desktop: ${{ needs.build-desktop.result }}"
+          echo "Android: ${{ needs.build-android.result }}"
+          echo "iOS: ${{ needs.build-ios.result }}"
+          echo "Snap: ${{ needs.build-snap.result }}"
+          echo ""
+          echo "E2E Tests:"
+          echo "==========="
+          echo "Live E2E: ${{ needs.e2e-tests.result }}"
+          echo "Extension E2E: ${{ needs.e2e-extension-tests.result }}"
+          echo "MetaMask E2E: ${{ needs.e2e-metamask-tests.result }}"

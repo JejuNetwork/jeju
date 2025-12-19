@@ -15,36 +15,19 @@ abstract contract ProviderRegistryBase is Ownable, Pausable, ReentrancyGuard {
     using ERC8004ProviderMixin for ERC8004ProviderMixin.Data;
     using ModerationMixin for ModerationMixin.Data;
 
-    // ============ State Variables ============
-
-    /// @notice ERC-8004 integration data
     ERC8004ProviderMixin.Data public erc8004;
-
-    /// @notice Moderation integration data
     ModerationMixin.Data public moderation;
-
-    /// @notice Minimum stake required to register as provider
     uint256 public minProviderStake;
-
-    /// @notice All registered provider addresses
     address[] public providerList;
-
-    /// @notice Provider count
     uint256 public providerCount;
 
-    // ============ Events ============
-
-    event ProviderRegistered(
-        address indexed provider, uint256 indexed agentId, uint256 stake, uint256 registeredAt
-    );
+    event ProviderRegistered(address indexed provider, uint256 indexed agentId, uint256 stake, uint256 registeredAt);
     event ProviderUpdated(address indexed provider);
     event ProviderDeactivated(address indexed provider);
     event ProviderReactivated(address indexed provider);
     event StakeAdded(address indexed provider, uint256 amount, uint256 newTotal);
     event StakeWithdrawn(address indexed provider, uint256 amount);
     event MinStakeUpdated(uint256 oldStake, uint256 newStake);
-
-    // ============ Errors ============
 
     error InsufficientStake(uint256 provided, uint256 required);
     error ProviderAlreadyRegistered();

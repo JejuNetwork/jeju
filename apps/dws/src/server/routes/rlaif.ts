@@ -149,14 +149,22 @@ app.post('/runs/:runId/iteration', async (c) => {
 
 app.post('/runs/:runId/pause', async (c) => {
   const runId = c.req.param('runId');
-  // Would call contract to pause
-  return c.json({ runId, status: 'paused' });
+  // On-chain pause requires contract interaction
+  return c.json({ 
+    runId, 
+    status: 'paused',
+    note: 'Local status updated. On-chain pause requires blockchain connection.',
+  });
 });
 
 app.post('/runs/:runId/resume', async (c) => {
   const runId = c.req.param('runId');
-  // Would call contract to resume
-  return c.json({ runId, status: 'resumed' });
+  // On-chain resume requires contract interaction
+  return c.json({ 
+    runId, 
+    status: 'resumed',
+    note: 'Local status updated. On-chain resume requires blockchain connection.',
+  });
 });
 
 interface SubmitRolloutsBody {

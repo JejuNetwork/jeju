@@ -451,6 +451,72 @@ This contract provides basic deposit and withdraw functionality with proper even
                   </div>
                 </div>
               </div>
+
+              {/* Download / CLI Setup */}
+              <div className="card p-6">
+                <h3 className="font-semibold text-factory-100 mb-4 flex items-center gap-2">
+                  <Terminal className="w-5 h-5 text-accent-400" />
+                  Download Model
+                </h3>
+                <p className="text-factory-500 text-sm mb-4">
+                  Use the Jeju Model Hub CLI (HuggingFace compatible):
+                </p>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-factory-500 mb-1 block">Install CLI</label>
+                    <div className="bg-factory-900 rounded-lg p-3 font-mono text-xs relative">
+                      <pre className="text-factory-400">pip install jeju-hub</pre>
+                      <button
+                        onClick={() => copyToClipboard('pip install jeju-hub')}
+                        className="absolute top-2 right-2 p-1 hover:bg-factory-800 rounded"
+                      >
+                        {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-factory-500" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-factory-500 mb-1 block">Configure Endpoint</label>
+                    <div className="bg-factory-900 rounded-lg p-3 font-mono text-xs">
+                      <pre className="text-factory-400">{`jeju-hub login
+# or set endpoint
+export HF_ENDPOINT=https://models.jeju.network`}</pre>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-factory-500 mb-1 block">Download Model</label>
+                    <div className="bg-factory-900 rounded-lg p-3 font-mono text-xs relative">
+                      <pre className="text-factory-400">{`jeju-hub download ${fullName}`}</pre>
+                      <button
+                        onClick={() => copyToClipboard(`jeju-hub download ${fullName}`)}
+                        className="absolute top-2 right-2 p-1 hover:bg-factory-800 rounded"
+                      >
+                        {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-factory-500" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-xs text-factory-500 mb-1 block">Python Usage</label>
+                    <div className="bg-factory-900 rounded-lg p-3 font-mono text-xs relative">
+                      <pre className="text-factory-400 whitespace-pre-wrap">{`from transformers import AutoModelForCausalLM
+
+model = AutoModelForCausalLM.from_pretrained(
+    "${fullName}",
+    endpoint="https://models.jeju.network"
+)`}</pre>
+                      <button
+                        onClick={() => copyToClipboard(installCommand)}
+                        className="absolute top-2 right-2 p-1 hover:bg-factory-800 rounded"
+                      >
+                        {copied ? <Check className="w-3 h-3 text-green-400" /> : <Copy className="w-3 h-3 text-factory-500" />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         )}

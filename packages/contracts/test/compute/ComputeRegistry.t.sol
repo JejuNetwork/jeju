@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import "forge-std/Test.sol";
 import "../../src/compute/ComputeRegistry.sol";
 import "../../src/registry/ProviderRegistryBase.sol";
+import {IProviderRegistry} from "../../src/registry/interfaces/IProviderRegistry.sol";
 
 contract ComputeRegistryTest is Test {
     ComputeRegistry public registry;
@@ -42,7 +43,7 @@ contract ComputeRegistryTest is Test {
     function test_RegisterProviderInsufficientStake() public {
         vm.startPrank(provider1);
 
-        vm.expectRevert(abi.encodeWithSelector(ProviderRegistryBase.InsufficientStake.selector, 0.001 ether, 0.01 ether));
+        vm.expectRevert(abi.encodeWithSelector(IProviderRegistry.InsufficientStake.selector, 0.001 ether, 0.01 ether));
         registry.register{value: 0.001 ether}("Test Provider", "https://api.test.com", bytes32(uint256(1)));
 
         vm.stopPrank();

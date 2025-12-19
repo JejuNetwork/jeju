@@ -88,66 +88,35 @@ contract LiquidityPaymaster is BasePaymaster {
     ) internal view override returns (bytes memory context, uint256 validationData) {
         address sender = userOp.sender;
         
-        // Check if user is banned - banned users cannot use gas sponsorship
-        if (moderation.isAddressBanned(sender)) {
-            return ("", 1); // Invalid - user is banned
-        }
+        if (moderation.isAddressBanned(sender)) return ("", 1);
         
-        // Calculate required token amount
         uint256 tokenAmount = getTokenAmountForEth(maxCost);
         
-        // Check user has sufficient balance and allowance
-        if (token.balanceOf(sender) < tokenAmount) {
-            return ("", 1); // Invalid - insufficient balance
-        }
-        if (token.allowance(sender, address(this)) < tokenAmount) {
-            return ("", 1); // Invalid - insufficient allowance
-        }
+        if (token.balanceOf(sender) < tokenAmount) return ("", 1);
+        if (token.allowance(sender, address(this)) < tokenAmount) return ("", 1);
         
-        // Context: sender, maxCost, tokenAmount
         context = abi.encode(sender, maxCost, tokenAmount);
-        validationData = 0; // Valid
+        validationData = 0;
     }
 
-    /**
-     * @dev Called after user operation execution
-     */
-    function _postOp(
-        PostOpMode,
-        bytes calldata context,
-        uint256 actualGasCost,
-        uint256
-    ) internal override {
+    function _postOp(PostOpMode, bytes calldata context, uint256 actualGasCost, uint256) internal override {
         (address sender,, uint256 maxTokenAmount) = abi.decode(context, (address, uint256, uint256));
         
         uint256 actualTokenCost = getTokenAmountForEth(actualGasCost);
         uint256 tokensToPay = actualTokenCost < maxTokenAmount ? actualTokenCost : maxTokenAmount;
         
         token.safeTransferFrom(sender, vault, tokensToPay);
-        
         emit GasSponsored(sender, actualGasCost, tokensToPay);
     }
 
-    /**
-     * @notice Set ban manager for moderation
-     * @param _banManager BanManager contract address
-     */
     function setBanManager(address _banManager) external onlyOwner {
         moderation.setBanManager(_banManager);
     }
 
-    /**
-     * @notice Set identity registry for agent ban checking
-     * @param _identityRegistry IdentityRegistry contract address
-     */
     function setIdentityRegistry(address _identityRegistry) external onlyOwner {
         moderation.setIdentityRegistry(_identityRegistry);
     }
 
-    /**
-     * @notice Check if a user is banned from using this paymaster
-     * @param user Address to check
-     */
     function isUserBanned(address user) external view returns (bool) {
         return moderation.isAddressBanned(user);
     }

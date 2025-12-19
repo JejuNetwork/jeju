@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Package xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+         xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+         xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+         xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+         xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+         xmlns:desktop="http://schemas.microsoft.com/appx/manifest/desktop/windows10"
+         IgnorableNamespaces="uap uap3 rescap desktop">
+
+  <Identity Name="JejuNetwork.NetworkWallet"
+            Publisher="CN=Jeju Network, O=Jeju Network, C=US"
+            Version="0.1.0.0"
+            ProcessorArchitecture="x64" />
+
+  <mp:PhoneIdentity PhoneProductId="network-wallet" PhonePublisherId="00000000-0000-0000-0000-000000000000" />
+
+  <Properties>
+    <DisplayName>Network Wallet</DisplayName>
+    <PublisherDisplayName>Jeju Network</PublisherDisplayName>
+    <Logo>Assets\StoreLogo.png</Logo>
+  </Properties>
+
+  <Dependencies>
+    <TargetDeviceFamily Name="Windows.Desktop" MinVersion="10.0.17763.0" MaxVersionTested="10.0.22621.0" />
+  </Dependencies>
+
+  <Resources>
+    <Resource Language="en-us" />
+  </Resources>
+
+  <Applications>
+    <Application Id="NetworkWallet"
+                 Executable="Network Wallet.exe"
+                 EntryPoint="Windows.FullTrustApplication">
+      
+      <uap:VisualElements
+        DisplayName="Network Wallet"
+        Description="Agentic multi-chain wallet with seamless cross-chain UX"
+        BackgroundColor="#0a0a0a"
+        Square150x150Logo="Assets\Square150x150Logo.png"
+        Square44x44Logo="Assets\Square44x44Logo.png">
+        
+        <uap:DefaultTile Wide310x150Logo="Assets\Wide310x150Logo.png" Square71x71Logo="Assets\SmallTile.png" Square310x310Logo="Assets\LargeTile.png">
+          <uap:ShowNameOnTiles>
+            <uap:ShowOn Tile="square150x150Logo"/>
+            <uap:ShowOn Tile="wide310x150Logo"/>
+            <uap:ShowOn Tile="square310x310Logo"/>
+          </uap:ShowNameOnTiles>
+        </uap:DefaultTile>
+        
+        <uap:SplashScreen Image="Assets\SplashScreen.png" BackgroundColor="#0a0a0a"/>
+      </uap:VisualElements>
+
+      <Extensions>
+        <!-- Protocol handler for deep links -->
+        <uap:Extension Category="windows.protocol">
+          <uap:Protocol Name="jeju">
+            <uap:DisplayName>Jeju Network Protocol</uap:DisplayName>
+          </uap:Protocol>
+        </uap:Extension>
+        
+        <!-- App startup task -->
+        <desktop:Extension Category="windows.startupTask">
+          <desktop:StartupTask TaskId="NetworkWalletStartup" Enabled="false" DisplayName="Network Wallet" />
+        </desktop:Extension>
+      </Extensions>
+      
+    </Application>
+  </Applications>
+
+  <Capabilities>
+    <Capability Name="internetClient" />
+    <rescap:Capability Name="runFullTrust" />
+  </Capabilities>
+
+</Package>
+
+

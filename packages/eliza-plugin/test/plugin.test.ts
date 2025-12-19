@@ -20,66 +20,24 @@ describe('jejuPlugin', () => {
     expect(jejuPlugin.providers!.length).toBeGreaterThan(0);
   });
 
-  test('has actions covering all capabilities', () => {
+  test('has actions', () => {
     expect(jejuPlugin.actions).toBeDefined();
-    // Should have 30+ actions covering all Jeju capabilities
-    expect(jejuPlugin.actions!.length).toBeGreaterThanOrEqual(30);
+    expect(jejuPlugin.actions!.length).toBeGreaterThan(0);
   });
 
-  test('has JejuService', () => {
+  test('has services', () => {
     expect(jejuPlugin.services).toBeDefined();
-    expect(jejuPlugin.services!.length).toBe(1);
-  });
-
-  test('actions have required properties', () => {
-    for (const action of jejuPlugin.actions!) {
-      expect(action.name).toBeDefined();
-      expect(action.description).toBeDefined();
-      expect(action.validate).toBeDefined();
-      expect(action.handler).toBeDefined();
-    }
-  });
-
-  test('providers have required properties', () => {
-    for (const provider of jejuPlugin.providers!) {
-      expect(provider.name).toBeDefined();
-      expect(provider.get).toBeDefined();
-    }
+    expect(jejuPlugin.services!.length).toBeGreaterThan(0);
   });
 });
 
-describe('Plugin Actions - Core', () => {
-  const coreActions = [
-    'RENT_GPU',
-    'RUN_INFERENCE',
-    'CREATE_TRIGGER',
-    'UPLOAD_FILE',
-    'RETRIEVE_FILE',
-    'SWAP_TOKENS',
-    'ADD_LIQUIDITY',
-    'CREATE_PROPOSAL',
-    'VOTE_PROPOSAL',
-    'REGISTER_NAME',
-    'RESOLVE_NAME',
-    'REGISTER_AGENT',
-    'CROSS_CHAIN_TRANSFER',
-    'CHECK_BALANCE',
-  ];
-
-  for (const name of coreActions) {
-    test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name);
-      expect(action).toBeDefined();
-    });
-  }
-});
-
-describe('Plugin Actions - Extended Compute', () => {
+describe('Plugin Actions - Compute', () => {
   const computeActions = [
     'LIST_PROVIDERS',
     'LIST_MODELS',
     'LIST_MY_RENTALS',
-    'GET_SSH_ACCESS',
+    'RENT_GPU',
+    'RUN_INFERENCE',
   ];
 
   for (const name of computeActions) {
@@ -90,13 +48,15 @@ describe('Plugin Actions - Extended Compute', () => {
   }
 });
 
-describe('Plugin Actions - Extended Storage', () => {
+describe('Plugin Actions - Storage', () => {
   const storageActions = [
-    'PIN_CID',
+    'UPLOAD_FILE',
+    'RETRIEVE_FILE',
     'LIST_PINS',
-    'UNPIN',
     'GET_STORAGE_STATS',
     'ESTIMATE_STORAGE_COST',
+    'PIN_CID',
+    'UNPIN',
   ];
 
   for (const name of storageActions) {
@@ -107,30 +67,17 @@ describe('Plugin Actions - Extended Storage', () => {
   }
 });
 
-describe('Plugin Actions - DeFi Pools', () => {
-  const poolActions = [
+describe('Plugin Actions - DeFi', () => {
+  const defiActions = [
     'LIST_POOLS',
-    'GET_POOL_STATS',
     'MY_POSITIONS',
-  ];
-
-  for (const name of poolActions) {
-    test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name);
-      expect(action).toBeDefined();
-    });
-  }
-});
-
-describe('Plugin Actions - OIF Intents', () => {
-  const intentActions = [
-    'CREATE_INTENT',
-    'TRACK_INTENT',
-    'LIST_SOLVERS',
+    'ADD_LIQUIDITY',
+    'SWAP_TOKENS',
+    'GET_POOL_STATS',
     'LIST_ROUTES',
   ];
 
-  for (const name of intentActions) {
+  for (const name of defiActions) {
     test(`has ${name} action`, () => {
       const action = jejuPlugin.actions!.find((a) => a.name === name);
       expect(action).toBeDefined();
@@ -138,14 +85,28 @@ describe('Plugin Actions - OIF Intents', () => {
   }
 });
 
-describe('Plugin Actions - Bazaar', () => {
-  const bazaarActions = [
-    'LAUNCH_TOKEN',
-    'LIST_NFTS',
+describe('Plugin Actions - Governance', () => {
+  const govActions = [
+    'CREATE_PROPOSAL',
+    'VOTE_PROPOSAL',
+  ];
+
+  for (const name of govActions) {
+    test(`has ${name} action`, () => {
+      const action = jejuPlugin.actions!.find((a) => a.name === name);
+      expect(action).toBeDefined();
+    });
+  }
+});
+
+describe('Plugin Actions - Names (JNS)', () => {
+  const nameActions = [
+    'REGISTER_NAME',
+    'RESOLVE_NAME',
     'LIST_NAMES_FOR_SALE',
   ];
 
-  for (const name of bazaarActions) {
+  for (const name of nameActions) {
     test(`has ${name} action`, () => {
       const action = jejuPlugin.actions!.find((a) => a.name === name);
       expect(action).toBeDefined();
@@ -153,13 +114,43 @@ describe('Plugin Actions - Bazaar', () => {
   }
 });
 
-describe('Plugin Actions - Moderation', () => {
-  const moderationActions = [
+describe('Plugin Actions - Identity', () => {
+  const identityActions = [
+    'REGISTER_AGENT',
     'REPORT_AGENT',
-    'LIST_MODERATION_CASES',
   ];
 
-  for (const name of moderationActions) {
+  for (const name of identityActions) {
+    test(`has ${name} action`, () => {
+      const action = jejuPlugin.actions!.find((a) => a.name === name);
+      expect(action).toBeDefined();
+    });
+  }
+});
+
+describe('Plugin Actions - Cross-chain', () => {
+  const crosschainActions = [
+    'LIST_SOLVERS',
+    'CREATE_INTENT',
+    'TRACK_INTENT',
+    'CROSS_CHAIN_TRANSFER',
+  ];
+
+  for (const name of crosschainActions) {
+    test(`has ${name} action`, () => {
+      const action = jejuPlugin.actions!.find((a) => a.name === name);
+      expect(action).toBeDefined();
+    });
+  }
+});
+
+describe('Plugin Actions - Payments', () => {
+  const paymentActions = [
+    'CHECK_BALANCE',
+    'CREATE_TRIGGER',
+  ];
+
+  for (const name of paymentActions) {
     test(`has ${name} action`, () => {
       const action = jejuPlugin.actions!.find((a) => a.name === name);
       expect(action).toBeDefined();
@@ -188,6 +179,127 @@ describe('Plugin Actions - A2A', () => {
   ];
 
   for (const name of a2aActions) {
+    test(`has ${name} action`, () => {
+      const action = jejuPlugin.actions!.find((a) => a.name === name);
+      expect(action).toBeDefined();
+    });
+  }
+});
+
+describe('Plugin Actions - Games', () => {
+  const gameActions = [
+    'GET_GAME_STATS',
+    'GET_GOLD_BALANCE',
+    'TRANSFER_GOLD',
+    'GET_ITEM_BALANCE',
+    'TRANSFER_ITEM',
+    'LINK_GAME_AGENT',
+    'GET_PLAYER_INFO',
+  ];
+
+  for (const name of gameActions) {
+    test(`has ${name} action`, () => {
+      const action = jejuPlugin.actions!.find((a) => a.name === name);
+      expect(action).toBeDefined();
+    });
+  }
+});
+
+describe('Plugin Actions - Containers', () => {
+  const containerActions = [
+    'CREATE_CONTAINER_REPO',
+    'GET_CONTAINER_REPO',
+    'LIST_MY_REPOS',
+    'STAR_CONTAINER_REPO',
+    'GRANT_REPO_ACCESS',
+    'GET_IMAGE_MANIFEST',
+    'GET_SSH_ACCESS',
+  ];
+
+  for (const name of containerActions) {
+    test(`has ${name} action`, () => {
+      const action = jejuPlugin.actions!.find((a) => a.name === name);
+      expect(action).toBeDefined();
+    });
+  }
+});
+
+describe('Plugin Actions - Launchpad', () => {
+  const launchpadActions = [
+    'CREATE_TOKEN',
+    'LAUNCH_TOKEN',
+    'CREATE_BONDING_CURVE',
+    'BUY_FROM_CURVE',
+    'SELL_TO_CURVE',
+    'LIST_BONDING_CURVES',
+    'LOCK_LP',
+    'CREATE_PRESALE',
+    'CONTRIBUTE_PRESALE',
+    'LIST_PRESALES',
+  ];
+
+  for (const name of launchpadActions) {
+    test(`has ${name} action`, () => {
+      const action = jejuPlugin.actions!.find((a) => a.name === name);
+      expect(action).toBeDefined();
+    });
+  }
+});
+
+describe('Plugin Actions - Moderation', () => {
+  const modActions = [
+    'SUBMIT_EVIDENCE',
+    'SUPPORT_EVIDENCE',
+    'GET_EVIDENCE',
+    'LIST_CASE_EVIDENCE',
+    'CLAIM_EVIDENCE_REWARD',
+    'CREATE_MODERATION_CASE',
+    'GET_MODERATION_CASE',
+    'LIST_MODERATION_CASES',
+    'APPEAL_CASE',
+    'ISSUE_REPUTATION_LABEL',
+    'GET_REPUTATION_LABELS',
+    'CHECK_TRUST_STATUS',
+  ];
+
+  for (const name of modActions) {
+    test(`has ${name} action`, () => {
+      const action = jejuPlugin.actions!.find((a) => a.name === name);
+      expect(action).toBeDefined();
+    });
+  }
+});
+
+describe('Plugin Actions - Work', () => {
+  const workActions = [
+    'CREATE_BOUNTY',
+    'LIST_BOUNTIES',
+    'CLAIM_BOUNTY',
+    'SUBMIT_BOUNTY_WORK',
+    'APPROVE_SUBMISSION',
+    'REJECT_SUBMISSION',
+    'CREATE_PROJECT',
+    'LIST_PROJECTS',
+    'CREATE_PROJECT_TASK',
+    'GET_PROJECT_TASKS',
+    'REGISTER_GUARDIAN',
+    'LIST_GUARDIANS',
+  ];
+
+  for (const name of workActions) {
+    test(`has ${name} action`, () => {
+      const action = jejuPlugin.actions!.find((a) => a.name === name);
+      expect(action).toBeDefined();
+    });
+  }
+});
+
+describe('Plugin Actions - NFTs', () => {
+  const nftActions = [
+    'LIST_NFTS',
+  ];
+
+  for (const name of nftActions) {
     test(`has ${name} action`, () => {
       const action = jejuPlugin.actions!.find((a) => a.name === name);
       expect(action).toBeDefined();

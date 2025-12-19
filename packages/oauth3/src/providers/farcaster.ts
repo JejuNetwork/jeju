@@ -7,6 +7,9 @@
  * - Frame authentication
  * - Verified address linking
  * - Profile data fetching
+ * 
+ * Uses permissionless Hub access when NEYNAR_API_KEY is not set.
+ * Set FARCASTER_HUB_URL to use a self-hosted hub (default: public hub).
  */
 
 import { keccak256, toBytes, toHex, type Address, type Hex } from 'viem';
@@ -19,9 +22,14 @@ import type {
   LinkedProvider,
 } from '../types.js';
 
-const FARCASTER_HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://hub.pinata.cloud';
+// Hub URL for permissionless access (used when no API key)
+const FARCASTER_HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://nemes.farcaster.xyz:2281';
+// Neynar API URL (optional, for rate-limited but feature-rich access)
 const FARCASTER_API_URL = process.env.FARCASTER_API_URL ?? 'https://api.neynar.com/v2';
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? '';
+
+// Determine if we should use permissionless hub access
+const USE_HUB_DIRECT = !NEYNAR_API_KEY;
 
 export interface FarcasterProfile {
   fid: number;
@@ -87,14 +95,21 @@ export class FarcasterProvider {
   private apiKey: string;
   private hubUrl: string;
   private apiUrl: string;
+  private useHubDirect: boolean;
 
   constructor(config?: { apiKey?: string; hubUrl?: string; apiUrl?: string }) {
     this.apiKey = config?.apiKey ?? NEYNAR_API_KEY;
     this.hubUrl = config?.hubUrl ?? FARCASTER_HUB_URL;
     this.apiUrl = config?.apiUrl ?? FARCASTER_API_URL;
+    this.useHubDirect = !this.apiKey;
   }
 
   async getProfileByFid(fid: number): Promise<FarcasterProfile> {
+    // Use permissionless hub access when no API key
+    if (this.useHubDirect) {
+      return this.getProfileFromHub(fid);
+    }
+
     const response = await fetch(`${this.apiUrl}/farcaster/user/bulk?fids=${fid}`, {
       headers: this.getHeaders(),
     });
@@ -113,7 +128,76 @@ export class FarcasterProvider {
     return this.mapNeynarUser(user);
   }
 
+  /**
+   * Fetch profile directly from Farcaster Hub (permissionless)
+   */
+  private async getProfileFromHub(fid: number): Promise<FarcasterProfile> {
+    // Fetch user data from hub
+    const userDataResponse = await fetch(`${this.hubUrl}/v1/userDataByFid?fid=${fid}`);
+    if (!userDataResponse.ok) {
+      throw new Error(`Failed to fetch user data from hub: ${userDataResponse.status}`);
+    }
+
+    const userData = await userDataResponse.json() as {
+      messages: Array<{
+        data: {
+          fid: number;
+          userDataBody: { type: string; value: string };
+        };
+      }>;
+    };
+
+    // Fetch verifications
+    const verificationsResponse = await fetch(`${this.hubUrl}/v1/verificationsByFid?fid=${fid}`);
+    const verifications = verificationsResponse.ok 
+      ? await verificationsResponse.json() as {
+          messages: Array<{
+            data: {
+              verificationAddAddressBody: { address: string; protocol: string };
+            };
+          }>;
+        }
+      : { messages: [] };
+
+    // Build profile from hub data
+    const profile: FarcasterProfile = {
+      fid,
+      username: '',
+      displayName: '',
+      pfpUrl: '',
+      bio: '',
+      followerCount: 0,
+      followingCount: 0,
+      verifiedAddresses: [],
+      custodyAddress: '0x0' as Address,
+      activeStatus: 'active',
+    };
+
+    // Parse user data
+    for (const msg of userData.messages) {
+      const type = msg.data.userDataBody.type;
+      const value = msg.data.userDataBody.value;
+      
+      if (type === 'USER_DATA_TYPE_USERNAME') profile.username = value;
+      else if (type === 'USER_DATA_TYPE_DISPLAY') profile.displayName = value;
+      else if (type === 'USER_DATA_TYPE_PFP') profile.pfpUrl = value;
+      else if (type === 'USER_DATA_TYPE_BIO') profile.bio = value;
+    }
+
+    // Parse verifications
+    profile.verifiedAddresses = verifications.messages
+      .filter((m) => m.data.verificationAddAddressBody.protocol !== 'PROTOCOL_SOLANA')
+      .map((m) => m.data.verificationAddAddressBody.address as Address);
+
+    return profile;
+  }
+
   async getProfileByUsername(username: string): Promise<FarcasterProfile> {
+    // Use permissionless hub access when no API key
+    if (this.useHubDirect) {
+      return this.getProfileByUsernameFromHub(username);
+    }
+
     const response = await fetch(`${this.apiUrl}/farcaster/user/by_username?username=${username}`, {
       headers: this.getHeaders(),
     });
@@ -126,7 +210,26 @@ export class FarcasterProvider {
     return this.mapNeynarUser(data.user);
   }
 
+  /**
+   * Fetch profile by username from Hub (permissionless)
+   */
+  private async getProfileByUsernameFromHub(username: string): Promise<FarcasterProfile> {
+    // First resolve username to FID
+    const proofResponse = await fetch(`${this.hubUrl}/v1/userNameProofByName?name=${username}`);
+    if (!proofResponse.ok) {
+      throw new Error(`Username not found: ${username}`);
+    }
+
+    const proof = await proofResponse.json() as { fid: number };
+    return this.getProfileFromHub(proof.fid);
+  }
+
   async getProfileByVerifiedAddress(address: Address): Promise<FarcasterProfile | null> {
+    // Use permissionless hub access when no API key
+    if (this.useHubDirect) {
+      return this.getProfileByVerifiedAddressFromHub(address);
+    }
+
     const response = await fetch(
       `${this.apiUrl}/farcaster/user/bulk-by-address?addresses=${address.toLowerCase()}`,
       { headers: this.getHeaders() }
@@ -144,6 +247,24 @@ export class FarcasterProvider {
     }
 
     return this.mapNeynarUser(users[0]);
+  }
+
+  /**
+   * Fetch profile by verified address from Hub (permissionless)
+   */
+  private async getProfileByVerifiedAddressFromHub(address: Address): Promise<FarcasterProfile | null> {
+    // Search for verification with this address
+    const response = await fetch(`${this.hubUrl}/v1/verificationsByFid?address=${address.toLowerCase()}`);
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json() as { messages: Array<{ data: { fid: number } }> };
+    if (data.messages.length === 0) {
+      return null;
+    }
+
+    return this.getProfileFromHub(data.messages[0].data.fid);
   }
 
   async verifySignInMessage(

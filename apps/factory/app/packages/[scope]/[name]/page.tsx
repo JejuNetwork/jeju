@@ -1,8 +1,3 @@
-/**
- * Package Detail Page
- * npm-like package view with readme, versions, dependencies
- */
-
 'use client';
 
 import { useState, useEffect } from 'react';
@@ -11,288 +6,264 @@ import { useAccount } from 'wagmi';
 import {
   Package,
   Download,
-  Clock,
-  Tag,
-  GitBranch,
-  FileText,
-  Code,
-  Box,
-  ChevronRight,
   Copy,
   Check,
-  ExternalLink,
+  Clock,
   Shield,
-  AlertTriangle,
   Star,
-  Users,
-  History,
+  GitFork,
+  FileText,
+  Code,
   Terminal,
+  Settings,
+  Users,
+  ChevronRight,
+  ExternalLink,
+  AlertTriangle,
+  Tag,
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
-import ReactMarkdown from 'react-markdown';
 
-type PackageTab = 'readme' | 'versions' | 'dependencies' | 'dependents';
+type PackageTab = 'readme' | 'versions' | 'dependencies' | 'files';
 
 interface PackageVersion {
   version: string;
   publishedAt: number;
-  downloads: number;
-  size: string;
-  tarballUri: string;
+  tarballCid: string;
+  size: number;
+  deprecated: boolean;
 }
 
-interface PackageData {
+interface PackageInfo {
   name: string;
-  scope?: string;
-  description: string;
+  scope: string;
   version: string;
+  description: string;
+  author: string;
   license: string;
-  repository?: string;
-  homepage?: string;
-  author: {
-    name: string;
-    address: string;
-  };
-  keywords: string[];
-  downloads: {
-    weekly: number;
-    total: number;
-  };
+  homepage: string;
+  repository: string;
+  downloads: number;
+  weeklyDownloads: number;
   publishedAt: number;
-  updatedAt: number;
   versions: PackageVersion[];
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
-  peerDependencies: Record<string, string>;
+  keywords: string[];
+  verified: boolean;
+  hasTypes: boolean;
+  deprecated: boolean;
   readme: string;
-  isVerified: boolean;
 }
 
-const mockPackage: PackageData = {
-  name: 'jeju-sdk',
-  scope: '@jejunetwork',
-  description: 'Official SDK for interacting with the Jeju Network - identity, bounties, guardians, compute marketplace, and more.',
-  version: '1.2.0',
+// Mock data for demo
+const mockPackage: PackageInfo = {
+  name: '@jeju/sdk',
+  scope: '@jeju',
+  version: '1.5.2',
+  description: 'Official Jeju Network SDK - interact with contracts, bounties, guardians, and models.',
+  author: 'jeju',
   license: 'MIT',
-  repository: 'https://github.com/jejunetwork/jeju-sdk',
-  homepage: 'https://docs.jeju.network/sdk',
-  author: {
-    name: 'Jeju Network',
-    address: '0x1234...5678',
-  },
-  keywords: ['jeju', 'web3', 'ethereum', 'sdk', 'identity', 'bounties'],
-  downloads: {
-    weekly: 2450,
-    total: 45600,
-  },
-  publishedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-  updatedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
+  homepage: 'https://jeju.network',
+  repository: 'https://git.jeju.network/jeju/sdk',
+  downloads: 45230,
+  weeklyDownloads: 3240,
+  publishedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
   versions: [
-    { version: '1.2.0', publishedAt: Date.now() - 7 * 24 * 60 * 60 * 1000, downloads: 1200, size: '234 KB', tarballUri: 'ipfs://...' },
-    { version: '1.1.0', publishedAt: Date.now() - 30 * 24 * 60 * 60 * 1000, downloads: 15600, size: '228 KB', tarballUri: 'ipfs://...' },
-    { version: '1.0.0', publishedAt: Date.now() - 60 * 24 * 60 * 60 * 1000, downloads: 28800, size: '215 KB', tarballUri: 'ipfs://...' },
+    { version: '1.5.2', publishedAt: Date.now() - 2 * 24 * 60 * 60 * 1000, tarballCid: 'bafybeiabc123', size: 234567, deprecated: false },
+    { version: '1.5.1', publishedAt: Date.now() - 7 * 24 * 60 * 60 * 1000, tarballCid: 'bafybeiabc122', size: 232456, deprecated: false },
+    { version: '1.5.0', publishedAt: Date.now() - 14 * 24 * 60 * 60 * 1000, tarballCid: 'bafybeiabc121', size: 230123, deprecated: false },
+    { version: '1.4.0', publishedAt: Date.now() - 30 * 24 * 60 * 60 * 1000, tarballCid: 'bafybeiabc120', size: 225678, deprecated: true },
   ],
   dependencies: {
-    'viem': '^2.0.0',
-    'ethers': '^6.0.0',
-    '@noble/hashes': '^1.3.0',
+    'viem': '^2.30.0',
+    'wagmi': '^2.15.0',
+    '@tanstack/react-query': '^5.0.0',
   },
   devDependencies: {
     'typescript': '^5.0.0',
-    'vitest': '^1.0.0',
+    '@types/node': '^20.0.0',
   },
-  peerDependencies: {
-    'react': '>=18.0.0',
-  },
-  readme: `# @jejunetwork/jeju-sdk
+  keywords: ['jeju', 'web3', 'sdk', 'ethereum', 'bounties'],
+  verified: true,
+  hasTypes: true,
+  deprecated: false,
+  readme: `# @jeju/sdk
 
-The official SDK for interacting with the Jeju Network.
+Official Jeju Network SDK for building dApps with bounties, guardians, and AI models.
 
 ## Installation
 
 \`\`\`bash
-bun add @jejunetwork/jeju-sdk
+bun add @jeju/sdk
+# or
+npm install @jeju/sdk
 \`\`\`
 
 ## Quick Start
 
 \`\`\`typescript
-import { JejuClient, IdentityRegistry, BountyRegistry } from '@jejunetwork/jeju-sdk';
+import { JejuSDK } from '@jeju/sdk';
 
-// Initialize the client
-const client = new JejuClient({
+const sdk = new JejuSDK({
   rpcUrl: 'https://rpc.jeju.network',
   chainId: 8453,
 });
 
-// Get identity registry
-const identity = new IdentityRegistry(client);
-const agent = await identity.getAgent(agentId);
-
 // Create a bounty
-const bounty = new BountyRegistry(client);
-await bounty.createBounty({
-  title: 'Build awesome feature',
-  description: 'We need help building X',
-  reward: '1 ETH',
+const bountyId = await sdk.bounties.create({
+  title: 'Build a feature',
+  reward: parseEther('1'),
+  deadline: BigInt(Date.now() + 7 * 24 * 60 * 60 * 1000),
 });
 \`\`\`
 
 ## Features
 
-- **Identity Management**: Register and manage ERC-8004 agent identities
-- **Bounty System**: Create, fund, and complete bounties
-- **Guardian Network**: Participate in bounty validation
-- **Compute Marketplace**: Submit and manage compute jobs
-- **Model Hub**: Upload and download ML models
+- **Bounties**: Create, fund, and manage bounties
+- **Guardians**: Interact with the guardian validator network
+- **Models**: Access the AI model hub
+- **Identity**: ERC-8004 agent registration
 
 ## Documentation
 
-See the [full documentation](https://docs.jeju.network/sdk) for more details.
-
-## License
-
-MIT
+Full documentation at [docs.jeju.network](https://docs.jeju.network)
 `,
-  isVerified: true,
 };
 
 export default function PackageDetailPage() {
   const params = useParams();
-  const scope = params.scope as string;
+  const rawScope = params.scope as string;
   const name = params.name as string;
   const { isConnected } = useAccount();
   
+  // Decode URL-encoded scope (e.g., %40jejunetwork -> @jejunetwork)
+  const scope = decodeURIComponent(rawScope);
+  
   const [tab, setTab] = useState<PackageTab>('readme');
-  const [copied, setCopied] = useState(false);
   const [selectedVersion, setSelectedVersion] = useState(mockPackage.version);
+  const [copied, setCopied] = useState<string | null>(null);
+  const [pkg, setPkg] = useState<PackageInfo>(mockPackage);
 
-  const fullName = scope ? `${scope}/${name}` : name;
-  const installCommand = `bun add ${fullName}`;
+  const fullName = scope.startsWith('@') ? `${scope}/${name}` : name;
 
-  const copyToClipboard = (text: string) => {
+  const copyToClipboard = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+    setCopied(id);
+    setTimeout(() => setCopied(null), 2000);
+  };
+
+  const formatNumber = (n: number) => {
+    if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+    if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
+    return n.toString();
   };
 
   const formatDate = (timestamp: number) => {
-    const diff = Date.now() - timestamp;
-    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+    const days = Math.floor((Date.now() - timestamp) / (1000 * 60 * 60 * 24));
     if (days === 0) return 'Today';
     if (days === 1) return 'Yesterday';
     if (days < 7) return `${days} days ago`;
     if (days < 30) return `${Math.floor(days / 7)} weeks ago`;
-    return `${Math.floor(days / 30)} months ago`;
+    return new Date(timestamp).toLocaleDateString();
   };
 
-  const formatNumber = (num: number) => {
-    if (num >= 1000000) return `${(num / 1000000).toFixed(1)}M`;
-    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
-    return num.toString();
+  const formatSize = (bytes: number) => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
     <div className="min-h-screen">
       {/* Header */}
       <div className="border-b border-factory-800 bg-factory-900/50">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-          <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-6">
-            <div>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          <div className="flex flex-col lg:flex-row lg:items-start justify-between gap-4">
+            <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
-                <Package className="w-8 h-8 text-red-400" />
-                <div>
-                  <h1 className="text-2xl font-bold text-factory-100">
-                    {mockPackage.scope && (
-                      <span className="text-factory-400">{mockPackage.scope}/</span>
+                <Package className="w-8 h-8 text-orange-400" />
+                <h1 className="text-2xl font-bold text-factory-100">{fullName}</h1>
+                {pkg.verified && (
+                  <span className="badge bg-green-500/20 text-green-400 border border-green-500/30">
+                    <Shield className="w-3 h-3 mr-1" />
+                    Verified
+                  </span>
+                )}
+                {pkg.hasTypes && (
+                  <span className="badge bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                    TS
+                  </span>
+                )}
+                {pkg.deprecated && (
+                  <span className="badge bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Deprecated
+                  </span>
+                )}
+              </div>
+              <p className="text-factory-400 mb-4">{pkg.description}</p>
+              
+              <div className="flex flex-wrap gap-2">
+                {pkg.keywords.map((keyword) => (
+                  <span key={keyword} className="badge badge-info">
+                    {keyword}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* Install Command */}
+            <div className="w-full lg:w-96">
+              <div className="card p-4">
+                <label className="block text-sm text-factory-400 mb-2">Install</label>
+                <div className="flex items-center gap-2 bg-factory-900 rounded-lg p-3">
+                  <code className="flex-1 text-sm text-factory-200 font-mono truncate">
+                    bun add {fullName}
+                  </code>
+                  <button
+                    onClick={() => copyToClipboard(`bun add ${fullName}`, 'install')}
+                    className="p-1.5 hover:bg-factory-800 rounded"
+                  >
+                    {copied === 'install' ? (
+                      <Check className="w-4 h-4 text-green-400" />
+                    ) : (
+                      <Copy className="w-4 h-4 text-factory-400" />
                     )}
-                    {mockPackage.name}
-                  </h1>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="badge bg-factory-800 text-factory-300 border border-factory-700">
-                      v{mockPackage.version}
-                    </span>
-                    {mockPackage.isVerified && (
-                      <span className="badge bg-green-500/20 text-green-400 border border-green-500/30">
-                        <Shield className="w-3 h-3 mr-1" />
-                        Verified
-                      </span>
-                    )}
-                    <span className="badge bg-factory-800 text-factory-300 border border-factory-700">
-                      {mockPackage.license}
-                    </span>
+                  </button>
+                </div>
+
+                <div className="mt-4 text-sm">
+                  <div className="flex justify-between text-factory-400 mb-1">
+                    <span>Version</span>
+                    <span className="text-factory-200">{pkg.version}</span>
+                  </div>
+                  <div className="flex justify-between text-factory-400 mb-1">
+                    <span>License</span>
+                    <span className="text-factory-200">{pkg.license}</span>
+                  </div>
+                  <div className="flex justify-between text-factory-400 mb-1">
+                    <span>Downloads</span>
+                    <span className="text-factory-200">{formatNumber(pkg.downloads)}</span>
+                  </div>
+                  <div className="flex justify-between text-factory-400">
+                    <span>Last publish</span>
+                    <span className="text-factory-200">{formatDate(pkg.publishedAt)}</span>
                   </div>
                 </div>
               </div>
-              <p className="text-factory-400 max-w-2xl">{mockPackage.description}</p>
-            </div>
-
-            <div className="flex gap-2">
-              <button className="btn btn-secondary text-sm">
-                <Star className="w-4 h-4" />
-                Star
-              </button>
-              {mockPackage.repository && (
-                <a
-                  href={mockPackage.repository}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-secondary text-sm"
-                >
-                  <GitBranch className="w-4 h-4" />
-                  <span className="hidden sm:inline">Repository</span>
-                </a>
-              )}
-            </div>
-          </div>
-
-          {/* Install Command */}
-          <div className="card p-3 flex items-center gap-2 mb-6">
-            <Terminal className="w-5 h-5 text-factory-500" />
-            <code className="flex-1 text-sm text-factory-300 font-mono">
-              {installCommand}
-            </code>
-            <button
-              onClick={() => copyToClipboard(installCommand)}
-              className="p-2 hover:bg-factory-800 rounded transition-colors"
-            >
-              {copied ? (
-                <Check className="w-4 h-4 text-green-400" />
-              ) : (
-                <Copy className="w-4 h-4 text-factory-400" />
-              )}
-            </button>
-          </div>
-
-          {/* Stats */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-factory-100">{formatNumber(mockPackage.downloads.weekly)}</p>
-              <p className="text-factory-500 text-sm">Weekly Downloads</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-factory-100">{formatNumber(mockPackage.downloads.total)}</p>
-              <p className="text-factory-500 text-sm">Total Downloads</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-factory-100">{mockPackage.versions.length}</p>
-              <p className="text-factory-500 text-sm">Versions</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-factory-100">{Object.keys(mockPackage.dependencies).length}</p>
-              <p className="text-factory-500 text-sm">Dependencies</p>
             </div>
           </div>
 
           {/* Tabs */}
-          <div className="flex gap-1 overflow-x-auto -mb-px">
+          <div className="flex gap-1 mt-6 overflow-x-auto -mb-px">
             {([
               { id: 'readme' as const, label: 'Readme', icon: FileText },
-              { id: 'versions' as const, label: 'Versions', icon: History, count: mockPackage.versions.length },
-              { id: 'dependencies' as const, label: 'Dependencies', icon: Box, count: Object.keys(mockPackage.dependencies).length },
-              { id: 'dependents' as const, label: 'Dependents', icon: Users, count: 156 },
-            ]).map(({ id, label, icon: Icon, count }) => (
+              { id: 'versions' as const, label: `Versions (${pkg.versions.length})`, icon: Tag },
+              { id: 'dependencies' as const, label: 'Dependencies', icon: GitFork },
+              { id: 'files' as const, label: 'Files', icon: Code },
+            ]).map(({ id, label, icon: Icon }) => (
               <button
                 key={id}
                 onClick={() => setTab(id)}
@@ -305,9 +276,6 @@ export default function PackageDetailPage() {
               >
                 <Icon className="w-4 h-4" />
                 {label}
-                {count !== undefined && (
-                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-factory-800">{count}</span>
-                )}
               </button>
             ))}
           </div>
@@ -315,52 +283,54 @@ export default function PackageDetailPage() {
       </div>
 
       {/* Content */}
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 lg:py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Main Content */}
-          <div className="lg:col-span-2">
+          <div className="lg:col-span-3">
             {tab === 'readme' && (
-              <div className="card p-6 lg:p-8">
-                <div className="prose prose-invert max-w-none prose-pre:bg-factory-950 prose-pre:border prose-pre:border-factory-800">
-                  <ReactMarkdown>{mockPackage.readme}</ReactMarkdown>
-                </div>
+              <div className="card p-6 prose prose-invert max-w-none">
+                <div dangerouslySetInnerHTML={{ __html: pkg.readme.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\n/g, '<br/>') }} />
               </div>
             )}
 
             {tab === 'versions' && (
               <div className="card divide-y divide-factory-800">
-                {mockPackage.versions.map((version) => (
+                {pkg.versions.map((version) => (
                   <div
                     key={version.version}
-                    className="p-4 hover:bg-factory-800/50 transition-colors"
+                    className={clsx(
+                      'p-4 flex items-center justify-between',
+                      version.deprecated && 'opacity-60'
+                    )}
                   >
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-3">
-                        <span className="font-mono font-semibold text-factory-100">
-                          v{version.version}
+                    <div className="flex items-center gap-3">
+                      <Tag className="w-4 h-4 text-factory-400" />
+                      <span className={clsx(
+                        'font-mono',
+                        version.version === pkg.version ? 'text-accent-400' : 'text-factory-200'
+                      )}>
+                        v{version.version}
+                      </span>
+                      {version.version === pkg.version && (
+                        <span className="badge bg-accent-500/20 text-accent-400 border border-accent-500/30">
+                          latest
                         </span>
-                        {version.version === mockPackage.version && (
-                          <span className="badge badge-success">Latest</span>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => copyToClipboard(`bun add ${fullName}@${version.version}`)}
-                        className="btn btn-ghost text-sm"
-                      >
-                        <Copy className="w-4 h-4" />
-                        Copy
-                      </button>
+                      )}
+                      {version.deprecated && (
+                        <span className="badge bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                          deprecated
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-4 text-sm text-factory-500">
-                      <span className="flex items-center gap-1">
-                        <Clock className="w-4 h-4" />
-                        {formatDate(version.publishedAt)}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Download className="w-4 h-4" />
-                        {formatNumber(version.downloads)} downloads
-                      </span>
-                      <span>{version.size}</span>
+                      <span>{formatSize(version.size)}</span>
+                      <span>{formatDate(version.publishedAt)}</span>
+                      <button
+                        onClick={() => copyToClipboard(`bun add ${fullName}@${version.version}`, version.version)}
+                        className="btn btn-secondary text-xs py-1 px-2"
+                      >
+                        {copied === version.version ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -369,161 +339,124 @@ export default function PackageDetailPage() {
 
             {tab === 'dependencies' && (
               <div className="space-y-6">
-                {Object.keys(mockPackage.dependencies).length > 0 && (
-                  <div className="card">
-                    <div className="p-4 border-b border-factory-800">
-                      <h3 className="font-semibold text-factory-100">Dependencies ({Object.keys(mockPackage.dependencies).length})</h3>
-                    </div>
-                    <div className="divide-y divide-factory-800">
-                      {Object.entries(mockPackage.dependencies).map(([dep, version]) => (
-                        <Link
-                          key={dep}
-                          href={`/packages/${dep}`}
-                          className="flex items-center justify-between p-4 hover:bg-factory-800/50 transition-colors"
-                        >
-                          <span className="text-accent-400">{dep}</span>
-                          <span className="font-mono text-factory-500">{version}</span>
-                        </Link>
+                <div className="card p-6">
+                  <h3 className="font-semibold text-factory-100 mb-4">Dependencies ({Object.keys(pkg.dependencies).length})</h3>
+                  {Object.keys(pkg.dependencies).length > 0 ? (
+                    <div className="space-y-2">
+                      {Object.entries(pkg.dependencies).map(([dep, version]) => (
+                        <div key={dep} className="flex items-center justify-between p-2 bg-factory-800/50 rounded">
+                          <span className="text-factory-200 font-mono">{dep}</span>
+                          <span className="text-factory-500">{version}</span>
+                        </div>
                       ))}
                     </div>
-                  </div>
-                )}
+                  ) : (
+                    <p className="text-factory-500">No dependencies</p>
+                  )}
+                </div>
 
-                {Object.keys(mockPackage.devDependencies).length > 0 && (
-                  <div className="card">
-                    <div className="p-4 border-b border-factory-800">
-                      <h3 className="font-semibold text-factory-100">Dev Dependencies ({Object.keys(mockPackage.devDependencies).length})</h3>
-                    </div>
-                    <div className="divide-y divide-factory-800">
-                      {Object.entries(mockPackage.devDependencies).map(([dep, version]) => (
-                        <Link
-                          key={dep}
-                          href={`/packages/${dep}`}
-                          className="flex items-center justify-between p-4 hover:bg-factory-800/50 transition-colors"
-                        >
-                          <span className="text-accent-400">{dep}</span>
-                          <span className="font-mono text-factory-500">{version}</span>
-                        </Link>
+                <div className="card p-6">
+                  <h3 className="font-semibold text-factory-100 mb-4">Dev Dependencies ({Object.keys(pkg.devDependencies).length})</h3>
+                  {Object.keys(pkg.devDependencies).length > 0 ? (
+                    <div className="space-y-2">
+                      {Object.entries(pkg.devDependencies).map(([dep, version]) => (
+                        <div key={dep} className="flex items-center justify-between p-2 bg-factory-800/50 rounded">
+                          <span className="text-factory-200 font-mono">{dep}</span>
+                          <span className="text-factory-500">{version}</span>
+                        </div>
                       ))}
                     </div>
-                  </div>
-                )}
-
-                {Object.keys(mockPackage.peerDependencies).length > 0 && (
-                  <div className="card">
-                    <div className="p-4 border-b border-factory-800">
-                      <h3 className="font-semibold text-factory-100">Peer Dependencies ({Object.keys(mockPackage.peerDependencies).length})</h3>
-                    </div>
-                    <div className="divide-y divide-factory-800">
-                      {Object.entries(mockPackage.peerDependencies).map(([dep, version]) => (
-                        <Link
-                          key={dep}
-                          href={`/packages/${dep}`}
-                          className="flex items-center justify-between p-4 hover:bg-factory-800/50 transition-colors"
-                        >
-                          <span className="text-accent-400">{dep}</span>
-                          <span className="font-mono text-factory-500">{version}</span>
-                        </Link>
-                      ))}
-                    </div>
-                  </div>
-                )}
+                  ) : (
+                    <p className="text-factory-500">No dev dependencies</p>
+                  )}
+                </div>
               </div>
             )}
 
-            {tab === 'dependents' && (
-              <div className="card divide-y divide-factory-800">
-                {['jeju-contracts', 'factory-ui', 'gateway', 'indexer', 'dws'].map((pkg) => (
-                  <Link
-                    key={pkg}
-                    href={`/packages/@jejunetwork/${pkg}`}
-                    className="flex items-center justify-between p-4 hover:bg-factory-800/50 transition-colors"
-                  >
-                    <div>
-                      <span className="text-accent-400">@jejunetwork/{pkg}</span>
-                      <p className="text-factory-500 text-sm mt-1">Uses {fullName}</p>
-                    </div>
-                    <ChevronRight className="w-5 h-5 text-factory-500" />
-                  </Link>
-                ))}
+            {tab === 'files' && (
+              <div className="card p-6">
+                <p className="text-factory-400 mb-4">Package contents from tarball</p>
+                <div className="bg-factory-900 rounded-lg p-4 font-mono text-sm text-factory-300">
+                  <pre>{`├── dist/
+│   ├── index.js
+│   ├── index.d.ts
+│   ├── bounties/
+│   ├── guardians/
+│   └── models/
+├── package.json
+├── README.md
+└── LICENSE`}</pre>
+                </div>
               </div>
             )}
           </div>
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Maintainers */}
+            {/* Registry Config */}
             <div className="card p-6">
-              <h3 className="font-semibold text-factory-100 mb-4">Maintainers</h3>
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-accent-500 to-purple-500 flex items-center justify-center text-white font-bold">
-                  J
-                </div>
-                <div>
-                  <p className="font-medium text-factory-100">{mockPackage.author.name}</p>
-                  <p className="text-factory-500 text-sm font-mono">{mockPackage.author.address}</p>
-                </div>
+              <h3 className="font-semibold text-factory-100 mb-4 flex items-center gap-2">
+                <Terminal className="w-5 h-5 text-accent-400" />
+                Registry Setup
+              </h3>
+              <p className="text-factory-500 text-sm mb-4">
+                Configure your package manager to use Jeju registry:
+              </p>
+              <div className="bg-factory-900 rounded-lg p-3 font-mono text-xs mb-4">
+                <pre className="text-factory-400"># .npmrc or .bunfig.toml
+@jeju:registry=https://pkg.jeju.network</pre>
               </div>
-            </div>
-
-            {/* Keywords */}
-            <div className="card p-6">
-              <h3 className="font-semibold text-factory-100 mb-4">Keywords</h3>
-              <div className="flex flex-wrap gap-2">
-                {mockPackage.keywords.map((keyword) => (
-                  <Link
-                    key={keyword}
-                    href={`/packages?q=${keyword}`}
-                    className="badge badge-info hover:bg-blue-500/30 transition-colors"
-                  >
-                    {keyword}
-                  </Link>
-                ))}
-              </div>
+              <button
+                onClick={() => copyToClipboard('@jeju:registry=https://pkg.jeju.network', 'registry')}
+                className="btn btn-secondary text-sm w-full"
+              >
+                {copied === 'registry' ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                Copy Config
+              </button>
             </div>
 
             {/* Links */}
             <div className="card p-6">
               <h3 className="font-semibold text-factory-100 mb-4">Links</h3>
-              <div className="space-y-3">
-                {mockPackage.repository && (
-                  <a
-                    href={mockPackage.repository}
+              <div className="space-y-2">
+                {pkg.homepage && (
+                  <a 
+                    href={pkg.homepage}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-factory-400 hover:text-accent-400"
+                    className="flex items-center gap-2 text-factory-400 hover:text-accent-400 transition-colors"
                   >
-                    <GitBranch className="w-4 h-4" />
-                    Repository
-                    <ExternalLink className="w-3 h-3 ml-auto" />
+                    <ExternalLink className="w-4 h-4" />
+                    Homepage
                   </a>
                 )}
-                {mockPackage.homepage && (
-                  <a
-                    href={mockPackage.homepage}
+                {pkg.repository && (
+                  <a 
+                    href={pkg.repository}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-center gap-2 text-factory-400 hover:text-accent-400"
+                    className="flex items-center gap-2 text-factory-400 hover:text-accent-400 transition-colors"
                   >
-                    <FileText className="w-4 h-4" />
-                    Documentation
-                    <ExternalLink className="w-3 h-3 ml-auto" />
+                    <Code className="w-4 h-4" />
+                    Repository
                   </a>
                 )}
               </div>
             </div>
 
-            {/* Last Published */}
+            {/* Maintainers */}
             <div className="card p-6">
-              <h3 className="font-semibold text-factory-100 mb-4">Activity</h3>
-              <div className="space-y-3 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-factory-500">Last published</span>
-                  <span className="text-factory-300">{formatDate(mockPackage.publishedAt)}</span>
+              <h3 className="font-semibold text-factory-100 mb-4 flex items-center gap-2">
+                <Users className="w-5 h-5" />
+                Maintainers
+              </h3>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-full bg-factory-800 flex items-center justify-center">
+                  <span className="text-factory-400 font-medium">J</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-factory-500">Total versions</span>
-                  <span className="text-factory-300">{mockPackage.versions.length}</span>
+                <div>
+                  <p className="text-factory-200">{pkg.author}</p>
+                  <p className="text-factory-500 text-sm">Owner</p>
                 </div>
               </div>
             </div>
@@ -533,4 +466,3 @@ export default function PackageDetailPage() {
     </div>
   );
 }
-

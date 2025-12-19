@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { Shield, Globe, Activity, Settings, ChevronDown, Zap, Users, HardDrive } from 'lucide-react';
+import { invoke } from './api';
+import { Shield, Globe, Activity, Settings, Users, HardDrive } from 'lucide-react';
 import { VPNToggle } from './components/VPNToggle';
 import { RegionSelector } from './components/RegionSelector';
 import { ConnectionStats } from './components/ConnectionStats';

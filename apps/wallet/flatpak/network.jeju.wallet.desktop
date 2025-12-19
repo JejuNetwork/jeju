@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Network Wallet
+Comment=Agentic multi-chain wallet with seamless cross-chain UX
+Exec=network-wallet
+Icon=network.jeju.wallet
+Terminal=false
+Type=Application
+Categories=Finance;Network;
+Keywords=wallet;crypto;ethereum;base;blockchain;defi;
+StartupWMClass=network-wallet
+
+

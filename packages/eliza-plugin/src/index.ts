@@ -76,7 +76,7 @@ import {
 } from "./actions/bazaar";
 
 // Extended Actions - Moderation (basic)
-import { reportAgentAction, listModerationCasesAction } from "./actions/moderation";
+import { reportAgentAction } from "./actions/moderation";
 
 // Extended Actions - Moderation (full)
 import {
@@ -219,11 +219,8 @@ export const jejuPlugin: Plugin = {
     listNftsAction,
     listNamesForSaleAction,
 
-    // === Moderation (basic) ===
+    // === Moderation ===
     reportAgentAction,
-    listModerationCasesAction,
-
-    // === Moderation (evidence & cases) ===
     submitEvidenceAction,
     supportEvidenceAction,
     getEvidenceAction,
@@ -231,7 +228,7 @@ export const jejuPlugin: Plugin = {
     claimEvidenceRewardAction,
     createCaseAction,
     getCaseAction,
-    listCasesAction,
+    listCasesAction, // LIST_MODERATION_CASES
     appealCaseAction,
     issueLabelAction,
     getLabelsAction,

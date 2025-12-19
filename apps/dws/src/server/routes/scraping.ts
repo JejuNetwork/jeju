@@ -334,19 +334,12 @@ export function createScrapingRouter(): Hono {
       return c.json({ error: 'URL required' }, 400);
     }
 
-    try {
-      const result = await performScrape(body, 'pdf');
-      
-      // Would return PDF buffer in production
-      return c.json({
-        message: 'PDF generation requires browser instance',
-        url: body.url,
-      });
-    } catch (error) {
-      return c.json({
-        error: error instanceof Error ? error.message : 'PDF generation failed',
-      }, 500);
-    }
+    // PDF generation requires a headless browser
+    return c.json({
+      error: 'PDF generation not available',
+      message: 'Set BROWSERLESS_URL to enable PDF generation',
+      url: body.url,
+    }, 501);
   });
 
   // Scrape with selectors
@@ -383,11 +376,11 @@ export function createScrapingRouter(): Hono {
       return c.json({ error: 'Code required' }, 400);
     }
 
-    // Would execute in isolated browser context
+    // Function execution requires a headless browser
     return c.json({
-      message: 'Custom function execution requires browser instance',
-      note: 'Submit function code to be executed in browser context',
-    });
+      error: 'Function execution not available',
+      message: 'Set BROWSERLESS_URL to enable browser-based function execution',
+    }, 501);
   });
 
   // ============================================================================
@@ -422,14 +415,14 @@ export function createScrapingRouter(): Hono {
   return router;
 }
 
-// Scraping implementation (simplified - would use actual browser in production)
+// Scraping implementation (HTTP fetch, set BROWSERLESS_URL for browser-rendered content)
 async function performScrape(
   request: ScrapingRequest,
   type: 'content' | 'screenshot' | 'pdf' | 'scrape'
 ): Promise<ScrapingResult> {
   const startTime = Date.now();
 
-  // For demo, use fetch for basic content
+  // Use fetch for basic HTTP content (set BROWSERLESS_URL for browser-rendered content)
   const response = await fetch(request.url, {
     headers: {
       'User-Agent': request.userAgent ?? 'DWS-Scraper/1.0',
@@ -459,8 +452,8 @@ async function performScrape(
   }
 
   if (type === 'screenshot') {
-    // Would generate actual screenshot with browser
-    result.screenshot = Buffer.from('screenshot-placeholder').toString('base64');
+    // Screenshot requires a browser instance - return error if not available
+    throw new Error('Screenshot capture requires BROWSERLESS_URL or browser pool configuration. Set BROWSERLESS_URL env var to enable screenshots.');
   }
 
   return result;

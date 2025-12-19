@@ -329,13 +329,37 @@ export class WorkerRuntime {
     
     // Extract to temp directory
     const tempDir = `/tmp/dws-workers/${cid}`;
-    await Bun.write(`${tempDir}/index.js`, result.content);
-
-    // If it's a tarball, extract it
+    
+    // Check if it's a gzip/tarball (magic bytes 0x1f 0x8b)
     if (result.content[0] === 0x1f && result.content[1] === 0x8b) {
-      // TODO: Extract tarball
+      // Write tarball and extract using tar command
+      const tarPath = `${tempDir}.tar.gz`;
+      await Bun.write(tarPath, result.content);
+      
+      const { spawn } = await import('bun');
+      const proc = spawn(['tar', '-xzf', tarPath, '-C', tempDir], {
+        cwd: '/tmp',
+        stdio: ['ignore', 'pipe', 'pipe'],
+      });
+      await proc.exited;
+      
+      // Look for entry point
+      const files = ['index.js', 'main.js', 'handler.js', 'worker.js'];
+      for (const file of files) {
+        const path = `${tempDir}/${file}`;
+        if (await Bun.file(path).exists()) {
+          this.codeCache.set(cid, path);
+          return path;
+        }
+      }
+      
+      // Default to index.js
+      this.codeCache.set(cid, `${tempDir}/index.js`);
+      return `${tempDir}/index.js`;
     }
-
+    
+    // Not a tarball, assume it's raw JS
+    await Bun.write(`${tempDir}/index.js`, result.content);
     this.codeCache.set(cid, `${tempDir}/index.js`);
     return `${tempDir}/index.js`;
   }
@@ -449,6 +473,42 @@ export class WorkerRuntime {
       pendingInvocations: Array.from(this.pendingQueue.values())
         .reduce((sum, q) => sum + q.length, 0),
     };
+  }
+
+  /**
+   * Get logs for a function from recent invocations
+   */
+  getLogs(functionId: string, options: { limit?: number; since?: number } = {}): Array<{
+    invocationId: string;
+    timestamp: number;
+    logs: string[];
+  }> {
+    const limit = options.limit ?? 100;
+    const since = options.since ?? 0;
+    
+    const logs: Array<{ invocationId: string; timestamp: number; logs: string[] }> = [];
+    
+    for (const [id, invocation] of this.invocations.entries()) {
+      if (invocation.functionId !== functionId) continue;
+      if (invocation.startedAt < since) continue;
+      if (invocation.logs.length === 0) continue;
+      
+      logs.push({
+        invocationId: id,
+        timestamp: invocation.startedAt,
+        logs: invocation.logs,
+      });
+    }
+    
+    // Sort by timestamp descending and limit
+    return logs.sort((a, b) => b.timestamp - a.timestamp).slice(0, limit);
+  }
+
+  /**
+   * Get invocation by ID
+   */
+  getInvocation(invocationId: string): WorkerInvocation | null {
+    return this.invocations.get(invocationId) ?? null;
   }
 }
 

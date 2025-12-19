@@ -154,31 +154,62 @@ export async function getListingsBySeller(seller: Address): Promise<APIListing[]
 }
 
 /**
- * Get all listings (Note: uses in-memory fallback for listing enumeration)
- * In production, use getListingsBySeller with pagination
+ * Get all listings (limited for performance)
  */
-export async function getAllListings(): Promise<APIListing[]> {
-  // This would require a full scan - not ideal but needed for stats
-  // In production, this should be paginated or cached
-  console.warn('[API Marketplace] getAllListings is expensive - use getListingsBySeller for production');
-  return [];
+export async function getAllListings(limit = 100): Promise<APIListing[]> {
+  const rows = await apiListingState.listAll(limit);
+  return rows.map(row => rowToListing(row));
 }
 
 /**
  * Get listings by provider
  */
-export async function getListingsByProvider(_providerId: string): Promise<APIListing[]> {
-  // Would need to add provider_id query to state module
-  // For now, return empty - callers should use getListingsBySeller
-  return [];
+export async function getListingsByProvider(providerId: string): Promise<APIListing[]> {
+  const rows = await apiListingState.listByProvider(providerId);
+  return rows.map(row => rowToListing(row));
 }
 
 /**
  * Get active listings
  */
 export async function getActiveListings(): Promise<APIListing[]> {
-  // Would need status filter query
-  return [];
+  const rows = await apiListingState.listActive();
+  return rows.map(row => rowToListing(row));
+}
+
+// Helper to convert row to listing
+function rowToListing(row: {
+  listing_id: string;
+  provider_id: string;
+  seller: string;
+  key_vault_id: string;
+  price_per_request: string;
+  limits: string;
+  access_control: string;
+  status: string;
+  total_requests: number;
+  total_revenue: string;
+  created_at: number;
+  updated_at: number;
+}): APIListing {
+  const provider = getProvider(row.provider_id);
+  const limits = JSON.parse(row.limits) as UsageLimits;
+  const accessControl = JSON.parse(row.access_control);
+  
+  return {
+    id: row.listing_id,
+    providerId: row.provider_id,
+    seller: row.seller as Address,
+    keyVaultId: row.key_vault_id,
+    pricePerRequest: BigInt(row.price_per_request || '0'),
+    limits: { ...DEFAULT_LIMITS, ...limits },
+    accessControl: { ...DEFAULT_ACCESS_CONTROL, ...accessControl },
+    active: row.status === 'active',
+    totalRequests: BigInt(row.total_requests),
+    totalRevenue: BigInt(row.total_revenue || '0'),
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
 }
 
 /**
@@ -235,13 +266,14 @@ export async function findCheapestListing(providerId: string): Promise<APIListin
 /**
  * Get marketplace statistics
  */
-export function getMarketplaceStats(): MarketplaceStats {
-  // This would require aggregation queries - return placeholder
+export async function getMarketplaceStats(): Promise<MarketplaceStats> {
+  const stats = await apiListingState.getStats();
+  
   return {
     totalProviders: ALL_PROVIDERS.length,
-    totalListings: 0,
-    activeListings: 0,
-    totalUsers: 0,
+    totalListings: stats.totalListings,
+    activeListings: stats.activeListings,
+    totalUsers: 0, // Would need user count query
     totalRequests: 0n,
     totalVolume: 0n,
     last24hRequests: 0n,

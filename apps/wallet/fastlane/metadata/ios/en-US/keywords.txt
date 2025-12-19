@@ -1,0 +1,3 @@
+wallet,crypto,ethereum,bitcoin,defi,web3,blockchain,nft,base,arbitrum,optimism,polygon
+
+

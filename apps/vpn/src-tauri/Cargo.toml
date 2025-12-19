@@ -13,11 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = ["tray-icon"] }
-tauri-plugin-os = "2"
-tauri-plugin-process = "2"
-tauri-plugin-shell = "2"
-tauri-plugin-store = "2"
+tauri = { version = "1.6", features = ["system-tray"] }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tokio = { version = "1", features = ["full"] }
@@ -25,20 +21,31 @@ async-trait = "0.1"
 thiserror = "1"
 tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+uuid = { version = "1", features = ["v4"] }
+
+# HTTP client for DWS
+reqwest = { version = "0.12", features = ["json"] }
 
 # WireGuard (userspace implementation)
 boringtun = "0.6"
 
-# TUN interface
-tun = { version = "0.6", features = ["async"] }
+# WebSocket for node discovery
+tokio-tungstenite = { version = "0.21", features = ["native-tls"] }
+futures-util = "0.3"
+
+# Notifications
+notify-rust = "4"
+
+# Auto-start
+auto-launch = "0.5"
 
 # Networking
-trust-dns-resolver = "0.23"
+hickory-resolver = "0.24"
 
 # Crypto
 base64 = "0.22"
 rand = "0.8"
-x25519-dalek = "2"
+x25519-dalek = { version = "2", features = ["static_secrets"] }
 
 # Ethereum
 alloy = { version = "0.1", features = ["full"] }

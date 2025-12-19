@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/core';
-import { Activity, HardDrive, Users, Coins, ArrowUpDown, Clock, ToggleLeft, ToggleRight } from 'lucide-react';
+import { invoke } from '../api';
+import { Activity, HardDrive, Users, Coins, ArrowUpDown, Gauge, Database, Zap, ToggleLeft, ToggleRight } from 'lucide-react';
 
 interface ContributionStatus {
   vpn_bytes_used: number;
@@ -38,6 +38,26 @@ interface ContributionSettings {
   schedule_end: string;
 }
 
+interface BandwidthState {
+  total_bandwidth_mbps: number;
+  user_usage_mbps: number;
+  available_mbps: number;
+  contribution_mbps: number;
+  contribution_percent: number;
+  is_user_idle: boolean;
+  idle_seconds: number;
+  adaptive_enabled: boolean;
+}
+
+interface DWSState {
+  active: boolean;
+  cache_used_mb: number;
+  bytes_served: number;
+  requests_served: number;
+  cached_cids: number;
+  earnings_wei: number;
+}
+
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -49,23 +69,29 @@ export function ContributionPanel() {
   const [status, setStatus] = useState<ContributionStatus | null>(null);
   const [stats, setStats] = useState<ContributionStats | null>(null);
   const [settings, setSettings] = useState<ContributionSettings | null>(null);
+  const [bandwidth, setBandwidth] = useState<BandwidthState | null>(null);
+  const [dws, setDws] = useState<DWSState | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [statusData, statsData] = await Promise.all([
+        const [statusData, statsData, bwData, dwsData] = await Promise.all([
           invoke<ContributionStatus>('get_contribution_status'),
           invoke<ContributionStats>('get_contribution_stats'),
+          invoke<BandwidthState>('get_bandwidth_state'),
+          invoke<DWSState>('get_dws_state'),
         ]);
         setStatus(statusData);
         setStats(statsData);
+        setBandwidth(bwData);
+        setDws(dwsData);
       } catch (error) {
         console.error('Failed to fetch contribution data:', error);
       }
     };
 
     fetchData();
-    const interval = setInterval(fetchData, 5000);
+    const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -99,6 +125,35 @@ export function ContributionPanel() {
         </p>
       </div>
 
+      {/* Adaptive Bandwidth Status */}
+      <div className="card bg-gradient-to-br from-[#00ff88]/5 to-transparent border-[#00ff88]/20">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Gauge className="w-5 h-5 text-[#00ff88]" />
+            <span className="font-medium">Adaptive Bandwidth</span>
+          </div>
+          <span className={`px-2 py-0.5 rounded-full text-xs ${
+            bandwidth?.is_user_idle ? 'bg-[#00ff88]/20 text-[#00ff88]' : 'bg-yellow-500/20 text-yellow-500'
+          }`}>
+            {bandwidth?.is_user_idle ? 'Idle - Max Sharing' : 'Active - Min Sharing'}
+          </span>
+        </div>
+        <div className="grid grid-cols-3 gap-4 text-center">
+          <div>
+            <div className="text-2xl font-bold text-[#00ff88]">{bandwidth?.contribution_percent ?? 10}%</div>
+            <div className="text-xs text-[#606070]">Sharing Now</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold">{bandwidth?.contribution_mbps ?? 0}</div>
+            <div className="text-xs text-[#606070]">Mbps</div>
+          </div>
+          <div>
+            <div className="text-2xl font-bold">{Math.floor((bandwidth?.idle_seconds ?? 0) / 60)}</div>
+            <div className="text-xs text-[#606070]">Min Idle</div>
+          </div>
+        </div>
+      </div>
+
       {/* Quota Progress */}
       <div className="card">
         <div className="flex items-center justify-between mb-3">
@@ -114,6 +169,39 @@ export function ContributionPanel() {
         <div className="flex justify-between mt-2 text-xs text-[#606070]">
           <span>Contributed: {formatBytes(status?.bytes_contributed ?? 0)}</span>
           <span>Cap: {formatBytes(status?.contribution_cap ?? 0)}</span>
+        </div>
+      </div>
+
+      {/* DWS/CDN Status */}
+      <div className="card">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <Database className="w-5 h-5 text-[#00cc6a]" />
+            <span className="font-medium">Edge CDN Cache</span>
+          </div>
+          <span className={`px-2 py-0.5 rounded-full text-xs ${
+            dws?.active ? 'bg-[#00ff88]/20 text-[#00ff88]' : 'bg-[#606070]/20 text-[#606070]'
+          }`}>
+            {dws?.active ? 'Active' : 'Inactive'}
+          </span>
+        </div>
+        <div className="grid grid-cols-2 gap-3 text-sm">
+          <div className="flex justify-between">
+            <span className="text-[#606070]">Cache Size</span>
+            <span>{dws?.cache_used_mb ?? 0} MB</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#606070]">Cached Items</span>
+            <span>{dws?.cached_cids ?? 0}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#606070]">Requests Served</span>
+            <span>{dws?.requests_served ?? 0}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-[#606070]">CDN Earnings</span>
+            <span className="text-[#00ff88]">{((dws?.earnings_wei ?? 0) / 1e18).toFixed(4)} JEJU</span>
+          </div>
         </div>
       </div>
 
