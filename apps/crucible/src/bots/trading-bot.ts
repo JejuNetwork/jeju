@@ -292,13 +292,13 @@ export class TradingBot {
     await Promise.allSettled(
       topOpportunities.map(async ({ opportunity, source }) => {
         this.metrics.opportunitiesDetected++;
-        this.metrics.byStrategy[source].detected++;
+        this.metrics.byStrategy[source]!.detected++;
 
         const result = await this.executor.execute(opportunity);
 
         if (result.success) {
           this.metrics.opportunitiesExecuted++;
-          this.metrics.byStrategy[source].executed++;
+          this.metrics.byStrategy[source]!.executed++;
           if (result.actualProfit && result.txHash && this.treasury) {
             await this.treasury.depositProfit(
               '0x0000000000000000000000000000000000000000',
@@ -309,7 +309,7 @@ export class TradingBot {
           }
         } else {
           this.metrics.opportunitiesFailed++;
-          this.metrics.byStrategy[source].failed++;
+          this.metrics.byStrategy[source]!.failed++;
         }
       })
     );
