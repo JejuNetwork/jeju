@@ -81,6 +81,7 @@ export const StrategyTypeSchema = z.enum([
   'ORACLE_KEEPER',
   'YIELD_FARMING',
   'LIQUIDITY',
+  'OTHER',
 ]);
 export type StrategyType = z.infer<typeof StrategyTypeSchema>;
 

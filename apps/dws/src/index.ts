@@ -34,8 +34,8 @@ export * from './solver/metrics';
 export * from './solver/contracts';
 export * from './solver/external';
 
-// Shared chains
-export * from './shared/chains';
+// Shared chains (only unique exports not already in ./rpc)
+export { jejuLocalnet, jeju, getRpcUrl } from './shared/chains';
 
 // Proof-of-Cloud
 export * from './poc';

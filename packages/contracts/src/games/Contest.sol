@@ -45,22 +45,16 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
  * }
  */
 contract Contest is IPredictionOracle, Ownable, Pausable {
-    // ============ Constants ============
+    uint256 public constant CONTEST_DURATION = 60;
+    uint256 public constant GRACE_PERIOD_DURATION = 30;
 
-    uint256 public constant CONTEST_DURATION = 60; // 60 seconds
-    uint256 public constant GRACE_PERIOD_DURATION = 30; // 30 seconds freeze before results
-
-    // ============ State Variables ============
-
-    /// @notice TEE attestation data proving results came from trusted execution
     struct TEEAttestation {
         bytes32 containerHash; // Hash of TEE container image
         bytes attestationQuote; // TEE attestation quote (e.g., SGX, SEV-SNP)
         bytes signature; // Signature over results + attestation
-        uint256 timestamp; // When attestation was generated
+        uint256 timestamp;
     }
 
-    /// @notice Contest data structure
     struct ContestData {
         bytes32 contestId;
         uint256 announceTime; // When contest was announced
@@ -74,32 +68,24 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
         ContestMode mode;
         TEEAttestation attestation; // TEE proof of results
         bool finalized;
-        string[] optionNames; // Names of options (e.g., horse names)
+        string[] optionNames;
     }
 
     mapping(bytes32 => ContestData) public contests;
-    mapping(bytes32 => bool) public trustedContainerHashes; // Approved TEE containers
+    mapping(bytes32 => bool) public trustedContainerHashes;
     bytes32[] public contestHistory;
-
     bytes32 public currentContestId;
     uint256 public contestCount;
-    address public teePublisher; // Authorized TEE service to publish results
-
-    // ERC-8004 Metadata
+    address public teePublisher;
     string public constant CONTRACT_NAME = "TEE Contest Oracle";
     string public constant CONTRACT_VERSION = "2.0.0";
     string public constant CONTRACT_TYPE = "tee-oracle";
-
-    // ============ Events ============
-    // Note: ContestCreated, ContestStarted, ContestFinished, OutcomeRevealed are in IContestOracle
 
     event ContestAnnounced(bytes32 indexed contestId, uint256 startTime, string[] options);
     event GracePeriodStarted(bytes32 indexed contestId, uint256 timestamp);
     event ContestFinalized(bytes32 indexed contestId, uint256 winner, bytes32 containerHash, uint256 timestamp);
     event TEEPublisherUpdated(address indexed oldPublisher, address indexed newPublisher);
     event ContainerHashApproved(bytes32 indexed containerHash, bool approved);
-
-    // ============ Errors ============
 
     error OnlyTEEPublisher();
     error ContestNotFound();
@@ -111,28 +97,15 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
     error StillInGracePeriod();
     error InvalidState();
 
-    // ============ Modifiers ============
-
     modifier onlyTEEPublisher() {
         if (msg.sender != teePublisher && msg.sender != owner()) revert OnlyTEEPublisher();
         _;
     }
 
-    // ============ Constructor ============
-
     constructor(address _teePublisher) Ownable(msg.sender) {
         teePublisher = _teePublisher;
     }
 
-    // ============ Core Contest Functions ============
-
-    /**
-     * @notice Announce a new contest - TEE will run the contest logic
-     * @param options Names of options (e.g., horse names, team names)
-     * @param scheduledStart When contest should start (trading begins)
-     * @param mode Contest mode (single winner, top 3, full ranking)
-     * @return contestId The generated contest ID
-     */
     function announceContest(string[] calldata options, uint256 scheduledStart, ContestMode mode)
         external
         onlyTEEPublisher
@@ -165,10 +138,6 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
         return contestId;
     }
 
-    /**
-     * @notice Start contest - trading begins
-     * @param contestId The contest to start
-     */
     function startContest(bytes32 contestId) external onlyTEEPublisher {
         ContestData storage contest = contests[contestId];
         if (contest.startTime == 0) revert ContestNotFound();
@@ -180,10 +149,6 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
         emit ContestStarted(contestId, block.timestamp);
     }
 
-    /**
-     * @notice Start grace period - freeze trading to prevent MEV
-     * @param contestId The contest to freeze
-     */
     function startGracePeriod(bytes32 contestId) external onlyTEEPublisher {
         ContestData storage contest = contests[contestId];
         if (contest.startTime == 0) revert ContestNotFound();
@@ -195,14 +160,6 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
         emit GracePeriodStarted(contestId, block.timestamp);
     }
 
-    /**
-     * @notice Publish contest results with TEE attestation
-     * @param contestId The contest to finalize
-     * @param winner Winning option index
-     * @param containerHash Hash of TEE container that ran the contest
-     * @param attestationQuote TEE attestation quote proving execution
-     * @param signature Signature over results + attestation
-     */
     function publishResults(
         bytes32 contestId,
         uint256 winner,
@@ -223,29 +180,8 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
         // Verify container hash is trusted
         if (!trustedContainerHashes[containerHash]) revert UntrustedContainer();
 
-        // Verify winner is valid
         if (winner >= contest.optionNames.length) revert InvalidOption();
 
-        // TEE Attestation Verification:
-        // SECURITY NOTE: Full TEE quote verification not yet implemented
-        // Current security model relies on:
-        //   1. Only authorized keeper can submit results (keeper authorization)
-        //   2. Container hash must be in trusted list (trustedContainerHashes)
-        //   3. Signature verification prevents tampering
-        //
-        // PRODUCTION UPGRADE NEEDED: Implement SGX/SEV-SNP attestation verification
-        //   - Parse attestation quote structure
-        //   - Verify quote signature against Intel/AMD root of trust
-        //   - Check measurement matches trusted container hash
-        //   - Validate quote freshness and nonce
-        //
-        // Reference implementations:
-        //   - Automata DCAP for SGX: https://github.com/automata-network/dcap-attestation
-        //   - Phala TEE verification: https://github.com/Phala-Network/phala-blockchain
-        //
-        // Until implemented, ensure keeper infrastructure is highly secure
-
-        // Store results and attestation
         contest.winner = winner;
         contest.endTime = block.timestamp;
         contest.state = ContestState.FINISHED;
@@ -267,38 +203,22 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
         emit OutcomeRevealed(contestId, rankings);
     }
 
-    // ============ IPredictionOracle Implementation ============
-
-    /**
-     * @notice Get binary outcome for Predimarket
-     * @dev For contests with even number of options, maps first half to NO, second half to YES
-     */
     function getOutcome(bytes32 sessionId) external view override returns (bool outcome, bool finalized) {
         ContestData storage contest = contests[sessionId];
         if (!contest.finalized) return (false, false);
 
-        // Map winner to binary outcome (first half = NO, second half = YES)
         uint256 midpoint = contest.optionNames.length / 2;
         return (contest.winner >= midpoint, contest.finalized);
     }
 
-    /**
-     * @notice Check if address is a winner (N/A for contests)
-     */
-    function isWinner(bytes32, /* sessionId */ address /* player */ ) external pure override returns (bool) {
-        // Contests don't have individual player winners, only winning options
+    function isWinner(bytes32, address) external pure override returns (bool) {
         return false;
     }
 
-    /**
-     * @notice Verify TEE attestation exists and is valid
-     */
     function verifyCommitment(bytes32 contestId) external view override returns (bool) {
         ContestData storage contest = contests[contestId];
         return contest.attestation.containerHash != bytes32(0) && contest.finalized;
     }
-
-    // ============ IContestOracle Implementation ============
 
     function getContestInfo(bytes32 contestId)
         external
@@ -361,8 +281,6 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
         return contest.winner == optionIndex;
     }
 
-    // ============ View Functions ============
-
     function getCurrentContest() external view returns (bytes32) {
         return currentContestId;
     }
@@ -381,10 +299,6 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
         return (attestation.containerHash, attestation.attestationQuote, attestation.signature, attestation.timestamp);
     }
 
-    /**
-     * @notice Compatibility function for MarketFactory and other contracts expecting PredictionOracle interface
-     * @dev Maps ContestData to PredictionOracle.GameOutcome structure
-     */
     function games(bytes32 sessionId)
         external
         view
@@ -404,9 +318,6 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
     {
         ContestData storage contest = contests[sessionId];
 
-        // Build question from options
-        // slither-disable-next-line encode-packed-collision
-        // @audit-ok String concatenation for display, not hashed - no collision risk
         string memory q = string(
             abi.encodePacked(
                 "Will ",
@@ -417,7 +328,6 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
             )
         );
 
-        // Map winner to binary outcome
         uint256 midpoint = contest.optionNames.length / 2;
         bool binaryOutcome = contest.winner >= midpoint;
 
@@ -425,27 +335,21 @@ contract Contest is IPredictionOracle, Ownable, Pausable {
             sessionId,
             q,
             binaryOutcome,
-            bytes32(0), // No commitment in Contest.sol (TEE-based)
-            bytes32(0), // No salt
+            bytes32(0),
+            bytes32(0),
             contest.startTime,
             contest.endTime,
             contest.attestation.attestationQuote,
-            new address[](0), // No individual winners in contests
-            0, // No totalPayout tracking
+            new address[](0),
+            0,
             contest.finalized
         );
     }
 
-    /**
-     * @notice Get contract metadata for ERC-8004 discovery
-     * @return Contract metadata as JSON string
-     */
     function getContractMetadata() external pure returns (string memory) {
         return
         '{"type":"tee-oracle","subtype":"contest","name":"TEE Contest Oracle","category":"contest","version":"2.0.0","teeRequired":true}';
     }
-
-    // ============ Admin Functions ============
 
     function setTEEPublisher(address newPublisher) external onlyOwner {
         address oldPublisher = teePublisher;

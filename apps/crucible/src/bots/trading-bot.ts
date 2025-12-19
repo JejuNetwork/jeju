@@ -69,6 +69,9 @@ export class TradingBot {
       LIQUIDATION: { detected: 0, executed: 0, failed: 0, profitWei: '0' },
       SOLVER: { detected: 0, executed: 0, failed: 0, profitWei: '0' },
       ORACLE_KEEPER: { detected: 0, executed: 0, failed: 0, profitWei: '0' },
+      YIELD_FARMING: { detected: 0, executed: 0, failed: 0, profitWei: '0' },
+      LIQUIDITY: { detected: 0, executed: 0, failed: 0, profitWei: '0' },
+      OTHER: { detected: 0, executed: 0, failed: 0, profitWei: '0' },
     },
   };
 
