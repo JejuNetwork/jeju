@@ -3,6 +3,12 @@
  * @notice Central export for all shared utilities
  */
 
+// Config utilities (unified config access)
+export * from './config-utils';
+
+// Chain utilities
+export * from './chains';
+
 export * from './notifications';
 export * from './format';
 export * from './logger';

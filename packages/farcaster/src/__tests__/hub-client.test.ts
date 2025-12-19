@@ -77,7 +77,7 @@ describe('FarcasterClient', () => {
         })
       );
 
-      await expect(client.getHubInfo()).rejects.toThrow('Hub request failed');
+      await expect(client.getHubInfo()).rejects.toThrow('Hub error: 500 Internal Server Error');
     });
   });
 

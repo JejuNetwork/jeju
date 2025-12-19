@@ -101,7 +101,17 @@ forge script script/DeployCommerce.s.sol --rpc-url https://sepolia.base.org --br
 
 # Base Mainnet  
 forge script script/DeployCommerce.s.sol --rpc-url https://mainnet.base.org --broadcast --verify
+
+# Or use the deployment script:
+bun run scripts/deploy/commerce.ts --chain 84532  # Base Sepolia
+bun run scripts/deploy/commerce.ts --mainnet --verify
 ```
+
+**Deployed Addresses:**
+
+| Network | Address |
+|---------|---------|
+| Base Sepolia | `0x75165D5EF5e35A511D70DecFE8A4c30B8D2a14Af` |
 
 **Environment Variables:**
 ```bash
@@ -117,6 +127,38 @@ SUPPORTED_TOKENS=0x036CbD53842c5426634e7929541eC2318f3dCF7e  # Base Sepolia USDC
 |---------|-----------------|
 | Base Sepolia | 0.01 ETH |
 | Base Mainnet | 0.03 ETH |
+
+---
+
+## Solana x402 Facilitator
+
+Deploy the x402 payment facilitator to Solana:
+
+```bash
+cd packages/solana
+
+# Build the program
+anchor build -p x402-facilitator
+
+# Deploy to devnet (requires ~3 SOL)
+solana config set --url devnet
+solana airdrop 3  # Get testnet SOL from faucet
+solana program deploy --program-id target/deploy/x402_facilitator-keypair.json target/deploy/x402_facilitator.so
+```
+
+**Program Addresses:**
+
+| Network | Program ID |
+|---------|-----------|
+| Devnet | `BtrCDxPAUC3Dkk32UNiQdF7ksPH1vicAKgQnHMw1y6WU` |
+| Mainnet | (not yet deployed) |
+
+**Funding Requirements:**
+
+| Network | SOL Required |
+|---------|--------------|
+| Devnet | ~3 SOL (free from faucet) |
+| Mainnet | ~5 SOL (~$1000) |
 
 ---
 
