@@ -19,6 +19,24 @@ const DEFAULT_HUB_URL = 'nemes.farcaster.xyz:2283';
 const DEFAULT_HTTP_URL = 'https://nemes.farcaster.xyz:2281';
 const DEFAULT_TIMEOUT = 10000;
 
+export class HubError extends Error {
+  constructor(
+    message: string,
+    public readonly status: number,
+    public readonly code: 'NOT_FOUND' | 'RATE_LIMITED' | 'UNAUTHORIZED' | 'NETWORK' | 'UNKNOWN'
+  ) {
+    super(message);
+    this.name = 'HubError';
+  }
+
+  static fromResponse(status: number, statusText: string): HubError {
+    if (status === 404) return new HubError(`Not found: ${statusText}`, status, 'NOT_FOUND');
+    if (status === 429) return new HubError(`Rate limited: ${statusText}`, status, 'RATE_LIMITED');
+    if (status === 401 || status === 403) return new HubError(`Unauthorized: ${statusText}`, status, 'UNAUTHORIZED');
+    return new HubError(`Hub error: ${status} ${statusText}`, status, 'UNKNOWN');
+  }
+}
+
 export class FarcasterClient {
   private hubUrl: string;
   private httpUrl: string;
@@ -54,7 +72,7 @@ export class FarcasterClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Hub request failed: ${response.status} ${response.statusText}`);
+        throw HubError.fromResponse(response.status, response.statusText);
       }
 
       return response.json() as Promise<T>;
@@ -136,8 +154,9 @@ export class FarcasterClient {
         return this.getProfile(response.proofs[0].fid);
       }
       return null;
-    } catch {
-      return null;
+    } catch (e) {
+      if (e instanceof HubError && e.code === 'NOT_FOUND') return null;
+      throw e;
     }
   }
 
@@ -153,8 +172,9 @@ export class FarcasterClient {
         return this.getProfile(response.messages[0].data.fid);
       }
       return null;
-    } catch {
-      return null;
+    } catch (e) {
+      if (e instanceof HubError && e.code === 'NOT_FOUND') return null;
+      throw e;
     }
   }
 
@@ -312,8 +332,9 @@ export class FarcasterClient {
         mentions: response.data.castAddBody.mentions,
         mentionsPositions: response.data.castAddBody.mentionsPositions,
       };
-    } catch {
-      return null;
+    } catch (e) {
+      if (e instanceof HubError && e.code === 'NOT_FOUND') return null;
+      throw e;
     }
   }
 
@@ -443,9 +464,14 @@ export class FarcasterClient {
 
         // Wait before next poll
         await new Promise((resolve) => setTimeout(resolve, 1000));
-      } catch {
-        // Retry on error
-        await new Promise((resolve) => setTimeout(resolve, 5000));
+      } catch (e) {
+        // Rate limiting or transient errors - back off and retry
+        if (e instanceof HubError && (e.code === 'RATE_LIMITED' || e.code === 'NETWORK')) {
+          await new Promise((resolve) => setTimeout(resolve, 5000));
+          continue;
+        }
+        // Fatal errors - rethrow
+        throw e;
       }
     }
   }

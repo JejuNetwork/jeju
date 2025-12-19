@@ -106,12 +106,16 @@ test-results/
 packages/deployment/.keys/
 
 # Secrets - NEVER commit
+.secrets/
 secrets/
 *.secret
 *.key
 jwt-secret.txt
 *.pem
 *.p12
+
+# Deployment artifacts (generated, network-specific)
+packages/deployment/.artifacts/
 
 # Root-owned build artifacts (delete with sudo rm -rf)
 packages/contracts/out-root-owned/
