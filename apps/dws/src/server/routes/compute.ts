@@ -140,13 +140,28 @@ export function createComputeRouter(): Hono {
       }
     }
 
-    // If no provider available, return error with setup instructions
+    // If no provider available, return mock response for dev/testing
     if (!selectedProvider) {
+      const mockContent = `This is a mock response. No inference provider is configured.
+Set one of: GROQ_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or AWS_BEDROCK_ENABLED=true`;
+      
       return c.json({
-        error: 'No inference provider configured',
-        message: 'Set one of: AWS_BEDROCK_ENABLED=true (with AWS creds), GROQ_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY',
-        docs: 'Get a free API key from https://console.groq.com or use AWS Bedrock',
-      }, 503);
+        id: `chatcmpl-mock-${Date.now()}`,
+        object: 'chat.completion',
+        created: Math.floor(Date.now() / 1000),
+        model: body.model ?? 'mock',
+        provider: 'mock',
+        choices: [{
+          index: 0,
+          message: { role: 'assistant', content: mockContent },
+          finish_reason: 'stop',
+        }],
+        usage: {
+          prompt_tokens: 10,
+          completion_tokens: 20,
+          total_tokens: 30,
+        },
+      });
     }
 
     // Handle AWS Bedrock

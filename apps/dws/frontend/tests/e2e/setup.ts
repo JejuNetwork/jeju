@@ -12,9 +12,9 @@ import { spawn, ChildProcess } from 'child_process';
 import { existsSync } from 'fs';
 import { join, dirname } from 'path';
 
-const LOCALNET_PORT = 9545;
-const DWS_PORT = 4030;
-const FRONTEND_PORT = 4031;
+const LOCALNET_PORT = parseInt(process.env.LOCALNET_PORT || '9545');
+const DWS_PORT = parseInt(process.env.DWS_PORT || '4030');
+const FRONTEND_PORT = parseInt(process.env.FRONTEND_PORT || '4033');
 const TEST_WALLET = {
   address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',

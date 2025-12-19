@@ -7,8 +7,11 @@
  * - Research reports
  * - Historical decisions
  * - Network state (via A2A/MCP)
+ * 
+ * FULLY DECENTRALIZED - Endpoints resolved from network config
  */
 
+import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config';
 import type { Provider, IAgentRuntime, Memory, State, ProviderResult } from '@elizaos/core';
 
 // ============================================================================
@@ -50,13 +53,16 @@ interface GovernanceStats {
 }
 
 // ============================================================================
-// A2A Client Helper
+// A2A Client Helper (Network-Aware)
 // ============================================================================
 
-const AUTOCRAT_A2A_URL = process.env.AUTOCRAT_A2A_URL ?? 'http://localhost:8010/a2a';
+function getAutocratA2A(): string {
+  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl();
+}
 
 async function callAutocratA2A(skillId: string, params: Record<string, unknown> = {}): Promise<Record<string, unknown>> {
-  const response = await fetch(AUTOCRAT_A2A_URL, {
+  const a2aUrl = getAutocratA2A();
+  const response = await fetch(a2aUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -431,11 +437,11 @@ export const mcpResourcesProvider: Provider = {
     _message: Memory,
     _state: State
   ): Promise<ProviderResult> => {
-    const MCP_URL = process.env.AUTOCRAT_MCP_URL ?? 'http://localhost:8010/mcp';
+    const mcpUrl = process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`;
     
     let tools: Array<{ name: string; description: string }> = [];
     try {
-      const response = await fetch(`${MCP_URL}/tools`);
+      const response = await fetch(`${mcpUrl}/tools`);
       const data = await response.json() as { tools?: Array<{ name: string; description: string }> };
       tools = data.tools ?? [];
     } catch {

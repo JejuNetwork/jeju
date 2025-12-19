@@ -16,7 +16,7 @@ import type {
 } from '@elizaos/core';
 import { getTradingService } from '../services/trading';
 import { getWalletService } from '../services/wallet';
-import { getStateManager, type PendingSwap, type PendingBridge } from '../services/state';
+import { getStateManager } from '../services/state';
 import { getChainId, DEFAULT_CHAIN_ID, getChainName } from '../config';
 import type { OttoUser, SwapQuote, BridgeQuote } from '../types';
 
@@ -156,20 +156,19 @@ export const swapAction: Action = {
     const priceImpact = (quote.priceImpact * 100).toFixed(2);
     
     // Store pending action for confirmation
-    const pendingSwap: PendingSwap = {
+    const platform = message.content.source ?? 'web';
+    const channelId = message.roomId ?? '';
+    stateManager.setPendingAction(platform, channelId, {
       type: 'swap',
-      userId: user.id,
-      platform: message.content.source ?? 'web',
-      channelId: message.roomId ?? '',
-      fromToken,
-      toToken,
-      fromAmount: params.amount,
-      toAmount,
       quote,
+      params: {
+        amount: params.amount,
+        from: params.from,
+        to: params.to,
+        chainId,
+      },
       expiresAt: Date.now() + PENDING_ACTION_TTL,
-    };
-    
-    stateManager.setPendingAction(user.id, pendingSwap);
+    });
     
     callback?.({
       text: `**Swap Quote**
@@ -277,20 +276,21 @@ export const bridgeAction: Action = {
     const time = Math.ceil(quote.estimatedTimeSeconds / 60);
     
     // Store pending action
-    const pendingBridge: PendingBridge = {
+    const platform = message.content.source ?? 'web';
+    const channelId = message.roomId ?? '';
+    stateManager.setPendingAction(platform, channelId, {
       type: 'bridge',
-      userId: user.id,
-      platform: message.content.source ?? 'web',
-      channelId: message.roomId ?? '',
-      sourceToken,
-      destToken,
-      inputAmount: params.amount,
-      outputAmount,
       quote,
+      params: {
+        amount: params.amount,
+        token: params.token,
+        fromChain: params.fromChain,
+        toChain: params.toChain,
+        sourceChainId,
+        destChainId,
+      },
       expiresAt: Date.now() + PENDING_ACTION_TTL,
-    };
-    
-    stateManager.setPendingAction(user.id, pendingBridge);
+    });
     
     callback?.({
       text: `**Bridge Quote**
@@ -482,7 +482,10 @@ export const confirmAction: Action = {
       return;
     }
     
-    const pending = stateManager.getPendingAction(user.id);
+    const platform = message.content.source ?? 'web';
+    const channelId = message.roomId ?? '';
+    const pending = stateManager.getPendingAction(platform, channelId);
+    
     if (!pending) {
       callback?.({
         text: 'No pending action to confirm. Start a new swap or bridge.',
@@ -491,20 +494,21 @@ export const confirmAction: Action = {
     }
     
     if (Date.now() > pending.expiresAt) {
-      stateManager.clearPendingAction(user.id);
+      stateManager.clearPendingAction(platform, channelId);
       callback?.({
         text: 'Quote expired. Please request a new quote.',
       });
       return;
     }
     
-    if (pending.type === 'swap') {
+    if (pending.type === 'swap' && pending.quote) {
+      const params = pending.params;
       callback?.({
-        text: `Executing swap: ${pending.fromAmount} ${pending.fromToken.symbol} → ${pending.toAmount} ${pending.toToken.symbol}...`,
+        text: `Executing swap: ${params.amount} ${params.from} → ${params.to}...`,
       });
       
-      const result = await tradingService.executeSwap(user.id, pending.quote as SwapQuote);
-      stateManager.clearPendingAction(user.id);
+      const result = await tradingService.executeSwap(user.id, pending.quote);
+      stateManager.clearPendingAction(platform, channelId);
       
       if (result.success) {
         callback?.({
@@ -516,13 +520,14 @@ export const confirmAction: Action = {
           text: `Swap failed: ${result.error}`,
         });
       }
-    } else if (pending.type === 'bridge') {
+    } else if (pending.type === 'bridge' && pending.quote) {
+      const params = pending.params;
       callback?.({
-        text: `Executing bridge: ${pending.inputAmount} ${pending.sourceToken.symbol} → ${pending.outputAmount} ${pending.destToken.symbol}...`,
+        text: `Executing bridge: ${params.amount} ${params.token} from ${params.fromChain} to ${params.toChain}...`,
       });
       
-      const result = await tradingService.executeBridge(user.id, pending.quote as BridgeQuote);
-      stateManager.clearPendingAction(user.id);
+      const result = await tradingService.executeBridge(user.id, pending.quote);
+      stateManager.clearPendingAction(platform, channelId);
       
       if (result.success) {
         callback?.({
@@ -559,10 +564,9 @@ export const cancelAction: Action = {
     _options: Record<string, unknown>,
     callback?: HandlerCallback
   ) => {
-    const user = await getOrCreateUser(runtime, message);
-    if (user) {
-      stateManager.clearPendingAction(user.id);
-    }
+    const platform = message.content.source ?? 'web';
+    const channelId = message.roomId ?? '';
+    stateManager.clearPendingAction(platform, channelId);
     
     callback?.({
       text: 'Cancelled.',

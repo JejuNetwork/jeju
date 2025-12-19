@@ -7,26 +7,45 @@
  * - On-chain governance data
  * - Other autocrat agent votes
  * - CEO status and decisions
+ * 
+ * FULLY DECENTRALIZED - Endpoints resolved from network config
  */
 
+import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config';
 import type { Provider, IAgentRuntime, Memory, State, ProviderResult } from '@elizaos/core';
 
 // ============================================================================
-// Configuration
+// Configuration (Network-Aware)
 // ============================================================================
 
-const AUTOCRAT_A2A_URL = process.env.AUTOCRAT_A2A_URL ?? 'http://localhost:8010/a2a';
-const AUTOCRAT_MCP_URL = process.env.AUTOCRAT_MCP_URL ?? 'http://localhost:8010/mcp';
-const CEO_A2A_URL = process.env.CEO_A2A_URL ?? 'http://localhost:8004/a2a';
-const CEO_MCP_URL = process.env.CEO_MCP_URL ?? 'http://localhost:8004/mcp';
+function getAutocratA2A(): string {
+  return process.env.getAutocratA2A() ?? getAutocratA2AUrl();
+}
 
-// Service registry for A2A discovery
-const SERVICE_REGISTRY: Record<string, { url: string; description: string }> = {
-  'autocrat': { url: AUTOCRAT_A2A_URL, description: 'Autocrat governance A2A server' },
-  'ceo': { url: CEO_A2A_URL, description: 'AI CEO decision-making agent' },
-  'autocrat-mcp': { url: AUTOCRAT_MCP_URL, description: 'Autocrat MCP tools and resources' },
-  'ceo-mcp': { url: CEO_MCP_URL, description: 'CEO MCP tools and resources' },
-};
+function getAutocratMCP(): string {
+  return process.env.getAutocratMCP() ?? `${getAutocratUrl()}/mcp`;
+}
+
+function getCEOA2A(): string {
+  const baseUrl = getAutocratUrl();
+  // CEO server runs on port 4004 in localnet, separate service elsewhere
+  return process.env.getCEOA2A() ?? baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo') + '/a2a';
+}
+
+function getCEOMCP(): string {
+  const baseUrl = getAutocratUrl();
+  return process.env.getCEOMCP() ?? baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo') + '/mcp';
+}
+
+// Service registry for A2A discovery - resolved dynamically
+function getServiceRegistry(): Record<string, { url: string; description: string }> {
+  return {
+    'autocrat': { url: getAutocratA2A(), description: 'Autocrat governance A2A server' },
+    'ceo': { url: getCEOA2A(), description: 'AI CEO decision-making agent' },
+    'autocrat-mcp': { url: getAutocratMCP(), description: 'Autocrat MCP tools and resources' },
+    'ceo-mcp': { url: getCEOMCP(), description: 'CEO MCP tools and resources' },
+  };
+}
 
 // ============================================================================
 // A2A Client Helper
@@ -83,8 +102,8 @@ export const serviceDiscoveryProvider: Provider = {
   ): Promise<ProviderResult> => {
     const services: Array<{ name: string; url: string; status: string; skills?: string[] }> = [];
 
-    // Check each registered service
-    for (const [name, service] of Object.entries(SERVICE_REGISTRY)) {
+    // Check each registered service (resolved dynamically)
+    for (const [name, service] of Object.entries(getServiceRegistry())) {
       const isA2A = !name.includes('mcp');
       
       if (isA2A) {
@@ -159,7 +178,7 @@ export const otherAutocratVotesProvider: Provider = {
     }
 
     const proposalId = proposalMatch[0];
-    const data = await callA2A(AUTOCRAT_A2A_URL, 'get-autocrat-votes', { proposalId });
+    const data = await callA2A(getAutocratA2A(), 'get-autocrat-votes', { proposalId });
     const votes = (data as { votes?: Array<{ role: string; vote: string; reasoning: string; confidence: number }> }).votes ?? [];
 
     // Filter out own votes based on runtime's character name
@@ -203,7 +222,7 @@ export const activeProposalsProvider: Provider = {
     _message: Memory,
     _state: State
   ): Promise<ProviderResult> => {
-    const data = await callA2A(AUTOCRAT_A2A_URL, 'list-proposals', { activeOnly: true });
+    const data = await callA2A(getAutocratA2A(), 'list-proposals', { activeOnly: true });
     const proposals = (data as { proposals?: Array<{ id: string; status: string; qualityScore: number; proposalType: number }> }).proposals ?? [];
     const total = (data as { total?: number }).total ?? 0;
 
@@ -248,7 +267,7 @@ export const proposalDetailProvider: Provider = {
     }
 
     const proposalId = proposalMatch[0];
-    const data = await callA2A(AUTOCRAT_A2A_URL, 'get-proposal', { proposalId });
+    const data = await callA2A(getAutocratA2A(), 'get-proposal', { proposalId });
     const proposal = data as {
       id?: string;
       status?: string;
@@ -296,7 +315,7 @@ export const ceoStatusProvider: Provider = {
     _message: Memory,
     _state: State
   ): Promise<ProviderResult> => {
-    const data = await callA2A(AUTOCRAT_A2A_URL, 'get-ceo-status');
+    const data = await callA2A(getAutocratA2A(), 'get-ceo-status');
     const ceo = data as {
       currentModel?: { name: string };
       decisionsThisPeriod?: number;
@@ -339,7 +358,7 @@ export const mcpToolsProvider: Provider = {
     const tools: Array<{ source: string; name: string; description: string }> = [];
 
     // Autocrat MCP tools
-    const autocratResponse = await fetch(`${AUTOCRAT_MCP_URL}/tools`);
+    const autocratResponse = await fetch(`${getAutocratMCP()}/tools`);
     if (autocratResponse.ok) {
       const autocratData = await autocratResponse.json() as { tools?: Array<{ name: string; description: string }> };
       for (const tool of autocratData.tools ?? []) {
@@ -348,7 +367,7 @@ export const mcpToolsProvider: Provider = {
     }
 
     // CEO MCP tools
-    const ceoResponse = await fetch(`${CEO_MCP_URL}/tools`);
+    const ceoResponse = await fetch(`${getCEOMCP()}/tools`);
     if (ceoResponse.ok) {
       const ceoData = await ceoResponse.json() as { tools?: Array<{ name: string; description: string }> };
       for (const tool of ceoData.tools ?? []) {
@@ -366,7 +385,7 @@ export const mcpToolsProvider: Provider = {
     const ceoTools = tools.filter(t => t.source === 'ceo');
 
     if (autocratTools.length > 0) {
-      result += `📋 Autocrat Tools (${AUTOCRAT_MCP_URL}):\n`;
+      result += `📋 Autocrat Tools (${getAutocratMCP()}):\n`;
       for (const tool of autocratTools) {
         result += `  • ${tool.name}: ${tool.description}\n`;
       }
@@ -374,7 +393,7 @@ export const mcpToolsProvider: Provider = {
     }
 
     if (ceoTools.length > 0) {
-      result += `👤 CEO Tools (${CEO_MCP_URL}):\n`;
+      result += `👤 CEO Tools (${getCEOMCP()}):\n`;
       for (const tool of ceoTools) {
         result += `  • ${tool.name}: ${tool.description}\n`;
       }
@@ -404,7 +423,7 @@ export const a2aSkillsProvider: Provider = {
     const skills: Array<{ agent: string; id: string; name: string; description: string }> = [];
 
     // Fetch from autocrat
-    const autocratCard = await fetchAgentCard(AUTOCRAT_A2A_URL);
+    const autocratCard = await fetchAgentCard(getAutocratA2A());
     if (autocratCard) {
       for (const skill of (autocratCard.skills as Array<{ id: string; name: string; description: string }>) ?? []) {
         skills.push({ agent: 'autocrat', ...skill });
@@ -412,7 +431,7 @@ export const a2aSkillsProvider: Provider = {
     }
 
     // Fetch from CEO
-    const ceoCard = await fetchAgentCard(CEO_A2A_URL);
+    const ceoCard = await fetchAgentCard(getCEOA2A());
     if (ceoCard) {
       for (const skill of (ceoCard.skills as Array<{ id: string; name: string; description: string }>) ?? []) {
         skills.push({ agent: 'ceo', ...skill });
@@ -464,7 +483,7 @@ export const governanceStatsProvider: Provider = {
     _message: Memory,
     _state: State
   ): Promise<ProviderResult> => {
-    const data = await callA2A(AUTOCRAT_A2A_URL, 'get-governance-stats');
+    const data = await callA2A(getAutocratA2A(), 'get-governance-stats');
     const stats = data as {
       totalProposals?: number;
       approvedCount?: number;
@@ -518,7 +537,7 @@ export const researchReportsProvider: Provider = {
     }
 
     const proposalId = proposalMatch[0];
-    const data = await callA2A(AUTOCRAT_A2A_URL, 'get-research', { proposalId });
+    const data = await callA2A(getAutocratA2A(), 'get-research', { proposalId });
     const research = data as { report?: string; status?: string };
 
     if (!research.report) {

@@ -8,8 +8,11 @@
  *
  * This ensures CEO reasoning remains private during deliberation
  * but becomes transparent after execution or timeout.
+ * 
+ * FULLY DECENTRALIZED - Uses network-aware endpoints
  */
 
+import { getServiceUrl, getRpcUrl } from '@jejunetwork/config';
 import { keccak256, stringToHex } from 'viem';
 
 // Types for encrypted data
@@ -57,10 +60,13 @@ export interface AuthSig {
   address: string;
 }
 
-// Environment configuration
+// Environment configuration (with network-aware fallbacks)
 const COUNCIL_ADDRESS = process.env.COUNCIL_ADDRESS ?? '0x0000000000000000000000000000000000000000';
 const CHAIN_ID = process.env.CHAIN_ID ?? 'base-sepolia';
-const DA_URL = process.env.DA_URL ?? 'http://localhost:3100';
+
+function getDAUrl(): string {
+  return process.env.DA_URL ?? getServiceUrl('storage', 'api');
+}
 
 // Encryption key from environment
 const ENCRYPTION_KEY = process.env.KMS_FALLBACK_SECRET ?? process.env.TEE_ENCRYPTION_SECRET ?? 'council-local-dev';
@@ -233,7 +239,7 @@ export async function backupToDA(
   proposalId: string,
   encryptedData: EncryptedData
 ): Promise<{ keyId: string; hash: string }> {
-  const response = await fetch(`${DA_URL}/api/v1/encrypted/store`, {
+  const response = await fetch(`${getDAUrl()}/api/v1/encrypted/store`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -273,7 +279,7 @@ export async function backupToDA(
  * Retrieve encrypted decision from DA layer by proposalId
  */
 export async function retrieveFromDA(proposalId: string): Promise<EncryptedData | null> {
-  const searchResponse = await fetch(`${DA_URL}/api/v1/encrypted/search`, {
+  const searchResponse = await fetch(`${getDAUrl()}/api/v1/encrypted/search`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -297,7 +303,7 @@ export async function retrieveFromDA(proposalId: string): Promise<EncryptedData 
 
   const latest = searchResult.results.sort((a, b) => b.encryptedAt - a.encryptedAt)[0];
 
-  const retrieveResponse = await fetch(`${DA_URL}/api/v1/encrypted/retrieve`, {
+  const retrieveResponse = await fetch(`${getDAUrl()}/api/v1/encrypted/retrieve`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -344,7 +350,7 @@ export async function canDecrypt(
 
   const proposalId = proposalCondition.parameters[0];
   const councilAddress = proposalCondition.contractAddress;
-  const rpc = rpcUrl ?? process.env.RPC_URL ?? 'http://localhost:8545';
+  const rpc = rpcUrl ?? process.env.RPC_URL ?? getRpcUrl();
 
   const callData = `0x013cf08b${proposalId.slice(2).padStart(64, '0')}`; // proposals(uint256)
 

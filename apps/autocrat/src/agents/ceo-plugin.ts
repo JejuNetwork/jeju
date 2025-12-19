@@ -6,8 +6,11 @@
  * - Decision-making actions
  * - On-chain integration
  * - A2A/MCP access
+ * 
+ * FULLY DECENTRALIZED - Endpoints resolved from network config
  */
 
+import { getAutocratA2AUrl } from '@jejunetwork/config';
 import type { Plugin, Action, IAgentRuntime, Memory, State, HandlerCallback, HandlerOptions } from '@elizaos/core';
 import { ceoProviders } from './ceo-providers';
 import { makeTEEDecision } from '../tee';
@@ -191,9 +194,9 @@ const getDeliberationAction: Action = {
       return;
     }
 
-    // Fetch from A2A
-    const AUTOCRAT_A2A_URL = process.env.AUTOCRAT_A2A_URL ?? 'http://localhost:8010/a2a';
-    const response = await fetch(AUTOCRAT_A2A_URL, {
+    // Fetch from A2A (using network-aware endpoint)
+    const autocratA2aUrl = process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl();
+    const response = await fetch(autocratA2aUrl, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

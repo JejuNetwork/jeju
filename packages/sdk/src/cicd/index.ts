@@ -17,7 +17,7 @@ import { getServicesConfig, type ServicesConfig } from "../config";
 // Types
 // ============================================================================
 
-export enum WorkflowStatus {
+export enum CICDWorkflowStatus {
   PENDING = "pending",
   QUEUED = "queued",
   RUNNING = "running",
@@ -31,7 +31,7 @@ export enum DeploymentEnvironment {
   PRODUCTION = "production",
 }
 
-export interface Workflow {
+export interface CICDWorkflow {
   id: string;
   name: string;
   repoId: string;
@@ -53,7 +53,7 @@ export interface WorkflowRun {
   branch: string;
   commitSha: string;
   commitMessage?: string;
-  status: WorkflowStatus;
+  status: CICDWorkflowStatus;
   triggeredBy: string;
   startedAt: string;
   completedAt?: string;
@@ -65,7 +65,7 @@ export interface WorkflowRun {
 export interface WorkflowJob {
   id: string;
   name: string;
-  status: WorkflowStatus;
+  status: CICDWorkflowStatus;
   startedAt?: string;
   completedAt?: string;
   duration?: number;
@@ -75,7 +75,7 @@ export interface WorkflowJob {
 
 export interface JobStep {
   name: string;
-  status: WorkflowStatus;
+  status: CICDWorkflowStatus;
   duration?: number;
   output?: string;
 }
@@ -112,7 +112,7 @@ export interface DeploymentConfig {
   healthCheckUrl?: string;
 }
 
-export interface CreateWorkflowParams {
+export interface CreateCICDWorkflowParams {
   repoId: string;
   name: string;
   configPath?: string;
@@ -133,10 +133,10 @@ export interface TriggerWorkflowParams {
 
 export interface CICDModule {
   // Workflows
-  createWorkflow(params: CreateWorkflowParams): Promise<Workflow>;
-  getWorkflow(workflowId: string): Promise<Workflow | null>;
-  listWorkflows(repoId?: string): Promise<Workflow[]>;
-  updateWorkflow(workflowId: string, updates: Partial<CreateWorkflowParams>): Promise<Workflow>;
+  createWorkflow(params: CreateCICDWorkflowParams): Promise<CICDWorkflow>;
+  getWorkflow(workflowId: string): Promise<CICDWorkflow | null>;
+  listWorkflows(repoId?: string): Promise<CICDWorkflow[]>;
+  updateWorkflow(workflowId: string, updates: Partial<CreateCICDWorkflowParams>): Promise<CICDWorkflow>;
   deleteWorkflow(workflowId: string): Promise<void>;
   enableWorkflow(workflowId: string): Promise<void>;
   disableWorkflow(workflowId: string): Promise<void>;
@@ -144,7 +144,7 @@ export interface CICDModule {
   // Workflow Runs
   triggerWorkflow(params: TriggerWorkflowParams): Promise<WorkflowRun>;
   getRun(runId: string): Promise<WorkflowRun | null>;
-  listRuns(workflowId?: string, status?: WorkflowStatus): Promise<WorkflowRun[]>;
+  listRuns(workflowId?: string, status?: CICDWorkflowStatus): Promise<WorkflowRun[]>;
   cancelRun(runId: string): Promise<void>;
   rerunWorkflow(runId: string): Promise<WorkflowRun>;
   getRunLogs(runId: string, jobId?: string): Promise<string>;
@@ -234,23 +234,23 @@ export function createCICDModule(
   return {
     // Workflows
     async createWorkflow(params) {
-      return request<Workflow>("/workflows", {
+      return request<CICDWorkflow>("/workflows", {
         method: "POST",
         body: JSON.stringify(params),
       });
     },
 
     async getWorkflow(workflowId) {
-      return request<Workflow | null>(`/workflows/${workflowId}`);
+      return request<CICDWorkflow | null>(`/workflows/${workflowId}`);
     },
 
     async listWorkflows(repoId) {
       const query = repoId ? `?repo=${repoId}` : "";
-      return request<Workflow[]>(`/workflows${query}`);
+      return request<CICDWorkflow[]>(`/workflows${query}`);
     },
 
     async updateWorkflow(workflowId, updates) {
-      return request<Workflow>(`/workflows/${workflowId}`, {
+      return request<CICDWorkflow>(`/workflows/${workflowId}`, {
         method: "PATCH",
         body: JSON.stringify(updates),
       });

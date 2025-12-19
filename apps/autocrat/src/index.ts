@@ -24,7 +24,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { getNetworkName } from '@jejunetwork/config';
+import { getNetworkName, getRpcUrl } from '@jejunetwork/config';
 import { createAutocratA2AServer } from './a2a-server';
 import { createAutocratMCPServer } from './mcp-server';
 import { getBlockchain } from './blockchain';
@@ -51,7 +51,7 @@ const agent = (id: string, name: string, prompt: string) => ({ id, name, model: 
 
 function getConfig(): CouncilConfig {
   return {
-    rpcUrl: process.env.RPC_URL ?? process.env.JEJU_RPC_URL ?? 'http://localhost:8545',
+    rpcUrl: process.env.RPC_URL ?? process.env.JEJU_RPC_URL ?? getRpcUrl(),
     daoId: process.env.DEFAULT_DAO ?? 'jeju',
     contracts: {
       council: addr('COUNCIL_ADDRESS'),

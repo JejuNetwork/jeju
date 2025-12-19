@@ -74,6 +74,18 @@ export * from "./vpn-module";
 // Models (HuggingFace-like)
 export * from "./models";
 
+// Datasets (training data)
+export * from "./datasets";
+
+// CI/CD
+export * from "./cicd";
+
+// Social Feed (Farcaster)
+export * from "./feed";
+
+// MCP (Model Context Protocol)
+export * from "./mcp";
+
 // Wallet utilities
 export * from "./wallet";
 

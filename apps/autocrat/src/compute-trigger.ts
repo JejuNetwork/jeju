@@ -1,6 +1,10 @@
 /**
  * Autocrat Compute Trigger Integration
+ * 
+ * FULLY DECENTRALIZED - Triggers registered on DWS compute network
  */
+
+import { getDWSComputeUrl, getAutocratUrl } from '@jejunetwork/config';
 
 export type TriggerSource = 'cloud' | 'compute' | 'onchain';
 
@@ -40,29 +44,44 @@ export interface OrchestratorTriggerResult {
   error?: string;
 }
 
-const AUTOCRAT_URL = process.env.AUTOCRAT_URL ?? 'http://localhost:8010';
-const COMPUTE_URL = process.env.COMPUTE_URL ?? 'http://localhost:8020';
+// Network-aware endpoints
+function getAutocratEndpoint(): string {
+  return process.env.AUTOCRAT_URL ?? getAutocratUrl();
+}
+
+function getComputeEndpoint(): string {
+  return process.env.COMPUTE_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl();
+}
+
 const ORCHESTRATOR_CRON = process.env.ORCHESTRATOR_CRON ?? '*/30 * * * * *';
 
-export const autocratTriggers: Array<Omit<UnifiedTrigger, 'id' | 'createdAt'>> = [
-  { source: 'compute', type: 'cron', name: 'autocrat-orchestrator-cycle', description: 'Run orchestrator', cronExpression: ORCHESTRATOR_CRON, endpoint: `${AUTOCRAT_URL}/trigger/orchestrator`, method: 'POST', timeout: 60, payload: { action: 'run-cycle' }, resources: { cpuCores: 1, memoryMb: 512 }, payment: { mode: 'free' }, active: true },
-  { source: 'compute', type: 'webhook', name: 'autocrat-manual-trigger', webhookPath: '/autocrat/trigger', endpoint: `${AUTOCRAT_URL}/trigger/orchestrator`, method: 'POST', timeout: 60, payment: { mode: 'free' }, active: true },
-  { source: 'compute', type: 'event', name: 'autocrat-proposal-submitted', eventTypes: ['ProposalSubmitted', 'AutocratVoteCast', 'CEODecisionNeeded'], endpoint: `${AUTOCRAT_URL}/trigger/orchestrator`, method: 'POST', timeout: 30, payment: { mode: 'free' }, active: true },
-];
+export function getAutocratTriggers(): Array<Omit<UnifiedTrigger, 'id' | 'createdAt'>> {
+  const autocratUrl = getAutocratEndpoint();
+  return [
+    { source: 'compute', type: 'cron', name: 'autocrat-orchestrator-cycle', description: 'Run orchestrator', cronExpression: ORCHESTRATOR_CRON, endpoint: `${autocratUrl}/trigger/orchestrator`, method: 'POST', timeout: 60, payload: { action: 'run-cycle' }, resources: { cpuCores: 1, memoryMb: 512 }, payment: { mode: 'free' }, active: true },
+    { source: 'compute', type: 'webhook', name: 'autocrat-manual-trigger', webhookPath: '/autocrat/trigger', endpoint: `${autocratUrl}/trigger/orchestrator`, method: 'POST', timeout: 60, payment: { mode: 'free' }, active: true },
+    { source: 'compute', type: 'event', name: 'autocrat-proposal-submitted', eventTypes: ['ProposalSubmitted', 'AutocratVoteCast', 'CEODecisionNeeded'], endpoint: `${autocratUrl}/trigger/orchestrator`, method: 'POST', timeout: 30, payment: { mode: 'free' }, active: true },
+  ];
+}
+
+// Legacy export for backwards compatibility
+export const autocratTriggers = getAutocratTriggers();
 
 export async function registerAutocratTriggers(): Promise<void> {
   console.log('[Trigger] Registering...');
-  for (const trigger of autocratTriggers) {
-    try {
-      const r = await fetch(`${COMPUTE_URL}/api/triggers`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(trigger) });
-      if (r.ok) {
-        const { id } = await r.json() as { id: string };
-        console.log(`[Trigger] Registered: ${trigger.name} (${id})`);
-      } else {
-        console.warn(`[Trigger] Failed: ${trigger.name} (${r.status})`);
-      }
-    } catch {
-      console.warn(`[Trigger] Unreachable: ${trigger.name}`);
+  const computeEndpoint = getComputeEndpoint();
+  const triggers = getAutocratTriggers();
+  for (const trigger of triggers) {
+    const r = await fetch(`${computeEndpoint}/api/triggers`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(trigger),
+    }).catch(() => null);
+    if (r?.ok) {
+      const { id } = await r.json() as { id: string };
+      console.log(`[Trigger] Registered: ${trigger.name} (${id})`);
+    } else {
+      console.warn(`[Trigger] Failed: ${trigger.name} (${r?.status ?? 'unreachable'})`);
     }
   }
 }

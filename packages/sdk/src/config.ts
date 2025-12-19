@@ -49,6 +49,7 @@ export interface ContractAddresses {
   gitRegistry?: Address;
   packageRegistry?: Address;
   modelRegistry?: Address;
+  datasetRegistry?: Address;
   vpnRegistry?: Address;
 
   // DeFi contracts
@@ -105,6 +106,7 @@ export function getContractAddresses(network: NetworkType): ContractAddresses {
     gitRegistry: tryGetContract("developer", "GitRegistry"),
     packageRegistry: tryGetContract("developer", "PackageRegistry"),
     modelRegistry: tryGetContract("models", "ModelRegistry"),
+    datasetRegistry: tryGetContract("models", "DatasetRegistry"),
     vpnRegistry: tryGetContract("vpn", "VPNRegistry"),
 
     // DeFi

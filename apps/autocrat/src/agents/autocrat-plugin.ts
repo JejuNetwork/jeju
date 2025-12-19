@@ -6,22 +6,32 @@
  * - Governance data providers
  * - Deliberation actions
  * - Cross-agent communication
+ * 
+ * FULLY DECENTRALIZED - Endpoints resolved from network config
  */
 
+import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config';
 import type { Plugin, Action, IAgentRuntime, Memory, State, HandlerCallback, HandlerOptions } from '@elizaos/core';
 import { autocratProviders } from './autocrat-providers';
 
 // ============================================================================
-// Configuration
+// Configuration (Network-Aware)
 // ============================================================================
 
-const AUTOCRAT_A2A_URL = process.env.AUTOCRAT_A2A_URL ?? 'http://localhost:8010/a2a';
+function getA2AEndpoint(): string {
+  return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl();
+}
+
+function getMCPEndpoint(): string {
+  return process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`;
+}
 
 async function callA2A(
   skillId: string,
   params: Record<string, unknown> = {}
 ): Promise<Record<string, unknown>> {
-  const response = await fetch(AUTOCRAT_A2A_URL, {
+  const a2aEndpoint = getA2AEndpoint();
+  const response = await fetch(a2aEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -73,10 +83,10 @@ const discoverServicesAction: Action = {
     callback?: HandlerCallback
   ): Promise<void> => {
     const services = [
-      { name: 'Autocrat A2A', url: AUTOCRAT_A2A_URL, type: 'a2a' },
-      { name: 'CEO A2A', url: process.env.CEO_A2A_URL ?? 'http://localhost:8004/a2a', type: 'a2a' },
-      { name: 'Autocrat MCP', url: process.env.AUTOCRAT_MCP_URL ?? 'http://localhost:8010/mcp', type: 'mcp' },
-      { name: 'CEO MCP', url: process.env.CEO_MCP_URL ?? 'http://localhost:8004/mcp', type: 'mcp' },
+      { name: 'Autocrat A2A', url: getA2AEndpoint(), type: 'a2a' },
+      { name: 'CEO A2A', url: process.env.CEO_A2A_URL ?? `${getAutocratUrl().replace('4040', '4004')}/a2a`, type: 'a2a' },
+      { name: 'Autocrat MCP', url: getMCPEndpoint(), type: 'mcp' },
+      { name: 'CEO MCP', url: process.env.CEO_MCP_URL ?? `${getAutocratUrl().replace('4040', '4004')}/mcp`, type: 'mcp' },
     ];
 
     const results: string[] = [];
@@ -279,9 +289,9 @@ const callMCPToolAction: Action = {
     const toolMatch = content.match(/tool[:\s]+(\S+)/i);
     const toolName = toolMatch?.[1] ?? 'get_proposal_status';
 
-    const MCP_URL = process.env.AUTOCRAT_MCP_URL ?? 'http://localhost:8010/mcp';
+    const mcpUrl = getMCPEndpoint();
     
-    const response = await fetch(`${MCP_URL}/tools/call`, {
+    const response = await fetch(`${mcpUrl}/tools/call`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ params: { name: toolName, arguments: {} } }),
