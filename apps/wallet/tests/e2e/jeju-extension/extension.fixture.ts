@@ -75,7 +75,7 @@ export const test = base.extend<ExtensionFixtures>({
 
   // Extension popup page
   extensionPage: async ({ extensionContext, extensionId }, use) => {
-    const popupUrl = `chrome-extension://${extensionId}/popup.html`;
+    const popupUrl = `chrome-extension://${extensionId}/src/extension/popup/popup.html`;
     const page = await extensionContext.newPage();
     await page.goto(popupUrl);
     await page.waitForLoadState('networkidle');
@@ -85,7 +85,7 @@ export const test = base.extend<ExtensionFixtures>({
 
   // Test dApp page
   testDappPage: async ({ extensionContext }, use) => {
-    const testDappPath = path.join(__dirname, '../fixtures/test-dapp/index.html');
+    const testDappPath = path.join(__dirname, '../../fixtures/test-dapp/index.html');
     const page = await extensionContext.newPage();
     await page.goto(`file://${testDappPath}`);
     await page.waitForLoadState('networkidle');

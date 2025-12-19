@@ -1,6 +1,6 @@
 import { ArrowDown, ArrowUp, Clock, Wifi } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '../api';
 
 interface VPNConnection {
   connection_id: string;

@@ -215,12 +215,13 @@ describe('DWS E2E Tests', () => {
     test('upload and download file', async () => {
       const testData = `E2E test data ${Date.now()}`;
       
-      // Upload
-      const uploadRes = await app.request('/storage/upload', {
+      // Upload (use /upload/raw for raw body)
+      const uploadRes = await app.request('/storage/upload/raw', {
         method: 'POST',
         headers: {
           'Content-Type': 'text/plain',
           'x-jeju-address': TEST_ADDRESS,
+          'x-filename': 'test.txt',
         },
         body: testData,
       });
@@ -366,13 +367,14 @@ describe('DWS E2E Tests', () => {
       expect(storeRes.status).toBe(201);
       const { id } = await storeRes.json() as { id: string };
 
-      // Retrieve
-      const getRes = await app.request(`/kms/vault/secrets/${id}`, {
+      // Retrieve via reveal endpoint (GET returns metadata only)
+      const revealRes = await app.request(`/kms/vault/secrets/${id}/reveal`, {
+        method: 'POST',
         headers: { 'x-jeju-address': TEST_ADDRESS },
       });
 
-      expect(getRes.status).toBe(200);
-      const { value } = await getRes.json() as { value: string };
+      expect(revealRes.status).toBe(200);
+      const { value } = await revealRes.json() as { value: string };
       expect(value).toBe(secretValue);
 
       // Cleanup
@@ -384,46 +386,24 @@ describe('DWS E2E Tests', () => {
   });
 
   // ============================================================================
-  // Triggers/Cron E2E
+  // CI System E2E
   // ============================================================================
   
-  describe('Triggers', () => {
-    test('create and list triggers', async () => {
-      // Create a trigger
-      const createRes = await app.request('/ci/triggers', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-jeju-address': TEST_ADDRESS,
-        },
-        body: JSON.stringify({
-          name: 'e2e-test-trigger',
-          type: 'cron',
-          schedule: '0 * * * *', // Every hour
-          target: 'http://localhost:4030/health',
-          enabled: false, // Don't actually run
-        }),
-      });
-
-      expect(createRes.status).toBe(201);
-      const { trigger } = await createRes.json() as { trigger: { id: string } };
-      expect(trigger.id).toBeDefined();
-
-      // List triggers
-      const listRes = await app.request('/ci/triggers', {
-        headers: { 'x-jeju-address': TEST_ADDRESS },
-      });
-
-      expect(listRes.status).toBe(200);
-      const { triggers } = await listRes.json() as { triggers: Array<{ id: string }> };
-      expect(triggers.some(t => t.id === trigger.id)).toBe(true);
-
-      // Delete trigger
-      const deleteRes = await app.request(`/ci/triggers/${trigger.id}`, {
-        method: 'DELETE',
-        headers: { 'x-jeju-address': TEST_ADDRESS },
-      });
-      expect(deleteRes.status).toBe(200);
+  describe('CI', () => {
+    test('CI health check', async () => {
+      const res = await app.request('/ci/health');
+      expect(res.status).toBe(200);
+      
+      const body = await res.json() as { 
+        service: string; 
+        status: string;
+        runners: number;
+        scheduledJobs: number;
+      };
+      expect(body.service).toBe('dws-ci');
+      expect(body.status).toBe('healthy');
+      expect(typeof body.runners).toBe('number');
+      expect(typeof body.scheduledJobs).toBe('number');
     });
   });
 

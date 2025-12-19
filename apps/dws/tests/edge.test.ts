@@ -3,19 +3,24 @@
  * Tests for the wallet/node edge coordination service
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-
-const BASE_URL = process.env.DWS_TEST_URL ?? 'http://localhost:4030';
+import { describe, test, expect } from 'bun:test';
+import { app } from '../src/server';
 
 describe('Edge Coordination', () => {
   let testNodeId: string;
 
   describe('Health', () => {
     test('health endpoint returns stats', async () => {
-      const response = await fetch(`${BASE_URL}/edge/health`);
+      const response = await app.request('/edge/health');
       expect(response.ok).toBe(true);
       
-      const data = await response.json();
+      const data = await response.json() as { 
+        status: string; 
+        service: string; 
+        nodes: unknown; 
+        capacity: unknown; 
+        regions: unknown 
+      };
       expect(data.status).toBe('healthy');
       expect(data.service).toBe('dws-edge-coordinator');
       expect(data.nodes).toBeDefined();
@@ -26,7 +31,7 @@ describe('Edge Coordination', () => {
 
   describe('Node Registration', () => {
     test('register wallet edge node', async () => {
-      const response = await fetch(`${BASE_URL}/edge/register`, {
+      const response = await app.request('/edge/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -47,14 +52,14 @@ describe('Edge Coordination', () => {
       });
       expect(response.status).toBe(201);
       
-      const data = await response.json();
+      const data = await response.json() as { nodeId: string; status: string };
       expect(data.nodeId).toBeDefined();
       expect(data.status).toBe('registered');
       testNodeId = data.nodeId;
     });
 
     test('register full node', async () => {
-      const response = await fetch(`${BASE_URL}/edge/register`, {
+      const response = await app.request('/edge/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -74,46 +79,50 @@ describe('Edge Coordination', () => {
       });
       expect(response.status).toBe(201);
       
-      const data = await response.json();
+      const data = await response.json() as { nodeId: string };
       expect(data.nodeId).toBeDefined();
     });
   });
 
   describe('Node Management', () => {
     test('list all nodes', async () => {
-      const response = await fetch(`${BASE_URL}/edge/nodes`);
+      const response = await app.request('/edge/nodes');
       expect(response.ok).toBe(true);
       
-      const data = await response.json();
+      const data = await response.json() as { nodes: unknown[] };
       expect(data.nodes).toBeDefined();
       expect(data.nodes.length).toBeGreaterThan(0);
     });
 
     test('list nodes by region', async () => {
-      const response = await fetch(`${BASE_URL}/edge/nodes?region=us-west`);
+      const response = await app.request('/edge/nodes?region=us-west');
       expect(response.ok).toBe(true);
       
-      const data = await response.json();
+      const data = await response.json() as { nodes: Array<{ region: string }> };
       for (const node of data.nodes) {
         expect(node.region).toBe('us-west');
       }
     });
 
     test('list nodes by type', async () => {
-      const response = await fetch(`${BASE_URL}/edge/nodes?type=wallet-edge`);
+      const response = await app.request('/edge/nodes?type=wallet-edge');
       expect(response.ok).toBe(true);
       
-      const data = await response.json();
+      const data = await response.json() as { nodes: Array<{ nodeType: string }> };
       for (const node of data.nodes) {
         expect(node.nodeType).toBe('wallet-edge');
       }
     });
 
     test('get node details', async () => {
-      const response = await fetch(`${BASE_URL}/edge/nodes/${testNodeId}`);
+      const response = await app.request(`/edge/nodes/${testNodeId}`);
       expect(response.ok).toBe(true);
       
-      const data = await response.json();
+      const data = await response.json() as { 
+        id: string; 
+        nodeType: string; 
+        capabilities: { cdn: boolean } 
+      };
       expect(data.id).toBe(testNodeId);
       expect(data.nodeType).toBe('wallet-edge');
       expect(data.capabilities.cdn).toBe(true);
@@ -122,7 +131,7 @@ describe('Edge Coordination', () => {
 
   describe('Cache Management', () => {
     test('request content caching', async () => {
-      const response = await fetch(`${BASE_URL}/edge/cache`, {
+      const response = await app.request('/edge/cache', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -134,29 +143,29 @@ describe('Edge Coordination', () => {
       });
       expect(response.status).toBe(202);
       
-      const data = await response.json();
+      const data = await response.json() as { cid: string; targetNodes: number };
       expect(data.cid).toBe('QmTestContent123');
       expect(data.targetNodes).toBeGreaterThanOrEqual(0);
     });
 
     test('check cache status', async () => {
-      const response = await fetch(`${BASE_URL}/edge/cache/QmTestContent123`);
+      const response = await app.request('/edge/cache/QmTestContent123');
       expect(response.ok).toBe(true);
       
-      const data = await response.json();
+      const data = await response.json() as { cid: string };
       expect(data.cid).toBe('QmTestContent123');
     });
   });
 
   describe('Content Routing', () => {
     test('get route for content', async () => {
-      const response = await fetch(`${BASE_URL}/edge/route/QmTestContent123`, {
+      const response = await app.request('/edge/route/QmTestContent123', {
         headers: { 'x-jeju-region': 'us-west' },
       });
       
       // May return 503 if no nodes online, which is acceptable
       if (response.ok) {
-        const data = await response.json();
+        const data = await response.json() as { cid: string; endpoint: string };
         expect(data.cid).toBe('QmTestContent123');
         expect(data.endpoint).toBeDefined();
       }
@@ -165,37 +174,39 @@ describe('Edge Coordination', () => {
 
   describe('Earnings', () => {
     test('get node earnings', async () => {
-      const response = await fetch(`${BASE_URL}/edge/earnings/${testNodeId}`);
+      const response = await app.request(`/edge/earnings/${testNodeId}`);
       expect(response.ok).toBe(true);
       
-      const data = await response.json();
+      const data = await response.json() as { 
+        nodeId: string; 
+        bytesServed: unknown; 
+        estimatedEarnings: unknown 
+      };
       expect(data.nodeId).toBe(testNodeId);
       expect(data.bytesServed).toBeDefined();
       expect(data.estimatedEarnings).toBeDefined();
     });
 
     test('earnings for non-existent node returns 404', async () => {
-      const response = await fetch(`${BASE_URL}/edge/earnings/nonexistent`);
+      const response = await app.request('/edge/earnings/nonexistent');
       expect(response.status).toBe(404);
     });
   });
 
   describe('Node Cleanup', () => {
     test('unregister node', async () => {
-      const response = await fetch(`${BASE_URL}/edge/nodes/${testNodeId}`, {
+      const response = await app.request(`/edge/nodes/${testNodeId}`, {
         method: 'DELETE',
       });
       expect(response.ok).toBe(true);
       
-      const data = await response.json();
+      const data = await response.json() as { success: boolean };
       expect(data.success).toBe(true);
     });
 
     test('get deleted node returns 404', async () => {
-      const response = await fetch(`${BASE_URL}/edge/nodes/${testNodeId}`);
+      const response = await app.request(`/edge/nodes/${testNodeId}`);
       expect(response.status).toBe(404);
     });
   });
 });
-
-

@@ -8,11 +8,13 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+mod autostart;
 mod bandwidth;
 mod commands;
 mod config;
 mod contribution;
 mod dws;
+mod notifications;
 mod state;
 mod vpn;
 
@@ -86,6 +88,15 @@ fn main() {
         .setup(|app| {
             let state = state::AppState::new();
             app.manage(state);
+            
+            // Initialize auto-start manager
+            let autostart = autostart::AutoStartManager::new();
+            app.manage(autostart);
+            
+            // Initialize notification manager
+            let notifications = notifications::NotificationManager::new();
+            app.manage(notifications);
+            
             tracing::info!("Jeju VPN initialized");
             Ok(())
         })
@@ -108,6 +119,9 @@ fn main() {
             commands::bandwidth::set_adaptive_mode,
             commands::dws::get_dws_state,
             commands::dws::set_dws_enabled,
+            commands::autostart::get_autostart_enabled,
+            commands::autostart::set_autostart_enabled,
+            commands::autostart::toggle_autostart,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

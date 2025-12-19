@@ -57,6 +57,7 @@ describe('JejuClient', () => {
     expect(client.sequencer).toBeDefined();
     expect(client.cdn).toBeDefined();
     expect(client.vpn).toBeDefined();
+    expect(client.models).toBeDefined();
     expect(client.prediction).toBeDefined();
   });
 
@@ -239,6 +240,17 @@ describe('JejuClient', () => {
     expect(typeof client.vpn.registerNode).toBe('function');
     expect(typeof client.vpn.getNodesByRegion).toBe('function');
     expect(typeof client.vpn.getVPNStats).toBe('function');
+  });
+
+  test('models module has methods', () => {
+    expect(typeof client.models.getModel).toBe('function');
+    expect(typeof client.models.listModels).toBe('function');
+    expect(typeof client.models.searchModels).toBe('function');
+    expect(typeof client.models.createModel).toBe('function');
+    expect(typeof client.models.publishVersion).toBe('function');
+    expect(typeof client.models.getVersions).toBe('function');
+    expect(typeof client.models.getMetrics).toBe('function');
+    expect(typeof client.models.toggleStar).toBe('function');
   });
 });
 

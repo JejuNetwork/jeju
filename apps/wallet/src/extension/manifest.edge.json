@@ -19,7 +19,7 @@
       "128": "icons/icon-128.png"
     },
     "default_title": "Network Wallet",
-    "default_popup": "popup.html"
+    "default_popup": "src/extension/popup/popup.html"
   },
   "author": "Network",
   "homepage_url": "https://wallet.jejunetwork.org",

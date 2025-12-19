@@ -153,7 +153,6 @@ function getMimeType(filePath: string): string {
 
 export class StaticAssetService {
   private config: StaticAssetConfig;
-  private client: NodeClient | null;
   private torrent: HybridTorrentService | null = null;
   private server: http.Server | null = null;
   private metricsServer: http.Server | null = null;
@@ -175,8 +174,8 @@ export class StaticAssetService {
   private manifest: AssetManifest | null = null;
   private manifestRefreshInterval: ReturnType<typeof setInterval> | null = null;
 
-  constructor(client: NodeClient | null, config: Partial<StaticAssetConfig> = {}) {
-    this.client = client;
+  constructor(_client: NodeClient | null, config: Partial<StaticAssetConfig> = {}) {
+    // Note: client parameter reserved for future on-chain manifest support
     this.config = StaticAssetConfigSchema.parse({
       ...config,
       cachePath: config.cachePath ?? './cache/assets',
@@ -489,30 +488,6 @@ export class StaticAssetService {
     //   functionName: 'getNetworkManifest',
     //   args: [],
     // }) as string;
-  }
-
-  private async fetchManifestData(hash: string): Promise<AssetManifest | null> {
-    // Try torrent first
-    if (this.torrent) {
-      try {
-        const magnetUri = `magnet:?xt=urn:btih:${hash}`;
-        const stats = await this.torrent.addTorrent(magnetUri);
-        const data = await this.torrent.getContent(stats.infohash);
-        return JSON.parse(data.toString()) as AssetManifest;
-      } catch {
-        // Fall through to CDN
-      }
-    }
-
-    // Try CDN
-    if (this.config.cdnFallbackUrl) {
-      const data = await this.fetchFromCDN(`${this.config.cdnFallbackUrl}/manifest/${hash}.json`);
-      if (data) {
-        return JSON.parse(data.toString()) as AssetManifest;
-      }
-    }
-
-    return null;
   }
 
   // ============================================================================

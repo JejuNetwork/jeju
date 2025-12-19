@@ -3,10 +3,9 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { existsSync, rmSync, mkdirSync, readFileSync } from 'fs';
+import { rmSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
-import { saveConfig } from './index';
 import { execSync } from 'child_process';
 
 const TEST_DIR = join(tmpdir(), 'jeju-node-test-' + Date.now());
@@ -88,7 +87,6 @@ describe('App CLI', () => {
 
   describe('Config File', () => {
     test('saveConfig creates config', () => {
-      const configPath = join(TEST_DIR, '.jeju-node', 'test-config.json');
       const config = {
         version: '1.0.0',
         network: 'testnet' as const,

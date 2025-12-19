@@ -8,3 +8,5 @@ timeout = 30000
 # Retry flaky tests once
 retry = 1
 
+# Test paths - only run src and tests, not frontend (those use Playwright)
+root = ["src", "tests"]

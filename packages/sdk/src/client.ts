@@ -38,6 +38,7 @@ import { createOracleModule, type OracleModule } from "./oracle";
 import { createSequencerModule, type SequencerModule } from "./sequencer";
 import { createCDNModule, type CDNModule } from "./cdn";
 import { createVPNModule, type VPNModule } from "./vpn-module";
+import { createModelsModule, type ModelsModule } from "./models";
 import { createPredictionModule, type PredictionModule } from "./prediction";
 import { getServicesConfig, getChainConfig, getContractAddresses } from "./config";
 import { getNetworkName } from "@jejunetwork/config";
@@ -133,6 +134,8 @@ export interface JejuClient {
   readonly cdn: CDNModule;
   /** VPN - Decentralized VPN network */
   readonly vpn: VPNModule;
+  /** Models - HuggingFace-like model registry */
+  readonly models: ModelsModule;
   /** Prediction - Prediction markets */
   readonly prediction: PredictionModule;
 
@@ -227,6 +230,7 @@ export async function createJejuClient(
   const sequencer = createSequencerModule(wallet, network);
   const cdn = createCDNModule(wallet, network);
   const vpn = createVPNModule(wallet, network);
+  const models = createModelsModule(wallet, network);
   const prediction = createPredictionModule(wallet, network);
 
   const client: JejuClient = {
@@ -267,6 +271,7 @@ export async function createJejuClient(
     sequencer,
     cdn,
     vpn,
+    models,
     prediction,
 
     getBalance: () => wallet.getBalance(),

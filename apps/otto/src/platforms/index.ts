@@ -7,6 +7,7 @@ export { DiscordAdapter } from './discord';
 export { TelegramAdapter } from './telegram';
 export { WhatsAppAdapter } from './whatsapp';
 export { FarcasterAdapter } from './farcaster';
+export { TwitterAdapter } from './twitter';
 
 import type { Platform } from '../types';
 import type { PlatformAdapter } from './types';
@@ -14,6 +15,7 @@ import { DiscordAdapter } from './discord';
 import { TelegramAdapter } from './telegram';
 import { WhatsAppAdapter } from './whatsapp';
 import { FarcasterAdapter } from './farcaster';
+import { TwitterAdapter } from './twitter';
 import { getConfig } from '../config';
 
 export class PlatformManager {
@@ -67,6 +69,23 @@ export class PlatformManager {
       );
       await farcaster.initialize();
       this.adapters.set('farcaster', farcaster);
+    }
+
+    // Initialize Twitter/X
+    if (config.twitter.enabled && config.twitter.bearerToken) {
+      console.log('[PlatformManager] Initializing Twitter adapter...');
+      const twitter = new TwitterAdapter(
+        {
+          apiKey: config.twitter.apiKey ?? '',
+          apiSecret: config.twitter.apiSecret ?? '',
+          accessToken: config.twitter.accessToken ?? '',
+          accessSecret: config.twitter.accessSecret ?? '',
+          bearerToken: config.twitter.bearerToken,
+        },
+        config.twitter.botUsername ?? 'otto_agent'
+      );
+      await twitter.initialize();
+      this.adapters.set('twitter', twitter);
     }
 
     console.log(`[PlatformManager] Initialized ${this.adapters.size} platform(s)`);

@@ -8,15 +8,21 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test": "playwright test",
-    "test:headed": "playwright test --headed"
+    "test": "playwright test tests/*.spec.ts",
+    "test:headed": "playwright test tests/*.spec.ts --headed",
+    "test:e2e": "playwright test --config=playwright.e2e.config.ts",
+    "test:e2e:headed": "playwright test --config=playwright.e2e.config.ts --headed",
+    "test:e2e:services": "playwright test --config=playwright.e2e.config.ts --project=e2e-chromium",
+    "test:e2e:wallet": "playwright test --config=playwright.e2e.config.ts --project=e2e-wallet",
+    "test:all": "bun run test && bun run test:e2e",
+    "synpress:cache": "synpress --headless wallet-setup"
   },
   "dependencies": {
     "@rainbow-me/rainbowkit": "2.1.7",
     "@tanstack/react-query": "5.59.0",
     "lucide-react": "0.453.0",
-    "react": "18.3.1",
-    "react-dom": "18.3.1",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
     "react-router-dom": "6.28.0",
     "recharts": "2.15.0",
     "viem": "2.21.44",
@@ -25,11 +31,10 @@
   "devDependencies": {
     "@playwright/test": "1.49.0",
     "@synthetixio/synpress": "4.1.1",
-    "@types/react": "18.3.17",
-    "@types/react-dom": "18.3.5",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "4.3.4",
     "typescript": "5.7.2",
     "vite": "6.0.3"
   }
 }
-

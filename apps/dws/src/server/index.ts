@@ -34,6 +34,8 @@ import { createScrapingRouter } from './routes/scraping';
 import { createRPCRouter } from './routes/rpc';
 import { createEdgeRouter, handleEdgeWebSocket } from './routes/edge';
 import rlaifRoutes from './routes/rlaif';
+import { createModelsRouter } from './routes/models';
+import { createDatasetsRouter } from './routes/datasets';
 import { createBackendManager } from '../storage/backends';
 import { initializeMarketplace } from '../api-marketplace';
 import { initializeContainerSystem } from '../containers';
@@ -203,6 +205,8 @@ app.get('/health', async (c) => {
       git: { status: 'healthy' },
       pkg: { status: 'healthy' },
       ci: { status: 'healthy' },
+      models: { status: 'healthy' },
+      datasets: { status: 'healthy' },
       oauth3: { status: process.env.OAUTH3_AGENT_URL ? 'available' : 'not-configured' },
       s3: { status: 'healthy' },
       workers: { status: 'healthy' },
@@ -221,8 +225,8 @@ app.get('/', (c) => {
     description: 'Decentralized Web Services',
     version: '1.0.0',
     services: [
-      'storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'oauth3', 
-      'api-marketplace', 'containers', 's3', 'workers', 'kms', 
+      'storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'models', 'datasets',
+      'oauth3', 'api-marketplace', 'containers', 's3', 'workers', 'kms', 
       'vpn', 'scraping', 'rpc', 'edge', 'rlaif'
     ],
     endpoints: {
@@ -232,6 +236,8 @@ app.get('/', (c) => {
       git: '/git/*',
       pkg: '/pkg/*',
       ci: '/ci/*',
+      models: '/models/*',
+      datasets: '/datasets/*',
       oauth3: '/oauth3/*',
       api: '/api/*',
       containers: '/containers/*',
@@ -271,6 +277,18 @@ app.route('/scraping', createScrapingRouter());
 app.route('/rpc', createRPCRouter());
 app.route('/edge', createEdgeRouter());
 app.route('/rlaif', rlaifRoutes);
+
+// Model Hub (HuggingFace-compatible)
+const modelsConfig = {
+  backend: backendManager,
+  rpcUrl: getEnvOrDefault('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
+  modelRegistryAddress: getEnvOrDefault('MODEL_REGISTRY_ADDRESS', '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707') as Address,
+  privateKey: process.env.DWS_PRIVATE_KEY as Hex | undefined,
+};
+app.route('/models', createModelsRouter(modelsConfig));
+
+// Datasets Registry (HuggingFace-compatible)
+app.route('/datasets', createDatasetsRouter({ backend: backendManager }));
 
 // Initialize services
 initializeMarketplace();
@@ -370,8 +388,10 @@ app.get('/.well-known/agent-card.json', (c) => {
       { name: 'compute', endpoint: `${baseUrl}/compute` },
       { name: 'cdn', endpoint: `${baseUrl}/cdn` },
       { name: 'git', endpoint: `${baseUrl}/git` },
-      { name: 'pkg', endpoint: `${baseUrl}/pkg` },
+      { name: 'pkg', endpoint: `${baseUrl}/pkg`, description: 'npm-compatible package registry' },
       { name: 'ci', endpoint: `${baseUrl}/ci` },
+      { name: 'models', endpoint: `${baseUrl}/models`, description: 'HuggingFace-compatible model registry' },
+      { name: 'datasets', endpoint: `${baseUrl}/datasets`, description: 'HuggingFace-compatible dataset registry' },
       { name: 'oauth3', endpoint: `${baseUrl}/oauth3` },
       { name: 's3', endpoint: `${baseUrl}/s3`, description: 'S3-compatible object storage' },
       { name: 'workers', endpoint: `${baseUrl}/workers`, description: 'Serverless functions' },

@@ -3,8 +3,11 @@
  * 
  * AI-powered security vulnerability validation agent
  * Runs exploit code in sandbox, analyzes impact, suggests fixes
+ * 
+ * FULLY DECENTRALIZED - All AI inference goes through DWS compute network
  */
 
+import { getDWSComputeUrl, getCurrentNetwork } from '@jejunetwork/config';
 import {
   BountySeverity,
   VulnerabilityType,
@@ -13,10 +16,10 @@ import {
 
 // ============ Configuration ============
 
-const DWS_COMPUTE_URL = process.env.DWS_COMPUTE_URL ?? 'http://localhost:8020';
-const OLLAMA_URL = process.env.OLLAMA_URL ?? 'http://localhost:11434';
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2:3b';
-const CLAUDE_API_KEY = process.env.ANTHROPIC_API_KEY;
+// DWS URL is automatically resolved from network config - no direct API calls
+function getDWSEndpoint(): string {
+  return process.env.DWS_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl();
+}
 
 // ============ Types ============
 
@@ -53,52 +56,51 @@ interface SandboxResult {
   memoryUsed: number;
 }
 
-// ============ AI Analysis ============
+// ============ DWS AI Inference (Decentralized) ============
 
-async function analyzeWithAI(prompt: string, systemPrompt: string): Promise<string> {
-  // Try Claude first if available
-  if (CLAUDE_API_KEY) {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': CLAUDE_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 4096,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: prompt }],
-      }),
-    }).catch(() => null);
+async function checkDWSCompute(): Promise<boolean> {
+  const endpoint = getDWSEndpoint();
+  const r = await fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+  return r?.ok ?? false;
+}
 
-    if (response?.ok) {
-      const result = await response.json() as { content: Array<{ text: string }> };
-      return result.content[0].text;
-    }
-  }
-
-  // Fallback to Ollama
-  const response = await fetch(`${OLLAMA_URL}/api/generate`, {
+async function analyzeWithAI(prompt: string, systemPrompt: string, maxTokens = 4096): Promise<string> {
+  // All AI inference goes through DWS - fully decentralized
+  // DWS routes to best available provider (Groq, OpenAI, Anthropic, etc.)
+  const endpoint = getDWSEndpoint();
+  
+  const response = await fetch(`${endpoint}/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: OLLAMA_MODEL,
-      prompt: `${systemPrompt}\n\n${prompt}`,
-      stream: false,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt },
+      ],
+      temperature: 0.3, // Lower temperature for security analysis precision
+      max_tokens: maxTokens,
     }),
-  }).catch(() => null);
+  });
 
-  if (response?.ok) {
-    const result = await response.json() as { response: string };
-    return result.response;
+  if (!response.ok) {
+    const network = getCurrentNetwork();
+    throw new Error(`DWS compute error (network: ${network}): ${response.status} - AI inference required for security validation`);
   }
 
-  throw new Error('No AI provider available');
+  const data = await response.json() as { 
+    choices?: Array<{ message?: { content: string } }>; 
+    content?: string;
+  };
+  
+  const content = data.choices?.[0]?.message?.content ?? data.content;
+  if (!content) {
+    throw new Error('DWS returned empty response - cannot proceed with security validation');
+  }
+  
+  return content;
 }
 
-// ============ Sandbox Execution ============
+// ============ Sandbox Execution (Decentralized via DWS) ============
 
 async function executePoCInSandbox(
   proofOfConcept: string,
@@ -106,8 +108,9 @@ async function executePoCInSandbox(
   timeout: number = 300
 ): Promise<SandboxResult> {
   const sandboxConfig = getSandboxConfig(vulnType);
+  const endpoint = getDWSEndpoint();
 
-  const response = await fetch(`${DWS_COMPUTE_URL}/api/containers/execute`, {
+  const response = await fetch(`${endpoint}/api/containers/execute`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

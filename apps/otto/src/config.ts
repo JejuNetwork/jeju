@@ -135,6 +135,16 @@ export function getConfig(): OttoConfig {
       botFid: parseInt(process.env.FARCASTER_BOT_FID ?? '0'),
       signerUuid: process.env.FARCASTER_SIGNER_UUID,
     },
+
+    twitter: {
+      enabled: !!process.env.TWITTER_BEARER_TOKEN,
+      apiKey: process.env.TWITTER_API_KEY,
+      apiSecret: process.env.TWITTER_API_SECRET,
+      accessToken: process.env.TWITTER_ACCESS_TOKEN,
+      accessSecret: process.env.TWITTER_ACCESS_SECRET,
+      bearerToken: process.env.TWITTER_BEARER_TOKEN,
+      botUsername: process.env.TWITTER_BOT_USERNAME ?? 'otto_agent',
+    },
     
     trading: {
       defaultChainId: DEFAULT_CHAIN_ID,

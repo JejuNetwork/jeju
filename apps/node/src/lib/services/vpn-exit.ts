@@ -54,6 +54,170 @@ const DOS_THRESHOLD_HANDSHAKES_PER_SECOND = 10;
 const COOKIE_REFRESH_INTERVAL = 120000; // 2 minutes
 
 // ============================================================================
+// IP/TCP/UDP Checksum Functions
+// ============================================================================
+
+/**
+ * Calculate IP header checksum (RFC 1071)
+ */
+function calculateIPChecksum(header: Uint8Array): number {
+  let sum = 0;
+  const len = header.length;
+  
+  // Sum all 16-bit words, skipping the checksum field (bytes 10-11)
+  for (let i = 0; i < len; i += 2) {
+    if (i === 10) continue; // Skip existing checksum field
+    
+    const high = header[i];
+    const low = i + 1 < len ? header[i + 1] : 0;
+    sum += (high << 8) | low;
+  }
+  
+  // Fold 32-bit sum to 16 bits
+  while (sum >> 16) {
+    sum = (sum & 0xffff) + (sum >> 16);
+  }
+  
+  return (~sum) & 0xffff;
+}
+
+/**
+ * Calculate TCP/UDP checksum with pseudo-header
+ */
+function calculateTransportChecksum(
+  srcIP: Uint8Array,
+  dstIP: Uint8Array,
+  protocol: number,
+  transportData: Uint8Array
+): number {
+  let sum = 0;
+  
+  // Pseudo-header
+  sum += (srcIP[0] << 8) | srcIP[1];
+  sum += (srcIP[2] << 8) | srcIP[3];
+  sum += (dstIP[0] << 8) | dstIP[1];
+  sum += (dstIP[2] << 8) | dstIP[3];
+  sum += protocol;
+  sum += transportData.length;
+  
+  // Transport header + data
+  for (let i = 0; i < transportData.length; i += 2) {
+    if (i + 1 < transportData.length) {
+      sum += (transportData[i] << 8) | transportData[i + 1];
+    } else {
+      sum += transportData[i] << 8; // Odd byte
+    }
+  }
+  
+  // Fold and complement
+  while (sum >> 16) {
+    sum = (sum & 0xffff) + (sum >> 16);
+  }
+  
+  return (~sum) & 0xffff;
+}
+
+/**
+ * Modify packet for NAT and recalculate checksums
+ */
+function natModifyPacket(
+  packet: Uint8Array,
+  newSrcIP: string,
+  newSrcPort: number
+): Uint8Array {
+  const modified = new Uint8Array(packet);
+  const headerLength = (modified[0] & 0x0f) * 4;
+  const protocol = modified[9];
+  
+  // Parse new source IP
+  const newIP = newSrcIP.split('.').map(Number);
+  
+  // Modify source IP in IP header
+  modified[12] = newIP[0];
+  modified[13] = newIP[1];
+  modified[14] = newIP[2];
+  modified[15] = newIP[3];
+  
+  // Recalculate IP checksum
+  const ipChecksum = calculateIPChecksum(modified.subarray(0, headerLength));
+  modified[10] = (ipChecksum >> 8) & 0xff;
+  modified[11] = ipChecksum & 0xff;
+  
+  // Modify source port and recalculate transport checksum
+  if (protocol === 6 || protocol === 17) { // TCP or UDP
+    // Modify source port
+    modified[headerLength] = (newSrcPort >> 8) & 0xff;
+    modified[headerLength + 1] = newSrcPort & 0xff;
+    
+    // Clear existing checksum
+    const checksumOffset = protocol === 6 ? headerLength + 16 : headerLength + 6;
+    modified[checksumOffset] = 0;
+    modified[checksumOffset + 1] = 0;
+    
+    // Calculate new checksum
+    const srcIPBytes = modified.subarray(12, 16);
+    const dstIPBytes = modified.subarray(16, 20);
+    const transportData = modified.subarray(headerLength);
+    
+    const newChecksum = calculateTransportChecksum(srcIPBytes, dstIPBytes, protocol, transportData);
+    modified[checksumOffset] = (newChecksum >> 8) & 0xff;
+    modified[checksumOffset + 1] = newChecksum & 0xff;
+  }
+  
+  return modified;
+}
+
+/**
+ * Reverse NAT modification for incoming packets
+ */
+function natReverseModifyPacket(
+  packet: Uint8Array,
+  newDstIP: string,
+  newDstPort: number
+): Uint8Array {
+  const modified = new Uint8Array(packet);
+  const headerLength = (modified[0] & 0x0f) * 4;
+  const protocol = modified[9];
+  
+  // Parse new destination IP
+  const newIP = newDstIP.split('.').map(Number);
+  
+  // Modify destination IP in IP header
+  modified[16] = newIP[0];
+  modified[17] = newIP[1];
+  modified[18] = newIP[2];
+  modified[19] = newIP[3];
+  
+  // Recalculate IP checksum
+  const ipChecksum = calculateIPChecksum(modified.subarray(0, headerLength));
+  modified[10] = (ipChecksum >> 8) & 0xff;
+  modified[11] = ipChecksum & 0xff;
+  
+  // Modify destination port and recalculate transport checksum
+  if (protocol === 6 || protocol === 17) { // TCP or UDP
+    // Modify destination port
+    modified[headerLength + 2] = (newDstPort >> 8) & 0xff;
+    modified[headerLength + 3] = newDstPort & 0xff;
+    
+    // Clear existing checksum
+    const checksumOffset = protocol === 6 ? headerLength + 16 : headerLength + 6;
+    modified[checksumOffset] = 0;
+    modified[checksumOffset + 1] = 0;
+    
+    // Calculate new checksum
+    const srcIPBytes = modified.subarray(12, 16);
+    const dstIPBytes = modified.subarray(16, 20);
+    const transportData = modified.subarray(headerLength);
+    
+    const newChecksum = calculateTransportChecksum(srcIPBytes, dstIPBytes, protocol, transportData);
+    modified[checksumOffset] = (newChecksum >> 8) & 0xff;
+    modified[checksumOffset + 1] = newChecksum & 0xff;
+  }
+  
+  return modified;
+}
+
+// ============================================================================
 // Configuration Schema
 // ============================================================================
 
@@ -382,11 +546,12 @@ class NATTable {
 // ============================================================================
 
 class TUNDevice extends EventEmitter {
-  private process: ChildProcess | null = null;
+  private readProcess: ChildProcess | null = null;
   private readonly interfaceName: string;
   private readonly subnet: string;
   private readonly mtu: number;
   private running = false;
+  private serverIP: string = '';
 
   constructor(interfaceName: string, subnet: string, mtu: number) {
     super();
@@ -399,12 +564,16 @@ class TUNDevice extends EventEmitter {
     if (this.running) return;
 
     const [baseIP, mask] = this.subnet.split('/');
-    const serverIP = baseIP.replace(/\.0$/, '.1');
+    this.serverIP = baseIP.replace(/\.0$/, '.1');
 
     // Create TUN interface using ip command (requires root)
     try {
+      // First try to delete any existing interface
+      await this.execCommand('ip', ['link', 'delete', this.interfaceName]).catch(() => {});
+      
+      // Create the TUN interface
       await this.execCommand('ip', ['tuntap', 'add', 'dev', this.interfaceName, 'mode', 'tun']);
-      await this.execCommand('ip', ['addr', 'add', `${serverIP}/${mask}`, 'dev', this.interfaceName]);
+      await this.execCommand('ip', ['addr', 'add', `${this.serverIP}/${mask}`, 'dev', this.interfaceName]);
       await this.execCommand('ip', ['link', 'set', 'dev', this.interfaceName, 'mtu', this.mtu.toString()]);
       await this.execCommand('ip', ['link', 'set', 'dev', this.interfaceName, 'up']);
 
@@ -412,28 +581,90 @@ class TUNDevice extends EventEmitter {
       await this.execCommand('sysctl', ['-w', 'net.ipv4.ip_forward=1']);
 
       // Setup NAT with iptables
-      await this.execCommand('iptables', ['-t', 'nat', '-A', 'POSTROUTING', '-s', this.subnet, '-j', 'MASQUERADE']);
+      await this.execCommand('iptables', ['-t', 'nat', '-A', 'POSTROUTING', '-s', this.subnet, '-o', 'eth0', '-j', 'MASQUERADE']).catch(() => {
+        // Try without specifying output interface
+        return this.execCommand('iptables', ['-t', 'nat', '-A', 'POSTROUTING', '-s', this.subnet, '-j', 'MASQUERADE']);
+      });
       await this.execCommand('iptables', ['-A', 'FORWARD', '-i', this.interfaceName, '-j', 'ACCEPT']);
       await this.execCommand('iptables', ['-A', 'FORWARD', '-o', this.interfaceName, '-m', 'state', '--state', 'RELATED,ESTABLISHED', '-j', 'ACCEPT']);
 
       this.running = true;
-      console.log(`[TUN] Interface ${this.interfaceName} created with IP ${serverIP}/${mask}`);
+      console.log(`[TUN] Interface ${this.interfaceName} created with IP ${this.serverIP}/${mask}`);
 
-      // Start reading from TUN device
-      this.startReading();
+      // Open TUN device for reading/writing
+      await this.openTunDevice();
+      
     } catch (error) {
       console.error('[TUN] Failed to create interface:', error);
       throw error;
     }
   }
 
+  private async openTunDevice(): Promise<void> {
+    // Start packet capture using tcpdump with raw packet output
+    // -dd outputs packet data in a format we can parse
+    const tcpdump = spawn('tcpdump', [
+      '-i', this.interfaceName,
+      '-l',       // Line-buffered output
+      '-n',       // Don't resolve hostnames
+      '-s', '0',  // Capture full packets
+      '-X',       // Print packet data in hex and ASCII
+    ], {
+      stdio: ['ignore', 'pipe', 'pipe']
+    });
+
+    // Buffer for accumulating partial packets
+    let packetBuffer = Buffer.alloc(0);
+    
+    tcpdump.stdout?.on('data', (data: Buffer) => {
+      // tcpdump -X outputs hex dumps - parse them
+      const lines = data.toString().split('\n');
+      for (const line of lines) {
+        // Look for hex data lines (start with offset like "0x0000:")
+        const hexMatch = line.match(/^\s*0x[\da-f]+:\s+([\da-f\s]+)/i);
+        if (hexMatch) {
+          const hexStr = hexMatch[1].replace(/\s+/g, '');
+          const bytes = Buffer.from(hexStr, 'hex');
+          packetBuffer = Buffer.concat([packetBuffer, bytes]);
+        } else if (packetBuffer.length > 0 && line.trim() === '') {
+          // Empty line signals end of packet
+          if (packetBuffer.length >= 20) {
+            this.emit('inbound', new Uint8Array(packetBuffer));
+          }
+          packetBuffer = Buffer.alloc(0);
+        }
+      }
+    });
+
+    tcpdump.stderr?.on('data', (data: Buffer) => {
+      const msg = data.toString();
+      if (!msg.includes('listening on') && !msg.includes('packets captured')) {
+        console.warn('[TUN] tcpdump:', msg.trim());
+      }
+    });
+
+    tcpdump.on('error', (err) => {
+      console.warn('[TUN] tcpdump error:', err.message);
+    });
+
+    tcpdump.on('close', (code) => {
+      if (this.running && code !== 0) {
+        console.warn(`[TUN] tcpdump exited with code ${code}`);
+      }
+    });
+
+    this.readProcess = tcpdump;
+    console.log('[TUN] Packet capture started');
+  }
+
   async stop(): Promise<void> {
     if (!this.running) return;
 
     this.running = false;
-    if (this.process) {
-      this.process.kill();
-      this.process = null;
+    
+    if (this.readProcess) {
+      this.readProcess.kill('SIGTERM');
+      this.readProcess = null;
     }
 
     // Remove iptables rules
@@ -457,29 +688,95 @@ class TUNDevice extends EventEmitter {
 
   /**
    * Write a packet to the TUN device (to be sent to the internet)
+   * Uses the kernel's routing table via socket forwarding
    */
   write(packet: Uint8Array): void {
-    if (!this.running) return;
-    // In a full implementation, this would write to /dev/net/tun
-    // For now, we'll use the kernel's packet handling via raw sockets
+    if (!this.running || packet.length < 20) return;
+
+    const protocol = packet[9];
+
+    // Forward packet based on protocol
+    // The kernel will route it through the correct interface
+    if (protocol === 17) { // UDP
+      this.forwardUDP(packet);
+    } else if (protocol === 6) { // TCP
+      this.forwardTCP(packet);
+    } else if (protocol === 1) { // ICMP
+      this.forwardICMP(packet);
+    }
+
     this.emit('outbound', packet);
   }
 
-  private startReading(): void {
-    // In a full implementation, this would read from /dev/net/tun
-    // For demonstration, we use a raw socket approach
-    const rawSocket = dgram.createSocket('udp4');
-    rawSocket.on('message', (msg) => {
-      this.emit('inbound', new Uint8Array(msg));
+  private forwardUDP(packet: Uint8Array): void {
+    const headerLength = (packet[0] & 0x0f) * 4;
+    if (packet.length < headerLength + 8) return;
+
+    const dstIP = `${packet[16]}.${packet[17]}.${packet[18]}.${packet[19]}`;
+    const dstPort = (packet[headerLength + 2] << 8) | packet[headerLength + 3];
+    const payload = packet.slice(headerLength + 8);
+
+    const socket = dgram.createSocket('udp4');
+    socket.send(Buffer.from(payload), dstPort, dstIP, (err) => {
+      socket.close();
+      if (err) console.warn('[TUN] UDP forward error:', err.message);
     });
+  }
+
+  private forwardTCP(packet: Uint8Array): void {
+    const headerLength = (packet[0] & 0x0f) * 4;
+    if (packet.length < headerLength + 20) return;
+
+    const dstIP = `${packet[16]}.${packet[17]}.${packet[18]}.${packet[19]}`;
+    const dstPort = (packet[headerLength + 2] << 8) | packet[headerLength + 3];
+    const tcpHeaderLength = ((packet[headerLength + 12] >> 4) & 0x0f) * 4;
+    const payload = packet.slice(headerLength + tcpHeaderLength);
+
+    // TCP requires connection state - use net.Socket
+    const socket = new net.Socket();
+    socket.setTimeout(5000);
+    socket.connect(dstPort, dstIP, () => {
+      if (payload.length > 0) {
+        socket.write(Buffer.from(payload));
+      }
+    });
+    socket.on('data', (data) => {
+      // Response data would need to be routed back through the tunnel
+      this.emit('tcp_response', { dstIP, dstPort, data: new Uint8Array(data) });
+    });
+    socket.on('error', (err) => {
+      console.warn('[TUN] TCP forward error:', err.message);
+    });
+    socket.on('timeout', () => {
+      socket.destroy();
+    });
+  }
+
+  private forwardICMP(packet: Uint8Array): void {
+    // ICMP requires raw sockets which need CAP_NET_RAW
+    // Use ping command as fallback for echo requests
+    const dstIP = `${packet[16]}.${packet[17]}.${packet[18]}.${packet[19]}`;
+    const icmpType = packet[20];
+    
+    if (icmpType === 8) { // Echo request
+      const ping = spawn('ping', ['-c', '1', '-W', '1', dstIP], {
+        stdio: 'ignore'
+      });
+      ping.on('close', (code) => {
+        // Emit response for successful ping
+        if (code === 0) {
+          this.emit('icmp_response', { dstIP, success: true });
+        }
+      });
+    }
   }
 
   private execCommand(cmd: string, args: string[]): Promise<void> {
     return new Promise((resolve, reject) => {
-      const proc = spawn(cmd, args);
+      const proc = spawn(cmd, args, { stdio: 'ignore' });
       proc.on('close', (code) => {
         if (code === 0) resolve();
-        else reject(new Error(`${cmd} exited with code ${code}`));
+        else reject(new Error(`${cmd} ${args.join(' ')} exited with code ${code}`));
       });
       proc.on('error', reject);
     });
@@ -1256,11 +1553,6 @@ export class VPNExitService {
     return BLAKE2s.hash(combined, COOKIE_SIZE);
   }
 
-  private verifyCookie(cookie: Uint8Array, sourceAddr: string, sourcePort: number): boolean {
-    const expected = this.generateCookie(sourceAddr, sourcePort);
-    return this.constantTimeEqual(cookie, expected);
-  }
-
   private sendCookieReply(
     senderIndex: number,
     mac1: Uint8Array,
@@ -1422,9 +1714,16 @@ export class VPNExitService {
     const clientKeyHex = Buffer.from(clientStatic).toString('hex');
     const existingPeer = this.peersByKey.get(clientKeyHex);
     if (existingPeer) {
-      const timestampView = new DataView(timestamp.buffer);
-      const seconds = Number(timestampView.getBigUint64(0, false) - 4611686018427387914n);
-      if (seconds * 1000 <= existingPeer.lastHandshake) {
+      // Parse TAI64N timestamp (first 8 bytes are seconds in big-endian)
+      // Copy to aligned buffer for DataView
+      const alignedBuf = new ArrayBuffer(8);
+      const alignedArr = new Uint8Array(alignedBuf);
+      alignedArr.set(timestamp.subarray(0, 8));
+      const timestampView = new DataView(alignedBuf);
+      const tai64Seconds = timestampView.getBigUint64(0, false);
+      // TAI64 epoch offset: 2^62 = 4611686018427387904
+      const unixSeconds = Number(tai64Seconds - 4611686018427387904n);
+      if (unixSeconds * 1000 <= existingPeer.lastHandshake) {
         console.warn('[VPNExit] Replay attack detected');
         vpnHandshakesTotal.inc({ status: 'replay' });
         return;
@@ -1578,19 +1877,25 @@ export class VPNExitService {
       dstPort = (packet[headerLength + 2] << 8) | packet[headerLength + 3];
     }
 
-    // NAT translation
+    // NAT translation with checksum recalculation
+    let forwardPacket = packet;
     if (this.config.natEnabled) {
       const protoStr = protocol === 6 ? 'tcp' : protocol === 17 ? 'udp' : 'icmp';
       const natEntry = this.natTable.translate(srcIP, srcPort, protoStr as 'tcp' | 'udp' | 'icmp', peer.receiverIndex);
       
-      // Modify packet with NAT'd source
-      // In real implementation, recompute checksums
-      console.log(`[VPNExit] NAT: ${srcIP}:${srcPort} -> ${natEntry.externalIP}:${natEntry.externalPort} -> ${dstIP}:${dstPort}`);
+      // Get external IP (use first non-localhost interface IP)
+      const externalIP = this.getExternalIP();
+      natEntry.externalIP = externalIP;
+      
+      // Modify packet with NAT'd source and recalculate checksums
+      forwardPacket = natModifyPacket(packet, externalIP, natEntry.externalPort);
+      
+      console.log(`[VPNExit] NAT: ${srcIP}:${srcPort} -> ${externalIP}:${natEntry.externalPort} -> ${dstIP}:${dstPort}`);
     }
 
     // Forward to TUN device
     if (this.tunDevice) {
-      this.tunDevice.write(packet);
+      this.tunDevice.write(forwardPacket);
     }
 
     vpnBytesTotal.inc({ direction: 'forward' }, totalLength);
@@ -1605,13 +1910,13 @@ export class VPNExitService {
     const protocol = packet[9];
     const headerLength = (packet[0] & 0x0f) * 4;
 
-    // Extract destination port
+    // Extract destination port (which is the NAT'd external port)
     let dstPort = 0;
     if ((protocol === 6 || protocol === 17) && packet.length >= headerLength + 4) {
       dstPort = (packet[headerLength + 2] << 8) | packet[headerLength + 3];
     }
 
-    // Find NAT entry
+    // Find NAT entry by the external port
     const protoStr = protocol === 6 ? 'tcp' : protocol === 17 ? 'udp' : 'icmp';
     const natEntry = this.natTable.reverseTranslate(dstPort, protoStr as 'tcp' | 'udp' | 'icmp');
     
@@ -1627,8 +1932,45 @@ export class VPNExitService {
       return;
     }
 
+    // Reverse NAT: modify destination back to internal client IP/port
+    const modifiedPacket = natReverseModifyPacket(
+      packet,
+      natEntry.internalIP,
+      natEntry.internalPort
+    );
+
+    // Update NAT entry activity
+    natEntry.lastActivity = Date.now();
+    if (protocol === 6) {
+      // Check TCP flags for connection state
+      const tcpFlags = packet[headerLength + 13];
+      if (tcpFlags & 0x01) { // FIN
+        natEntry.state = 'closing';
+      } else if (tcpFlags & 0x04) { // RST
+        natEntry.state = 'closed';
+      } else if (natEntry.state === 'new') {
+        natEntry.state = 'established';
+      }
+    }
+
+    vpnBytesTotal.inc({ direction: 'tunnel_out' }, modifiedPacket.length);
+
     // Send encrypted packet back to peer
-    this.sendTransportData(peer, packet);
+    this.sendTransportData(peer, modifiedPacket);
+  }
+
+  /**
+   * Get external IP address for NAT
+   */
+  private getExternalIP(): string {
+    // Try to get external IP from environment or detect it
+    if (process.env.EXTERNAL_IP) {
+      return process.env.EXTERNAL_IP;
+    }
+
+    // Use the tunnel subnet gateway as fallback
+    const [baseIP] = this.config.tunnelSubnet.split('/');
+    return baseIP.replace(/\.0$/, '.1');
   }
 
   public sendTransportData(peer: WireGuardPeer, plaintext: Uint8Array): void {
