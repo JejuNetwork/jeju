@@ -109,14 +109,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         mpcKeyRegistry = MPCKeyRegistry(_mpcKeyRegistry);
     }
 
-    /**
-     * @notice Create a new training run
-     * @param runId Unique identifier for the run
-     * @param config Coordinator configuration
-     * @param model Model configuration
-     * @param privacyMode Public or private training
-     * @param mpcKeyId MPC key ID for private runs (0 for public)
-     */
     function createRun(
         bytes32 runId,
         CoordinatorConfig calldata config,
@@ -127,8 +119,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         if (runs[runId].stateStartTimestamp != 0) revert RunAlreadyExists();
         if (!_validateConfig(config)) revert InvalidConfig();
         if (msg.value < runCreationFee) revert InsufficientStake();
-
-        // Private runs require valid MPC key
         if (privacyMode == PrivacyMode.Private) {
             if (mpcKeyId == bytes32(0)) revert MPCKeyRequired();
             MPCKeyRegistry.KeyMetadata memory key = mpcKeyRegistry.getKey(mpcKeyId);
@@ -149,8 +139,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         run.stateStartTimestamp = uint64(block.timestamp);
         run.privacyMode = privacyMode;
         run.mpcKeyId = mpcKeyId;
-
-        // Initialize epoch state
         run.epochState.firstRound = true;
         run.epochState.coldStartEpoch = false;
 
@@ -162,11 +150,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         emit StateTransition(runId, RunState.Uninitialized, RunState.WaitingForMembers, uint64(block.timestamp));
     }
 
-    /**
-     * @notice Join an active training run
-     * @param runId Run to join
-     * @param p2pEndpointId Iroh endpoint ID for P2P communication
-     */
     function joinRun(bytes32 runId, bytes32 p2pEndpointId) external nonReentrant runExists(runId) {
         Run storage run = runs[runId];
 
@@ -175,22 +158,17 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
             revert InvalidState(run.state, RunState.WaitingForMembers);
         }
 
-        // Check if already joined or pending
         if (clientIndices[runId][msg.sender] != 0) revert ClientAlreadyJoined();
         for (uint256 i = 0; i < pendingClients[runId].length; i++) {
             if (pendingClients[runId][i].addr == msg.sender) revert ClientAlreadyJoined();
         }
 
-        // Verify provider is registered in compute registry
         if (!computeRegistry.isActive(msg.sender)) revert NotRegisteredProvider();
-
-        // For private runs, verify MPC key access
         if (run.privacyMode == PrivacyMode.Private) {
             (bool allowed,) = mpcKeyRegistry.checkAccess(run.mpcKeyId, msg.sender);
             if (!allowed) revert InvalidMPCKey();
         }
 
-        // Add to pending clients
         pendingClients[runId].push(Client({
             addr: msg.sender,
             p2pEndpointId: p2pEndpointId,
@@ -200,10 +178,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }));
     }
 
-    /**
-     * @notice Tick the coordinator forward (permissionless)
-     * @param runId Run to tick
-     */
     function tick(bytes32 runId) external nonReentrant runExists(runId) notHalted(runId) {
         Run storage run = runs[runId];
         uint64 currentTime = uint64(block.timestamp);
@@ -223,16 +197,11 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
 
     function _tickWaitingForMembers(bytes32 runId, Run storage run, uint64 currentTime) internal {
         Client[] storage pending = pendingClients[runId];
-        
-        // Check if we have enough clients and extra time has passed
         bool hasEnoughClients = pending.length >= run.config.initMinClients;
         bool extraTimeElapsed = _checkTimeout(run.stateStartTimestamp, currentTime, run.config.waitingForMembersExtraTime);
 
         if (hasEnoughClients && extraTimeElapsed) {
-            // Move unhealthy clients to exited
             _moveUnhealthyToExited(runId, 0);
-
-            // Transfer pending to active clients
             Client[] storage clients = runClients[runId];
             uint16 clientCount = uint16(pending.length > MAX_CLIENTS ? MAX_CLIENTS : pending.length);
             
@@ -241,55 +210,41 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
                 clientIndices[runId][pending[i].addr] = i + 1;
             }
 
-            // Clear pending
             delete pendingClients[runId];
-
-            // Reset epoch state
             run.epochState.firstRound = true;
             run.epochState.startStep = run.progress.step;
             run.epochState.startTimestamp = currentTime;
             run.epochState.lastStep = 0;
             run.epochState.roundsHead = 0;
-
-            // Transition to Warmup
             _changeState(runId, run, RunState.Warmup, currentTime);
         }
     }
 
     function _tickWarmup(bytes32 runId, Run storage run, uint64 currentTime) internal {
-        // Check warmup timeout
         if (_checkTimeout(run.stateStartTimestamp, currentTime, run.config.warmupTime)) {
-            // Move unhealthy to exited
             _moveUnhealthyToExited(runId, 0);
-
-            // Check if we still have enough clients
             if (runClients[runId].length < run.config.minClients) {
                 _changeState(runId, run, RunState.WaitingForMembers, currentTime);
                 emit EpochCompleted(runId, run.progress.epoch, run.progress.step - run.epochState.startStep);
                 return;
             }
 
-            // Generate random seed from block data
             uint64 randomSeed = uint64(uint256(keccak256(abi.encodePacked(
                 blockhash(block.number - 1),
                 block.timestamp,
                 runId
             ))));
-
-            // Start first training round
             _startRoundTrain(runId, run, currentTime, randomSeed, 0);
         }
     }
 
     function _tickRoundTrain(bytes32 runId, Run storage run, uint64 currentTime) internal {
-        // Check round train timeout
         if (_checkTimeout(run.stateStartTimestamp, currentTime, run.config.maxRoundTrainTime)) {
             _changeState(runId, run, RunState.RoundWitness, currentTime);
         }
     }
 
     function _tickRoundWitness(bytes32 runId, Run storage run, uint64 currentTime) internal {
-        // Check witness timeout
         if (_checkTimeout(run.stateStartTimestamp, currentTime, run.config.roundWitnessTime)) {
             run.epochState.firstRound = false;
             run.progress.step += 1;
@@ -297,18 +252,13 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
             Round storage currentRound = run.epochState.rounds[run.epochState.roundsHead];
             uint32 height = currentRound.height;
             uint16 numWitnesses = uint16(roundWitnesses[runId][height].length);
-
-            // Move unhealthy to exited
             _moveUnhealthyToExited(runId, height);
-
-            // If no witnesses, everyone withdraws and cooldown
             if (numWitnesses == 0) {
                 _withdrawAll(runId);
                 _startCooldown(runId, run, currentTime);
                 return;
             }
 
-            // Check epoch timeout
             if (_checkEpochTimeout(run, currentTime) && run.epochState.lastStep == 0) {
                 uint32 lastStep = run.progress.step + 2;
                 if (lastStep >= 4) {
@@ -316,7 +266,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
                 }
             }
 
-            // Check if we should end epoch
             bool shouldEndEpoch = 
                 (run.epochState.lastStep != 0 && run.progress.step == run.epochState.lastStep) ||
                 (runClients[runId].length < run.config.minClients) ||
@@ -329,7 +278,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
                 return;
             }
 
-            // Start next training round
             uint64 randomSeed = uint64(uint256(keccak256(abi.encodePacked(
                 blockhash(block.number - 1),
                 block.timestamp,
@@ -342,18 +290,12 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
     }
 
     function _tickCooldown(bytes32 runId, Run storage run, uint64 currentTime) internal {
-        // Check cooldown timeout
         if (_checkTimeout(run.stateStartTimestamp, currentTime, run.config.cooldownTime)) {
-            // Update epoch start data index
             Round storage currentRound = run.epochState.rounds[run.epochState.roundsHead];
             uint16 lastBatchSize = _getTargetGlobalBatchSize(run, currentRound.dataIndex);
             run.progress.epochStartDataIndex = currentRound.dataIndex + lastBatchSize;
             run.progress.epoch += 1;
-
-            // Move unhealthy to exited
             _moveUnhealthyToExited(runId, currentRound.height);
-
-            // Handle pending pause
             if (run.pendingPause) {
                 _withdrawAll(runId);
                 _changeState(runId, run, RunState.Paused, currentTime);
@@ -361,9 +303,7 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
                 run.epochState.coldStartEpoch = true;
                 emit RunPaused(runId, msg.sender);
             } else {
-                // Continue to next epoch
                 run.epochState.coldStartEpoch = false;
-                
                 if (run.progress.step < run.config.totalSteps) {
                     _changeState(runId, run, RunState.WaitingForMembers, currentTime);
                 } else {
@@ -377,12 +317,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    /**
-     * @notice Submit a witness for a training round
-     * @param runId Run ID
-     * @param submission Witness submission data
-     * @param proof Committee membership proof
-     */
     function submitWitness(
         bytes32 runId,
         WitnessSubmission calldata submission,
@@ -395,7 +329,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
             revert InvalidState(run.state, RunState.RoundTrain);
         }
 
-        // Verify caller is in run
         uint16 clientIdx = clientIndices[runId][msg.sender];
         if (clientIdx == 0) revert ClientNotInRun();
 
@@ -406,18 +339,15 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
             revert WitnessAlreadySubmitted();
         }
 
-        // Verify witness committee membership
         if (!_verifyWitnessCommittee(run, clientIdx - 1, currentRound.randomSeed, proof)) {
             revert NotWitnessCommittee();
         }
 
-        // Store witness submission
         roundWitnesses[runId][currentRound.height].push(submission);
         witnessSubmitted[runId][currentRound.height][msg.sender] = true;
 
         emit WitnessSubmitted(runId, msg.sender, currentRound.height, submission.participantBloom);
 
-        // Check if we have enough witnesses to transition early
         uint16 witnessCount = uint16(roundWitnesses[runId][currentRound.height].length);
         uint16 witnessNodes = run.config.witnessNodes == 0 
             ? uint16(runClients[runId].length > MAX_WITNESSES ? MAX_WITNESSES : runClients[runId].length)
@@ -428,11 +358,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    /**
-     * @notice Submit a warmup witness (no committee proof required)
-     * @param runId Run ID
-     * @param submission Witness submission data
-     */
     function submitWarmupWitness(
         bytes32 runId,
         WitnessSubmission calldata submission
@@ -444,7 +369,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
             revert InvalidState(run.state, RunState.Warmup);
         }
 
-        // Verify caller is in run
         uint16 clientIdx = clientIndices[runId][msg.sender];
         if (clientIdx == 0) revert ClientNotInRun();
 
@@ -455,13 +379,11 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
             revert WitnessAlreadySubmitted();
         }
 
-        // Store witness submission
         roundWitnesses[runId][currentRound.height].push(submission);
         witnessSubmitted[runId][currentRound.height][msg.sender] = true;
 
         emit WitnessSubmitted(runId, msg.sender, currentRound.height, submission.participantBloom);
 
-        // Check if we have enough witnesses to start training
         uint16 witnessCount = uint16(roundWitnesses[runId][currentRound.height].length);
         uint16 witnessNodes = run.config.witnessNodes == 0 
             ? uint16(runClients[runId].length > MAX_WITNESSES ? MAX_WITNESSES : runClients[runId].length)
@@ -477,23 +399,14 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    /**
-     * @notice Submit a health check for unhealthy clients
-     * @param runId Run ID
-     * @param unhealthyIndices Indices of clients that failed health check
-     */
     function submitHealthCheck(
         bytes32 runId,
         uint16[] calldata unhealthyIndices,
         bytes32[] calldata /* committeeProofs - reserved for future committee verification */
     ) external nonReentrant runExists(runId) notHalted(runId) {
         Run storage run = runs[runId];
-
-        // Must have an active round with height >= 2
         Round storage currentRound = run.epochState.rounds[run.epochState.roundsHead];
         if (currentRound.height < 2) revert InvalidCommitteeProof();
-
-        // Process each unhealthy client
         Client[] storage clients = runClients[runId];
         for (uint256 i = 0; i < unhealthyIndices.length; i++) {
             uint16 idx = unhealthyIndices[i];
@@ -501,8 +414,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
             
             Client storage client = clients[idx];
             if (client.state != ClientState.Healthy) continue;
-
-            // Verify the client is actually unhealthy based on witness bloom filters
             if (!_isClientHealthy(runId, run, idx)) {
                 client.state = ClientState.Dropped;
                 emit ClientExited(runId, client.addr, ClientState.Dropped);
@@ -510,33 +421,19 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    /**
-     * @notice Submit a model checkpoint
-     * @param runId Run ID
-     * @param modelHash Hash of the model on IPFS
-     * @param hfRepo HuggingFace repo URL
-     */
     function submitCheckpoint(
         bytes32 runId,
         bytes32 modelHash,
         string calldata hfRepo
     ) external nonReentrant runExists(runId) notHalted(runId) {
         Run storage run = runs[runId];
-
-        // Verify caller is in run
         if (clientIndices[runId][msg.sender] == 0) revert ClientNotInRun();
-
-        // Update model config
         run.model.modelHash = modelHash;
         run.model.hfRepo = hfRepo;
 
         emit CheckpointSubmitted(runId, modelHash, hfRepo, msg.sender);
     }
 
-    /**
-     * @notice Withdraw from a training run
-     * @param runId Run to withdraw from
-     */
     function withdrawFromRun(bytes32 runId) external nonReentrant runExists(runId) {
         uint16 clientIdx = clientIndices[runId][msg.sender];
         if (clientIdx == 0) revert ClientNotInRun();
@@ -550,10 +447,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    /**
-     * @notice Pause a training run (creator only)
-     * @param runId Run to pause
-     */
     function pauseRun(bytes32 runId) external runExists(runId) onlyRunCreator(runId) {
         Run storage run = runs[runId];
 
@@ -563,11 +456,9 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
             revert CannotPause();
         }
 
-        // If in active training, set pending pause flag
         if (_isActive(run.state)) {
             run.pendingPause = true;
         } else {
-            // Immediate pause if not actively training
             _withdrawAll(runId);
             _changeState(runId, run, RunState.Paused, uint64(block.timestamp));
             run.epochState.coldStartEpoch = true;
@@ -575,10 +466,6 @@ contract TrainingCoordinator is ITrainingCoordinator, Ownable, ReentrancyGuard {
         }
     }
 
-    /**
-     * @notice Resume a paused training run (creator only)
-     * @param runId Run to resume
-     */
     function resumeRun(bytes32 runId) external runExists(runId) onlyRunCreator(runId) {
         Run storage run = runs[runId];
 

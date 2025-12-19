@@ -10,5 +10,7 @@
   "optimismPortalAdapter": "0x8A791620dd6260079BF849Dc5567aDC3F2FdC318",
   "deployer": "0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
   "timestamp": 1765588723346,
-  "network": "localnet"
+  "network": "localnet",
+  "securityCouncil": "0xe797402897Ad7D14643Db3Ed26B7c116CA0D998a",
+  "securityCouncilConfig": "{\"owners\":[\"0x8383eF4f69b5C3319B9a19971B2E20B0B0AE44aC\",\"0xc5A36196d58345003a5C90FaF75C80d2446E8106\",\"0x3F4c1ad75568584f79A030C45a0801e4E3bAb460\",\"0x3C63f6C14e5b6CE3c8b0024F802F8470A19F12bF\",\"0xaC7F965e58D468C1279c4ab236ABAFe33e174d70\"],\"threshold\":3}"
 }
