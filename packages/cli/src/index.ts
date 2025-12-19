@@ -180,9 +180,13 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} token status <token>`) + ' Check deployment status\n');
   
   console.log(chalk.bold('Infrastructure:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} infra start`) + '          Start Docker + services + localnet');
+  console.log('  ' + chalk.cyan(`${cliName} infra stop`) + '           Stop all infrastructure');
+  console.log('  ' + chalk.cyan(`${cliName} infra status`) + '         Check infrastructure status');
+  console.log('  ' + chalk.cyan(`${cliName} infra restart`) + '        Restart all infrastructure');
+  console.log('  ' + chalk.cyan(`${cliName} infra logs`) + '           View Docker service logs');
   console.log('  ' + chalk.cyan(`${cliName} infra validate`) + '       Validate configurations');
   console.log('  ' + chalk.cyan(`${cliName} infra terraform`) + '      Terraform operations');
-  console.log('  ' + chalk.cyan(`${cliName} infra helmfile`) + '       Kubernetes deployments');
   console.log('  ' + chalk.cyan(`${cliName} infra deploy-full`) + '    Full deployment pipeline\n');
   
   console.log(chalk.bold('Federation:\n'));

@@ -149,8 +149,13 @@ export {
 
 /**
  * Initialize the API marketplace
+ * Must be called before using any marketplace functions
  */
 export async function initializeMarketplace(): Promise<void> {
+  // Initialize state first (ensures CQL is ready)
+  const { initializeDWSState } = await import('../state.js');
+  await initializeDWSState();
+  
   // Load system keys from environment
   const { loadSystemKeys } = require('./key-vault');
   loadSystemKeys();

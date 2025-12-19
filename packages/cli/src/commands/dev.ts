@@ -11,6 +11,7 @@ import { logger } from '../lib/logger';
 import { startLocalnet, stopLocalnet, getChainStatus, bootstrapContracts } from '../lib/chain';
 import { discoverApps } from '../lib/testing';
 import { createOrchestrator, type ServicesOrchestrator } from '../services/orchestrator';
+import { createInfrastructureService, type InfrastructureService } from '../services/infrastructure';
 import { DEFAULT_PORTS, WELL_KNOWN_KEYS, DOMAIN_CONFIG, type AppManifest } from '../types';
 
 interface RunningService {
@@ -23,6 +24,7 @@ interface RunningService {
 const runningServices: RunningService[] = [];
 let isShuttingDown = false;
 let servicesOrchestrator: ServicesOrchestrator | null = null;
+let infrastructureService: InfrastructureService | null = null;
 let proxyEnabled = false;
 
 export const devCommand = new Command('dev')
@@ -63,15 +65,13 @@ async function startDev(options: { minimal?: boolean; only?: string; skip?: stri
   const rootDir = process.cwd();
   setupSignalHandlers();
 
-  // Check if already running
-  const status = await getChainStatus('localnet');
-  if (status.running) {
-    logger.success('Chain already running (block ' + status.blockNumber + ')');
-  } else {
-    // Start localnet
-    logger.step('Starting localnet...');
-    const { l2Port } = await startLocalnet(rootDir);
-    logger.success('Localnet running on port ' + l2Port);
+  // Step 1: Ensure all infrastructure is running (Docker, services, localnet)
+  infrastructureService = createInfrastructureService(rootDir);
+  const infraReady = await infrastructureService.ensureRunning();
+  
+  if (!infraReady) {
+    logger.error('Failed to start infrastructure');
+    process.exit(1);
   }
 
   const l2RpcUrl = `http://127.0.0.1:${DEFAULT_PORTS.l2Rpc}`;
@@ -117,8 +117,10 @@ async function startDev(options: { minimal?: boolean; only?: string; skip?: stri
   const apps = discoverApps(rootDir);
   const appsToStart = filterApps(apps, options);
 
-  // Get service environment variables
-  const serviceEnv = servicesOrchestrator?.getEnvVars() || {};
+  // Get service environment variables (combine infrastructure + orchestrator)
+  const infraEnv = infrastructureService?.getEnvVars() || {};
+  const orchestratorEnv = servicesOrchestrator?.getEnvVars() || {};
+  const serviceEnv = { ...infraEnv, ...orchestratorEnv };
 
   logger.step(`Starting ${appsToStart.length} apps...`);
   for (const app of appsToStart) {
@@ -321,6 +323,17 @@ function printReady(rpcUrl: string, services: RunningService[], orchestrator: Se
 
   logger.header('READY');
   logger.info('Press Ctrl+C to stop\n');
+
+  // Show infrastructure services
+  if (infrastructureService) {
+    logger.subheader('Infrastructure');
+    logger.table([
+      { label: 'CovenantSQL', value: 'http://127.0.0.1:4661', status: 'ok' as const },
+      { label: 'IPFS', value: 'http://127.0.0.1:5001', status: 'ok' as const },
+      { label: 'Cache', value: 'http://127.0.0.1:4115', status: 'ok' as const },
+      { label: 'DA Server', value: 'http://127.0.0.1:4010', status: 'ok' as const },
+    ]);
+  }
 
   logger.subheader('Chain');
   const chainRows = [

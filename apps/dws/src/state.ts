@@ -5,9 +5,9 @@
  * CQL is REQUIRED - no fallbacks. Run infrastructure before starting DWS.
  */
 
-import { getCQL, type CQLClient } from '@jejunetwork/db';
+import { getCQL, resetCQL, type CQLClient } from '@jejunetwork/db';
 import { getCacheClient, type CacheClient } from '@jejunetwork/shared';
-import { getCurrentNetwork } from '@jejunetwork/config';
+import { getCurrentNetwork, getCQLUrl, getCQLMinerUrl } from '@jejunetwork/config';
 import type { Address } from 'viem';
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws';
@@ -15,11 +15,25 @@ const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'dws';
 let cqlClient: CQLClient | null = null;
 let cacheClient: CacheClient | null = null;
 let initialized = false;
+let initPromise: Promise<void> | null = null;
 
 async function getCQLClient(): Promise<CQLClient> {
+  // Wait for initialization if in progress
+  if (initPromise) {
+    await initPromise;
+  }
+  
   if (!cqlClient) {
-    // CQL URL is automatically resolved from network config
+    // Reset any existing client to ensure fresh config
+    resetCQL();
+    
+    // Get URLs from centralized config (respects JEJU_NETWORK)
+    const blockProducerEndpoint = getCQLUrl();
+    const minerEndpoint = getCQLMinerUrl();
+    
     cqlClient = getCQL({
+      blockProducerEndpoint,
+      minerEndpoint,
       databaseId: CQL_DATABASE_ID,
       timeout: 30000,
       debug: process.env.NODE_ENV !== 'production',
@@ -27,6 +41,7 @@ async function getCQLClient(): Promise<CQLClient> {
     
     const healthy = await cqlClient.isHealthy();
     if (!healthy) {
+      cqlClient = null;
       const network = getCurrentNetwork();
       throw new Error(
         `DWS requires CovenantSQL for decentralized state (network: ${network}).\n` +
@@ -903,12 +918,28 @@ export const x402State = {
   },
 };
 
-// Initialize state
+// Initialize state - uses promise to prevent race conditions
 export async function initializeDWSState(): Promise<void> {
   if (initialized) return;
-  await getCQLClient();
-  initialized = true;
-  console.log('[DWS State] Initialized with CovenantSQL');
+  
+  // If initialization is already in progress, wait for it
+  if (initPromise) {
+    await initPromise;
+    return;
+  }
+  
+  // Start initialization and store the promise
+  initPromise = (async () => {
+    await getCQLClient();
+    initialized = true;
+    console.log('[DWS State] Initialized with CovenantSQL');
+  })();
+  
+  try {
+    await initPromise;
+  } finally {
+    initPromise = null;
+  }
 }
 
 // Get state mode - always CQL, no fallbacks

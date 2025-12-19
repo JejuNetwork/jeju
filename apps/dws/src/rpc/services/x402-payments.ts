@@ -1,9 +1,8 @@
 import type { Address } from 'viem';
 import { recoverAddress, hashMessage } from 'viem';
-import { x402State, initializeDWSState } from '../../state.js';
+import { x402State } from '../../state.js';
 
-// Initialize CQL state
-initializeDWSState().catch(console.error);
+// State initialization is handled by main server startup
 
 export type X402Network = 'sepolia' | 'base' | 'base-sepolia' | 'ethereum' | 'jeju' | 'jeju-testnet';
 

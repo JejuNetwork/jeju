@@ -5,7 +5,7 @@
 import { randomBytes, createHash } from 'crypto';
 import type { Address } from 'viem';
 import { registerApiKey, revokeApiKey, type RateTier } from '../middleware/rate-limiter.js';
-import { apiKeyState, initializeDWSState } from '../../state.js';
+import { apiKeyState } from '../../state.js';
 
 export interface ApiKeyRecord {
   id: string;
@@ -19,8 +19,7 @@ export interface ApiKeyRecord {
   isActive: boolean;
 }
 
-// Initialize CQL state
-initializeDWSState().catch(console.error);
+// State initialization is handled by main server startup
 
 // Local cache for key -> id mapping (for fast validation without async)
 const localKeyCache = new Map<string, string>();

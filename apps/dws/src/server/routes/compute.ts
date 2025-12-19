@@ -25,8 +25,7 @@ const activeJobs = new Set<string>();
 const MAX_CONCURRENT = 5;
 const DEFAULT_TIMEOUT = 300000;
 
-// Initialize CQL state
-initializeDWSState().catch(console.error);
+// State initialization is handled by main server startup
 
 const SHELL_CONFIG: Record<string, { path: string; args: (cmd: string) => string[] }> = {
   bash: { path: '/bin/bash', args: (cmd) => ['-c', cmd] },

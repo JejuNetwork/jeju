@@ -1,5 +1,5 @@
 /**
- * Infrastructure deployment commands
+ * Infrastructure deployment and management commands
  */
 
 import { Command } from 'commander';
@@ -8,10 +8,126 @@ import { existsSync } from 'fs';
 import { join } from 'path';
 import { logger } from '../lib/logger';
 import { findMonorepoRoot } from '../lib/system';
+import { createInfrastructureService } from '../services/infrastructure';
 
 const infraCommand = new Command('infra')
   .description('Infrastructure deployment and management')
   .alias('infrastructure');
+
+// ============================================================================
+// Local Development Infrastructure
+// ============================================================================
+
+infraCommand
+  .command('start')
+  .description('Start all local development infrastructure (Docker, services, localnet)')
+  .option('--no-localnet', 'Skip starting localnet')
+  .action(async (options: { localnet?: boolean }) => {
+    const rootDir = findMonorepoRoot();
+    const infra = createInfrastructureService(rootDir);
+    
+    const success = await infra.ensureRunning();
+    
+    if (!success) {
+      process.exit(1);
+    }
+    
+    logger.newline();
+    logger.info('Infrastructure URLs:');
+    const env = infra.getEnvVars();
+    for (const [key, value] of Object.entries(env)) {
+      if (key.includes('URL') || key.includes('RPC')) {
+        logger.keyValue(key, value);
+      }
+    }
+  });
+
+infraCommand
+  .command('stop')
+  .description('Stop all local development infrastructure')
+  .action(async () => {
+    const rootDir = findMonorepoRoot();
+    const infra = createInfrastructureService(rootDir);
+    
+    logger.header('STOPPING INFRASTRUCTURE');
+    
+    await infra.stopLocalnet();
+    await infra.stopServices();
+    
+    logger.success('All infrastructure stopped');
+  });
+
+infraCommand
+  .command('status')
+  .description('Show infrastructure status')
+  .action(async () => {
+    const rootDir = findMonorepoRoot();
+    const infra = createInfrastructureService(rootDir);
+    
+    const status = await infra.getStatus();
+    infra.printStatus(status);
+    
+    if (status.allHealthy) {
+      logger.newline();
+      logger.success('All infrastructure healthy');
+    } else {
+      logger.newline();
+      logger.error('Some infrastructure is not running');
+      logger.info('  Run: jeju infra start');
+    }
+  });
+
+infraCommand
+  .command('restart')
+  .description('Restart all local development infrastructure')
+  .action(async () => {
+    const rootDir = findMonorepoRoot();
+    const infra = createInfrastructureService(rootDir);
+    
+    logger.header('RESTARTING INFRASTRUCTURE');
+    
+    await infra.stopLocalnet();
+    await infra.stopServices();
+    
+    await new Promise(r => setTimeout(r, 2000));
+    
+    const success = await infra.ensureRunning();
+    
+    if (!success) {
+      process.exit(1);
+    }
+  });
+
+infraCommand
+  .command('logs')
+  .description('Show logs from Docker services')
+  .option('-f, --follow', 'Follow log output')
+  .option('--service <name>', 'Specific service (cql, ipfs, cache, da)')
+  .action(async (options: { follow?: boolean; service?: string }) => {
+    const rootDir = findMonorepoRoot();
+    
+    const args = ['compose', 'logs'];
+    if (options.follow) args.push('-f');
+    if (options.service) {
+      const serviceMap: Record<string, string> = {
+        cql: 'cql',
+        ipfs: 'ipfs',
+        cache: 'cache-service',
+        da: 'da-server',
+      };
+      const serviceName = serviceMap[options.service] || options.service;
+      args.push(serviceName);
+    }
+    
+    await execa('docker', args, {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
+// ============================================================================
+// Cloud Infrastructure (Terraform/Helm)
+// ============================================================================
 
 infraCommand
   .command('validate')

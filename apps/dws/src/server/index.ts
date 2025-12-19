@@ -290,9 +290,11 @@ app.route('/models', createModelsRouter(modelsConfig));
 // Datasets Registry (HuggingFace-compatible)
 app.route('/datasets', createDatasetsRouter({ backend: backendManager }));
 
-// Initialize services
-initializeMarketplace();
-initializeContainerSystem();
+// Initialize services (deferred to startup)
+async function initializeServices(): Promise<void> {
+  await initializeMarketplace();
+  initializeContainerSystem();
+}
 
 // Serve frontend - from IPFS when configured, fallback to local
 app.get('/app', async (c) => {
@@ -424,33 +426,41 @@ function shutdown(signal: string) {
 }
 
 if (import.meta.main) {
-  const baseUrl = process.env.DWS_BASE_URL || `http://localhost:${PORT}`;
-  
-  console.log(`[DWS] Running at ${baseUrl}`);
-  console.log(`[DWS] Environment: ${isProduction ? 'production' : 'development'}`);
-  console.log(`[DWS] Git registry: ${gitConfig.repoRegistryAddress}`);
-  console.log(`[DWS] Package registry: ${pkgConfig.packageRegistryAddress}`);
-  console.log(`[DWS] Identity registry (ERC-8004): ${decentralizedConfig.identityRegistryAddress}`);
-  
-  if (decentralizedConfig.frontendCid) {
-    console.log(`[DWS] Frontend CID: ${decentralizedConfig.frontendCid}`);
-  } else {
-    console.log(`[DWS] Frontend: local filesystem (set DWS_FRONTEND_CID for decentralized)`);
-  }
-  
-  server = Bun.serve({ port: PORT, fetch: app.fetch });
+  (async () => {
+    const baseUrl = process.env.DWS_BASE_URL || `http://localhost:${PORT}`;
+    
+    // Initialize services before starting server
+    await initializeServices();
+    
+    console.log(`[DWS] Running at ${baseUrl}`);
+    console.log(`[DWS] Environment: ${isProduction ? 'production' : 'development'}`);
+    console.log(`[DWS] Git registry: ${gitConfig.repoRegistryAddress}`);
+    console.log(`[DWS] Package registry: ${pkgConfig.packageRegistryAddress}`);
+    console.log(`[DWS] Identity registry (ERC-8004): ${decentralizedConfig.identityRegistryAddress}`);
+    
+    if (decentralizedConfig.frontendCid) {
+      console.log(`[DWS] Frontend CID: ${decentralizedConfig.frontendCid}`);
+    } else {
+      console.log(`[DWS] Frontend: local filesystem (set DWS_FRONTEND_CID for decentralized)`);
+    }
+    
+    server = Bun.serve({ port: PORT, fetch: app.fetch });
 
-  // Start P2P coordination if enabled
-  if (process.env.DWS_P2P_ENABLED === 'true') {
-    p2pCoordinator = decentralized.createP2P(baseUrl);
-    distributedRateLimiter = decentralized.createRateLimiter(p2pCoordinator);
-    p2pCoordinator.start().then(() => {
-      console.log(`[DWS] P2P coordination started`);
-    }).catch(console.error);
-  }
-  
-  process.on('SIGINT', () => shutdown('SIGINT'));
-  process.on('SIGTERM', () => shutdown('SIGTERM'));
+    // Start P2P coordination if enabled
+    if (process.env.DWS_P2P_ENABLED === 'true') {
+      p2pCoordinator = decentralized.createP2P(baseUrl);
+      distributedRateLimiter = decentralized.createRateLimiter(p2pCoordinator);
+      p2pCoordinator.start().then(() => {
+        console.log(`[DWS] P2P coordination started`);
+      }).catch(console.error);
+    }
+    
+    process.on('SIGINT', () => shutdown('SIGINT'));
+    process.on('SIGTERM', () => shutdown('SIGTERM'));
+  })().catch((err) => {
+    console.error('[DWS] Startup failed:', err);
+    process.exit(1);
+  });
 }
 
 export { app, backendManager, repoManager, registryManager, workflowEngine };

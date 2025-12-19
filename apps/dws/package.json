@@ -38,6 +38,7 @@
     "@aws-sdk/client-bedrock-runtime": "^3.954.0",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
+    "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",

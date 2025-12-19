@@ -5,17 +5,28 @@
  * Works in two modes:
  * 1. When run via `jeju test` - infrastructure is already up
  * 2. When run standalone - starts required services
+ * 
+ * NO FALLBACKS - all infrastructure must be running.
  */
 
 import { beforeAll, afterAll } from 'bun:test';
+
+interface InfraStatus {
+  rpc: boolean;
+  dws: boolean;
+  docker: { [key: string]: boolean };
+  rpcUrl: string;
+  dwsUrl: string;
+}
 
 // Try to load global setup, gracefully skip if not available
 let setup: () => Promise<void> = async () => {};
 let teardown: () => Promise<void> = async () => {};
 let isReady: () => boolean = () => true;
-let getStatus: () => Promise<{ rpc: boolean; dws: boolean; rpcUrl: string; dwsUrl: string }> = async () => ({
+let getStatus: () => Promise<InfraStatus> = async () => ({
   rpc: false,
   dws: false,
+  docker: {},
   rpcUrl: process.env.L2_RPC_URL || 'http://127.0.0.1:9545',
   dwsUrl: process.env.DWS_URL || 'http://127.0.0.1:4030',
 });

@@ -6,6 +6,13 @@
  * 1. Standalone: Starts localnet + DWS services
  * 2. Managed: Detects existing infrastructure from `jeju test`
  * 
+ * REQUIRED INFRASTRUCTURE:
+ * - Docker services (CQL, IPFS, Cache, DA)
+ * - Localnet (Anvil)
+ * - DWS server
+ * 
+ * No fallbacks - all infrastructure must be running.
+ * 
  * Usage in bunfig.toml:
  *   preload = ["@jejunetwork/tests/bun-global-setup"]
  * 
@@ -13,7 +20,7 @@
  *   import { setup, teardown } from '@jejunetwork/tests/bun-global-setup';
  */
 
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import type { Subprocess } from 'bun';
 
@@ -27,6 +34,14 @@ let isExternalInfra = false;
 const LOCALNET_PORT = 9545;
 const DWS_PORT = 4030;
 
+// Docker service ports
+const DOCKER_SERVICES = {
+  cql: { port: 4661, healthPath: '/health', name: 'CovenantSQL' },
+  ipfs: { port: 5001, healthPath: '/api/v0/id', name: 'IPFS' },
+  cache: { port: 4115, healthPath: '/health', name: 'Cache Service' },
+  da: { port: 4010, healthPath: '/health', name: 'DA Server' },
+} as const;
+
 // Environment URLs
 const RPC_URL = process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || `http://127.0.0.1:${LOCALNET_PORT}`;
 const DWS_URL = process.env.DWS_URL || `http://127.0.0.1:${DWS_PORT}`;
@@ -34,6 +49,7 @@ const DWS_URL = process.env.DWS_URL || `http://127.0.0.1:${DWS_PORT}`;
 interface InfraStatus {
   rpc: boolean;
   dws: boolean;
+  docker: { [key: string]: boolean };
   rpcUrl: string;
   dwsUrl: string;
 }
@@ -78,13 +94,39 @@ async function checkDws(url: string): Promise<boolean> {
   }
 }
 
+async function checkDockerService(port: number, healthPath: string): Promise<boolean> {
+  try {
+    const url = `http://127.0.0.1:${port}${healthPath}`;
+    const response = await fetch(url, {
+      method: healthPath.startsWith('/api/v0') ? 'POST' : 'GET',
+      signal: AbortSignal.timeout(3000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function checkDockerServices(): Promise<{ [key: string]: boolean }> {
+  const results: { [key: string]: boolean } = {};
+  
+  await Promise.all(
+    Object.entries(DOCKER_SERVICES).map(async ([key, config]) => {
+      results[key] = await checkDockerService(config.port, config.healthPath);
+    })
+  );
+  
+  return results;
+}
+
 async function checkInfrastructure(): Promise<InfraStatus> {
-  const [rpc, dws] = await Promise.all([
+  const [rpc, dws, docker] = await Promise.all([
     checkRpc(RPC_URL),
     checkDws(DWS_URL),
+    checkDockerServices(),
   ]);
   
-  return { rpc, dws, rpcUrl: RPC_URL, dwsUrl: DWS_URL };
+  return { rpc, dws, docker, rpcUrl: RPC_URL, dwsUrl: DWS_URL };
 }
 
 function findMonorepoRoot(): string {
@@ -229,6 +271,32 @@ async function stopProcess(proc: Subprocess | null): Promise<void> {
   }
 }
 
+async function startDockerServices(rootDir: string): Promise<boolean> {
+  console.log('Starting Docker services...');
+  
+  const proc = Bun.spawn(['docker', 'compose', 'up', '-d', 'cql', 'ipfs', 'cache-service', 'da-server'], {
+    cwd: rootDir,
+    stdout: 'pipe',
+    stderr: 'pipe',
+  });
+  
+  const exitCode = await proc.exited;
+  if (exitCode !== 0) {
+    return false;
+  }
+
+  // Wait for services to be healthy
+  for (let attempt = 0; attempt < 30; attempt++) {
+    const results = await checkDockerServices();
+    if (Object.values(results).every(Boolean)) {
+      return true;
+    }
+    await Bun.sleep(1000);
+  }
+  
+  return false;
+}
+
 /**
  * Setup test infrastructure
  * Call this in beforeAll or as a preload
@@ -236,31 +304,53 @@ async function stopProcess(proc: Subprocess | null): Promise<void> {
 export async function setup(): Promise<void> {
   if (setupComplete) return;
 
-  console.log('\n=== Test Setup ===\n');
+  console.log('\n╔══════════════════════════════════════════════════════════════╗');
+  console.log('║                       Test Setup                             ║');
+  console.log('║  All infrastructure required - no fallbacks.                 ║');
+  console.log('╚══════════════════════════════════════════════════════════════╝\n');
 
-  // Check if infrastructure already running (from jeju test or manual start)
-  const status = await checkInfrastructure();
-  
-  if (status.rpc && status.dws) {
-    console.log('Infrastructure already running (external)');
-    console.log(`  RPC: ${status.rpcUrl}`);
-    console.log(`  DWS: ${status.dwsUrl}`);
-    isExternalInfra = true;
-    setupComplete = true;
-    setEnvVars(status);
-    return;
-  }
-
-  // Need to start infrastructure
-  isExternalInfra = false;
   const rootDir = findMonorepoRoot();
   console.log(`Monorepo root: ${rootDir}`);
 
-  // Start what's missing
+  // Check if infrastructure already running (from jeju test or manual start)
+  let status = await checkInfrastructure();
+  
+  // Check Docker services first
+  const dockerMissing = Object.entries(status.docker)
+    .filter(([, running]) => !running)
+    .map(([key]) => DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES]?.name ?? key);
+  
+  if (dockerMissing.length > 0) {
+    console.log('Missing Docker services:', dockerMissing.join(', '));
+    
+    // Try to start Docker services
+    if (!(await startDockerServices(rootDir))) {
+      console.error('❌ Failed to start Docker services. Run: docker compose up -d');
+      throw new Error('Docker services not available');
+    }
+    
+    // Re-check
+    status = await checkInfrastructure();
+    const stillMissing = Object.entries(status.docker)
+      .filter(([, running]) => !running)
+      .map(([key]) => DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES]?.name ?? key);
+    
+    if (stillMissing.length > 0) {
+      console.error('❌ Docker services still not healthy:', stillMissing.join(', '));
+      throw new Error('Docker services not available');
+    }
+  }
+  
+  for (const [key, running] of Object.entries(status.docker)) {
+    const name = DOCKER_SERVICES[key as keyof typeof DOCKER_SERVICES]?.name ?? key;
+    console.log(`  ${running ? '✅' : '❌'} ${name}`);
+  }
+  
+  // Check/start localnet
   if (!status.rpc) {
     await startLocalnet(rootDir);
   } else {
-    console.log('RPC already running');
+    console.log('✅ RPC already running');
   }
 
   // Bootstrap contracts by default in dev (set BOOTSTRAP_CONTRACTS=false to skip)
@@ -269,15 +359,19 @@ export async function setup(): Promise<void> {
     await bootstrapContracts(rootDir);
   }
 
+  // Check/start DWS
   if (!status.dws) {
     await startDws(rootDir);
   } else {
-    console.log('DWS already running');
+    console.log('✅ DWS already running');
   }
 
   // Set environment variables
   const newStatus = await checkInfrastructure();
   setEnvVars(newStatus);
+  
+  // Mark as external if everything was already running
+  isExternalInfra = status.rpc && status.dws && Object.values(status.docker).every(Boolean);
 
   // Create test output directory
   const outputDir = join(process.cwd(), 'test-results');
@@ -289,6 +383,7 @@ export async function setup(): Promise<void> {
   writeFileSync(join(outputDir, 'setup.json'), JSON.stringify({
     rpcUrl: newStatus.rpcUrl,
     dwsUrl: newStatus.dwsUrl,
+    docker: newStatus.docker,
     startTime: new Date().toISOString(),
     external: isExternalInfra,
   }, null, 2));
@@ -305,6 +400,12 @@ function setEnvVars(status: InfraStatus): void {
   process.env.COMPUTE_MARKETPLACE_URL = `${status.dwsUrl}/compute`;
   process.env.IPFS_GATEWAY = `${status.dwsUrl}/cdn`;
   process.env.CDN_URL = `${status.dwsUrl}/cdn`;
+  
+  // Docker service URLs
+  process.env.CQL_URL = 'http://127.0.0.1:4661';
+  process.env.IPFS_API_URL = 'http://127.0.0.1:5001';
+  process.env.DA_URL = 'http://127.0.0.1:4010';
+  process.env.CACHE_URL = 'http://127.0.0.1:4115';
 }
 
 /**
