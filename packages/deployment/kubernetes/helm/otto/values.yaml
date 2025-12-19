@@ -1,0 +1,153 @@
+# Default values for Otto Trading Agent
+
+# Enable/disable Otto deployment (defaults to true)
+enabled: true
+
+replicaCount: 2
+
+image:
+  repository: jeju/otto
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+  name: ""
+
+podAnnotations: {}
+podSecurityContext: {}
+securityContext: {}
+
+service:
+  type: ClusterIP
+  port: 80
+  targetPort: 4040
+  webhookPort: 4041
+
+ingress:
+  enabled: true
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+  hosts:
+    - host: otto.jejunetwork.org
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: otto-tls
+      hosts:
+        - otto.jejunetwork.org
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Platform configuration
+platforms:
+  discord:
+    enabled: true
+  telegram:
+    enabled: true
+  farcaster:
+    enabled: true
+  twitter:
+    enabled: true
+  whatsapp:
+    enabled: false
+
+# Trading configuration  
+trading:
+  defaultChainId: 420691  # Jeju Network
+  defaultSlippageBps: 50
+  maxSlippageBps: 1000
+  supportedChains:
+    - 420691  # Jeju
+    - 1       # Ethereum
+    - 8453    # Base
+    - 10      # Optimism
+    - 42161   # Arbitrum
+    - 101     # Solana
+
+# Decentralized services (DWS)
+dws:
+  enabled: true
+  computeUrl: http://dws:4030/compute
+  storageUrl: http://dws:4030/storage
+  
+# External services
+services:
+  gateway: http://gateway:4010
+  bazaar: http://bazaar:3000
+  indexer: http://indexer:4350
+  oauth3: http://oauth3:4025
+
+# AI configuration (via DWS)
+ai:
+  model: "mixtral-8x7b-32768"
+  temperature: 0.7
+  maxTokens: 500
+
+# Logging
+config:
+  network: testnet
+  logLevel: info
+  logFormat: json
+
+# Secrets (to be provided via sealed secrets or external secrets)
+secrets:
+  discordBotToken: ""
+  discordApplicationId: ""
+  discordPublicKey: ""
+  telegramBotToken: ""
+  telegramWebhookSecret: ""
+  neynarApiKey: ""
+  farcasterBotFid: ""
+  farcasterSignerUuid: ""
+  twitterApiKey: ""
+  twitterApiSecret: ""
+  twitterAccessToken: ""
+  twitterAccessSecret: ""
+  twitterBearerToken: ""
+  twilioAccountSid: ""
+  twilioAuthToken: ""
+  twilioWhatsappNumber: ""
+
+# Health check
+healthCheck:
+  livenessProbe:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 30
+  readinessProbe:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+
+# Persistence for state
+persistence:
+  enabled: true
+  storageClass: ""
+  size: 1Gi
+  accessMode: ReadWriteOnce
+

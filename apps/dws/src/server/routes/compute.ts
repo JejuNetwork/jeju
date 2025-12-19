@@ -81,17 +81,62 @@ export function createComputeRouter(): Hono {
       { id: 'custom', url: process.env.INFERENCE_API_URL ?? '', env: 'INFERENCE_API_KEY' },
     ];
 
-    // Find first available provider
-    let selectedProvider: ProviderConfig | null = null;
-    for (const p of providers) {
-      if (p.isBedrock && bedrockEnabled) {
-        selectedProvider = { ...p, key: 'bedrock' };
+    // Model-to-provider mapping
+    const modelProviderMap: Record<string, string> = {
+      // OpenAI models
+      'gpt-4': 'openai', 'gpt-4o': 'openai', 'gpt-4o-mini': 'openai', 'gpt-4-turbo': 'openai',
+      'gpt-3.5': 'openai', 'gpt-3.5-turbo': 'openai', 'o1': 'openai', 'o3': 'openai',
+      // Anthropic models
+      'claude': 'anthropic', 'claude-3': 'anthropic', 'claude-3.5': 'anthropic',
+      'claude-3-opus': 'anthropic', 'claude-3-sonnet': 'anthropic', 'claude-3-haiku': 'anthropic',
+      'claude-3-5-sonnet': 'anthropic', 'claude-3-5-haiku': 'anthropic',
+      // Groq models (Llama, Mixtral)
+      'llama': 'groq', 'llama-3': 'groq', 'llama-3.1': 'groq', 'llama-3.2': 'groq', 'llama-3.3': 'groq',
+      'mixtral': 'groq', 'gemma': 'groq',
+    };
+
+    // Find the best provider based on model
+    const requestedModel = body.model ?? '';
+    let preferredProvider: string | null = null;
+    
+    // Check if model name starts with any known prefix
+    for (const [prefix, provider] of Object.entries(modelProviderMap)) {
+      if (requestedModel.toLowerCase().startsWith(prefix.toLowerCase())) {
+        preferredProvider = provider;
         break;
       }
-      const key = process.env[p.env];
-      if (key && p.url) {
-        selectedProvider = { ...p, key };
-        break;
+    }
+
+    // Find first available provider, preferring the one that matches the model
+    let selectedProvider: ProviderConfig | null = null;
+    
+    // First, try the preferred provider
+    if (preferredProvider) {
+      const p = providers.find(x => x.id === preferredProvider);
+      if (p) {
+        if (p.isBedrock && bedrockEnabled) {
+          selectedProvider = { ...p, key: 'bedrock' };
+        } else {
+          const key = process.env[p.env];
+          if (key && p.url) {
+            selectedProvider = { ...p, key };
+          }
+        }
+      }
+    }
+    
+    // If no preferred provider or not available, fall back to any available
+    if (!selectedProvider) {
+      for (const p of providers) {
+        if (p.isBedrock && bedrockEnabled) {
+          selectedProvider = { ...p, key: 'bedrock' };
+          break;
+        }
+        const key = process.env[p.env];
+        if (key && p.url) {
+          selectedProvider = { ...p, key };
+          break;
+        }
       }
     }
 

@@ -696,8 +696,14 @@ contract SecurityBountyRegistry is ReentrancyGuard, Pausable, Ownable {
     // ============ Internal ============
 
     function _getAgentId(address addr) internal view returns (uint256) {
-        // Query identity registry for agent ID
-        // This is a simplified version - production would use proper lookup
+        // Query identity registry for agent ID owned by this address
+        uint256 totalAgents = identityRegistry.totalAgents();
+        for (uint256 i = 1; i <= totalAgents && i <= 1000; i++) {
+            IdentityRegistry.AgentRegistration memory agent = identityRegistry.getAgent(i);
+            if (agent.owner == addr && !agent.isBanned) {
+                return i;
+            }
+        }
         return 0;
     }
 

@@ -309,6 +309,8 @@ class BridgeServiceImpl implements BridgeService {
     });
     
     const approveHash = await walletClient.sendTransaction({
+      account,
+      chain: null,
       to: token,
       data: approveData,
     });
@@ -322,6 +324,8 @@ class BridgeServiceImpl implements BridgeService {
     });
     
     const hash = await walletClient.sendTransaction({
+      account,
+      chain: null,
       to: this.config.contracts.federatedLiquidity,
       data: depositData,
     });
@@ -355,6 +359,8 @@ class BridgeServiceImpl implements BridgeService {
     });
     
     const hash = await walletClient.sendTransaction({
+      account,
+      chain: null,
       to: this.config.contracts.federatedLiquidity,
       data,
     });
@@ -412,6 +418,8 @@ class BridgeServiceImpl implements BridgeService {
     });
     
     const hash = await walletClient.sendTransaction({
+      account,
+      chain: null,
       to: this.config.contracts.solverRegistry,
       data,
     });
@@ -447,6 +455,8 @@ class BridgeServiceImpl implements BridgeService {
     });
     
     const hash = await walletClient.sendTransaction({
+      account,
+      chain: null,
       to: this.config.contracts.solverRegistry,
       data,
     });

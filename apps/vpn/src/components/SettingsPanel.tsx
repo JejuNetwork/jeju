@@ -1,11 +1,16 @@
-import { useState } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
-import { Shield, Globe, Zap, Gauge, Info, ExternalLink, ChevronRight, Power, Bell } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { invoke } from '../api';
+import { Shield, Globe, Zap, Gauge, Info, ExternalLink, ChevronRight, Power } from 'lucide-react';
 
 export function SettingsPanel() {
   const [killSwitch, setKillSwitch] = useState(true);
   const [autoConnect, setAutoConnect] = useState(false);
   const [autoStart, setAutoStart] = useState(false);
+  
+  // Fetch initial autostart state
+  useEffect(() => {
+    invoke<boolean>('get_autostart_enabled').then(setAutoStart).catch(() => {});
+  }, []);
   const [minimizeToTray, setMinimizeToTray] = useState(true);
   const [adaptiveMode, setAdaptiveMode] = useState(true);
   const [dwsEnabled, setDwsEnabled] = useState(true);
@@ -99,9 +104,9 @@ export function SettingsPanel() {
               <div className="text-xs text-[#606070]">Launch VPN when system starts</div>
             </div>
             <button
-              onClick={() => {
-                setAutoStart(!autoStart);
-                updateSetting('auto_start', !autoStart);
+              onClick={async () => {
+                const result = await invoke<boolean>('toggle_autostart').catch(() => !autoStart);
+                setAutoStart(result);
               }}
               className={`w-12 h-6 rounded-full transition-colors ${
                 autoStart ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'

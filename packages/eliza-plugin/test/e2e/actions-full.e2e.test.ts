@@ -102,15 +102,20 @@ describe("Plugin Structure", () => {
 // ═══════════════════════════════════════════════════════════════════════════
 
 const actionCategories = {
-  compute: ["LIST_COMPUTE_PROVIDERS", "LIST_COMPUTE_MODELS", "LIST_COMPUTE_RENTALS"],
-  storage: ["UPLOAD_FILE", "RETRIEVE_FILE", "LIST_PINS", "GET_STORAGE_STATS"],
-  defi: ["LIST_POOLS", "LIST_POSITIONS", "GET_SWAP_QUOTE"],
-  governance: ["LIST_PROPOSALS", "GET_VOTING_POWER"],
-  names: ["CHECK_NAME_AVAILABLE", "RESOLVE_NAME", "GET_REGISTRATION_COST"],
-  identity: ["GET_MY_AGENT", "CHECK_BAN_STATUS", "LIST_AGENTS"],
-  crosschain: ["GET_SUPPORTED_CHAINS", "LIST_SOLVERS"],
-  payments: ["GET_BALANCE", "GET_CREDITS"],
+  compute: ["LIST_PROVIDERS", "LIST_MODELS", "LIST_MY_RENTALS", "RENT_GPU", "RUN_INFERENCE"],
+  storage: ["UPLOAD_FILE", "RETRIEVE_FILE", "LIST_PINS", "GET_STORAGE_STATS", "PIN_CID", "UNPIN"],
+  defi: ["LIST_POOLS", "MY_POSITIONS", "ADD_LIQUIDITY", "SWAP_TOKENS", "GET_POOL_STATS"],
+  governance: ["CREATE_PROPOSAL", "VOTE_PROPOSAL"],
+  names: ["REGISTER_NAME", "RESOLVE_NAME", "LIST_NAMES_FOR_SALE"],
+  identity: ["REGISTER_AGENT", "REPORT_AGENT"],
+  crosschain: ["LIST_SOLVERS", "CREATE_INTENT", "TRACK_INTENT", "CROSS_CHAIN_TRANSFER"],
+  payments: ["CHECK_BALANCE", "CREATE_TRIGGER"],
   a2a: ["CALL_AGENT", "DISCOVER_AGENTS"],
+  games: ["GET_GAME_STATS", "GET_GOLD_BALANCE", "TRANSFER_GOLD", "GET_ITEM_BALANCE", "TRANSFER_ITEM"],
+  containers: ["CREATE_CONTAINER_REPO", "GET_CONTAINER_REPO", "LIST_MY_REPOS", "STAR_CONTAINER_REPO"],
+  launchpad: ["CREATE_TOKEN", "LAUNCH_TOKEN", "CREATE_BONDING_CURVE", "BUY_FROM_CURVE", "SELL_TO_CURVE"],
+  moderation: ["SUBMIT_EVIDENCE", "CREATE_MODERATION_CASE", "GET_MODERATION_CASE", "LIST_MODERATION_CASES"],
+  work: ["CREATE_BOUNTY", "LIST_BOUNTIES", "CLAIM_BOUNTY", "CREATE_PROJECT", "LIST_PROJECTS"],
 };
 
 describe("Action Categories", () => {
@@ -152,5 +157,59 @@ describe("SDK Integration via Service", () => {
     if (!env?.chainRunning || !service) return;
     const chains = service.sdk.crosschain.getSupportedChains();
     expect(Array.isArray(chains)).toBe(true);
+  });
+
+  test("SDK defi module works", () => {
+    if (!env?.chainRunning || !service) return;
+    expect(service.sdk.defi).toBeDefined();
+  });
+
+  test("SDK governance module works", () => {
+    if (!env?.chainRunning || !service) return;
+    expect(service.sdk.governance).toBeDefined();
+  });
+
+  test("SDK names module works", () => {
+    if (!env?.chainRunning || !service) return;
+    expect(service.sdk.names).toBeDefined();
+  });
+
+  test("SDK identity module works", () => {
+    if (!env?.chainRunning || !service) return;
+    expect(service.sdk.identity).toBeDefined();
+  });
+
+  test("SDK payments module works", () => {
+    if (!env?.chainRunning || !service) return;
+    expect(service.sdk.payments).toBeDefined();
+  });
+
+  test("SDK a2a module works", () => {
+    if (!env?.chainRunning || !service) return;
+    expect(service.sdk.a2a).toBeDefined();
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+//                          LIVE CHAIN INTERACTION TESTS
+// ═══════════════════════════════════════════════════════════════════════════
+
+describe("Live Chain Interactions", () => {
+  test("can get eth balance from chain", async () => {
+    if (!env?.chainRunning || !service) return;
+    const balance = await service.sdk.getBalance();
+    expect(balance).toBeGreaterThanOrEqual(0n);
+  });
+
+  test("can estimate storage cost", () => {
+    if (!env?.chainRunning || !service) return;
+    const cost = service.sdk.storage.estimateCost(1024 * 1024, 30, "hot");
+    expect(cost).toBeGreaterThan(0n);
+  });
+
+  test("can get supported chains", () => {
+    if (!env?.chainRunning || !service) return;
+    const chains = service.sdk.crosschain.getSupportedChains();
+    expect(chains.length).toBeGreaterThan(0);
   });
 });

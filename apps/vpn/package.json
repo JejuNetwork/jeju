@@ -10,9 +10,10 @@
     "build:tauri": "tauri build",
     "preview": "vite preview",
     "tauri": "tauri",
-    "test": "bun test src tests/integration",
+    "test": "playwright test",
     "test:unit": "bun test src",
-    "test:e2e": "playwright test tests/e2e",
+    "test:e2e": "playwright test",
+    "test:e2e:headed": "playwright test --headed",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit"
   },

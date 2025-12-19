@@ -1,0 +1,22 @@
+{{- if .Values.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "otto.fullname" . }}
+  labels:
+    {{- include "otto.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    - port: {{ .Values.service.webhookPort }}
+      targetPort: webhooks
+      protocol: TCP
+      name: webhooks
+  selector:
+    {{- include "otto.selectorLabels" . | nindent 4 }}
+{{- end }}
+

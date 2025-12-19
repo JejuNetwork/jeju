@@ -23,6 +23,7 @@ setDefaultTimeout(120000);
 import {
   getBugBountyService,
   assessSubmission,
+  resetBugBountyService,
 } from '../src/bug-bounty-service';
 import { validateSubmission } from '../src/security-validation-agent';
 import {
@@ -346,6 +347,19 @@ Note: This is actually a vulnerability in Google's code, not yours.`,
   stake: '0.01',
 };
 
+// ============ Unique Submission Generator ============
+
+let testCounter = 0;
+
+function makeUnique<T extends { title: string; description: string }>(draft: T): T {
+  testCounter++;
+  return {
+    ...draft,
+    title: `${draft.title} [Test ${testCounter}]`,
+    description: `${draft.description}\n\n[Unique test ID: ${testCounter}-${Date.now()}]`,
+  };
+}
+
 // ============ Test Suite ============
 
 describe('SECTION 1: Submission Pipeline - All Severity Levels', () => {
@@ -354,8 +368,10 @@ describe('SECTION 1: Submission Pipeline - All Severity Levels', () => {
   test('1.1 LOW severity submission - complete flow', async () => {
     console.log('\n=== LOW SEVERITY SUBMISSION ===');
     
+    const draft = makeUnique(LOW_SEVERITY_SUBMISSION);
+    
     // Assess
-    const assessment = assessSubmission(LOW_SEVERITY_SUBMISSION);
+    const assessment = assessSubmission(draft);
     console.log('Assessment:', {
       severityScore: assessment.severityScore,
       impactScore: assessment.impactScore,
@@ -366,7 +382,7 @@ describe('SECTION 1: Submission Pipeline - All Severity Levels', () => {
     expect(assessment.validationPriority).toBe('low');
     
     // Submit
-    const submission = await service.submit(LOW_SEVERITY_SUBMISSION, RESEARCHER_1, 1n);
+    const submission = await service.submit(draft, RESEARCHER_1, 1n);
     console.log('Submitted:', submission.submissionId.slice(0, 16));
     expect(submission.status).toBeOneOf([
       BountySubmissionStatus.PENDING,
@@ -402,7 +418,9 @@ describe('SECTION 1: Submission Pipeline - All Severity Levels', () => {
   test('1.2 MEDIUM severity submission - complete flow', async () => {
     console.log('\n=== MEDIUM SEVERITY SUBMISSION ===');
     
-    const assessment = assessSubmission(MEDIUM_SEVERITY_SUBMISSION);
+    const draft = makeUnique(MEDIUM_SEVERITY_SUBMISSION);
+    
+    const assessment = assessSubmission(draft);
     console.log('Assessment:', {
       severityScore: assessment.severityScore,
       impactScore: assessment.impactScore,
@@ -411,7 +429,7 @@ describe('SECTION 1: Submission Pipeline - All Severity Levels', () => {
     expect(assessment.severityScore).toBe(50); // 2 * 25
     expect(assessment.validationPriority).toBe('medium');
     
-    const submission = await service.submit(MEDIUM_SEVERITY_SUBMISSION, RESEARCHER_2, 2n);
+    const submission = await service.submit(draft, RESEARCHER_2, 2n);
     console.log('Submitted:', submission.submissionId.slice(0, 16));
     
     service.completeValidation(
@@ -437,7 +455,9 @@ describe('SECTION 1: Submission Pipeline - All Severity Levels', () => {
   test('1.3 HIGH severity submission - requires CEO review', async () => {
     console.log('\n=== HIGH SEVERITY SUBMISSION ===');
     
-    const assessment = assessSubmission(HIGH_SEVERITY_SUBMISSION);
+    const draft = makeUnique(HIGH_SEVERITY_SUBMISSION);
+    
+    const assessment = assessSubmission(draft);
     console.log('Assessment:', {
       severityScore: assessment.severityScore,
       impactScore: assessment.impactScore,
@@ -446,7 +466,7 @@ describe('SECTION 1: Submission Pipeline - All Severity Levels', () => {
     expect(assessment.severityScore).toBe(75); // 3 * 25
     expect(assessment.validationPriority).toBe('high');
     
-    const submission = await service.submit(HIGH_SEVERITY_SUBMISSION, RESEARCHER_1, 1n);
+    const submission = await service.submit(draft, RESEARCHER_1, 1n);
     console.log('Submitted:', submission.submissionId.slice(0, 16));
     
     service.completeValidation(
@@ -482,7 +502,9 @@ describe('SECTION 1: Submission Pipeline - All Severity Levels', () => {
   test('1.4 CRITICAL severity submission - full pipeline with CEO', async () => {
     console.log('\n=== CRITICAL SEVERITY SUBMISSION ===');
     
-    const assessment = assessSubmission(CRITICAL_SEVERITY_SUBMISSION);
+    const draft = makeUnique(CRITICAL_SEVERITY_SUBMISSION);
+    
+    const assessment = assessSubmission(draft);
     console.log('Assessment:', {
       severityScore: assessment.severityScore,
       impactScore: assessment.impactScore,
@@ -493,7 +515,7 @@ describe('SECTION 1: Submission Pipeline - All Severity Levels', () => {
     expect(assessment.isImmediateThreat).toBe(true);
     expect(assessment.validationPriority).toBe('critical');
     
-    const submission = await service.submit(CRITICAL_SEVERITY_SUBMISSION, RESEARCHER_3, 3n);
+    const submission = await service.submit(draft, RESEARCHER_3, 3n);
     console.log('Submitted:', submission.submissionId.slice(0, 16));
     
     service.completeValidation(
@@ -550,7 +572,7 @@ describe('SECTION 2: Rejection Scenarios', () => {
     console.log('Assessment passed basic checks (field lengths OK)');
     
     // Submit the fake submission
-    const submission = await service.submit(FAKE_CRITICAL_SUBMISSION, SPAM_SUBMITTER, 1n);
+    const submission = await service.submit(makeUnique(FAKE_CRITICAL_SUBMISSION), SPAM_SUBMITTER, 1n);
     
     // Validation rejects it - this is where real review happens
     const validated = service.completeValidation(
@@ -571,7 +593,7 @@ describe('SECTION 2: Rejection Scenarios', () => {
   test('2.2 Out-of-scope submission rejected', async () => {
     console.log('\n=== OUT OF SCOPE REJECTION ===');
     
-    const submission = await service.submit(OUT_OF_SCOPE_SUBMISSION, RESEARCHER_1, 1n);
+    const submission = await service.submit(makeUnique(OUT_OF_SCOPE_SUBMISSION), RESEARCHER_1, 1n);
     
     const validated = service.completeValidation(
       submission.submissionId,
@@ -586,12 +608,12 @@ describe('SECTION 2: Rejection Scenarios', () => {
   test('2.3 Guardian rejection for insufficient evidence', async () => {
     console.log('\n=== GUARDIAN REJECTION ===');
     
-    const weakSubmission: BountySubmissionDraft = {
+    const weakSubmission: BountySubmissionDraft = makeUnique({
       ...MEDIUM_SEVERITY_SUBMISSION,
       title: 'Possible DoS maybe',
       description: 'I think there might be a DoS vulnerability but I could not reproduce it consistently. ' + 'x'.repeat(200),
       proofOfConcept: 'Sometimes it is slow',
-    };
+    });
     
     const submission = await service.submit(weakSubmission, RESEARCHER_2, 2n);
     
@@ -618,7 +640,7 @@ describe('SECTION 2: Rejection Scenarios', () => {
     console.log('\n=== CEO REJECTION ===');
     
     // Submit something that guardians approve but CEO disagrees
-    const borderlineSubmission: BountySubmissionDraft = {
+    const borderlineSubmission: BountySubmissionDraft = makeUnique({
       severity: BountySeverity.HIGH,
       vulnType: VulnerabilityType.INFORMATION_DISCLOSURE,
       title: 'Admin Panel Accessible Without Authentication',
@@ -627,7 +649,7 @@ describe('SECTION 2: Rejection Scenarios', () => {
       affectedComponents: ['Admin UI'],
       stepsToReproduce: ['Visit /admin', 'See UI but cannot do anything'],
       stake: '0.05',
-    };
+    });
     
     const submission = await service.submit(borderlineSubmission, RESEARCHER_1, 1n);
     
@@ -664,22 +686,22 @@ describe('SECTION 3: Sybil Attack Detection', () => {
   test('3.1 Same researcher submitting duplicates', async () => {
     console.log('\n=== DUPLICATE SUBMISSION DETECTION ===');
     
+    // Create a unique submission first
+    const uniqueHighSeverity = makeUnique(HIGH_SEVERITY_SUBMISSION);
+    
     // First submission
-    const original = await service.submit(HIGH_SEVERITY_SUBMISSION, RESEARCHER_1, 1n);
+    const original = await service.submit(uniqueHighSeverity, RESEARCHER_1, 1n);
     service.completeValidation(original.submissionId, ValidationResult.VERIFIED, 'Valid IDOR');
     
-    // Duplicate from same researcher
-    const duplicate = await service.submit(DUPLICATE_SUBMISSION, RESEARCHER_1, 1n);
-    
-    // Should be marked as duplicate
-    const validated = service.completeValidation(
-      duplicate.submissionId,
-      ValidationResult.INVALID,
-      'DUPLICATE: Same vulnerability previously reported in submission ' + original.submissionId.slice(0, 16)
-    );
-    
-    expect(validated.status).toBe(BountySubmissionStatus.REJECTED);
-    console.log('Duplicate rejected:', validated.validationNotes);
+    // Now try to submit the SAME thing again (exact duplicate)
+    try {
+      await service.submit(uniqueHighSeverity, RESEARCHER_1, 1n);
+      // Should not reach here
+      expect(true).toBe(false);
+    } catch (error) {
+      expect((error as Error).message).toContain('Duplicate');
+      console.log('Duplicate blocked:', (error as Error).message);
+    }
   });
 
   test('3.2 Sybil attack - same person multiple addresses', async () => {
@@ -694,13 +716,13 @@ describe('SECTION 3: Sybil Attack Detection', () => {
     
     const submissions: string[] = [];
     
-    // Each sybil address submits variation of same bug
+    // Each sybil address tries to submit unique variations of the same bug
+    // Since each is slightly different, they'll pass duplicate detection
     for (let i = 0; i < sybilAddresses.length; i++) {
-      const sybilSubmission: BountySubmissionDraft = {
+      const sybilSubmission = makeUnique({
         ...CRITICAL_SEVERITY_SUBMISSION,
-        title: `Flash Loan Vulnerability ${i + 1}`,
-        description: CRITICAL_SEVERITY_SUBMISSION.description + `\n\n[Variation ${i + 1}]`,
-      };
+        title: `Flash Loan Vulnerability Sybil ${i + 1}`,
+      });
       
       const sub = await service.submit(sybilSubmission, sybilAddresses[i], BigInt(i + 100));
       submissions.push(sub.submissionId);
@@ -709,7 +731,7 @@ describe('SECTION 3: Sybil Attack Detection', () => {
     // First one gets validated
     service.completeValidation(submissions[0], ValidationResult.VERIFIED, 'Valid flash loan attack');
     
-    // Others are duplicates
+    // Others are rejected during review as duplicates (caught by guardians)
     service.completeValidation(submissions[1], ValidationResult.INVALID, 'DUPLICATE of ' + submissions[0].slice(0, 12));
     service.completeValidation(submissions[2], ValidationResult.INVALID, 'DUPLICATE of ' + submissions[0].slice(0, 12));
     
@@ -729,20 +751,16 @@ describe('SECTION 3: Sybil Attack Detection', () => {
   test('3.3 Guardian collusion detection (same votes, same timing)', async () => {
     console.log('\n=== GUARDIAN COLLUSION DETECTION ===');
     
-    const submission = await service.submit(MEDIUM_SEVERITY_SUBMISSION, RESEARCHER_3, 3n);
+    const submission = await service.submit(makeUnique(MEDIUM_SEVERITY_SUBMISSION), RESEARCHER_3, 3n);
     service.completeValidation(submission.submissionId, ValidationResult.LIKELY_VALID, 'Valid');
     
     // Suspicious: All guardians vote exactly same amount at same time
     const suspiciousReward = parseEther('50'); // Inflated reward
     
     // Simulate collusion - guardians voting identical amounts
-    try {
-      service.guardianVote(submission.submissionId, COLLUDING_GUARDIAN_1, 100n, true, suspiciousReward, 'Approve');
-      service.guardianVote(submission.submissionId, COLLUDING_GUARDIAN_2, 101n, true, suspiciousReward, 'Approve');
-      service.guardianVote(submission.submissionId, GUARDIAN_3, 3n, true, suspiciousReward, 'Approve');
-    } catch (e) {
-      console.log('Collusion blocked:', e);
-    }
+    service.guardianVote(submission.submissionId, COLLUDING_GUARDIAN_1, 100n, true, suspiciousReward, 'Approve');
+    service.guardianVote(submission.submissionId, COLLUDING_GUARDIAN_2, 101n, true, suspiciousReward, 'Approve');
+    service.guardianVote(submission.submissionId, GUARDIAN_3, 3n, true, suspiciousReward, 'Approve');
     
     const afterVotes = service.get(submission.submissionId);
     console.log('Submission status:', BountySubmissionStatus[afterVotes!.status]);
@@ -760,10 +778,11 @@ describe('SECTION 4: Edge Cases', () => {
   test('4.1 Minimum stake submission', async () => {
     console.log('\n=== MINIMUM STAKE ===');
     
-    const minStakeSubmission: BountySubmissionDraft = {
+    const minStakeSubmission = makeUnique({
       ...LOW_SEVERITY_SUBMISSION,
+      title: 'Minimum Stake Test Submission',
       stake: '0.0001', // Very low stake
-    };
+    });
     
     const submission = await service.submit(minStakeSubmission, RESEARCHER_1, 1n);
     console.log('Submitted with stake:', formatEther(submission.stake), 'ETH');
@@ -779,10 +798,11 @@ describe('SECTION 4: Edge Cases', () => {
   test('4.2 Maximum stake submission gets priority', async () => {
     console.log('\n=== HIGH STAKE PRIORITY ===');
     
-    const highStakeSubmission: BountySubmissionDraft = {
+    const highStakeSubmission = makeUnique({
       ...CRITICAL_SEVERITY_SUBMISSION,
+      title: 'High Stake Priority Test Submission',
       stake: '10', // 10 ETH stake
-    };
+    });
     
     const submission = await service.submit(highStakeSubmission, RESEARCHER_3, 3n);
     console.log('Submitted with stake:', formatEther(submission.stake), 'ETH');
@@ -799,7 +819,10 @@ describe('SECTION 4: Edge Cases', () => {
   test('4.3 Guardian tries to vote twice', async () => {
     console.log('\n=== DOUBLE VOTE PREVENTION ===');
     
-    const submission = await service.submit(MEDIUM_SEVERITY_SUBMISSION, RESEARCHER_2, 2n);
+    const submission = await service.submit(makeUnique({
+      ...MEDIUM_SEVERITY_SUBMISSION,
+      title: 'Double Vote Test Submission',
+    }), RESEARCHER_2, 2n);
     service.completeValidation(submission.submissionId, ValidationResult.LIKELY_VALID, 'Valid');
     
     // First vote
@@ -828,7 +851,10 @@ describe('SECTION 4: Edge Cases', () => {
   test('4.5 CEO decision on non-CEO-review submission', async () => {
     console.log('\n=== PREMATURE CEO DECISION ===');
     
-    const submission = await service.submit(LOW_SEVERITY_SUBMISSION, RESEARCHER_1, 1n);
+    const submission = await service.submit(makeUnique({
+      ...LOW_SEVERITY_SUBMISSION,
+      title: 'Premature CEO Decision Test',
+    }), RESEARCHER_1, 1n);
     service.completeValidation(submission.submissionId, ValidationResult.LIKELY_VALID, 'Valid');
     
     // Try CEO decision before guardian review complete
@@ -842,7 +868,7 @@ describe('SECTION 4: Edge Cases', () => {
   test('4.6 Payout on rejected submission', async () => {
     console.log('\n=== PAYOUT ON REJECTED ===');
     
-    const submission = await service.submit(SPAM_SUBMISSION, SPAM_SUBMITTER, 1n);
+    const submission = await service.submit(makeUnique(SPAM_SUBMISSION), SPAM_SUBMITTER, 1n);
     service.completeValidation(submission.submissionId, ValidationResult.INVALID, 'Spam');
     
     expect(async () => {

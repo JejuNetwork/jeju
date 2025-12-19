@@ -639,6 +639,139 @@ export function createCIRouter(ctx: CIContext): Hono {
     return c.json({ success: true, message: 'Scheduler stopped' });
   });
 
+  // ============================================================================
+  // Simple Triggers API (standalone cron/webhook triggers)
+  // ============================================================================
+  
+  interface SimpleTrigger {
+    id: string;
+    name: string;
+    type: 'cron' | 'webhook' | 'event';
+    schedule?: string;
+    target: string;
+    enabled: boolean;
+    owner: Address;
+    createdAt: number;
+    lastRun?: number;
+    lastStatus?: 'success' | 'failure';
+  }
+  
+  const simpleTriggers = new Map<string, SimpleTrigger>();
+  
+  router.get('/triggers', (c) => {
+    const owner = c.req.header('x-jeju-address') as Address | undefined;
+    let triggers = Array.from(simpleTriggers.values());
+    
+    if (owner) {
+      triggers = triggers.filter(t => t.owner === owner);
+    }
+    
+    return c.json({ triggers });
+  });
+  
+  router.get('/triggers/:id', (c) => {
+    const trigger = simpleTriggers.get(c.req.param('id'));
+    if (!trigger) {
+      return c.json({ error: 'Trigger not found' }, 404);
+    }
+    return c.json({ trigger });
+  });
+  
+  router.post('/triggers', async (c) => {
+    const owner = c.req.header('x-jeju-address') as Address;
+    if (!owner) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    
+    const body = await c.req.json<{
+      name: string;
+      type: 'cron' | 'webhook' | 'event';
+      schedule?: string;
+      target: string;
+      enabled?: boolean;
+    }>();
+    
+    if (!body.name || !body.type || !body.target) {
+      return c.json({ error: 'name, type, and target are required' }, 400);
+    }
+    
+    const trigger: SimpleTrigger = {
+      id: crypto.randomUUID(),
+      name: body.name,
+      type: body.type,
+      schedule: body.schedule,
+      target: body.target,
+      enabled: body.enabled ?? true,
+      owner,
+      createdAt: Date.now(),
+    };
+    
+    simpleTriggers.set(trigger.id, trigger);
+    
+    return c.json({ trigger }, 201);
+  });
+  
+  router.put('/triggers/:id', async (c) => {
+    const id = c.req.param('id');
+    const owner = c.req.header('x-jeju-address') as Address;
+    if (!owner) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    
+    const trigger = simpleTriggers.get(id);
+    if (!trigger) {
+      return c.json({ error: 'Trigger not found' }, 404);
+    }
+    
+    if (trigger.owner !== owner) {
+      return c.json({ error: 'Not authorized' }, 403);
+    }
+    
+    const body = await c.req.json<Partial<SimpleTrigger>>();
+    const updated = { ...trigger, ...body, id, owner };
+    simpleTriggers.set(id, updated);
+    
+    return c.json({ trigger: updated });
+  });
+  
+  router.delete('/triggers/:id', (c) => {
+    const id = c.req.param('id');
+    const owner = c.req.header('x-jeju-address') as Address;
+    if (!owner) return c.json({ error: 'Missing x-jeju-address header' }, 401);
+    
+    const trigger = simpleTriggers.get(id);
+    if (!trigger) {
+      return c.json({ error: 'Trigger not found' }, 404);
+    }
+    
+    if (trigger.owner !== owner) {
+      return c.json({ error: 'Not authorized' }, 403);
+    }
+    
+    simpleTriggers.delete(id);
+    return c.json({ success: true });
+  });
+  
+  router.post('/triggers/:id/run', async (c) => {
+    const trigger = simpleTriggers.get(c.req.param('id'));
+    if (!trigger) {
+      return c.json({ error: 'Trigger not found' }, 404);
+    }
+    
+    // Execute the trigger
+    const response = await fetch(trigger.target, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ triggerId: trigger.id, timestamp: Date.now() }),
+    }).catch((err: Error) => ({ error: err.message }));
+    
+    trigger.lastRun = Date.now();
+    
+    if ('error' in response) {
+      trigger.lastStatus = 'failure';
+      return c.json({ success: false, error: response.error });
+    }
+    
+    trigger.lastStatus = response.ok ? 'success' : 'failure';
+    return c.json({ success: response.ok, status: response.status });
+  });
+
   router.get('/badge/:repoId/:workflowId', async (c) => {
     const workflowId = c.req.param('workflowId') as Hex;
     const branch = c.req.query('branch');

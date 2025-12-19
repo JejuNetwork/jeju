@@ -1,0 +1,207 @@
+{{- if .Values.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "otto.fullname" . }}
+  labels:
+    {{- include "otto.labels" . | nindent 4 }}
+spec:
+  {{- if not .Values.autoscaling.enabled }}
+  replicas: {{ .Values.replicaCount }}
+  {{- end }}
+  selector:
+    matchLabels:
+      {{- include "otto.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      {{- with .Values.podAnnotations }}
+      annotations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      labels:
+        {{- include "otto.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      serviceAccountName: {{ include "otto.serviceAccountName" . }}
+      securityContext:
+        {{- toYaml .Values.podSecurityContext | nindent 8 }}
+      containers:
+        - name: {{ .Chart.Name }}
+          securityContext:
+            {{- toYaml .Values.securityContext | nindent 12 }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.service.targetPort }}
+              protocol: TCP
+            - name: webhooks
+              containerPort: {{ .Values.service.webhookPort }}
+              protocol: TCP
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.healthCheck.livenessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.healthCheck.livenessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.livenessProbe.periodSeconds }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.healthCheck.readinessProbe.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.healthCheck.readinessProbe.initialDelaySeconds }}
+            periodSeconds: {{ .Values.healthCheck.readinessProbe.periodSeconds }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          env:
+            - name: OTTO_PORT
+              value: "{{ .Values.service.targetPort }}"
+            - name: OTTO_WEBHOOK_PORT
+              value: "{{ .Values.service.webhookPort }}"
+            - name: OTTO_BASE_URL
+              value: "https://{{ (index .Values.ingress.hosts 0).host }}"
+            - name: DWS_COMPUTE_URL
+              value: "{{ .Values.dws.computeUrl }}"
+            - name: DWS_STORAGE_URL
+              value: "{{ .Values.dws.storageUrl }}"
+            - name: GATEWAY_API
+              value: "{{ .Values.services.gateway }}"
+            - name: BAZAAR_API
+              value: "{{ .Values.services.bazaar }}"
+            - name: INDEXER_API
+              value: "{{ .Values.services.indexer }}"
+            - name: OAUTH3_URL
+              value: "{{ .Values.services.oauth3 }}"
+            - name: AI_MODEL
+              value: "{{ .Values.ai.model }}"
+            - name: AI_TEMPERATURE
+              value: "{{ .Values.ai.temperature }}"
+            - name: AI_MAX_TOKENS
+              value: "{{ .Values.ai.maxTokens }}"
+            - name: LOG_LEVEL
+              value: "{{ .Values.config.logLevel }}"
+            - name: LOG_FORMAT
+              value: "{{ .Values.config.logFormat }}"
+            # Platform secrets
+            {{- if .Values.platforms.discord.enabled }}
+            - name: DISCORD_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: discord-bot-token
+            - name: DISCORD_APPLICATION_ID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: discord-application-id
+            - name: DISCORD_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: discord-public-key
+            {{- end }}
+            {{- if .Values.platforms.telegram.enabled }}
+            - name: TELEGRAM_BOT_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: telegram-bot-token
+            - name: TELEGRAM_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: telegram-webhook-secret
+            {{- end }}
+            {{- if .Values.platforms.farcaster.enabled }}
+            - name: NEYNAR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: neynar-api-key
+            - name: FARCASTER_BOT_FID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: farcaster-bot-fid
+            - name: FARCASTER_SIGNER_UUID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: farcaster-signer-uuid
+            {{- end }}
+            {{- if .Values.platforms.twitter.enabled }}
+            - name: TWITTER_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: twitter-api-key
+            - name: TWITTER_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: twitter-api-secret
+            - name: TWITTER_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: twitter-access-token
+            - name: TWITTER_ACCESS_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: twitter-access-secret
+            - name: TWITTER_BEARER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: twitter-bearer-token
+            - name: TWITTER_BOT_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: twitter-bot-username
+            {{- end }}
+            {{- if .Values.platforms.whatsapp.enabled }}
+            - name: TWILIO_ACCOUNT_SID
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: twilio-account-sid
+            - name: TWILIO_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: twilio-auth-token
+            - name: TWILIO_WHATSAPP_NUMBER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "otto.fullname" . }}-secrets
+                  key: twilio-whatsapp-number
+            {{- end }}
+          {{- if .Values.persistence.enabled }}
+          volumeMounts:
+            - name: data
+              mountPath: /app/data
+          {{- end }}
+      {{- if .Values.persistence.enabled }}
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: {{ include "otto.fullname" . }}-data
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
+

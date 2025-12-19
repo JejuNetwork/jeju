@@ -18,9 +18,9 @@ import { createInterface } from 'readline';
 import chalk from 'chalk';
 import { createNodeClient } from '../lib/contracts';
 import { createNodeServices } from '../lib/services';
-import { detectHardware, getComputeCapabilities, meetsRequirements, NON_TEE_WARNING } from '../lib/hardware';
-import type { HardwareInfo, ServiceRequirements } from '../lib/hardware';
-import { formatEther, parseEther } from 'viem';
+import { detectHardware, meetsRequirements } from '../lib/hardware';
+import type { ServiceRequirements } from '../lib/hardware';
+import { formatEther } from 'viem';
 
 // ============================================================================
 // Types

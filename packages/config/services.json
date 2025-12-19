@@ -56,6 +56,10 @@
     "autocrat": {
       "api": "http://127.0.0.1:4040",
       "a2a": "http://127.0.0.1:4040/a2a"
+    },
+    "kms": {
+      "api": "http://127.0.0.1:4050",
+      "mpc": "http://127.0.0.1:4050/mpc"
     }
   },
   
@@ -112,6 +116,10 @@
     "autocrat": {
       "api": "https://testnet-autocrat.jejunetwork.org",
       "a2a": "https://testnet-autocrat.jejunetwork.org/a2a"
+    },
+    "kms": {
+      "api": "https://testnet-kms.jejunetwork.org",
+      "mpc": "https://testnet-kms.jejunetwork.org/mpc"
     },
     "externalRpcs": {
       "ethSepolia": "https://ethereum-sepolia-rpc.publicnode.com",
@@ -175,6 +183,10 @@
     "autocrat": {
       "api": "https://autocrat.jejunetwork.org",
       "a2a": "https://autocrat.jejunetwork.org/a2a"
+    },
+    "kms": {
+      "api": "https://kms.jejunetwork.org",
+      "mpc": "https://kms.jejunetwork.org/mpc"
     },
     "externalRpcs": {
       "ethereum": "https://eth.llamarpc.com",

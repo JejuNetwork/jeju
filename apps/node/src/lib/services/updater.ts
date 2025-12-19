@@ -355,8 +355,8 @@ export class NodeUpdateService {
 
   private async saveUpdate(data: Uint8Array): Promise<void> {
     if ('__TAURI__' in globalThis) {
-      const { writeBinaryFile, BaseDirectory } = await import('@tauri-apps/api/fs');
-      await writeBinaryFile('pending_update', data, { dir: BaseDirectory.AppData });
+      const { writeFile, BaseDirectory } = await import('@tauri-apps/plugin-fs');
+      await writeFile('pending_update', data, { baseDir: BaseDirectory.AppData });
     }
   }
 
@@ -372,7 +372,7 @@ export class NodeUpdateService {
 
     try {
       if ('__TAURI__' in globalThis) {
-        const { invoke } = await import('@tauri-apps/api/tauri');
+        const { invoke } = await import('@tauri-apps/api/core');
         
         // Run migrations if any
         if (this.state.updateInfo?.migrations?.length) {

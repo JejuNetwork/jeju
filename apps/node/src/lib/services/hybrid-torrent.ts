@@ -661,7 +661,7 @@ export class HybridTorrentService {
   // Content Verification
   // ============================================================================
 
-  private async verifyTorrentContent(torrent: Torrent, expectedHash: string): Promise<boolean> {
+  private async verifyTorrentContent(torrent: WebTorrentTorrent, expectedHash: string): Promise<boolean> {
     const file = torrent.files[0];
     if (!file) return false;
 

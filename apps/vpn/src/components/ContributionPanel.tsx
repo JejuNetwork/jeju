@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { invoke } from '@tauri-apps/api/tauri';
+import { invoke } from '../api';
 import { Activity, HardDrive, Users, Coins, ArrowUpDown, Gauge, Database, Zap, ToggleLeft, ToggleRight } from 'lucide-react';
 
 interface ContributionStatus {

@@ -1,104 +1,39 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { 
   Brain, 
   Search, 
-  Filter,
   Download,
   Star,
   Play,
   Plus,
   GitFork,
-  Tag,
   Clock,
   CheckCircle,
   Shield,
   Zap,
-  BarChart3
+  BarChart3,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
+import { useModels, ModelType, getModelTypeLabel } from '@/lib/hooks/useModels';
 
-type ModelType = 'all' | 'llm' | 'vision' | 'audio' | 'embedding' | 'multimodal';
+type FilterType = 'all' | 'llm' | 'vision' | 'audio' | 'embedding' | 'multimodal';
 
-const mockModels = [
-  {
-    id: '0x1234',
-    name: 'llama-3-jeju-ft',
-    organization: 'jeju',
-    description: 'LLaMA 3 8B fine-tuned on Jeju documentation and smart contract code. Optimized for developer assistance and code generation.',
-    type: 'llm',
-    downloads: 12500,
-    stars: 342,
-    forks: 45,
-    lastUpdated: Date.now() - 2 * 24 * 60 * 60 * 1000,
-    parameters: '8B',
-    license: 'LLAMA2',
-    isVerified: true,
-    tags: ['llm', 'code', 'jeju', 'fine-tuned'],
-    hasInference: true,
-  },
-  {
-    id: '0x5678',
-    name: 'whisper-jeju',
-    organization: 'audio-lab',
-    description: 'Whisper large-v3 fine-tuned for transcribing developer discussions, technical meetings, and code reviews.',
-    type: 'audio',
-    downloads: 5600,
-    stars: 156,
-    forks: 23,
-    lastUpdated: Date.now() - 5 * 24 * 60 * 60 * 1000,
-    parameters: '1.55B',
-    license: 'MIT',
-    isVerified: true,
-    tags: ['audio', 'transcription', 'whisper'],
-    hasInference: true,
-  },
-  {
-    id: '0x9abc',
-    name: 'contract-embeddings',
-    organization: 'security-ai',
-    description: 'Embedding model trained on smart contract code for semantic search, similarity detection, and vulnerability pattern matching.',
-    type: 'embedding',
-    downloads: 8900,
-    stars: 234,
-    forks: 67,
-    lastUpdated: Date.now() - 1 * 24 * 60 * 60 * 1000,
-    parameters: '350M',
-    license: 'APACHE2',
-    isVerified: false,
-    tags: ['embedding', 'security', 'solidity', 'search'],
-    hasInference: false,
-  },
-  {
-    id: '0xdef0',
-    name: 'multimodal-auditor',
-    organization: 'jeju',
-    description: 'Multimodal model that analyzes smart contracts through both code and visual architecture diagrams for comprehensive auditing.',
-    type: 'multimodal',
-    downloads: 3400,
-    stars: 189,
-    forks: 12,
-    lastUpdated: Date.now() - 7 * 24 * 60 * 60 * 1000,
-    parameters: '7B',
-    license: 'CC-BY-NC-4',
-    isVerified: true,
-    tags: ['multimodal', 'audit', 'security', 'vision'],
-    hasInference: true,
-  },
-];
-
-const typeColors = {
+const typeColors: Record<string, string> = {
   llm: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
   vision: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
   audio: 'bg-green-500/20 text-green-400 border-green-500/30',
   embedding: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
   multimodal: 'bg-pink-500/20 text-pink-400 border-pink-500/30',
+  classifier: 'bg-cyan-500/20 text-cyan-400 border-cyan-500/30',
+  other: 'bg-gray-500/20 text-gray-400 border-gray-500/30',
 };
 
-const typeLabels = {
+const typeLabels: Record<string, string> = {
   llm: 'LLM',
   vision: 'Vision',
   audio: 'Audio',
@@ -106,21 +41,48 @@ const typeLabels = {
   multimodal: 'Multimodal',
 };
 
+function getModelTypeKey(modelType: ModelType): string {
+  const mapping: Record<ModelType, string> = {
+    [ModelType.LLM]: 'llm',
+    [ModelType.VISION]: 'vision',
+    [ModelType.AUDIO]: 'audio',
+    [ModelType.MULTIMODAL]: 'multimodal',
+    [ModelType.EMBEDDING]: 'embedding',
+    [ModelType.CLASSIFIER]: 'classifier',
+    [ModelType.REGRESSION]: 'regression',
+    [ModelType.RL]: 'rl',
+    [ModelType.OTHER]: 'other',
+  };
+  return mapping[modelType] || 'other';
+}
+
 export default function ModelsPage() {
   const { isConnected } = useAccount();
-  const [filter, setFilter] = useState<ModelType>('all');
+  const [filter, setFilter] = useState<FilterType>('all');
   const [search, setSearch] = useState('');
   const [sortBy, setSortBy] = useState<'downloads' | 'stars' | 'updated'>('downloads');
+  
+  const { models, isLoading, error, refresh } = useModels({
+    type: filter === 'all' ? undefined : filter,
+    search: search || undefined,
+  });
 
-  const filteredModels = mockModels.filter(model => {
-    if (filter !== 'all' && model.type !== filter) return false;
-    if (search && !model.name.toLowerCase().includes(search.toLowerCase()) && 
-        !model.description.toLowerCase().includes(search.toLowerCase())) return false;
-    return true;
-  }).sort((a, b) => {
-    if (sortBy === 'downloads') return b.downloads - a.downloads;
-    if (sortBy === 'stars') return b.stars - a.stars;
-    return b.lastUpdated - a.lastUpdated;
+  // Calculate stats from actual data
+  const stats = {
+    totalModels: models.length,
+    totalDownloads: models.reduce((sum, m) => sum + (m.metrics?.downloads || 0), 0),
+    totalInference: models.filter(m => m.metrics?.inferences && m.metrics.inferences > 0).length,
+    verifiedModels: models.filter(m => m.isVerified).length,
+  };
+
+  // Sort models
+  const sortedModels = [...models].sort((a, b) => {
+    const metricsA = a.metrics || { downloads: 0, stars: 0, inferences: 0 };
+    const metricsB = b.metrics || { downloads: 0, stars: 0, inferences: 0 };
+    
+    if (sortBy === 'downloads') return metricsB.downloads - metricsA.downloads;
+    if (sortBy === 'stars') return metricsB.stars - metricsA.stars;
+    return b.updatedAt - a.updatedAt;
   });
 
   const formatNumber = (num: number) => {
@@ -180,7 +142,7 @@ export default function ModelsPage() {
                     : 'bg-factory-800 text-factory-400 hover:text-factory-100'
                 )}
               >
-                {type === 'all' ? 'All Models' : typeLabels[type]}
+                {type === 'all' ? 'All Models' : typeLabels[type] || type}
               </button>
             ))}
           </div>
@@ -200,10 +162,10 @@ export default function ModelsPage() {
       {/* Stats */}
       <div className="grid grid-cols-4 gap-4 mb-8">
         {[
-          { label: 'Total Models', value: '892', icon: Brain, color: 'text-amber-400' },
-          { label: 'Total Downloads', value: '1.2M', icon: Download, color: 'text-green-400' },
-          { label: 'Inference Endpoints', value: '234', icon: Zap, color: 'text-blue-400' },
-          { label: 'Verified Models', value: '156', icon: Shield, color: 'text-purple-400' },
+          { label: 'Total Models', value: formatNumber(stats.totalModels), icon: Brain, color: 'text-amber-400' },
+          { label: 'Total Downloads', value: formatNumber(stats.totalDownloads), icon: Download, color: 'text-green-400' },
+          { label: 'Inference Endpoints', value: formatNumber(stats.totalInference), icon: Zap, color: 'text-blue-400' },
+          { label: 'Verified Models', value: formatNumber(stats.verifiedModels), icon: Shield, color: 'text-purple-400' },
         ].map((stat) => (
           <div key={stat.label} className="card p-4">
             <div className="flex items-center gap-3">
@@ -217,82 +179,101 @@ export default function ModelsPage() {
         ))}
       </div>
 
+      {/* Loading State */}
+      {isLoading && (
+        <div className="card p-12 text-center">
+          <Loader2 className="w-12 h-12 mx-auto mb-4 text-factory-600 animate-spin" />
+          <h3 className="text-lg font-medium text-factory-300 mb-2">Loading models...</h3>
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && !isLoading && (
+        <div className="card p-12 text-center">
+          <Brain className="w-12 h-12 mx-auto mb-4 text-red-500" />
+          <h3 className="text-lg font-medium text-factory-300 mb-2">Error loading models</h3>
+          <p className="text-factory-500 mb-4">{error.message}</p>
+          <button onClick={refresh} className="btn btn-primary">
+            Try Again
+          </button>
+        </div>
+      )}
+
       {/* Model Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {filteredModels.map((model) => (
-          <Link 
-            key={model.id}
-            href={`/models/${model.organization}/${model.name}`}
-            className="card p-6 card-hover"
-          >
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-factory-400 text-sm">{model.organization}/</span>
-                  <span className="font-semibold text-factory-100">{model.name}</span>
-                  {model.isVerified && (
-                    <CheckCircle className="w-4 h-4 text-green-400" />
+      {!isLoading && !error && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {sortedModels.map((model) => {
+            const typeKey = getModelTypeKey(model.modelType);
+            const metrics = model.metrics || { downloads: 0, stars: 0, inferences: 0 };
+            
+            return (
+              <Link 
+                key={model.modelId}
+                href={`/models/${model.organization}/${model.name}`}
+                className="card p-6 card-hover"
+              >
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-factory-400 text-sm">{model.organization}/</span>
+                      <span className="font-semibold text-factory-100">{model.name}</span>
+                      {model.isVerified && (
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                      )}
+                    </div>
+                    <span className={clsx(
+                      'badge border',
+                      typeColors[typeKey] || typeColors.other
+                    )}>
+                      {getModelTypeLabel(model.modelType)}
+                    </span>
+                  </div>
+                  {metrics.inferences > 0 && (
+                    <button className="btn btn-secondary text-sm py-1.5">
+                      <Play className="w-3 h-3" />
+                      Try it
+                    </button>
                   )}
                 </div>
-                <span className={clsx(
-                  'badge border',
-                  typeColors[model.type as keyof typeof typeColors]
-                )}>
-                  {typeLabels[model.type as keyof typeof typeLabels]}
-                </span>
-              </div>
-              {model.hasInference && (
-                <button className="btn btn-secondary text-sm py-1.5">
-                  <Play className="w-3 h-3" />
-                  Try it
-                </button>
-              )}
-            </div>
 
-            <p className="text-factory-400 text-sm mb-4 line-clamp-2">
-              {model.description}
-            </p>
+                <p className="text-factory-400 text-sm mb-4 line-clamp-2">
+                  {model.description}
+                </p>
 
-            <div className="flex flex-wrap gap-2 mb-4">
-              {model.tags.slice(0, 4).map((tag) => (
-                <span key={tag} className="badge badge-info">
-                  {tag}
-                </span>
-              ))}
-            </div>
+                <div className="flex flex-wrap gap-2 mb-4">
+                  {model.tags.slice(0, 4).map((tag) => (
+                    <span key={tag} className="badge badge-info">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
 
-            <div className="flex items-center justify-between text-sm border-t border-factory-800 pt-4">
-              <div className="flex items-center gap-4 text-factory-500">
-                <span className="flex items-center gap-1">
-                  <Download className="w-4 h-4" />
-                  {formatNumber(model.downloads)}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Star className="w-4 h-4" />
-                  {formatNumber(model.stars)}
-                </span>
-                <span className="flex items-center gap-1">
-                  <GitFork className="w-4 h-4" />
-                  {model.forks}
-                </span>
-              </div>
-              <div className="flex items-center gap-3 text-factory-500">
-                <span className="flex items-center gap-1">
-                  <BarChart3 className="w-4 h-4" />
-                  {model.parameters}
-                </span>
-                <span className="flex items-center gap-1">
-                  <Clock className="w-4 h-4" />
-                  {formatDate(model.lastUpdated)}
-                </span>
-              </div>
-            </div>
-          </Link>
-        ))}
-      </div>
+                <div className="flex items-center justify-between text-sm border-t border-factory-800 pt-4">
+                  <div className="flex items-center gap-4 text-factory-500">
+                    <span className="flex items-center gap-1">
+                      <Download className="w-4 h-4" />
+                      {formatNumber(metrics.downloads)}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Star className="w-4 h-4" />
+                      {formatNumber(metrics.stars)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-factory-500">
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-4 h-4" />
+                      {formatDate(model.updatedAt)}
+                    </span>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      )}
 
       {/* Empty State */}
-      {filteredModels.length === 0 && (
+      {!isLoading && !error && sortedModels.length === 0 && (
         <div className="card p-12 text-center">
           <Brain className="w-12 h-12 mx-auto mb-4 text-factory-600" />
           <h3 className="text-lg font-medium text-factory-300 mb-2">No models found</h3>
@@ -305,4 +286,3 @@ export default function ModelsPage() {
     </div>
   );
 }
-

@@ -5,14 +5,15 @@ test.describe('DWS Console Responsive Design', () => {
     await page.setViewportSize({ width: 375, height: 667 });
     await page.goto('/');
     
-    await expect(page.locator('h1')).toBeVisible();
+    // Check for welcome screen h3 when not connected
+    await expect(page.locator('h3:has-text("Welcome to DWS Console")')).toBeVisible();
   });
 
   test('should display tablet layout on medium screens', async ({ page }) => {
     await page.setViewportSize({ width: 768, height: 1024 });
     await page.goto('/');
     
-    await expect(page.locator('h1')).toBeVisible();
+    await expect(page.locator('h3:has-text("Welcome to DWS Console")')).toBeVisible();
   });
 
   test('should display desktop layout on large screens', async ({ page }) => {
@@ -20,7 +21,7 @@ test.describe('DWS Console Responsive Design', () => {
     await page.goto('/');
     
     await expect(page.locator('.sidebar')).toBeVisible();
-    await expect(page.locator('h1')).toBeVisible();
+    await expect(page.locator('h3:has-text("Welcome to DWS Console")')).toBeVisible();
   });
 
   test('should collapse sidebar on mobile', async ({ page }) => {
@@ -41,6 +42,18 @@ test.describe('DWS Console Responsive Design', () => {
     
     await expect(page.locator('h1')).toContainText('Containers');
   });
+
+  test('should show page on iPad viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 1024, height: 1366 });
+    await page.goto('/');
+    await expect(page.locator('h3:has-text("Welcome to DWS Console")')).toBeVisible();
+  });
+
+  test('should show page on iPhone viewport', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto('/');
+    await expect(page.locator('h3:has-text("Welcome to DWS Console")')).toBeVisible();
+  });
 });
 
 const desktopTest = test.extend({
@@ -56,32 +69,4 @@ desktopTest('desktop chrome - should have full sidebar visible', async ({ page }
   await page.goto('/');
   await expect(page.locator('.sidebar')).toBeVisible();
   await expect(page.locator('.nav-item:has-text("Dashboard")')).toBeVisible();
-});
-
-const iPadTest = test.extend({
-  page: async ({ browser }, use) => {
-    const context = await browser.newContext({ ...devices['iPad Pro'] });
-    const page = await context.newPage();
-    await use(page);
-    await context.close();
-  },
-});
-
-iPadTest('ipad pro - should work on iPad', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.locator('h1')).toBeVisible();
-});
-
-const iPhoneTest = test.extend({
-  page: async ({ browser }, use) => {
-    const context = await browser.newContext({ ...devices['iPhone 12'] });
-    const page = await context.newPage();
-    await use(page);
-    await context.close();
-  },
-});
-
-iPhoneTest('iphone 12 - should work on iPhone', async ({ page }) => {
-  await page.goto('/');
-  await expect(page.locator('h1')).toBeVisible();
 });

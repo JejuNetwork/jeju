@@ -6,6 +6,7 @@
  */
 
 import type { Address, Hex } from "viem";
+import { encodeFunctionData } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "./wallet";
 import { getContractAddresses } from "./config";
@@ -271,7 +272,7 @@ export function createVPNModule(wallet: JejuWallet, network: NetworkType): VPNMo
 
       const txHash = await wallet.sendTransaction({
         to: vpnRegistryAddress,
-        data: wallet.encodeContractCall({
+        data: encodeFunctionData({
           abi: VPN_REGISTRY_ABI,
           functionName: "registerNode",
           args: [countryBytes, params.endpoint, wireguardKey],
@@ -285,7 +286,7 @@ export function createVPNModule(wallet: JejuWallet, network: NetworkType): VPNMo
     async updateNode(endpoint: string): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
         to: vpnRegistryAddress,
-        data: wallet.encodeContractCall({
+        data: encodeFunctionData({
           abi: VPN_REGISTRY_ABI,
           functionName: "updateEndpoint",
           args: [endpoint],
@@ -298,7 +299,7 @@ export function createVPNModule(wallet: JejuWallet, network: NetworkType): VPNMo
     async deactivateNode(): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
         to: vpnRegistryAddress,
-        data: wallet.encodeContractCall({
+        data: encodeFunctionData({
           abi: VPN_REGISTRY_ABI,
           functionName: "deactivate",
           args: [],
@@ -311,7 +312,7 @@ export function createVPNModule(wallet: JejuWallet, network: NetworkType): VPNMo
     async withdrawStake(): Promise<{ txHash: Hex }> {
       const txHash = await wallet.sendTransaction({
         to: vpnRegistryAddress,
-        data: wallet.encodeContractCall({
+        data: encodeFunctionData({
           abi: VPN_REGISTRY_ABI,
           functionName: "withdraw",
           args: [],

@@ -5,39 +5,37 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
 import {
-  Play,
   CheckCircle,
   XCircle,
   Clock,
   Loader2,
   GitBranch,
   GitCommit,
-  RefreshCw,
-  Filter,
   ChevronRight,
   Package,
   Zap,
-  Server,
   Search,
   Settings,
-  ExternalLink,
   StopCircle,
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
+
+const DWS_API_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:4030';
 
 interface Build {
   runId: string;
   runNumber: number;
   workflowId: string;
-  workflowName: string;
+  workflowName?: string;
   repoId: string;
-  repoName: string;
+  repoName?: string;
   status: 'queued' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
   conclusion?: 'success' | 'failure' | 'cancelled' | 'skipped';
+  triggerType: string;
   branch: string;
   commitSha: string;
   commitMessage?: string;
@@ -51,106 +49,6 @@ interface Build {
   failedCount: number;
 }
 
-const mockBuilds: Build[] = [
-  {
-    runId: '0x1234',
-    runNumber: 156,
-    workflowId: '0xabc',
-    workflowName: 'Deploy',
-    repoId: '0x5678',
-    repoName: 'jeju-labs/factory',
-    status: 'in_progress',
-    branch: 'main',
-    commitSha: 'a1b2c3d',
-    commitMessage: 'feat: add CI/CD dashboard',
-    triggeredBy: 'alice.eth',
-    startedAt: Date.now() - 2 * 60 * 1000,
-    environment: 'production',
-    jobCount: 3,
-    successCount: 1,
-    failedCount: 0,
-  },
-  {
-    runId: '0x2345',
-    runNumber: 155,
-    workflowId: '0xabc',
-    workflowName: 'Deploy',
-    repoId: '0x5678',
-    repoName: 'jeju-labs/factory',
-    status: 'completed',
-    conclusion: 'success',
-    branch: 'main',
-    commitSha: 'e4f5g6h',
-    commitMessage: 'fix: resolve caching issue',
-    triggeredBy: 'bob.eth',
-    startedAt: Date.now() - 30 * 60 * 1000,
-    completedAt: Date.now() - 28 * 60 * 1000,
-    duration: 2 * 60 * 1000,
-    environment: 'production',
-    jobCount: 3,
-    successCount: 3,
-    failedCount: 0,
-  },
-  {
-    runId: '0x3456',
-    runNumber: 154,
-    workflowId: '0xdef',
-    workflowName: 'Test',
-    repoId: '0x5678',
-    repoName: 'jeju-labs/factory',
-    status: 'completed',
-    conclusion: 'failure',
-    branch: 'feature/auth',
-    commitSha: 'i7j8k9l',
-    commitMessage: 'wip: authentication flow',
-    triggeredBy: 'carol.eth',
-    startedAt: Date.now() - 45 * 60 * 1000,
-    completedAt: Date.now() - 40 * 60 * 1000,
-    duration: 5 * 60 * 1000,
-    jobCount: 4,
-    successCount: 2,
-    failedCount: 2,
-  },
-  {
-    runId: '0x4567',
-    runNumber: 153,
-    workflowId: '0xabc',
-    workflowName: 'Deploy',
-    repoId: '0x9abc',
-    repoName: 'jeju-labs/contracts',
-    status: 'completed',
-    conclusion: 'success',
-    branch: 'main',
-    commitSha: 'm0n1o2p',
-    commitMessage: 'chore: update dependencies',
-    triggeredBy: 'alice.eth',
-    startedAt: Date.now() - 2 * 60 * 60 * 1000,
-    completedAt: Date.now() - 2 * 60 * 60 * 1000 + 90 * 1000,
-    duration: 90 * 1000,
-    environment: 'production',
-    jobCount: 2,
-    successCount: 2,
-    failedCount: 0,
-  },
-  {
-    runId: '0x5678',
-    runNumber: 152,
-    workflowId: '0xghi',
-    workflowName: 'Security Scan',
-    repoId: '0x5678',
-    repoName: 'jeju-labs/factory',
-    status: 'queued',
-    branch: 'main',
-    commitSha: 'q3r4s5t',
-    commitMessage: 'security: update audit',
-    triggeredBy: 'dave.eth',
-    startedAt: Date.now() - 10 * 1000,
-    jobCount: 1,
-    successCount: 0,
-    failedCount: 0,
-  },
-];
-
 const statusConfig = {
   queued: { icon: Clock, color: 'text-gray-400', bg: 'bg-gray-500/20', label: 'Queued' },
   in_progress: { icon: Loader2, color: 'text-blue-400', bg: 'bg-blue-500/20', label: 'Building', animate: true },
@@ -160,10 +58,26 @@ const statusConfig = {
 };
 
 export default function CIDashboard() {
-  const [builds, setBuilds] = useState<Build[]>(mockBuilds);
+  const [builds, setBuilds] = useState<Build[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<'all' | 'running' | 'success' | 'failed'>('all');
   const [search, setSearch] = useState('');
   const [selectedRepo, setSelectedRepo] = useState<string | null>(null);
+
+  const fetchBuilds = useCallback(async () => {
+    const response = await fetch(`${DWS_API_URL}/ci/repos/0x0000000000000000000000000000000000000000000000000000000000000001/runs?limit=50`);
+    if (response.ok) {
+      const data = await response.json();
+      setBuilds(data.runs || []);
+    }
+    setIsLoading(false);
+  }, []);
+
+  useEffect(() => {
+    fetchBuilds();
+    const interval = setInterval(fetchBuilds, 5000);
+    return () => clearInterval(interval);
+  }, [fetchBuilds]);
 
   const filteredBuilds = builds.filter((build) => {
     if (filter === 'running' && build.status !== 'in_progress' && build.status !== 'queued') return false;

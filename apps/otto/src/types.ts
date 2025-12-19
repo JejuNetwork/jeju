@@ -8,7 +8,7 @@ import type { Address, Hex } from 'viem';
 // Platform Types
 // ============================================================================
 
-export type Platform = 'discord' | 'telegram' | 'whatsapp' | 'farcaster' | 'web';
+export type Platform = 'discord' | 'telegram' | 'whatsapp' | 'farcaster' | 'twitter' | 'web';
 
 export interface PlatformUser {
   platform: Platform;
@@ -372,6 +372,24 @@ export interface FarcasterFramePayload {
   };
 }
 
+export interface TwitterWebhookPayload {
+  for_user_id: string;
+  tweet_create_events?: Array<{
+    id_str: string;
+    text: string;
+    user: { id_str: string; screen_name: string };
+    in_reply_to_status_id_str?: string;
+    created_at: string;
+  }>;
+  direct_message_events?: Array<{
+    type: string;
+    message_create: {
+      sender_id: string;
+      message_data: { text: string };
+    };
+  }>;
+}
+
 // ============================================================================
 // Config Types
 // ============================================================================
@@ -406,6 +424,16 @@ export interface OttoConfig {
     apiKey?: string;
     botFid?: number;
     signerUuid?: string;
+  };
+
+  twitter: {
+    enabled: boolean;
+    apiKey?: string;
+    apiSecret?: string;
+    accessToken?: string;
+    accessSecret?: string;
+    bearerToken?: string;
+    botUsername?: string;
   };
   
   trading: {

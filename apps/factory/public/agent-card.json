@@ -1,0 +1,45 @@
+{
+  "protocolVersion": "0.3.0",
+  "name": "Jeju Factory",
+  "description": "Developer coordination hub - bounties, jobs, git, packages, containers, models, project management",
+  "url": "/api/a2a",
+  "preferredTransport": "http",
+  "provider": {
+    "organization": "Jeju Network",
+    "url": "https://jeju.network"
+  },
+  "version": "1.0.0",
+  "capabilities": {
+    "streaming": false,
+    "pushNotifications": true,
+    "stateTransitionHistory": true
+  },
+  "defaultInputModes": ["text", "data"],
+  "defaultOutputModes": ["text", "data"],
+  "skills": [
+    { "id": "list-repos", "name": "List Repositories", "description": "Get all git repositories", "tags": ["query", "git"] },
+    { "id": "get-repo", "name": "Get Repository", "description": "Get repository details", "tags": ["query", "git"] },
+    { "id": "create-repo", "name": "Create Repository", "description": "Create a new git repository", "tags": ["action", "git"] },
+    { "id": "list-issues", "name": "List Issues", "description": "List issues in a repository", "tags": ["query", "git", "issues"] },
+    { "id": "create-issue", "name": "Create Issue", "description": "Create a new issue", "tags": ["action", "git", "issues"] },
+    { "id": "list-prs", "name": "List Pull Requests", "description": "List pull requests", "tags": ["query", "git", "prs"] },
+    { "id": "create-pr", "name": "Create Pull Request", "description": "Create a new pull request", "tags": ["action", "git", "prs"] },
+    { "id": "search-packages", "name": "Search Packages", "description": "Search for packages", "tags": ["query", "packages"] },
+    { "id": "get-package", "name": "Get Package", "description": "Get package details", "tags": ["query", "packages"] },
+    { "id": "publish-package", "name": "Publish Package", "description": "Get publish instructions", "tags": ["action", "packages"] },
+    { "id": "search-models", "name": "Search Models", "description": "Search for AI models", "tags": ["query", "models"] },
+    { "id": "get-model", "name": "Get Model", "description": "Get model details", "tags": ["query", "models"] },
+    { "id": "download-model", "name": "Download Model", "description": "Get download instructions", "tags": ["action", "models"] },
+    { "id": "search-datasets", "name": "Search Datasets", "description": "Search for datasets", "tags": ["query", "datasets"] },
+    { "id": "get-dataset", "name": "Get Dataset", "description": "Get dataset details", "tags": ["query", "datasets"] },
+    { "id": "list-bounties", "name": "List Bounties", "description": "List open bounties", "tags": ["query", "bounties"] },
+    { "id": "create-bounty", "name": "Create Bounty", "description": "Create a new bounty", "tags": ["action", "bounties"] },
+    { "id": "list-ci-runs", "name": "List CI Runs", "description": "List workflow runs", "tags": ["query", "ci"] },
+    { "id": "trigger-workflow", "name": "Trigger Workflow", "description": "Start a workflow", "tags": ["action", "ci"] },
+    { "id": "list-agents", "name": "List Agents", "description": "List deployed agents", "tags": ["query", "agents"] },
+    { "id": "deploy-agent", "name": "Deploy Agent", "description": "Deploy a new agent", "tags": ["action", "agents"] },
+    { "id": "get-feed", "name": "Get Feed", "description": "Get developer feed", "tags": ["query", "social"] },
+    { "id": "post-cast", "name": "Post Cast", "description": "Post to the feed", "tags": ["action", "social"] }
+  ]
+}
+

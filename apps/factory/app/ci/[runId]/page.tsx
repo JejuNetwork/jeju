@@ -4,13 +4,12 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { clsx } from 'clsx';
 import {
   ArrowLeft,
-  Play,
   CheckCircle,
   XCircle,
   Clock,
@@ -21,160 +20,19 @@ import {
   ChevronDown,
   ChevronRight,
   Package,
-  Zap,
   Download,
   StopCircle,
   Terminal,
   Copy,
   Check,
-  ExternalLink,
   AlertCircle,
   User,
   Server,
 } from 'lucide-react';
 import { formatDistanceToNow, format } from 'date-fns';
+import { useWorkflowRun, useRunLogs, useCIActions, useArtifacts, type WorkflowRun, type LogEntry } from '@/lib/hooks/useCI';
 
-interface Step {
-  stepId: string;
-  name: string;
-  status: 'queued' | 'in_progress' | 'completed' | 'failed' | 'skipped';
-  conclusion?: 'success' | 'failure' | 'skipped';
-  startedAt?: number;
-  completedAt?: number;
-  exitCode?: number;
-}
-
-interface Job {
-  jobId: string;
-  name: string;
-  status: 'queued' | 'in_progress' | 'completed' | 'failed' | 'skipped';
-  conclusion?: 'success' | 'failure' | 'skipped';
-  startedAt?: number;
-  completedAt?: number;
-  duration?: number;
-  runnerName?: string;
-  matrixValues?: Record<string, string>;
-  steps: Step[];
-}
-
-interface Build {
-  runId: string;
-  runNumber: number;
-  workflowId: string;
-  workflowName: string;
-  repoId: string;
-  repoName: string;
-  status: 'queued' | 'in_progress' | 'completed' | 'failed' | 'cancelled';
-  conclusion?: 'success' | 'failure' | 'cancelled';
-  branch: string;
-  commitSha: string;
-  commitMessage?: string;
-  triggeredBy: string;
-  triggerType: string;
-  startedAt: number;
-  completedAt?: number;
-  duration?: number;
-  environment?: string;
-  jobs: Job[];
-  artifacts?: { name: string; size: number }[];
-}
-
-interface LogLine {
-  timestamp: number;
-  level: 'info' | 'warn' | 'error' | 'debug' | 'group' | 'endgroup' | 'command';
-  message: string;
-  jobId?: string;
-  stepId?: string;
-}
-
-const mockBuild: Build = {
-  runId: '0x1234',
-  runNumber: 156,
-  workflowId: '0xabc',
-  workflowName: 'Deploy',
-  repoId: '0x5678',
-  repoName: 'jeju-labs/factory',
-  status: 'in_progress',
-  branch: 'main',
-  commitSha: 'a1b2c3d4e5f6',
-  commitMessage: 'feat: add CI/CD dashboard',
-  triggeredBy: 'alice.eth',
-  triggerType: 'push',
-  startedAt: Date.now() - 2 * 60 * 1000,
-  environment: 'production',
-  jobs: [
-    {
-      jobId: 'build',
-      name: 'Build',
-      status: 'completed',
-      conclusion: 'success',
-      startedAt: Date.now() - 2 * 60 * 1000,
-      completedAt: Date.now() - 90 * 1000,
-      duration: 30 * 1000,
-      runnerName: 'jeju-runner-1',
-      steps: [
-        { stepId: 'checkout', name: 'Checkout', status: 'completed', conclusion: 'success', startedAt: Date.now() - 2 * 60 * 1000, completedAt: Date.now() - 115 * 1000 },
-        { stepId: 'setup', name: 'Setup Bun', status: 'completed', conclusion: 'success', startedAt: Date.now() - 115 * 1000, completedAt: Date.now() - 110 * 1000 },
-        { stepId: 'install', name: 'Install dependencies', status: 'completed', conclusion: 'success', startedAt: Date.now() - 110 * 1000, completedAt: Date.now() - 100 * 1000 },
-        { stepId: 'build', name: 'Build', status: 'completed', conclusion: 'success', startedAt: Date.now() - 100 * 1000, completedAt: Date.now() - 90 * 1000 },
-      ],
-    },
-    {
-      jobId: 'test',
-      name: 'Test',
-      status: 'in_progress',
-      startedAt: Date.now() - 60 * 1000,
-      runnerName: 'jeju-runner-2',
-      steps: [
-        { stepId: 'checkout', name: 'Checkout', status: 'completed', conclusion: 'success' },
-        { stepId: 'setup', name: 'Setup Bun', status: 'completed', conclusion: 'success' },
-        { stepId: 'install', name: 'Install dependencies', status: 'completed', conclusion: 'success' },
-        { stepId: 'test', name: 'Run tests', status: 'in_progress' },
-        { stepId: 'coverage', name: 'Upload coverage', status: 'queued' },
-      ],
-    },
-    {
-      jobId: 'deploy',
-      name: 'Deploy to Production',
-      status: 'queued',
-      steps: [
-        { stepId: 'checkout', name: 'Checkout', status: 'queued' },
-        { stepId: 'deploy', name: 'Deploy to Vercel', status: 'queued' },
-        { stepId: 'notify', name: 'Notify Slack', status: 'queued' },
-      ],
-    },
-  ],
-  artifacts: [{ name: 'build-output', size: 12345678 }],
-};
-
-const mockLogs: LogLine[] = [
-  { timestamp: Date.now() - 120000, level: 'group', message: 'Checkout', jobId: 'build', stepId: 'checkout' },
-  { timestamp: Date.now() - 119000, level: 'command', message: 'git clone https://git.jeju.network/jeju-labs/factory.git .', jobId: 'build', stepId: 'checkout' },
-  { timestamp: Date.now() - 118000, level: 'info', message: 'Cloning into \'.\'...', jobId: 'build', stepId: 'checkout' },
-  { timestamp: Date.now() - 117000, level: 'info', message: 'Checked out a1b2c3d4e5f6', jobId: 'build', stepId: 'checkout' },
-  { timestamp: Date.now() - 116000, level: 'endgroup', message: '', jobId: 'build', stepId: 'checkout' },
-  { timestamp: Date.now() - 115000, level: 'group', message: 'Setup Bun', jobId: 'build', stepId: 'setup' },
-  { timestamp: Date.now() - 114000, level: 'info', message: 'Bun v1.1.38 already installed', jobId: 'build', stepId: 'setup' },
-  { timestamp: Date.now() - 113000, level: 'endgroup', message: '', jobId: 'build', stepId: 'setup' },
-  { timestamp: Date.now() - 110000, level: 'group', message: 'Install dependencies', jobId: 'build', stepId: 'install' },
-  { timestamp: Date.now() - 109000, level: 'command', message: 'bun install', jobId: 'build', stepId: 'install' },
-  { timestamp: Date.now() - 108000, level: 'info', message: 'bun install v1.1.38', jobId: 'build', stepId: 'install' },
-  { timestamp: Date.now() - 107000, level: 'info', message: '+ @types/node@20.17.0', jobId: 'build', stepId: 'install' },
-  { timestamp: Date.now() - 106000, level: 'info', message: '156 packages installed [2.3s]', jobId: 'build', stepId: 'install' },
-  { timestamp: Date.now() - 105000, level: 'endgroup', message: '', jobId: 'build', stepId: 'install' },
-  { timestamp: Date.now() - 100000, level: 'group', message: 'Build', jobId: 'build', stepId: 'build' },
-  { timestamp: Date.now() - 99000, level: 'command', message: 'bun run build', jobId: 'build', stepId: 'build' },
-  { timestamp: Date.now() - 98000, level: 'info', message: 'Building...', jobId: 'build', stepId: 'build' },
-  { timestamp: Date.now() - 97000, level: 'info', message: 'Compiling 45 files...', jobId: 'build', stepId: 'build' },
-  { timestamp: Date.now() - 96000, level: 'info', message: 'Build completed successfully', jobId: 'build', stepId: 'build' },
-  { timestamp: Date.now() - 95000, level: 'endgroup', message: '', jobId: 'build', stepId: 'build' },
-  { timestamp: Date.now() - 60000, level: 'group', message: 'Run tests', jobId: 'test', stepId: 'test' },
-  { timestamp: Date.now() - 59000, level: 'command', message: 'bun test', jobId: 'test', stepId: 'test' },
-  { timestamp: Date.now() - 58000, level: 'info', message: 'Running 42 tests...', jobId: 'test', stepId: 'test' },
-  { timestamp: Date.now() - 55000, level: 'info', message: '  ✓ auth.test.ts (12 tests)', jobId: 'test', stepId: 'test' },
-  { timestamp: Date.now() - 52000, level: 'info', message: '  ✓ api.test.ts (8 tests)', jobId: 'test', stepId: 'test' },
-  { timestamp: Date.now() - 49000, level: 'info', message: '  ⋯ contracts.test.ts (22 tests) running...', jobId: 'test', stepId: 'test' },
-];
+const DWS_API_URL = process.env.NEXT_PUBLIC_DWS_URL || 'http://localhost:4030';
 
 const statusConfig = {
   queued: { icon: Clock, color: 'text-neutral-400', bg: 'bg-neutral-500/20' },
@@ -187,16 +45,24 @@ const statusConfig = {
 
 export default function BuildDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const runId = params.runId as string;
 
-  const [build, setBuild] = useState<Build>(mockBuild);
-  const [logs, setLogs] = useState<LogLine[]>(mockLogs);
-  const [selectedJob, setSelectedJob] = useState<string | null>(build.jobs[0]?.jobId || null);
-  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set(['test']));
+  const { run: build, isLoading, refetch } = useWorkflowRun(runId);
+  const { logs, isStreaming } = useRunLogs(runId);
+  const { cancelRun, rerunWorkflow } = useCIActions();
+  const { artifacts, downloadArtifact } = useArtifacts(runId);
+
+  const [selectedJob, setSelectedJob] = useState<string | null>(null);
+  const [expandedSteps, setExpandedSteps] = useState<Set<string>>(new Set());
   const [copied, setCopied] = useState(false);
   const logsEndRef = useRef<HTMLDivElement>(null);
   const [autoScroll, setAutoScroll] = useState(true);
+
+  useEffect(() => {
+    if (build?.jobs?.[0]?.jobId && !selectedJob) {
+      setSelectedJob(build.jobs[0].jobId);
+    }
+  }, [build, selectedJob]);
 
   useEffect(() => {
     if (autoScroll && logsEndRef.current) {
@@ -204,23 +70,7 @@ export default function BuildDetailPage() {
     }
   }, [logs, autoScroll]);
 
-  useEffect(() => {
-    if (build.status === 'in_progress') {
-      const interval = setInterval(() => {
-        const newLog: LogLine = {
-          timestamp: Date.now(),
-          level: 'info',
-          message: `  ✓ test-${Math.floor(Math.random() * 100)}.ts passed`,
-          jobId: 'test',
-          stepId: 'test',
-        };
-        setLogs((prev) => [...prev, newLog]);
-      }, 2000);
-      return () => clearInterval(interval);
-    }
-  }, [build.status]);
-
-  const selectedJobData = build.jobs.find((j) => j.jobId === selectedJob);
+  const selectedJobData = build?.jobs?.find((j) => j.jobId === selectedJob);
   const filteredLogs = selectedJob ? logs.filter((l) => l.jobId === selectedJob) : logs;
 
   const getStatus = (s: string, conclusion?: string) => {
@@ -245,6 +95,23 @@ export default function BuildDetailPage() {
     return `${minutes}m ${remainingSeconds}s`;
   };
 
+  const handleCancel = async () => {
+    await cancelRun(runId);
+    refetch();
+  };
+
+  const handleRerun = async () => {
+    await rerunWorkflow(runId);
+  };
+
+  if (isLoading || !build) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-blue-400 animate-spin" />
+      </div>
+    );
+  }
+
   const buildStatus = getStatus(build.status, build.conclusion);
   const BuildStatusIcon = buildStatus.icon;
 
@@ -263,11 +130,11 @@ export default function BuildDetailPage() {
                 </div>
                 <div>
                   <h1 className="text-lg font-semibold text-white">
-                    {build.workflowName} #{build.runNumber}
+                    Run #{build.runNumber}
                   </h1>
                   <div className="flex items-center gap-2 text-sm text-neutral-400">
                     <Package className="w-3.5 h-3.5" />
-                    {build.repoName}
+                    {build.repoId.slice(0, 10)}...
                     <span className="text-neutral-600">•</span>
                     <GitBranch className="w-3.5 h-3.5" />
                     {build.branch}
@@ -280,13 +147,13 @@ export default function BuildDetailPage() {
             </div>
 
             <div className="flex items-center gap-2">
-              {build.status === 'in_progress' && (
-                <button className="btn bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30">
+              {(build.status === 'in_progress' || build.status === 'queued') && (
+                <button onClick={handleCancel} className="flex items-center gap-2 px-3 py-1.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 border border-red-500/30 rounded-lg text-sm">
                   <StopCircle className="w-4 h-4" />
                   Cancel
                 </button>
               )}
-              <button className="btn bg-neutral-800 text-white hover:bg-neutral-700 border border-neutral-700">
+              <button onClick={handleRerun} className="flex items-center gap-2 px-3 py-1.5 bg-neutral-800 text-white hover:bg-neutral-700 border border-neutral-700 rounded-lg text-sm">
                 <RefreshCw className="w-4 h-4" />
                 Re-run
               </button>
@@ -309,16 +176,16 @@ export default function BuildDetailPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-500">Trigger</span>
-                  <span className="text-neutral-300">{build.triggerType}</span>
+                  <span className="text-neutral-300">{build.triggerType || 'manual'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-neutral-500">Started</span>
                   <span className="text-neutral-300">{formatDistanceToNow(build.startedAt, { addSuffix: true })}</span>
                 </div>
-                {build.duration && (
+                {(build.duration || build.completedAt) && (
                   <div className="flex justify-between">
                     <span className="text-neutral-500">Duration</span>
-                    <span className="text-neutral-300">{formatDuration(build.duration)}</span>
+                    <span className="text-neutral-300">{formatDuration(build.duration || (build.completedAt! - build.startedAt))}</span>
                   </div>
                 )}
                 <div className="flex justify-between">
@@ -368,19 +235,20 @@ export default function BuildDetailPage() {
               </div>
             </div>
 
-            {build.artifacts && build.artifacts.length > 0 && (
+            {artifacts.length > 0 && (
               <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4">
                 <h3 className="text-sm font-medium text-neutral-400 mb-3">Artifacts</h3>
                 <div className="space-y-2">
-                  {build.artifacts.map((artifact) => (
+                  {artifacts.map((artifact) => (
                     <button
-                      key={artifact.name}
+                      key={artifact.artifactId}
+                      onClick={() => downloadArtifact(artifact.name)}
                       className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-sm bg-neutral-800/50 hover:bg-neutral-800 text-neutral-300 transition-colors"
                     >
                       <Download className="w-4 h-4" />
                       <span className="flex-1 truncate text-left">{artifact.name}</span>
                       <span className="text-neutral-500 text-xs">
-                        {(artifact.size / 1024 / 1024).toFixed(1)} MB
+                        {(artifact.sizeBytes / 1024 / 1024).toFixed(1)} MB
                       </span>
                     </button>
                   ))}

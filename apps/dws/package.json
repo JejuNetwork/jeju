@@ -31,7 +31,8 @@
     "proxy:node": "bun run src/proxy/scripts/start-node.ts",
     "triggers": "bun run src/triggers/index.ts",
     "build": "bun build src/index.ts --outdir dist --target bun",
-    "build:frontend": "cd frontend && bun run build"
+    "build:frontend": "cd frontend && bun run build",
+    "seed": "bun run scripts/seed-dev.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.954.0",

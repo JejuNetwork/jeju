@@ -168,6 +168,38 @@ app.post('/webhooks/farcaster', async (c) => {
   return c.json({ ok: true });
 });
 
+// Twitter webhook (Account Activity API)
+app.post('/webhooks/twitter', async (c) => {
+  const payload = await c.req.json();
+  
+  // Forward to Twitter adapter
+  const adapter = agent.platformManager.getAdapter('twitter');
+  if (adapter && 'handleWebhook' in adapter) {
+    (adapter as { handleWebhook: (p: unknown) => Promise<void> }).handleWebhook(payload).catch(err => {
+      console.error('[Otto] Twitter webhook error:', err);
+    });
+  }
+  
+  return c.json({ ok: true });
+});
+
+// Twitter webhook verification (CRC challenge)
+app.get('/webhooks/twitter', async (c) => {
+  const crcToken = c.req.query('crc_token');
+  if (!crcToken) {
+    return c.text('Missing crc_token', 400);
+  }
+  
+  // Generate CRC response (would need TWITTER_API_SECRET)
+  const crypto = await import('crypto');
+  const apiSecret = process.env.TWITTER_API_SECRET ?? '';
+  const hmac = crypto.createHmac('sha256', apiSecret);
+  hmac.update(crcToken);
+  const responseToken = 'sha256=' + hmac.digest('base64');
+  
+  return c.json({ response_token: responseToken });
+});
+
 // ============================================================================
 // Chat API
 // ============================================================================
@@ -436,6 +468,7 @@ async function main() {
   console.log(`   Telegram:  http://localhost:${port}/webhooks/telegram`);
   console.log(`   WhatsApp:  http://localhost:${port}/webhooks/whatsapp`);
   console.log(`   Farcaster: http://localhost:${port}/webhooks/farcaster`);
+  console.log(`   Twitter:   http://localhost:${port}/webhooks/twitter`);
   console.log('');
   console.log(`💬 Chat API: http://localhost:${port}/api/chat`);
   console.log('');

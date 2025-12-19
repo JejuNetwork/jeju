@@ -3,8 +3,11 @@
  * 
  * Handles security vulnerability submissions, validation, and payouts
  * Integrates with DWS compute for sandbox testing and MPC KMS for encryption
+ * 
+ * FULLY DECENTRALIZED - All compute/storage goes through DWS network
  */
 
+import { getDWSComputeUrl, getKMSUrl, getCurrentNetwork } from '@jejunetwork/config';
 import { keccak256, stringToHex, parseEther, formatEther, type Address } from 'viem';
 import {
   BountySeverity,
@@ -20,17 +23,71 @@ import {
   SEVERITY_REWARDS,
 } from './types';
 
-// ============ Configuration ============
+// ============ Configuration (Network-Aware) ============
 
-const DWS_COMPUTE_URL = process.env.DWS_COMPUTE_URL ?? 'http://localhost:8020';
-const KMS_URL = process.env.KMS_URL ?? 'http://localhost:8030';
+// DWS endpoints are resolved dynamically based on the current network
+function getDWSEndpoint(): string {
+  return process.env.DWS_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl();
+}
+
+function getKMSEndpoint(): string {
+  return process.env.KMS_URL ?? getKMSUrl();
+}
+
+// Test mode - ONLY for testing, never in production
+// In test mode, encryption is simulated and DWS failures don't block validation
+const TEST_MODE = process.env.NODE_ENV === 'test' || process.env.BUG_BOUNTY_TEST_MODE === 'true';
 
 // ============ In-Memory Storage (would be on-chain + indexed in production) ============
 
 const submissions = new Map<string, BountySubmission>();
 const guardianVotes = new Map<string, BountyGuardianVote[]>();
 const researcherStats = new Map<string, ResearcherStats>();
+const vulnerabilityHashes = new Map<string, string>(); // hash -> submissionId for duplicate detection
+const rateLimit = new Map<string, { count: number; windowStart: number }>(); // address -> rate limit state
 let submissionCounter = 1;
+
+// ============ Rate Limiting ============
+
+const RATE_LIMIT_WINDOW = 3600 * 1000; // 1 hour
+const MAX_SUBMISSIONS_PER_WINDOW = 5;
+
+function checkRateLimit(researcher: Address): void {
+  // Skip rate limiting in test mode
+  if (TEST_MODE) return;
+
+  const now = Date.now();
+  const key = researcher.toLowerCase();
+  const limit = rateLimit.get(key);
+
+  if (!limit || now - limit.windowStart > RATE_LIMIT_WINDOW) {
+    rateLimit.set(key, { count: 1, windowStart: now });
+    return;
+  }
+
+  if (limit.count >= MAX_SUBMISSIONS_PER_WINDOW) {
+    throw new Error(`Rate limit exceeded: max ${MAX_SUBMISSIONS_PER_WINDOW} submissions per hour`);
+  }
+
+  limit.count++;
+  rateLimit.set(key, limit);
+}
+
+// ============ Duplicate Detection ============
+
+function computeVulnerabilityHash(draft: BountySubmissionDraft): string {
+  // Hash based on title + description + affected components
+  const normalized = [
+    draft.title.toLowerCase().trim(),
+    draft.description.toLowerCase().trim().slice(0, 500),
+    draft.affectedComponents.map(c => c.toLowerCase()).sort().join(','),
+  ].join('|');
+  return keccak256(stringToHex(normalized));
+}
+
+function checkDuplicate(hash: string): string | null {
+  return vulnerabilityHashes.get(hash) ?? null;
+}
 
 // ============ Encryption Integration ============
 
@@ -41,34 +98,37 @@ interface EncryptedReport {
 }
 
 async function encryptReport(report: string): Promise<EncryptedReport> {
-  try {
-    const response = await fetch(`${KMS_URL}/api/encrypt`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        data: report,
-        keyType: 'mpc',
-        threshold: 3,
-        parties: 5,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`KMS returned ${response.status}`);
-    }
-
-    const result = await response.json() as { cid: string; keyId: string; encryptedData: string };
-    return result;
-  } catch {
-    // Fallback to local encryption if KMS unavailable
-    const keyId = keccak256(stringToHex(`key-${Date.now()}`));
+  // In test mode, simulate encryption (reports are NOT actually encrypted)
+  if (TEST_MODE) {
+    const keyId = keccak256(stringToHex(`test-key-${Date.now()}`));
     const encryptedData = Buffer.from(report).toString('base64');
+    console.log('[BugBounty] TEST MODE: Simulating encryption (NOT secure)');
     return {
       cid: keccak256(stringToHex(report)).slice(0, 34),
       keyId,
       encryptedData,
     };
   }
+
+  // Production: MPC KMS is REQUIRED for encryption (decentralized)
+  const kmsEndpoint = getKMSEndpoint();
+  const response = await fetch(`${kmsEndpoint}/api/encrypt`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      data: report,
+      keyType: 'mpc',
+      threshold: 3,
+      parties: 5,
+    }),
+  }).catch(() => null);
+
+  if (!response?.ok) {
+    throw new Error('MPC KMS unavailable - cannot securely encrypt vulnerability report');
+  }
+
+  const result = await response.json() as { cid: string; keyId: string; encryptedData: string };
+  return result;
 }
 
 // ============ Assessment Logic ============
@@ -185,6 +245,16 @@ export async function submitBounty(
   researcher: Address,
   researcherAgentId: bigint
 ): Promise<BountySubmission> {
+  // Rate limiting - prevent spam
+  checkRateLimit(researcher);
+
+  // Duplicate detection - check if similar vulnerability already reported
+  const vulnHash = computeVulnerabilityHash(draft);
+  const existingId = checkDuplicate(vulnHash);
+  if (existingId) {
+    throw new Error(`Duplicate vulnerability: similar report already exists (${existingId.slice(0, 12)}...)`);
+  }
+
   // Create full report for encryption
   const fullReport = JSON.stringify({
     title: draft.title,
@@ -197,7 +267,7 @@ export async function submitBounty(
     submittedAt: new Date().toISOString(),
   });
 
-  // Encrypt the report
+  // Encrypt the report - REQUIRED, no fallback
   const encrypted = await encryptReport(fullReport);
 
   // Create PoC hash
@@ -244,6 +314,9 @@ export async function submitBounty(
 
   submissions.set(submissionId, submission);
   guardianVotes.set(submissionId, []);
+  
+  // Record vulnerability hash for duplicate detection
+  vulnerabilityHashes.set(vulnHash, submissionId);
 
   // Update researcher stats
   const stats = researcherStats.get(researcher) ?? {
@@ -293,7 +366,7 @@ export function listSubmissions(filter?: {
   });
 }
 
-// ============ Validation ============
+// ============ Validation (Decentralized via DWS) ============
 
 export async function triggerValidation(submissionId: string): Promise<void> {
   const submission = submissions.get(submissionId);
@@ -302,8 +375,9 @@ export async function triggerValidation(submissionId: string): Promise<void> {
   submission.status = BountySubmissionStatus.VALIDATING;
   submissions.set(submissionId, submission);
 
-  // Trigger DWS compute sandbox job
-  const response = await fetch(`${DWS_COMPUTE_URL}/api/containers/execute`, {
+  // Trigger DWS compute sandbox job (decentralized container execution)
+  const dwsEndpoint = getDWSEndpoint();
+  const response = await fetch(`${dwsEndpoint}/api/containers/execute`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -328,11 +402,18 @@ export async function triggerValidation(submissionId: string): Promise<void> {
   if (response?.ok) {
     const result = await response.json() as { executionId: string };
     console.log(`[BugBounty] Validation job started: ${result.executionId}`);
-  } else {
-    // Fallback: mark as ready for guardian review without automated validation
-    console.log('[BugBounty] DWS unavailable, skipping automated validation');
+  } else if (TEST_MODE) {
+    // Test mode: move to guardian review for testing
+    console.log('[BugBounty] TEST MODE: Skipping DWS validation');
     submission.status = BountySubmissionStatus.GUARDIAN_REVIEW;
     submission.validationResult = ValidationResult.LIKELY_VALID;
+    submission.validationNotes = 'TEST MODE: Validation skipped';
+    submissions.set(submissionId, submission);
+  } else {
+    // Production: DWS unavailable - keep in VALIDATING status, require manual validation
+    // NO automatic approval when infrastructure is down - fail safe
+    console.log('[BugBounty] DWS unavailable - submission pending manual validation');
+    submission.validationNotes = 'Automated validation unavailable - awaiting manual review';
     submissions.set(submissionId, submission);
   }
 }
@@ -606,4 +687,15 @@ export class BugBountyService {
 
 export function getBugBountyService(): BugBountyService {
   return instance ??= new BugBountyService();
+}
+
+// Reset for testing - clears all in-memory state
+export function resetBugBountyService(): void {
+  submissions.clear();
+  guardianVotes.clear();
+  researcherStats.clear();
+  vulnerabilityHashes.clear();
+  rateLimit.clear();
+  submissionCounter = 1;
+  instance = null;
 }

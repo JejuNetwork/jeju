@@ -71,6 +71,9 @@ export * from "./packages";
 export * from "./vpn";
 export * from "./vpn-module";
 
+// Models (HuggingFace-like)
+export * from "./models";
+
 // Wallet utilities
 export * from "./wallet";
 

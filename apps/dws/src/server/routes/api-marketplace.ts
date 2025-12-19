@@ -533,5 +533,141 @@ export function createAPIMarketplaceRouter(): Hono {
     return c.json({ success: true });
   });
 
+  // ============================================================================
+  // V1 API (for app compatibility)
+  // ============================================================================
+  
+  // List available models (for agents/apps)
+  app.get('/v1/models', (c) => {
+    const providers = getConfiguredProviders();
+    
+    // Generate model list based on configured providers
+    const models: Array<{
+      id: string;
+      name: string;
+      provider: string;
+      pricePerInputToken: string;
+      pricePerOutputToken: string;
+      maxContextLength: number;
+      capabilities: string[];
+    }> = [];
+    
+    for (const p of providers) {
+      if (p.id === 'openai') {
+        models.push(
+          { id: 'gpt-4o', name: 'GPT-4o', provider: 'openai', pricePerInputToken: '2500000000000', pricePerOutputToken: '10000000000000', maxContextLength: 128000, capabilities: ['chat', 'vision', 'function-calling'] },
+          { id: 'gpt-4o-mini', name: 'GPT-4o Mini', provider: 'openai', pricePerInputToken: '150000000000', pricePerOutputToken: '600000000000', maxContextLength: 128000, capabilities: ['chat', 'vision', 'function-calling'] },
+          { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', provider: 'openai', pricePerInputToken: '10000000000000', pricePerOutputToken: '30000000000000', maxContextLength: 128000, capabilities: ['chat', 'vision', 'function-calling'] },
+        );
+      } else if (p.id === 'anthropic') {
+        models.push(
+          { id: 'claude-3-5-sonnet-latest', name: 'Claude 3.5 Sonnet', provider: 'anthropic', pricePerInputToken: '3000000000000', pricePerOutputToken: '15000000000000', maxContextLength: 200000, capabilities: ['chat', 'vision'] },
+          { id: 'claude-3-5-haiku-latest', name: 'Claude 3.5 Haiku', provider: 'anthropic', pricePerInputToken: '250000000000', pricePerOutputToken: '1250000000000', maxContextLength: 200000, capabilities: ['chat', 'vision'] },
+          { id: 'claude-3-opus-latest', name: 'Claude 3 Opus', provider: 'anthropic', pricePerInputToken: '15000000000000', pricePerOutputToken: '75000000000000', maxContextLength: 200000, capabilities: ['chat', 'vision'] },
+        );
+      } else if (p.id === 'groq') {
+        models.push(
+          { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B Versatile', provider: 'groq', pricePerInputToken: '590000000', pricePerOutputToken: '790000000', maxContextLength: 128000, capabilities: ['chat'] },
+          { id: 'llama-3.1-8b-instant', name: 'Llama 3.1 8B Instant', provider: 'groq', pricePerInputToken: '50000000', pricePerOutputToken: '80000000', maxContextLength: 128000, capabilities: ['chat'] },
+          { id: 'mixtral-8x7b-32768', name: 'Mixtral 8x7B', provider: 'groq', pricePerInputToken: '240000000', pricePerOutputToken: '240000000', maxContextLength: 32768, capabilities: ['chat'] },
+        );
+      }
+    }
+    
+    return c.json({ models });
+  });
+
+  // Inference endpoint (for agents/apps) - forwards to /compute/chat/completions
+  app.post('/v1/inference', async (c) => {
+    const body = await c.req.json<{
+      messages: Array<{ role: string; content: string }>;
+      model?: string;
+      maxTokens?: number;
+      temperature?: number;
+    }>();
+
+    if (!body.messages || body.messages.length === 0) {
+      return c.json({ error: 'messages array is required' }, 400);
+    }
+
+    // Forward to compute endpoint which handles provider selection
+    const computeResponse = await fetch('http://localhost:' + (process.env.PORT ?? '4030') + '/compute/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: body.model ?? 'llama-3.3-70b-versatile',
+        messages: body.messages,
+        max_tokens: body.maxTokens ?? 2048,
+        temperature: body.temperature ?? 0.7,
+      }),
+    });
+
+    if (!computeResponse.ok) {
+      const errorData = await computeResponse.json() as { error?: string };
+      return c.json(errorData, computeResponse.status as 400 | 401 | 500 | 503);
+    }
+
+    const responseData = await computeResponse.json() as {
+      choices: Array<{ message: { content: string } }>;
+      model: string;
+      usage: { prompt_tokens: number; completion_tokens: number };
+      provider?: string;
+    };
+
+    return c.json({
+      content: responseData.choices[0]?.message?.content ?? '',
+      model: responseData.model,
+      usage: responseData.usage,
+      provider: responseData.provider,
+      cost: '0',
+    });
+  });
+
+  // Embeddings endpoint (for agents/apps)
+  app.post('/v1/embeddings', async (c) => {
+    const body = await c.req.json<{ input: string | string[] }>();
+
+    if (!body.input) {
+      return c.json({ error: 'input is required' }, 400);
+    }
+
+    const providers = getConfiguredProviders();
+    const embeddingProviders = providers.filter(p => p.categories.includes('embeddings'));
+    
+    if (embeddingProviders.length === 0) {
+      // Return mock embedding for dev
+      const dims = 1536;
+      const embedding = Array.from({ length: dims }, () => Math.random() * 2 - 1);
+      return c.json({ embedding, dimensions: dims, model: 'mock-embedding' });
+    }
+
+    const provider = embeddingProviders[0];
+    
+    const proxyReq: ProxyRequest = {
+      providerId: provider.id,
+      path: 'embeddings',
+      method: 'POST',
+      body: JSON.stringify({
+        input: body.input,
+        model: provider.models[0]?.id ?? 'text-embedding-3-small',
+      }),
+    };
+
+    const result = await proxyRequest(proxyReq);
+    
+    if ('error' in result) {
+      return c.json(result, 500);
+    }
+
+    const responseData = await result.response.json() as {
+      data: Array<{ embedding: number[] }>;
+    };
+
+    return c.json({
+      embedding: responseData.data[0]?.embedding ?? [],
+      dimensions: responseData.data[0]?.embedding?.length ?? 0,
+    });
+  });
+
   return app;
 }
