@@ -93,7 +93,7 @@ export interface ServicesConfig {
   rpc: { l1: string; l2: string; ws: string };
   explorer: string;
   indexer: { graphql: string; websocket: string };
-  gateway: { ui: string; api: string; a2a: string; ws: string };
+  gateway: { ui: string; api: string; a2a: string; mcp: string; ws: string };
   rpcGateway: string;
   bazaar: string;
   storage: { api: string; ipfsGateway: string };
@@ -106,6 +106,7 @@ export interface ServicesConfig {
   dws: { api: string; compute: string };
   autocrat: { api: string; a2a: string };
   kms: { api: string; mpc: string };
+  factory: { ui: string; api: string; mcp: string };
   externalRpcs?: Record<string, string>;
 }
 
@@ -263,6 +264,7 @@ export function getServicesConfig(network?: NetworkType): ServicesConfig {
       ui: getEnvService('GATEWAY_URL') || config.gateway.ui,
       api: getEnvService('GATEWAY_API_URL') || config.gateway.api,
       a2a: getEnvService('GATEWAY_A2A_URL') || config.gateway.a2a,
+      mcp: getEnvService('GATEWAY_MCP_URL') || config.gateway.mcp,
       ws: getEnvService('GATEWAY_WS_URL') || config.gateway.ws,
     },
     rpcGateway: getEnvService('RPC_GATEWAY_URL') || config.rpcGateway,
@@ -299,6 +301,11 @@ export function getServicesConfig(network?: NetworkType): ServicesConfig {
     kms: {
       api: getEnvService('KMS_URL') || getEnvService('KMS_API_URL') || config.kms.api,
       mpc: getEnvService('KMS_MPC_URL') || config.kms.mpc,
+    },
+    factory: {
+      ui: getEnvService('FACTORY_URL') || config.factory?.ui || 'http://127.0.0.1:4009',
+      api: getEnvService('FACTORY_API_URL') || config.factory?.api || 'http://127.0.0.1:4009',
+      mcp: getEnvService('FACTORY_MCP_URL') || config.factory?.mcp || 'http://127.0.0.1:4009/api/mcp',
     },
   };
 }
@@ -380,6 +387,16 @@ export function getAutocratUrl(network?: NetworkType): string {
 /** Get Autocrat A2A endpoint */
 export function getAutocratA2AUrl(network?: NetworkType): string {
   return getServicesConfig(network).autocrat.a2a;
+}
+
+/** Get MPC KMS (Key Management System) API URL - for decentralized key storage */
+export function getKMSUrl(network?: NetworkType): string {
+  return getServicesConfig(network).kms.api;
+}
+
+/** Get MPC KMS endpoint for threshold signing */
+export function getKMSMpcUrl(network?: NetworkType): string {
+  return getServicesConfig(network).kms.mpc;
 }
 
 /** Get Crucible (execution) API URL */

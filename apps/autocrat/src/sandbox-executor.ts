@@ -3,14 +3,20 @@
  * 
  * Secure container execution for proof-of-concept validation
  * Isolates exploit code from production systems
+ * 
+ * FULLY DECENTRALIZED - All execution goes through DWS compute network
  */
 
+import { getDWSComputeUrl } from '@jejunetwork/config';
 import { keccak256, stringToHex } from 'viem';
 import { VulnerabilityType, ValidationResult } from './types';
 
-// ============ Configuration ============
+// ============ Configuration (Network-Aware) ============
 
-const DWS_COMPUTE_URL = process.env.DWS_COMPUTE_URL ?? 'http://localhost:8020';
+// DWS endpoint is resolved dynamically based on the current network
+function getDWSEndpoint(): string {
+  return process.env.DWS_URL ?? process.env.DWS_COMPUTE_URL ?? getDWSComputeUrl();
+}
 const MAX_EXECUTION_TIME = parseInt(process.env.SANDBOX_MAX_TIME ?? '3600', 10); // 1 hour
 const MAX_MEMORY_MB = parseInt(process.env.SANDBOX_MAX_MEMORY ?? '8192', 10);
 const MAX_CPU_CORES = parseInt(process.env.SANDBOX_MAX_CPU ?? '4', 10);
@@ -222,8 +228,9 @@ export async function executeInSandbox(
   activeJobs.set(jobId, job);
   console.log(`[Sandbox] Starting job ${jobId} for submission ${submissionId.slice(0, 12)}...`);
 
-  // Execute via DWS compute
-  const response = await fetch(`${DWS_COMPUTE_URL}/api/containers/execute`, {
+  // Execute via DWS compute (decentralized container execution)
+  const dwsEndpoint = getDWSEndpoint();
+  const response = await fetch(`${dwsEndpoint}/api/containers/execute`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({

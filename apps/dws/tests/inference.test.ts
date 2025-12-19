@@ -11,6 +11,8 @@ import { app } from '../src/server/index';
 const HAS_GROQ = !!process.env.GROQ_API_KEY;
 const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
 const HAS_ANTHROPIC = !!process.env.ANTHROPIC_API_KEY;
+const HAS_ANY_PROVIDER = HAS_GROQ || HAS_OPENAI || HAS_ANTHROPIC || 
+  !!process.env.TOGETHER_API_KEY || !!process.env.OPENROUTER_API_KEY;
 
 describe('Inference E2E', () => {
   beforeAll(() => {
@@ -20,7 +22,8 @@ describe('Inference E2E', () => {
     console.log(`  - Anthropic: ${HAS_ANTHROPIC ? '✓' : '✗'}`);
   });
 
-  describe('Provider Configuration', () => {
+  // Skip provider tests if no providers are configured
+  describe.skipIf(!HAS_ANY_PROVIDER)('Provider Configuration', () => {
     test('should list configured providers', async () => {
       const res = await app.fetch(new Request('http://localhost/api/providers?configured=true'));
       expect(res.status).toBe(200);

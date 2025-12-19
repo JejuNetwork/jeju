@@ -6,9 +6,13 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { testConfig } from './setup';
 
-const { dwsUrl, frontendUrl } = testConfig;
+const dwsUrl = process.env.DWS_URL || 'http://127.0.0.1:4030';
+const frontendUrl = process.env.BASE_URL || 'http://127.0.0.1:4033';
+const testWallet = {
+  address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+  privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+};
 
 // Helper to make API requests to DWS backend
 async function dwsRequest(path: string, options?: RequestInit) {
@@ -59,7 +63,7 @@ test.describe('DWS E2E - Storage Service', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'text/plain',
-        'x-jeju-address': testConfig.testWallet.address,
+        'x-jeju-address': testWallet.address,
         'x-filename': 'e2e-test.txt',
       },
       body: testData,
@@ -93,7 +97,7 @@ test.describe('DWS E2E - Compute Service', () => {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'x-jeju-address': testConfig.testWallet.address,
+        'x-jeju-address': testWallet.address,
       },
       body: JSON.stringify({ command: 'echo "e2e frontend test"' }),
     });
@@ -123,7 +127,7 @@ test.describe('DWS E2E - Compute Service', () => {
   test('containers page loads and shows run button', async ({ page }) => {
     await page.goto(`${frontendUrl}/compute/containers`);
     await expect(page.locator('h1')).toContainText('Containers');
-    await expect(page.locator('button:has-text("Run Container")')).toBeVisible();
+    await expect(page.locator('button:has-text("Run Container")').first()).toBeVisible();
   });
 
   test('workers page loads', async ({ page }) => {
@@ -278,7 +282,7 @@ test.describe('DWS E2E - Billing', () => {
   test('billing page loads', async ({ page }) => {
     await page.goto(`${frontendUrl}/billing`);
     await expect(page.locator('h1')).toContainText('Billing');
-    await expect(page.locator('text=x402')).toBeVisible();
+    await expect(page.locator('.stat-label:has-text("x402 Balance")')).toBeVisible();
   });
 });
 

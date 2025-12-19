@@ -8,12 +8,12 @@
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import basicSetup from '../../wallet-setup/basic.setup';
-import { testConfig } from './setup';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
-const { dwsUrl, frontendUrl } = testConfig;
+const dwsUrl = process.env.DWS_URL || 'http://127.0.0.1:4030';
+const frontendUrl = process.env.BASE_URL || 'http://127.0.0.1:4033';
 
 test.describe('DWS E2E - Wallet Connected Operations', () => {
   test('connect wallet and see dashboard', async ({

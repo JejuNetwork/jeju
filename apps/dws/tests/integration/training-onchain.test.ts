@@ -36,7 +36,37 @@ setDefaultTimeout(60000);
 const RPC_URL = process.env.RPC_URL || 'http://localhost:8545';
 const PRIVATE_KEY = (process.env.PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex;
 const PRIVATE_KEY_2 = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex;
-const SKIP = process.env.SKIP_INTEGRATION === 'true';
+
+// Check if deployment exists and anvil is running
+function checkDeploymentExists(): boolean {
+  const deploymentPath = `${process.cwd()}/deployment-training-localnet.json`;
+  return existsSync(deploymentPath);
+}
+
+async function checkAnvilAtLoad(): Promise<boolean> {
+  try {
+    const response = await fetch(RPC_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_chainId', params: [], id: 1 }),
+      signal: AbortSignal.timeout(2000),
+    });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+// Skip if deployment missing, anvil not running, or explicitly requested
+const DEPLOYMENT_EXISTS = checkDeploymentExists();
+const ANVIL_AVAILABLE = await checkAnvilAtLoad();
+const SKIP = process.env.SKIP_INTEGRATION === 'true' || !ANVIL_AVAILABLE || !DEPLOYMENT_EXISTS;
+
+if (!ANVIL_AVAILABLE) {
+  console.log('[Integration] Anvil not running, skipping training on-chain tests');
+} else if (!DEPLOYMENT_EXISTS) {
+  console.log('[Integration] Training contracts not deployed (deployment-training-localnet.json missing), skipping tests');
+}
 
 // Contract addresses - will be loaded from deployment file or deployed fresh
 let COORDINATOR_ADDRESS: Address;
@@ -56,11 +86,12 @@ interface DeploymentResult {
   mpcKeyRegistry: Address;
 }
 
-async function checkAnvilRunning(): Promise<boolean> {
-  const client = createPublicClient({ chain: foundry, transport: http(RPC_URL) });
-  const blockNumber = await client.getBlockNumber().catch(() => null);
-  return blockNumber !== null;
-}
+// This function is no longer needed - anvil check is done at module load
+// async function checkAnvilRunning(): Promise<boolean> {
+//   const client = createPublicClient({ chain: foundry, transport: http(RPC_URL) });
+//   const blockNumber = await client.getBlockNumber().catch(() => null);
+//   return blockNumber !== null;
+// }
 
 async function deployContracts(): Promise<DeploymentResult> {
   console.log('[Integration] Deploying training contracts...');
@@ -114,16 +145,8 @@ describe.skipIf(SKIP)('Training SDK On-Chain Integration', () => {
   let sdk: TrainingSDK;
   let account1: Address;
   let account2: Address;
-  let isAnvilRunning = false;
 
   beforeAll(async () => {
-    // Check if anvil is running
-    isAnvilRunning = await checkAnvilRunning();
-    if (!isAnvilRunning) {
-      console.log('[Integration] Anvil not running, skipping tests');
-      return;
-    }
-
     // Set up accounts
     const acc1 = privateKeyToAccount(PRIVATE_KEY);
     const acc2 = privateKeyToAccount(PRIVATE_KEY_2);
@@ -182,7 +205,6 @@ describe.skipIf(SKIP)('Training SDK On-Chain Integration', () => {
   });
 
   test('should have valid contract addresses', async () => {
-    if (!isAnvilRunning) return;
 
     expect(COORDINATOR_ADDRESS).toMatch(/^0x[a-fA-F0-9]{40}$/);
     expect(REWARDS_ADDRESS).toMatch(/^0x[a-fA-F0-9]{40}$/);
@@ -190,7 +212,6 @@ describe.skipIf(SKIP)('Training SDK On-Chain Integration', () => {
   });
 
   test('should read contract state', async () => {
-    if (!isAnvilRunning) return;
 
     // Try to read a non-existent run - should return Uninitialized state
     const testRunId = keccak256(encodeAbiParameters(parseAbiParameters('string'), ['nonexistent-run']));
@@ -199,7 +220,6 @@ describe.skipIf(SKIP)('Training SDK On-Chain Integration', () => {
   });
 
   test('should create a training run', async () => {
-    if (!isAnvilRunning) return;
 
     const runName = `test-run-${Date.now()}`;
     const runId = TrainingSDK.generateRunId(runName, account1);
@@ -232,7 +252,6 @@ describe.skipIf(SKIP)('Training SDK On-Chain Integration', () => {
   });
 
   test('should join a training run', async () => {
-    if (!isAnvilRunning) return;
 
     // Create a new run
     const runName = `join-test-${Date.now()}`;
@@ -279,7 +298,6 @@ describe.skipIf(SKIP)('Training SDK On-Chain Integration', () => {
   });
 
   test('should tick run state forward', async () => {
-    if (!isAnvilRunning) return;
 
     // Create a run with very short timing
     const runName = `tick-test-${Date.now()}`;
@@ -330,7 +348,6 @@ describe.skipIf(SKIP)('Training SDK On-Chain Integration', () => {
   });
 
   test('should register node performance', async () => {
-    if (!isAnvilRunning) return;
 
     const attestationHash = keccak256(encodeAbiParameters(parseAbiParameters('string'), ['attestation']));
     const txHash = await sdk.registerNode(GPUTier.Datacenter, attestationHash);
@@ -342,7 +359,6 @@ describe.skipIf(SKIP)('Training SDK On-Chain Integration', () => {
   });
 
   test('should get node metrics', async () => {
-    if (!isAnvilRunning) return;
 
     // First ensure node is registered
     const attestationHash = keccak256(encodeAbiParameters(parseAbiParameters('string'), ['metrics-test']));
@@ -354,7 +370,6 @@ describe.skipIf(SKIP)('Training SDK On-Chain Integration', () => {
   });
 
   test('should get optimal nodes', async () => {
-    if (!isAnvilRunning) return;
 
     const nodes = await sdk.getOptimalNodes(5, GPUTier.Consumer, 0, 0);
     expect(Array.isArray(nodes)).toBe(true);
@@ -366,15 +381,8 @@ describe.skipIf(SKIP)('Distributed Training Client On-Chain Integration', () => 
   let walletClient: ReturnType<typeof createWalletClient>;
   let client: DistributedTrainingClient;
   let account: Address;
-  let isAnvilRunning = false;
 
   beforeAll(async () => {
-    isAnvilRunning = await checkAnvilRunning();
-    if (!isAnvilRunning) {
-      console.log('[Integration] Anvil not running, skipping distributed training tests');
-      return;
-    }
-
     const acc = privateKeyToAccount(PRIVATE_KEY);
     account = acc.address;
 
@@ -413,7 +421,6 @@ describe.skipIf(SKIP)('Distributed Training Client On-Chain Integration', () => 
   });
 
   test('should submit a training job', async () => {
-    if (!isAnvilRunning) return;
 
     const runId = await client.submitJob({
       name: `distributed-test-${Date.now()}`,
@@ -433,7 +440,6 @@ describe.skipIf(SKIP)('Distributed Training Client On-Chain Integration', () => 
   });
 
   test('should get job status', async () => {
-    if (!isAnvilRunning) return;
 
     // Submit a job first
     const runId = await client.submitJob({
@@ -457,7 +463,6 @@ describe.skipIf(SKIP)('Distributed Training Client On-Chain Integration', () => 
   });
 
   test('should pause and resume job', async () => {
-    if (!isAnvilRunning) return;
 
     // Submit a job
     const runId = await client.submitJob({
@@ -492,7 +497,6 @@ describe.skipIf(SKIP)('Distributed Training Client On-Chain Integration', () => 
   });
 
   test('should get optimal nodes for job', async () => {
-    if (!isAnvilRunning) return;
 
     const nodes = await client.getOptimalNodes(3);
     expect(Array.isArray(nodes)).toBe(true);

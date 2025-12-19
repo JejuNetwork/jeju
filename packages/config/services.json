@@ -18,6 +18,7 @@
       "ui": "http://127.0.0.1:4001",
       "api": "http://127.0.0.1:4002",
       "a2a": "http://127.0.0.1:4003",
+      "mcp": "http://127.0.0.1:4002/mcp",
       "ws": "ws://127.0.0.1:4012"
     },
     "rpcGateway": "http://127.0.0.1:4004",
@@ -60,6 +61,11 @@
     "kms": {
       "api": "http://127.0.0.1:4050",
       "mpc": "http://127.0.0.1:4050/mpc"
+    },
+    "factory": {
+      "ui": "http://127.0.0.1:4009",
+      "api": "http://127.0.0.1:4009",
+      "mcp": "http://127.0.0.1:4009/api/mcp"
     }
   },
   
@@ -78,6 +84,7 @@
       "ui": "https://testnet-gateway.jejunetwork.org",
       "api": "https://testnet-api.jejunetwork.org",
       "a2a": "https://testnet-a2a.jejunetwork.org",
+      "mcp": "https://testnet-api.jejunetwork.org/mcp",
       "ws": "wss://testnet-ws.jejunetwork.org"
     },
     "rpcGateway": "https://testnet-rpc-gateway.jejunetwork.org",
@@ -121,6 +128,11 @@
       "api": "https://testnet-kms.jejunetwork.org",
       "mpc": "https://testnet-kms.jejunetwork.org/mpc"
     },
+    "factory": {
+      "ui": "https://testnet-factory.jejunetwork.org",
+      "api": "https://testnet-factory.jejunetwork.org",
+      "mcp": "https://testnet-factory.jejunetwork.org/api/mcp"
+    },
     "externalRpcs": {
       "ethSepolia": "https://ethereum-sepolia-rpc.publicnode.com",
       "baseSepolia": "https://sepolia.base.org",
@@ -145,6 +157,7 @@
       "ui": "https://gateway.jejunetwork.org",
       "api": "https://api.jejunetwork.org",
       "a2a": "https://a2a.jejunetwork.org",
+      "mcp": "https://api.jejunetwork.org/mcp",
       "ws": "wss://ws.jejunetwork.org"
     },
     "rpcGateway": "https://rpc-gateway.jejunetwork.org",
@@ -187,6 +200,11 @@
     "kms": {
       "api": "https://kms.jejunetwork.org",
       "mpc": "https://kms.jejunetwork.org/mpc"
+    },
+    "factory": {
+      "ui": "https://factory.jejunetwork.org",
+      "api": "https://factory.jejunetwork.org",
+      "mcp": "https://factory.jejunetwork.org/api/mcp"
     },
     "externalRpcs": {
       "ethereum": "https://eth.llamarpc.com",

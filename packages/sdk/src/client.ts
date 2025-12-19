@@ -39,6 +39,10 @@ import { createSequencerModule, type SequencerModule } from "./sequencer";
 import { createCDNModule, type CDNModule } from "./cdn";
 import { createVPNModule, type VPNModule } from "./vpn-module";
 import { createModelsModule, type ModelsModule } from "./models";
+import { createDatasetsModule, type DatasetsModule } from "./datasets";
+import { createCICDModule, type CICDModule } from "./cicd";
+import { createFeedModule, type FeedModule } from "./feed";
+import { createMCPModule, type MCPModule } from "./mcp";
 import { createPredictionModule, type PredictionModule } from "./prediction";
 import { getServicesConfig, getChainConfig, getContractAddresses } from "./config";
 import { getNetworkName } from "@jejunetwork/config";
@@ -136,6 +140,14 @@ export interface JejuClient {
   readonly vpn: VPNModule;
   /** Models - HuggingFace-like model registry */
   readonly models: ModelsModule;
+  /** Datasets - Training data registry */
+  readonly datasets: DatasetsModule;
+  /** CI/CD - Continuous integration and deployment */
+  readonly cicd: CICDModule;
+  /** Feed - Social feed (Farcaster) integration */
+  readonly feed: FeedModule;
+  /** MCP - Model Context Protocol client */
+  readonly mcp: MCPModule;
   /** Prediction - Prediction markets */
   readonly prediction: PredictionModule;
 
@@ -231,6 +243,10 @@ export async function createJejuClient(
   const cdn = createCDNModule(wallet, network);
   const vpn = createVPNModule(wallet, network);
   const models = createModelsModule(wallet, network);
+  const datasets = createDatasetsModule(wallet, network);
+  const cicd = createCICDModule(wallet, network);
+  const feed = createFeedModule(wallet, network);
+  const mcp = createMCPModule(wallet, network);
   const prediction = createPredictionModule(wallet, network);
 
   const client: JejuClient = {
@@ -272,6 +288,10 @@ export async function createJejuClient(
     cdn,
     vpn,
     models,
+    datasets,
+    cicd,
+    feed,
+    mcp,
     prediction,
 
     getBalance: () => wallet.getBalance(),
