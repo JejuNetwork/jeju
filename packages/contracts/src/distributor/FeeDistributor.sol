@@ -90,8 +90,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     error InvalidAgentId();
     error NotAgentOwner();
 
-    // ============ Constructor ============
-
     constructor(address _rewardToken, address _liquidityVault, address _feeConfig, address initialOwner)
         Ownable(initialOwner)
     {
@@ -109,39 +107,24 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         emit PeriodStarted(0, block.timestamp);
     }
 
-    // ============ Core Distribution Functions ============
-
-    /**
-     * @notice Distribute transaction fees between app, LPs, and contributor pool
-     * @param amount Total reward tokens collected from user as fees
-     * @param appAddress Wallet address that will receive the app's share
-     * @dev Reads fee splits from FeeConfig contract for governance control
-     */
     function distributeFees(uint256 amount, address appAddress) external nonReentrant whenNotPaused {
         if (msg.sender != paymaster) revert OnlyPaymaster();
         if (amount == 0) revert InvalidAmount();
         if (appAddress == address(0)) revert InvalidAddress();
 
-        // Transfer tokens from paymaster to this contract
         rewardToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        // Read current fee splits from governance-controlled FeeConfig
         FeeConfig.DistributionFees memory fees = feeConfig.getDistributionFees();
-
-        // Calculate splits using governance-controlled percentages
         uint256 appAmount = (amount * fees.appShareBps) / BPS_DENOMINATOR;
         uint256 lpAmount = (amount * fees.lpShareBps) / BPS_DENOMINATOR;
         uint256 contributorAmount = amount - appAmount - lpAmount;
 
-        // Split LP portion between ETH and token LPs
         uint256 ethLPAmount = (lpAmount * fees.ethLpShareBps) / BPS_DENOMINATOR;
         uint256 tokenLPAmount = lpAmount - ethLPAmount;
 
-        // EFFECTS: Update all state first (CEI pattern)
         appEarnings[appAddress] += appAmount;
         totalAppEarnings += appAmount;
 
-        // Track agent earnings if app is linked to ERC-8004 agent
         uint256 agentId = appAgentId[appAddress];
         if (agentId > 0) {
             agentTotalEarnings[agentId] += appAmount;
@@ -152,22 +135,14 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         totalContributorEarnings += contributorAmount;
         totalDistributed += amount;
 
-        // Emit event before external call
         emit FeesDistributed(
             appAddress, appAmount, lpAmount, ethLPAmount, tokenLPAmount, contributorAmount, block.timestamp
         );
 
-        // INTERACTIONS: External call to vault LAST
         rewardToken.forceApprove(address(liquidityVault), lpAmount);
         liquidityVault.distributeFees(ethLPAmount, tokenLPAmount);
     }
 
-    /**
-     * @notice Collect platform fees from compute/storage services
-     * @param amount Amount of fees collected
-     * @param source Source of the fees (compute, storage, other)
-     * @param appAddress App that generated the fees (for revenue sharing)
-     */
     function collectPlatformFee(uint256 amount, string calldata source, address appAddress)
         external
         nonReentrant
@@ -175,10 +150,8 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
     {
         if (amount == 0) revert InvalidAmount();
 
-        // Transfer tokens to this contract
         rewardToken.safeTransferFrom(msg.sender, address(this), amount);
 
-        // Track by source
         bytes32 sourceHash = keccak256(bytes(source));
         if (sourceHash == keccak256("compute")) {
             computeFeesCollected += amount;
@@ -189,14 +162,9 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         }
 
         emit PlatformFeeCollected(source, amount, block.timestamp);
-
-        // Distribute the fees using standard distribution
         _distributeInternal(amount, appAddress);
     }
 
-    /**
-     * @dev Internal distribution logic
-     */
     function _distributeInternal(uint256 amount, address appAddress) internal {
         FeeConfig.DistributionFees memory fees = feeConfig.getDistributionFees();
 
@@ -216,7 +184,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
                 agentTotalEarnings[agentId] += appAmount;
             }
         } else {
-            // If no app, add to contributor pool
             contributorAmount += appAmount;
         }
 
@@ -229,11 +196,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         liquidityVault.distributeFees(ethLPAmount, tokenLPAmount);
     }
 
-    // ============ App Claim Functions ============
-
-    /**
-     * @notice Claim accumulated earnings to caller's address
-     */
     function claimEarnings() external nonReentrant {
         uint256 amount = appEarnings[msg.sender];
         if (amount == 0) revert NoEarningsToClaim();
@@ -244,9 +206,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         emit AppClaimed(msg.sender, amount);
     }
 
-    /**
-     * @notice Claim accumulated earnings to a specified address
-     */
     function claimEarningsTo(address recipient) external nonReentrant {
         uint256 amount = appEarnings[msg.sender];
         if (amount == 0) revert NoEarningsToClaim();
@@ -257,11 +216,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         emit AppClaimed(msg.sender, amount);
     }
 
-    // ============ Contributor Snapshot Functions ============
-
-    /**
-     * @notice Submit monthly contributor snapshot
-     */
     function submitMonthlySnapshot(uint256 period, address[] calldata contributors, uint256[] calldata shares)
         external
         whenNotPaused
@@ -288,9 +242,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         emit SnapshotSubmitted(period, contributorPoolBalance, contributors.length, totalShares);
     }
 
-    /**
-     * @notice Finalize monthly snapshot and start new period
-     */
     function finalizeSnapshot(uint256 period) external {
         if (msg.sender != contributorOracle) revert OnlyOracle();
         if (snapshots[period].finalized) revert SnapshotAlreadyFinalized();
@@ -305,9 +256,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         emit PeriodStarted(currentPeriod, block.timestamp);
     }
 
-    /**
-     * @notice Claim contributor rewards for a specific period
-     */
     function claimContributorReward(uint256 period) external nonReentrant {
         MonthlySnapshot storage snapshot = snapshots[period];
 
@@ -329,9 +277,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         emit ContributorClaimed(msg.sender, period, reward);
     }
 
-    /**
-     * @notice Claim rewards from multiple periods
-     */
     function claimMultiplePeriods(uint256[] calldata periods) external nonReentrant {
         uint256 totalReward = 0;
 
@@ -362,11 +307,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         rewardToken.safeTransfer(msg.sender, totalReward);
     }
 
-    // ============ View Functions ============
-
-    /**
-     * @notice Get current fee splits from governance
-     */
     function getCurrentFeeSplits()
         external
         view
@@ -382,16 +322,10 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         return (fees.appShareBps, fees.lpShareBps, fees.contributorShareBps, fees.ethLpShareBps, fees.tokenLpShareBps);
     }
 
-    /**
-     * @notice Get claimable earnings for an app
-     */
     function getEarnings(address app) external view returns (uint256) {
         return appEarnings[app];
     }
 
-    /**
-     * @notice Get claimable contributor reward for a period
-     */
     function getContributorReward(address contributor, uint256 period)
         external
         view
@@ -411,9 +345,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         }
     }
 
-    /**
-     * @notice Get global statistics
-     */
     function getStats()
         external
         view
@@ -440,9 +371,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         );
     }
 
-    /**
-     * @notice Preview distribution for a given amount
-     */
     function previewDistribution(uint256 amount)
         external
         view
@@ -458,20 +386,12 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         tokenLPAmount = lpAmount - ethLPAmount;
     }
 
-    // ============ ERC-8004 Integration ============
-
-    /**
-     * @notice Set the ERC-8004 Identity Registry
-     */
     function setIdentityRegistry(address _identityRegistry) external onlyOwner {
         address oldRegistry = address(identityRegistry);
         identityRegistry = IIdentityRegistry(_identityRegistry);
         emit IdentityRegistryUpdated(oldRegistry, _identityRegistry);
     }
 
-    /**
-     * @notice Link an app address to an ERC-8004 agent ID
-     */
     function linkAppToAgent(address app, uint256 agentId) external {
         if (address(identityRegistry) == address(0)) revert InvalidAddress();
         if (!identityRegistry.agentExists(agentId)) revert InvalidAgentId();
@@ -481,9 +401,6 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         emit AppAgentLinked(app, agentId);
     }
 
-    /**
-     * @notice Check if an app is verified as an ERC-8004 agent
-     */
     function isVerifiedApp(address app) external view returns (bool) {
         uint256 agentId = appAgentId[app];
         if (agentId == 0) return false;
@@ -491,21 +408,13 @@ contract FeeDistributor is ReentrancyGuard, Ownable, Pausable {
         return identityRegistry.agentExists(agentId);
     }
 
-    /**
-     * @notice Get app's agent ID
-     */
     function getAppAgentId(address app) external view returns (uint256) {
         return appAgentId[app];
     }
 
-    /**
-     * @notice Get total earnings by agent ID
-     */
     function getAgentEarnings(uint256 agentId) external view returns (uint256) {
         return agentTotalEarnings[agentId];
     }
-
-    // ============ Admin Functions ============
 
     function setPaymaster(address _paymaster) external onlyOwner {
         if (_paymaster == address(0)) revert InvalidAddress();
@@ -564,7 +473,6 @@ contract FeeDistributorV2 is ReentrancyGuard, Ownable {
     constructor(address _token, address _vault, address _owner) Ownable(_owner) {
         if (_token == address(0)) revert InvalidAddress();
         if (_vault == address(0)) revert InvalidAddress();
-        
         token = IERC20(_token);
         vault = _vault;
     }
@@ -575,10 +483,6 @@ contract FeeDistributorV2 is ReentrancyGuard, Ownable {
         emit PaymasterSet(_paymaster);
     }
 
-    /**
-     * @notice Collect fees from paymaster operations
-     * @param amount Amount of tokens collected
-     */
     function collectFees(uint256 amount) external {
         if (msg.sender != paymaster) revert OnlyPaymaster();
         
@@ -588,9 +492,6 @@ contract FeeDistributorV2 is ReentrancyGuard, Ownable {
         emit FeesCollected(amount, block.timestamp);
     }
 
-    /**
-     * @notice Distribute accumulated fees to vault
-     */
     function distributeFees() external nonReentrant {
         uint256 balance = token.balanceOf(address(this));
         if (balance == 0) return;
@@ -601,11 +502,6 @@ contract FeeDistributorV2 is ReentrancyGuard, Ownable {
         emit FeesDistributed(vault, balance);
     }
 
-    /**
-     * @notice Emergency token recovery
-     * @param _token Token to recover
-     * @param to Recipient address
-     */
     function recoverTokens(address _token, address to) external onlyOwner {
         uint256 balance = IERC20(_token).balanceOf(address(this));
         IERC20(_token).safeTransfer(to, balance);

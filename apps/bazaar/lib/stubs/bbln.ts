@@ -8,8 +8,14 @@ export const BBLN_TOKEN = {
 }
 
 export const BBLN_ADDRESSES = {
-  presale: '0x0000000000000000000000000000000000000000' as Address,
-  staking: '0x0000000000000000000000000000000000000000' as Address,
+  mainnet: {
+    presale: '0x0000000000000000000000000000000000000000' as Address,
+    staking: '0x0000000000000000000000000000000000000000' as Address,
+  },
+  sepolia: {
+    presale: '0x0000000000000000000000000000000000000000' as Address,
+    staking: '0x0000000000000000000000000000000000000000' as Address,
+  },
 }
 
 export const BBLN_PRESALE_ABI: Abi = []

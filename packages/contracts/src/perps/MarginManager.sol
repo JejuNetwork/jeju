@@ -39,15 +39,11 @@ contract MarginManager is IMarginManager, ReentrancyGuard, Ownable {
         priceOracle = IPriceOracle(_priceOracle);
     }
     
-    // ============ Modifiers ============
-    
     modifier onlyAuthorized() {
         require(authorizedContracts[msg.sender], "Not authorized");
         _;
     }
-    
-    // ============ Admin Functions ============
-    
+
     function setAuthorizedContract(address contractAddr, bool authorized) external onlyOwner {
         authorizedContracts[contractAddr] = authorized;
     }
@@ -78,8 +74,6 @@ contract MarginManager is IMarginManager, ReentrancyGuard, Ownable {
         }
     }
     
-    // ============ Deposit/Withdraw ============
-    
     function deposit(address token, uint256 amount) external nonReentrant {
         require(collateralFactors[token] > 0, "Token not accepted");
         require(amount > 0, "Amount must be > 0");
@@ -101,8 +95,6 @@ contract MarginManager is IMarginManager, ReentrancyGuard, Ownable {
         
         emit Withdraw(msg.sender, token, amount);
     }
-    
-    // ============ Collateral Management (Called by Trading Contract) ============
     
     function lockCollateral(
         address trader,
@@ -136,8 +128,6 @@ contract MarginManager is IMarginManager, ReentrancyGuard, Ownable {
         
         emit CollateralReleased(trader, positionId, toRelease);
     }
-    
-    // ============ View Functions ============
     
     function getCollateralBalance(address trader, address token) external view returns (uint256) {
         return balances[trader][token];

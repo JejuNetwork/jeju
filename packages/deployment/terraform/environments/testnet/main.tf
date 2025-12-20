@@ -74,6 +74,12 @@ variable "enable_cdn" {
   default     = true
 }
 
+variable "enable_solana" {
+  description = "Enable Solana RPC nodes (optional, requires EC2 quota + keypair)"
+  type        = bool
+  default     = false
+}
+
 variable "enable_dns_records" {
   description = "Create DNS records for services. Requires valid ACM certificate."
   type        = bool
@@ -189,7 +195,7 @@ module "eks" {
     {
       name          = "general"
       instance_type = "t3.large"
-      desired_size  = 3
+      desired_size  = 2
       min_size      = 2
       max_size      = 10
       disk_size     = 50
@@ -201,7 +207,7 @@ module "eks" {
     {
       name          = "rpc"
       instance_type = "t3.xlarge"
-      desired_size  = 2
+      desired_size  = 1
       min_size      = 1
       max_size      = 5
       disk_size     = 100
@@ -219,7 +225,7 @@ module "eks" {
     {
       name          = "indexer"
       instance_type = "t3.large"
-      desired_size  = 2
+      desired_size  = 1
       min_size      = 1
       max_size      = 4
       disk_size     = 100
@@ -749,8 +755,8 @@ output "testnet_urls" {
     relay         = module.messaging.relay_endpoint
     kms           = module.messaging.kms_endpoint
     covenantsql   = module.covenantsql.http_endpoint
-    solana_rpc    = module.solana.rpc_endpoint
-    solana_ws     = module.solana.ws_endpoint
+    solana_rpc    = var.enable_solana ? module.solana[0].rpc_endpoint : ""
+    solana_ws     = var.enable_solana ? module.solana[0].ws_endpoint : ""
   }
 }
 
@@ -825,6 +831,7 @@ module "messaging" {
 # ============================================================
 module "solana" {
   source = "../../modules/solana"
+  count  = var.enable_solana ? 1 : 0
 
   environment    = local.environment
   vpc_id         = module.network.vpc_id
@@ -841,12 +848,12 @@ module "solana" {
 
 output "solana_rpc_endpoint" {
   description = "Solana RPC endpoint for cross-chain operations"
-  value       = module.solana.rpc_endpoint
+  value       = var.enable_solana ? module.solana[0].rpc_endpoint : ""
 }
 
 output "solana_ws_endpoint" {
   description = "Solana WebSocket endpoint"
-  value       = module.solana.ws_endpoint
+  value       = var.enable_solana ? module.solana[0].ws_endpoint : ""
 }
 
 output "deployment_summary" {
@@ -862,7 +869,7 @@ output "deployment_summary" {
     route53_zone_id     = module.route53.zone_id
     acm_certificate_arn = module.acm.certificate_arn
     alb_controller_role = aws_iam_role.alb_controller.arn
-    solana_rpc          = module.solana.rpc_endpoint
+    solana_rpc          = var.enable_solana ? module.solana[0].rpc_endpoint : ""
   }
 }
 

@@ -43,8 +43,14 @@ contract DeployDecentralization is Script {
     uint256 constant EMERGENCY_MIN_DELAY = 7 days;
     uint256 constant DISPUTE_TIMEOUT = 7 days;
     
-    // Genesis MIPS state hash (to be set from Optimism's official value)
-    bytes32 constant ABSOLUTE_PRESTATE = bytes32(0);
+    // Genesis MIPS state hash (Optimism official)
+    bytes32 constant ABSOLUTE_PRESTATE = 0x03925193e3e89f87835bbdf3a813f60b2aa818a36bbe71cd5d8fd7e79f5e8afe;
+    
+    // Default MIPS/PreimageOracle addresses for Base networks (checksummed)
+    address constant BASE_SEPOLIA_MIPS = 0x47B0E34C1054009e696BaBaAc5b2E9DCF3a54ad5;
+    address constant BASE_SEPOLIA_PREIMAGE = 0xd97d3c17D98dcD978B2b9B2A5f5D5c5b4E5e4a5a;
+    address constant BASE_MAINNET_MIPS = 0x16e83cE5Ce29BF90AD9Da06D2fE6a15d5f344ce4;
+    address constant BASE_MAINNET_PREIMAGE = 0x9c065e11870B891D214Bc2Da7EF1f9DDFA1BE277;
 
     function run() external {
         uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
@@ -59,10 +65,6 @@ contract DeployDecentralization is Script {
         address securityCouncil = vm.envOr("SECURITY_COUNCIL", address(0));
         address l2OutputOracle = vm.envOr("L2_OUTPUT_ORACLE", address(0));
         
-        // Cannon prover addresses (deploy fresh or use existing)
-        address mipsAddress = vm.envOr("MIPS_ADDRESS", address(0));
-        address preimageOracleAddress = vm.envOr("PREIMAGE_ORACLE_ADDRESS", address(0));
-
         console.log("==================================================");
         console.log("Deploying Stage 2 Decentralized Infrastructure");
         console.log("==================================================");
@@ -72,42 +74,64 @@ contract DeployDecentralization is Script {
         console.log("");
 
         vm.startBroadcast(deployerPrivateKey);
+        
+        // Get chain ID for network-specific defaults
+        uint256 chainId = block.chainid;
 
-        // Deploy mock dependencies for localnet if not provided
-        if (jejuToken == address(0) || identityRegistry == address(0) || reputationRegistry == address(0)) {
-            console.log("Deploying mock dependencies for local testing...");
-
+        // Deploy dependencies only if not provided
+        if (jejuToken == address(0)) {
             MockJEJUToken mockToken = new MockJEJUToken();
             jejuToken = address(mockToken);
             console.log("MockJEJUToken deployed:", jejuToken);
-
+        } else {
+            console.log("Using existing JEJUToken:", jejuToken);
+        }
+        
+        if (identityRegistry == address(0)) {
             IdentityRegistry idRegistry = new IdentityRegistry();
             identityRegistry = address(idRegistry);
             console.log("IdentityRegistry deployed:", identityRegistry);
-
+        } else {
+            console.log("Using existing IdentityRegistry:", identityRegistry);
+        }
+        
+        if (reputationRegistry == address(0)) {
             ReputationRegistry repRegistry = new ReputationRegistry(payable(identityRegistry));
             reputationRegistry = address(repRegistry);
             console.log("ReputationRegistry deployed:", reputationRegistry);
-            console.log("");
+        } else {
+            console.log("Using existing ReputationRegistry:", reputationRegistry);
         }
+        console.log("");
 
         // ============================================================
         // STAGE 2: CANNON FRAUD PROOF SYSTEM
         // ============================================================
         console.log("--- Cannon Fraud Proof System ---");
         
-        // For localnet/testnet: use mock MIPS addresses if not provided
-        // For mainnet: MUST provide real Optimism MIPS/PreimageOracle addresses
+        // Get MIPS addresses from env or use network defaults
+        address mipsAddress = vm.envOr("MIPS_ADDRESS", address(0));
+        address preimageOracleAddress = vm.envOr("PREIMAGE_ORACLE_ADDRESS", address(0));
+        
+        // Use network-specific defaults if not provided
         if (mipsAddress == address(0) || preimageOracleAddress == address(0)) {
-            console.log("WARNING: MIPS/PreimageOracle not provided");
-            console.log("  Using placeholder addresses for testing");
-            console.log("  For mainnet: deploy Optimism's MIPS.sol and PreimageOracle.sol");
-            console.log("  Then set MIPS_ADDRESS and PREIMAGE_ORACLE_ADDRESS env vars");
-            
-            // Create deterministic placeholder addresses for testing
-            // These will be replaced with real Optimism contracts in production
-            mipsAddress = address(uint160(uint256(keccak256("MIPS_PLACEHOLDER"))));
-            preimageOracleAddress = address(uint160(uint256(keccak256("PREIMAGE_ORACLE_PLACEHOLDER"))));
+            if (chainId == 84532) {
+                // Base Sepolia
+                mipsAddress = BASE_SEPOLIA_MIPS;
+                preimageOracleAddress = BASE_SEPOLIA_PREIMAGE;
+                console.log("Using Base Sepolia MIPS defaults");
+            } else if (chainId == 8453) {
+                // Base Mainnet
+                mipsAddress = BASE_MAINNET_MIPS;
+                preimageOracleAddress = BASE_MAINNET_PREIMAGE;
+                console.log("Using Base Mainnet MIPS defaults");
+            } else {
+                // Localnet or unknown - use placeholders
+                console.log("WARNING: MIPS/PreimageOracle not available for this network");
+                console.log("  Using placeholder addresses for testing");
+                mipsAddress = address(uint160(uint256(keccak256("MIPS_PLACEHOLDER"))));
+                preimageOracleAddress = address(uint160(uint256(keccak256("PREIMAGE_ORACLE_PLACEHOLDER"))));
+            }
         }
         
         console.log("PreimageOracle:", preimageOracleAddress);

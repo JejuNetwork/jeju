@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import type { InferenceRequest } from '../../types';
 import type { Address } from 'viem';
-import { computeJobState, initializeDWSState } from '../../state.js';
+import { computeJobState } from '../../state.js';
 
 type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -42,13 +42,21 @@ export function createComputeRouter(): Hono {
   addTrainingRoutes(app);
 
   app.get('/health', async (c) => {
-    const queued = await computeJobState.getQueued();
+    let queuedCount = 0;
+    let cqlStatus = 'connected';
+    try {
+      const queued = await computeJobState.getQueued();
+      queuedCount = queued.length;
+    } catch {
+      cqlStatus = 'unavailable';
+    }
     return c.json({
       service: 'dws-compute',
       status: 'healthy',
       activeJobs: activeJobs.size,
       maxConcurrent: MAX_CONCURRENT,
-      queuedJobs: queued.length,
+      queuedJobs: queuedCount,
+      cqlStatus,
     });
   });
 

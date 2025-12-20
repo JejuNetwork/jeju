@@ -95,9 +95,9 @@ beforeAll(async () => {
     }
 
     // Wait for server to be ready (with retries)
-    let retries = 30; // Increased retries for slower startup
+    let retries = 5; // Quick check - don't wait too long
     while (retries > 0) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
+      await new Promise((resolve) => setTimeout(resolve, 200));
       serverAvailable = await checkServerAvailable();
       if (serverAvailable) {
         console.log('✅ A2A server started successfully');

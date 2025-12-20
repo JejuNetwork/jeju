@@ -23,8 +23,6 @@ import "../registry/IdentityRegistry.sol";
  */
 contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
 
-    // ============ Enums ============
-
     enum ModelType {
         LLM,
         VISION,
@@ -53,8 +51,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
         GATED,
         ENCRYPTED
     }
-
-    // ============ Structs ============
 
     struct Model {
         bytes32 modelId;
@@ -110,8 +106,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
         string reason;
     }
 
-    // ============ State ============
-
     IdentityRegistry public immutable identityRegistry;
     address public treasury;
 
@@ -142,8 +136,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
     // Fees
     uint256 public publishFee = 0;
     uint256 public storageFeePerGB = 0;
-
-    // ============ Events ============
 
     event ModelCreated(
         bytes32 indexed modelId,
@@ -190,8 +182,6 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
     error InvalidVersion();
     error RequestNotFound();
     error RequestAlreadyProcessed();
-
-    // ============ Modifiers ============
 
     modifier modelExists(bytes32 modelId) {
         if (models[modelId].createdAt == 0) revert ModelNotFound();
@@ -624,7 +614,7 @@ contract ModelRegistry is ReentrancyGuard, Pausable, Ownable {
         for (uint256 i = 0; i < allModels.length; i++) {
             if (models[allModels[i]].modelType == modelType) {
                 matching[j++] = allModels[i];
-    }
+            }
         }
 
         // Apply pagination

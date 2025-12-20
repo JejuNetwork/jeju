@@ -6,10 +6,10 @@
  * Handles the callback from OAuth3 agent after social/Farcaster authentication.
  */
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, type JSX } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function AuthCallbackPage() {
+function AuthCallbackContent(): JSX.Element {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -123,5 +123,20 @@ export default function AuthCallbackPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function AuthCallbackPage(): JSX.Element {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: 'var(--bg)' }}>
+        <div className="text-center space-y-4">
+          <div className="text-6xl animate-bounce">🏝️</div>
+          <h1 className="text-2xl font-bold">Loading...</h1>
+        </div>
+      </div>
+    }>
+      <AuthCallbackContent />
+    </Suspense>
   );
 }

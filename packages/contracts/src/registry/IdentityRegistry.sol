@@ -35,25 +35,13 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         bool isSlashed;
     }
 
-    // ============ Constants ============
-
-    /// @notice Stake amounts for each tier (in wei)
     uint256 public constant STAKE_SMALL = 0.001 ether;
     uint256 public constant STAKE_MEDIUM = 0.01 ether;
     uint256 public constant STAKE_HIGH = 0.1 ether;
-
-    /// @notice Maximum metadata value size to prevent gas griefing
     uint256 public constant MAX_METADATA_SIZE = 8192;
-
-    /// @notice Maximum metadata key length
     uint256 public constant MAX_KEY_LENGTH = 256;
-
-    /// @notice Maximum tags per agent
     uint256 public constant MAX_TAGS = 10;
 
-    // ============ State Variables ============
-
-    /// @notice Counter for agent IDs (tokenIds)
     uint256 private _nextAgentId;
 
     /// @notice Agent registration data
@@ -103,8 +91,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
     error InvalidStakeTier();
     error AgentNotFound();
 
-    // ============ Modifiers ============
-
     modifier onlyGovernance() {
         if (msg.sender != governance) revert OnlyGovernance();
         _;
@@ -124,12 +110,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         _addSupportedToken(address(0)); // ETH
     }
 
-    // ============ Admin Functions ============
-
-    /**
-     * @notice Add a supported stake token
-     * @param token Token address (address(0) for ETH)
-     */
     function addSupportedToken(address token) external onlyGovernance {
         require(!isSupportedStakeToken[token], "Already supported");
         _addSupportedToken(token);
@@ -293,13 +273,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         emit StakeWithdrawn(agentId, msg.sender, stakeAmount);
     }
 
-    // ============ Governance Functions ============
-
-    /**
-     * @notice Ban an agent (governance only)
-     * @param agentId Agent ID to ban
-     * @param reason Ban reason
-     */
     function banAgent(uint256 agentId, string calldata reason) external onlyGovernance {
         AgentRegistration storage agent = agents[agentId];
         if (agent.owner == address(0)) revert AgentNotFound();
@@ -372,13 +345,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         emit AgentSlashed(agentId, slashAmount, reason);
     }
 
-    // ============ Tag Management ============
-
-    /**
-     * @notice Update tags for an agent
-     * @param agentId Agent ID
-     * @param tags_ New tags array
-     */
     function updateTags(uint256 agentId, string[] calldata tags_) external notBanned(agentId) {
         address owner = ownerOf(agentId);
         require(
@@ -415,8 +381,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
     function getAgentTags(uint256 agentId) external view returns (string[] memory tags) {
         return _agentTags[agentId];
     }
-
-    // ============ Metadata Functions ============
 
     /**
      * @notice Set metadata for an agent
@@ -472,13 +436,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         emit AgentUriUpdated(agentId, newTokenURI);
     }
 
-    // ============ View Functions ============
-
-    /**
-     * @notice Get stake amount for a tier
-     * @param tier Stake tier
-     * @return amount Stake amount in wei
-     */
     function getStakeAmount(StakeTier tier) public pure returns (uint256 amount) {
         if (tier == StakeTier.NONE) return 0;
         if (tier == StakeTier.SMALL) return STAKE_SMALL;
@@ -569,14 +526,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
         }
     }
 
-    // ============ Internal Functions ============
-
-    /**
-     * @dev Mints a new agent NFT
-     * @param to The address to mint the agent to
-     * @param tokenURI_ The token URI
-     * @return agentId The newly minted agent ID
-     */
     /**
      * @custom:security CEI pattern: Initialize all state before _safeMint callback
      */
@@ -692,8 +641,6 @@ contract IdentityRegistry is ERC721URIStorage, ReentrancyGuard, Pausable, IIdent
      * @notice Allow contract to receive ETH for stake deposits
      */
     receive() external payable {}
-
-    // ============ Marketplace Discovery Functions ============
 
     /// @notice Standardized metadata keys for marketplace discovery
     string public constant KEY_A2A_ENDPOINT = "a2aEndpoint";
