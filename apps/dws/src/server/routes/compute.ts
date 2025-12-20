@@ -2,6 +2,14 @@ import { Hono } from 'hono';
 import type { InferenceRequest } from '../../types';
 import type { Address } from 'viem';
 import { computeJobState, initializeDWSState } from '../../state.js';
+import { 
+  registerNode, 
+  unregisterNode, 
+  getActiveNodes, 
+  getNodeStats,
+  updateNodeHeartbeat,
+  type InferenceNode 
+} from '../../compute/inference-node';
 
 type JobStatus = 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 
@@ -56,236 +64,69 @@ export function createComputeRouter(): Hono {
   app.post('/chat/completions', async (c) => {
     const body = await c.req.json<InferenceRequest>();
     
-    // Check if AWS Bedrock is available (credentials from AWS SDK default chain)
-    const bedrockEnabled = process.env.AWS_BEDROCK_ENABLED === 'true' || 
-      (process.env.AWS_ACCESS_KEY_ID && process.env.AWS_REGION);
-
-    // Try inference providers in order of preference
-    // AWS Bedrock is checked first if AWS credentials are available
-    interface ProviderConfig {
-      id: string;
-      url: string;
-      env: string;
-      isBedrock?: boolean;
-      isAnthropic?: boolean;
-      key?: string;
-    }
+    // Get active inference nodes
+    const activeNodes = getActiveNodes();
     
-    const providers: ProviderConfig[] = [
-      ...(bedrockEnabled ? [{ id: 'bedrock', url: 'bedrock', env: 'AWS_BEDROCK_ENABLED', isBedrock: true }] : []),
-      { id: 'groq', url: 'https://api.groq.com/openai/v1', env: 'GROQ_API_KEY' },
-      { id: 'openrouter', url: 'https://openrouter.ai/api/v1', env: 'OPENROUTER_API_KEY' },
-      { id: 'openai', url: 'https://api.openai.com/v1', env: 'OPENAI_API_KEY' },
-      { id: 'anthropic', url: 'https://api.anthropic.com/v1', env: 'ANTHROPIC_API_KEY', isAnthropic: true },
-      { id: 'together', url: 'https://api.together.xyz/v1', env: 'TOGETHER_API_KEY' },
-      { id: 'custom', url: process.env.INFERENCE_API_URL ?? '', env: 'INFERENCE_API_KEY' },
-    ];
-
-    // Model-to-provider mapping
-    const modelProviderMap: Record<string, string> = {
-      // OpenAI models
-      'gpt-4': 'openai', 'gpt-4o': 'openai', 'gpt-4o-mini': 'openai', 'gpt-4-turbo': 'openai',
-      'gpt-3.5': 'openai', 'gpt-3.5-turbo': 'openai', 'o1': 'openai', 'o3': 'openai',
-      // Anthropic models
-      'claude': 'anthropic', 'claude-3': 'anthropic', 'claude-3.5': 'anthropic',
-      'claude-3-opus': 'anthropic', 'claude-3-sonnet': 'anthropic', 'claude-3-haiku': 'anthropic',
-      'claude-3-5-sonnet': 'anthropic', 'claude-3-5-haiku': 'anthropic',
-      // Groq models (Llama, Mixtral)
-      'llama': 'groq', 'llama-3': 'groq', 'llama-3.1': 'groq', 'llama-3.2': 'groq', 'llama-3.3': 'groq',
-      'mixtral': 'groq', 'gemma': 'groq',
-    };
-
-    // Find the best provider based on model
-    const requestedModel = body.model ?? '';
-    let preferredProvider: string | null = null;
+    // Find a suitable node for this model
+    const modelLower = (body.model ?? '').toLowerCase();
+    let selectedNode: InferenceNode | null = null;
     
-    // Check if model name starts with any known prefix
-    for (const [prefix, provider] of Object.entries(modelProviderMap)) {
-      if (requestedModel.toLowerCase().startsWith(prefix.toLowerCase())) {
-        preferredProvider = provider;
+    // Try to find a node that can handle this model
+    for (const node of activeNodes) {
+      if (node.currentLoad >= node.maxConcurrent) continue;
+      
+      // Check if node's provider/models match
+      const nodeModels = node.models.map(m => m.toLowerCase());
+      if (nodeModels.includes('*') || nodeModels.some(m => modelLower.includes(m) || m.includes(modelLower.split('-')[0]))) {
+        selectedNode = node;
         break;
       }
     }
-
-    // Find first available provider, preferring the one that matches the model
-    let selectedProvider: ProviderConfig | null = null;
     
-    // First, try the preferred provider
-    if (preferredProvider) {
-      const p = providers.find(x => x.id === preferredProvider);
-      if (p) {
-        if (p.isBedrock && bedrockEnabled) {
-          selectedProvider = { ...p, key: 'bedrock' };
-        } else {
-          const key = process.env[p.env];
-          if (key && p.url) {
-            selectedProvider = { ...p, key };
-          }
-        }
-      }
+    // Fallback to any available node
+    if (!selectedNode) {
+      selectedNode = activeNodes.find(n => n.currentLoad < n.maxConcurrent) || null;
     }
     
-    // If no preferred provider or not available, fall back to any available
-    if (!selectedProvider) {
-      for (const p of providers) {
-        if (p.isBedrock && bedrockEnabled) {
-          selectedProvider = { ...p, key: 'bedrock' };
-          break;
-        }
-        const key = process.env[p.env];
-        if (key && p.url) {
-          selectedProvider = { ...p, key };
-          break;
-        }
-      }
-    }
-
-    // If no provider available, return mock response for dev/testing
-    if (!selectedProvider) {
-      const mockContent = `This is a mock response. No inference provider is configured.
-Set one of: GROQ_API_KEY, OPENROUTER_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY, or AWS_BEDROCK_ENABLED=true`;
-      
+    // If no nodes available, return error (no fallback to direct providers)
+    if (!selectedNode) {
       return c.json({
-        id: `chatcmpl-mock-${Date.now()}`,
-        object: 'chat.completion',
-        created: Math.floor(Date.now() / 1000),
-        model: body.model ?? 'mock',
-        provider: 'mock',
-        choices: [{
-          index: 0,
-          message: { role: 'assistant', content: mockContent },
-          finish_reason: 'stop',
-        }],
-        usage: {
-          prompt_tokens: 10,
-          completion_tokens: 20,
-          total_tokens: 30,
-        },
-      });
+        error: 'No inference nodes available',
+        message: 'Register an inference node with DWS. For local dev: bun run src/compute/local-inference-server.ts',
+        activeNodes: activeNodes.length,
+        stats: getNodeStats(),
+      }, 503);
     }
-
-    // Handle AWS Bedrock
-    if (selectedProvider.isBedrock) {
-      const region = process.env.AWS_REGION ?? 'us-east-1';
-      const modelId = body.model ?? 'anthropic.claude-3-haiku-20240307-v1:0';
-      
-      // Convert messages to Bedrock format (Anthropic Claude on Bedrock)
-      const systemMessage = body.messages.find(m => m.role === 'system')?.content ?? '';
-      const conversationMessages = body.messages.filter(m => m.role !== 'system');
-      
-      const bedrockBody = {
-        anthropic_version: 'bedrock-2023-05-31',
-        max_tokens: body.max_tokens ?? 1024,
-        system: systemMessage,
-        messages: conversationMessages.map(m => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        })),
-      };
-
-      // Use AWS SDK v3 for Bedrock Runtime
-      const { BedrockRuntimeClient, InvokeModelCommand } = await import('@aws-sdk/client-bedrock-runtime');
-      const client = new BedrockRuntimeClient({ region });
-      
-      const command = new InvokeModelCommand({
-        modelId,
-        contentType: 'application/json',
-        accept: 'application/json',
-        body: JSON.stringify(bedrockBody),
-      });
-
-      const bedrockResponse = await client.send(command);
-      const responseBody = JSON.parse(new TextDecoder().decode(bedrockResponse.body)) as {
-        content: Array<{ text: string }>;
-        usage: { input_tokens: number; output_tokens: number };
-      };
-
-      // Convert to OpenAI format
-      return c.json({
-        id: `chatcmpl-bedrock-${Date.now()}`,
-        object: 'chat.completion',
-        created: Math.floor(Date.now() / 1000),
-        model: modelId,
-        provider: 'bedrock',
-        choices: [{
-          index: 0,
-          message: { role: 'assistant', content: responseBody.content[0]?.text ?? '' },
-          finish_reason: 'stop',
-        }],
-        usage: {
-          prompt_tokens: responseBody.usage.input_tokens,
-          completion_tokens: responseBody.usage.output_tokens,
-          total_tokens: responseBody.usage.input_tokens + responseBody.usage.output_tokens,
-        },
-      });
-    }
-
-    // Handle Anthropic's different API format
-    if (selectedProvider.isAnthropic) {
-      const anthropicBody = {
-        model: body.model ?? 'claude-3-haiku-20240307',
-        max_tokens: body.max_tokens ?? 1024,
-        messages: body.messages.filter(m => m.role !== 'system').map(m => ({
-          role: m.role as 'user' | 'assistant',
-          content: m.content,
-        })),
-        system: body.messages.find(m => m.role === 'system')?.content,
-      };
-
-      const response = await fetch(`${selectedProvider.url}/messages`, {
+    
+    // Route request to the node
+    try {
+      const response = await fetch(`${selectedNode.endpoint}/v1/chat/completions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': selectedProvider.key,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify(anthropicBody),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal: AbortSignal.timeout(60000),
       });
-
+      
       if (!response.ok) {
         const errorText = await response.text();
-        return c.json({ error: `Anthropic error: ${errorText}`, provider: 'anthropic' }, response.status as 400 | 401 | 403 | 500);
+        return c.json({ 
+          error: `Node ${selectedNode.address} error: ${errorText}`,
+          node: selectedNode.address,
+        }, response.status as 400 | 500);
       }
-
-      const result = await response.json() as { content: Array<{ text: string }>; usage: { input_tokens: number; output_tokens: number } };
       
-      // Convert to OpenAI format
+      const result = await response.json() as Record<string, unknown>;
       return c.json({
-        id: `chatcmpl-${Date.now()}`,
-        object: 'chat.completion',
-        created: Math.floor(Date.now() / 1000),
-        model: body.model ?? 'claude-3-haiku',
-        provider: 'anthropic',
-        choices: [{
-          index: 0,
-          message: { role: 'assistant', content: result.content[0]?.text ?? '' },
-          finish_reason: 'stop',
-        }],
-        usage: { prompt_tokens: result.usage.input_tokens, completion_tokens: result.usage.output_tokens, total_tokens: result.usage.input_tokens + result.usage.output_tokens },
+        ...result,
+        node: selectedNode.address,
+        provider: selectedNode.provider,
       });
+    } catch (error) {
+      return c.json({
+        error: `Failed to reach node ${selectedNode.address}: ${(error as Error).message}`,
+        node: selectedNode.address,
+      }, 502);
     }
-
-    // OpenAI-compatible providers (Groq, OpenRouter, OpenAI, Together)
-    const response = await fetch(`${selectedProvider.url}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${selectedProvider.key}`,
-        ...(selectedProvider.id === 'openrouter' ? { 'HTTP-Referer': 'https://jejunetwork.org', 'X-Title': 'Jeju Network' } : {}),
-      },
-      body: JSON.stringify({
-        ...body,
-        model: body.model ?? (selectedProvider.id === 'groq' ? 'llama-3.3-70b-versatile' : body.model),
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      return c.json({ error: `${selectedProvider.id} error: ${errorText}`, provider: selectedProvider.id }, response.status as 400 | 401 | 403 | 500);
-    }
-
-    const result = await response.json();
-    return c.json({ ...result, provider: selectedProvider.id });
   });
 
   app.post('/embeddings', async (c) => {
@@ -653,7 +494,7 @@ export function addTrainingRoutes(app: Hono): void {
     return c.json(node);
   });
 
-  // Register as training node (for DWS nodes)
+  // Register as training/inference node (for DWS nodes)
   app.post('/nodes/register', async (c) => {
     const body = await c.req.json<{
       address: string;
@@ -662,9 +503,14 @@ export function addTrainingRoutes(app: Hono): void {
       endpoint?: string;
       region?: string;
       teeProvider?: string;
+      provider?: string;
+      models?: string[];
+      maxConcurrent?: number;
     }>();
+    
     const address = body.address.toLowerCase();
     
+    // Register for training jobs
     trainingNodes.set(address, {
       address,
       gpuTier: body.gpuTier,
@@ -673,11 +519,28 @@ export function addTrainingRoutes(app: Hono): void {
       bandwidthMbps: 1000,
       isActive: true,
     });
-
+    
+    // Register for inference if endpoint provided
+    if (body.endpoint && body.capabilities?.includes('inference')) {
+      registerNode({
+        address,
+        endpoint: body.endpoint,
+        capabilities: body.capabilities || ['inference'],
+        models: body.models || ['*'],
+        provider: body.provider || 'local',
+        region: body.region || 'unknown',
+        gpuTier: body.gpuTier,
+        maxConcurrent: body.maxConcurrent || 10,
+        isActive: true,
+        teeProvider: body.teeProvider,
+      });
+    }
+    
     console.log(`[Compute] Registered node ${address} with GPU tier ${body.gpuTier}`, {
       capabilities: body.capabilities,
       teeProvider: body.teeProvider,
       region: body.region,
+      provider: body.provider,
     });
     
     return c.json({
@@ -686,6 +549,38 @@ export function addTrainingRoutes(app: Hono): void {
       gpuTier: body.gpuTier,
       capabilities: body.capabilities,
     });
+  });
+  
+  // Node heartbeat
+  app.post('/nodes/heartbeat', async (c) => {
+    const body = await c.req.json<{ address: string; load?: number }>();
+    const updated = updateNodeHeartbeat(body.address.toLowerCase(), body.load);
+    return c.json({ success: updated });
+  });
+  
+  // Unregister node
+  app.delete('/nodes/:address', async (c) => {
+    const address = c.req.param('address').toLowerCase();
+    trainingNodes.delete(address);
+    unregisterNode(address);
+    return c.json({ success: true });
+  });
+  
+  // Get inference node stats
+  app.get('/nodes/stats', async (c) => {
+    const stats = getNodeStats();
+    return c.json({
+      inference: stats,
+      training: {
+        totalNodes: trainingNodes.size,
+        activeNodes: Array.from(trainingNodes.values()).filter(n => n.isActive).length,
+      },
+    });
+  });
+  
+  // List active inference nodes
+  app.get('/nodes/inference', async (c) => {
+    return c.json(getActiveNodes());
   });
 
   // Training webhook for state updates

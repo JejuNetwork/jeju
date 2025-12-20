@@ -29,21 +29,16 @@ function getAutocratMCP(): string {
   return process.env.getAutocratMCP() ?? `${getAutocratUrl()}/mcp`;
 }
 
-// Model settings
+// Model settings - uses DWS for decentralized inference (not direct provider keys)
 function getModelSettings(): Record<string, string> {
-  const settings: Record<string, string> = {};
-  if (process.env.ANTHROPIC_API_KEY) {
-    settings.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-    settings.ANTHROPIC_MODEL = 'claude-sonnet-4-20250514';
-  }
-  if (process.env.OPENAI_API_KEY) {
-    settings.OPENAI_API_KEY = process.env.OPENAI_API_KEY;
-  }
-  if (process.env.GROQ_API_KEY) {
-    settings.GROQ_API_KEY = process.env.GROQ_API_KEY;
-    settings.LARGE_GROQ_MODEL = 'llama-3.3-70b-versatile';
-  }
-  return settings;
+  // Configure ElizaOS to use DWS as the OpenAI-compatible endpoint
+  // This ensures all inference goes through DWS network
+  const dwsUrl = process.env.DWS_URL ?? 'http://localhost:4030';
+  return {
+    // Use DWS compute endpoint as OpenAI-compatible base
+    OPENAI_API_BASE: `${dwsUrl}/compute`,
+    OPENAI_API_KEY: 'dws', // DWS doesn't require API key
+  };
 }
 
 // ============================================================================

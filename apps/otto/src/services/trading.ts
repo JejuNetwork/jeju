@@ -3,7 +3,7 @@
  * Handles all trading operations: swaps, bridges, token launches, etc.
  */
 
-import { type Address, parseEther, formatEther, formatUnits, parseUnits, type Hex } from 'viem';
+import { type Address, formatUnits, parseUnits, type Hex } from 'viem';
 import type {
   TokenInfo,
   Balance,
