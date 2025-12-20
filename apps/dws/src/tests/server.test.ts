@@ -73,15 +73,16 @@ describe('DWS Server', () => {
           messages: [{ role: 'user', content: 'Hello' }],
         }),
       }));
-      // Returns 200 when provider is configured, 503 otherwise
+      // Returns 200 when inference node is available, 503 otherwise
       expect([200, 503]).toContain(res.status);
 
-      const data = await res.json() as { error?: string; docs?: string; choices?: unknown[] };
+      const data = await res.json() as { error?: string; message?: string; choices?: unknown[] };
       if (res.status === 503) {
-        expect(data.error).toBe('No inference provider configured');
-        expect(data.docs).toContain('groq.com');
+        // No inference nodes available - expected in unit tests
+        expect(data.error).toBe('No inference nodes available');
+        expect(data.message).toContain('Register an inference node');
       } else {
-        // Provider is configured - expect a valid response
+        // Inference node is configured - expect a valid response
         expect(data.choices).toBeDefined();
       }
     });

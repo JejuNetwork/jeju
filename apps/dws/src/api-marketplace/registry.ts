@@ -278,6 +278,11 @@ export async function getMarketplaceStats(): Promise<MarketplaceStats> {
     totalVolume: 0n,
     last24hRequests: 0n,
     last24hVolume: 0n,
+    pocStats: {
+      pocRequiredListings: 0,
+      verifiedVaultKeys: 0,
+      pocVerifiedRequests: 0n,
+    },
   };
 }
 

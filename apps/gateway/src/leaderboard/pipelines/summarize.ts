@@ -461,13 +461,14 @@ ${topList}
 Write a professional summary highlighting the most significant developments and top contributors.`;
 }
 
-async function callLLM(apiKey: string, prompt: string): Promise<{ text: string; tokens: number }> {
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+async function callLLM(_apiKey: string, prompt: string): Promise<{ text: string; tokens: number }> {
+  // Route through DWS compute for decentralized inference
+  const dwsUrl = process.env.DWS_URL || 'http://localhost:4030';
+  
+  const response = await fetch(`${dwsUrl}/compute/chat/completions`, {
     method: 'POST',
     headers: {
-      'Authorization': `Bearer ${apiKey}`,
       'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://jejunetwork.org',
     },
     body: JSON.stringify({
       model: LEADERBOARD_CONFIG.llm.model,
@@ -479,7 +480,7 @@ async function callLLM(apiKey: string, prompt: string): Promise<{ text: string; 
 
   if (!response.ok) {
     const error = await response.text();
-    throw new Error(`LLM API error: ${response.status} - ${error}`);
+    throw new Error(`DWS inference error: ${response.status} - ${error}`);
   }
 
   const data = await response.json() as {

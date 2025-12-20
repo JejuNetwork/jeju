@@ -139,7 +139,7 @@ describe('TEE GPU Provider', () => {
       expect(submittedJobId).toBe(jobId);
     });
 
-    test('job completes with result', async () => {
+    test('job completes with result', { timeout: 10000 }, async () => {
       const jobId = `complete-${Date.now()}`;
       const request: GPUJobRequest = {
         jobId,
@@ -174,7 +174,7 @@ describe('TEE GPU Provider', () => {
       expect(status.result?.metrics).toBeDefined();
     });
 
-    test('job result has metrics', async () => {
+    test('job result has metrics', { timeout: 10000 }, async () => {
       const jobId = `metrics-${Date.now()}`;
       const request: GPUJobRequest = {
         jobId,

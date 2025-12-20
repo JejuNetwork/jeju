@@ -2,6 +2,9 @@
  * Crucible - Decentralized Agent Orchestration Platform
  * 
  * Main entry point for the Crucible package.
+ * 
+ * Uses ElizaOS-compatible runtime with DWS for decentralized AI inference.
+ * Same infrastructure as Autocrat (governance) and Otto (trading).
  */
 
 // Types
@@ -40,6 +43,19 @@ export {
   createExecutorSDK,
   type ExecutorConfig,
 } from './sdk/executor';
+
+// ElizaOS-compatible Agent Runtime (unified with Autocrat/Otto)
+export {
+  CrucibleAgentRuntime,
+  CrucibleRuntimeManager,
+  createCrucibleRuntime,
+  runtimeManager,
+  checkDWSHealth,
+  dwsGenerate,
+  type RuntimeConfig,
+  type RuntimeMessage,
+  type RuntimeResponse,
+} from './sdk/eliza-runtime';
 
 // Characters
 export {

@@ -453,7 +453,7 @@ describe('Scheduler', () => {
     expect(node?.resources.availableCpu).toBe(4);
   });
 
-  test('should schedule with best-fit strategy', () => {
+  test('should schedule with best-fit strategy', async () => {
     const request: ExecutionRequest = {
       imageRef: 'test/app:latest',
       resources: { cpuCores: 2, memoryMb: 2048, storageMb: 4096 },
@@ -461,7 +461,7 @@ describe('Scheduler', () => {
       timeout: 30000,
     };
 
-    const result = scheduleExecution(
+    const result = await scheduleExecution(
       {
         request,
         image: {

@@ -1,15 +1,23 @@
 /**
- * Compute SDK - Handles inference through the compute marketplace.
+ * Compute SDK - Handles inference through DWS (Decentralized Workstation Service)
+ * 
+ * Uses the same DWS infrastructure as Autocrat and Otto for unified AI inference.
  */
 
+import { getDWSComputeUrl, getCurrentNetwork } from '@jejunetwork/config';
 import type { AgentCharacter, ExecutionOptions } from '../types';
 import { createLogger, type Logger } from './logger';
 
 export interface ComputeConfig {
-  marketplaceUrl: string;
+  marketplaceUrl?: string; // Optional - falls back to DWS
   rpcUrl: string;
   defaultModel?: string;
   logger?: Logger;
+}
+
+// Get DWS endpoint from centralized config
+function getDWSEndpoint(): string {
+  return process.env.DWS_URL ?? process.env.COMPUTE_MARKETPLACE_URL ?? getDWSComputeUrl();
 }
 
 export interface InferenceRequest {
@@ -48,14 +56,20 @@ export class CrucibleCompute {
 
   async getAvailableModels(): Promise<ModelInfo[]> {
     this.log.debug('Fetching available models');
-    const r = await fetch(`${this.config.marketplaceUrl}/api/v1/models`);
+    const endpoint = this.getEndpoint();
+    const r = await fetch(`${endpoint}/models`);
     if (!r.ok) {
-      this.log.error('Failed to fetch models', { status: r.status });
-      throw new Error(`Failed to fetch models: ${r.statusText}`);
+      this.log.error('Failed to fetch models', { status: r.status, endpoint });
+      throw new Error(`Failed to fetch models from ${endpoint}: ${r.statusText}`);
     }
-    const models = ((await r.json()) as { models: ModelInfo[] }).models;
+    const data = await r.json() as { models?: ModelInfo[]; data?: ModelInfo[] };
+    const models = data.models ?? data.data ?? [];
     this.log.debug('Models fetched', { count: models.length });
     return models;
+  }
+
+  private getEndpoint(): string {
+    return this.config.marketplaceUrl ?? getDWSEndpoint();
   }
 
   async getBestModel(requirements: {
@@ -102,37 +116,62 @@ export class CrucibleCompute {
 
   async inference(request: InferenceRequest): Promise<InferenceResponse> {
     const start = Date.now();
-    this.log.debug('Inference request', { model: request.model, messageCount: request.messages.length });
+    const endpoint = this.getEndpoint();
+    this.log.debug('Inference request', { model: request.model, messageCount: request.messages.length, endpoint });
 
-    const r = await fetch(`${this.config.marketplaceUrl}/api/v1/inference`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(request),
+    // Use OpenAI-compatible chat/completions endpoint (same as Autocrat/Otto)
+    const r = await fetch(`${endpoint}/chat/completions`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: request.model ?? this.config.defaultModel ?? 'llama-3.1-8b-instant',
+        messages: request.messages,
+        max_tokens: request.maxTokens ?? 2048,
+        temperature: request.temperature ?? 0.7,
+      }),
     });
+
     if (!r.ok) {
       const error = await r.text();
-      this.log.error('Inference failed', { status: r.status, error });
-      throw new Error(`Inference failed: ${error}`);
+      const network = getCurrentNetwork();
+      this.log.error('Inference failed', { status: r.status, error, network, endpoint });
+      throw new Error(`DWS inference failed (network: ${network}): ${error}`);
     }
 
     const result = await r.json() as {
-      content: string; model: string; usage: { prompt_tokens: number; completion_tokens: number }; cost: string;
+      choices?: Array<{ message?: { content: string } }>;
+      content?: string;
+      model?: string;
+      usage?: { prompt_tokens: number; completion_tokens: number };
     };
+
+    const content = result.choices?.[0]?.message?.content ?? result.content ?? '';
+    const usage = result.usage ?? { prompt_tokens: 0, completion_tokens: 0 };
+
     return {
-      content: result.content, model: result.model,
-      tokensUsed: { input: result.usage.prompt_tokens, output: result.usage.completion_tokens },
-      cost: BigInt(result.cost), latencyMs: Date.now() - start,
+      content,
+      model: result.model ?? request.model ?? 'unknown',
+      tokensUsed: { input: usage.prompt_tokens, output: usage.completion_tokens },
+      cost: 0n, // DWS handles billing separately
+      latencyMs: Date.now() - start,
     };
   }
 
   async generateEmbedding(text: string): Promise<number[]> {
-    this.log.debug('Generating embedding', { textLength: text.length });
-    const r = await fetch(`${this.config.marketplaceUrl}/api/v1/embeddings`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ input: text }),
+    const endpoint = this.getEndpoint();
+    this.log.debug('Generating embedding', { textLength: text.length, endpoint });
+    const r = await fetch(`${endpoint}/embeddings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ input: text, model: 'text-embedding-3-small' }),
     });
     if (!r.ok) {
-      this.log.error('Embedding failed', { status: r.status });
-      throw new Error(`Embedding failed: ${r.statusText}`);
+      const network = getCurrentNetwork();
+      this.log.error('Embedding failed', { status: r.status, network });
+      throw new Error(`Embedding failed (network: ${network}): ${r.statusText}`);
     }
-    return ((await r.json()) as { embedding: number[] }).embedding;
+    const data = await r.json() as { embedding?: number[]; data?: Array<{ embedding: number[] }> };
+    return data.embedding ?? data.data?.[0]?.embedding ?? [];
   }
 
   async estimateCost(messages: Array<{ role: string; content: string }>, model: string, maxOutputTokens: number): Promise<bigint> {

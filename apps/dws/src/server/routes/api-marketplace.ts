@@ -52,31 +52,47 @@ export function createAPIMarketplaceRouter(): Hono {
   // Health & Stats
   // ============================================================================
 
-  app.get('/health', (c) => {
-    const stats = getMarketplaceStats();
+  app.get('/health', async (c) => {
+    const stats = await getMarketplaceStats();
     const vaultStats = getVaultStats();
     return c.json({
       status: 'healthy',
       service: 'api-marketplace',
       marketplace: {
-        ...stats,
+        totalProviders: stats.totalProviders,
+        totalListings: stats.totalListings,
+        activeListings: stats.activeListings,
+        totalUsers: stats.totalUsers,
         totalRequests: stats.totalRequests.toString(),
         totalVolume: stats.totalVolume.toString(),
         last24hRequests: stats.last24hRequests.toString(),
         last24hVolume: stats.last24hVolume.toString(),
+        pocStats: {
+          pocRequiredListings: stats.pocStats.pocRequiredListings,
+          verifiedVaultKeys: stats.pocStats.verifiedVaultKeys,
+          pocVerifiedRequests: stats.pocStats.pocVerifiedRequests.toString(),
+        },
       },
       vault: vaultStats,
     });
   });
 
-  app.get('/stats', (c) => {
-    const stats = getMarketplaceStats();
+  app.get('/stats', async (c) => {
+    const stats = await getMarketplaceStats();
     return c.json({
-      ...stats,
+      totalProviders: stats.totalProviders,
+      totalListings: stats.totalListings,
+      activeListings: stats.activeListings,
+      totalUsers: stats.totalUsers,
       totalRequests: stats.totalRequests.toString(),
       totalVolume: stats.totalVolume.toString(),
       last24hRequests: stats.last24hRequests.toString(),
       last24hVolume: stats.last24hVolume.toString(),
+      pocStats: {
+        pocRequiredListings: stats.pocStats.pocRequiredListings,
+        verifiedVaultKeys: stats.pocStats.verifiedVaultKeys,
+        pocVerifiedRequests: stats.pocStats.pocVerifiedRequests.toString(),
+      },
     });
   });
 

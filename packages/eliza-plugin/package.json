@@ -15,6 +15,7 @@
   },
   "files": ["dist"],
   "scripts": {
+    "postinstall": "bash scripts/patch-elizaos.sh || true",
     "build": "bun build.ts",
     "dev": "bun --watch build.ts",
     "test": "bun test",
@@ -24,7 +25,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@elizaos/core": "1.0.0-beta.6",
+    "@elizaos/core": "1.6.4",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/types": "workspace:*",
@@ -36,7 +37,7 @@
     "prettier": "3.5.3"
   },
   "peerDependencies": {
-    "zod": "^3.25.76"
+    "zod": "4.2.1"
   },
   "publishConfig": {
     "access": "public"

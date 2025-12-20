@@ -1,10 +1,11 @@
 /**
- * Otto Trading Agent - Package Exports
+ * Otto Trading Agent - ElizaOS Plugin
+ * @module @jejunetwork/otto
  */
 
-export * from './types';
-export * from './config';
-export * from './platforms';
-export * from './services';
-export * from './agent';
+// Export ElizaOS character and plugin
+export { ottoCharacter, ottoPlugin } from './eliza';
+export { ottoPlugin as default } from './eliza/plugin';
 
+// Export types
+export * from './types';

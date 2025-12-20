@@ -3,10 +3,14 @@
  *
  * Tests inference through DWS with all configured providers.
  * Requires API keys in .env: GROQ_API_KEY, OPENAI_API_KEY, ANTHROPIC_API_KEY
+ * 
+ * These tests now require a registered inference node. In test mode,
+ * a mock node is registered automatically via the test preload.
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test';
+import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
 import { app } from '../src/server/index';
+import { registerNode, unregisterNode, inferenceNodes, getActiveNodes } from '../src/compute/inference-node';
 
 const HAS_GROQ = !!process.env.GROQ_API_KEY;
 const HAS_OPENAI = !!process.env.OPENAI_API_KEY;
@@ -15,11 +19,88 @@ const HAS_ANY_PROVIDER = HAS_GROQ || HAS_OPENAI || HAS_ANTHROPIC ||
   !!process.env.TOGETHER_API_KEY || !!process.env.OPENROUTER_API_KEY;
 
 describe('Inference E2E', () => {
-  beforeAll(() => {
+  // Set up mock inference node for tests without real providers
+  beforeAll(async () => {
+    // Clear any existing nodes  
+    inferenceNodes.clear();
+    
+    // Start mock server for tests
+    const mockPort = 14032;
+    const mockServer = Bun.serve({
+      port: mockPort,
+      fetch: async (req) => {
+        const url = new URL(req.url);
+        
+        if (url.pathname === '/health') {
+          return Response.json({ status: 'healthy', provider: 'mock' });
+        }
+        
+        if (url.pathname === '/v1/chat/completions' && req.method === 'POST') {
+          const body = await req.json() as { model?: string; messages?: Array<{ content: string }> };
+          const userMessage = body.messages?.find(m => (m as { role: string }).role === 'user')?.content || '';
+          
+          // Parse math questions for mock responses
+          let content = `Mock response to: ${userMessage}`;
+          if (userMessage.includes('2+2')) content = '4';
+          if (userMessage.includes('3+3')) content = '6';
+          if (userMessage.includes('4+4')) content = '8';
+          if (userMessage.includes('5+5')) content = '10';
+          
+          return Response.json({
+            id: `chatcmpl-test-${Date.now()}`,
+            object: 'chat.completion',
+            created: Math.floor(Date.now() / 1000),
+            model: body.model || 'mock-model',
+            provider: 'mock',
+            choices: [{
+              index: 0,
+              message: { role: 'assistant', content },
+              finish_reason: 'stop',
+            }],
+            usage: { prompt_tokens: 10, completion_tokens: 20, total_tokens: 30 },
+          });
+        }
+        
+        if (url.pathname === '/v1/embeddings' && req.method === 'POST') {
+          return Response.json({
+            object: 'list',
+            data: [{ object: 'embedding', index: 0, embedding: Array(1536).fill(0) }],
+            model: 'mock-embeddings',
+            usage: { prompt_tokens: 10, total_tokens: 10 },
+          });
+        }
+        
+        return new Response('Not Found', { status: 404 });
+      },
+    });
+    
+    (globalThis as Record<string, unknown>)._inferenceTestMockServer = mockServer;
+    
+    // Register mock node
+    registerNode({
+      address: 'inference-test-mock-node',
+      endpoint: `http://localhost:${mockPort}`,
+      capabilities: ['inference', 'embeddings'],
+      models: ['*'],
+      provider: 'mock',
+      region: 'test',
+      gpuTier: 0,
+      maxConcurrent: 100,
+      isActive: true,
+    });
+    
+    console.log('[Inference Tests] Mock inference node registered');
     console.log('[Inference Tests] Providers configured:');
     console.log(`  - Groq: ${HAS_GROQ ? '✓' : '✗'}`);
     console.log(`  - OpenAI: ${HAS_OPENAI ? '✓' : '✗'}`);
     console.log(`  - Anthropic: ${HAS_ANTHROPIC ? '✓' : '✗'}`);
+    console.log(`  - Active nodes: ${getActiveNodes().length}`);
+  });
+  
+  afterAll(() => {
+    unregisterNode('inference-test-mock-node');
+    const server = (globalThis as Record<string, unknown>)._inferenceTestMockServer as { stop?: () => void } | undefined;
+    if (server?.stop) server.stop();
   });
 
   // Skip provider tests if no providers are configured

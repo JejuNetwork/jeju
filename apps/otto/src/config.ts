@@ -177,6 +177,7 @@ export function isChainSupported(chainId: number): boolean {
 
 export function isSolanaChain(chainId: number): boolean {
   const chain = SUPPORTED_CHAINS.find(c => c.chainId === chainId);
+  if (!chain) return false;
   return 'isSolana' in chain && chain.isSolana === true;
 }
 

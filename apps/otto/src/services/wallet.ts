@@ -50,6 +50,22 @@ export class WalletService {
     return `${OAUTH3_API}/connect/wallet?${params}`;
   }
 
+  // Sync version for use in handlers that can't be async
+  getConnectUrl(platform: string, platformId: string, username: string): string {
+    const nonce = crypto.randomUUID();
+    const requestId = crypto.randomUUID();
+
+    const params = new URLSearchParams({
+      platform,
+      platformId,
+      username,
+      nonce,
+      requestId,
+    });
+
+    return `${OAUTH3_API}/connect/wallet?${params}`;
+  }
+
   async verifyAndConnect(
     platform: Platform,
     platformId: string,

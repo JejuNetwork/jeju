@@ -6,3 +6,16 @@ export { AgentSDK, createAgentSDK, type AgentSDKConfig } from './agent';
 export { RoomSDK, createRoomSDK, type RoomSDKConfig } from './room';
 export { ExecutorSDK, createExecutorSDK, type ExecutorConfig, type ExecutorCostConfig } from './executor';
 export { createLogger, getLogger, type Logger, type LogLevel, type LoggerConfig, type LogEntry } from './logger';
+
+// ElizaOS-compatible runtime (unified with Autocrat/Otto)
+export {
+  CrucibleAgentRuntime,
+  CrucibleRuntimeManager,
+  createCrucibleRuntime,
+  runtimeManager,
+  checkDWSHealth,
+  dwsGenerate,
+  type RuntimeConfig,
+  type RuntimeMessage,
+  type RuntimeResponse,
+} from './eliza-runtime';
