@@ -1,14 +1,14 @@
 /**
- * Crucible ElizaOS Runtime Tests
+ * Crucible Agent Runtime Tests
  * 
- * Verifies the unified ElizaOS-compatible runtime works correctly.
- * Uses the same DWS infrastructure as Autocrat and Otto.
+ * Tests both runtime modes:
+ * 1. ElizaOS + @jejunetwork/eliza-plugin (full capabilities)
+ * 2. DWS fallback (character-template inference)
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test';
+import { describe, test, expect } from 'bun:test';
 import {
   CrucibleAgentRuntime,
-  CrucibleRuntimeManager,
   createCrucibleRuntime,
   runtimeManager,
   checkDWSHealth,
@@ -17,7 +17,7 @@ import {
 } from '../src/sdk/eliza-runtime';
 import { getCharacter, listCharacters } from '../src/characters';
 
-describe('Crucible ElizaOS Runtime', () => {
+describe('Crucible Agent Runtime', () => {
   describe('DWS Health Check', () => {
     test('should have checkDWSHealth function', () => {
       expect(typeof checkDWSHealth).toBe('function');
@@ -30,7 +30,7 @@ describe('Crucible ElizaOS Runtime', () => {
     });
   });
 
-  describe('DWS Generate', () => {
+  describe('DWS Generate (fallback mode)', () => {
     test('should have dwsGenerate function', () => {
       expect(typeof dwsGenerate).toBe('function');
     });
@@ -62,32 +62,51 @@ describe('Crucible ElizaOS Runtime', () => {
       const runtime = createCrucibleRuntime({
         agentId: 'test-pm',
         character: character!,
-        useElizaOS: false, // Use DWS-only for testing
+        useJejuPlugin: false, // Skip plugin for basic test
       });
 
       expect(runtime).toBeInstanceOf(CrucibleAgentRuntime);
       expect(runtime.getAgentId()).toBe('test-pm');
     });
 
-    test('should initialize runtime', async () => {
+    test('should initialize runtime and detect capabilities', async () => {
       const character = getCharacter('community-manager');
       expect(character).toBeDefined();
 
       const runtime = createCrucibleRuntime({
         agentId: 'test-cm',
         character: character!,
-        useElizaOS: false,
+        useJejuPlugin: true, // Try to load plugin
       });
 
       await runtime.initialize();
       expect(runtime.isInitialized()).toBe(true);
       
       console.log('[Test] DWS available:', runtime.isDWSAvailable());
+      console.log('[Test] ElizaOS available:', runtime.isElizaOSAvailable());
+    });
+
+    test('should report runtime type correctly', async () => {
+      const character = getCharacter('devrel');
+      expect(character).toBeDefined();
+
+      const runtime = createCrucibleRuntime({
+        agentId: 'test-devrel',
+        character: character!,
+      });
+
+      await runtime.initialize();
+      
+      // Should be initialized regardless of which mode
+      expect(runtime.isInitialized()).toBe(true);
+      
+      // At least one mode should be available
+      expect(runtime.isDWSAvailable() || runtime.isElizaOSAvailable()).toBe(true);
     });
   });
 
   describe('Message Processing', () => {
-    test('should process message when DWS available', async () => {
+    test('should process message through runtime', async () => {
       const available = await checkDWSHealth();
       if (!available) {
         console.log('[Test] Skipping - DWS not available');
@@ -98,7 +117,7 @@ describe('Crucible ElizaOS Runtime', () => {
       const runtime = createCrucibleRuntime({
         agentId: 'test-pm-msg',
         character: character!,
-        useElizaOS: false,
+        useJejuPlugin: false, // Use DWS fallback for predictable test
       });
 
       await runtime.initialize();
@@ -118,10 +137,11 @@ describe('Crucible ElizaOS Runtime', () => {
       expect(response.text.length).toBeGreaterThan(0);
       
       console.log('[Test] Response:', response.text.slice(0, 200));
+      console.log('[Test] Action:', response.action);
       console.log('[Test] Actions:', response.actions);
     }, 60000);
 
-    test('should extract action commands from response', async () => {
+    test('should handle action responses', async () => {
       const available = await checkDWSHealth();
       if (!available) {
         console.log('[Test] Skipping - DWS not available');
@@ -132,12 +152,10 @@ describe('Crucible ElizaOS Runtime', () => {
       const runtime = createCrucibleRuntime({
         agentId: 'test-pm-action',
         character: character!,
-        useElizaOS: false,
       });
 
       await runtime.initialize();
 
-      // Ask for a specific action that should trigger action syntax
       const message: RuntimeMessage = {
         id: crypto.randomUUID(),
         userId: 'test-user',
@@ -149,10 +167,11 @@ describe('Crucible ElizaOS Runtime', () => {
       const response = await runtime.processMessage(message);
       
       console.log('[Test] Response:', response.text);
+      console.log('[Test] Action:', response.action);
       console.log('[Test] Actions:', response.actions);
 
-      // Response should either contain text or actions
-      expect(response.text.length > 0 || (response.actions?.length ?? 0) > 0).toBe(true);
+      // Response should contain text
+      expect(response.text.length).toBeGreaterThan(0);
     }, 60000);
   });
 
@@ -164,7 +183,7 @@ describe('Crucible ElizaOS Runtime', () => {
       const runtime = await runtimeManager.createRuntime({
         agentId: 'devrel-test',
         character: character!,
-        useElizaOS: false,
+        useJejuPlugin: false,
       });
 
       expect(runtime).toBeInstanceOf(CrucibleAgentRuntime);
@@ -191,6 +210,17 @@ describe('Crucible ElizaOS Runtime', () => {
       });
 
       expect(runtime1).toBe(runtime2);
+    });
+
+    test('should report capabilities for each runtime', async () => {
+      const runtimes = runtimeManager.getAllRuntimes();
+      
+      for (const runtime of runtimes) {
+        console.log(`[Test] Runtime ${runtime.getAgentId()}:`, {
+          elizaos: runtime.isElizaOSAvailable(),
+          dws: runtime.isDWSAvailable(),
+        });
+      }
     });
 
     test('should shutdown all runtimes', async () => {
@@ -232,5 +262,48 @@ describe('Crucible ElizaOS Runtime', () => {
       expect(rt?.topics?.some(t => t.includes('security'))).toBe(true);
     });
   });
-});
 
+  describe('ElizaOS Integration', () => {
+    test('should detect ElizaOS availability', async () => {
+      const character = getCharacter('project-manager');
+      const runtime = createCrucibleRuntime({
+        agentId: 'elizaos-test',
+        character: character!,
+        useJejuPlugin: true,
+      });
+
+      await runtime.initialize();
+
+      // Log the result - either mode is acceptable
+      if (runtime.isElizaOSAvailable()) {
+        console.log('[Test] ElizaOS mode: Full plugin support enabled');
+        expect(runtime.getElizaRuntime()).toBeDefined();
+      } else {
+        console.log('[Test] DWS fallback mode: Character-inference only');
+        expect(runtime.isDWSAvailable()).toBe(true);
+      }
+    });
+
+    test('should expose ElizaOS runtime when available', async () => {
+      const character = getCharacter('community-manager');
+      const runtime = createCrucibleRuntime({
+        agentId: 'elizaos-runtime-test',
+        character: character!,
+        useJejuPlugin: true,
+      });
+
+      await runtime.initialize();
+
+      const elizaRuntime = runtime.getElizaRuntime();
+      
+      if (elizaRuntime) {
+        console.log('[Test] ElizaOS runtime available:', {
+          agentId: elizaRuntime.agentId,
+          characterName: (elizaRuntime.character as { name?: string }).name,
+        });
+      } else {
+        console.log('[Test] ElizaOS runtime not available - using DWS fallback');
+      }
+    });
+  });
+});

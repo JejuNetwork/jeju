@@ -12,6 +12,7 @@ import {IAggregatorV3} from "./interfaces/IAggregatorV3.sol";
 import {IOTC} from "./interfaces/IOTC.sol";
 import {OracleLib} from "../libraries/OracleLib.sol";
 import {ModerationMixin} from "../moderation/ModerationMixin.sol";
+import {BlockingMixin} from "../moderation/BlockingMixin.sol";
 
 /// @title OTC-like Token Sale Desk - Multi-Token Support
 /// @notice Permissionless consignment creation, approver-gated approvals, price snapshot on creation using Chainlink.
@@ -20,8 +21,10 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
     using Math for uint256;
     using ModerationMixin for ModerationMixin.Data;
+    using BlockingMixin for BlockingMixin.Data;
 
     ModerationMixin.Data public moderation;
+    BlockingMixin.Data public blocking;
 
     enum PaymentCurrency {
         ETH,
@@ -171,6 +174,8 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
         require(!moderation.isAddressBanned(msg.sender), "User is banned");
         _;
     }
+
+    error InteractionBlocked();
 
     constructor(address owner_, IERC20 usdc_, IAggregatorV3 ethUsdFeed_, address agent_) Ownable(owner_) {
         require(address(usdc_) != address(0), "bad usdc");
@@ -542,6 +547,10 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
         require(!o.cancelled && !o.paid && !o.fulfilled, "bad state");
         require(block.timestamp <= o.createdAt + quoteExpirySeconds, "expired");
 
+        // Check if consigner has blocked the payer
+        Consignment storage c = consignments[o.consignmentId];
+        if (blocking.isBlocked(msg.sender, c.consigner)) revert InteractionBlocked();
+
         if (requireApproverToFulfill) {
             require(msg.sender == agent || isApprover[msg.sender], "fulfill approver only");
         } else if (restrictFulfillToBeneficiaryOrApprover) {
@@ -878,8 +887,16 @@ contract OTC is IOTC, Ownable, Pausable, ReentrancyGuard {
         moderation.setIdentityRegistry(_identityRegistry);
     }
 
+    function setBlockRegistry(address _blockRegistry) external onlyOwner {
+        blocking.setBlockRegistry(_blockRegistry);
+    }
+
     function isUserBanned(address user) external view returns (bool) {
         return moderation.isAddressBanned(user);
+    }
+
+    function isUserBlocked(address source, address target) external view returns (bool) {
+        return blocking.isBlocked(source, target);
     }
 
     receive() external payable {}

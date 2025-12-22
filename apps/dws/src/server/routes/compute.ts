@@ -166,20 +166,12 @@ export function createComputeRouter(): Hono {
     }
 
     if (!selectedProvider) {
-      // Return mock embeddings for dev/testing when no provider available
-      const inputs = Array.isArray(body.input) ? body.input : [body.input];
+      // No provider available - fail with clear error
       return c.json({
-        object: 'list',
-        data: inputs.map((_, i) => ({
-          object: 'embedding',
-          index: i,
-          embedding: Array.from({ length: 1536 }, () => Math.random() * 2 - 1),
-        })),
-        model: body.model ?? 'text-embedding-mock',
-        usage: { prompt_tokens: 10, total_tokens: 10 },
-        provider: 'mock',
-        message: 'Set AWS_BEDROCK_ENABLED=true or OPENAI_API_KEY for real embeddings',
-      });
+        error: 'No embedding provider configured',
+        message: 'Set AWS_BEDROCK_ENABLED=true or OPENAI_API_KEY for embeddings',
+        configured: providers.map(p => p.id),
+      }, 503);
     }
 
     // Handle AWS Bedrock Titan Embeddings
@@ -276,7 +268,7 @@ export function createComputeRouter(): Hono {
     const { jobId } = validateParams(jobParamsSchema, c);
     const row = await computeJobState.get(jobId);
     if (!row) {
-      throw new Error('Job not found');
+      return c.json({ error: 'Job not found' }, 404);
     }
 
     return c.json({
@@ -294,10 +286,10 @@ export function createComputeRouter(): Hono {
     const { jobId } = validateParams(jobParamsSchema, c);
     const row = await computeJobState.get(jobId);
     if (!row) {
-      throw new Error('Job not found');
+      return c.json({ error: 'Job not found' }, 404);
     }
     if (row.status === 'completed' || row.status === 'failed') {
-      throw new Error('Job already finished');
+      return c.json({ error: 'Job already finished' }, 400);
     }
 
     const job: ComputeJob = {
@@ -438,7 +430,9 @@ interface TrainingNode {
   isActive: boolean;
 }
 
-// Mock storage for training runs (in production, reads from chain)
+// In-memory storage for training runs
+// NOTE: This is ephemeral - data is lost on restart.
+// Production should use CQL or on-chain storage for persistence.
 const trainingRuns: Map<string, TrainingRun> = new Map();
 const trainingNodes: Map<string, TrainingNode> = new Map();
 

@@ -12,7 +12,7 @@ import {
 } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { requireContract } from "../config";
+import { safeGetContract } from "../config";
 import {
   COMPUTE_REGISTRY_ABI,
   COMPUTE_RENTAL_ABI,
@@ -187,10 +187,15 @@ export function createComputeModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): ComputeModule {
-  const registryAddress = requireContract("compute", "registry", network);
-  const rentalAddress = requireContract("compute", "rental", network);
-  const inferenceAddress = requireContract("compute", "inference", network);
-  const triggerAddress = requireContract("compute", "triggerRegistry", network);
+  const registryAddress = safeGetContract("compute", "registry", network);
+  const rentalAddress = safeGetContract("compute", "rental", network);
+  const inferenceAddress = safeGetContract("compute", "inference", network);
+  const triggerAddress = safeGetContract("compute", "triggerRegistry", network);
+
+  // If core contracts aren't available, return stub module
+  if (!registryAddress || !rentalAddress || !inferenceAddress) {
+    return createStubComputeModule();
+  }
 
   const registry = getContract({
     address: registryAddress,
@@ -606,5 +611,69 @@ export function createComputeModule(
     createTrigger,
     getPrepaidBalance,
     depositPrepaid,
+  };
+}
+
+/**
+ * Create a stub compute module when contracts aren't deployed
+ */
+function createStubComputeModule(): ComputeModule {
+  const notAvailable = (): never => {
+    throw new Error("Compute contracts not deployed on this network");
+  };
+
+  const emptyProviderInfo: ProviderInfo = {
+    address: "0x0000000000000000000000000000000000000000" as Address,
+    name: "",
+    endpoint: "",
+    stake: 0n,
+    stakeFormatted: "0",
+    active: false,
+    agentId: 0n,
+    available: false,
+    sshEnabled: false,
+    dockerEnabled: false,
+  };
+
+  const emptyRentalInfo: RentalInfo = {
+    rentalId: "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex,
+    user: "0x0000000000000000000000000000000000000000" as Address,
+    provider: "0x0000000000000000000000000000000000000000" as Address,
+    status: "PENDING",
+    startTime: 0,
+    endTime: 0,
+    totalCost: 0n,
+    totalCostFormatted: "0",
+    paidAmount: 0n,
+  };
+
+  const emptyTriggerInfo: TriggerInfo = {
+    triggerId: "0x0000000000000000000000000000000000000000000000000000000000000000" as Hex,
+    owner: "0x0000000000000000000000000000000000000000" as Address,
+    type: "cron",
+    name: "",
+    endpoint: "",
+    active: false,
+    executionCount: 0,
+    lastExecutedAt: 0,
+    agentId: 0n,
+  };
+  
+  return {
+    listProviders: async () => [],
+    getProvider: async () => emptyProviderInfo,
+    listModels: async () => [],
+    listMyRentals: async () => [],
+    listTriggers: async () => [],
+    getPrepaidBalance: async () => 0n,
+    getQuote: async () => ({ cost: 0n, costFormatted: "0" }),
+    inference: notAvailable,
+    createRental: notAvailable,
+    cancelRental: notAvailable,
+    extendRental: notAvailable,
+    getRental: async () => emptyRentalInfo,
+    getTrigger: async () => emptyTriggerInfo,
+    createTrigger: notAvailable,
+    depositPrepaid: notAvailable,
   };
 }

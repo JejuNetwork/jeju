@@ -3,9 +3,10 @@ import { AddressSchema } from '@jejunetwork/types/contracts'
 import { expect, expectTrue } from '@/lib/validation'
 import { INDEXER_URL, RPC_URL } from '@/config'
 
-/** Token data from indexer/RPC - simplified for data fetching */
+/** Token data from indexer/RPC - full market data */
 export interface Token {
   address: Address
+  chainId: number
   name: string
   symbol: string
   decimals: number
@@ -14,10 +15,20 @@ export interface Token {
   createdAt: Date
   logoUrl?: string
   verified: boolean
-  price?: number
+  // Market data
+  priceUSD?: number
+  priceETH?: number
+  priceChange1h?: number
   priceChange24h?: number
+  priceChange7d?: number
   volume24h?: bigint
+  volumeUSD24h?: number
+  liquidity?: bigint
+  liquidityUSD?: number
   holders?: number
+  poolCount?: number
+  txCount24h?: number
+  lastSwapAt?: Date
 }
 
 /** Prediction market data from indexer */
@@ -96,7 +107,69 @@ async function gql<T>(query: string, variables?: Record<string, unknown>): Promi
   return data
 }
 
-const mapToken = (c: {
+interface RawTokenData {
+  address: string
+  chainId?: number
+  name: string
+  symbol: string
+  decimals: number
+  totalSupply: string
+  creator?: { address: string }
+  createdAt?: string
+  firstSeenAt?: string
+  verified: boolean
+  priceUSD?: string
+  priceETH?: string
+  priceChange1h?: number
+  priceChange24h?: number
+  priceChange7d?: number
+  volume24h?: string
+  volumeUSD24h?: string
+  liquidity?: string
+  liquidityUSD?: string
+  holderCount?: number
+  poolCount?: number
+  txCount24h?: number
+  lastSwapAt?: string
+  logoUrl?: string
+}
+
+const mapToken = (c: RawTokenData): Token => {
+  if (!c.name) throw new Error(`Token ${c.address}: name is required`)
+  if (!c.symbol) throw new Error(`Token ${c.address}: symbol is required`)
+  if (c.decimals === undefined || c.decimals === null) throw new Error(`Token ${c.address}: decimals is required`)
+  if (!c.totalSupply) throw new Error(`Token ${c.address}: totalSupply is required`)
+  
+  return {
+    address: c.address as Address,
+    chainId: c.chainId ?? 420691, // Default to Jeju
+    name: c.name,
+    symbol: c.symbol,
+    decimals: c.decimals,
+    totalSupply: BigInt(c.totalSupply),
+    creator: (c.creator?.address ?? '0x0000000000000000000000000000000000000000') as Address,
+    createdAt: new Date(c.createdAt ?? c.firstSeenAt ?? Date.now()),
+    verified: c.verified,
+    logoUrl: c.logoUrl,
+    // Market data
+    priceUSD: c.priceUSD ? parseFloat(c.priceUSD) : undefined,
+    priceETH: c.priceETH ? parseFloat(c.priceETH) : undefined,
+    priceChange1h: c.priceChange1h,
+    priceChange24h: c.priceChange24h,
+    priceChange7d: c.priceChange7d,
+    volume24h: c.volume24h ? BigInt(c.volume24h) : undefined,
+    volumeUSD24h: c.volumeUSD24h ? parseFloat(c.volumeUSD24h) : undefined,
+    liquidity: c.liquidity ? BigInt(c.liquidity) : undefined,
+    liquidityUSD: c.liquidityUSD ? parseFloat(c.liquidityUSD) : undefined,
+    holders: c.holderCount,
+    poolCount: c.poolCount,
+    txCount24h: c.txCount24h,
+    lastSwapAt: c.lastSwapAt ? new Date(c.lastSwapAt) : undefined,
+  }
+}
+
+// Map legacy contract data to Token
+const mapContractToToken = (c: {
   address: string
   name: string
   symbol: string
@@ -107,32 +180,82 @@ const mapToken = (c: {
   verified: boolean
   totalVolume?: string
   holderCount?: number
-}): Token => {
-  if (!c.name) throw new Error(`Token ${c.address}: name is required`)
-  if (!c.symbol) throw new Error(`Token ${c.address}: symbol is required`)
-  if (c.decimals === undefined || c.decimals === null) throw new Error(`Token ${c.address}: decimals is required`)
-  if (!c.totalSupply) throw new Error(`Token ${c.address}: totalSupply is required`)
-  
-  return {
-    address: c.address as Address,
-    name: c.name,
-    symbol: c.symbol,
-    decimals: c.decimals,
-    totalSupply: BigInt(c.totalSupply),
-    creator: c.creator.address as Address,
-    createdAt: new Date(c.firstSeenAt),
-    verified: c.verified,
-    volume24h: c.totalVolume ? BigInt(c.totalVolume) : undefined,
-    holders: c.holderCount,
-  }
-}
+}): Token => mapToken({
+  ...c,
+  createdAt: c.firstSeenAt,
+  volume24h: c.totalVolume,
+})
 
-const ORDER_BY_MAP = {
+const TOKEN_ORDER_BY_MAP = {
+  volume: 'volume24h_DESC',
+  recent: 'createdAt_DESC', 
+  holders: 'holderCount_DESC',
+  price: 'priceUSD_DESC',
+  liquidity: 'liquidityUSD_DESC',
+  trending: 'txCount24h_DESC',
+} as const
+
+const LEGACY_ORDER_BY_MAP = {
   volume: 'totalVolume_DESC',
   recent: 'firstSeenAt_DESC', 
   holders: 'holderCount_DESC',
+  price: 'firstSeenAt_DESC',
+  liquidity: 'totalVolume_DESC',
+  trending: 'firstSeenAt_DESC',
 } as const
 
+export type TokenOrderBy = keyof typeof TOKEN_ORDER_BY_MAP
+
+/**
+ * Fetch tokens with full market data from the Token entity
+ * Uses DEX-indexed price/volume data
+ */
+export async function fetchTokensWithMarketData(options: {
+  limit?: number
+  offset?: number
+  chainId?: number
+  verified?: boolean
+  orderBy?: TokenOrderBy
+  minLiquidity?: number
+}): Promise<Token[]> {
+  const { limit = 50, offset = 0, chainId, orderBy = 'volume', minLiquidity } = options
+
+  if (!(await checkIndexerHealth())) {
+    return fetchTokensFallback(offset)
+  }
+
+  // Build where clause
+  const whereConditions: string[] = []
+  if (chainId) whereConditions.push(`chainId_eq: ${chainId}`)
+  if (options.verified !== undefined) whereConditions.push(`verified_eq: ${options.verified}`)
+  if (minLiquidity) whereConditions.push(`liquidityUSD_gte: "${minLiquidity}"`)
+  
+  const whereClause = whereConditions.length > 0 ? `where: { ${whereConditions.join(', ')} }` : ''
+
+  const data = await gql<{ tokens: RawTokenData[] }>(`
+    query($limit: Int!, $offset: Int!, $orderBy: [TokenOrderByInput!]) {
+      tokens(${whereClause} limit: $limit, offset: $offset, orderBy: $orderBy) {
+        address chainId name symbol decimals totalSupply
+        priceUSD priceETH priceChange1h priceChange24h priceChange7d
+        volume24h volumeUSD24h liquidity liquidityUSD
+        holderCount poolCount txCount24h
+        verified logoUrl createdAt lastSwapAt
+        creator { address }
+      }
+    }
+  `, { limit, offset, orderBy: [TOKEN_ORDER_BY_MAP[orderBy]] }).catch(() => null)
+
+  if (data?.tokens?.length) {
+    return data.tokens.map(mapToken)
+  }
+
+  // Fallback to legacy Contract-based query
+  return fetchTokens({ limit, offset, orderBy: orderBy as 'volume' | 'recent' | 'holders' })
+}
+
+/**
+ * Legacy token fetch from Contract entity (fallback)
+ */
 export async function fetchTokens(options: {
   limit?: number
   offset?: number
@@ -142,20 +265,28 @@ export async function fetchTokens(options: {
   const { limit = 50, offset = 0, orderBy = 'recent' } = options
 
   if (await checkIndexerHealth()) {
-    const data = await gql<{ contracts: Array<Parameters<typeof mapToken>[0]> }>(`
+    const data = await gql<{ contracts: Array<{
+      address: string; name: string; symbol: string; decimals: number; totalSupply: string
+      creator: { address: string }; firstSeenAt: string; verified: boolean
+      totalVolume?: string; holderCount?: number
+    }> }>(`
       query($limit: Int!, $offset: Int!, $orderBy: [ContractOrderByInput!]) {
         contracts(where: { isERC20_eq: true }, limit: $limit, offset: $offset, orderBy: $orderBy) {
           address name symbol decimals totalSupply
           creator { address } firstSeenAt verified totalVolume holderCount
         }
       }
-    `, { limit, offset, orderBy: [ORDER_BY_MAP[orderBy]] })
-    return data.contracts.map(mapToken)
+    `, { limit, offset, orderBy: [LEGACY_ORDER_BY_MAP[orderBy]] })
+    return data.contracts.map(mapContractToToken)
   }
 
-  // Fallback: return ETH placeholder
+  return fetchTokensFallback(offset)
+}
+
+function fetchTokensFallback(offset: number): Token[] {
   return offset === 0 ? [{
     address: '0x0000000000000000000000000000000000000000' as Address,
+    chainId: 420691,
     name: 'Ether', symbol: 'ETH', decimals: 18, totalSupply: 0n,
     creator: '0x0000000000000000000000000000000000000000' as Address,
     createdAt: new Date(0), verified: true,
@@ -208,7 +339,8 @@ export async function fetchTokenDetails(address: Address): Promise<Token> {
   }
 
   return { 
-    address: validatedAddress, 
+    address: validatedAddress,
+    chainId: 420691, // Default to Jeju
     name: String(name), 
     symbol: String(symbol), 
     decimals: Number(decimals), 
@@ -258,6 +390,17 @@ export async function fetchPredictionMarkets(options: {
   })
 }
 
+// Map interval string to GraphQL enum
+const INTERVAL_MAP: Record<string, string> = {
+  '1m': 'MINUTE_1',
+  '5m': 'MINUTE_5',
+  '15m': 'MINUTE_15',
+  '1h': 'HOUR_1',
+  '4h': 'HOUR_4',
+  '1d': 'DAY_1',
+  '1w': 'WEEK_1',
+}
+
 export async function fetchPriceHistory(
   tokenAddress: Address,
   interval: '1m' | '5m' | '15m' | '1h' | '4h' | '1d',
@@ -271,7 +414,39 @@ export async function fetchPriceHistory(
     throw new Error('Price history unavailable: indexer offline')
   }
 
-  const data = await gql<{ priceCandles: Array<{
+  const chainId = 420691 // Default to Jeju
+  const tokenId = `${chainId}-${validatedAddress.toLowerCase()}`
+  const graphqlInterval = INTERVAL_MAP[interval]
+
+  // Try new TokenCandle entity first
+  const data = await gql<{ tokenCandles: Array<{
+    periodStart: string; open: string; high: string; low: string; close: string
+    volume: string; volumeUSD: string; txCount: number
+  }> }>(`
+    query($tokenId: String!, $interval: CandleInterval!, $limit: Int!) {
+      tokenCandles(
+        where: { token: { id_eq: $tokenId }, interval_eq: $interval }
+        limit: $limit
+        orderBy: periodStart_DESC
+      ) {
+        periodStart open high low close volume volumeUSD txCount
+      }
+    }
+  `, { tokenId, interval: graphqlInterval, limit }).catch(() => null)
+
+  if (data?.tokenCandles?.length) {
+    return data.tokenCandles.map(c => ({
+      timestamp: new Date(c.periodStart).getTime(),
+      open: parseFloat(c.open),
+      high: parseFloat(c.high),
+      low: parseFloat(c.low),
+      close: parseFloat(c.close),
+      volume: BigInt(c.volume),
+    })).reverse()
+  }
+
+  // Fallback to legacy priceCandles query
+  const legacyData = await gql<{ priceCandles: Array<{
     timestamp: string; open: string; high: string; low: string; close: string; volume: string
   }> }>(`
     query($token: String!, $interval: String!, $limit: Int!) {
@@ -279,16 +454,18 @@ export async function fetchPriceHistory(
         timestamp open high low close volume
       }
     }
-  `, { token: validatedAddress.toLowerCase(), interval, limit })
+  `, { token: validatedAddress.toLowerCase(), interval, limit }).catch(() => null)
 
-  if (!data.priceCandles?.length) {
+  if (!legacyData?.priceCandles?.length) {
     return [] // No data available for this token
   }
 
-  return data.priceCandles.map(c => ({
+  return legacyData.priceCandles.map(c => ({
     timestamp: new Date(c.timestamp).getTime(),
-    open: parseFloat(c.open), high: parseFloat(c.high),
-    low: parseFloat(c.low), close: parseFloat(c.close),
+    open: parseFloat(c.open),
+    high: parseFloat(c.high),
+    low: parseFloat(c.low),
+    close: parseFloat(c.close),
     volume: BigInt(c.volume),
   })).reverse()
 }
@@ -323,16 +500,52 @@ export async function fetchToken24hStats(address: Address): Promise<{
     throw new Error('Token 24h stats unavailable: indexer offline')
   }
 
+  const chainId = 420691 // Default to Jeju
+  const tokenId = `${chainId}-${validatedAddress.toLowerCase()}`
+
+  // Try new Token entity first
+  const tokenData = await gql<{ tokens: Array<{
+    volume24h: string; txCount24h: number; priceChange24h: number
+  }> }>(`
+    query($tokenId: String!) {
+      tokens(where: { id_eq: $tokenId }, limit: 1) {
+        volume24h txCount24h priceChange24h
+      }
+    }
+  `, { tokenId }).catch(() => null)
+
+  if (tokenData?.tokens?.[0]) {
+    const t = tokenData.tokens[0]
+    // Get high/low from daily candle
+    const candleData = await gql<{ tokenCandles: Array<{ high: string; low: string }> }>(`
+      query($tokenId: String!) {
+        tokenCandles(where: { token: { id_eq: $tokenId }, interval_eq: DAY_1 }, limit: 1, orderBy: periodStart_DESC) {
+          high low
+        }
+      }
+    `, { tokenId }).catch(() => null)
+
+    const candle = candleData?.tokenCandles?.[0]
+    return {
+      volume: BigInt(t.volume24h || '0'),
+      trades: t.txCount24h || 0,
+      priceChange: t.priceChange24h || 0,
+      high: candle ? parseFloat(candle.high) : 0,
+      low: candle ? parseFloat(candle.low) : 0,
+    }
+  }
+
+  // Fallback to legacy tokenStats
   const data = await gql<{ tokenStats: {
     volume24h: string; trades24h: number; priceChange24h: number; high24h: string; low24h: string
   } | null }>(`
     query($address: String!) {
       tokenStats(token: $address) { volume24h trades24h priceChange24h high24h low24h }
     }
-  `, { address: validatedAddress.toLowerCase() })
+  `, { address: validatedAddress.toLowerCase() }).catch(() => null)
 
-  if (!data.tokenStats) {
-    throw new Error(`No stats found for token ${validatedAddress}`)
+  if (!data?.tokenStats) {
+    return { volume: 0n, trades: 0, priceChange: 0, high: 0, low: 0 }
   }
   
   return {
@@ -341,5 +554,203 @@ export async function fetchToken24hStats(address: Address): Promise<{
     priceChange: data.tokenStats.priceChange24h,
     high: parseFloat(data.tokenStats.high24h),
     low: parseFloat(data.tokenStats.low24h),
+  }
+}
+
+/**
+ * Get trending tokens by volume and transaction count
+ */
+export async function fetchTrendingTokens(options: {
+  limit?: number
+  chainId?: number
+}): Promise<Token[]> {
+  const { limit = 20, chainId } = options
+  
+  return fetchTokensWithMarketData({
+    limit,
+    chainId,
+    orderBy: 'trending',
+    minLiquidity: 1000, // Minimum $1k liquidity
+  })
+}
+
+/**
+ * Get top gainers (tokens with highest 24h price increase)
+ */
+export async function fetchTopGainers(options: {
+  limit?: number
+  chainId?: number
+}): Promise<Token[]> {
+  if (!(await checkIndexerHealth())) return []
+
+  const whereConditions = ['priceChange24h_gt: 0', 'liquidityUSD_gte: "1000"']
+  if (options.chainId) whereConditions.push(`chainId_eq: ${options.chainId}`)
+
+  const data = await gql<{ tokens: RawTokenData[] }>(`
+    query($limit: Int!) {
+      tokens(where: { ${whereConditions.join(', ')} }, limit: $limit, orderBy: priceChange24h_DESC) {
+        address chainId name symbol decimals totalSupply
+        priceUSD priceChange24h volume24h liquidityUSD
+        verified logoUrl createdAt
+      }
+    }
+  `, { limit: options.limit ?? 10 }).catch(() => null)
+
+  return data?.tokens?.map(mapToken) ?? []
+}
+
+/**
+ * Get top losers (tokens with highest 24h price decrease)
+ */
+export async function fetchTopLosers(options: {
+  limit?: number
+  chainId?: number
+}): Promise<Token[]> {
+  if (!(await checkIndexerHealth())) return []
+
+  const whereConditions = ['priceChange24h_lt: 0', 'liquidityUSD_gte: "1000"']
+  if (options.chainId) whereConditions.push(`chainId_eq: ${options.chainId}`)
+
+  const data = await gql<{ tokens: RawTokenData[] }>(`
+    query($limit: Int!) {
+      tokens(where: { ${whereConditions.join(', ')} }, limit: $limit, orderBy: priceChange24h_ASC) {
+        address chainId name symbol decimals totalSupply
+        priceUSD priceChange24h volume24h liquidityUSD
+        verified logoUrl createdAt
+      }
+    }
+  `, { limit: options.limit ?? 10 }).catch(() => null)
+
+  return data?.tokens?.map(mapToken) ?? []
+}
+
+/**
+ * Get recently listed tokens
+ */
+export async function fetchNewTokens(options: {
+  limit?: number
+  chainId?: number
+  hours?: number
+}): Promise<Token[]> {
+  if (!(await checkIndexerHealth())) return []
+
+  const since = new Date(Date.now() - (options.hours ?? 24) * 60 * 60 * 1000).toISOString()
+  const whereConditions = [`createdAt_gte: "${since}"`]
+  if (options.chainId) whereConditions.push(`chainId_eq: ${options.chainId}`)
+
+  const data = await gql<{ tokens: RawTokenData[] }>(`
+    query($limit: Int!) {
+      tokens(where: { ${whereConditions.join(', ')} }, limit: $limit, orderBy: createdAt_DESC) {
+        address chainId name symbol decimals totalSupply
+        priceUSD volume24h liquidityUSD poolCount
+        verified logoUrl createdAt
+      }
+    }
+  `, { limit: options.limit ?? 20 }).catch(() => null)
+
+  return data?.tokens?.map(mapToken) ?? []
+}
+
+/**
+ * Get DEX pools for a token
+ */
+export async function fetchTokenPools(tokenAddress: Address, options?: {
+  limit?: number
+  chainId?: number
+}): Promise<Array<{
+  id: string
+  address: string
+  dex: string
+  token0: { address: string; symbol: string }
+  token1: { address: string; symbol: string }
+  reserve0: bigint
+  reserve1: bigint
+  liquidityUSD: number
+  volumeUSD: number
+  fee: number
+}>> {
+  const validatedAddress = AddressSchema.parse(tokenAddress);
+  if (!(await checkIndexerHealth())) return []
+
+  const chainId = options?.chainId ?? 420691
+  const tokenId = `${chainId}-${validatedAddress.toLowerCase()}`
+
+  const data = await gql<{ dexPools: Array<{
+    id: string; address: string
+    dex: { name: string }
+    token0: { address: string; symbol: string }
+    token1: { address: string; symbol: string }
+    reserve0: string; reserve1: string
+    liquidityUSD: string; volumeUSD: string; fee: number
+  }> }>(`
+    query($tokenId: String!, $limit: Int!) {
+      dexPools(
+        where: { OR: [{ token0: { id_eq: $tokenId } }, { token1: { id_eq: $tokenId } }] }
+        limit: $limit
+        orderBy: liquidityUSD_DESC
+      ) {
+        id address
+        dex { name }
+        token0 { address symbol }
+        token1 { address symbol }
+        reserve0 reserve1 liquidityUSD volumeUSD fee
+      }
+    }
+  `, { tokenId, limit: options?.limit ?? 20 }).catch(() => null)
+
+  return data?.dexPools?.map(p => ({
+    id: p.id,
+    address: p.address,
+    dex: p.dex.name,
+    token0: p.token0,
+    token1: p.token1,
+    reserve0: BigInt(p.reserve0),
+    reserve1: BigInt(p.reserve1),
+    liquidityUSD: parseFloat(p.liquidityUSD),
+    volumeUSD: parseFloat(p.volumeUSD),
+    fee: p.fee,
+  })) ?? []
+}
+
+/**
+ * Get global market stats
+ */
+export async function fetchMarketStats(chainId?: number): Promise<{
+  totalTokens: number
+  activeTokens24h: number
+  totalPools: number
+  totalVolumeUSD24h: number
+  totalLiquidityUSD: number
+  totalSwaps24h: number
+}> {
+  if (!(await checkIndexerHealth())) {
+    return {
+      totalTokens: 0, activeTokens24h: 0, totalPools: 0,
+      totalVolumeUSD24h: 0, totalLiquidityUSD: 0, totalSwaps24h: 0,
+    }
+  }
+
+  const whereClause = chainId ? `where: { chainId_eq: ${chainId} }` : ''
+
+  const data = await gql<{ tokenMarketStats: Array<{
+    totalTokens: number; activeTokens24h: number; totalPools: number
+    totalVolumeUSD24h: string; totalLiquidityUSD: string; totalSwaps24h: number
+  }> }>(`
+    query {
+      tokenMarketStats(${whereClause} limit: 1, orderBy: lastUpdated_DESC) {
+        totalTokens activeTokens24h totalPools
+        totalVolumeUSD24h totalLiquidityUSD totalSwaps24h
+      }
+    }
+  `).catch(() => null)
+
+  const stats = data?.tokenMarketStats?.[0]
+  return {
+    totalTokens: stats?.totalTokens ?? 0,
+    activeTokens24h: stats?.activeTokens24h ?? 0,
+    totalPools: stats?.totalPools ?? 0,
+    totalVolumeUSD24h: stats ? parseFloat(stats.totalVolumeUSD24h) : 0,
+    totalLiquidityUSD: stats ? parseFloat(stats.totalLiquidityUSD) : 0,
+    totalSwaps24h: stats?.totalSwaps24h ?? 0,
   }
 }

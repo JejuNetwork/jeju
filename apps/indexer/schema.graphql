@@ -194,6 +194,278 @@ type TokenBalance @entity {
   lastUpdated: DateTime! @index
 }
 
+# ============ DEX Trading & Token Market Data ============
+
+"""
+Token with full market data - aggregated from DEX swaps.
+Extends Contract entity with trading-specific fields.
+"""
+type Token @entity {
+  id: ID! # chainId-address
+  address: String! @unique @index
+  chainId: Int! @index
+  symbol: String! @index
+  name: String!
+  decimals: Int!
+  totalSupply: BigInt!
+  
+  # Market data (updated on each swap)
+  priceUSD: String          # Decimal as string for precision
+  priceETH: String
+  volume24h: BigInt!
+  volumeUSD24h: String!
+  txCount24h: Int!
+  liquidity: BigInt!
+  liquidityUSD: String!
+  
+  # Price changes (basis points)
+  priceChange1h: Int
+  priceChange24h: Int
+  priceChange7d: Int
+  
+  # ATH tracking
+  athPrice: String
+  athTimestamp: DateTime
+  
+  # Holder stats
+  holderCount: Int!
+  poolCount: Int!
+  
+  # Metadata
+  logoUrl: String
+  websiteUrl: String
+  verified: Boolean! @index
+  
+  # Tracking
+  creator: Account
+  createdAt: DateTime! @index
+  lastSwapAt: DateTime @index
+  lastUpdated: DateTime! @index
+  
+  # Relations
+  pools0: [DEXPool!]! @derivedFrom(field: "token0")
+  pools1: [DEXPool!]! @derivedFrom(field: "token1")
+  swapsIn: [Swap!]! @derivedFrom(field: "tokenIn")
+  swapsOut: [Swap!]! @derivedFrom(field: "tokenOut")
+  candles: [TokenCandle!]! @derivedFrom(field: "token")
+}
+
+"""
+DEX/AMM pool instance - tracks liquidity and reserves.
+"""
+type DEXPool @entity {
+  id: ID! # chainId-poolAddress
+  address: String! @unique @index
+  chainId: Int! @index
+  dex: DEX!
+  token0: Token!
+  token1: Token!
+  fee: Int! # basis points
+  
+  # Reserves
+  reserve0: BigInt!
+  reserve1: BigInt!
+  totalLiquidity: BigInt!
+  liquidityUSD: String!
+  
+  # Current prices
+  token0Price: String!      # token0 price in token1
+  token1Price: String!      # token1 price in token0
+  token0PriceUSD: String
+  token1PriceUSD: String
+  
+  # Volume stats
+  volumeToken0: BigInt!
+  volumeToken1: BigInt!
+  volumeUSD: String!
+  txCount: Int!
+  
+  # Fee stats
+  feesUSD: String!
+  
+  # Pool type specifics
+  sqrtPriceX96: BigInt      # Uniswap V3
+  tick: Int                  # Uniswap V3
+  
+  isActive: Boolean! @index
+  createdAt: DateTime! @index
+  lastUpdated: DateTime! @index
+  
+  # Relations
+  swaps: [Swap!]! @derivedFrom(field: "pool")
+  hourlyCandles: [PoolHourlyCandle!]! @derivedFrom(field: "pool")
+  dailyCandles: [PoolDailyCandle!]! @derivedFrom(field: "pool")
+}
+
+"""
+DEX protocol registry.
+"""
+type DEX @entity {
+  id: ID! # chainId-name
+  name: String! @index
+  chainId: Int! @index
+  factory: String!
+  router: String
+  version: String!          # v2, v3, etc.
+  
+  poolCount: Int!
+  totalVolumeUSD: String!
+  totalLiquidityUSD: String!
+  totalTxCount: Int!
+  
+  createdAt: DateTime! @index
+  lastUpdated: DateTime!
+  
+  pools: [DEXPool!]! @derivedFrom(field: "dex")
+}
+
+"""
+Individual swap event from a DEX.
+"""
+type Swap @entity {
+  id: ID! # txHash-logIndex
+  pool: DEXPool!
+  transaction: Transaction!
+  
+  sender: Account!
+  recipient: Account!
+  
+  # Swap amounts
+  tokenIn: Token!
+  tokenOut: Token!
+  amountIn: BigInt!
+  amountOut: BigInt!
+  amountInUSD: String
+  amountOutUSD: String
+  
+  # Prices at swap time
+  priceIn: String           # Price of tokenIn in USD
+  priceOut: String          # Price of tokenOut in USD
+  priceImpactBps: Int       # Price impact in basis points
+  
+  timestamp: DateTime! @index
+  blockNumber: Int! @index
+  logIndex: Int!
+}
+
+"""
+OHLCV candle for a token (aggregated from swaps).
+"""
+type TokenCandle @entity {
+  id: ID! # token-interval-periodStart
+  token: Token!
+  chainId: Int! @index
+  interval: CandleInterval! @index
+  periodStart: DateTime! @index
+  
+  # OHLCV data
+  open: String!             # Opening price in USD
+  high: String!
+  low: String!
+  close: String!
+  volume: BigInt!           # Volume in token units
+  volumeUSD: String!
+  
+  # Trade stats
+  txCount: Int!
+  buyCount: Int!
+  sellCount: Int!
+  
+  # Change
+  priceChange: String!      # As decimal string
+  priceChangeBps: Int!      # As basis points
+  
+  lastUpdated: DateTime!
+}
+
+enum CandleInterval {
+  MINUTE_1
+  MINUTE_5
+  MINUTE_15
+  HOUR_1
+  HOUR_4
+  DAY_1
+  WEEK_1
+}
+
+"""
+Hourly OHLCV for a specific pool.
+"""
+type PoolHourlyCandle @entity {
+  id: ID! # pool-hourTimestamp
+  pool: DEXPool!
+  periodStart: DateTime! @index
+  
+  # Reserves at period end
+  reserve0: BigInt!
+  reserve1: BigInt!
+  liquidityUSD: String!
+  
+  # Volume during period
+  volumeToken0: BigInt!
+  volumeToken1: BigInt!
+  volumeUSD: String!
+  txCount: Int!
+  
+  # OHLC for token0 price
+  open: String!
+  close: String!
+  high: String!
+  low: String!
+}
+
+"""
+Daily OHLCV for a specific pool.
+"""
+type PoolDailyCandle @entity {
+  id: ID! # pool-dayTimestamp
+  pool: DEXPool!
+  periodStart: DateTime! @index
+  
+  reserve0: BigInt!
+  reserve1: BigInt!
+  liquidityUSD: String!
+  
+  volumeToken0: BigInt!
+  volumeToken1: BigInt!
+  volumeUSD: String!
+  txCount: Int!
+  
+  open: String!
+  close: String!
+  high: String!
+  low: String!
+  
+  # Daily stats
+  feesUSD: String!
+  uniqueTraders: Int!
+}
+
+"""
+Global token market stats - aggregated across all chains.
+"""
+type TokenMarketStats @entity {
+  id: ID! # "global" or chainId or date
+  date: DateTime @index
+  chainId: Int @index
+  
+  totalTokens: Int!
+  activeTokens24h: Int!
+  totalPools: Int!
+  activePools24h: Int!
+  
+  totalVolumeUSD24h: String!
+  totalLiquidityUSD: String!
+  totalSwaps24h: Int!
+  
+  topGainers: [String!]!    # Token IDs
+  topLosers: [String!]!
+  trending: [String!]!       # By volume
+  newTokens24h: [String!]!
+  
+  lastUpdated: DateTime!
+}
+
 # ============ IPFS & Cross-Service Integration ============
 
 type IPFSFile @entity {

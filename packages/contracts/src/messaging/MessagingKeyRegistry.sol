@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {BlockingMixin} from "../moderation/BlockingMixin.sol";
 
 /**
  * @title MessagingKeyRegistry
@@ -26,6 +27,10 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
 contract MessagingKeyRegistry is ReentrancyGuard {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
+    using BlockingMixin for BlockingMixin.Data;
+
+    /// @notice Blocking system for user-to-user blocks
+    BlockingMixin.Data public blocking;
 
     // ============ Structs ============
 
@@ -95,6 +100,7 @@ contract MessagingKeyRegistry is ReentrancyGuard {
     error PreKeyConsumptionRateLimited();
     error KeyHistoryFull();
     error Unauthorized();
+    error UserBlocked();
 
     // ============ Key Registration ============
 
@@ -190,6 +196,9 @@ contract MessagingKeyRegistry is ReentrancyGuard {
     // slither-disable-next-line timestamp
     function consumeOneTimePreKey(address user) external nonReentrant returns (bytes32 preKey, uint256 keyIndex) {
         if (!keyBundles[user].isActive) revert KeyBundleInactive();
+
+        // Check if user has blocked the caller (prevents messaging initiation)
+        if (blocking.isBlocked(msg.sender, user)) revert UserBlocked();
 
         // Rate limiting per consumer-user pair (timestamp intentional for cooldown)
         uint256 lastConsumed = lastPreKeyConsumption[user][msg.sender];
@@ -422,9 +431,29 @@ contract MessagingKeyRegistry is ReentrancyGuard {
     }
 
     /**
+     * @notice Set the block registry address
+     * @param _blockRegistry Block registry address
+     */
+    function setBlockRegistry(address _blockRegistry) external {
+        // Only allow first-time initialization (permissionless)
+        require(blocking.blockRegistry == address(0), "Already set");
+        blocking.setBlockRegistry(_blockRegistry);
+    }
+
+    /**
+     * @notice Check if a user has blocked another
+     * @param source Initiating user
+     * @param target Receiving user
+     * @return blocked True if interaction is blocked
+     */
+    function isUserBlocked(address source, address target) external view returns (bool) {
+        return blocking.isBlocked(source, target);
+    }
+
+    /**
      * @notice Contract version
      */
     function version() external pure returns (string memory) {
-        return "1.1.0";
+        return "1.2.0";
     }
 }

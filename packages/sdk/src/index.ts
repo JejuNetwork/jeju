@@ -49,6 +49,7 @@ export * from "./federation";
 export * from "./moderation";
 export * from "./work";
 export * from "./staking";
+export * from "./liquidity";
 export * from "./dws";
 export * from "./otc";
 export * from "./messaging";

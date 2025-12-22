@@ -1,0 +1,126 @@
+version: '3.8'
+
+# Jeju DWS Distributed Training Stack
+# Complete deployment for distributed RL training with Psyche integration
+
+services:
+  # Atropos API Server - Coordinates rollouts and training batches
+  atropos:
+    build:
+      context: ../..
+      dockerfile: src/training/Dockerfile.atropos
+    ports:
+      - "8000:8000"
+    environment:
+      - ATROPOS_PORT=8000
+      - NODE_ENV=production
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - training
+    restart: unless-stopped
+
+  # vLLM Inference Server - Serves model for rollout generation
+  vllm:
+    image: vllm/vllm-openai:latest
+    ports:
+      - "9001:9001"
+    environment:
+      - CUDA_VISIBLE_DEVICES=0
+    command: >
+      python -m vllm.entrypoints.openai.api_server
+      --model ${MODEL_NAME:-Qwen/Qwen2.5-1.5B-Instruct}
+      --port 9001
+      --dtype auto
+      --gpu-memory-utilization 0.45
+      --disable-log-requests
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    volumes:
+      - model-cache:/root/.cache/huggingface
+    networks:
+      - training
+    depends_on:
+      - atropos
+    restart: unless-stopped
+
+  # Training Coordinator - Manages training runs on-chain
+  coordinator:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - ATROPOS_URL=http://atropos:8000
+      - VLLM_URL=http://vllm:9001/v1
+      - RPC_URL=${RPC_URL:-http://anvil:8545}
+      - PRIVATE_KEY=${PRIVATE_KEY:-}
+      - COORDINATOR_ADDRESS=${COORDINATOR_ADDRESS:-}
+    networks:
+      - training
+    depends_on:
+      - atropos
+      - anvil
+    restart: unless-stopped
+
+  # Local Anvil node for development (remove for production)
+  anvil:
+    image: ghcr.io/foundry-rs/foundry:latest
+    ports:
+      - "8545:8545"
+    command: anvil --host 0.0.0.0
+    networks:
+      - training
+    profiles:
+      - dev
+
+  # Prometheus for metrics (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    networks:
+      - training
+    profiles:
+      - monitoring
+    restart: unless-stopped
+
+  # Grafana for dashboards (optional)
+  grafana:
+    image: grafana/grafana:latest
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - training
+    profiles:
+      - monitoring
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  model-cache:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  training:
+    driver: bridge
+

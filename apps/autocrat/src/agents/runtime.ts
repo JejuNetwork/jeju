@@ -1,6 +1,8 @@
 /**
- * Autocrat Agent Runtime Manager - Multi-tenant DAO governance with ElizaOS
- * Uses DWS for decentralized compute - automatically configured per network.
+ * Autocrat Agent Runtime Manager - Multi-tenant DAO governance
+ * 
+ * Uses character-based agents with DWS for decentralized AI inference.
+ * ElizaOS characters define agent personalities, DWS provides compute.
  */
 
 import { z } from 'zod';
@@ -9,6 +11,9 @@ import { autocratAgentTemplates, ceoAgent, type AutocratAgentTemplate } from './
 import { autocratPlugin } from './autocrat-plugin';
 import { ceoPlugin } from './ceo-plugin';
 import type { CEOPersona, GovernanceParams } from '../types';
+
+// Note: Autocrat agents use DWS for inference via dwsGenerate(), not the jejuPlugin.
+// The jejuPlugin requires a wallet which governance agents don't need.
 
 // ElizaOS types - loaded dynamically to avoid import errors
 // These use Record types since ElizaOS internals vary by version
@@ -78,9 +83,9 @@ interface CEOPersonaConfig {
 
 // ============ DWS Compute - Network aware ============
 
-// DWS URL is automatically resolved from network config
+// DWS URL is automatically resolved from network config, but env var overrides
 function getDWSEndpoint(): string {
-  return getDWSComputeUrl();
+  return process.env.DWS_URL ?? getDWSComputeUrl();
 }
 
 export async function checkDWSCompute(): Promise<boolean> {
@@ -91,11 +96,12 @@ export async function checkDWSCompute(): Promise<boolean> {
 
 export async function dwsGenerate(prompt: string, system: string, maxTokens = 500): Promise<string> {
   const endpoint = getDWSEndpoint();
-  // Use OpenAI-compatible endpoint - DWS selects the best available model
-  const r = await fetch(`${endpoint}/chat/completions`, {
+  // Use OpenAI-compatible endpoint via DWS compute router
+  const r = await fetch(`${endpoint}/compute/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: prompt },
@@ -106,7 +112,8 @@ export async function dwsGenerate(prompt: string, system: string, maxTokens = 50
   });
   if (!r.ok) {
     const network = getCurrentNetwork();
-    throw new Error(`DWS compute error (network: ${network}): ${r.status}`);
+    const errorText = await r.text();
+    throw new Error(`DWS compute error (network: ${network}): ${r.status} - ${errorText}`);
   }
   const data = (await r.json()) as { choices?: Array<{ message?: { content: string } }>; content?: string };
   return data.choices?.[0]?.message?.content ?? data.content ?? '';
@@ -216,30 +223,26 @@ export class AutocratAgentRuntimeManager {
   async initialize(): Promise<void> {
     if (this.initialized) return;
 
-    console.log('[AgentRuntime] Initializing...');
+    console.log('[AgentRuntime] Initializing governance agents...');
     this.dwsAvailable = await checkDWSCompute();
     console.log(`[AgentRuntime] DWS Compute: ${this.dwsAvailable ? 'available' : 'NOT AVAILABLE'}`);
     if (!this.dwsAvailable) {
-      console.warn('[AgentRuntime] WARNING: DWS compute not available - agent deliberation will fail');
+      throw new Error(
+        'DWS compute is required for Autocrat agents. ' +
+        'Ensure DWS is running: cd apps/dws && bun run dev'
+      );
     }
 
-    // Try to initialize ElizaOS runtimes (may fail due to dependency issues)
-    try {
-      // Initialize default council agents
-      for (const template of autocratAgentTemplates) {
-        const runtime = await this.createRuntime(template);
-        this.runtimes.set(template.id, runtime);
-      }
-
-      // Initialize default CEO
-      const ceoRuntime = await this.createRuntime(ceoAgent);
-      this.runtimes.set('ceo', ceoRuntime);
-      console.log(`[AgentRuntime] ${this.runtimes.size} agents ready`);
-    } catch (e) {
-      // ElizaOS runtime failed - we can still use DWS directly for deliberation
-      console.warn('[AgentRuntime] ElizaOS runtime init failed, using DWS-only mode');
-      console.warn(`[AgentRuntime] Error: ${e instanceof Error ? e.message : String(e)}`);
+    // Initialize default council agents with character definitions
+    for (const template of autocratAgentTemplates) {
+      const runtime = await this.createRuntime(template);
+      this.runtimes.set(template.id, runtime);
     }
+
+    // Initialize default CEO
+    const ceoRuntime = await this.createRuntime(ceoAgent);
+    this.runtimes.set('ceo', ceoRuntime);
+    console.log(`[AgentRuntime] ${this.runtimes.size} agents ready`);
 
     this.initialized = true;
   }
@@ -318,8 +321,9 @@ export class AutocratAgentRuntimeManager {
     }
     // Cast template.character through unknown to satisfy ElizaOS dynamic type system
     const character = { ...template.character } as unknown as Character;
-    // Cast plugins through unknown for ElizaOS Plugin type compatibility
-    const plugins = (template.role === 'CEO' ? [ceoPlugin] : [autocratPlugin]) as unknown as Plugin[];
+    // Role-specific plugins (inference happens via dwsGenerate, not plugins)
+    const rolePlugin = template.role === 'CEO' ? ceoPlugin : autocratPlugin;
+    const plugins = [rolePlugin] as unknown as Plugin[];
     const runtime = new AgentRuntimeClass({ character, agentId: template.id as UUID, plugins });
     for (const plugin of plugins) await runtime.registerPlugin(plugin);
     return runtime;
@@ -445,12 +449,22 @@ Respond with a JSON object:
 
     const decisionResponse = await dwsGenerate(decisionPrompt, systemPrompt, 800);
 
-    // Parse decision
+    // Parse decision - handle LLM sometimes returning invalid JSON
     let decision: CEODecision;
     const jsonMatch = decisionResponse.match(/\{[\s\S]*\}/);
+    let parsed: { approved?: boolean; reasoning?: string; confidence?: number; alignment?: number; recommendations?: string[] } | null = null;
+    
     if (jsonMatch) {
-      const rawParsed = JSON.parse(jsonMatch[0]);
-      const parsed = CEODecisionResponseSchema.parse(rawParsed);
+      try {
+        const rawParsed = JSON.parse(jsonMatch[0]);
+        parsed = CEODecisionResponseSchema.parse(rawParsed);
+      } catch {
+        // JSON parsing failed - fall through to text-based parsing
+        parsed = null;
+      }
+    }
+    
+    if (parsed) {
       decision = {
         approved: parsed.approved ?? false,
         reasoning: parsed.reasoning ?? decisionResponse.slice(0, 500),

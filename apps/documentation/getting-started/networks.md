@@ -1,86 +1,256 @@
 # Networks
 
-Jeju runs on three networks: localnet for development, testnet for staging, and mainnet for production.
+Connect to Jeju networks for development, testing, and production.
 
-## Localnet
+## Network Overview
 
-Local development network running on chain ID 1337. Starts with `bun run dev`.
-
-The L2 RPC is at `http://127.0.0.1:6546` with WebSocket at `ws://127.0.0.1:6547`. The L1 RPC runs at `http://127.0.0.1:6545`. The Indexer GraphQL is at `http://127.0.0.1:4350/graphql`.
-
-Localnet features instant 2-second block times, pre-funded test accounts, all contracts deployed, and no gas costs since you're using test ETH.
-
-```bash
-bun run dev                # Start
-bun run localnet:stop      # Stop
-bun run localnet:reset     # Reset to fresh state
-```
-
-### Local Domain Routing
-
-When running `bun run dev`, a local proxy automatically starts that enables friendly domain URLs:
-
-| Service | URL |
-|---------|-----|
-| Gateway | `http://gateway.local.jejunetwork.org` |
-| Bazaar | `http://bazaar.local.jejunetwork.org` |
-| Docs | `http://docs.local.jejunetwork.org` |
-| RPC | `http://rpc.local.jejunetwork.org` |
-| Indexer | `http://indexer.local.jejunetwork.org` |
-
-This works automatically - DNS resolves `*.local.jejunetwork.org` to `127.0.0.1`, and the local Caddy proxy routes to the correct ports.
-
-To disable the proxy: `bun run dev --no-proxy`
-
-## Testnet
-
-Public test network on Sepolia with chain ID 420690.
-
-The L2 RPC is at `https://testnet-rpc.jejunetwork.org` with WebSocket at `wss://testnet-ws.jejunetwork.org`. The Explorer is at `https://explorer.testnet.jejunetwork.org`. The Indexer GraphQL is at `https://testnet-indexer.jejunetwork.org/graphql`.
-
-To get testnet ETH, first obtain Sepolia ETH from [sepoliafaucet.com](https://sepoliafaucet.com), then bridge to Jeju testnet via Gateway.
-
-For wallet configuration, set Network Name to "Jeju Testnet", RPC URL to `https://testnet-rpc.jejunetwork.org`, Chain ID to `420690`, Currency Symbol to "ETH", and Explorer to `https://explorer.testnet.jejunetwork.org`.
+| Network | Chain ID | Use |
+|---------|----------|-----|
+| Mainnet | 420691 | Production |
+| Testnet | 420690 | Staging, testing |
+| Localnet | 1337 | Development |
 
 ## Mainnet
 
-Production network on Ethereum with chain ID 420691.
+Production network for real transactions.
 
-The L2 RPC is at `https://rpc.jejunetwork.org` with WebSocket at `wss://ws.jejunetwork.org`. The Explorer is at `https://explorer.jejunetwork.org`. The Indexer GraphQL is at `https://indexer.jejunetwork.org/graphql`.
+### RPC Endpoints
 
-For wallet configuration, set Network Name to "Jeju", RPC URL to `https://rpc.jejunetwork.org`, Chain ID to `420691`, Currency Symbol to "ETH", and Explorer to `https://explorer.jejunetwork.org`.
+| Provider | URL |
+|----------|-----|
+| Primary | `https://rpc.jejunetwork.org` |
+| WebSocket | `wss://rpc.jejunetwork.org` |
 
-## Switching Networks
+### Add to Wallet
 
-### Environment Variable
+| Setting | Value |
+|---------|-------|
+| Network Name | Jeju Mainnet |
+| RPC URL | `https://rpc.jejunetwork.org` |
+| Chain ID | 420691 |
+| Currency Symbol | ETH |
+| Block Explorer | `https://explorer.jejunetwork.org` |
 
-Set `JEJU_NETWORK` to switch contexts:
+### Services
+
+| Service | URL |
+|---------|-----|
+| Explorer | https://explorer.jejunetwork.org |
+| Indexer | https://indexer.jejunetwork.org/graphql |
+| Gateway | https://gateway.jejunetwork.org |
+| Bazaar | https://bazaar.jejunetwork.org |
+
+## Testnet
+
+Free tokens for testing. Use before deploying to mainnet.
+
+### RPC Endpoints
+
+| Provider | URL |
+|----------|-----|
+| Primary | `https://testnet-rpc.jejunetwork.org` |
+| WebSocket | `wss://testnet-rpc.jejunetwork.org` |
+
+### Add to Wallet
+
+| Setting | Value |
+|---------|-------|
+| Network Name | Jeju Testnet |
+| RPC URL | `https://testnet-rpc.jejunetwork.org` |
+| Chain ID | 420690 |
+| Currency Symbol | ETH |
+| Block Explorer | `https://testnet-explorer.jejunetwork.org` |
+
+### Get Test Tokens
 
 ```bash
-JEJU_NETWORK=testnet bun run scripts/deploy.ts
-JEJU_NETWORK=mainnet bun run scripts/deploy.ts
+# Via CLI
+jeju faucet 0xYourAddress
+
+# Via Gateway UI
+# Visit https://testnet-gateway.jejunetwork.org/faucet
 ```
 
-### In Code
+### Services
+
+| Service | URL |
+|---------|-----|
+| Explorer | https://testnet-explorer.jejunetwork.org |
+| Indexer | https://testnet-indexer.jejunetwork.org/graphql |
+| Gateway | https://testnet-gateway.jejunetwork.org |
+| Faucet | https://testnet-gateway.jejunetwork.org/faucet |
+
+## Localnet
+
+For local development. Runs entirely on your machine.
+
+### Start Localnet
+
+```bash
+git clone https://github.com/elizaos/jeju
+cd jeju
+bun install
+bun run dev
+```
+
+### RPC Endpoints
+
+| Provider | URL |
+|----------|-----|
+| L2 RPC | `http://127.0.0.1:9545` |
+| L1 RPC | `http://127.0.0.1:8545` |
+| WebSocket | `ws://127.0.0.1:9545` |
+
+### Add to Wallet
+
+| Setting | Value |
+|---------|-------|
+| Network Name | Jeju Localnet |
+| RPC URL | `http://127.0.0.1:9545` |
+| Chain ID | 1337 |
+| Currency Symbol | ETH |
+
+### Test Accounts
+
+Pre-funded with 10,000 ETH each:
+
+| Role | Address | Private Key |
+|------|---------|-------------|
+| Deployer | `0xf39F...2266` | `0xac09...ff80` |
+| User 1 | `0x70997...79C8` | `0x59c6...e64e` |
+| User 2 | `0x3C44...F56a` | `0x5de4...4a6f` |
+
+Full list: `bun run jeju keys`
+
+## SDK Configuration
+
+### Connect to Network
 
 ```typescript
-import { getConfig } from '@jejunetwork/config';
+import { createJejuClient } from '@jejunetwork/sdk';
 
-const config = getConfig();
-console.log(config.rpcUrl);  // Network-specific RPC
-console.log(config.chainId); // Network-specific chain ID
+// Mainnet
+const mainnet = await createJejuClient({
+  network: 'mainnet',
+  privateKey: process.env.PRIVATE_KEY,
+});
+
+// Testnet
+const testnet = await createJejuClient({
+  network: 'testnet',
+  privateKey: process.env.PRIVATE_KEY,
+});
+
+// Localnet
+const localnet = await createJejuClient({
+  network: 'localnet',
+  privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
+});
 ```
 
-### Override RPC
+### Custom RPC
 
-```bash
-JEJU_RPC_URL=https://custom-rpc.example.com bun run dev
+```typescript
+const client = await createJejuClient({
+  network: 'mainnet',
+  privateKey: process.env.PRIVATE_KEY,
+  rpcUrl: 'https://my-custom-rpc.example.com',
+});
 ```
 
-## External Chains
+## Viem Configuration
 
-OIF (Open Intents Framework) operates across multiple chains. Users can create intents on Ethereum Sepolia (chain ID 11155111), Base Sepolia (chain ID 84532), Arbitrum Sepolia (chain ID 421614), or Optimism Sepolia (chain ID 11155420). Solvers fulfill these intents on Jeju.
+```typescript
+import { defineChain } from 'viem';
 
-## Network Selection Logic
+export const jejuMainnet = defineChain({
+  id: 420691,
+  name: 'Jeju Mainnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.jejunetwork.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'Explorer', url: 'https://explorer.jejunetwork.org' },
+  },
+});
 
-The config package determines network in this order: first `JEJU_NETWORK` environment variable, then `NEXT_PUBLIC_NETWORK` or `VITE_NETWORK` for frontends, defaulting to `localnet`. Valid values are `localnet`, `testnet`, and `mainnet`.
+export const jejuTestnet = defineChain({
+  id: 420690,
+  name: 'Jeju Testnet',
+  nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://testnet-rpc.jejunetwork.org'] },
+  },
+  blockExplorers: {
+    default: { name: 'Explorer', url: 'https://testnet-explorer.jejunetwork.org' },
+  },
+  testnet: true,
+});
+```
+
+## Ethers.js Configuration
+
+```typescript
+import { ethers } from 'ethers';
+
+// Mainnet
+const mainnetProvider = new ethers.JsonRpcProvider(
+  'https://rpc.jejunetwork.org',
+  420691
+);
+
+// Testnet
+const testnetProvider = new ethers.JsonRpcProvider(
+  'https://testnet-rpc.jejunetwork.org',
+  420690
+);
+```
+
+## Related
+
+- [Quick Start](/getting-started/quick-start) - Local development setup
+- [SDK Installation](/build/sdk/installation) - SDK setup
+- [Deploy Contracts](/deployment/overview) - Deployment guide
+
+---
+
+<details>
+<summary>📋 Copy as Context</summary>
+
+```
+Jeju Networks
+
+Mainnet (Production):
+- Chain ID: 420691
+- RPC: https://rpc.jejunetwork.org
+- Explorer: https://explorer.jejunetwork.org
+- Indexer: https://indexer.jejunetwork.org/graphql
+
+Testnet (Staging):
+- Chain ID: 420690
+- RPC: https://testnet-rpc.jejunetwork.org
+- Explorer: https://testnet-explorer.jejunetwork.org
+- Faucet: https://testnet-gateway.jejunetwork.org/faucet
+
+Localnet (Development):
+- Chain ID: 1337
+- RPC: http://127.0.0.1:9545
+- Start: bun run dev
+
+SDK:
+const jeju = await createJejuClient({
+  network: 'mainnet', // or 'testnet', 'localnet'
+  privateKey: '0x...',
+});
+
+Test Accounts (localnet):
+Deployer: 0xf39F...2266, key: 0xac09...ff80
+Pre-funded with 10,000 ETH
+
+Wallet Settings:
+Network Name: Jeju Mainnet/Testnet
+Currency Symbol: ETH
+```
+
+</details>

@@ -4,4 +4,5 @@
 export { default as XLPDashboard } from './XLPDashboard'
 export { default as AddLiquidity } from './AddLiquidity'
 export { default as LPDashboard } from './LPDashboard'
+export { default as RiskPoolSection } from './RiskPoolSection'
 

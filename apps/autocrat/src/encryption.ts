@@ -139,7 +139,12 @@ function getDAUrl(): string {
 }
 
 // Encryption key from environment
-const ENCRYPTION_KEY = process.env.KMS_FALLBACK_SECRET ?? process.env.TEE_ENCRYPTION_SECRET ?? 'council-local-dev';
+// NOTE: In production, these must be set. 'council-local-dev' is ONLY for local development.
+const ENCRYPTION_KEY = process.env.KMS_FALLBACK_SECRET ?? process.env.TEE_ENCRYPTION_SECRET ?? (
+  process.env.NODE_ENV === 'production' 
+    ? (() => { throw new Error('KMS_FALLBACK_SECRET or TEE_ENCRYPTION_SECRET required in production'); })()
+    : 'council-local-dev'
+);
 
 let initialized = false;
 

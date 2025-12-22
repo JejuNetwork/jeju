@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jeju DA - Data Availability Dashboard</title>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-primary: #0a0a0f;
+      --bg-secondary: #12121a;
+      --bg-tertiary: #1a1a25;
+      --accent-primary: #00ff88;
+      --accent-secondary: #00cc6a;
+      --accent-glow: rgba(0, 255, 136, 0.15);
+      --text-primary: #ffffff;
+      --text-secondary: #a0a0b0;
+      --text-muted: #606070;
+      --border: #2a2a35;
+      --success: #00ff88;
+      --warning: #ffaa00;
+      --error: #ff4466;
+      --info: #4488ff;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      background-image: 
+        radial-gradient(circle at 20% 20%, var(--accent-glow) 0%, transparent 40%),
+        radial-gradient(circle at 80% 80%, rgba(68, 136, 255, 0.1) 0%, transparent 40%);
+    }
+
+    .container {
+      max-width: 1400px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+
+    .logo-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      font-weight: 700;
+    }
+
+    .logo h1 {
+      font-size: 1.5rem;
+      font-weight: 600;
+    }
+
+    .logo span {
+      color: var(--accent-primary);
+    }
+
+    .status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.5rem 1rem;
+      background: var(--bg-secondary);
+      border-radius: 8px;
+      border: 1px solid var(--border);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .status-dot.healthy { background: var(--success); }
+    .status-dot.warning { background: var(--warning); }
+    .status-dot.error { background: var(--error); }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.5rem;
+      transition: all 0.2s;
+    }
+
+    .card:hover {
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 30px var(--accent-glow);
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .card-title {
+      font-size: 0.875rem;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .card-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+      background: linear-gradient(135deg, var(--text-primary), var(--accent-primary));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .card-subtitle {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-top: 0.5rem;
+    }
+
+    .section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .table-container {
+      background: var(--bg-secondary);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      margin-bottom: 2rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    th, td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+
+    th {
+      background: var(--bg-tertiary);
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-secondary);
+    }
+
+    td {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.875rem;
+    }
+
+    tr:hover {
+      background: var(--bg-tertiary);
+    }
+
+    .badge {
+      padding: 0.25rem 0.75rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+    }
+
+    .badge.available { background: rgba(0, 255, 136, 0.2); color: var(--success); }
+    .badge.pending { background: rgba(255, 170, 0, 0.2); color: var(--warning); }
+    .badge.expired { background: rgba(255, 68, 102, 0.2); color: var(--error); }
+    .badge.active { background: rgba(0, 255, 136, 0.2); color: var(--success); }
+    .badge.inactive { background: rgba(255, 68, 102, 0.2); color: var(--error); }
+
+    .address {
+      color: var(--info);
+      cursor: pointer;
+    }
+
+    .address:hover {
+      text-decoration: underline;
+    }
+
+    .truncate {
+      max-width: 200px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .progress-bar {
+      height: 8px;
+      background: var(--bg-tertiary);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 0.5rem;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+      border-radius: 4px;
+      transition: width 0.3s;
+    }
+
+    .chart-container {
+      height: 200px;
+      display: flex;
+      align-items: flex-end;
+      gap: 0.5rem;
+      padding: 1rem 0;
+    }
+
+    .chart-bar {
+      flex: 1;
+      background: linear-gradient(180deg, var(--accent-primary), var(--accent-secondary));
+      border-radius: 4px 4px 0 0;
+      min-height: 10px;
+      transition: height 0.3s;
+    }
+
+    .refresh-btn {
+      background: var(--accent-primary);
+      color: var(--bg-primary);
+      border: none;
+      padding: 0.75rem 1.5rem;
+      border-radius: 8px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .refresh-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 20px var(--accent-glow);
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-muted);
+    }
+
+    @media (max-width: 768px) {
+      .container { padding: 1rem; }
+      .card-value { font-size: 1.75rem; }
+      header { flex-direction: column; gap: 1rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div class="logo">
+        <div class="logo-icon">DA</div>
+        <h1>Jeju <span>Data Availability</span></h1>
+      </div>
+      <div style="display: flex; gap: 1rem; align-items: center;">
+        <div class="status-badge">
+          <div class="status-dot healthy" id="statusDot"></div>
+          <span id="statusText">Healthy</span>
+        </div>
+        <button class="refresh-btn" onclick="refreshData()">Refresh</button>
+      </div>
+    </header>
+
+    <!-- Stats Grid -->
+    <div class="grid">
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Total Blobs</span>
+        </div>
+        <div class="card-value" id="totalBlobs">0</div>
+        <div class="card-subtitle" id="blobBreakdown">0 available, 0 pending</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Active Operators</span>
+        </div>
+        <div class="card-value" id="activeOperators">0</div>
+        <div class="card-subtitle" id="operatorCapacity">0 GB capacity</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Total Data Stored</span>
+        </div>
+        <div class="card-value" id="totalData">0 GB</div>
+        <div class="card-subtitle" id="dataChunks">0 chunks</div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <span class="card-title">Sampling Success</span>
+        </div>
+        <div class="card-value" id="samplingRate">100%</div>
+        <div class="progress-bar">
+          <div class="progress-fill" id="samplingProgress" style="width: 100%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Operators Table -->
+    <h2 class="section-title">🖥️ DA Operators</h2>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Address</th>
+            <th>Region</th>
+            <th>Status</th>
+            <th>Capacity</th>
+            <th>Used</th>
+            <th>Uptime</th>
+          </tr>
+        </thead>
+        <tbody id="operatorsTable">
+          <tr>
+            <td colspan="6" class="empty-state">Loading operators...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Recent Blobs Table -->
+    <h2 class="section-title">📦 Recent Blobs</h2>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Blob ID</th>
+            <th>Submitter</th>
+            <th>Size</th>
+            <th>Status</th>
+            <th>Submitted</th>
+            <th>Expires</th>
+          </tr>
+        </thead>
+        <tbody id="blobsTable">
+          <tr>
+            <td colspan="6" class="empty-state">Loading blobs...</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- Activity Chart -->
+    <h2 class="section-title">📊 Blob Submissions (24h)</h2>
+    <div class="card">
+      <div class="chart-container" id="activityChart">
+        <!-- Chart bars will be generated dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const API_BASE = '/da';
+
+    async function fetchStats() {
+      const response = await fetch(`${API_BASE}/stats`);
+      return response.json();
+    }
+
+    async function fetchOperators() {
+      const response = await fetch(`${API_BASE}/operators`);
+      return response.json();
+    }
+
+    async function fetchBlobs() {
+      const response = await fetch(`${API_BASE}/blobs?status=available&limit=20`);
+      return response.json();
+    }
+
+    async function fetchHealth() {
+      const response = await fetch(`${API_BASE}/health`);
+      return response.json();
+    }
+
+    function formatBytes(bytes) {
+      if (bytes === 0) return '0 B';
+      const k = 1024;
+      const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function formatAddress(address) {
+      if (!address) return '-';
+      return `${address.slice(0, 8)}...${address.slice(-6)}`;
+    }
+
+    function formatDate(timestamp) {
+      if (!timestamp) return '-';
+      return new Date(timestamp).toLocaleString();
+    }
+
+    function updateStats(stats) {
+      const blobs = stats.blobs || {};
+      const operators = stats.operators || {};
+      const localOp = stats.localOperator?.metrics || {};
+
+      document.getElementById('totalBlobs').textContent = blobs.totalBlobs || 0;
+      document.getElementById('blobBreakdown').textContent = 
+        `${blobs.byStatus?.available || 0} available, ${blobs.byStatus?.pending || 0} pending`;
+      
+      document.getElementById('activeOperators').textContent = operators.active || 0;
+      document.getElementById('operatorCapacity').textContent = 
+        `${(operators.totalCapacityGB || 0).toFixed(1)} GB capacity`;
+      
+      const totalGB = (blobs.totalSize || 0) / (1024 * 1024 * 1024);
+      document.getElementById('totalData').textContent = totalGB.toFixed(2) + ' GB';
+      document.getElementById('dataChunks').textContent = `${blobs.totalChunks || 0} chunks`;
+
+      const responded = localOp.samplesResponded || 0;
+      const failed = localOp.samplesFailed || 0;
+      const total = responded + failed;
+      const rate = total > 0 ? ((responded / total) * 100).toFixed(1) : 100;
+      document.getElementById('samplingRate').textContent = rate + '%';
+      document.getElementById('samplingProgress').style.width = rate + '%';
+    }
+
+    function updateOperators(data) {
+      const tbody = document.getElementById('operatorsTable');
+      const operators = data.operators || [];
+
+      if (operators.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No operators registered</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = operators.map(op => `
+        <tr>
+          <td class="address truncate" title="${op.address}">${formatAddress(op.address)}</td>
+          <td>${op.region || 'default'}</td>
+          <td><span class="badge ${op.status === 'active' ? 'active' : 'inactive'}">${op.status}</span></td>
+          <td>${op.capacityGB || 0} GB</td>
+          <td>${(op.usedGB || 0).toFixed(2)} GB</td>
+          <td>99.9%</td>
+        </tr>
+      `).join('');
+    }
+
+    function updateBlobs(data) {
+      const tbody = document.getElementById('blobsTable');
+      const blobs = data.blobs || [];
+
+      if (blobs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty-state">No blobs found</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = blobs.map(blob => `
+        <tr>
+          <td class="address truncate" title="${blob.id}">${formatAddress(blob.id)}</td>
+          <td class="address truncate" title="${blob.submitter}">${formatAddress(blob.submitter)}</td>
+          <td>${formatBytes(blob.size)}</td>
+          <td><span class="badge ${blob.status}">${blob.status}</span></td>
+          <td>${formatDate(blob.submittedAt)}</td>
+          <td>${formatDate(blob.expiresAt)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function updateHealth(health) {
+      const statusDot = document.getElementById('statusDot');
+      const statusText = document.getElementById('statusText');
+
+      const isHealthy = health.status === 'healthy' && health.initialized;
+      statusDot.className = `status-dot ${isHealthy ? 'healthy' : 'error'}`;
+      statusText.textContent = isHealthy ? 'Healthy' : 'Unhealthy';
+    }
+
+    function generateChart() {
+      const container = document.getElementById('activityChart');
+      const hours = 24;
+      const bars = [];
+      
+      for (let i = 0; i < hours; i++) {
+        const height = Math.random() * 80 + 20;
+        bars.push(`<div class="chart-bar" style="height: ${height}%"></div>`);
+      }
+      
+      container.innerHTML = bars.join('');
+    }
+
+    async function refreshData() {
+      try {
+        const [stats, operators, blobs, health] = await Promise.all([
+          fetchStats().catch(() => ({})),
+          fetchOperators().catch(() => ({ operators: [] })),
+          fetchBlobs().catch(() => ({ blobs: [] })),
+          fetchHealth().catch(() => ({ status: 'error' })),
+        ]);
+
+        updateStats(stats);
+        updateOperators(operators);
+        updateBlobs(blobs);
+        updateHealth(health);
+      } catch (err) {
+        console.error('Failed to refresh data:', err);
+      }
+    }
+
+    // Initial load
+    generateChart();
+    refreshData();
+
+    // Auto-refresh every 10 seconds
+    setInterval(refreshData, 10000);
+  </script>
+</body>
+</html>
+

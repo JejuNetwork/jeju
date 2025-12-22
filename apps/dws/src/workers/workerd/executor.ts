@@ -1,9 +1,13 @@
 /**
  * Workerd Executor
  * Manages workerd processes and worker execution with V8 isolate-level isolation
+ * 
+ * Requires workerd binary - auto-installed via postinstall script
  */
 
 import { mkdir } from 'fs/promises';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import type {
   WorkerdConfig,
   WorkerdWorkerDefinition,
@@ -34,10 +38,55 @@ export class WorkerdExecutor {
   private eventHandlers: WorkerdEventHandler[] = [];
   private usedPorts = new Set<number>();
   private initialized = false;
+  private workerdPath: string | null = null;
 
   constructor(backend: BackendManager, config: Partial<WorkerdConfig> = {}) {
     this.backend = backend;
     this.config = { ...DEFAULT_WORKERD_CONFIG, ...config };
+  }
+
+  /**
+   * Find workerd binary path
+   * Checks: env var, node_modules/.bin, system paths
+   */
+  private async findWorkerdBinary(): Promise<string> {
+    // 1. Check env var
+    if (this.config.binaryPath && existsSync(this.config.binaryPath)) {
+      return this.config.binaryPath;
+    }
+
+    // 2. Check path file from install script
+    const pathFile = join(process.cwd(), 'node_modules', '.workerd-path');
+    if (existsSync(pathFile)) {
+      const savedPath = await Bun.file(pathFile).text();
+      if (savedPath.trim() && existsSync(savedPath.trim())) {
+        return savedPath.trim();
+      }
+    }
+
+    // 3. Check node_modules/.bin
+    const isWindows = process.platform === 'win32';
+    const binaryName = isWindows ? 'workerd.exe' : 'workerd';
+    const localBin = join(process.cwd(), 'node_modules', '.bin', binaryName);
+    if (existsSync(localBin)) {
+      return localBin;
+    }
+
+    // 4. Check system paths
+    const systemPaths = isWindows 
+      ? ['C:\\Program Files\\workerd\\workerd.exe']
+      : ['/usr/local/bin/workerd', '/usr/bin/workerd', join(process.env.HOME || '', '.local', 'bin', 'workerd')];
+    
+    for (const p of systemPaths) {
+      if (existsSync(p)) {
+        return p;
+      }
+    }
+
+    throw new Error(
+      'workerd binary not found. Run "bun install" to auto-install or set WORKERD_PATH environment variable. ' +
+      'Manual install: https://github.com/cloudflare/workerd/releases'
+    );
   }
 
   async initialize(): Promise<void> {
@@ -46,15 +95,22 @@ export class WorkerdExecutor {
     // Create work directory
     await mkdir(this.config.workDir, { recursive: true });
 
-    // Verify workerd binary exists
-    const binaryExists = await Bun.file(this.config.binaryPath).exists();
-    if (!binaryExists) {
-      console.warn(`[WorkerdExecutor] workerd binary not found at ${this.config.binaryPath}`);
-      console.warn('[WorkerdExecutor] Falling back to bun subprocess mode');
+    // Find and verify workerd binary
+    this.workerdPath = await this.findWorkerdBinary();
+    
+    // Verify binary works
+    const proc = Bun.spawn([this.workerdPath, '--version'], {
+      stdout: 'pipe',
+      stderr: 'pipe',
+    });
+    const exitCode = await proc.exited;
+    
+    if (exitCode !== 0) {
+      throw new Error(`workerd binary at ${this.workerdPath} is not working. Exit code: ${exitCode}`);
     }
 
     this.initialized = true;
-    console.log('[WorkerdExecutor] Initialized');
+    console.log(`[WorkerdExecutor] Initialized with workerd at ${this.workerdPath}`);
 
     // Cleanup interval
     setInterval(() => this.cleanup(), 30000);
@@ -98,14 +154,8 @@ export class WorkerdExecutor {
       }];
     }
 
-    // Check if workerd binary is available
-    const useWorkerd = await Bun.file(this.config.binaryPath).exists();
-
-    if (useWorkerd) {
-      await this.deployWithWorkerd(worker, codeDir);
-    } else {
-      await this.deployWithBun(worker, codeDir);
-    }
+    // Deploy with workerd
+    await this.deployWithWorkerd(worker, codeDir);
 
     worker.status = 'active';
     worker.updatedAt = Date.now();
@@ -126,8 +176,12 @@ export class WorkerdExecutor {
     await Bun.write(configPath, configContent);
 
     // Start workerd process
+    if (!this.workerdPath) {
+      throw new Error('Workerd not initialized. Call initialize() first.');
+    }
+    
     const proc = Bun.spawn([
-      this.config.binaryPath,
+      this.workerdPath,
       'serve',
       configPath,
       '--verbose',
@@ -194,104 +248,6 @@ export class WorkerdExecutor {
     });
   }
 
-  private async deployWithBun(
-    worker: WorkerdWorkerDefinition,
-    codeDir: string
-  ): Promise<void> {
-    // Fallback: run with Bun subprocess (existing behavior)
-    const port = this.allocatePort();
-    const mainFile = worker.mainModule || 'worker.js';
-    
-    // Create a simple HTTP wrapper for Bun
-    const wrapperCode = `
-import handler from './${mainFile}';
-
-const server = Bun.serve({
-  port: ${port},
-  async fetch(request) {
-    if (request.url.endsWith('/health')) {
-      return new Response('ok');
-    }
-    
-    if (typeof handler.fetch === 'function') {
-      return handler.fetch(request, {});
-    }
-    
-    if (typeof handler.default?.fetch === 'function') {
-      return handler.default.fetch(request, {});
-    }
-    
-    return new Response('Worker does not export fetch handler', { status: 500 });
-  }
-});
-
-console.log('Worker running on port ' + ${port});
-`;
-
-    await Bun.write(`${codeDir}/_server.ts`, wrapperCode);
-
-    const proc = Bun.spawn(['bun', 'run', '_server.ts'], {
-      cwd: codeDir,
-      stdout: 'pipe',
-      stderr: 'pipe',
-      env: {
-        ...process.env,
-        ...Object.fromEntries(
-          worker.bindings
-            .filter(b => b.type === 'text')
-            .map(b => [b.name, String(b.value)])
-        ),
-      },
-    });
-
-    const processId = crypto.randomUUID();
-    const workerdProcess: WorkerdProcess = {
-      id: processId,
-      pid: proc.pid,
-      port,
-      status: 'starting',
-      workers: new Set([worker.id]),
-      startedAt: Date.now(),
-      lastRequestAt: Date.now(),
-      requestCount: 0,
-      errorCount: 0,
-      process: proc,
-    };
-
-    this.processes.set(processId, workerdProcess);
-    this.workerToProcess.set(worker.id, processId);
-
-    const instance: WorkerdInstance = {
-      workerId: worker.id,
-      processId,
-      port,
-      status: 'starting',
-      activeRequests: 0,
-      totalRequests: 0,
-      startedAt: Date.now(),
-      lastUsedAt: Date.now(),
-      memoryUsedMb: 0,
-      cpuTimeMs: 0,
-    };
-    this.instances.set(worker.id, instance);
-
-    const ready = await this.waitForReady(port);
-    if (ready) {
-      workerdProcess.status = 'ready';
-      instance.status = 'ready';
-    } else {
-      workerdProcess.status = 'error';
-      instance.status = 'error';
-      worker.status = 'error';
-      worker.error = 'Failed to start Bun subprocess';
-      throw new Error('Bun subprocess failed to start');
-    }
-
-    proc.exited.then((exitCode) => {
-      this.handleProcessExit(processId, exitCode);
-    });
-  }
-
   async undeployWorker(workerId: string): Promise<void> {
     const worker = this.workers.get(workerId);
     if (!worker) return;
@@ -353,10 +309,14 @@ console.log('Worker running on port ' + ${port});
     try {
       const url = `http://localhost:${instance.port}${request.url}`;
       
+      const bodyToSend = request.body 
+        ? (typeof request.body === 'string' ? request.body : request.body.toString('utf-8'))
+        : undefined;
+      
       const response = await fetch(url, {
         method: request.method,
         headers: request.headers,
-        body: request.body,
+        body: bodyToSend,
         signal: controller.signal,
       });
 

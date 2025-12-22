@@ -12,7 +12,7 @@ import { isAddress, isHex, type Address, type Hex } from 'viem';
  */
 export const AddressSchema = z.string().refine(
   (val): val is Address => isAddress(val),
-  { error: 'Invalid Ethereum address' }
+  'Invalid Ethereum address'
 ) as unknown as z.ZodType<Address>;
 
 /**
@@ -22,7 +22,7 @@ export const AddressSchema = z.string().refine(
  */
 export const HexSchema = z.string().refine(
   (val): val is Hex => isHex(val),
-  { error: 'Invalid hex string' }
+  'Invalid hex string'
 ) as unknown as z.ZodType<Hex>;
 
 /**
@@ -31,7 +31,7 @@ export const HexSchema = z.string().refine(
  */
 export const HashSchema = z.string().refine(
   (val): val is Hex => isHex(val) && val.length === 66, // 0x + 64 chars
-  { error: 'Invalid 32-byte hash' }
+  'Invalid 32-byte hash'
 ) as unknown as z.ZodType<Hex>;
 
 /**
@@ -164,7 +164,7 @@ export const ErrorResponseSchema = z.object({
 /**
  * Validates a string that must contain at least 1 character
  */
-export const NonEmptyStringSchema = z.string().min(1, { error: 'String cannot be empty' });
+export const NonEmptyStringSchema = z.string().min(1, 'String cannot be empty');
 
 /**
  * Validates a string that represents a positive number
@@ -175,7 +175,7 @@ export const PositiveNumberStringSchema = z.string().refine(
     const num = Number(val);
     return !isNaN(num) && num > 0;
   },
-  { error: 'Must be a positive number string' }
+  'Must be a positive number string'
 );
 
 /**
@@ -186,7 +186,7 @@ export const NonNegativeNumberStringSchema = z.string().refine(
     const num = Number(val);
     return !isNaN(num) && num >= 0;
   },
-  { error: 'Must be a non-negative number string' }
+  'Must be a non-negative number string'
 );
 
 /**

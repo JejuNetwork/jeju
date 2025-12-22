@@ -11,7 +11,7 @@ import {
 } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { requireContract, getServicesConfig } from "../config";
+import { safeGetContract, getServicesConfig } from "../config";
 import {
   SwapQuoteResponseSchema,
   PoolInfoResponseSchema,
@@ -226,10 +226,15 @@ export function createDefiModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): DefiModule {
-  const swapRouterAddress = requireContract("defi", "swapRouter", network);
-  const positionManagerAddress = requireContract("defi", "positionManager", network);
-  const tokenFactoryAddress = requireContract("registry", "tokenFactory", network);
+  const swapRouterAddress = safeGetContract("defi", "swapRouter", network);
+  const positionManagerAddress = safeGetContract("defi", "positionManager", network);
+  const tokenFactoryAddress = safeGetContract("registry", "tokenFactory", network);
   const services = getServicesConfig(network);
+
+  // Return stub if core contracts not available
+  if (!swapRouterAddress || !positionManagerAddress) {
+    return createStubDefiModule();
+  }
 
   async function getToken(address: Address): Promise<Token> {
     const token = getContract({
@@ -518,5 +523,36 @@ export function createDefiModule(
     listPositions,
     collectFees,
     launchToken,
+  };
+}
+
+/**
+ * Create a stub DeFi module when contracts aren't deployed
+ */
+function createStubDefiModule(): DefiModule {
+  const notAvailable = (): never => {
+    throw new Error("DeFi contracts not deployed on this network");
+  };
+
+  const emptyToken: Token = {
+    address: "0x0000000000000000000000000000000000000000" as Address,
+    name: "",
+    symbol: "",
+    decimals: 18,
+  };
+
+  return {
+    getToken: async () => emptyToken,
+    getBalance: async () => 0n,
+    approve: notAvailable,
+    getSwapQuote: async () => ({ amountOut: 0n, path: [], priceImpact: 0 }),
+    swap: notAvailable,
+    listPools: async () => [],
+    getPool: async () => null,
+    addLiquidity: notAvailable,
+    removeLiquidity: notAvailable,
+    listPositions: async () => [],
+    collectFees: notAvailable,
+    launchToken: notAvailable,
   };
 }

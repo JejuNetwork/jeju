@@ -1,7 +1,7 @@
 import { useState, type ComponentType } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
-import { Wallet, Factory, DropletIcon, BarChart3, Zap, Server, Book, Waves, Activity, Tag, Sparkles, Droplet, Radio, type LucideProps } from 'lucide-react';
+import { Wallet, Factory, DropletIcon, BarChart3, Zap, Server, Book, Waves, Activity, Tag, Sparkles, Droplet, Radio, Shield, type LucideProps } from 'lucide-react';
 import { ThemeToggle } from './ThemeProvider';
 
 // Fix for Lucide React 19 type compatibility
@@ -17,6 +17,7 @@ const WavesIcon = Waves as ComponentType<LucideProps>;
 const ServerIcon = Server as ComponentType<LucideProps>;
 const BarChart3Icon = BarChart3 as ComponentType<LucideProps>;
 const TagIcon = Tag as ComponentType<LucideProps>;
+const ShieldIcon = Shield as ComponentType<LucideProps>;
 import TokenList from './TokenList';
 import RegisterToken from './RegisterToken';
 import DeployPaymaster from './DeployPaymaster';
@@ -32,8 +33,9 @@ import { IntentsTab } from './intents';
 import JNSTab from './JNSTab';
 import FaucetTab from './FaucetTab';
 import { OracleTab } from './oracle';
+import RiskAllocationDashboard from './RiskAllocationDashboard';
 
-type TabId = 'tokens' | 'deploy' | 'liquidity' | 'earnings' | 'transfer' | 'xlp' | 'nodes' | 'registry' | 'intents' | 'names' | 'faucet' | 'oracle';
+type TabId = 'tokens' | 'deploy' | 'liquidity' | 'earnings' | 'transfer' | 'xlp' | 'nodes' | 'registry' | 'intents' | 'names' | 'faucet' | 'oracle' | 'risk';
 
 const TABS: { id: TabId; icon: ComponentType<LucideProps>; label: string }[] = [
   { id: 'registry', icon: BookIcon, label: 'Bazaar' },
@@ -42,6 +44,7 @@ const TABS: { id: TabId; icon: ComponentType<LucideProps>; label: string }[] = [
   { id: 'intents', icon: ActivityIcon, label: 'Intents' },
   { id: 'oracle', icon: RadioIcon, label: 'Oracle' },
   { id: 'xlp', icon: WavesIcon, label: 'XLP' },
+  { id: 'risk', icon: ShieldIcon, label: 'Risk Pools' },
   { id: 'tokens', icon: FactoryIcon, label: 'Tokens' },
   { id: 'deploy', icon: FactoryIcon, label: 'Deploy' },
   { id: 'liquidity', icon: DropletIconComp, label: 'Liquidity' },
@@ -96,6 +99,7 @@ export default function Dashboard() {
               {activeTab === 'names' && <JNSTab />}
               {activeTab === 'faucet' && <FaucetTab />}
               {activeTab === 'oracle' && <OracleTab />}
+              {activeTab === 'risk' && <RiskAllocationDashboard />}
             </div>
           </>
         )}

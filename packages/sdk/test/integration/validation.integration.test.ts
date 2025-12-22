@@ -40,6 +40,8 @@ describe("Validation Integration Tests", () => {
       account: agentAccount,
       network: "localnet",
       rpcUrl: RPC_URL,
+          smartAccount: false,
+        smartAccount: false,
     });
 
     const validatorAccount = privateKeyToAccount(VALIDATOR_PRIVATE_KEY);
@@ -47,6 +49,8 @@ describe("Validation Integration Tests", () => {
       account: validatorAccount,
       network: "localnet",
       rpcUrl: RPC_URL,
+          smartAccount: false,
+        smartAccount: false,
     });
 
     // Check if contracts are deployed by trying to call a view function

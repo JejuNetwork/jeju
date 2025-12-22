@@ -26,6 +26,7 @@ import {processOIFEvents} from './oif-processor'
 import {processStorageEvents} from './storage-processor'
 import {processCrossServiceEvents} from './cross-service-processor'
 import {processOracleEvents} from './oracle-processor'
+import {processDEXEvents} from './dex-processor'
 import {
     processNetworkRegistryEvent,
     processRegistryHubEvent,
@@ -543,4 +544,5 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
     await processOIFEvents(ctx)
     await processCrossServiceEvents(ctx)
     await processOracleEvents(ctx)
+    await processDEXEvents(ctx)
 })

@@ -138,6 +138,14 @@ const GATEWAY_AGENT_CARD = {
     { id: 'rpc-get-usage', name: 'Get RPC Usage', description: 'Get usage statistics for an address', tags: ['rpc', 'usage', 'query'], examples: ['Show my RPC usage', 'How many requests have I made?'] },
     { id: 'rpc-create-key', name: 'Create API Key', description: 'Generate a new RPC API key', tags: ['rpc', 'apikey', 'action'], examples: ['Create new API key', 'Generate RPC key'] },
     { id: 'rpc-staking-info', name: 'RPC Staking Info', description: 'Get staking tiers and requirements', tags: ['rpc', 'staking', 'query'], examples: ['How do I get higher rate limits?', 'RPC staking tiers'] },
+    // Risk-Based Liquidity
+    { id: 'get-risk-tiers', name: 'Get Risk Tiers', description: 'Get available risk tiers (Conservative, Balanced, Aggressive) with expected APYs', tags: ['liquidity', 'risk', 'query'], examples: ['Show risk tiers', 'What yield options exist?'] },
+    { id: 'get-sleeve-stats', name: 'Get Sleeve Stats', description: 'Get statistics for a specific risk sleeve tier', tags: ['liquidity', 'risk', 'stats'], examples: ['Conservative sleeve stats', 'Aggressive pool TVL'] },
+    { id: 'get-sleeve-position', name: 'Get My Sleeve Position', description: 'Get your deposits and pending yield in a risk sleeve', tags: ['liquidity', 'position', 'query'], examples: ['My conservative position', 'Check my sleeve deposits'] },
+    { id: 'prepare-sleeve-deposit', name: 'Deposit to Risk Sleeve', description: 'Prepare transaction to deposit ETH into a risk sleeve', tags: ['liquidity', 'deposit', 'action'], examples: ['Deposit 1 ETH to balanced sleeve', 'Add to aggressive pool'] },
+    { id: 'prepare-sleeve-withdraw', name: 'Withdraw from Risk Sleeve', description: 'Prepare transaction to withdraw from a risk sleeve', tags: ['liquidity', 'withdraw', 'action'], examples: ['Withdraw from conservative', 'Exit aggressive sleeve'] },
+    { id: 'get-allocation-strategy', name: 'Get Allocation Strategy', description: 'Get the default liquidity allocation strategy', tags: ['liquidity', 'strategy', 'query'], examples: ['Default allocation', 'How is liquidity distributed?'] },
+    { id: 'estimate-yield', name: 'Estimate Yield', description: 'Estimate yearly yield based on current allocations', tags: ['liquidity', 'yield', 'query'], examples: ['Expected yearly yield', 'Estimate my returns'] },
     // Faucet (testnet only - added dynamically)
   ].concat(IS_TESTNET ? [
     { id: 'faucet-status', name: 'Check Faucet Status', description: 'Check eligibility and cooldown for JEJU faucet', tags: ['faucet', 'query'], examples: ['Am I eligible for faucet?', 'Check my faucet status'] },
@@ -170,6 +178,10 @@ const MCP_RESOURCES = [
   { uri: 'moderation://cases/active', name: 'Active Cases', description: 'Cases currently open for voting', mimeType: 'application/json' },
   { uri: 'moderation://reports', name: 'Reports', description: 'All submitted moderation reports', mimeType: 'application/json' },
   { uri: 'moderation://stats', name: 'Moderation Stats', description: 'System-wide moderation statistics', mimeType: 'application/json' },
+  // Risk-Based Liquidity
+  { uri: 'risk://tiers', name: 'Risk Tiers', description: 'Available risk tiers with expected yields', mimeType: 'application/json' },
+  { uri: 'risk://stats', name: 'Risk Sleeve Stats', description: 'Aggregated statistics across all risk sleeves', mimeType: 'application/json' },
+  { uri: 'risk://allocations', name: 'Allocation Strategies', description: 'Available liquidity allocation strategies', mimeType: 'application/json' },
   // Faucet (testnet only - added dynamically)
 ].concat(IS_TESTNET ? [
   { uri: 'faucet://info', name: 'Faucet Info', description: 'Faucet configuration and requirements', mimeType: 'application/json' },
@@ -202,6 +214,16 @@ const MCP_TOOLS = [
   { name: 'prepare_vote', description: 'Prepare vote transaction', inputSchema: { type: 'object', properties: { caseId: { type: 'string' }, voteYes: { type: 'boolean' } }, required: ['caseId', 'voteYes'] } },
   { name: 'prepare_challenge', description: 'Prepare challenge transaction', inputSchema: { type: 'object', properties: { caseId: { type: 'string' }, stakeAmount: { type: 'string' } }, required: ['caseId', 'stakeAmount'] } },
   { name: 'prepare_appeal', description: 'Prepare appeal transaction', inputSchema: { type: 'object', properties: { caseId: { type: 'string' }, stakeAmount: { type: 'string' } }, required: ['caseId', 'stakeAmount'] } },
+  // Risk Sleeve & Liquidity Router Tools
+  { name: 'get_risk_tiers', description: 'Get available risk tiers (Conservative, Balanced, Aggressive) with expected APYs', inputSchema: { type: 'object', properties: {} } },
+  { name: 'get_sleeve_stats', description: 'Get statistics for a risk tier (deposited, utilized, available, yield)', inputSchema: { type: 'object', properties: { tier: { type: 'number', description: 'Risk tier: 0=Conservative, 1=Balanced, 2=Aggressive' } }, required: ['tier'] } },
+  { name: 'get_sleeve_position', description: 'Get user position in a risk sleeve', inputSchema: { type: 'object', properties: { address: { type: 'string' }, tier: { type: 'number' } }, required: ['address', 'tier'] } },
+  { name: 'prepare_sleeve_deposit', description: 'Prepare transaction to deposit ETH into a risk sleeve', inputSchema: { type: 'object', properties: { amount: { type: 'string', description: 'ETH amount to deposit' }, tier: { type: 'number', description: 'Risk tier: 0=Conservative, 1=Balanced, 2=Aggressive' } }, required: ['amount', 'tier'] } },
+  { name: 'prepare_sleeve_withdraw', description: 'Prepare transaction to withdraw from a risk sleeve', inputSchema: { type: 'object', properties: { amount: { type: 'string', description: 'ETH amount to withdraw' }, tier: { type: 'number', description: 'Risk tier' } }, required: ['amount', 'tier'] } },
+  { name: 'get_allocation_strategy', description: 'Get default liquidity allocation strategy', inputSchema: { type: 'object', properties: {} } },
+  { name: 'prepare_router_deposit', description: 'Prepare transaction to deposit via liquidity router with custom strategy', inputSchema: { type: 'object', properties: { amount: { type: 'string' }, strategy: { type: 'object', properties: { ethVaultBps: { type: 'number' }, tokenVaultBps: { type: 'number' }, nodeStakeBps: { type: 'number' }, xlpStakeBps: { type: 'number' } } } }, required: ['amount'] } },
+  { name: 'get_router_position', description: 'Get user position in the liquidity router', inputSchema: { type: 'object', properties: { address: { type: 'string' } }, required: ['address'] } },
+  { name: 'estimate_yield', description: 'Estimate yearly yield for an address', inputSchema: { type: 'object', properties: { address: { type: 'string' } }, required: ['address'] } },
   // Faucet Tools (testnet only - added dynamically)
 ].concat(IS_TESTNET ? [
   { name: 'faucet_status', description: 'Check faucet eligibility and cooldown for an address', inputSchema: { type: 'object', properties: { address: { type: 'string', description: 'Wallet address to check' } }, required: ['address'] } },
@@ -584,6 +606,42 @@ app.post('/mcp/resources/read', agentRateLimit(), async (req: Request, res: Resp
     case 'moderation://cases/active': contents = await getModerationCases({ activeOnly: true, limit: 50 }); break;
     case 'moderation://reports': contents = await getReports({ limit: 100 }); break;
     case 'moderation://stats': contents = await getModerationStats(); break;
+    // Risk Pools
+    case 'risk://tiers':
+      contents = {
+        tiers: [
+          { id: 0, name: 'Conservative', description: 'Low risk, stable yields', expectedApyBps: 300, minDeposit: '0.01 ETH' },
+          { id: 1, name: 'Balanced', description: 'Moderate risk with competitive returns', expectedApyBps: 1000, minDeposit: '0.01 ETH' },
+          { id: 2, name: 'Aggressive', description: 'Higher risk, higher potential returns', expectedApyBps: 2000, minDeposit: '0.01 ETH' },
+        ],
+      };
+      break;
+    case 'risk://stats':
+      contents = {
+        totalDeposited: '0 ETH',
+        totalUtilized: '0 ETH',
+        averageYieldBps: 0,
+        tiers: {
+          conservative: { deposited: '0', utilized: '0', yieldBps: 300 },
+          balanced: { deposited: '0', utilized: '0', yieldBps: 1000 },
+          aggressive: { deposited: '0', utilized: '0', yieldBps: 2000 },
+        },
+        note: 'Query RiskSleeve contract for live data',
+      };
+      break;
+    case 'risk://allocations':
+      contents = {
+        defaultStrategy: {
+          ethVaultBps: 3000,
+          tokenVaultBps: 2000,
+          nodeStakeBps: 2000,
+          xlpStakeBps: 2000,
+          paymasterStakeBps: 500,
+          governanceStakeBps: 500,
+        },
+        description: 'Default allocation distributes across ETH vault, token vault, node staking, XLP staking, paymaster, and governance',
+      };
+      break;
     // Faucet (testnet only)
     case 'faucet://info':
       if (!IS_TESTNET) return res.status(403).json({ error: 'Faucet is only available on testnet' });
@@ -775,6 +833,128 @@ app.post('/mcp/tools/call', agentRateLimit(), async (req: Request, res: Response
           break;
         }
         result = faucetService.getFaucetInfo();
+        break;
+      }
+      // Risk Sleeve Tools
+      case 'get_risk_tiers': {
+        result = {
+          tiers: [
+            { id: 0, name: 'Conservative', description: 'Low risk, stable yields', expectedApyBps: 300, minDeposit: '0.01' },
+            { id: 1, name: 'Balanced', description: 'Moderate risk with competitive returns', expectedApyBps: 1000, minDeposit: '0.01' },
+            { id: 2, name: 'Aggressive', description: 'Higher risk, higher potential returns', expectedApyBps: 2000, minDeposit: '0.01' },
+          ],
+        };
+        break;
+      }
+      case 'get_sleeve_stats': {
+        const tier = args.tier as number;
+        if (tier < 0 || tier > 2) {
+          result = { error: 'Invalid tier: must be 0 (Conservative), 1 (Balanced), or 2 (Aggressive)' };
+          isError = true;
+          break;
+        }
+        result = {
+          tier,
+          tierName: ['Conservative', 'Balanced', 'Aggressive'][tier],
+          deposited: '0',
+          utilized: '0',
+          available: '0',
+          utilizationBps: 0,
+          yieldBps: [300, 1000, 2000][tier],
+          note: 'Query RiskSleeve contract for live data',
+        };
+        break;
+      }
+      case 'get_sleeve_position': {
+        const tier = args.tier as number;
+        const address = args.address as string;
+        result = {
+          address,
+          tier,
+          tierName: ['Conservative', 'Balanced', 'Aggressive'][tier],
+          deposited: '0',
+          pendingYield: '0',
+          depositDuration: 0,
+          note: 'Query RiskSleeve.userDeposits for live data',
+        };
+        break;
+      }
+      case 'prepare_sleeve_deposit': {
+        const amount = args.amount as string;
+        const tier = args.tier as number;
+        result = {
+          action: 'sign-and-send',
+          transaction: {
+            to: 'RiskSleeve contract address', // Would come from config
+            value: amount,
+            data: `deposit(${amount}, ${tier})`,
+            note: 'Deposit ETH into risk sleeve',
+          },
+        };
+        break;
+      }
+      case 'prepare_sleeve_withdraw': {
+        const amount = args.amount as string;
+        const tier = args.tier as number;
+        result = {
+          action: 'sign-and-send',
+          transaction: {
+            to: 'RiskSleeve contract address',
+            data: `withdraw(${amount}, ${tier})`,
+            note: 'Withdraw ETH from risk sleeve',
+          },
+        };
+        break;
+      }
+      case 'get_allocation_strategy': {
+        result = {
+          defaultStrategy: {
+            ethVaultBps: 3000,
+            tokenVaultBps: 2000,
+            nodeStakeBps: 2000,
+            xlpStakeBps: 2000,
+            paymasterStakeBps: 500,
+            governanceStakeBps: 500,
+          },
+          note: 'Query LiquidityRouter.defaultStrategy for live data',
+        };
+        break;
+      }
+      case 'prepare_router_deposit': {
+        const amount = args.amount as string;
+        const strategy = args.strategy as Record<string, number> | undefined;
+        result = {
+          action: 'sign-and-send',
+          transaction: {
+            to: 'LiquidityRouter contract address',
+            value: amount,
+            data: strategy ? `deposit(${amount}, ${JSON.stringify(strategy)})` : `depositETH()`,
+            note: 'Deposit via liquidity router with strategy',
+          },
+        };
+        break;
+      }
+      case 'get_router_position': {
+        const address = args.address as string;
+        result = {
+          address,
+          ethVaultShares: '0',
+          tokenVaultShares: '0',
+          stakedAmount: '0',
+          pendingRewards: '0',
+          strategy: null,
+          note: 'Query LiquidityRouter.getPosition for live data',
+        };
+        break;
+      }
+      case 'estimate_yield': {
+        const address = args.address as string;
+        result = {
+          address,
+          estimatedYearlyYieldBps: 0,
+          estimatedYearlyYieldPercent: 0,
+          note: 'Query LiquidityRouter.estimateYield for live data',
+        };
         break;
       }
       default: {

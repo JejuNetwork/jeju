@@ -56,7 +56,7 @@ export interface AgentRuntimeConfig {
   /** Keep at least one instance warm */
   keepWarm: boolean;
   
-  /** Cron schedule for autonomous execution (e.g., "*/5 * * * *") */
+  /** Cron schedule for autonomous execution (e.g., "* /5 * * * *" without the space) */
   cronSchedule?: string;
   
   /** Max memory in MB (default 256) */

@@ -424,10 +424,16 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Hono {
       body: request.body,
     });
 
+    const bodyStr = typeof response.body === 'string' 
+      ? response.body 
+      : Buffer.isBuffer(response.body) 
+        ? response.body.toString('utf-8')
+        : String(response.body);
+    
     return c.json({
       status: response.status,
       headers: response.headers,
-      body: typeof response.body === 'string' ? response.body : response.body.toString(),
+      body: bodyStr,
     });
   });
 

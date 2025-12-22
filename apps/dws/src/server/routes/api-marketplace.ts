@@ -604,10 +604,11 @@ export function createAPIMarketplaceRouter(): Hono {
     const embeddingProviders = providers.filter(p => p.categories.includes('embeddings'));
     
     if (embeddingProviders.length === 0) {
-      // Return mock embedding for dev
-      const dims = 1536;
-      const embedding = Array.from({ length: dims }, () => Math.random() * 2 - 1);
-      return c.json({ embedding, dimensions: dims, model: 'mock-embedding' });
+      // No embedding provider available - fail with clear error
+      return c.json({
+        error: 'No embedding provider configured',
+        message: 'Set OPENAI_API_KEY or similar for embeddings',
+      }, 503);
     }
 
     const provider = embeddingProviders[0];

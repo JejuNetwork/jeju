@@ -147,25 +147,29 @@ export class DecentralizedWorkerRouter {
   // ============================================================================
 
   private async refreshNodes(): Promise<void> {
-    const nodes = await this.registry.getNodes();
-    
-    for (const node of nodes) {
-      const nodeId = node.agentId.toString();
+    try {
+      const nodes = await this.registry.getNodes();
       
-      if (!this.nodeHealth.has(nodeId)) {
-        this.nodeHealth.set(nodeId, {
-          node,
-          healthy: true,
-          latencyMs: 0,
-          lastChecked: 0,
-          errorCount: 0,
-        });
-      } else {
-        const health = this.nodeHealth.get(nodeId);
-        if (health) {
-          health.node = node;
+      for (const node of nodes) {
+        const nodeId = node.agentId.toString();
+        
+        if (!this.nodeHealth.has(nodeId)) {
+          this.nodeHealth.set(nodeId, {
+            node,
+            healthy: true,
+            latencyMs: 0,
+            lastChecked: 0,
+            errorCount: 0,
+          });
+        } else {
+          const health = this.nodeHealth.get(nodeId);
+          if (health) {
+            health.node = node;
+          }
         }
       }
+    } catch (e) {
+      console.warn('[WorkerRouter] Failed to refresh nodes from registry:', e instanceof Error ? e.message : String(e));
     }
   }
 

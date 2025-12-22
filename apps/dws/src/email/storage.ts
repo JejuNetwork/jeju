@@ -208,9 +208,13 @@ export class MailboxStorage {
     
     const mailbox = JSON.parse(data.toString()) as Mailbox;
     
-    // Restore BigInt fields
-    mailbox.quotaUsedBytes = BigInt(mailbox.quotaUsedBytes.toString());
-    mailbox.quotaLimitBytes = BigInt(mailbox.quotaLimitBytes.toString());
+    // Restore BigInt fields (may be undefined after deletion)
+    mailbox.quotaUsedBytes = mailbox.quotaUsedBytes != null 
+      ? BigInt(String(mailbox.quotaUsedBytes)) 
+      : 0n;
+    mailbox.quotaLimitBytes = mailbox.quotaLimitBytes != null 
+      ? BigInt(String(mailbox.quotaLimitBytes)) 
+      : 0n;
     
     this.mailboxCache.set(owner, mailbox);
     return mailbox;

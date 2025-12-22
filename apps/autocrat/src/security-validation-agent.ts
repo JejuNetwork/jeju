@@ -70,10 +70,11 @@ async function analyzeWithAI(prompt: string, systemPrompt: string, maxTokens = 4
   // DWS routes to best available provider (Groq, OpenAI, Anthropic, etc.)
   const endpoint = getDWSEndpoint();
   
-  const response = await fetch(`${endpoint}/chat/completions`, {
+  const response = await fetch(`${endpoint}/compute/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      model: 'llama-3.1-8b-instant',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: prompt },

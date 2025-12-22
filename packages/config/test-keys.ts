@@ -214,16 +214,25 @@ function loadTestnetKeys(): TestKeySet {
   
   const data = TestnetKeyFileSchema.parse(JSON.parse(readFileSync(path, 'utf-8')));
   
+  // Ensure all required keys are present
+  const multisig1 = data.keys.multisig1;
+  const multisig2 = data.keys.multisig2;
+  const multisig3 = data.keys.multisig3;
+  
+  if (!multisig1 || !multisig2 || !multisig3) {
+    throw new Error('Testnet keys file is missing required multisig keys');
+  }
+  
   return {
     mnemonic: data.mnemonic,
-    keys: data.keys,
+    keys: data.keys as Record<KeyRole, KeyPair>,
     multisig: {
       address: '',
       threshold: 2,
       signers: [
-        data.keys.multisig1.address,
-        data.keys.multisig2.address,
-        data.keys.multisig3.address,
+        multisig1.address,
+        multisig2.address,
+        multisig3.address,
       ],
     },
   };

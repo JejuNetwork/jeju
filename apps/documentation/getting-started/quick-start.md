@@ -1,175 +1,205 @@
 # Quick Start
 
-Run Jeju locally in under 10 minutes.
+Run Jeju locally. Takes about 10 minutes.
 
-## Prerequisites
+**Requirements:** 16GB RAM, 20GB disk space, Docker running.
 
-### macOS
+## 1. Install Prerequisites
 
-```bash
-# Docker
+::: code-group
+
+```bash [macOS]
+# Install Docker Desktop
 brew install --cask docker
+open -a Docker  # Start Docker Desktop, wait for it to fully launch
 
-# Kurtosis (local chain orchestration)
+# Install other tools
 brew install kurtosis-tech/tap/kurtosis
-
-# Bun (JavaScript runtime)
 curl -fsSL https://bun.sh/install | bash
-
-# Foundry (Solidity toolchain)
-curl -L https://foundry.paradigm.xyz | bash
-foundryup
+curl -L https://foundry.paradigm.xyz | bash && foundryup
 ```
 
-### Linux
-
-```bash
+```bash [Linux (Ubuntu/Debian)]
 # Docker
 curl -fsSL https://get.docker.com | sh
 sudo usermod -aG docker $USER
+newgrp docker  # Apply group change without logout
 
 # Kurtosis
 echo "deb [trusted=yes] https://apt.fury.io/kurtosis-tech/ /" | sudo tee /etc/apt/sources.list.d/kurtosis.list
-sudo apt update && sudo apt install kurtosis-cli
+sudo apt update && sudo apt install -y kurtosis-cli
 
 # Bun
 curl -fsSL https://bun.sh/install | bash
+source ~/.bashrc
 
 # Foundry
 curl -L https://foundry.paradigm.xyz | bash
-foundryup
+source ~/.bashrc && foundryup
 ```
 
-### Verify Installation
+```bash [Windows (WSL2)]
+# First, install WSL2 and Ubuntu from Microsoft Store
+# Then open Ubuntu terminal and run Linux commands above
 
-```bash
-docker --version    # 24.0+
-kurtosis version    # v0.90.0+
-bun --version       # 1.0.0+
-forge --version     # 0.2.0+
+# Or use Docker Desktop for Windows with WSL2 backend
 ```
 
-## Start Localnet
+:::
+
+## 2. Verify Installation
+
+Run these before continuing:
 
 ```bash
-# Clone and install
+docker --version    # Need 24.0+
+kurtosis version    # Need v0.90.0+
+bun --version       # Need 1.0.0+
+forge --version     # Need 0.2.0+
+```
+
+If any fail, fix that tool before continuing.
+
+## 3. Start Jeju
+
+```bash
 git clone https://github.com/elizaos/jeju.git
 cd jeju
 bun install
-
-# Start everything
 bun run dev
 ```
 
-This starts:
-- **L1** (Ethereum): Geth + Lighthouse at port 8545
-- **L2** (Jeju): op-reth + op-node at port 9545
-- **Indexer**: GraphQL API at port 4350
-- **Gateway**: Web UI at port 4001
-- **Contracts**: Deployed to localnet
+First run takes 5-10 minutes to download images. You'll see logs scrolling. Wait until you see:
 
-Press `Ctrl+C` to stop all services.
+```
+✓ All services started
+```
 
-## Verify It Works
+## 4. What's Running
+
+| Service | URL | Purpose |
+|---------|-----|---------|
+| **L2 RPC** | http://127.0.0.1:9545 | Jeju blockchain |
+| **L1 RPC** | http://127.0.0.1:8545 | Local Ethereum |
+| **Gateway** | http://127.0.0.1:4001 | Bridge & staking UI |
+| **Bazaar** | http://127.0.0.1:4006 | DeFi & NFT UI |
+| **Indexer** | http://127.0.0.1:4350/graphql | GraphQL API |
+
+Open http://127.0.0.1:4001 in your browser.
+
+## 5. Test It
 
 ```bash
 # Check L2 is producing blocks
 cast block latest --rpc-url http://127.0.0.1:9545
 
-# Send a test transaction
+# Send ETH (uses pre-funded test account)
 cast send 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 \
   --value 0.1ether \
   --rpc-url http://127.0.0.1:9545 \
   --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
-
-# Check balance
-cast balance 0x70997970C51812dc3A010C7d01b50e0d17dc79C8 --rpc-url http://127.0.0.1:9545
 ```
 
-## Access Applications
+## 6. Add to MetaMask
 
-**Gateway** at http://127.0.0.1:4001 provides bridging, staking, and paymaster interfaces. **Bazaar** at http://127.0.0.1:4006 offers DeFi, NFTs, and launchpad functionality. **Indexer** at http://127.0.0.1:4350/graphql exposes the GraphQL playground. **Compute** at http://127.0.0.1:4007 runs the AI inference marketplace. **Storage** at http://127.0.0.1:4010 handles IPFS storage operations.
+| Setting | Value |
+|---------|-------|
+| Network Name | Jeju Localnet |
+| RPC URL | `http://127.0.0.1:9545` |
+| Chain ID | `1337` |
+| Currency | ETH |
 
-## Minimal Mode
+Import this test account (has 10,000 ETH):
 
-Start only the chain without applications:
+```
+0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+```
+
+## Commands
 
 ```bash
-bun run dev -- --minimal
-```
-
-## Common Commands
-
-```bash
-# Development
-bun run dev              # Start all services
-bun run dev -- --minimal # Chain only
-bun run test             # Run test suite
-bun run clean            # Stop and clean up
-
-# Localnet management
-bun run localnet:start   # Start chain
-bun run localnet:stop    # Stop chain
-bun run localnet:reset   # Reset to fresh state
-
-# Contract development
-cd packages/contracts
-forge build              # Compile contracts
-forge test               # Run Solidity tests
-```
-
-## Add to Wallet
-
-Configure MetaMask or any EVM wallet with Network Name "Jeju Localnet", RPC URL http://127.0.0.1:9545, Chain ID 1337, and Currency Symbol ETH.
-
-Import test account:
-```
-Private Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+bun run dev        # Start everything
+bun run dev:min    # Chain only, no apps
+bun run clean      # Stop and remove containers
+bun run test       # Run tests
 ```
 
 ## Troubleshooting
 
-**Docker not running**
+**Docker not starting?**
 ```bash
 # macOS
 open -a Docker
 
 # Linux
 sudo systemctl start docker
+docker ps  # Should show running containers
 ```
 
-**Port already in use**
+**Port 9545 in use?**
 ```bash
-# Find process
 lsof -i :9545
-
-# Kill it
 kill -9 <PID>
-
-# Or use cleanup script
-bun run cleanup
 ```
 
-**Kurtosis enclave fails**
+**Out of disk space?**
 ```bash
-# Clean all enclaves
-kurtosis clean -a
+docker system prune -af  # Removes all unused images
+```
 
-# Retry
+**Kurtosis enclave stuck?**
+```bash
+kurtosis clean -a
 bun run dev
 ```
 
-**View logs**
+**View detailed logs:**
 ```bash
-# List services
 kurtosis enclave inspect jeju-localnet
-
-# View specific service logs
 kurtosis service logs jeju-localnet el-1-op-reth-op-node
 ```
 
 ## Next Steps
 
-- [Network Configuration](/getting-started/networks) - Testnet and mainnet setup
-- [Deploy Contracts](/deployment/contracts) - Deploy your own contracts
-- [Run an RPC Node](/guides/run-rpc-node) - Operate infrastructure
+- [Connect to Testnet](/getting-started/networks) — Deploy to real network
+- [SDK Quickstart](/packages/sdk) — Start coding
+- [Deploy a Contract](/deployment/overview) — Foundry deployment
+
+---
+
+<details>
+<summary>📋 Copy as Context</summary>
+
+```
+Jeju Quick Start
+
+Requirements: Docker 24+, 16GB RAM, 20GB disk
+
+Install (macOS):
+brew install --cask docker
+brew install kurtosis-tech/tap/kurtosis
+curl -fsSL https://bun.sh/install | bash
+curl -L https://foundry.paradigm.xyz | bash && foundryup
+
+Start:
+git clone https://github.com/elizaos/jeju.git && cd jeju
+bun install
+bun run dev
+
+Services:
+- L2 RPC: http://127.0.0.1:9545
+- L1 RPC: http://127.0.0.1:8545
+- Gateway: http://127.0.0.1:4001
+- Bazaar: http://127.0.0.1:4006
+- Indexer: http://127.0.0.1:4350/graphql
+
+Test account (10,000 ETH):
+Address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
+Key: 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+
+MetaMask: Chain ID 1337, RPC http://127.0.0.1:9545
+
+Commands: bun run dev, bun run dev:min, bun run clean, bun run test
+```
+
+</details>

@@ -246,14 +246,19 @@ export function createKMSRouter(): Hono {
     const mpcEnabled = !!process.env.MPC_COORDINATOR_URL;
     
     const { privateKeyToAccount } = await import('viem/accounts');
-    const { keccak256, toBytes } = await import('viem');
+    const { keccak256, toBytes, toHex, fromHex } = await import('viem');
     
     // Derive signing key from keyId (deterministic for development)
     const derivedKey = keccak256(toBytes(`${key.keyId}:${key.version}`));
     const account = privateKeyToAccount(derivedKey);
     
+    // Convert message to bytes based on encoding
+    const messageBytes = body.encoding === 'hex' 
+      ? fromHex(body.message as `0x${string}`, 'bytes')
+      : new TextEncoder().encode(body.message);
+    
     const signature = await account.signMessage({
-      message: { raw: toBytes(body.messageHash) },
+      message: { raw: messageBytes },
     });
 
     return c.json({

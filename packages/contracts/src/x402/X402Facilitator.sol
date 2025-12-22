@@ -7,6 +7,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {BlockingMixin} from "../moderation/BlockingMixin.sol";
 
 interface IFeeConfigX402 {
     function getMarketplaceFees()
@@ -49,6 +50,10 @@ interface IFeeConfigX402 {
 contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
+    using BlockingMixin for BlockingMixin.Data;
+
+    /// @notice Blocking registry for user-to-user blocks
+    BlockingMixin.Data public blocking;
 
     // ============ Constants ============
 
@@ -118,6 +123,7 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
     error UnsupportedToken();
     error InvalidAmount();
     error InvalidRecipient();
+    error UserBlocked();
     error TransferFailed();
 
     // ============ Constructor ============
@@ -210,6 +216,9 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
         }
 
         if (signer != payer) revert InvalidSignature();
+
+        // Check if recipient has blocked the payer
+        if (blocking.isBlocked(payer, recipient)) revert UserBlocked();
 
         // Mark nonce as used
         usedNonces[nonceHash] = true;
@@ -311,6 +320,9 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
         }
 
         if (signer != payer) revert InvalidSignature();
+
+        // Check if recipient has blocked the payer
+        if (blocking.isBlocked(payer, recipient)) revert UserBlocked();
 
         // Mark nonce as used
         usedNonces[nonceHash] = true;
@@ -520,5 +532,23 @@ contract X402Facilitator is Ownable, ReentrancyGuard, EIP712 {
      */
     function recoverTokens(address token, address to, uint256 amount) external onlyOwner {
         IERC20(token).safeTransfer(to, amount);
+    }
+
+    /**
+     * @notice Set the block registry address
+     * @param _blockRegistry Block registry address
+     */
+    function setBlockRegistry(address _blockRegistry) external onlyOwner {
+        blocking.setBlockRegistry(_blockRegistry);
+    }
+
+    /**
+     * @notice Check if a payment would be blocked
+     * @param payer Payer address
+     * @param recipient Recipient address
+     * @return blocked True if payment would be blocked
+     */
+    function isPaymentBlocked(address payer, address recipient) external view returns (bool) {
+        return blocking.isBlocked(payer, recipient);
     }
 }

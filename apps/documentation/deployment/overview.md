@@ -1,75 +1,256 @@
-# Deployment
+# Deployment Overview
 
-Deploy Jeju infrastructure and contracts across environments.
+Deploy contracts, apps, and infrastructure on Jeju.
 
-## Environments
+## Deployment Targets
 
-[Localnet](/deployment/localnet) is for development and takes about 5 minutes to deploy. [Testnet](/deployment/testnet) is for staging and testing, taking 2-4 hours. [Mainnet](/deployment/mainnet) is for production and takes 1-2 days. [Superchain](/deployment/superchain) covers integrating with OP Superchain and Jeju Federation.
+| Environment | Purpose | Chain ID |
+|-------------|---------|----------|
+| Localnet | Development | 1337 |
+| Testnet | Staging | 420690 |
+| Mainnet | Production | 420691 |
 
-## What Gets Deployed
+## What You Can Deploy
+
+### Smart Contracts
+
+Deploy Solidity contracts with Foundry:
+
+```bash
+forge script script/Deploy.s.sol \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
+  --broadcast --verify
+```
+
+### DApps
+
+Deploy frontend + backend applications:
+
+```bash
+jeju deploy --network testnet
+```
 
 ### Infrastructure
 
-The L2 Chain runs op-reth, op-node, batcher, and proposer via Kurtosis/Kubernetes. The Database is PostgreSQL for indexer data storage. Monitoring uses Prometheus and Grafana for metrics and alerting.
-
-### Contracts
-
-Tokens include JejuToken, ERC20Factory, and TokenRegistry. Identity includes IdentityRegistry and BanManager. Payments include MultiTokenPaymaster and PaymasterFactory. OIF includes InputSettler, OutputSettler, and SolverRegistry. EIL includes L1StakeManager and CrossChainPaymaster. DeFi includes Uniswap V4 periphery and LiquidityVault.
-
-### Applications
-
-Gateway on port 4001, Bazaar on port 4006, Compute on port 4007, and Storage on port 4010 all auto-start with localnet. Indexer on port 4350 does not auto-start.
-
-## Quick Commands
+Deploy Kubernetes infrastructure:
 
 ```bash
-# Local development
-bun run dev                    # Start everything
-bun run dev -- --minimal       # Chain only
-bun run localnet:reset         # Reset to fresh state
-
-# Contract deployment
-bun run scripts/deploy.ts                    # Deploy to current network
-bun run scripts/deploy/testnet.ts            # Deploy to testnet
-bun run scripts/deploy/mainnet.ts            # Deploy to mainnet
-
-# Infrastructure
-bun run infra:plan             # Terraform plan
-bun run infra:apply            # Terraform apply
-bun run k8s:deploy             # Kubernetes deploy
+bun run k8s:deploy
 ```
 
-## Deployment Flow
+## Quick Links
 
-Start with **Prerequisites** (Docker, Kurtosis, Bun). Then deploy **Infrastructure** (Terraform, Kubernetes, load balancers). Next deploy **Contracts** (Foundry, deploy scripts, verification). Then deploy **Applications** (build images, push to registry, deploy to K8s). Finally run **Validation** (health checks, E2E tests, monitoring).
+| Target | Guide |
+|--------|-------|
+| Contracts to Localnet | [Localnet Deployment](/deployment/localnet) |
+| Contracts to Testnet | [Testnet Deployment](/deployment/testnet) |
+| Contracts to Mainnet | [Mainnet Deployment](/deployment/mainnet) |
+| Infrastructure | [Infrastructure Deployment](/deployment/infrastructure) |
+| Fork Jeju | [Superchain Deployment](/deployment/superchain) |
 
 ## Prerequisites
 
-Core tools: `brew install --cask docker`, `brew install kurtosis-tech/tap/kurtosis`, `curl -fsSL https://bun.sh/install | bash`, `curl -L https://foundry.paradigm.xyz | bash && foundryup`.
-
-For testnet/mainnet infrastructure: `brew install terraform kubectl helm helmfile`.
+### For Contracts
 
 ```bash
-git clone https://github.com/elizaos/jeju.git
-cd jeju
-bun install
-cp env.example .env.local        # Localnet
-cp env.testnet .env.testnet      # Testnet
-cp env.mainnet .env.mainnet      # Mainnet
+# Foundry
+curl -L https://foundry.paradigm.xyz | bash
+foundryup
+
+# Verify
+forge --version
 ```
 
-## Directory Structure
+### For Infrastructure
 
-The `packages/deployment/` directory contains `kubernetes/helm/` for individual service charts, `kubernetes/helmfile/` for environment configurations, `terraform/modules/` for reusable modules, `terraform/environments/` for per-environment configs, `kurtosis/` for local development, and `scripts/` for automation scripts.
+```bash
+# Docker
+docker --version
 
-## Secrets Management
+# Kubernetes CLI
+kubectl version
 
-For localnet, secrets go in `.env.local` (gitignored). For testnet and mainnet, use AWS Secrets Manager, with HSM for mainnet. Required secrets include `DEPLOYER_PRIVATE_KEY` for contract deployer, `ETHERSCAN_API_KEY` for contract verification, `WALLETCONNECT_PROJECT_ID` for wallet connections, and `OPENAI_API_KEY` for AI features.
+# Helm
+helm version
 
-## Network Endpoints
+# Terraform (for cloud)
+terraform --version
+```
 
-Localnet has L2 RPC at `http://127.0.0.1:6546`, L1 RPC at `http://127.0.0.1:6545`, and Indexer at `http://127.0.0.1:4350/graphql`.
+## Contract Deployment
 
-Testnet has L2 RPC at `https://testnet-rpc.jejunetwork.org`, Explorer at `https://testnet-explorer.jejunetwork.org`, and Indexer at `https://testnet-indexer.jejunetwork.org/graphql`.
+### Localnet
 
-Mainnet has L2 RPC at `https://rpc.jejunetwork.org`, Explorer at `https://explorer.jejunetwork.org`, and Indexer at `https://indexer.jejunetwork.org/graphql`.
+```bash
+# Start localnet
+bun run dev
+
+# Deploy
+cd packages/contracts
+forge script script/DeployLocalnet.s.sol \
+  --rpc-url http://127.0.0.1:9545 \
+  --broadcast
+```
+
+### Testnet
+
+```bash
+# Set deployer key
+export PRIVATE_KEY=0x...
+
+# Deploy with verification
+forge script script/DeployTestnet.s.sol \
+  --rpc-url https://testnet-rpc.jejunetwork.org \
+  --broadcast --verify
+```
+
+### Mainnet
+
+```bash
+# Requires Safe multi-sig
+bun run scripts/deploy-jeju-token.ts --network mainnet --safe 0x...
+```
+
+## App Deployment
+
+### Using CLI
+
+```bash
+# Deploy to testnet
+jeju deploy my-app --network testnet
+
+# Deploy to mainnet
+jeju deploy my-app --network mainnet
+```
+
+### Using jeju-manifest.json
+
+```json
+{
+  "name": "my-app",
+  "type": "dapp",
+  "commands": {
+    "dev": "bun run dev",
+    "build": "bun run build"
+  },
+  "ports": {
+    "main": 3000
+  }
+}
+```
+
+## Infrastructure Deployment
+
+### Local (Kurtosis)
+
+```bash
+bun run localnet:start
+```
+
+### Docker Compose
+
+```bash
+docker compose up -d
+```
+
+### Kubernetes
+
+```bash
+# Using Helmfile
+cd packages/deployment/kubernetes/helmfile
+helmfile -e testnet sync
+```
+
+### Cloud (Terraform)
+
+```bash
+cd packages/deployment/terraform/environments/aws-testnet
+terraform init
+terraform plan
+terraform apply
+```
+
+## Verification
+
+### Verify Contracts
+
+```bash
+forge verify-contract $CONTRACT_ADDRESS \
+  --chain-id 420690 \
+  --etherscan-api-key $ETHERSCAN_API_KEY \
+  ContractName
+```
+
+### Verify Deployment
+
+```bash
+jeju token verify --network testnet
+```
+
+## Deployment Scripts
+
+| Script | Description |
+|--------|-------------|
+| `bun run deploy:testnet` | Full testnet deployment |
+| `bun run deploy:mainnet` | Full mainnet deployment |
+| `bun run k8s:deploy` | Deploy to Kubernetes |
+| `bun run infra:apply` | Apply Terraform |
+
+## Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `PRIVATE_KEY` | Deployer private key |
+| `ETHERSCAN_API_KEY` | For contract verification |
+| `AWS_REGION` | AWS region |
+| `GCP_PROJECT` | GCP project ID |
+
+## Related
+
+- [Contract Deployment](/deployment/contracts) - Contract deployment details
+- [Localnet](/deployment/localnet) - Local development
+- [Testnet](/deployment/testnet) - Staging deployment
+- [Mainnet](/deployment/mainnet) - Production deployment
+- [Infrastructure](/deployment/infrastructure) - K8s and Terraform
+
+---
+
+<details>
+<summary>📋 Copy as Context</summary>
+
+```
+Jeju Deployment
+
+Environments:
+- Localnet: Chain ID 1337, development
+- Testnet: Chain ID 420690, staging
+- Mainnet: Chain ID 420691, production
+
+Contract Deployment:
+# Localnet
+forge script script/DeployLocalnet.s.sol --rpc-url http://127.0.0.1:9545 --broadcast
+
+# Testnet
+PRIVATE_KEY=0x... forge script script/DeployTestnet.s.sol \
+  --rpc-url https://testnet-rpc.jejunetwork.org --broadcast --verify
+
+# Mainnet (with Safe)
+bun run scripts/deploy-jeju-token.ts --network mainnet --safe 0x...
+
+App Deployment:
+jeju deploy my-app --network testnet
+
+Infrastructure:
+bun run localnet:start          # Kurtosis
+docker compose up -d            # Docker
+helmfile -e testnet sync        # Kubernetes
+terraform apply                 # Cloud
+
+Prerequisites: Foundry, Docker, Kubernetes, Helm, Terraform
+
+Verification:
+forge verify-contract $ADDRESS --chain-id 420690 ContractName
+jeju token verify --network testnet
+```
+
+</details>

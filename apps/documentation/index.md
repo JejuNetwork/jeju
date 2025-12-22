@@ -4,147 +4,165 @@ layout: home
 hero:
   name: Jeju
   text: The L2 Built for Agents
-  tagline: 200ms blocks. Gasless transactions. Native agent infrastructure. Built on OP-Stack.
+  tagline: 200ms blocks. Gasless transactions. Native agent infrastructure.
   image:
     src: /logo.svg
     alt: Jeju
   actions:
     - theme: brand
       text: Get Started →
-      link: /build/quick-start
+      link: /getting-started/quick-start
     - theme: alt
-      text: Why Jeju?
-      link: /learn/why-jeju
+      text: Learn More
+      link: /learn/architecture
 
 features:
-  - icon: 
-      src: /icons/flash.svg
-      alt: Fast
+  - icon: ⚡
     title: 200ms Flashblocks
-    details: Pre-confirmation in 200ms, finality in 2 seconds. The fastest L2 experience.
+    details: Pre-confirmation in 200ms, finality in 2 seconds. Faster than any other L2.
     link: /learn/architecture
-    linkText: Learn more
+    linkText: How it works
   
-  - icon:
-      src: /icons/gas.svg
-      alt: Gasless
+  - icon: 🎫
     title: Pay Gas in Any Token
-    details: ERC-4337 paymasters let users pay in USDC, JEJU, or any registered token. No ETH required.
+    details: Users pay fees in USDC, JEJU, or any token. Apps can sponsor gas entirely. No ETH required.
     link: /learn/gasless
-    linkText: Learn more
+    linkText: How it works
   
-  - icon:
-      src: /icons/agent.svg
-      alt: Agents
-    title: Agent-First Infrastructure
-    details: ERC-8004 identity, A2A protocol, and MCP integration. Purpose-built for autonomous agents.
+  - icon: 🤖
+    title: Agent Infrastructure
+    details: On-chain identity registry, agent-to-agent messaging, and wallet-less authentication for AI agents.
     link: /learn/agents
-    linkText: Learn more
+    linkText: How it works
   
-  - icon:
-      src: /icons/intent.svg
-      alt: Intents
-    title: Cross-Chain Intents
-    details: ERC-7683 compatible. Express intent on any chain, solvers fulfill on Jeju instantly.
-    link: /learn/intents
-    linkText: Learn more
+  - icon: 🌉
+    title: Instant Cross-Chain
+    details: Bridge from Ethereum or Base in seconds, not minutes. Liquidity providers front the funds.
+    link: /integrate/overview
+    linkText: How it works
 ---
 
-<script setup>
-import { VPTeamMembers } from 'vitepress/theme'
-</script>
+## What is Jeju?
 
-## Start Building in 60 Seconds
+Jeju is an Ethereum L2 designed for applications that need:
+- **Speed** — 200ms pre-confirmation for real-time UX
+- **No gas friction** — Users never need to hold ETH
+- **Agent support** — First-class infrastructure for AI agents and bots
+- **Cross-chain** — Accept payments from any chain instantly
+
+Built on OP-Stack with EigenDA for data availability.
+
+## Start in 60 Seconds
 
 ```bash
-# Clone and start
 git clone https://github.com/elizaos/jeju && cd jeju
-bun install && bun run dev
-
-# Your L2 is now running at http://localhost:9545
+bun install
+bun run dev
 ```
 
-::: tip Ready to deploy?
-Skip local setup and deploy directly to [Jeju Testnet →](/build/networks)
+L2 running at `http://localhost:9545`. Open Gateway at `http://localhost:4001`.
+
+::: tip Just want to deploy?
+Skip local setup. Deploy directly to testnet using the [SDK](/packages/sdk).
 :::
 
 ## Choose Your Path
 
-<div class="paths">
+| I want to... | Start here |
+|--------------|------------|
+| **Build a DApp** on Jeju | [Build Overview →](/build/overview) |
+| **Bridge assets** to/from Jeju | [Integration Guide →](/integrate/overview) |
+| **Run a node** and earn rewards | [Operate →](/operate/overview) |
+| **Understand** how Jeju works | [Architecture →](/learn/architecture) |
 
-### 👤 Users
-Bridge assets, swap tokens, stake for rewards.
+## Networks
 
-[Open Gateway →](https://gateway.jejunetwork.org)
+| Network | Chain ID | RPC |
+|---------|----------|-----|
+| Mainnet | `420691` | `https://rpc.jejunetwork.org` |
+| Testnet | `420690` | `https://testnet-rpc.jejunetwork.org` |
+| Localnet | `1337` | `http://127.0.0.1:9545` |
 
-### 👩‍💻 Developers
-Build apps, deploy contracts, integrate APIs.
+[Full network details →](/getting-started/networks)
 
-[Quick Start →](/getting-started/quick-start)
+## Quick SDK Example
 
-### 🖥️ Operators
-Run nodes, provide liquidity, earn rewards.
+```typescript
+import { createJejuClient } from '@jejunetwork/sdk';
+import { parseUnits, parseEther } from 'viem';
 
-[Run a Node →](/operate/overview)
+const jeju = await createJejuClient({
+  network: 'testnet',
+  privateKey: '0x...',
+});
 
-### 🚀 Launch Your Own Chain
-Fork Jeju to create your own branded L2.
+// Gasless swap — user pays in USDC, not ETH
+await jeju.defi.swap({
+  tokenIn: 'USDC',
+  tokenOut: 'JEJU',
+  amountIn: parseUnits('100', 6),
+});
 
-[Fork Network →](/guides/fork-network)
+// Instant bridge from Base
+await jeju.crosschain.transfer({
+  from: 'base',
+  to: 'jeju',
+  token: 'USDC',
+  amount: parseUnits('50', 6),
+});
+```
 
-</div>
-
-## Network Status
-
-| Network | Chain ID | RPC | Status |
-|---------|----------|-----|--------|
-| Mainnet | `420691` | `https://rpc.jejunetwork.org` | 🟢 Live |
-| Testnet | `420690` | `https://testnet-rpc.jejunetwork.org` | 🟢 Live |
-
-[View full network details →](/build/networks)
+[Full SDK documentation →](/packages/sdk)
 
 ## The Stack
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Applications                                                │
-│  Gateway · Bazaar · Compute · Storage · Crucible · Indexer   │
+│  Apps: Gateway · Bazaar · Crucible · Factory · DWS          │
 ├─────────────────────────────────────────────────────────────┤
-│  Smart Contracts                                             │
-│  Tokens · Identity · Paymasters · OIF · EIL · DeFi           │
+│  Contracts: Tokens · Identity · Paymasters · Bridge         │
 ├─────────────────────────────────────────────────────────────┤
-│  Jeju L2 (OP-Stack)                                          │
-│  op-reth + op-node · 200ms Flashblocks                       │
+│  Jeju L2: OP-Stack (op-reth + op-node)                      │
 ├─────────────────────────────────────────────────────────────┤
-│  Data Availability: EigenDA                                  │
+│  Data Availability: EigenDA                                 │
 ├─────────────────────────────────────────────────────────────┤
 │  Settlement: Ethereum Mainnet                                │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-[Explore architecture →](/learn/architecture)
+---
 
-<style>
-.paths {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 1.5rem;
-  margin: 2rem 0;
-}
+<details>
+<summary>📋 Copy as Context (for AI assistants)</summary>
 
-.paths h3 {
-  margin-top: 0;
-}
+```
+Jeju - Ethereum L2 for Agents
 
-@media (max-width: 960px) {
-  .paths {
-    grid-template-columns: repeat(2, 1fr);
-  }
-}
+What it is:
+- OP-Stack L2 with 200ms pre-confirmation, 2s finality
+- Users pay gas in any token (USDC, JEJU, etc.) or apps sponsor gas
+- Built-in agent identity registry and agent-to-agent messaging
+- Instant cross-chain via liquidity providers (no bridge wait)
 
-@media (max-width: 640px) {
-  .paths {
-    grid-template-columns: 1fr;
-  }
-}
-</style>
+Networks:
+- Mainnet: Chain ID 420691, RPC https://rpc.jejunetwork.org
+- Testnet: Chain ID 420690, RPC https://testnet-rpc.jejunetwork.org
+- Localnet: Chain ID 1337, RPC http://127.0.0.1:9545
+
+Quick Start:
+git clone https://github.com/elizaos/jeju && cd jeju
+bun install && bun run dev
+
+SDK:
+import { createJejuClient } from '@jejunetwork/sdk';
+import { parseUnits } from 'viem';
+
+const jeju = await createJejuClient({ network: 'testnet', privateKey: '0x...' });
+await jeju.defi.swap({ tokenIn: 'USDC', tokenOut: 'JEJU', amountIn: parseUnits('100', 6) });
+await jeju.crosschain.transfer({ from: 'base', to: 'jeju', token: 'USDC', amount });
+
+Stack: OP-Stack L2 → EigenDA → Ethereum settlement
+Apps: Gateway (bridge), Bazaar (DeFi), Crucible (agents), Factory (dev tools), DWS (compute/storage)
+```
+
+</details>

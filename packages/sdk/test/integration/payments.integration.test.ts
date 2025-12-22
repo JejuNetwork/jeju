@@ -36,6 +36,8 @@ describe("Payments Integration Tests", () => {
           account,
           network: "localnet",
           rpcUrl: RPC_URL,
+          smartAccount: false,
+        smartAccount: false,
         });
       } catch {
         chainRunning = false;

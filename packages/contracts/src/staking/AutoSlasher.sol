@@ -6,7 +6,7 @@ import {INodeStakingManager} from "./INodeStakingManager.sol";
 
 /**
  * @title AutoSlasher
- * @notice V2 Feature: Automated slashing for chronic poor performance
+ * @notice Automated slashing for chronic poor performance
  * @dev Monitors node performance and automatically slashes underperformers
  *
  * Rules:
@@ -19,11 +19,13 @@ import {INodeStakingManager} from "./INodeStakingManager.sol";
  *
  * Safety:
  * - Owner can pause automated slashing
+ * - Governance can toggle via proposal
  * - Slashing requires confirmation period (7 days)
  * - Appeals pause execution
  */
 contract AutoSlasher is Ownable {
     INodeStakingManager public immutable stakingManager;
+    address public governance;
 
     // Performance tracking
     struct PerformanceHistory {
@@ -52,6 +54,8 @@ contract AutoSlasher is Ownable {
 
     bool public autoSlashingEnabled = false;
 
+    event GovernanceSet(address indexed oldGovernance, address indexed newGovernance);
+    event AutoSlashingToggled(bool enabled, address indexed toggler);
     event SlashProposed(bytes32 indexed nodeId, uint256 slashPercentage, string reason);
     event SlashExecuted(bytes32 indexed nodeId, uint256 slashAmount);
     event SlashAppealed(bytes32 indexed nodeId, address appealer);
@@ -186,8 +190,20 @@ contract AutoSlasher is Ownable {
 
     /**
      * @notice Enable/disable automated slashing
+     * @dev Can be called by owner or governance
      */
-    function setAutoSlashingEnabled(bool enabled) external onlyOwner {
+    function setAutoSlashingEnabled(bool enabled) external {
+        require(msg.sender == owner() || msg.sender == governance, "Not authorized");
         autoSlashingEnabled = enabled;
+        emit AutoSlashingToggled(enabled, msg.sender);
+    }
+
+    /**
+     * @notice Set governance address
+     * @dev Governance can enable/disable via proposal
+     */
+    function setGovernance(address _governance) external onlyOwner {
+        emit GovernanceSet(governance, _governance);
+        governance = _governance;
     }
 }

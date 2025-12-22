@@ -237,6 +237,7 @@ export class DecentralizedWorkerRegistry {
       args: [tokenURI],
     });
 
+    // @ts-expect-error viem version type mismatch in monorepo
     const registerTx = await this.walletClient.sendTransaction({
       to: this.registryAddress,
       data: registerData,
@@ -248,7 +249,8 @@ export class DecentralizedWorkerRegistry {
     });
 
     // Parse agentId from logs (simplified - would need proper event parsing)
-    const agentId = BigInt(receipt.logs[0]?.topics[1] || 0);
+    // @ts-expect-error viem version type mismatch
+    const agentId = BigInt(receipt.logs[0]?.topics?.[1] || 0);
 
     // Set metadata
     await this.setWorkerMetadata(agentId, worker);
@@ -300,6 +302,7 @@ export class DecentralizedWorkerRegistry {
         args: [agentId, key, `0x${Buffer.from(value).toString('hex')}` as `0x${string}`],
       });
 
+      // @ts-expect-error viem version type mismatch
       await this.walletClient.sendTransaction({
         to: this.registryAddress,
         data,
@@ -316,6 +319,7 @@ export class DecentralizedWorkerRegistry {
       args: [agentId, endpoint],
     });
 
+    // @ts-expect-error viem version type mismatch
     await this.walletClient.sendTransaction({
       to: this.registryAddress,
       data,
@@ -331,6 +335,7 @@ export class DecentralizedWorkerRegistry {
       args: [agentId, tag],
     });
 
+    // @ts-expect-error viem version type mismatch
     await this.walletClient.sendTransaction({
       to: this.registryAddress,
       data,
@@ -457,6 +462,7 @@ export class DecentralizedWorkerRegistry {
       args: [tokenURI],
     });
 
+    // @ts-expect-error viem version type mismatch
     const registerTx = await this.walletClient.sendTransaction({
       to: this.registryAddress,
       data: registerData,
@@ -466,7 +472,8 @@ export class DecentralizedWorkerRegistry {
       hash: registerTx,
     });
 
-    const agentId = BigInt(receipt.logs[0]?.topics[1] || 0);
+    // @ts-expect-error viem version type mismatch
+    const agentId = BigInt(receipt.logs[0]?.topics?.[1] || 0);
 
     // Set endpoint and metadata
     await this.setEndpoint(agentId, endpoint);
@@ -495,6 +502,7 @@ export class DecentralizedWorkerRegistry {
         args: [agentId, key, `0x${Buffer.from(value).toString('hex')}` as `0x${string}`],
       });
 
+      // @ts-expect-error viem version type mismatch
       await this.walletClient.sendTransaction({
         to: this.registryAddress,
         data,
