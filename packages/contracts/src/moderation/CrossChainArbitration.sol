@@ -110,6 +110,13 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     uint8 public constant MSG_VOTE = 1;
     uint8 public constant MSG_RESOLUTION = 2;
     uint8 public constant MSG_ESCALATION = 3;
+    uint8 public constant MSG_ACKNOWLEDGMENT = 4;
+
+    // SECURITY: Acknowledgment timeout - chains must confirm within this period
+    uint256 public constant ACKNOWLEDGMENT_TIMEOUT = 24 hours;
+    
+    // SECURITY: Retry period for failed deliveries
+    uint256 public constant RETRY_PERIOD = 6 hours;
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              STATE
@@ -134,6 +141,27 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
     // Hub chain domain (where aggregation happens)
     uint32 public hubDomain;
     bool public isHub;
+
+    // ============ SECURITY: Cross-Chain Acknowledgment System ============
+    // Tracks which chains have confirmed resolution receipt
+    
+    struct ResolutionAcknowledgment {
+        uint256 broadcastTime;
+        uint256 expectedAcks;
+        uint256 receivedAcks;
+        bool fullyAcknowledged;
+        mapping(uint32 => bool) chainAcknowledged;
+        mapping(uint32 => uint256) ackTimestamp;
+    }
+    
+    // caseId => acknowledgment tracking
+    mapping(bytes32 => ResolutionAcknowledgment) public resolutionAcks;
+    
+    // Cases pending acknowledgment
+    bytes32[] public pendingAckCases;
+    
+    // Track failed deliveries for retry
+    mapping(bytes32 => mapping(uint32 => uint256)) public lastRetryAttempt;
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              EVENTS
@@ -170,6 +198,29 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
         bytes32 indexed caseId,
         uint32 indexed toDomain,
         bytes32 messageId
+    );
+
+    event ResolutionAcknowledged(
+        bytes32 indexed caseId,
+        uint32 indexed fromDomain,
+        uint256 receivedAcks,
+        uint256 expectedAcks
+    );
+
+    event ResolutionFullyAcknowledged(
+        bytes32 indexed caseId,
+        uint256 timestamp
+    );
+
+    event ResolutionRetryQueued(
+        bytes32 indexed caseId,
+        uint32 indexed domain,
+        uint256 retryTime
+    );
+
+    event AcknowledgmentTimeout(
+        bytes32 indexed caseId,
+        uint32[] failedDomains
     );
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -364,6 +415,10 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
             _handleResolution(payload);
         } else if (msgType == MSG_ESCALATION) {
             _handleEscalation(origin, payload);
+        } else if (msgType == MSG_ACKNOWLEDGMENT) {
+            // SECURITY: Handle acknowledgment from remote chains
+            bytes32 caseId = abi.decode(payload, (bytes32));
+            _handleAcknowledgment(caseId, origin);
         }
     }
 
@@ -417,6 +472,9 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
             // Clear any pending bans if CLEARED (2)
             banManager.removeAddressBan(c.target);
         }
+
+        // SECURITY: Send acknowledgment back to hub chain
+        _sendAcknowledgment(resolution.caseId);
     }
 
     function _handleEscalation(uint32 origin, bytes calldata payload) internal {
@@ -472,12 +530,19 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
         
         bytes memory message = abi.encodePacked(MSG_RESOLUTION, abi.encode(resolution));
 
+        // SECURITY: Initialize acknowledgment tracking
+        ResolutionAcknowledgment storage ack = resolutionAcks[caseId];
+        ack.broadcastTime = block.timestamp;
+        uint256 expectedAckCount = 0;
+
         for (uint256 i = 0; i < activeDomains.length; i++) {
             uint32 domain = activeDomains[i];
             if (domain == hubDomain) continue;
 
             ChainConfig storage config = chainConfigs[domain];
             if (!config.isActive) continue;
+
+            expectedAckCount++;
 
             uint256 gasPayment = igp.quoteGasPayment(domain, GAS_LIMIT);
             
@@ -490,6 +555,158 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
             igp.payForGas{value: gasPayment}(messageId, domain, GAS_LIMIT, address(this));
 
             emit ResolutionBroadcast(caseId, domain, messageId);
+        }
+
+        ack.expectedAcks = expectedAckCount;
+        pendingAckCases.push(caseId);
+    }
+
+    /**
+     * @notice Handle acknowledgment from a remote chain
+     * @dev Called by handle() when MSG_ACKNOWLEDGMENT is received
+     */
+    function _handleAcknowledgment(bytes32 caseId, uint32 fromDomain) internal {
+        ResolutionAcknowledgment storage ack = resolutionAcks[caseId];
+        
+        if (ack.chainAcknowledged[fromDomain]) return; // Already acknowledged
+        
+        ack.chainAcknowledged[fromDomain] = true;
+        ack.ackTimestamp[fromDomain] = block.timestamp;
+        ack.receivedAcks++;
+        
+        emit ResolutionAcknowledged(caseId, fromDomain, ack.receivedAcks, ack.expectedAcks);
+        
+        if (ack.receivedAcks >= ack.expectedAcks) {
+            ack.fullyAcknowledged = true;
+            emit ResolutionFullyAcknowledged(caseId, block.timestamp);
+        }
+    }
+
+    /**
+     * @notice Send acknowledgment back to hub (called on remote chains after applying ban)
+     */
+    function _sendAcknowledgment(bytes32 caseId) internal {
+        if (isHub) return; // Hub doesn't ack to itself
+        
+        bytes memory message = abi.encodePacked(MSG_ACKNOWLEDGMENT, caseId);
+        
+        ChainConfig storage hubConfig = chainConfigs[hubDomain];
+        uint256 gasPayment = igp.quoteGasPayment(hubDomain, GAS_LIMIT);
+        
+        bytes32 messageId = mailbox.dispatch{value: gasPayment}(
+            hubDomain,
+            hubConfig.arbitrationContract,
+            message
+        );
+        
+        igp.payForGas{value: gasPayment}(messageId, hubDomain, GAS_LIMIT, address(this));
+    }
+
+    /**
+     * @notice Retry resolution delivery to chains that haven't acknowledged
+     * @dev Can be called by anyone to ensure consistency
+     */
+    function retryUnacknowledged(bytes32 caseId) external payable nonReentrant {
+        ResolutionAcknowledgment storage ack = resolutionAcks[caseId];
+        if (ack.fullyAcknowledged) revert AlreadyResolved();
+        if (ack.broadcastTime == 0) revert CaseNotFound();
+        
+        CrossChainCase storage c = cases[caseId];
+        
+        ResolutionMessage memory resolution = ResolutionMessage({
+            caseId: caseId,
+            outcome: c.outcome,
+            target: c.target,
+            reason: c.reason
+        });
+        
+        bytes memory message = abi.encodePacked(MSG_RESOLUTION, abi.encode(resolution));
+
+        for (uint256 i = 0; i < activeDomains.length; i++) {
+            uint32 domain = activeDomains[i];
+            if (domain == hubDomain) continue;
+            if (ack.chainAcknowledged[domain]) continue;
+            
+            // Enforce retry cooldown
+            if (block.timestamp < lastRetryAttempt[caseId][domain] + RETRY_PERIOD) continue;
+
+            ChainConfig storage config = chainConfigs[domain];
+            if (!config.isActive) continue;
+
+            lastRetryAttempt[caseId][domain] = block.timestamp;
+
+            uint256 gasPayment = igp.quoteGasPayment(domain, GAS_LIMIT);
+            
+            bytes32 messageId = mailbox.dispatch{value: gasPayment}(
+                domain,
+                config.arbitrationContract,
+                message
+            );
+
+            igp.payForGas{value: gasPayment}(messageId, domain, GAS_LIMIT, address(this));
+
+            emit ResolutionRetryQueued(caseId, domain, block.timestamp);
+        }
+    }
+
+    /**
+     * @notice Check acknowledgment status for a case
+     */
+    function getAcknowledgmentStatus(bytes32 caseId) external view returns (
+        uint256 broadcastTime,
+        uint256 expectedAcks,
+        uint256 receivedAcks,
+        bool fullyAcknowledged,
+        uint32[] memory unackedDomains
+    ) {
+        ResolutionAcknowledgment storage ack = resolutionAcks[caseId];
+        
+        broadcastTime = ack.broadcastTime;
+        expectedAcks = ack.expectedAcks;
+        receivedAcks = ack.receivedAcks;
+        fullyAcknowledged = ack.fullyAcknowledged;
+        
+        // Find unacknowledged domains
+        uint256 unackedCount = 0;
+        for (uint256 i = 0; i < activeDomains.length; i++) {
+            uint32 domain = activeDomains[i];
+            if (domain != hubDomain && !ack.chainAcknowledged[domain]) {
+                unackedCount++;
+            }
+        }
+        
+        unackedDomains = new uint32[](unackedCount);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < activeDomains.length; i++) {
+            uint32 domain = activeDomains[i];
+            if (domain != hubDomain && !ack.chainAcknowledged[domain]) {
+                unackedDomains[idx++] = domain;
+            }
+        }
+    }
+
+    /**
+     * @notice Check for timed-out acknowledgments and emit alerts
+     */
+    function checkAcknowledgmentTimeouts() external {
+        for (uint256 i = 0; i < pendingAckCases.length; i++) {
+            bytes32 caseId = pendingAckCases[i];
+            ResolutionAcknowledgment storage ack = resolutionAcks[caseId];
+            
+            if (ack.fullyAcknowledged) continue;
+            if (block.timestamp <= ack.broadcastTime + ACKNOWLEDGMENT_TIMEOUT) continue;
+            
+            // Find failed domains
+            uint32[] memory failedDomains = new uint32[](ack.expectedAcks - ack.receivedAcks);
+            uint256 idx = 0;
+            for (uint256 j = 0; j < activeDomains.length; j++) {
+                uint32 domain = activeDomains[j];
+                if (domain != hubDomain && !ack.chainAcknowledged[domain]) {
+                    failedDomains[idx++] = domain;
+                }
+            }
+            
+            emit AcknowledgmentTimeout(caseId, failedDomains);
         }
     }
 

@@ -663,7 +663,7 @@ export function createDistributedGRPOTrainer(
 
 if (import.meta.main) {
   const config: Partial<TrainingConfig> = {
-    modelName: process.env.MODEL_NAME ?? 'Qwen/Qwen2.5-1.5B-Instruct',
+    modelName: process.env.MODEL_NAME ?? 'distilgpt2',
     trainingSteps: parseInt(process.env.TRAINING_STEPS ?? '20', 10),
     vllmRestartInterval: parseInt(process.env.VLLM_RESTART_INTERVAL ?? '3', 10),
     runProject: process.env.RUN_PROJECT,

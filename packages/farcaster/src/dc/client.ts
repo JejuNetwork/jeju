@@ -233,7 +233,7 @@ export class DirectCastClient {
 
     const conversationId = this.getConversationId(params.recipientFid)
     const timestamp = Date.now()
-    const id = `dc-${this.config.fid}-${timestamp}-${Math.random().toString(36).slice(2, 8)}`
+    const id = `dc-${this.config.fid}-${timestamp}-${crypto.randomUUID().slice(0, 8)}`
 
     // Get recipient's encryption public key
     const recipientKey = await this.getRecipientEncryptionKey(

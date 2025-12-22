@@ -264,7 +264,20 @@ export class RegistryClient {
     skills: string[]
     domains: string[]
   } {
-    const parsed = JSON.parse(metadata) as Record<string, JsonValue>
+    let parsed: Record<string, unknown>
+    try {
+      parsed = JSON.parse(metadata) as Record<string, unknown>
+    } catch {
+      // Invalid JSON - return empty capabilities
+      return {
+        strategies: [],
+        markets: [],
+        actions: [],
+        version: '1.0.0',
+        skills: [],
+        domains: [],
+      }
+    }
     const validation = AgentCapabilitiesSchema.safeParse(parsed)
     return {
       strategies: validation.data?.strategies ?? [],

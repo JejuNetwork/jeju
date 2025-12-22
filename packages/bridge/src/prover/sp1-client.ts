@@ -193,7 +193,7 @@ export class SP1Client {
       await this.initialize()
     }
 
-    const id = `proof_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+    const id = `proof_${crypto.randomUUID()}`
     const startTime = Date.now()
 
     log.info('Generating proof', { type: request.type, id })

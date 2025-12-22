@@ -258,7 +258,7 @@ export class CQLServer {
           const rawBody = await req.json()
           const body = CreateDatabaseRequestSchema.parse(rawBody)
 
-          const id = `db-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+          const id = `db-${crypto.randomUUID()}`
 
           this.registry.run(
             'INSERT INTO databases (id, owner, schema, node_count, created_at) VALUES (?, ?, ?, ?, ?)',
@@ -513,7 +513,7 @@ export class CQLServer {
   }
 }
 
-const DEFAULT_SERVER_PORT = 4300
+const DEFAULT_SERVER_PORT = 4028
 const DEFAULT_DATA_DIR = '.data/cql'
 
 // Create and export server factory

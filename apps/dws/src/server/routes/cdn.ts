@@ -4,22 +4,23 @@
  * Includes JNS gateway for serving decentralized apps
  */
 
-import { Elysia, t } from 'elysia'
-import type { Address } from 'viem'
-import { type EdgeCache, getEdgeCache, getOriginFetcher } from '../../cdn'
+import { Hono } from 'hono';
+import type { Address } from 'viem';
+import { type EdgeCache, getEdgeCache, getOriginFetcher } from '../../cdn';
 import {
   JNSGateway,
   type JNSGatewayConfig,
-} from '../../cdn/gateway/jns-gateway'
+} from '../../cdn/gateway/jns-gateway';
+import { validateBody, z } from '../../shared';
 
 // JNS Gateway instance (initialized lazily)
-let jnsGateway: JNSGateway | null = null
+let jnsGateway: JNSGateway | null = null;
 
 function getJNSGateway(): JNSGateway | null {
-  if (jnsGateway) return jnsGateway
+  if (jnsGateway) return jnsGateway;
 
-  const jnsRegistry = process.env.JNS_REGISTRY_ADDRESS
-  const jnsResolver = process.env.JNS_RESOLVER_ADDRESS
+  const jnsRegistry = process.env.JNS_REGISTRY_ADDRESS;
+  const jnsResolver = process.env.JNS_RESOLVER_ADDRESS;
 
   if (
     !jnsRegistry ||
@@ -27,12 +28,12 @@ function getJNSGateway(): JNSGateway | null {
     !jnsResolver ||
     jnsResolver === '0x0'
   ) {
-    return null
+    return null;
   }
 
-  const rpcUrl = process.env.RPC_URL
+  const rpcUrl = process.env.RPC_URL;
   if (!rpcUrl) {
-    throw new Error('RPC_URL environment variable is required for JNS gateway')
+    throw new Error('RPC_URL environment variable is required for JNS gateway');
   }
 
   const config: JNSGatewayConfig = {
@@ -43,28 +44,39 @@ function getJNSGateway(): JNSGateway | null {
     ipfsGateway: process.env.IPFS_GATEWAY_URL ?? 'https://ipfs.io',
     arweaveGateway: process.env.ARWEAVE_GATEWAY_URL ?? 'https://arweave.net',
     domain: process.env.JNS_DOMAIN ?? 'jejunetwork.org',
-  }
+  };
 
-  jnsGateway = new JNSGateway(config)
-  return jnsGateway
+  jnsGateway = new JNSGateway(config);
+  return jnsGateway;
 }
 
 // CDN cache configuration
-const cacheMb = parseInt(process.env.DWS_CDN_CACHE_MB || '512', 10)
-const maxEntries = parseInt(process.env.DWS_CDN_CACHE_ENTRIES || '100000', 10)
-const defaultTTL = parseInt(process.env.DWS_CDN_DEFAULT_TTL || '3600', 10)
+const cacheMb = parseInt(process.env.DWS_CDN_CACHE_MB || '512', 10);
+const maxEntries = parseInt(process.env.DWS_CDN_CACHE_ENTRIES || '100000', 10);
+const defaultTTL = parseInt(process.env.DWS_CDN_DEFAULT_TTL || '3600', 10);
 
 const cache: EdgeCache = getEdgeCache({
   maxSizeBytes: cacheMb * 1024 * 1024,
   maxEntries,
   defaultTTL,
-})
-const fetcher = getOriginFetcher()
+});
+const fetcher = getOriginFetcher();
 
-export const cdnRoutes = new Elysia({ name: 'cdn', prefix: '/cdn' })
-  .get('/health', () => {
-    const stats = cache.getStats()
-    return {
+const invalidateSchema = z.object({
+  paths: z.array(z.string()).min(1),
+});
+
+const warmupSchema = z.object({
+  urls: z.array(z.string().url()).min(1),
+});
+
+export function createCDNRouter(): Hono {
+  const router = new Hono();
+
+  // Health check
+  router.get('/health', (c) => {
+    const stats = cache.getStats();
+    return c.json({
       status: 'healthy' as const,
       service: 'dws-cdn',
       cache: {
@@ -73,178 +85,143 @@ export const cdnRoutes = new Elysia({ name: 'cdn', prefix: '/cdn' })
         maxSizeBytes: stats.maxSizeBytes,
         hitRate: stats.hitRate,
       },
+    });
+  });
+
+  // Cache stats
+  router.get('/stats', (c) => c.json(cache.getStats()));
+
+  // Invalidate cache paths
+  router.post('/invalidate', async (c) => {
+    const body = await validateBody(invalidateSchema, c);
+    let purged = 0;
+    for (const path of body.paths) {
+      purged += cache.purge(path);
     }
-  })
+    return c.json({ success: true, entriesPurged: purged });
+  });
 
-  .get('/stats', () => cache.getStats())
+  // Purge entire cache
+  router.post('/purge', (c) => {
+    const stats = cache.getStats();
+    cache.clear();
+    return c.json({ success: true, entriesPurged: stats.entries });
+  });
 
-  .post(
-    '/invalidate',
-    ({ body }) => {
-      let purged = 0
-      for (const path of body.paths) {
-        purged += cache.purge(path)
-      }
-      return { success: true, entriesPurged: purged }
-    },
-    {
-      body: t.Object({
-        paths: t.Array(t.String(), { minItems: 1 }),
-      }),
-    },
-  )
+  // IPFS content via CDN
+  router.get('/ipfs/:cid', async (c) => {
+    const cid = c.req.param('cid');
+    const path = c.req.path;
+    const cidPath = path.replace(`/cdn/ipfs/${cid}`, '') || '/';
+    const cacheKey = cache.generateKey({ path: `/ipfs/${cid}${cidPath}` });
 
-  .post('/purge', () => {
-    const stats = cache.getStats()
-    cache.clear()
-    return { success: true, entriesPurged: stats.entries }
-  })
-
-  .get(
-    '/ipfs/:cid',
-    async ({ params, path, set }) => {
-      const cidPath = path.replace(`/cdn/ipfs/${params.cid}`, '') || '/'
-      const cacheKey = cache.generateKey({
-        path: `/ipfs/${params.cid}${cidPath}`,
-      })
-
-      const { entry, status } = cache.get(cacheKey)
-      if (entry && (status === 'HIT' || status === 'STALE')) {
-        set.headers = {
-          ...entry.metadata.headers,
-          'X-Cache': status,
-          'X-Served-By': 'dws-cdn',
-        }
-        return new Uint8Array(entry.data)
-      }
-
-      const result = await fetcher.fetch(
-        `/ipfs/${params.cid}${cidPath}`,
-        undefined,
-        {
-          headers: {},
-        },
-      )
-
-      if (!result.success) {
-        throw new Error(result.error || 'Content not found')
-      }
-
-      const cacheControl = result.headers['cache-control'] || ''
-      cache.set(cacheKey, result.body, {
-        contentType: result.headers['content-type'],
-        headers: result.headers,
-        origin: result.origin,
-        cacheControl,
-        immutable: cacheControl.includes('immutable'),
-      })
-
-      set.headers = {
-        ...result.headers,
-        'X-Cache': 'MISS',
+    const { entry, status } = cache.get(cacheKey);
+    if (entry && (status === 'HIT' || status === 'STALE')) {
+      const headers: Record<string, string> = {
+        ...entry.metadata.headers,
+        'X-Cache': status,
         'X-Served-By': 'dws-cdn',
-      }
-      return new Uint8Array(result.body)
-    },
-    {
-      params: t.Object({
-        cid: t.String({ minLength: 1 }),
-      }),
-    },
-  )
+      };
+      return new Response(new Uint8Array(entry.data), { headers });
+    }
 
-  .get(
-    '/resolve/:name',
-    async ({ params, set }) => {
-      const fullName = params.name.endsWith('.jns')
-        ? params.name
-        : `${params.name}.jns`
+    const result = await fetcher.fetch(`/ipfs/${cid}${cidPath}`, undefined, {
+      headers: {},
+    });
 
-      const gateway = getJNSGateway()
-      if (!gateway) {
-        set.status = 503
-        return {
+    if (!result.success) {
+      return c.json({ error: result.error || 'Content not found' }, 404);
+    }
+
+    const cacheControl = result.headers['cache-control'] || '';
+    cache.set(cacheKey, result.body, {
+      contentType: result.headers['content-type'],
+      headers: result.headers,
+      origin: result.origin,
+      cacheControl,
+      immutable: cacheControl.includes('immutable'),
+    });
+
+    const headers: Record<string, string> = {
+      ...result.headers,
+      'X-Cache': 'MISS',
+      'X-Served-By': 'dws-cdn',
+    };
+    return new Response(new Uint8Array(result.body), { headers });
+  });
+
+  // Resolve JNS name
+  router.get('/resolve/:name', async (c) => {
+    const name = c.req.param('name');
+    const fullName = name.endsWith('.jns') ? name : `${name}.jns`;
+
+    const gateway = getJNSGateway();
+    if (!gateway) {
+      return c.json(
+        {
           error:
             'JNS contracts not configured. Set JNS_REGISTRY_ADDRESS and JNS_RESOLVER_ADDRESS.',
-        }
-      }
-
-      const contentHash = await gateway.resolveJNS(fullName)
-      if (!contentHash) {
-        set.status = 404
-        return { error: 'Name not found' }
-      }
-
-      return {
-        name: fullName,
-        contentHash: {
-          protocol: contentHash.protocol,
-          hash: contentHash.hash,
         },
-        resolvedAt: Date.now(),
+        503,
+      );
+    }
+
+    const contentHash = await gateway.resolveJNS(fullName);
+    if (!contentHash) {
+      return c.json({ error: 'Name not found' }, 404);
+    }
+
+    return c.json({
+      name: fullName,
+      contentHash: {
+        protocol: contentHash.protocol,
+        hash: contentHash.hash,
+      },
+      resolvedAt: Date.now(),
+    });
+  });
+
+  // JNS gateway
+  router.get('/jns/:name/*', async (c) => {
+    const name = c.req.param('name');
+    const path = c.req.path;
+    const jnsPath = path.replace(`/cdn/jns/${name}`, '') || '/';
+
+    const gateway = getJNSGateway();
+    if (!gateway) {
+      return c.json({ error: 'JNS not configured' }, 503);
+    }
+
+    const jnsApp = gateway.getApp();
+    const newRequest = new Request(`http://localhost/jns/${name}${jnsPath}`);
+    return jnsApp.fetch(newRequest);
+  });
+
+  // Warmup cache
+  router.post('/warmup', async (c) => {
+    const body = await validateBody(warmupSchema, c);
+    let success = 0;
+    let failed = 0;
+
+    for (const url of body.urls) {
+      const urlObj = new URL(url);
+      const result = await fetcher.fetch(urlObj.pathname, undefined, {
+        headers: {},
+      });
+      if (result.success) {
+        const cacheKey = cache.generateKey({ path: urlObj.pathname });
+        cache.set(cacheKey, result.body, {
+          contentType: result.headers['content-type'],
+          headers: result.headers,
+          origin: result.origin,
+        });
+        success++;
+      } else {
+        failed++;
       }
-    },
-    {
-      params: t.Object({
-        name: t.String({ minLength: 1 }),
-      }),
-    },
-  )
+    }
+    return c.json({ success, failed });
+  });
 
-  .get(
-    '/jns/:name/*',
-    async ({ params, path, set }) => {
-      const jnsPath = path.replace(`/cdn/jns/${params.name}`, '') || '/'
-
-      const gateway = getJNSGateway()
-      if (!gateway) {
-        set.status = 503
-        return { error: 'JNS not configured' }
-      }
-
-      const jnsApp = gateway.getApp()
-      const newRequest = new Request(
-        `http://localhost/jns/${params.name}${jnsPath}`,
-      )
-      return jnsApp.fetch(newRequest)
-    },
-    {
-      params: t.Object({
-        name: t.String({ minLength: 1 }),
-        '*': t.String(),
-      }),
-    },
-  )
-
-  .post(
-    '/warmup',
-    async ({ body }) => {
-      let success = 0
-      let failed = 0
-      for (const url of body.urls) {
-        const urlObj = new URL(url)
-        const result = await fetcher.fetch(urlObj.pathname, undefined, {
-          headers: {},
-        })
-        if (result.success) {
-          const cacheKey = cache.generateKey({ path: urlObj.pathname })
-          cache.set(cacheKey, result.body, {
-            contentType: result.headers['content-type'],
-            headers: result.headers,
-            origin: result.origin,
-          })
-          success++
-        } else {
-          failed++
-        }
-      }
-      return { success, failed }
-    },
-    {
-      body: t.Object({
-        urls: t.Array(t.String({ format: 'uri' }), { minItems: 1 }),
-      }),
-    },
-  )
-
-export type CDNRoutes = typeof cdnRoutes
+  return router;
+}

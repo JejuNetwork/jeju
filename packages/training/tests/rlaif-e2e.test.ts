@@ -8,6 +8,9 @@
  * - Rubric registry integration
  * - DWS compute integration
  * - Cross-chain bridge functionality
+ *
+ * Note: This test uses lazy imports to avoid bun's subpath export resolution
+ * issue with viem/tempo -> ox/tempo/SignatureEnvelope
  */
 
 import {
@@ -18,30 +21,37 @@ import {
   expect,
   test,
 } from 'bun:test'
-import { expectValid } from '@jejunetwork/types'
 import type { Server } from 'bun'
+import { expectValid } from '@jejunetwork/types'
+
+// Import only what we need to avoid pulling in viem/tempo
+// (bun has issues with ox subpath exports)
 import {
-  BatchResponseSchema,
   clearRubrics,
-  createAtroposServer,
-  createFundamentalPredictionEnv,
-  createGRPOTrainer,
   DEFAULT_RUBRIC,
-  EnvRegistrationResponseSchema,
   getRubric,
-  HealthResponseSchema,
   hasRubric,
-  InfoResponseSchema,
   type JudgeRubric,
   listRubrics,
-  RegisterResponseSchema,
-  RunInfoResponseSchema,
   registerOrUpdateRubric,
   registerRubric,
+} from '../src/rubrics'
+import {
+  createAtroposServer,
+  createGRPOTrainer,
   type ScoredData,
+} from '../src/grpo'
+import { createFundamentalPredictionEnv } from '../src/environments'
+import {
+  BatchResponseSchema,
+  EnvRegistrationResponseSchema,
+  HealthResponseSchema,
+  InfoResponseSchema,
+  RegisterResponseSchema,
+  RunInfoResponseSchema,
   ScoredDataListResponseSchema,
   StatusResponseSchema,
-} from '../src'
+} from '../src/schemas'
 
 // ============================================================================
 // Test Configuration

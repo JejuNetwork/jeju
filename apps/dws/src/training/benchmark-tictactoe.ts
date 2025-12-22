@@ -17,12 +17,16 @@ import { spawn } from 'bun'
 // ============================================================================
 
 const CONFIG = {
-  modelName: 'distilgpt2', // Larger model that can actually learn
+  // Models for 16GB GPU:
+  // - 'distilgpt2' (82M, very fast, low memory)
+  // - 'Qwen/Qwen2.5-0.5B' (500M, good quality)
+  modelName: 'Qwen/Qwen2.5-0.5B', // 500M params
   trainedModelPath: './training_output/ttt-trained',
-  numBenchmarkGames: 100,
-  trainingEpochs: 10,
-  batchSize: 8,
-  learningRate: 5e-4,
+  numBenchmarkGames: 50,
+  trainingEpochs: 5,
+  batchSize: 1, // Small batch for 500M model
+  learningRate: 2e-5,
+  useQuantization: false,
 }
 
 // ============================================================================
@@ -150,18 +154,32 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 import sys
 import re
+import gc
 
 MODEL_PATH = "${modelPath}"
 NUM_GAMES = ${numGames}
 
-# Load model
-tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH)
+# Clear any existing GPU memory
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+    gc.collect()
+
+# Load model with memory optimization
+print(f"Loading model: {MODEL_PATH}", file=sys.stderr)
+tokenizer = AutoTokenizer.from_pretrained(MODEL_PATH, trust_remote_code=True)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
-model = AutoModelForCausalLM.from_pretrained(MODEL_PATH)
+
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = model.to(device)
+model = AutoModelForCausalLM.from_pretrained(
+    MODEL_PATH,
+    torch_dtype=torch.float16 if device == "cuda" else torch.float32,
+    device_map="auto" if device == "cuda" else None,
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+)
 model.eval()
+print(f"Model loaded on {device}", file=sys.stderr)
 
 WINNING_LINES = [
     [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -313,37 +331,57 @@ async function trainModel(
   const pythonScript = `
 import torch
 from torch.optim import AdamW
-from transformers import AutoModelForCausalLM, AutoTokenizer, get_linear_schedule_with_warmup
+from transformers import AutoModelForCausalLM, AutoTokenizer
 from torch.utils.data import Dataset, DataLoader
 import json
+import gc
+import os
 
 BASE_MODEL = "${baseModel}"
 OUTPUT_PATH = "${outputPath}"
 EPOCHS = ${CONFIG.trainingEpochs}
-BATCH_SIZE = ${CONFIG.batchSize}
+BATCH_SIZE = 1
+GRAD_ACCUM = 4  # Gradient accumulation steps
 LR = ${CONFIG.learningRate}
+
+# Aggressive GPU memory cleanup
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
+if torch.cuda.is_available():
+    torch.cuda.empty_cache()
+    torch.cuda.reset_peak_memory_stats()
+    gc.collect()
 
 # Training data
 training_data = json.loads('''${JSON.stringify(trainingData)}''')
 
 print(f"Loading model: {BASE_MODEL}")
-tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
+tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL, trust_remote_code=True)
 if tokenizer.pad_token is None:
     tokenizer.pad_token = tokenizer.eos_token
 
-model = AutoModelForCausalLM.from_pretrained(BASE_MODEL)
 device = "cuda" if torch.cuda.is_available() else "cpu"
-model = model.to(device)
-print(f"Model loaded on {device}")
 
-# Tokenize
+# Use bfloat16 for Qwen, float32 for distilgpt2
+use_bf16 = "qwen" in BASE_MODEL.lower() or "llama" in BASE_MODEL.lower()
+dtype = torch.bfloat16 if use_bf16 and torch.cuda.is_bf16_supported() else torch.float32
+
+model = AutoModelForCausalLM.from_pretrained(
+    BASE_MODEL,
+    torch_dtype=dtype,
+    trust_remote_code=True,
+    low_cpu_mem_usage=True,
+)
+model = model.to(device)
+print(f"Model loaded on {device} with dtype {dtype}")
+
+# Tokenize with smaller max_length
 print(f"Tokenizing {len(training_data)} examples...")
 encodings = []
 for item in training_data:
     enc = tokenizer(
         item["text"],
         truncation=True,
-        max_length=64,
+        max_length=48,  # Smaller for memory
         padding="max_length",
         return_tensors="pt"
     )
@@ -363,30 +401,46 @@ class TTTDataset(Dataset):
 dataset = TTTDataset(encodings)
 loader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-# Training
+# Training with gradient accumulation
 optimizer = AdamW(model.parameters(), lr=LR)
-total_steps = len(loader) * EPOCHS
-scheduler = get_linear_schedule_with_warmup(optimizer, num_warmup_steps=0, num_training_steps=total_steps)
-
 model.train()
+
 for epoch in range(EPOCHS):
     total_loss = 0
+    valid_batches = 0
+    optimizer.zero_grad()
+    
     for batch_idx, batch in enumerate(loader):
-        input_ids = batch["input_ids"].to(device)
-        attention_mask = batch["attention_mask"].to(device)
+        input_ids = batch["input_ids"].unsqueeze(0).to(device) if batch["input_ids"].dim() == 1 else batch["input_ids"].to(device)
+        attention_mask = batch["attention_mask"].unsqueeze(0).to(device) if batch["attention_mask"].dim() == 1 else batch["attention_mask"].to(device)
         
-        outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids)
-        loss = outputs.loss
+        with torch.amp.autocast('cuda', enabled=use_bf16, dtype=dtype):
+            outputs = model(input_ids=input_ids, attention_mask=attention_mask, labels=input_ids)
+            loss = outputs.loss / GRAD_ACCUM
+        
+        if torch.isnan(loss) or torch.isinf(loss):
+            continue
         
         loss.backward()
-        optimizer.step()
-        scheduler.step()
-        optimizer.zero_grad()
         
-        total_loss += loss.item()
+        if (batch_idx + 1) % GRAD_ACCUM == 0:
+            torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
+            optimizer.step()
+            optimizer.zero_grad()
+        
+        total_loss += loss.item() * GRAD_ACCUM
+        valid_batches += 1
+        
+        # Clear cache periodically
+        if batch_idx % 20 == 0 and torch.cuda.is_available():
+            torch.cuda.empty_cache()
     
-    avg_loss = total_loss / len(loader)
+    avg_loss = total_loss / max(valid_batches, 1)
     print(f"Epoch {epoch + 1}/{EPOCHS}: avg_loss={avg_loss:.4f}")
+    
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        gc.collect()
 
 # Save
 print(f"Saving to {OUTPUT_PATH}")
@@ -422,6 +476,9 @@ async function main() {
   console.log(`Training epochs: ${CONFIG.trainingEpochs}`)
   console.log()
 
+  // Clear any Python processes that might be holding GPU memory
+  console.log('Clearing GPU memory...')
+
   // Step 1: Benchmark baseline
   console.log('STEP 1: Benchmark baseline model')
   const baseline = await evaluateModel(
@@ -443,14 +500,24 @@ async function main() {
 
   // Step 2: Generate training data
   console.log('\nSTEP 2: Generate training data')
-  const trainingData = generateTrainingData(50)
+  const trainingData = generateTrainingData(30) // Fewer games for faster training
   console.log(
     `Generated ${trainingData.length} training examples from optimal play`,
   )
 
+  // Clear GPU before training
+  console.log('\nClearing GPU memory before training...')
+  await Bun.spawn(['python3', '-c', 'import torch, gc; torch.cuda.empty_cache(); gc.collect(); print("GPU cleared")']).exited
+  await Bun.sleep(1000)
+
   // Step 3: Train model
   console.log('\nSTEP 3: Train model')
   await trainModel(CONFIG.modelName, CONFIG.trainedModelPath, trainingData)
+
+  // Clear GPU before final evaluation
+  console.log('\nClearing GPU memory before evaluation...')
+  await Bun.spawn(['python3', '-c', 'import torch, gc; torch.cuda.empty_cache(); gc.collect(); print("GPU cleared")']).exited
+  await Bun.sleep(1000)
 
   // Step 4: Benchmark trained model
   console.log('\nSTEP 4: Benchmark trained model')

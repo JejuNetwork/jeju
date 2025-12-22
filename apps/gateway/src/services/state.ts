@@ -325,7 +325,9 @@ export const intentState = {
       CQL_DATABASE_ID,
     )
 
-    await cache.delete(`intent:${row.intent_id}`)
+    await cache.delete(`intent:${row.intent_id}`).catch(() => {
+      // Cache delete may fail but shouldn't block state operations
+    })
   },
 
   async get(intentId: string): Promise<Intent | null> {
@@ -430,7 +432,9 @@ export const intentState = {
       CQL_DATABASE_ID,
     )
 
-    await cache.delete(`intent:${intentId}`)
+    await cache.delete(`intent:${intentId}`).catch(() => {
+      // Cache delete may fail but shouldn't block state operations
+    })
   },
 
   async count(params?: { status?: string }): Promise<number> {
@@ -488,7 +492,9 @@ export const solverState = {
       CQL_DATABASE_ID,
     )
 
-    await cache.delete(`solver:${row.address}`)
+    await cache.delete(`solver:${row.address}`).catch(() => {
+      // Cache delete may fail but shouldn't block state operations
+    })
   },
 
   async get(address: string): Promise<Solver | null> {
@@ -637,7 +643,9 @@ export const x402State = {
       CQL_DATABASE_ID,
     )
 
-    await cache.delete(`credits:${addr}`)
+    await cache.delete(`credits:${addr}`).catch(() => {
+      // Cache delete may fail but shouldn't block state operations
+    })
   },
 
   async deductCredits(address: string, amount: bigint): Promise<boolean> {
@@ -655,7 +663,9 @@ export const x402State = {
       CQL_DATABASE_ID,
     )
 
-    await cache.delete(`credits:${addr}`)
+    await cache.delete(`credits:${addr}`).catch(() => {
+      // Cache delete may fail but shouldn't block state operations
+    })
     return true
   },
 

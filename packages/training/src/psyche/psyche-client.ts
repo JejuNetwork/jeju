@@ -23,12 +23,16 @@ import { foundry } from 'viem/chains'
 // Constants
 // ============================================================================
 
+// Nous Research Psyche program IDs - load from env or use defaults
+// See: https://github.com/NousResearch/psyche
 const PSYCHE_COORDINATOR_PROGRAM_ID = new PublicKey(
-  '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7',
+  process.env.PSYCHE_COORDINATOR_PROGRAM_ID ??
+    'PsychEwWYxBfk4YMfHnYd6A6KM69j2z8MfmxP7N1YLs1',
 )
 
 const PSYCHE_MINING_POOL_PROGRAM_ID = new PublicKey(
-  '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7',
+  process.env.PSYCHE_MINING_POOL_PROGRAM_ID ??
+    'PsychMnPL1zCfW8kJAaGX5xRuJDxHVvbFKQn4VTkM2z',
 )
 
 // ============================================================================
@@ -362,15 +366,83 @@ export class PsycheClient {
     }
 
     const data = accountInfo.data
+
+    // Account layout:
+    // 0-8: discriminator
+    // 8-16: run state header
+    // 16+: config fields
     const stateOffset = 16
+    const configEnd = stateOffset + 40
+
+    // Parse variable-length strings after config
+    // Format: [u32 len][bytes...]
+    let offset = configEnd
+
+    const readString = (): string => {
+      if (offset + 4 > data.length) return ''
+      const len = data.readUInt32LE(offset)
+      offset += 4
+      if (offset + len > data.length) return ''
+      const str = data.subarray(offset, offset + len).toString('utf8')
+      offset += len
+      return str
+    }
+
+    const name = readString()
+    const description = readString()
+    const modelHubRepo = readString()
+    const datasetHubRepo = readString()
+    const modelRevision = readString()
+    const modelSha256 = readString()
+
+    // Parse progress state (u8 enum + data)
+    const progressType = offset < data.length ? data.readUInt8(offset) : 0
+    offset += 1
+
+    let progress: CoordinatorProgress
+    switch (progressType) {
+      case 1:
+        progress = {
+          type: 'WarmingUp',
+          epoch: offset + 4 <= data.length ? data.readUInt32LE(offset) : 0,
+        }
+        break
+      case 2:
+        progress = {
+          type: 'Training',
+          epoch: offset + 4 <= data.length ? data.readUInt32LE(offset) : 0,
+          step:
+            offset + 12 <= data.length
+              ? Number(data.readBigUInt64LE(offset + 4))
+              : 0,
+        }
+        break
+      case 3:
+        progress = {
+          type: 'Checkpointing',
+          epoch: offset + 4 <= data.length ? data.readUInt32LE(offset) : 0,
+        }
+        break
+      case 4:
+        progress = {
+          type: 'Paused',
+          lastEpoch: offset + 4 <= data.length ? data.readUInt32LE(offset) : 0,
+        }
+        break
+      case 5:
+        progress = { type: 'Finished' }
+        break
+      default:
+        progress = { type: 'Uninitialized' }
+    }
 
     return {
       runId,
       metadata: {
-        name: '',
-        description: '',
-        modelHubRepo: '',
-        datasetHubRepo: '',
+        name: name || runId,
+        description,
+        modelHubRepo,
+        datasetHubRepo,
       },
       config: {
         maxClients: data.readUInt32LE(stateOffset),
@@ -384,15 +456,18 @@ export class PsycheClient {
         maxSeqLength: data.readUInt32LE(stateOffset + 36),
       },
       model: {
-        hubRepo: '',
-        revision: '',
-        sha256: '',
+        hubRepo: modelHubRepo,
+        revision: modelRevision,
+        sha256: modelSha256,
       },
-      progress: { type: 'Uninitialized' },
-      clients: [],
-      currentEpoch: 0,
-      totalSteps: 0,
-      paused: false,
+      progress,
+      clients: [], // Clients are in a separate PDA
+      currentEpoch:
+        progress.type === 'Training' || progress.type === 'WarmingUp'
+          ? progress.epoch
+          : 0,
+      totalSteps: progress.type === 'Training' ? progress.step : 0,
+      paused: progress.type === 'Paused',
     }
   }
 

@@ -31,8 +31,13 @@
 import { beforeAll, describe, expect, it } from 'bun:test'
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { APP_URLS, TEST_WALLETS } from '../shared/constants'
+import {
+  APP_URLS,
+  JEJU_LOCALNET,
+  TEST_WALLETS,
+} from '../shared/constants'
 
+const RPC_URL = JEJU_LOCALNET.rpcUrl
 const GRAPHQL_URL = APP_URLS.indexerGraphQL
 
 /**

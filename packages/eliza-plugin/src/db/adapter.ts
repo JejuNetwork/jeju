@@ -130,10 +130,19 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
   /**
    * Parse JSON from database - internal use for known-good data
    * This is used for data we wrote ourselves where the schema is implicit
+   * Still wrapped in try-catch for resilience against corrupted data
    */
   private fromJson<T>(value: string | null): T | null {
     if (!value) return null
-    return JSON.parse(value) as T
+    try {
+      return JSON.parse(value) as T
+    } catch (error) {
+      console.error(
+        '[ElizaDB] Failed to parse JSON from database:',
+        error instanceof Error ? error.message : 'Parse error',
+      )
+      return null
+    }
   }
 
   // ============================================================================

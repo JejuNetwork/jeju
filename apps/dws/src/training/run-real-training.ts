@@ -17,8 +17,8 @@ import { createAtroposServer } from './atropos-server'
 
 const ATROPOS_PORT = 8000
 const TRAINING_STEPS = 20
-// TinyLlama-1.1B fits in 16GB with gradients
-const MODEL = 'TinyLlama/TinyLlama-1.1B-Chat-v1.0'
+// distilgpt2 - 82M params, very low memory usage
+const MODEL = 'distilgpt2'
 const SAVE_PATH = './training_checkpoints'
 
 console.log('='.repeat(60))

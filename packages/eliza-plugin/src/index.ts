@@ -117,6 +117,12 @@ import {
   unpinAction,
 } from './actions/storage-extended'
 import { createTriggerAction } from './actions/triggers'
+// Extended Actions - Training (DWS/Psyche)
+import {
+  checkTrainingStatus,
+  startTrainingJob,
+  submitTrajectory,
+} from './actions/training'
 // Extended Actions - Work (Bounties/Projects)
 import {
   approveSubmissionAction,
@@ -268,6 +274,11 @@ export const jejuPlugin: Plugin = {
     sellToCurveAction,
     listCurvesAction,
     lockLPAction,
+
+    // === Training (DWS/Psyche) ===
+    submitTrajectory,
+    checkTrainingStatus,
+    startTrainingJob,
   ],
 }
 

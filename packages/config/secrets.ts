@@ -79,6 +79,10 @@ export type SecretName =
   // API keys - Enhanced RPC
   | 'ALCHEMY_API_KEY'
   | 'HELIUS_API_KEY'
+  // API keys - Data
+  | 'CODEX_API_KEY'
+  | 'DEFILLAMA_API_KEY'
+  | 'COINGECKO_API_KEY'
   // API keys - Infrastructure
   | 'CLOUDFLARE_API_TOKEN'
   | 'CLOUDFLARE_ZONE_ID'

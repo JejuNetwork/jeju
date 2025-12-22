@@ -187,20 +187,8 @@ export function hasCombatStats(item: GameItem): boolean {
   return item.attack > 0 || item.defense > 0 || item.strength > 0
 }
 
-/**
- * Format address for display (truncated)
- * @param address - Full address
- * @param startChars - Characters to show at start (default 6)
- * @param endChars - Characters to show at end (default 4)
- */
-export function formatAddress(
-  address: string,
-  startChars = 6,
-  endChars = 4,
-): string {
-  if (address.length <= startChars + endChars) return address
-  return `${address.slice(0, startChars)}...${address.slice(-endChars)}`
-}
+// Re-export formatAddress from shared package for backwards compatibility
+export { formatAddress } from '@jejunetwork/shared'
 
 /**
  * Format timestamp for display

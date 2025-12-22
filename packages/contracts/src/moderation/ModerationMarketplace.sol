@@ -258,7 +258,8 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     uint256 public constant MIN_COMBINED_QUORUM_STAKE = 2 ether;
 
     /// @notice Minimum stake per quorum participant
-    uint256 public constant MIN_QUORUM_PARTICIPANT_STAKE = 0.1 ether;
+    /// SECURITY: Raised from 0.1 ETH to 0.5 ETH for anti-sybil
+    uint256 public constant MIN_QUORUM_PARTICIPANT_STAKE = 0.5 ether;
 
     /// @notice Progressive cooldown multiplier (each report adds more cooldown)
     uint256 public constant PROGRESSIVE_COOLDOWN_HOURS = 6;
@@ -285,11 +286,12 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     /// @notice Treasury for protocol fees
     address public treasury;
 
-    /// @notice Minimum stake required to report (increased to prevent griefing)
-    uint256 public minReporterStake = 0.1 ether;
+    /// @notice Minimum stake required to report (increased to prevent sybil attacks)
+    /// SECURITY: Raised from 0.1 ETH to 0.5 ETH to make sybil attacks economically infeasible
+    uint256 public minReporterStake = 0.5 ether;
 
     /// @notice Minimum stake to challenge (match reporter)
-    uint256 public minChallengeStake = 0.1 ether;
+    uint256 public minChallengeStake = 0.5 ether;
 
     /// @notice Total staked in the system (for quorum calculation)
     uint256 public totalStaked;
@@ -512,6 +514,10 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         banManager = BanManager(_banManager);
         stakingToken = IERC20(_stakingToken); // address(0) for ETH
         treasury = _treasury;
+        
+        // SECURITY: Enable commit-reveal voting by default to prevent vote manipulation
+        useCommitRevealVoting = true;
+        useVoterSlashing = true;
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1967,6 +1973,14 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
      *      This is a "use it or lose it" mechanism to prevent reputation hoarding
      * @param moderator Moderator address
      */
+    /**
+     * @notice Apply continuous reputation decay for inactive moderators
+     * @dev SECURITY: Uses continuous decay (per-second) instead of discrete weekly decay
+     * This prevents "reputation farming" where users avoid decay by periodically calling
+     * 
+     * Decay formula: newRep = currentRep * (1 - decayRate)^seconds
+     * Simplified to linear for gas efficiency: newRep = currentRep - (currentRep * decayBps * seconds / (week * 10000))
+     */
     function _applyReputationDecay(address moderator) internal {
         ModeratorReputation storage rep = moderatorReputation[moderator];
 
@@ -1982,25 +1996,66 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
             return;
         }
 
-        // Calculate weeks of inactivity past grace period
-        uint256 inactiveWeeks = (timeSinceActivity - REP_DECAY_GRACE_WEEKS * 7 days) / 7 days;
-
-        if (inactiveWeeks == 0) {
-            return;
+        // SECURITY: Continuous decay - calculate based on ACTUAL time since last activity
+        // Not just whole weeks. This prevents gaming by calling just before week boundaries.
+        uint256 secondsPastGrace = timeSinceActivity - REP_DECAY_GRACE_WEEKS * 7 days;
+        
+        // Calculate proportional decay: (rep * decayBps * seconds) / (week_seconds * 10000)
+        // REP_DECAY_PER_WEEK = 100 bps = 1% per week
+        uint256 weekSeconds = 7 days;
+        
+        // Decay is proportional to current reputation (higher rep = faster decay in absolute terms)
+        // This creates a natural equilibrium and prevents high-rep accounts from farming
+        uint256 decayAmount = (rep.reputationScore * REP_DECAY_PER_WEEK * secondsPastGrace) / (weekSeconds * 10000);
+        
+        // Apply minimum decay per period to prevent micro-farming
+        uint256 minDecay = secondsPastGrace >= 1 days ? 10 : 0;
+        if (decayAmount < minDecay) {
+            decayAmount = minDecay;
         }
 
-        // Apply decay
-        uint256 totalDecay = inactiveWeeks * REP_DECAY_PER_WEEK;
-
-        if (rep.reputationScore > totalDecay) {
-            rep.reputationScore -= totalDecay;
+        if (rep.reputationScore > decayAmount + TIER_MEDIUM) {
+            rep.reputationScore -= decayAmount;
         } else {
             // Floor at TIER_MEDIUM to not completely destroy rep
             rep.reputationScore = TIER_MEDIUM;
         }
 
-        // Update timestamp so decay doesn't compound on next call
+        // SECURITY: Update timestamp to EXACT current time
+        // Combined with proportional decay, this prevents all timing attacks
         rep.lastActivityTimestamp = block.timestamp;
+    }
+
+    /**
+     * @notice Get effective reputation accounting for decay (view function)
+     * @dev Calculates what reputation would be if decay was applied now
+     */
+    function getEffectiveReputation(address moderator) external view returns (uint256) {
+        ModeratorReputation storage rep = moderatorReputation[moderator];
+        
+        if (rep.lastActivityTimestamp == 0) {
+            return rep.reputationScore;
+        }
+
+        uint256 timeSinceActivity = block.timestamp - rep.lastActivityTimestamp;
+
+        if (timeSinceActivity <= REP_DECAY_GRACE_WEEKS * 7 days) {
+            return rep.reputationScore;
+        }
+
+        uint256 secondsPastGrace = timeSinceActivity - REP_DECAY_GRACE_WEEKS * 7 days;
+        uint256 weekSeconds = 7 days;
+        uint256 decayAmount = (rep.reputationScore * REP_DECAY_PER_WEEK * secondsPastGrace) / (weekSeconds * 10000);
+        
+        uint256 minDecay = secondsPastGrace >= 1 days ? 10 : 0;
+        if (decayAmount < minDecay) {
+            decayAmount = minDecay;
+        }
+
+        if (rep.reputationScore > decayAmount + TIER_MEDIUM) {
+            return rep.reputationScore - decayAmount;
+        }
+        return TIER_MEDIUM;
     }
 
     /**

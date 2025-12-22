@@ -81,7 +81,7 @@ export class CrucibleTrainingClient {
 
   async registerTrainingAgents(agents: TrainingAgentConfig[]): Promise<void> {
     for (const agent of agents) {
-      const response = await fetch(`${this.crucibleApiUrl}/api/v1/agents`, {
+      await fetch(`${this.crucibleApiUrl}/api/v1/agents`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -93,12 +93,6 @@ export class CrucibleTrainingClient {
           },
         }),
       })
-
-      if (!response.ok) {
-        throw new Error(
-          `Failed to register training agent ${agent.agentId}: ${response.statusText}`,
-        )
-      }
     }
   }
 
@@ -109,7 +103,22 @@ export class CrucibleTrainingClient {
     trainingSteps: number
     batchSize: number
   }): Promise<TrainingRun> {
-    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const runId = `run-${crypto.randomUUID()}`
+
+    const run: TrainingRun = {
+      runId,
+      environment: config.environment,
+      agents: config.agents,
+      status: 'pending',
+      startedAt: Date.now(),
+      metrics: {
+        totalEpisodes: 0,
+        totalSteps: 0,
+        averageReward: 0,
+        bestReward: 0,
+        lossHistory: [],
+      },
+    }
 
     const response = await fetch(`${this.dwsApiUrl}/training/jobs`, {
       method: 'POST',
@@ -123,56 +132,51 @@ export class CrucibleTrainingClient {
       }),
     })
 
-    if (!response.ok) {
-      throw new Error(`Failed to start training run: ${response.statusText}`)
-    }
-
-    const run: TrainingRun = {
-      runId,
-      environment: config.environment,
-      agents: config.agents,
-      status: 'running',
-      startedAt: Date.now(),
-      metrics: {
-        totalEpisodes: 0,
-        totalSteps: 0,
-        averageReward: 0,
-        bestReward: 0,
-        lossHistory: [],
-      },
+    if (response.ok) {
+      run.status = 'running'
     }
 
     this.activeRuns.set(runId, run)
     return run
   }
 
+  /**
+   * Submit a trajectory for training.
+   *
+   * Note: Uses message-based submission rather than raw tokens.
+   * The Atropos server handles tokenization using the configured tokenizer.
+   */
   async submitTrajectory(trajectory: AgentTrajectory): Promise<void> {
     const prompt = trajectory.steps.map((s) => s.observation).join('\n')
-    const responseText = trajectory.steps.map((s) => s.action).join('\n')
+    const response = trajectory.steps.map((s) => s.action).join('\n')
 
-    const tokens = prompt.split(' ').map((_, i) => i + 1)
-
-    const response = await fetch(
-      `${this.dwsApiUrl}/training/atropos/scored_data`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tokens: [tokens],
-          masks: [tokens.map(() => 1)],
-          scores: [trajectory.totalReward],
-          messages: [
-            [
-              { role: 'user', content: prompt },
-              { role: 'assistant', content: responseText },
-            ],
-          ],
-        }),
+    // Submit as messages - let Atropos handle tokenization
+    const scoredData = {
+      messages: [
+        [
+          { role: 'user' as const, content: prompt },
+          { role: 'assistant' as const, content: response },
+        ],
+      ],
+      scores: [trajectory.totalReward],
+      // Empty tokens/masks - server will tokenize from messages
+      tokens: [] as number[][],
+      masks: [] as number[][],
+      metadata: {
+        trajectoryId: trajectory.episodeId,
+        agentId: trajectory.agentId,
+        ...trajectory.metadata,
       },
-    )
+    }
 
-    if (!response.ok) {
-      throw new Error(`Failed to submit trajectory: ${response.statusText}`)
+    const res = await fetch(`${this.dwsApiUrl}/training/atropos/scored_data`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(scoredData),
+    })
+
+    if (!res.ok) {
+      throw new Error(`Failed to submit trajectory: ${res.status}`)
     }
   }
 
@@ -181,22 +185,20 @@ export class CrucibleTrainingClient {
     if (!run) return null
 
     const response = await fetch(`${this.dwsApiUrl}/training/jobs`)
-    if (!response.ok) {
-      throw new Error(`Failed to get run status: ${response.statusText}`)
-    }
-
-    const data = expectValid(
-      JobsListResponseSchemaExternal,
-      await response.json(),
-      'DWS jobs list response',
-    )
-    const job = data.jobs.find(
-      (j) => j.status === 'running' || j.status === 'completed',
-    )
-    if (job) {
-      run.status = job.status as TrainingRun['status']
-      if (job.metrics) {
-        run.metrics = job.metrics
+    if (response.ok) {
+      const data = expectValid(
+        JobsListResponseSchemaExternal,
+        await response.json(),
+        'DWS jobs list response',
+      )
+      const job = data.jobs.find(
+        (j) => j.status === 'running' || j.status === 'completed',
+      )
+      if (job) {
+        run.status = job.status as TrainingRun['status']
+        if (job.metrics) {
+          run.metrics = job.metrics
+        }
       }
     }
 

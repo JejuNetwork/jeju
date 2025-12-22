@@ -90,7 +90,33 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         uint256 matchingMultiplier; // Basis points (e.g., 20000 = 2x matching)
         bool quadraticEnabled;
         uint256 ceoWeightCap; // Max CEO weight per project (basis points)
+        uint256 minStakePerParticipant; // Anti-sybil: minimum stake per unique participant
     }
+
+    // ============ CEO Weight Timelock (Security Fix) ============
+    uint256 public constant CEO_WEIGHT_TIMELOCK = 48 hours;
+    uint256 public constant CEO_WEIGHT_LARGE_CHANGE_THRESHOLD = 2500; // 25% BPS - large changes need extra approval
+
+    struct CEOWeightProposal {
+        bytes32 projectId;
+        uint256 newWeight;
+        uint256 proposedAt;
+        uint256 executesAt;
+        bool executed;
+        bool cancelled;
+    }
+
+    mapping(bytes32 => CEOWeightProposal) public ceoWeightProposals;
+    bytes32[] public pendingWeightProposals;
+
+    event CEOWeightProposed(bytes32 indexed projectId, uint256 oldWeight, uint256 newWeight, uint256 executesAt);
+    event CEOWeightProposalExecuted(bytes32 indexed projectId, uint256 newWeight);
+    event CEOWeightProposalCancelled(bytes32 indexed projectId);
+
+    error WeightProposalNotReady();
+    error WeightProposalNotFound();
+    error WeightProposalAlreadyExecuted();
+    error WeightProposalExpired();
 
     IDAORegistry public immutable daoRegistry;
     IERC20 public immutable fundingToken;
@@ -160,13 +186,14 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         owner = _owner;
 
         defaultConfig = DAOFundingConfig({
-            minStake: 0.001 ether,
+            minStake: 0.1 ether, // SECURITY: Raised from 0.001 to prevent sybil attacks
             maxStake: 100 ether,
             epochDuration: 30 days,
             cooldownPeriod: 7 days,
             matchingMultiplier: 10000, // 1x matching
             quadraticEnabled: true,
-            ceoWeightCap: 5000 // Max 50% weight from CEO
+            ceoWeightCap: 5000, // Max 50% weight from CEO
+            minStakePerParticipant: 0.1 ether // SECURITY: Anti-sybil minimum per unique staker
         });
     }
 
@@ -246,7 +273,13 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         emit ProjectStatusChanged(projectId, oldStatus, FundingStatus.REJECTED);
     }
 
-    function setCEOWeight(bytes32 projectId, uint256 weight) external projectExists(projectId) onlyCEO(_projects[projectId].daoId) {
+    /**
+     * @notice Propose a CEO weight change (subject to timelock)
+     * @dev Large changes (>25% of cap) require 48hr timelock for security
+     * @param projectId Project to update weight for
+     * @param weight New weight in basis points
+     */
+    function proposeCEOWeight(bytes32 projectId, uint256 weight) external projectExists(projectId) onlyCEO(_projects[projectId].daoId) {
         FundingProject storage project = _projects[projectId];
         if (project.status != FundingStatus.ACTIVE) revert ProjectNotActive();
 
@@ -256,9 +289,91 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         }
 
         uint256 oldWeight = project.ceoWeight;
-        project.ceoWeight = weight;
+        uint256 weightDelta = weight > oldWeight ? weight - oldWeight : oldWeight - weight;
 
-        emit CEOWeightSet(projectId, oldWeight, weight);
+        // Small changes (<25% of cap) can be applied with shorter delay
+        uint256 delay = weightDelta >= CEO_WEIGHT_LARGE_CHANGE_THRESHOLD 
+            ? CEO_WEIGHT_TIMELOCK 
+            : CEO_WEIGHT_TIMELOCK / 4; // 12 hours for small changes
+
+        bytes32 proposalId = keccak256(abi.encodePacked(projectId, weight, block.timestamp));
+        
+        ceoWeightProposals[proposalId] = CEOWeightProposal({
+            projectId: projectId,
+            newWeight: weight,
+            proposedAt: block.timestamp,
+            executesAt: block.timestamp + delay,
+            executed: false,
+            cancelled: false
+        });
+
+        pendingWeightProposals.push(proposalId);
+
+        emit CEOWeightProposed(projectId, oldWeight, weight, block.timestamp + delay);
+    }
+
+    /**
+     * @notice Execute a pending CEO weight change after timelock
+     * @param proposalId The proposal to execute
+     */
+    function executeCEOWeightProposal(bytes32 proposalId) external nonReentrant {
+        CEOWeightProposal storage proposal = ceoWeightProposals[proposalId];
+        if (proposal.proposedAt == 0) revert WeightProposalNotFound();
+        if (proposal.executed) revert WeightProposalAlreadyExecuted();
+        if (proposal.cancelled) revert WeightProposalNotFound();
+        if (block.timestamp < proposal.executesAt) revert WeightProposalNotReady();
+        // Expire after 7 days to prevent stale proposals
+        if (block.timestamp > proposal.executesAt + 7 days) revert WeightProposalExpired();
+
+        proposal.executed = true;
+
+        FundingProject storage project = _projects[proposal.projectId];
+        uint256 oldWeight = project.ceoWeight;
+        project.ceoWeight = proposal.newWeight;
+
+        emit CEOWeightProposalExecuted(proposal.projectId, proposal.newWeight);
+        emit CEOWeightSet(proposal.projectId, oldWeight, proposal.newWeight);
+    }
+
+    /**
+     * @notice Cancel a pending CEO weight proposal
+     * @param proposalId The proposal to cancel
+     */
+    function cancelCEOWeightProposal(bytes32 proposalId) external {
+        CEOWeightProposal storage proposal = ceoWeightProposals[proposalId];
+        if (proposal.proposedAt == 0) revert WeightProposalNotFound();
+        if (proposal.executed) revert WeightProposalAlreadyExecuted();
+
+        // Only DAO admin or the original CEO can cancel
+        bytes32 daoId = _projects[proposal.projectId].daoId;
+        if (!daoRegistry.isDAOAdmin(daoId, msg.sender)) revert NotAuthorized();
+
+        proposal.cancelled = true;
+        emit CEOWeightProposalCancelled(proposal.projectId);
+    }
+
+    /**
+     * @notice Get pending weight proposals for a project
+     * @param projectId Project to check
+     */
+    function getPendingWeightProposals(bytes32 projectId) external view returns (CEOWeightProposal[] memory) {
+        uint256 count = 0;
+        for (uint256 i = 0; i < pendingWeightProposals.length; i++) {
+            CEOWeightProposal storage p = ceoWeightProposals[pendingWeightProposals[i]];
+            if (p.projectId == projectId && !p.executed && !p.cancelled) {
+                count++;
+            }
+        }
+
+        CEOWeightProposal[] memory result = new CEOWeightProposal[](count);
+        uint256 idx = 0;
+        for (uint256 i = 0; i < pendingWeightProposals.length; i++) {
+            CEOWeightProposal storage p = ceoWeightProposals[pendingWeightProposals[i]];
+            if (p.projectId == projectId && !p.executed && !p.cancelled) {
+                result[idx++] = p;
+            }
+        }
+        return result;
     }
 
     function pauseProject(bytes32 projectId) external projectExists(projectId) onlyDAOAdmin(_projects[projectId].daoId) {
@@ -294,16 +409,23 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         FundingEpoch storage epoch = _epochs[project.daoId][epochId - 1];
         if (block.timestamp > epoch.endTime) revert EpochNotActive();
 
+        // Record stake
+        StakeInfo storage stakeInfo = _userStakes[projectId][epochId][msg.sender];
+        bool isNewStaker = stakeInfo.amount == 0;
+
+        // SECURITY: Anti-sybil enforcement for quadratic funding
+        // New stakers must meet minStakePerParticipant threshold
+        // This prevents splitting funds across many accounts to game quadratic matching
+        if (config.quadraticEnabled && isNewStaker) {
+            if (amount < config.minStakePerParticipant) revert InvalidAmount();
+        }
+
         // Transfer tokens
         if (address(fundingToken) == address(0)) {
             if (msg.value != amount) revert InvalidAmount();
         } else {
             fundingToken.safeTransferFrom(msg.sender, address(this), amount);
         }
-
-        // Record stake
-        StakeInfo storage stakeInfo = _userStakes[projectId][epochId][msg.sender];
-        bool isNewStaker = stakeInfo.amount == 0;
 
         stakeInfo.amount += amount;
         stakeInfo.epochId = epochId;

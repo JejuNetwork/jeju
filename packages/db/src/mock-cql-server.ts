@@ -247,8 +247,31 @@ function handleCreateDb(rawBody: Record<string, string>): CreateDbResponse {
   return { success: true, databaseId: body.database_id }
 }
 
+// SECURITY: Restrict CORS to localhost in mock server (dev only)
+// This server should NEVER be exposed to the internet
+const ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:4000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:4000',
+  'http://127.0.0.1:5173',
+]
+
 const app = new Elysia()
-  .use(cors({ origin: '*' }))
+  .use(
+    cors({
+      origin: (request) => {
+        const origin = request.headers.get('origin')
+        // Allow requests without origin (same-origin) or from allowed localhost origins
+        if (!origin || ALLOWED_ORIGINS.includes(origin)) {
+          return true
+        }
+        console.warn(`[CQL Mock] Blocked CORS request from: ${origin}`)
+        return false
+      },
+    }),
+  )
   // Health check routes
   .get('/v1/health', handleHealth)
   .get('/api/v1/health', handleHealth)

@@ -437,8 +437,6 @@ async function analyzeRiskMetrics(): Promise<void> {
   console.log('\n')
 }
 
-// ============ Optimization Report ============
-
 async function generateOptimizationReport(): Promise<void> {
   console.log(
     '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
@@ -518,5 +516,4 @@ async function generateOptimizationReport(): Promise<void> {
   )
 }
 
-// Run
 main().catch(console.error)

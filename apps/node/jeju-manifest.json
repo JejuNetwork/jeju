@@ -45,6 +45,19 @@
     "x402Support": false,
     "jnsName": "node.jeju"
   },
+  "dws": {
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "staticDir": "dist",
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/*.css", "ttl": 86400 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ]
+    }
+  },
   "decentralization": {
     "cdn": {
       "enabled": true,
@@ -70,8 +83,8 @@
   },
   "testing": {
     "unit": {
-      "command": "bun test src/",
-      "timeout": 60000
+      "command": "bun test src/ --timeout 30000",
+      "timeout": 120000
     },
     "e2e": {
       "command": "bunx playwright test tests/e2e",

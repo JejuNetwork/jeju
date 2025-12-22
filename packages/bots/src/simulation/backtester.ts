@@ -1,10 +1,5 @@
 /**
  * TFMM Strategy Backtester
- *
- * Simulates strategy performance on historical data:
- * - Tests momentum, mean-reversion, volatility, and composite strategies
- * - Calculates returns, Sharpe ratio, drawdown, etc.
- * - Compares to buy-and-hold benchmark
  */
 
 import { OracleAggregator } from '../oracles'
@@ -24,8 +19,6 @@ import type {
   Token,
 } from '../types'
 
-// ============ Types ============
-
 export interface BacktestConfig {
   strategy: 'momentum' | 'mean-reversion' | 'volatility' | 'composite'
   strategyParams?: Record<string, number>
@@ -43,20 +36,12 @@ export interface BacktestConfig {
 export interface PriceDataPoint {
   date: Date
   timestamp: number
-  prices: Record<string, number> // token symbol -> USD price
+  prices: Record<string, number>
 }
 
-// ============ Backtester ============
-
 export class Backtester {
-  /**
-   * Run a backtest
-   */
   async run(config: BacktestConfig): Promise<BacktestResult> {
-    // Create strategy
     const strategy = this.createStrategy(config.strategy, config.strategyParams)
-
-    // Initialize state
     let weights = config.initialWeights.map((w) => BigInt(Math.floor(w * 1e18)))
     let balances = this.calculateInitialBalances(
       config.initialCapitalUsd,
@@ -79,11 +64,8 @@ export class Backtester {
       maxPriceDeviationBps: 500,
     }
 
-    // Simulate each time period
     for (let i = 0; i < config.priceData.length; i++) {
       const dataPoint = config.priceData[i]
-
-      // Update strategy price history (use address as key for consistency)
       const prices = config.tokens.map((t) => ({
         token: t.address, // Use address to match strategy lookups
         price: BigInt(Math.floor(dataPoint.prices[t.symbol] * 1e8)),
@@ -93,12 +75,10 @@ export class Backtester {
       }))
       strategy.updatePriceHistory(prices)
 
-      // Check if rebalance is due
       const hoursSinceRebalance =
         (dataPoint.timestamp - lastRebalance) / 3600000
 
       if (hoursSinceRebalance >= config.rebalanceIntervalHours && i > 0) {
-        // Calculate new weights
         const ctx: StrategyContext = {
           pool: '0x0',
           tokens: config.tokens,

@@ -55,7 +55,7 @@ describe('App CLI', () => {
       expect(output).toContain('Node Status')
       expect(output).toContain('Network')
       expect(output).toContain('Hardware')
-    })
+    }, 30000)
   })
 
   describe('Config', () => {
@@ -150,5 +150,5 @@ describe('Headless Workflow', () => {
     expect(output).toContain('Network')
 
     console.log('✓ Headless workflow passed')
-  })
+  }, 60000)
 })

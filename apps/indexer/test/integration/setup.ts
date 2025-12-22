@@ -1,7 +1,6 @@
 import { exec } from 'node:child_process'
 import { promisify } from 'node:util'
 import { DataSource } from 'typeorm'
-import * as models from '../../src/model'
 
 const execAsync = promisify(exec)
 
@@ -28,6 +27,9 @@ export async function getTestDataSource(): Promise<DataSource> {
       Record<string, string | number | boolean | null | Date | bigint>
     >,
   ) => object
+
+  // Dynamic import to avoid circular dependency issues
+  const models = await import('../../src/model')
   const entities = Object.values(models).filter(
     (v): v is EntityClass =>
       typeof v === 'function' && v.prototype?.constructor !== undefined,

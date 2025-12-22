@@ -82,8 +82,13 @@ setInterval(() => {
 }, RATE_LIMIT_WINDOW_MS)
 
 // Webhook authentication middleware
-const WEBHOOK_SECRET =
-  process.env.WEBHOOK_SECRET || (isLocalnet ? 'dev-webhook-secret' : '')
+// SECURITY: Require explicit webhook secret in production
+const WEBHOOK_SECRET = process.env.WEBHOOK_SECRET
+if (!WEBHOOK_SECRET && !isLocalnet) {
+  console.error('SECURITY ERROR: WEBHOOK_SECRET must be set in production')
+  process.exit(1)
+}
+const webhookSecret = WEBHOOK_SECRET || 'dev-webhook-secret'
 
 // Constant-time string comparison using crypto.subtle
 const constantTimeEqual = async (a: string, b: string): Promise<boolean> => {

@@ -1035,6 +1035,7 @@ export class MeteoraAdapter implements DexAdapter {
 
 export class SolanaDexAggregator {
   private adapters: Map<DexSource, DexAdapter> = new Map()
+  private connection: Connection
 
   constructor(connection: Connection) {
 

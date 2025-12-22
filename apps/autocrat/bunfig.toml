@@ -1,0 +1,6 @@
+
+[test]
+coverage = true
+coverageDir = "./test-results/coverage"
+preload = ["./tests/setup.ts"]
+timeout = 300000

@@ -56,6 +56,7 @@ function hashKey(key: string): string {
 function deriveEncryptionKey(): Buffer {
   const secret = process.env.API_KEY_ENCRYPTION_SECRET
   const isProduction = process.env.NODE_ENV === 'production'
+  const isTest = process.env.NODE_ENV === 'test' || process.env.BUN_TEST === 'true'
 
   if (!secret) {
     if (isProduction) {
@@ -63,11 +64,17 @@ function deriveEncryptionKey(): Buffer {
         'CRITICAL: API_KEY_ENCRYPTION_SECRET must be set in production.',
       )
     }
-    // Dev mode - use derived key (logged warning)
-    console.warn('[API Keys] WARNING: API_KEY_ENCRYPTION_SECRET not set.')
+    if (!isTest) {
+      // Development mode - generate ephemeral key with warning
+      console.warn('[API Keys] WARNING: API_KEY_ENCRYPTION_SECRET not set - using ephemeral key.')
+    }
+    // Use a deterministic dev-only key derived from a constant - NEVER use in production
+    return createHash('sha256')
+      .update('DEV_ONLY_EPHEMERAL_KEY_DO_NOT_USE_IN_PRODUCTION')
+      .digest()
   }
   return createHash('sha256')
-    .update(secret ?? 'INSECURE_API_KEY_SECRET')
+    .update(secret)
     .digest()
 }
 

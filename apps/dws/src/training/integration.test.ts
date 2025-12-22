@@ -178,13 +178,13 @@ describe('Atropos Server Integration', () => {
 describe('GRPO Trainer Integration', () => {
   test('trainer can be created with config', () => {
     const trainer = createGRPOTrainer({
-      modelName: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+      modelName: 'distilgpt2',
       trainingSteps: 5,
       atroposUrl: `http://localhost:${TEST_CONFIG.atroposPort}`,
     })
 
     const config = trainer.getConfig()
-    expect(config.modelName).toBe('TinyLlama/TinyLlama-1.1B-Chat-v1.0')
+    expect(config.modelName).toBe('distilgpt2')
     expect(config.trainingSteps).toBe(5)
   })
 
@@ -200,12 +200,12 @@ describe('GRPO Trainer Integration', () => {
 
   test('distributed trainer can be created', () => {
     const trainer = createDistributedGRPOTrainer({
-      modelName: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+      modelName: 'distilgpt2',
     })
 
     expect(trainer).toBeDefined()
     expect(trainer.getConfig().modelName).toBe(
-      'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+      'distilgpt2',
     )
   })
 })
@@ -385,7 +385,7 @@ describe('DWS Training Service Integration', () => {
     const request: TrainingJobRequest = {
       jobId: `job-${Date.now()}`,
       runId: `run-${Date.now()}`,
-      modelName: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+      modelName: 'distilgpt2',
       trainingSteps: 10,
       batchSize: 2,
       learningRate: 5e-6,
@@ -505,7 +505,7 @@ describe('Full Training Pipeline', () => {
     const status = queue.addJob({
       jobId,
       runId: `run-${jobId}`,
-      modelName: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+      modelName: 'distilgpt2',
       trainingSteps: 2,
       batchSize: 1,
       learningRate: 5e-6,
@@ -519,7 +519,7 @@ describe('Full Training Pipeline', () => {
 
     // 3. Create trainer
     const trainer = createGRPOTrainer({
-      modelName: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+      modelName: 'distilgpt2',
       trainingSteps: 2,
       atroposUrl: `http://localhost:${TEST_CONFIG.atroposPort}`,
     })

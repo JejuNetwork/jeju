@@ -69,6 +69,30 @@
     "multiTokenPayments": true,
     "jnsName": "factory.jeju"
   },
+  "dws": {
+    "backend": {
+      "enabled": true,
+      "runtime": "bun",
+      "entrypoint": "src/server.ts",
+      "memory": 512,
+      "timeout": 30000,
+      "minInstances": 1,
+      "maxInstances": 10,
+      "teeRequired": false,
+      "regions": ["global"]
+    },
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "staticDir": "dist/client",
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/*.css", "ttl": 86400 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ]
+    }
+  },
   "contracts": {
     "BountyRegistry": "0x0000000000000000000000000000000000000000",
     "GuardianRegistry": "0x0000000000000000000000000000000000000000",

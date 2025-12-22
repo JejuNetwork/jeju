@@ -91,6 +91,17 @@ export const CidResponseSchema = z.object({
 })
 export type CidResponse = z.infer<typeof CidResponseSchema>
 
+export const JNSRegistrationResponseSchema = z.object({
+  success: z.boolean(),
+  name: z.string(),
+  owner: z.string(),
+  total: z.number(),
+  txHash: z.string().optional(),
+})
+export type JNSRegistrationResponse = z.infer<
+  typeof JNSRegistrationResponseSchema
+>
+
 export const RepoSchema = z.object({
   repoId: z.string(),
   owner: z.string(),

@@ -293,6 +293,10 @@ contract ModerationIntegrationTest is Test {
     function test_VoterSlashing_TrackLosses() public {
         bytes32 caseId = keccak256("case-loss");
 
+        // Assess case as HIGH quality so losses count (security fix requires quality assessment)
+        vm.prank(address(marketplace));
+        voterSlashing.assessCaseQuality(caseId, VoterSlashing.CaseQuality.HIGH, 10, 2, 2 ether, true);
+
         vm.prank(address(marketplace));
         voterSlashing.recordVoteOutcome(voter1, caseId, false, 1 ether);
 
@@ -309,6 +313,10 @@ contract ModerationIntegrationTest is Test {
         // Record 4 consecutive losses (threshold for tier 1 slashing)
         for (uint i = 0; i < 4; i++) {
             bytes32 caseId = keccak256(abi.encodePacked("case-loss-", i));
+            
+            // Assess case as HIGH quality so losses count
+            vm.prank(address(marketplace));
+            voterSlashing.assessCaseQuality(caseId, VoterSlashing.CaseQuality.HIGH, 10, 2, 2 ether, true);
             
             vm.prank(address(marketplace));
             uint256 slashAmount = voterSlashing.recordVoteOutcome(voter1, caseId, false, 1 ether);
@@ -328,6 +336,10 @@ contract ModerationIntegrationTest is Test {
         for (uint i = 0; i < 10; i++) {
             bytes32 caseId = keccak256(abi.encodePacked("case-loss-", i));
             
+            // Assess case as HIGH quality so losses count
+            vm.prank(address(marketplace));
+            voterSlashing.assessCaseQuality(caseId, VoterSlashing.CaseQuality.HIGH, 10, 2, 2 ether, true);
+            
             vm.prank(address(marketplace));
             voterSlashing.recordVoteOutcome(voter1, caseId, false, 1 ether);
         }
@@ -341,6 +353,11 @@ contract ModerationIntegrationTest is Test {
         // First lose 5 times to get to tier 1
         for (uint i = 0; i < 5; i++) {
             bytes32 caseId = keccak256(abi.encodePacked("loss-", i));
+            
+            // Assess case as HIGH quality so losses count
+            vm.prank(address(marketplace));
+            voterSlashing.assessCaseQuality(caseId, VoterSlashing.CaseQuality.HIGH, 10, 2, 2 ether, true);
+            
             vm.prank(address(marketplace));
             voterSlashing.recordVoteOutcome(voter1, caseId, false, 1 ether);
         }

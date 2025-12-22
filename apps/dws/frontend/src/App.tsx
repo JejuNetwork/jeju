@@ -6,6 +6,7 @@ import InferencePage from './pages/ai/Inference'
 import MLTrainingPage from './pages/ai/MLTraining'
 import BillingPage from './pages/Billing'
 import ContainersPage from './pages/compute/Containers'
+import InfrastructurePage from './pages/compute/Infrastructure'
 import JobsPage from './pages/compute/Jobs'
 import TrainingPage from './pages/compute/Training'
 import WorkersPage from './pages/compute/Workers'
@@ -39,6 +40,7 @@ export default function App() {
         <Route path="/compute/workers" element={<WorkersPage />} />
         <Route path="/compute/jobs" element={<JobsPage />} />
         <Route path="/compute/training" element={<TrainingPage />} />
+        <Route path="/compute/infrastructure" element={<InfrastructurePage />} />
 
         {/* Storage */}
         <Route path="/storage/buckets" element={<BucketsPage />} />

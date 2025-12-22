@@ -5,11 +5,17 @@ on:
     branches: [main, develop]
     paths:
       - 'packages/cli/**'
+      - 'packages/types/**'
+      - 'packages/config/**'
+      - 'packages/shared/**'
       - '.github/workflows/cli-ci.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'packages/cli/**'
+      - 'packages/types/**'
+      - 'packages/config/**'
+      - 'packages/shared/**'
       - '.github/workflows/cli-ci.yml'
 
 jobs:
@@ -25,22 +31,31 @@ jobs:
           bun-version: latest
 
       - name: Install dependencies
-        run: cd packages/cli && bun install
+        run: bun install
+
+      - name: Build dependencies
+        run: |
+          cd packages/types && bun run build
+          cd ../config && bun run build
+          cd ../shared && bun run build
 
       - name: Type check
         run: cd packages/cli && bun run typecheck
 
-      - name: Run tests
+      - name: Run unit tests
         run: cd packages/cli && bun test
 
-      - name: Build
+      - name: Build CLI
         run: cd packages/cli && bun run build
 
       - name: Test CLI help
         run: bun run packages/cli/src/index.ts --help
 
-      - name: Test CLI doctor (no Docker)
-        run: bun run packages/cli/src/index.ts doctor || true
+      - name: Test CLI version
+        run: bun run packages/cli/src/index.ts --version
+
+      - name: Test CLI status (no Docker)
+        run: bun run packages/cli/src/index.ts status --check || true
 
   lint:
     name: Lint

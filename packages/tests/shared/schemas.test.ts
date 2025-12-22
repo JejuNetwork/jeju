@@ -54,7 +54,6 @@ describe('AddressSchema - Ethereum Address Validation', () => {
   })
 
   test('should reject all-uppercase address (not valid checksum)', () => {
-    // All-uppercase is NOT valid - proper checksum or all-lowercase required
     const result = AddressSchema.safeParse(
       '0xF39FD6E51AAD88F6F4CE6AB8827279CFFFB92266',
     )
@@ -1011,7 +1010,6 @@ describe('Schema Edge Cases', () => {
   })
 
   test('AddressSchema should reject invalid checksum mixed case', () => {
-    // Mixed case without proper EIP-55 checksum is NOT valid
     const result = AddressSchema.safeParse(
       '0xAaBbCcDdEeFf0011223344556677889900aAbBcC',
     )
@@ -1019,7 +1017,6 @@ describe('Schema Edge Cases', () => {
   })
 
   test('AddressSchema should accept all lowercase', () => {
-    // All lowercase is always valid (no checksum)
     const result = AddressSchema.safeParse(
       '0xaabbccddeeff0011223344556677889900aabbcc',
     )
