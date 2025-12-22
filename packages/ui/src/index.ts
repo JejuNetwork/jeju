@@ -19,3 +19,32 @@ export { useIdentity, type UseIdentityResult } from "./hooks/useIdentity";
 export { useCrossChain, type UseCrossChainResult } from "./hooks/useCrossChain";
 export { usePayments, type UsePaymentsResult } from "./hooks/usePayments";
 export type { ServiceType } from "@jejunetwork/sdk";
+
+// Contract hooks (wagmi-based)
+export {
+  useTokenRegistry,
+  useTokenConfig,
+  type TokenInfo,
+  type TokenConfig,
+} from "./hooks/useTokenRegistryContract";
+
+export {
+  useLiquidityVault,
+  type LPPosition,
+} from "./hooks/useLiquidityVaultContract";
+
+export {
+  usePaymasterFactory,
+  usePaymasterDeployment,
+  type PaymasterDeployment,
+} from "./hooks/usePaymasterFactoryContract";
+
+// Contract ABIs and constants
+export {
+  ZERO_ADDRESS,
+  ZERO_BYTES32,
+  TOKEN_REGISTRY_ABI,
+  PAYMASTER_FACTORY_ABI,
+  LIQUIDITY_VAULT_ABI,
+  IERC20_ABI,
+} from "./contracts";

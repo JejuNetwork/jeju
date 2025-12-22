@@ -298,6 +298,31 @@ export {
   chunk,
 } from './format';
 
+// Token Utilities
+export {
+  formatTokenAmount,
+  parseTokenAmount,
+  formatTokenUsd,
+  calculateUsdValue,
+  formatTokenWithSymbol,
+  isSignificantAmount,
+} from './token-utils';
+
+// IPFS Client
+export {
+  createIPFSClient,
+  getIPFSUrl,
+  cidToBytes32,
+  uploadToIPFS,
+  uploadJSONToIPFS,
+  retrieveFromIPFS,
+  retrieveJSONFromIPFS,
+  fileExistsOnIPFS,
+  type IPFSConfig,
+  type IPFSClient,
+  type IPFSUploadResult,
+} from './ipfs-client';
+
 // Protocol Servers
 export {
   // Unified Server

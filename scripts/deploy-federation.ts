@@ -29,7 +29,7 @@ const NETWORK = process.argv.includes('--network')
 const CONTRACTS_DIR = join(import.meta.dir, '../packages/contracts');
 const OUT_DIR = join(CONTRACTS_DIR, 'out');
 const DEPLOYMENTS_DIR = join(import.meta.dir, '../deployments');
-const CONFIG_DIR = join(import.meta.dir, '../config');
+const CONFIG_DIR = join(import.meta.dir, '../packages/config');
 
 // Load cross-chain configuration
 interface CrossChainConfig {

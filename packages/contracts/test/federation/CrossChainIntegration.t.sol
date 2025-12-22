@@ -545,6 +545,67 @@ contract CrossChainIntegrationTest is Test {
         vm.expectRevert(CrossChainIdentitySync.RateLimitExceeded.selector);
         identitySync.handle(BASE_DOMAIN, remoteSync, overLimitMsg);
     }
+
+    function test_ConfigurableRateLimit() public {
+        bytes32 remoteSync = bytes32(uint256(uint160(address(0xbA5e000000000000000000000000000000000001))));
+        vm.prank(deployer);
+        identitySync.setTrustedRemote(BASE_DOMAIN, remoteSync);
+        
+        // Increase rate limit to 200
+        vm.prank(deployer);
+        identitySync.setRateLimit(200, 3600);
+        
+        // Verify new limit is set
+        assertEq(identitySync.rateLimitRegistrations(), 200);
+        assertEq(identitySync.rateLimitWindow(), 3600);
+        
+        // Send 150 registrations (would fail with old limit of 100)
+        for (uint256 i = 0; i < 150; i++) {
+            bytes memory message = abi.encodePacked(
+                uint8(1), uint8(0), bytes32(i + 1000), bytes20(agent1Owner),
+                uint8(1), uint16(13), "ipfs://agentXX"
+            );
+            vm.prank(address(mailbox));
+            identitySync.handle(BASE_DOMAIN, remoteSync, message);
+        }
+        
+        // 201st should fail with new limit
+        for (uint256 i = 150; i < 200; i++) {
+            bytes memory message = abi.encodePacked(
+                uint8(1), uint8(0), bytes32(i + 1000), bytes20(agent1Owner),
+                uint8(1), uint16(13), "ipfs://agentXX"
+            );
+            vm.prank(address(mailbox));
+            identitySync.handle(BASE_DOMAIN, remoteSync, message);
+        }
+        
+        // 201st should fail
+        bytes memory overLimitMsg = abi.encodePacked(
+            uint8(1), uint8(0), bytes32(uint256(9999)), bytes20(agent1Owner),
+            uint8(1), uint16(13), "ipfs://agent999"
+        );
+        vm.prank(address(mailbox));
+        vm.expectRevert(CrossChainIdentitySync.RateLimitExceeded.selector);
+        identitySync.handle(BASE_DOMAIN, remoteSync, overLimitMsg);
+    }
+
+    function test_OnlyOwnerCanSetRateLimit() public {
+        vm.prank(agent1Owner);
+        vm.expectRevert();
+        identitySync.setRateLimit(200, 3600);
+    }
+
+    function test_RateLimitValidation() public {
+        // Zero limit should fail
+        vm.prank(deployer);
+        vm.expectRevert("Invalid limit");
+        identitySync.setRateLimit(0, 3600);
+        
+        // Window too short should fail
+        vm.prank(deployer);
+        vm.expectRevert("Window too short");
+        identitySync.setRateLimit(100, 30);
+    }
     
     function test_ReplayProtection() public {
         bytes32 remoteSync = bytes32(uint256(uint160(address(0xbA5e000000000000000000000000000000000001))));

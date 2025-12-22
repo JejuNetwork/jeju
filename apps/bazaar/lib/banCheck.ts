@@ -1,232 +1,84 @@
-import { Address, createPublicClient, http } from 'viem';
-import { jeju } from '../config/chains';
-import { CONTRACTS } from '../config';
+/**
+ * Ban Check for Bazaar
+ * Uses shared ModerationAPI with bazaar-specific extensions
+ */
 
-const BAN_MANAGER_ADDRESS = CONTRACTS.banManager || undefined;
-const MODERATION_MARKETPLACE_ADDRESS = CONTRACTS.moderationMarketplace || undefined;
-const IDENTITY_REGISTRY_ADDRESS = CONTRACTS.identityRegistry || undefined;
-const JEJU_TOKEN_ADDRESS = CONTRACTS.jeju || undefined;
-const BAZAAR_APP_ID = `0x${Buffer.from('bazaar').toString('hex').padEnd(64, '0')}` as `0x${string}`;
+import { type Address, createPublicClient, http, formatEther } from 'viem'
+import {
+  createModerationAPI,
+  BanType,
+  type ModerationConfig,
+  type BanStatus as SharedBanStatus,
+  getBanTypeLabel as sharedGetBanTypeLabel,
+  getBanTypeColor as sharedGetBanTypeColor,
+} from '@jejunetwork/shared'
+import { jeju } from '../config/chains'
+import { RPC_URL, CONTRACTS } from '../config'
 
 // ============ Types ============
 
-export enum BanType {
-  NONE = 0,
-  ON_NOTICE = 1,
-  CHALLENGED = 2,
-  PERMANENT = 3
-}
-
-export interface ExtendedBanRecord {
-  isBanned: boolean;
-  banType: BanType;
-  bannedAt: bigint;
-  expiresAt: bigint;
-  reason: string;
-  proposalId: `0x${string}`;
-  reporter: Address;
-  caseId: `0x${string}`;
-}
+// Re-export shared types
+export { BanType }
 
 export interface BanCheckResult {
-  allowed: boolean;
-  reason?: string;
-  banType?: BanType;
-  networkBanned?: boolean;
-  appBanned?: boolean;
-  onNotice?: boolean;
-  caseId?: string;
-  canAppeal?: boolean;
+  allowed: boolean
+  reason?: string
+  banType?: BanType
+  networkBanned?: boolean
+  appBanned?: boolean
+  onNotice?: boolean
+  caseId?: string
+  canAppeal?: boolean
 }
 
-// ============ ABIs ============
+export interface QuorumStatus {
+  reached: boolean
+  currentCount: bigint
+  requiredCount: bigint
+}
 
-const BAN_MANAGER_ABI = [
-  {
-    name: 'isAccessAllowed',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'agentId', type: 'uint256' },
-      { name: 'appId', type: 'bytes32' },
-    ],
-    outputs: [{ name: 'allowed', type: 'bool' }],
-  },
-  {
-    name: 'isNetworkBanned',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'getBanReason',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'agentId', type: 'uint256' },
-      { name: 'appId', type: 'bytes32' },
-    ],
-    outputs: [{ name: 'reason', type: 'string' }],
-  },
-  {
-    name: 'isAddressBanned',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'target', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'isOnNotice',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'target', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'isPermanentlyBanned',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'target', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'getAddressBan',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'target', type: 'address' }],
-    outputs: [
-      {
-        type: 'tuple',
-        components: [
-          { name: 'isBanned', type: 'bool' },
-          { name: 'banType', type: 'uint8' },
-          { name: 'bannedAt', type: 'uint256' },
-          { name: 'expiresAt', type: 'uint256' },
-          { name: 'reason', type: 'string' },
-          { name: 'proposalId', type: 'bytes32' },
-          { name: 'reporter', type: 'address' },
-          { name: 'caseId', type: 'bytes32' },
-        ],
-      },
-    ],
-  },
-  {
-    name: 'isAddressAccessAllowed',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'target', type: 'address' },
-      { name: 'appId', type: 'bytes32' },
-    ],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-] as const;
+export enum ReputationTier {
+  UNTRUSTED = 0,
+  LOW = 1,
+  MEDIUM = 2,
+  HIGH = 3,
+  TRUSTED = 4
+}
 
-const IDENTITY_REGISTRY_ABI = [
-  {
-    name: 'addressToAgentId',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'entity', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-] as const;
+export interface ModeratorReputation {
+  successfulBans: bigint
+  unsuccessfulBans: bigint
+  totalSlashedFrom: bigint
+  totalSlashedOthers: bigint
+  reputationScore: bigint
+  lastReportTimestamp: bigint
+  reportCooldownUntil: bigint
+  tier: ReputationTier
+  netPnL: bigint
+  winRate: number
+}
 
-const MODERATION_MARKETPLACE_ABI = [
-  {
-    name: 'isBanned',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'user', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'canReport',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'user', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'getStake',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'user', type: 'address' }],
-    outputs: [
-      {
-        type: 'tuple',
-        components: [
-          { name: 'amount', type: 'uint256' },
-          { name: 'stakedAt', type: 'uint256' },
-          { name: 'stakedBlock', type: 'uint256' },
-          { name: 'lastActivityBlock', type: 'uint256' },
-          { name: 'isStaked', type: 'bool' },
-        ],
-      },
-    ],
-  },
-  {
-    name: 'getModeratorReputation',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'moderator', type: 'address' }],
-    outputs: [
-      {
-        type: 'tuple',
-        components: [
-          { name: 'successfulBans', type: 'uint256' },
-          { name: 'unsuccessfulBans', type: 'uint256' },
-          { name: 'totalSlashedFrom', type: 'uint256' },
-          { name: 'totalSlashedOthers', type: 'uint256' },
-          { name: 'reputationScore', type: 'uint256' },
-          { name: 'lastReportTimestamp', type: 'uint256' },
-          { name: 'reportCooldownUntil', type: 'uint256' },
-        ],
-      },
-    ],
-  },
-  {
-    name: 'getReputationTier',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'user', type: 'address' }],
-    outputs: [{ name: '', type: 'uint8' }],
-  },
-  {
-    name: 'getRequiredStakeForReporter',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'reporter', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'getQuorumRequired',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'reporter', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }],
-  },
-  {
-    name: 'getModeratorPnL',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'moderator', type: 'address' }],
-    outputs: [{ name: '', type: 'int256' }],
-  },
-  {
-    name: 'checkQuorumStatus',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'target', type: 'address' }],
-    outputs: [
-      { name: 'reached', type: 'bool' },
-      { name: 'currentCount', type: 'uint256' },
-      { name: 'requiredCount', type: 'uint256' },
-    ],
-  },
-] as const;
+// ============ Config ============
 
+const config: ModerationConfig = {
+  chain: jeju,
+  rpcUrl: RPC_URL,
+  banManagerAddress: CONTRACTS.banManager || undefined,
+  moderationMarketplaceAddress: CONTRACTS.moderationMarketplace || undefined,
+  reportingSystemAddress: CONTRACTS.reportingSystem || undefined,
+  reputationLabelManagerAddress: CONTRACTS.reputationLabelManager || undefined,
+}
+
+// Create singleton API instance
+const moderationAPI = createModerationAPI(config)
+
+// Public client for JEJU token checks
+const publicClient = createPublicClient({
+  chain: jeju,
+  transport: http(RPC_URL),
+})
+
+const JEJU_TOKEN_ADDRESS = CONTRACTS.jeju || undefined
 const JEJU_TOKEN_ABI = [
   {
     name: 'isBanned',
@@ -242,437 +94,198 @@ const JEJU_TOKEN_ABI = [
     inputs: [],
     outputs: [{ name: '', type: 'bool' }],
   },
-] as const;
+] as const
 
 // ============ Cache ============
 
 interface CacheEntry {
-  result: BanCheckResult;
-  cachedAt: number;
+  result: BanCheckResult
+  cachedAt: number
 }
 
-const banCache = new Map<string, CacheEntry>();
-const CACHE_TTL = 10000; // 10 seconds
+const banCache = new Map<string, CacheEntry>()
+const CACHE_TTL = 10000 // 10 seconds
 
-// ============ Client ============
-
-const publicClient = createPublicClient({
-  chain: jeju,
-  transport: http(),
-});
-
-// ============ Functions ============
+// ============ Ban Check Functions ============
 
 /**
- * Check if a user is banned (address-based + agent-based)
- * Uses both BanManager and ModerationMarketplace
+ * Check if a user is banned
  */
 export async function checkUserBan(userAddress: Address): Promise<BanCheckResult> {
-  // Check cache first
-  const cacheKey = userAddress.toLowerCase();
-  const cached = banCache.get(cacheKey);
+  const cacheKey = userAddress.toLowerCase()
+  const cached = banCache.get(cacheKey)
   if (cached && Date.now() - cached.cachedAt < CACHE_TTL) {
-    return cached.result;
+    return cached.result
   }
 
-  // Default to allowed if no contracts configured
-  if (!BAN_MANAGER_ADDRESS) {
-    return { allowed: true };
+  const status = await moderationAPI.checkBanStatus(userAddress)
+  
+  const result: BanCheckResult = {
+    allowed: !status.isBanned,
+    reason: status.reason,
+    banType: status.banType,
+    networkBanned: status.networkBanned,
+    onNotice: status.banType === BanType.ON_NOTICE,
+    canAppeal: status.canAppeal,
   }
 
-  // Check address-based ban first (new system)
-  const [isAddressBanned, isOnNotice, addressBan] = await Promise.all([
-    publicClient.readContract({
-      address: BAN_MANAGER_ADDRESS,
-      abi: BAN_MANAGER_ABI,
-      functionName: 'isAddressBanned',
-      args: [userAddress],
-    }).catch(() => false),
-    publicClient.readContract({
-      address: BAN_MANAGER_ADDRESS,
-      abi: BAN_MANAGER_ABI,
-      functionName: 'isOnNotice',
-      args: [userAddress],
-    }).catch(() => false),
-    publicClient.readContract({
-      address: BAN_MANAGER_ADDRESS,
-      abi: BAN_MANAGER_ABI,
-      functionName: 'getAddressBan',
-      args: [userAddress],
-    }).catch(() => null),
-  ]);
-
-  // If address is banned (any type), deny access
-  if (isAddressBanned || isOnNotice) {
-    const ban = addressBan as ExtendedBanRecord | null;
-    const result: BanCheckResult = {
-      allowed: false,
-      reason: ban?.reason || 'Banned from network',
-      banType: ban?.banType ?? BanType.PERMANENT,
-      networkBanned: true,
-      onNotice: isOnNotice,
-      caseId: ban?.caseId,
-      canAppeal: ban?.banType === BanType.PERMANENT,
-    };
-    banCache.set(cacheKey, { result, cachedAt: Date.now() });
-    return result;
-  }
-
-  // Check agent-based ban (legacy system)
-  if (IDENTITY_REGISTRY_ADDRESS) {
-    const agentId = await publicClient.readContract({
-      address: IDENTITY_REGISTRY_ADDRESS,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'addressToAgentId',
-      args: [userAddress],
-    }).catch(() => 0n);
-
-    if (agentId && agentId !== 0n) {
-      const allowed = await publicClient.readContract({
-        address: BAN_MANAGER_ADDRESS,
-        abi: BAN_MANAGER_ABI,
-        functionName: 'isAccessAllowed',
-        args: [agentId, BAZAAR_APP_ID],
-      }).catch(() => true);
-
-      if (!allowed) {
-        const isNetworkBanned = await publicClient.readContract({
-          address: BAN_MANAGER_ADDRESS,
-          abi: BAN_MANAGER_ABI,
-          functionName: 'isNetworkBanned',
-          args: [agentId],
-        }).catch(() => false);
-
-        const reason = await publicClient.readContract({
-          address: BAN_MANAGER_ADDRESS,
-          abi: BAN_MANAGER_ABI,
-          functionName: 'getBanReason',
-          args: [agentId, isNetworkBanned ? '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}` : BAZAAR_APP_ID],
-        }).catch(() => 'Banned');
-
-        const result: BanCheckResult = {
-          allowed: false,
-          reason: reason || 'Banned',
-          networkBanned: isNetworkBanned,
-          appBanned: !isNetworkBanned,
-        };
-        banCache.set(cacheKey, { result, cachedAt: Date.now() });
-        return result;
-      }
-    }
-  }
-
-  // Check ModerationMarketplace ban status
-  if (MODERATION_MARKETPLACE_ADDRESS) {
-    const marketplaceBanned = await publicClient.readContract({
-      address: MODERATION_MARKETPLACE_ADDRESS,
-      abi: MODERATION_MARKETPLACE_ABI,
-      functionName: 'isBanned',
-      args: [userAddress],
-    }).catch(() => false);
-
-    if (marketplaceBanned) {
-      const result: BanCheckResult = {
-        allowed: false,
-        reason: 'Banned via Moderation Marketplace',
-        networkBanned: true,
-        canAppeal: true,
-      };
-      banCache.set(cacheKey, { result, cachedAt: Date.now() });
-      return result;
-    }
-  }
-
-  // User is allowed
-  const result: BanCheckResult = { allowed: true };
-  banCache.set(cacheKey, { result, cachedAt: Date.now() });
-  return result;
+  banCache.set(cacheKey, { result, cachedAt: Date.now() })
+  return result
 }
 
 /**
- * Simple check if user can trade on Bazaar (returns boolean only)
+ * Simple check if user can trade on Bazaar
  */
 export async function isTradeAllowed(userAddress: Address): Promise<boolean> {
-  const result = await checkUserBan(userAddress);
-  return result.allowed;
+  const result = await checkUserBan(userAddress)
+  return result.allowed
 }
 
 /**
- * Check if user can report others (staked with aged stake)
+ * Check if user can report others
  */
 export async function checkCanReport(userAddress: Address): Promise<boolean> {
-  if (!MODERATION_MARKETPLACE_ADDRESS) return false;
-
-  return publicClient.readContract({
-    address: MODERATION_MARKETPLACE_ADDRESS,
-    abi: MODERATION_MARKETPLACE_ABI,
-    functionName: 'canReport',
-    args: [userAddress],
-  }).catch(() => false);
+  const profile = await moderationAPI.getModeratorProfile(userAddress)
+  return profile?.canReport ?? false
 }
 
 /**
- * Get user's stake info from ModerationMarketplace
+ * Get user's stake info
  */
 export async function getUserStake(userAddress: Address): Promise<{
-  amount: bigint;
-  stakedAt: bigint;
-  isStaked: boolean;
+  amount: bigint
+  stakedAt: bigint
+  isStaked: boolean
 } | null> {
-  if (!MODERATION_MARKETPLACE_ADDRESS) return null;
-
-  const stake = await publicClient.readContract({
-    address: MODERATION_MARKETPLACE_ADDRESS,
-    abi: MODERATION_MARKETPLACE_ABI,
-    functionName: 'getStake',
-    args: [userAddress],
-  }).catch(() => null);
-
-  if (!stake) return null;
-
+  const profile = await moderationAPI.getModeratorProfile(userAddress)
+  if (!profile) return null
   return {
-    amount: stake.amount,
-    stakedAt: stake.stakedAt,
-    isStaked: stake.isStaked,
-  };
-}
-
-/**
- * Get ban type label for display
- */
-export function getBanTypeLabel(banType: BanType): string {
-  switch (banType) {
-    case BanType.NONE: return 'Not Banned';
-    case BanType.ON_NOTICE: return 'On Notice (Pending Review)';
-    case BanType.CHALLENGED: return 'Challenged (Market Active)';
-    case BanType.PERMANENT: return 'Permanently Banned';
-    default: return 'Unknown';
+    amount: profile.stakedAmount,
+    stakedAt: profile.stakedAt,
+    isStaked: profile.isStaked,
   }
 }
 
-// ============ Reputation Types ============
-
-export enum ReputationTier {
-  UNTRUSTED = 0,
-  LOW = 1,
-  MEDIUM = 2,
-  HIGH = 3,
-  TRUSTED = 4
-}
-
-export interface ModeratorReputation {
-  successfulBans: bigint;
-  unsuccessfulBans: bigint;
-  totalSlashedFrom: bigint;
-  totalSlashedOthers: bigint;
-  reputationScore: bigint;
-  lastReportTimestamp: bigint;
-  reportCooldownUntil: bigint;
-  tier: ReputationTier;
-  netPnL: bigint;
-  winRate: number;
-}
-
-export interface QuorumStatus {
-  reached: boolean;
-  currentCount: bigint;
-  requiredCount: bigint;
-}
-
-// ============ Reputation Functions ============
-
 /**
- * Get moderator reputation with full P&L stats
+ * Get moderator reputation
  */
 export async function getModeratorReputation(userAddress: Address): Promise<ModeratorReputation | null> {
-  if (!MODERATION_MARKETPLACE_ADDRESS) return null;
+  const profile = await moderationAPI.getModeratorProfile(userAddress)
+  if (!profile) return null
 
-  const [rep, tier, pnl] = await Promise.all([
-    publicClient.readContract({
-      address: MODERATION_MARKETPLACE_ADDRESS,
-      abi: MODERATION_MARKETPLACE_ABI,
-      functionName: 'getModeratorReputation',
-      args: [userAddress],
-    }).catch(() => null),
-    publicClient.readContract({
-      address: MODERATION_MARKETPLACE_ADDRESS,
-      abi: MODERATION_MARKETPLACE_ABI,
-      functionName: 'getReputationTier',
-      args: [userAddress],
-    }).catch(() => 2), // Default MEDIUM
-    publicClient.readContract({
-      address: MODERATION_MARKETPLACE_ADDRESS,
-      abi: MODERATION_MARKETPLACE_ABI,
-      functionName: 'getModeratorPnL',
-      args: [userAddress],
-    }).catch(() => 0n),
-  ]);
-
-  if (!rep) return null;
-
-  const wins = Number(rep.successfulBans);
-  const losses = Number(rep.unsuccessfulBans);
-  const total = wins + losses;
-  const winRate = total > 0 ? Math.round((wins / total) * 100) : 50;
+  const wins = Number(profile.successfulReports)
+  const losses = Number(profile.failedReports)
+  const total = wins + losses
+  const winRate = total > 0 ? Math.round((wins / total) * 100) : 50
 
   return {
-    successfulBans: rep.successfulBans,
-    unsuccessfulBans: rep.unsuccessfulBans,
-    totalSlashedFrom: rep.totalSlashedFrom,
-    totalSlashedOthers: rep.totalSlashedOthers,
-    reputationScore: rep.reputationScore,
-    lastReportTimestamp: rep.lastReportTimestamp,
-    reportCooldownUntil: rep.reportCooldownUntil,
-    tier: tier as ReputationTier,
-    netPnL: pnl as bigint,
+    successfulBans: profile.successfulReports,
+    unsuccessfulBans: profile.failedReports,
+    totalSlashedFrom: profile.totalSlashedFrom ?? 0n,
+    totalSlashedOthers: profile.totalSlashedOthers ?? 0n,
+    reputationScore: profile.reputationScore,
+    lastReportTimestamp: profile.lastReportTime,
+    reportCooldownUntil: profile.cooldownUntil ?? 0n,
+    tier: profile.reputationTier as ReputationTier,
+    netPnL: profile.netPnL ?? 0n,
     winRate,
-  };
+  }
 }
 
 /**
- * Get required stake for a reporter based on their reputation
+ * Get required stake for a reporter
  */
 export async function getRequiredStakeForReporter(userAddress: Address): Promise<bigint | null> {
-  if (!MODERATION_MARKETPLACE_ADDRESS) return null;
-
-  return publicClient.readContract({
-    address: MODERATION_MARKETPLACE_ADDRESS,
-    abi: MODERATION_MARKETPLACE_ABI,
-    functionName: 'getRequiredStakeForReporter',
-    args: [userAddress],
-  }).catch(() => null);
+  const profile = await moderationAPI.getModeratorProfile(userAddress)
+  return profile?.requiredStake ?? null
 }
 
 /**
  * Get quorum required for a reporter
  */
 export async function getQuorumRequired(userAddress: Address): Promise<bigint | null> {
-  if (!MODERATION_MARKETPLACE_ADDRESS) return null;
-
-  return publicClient.readContract({
-    address: MODERATION_MARKETPLACE_ADDRESS,
-    abi: MODERATION_MARKETPLACE_ABI,
-    functionName: 'getQuorumRequired',
-    args: [userAddress],
-  }).catch(() => null);
+  const profile = await moderationAPI.getModeratorProfile(userAddress)
+  return profile?.quorumRequired ?? null
 }
 
 /**
- * Check quorum status for reporting a target
+ * Check quorum status for a target
  */
 export async function checkQuorumStatus(targetAddress: Address): Promise<QuorumStatus | null> {
-  if (!MODERATION_MARKETPLACE_ADDRESS) return null;
-
-  const result = await publicClient.readContract({
-    address: MODERATION_MARKETPLACE_ADDRESS,
-    abi: MODERATION_MARKETPLACE_ABI,
-    functionName: 'checkQuorumStatus',
-    args: [targetAddress],
-  }).catch(() => null);
-
-  if (!result) return null;
-
-  return {
-    reached: result[0],
-    currentCount: result[1],
-    requiredCount: result[2],
-  };
+  // This would need the reporting system contract
+  // Return null for now - implement if needed
+  return null
 }
 
-/**
- * Get reputation tier label for display
- */
-export function getReputationTierLabel(tier: ReputationTier): string {
-  switch (tier) {
-    case ReputationTier.UNTRUSTED: return 'Untrusted';
-    case ReputationTier.LOW: return 'Low';
-    case ReputationTier.MEDIUM: return 'Medium';
-    case ReputationTier.HIGH: return 'High';
-    case ReputationTier.TRUSTED: return 'Trusted';
-    default: return 'Unknown';
-  }
-}
-
-/**
- * Get reputation tier color for styling
- */
-export function getReputationTierColor(tier: ReputationTier): string {
-  switch (tier) {
-    case ReputationTier.UNTRUSTED: return 'text-red-600 bg-red-50';
-    case ReputationTier.LOW: return 'text-orange-600 bg-orange-50';
-    case ReputationTier.MEDIUM: return 'text-yellow-600 bg-yellow-50';
-    case ReputationTier.HIGH: return 'text-blue-600 bg-blue-50';
-    case ReputationTier.TRUSTED: return 'text-green-600 bg-green-50';
-    default: return 'text-gray-600 bg-gray-50';
-  }
-}
-
-/**
- * Format P&L for display
- */
-export function formatPnL(pnl: bigint): string {
-  const eth = Number(pnl) / 1e18;
-  const sign = eth >= 0 ? '+' : '';
-  return `${sign}${eth.toFixed(4)} ETH`;
-}
-
-/**
- * Clear ban cache (useful after transactions)
- */
-export function clearBanCache(userAddress?: Address): void {
-  if (userAddress) {
-    banCache.delete(userAddress.toLowerCase());
-  } else {
-    banCache.clear();
-  }
-}
+// ============ JEJU Token Functions ============
 
 export async function checkTransferAllowed(userAddress: Address): Promise<boolean> {
-  if (!JEJU_TOKEN_ADDRESS) {
-    return true; // No JEJU token configured, allow
-  }
+  if (!JEJU_TOKEN_ADDRESS) return true
 
   const enforcementEnabled = await publicClient.readContract({
     address: JEJU_TOKEN_ADDRESS,
     abi: JEJU_TOKEN_ABI,
     functionName: 'banEnforcementEnabled',
-  }).catch(() => false);
+  }).catch(() => false)
 
-  if (!enforcementEnabled) {
-    return true; // Ban enforcement disabled, allow all transfers
-  }
+  if (!enforcementEnabled) return true
 
-  // Check if user is banned from transferring JEJU
   const isBanned = await publicClient.readContract({
     address: JEJU_TOKEN_ADDRESS,
     abi: JEJU_TOKEN_ABI,
     functionName: 'isBanned',
     args: [userAddress],
-  }).catch(() => false);
+  }).catch(() => false)
 
-  return !isBanned;
+  return !isBanned
 }
 
-/**
- * Check if user can trade JEJU on Bazaar
- * Combines general ban check with JEJU-specific transfer check
- */
 export async function checkTradeAllowed(userAddress: Address): Promise<BanCheckResult> {
-  // First check general platform ban
-  const generalResult = await checkUserBan(userAddress);
-  if (!generalResult.allowed) {
-    return generalResult;
-  }
+  const generalResult = await checkUserBan(userAddress)
+  if (!generalResult.allowed) return generalResult
 
-  // Then check JEJU-specific ban
-  const jejuAllowed = await checkTransferAllowed(userAddress);
+  const jejuAllowed = await checkTransferAllowed(userAddress)
   if (!jejuAllowed) {
     return {
       allowed: false,
       reason: 'Banned from JEJU token transfers',
       networkBanned: true,
-    };
+    }
   }
 
-  return { allowed: true };
+  return { allowed: true }
+}
+
+// ============ Display Helpers ============
+
+export const getBanTypeLabel = sharedGetBanTypeLabel
+
+export function getReputationTierLabel(tier: ReputationTier): string {
+  const labels = ['Untrusted', 'Low', 'Medium', 'High', 'Trusted']
+  return labels[tier] ?? 'Unknown'
+}
+
+export function getReputationTierColor(tier: ReputationTier): string {
+  const colors = [
+    'text-red-600 bg-red-50',
+    'text-orange-600 bg-orange-50',
+    'text-yellow-600 bg-yellow-50',
+    'text-blue-600 bg-blue-50',
+    'text-green-600 bg-green-50',
+  ]
+  return colors[tier] ?? 'text-gray-600 bg-gray-50'
+}
+
+export function formatPnL(pnl: bigint): string {
+  const eth = Number(pnl) / 1e18
+  const sign = eth >= 0 ? '+' : ''
+  return `${sign}${eth.toFixed(4)} ETH`
+}
+
+export function clearBanCache(userAddress?: Address): void {
+  if (userAddress) {
+    banCache.delete(userAddress.toLowerCase())
+  } else {
+    banCache.clear()
+  }
 }

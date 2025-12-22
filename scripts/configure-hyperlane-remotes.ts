@@ -19,7 +19,7 @@ const NETWORK = process.argv.includes('--network')
   ? process.argv[process.argv.indexOf('--network') + 1] 
   : 'testnet';
 
-const CONFIG_DIR = join(import.meta.dir, '../config');
+const CONFIG_DIR = join(import.meta.dir, '../packages/config');
 const DEPLOYMENTS_DIR = join(import.meta.dir, '../deployments');
 
 interface CrossChainConfig {

@@ -1,0 +1,69 @@
+{
+  "wormhole": {
+    "ethereum": {
+      "core": "0x98f3c9e6E3fAce36bAAd05FE09d375Ef1464288B",
+      "chainId": 2
+    },
+    "base": {
+      "core": "0xbebdb6C8ddC678FfA9f8748f85C815C556Dd8ac6",
+      "chainId": 30
+    },
+    "baseSepolia": {
+      "core": "0x79A1027a6A159502049F10906D333EC57E95F083",
+      "chainId": 10004
+    },
+    "solana": {
+      "core": "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth",
+      "chainId": 1
+    },
+    "arbitrum": {
+      "core": "0xa5f208e072434bC67592E4C49C1B991BA79BCA46",
+      "chainId": 23
+    },
+    "optimism": {
+      "core": "0xEe91C335eab126dF5fDB3797EA9d6aD93aeC9722",
+      "chainId": 24
+    }
+  },
+  "hyperlane": {
+    "ethereum": {
+      "mailbox": "0xc005dc82818d67AF737725bD4bf75435d065D239",
+      "domain": 1,
+      "igp": "0x56f52c0A1ddcD557285f7CBc782D3d83096CE1Cc"
+    },
+    "base": {
+      "mailbox": "0xeA87ae93Fa0019a82A727bfd3eBd1cFCa8f64f1D",
+      "domain": 8453,
+      "igp": "0x8F1E22d309baa69D398a03CC88E9b46037e988C4"
+    },
+    "baseSepolia": {
+      "mailbox": "0x6966b0E55883d49BFB24539356a2f8A673E02039",
+      "domain": 84532,
+      "igp": "0x28B02B97a850872C4D33C3E024fab6499ad96564"
+    },
+    "arbitrum": {
+      "mailbox": "0x979Ca5202784112f4738403dBec5D0F3B9daabB9",
+      "domain": 42161,
+      "igp": "0x3b6044acd6767f017e99318AA6Ef93b7B06A5a22"
+    },
+    "optimism": {
+      "mailbox": "0xd4C1905BB739f6a1fbd0b77e9a6D8E6eCE9e1e93",
+      "domain": 10,
+      "igp": "0xD8A76C4D91fCbB7Cc8eA795DFDF870E48368995C"
+    }
+  },
+  "solanaPrograms": {
+    "agentRegistry": "EmgfjEphLavCs8ofPdjhisBKg2UAQK7wYXyX8yV8KtMD",
+    "oifSolver": "GYSFWUUKUFAdtv1TgZ3GkGfdCxPNbyRj1jsW8VRK7hBs",
+    "tokenBridge": "36Cx8V6UCkCGuSCjzQuE9oeeqojd9734TKmfnbDGWhCA",
+    "evmLightClient": "5TMUr2vv5TAUhKo4q8ibfkkw9SeBRzumYaRNo1iWvwsX",
+    "x402Facilitator": "FEsMtN2PfdzMPYCFLDLth3VxjfrozuzHodV24znt22B7",
+    "jejuLaunchpad": "6q2T4SEeE2U4XsFNa5piNy6Vzv2qvdZXmAHhQH7BYVJd"
+  },
+  "trustedEmitters": {
+    "solana": {
+      "agentRegistry": "0x0000000000000000000000000000000000000000000000000000000000000000",
+      "comment": "Set to actual Solana program derived emitter after deployment"
+    }
+  }
+}

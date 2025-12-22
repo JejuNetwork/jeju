@@ -123,9 +123,66 @@ interface IProfitTreasury is ITreasury {
     function getRecipients() external view returns (address protocol, address stakers, address insurance);
 }
 
+/**
+ * @title ITreasuryFactory
+ * @notice Interface for the TreasuryFactory contract
+ */
+interface ITreasuryFactory {
+    enum TreasuryType {
+        BASE,
+        GAME,
+        PROFIT
+    }
 
+    struct TreasuryInfo {
+        address treasury;
+        TreasuryType treasuryType;
+        string name;
+        address admin;
+        uint256 createdAt;
+        bool active;
+    }
 
+    // Events
+    event TreasuryCreated(
+        bytes32 indexed treasuryId,
+        address indexed treasury,
+        TreasuryType treasuryType,
+        string name,
+        address indexed admin
+    );
+    event TreasuryDeactivated(bytes32 indexed treasuryId, address indexed treasury);
 
+    // Treasury Creation
+    function createTreasury(
+        string calldata name,
+        address admin,
+        uint256 dailyLimit
+    ) external payable returns (bytes32 treasuryId, address treasury);
+
+    function createGameTreasury(
+        string calldata name,
+        address admin,
+        uint256 dailyLimit
+    ) external payable returns (bytes32 treasuryId, address treasury);
+
+    function createProfitTreasury(
+        string calldata name,
+        address admin,
+        uint256 dailyLimit,
+        address protocolRecipient,
+        address stakersRecipient,
+        address insuranceRecipient
+    ) external payable returns (bytes32 treasuryId, address treasury);
+
+    // View Functions
+    function getTreasury(bytes32 treasuryId) external view returns (TreasuryInfo memory);
+    function getTreasuriesByAdmin(address admin) external view returns (bytes32[] memory);
+    function getAllTreasuryIds() external view returns (bytes32[] memory);
+    function getTreasuryCount() external view returns (uint256);
+    function getTreasuriesByType(TreasuryType treasuryType) external view returns (bytes32[] memory);
+    function getActiveTreasuries() external view returns (bytes32[] memory);
+}
 
 
 

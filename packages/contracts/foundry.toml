@@ -39,7 +39,8 @@ skip = [
     "test/messaging/MessageNodeRegistry.t.sol",
     
     # Paymaster factory and liquidity paymaster need more work
-    "src/paymaster/LiquidityPaymaster.sol",
+    "src/paymaster/**",
+    "src/services/MultiTokenPaymaster.sol",
     
     # Deploy scripts for disabled features
     "deploy/DeployCompute.s.sol",

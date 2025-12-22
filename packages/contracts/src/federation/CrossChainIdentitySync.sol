@@ -104,11 +104,9 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
     /// @notice Maximum message size (32KB)
     uint256 public constant MAX_MESSAGE_SIZE = 32768;
 
-    /// @notice Rate limit: max registrations per hour
-    uint256 public constant RATE_LIMIT_REGISTRATIONS = 100;
-
-    /// @notice Rate limit window (1 hour)
-    uint256 public constant RATE_LIMIT_WINDOW = 3600;
+    /// @notice Default rate limit values
+    uint256 public constant DEFAULT_RATE_LIMIT_REGISTRATIONS = 100;
+    uint256 public constant DEFAULT_RATE_LIMIT_WINDOW = 3600;
 
     // ============================================================================
     // State
@@ -116,6 +114,12 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
 
     /// @notice Local identity registry
     IdentityRegistry public immutable identityRegistry;
+
+    /// @notice Rate limit: max registrations per window (configurable)
+    uint256 public rateLimitRegistrations;
+
+    /// @notice Rate limit window in seconds (configurable)
+    uint256 public rateLimitWindow;
 
     /// @notice Hyperlane mailbox
     IMailbox public mailbox;
@@ -181,6 +185,8 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
 
     event DomainConnected(uint32 indexed domain);
 
+    event RateLimitUpdated(uint256 newLimit, uint256 newWindow);
+
     // ============================================================================
     // Errors
     // ============================================================================
@@ -209,6 +215,8 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
         identityRegistry = IdentityRegistry(payable(_identityRegistry));
         mailbox = IMailbox(_mailbox);
         localDomain = _localDomain;
+        rateLimitRegistrations = DEFAULT_RATE_LIMIT_REGISTRATIONS;
+        rateLimitWindow = DEFAULT_RATE_LIMIT_WINDOW;
     }
 
     // ============================================================================
@@ -302,8 +310,8 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
         processedMessages[messageHash] = true;
 
         // Check rate limit
-        uint256 window = block.timestamp / RATE_LIMIT_WINDOW;
-        if (registrationCounts[_origin][window] >= RATE_LIMIT_REGISTRATIONS) {
+        uint256 window = block.timestamp / rateLimitWindow;
+        if (registrationCounts[_origin][window] >= rateLimitRegistrations) {
             revert RateLimitExceeded();
         }
         registrationCounts[_origin][window]++;
@@ -344,6 +352,19 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
      */
     function setISM(address _ism) external onlyOwner {
         ism = IInterchainSecurityModule(_ism);
+    }
+
+    /**
+     * @notice Update rate limit parameters
+     * @param _limit Maximum registrations per window
+     * @param _window Window duration in seconds
+     */
+    function setRateLimit(uint256 _limit, uint256 _window) external onlyOwner {
+        require(_limit > 0, "Invalid limit");
+        require(_window >= 60, "Window too short"); // Minimum 1 minute
+        rateLimitRegistrations = _limit;
+        rateLimitWindow = _window;
+        emit RateLimitUpdated(_limit, _window);
     }
 
     /// @notice Pause cross-chain sync operations
@@ -556,30 +577,29 @@ contract CrossChainIdentitySync is Ownable, ReentrancyGuard, Pausable {
     }
 
     function _dispatchToAll(bytes memory payload, MessageType msgType) internal {
-        uint256 totalFee = 0;
+        uint256 remainingValue = msg.value;
+        uint256 totalSpent = 0;
+        
+        // Single loop: quote and dispatch atomically for each domain
+        // This prevents race conditions where gas prices change between quote and dispatch
         for (uint256 i = 0; i < connectedDomains.length; i++) {
             uint32 domain = connectedDomains[i];
             bytes32 recipient = trustedRemotes[domain];
             if (recipient != bytes32(0)) {
                 uint256 fee = mailbox.quoteDispatch(domain, recipient, payload);
-                totalFee += fee;
-            }
-        }
-
-        if (msg.value < totalFee) revert InsufficientFee();
-
-        for (uint256 i = 0; i < connectedDomains.length; i++) {
-            uint32 domain = connectedDomains[i];
-            bytes32 recipient = trustedRemotes[domain];
-            if (recipient != bytes32(0)) {
-                uint256 fee = mailbox.quoteDispatch(domain, recipient, payload);
+                if (remainingValue < fee) revert InsufficientFee();
+                
                 bytes32 messageId = mailbox.dispatch{value: fee}(domain, recipient, payload);
                 emit MessageDispatched(domain, messageId, msgType);
+                
+                remainingValue -= fee;
+                totalSpent += fee;
             }
         }
 
-        if (msg.value > totalFee) {
-            (bool success, ) = msg.sender.call{value: msg.value - totalFee}("");
+        // Refund any excess
+        if (remainingValue > 0) {
+            (bool success, ) = msg.sender.call{value: remainingValue}("");
             require(success, "Refund failed");
         }
     }

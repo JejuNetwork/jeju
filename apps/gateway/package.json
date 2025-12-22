@@ -69,6 +69,7 @@
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",
+    "@jejunetwork/ui": "workspace:*",
     "@rainbow-me/rainbowkit": "2.2.9",
     "react-router-dom": "6.28.0",
     "@tanstack/react-query": "5.90.12",

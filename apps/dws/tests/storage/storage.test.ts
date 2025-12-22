@@ -1,5 +1,5 @@
 /**
- * Storage V2 API Tests
+ * Storage API Tests
  * 
  * Tests for the enhanced multi-backend storage API
  */
@@ -37,7 +37,7 @@ async function uploadFile(
   if (options.encrypt) formData.append('encrypt', 'true');
   if (options.permanent) formData.append('permanent', 'true');
 
-  const res = await app.request('/storage/v2/upload', {
+  const res = await app.request('/storage/upload', {
     method: 'POST',
     body: formData,
   });
@@ -49,19 +49,19 @@ async function uploadFile(
 // Health Tests
 // ============================================================================
 
-describe('Storage V2 - Health', () => {
+describe('Storage - Health', () => {
   it('GET /health should return healthy status', async () => {
-    const res = await app.request('/storage/v2/health');
+    const res = await app.request('/storage/health');
     expect(res.status).toBe(200);
 
     const data = await res.json() as { service: string; status: string; backends: string[] };
-    expect(data.service).toBe('dws-storage-v2');
+    expect(data.service).toBe('dws-storage');
     expect(data.status).toBe('healthy');
     expect(data.backends).toContain('local');
   });
 
   it('GET /stats should return node stats', async () => {
-    const res = await app.request('/storage/v2/stats');
+    const res = await app.request('/storage/stats');
     expect(res.status).toBe(200);
 
     const data = await res.json();
@@ -73,7 +73,7 @@ describe('Storage V2 - Health', () => {
 // Upload Tests
 // ============================================================================
 
-describe('Storage V2 - Upload', () => {
+describe('Storage - Upload', () => {
   it('POST /upload should upload file with tier', async () => {
     const content = Buffer.from('test content for upload');
     const res = await uploadFile(content, {
@@ -107,7 +107,7 @@ describe('Storage V2 - Upload', () => {
   it('POST /upload/json should upload JSON data', async () => {
     const jsonData = { name: 'test', value: 123 };
     
-    const res = await app.request('/storage/v2/upload/json', {
+    const res = await app.request('/storage/upload/json', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -129,7 +129,7 @@ describe('Storage V2 - Upload', () => {
 // Download Tests
 // ============================================================================
 
-describe('Storage V2 - Download', () => {
+describe('Storage - Download', () => {
   let uploadedCid: string;
 
   beforeAll(async () => {
@@ -140,7 +140,7 @@ describe('Storage V2 - Download', () => {
   });
 
   it('GET /download/:cid should return content', async () => {
-    const res = await app.request(`/storage/v2/download/${uploadedCid}`);
+    const res = await app.request(`/storage/download/${uploadedCid}`);
     expect(res.status).toBe(200);
 
     const content = await res.arrayBuffer();
@@ -149,13 +149,13 @@ describe('Storage V2 - Download', () => {
   });
 
   it('GET /download/:cid should return 404 or 500 for non-existent content', async () => {
-    const res = await app.request('/storage/v2/download/nonexistent-cid-123');
+    const res = await app.request('/storage/download/nonexistent-cid-123');
     // 404 for not found, 500 if backend throws
     expect([404, 500]).toContain(res.status);
   });
 
   it('GET /download/:cid should include backend header', async () => {
-    const res = await app.request(`/storage/v2/download/${uploadedCid}`);
+    const res = await app.request(`/storage/download/${uploadedCid}`);
     expect(res.status).toBe(200);
     expect(res.headers.get('X-Backend')).toBeDefined();
   });
@@ -165,7 +165,7 @@ describe('Storage V2 - Download', () => {
 // Content Management Tests
 // ============================================================================
 
-describe('Storage V2 - Content Management', () => {
+describe('Storage - Content Management', () => {
   let testCid: string;
 
   beforeAll(async () => {
@@ -180,7 +180,7 @@ describe('Storage V2 - Content Management', () => {
   });
 
   it('GET /content/:cid should return metadata', async () => {
-    const res = await app.request(`/storage/v2/content/${testCid}`);
+    const res = await app.request(`/storage/content/${testCid}`);
     expect(res.status).toBe(200);
 
     const data = await res.json() as { cid: string; tier: string; category: string };
@@ -190,13 +190,13 @@ describe('Storage V2 - Content Management', () => {
   });
 
   it('GET /content/:cid should return 404 or 500 for non-existent', async () => {
-    const res = await app.request('/storage/v2/content/nonexistent-123');
+    const res = await app.request('/storage/content/nonexistent-123');
     // 404 for not found, 500 if backend throws
     expect([404, 500]).toContain(res.status);
   });
 
   it('GET /content should list content', async () => {
-    const res = await app.request('/storage/v2/content');
+    const res = await app.request('/storage/content');
     expect(res.status).toBe(200);
 
     const data = await res.json() as { items: Array<{ cid: string }>; total: number };
@@ -205,7 +205,7 @@ describe('Storage V2 - Content Management', () => {
   });
 
   it('GET /content?tier=popular should filter by tier', async () => {
-    const res = await app.request('/storage/v2/content?tier=popular');
+    const res = await app.request('/storage/content?tier=popular');
     expect(res.status).toBe(200);
 
     const data = await res.json() as { items: Array<{ tier: string }> };
@@ -215,7 +215,7 @@ describe('Storage V2 - Content Management', () => {
   });
 
   it('GET /exists/:cid should check existence', async () => {
-    const res = await app.request(`/storage/v2/exists/${testCid}`);
+    const res = await app.request(`/storage/exists/${testCid}`);
     expect(res.status).toBe(200);
 
     const data = await res.json() as { cid: string; exists: boolean };
@@ -228,7 +228,7 @@ describe('Storage V2 - Content Management', () => {
 // Popularity Tests
 // ============================================================================
 
-describe('Storage V2 - Popularity', () => {
+describe('Storage - Popularity', () => {
   beforeAll(async () => {
     // Upload some content and access it
     for (let i = 0; i < 3; i++) {
@@ -238,13 +238,13 @@ describe('Storage V2 - Popularity', () => {
       
       // Access multiple times
       for (let j = 0; j < 5; j++) {
-        await app.request(`/storage/v2/download/${data.cid}`);
+        await app.request(`/storage/download/${data.cid}`);
       }
     }
   });
 
   it('GET /popular should return popular content', async () => {
-    const res = await app.request('/storage/v2/popular');
+    const res = await app.request('/storage/popular');
     expect(res.status).toBe(200);
 
     const data = await res.json() as { items: Array<{ cid: string; score: number }> };
@@ -252,7 +252,7 @@ describe('Storage V2 - Popularity', () => {
   });
 
   it('GET /popular?limit=5 should respect limit', async () => {
-    const res = await app.request('/storage/v2/popular?limit=5');
+    const res = await app.request('/storage/popular?limit=5');
     expect(res.status).toBe(200);
 
     const data = await res.json() as { items: Array<{ cid: string }> };
@@ -260,7 +260,7 @@ describe('Storage V2 - Popularity', () => {
   });
 
   it('GET /underseeded should return underseeded content', async () => {
-    const res = await app.request('/storage/v2/underseeded');
+    const res = await app.request('/storage/underseeded');
     expect(res.status).toBe(200);
 
     const data = await res.json() as { items: Array<{ cid: string }> };
@@ -272,13 +272,13 @@ describe('Storage V2 - Popularity', () => {
 // IPFS Compatibility Tests
 // ============================================================================
 
-describe('Storage V2 - IPFS Compatibility', () => {
+describe('Storage - IPFS Compatibility', () => {
   it('POST /api/v0/add should work like IPFS', async () => {
     const content = Buffer.from('ipfs compatible upload');
     const formData = new FormData();
     formData.append('file', new Blob([content]), 'test.txt');
 
-    const res = await app.request('/storage/v2/api/v0/add', {
+    const res = await app.request('/storage/api/v0/add', {
       method: 'POST',
       body: formData,
     });
@@ -291,12 +291,12 @@ describe('Storage V2 - IPFS Compatibility', () => {
   });
 
   it('POST /api/v0/id should return node info or 503 if backends unhealthy', async () => {
-    const res = await app.request('/storage/v2/api/v0/id', { method: 'POST' });
+    const res = await app.request('/storage/api/v0/id', { method: 'POST' });
     
     // May return 503 if IPFS is not available
     if (res.status === 200) {
       const data = await res.json() as { ID: string; AgentVersion: string };
-      expect(data.ID).toBe('dws-storage-v2');
+      expect(data.ID).toBe('dws-storage');
       expect(data.AgentVersion).toContain('dws/');
     } else {
       expect(res.status).toBe(503);
@@ -309,7 +309,7 @@ describe('Storage V2 - IPFS Compatibility', () => {
     const formData = new FormData();
     formData.append('file', new Blob([content]), 'ipfs-test.txt');
 
-    const uploadRes = await app.request('/storage/v2/api/v0/add', {
+    const uploadRes = await app.request('/storage/api/v0/add', {
       method: 'POST',
       body: formData,
     });
@@ -317,7 +317,7 @@ describe('Storage V2 - IPFS Compatibility', () => {
     const uploadData = await uploadRes.json() as { Hash: string };
     
     // Then fetch via IPFS gateway
-    const res = await app.request(`/storage/v2/ipfs/${uploadData.Hash}`);
+    const res = await app.request(`/storage/ipfs/${uploadData.Hash}`);
     expect(res.status).toBe(200);
     expect(res.headers.get('X-Ipfs-Path')).toBe(`/ipfs/${uploadData.Hash}`);
   });

@@ -1,49 +1,44 @@
 /**
- * IPFS Upload utility for Autocrat
- * Uses DWS storage API for decentralized file storage
+ * IPFS Client for Autocrat
+ * Re-exports from @jejunetwork/shared with autocrat-specific config
  */
 
-const IPFS_API_URL = process.env.NEXT_PUBLIC_IPFS_API_URL || 'http://localhost:4030/storage/api/v0';
+import {
+  createIPFSClient,
+  uploadToIPFS as uploadToIPFSBase,
+  type IPFSUploadResult,
+} from '@jejunetwork/shared';
 
-export interface IPFSUploadResult {
-  hash: string;
-  url: string;
-}
+const IPFS_API_URL = process.env.NEXT_PUBLIC_IPFS_API_URL || 'http://localhost:4030/storage/api/v0';
+const IPFS_GATEWAY_URL = IPFS_API_URL.replace('/api/v0', '/ipfs');
+
+// Create singleton client with autocrat config
+const ipfsClient = createIPFSClient({
+  apiUrl: IPFS_API_URL,
+  gatewayUrl: IPFS_GATEWAY_URL,
+});
+
+export type { IPFSUploadResult };
 
 /**
  * Upload content to IPFS via DWS storage API
- * Returns the IPFS hash (CID) as a string
  */
 export async function uploadToIPFS(content: string | Blob | File): Promise<string> {
-  const formData = new FormData();
-  
   if (typeof content === 'string') {
-    formData.append('file', new Blob([content], { type: 'application/json' }));
-  } else {
-    formData.append('file', content);
+    const blob = new Blob([content], { type: 'application/json' });
+    return ipfsClient.upload(blob);
   }
-
-  const response = await fetch(`${IPFS_API_URL}/add`, {
-    method: 'POST',
-    body: formData,
-  });
-
-  if (!response.ok) {
-    throw new Error(`IPFS upload failed: ${response.status}`);
-  }
-
-  const result = await response.json() as { Hash: string };
-  return result.Hash;
+  return ipfsClient.upload(content);
 }
 
 /**
  * Upload content to IPFS and return full result with URL
  */
 export async function uploadToIPFSWithUrl(content: string | Blob | File): Promise<IPFSUploadResult> {
-  const hash = await uploadToIPFS(content);
+  const cid = await uploadToIPFS(content);
   return {
-    hash,
-    url: `${IPFS_API_URL.replace('/api/v0', '/ipfs')}/${hash}`,
+    cid,
+    url: ipfsClient.getUrl(cid),
   };
 }
 
@@ -51,5 +46,8 @@ export async function uploadToIPFSWithUrl(content: string | Blob | File): Promis
  * Upload JSON data to IPFS
  */
 export async function uploadJSONToIPFS<T>(data: T): Promise<string> {
-  return uploadToIPFS(JSON.stringify(data));
+  return ipfsClient.uploadJSON(data);
 }
+
+// Export client for direct access
+export { ipfsClient };
