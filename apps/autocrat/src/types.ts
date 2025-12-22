@@ -1086,7 +1086,7 @@ export interface BountyAssessment {
 export interface BountyGuardianVote {
   submissionId: string;
   guardian: Address;
-  agentId: bigint;
+  guardianAgentId: bigint;
   approved: boolean;
   suggestedReward: bigint;
   feedback: string;
@@ -1094,7 +1094,6 @@ export interface BountyGuardianVote {
 }
 
 export interface ResearcherStats {
-  address: Address;
   totalSubmissions: number;
   approvedSubmissions: number;
   rejectedSubmissions: number;

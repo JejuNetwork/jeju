@@ -82,7 +82,7 @@ export function validateSecretKey(secretKey: BLSSecretKey): boolean {
     const sk = hexToBytes(secretKey.slice(2));
     // Verify it's a valid scalar (non-zero and less than curve order)
     const scalar = BigInt(`0x${bytesToHex(sk)}`);
-    return scalar > 0n && scalar < bls.CURVE.r;
+    return scalar > 0n && scalar < bls.params.r;
   } catch {
     return false;
   }
