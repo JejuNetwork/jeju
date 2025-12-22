@@ -675,9 +675,9 @@ app.post('/api/v1/agents/:agentId/memory', async ({ params, body }) => {
   )
   const agentId = BigInt(parsedParams.agentId)
   const memory = await agentSdk.addMemory(agentId, parsedBody.content, {
-    importance: parsedBody.importance,
-    roomId: parsedBody.roomId,
-    userId: parsedBody.userId,
+    importance: parsedBody.importance ?? undefined,
+    roomId: parsedBody.roomId ?? undefined,
+    userId: parsedBody.userId ?? undefined,
   })
   return { memory }
 })
@@ -786,7 +786,7 @@ app.post('/api/v1/rooms/:roomId/message', async ({ params, body }) => {
     BigInt(parsedParams.roomId),
     BigInt(parsedBody.agentId),
     parsedBody.content,
-    parsedBody.action,
+    parsedBody.action ?? undefined,
   )
   metrics.rooms.messages++
   return { message }
@@ -863,7 +863,7 @@ app.post('/api/v1/execute', async ({ body }) => {
 
   const request: ExecutionRequest = {
     agentId: BigInt(parsedBody.agentId),
-    triggerId: parsedBody.triggerId,
+    triggerId: parsedBody.triggerId ?? undefined,
     input: parsedBody.input,
     options: parsedBody.options
       ? {
@@ -1060,8 +1060,8 @@ app.get('/api/v1/search/agents', async ({ query, set }) => {
   try {
     const parsedQuery = AgentSearchQuerySchema.parse(query)
     const result = await agentSdk.searchAgents({
-      name: parsedQuery.name,
-      owner: parsedQuery.owner as `0x${string}` | undefined,
+      name: parsedQuery.name ?? undefined,
+      owner: (parsedQuery.owner as `0x${string}`) ?? undefined,
       active: parsedQuery.active,
       limit: parsedQuery.limit ?? 20,
     })

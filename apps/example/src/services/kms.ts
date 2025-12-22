@@ -1,28 +1,19 @@
 /**
- * KMS Service
- *
- * Type-safe client for the KMS (Key Management Service).
- * Uses direct fetch with typed responses for reliability.
+ * KMS Service - Eden Client
  */
 
+import { treaty } from '@elysiajs/eden'
+import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 
 const KMS_ENDPOINT = process.env.KMS_ENDPOINT || 'http://localhost:4400'
 const KMS_TIMEOUT = 10000
-
-// ============================================================================
-// Types
-// ============================================================================
 
 interface KMSService {
   encrypt(data: string, owner: Address): Promise<string>
   decrypt(encryptedData: string, owner: Address): Promise<string>
   isHealthy(): Promise<boolean>
 }
-
-// ============================================================================
-// Error Types
-// ============================================================================
 
 export class KMSError extends Error {
   constructor(
@@ -34,14 +25,45 @@ export class KMSError extends Error {
   }
 }
 
-// ============================================================================
-// Typed HTTP Client
-// ============================================================================
+const kmsAppDef = new Elysia()
+  .post('/encrypt', () => ({ encrypted: '' as string }), {
+    body: t.Object({
+      data: t.String(),
+      policy: t.Object({
+        conditions: t.Array(
+          t.Object({
+            type: t.String(),
+            chain: t.Optional(t.String()),
+            value: t.Optional(t.String()),
+            comparator: t.Optional(t.String()),
+          }),
+        ),
+        operator: t.String(),
+      }),
+    }),
+  })
+  .post('/decrypt', () => ({ decrypted: '' as string }), {
+    body: t.Object({ payload: t.String() }),
+  })
+  .get('/health', () => ({ status: 'ok' as const }))
 
-class KMSClient {
-  constructor(private baseUrl: string) {}
+type KMSApp = typeof kmsAppDef
 
-  async encrypt(data: string, owner: Address): Promise<{ encrypted: string }> {
+class NetworkKMSService implements KMSService {
+  private client: ReturnType<typeof treaty<KMSApp>>
+  private baseUrl: string
+  private healthLastChecked = 0
+  private healthy = false
+
+  constructor() {
+    this.baseUrl = KMS_ENDPOINT.replace(/\/$/, '')
+    this.client = treaty<KMSApp>(this.baseUrl, {
+      fetch: { signal: AbortSignal.timeout(KMS_TIMEOUT) },
+    })
+  }
+
+  async encrypt(data: string, owner: Address): Promise<string> {
+    // Eden doesn't support custom headers per-request easily, use fetch
     const response = await fetch(`${this.baseUrl}/encrypt`, {
       method: 'POST',
       headers: {
@@ -67,20 +89,18 @@ class KMSClient {
       )
     }
 
-    return response.json() as Promise<{ encrypted: string }>
+    const result = (await response.json()) as { encrypted: string }
+    return result.encrypted
   }
 
-  async decrypt(
-    payload: string,
-    owner: Address,
-  ): Promise<{ decrypted: string }> {
+  async decrypt(encryptedData: string, owner: Address): Promise<string> {
     const response = await fetch(`${this.baseUrl}/decrypt`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'x-jeju-address': owner,
       },
-      body: JSON.stringify({ payload }),
+      body: JSON.stringify({ payload: encryptedData }),
       signal: AbortSignal.timeout(KMS_TIMEOUT),
     })
 
@@ -91,42 +111,7 @@ class KMSClient {
       )
     }
 
-    return response.json() as Promise<{ decrypted: string }>
-  }
-
-  async health(): Promise<{ status: string }> {
-    const response = await fetch(`${this.baseUrl}/health`, {
-      signal: AbortSignal.timeout(5000),
-    })
-
-    if (!response.ok) {
-      throw new KMSError('KMS health check failed', response.status)
-    }
-
-    return response.json() as Promise<{ status: string }>
-  }
-}
-
-// ============================================================================
-// KMS Service Implementation
-// ============================================================================
-
-class NetworkKMSService implements KMSService {
-  private client: KMSClient
-  private healthLastChecked = 0
-  private healthy = false
-
-  constructor() {
-    this.client = new KMSClient(KMS_ENDPOINT.replace(/\/$/, ''))
-  }
-
-  async encrypt(data: string, owner: Address): Promise<string> {
-    const result = await this.client.encrypt(data, owner)
-    return result.encrypted
-  }
-
-  async decrypt(encryptedData: string, owner: Address): Promise<string> {
-    const result = await this.client.decrypt(encryptedData, owner)
+    const result = (await response.json()) as { decrypted: string }
     return result.decrypted
   }
 
@@ -135,20 +120,12 @@ class NetworkKMSService implements KMSService {
       return this.healthy
     }
 
-    try {
-      await this.client.health()
-      this.healthy = true
-    } catch {
-      this.healthy = false
-    }
+    const { error } = await this.client.health.get()
+    this.healthy = !error
     this.healthLastChecked = Date.now()
     return this.healthy
   }
 }
-
-// ============================================================================
-// Singleton
-// ============================================================================
 
 let kmsService: KMSService | null = null
 
@@ -159,8 +136,10 @@ export function getKMSService(): KMSService {
   return kmsService
 }
 
-export function createKMSClient(baseUrl: string): KMSClient {
-  return new KMSClient(baseUrl)
+export function createKMSClient(baseUrl: string) {
+  return treaty<KMSApp>(baseUrl, {
+    fetch: { signal: AbortSignal.timeout(KMS_TIMEOUT) },
+  })
 }
 
 export function resetKMSService(): void {

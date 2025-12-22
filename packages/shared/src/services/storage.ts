@@ -6,7 +6,7 @@
 
 import { expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
-import { type ZodSchema, z } from 'zod'
+import { z } from 'zod'
 import { StorageUploadResponseSchema } from '../schemas'
 import type { ProtocolValue } from '../types'
 
@@ -37,7 +37,7 @@ export interface StorageService {
    * @param cid - Content identifier
    * @param schema - Optional Zod schema for validation (recommended for security)
    */
-  retrieveJson<T>(cid: string, schema?: ZodSchema<T>): Promise<T>
+  retrieveJson<T>(cid: string, schema?: z.ZodType<T>): Promise<T>
   getUrl(cid: string): string
   pin(cid: string, options?: PinOptions): Promise<void>
   unpin(cid: string): Promise<void>
@@ -141,7 +141,7 @@ class StorageServiceImpl implements StorageService {
    * SECURITY: Always provide a schema when retrieving external data
    * to prevent insecure deserialization attacks.
    */
-  async retrieveJson<T>(cid: string, schema?: ZodSchema<T>): Promise<T> {
+  async retrieveJson<T>(cid: string, schema?: z.ZodType<T>): Promise<T> {
     const data = await this.retrieve(cid)
     const text = new TextDecoder().decode(data)
 

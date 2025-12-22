@@ -104,8 +104,8 @@ Always be technically accurate. If you don't know something, say so and offer to
   },
 
   modelPreferences: {
-    small: 'llama-3.1-8b',
-    large: 'llama-3.1-70b',
+    small: 'llama-3.1-8b-instant',
+    large: 'llama-3.3-70b-versatile',
   },
 
   mcpServers: ['org-tools', 'documentation'],

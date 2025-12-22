@@ -470,8 +470,8 @@ export class AutocratOrchestrator {
         proposalType: String(proposal.proposalType),
         submitter: proposal.proposer,
         daoId: state.daoId,
-        daoName: daoFull.dao.displayName,
-        governanceParams: daoFull.params,
+        daoName: state.daoFull.dao.displayName,
+        governanceParams: state.daoFull.params,
       }
 
       const agentVotes = await autocratAgentRuntime.deliberateAll(request)
@@ -672,11 +672,11 @@ export class AutocratOrchestrator {
 
     if (
       this.account &&
-      ceoAgentAddress &&
-      ceoAgentAddress !== '0x0000000000000000000000000000000000000000'
+      state.ceoAgentAddress &&
+      state.ceoAgentAddress !== '0x0000000000000000000000000000000000000000'
     ) {
       const hash = await writeContract(this.walletClient, {
-        address: ceoAgentAddress,
+        address: state.ceoAgentAddress,
         abi: CEO_WRITE_ABI,
         functionName: 'recordDecision',
         args: [

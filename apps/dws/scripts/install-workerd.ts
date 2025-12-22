@@ -107,13 +107,17 @@ async function getInstallDir(): Promise<string> {
 async function isWorkerdInstalled(binPath: string): Promise<boolean> {
   if (!existsSync(binPath)) return false
 
-  // Verify it works
+  // Verify it works and print version
   const proc = Bun.spawn([binPath, '--version'], {
     stdout: 'pipe',
     stderr: 'pipe',
   })
 
   const exitCode = await proc.exited
+  if (exitCode === 0) {
+    const stdout = await new Response(proc.stdout).text()
+    console.log(`[workerd] Version: ${stdout.trim()}`)
+  }
   return exitCode === 0
 }
 
@@ -217,6 +221,7 @@ async function installToSystemPath(): Promise<string | null> {
 async function main(): Promise<void> {
   console.log('[workerd] Starting installation...')
   console.log(`[workerd] Platform: ${process.platform}, Arch: ${process.arch}`)
+  console.log(`[workerd] Target version: ${WORKERD_VERSION}`)
 
   try {
     // Install to node_modules/.bin
@@ -234,6 +239,15 @@ async function main(): Promise<void> {
     // Write path to a file for other scripts to read
     const pathFile = join(process.cwd(), 'node_modules', '.workerd-path')
     await Bun.write(pathFile, systemPath || localPath)
+
+    // Final verification
+    const finalPath = systemPath || localPath
+    if (await isWorkerdInstalled(finalPath)) {
+      console.log('[workerd] ✓ Verified workerd is working correctly')
+    } else {
+      console.error('[workerd] ✗ Verification failed')
+      process.exit(1)
+    }
   } catch (error) {
     console.error('[workerd] Installation failed:', error)
     process.exit(1)

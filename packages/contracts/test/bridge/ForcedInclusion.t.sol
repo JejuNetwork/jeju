@@ -51,7 +51,8 @@ contract ForcedInclusionTest is Test {
             address(batchInbox),
             address(registry),
             securityCouncil,
-            owner
+            owner,
+            true // Skip contract check in tests
         );
 
         registry.setActiveSequencer(sequencer, true);
@@ -70,7 +71,7 @@ contract ForcedInclusionTest is Test {
 
     function test_Constructor_RevertZeroBatchInbox() public {
         vm.expectRevert(ForcedInclusion.ZeroAddress.selector);
-        new ForcedInclusion(address(0), address(registry), securityCouncil, owner);
+        new ForcedInclusion(address(0), address(registry), securityCouncil, owner, true);
     }
 
     // ============ Queue TX Tests ============

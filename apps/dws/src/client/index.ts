@@ -68,3 +68,7 @@ export type TriggerClient = ReturnType<typeof createTriggerClient>
 // Re-export app types for external use
 export type { GatewayApp, NodeApp, ProxyCoordinatorApp, TriggerApp }
 export type { InferenceApp }
+
+// Re-export types used by treaty clients
+export type { ProxyNode } from '../proxy/coordinator'
+export type { Trigger, TriggerExecution } from '../triggers'

@@ -467,9 +467,6 @@ export class ResidentialProxyService {
       }
 
       return isValid
-    } catch (error) {
-      console.error('[Proxy] Auth token validation error:', error)
-      throw error
     }
   }
 

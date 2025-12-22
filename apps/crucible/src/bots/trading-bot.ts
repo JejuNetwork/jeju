@@ -100,11 +100,11 @@ export class TradingBot {
       chainId: c.chainId as ChainId,
       name: c.name,
       rpcUrl: c.rpcUrl,
-      wsUrl: c.wsUrl,
+      wsUrl: c.wsUrl ?? null,
       blockTime: c.blockTime,
       isL2: c.isL2,
       nativeSymbol: c.nativeSymbol,
-      explorerUrl: c.explorerUrl,
+      explorerUrl: c.explorerUrl ?? null,
     }))
 
     this.collector = new EventCollector(this.chainConfigs)

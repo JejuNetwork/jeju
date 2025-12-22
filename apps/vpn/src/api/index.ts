@@ -15,7 +15,7 @@ import { expectValid } from './schemas'
 export async function invoke<T>(
   cmd: string,
   args: Record<string, unknown> = {},
-  schema?: z.ZodSchema<T>,
+  schema?: z.ZodType<T>,
 ): Promise<T> {
   let result: T
 

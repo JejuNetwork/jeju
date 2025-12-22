@@ -116,8 +116,8 @@ Always be honest about what you know and don't know. Use available data to make 
   },
 
   modelPreferences: {
-    small: 'llama-3.1-8b',
-    large: 'llama-3.1-70b',
+    small: 'llama-3.1-8b-instant',
+    large: 'llama-3.3-70b-versatile',
   },
 
   mcpServers: ['org-tools', 'credentials'],

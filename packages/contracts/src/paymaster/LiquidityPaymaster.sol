@@ -26,11 +26,23 @@ contract LiquidityPaymaster is BasePaymaster {
     uint256 public feeMargin; // In basis points (100 = 1%)
     
     uint256 public constant MAX_FEE_MARGIN = 1000; // 10% max
+    uint256 public constant ORACLE_CHANGE_DELAY = 24 hours; // SECURITY: Oracle timelock
 
     error InvalidFeeMargin();
     error InsufficientAllowance();
     error InsufficientBalance();
     error PriceNotAvailable();
+    error OracleChangePending();
+    error NoOracleChangePending();
+    error OracleChangeNotReady();
+    
+    // SECURITY: Oracle change timelock
+    address public pendingOracle;
+    uint256 public oracleChangeTime;
+    
+    event OracleChangeProposed(address indexed newOracle, uint256 effectiveTime);
+    event OracleChangeExecuted(address indexed oldOracle, address indexed newOracle);
+    event OracleChangeCancelled();
 
     event FeeMarginUpdated(uint256 oldMargin, uint256 newMargin);
     event OracleUpdated(address oldOracle, address newOracle);
@@ -61,10 +73,46 @@ contract LiquidityPaymaster is BasePaymaster {
         feeMargin = _feeMargin;
     }
 
-    function setOracle(address _oracle) external onlyOwner {
+    /// @notice Propose a new oracle - requires 24-hour delay
+    /// @dev SECURITY: Prevents instant oracle manipulation for gas sponsorship
+    function proposeOracle(address _oracle) public onlyOwner {
         require(_oracle != address(0), "Invalid oracle");
-        emit OracleUpdated(address(oracle), _oracle);
-        oracle = IPriceOracle(_oracle);
+        if (pendingOracle != address(0)) revert OracleChangePending();
+        
+        pendingOracle = _oracle;
+        oracleChangeTime = block.timestamp + ORACLE_CHANGE_DELAY;
+        
+        emit OracleChangeProposed(_oracle, oracleChangeTime);
+    }
+    
+    /// @notice Execute oracle change after timelock expires
+    function executeOracleChange() external onlyOwner {
+        if (pendingOracle == address(0)) revert NoOracleChangePending();
+        if (block.timestamp < oracleChangeTime) revert OracleChangeNotReady();
+        
+        address oldOracle = address(oracle);
+        oracle = IPriceOracle(pendingOracle);
+        
+        emit OracleUpdated(oldOracle, pendingOracle);
+        emit OracleChangeExecuted(oldOracle, pendingOracle);
+        
+        pendingOracle = address(0);
+        oracleChangeTime = 0;
+    }
+    
+    /// @notice Cancel pending oracle change
+    function cancelOracleChange() external onlyOwner {
+        if (pendingOracle == address(0)) revert NoOracleChangePending();
+        
+        emit OracleChangeCancelled();
+        
+        pendingOracle = address(0);
+        oracleChangeTime = 0;
+    }
+    
+    /// @notice Legacy setOracle - now requires timelock
+    function setOracle(address _oracle) external onlyOwner {
+        proposeOracle(_oracle);
     }
 
     function getTokenAmountForEth(uint256 ethCost) public view returns (uint256) {

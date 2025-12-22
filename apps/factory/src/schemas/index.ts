@@ -18,7 +18,7 @@ export const AddressSchema = z.custom<Address>(
  * Validate and return typed result, throwing on failure
  */
 export function expectValid<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   data: unknown,
   message?: string,
 ): T {
@@ -32,7 +32,7 @@ export function expectValid<T>(
 }
 
 export function expectJson<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   json: string,
   message?: string,
 ): T {

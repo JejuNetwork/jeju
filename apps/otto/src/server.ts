@@ -223,8 +223,8 @@ const app = new Elysia()
     }
 
     // Validate parameters with fail-fast - this ensures address is a valid 0x hex address
-    expectAddress(address, 'address parameter')
-    expectHex(signature, 'signature parameter')
+    expectAddress(address, 'auth callback address')
+    expectHex(signature, 'auth callback signature')
     validatePlatform(platform)
     expectValid(z.string().min(1), platformId, 'auth callback platformId')
     validateNonce(nonce)

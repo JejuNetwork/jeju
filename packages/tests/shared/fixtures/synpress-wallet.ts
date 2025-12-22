@@ -238,13 +238,3 @@ export async function getWalletAddress(page: Page): Promise<string> {
   return match[0]
 }
 
-/**
- * Verify wallet is connected (legacy - use verifyAuth instead)
- * @deprecated Use verifyAuth instead
- */
-export async function verifyWalletConnected(
-  page: Page,
-  expectedAddress?: string,
-): Promise<string> {
-  return verifyAuth(page, { expectedAddress })
-}

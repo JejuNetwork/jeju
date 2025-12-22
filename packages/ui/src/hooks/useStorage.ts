@@ -1,7 +1,7 @@
 import type { PinInfo, UploadOptions, UploadResult } from '@jejunetwork/sdk'
 import type { JsonValue } from '@jejunetwork/types'
 import { useCallback } from 'react'
-import type { ZodSchema } from 'zod'
+import { z } from 'zod'
 import { useNetworkContext } from '../context'
 import { type AsyncState, requireClient, useAsyncState } from './utils'
 
@@ -21,7 +21,7 @@ export interface UseStorageResult extends AsyncState {
    * @param schema - Zod schema for validation
    * @throws Error if validation fails
    */
-  retrieveJson: <T>(cid: string, schema: ZodSchema<T>) => Promise<T>
+  retrieveJson: <T>(cid: string, schema: z.ZodType<T>) => Promise<T>
   listPins: () => Promise<PinInfo[]>
   getGatewayUrl: (cid: string) => string
 }
@@ -61,7 +61,7 @@ export function useStorage(): UseStorageResult {
   )
 
   const retrieveJson = useCallback(
-    async <T>(cid: string, schema: ZodSchema<T>): Promise<T> => {
+    async <T>(cid: string, schema: z.ZodType<T>): Promise<T> => {
       const c = requireClient(client)
       return c.storage.retrieveJson(cid, schema)
     },

@@ -3,7 +3,7 @@
  */
 
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
-import type { ZodSchema } from 'zod'
+import { z } from 'zod'
 import { getKMS } from '../kms.js'
 import type { AuthSignature, EncryptedPayload } from '../types.js'
 
@@ -71,7 +71,7 @@ export async function canDecrypt(payload: EncryptedPayload): Promise<boolean> {
 export async function decryptJSON<T>(
   payload: EncryptedPayload,
   authSig?: AuthSignature,
-  schema?: ZodSchema<T>,
+  schema?: z.ZodType<T>,
 ): Promise<T> {
   const kms = getKMS()
   await kms.initialize()

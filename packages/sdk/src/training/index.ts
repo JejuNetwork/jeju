@@ -8,10 +8,10 @@
  * - Rewards claiming
  */
 
-import type { NetworkType } from '@jejunetwork/types'
-import { type Address, encodeFunctionData, type Hex } from 'viem'
-import { requireContract } from '../config'
-import type { JejuWallet } from '../wallet'
+import type { NetworkType } from "@jejunetwork/types";
+import { type Address, encodeFunctionData, type Hex } from "viem";
+import { requireContract } from "../config";
+import type { JejuWallet } from "../wallet";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -26,109 +26,109 @@ export const RunState = {
   COOLDOWN: 5,
   FINISHED: 6,
   PAUSED: 7,
-} as const
-export type RunState = (typeof RunState)[keyof typeof RunState]
+} as const;
+export type RunState = (typeof RunState)[keyof typeof RunState];
 
 export const PrivacyMode = {
   PUBLIC: 0,
   PRIVATE: 1, // TEE + MPC encrypted
-} as const
-export type PrivacyMode = (typeof PrivacyMode)[keyof typeof PrivacyMode]
+} as const;
+export type PrivacyMode = (typeof PrivacyMode)[keyof typeof PrivacyMode];
 
 export interface TrainingRun {
-  runId: Hex
-  creator: Address
-  state: RunState
-  config: CoordinatorConfig
-  model: ModelConfig
-  progress: Progress
-  privacyMode: PrivacyMode
-  mpcKeyId: Hex
-  clientCount: number
-  stateStartTimestamp: bigint
+  runId: Hex;
+  creator: Address;
+  state: RunState;
+  config: CoordinatorConfig;
+  model: ModelConfig;
+  progress: Progress;
+  privacyMode: PrivacyMode;
+  mpcKeyId: Hex;
+  clientCount: number;
+  stateStartTimestamp: bigint;
 }
 
 export interface CoordinatorConfig {
-  minClients: number
-  maxClients: number
-  minTrainEpoch: number
-  maxTrainEpoch: number
-  witnessQuorum: number
-  epochDuration: bigint
-  roundDuration: bigint
+  minClients: number;
+  maxClients: number;
+  minTrainEpoch: number;
+  maxTrainEpoch: number;
+  witnessQuorum: number;
+  epochDuration: bigint;
+  roundDuration: bigint;
 }
 
 export interface ModelConfig {
-  modelHash: Hex
-  datasetHash: Hex
-  hyperparameters: string
-  targetEpochs: number
+  modelHash: Hex;
+  datasetHash: Hex;
+  hyperparameters: string;
+  targetEpochs: number;
 }
 
 export interface Progress {
-  epoch: number
-  step: number
-  epochStartDataIndex: bigint
+  epoch: number;
+  step: number;
+  epochStartDataIndex: bigint;
 }
 
 export interface Client {
-  clientAddress: Address
-  nodeId: Hex
-  joinedAt: bigint
-  lastActive: bigint
-  isActive: boolean
-  contribution: bigint
+  clientAddress: Address;
+  nodeId: Hex;
+  joinedAt: bigint;
+  lastActive: bigint;
+  isActive: boolean;
+  contribution: bigint;
 }
 
 export interface CreateRunParams {
-  minClients?: number
-  maxClients?: number
-  targetEpochs: number
-  epochDuration?: bigint
-  roundDuration?: bigint
-  modelHash: Hex
-  datasetHash: Hex
-  hyperparameters?: string
-  privacyMode?: PrivacyMode
-  mpcKeyId?: Hex
+  minClients?: number;
+  maxClients?: number;
+  targetEpochs: number;
+  epochDuration?: bigint;
+  roundDuration?: bigint;
+  modelHash: Hex;
+  datasetHash: Hex;
+  hyperparameters?: string;
+  privacyMode?: PrivacyMode;
+  mpcKeyId?: Hex;
 }
 
 export interface TrainingModule {
   // Run Management
-  createRun(params: CreateRunParams): Promise<{ runId: Hex; txHash: Hex }>
-  getRun(runId: Hex): Promise<TrainingRun | null>
-  listActiveRuns(): Promise<TrainingRun[]>
-  listMyRuns(): Promise<TrainingRun[]>
-  pauseRun(runId: Hex): Promise<Hex>
-  resumeRun(runId: Hex): Promise<Hex>
-  cancelRun(runId: Hex): Promise<Hex>
+  createRun(params: CreateRunParams): Promise<{ runId: Hex; txHash: Hex }>;
+  getRun(runId: Hex): Promise<TrainingRun | null>;
+  listActiveRuns(): Promise<TrainingRun[]>;
+  listMyRuns(): Promise<TrainingRun[]>;
+  pauseRun(runId: Hex): Promise<Hex>;
+  resumeRun(runId: Hex): Promise<Hex>;
+  cancelRun(runId: Hex): Promise<Hex>;
 
   // Client Participation
-  joinRun(runId: Hex, nodeId: Hex): Promise<Hex>
-  leaveRun(runId: Hex): Promise<Hex>
-  getClients(runId: Hex): Promise<Client[]>
-  getMyClientStatus(runId: Hex): Promise<Client | null>
-  isClientActive(runId: Hex, client?: Address): Promise<boolean>
+  joinRun(runId: Hex, nodeId: Hex): Promise<Hex>;
+  leaveRun(runId: Hex): Promise<Hex>;
+  getClients(runId: Hex): Promise<Client[]>;
+  getMyClientStatus(runId: Hex): Promise<Client | null>;
+  isClientActive(runId: Hex, client?: Address): Promise<boolean>;
 
   // Training Steps
-  submitTrainingStep(runId: Hex, stepData: Hex): Promise<Hex>
-  submitWitnessReport(runId: Hex, report: Hex): Promise<Hex>
-  submitHealthCheck(runId: Hex, checkData: Hex): Promise<Hex>
+  submitTrainingStep(runId: Hex, stepData: Hex): Promise<Hex>;
+  submitWitnessReport(runId: Hex, report: Hex): Promise<Hex>;
+  submitHealthCheck(runId: Hex, checkData: Hex): Promise<Hex>;
 
   // Rewards
-  claimRewards(runId: Hex): Promise<Hex>
-  getPendingRewards(runId: Hex, client?: Address): Promise<bigint>
-  getTotalRewards(runId: Hex): Promise<bigint>
+  claimRewards(runId: Hex): Promise<Hex>;
+  getPendingRewards(runId: Hex, client?: Address): Promise<bigint>;
+  getTotalRewards(runId: Hex): Promise<bigint>;
 
   // Metrics
-  getRunProgress(runId: Hex): Promise<Progress>
+  getRunProgress(runId: Hex): Promise<Progress>;
   getRunMetrics(runId: Hex): Promise<{
-    totalEpochs: number
-    currentEpoch: number
-    participantCount: number
-    witnessCount: number
-    averageContribution: bigint
-  }>
+    totalEpochs: number;
+    currentEpoch: number;
+    participantCount: number;
+    witnessCount: number;
+    averageContribution: bigint;
+  }>;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -137,151 +137,151 @@ export interface TrainingModule {
 
 const TRAINING_COORDINATOR_ABI = [
   {
-    name: 'createRun',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "createRun",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'minClients', type: 'uint16' },
-      { name: 'maxClients', type: 'uint16' },
-      { name: 'targetEpochs', type: 'uint16' },
-      { name: 'epochDuration', type: 'uint64' },
-      { name: 'roundDuration', type: 'uint64' },
-      { name: 'modelHash', type: 'bytes32' },
-      { name: 'datasetHash', type: 'bytes32' },
-      { name: 'hyperparameters', type: 'string' },
-      { name: 'privacyMode', type: 'uint8' },
-      { name: 'mpcKeyId', type: 'bytes32' },
+      { name: "minClients", type: "uint16" },
+      { name: "maxClients", type: "uint16" },
+      { name: "targetEpochs", type: "uint16" },
+      { name: "epochDuration", type: "uint64" },
+      { name: "roundDuration", type: "uint64" },
+      { name: "modelHash", type: "bytes32" },
+      { name: "datasetHash", type: "bytes32" },
+      { name: "hyperparameters", type: "string" },
+      { name: "privacyMode", type: "uint8" },
+      { name: "mpcKeyId", type: "bytes32" },
     ],
-    outputs: [{ type: 'bytes32' }],
+    outputs: [{ type: "bytes32" }],
   },
   {
-    name: 'runs',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'runId', type: 'bytes32' }],
+    name: "runs",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "runId", type: "bytes32" }],
     outputs: [
-      { name: 'runId', type: 'bytes32' },
-      { name: 'creator', type: 'address' },
-      { name: 'state', type: 'uint8' },
-      { name: 'stateStartTimestamp', type: 'uint64' },
-      { name: 'privacyMode', type: 'uint8' },
-      { name: 'mpcKeyId', type: 'bytes32' },
+      { name: "runId", type: "bytes32" },
+      { name: "creator", type: "address" },
+      { name: "state", type: "uint8" },
+      { name: "stateStartTimestamp", type: "uint64" },
+      { name: "privacyMode", type: "uint8" },
+      { name: "mpcKeyId", type: "bytes32" },
     ],
   },
   {
-    name: 'joinRun',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "joinRun",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'runId', type: 'bytes32' },
-      { name: 'nodeId', type: 'bytes32' },
+      { name: "runId", type: "bytes32" },
+      { name: "nodeId", type: "bytes32" },
     ],
     outputs: [],
   },
   {
-    name: 'leaveRun',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'runId', type: 'bytes32' }],
+    name: "leaveRun",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "runId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: 'pauseRun',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'runId', type: 'bytes32' }],
+    name: "pauseRun",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "runId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: 'resumeRun',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'runId', type: 'bytes32' }],
+    name: "resumeRun",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "runId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: 'cancelRun',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'runId', type: 'bytes32' }],
+    name: "cancelRun",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "runId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: 'submitTrainingStep',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "submitTrainingStep",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'runId', type: 'bytes32' },
-      { name: 'stepData', type: 'bytes' },
+      { name: "runId", type: "bytes32" },
+      { name: "stepData", type: "bytes" },
     ],
     outputs: [],
   },
   {
-    name: 'submitWitnessReport',
-    type: 'function',
-    stateMutability: 'nonpayable',
+    name: "submitWitnessReport",
+    type: "function",
+    stateMutability: "nonpayable",
     inputs: [
-      { name: 'runId', type: 'bytes32' },
-      { name: 'report', type: 'bytes' },
+      { name: "runId", type: "bytes32" },
+      { name: "report", type: "bytes" },
     ],
     outputs: [],
   },
   {
-    name: 'getClientCount',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'runId', type: 'bytes32' }],
-    outputs: [{ type: 'uint256' }],
+    name: "getClientCount",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "runId", type: "bytes32" }],
+    outputs: [{ type: "uint256" }],
   },
   {
-    name: 'isClient',
-    type: 'function',
-    stateMutability: 'view',
+    name: "isClient",
+    type: "function",
+    stateMutability: "view",
     inputs: [
-      { name: 'runId', type: 'bytes32' },
-      { name: 'client', type: 'address' },
+      { name: "runId", type: "bytes32" },
+      { name: "client", type: "address" },
     ],
-    outputs: [{ type: 'bool' }],
+    outputs: [{ type: "bool" }],
   },
   {
-    name: 'getProgress',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'runId', type: 'bytes32' }],
+    name: "getProgress",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "runId", type: "bytes32" }],
     outputs: [
-      { name: 'epoch', type: 'uint16' },
-      { name: 'step', type: 'uint32' },
-      { name: 'epochStartDataIndex', type: 'uint64' },
+      { name: "epoch", type: "uint16" },
+      { name: "step", type: "uint32" },
+      { name: "epochStartDataIndex", type: "uint64" },
     ],
   },
-] as const
+] as const;
 
 const TRAINING_REWARDS_ABI = [
   {
-    name: 'claimRewards',
-    type: 'function',
-    stateMutability: 'nonpayable',
-    inputs: [{ name: 'runId', type: 'bytes32' }],
+    name: "claimRewards",
+    type: "function",
+    stateMutability: "nonpayable",
+    inputs: [{ name: "runId", type: "bytes32" }],
     outputs: [],
   },
   {
-    name: 'pendingRewards',
-    type: 'function',
-    stateMutability: 'view',
+    name: "pendingRewards",
+    type: "function",
+    stateMutability: "view",
     inputs: [
-      { name: 'runId', type: 'bytes32' },
-      { name: 'client', type: 'address' },
+      { name: "runId", type: "bytes32" },
+      { name: "client", type: "address" },
     ],
-    outputs: [{ type: 'uint256' }],
+    outputs: [{ type: "uint256" }],
   },
   {
-    name: 'totalRewards',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'runId', type: 'bytes32' }],
-    outputs: [{ type: 'uint256' }],
+    name: "totalRewards",
+    type: "function",
+    stateMutability: "view",
+    inputs: [{ name: "runId", type: "bytes32" }],
+    outputs: [{ type: "uint256" }],
   },
-] as const
+] as const;
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                          IMPLEMENTATION
@@ -292,17 +292,21 @@ export function createTrainingModule(
   network: NetworkType,
 ): TrainingModule {
   const coordinatorAddress = requireContract(
-    'training',
-    'TrainingCoordinator',
+    "training",
+    "TrainingCoordinator",
     network,
-  )
-  const rewardsAddress = requireContract('training', 'TrainingRewards', network)
+  );
+  const rewardsAddress = requireContract(
+    "training",
+    "TrainingRewards",
+    network,
+  );
 
   return {
     async createRun(params) {
       const data = encodeFunctionData({
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'createRun',
+        functionName: "createRun",
         args: [
           params.minClients ?? 2,
           params.maxClients ?? 256,
@@ -311,37 +315,37 @@ export function createTrainingModule(
           params.roundDuration ?? 300n, // 5 minutes
           params.modelHash,
           params.datasetHash,
-          params.hyperparameters ?? '',
+          params.hyperparameters ?? "",
           params.privacyMode ?? PrivacyMode.PUBLIC,
-          params.mpcKeyId ?? (`0x${'0'.repeat(64)}` as Hex),
+          params.mpcKeyId ?? (`0x${"0".repeat(64)}` as Hex),
         ],
-      })
+      });
 
       const txHash = await wallet.sendTransaction({
         to: coordinatorAddress,
         data,
-      })
+      });
 
-      return { runId: params.modelHash, txHash }
+      return { runId: params.modelHash, txHash };
     },
 
     async getRun(runId) {
       const result = await wallet.publicClient.readContract({
         address: coordinatorAddress,
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'runs',
+        functionName: "runs",
         args: [runId],
-      })
+      });
 
-      if (result[1] === '0x0000000000000000000000000000000000000000')
-        return null
+      if (result[1] === "0x0000000000000000000000000000000000000000")
+        return null;
 
       const clientCount = await wallet.publicClient.readContract({
         address: coordinatorAddress,
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'getClientCount',
+        functionName: "getClientCount",
         args: [runId],
-      })
+      });
 
       return {
         runId: result[0],
@@ -357,9 +361,9 @@ export function createTrainingModule(
           roundDuration: 300n,
         },
         model: {
-          modelHash: `0x${'0'.repeat(64)}` as Hex,
-          datasetHash: `0x${'0'.repeat(64)}` as Hex,
-          hyperparameters: '',
+          modelHash: `0x${"0".repeat(64)}` as Hex,
+          datasetHash: `0x${"0".repeat(64)}` as Hex,
+          hyperparameters: "",
           targetEpochs: 0,
         },
         progress: { epoch: 0, step: 0, epochStartDataIndex: 0n },
@@ -367,155 +371,155 @@ export function createTrainingModule(
         mpcKeyId: result[5],
         clientCount: Number(clientCount),
         stateStartTimestamp: result[3],
-      }
+      };
     },
 
     async listActiveRuns() {
       // Would fetch from API or iterate contract
-      return []
+      return [];
     },
 
     async listMyRuns() {
       // Would fetch runs where creator = wallet.address
-      return []
+      return [];
     },
 
     async pauseRun(runId) {
       const data = encodeFunctionData({
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'pauseRun',
+        functionName: "pauseRun",
         args: [runId],
-      })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      });
+      return wallet.sendTransaction({ to: coordinatorAddress, data });
     },
 
     async resumeRun(runId) {
       const data = encodeFunctionData({
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'resumeRun',
+        functionName: "resumeRun",
         args: [runId],
-      })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      });
+      return wallet.sendTransaction({ to: coordinatorAddress, data });
     },
 
     async cancelRun(runId) {
       const data = encodeFunctionData({
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'cancelRun',
+        functionName: "cancelRun",
         args: [runId],
-      })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      });
+      return wallet.sendTransaction({ to: coordinatorAddress, data });
     },
 
     async joinRun(runId, nodeId) {
       const data = encodeFunctionData({
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'joinRun',
+        functionName: "joinRun",
         args: [runId, nodeId],
-      })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      });
+      return wallet.sendTransaction({ to: coordinatorAddress, data });
     },
 
     async leaveRun(runId) {
       const data = encodeFunctionData({
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'leaveRun',
+        functionName: "leaveRun",
         args: [runId],
-      })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      });
+      return wallet.sendTransaction({ to: coordinatorAddress, data });
     },
 
     async getClients(_runId) {
       // Would enumerate clients from contract
-      return []
+      return [];
     },
 
     async getMyClientStatus(_runId) {
-      return null
+      return null;
     },
 
     async isClientActive(runId, client) {
       return wallet.publicClient.readContract({
         address: coordinatorAddress,
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'isClient',
+        functionName: "isClient",
         args: [runId, client ?? wallet.address],
-      })
+      });
     },
 
     async submitTrainingStep(runId, stepData) {
       const data = encodeFunctionData({
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'submitTrainingStep',
+        functionName: "submitTrainingStep",
         args: [runId, stepData],
-      })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      });
+      return wallet.sendTransaction({ to: coordinatorAddress, data });
     },
 
     async submitWitnessReport(runId, report) {
       const data = encodeFunctionData({
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'submitWitnessReport',
+        functionName: "submitWitnessReport",
         args: [runId, report],
-      })
-      return wallet.sendTransaction({ to: coordinatorAddress, data })
+      });
+      return wallet.sendTransaction({ to: coordinatorAddress, data });
     },
 
     async submitHealthCheck(_runId, _checkData) {
-      throw new Error('Not implemented')
+      throw new Error("Not implemented");
     },
 
     async claimRewards(runId) {
       const data = encodeFunctionData({
         abi: TRAINING_REWARDS_ABI,
-        functionName: 'claimRewards',
+        functionName: "claimRewards",
         args: [runId],
-      })
-      return wallet.sendTransaction({ to: rewardsAddress, data })
+      });
+      return wallet.sendTransaction({ to: rewardsAddress, data });
     },
 
     async getPendingRewards(runId, client) {
       return wallet.publicClient.readContract({
         address: rewardsAddress,
         abi: TRAINING_REWARDS_ABI,
-        functionName: 'pendingRewards',
+        functionName: "pendingRewards",
         args: [runId, client ?? wallet.address],
-      })
+      });
     },
 
     async getTotalRewards(runId) {
       return wallet.publicClient.readContract({
         address: rewardsAddress,
         abi: TRAINING_REWARDS_ABI,
-        functionName: 'totalRewards',
+        functionName: "totalRewards",
         args: [runId],
-      })
+      });
     },
 
     async getRunProgress(runId) {
       const result = await wallet.publicClient.readContract({
         address: coordinatorAddress,
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'getProgress',
+        functionName: "getProgress",
         args: [runId],
-      })
+      });
 
       return {
         epoch: Number(result[0]),
         step: Number(result[1]),
         epochStartDataIndex: result[2],
-      }
+      };
     },
 
     async getRunMetrics(runId) {
       const clientCount = await wallet.publicClient.readContract({
         address: coordinatorAddress,
         abi: TRAINING_COORDINATOR_ABI,
-        functionName: 'getClientCount',
+        functionName: "getClientCount",
         args: [runId],
-      })
+      });
 
-      const progress = await this.getRunProgress(runId)
+      const progress = await this.getRunProgress(runId);
 
       return {
         totalEpochs: 0,
@@ -523,7 +527,7 @@ export function createTrainingModule(
         participantCount: Number(clientCount),
         witnessCount: 0,
         averageContribution: 0n,
-      }
+      };
     },
-  }
+  };
 }

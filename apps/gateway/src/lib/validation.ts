@@ -603,7 +603,7 @@ export const RpcChainsResponseSchema = z.object({
 export type RpcChainsResponse = z.infer<typeof RpcChainsResponseSchema>
 
 export const FlashbotsRpcResponseSchema = z.object({
-  result: z.unknown().nullable(),
+  result: JsonValueSchema.optional(),
   error: z
     .object({
       message: z.string(),
@@ -1013,7 +1013,7 @@ export const validateOrThrow = baseExpectValid
 
 export function expect<T>(
   value: unknown,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context?: string,
 ): T {
   return baseExpectValid(schema, value, context)
@@ -1035,7 +1035,7 @@ export function expectPositiveNumber(value: unknown, context?: string): string {
 }
 
 export function validateQuery<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   query: Record<string, unknown>,
   context?: string,
 ): T {
@@ -1046,7 +1046,7 @@ export function validateQuery<T>(
  * Validates request body
  */
 export function validateBody<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   body: unknown,
   context?: string,
 ): T {

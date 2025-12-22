@@ -25,7 +25,6 @@ export {
   test,
   verifyAuth,
   verifyDisconnected,
-  verifyWalletConnected,
   walletPassword,
 } from './fixtures/synpress-wallet'
 // Helpers

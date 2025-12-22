@@ -18,6 +18,88 @@ const log = createLogger('jupiter')
 const JUPITER_API_V6 = 'https://quote-api.jup.ag/v6'
 const JUPITER_PRICE_API = 'https://price.jup.ag/v6'
 
+// Retry configuration for Jupiter API calls
+const RETRY_CONFIG = {
+  maxAttempts: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 5000,
+  backoffMultiplier: 2,
+}
+
+/**
+ * Check if error is retryable (network errors, 5xx, rate limits)
+ */
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof TypeError) {
+    return true // Network errors (fetch failed, connection refused)
+  }
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase()
+    if (
+      msg.includes('network') ||
+      msg.includes('timeout') ||
+      msg.includes('econnrefused') ||
+      msg.includes('econnreset') ||
+      msg.includes('unable to connect')
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * Fetch with retry logic for Jupiter API
+ */
+async function fetchWithRetry(
+  url: string,
+  options?: RequestInit,
+): Promise<Response> {
+  let lastError: Error | undefined
+  let delay = RETRY_CONFIG.initialDelayMs
+
+  for (let attempt = 0; attempt < RETRY_CONFIG.maxAttempts; attempt++) {
+    try {
+      const response = await fetch(url, options)
+
+      // Retry on 5xx or 429 (rate limit)
+      if (response.status >= 500 || response.status === 429) {
+        const retryAfter = response.headers.get('retry-after')
+        delay = retryAfter ? parseInt(retryAfter, 10) * 1000 : delay
+
+        if (attempt < RETRY_CONFIG.maxAttempts - 1) {
+          log.warn('Jupiter API error, retrying', {
+            status: response.status,
+            attempt: attempt + 1,
+            delay,
+          })
+          await new Promise((r) => setTimeout(r, delay))
+          delay = Math.min(delay * RETRY_CONFIG.backoffMultiplier, RETRY_CONFIG.maxDelayMs)
+          continue
+        }
+      }
+
+      return response
+    } catch (error) {
+      lastError = error as Error
+
+      if (!isRetryableError(error) || attempt === RETRY_CONFIG.maxAttempts - 1) {
+        throw error
+      }
+
+      log.warn('Jupiter API network error, retrying', {
+        error: lastError.message,
+        attempt: attempt + 1,
+        delay,
+      })
+      await new Promise((r) => setTimeout(r, delay))
+      delay = Math.min(delay * RETRY_CONFIG.backoffMultiplier, RETRY_CONFIG.maxDelayMs)
+    }
+  }
+
+  throw lastError ?? new Error('Jupiter API request failed after retries')
+}
+
 // Common Solana token mints
 const SOLANA_TOKENS: Record<string, string> = {
   SOL: 'So11111111111111111111111111111111111111112',
@@ -128,7 +210,7 @@ export class JupiterClient extends EventEmitter {
       queryParams.set('maxAccounts', params.maxAccounts.toString())
     }
 
-    const response = await fetch(`${JUPITER_API_V6}/quote?${queryParams}`)
+    const response = await fetchWithRetry(`${JUPITER_API_V6}/quote?${queryParams}`)
     if (!response.ok) {
       const error = await response.text()
       throw new Error(`Jupiter quote failed: ${error}`)
@@ -170,7 +252,7 @@ export class JupiterClient extends EventEmitter {
     }
 
     // Get swap transaction
-    const swapResponse = await fetch(`${JUPITER_API_V6}/swap`, {
+    const swapResponse = await fetchWithRetry(`${JUPITER_API_V6}/swap`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -236,7 +318,7 @@ export class JupiterClient extends EventEmitter {
     transaction: VersionedTransaction
     lastValidBlockHeight: number
   }> {
-    const swapResponse = await fetch(`${JUPITER_API_V6}/swap`, {
+    const swapResponse = await fetchWithRetry(`${JUPITER_API_V6}/swap`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -272,7 +354,7 @@ export class JupiterClient extends EventEmitter {
    * Get token price in USD
    */
   async getPrice(tokenMint: string): Promise<number> {
-    const response = await fetch(`${JUPITER_PRICE_API}/price?ids=${tokenMint}`)
+    const response = await fetchWithRetry(`${JUPITER_PRICE_API}/price?ids=${tokenMint}`)
     if (!response.ok) {
       throw new Error(`Jupiter price API failed: ${response.statusText}`)
     }
@@ -291,7 +373,7 @@ export class JupiterClient extends EventEmitter {
    * Get multiple token prices
    */
   async getPrices(tokenMints: string[]): Promise<Record<string, number>> {
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `${JUPITER_PRICE_API}/price?ids=${tokenMints.join(',')}`,
     )
     if (!response.ok) {
@@ -317,7 +399,7 @@ export class JupiterClient extends EventEmitter {
   async getTokenList(): Promise<
     { address: string; symbol: string; name: string; decimals: number }[]
   > {
-    const response = await fetch('https://token.jup.ag/all')
+    const response = await fetchWithRetry('https://token.jup.ag/all')
     if (!response.ok) {
       throw new Error(`Jupiter token list failed: ${response.statusText}`)
     }

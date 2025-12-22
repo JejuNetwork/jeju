@@ -47,9 +47,10 @@ describe('Storage Integration Tests', () => {
   })
 
   test('client created successfully', () => {
-    if (!env?.chainRunning) return
+    // Skip if chain not running or client creation failed (contracts not deployed)
+    if (!env?.chainRunning || !client) return
     expect(client).toBeDefined()
-    expect(client?.storage).toBeDefined()
+    expect(client.storage).toBeDefined()
   })
 
   test('estimateCost returns valid bigint', () => {

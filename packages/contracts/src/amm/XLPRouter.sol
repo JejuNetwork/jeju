@@ -61,6 +61,25 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
     address public feeRecipient;
     uint256 public routerFeeBps;
     mapping(address => bool) public approvedRouters;
+    
+    // SECURITY: Critical address timelocks
+    uint256 public constant CRITICAL_CHANGE_DELAY = 24 hours;
+    
+    struct PendingChange {
+        address newAddress;
+        uint256 executeAfter;
+    }
+    
+    PendingChange public pendingAggregator;
+    PendingChange public pendingPermit2;
+    
+    event CriticalChangeProposed(string indexed changeType, address newAddress, uint256 executeAfter);
+    event CriticalChangeExecuted(string indexed changeType, address oldAddress, address newAddress);
+    event CriticalChangeCancelled(string indexed changeType);
+    
+    error ChangeAlreadyPending();
+    error NoChangePending();
+    error ChangeNotReady();
     mapping(address => address) public referrers;
     mapping(address => uint256) public referralVolume;
 
@@ -320,14 +339,68 @@ contract XLPRouter is ReentrancyGuard, Ownable, IXLPV3SwapCallback, IRouterInteg
         crossChainPaymaster = _paymaster;
     }
 
+    /// @notice Propose new Permit2 - requires 24-hour delay
+    /// @dev SECURITY: Prevents instant Permit2 swap to malicious contract
+    function proposePermit2(address _permit2) public onlyOwner {
+        if (pendingPermit2.executeAfter > 0) revert ChangeAlreadyPending();
+        
+        pendingPermit2 = PendingChange({
+            newAddress: _permit2,
+            executeAfter: block.timestamp + CRITICAL_CHANGE_DELAY
+        });
+        
+        emit CriticalChangeProposed("permit2", _permit2, pendingPermit2.executeAfter);
+    }
+    
+    /// @notice Execute Permit2 change after timelock
+    function executePermit2Change() external onlyOwner {
+        if (pendingPermit2.executeAfter == 0) revert NoChangePending();
+        if (block.timestamp < pendingPermit2.executeAfter) revert ChangeNotReady();
+        
+        address oldPermit2 = permit2;
+        permit2 = pendingPermit2.newAddress;
+        
+        emit Permit2Updated(oldPermit2, permit2);
+        emit CriticalChangeExecuted("permit2", oldPermit2, permit2);
+        
+        delete pendingPermit2;
+    }
+    
+    /// @notice Legacy setPermit2 - now requires timelock
     function setPermit2(address _permit2) external onlyOwner {
-        emit Permit2Updated(permit2, _permit2);
-        permit2 = _permit2;
+        proposePermit2(_permit2);
     }
 
+    /// @notice Propose new LiquidityAggregator - requires 24-hour delay
+    /// @dev SECURITY: Prevents instant aggregator swap
+    function proposeLiquidityAggregator(address _aggregator) public onlyOwner {
+        if (pendingAggregator.executeAfter > 0) revert ChangeAlreadyPending();
+        
+        pendingAggregator = PendingChange({
+            newAddress: _aggregator,
+            executeAfter: block.timestamp + CRITICAL_CHANGE_DELAY
+        });
+        
+        emit CriticalChangeProposed("aggregator", _aggregator, pendingAggregator.executeAfter);
+    }
+    
+    /// @notice Execute LiquidityAggregator change after timelock
+    function executeAggregatorChange() external onlyOwner {
+        if (pendingAggregator.executeAfter == 0) revert NoChangePending();
+        if (block.timestamp < pendingAggregator.executeAfter) revert ChangeNotReady();
+        
+        address oldAggregator = liquidityAggregator;
+        liquidityAggregator = pendingAggregator.newAddress;
+        
+        emit AggregatorUpdated(oldAggregator, liquidityAggregator);
+        emit CriticalChangeExecuted("aggregator", oldAggregator, liquidityAggregator);
+        
+        delete pendingAggregator;
+    }
+    
+    /// @notice Legacy setLiquidityAggregator - now requires timelock
     function setLiquidityAggregator(address _aggregator) external onlyOwner {
-        emit AggregatorUpdated(liquidityAggregator, _aggregator);
-        liquidityAggregator = _aggregator;
+        proposeLiquidityAggregator(_aggregator);
     }
 
     function setRouterRegistry(address _registry) external onlyOwner {

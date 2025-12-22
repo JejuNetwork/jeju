@@ -476,7 +476,6 @@ export class EdgeCoordinator {
       return true
     } catch (error) {
       coordinatorAuthFailures.inc({ reason: 'invalid_signature' })
-      console.error('[EdgeCoordinator] Signature verification failed:', error)
       throw error
     }
   }
@@ -505,9 +504,6 @@ export class EdgeCoordinator {
       })) as boolean
       this.registeredOperators.set(operator, isRegistered)
       return isRegistered
-    } catch (error) {
-      console.error('[EdgeCoordinator] Registration check failed:', error)
-      throw error
     }
   }
 

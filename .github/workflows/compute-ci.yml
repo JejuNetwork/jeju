@@ -51,6 +51,21 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Install workerd binary
+        working-directory: apps/dws
+        run: bun run install:workerd
+
+      - name: Verify workerd installation
+        run: |
+          WORKERD_PATH=$(cat apps/dws/node_modules/.workerd-path 2>/dev/null || echo "")
+          if [ -n "$WORKERD_PATH" ] && [ -x "$WORKERD_PATH" ]; then
+            echo "workerd installed at: $WORKERD_PATH"
+            $WORKERD_PATH --version
+          else
+            echo "workerd not found, checking PATH..."
+            which workerd || echo "workerd not in PATH"
+          fi
+
       - name: Run unit tests
         working-directory: apps/dws
         run: bun test
@@ -74,6 +89,10 @@ jobs:
       - name: Install dependencies
         run: bun install
 
+      - name: Install workerd binary
+        working-directory: apps/dws
+        run: bun run install:workerd
+
       - name: Build contracts
         working-directory: packages/contracts
         run: forge build
@@ -95,6 +114,46 @@ jobs:
           JEJU_RPC_URL: http://127.0.0.1:6546
         run: bun test
 
+  workerd-tests:
+    name: Workerd Runtime Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install workerd binary
+        working-directory: apps/dws
+        run: bun run install:workerd
+
+      - name: Verify workerd installation
+        working-directory: apps/dws
+        run: |
+          WORKERD_PATH=$(cat node_modules/.workerd-path 2>/dev/null || echo "")
+          if [ -n "$WORKERD_PATH" ] && [ -x "$WORKERD_PATH" ]; then
+            echo "workerd installed at: $WORKERD_PATH"
+            $WORKERD_PATH --version
+          else
+            echo "::error::workerd installation failed"
+            exit 1
+          fi
+
+      - name: Run workerd tests
+        working-directory: apps/dws
+        run: bun test tests/workerd.test.ts
+
+      - name: Run infrastructure tests
+        working-directory: apps/dws
+        run: bun test tests/infrastructure-direct.test.ts
+
   mcp-a2a-tests:
     name: MCP & A2A Tests
     runs-on: ubuntu-latest
@@ -113,6 +172,10 @@ jobs:
 
       - name: Install dependencies
         run: bun install
+
+      - name: Install workerd binary
+        working-directory: apps/dws
+        run: bun run install:workerd
 
       - name: Start Anvil (Jeju L2 on port 6546)
         run: |

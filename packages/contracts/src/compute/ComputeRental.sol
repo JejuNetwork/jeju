@@ -752,6 +752,8 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
         }
     }
 
+    /// @notice Report abuse - now requires arbitrator review before ban
+    /// @dev SECURITY: Prevents colluding providers from auto-banning users
     function reportAbuse(bytes32 rentalId, DisputeReason reason, string calldata evidenceUri) external {
         Rental storage rental = rentals[rentalId];
         if (rental.rentalId == bytes32(0)) revert RentalNotFound();
@@ -768,13 +770,18 @@ contract ComputeRental is Ownable, Pausable, ReentrancyGuard {
 
         emit AbuseReported(msg.sender, rental.user, rentalId, reason, evidenceUri);
 
-        // Auto-ban if threshold reached
-        if (userRecords[rental.user].abuseReports >= abuseReportThreshold) {
-            userRecords[rental.user].banned = true;
-            userRecords[rental.user].bannedAt = block.timestamp;
-            userRecords[rental.user].banReason = "Exceeded abuse report threshold";
-            emit UserBanned(rental.user, "Exceeded abuse report threshold");
-        }
+        // SECURITY: No longer auto-ban - require arbitrator review
+        // Previous vulnerability: colluding providers could auto-ban users with just 3 reports
+        // Now: arbitrators must review and manually ban if warranted
+    }
+    
+    /// @notice Ban user after arbitrator review - requires arbitrator role
+    /// @dev SECURITY: Only arbitrators can ban, not automatic from reports
+    function banUserAfterReview(address user, string calldata reason) external onlyArbitrator {
+        userRecords[user].banned = true;
+        userRecords[user].bannedAt = block.timestamp;
+        userRecords[user].banReason = reason;
+        emit UserBanned(user, reason);
     }
 
 

@@ -32,6 +32,37 @@ contract InsuranceFund is IInsuranceFund, ReentrancyGuard, Ownable {
     uint256 public totalWithdrawals;
     uint256 public totalDeficitsCovered;
     
+    // SECURITY: Timelocks and limits
+    uint256 public constant ORACLE_CHANGE_DELAY = 24 hours;
+    uint256 public constant WITHDRAWAL_DELAY = 48 hours;
+    uint256 public constant DAILY_WITHDRAWAL_LIMIT_BPS = 1000; // 10% max per day
+    
+    address public pendingOracle;
+    uint256 public oracleChangeTime;
+    
+    struct PendingWithdrawal {
+        address token;
+        uint256 amount;
+        uint256 executeAfter;
+        bool executed;
+    }
+    mapping(bytes32 => PendingWithdrawal) public pendingWithdrawals;
+    mapping(uint256 => uint256) public dailyWithdrawals; // day => amount withdrawn
+    
+    event OracleChangeProposed(address indexed newOracle, uint256 executeAfter);
+    event OracleChangeExecuted(address indexed oldOracle, address indexed newOracle);
+    event WithdrawalProposed(bytes32 indexed withdrawalId, address token, uint256 amount, uint256 executeAfter);
+    event WithdrawalExecuted(bytes32 indexed withdrawalId, address token, uint256 amount);
+    event WithdrawalCancelled(bytes32 indexed withdrawalId);
+    
+    error OracleChangePending();
+    error NoOracleChangePending();
+    error OracleChangeNotReady();
+    error WithdrawalNotFound();
+    error WithdrawalNotReady();
+    error WithdrawalAlreadyExecuted();
+    error ExceedsDailyLimit();
+    
     constructor(address _priceOracle, address _owner) Ownable(_owner) {
         priceOracle = IPriceOracle(_priceOracle);
     }

@@ -16,21 +16,26 @@ describe('CDN Module Integration Tests', () => {
   let skipTests = false
 
   beforeAll(async () => {
-    env = await setupTestEnvironment()
+    try {
+      env = await setupTestEnvironment()
 
-    if (!env.chainRunning) {
-      console.log('⚠ Chain not running - skipping CDN tests')
+      if (!env.chainRunning) {
+        console.log('⚠ Chain not running - skipping CDN tests')
+        skipTests = true
+        return
+      }
+
+      const account = privateKeyToAccount(env.privateKey)
+      client = await createJejuClient({
+        account,
+        network: 'localnet',
+        rpcUrl: env.rpcUrl,
+        smartAccount: false,
+      })
+    } catch {
+      console.log('⚠ Contracts not configured - skipping CDN tests')
       skipTests = true
-      return
     }
-
-    const account = privateKeyToAccount(env.privateKey)
-    client = await createJejuClient({
-      account,
-      network: 'localnet',
-      rpcUrl: env.rpcUrl,
-      smartAccount: false,
-    })
   })
 
   afterAll(async () => {

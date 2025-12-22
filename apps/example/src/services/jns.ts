@@ -1,10 +1,9 @@
 /**
- * JNS Service
- *
- * Type-safe client for the JNS (Jeju Name Service) gateway.
- * Uses direct fetch with typed responses for reliability.
+ * JNS Service - Eden Client
  */
 
+import { treaty } from '@elysiajs/eden'
+import { Elysia, t } from 'elysia'
 import type { Address, Hex } from 'viem'
 import type { JNSRecords } from '../schemas'
 import {
@@ -20,10 +19,6 @@ import { expectValid } from '../utils/validation'
 const GATEWAY_API = process.env.GATEWAY_API || 'http://localhost:4020'
 const JNS_NAME = process.env.JNS_NAME || 'todo.jeju'
 const JNS_TIMEOUT = 10000
-
-// ============================================================================
-// Error Types
-// ============================================================================
 
 export class JNSError extends Error {
   constructor(
@@ -42,82 +37,23 @@ export class JNSNotFoundError extends JNSError {
   }
 }
 
-// ============================================================================
-// Typed HTTP Client
-// ============================================================================
+const jnsAppDef = new Elysia()
+  .get('/jns/available/:name', () => ({ available: true }))
+  .post('/jns/register', () => ({ txHash: '' as string, name: '' as string }), {
+    body: t.Object({
+      name: t.String(),
+      owner: t.String(),
+      durationYears: t.Number(),
+      price: t.String(),
+    }),
+  })
+  .get('/jns/records/:name', () => ({}) as JNSRecords)
+  .post('/jns/records/:name', () => ({ txHash: '' as string }))
+  .get('/jns/resolve/:name', () => ({ address: '' as string }))
+  .get('/jns/price/:name', () => ({ price: '' as string }))
+  .get('/health', () => ({ status: 'ok' as const }))
 
-class JNSClient {
-  constructor(private baseUrl: string) {}
-
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...init?.headers,
-      },
-      signal: AbortSignal.timeout(JNS_TIMEOUT),
-    })
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new JNSNotFoundError(`Resource not found: ${path}`)
-      }
-      throw new JNSError(
-        `JNS request failed: ${response.status}`,
-        response.status,
-      )
-    }
-
-    return response.json() as Promise<T>
-  }
-
-  async checkAvailable(name: string): Promise<{ available: boolean }> {
-    return this.request(`/jns/available/${encodeURIComponent(name)}`)
-  }
-
-  async register(data: {
-    name: string
-    owner: Address
-    durationYears: number
-    price: string
-  }): Promise<{ txHash: string; name?: string }> {
-    return this.request('/jns/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async getRecords(name: string): Promise<JNSRecords> {
-    return this.request(`/jns/records/${encodeURIComponent(name)}`)
-  }
-
-  async setRecords(
-    name: string,
-    records: JNSRecords,
-  ): Promise<{ txHash: string }> {
-    return this.request(`/jns/records/${encodeURIComponent(name)}`, {
-      method: 'POST',
-      body: JSON.stringify(records),
-    })
-  }
-
-  async resolve(name: string): Promise<{ address: string }> {
-    return this.request(`/jns/resolve/${encodeURIComponent(name)}`)
-  }
-
-  async getPrice(name: string, years: number): Promise<{ price: string }> {
-    return this.request(`/jns/price/${encodeURIComponent(name)}?years=${years}`)
-  }
-
-  async health(): Promise<{ status: string }> {
-    return this.request('/health')
-  }
-}
-
-// ============================================================================
-// Service Interface
-// ============================================================================
+type JNSApp = typeof jnsAppDef
 
 interface JNSService {
   isNameAvailable(name: string): Promise<boolean>
@@ -132,22 +68,25 @@ interface JNSService {
   getRegistrationPrice(name: string, durationYears: number): Promise<bigint>
 }
 
-// ============================================================================
-// Service Implementation
-// ============================================================================
-
 class JNSServiceImpl implements JNSService {
-  private client: JNSClient
+  private client: ReturnType<typeof treaty<JNSApp>>
+  private baseUrl: string
 
   constructor() {
-    this.client = new JNSClient(GATEWAY_API)
+    this.baseUrl = GATEWAY_API
+    this.client = treaty<JNSApp>(GATEWAY_API, {
+      fetch: { signal: AbortSignal.timeout(JNS_TIMEOUT) },
+    })
   }
 
   async isNameAvailable(name: string): Promise<boolean> {
     const normalized = normalizeJNSName(name)
-    const data = await this.client.checkAvailable(normalized)
+    const { data, error } = await this.client.jns
+      .available({ name: normalized })
+      .get()
+    if (error) throw new JNSError(`JNS availability check failed: ${error}`, 500)
     expectValid(jnsAvailableResponseSchema, data, 'JNS available response')
-    return data.available
+    return data?.available ?? false
   }
 
   async register(
@@ -158,15 +97,16 @@ class JNSServiceImpl implements JNSService {
     const normalized = normalizeJNSName(name)
     const price = await this.getRegistrationPrice(name, durationYears)
 
-    const data = await this.client.register({
+    const { data, error } = await this.client.jns.register.post({
       name: normalized,
       owner,
       durationYears,
       price: price.toString(),
     })
 
+    if (error) throw new JNSError(`JNS register failed: ${error}`, 500)
     expectValid(jnsRegisterResponseSchema, data, 'JNS register response')
-    return { txHash: data.txHash as Hex, name: normalized }
+    return { txHash: data?.txHash as Hex, name: normalized }
   }
 
   async setRecords(
@@ -174,36 +114,58 @@ class JNSServiceImpl implements JNSService {
     records: JNSRecords,
   ): Promise<{ txHash: Hex }> {
     const normalized = normalizeJNSName(name)
-    const data = await this.client.setRecords(normalized, records)
+
+    // Eden has trouble with dynamic path params, use fetch for this
+    const response = await fetch(
+      `${this.baseUrl}/jns/records/${encodeURIComponent(normalized)}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(records),
+        signal: AbortSignal.timeout(JNS_TIMEOUT),
+      },
+    )
+
+    if (!response.ok) {
+      throw new JNSError(`JNS set records failed: ${response.status}`, response.status)
+    }
+
+    const data = (await response.json()) as { txHash: string }
     expectValid(jnsRegisterResponseSchema, data, 'JNS set records response')
     return { txHash: data.txHash as Hex }
   }
 
   async getRecords(name: string): Promise<JNSRecords> {
     const normalized = normalizeJNSName(name)
-    try {
-      const data = await this.client.getRecords(normalized)
-      return expectValid(jnsRecordsSchema, data, 'JNS records response')
-    } catch (e) {
-      if (e instanceof JNSNotFoundError) {
+    const { data, error } = await this.client.jns
+      .records({ name: normalized })
+      .get()
+
+    if (error) {
+      if (String(error).includes('404')) {
         return {}
       }
-      throw e
+      throw new JNSError(`JNS get records failed: ${error}`, 500)
     }
+
+    return expectValid(jnsRecordsSchema, data, 'JNS records response')
   }
 
   async resolve(name: string): Promise<Address | null> {
     const normalized = normalizeJNSName(name)
-    try {
-      const data = await this.client.resolve(normalized)
-      expectValid(jnsResolveResponseSchema, data, 'JNS resolve response')
-      return data.address as Address
-    } catch (e) {
-      if (e instanceof JNSNotFoundError) {
+    const { data, error } = await this.client.jns
+      .resolve({ name: normalized })
+      .get()
+
+    if (error) {
+      if (String(error).includes('404')) {
         return null
       }
-      throw e
+      throw new JNSError(`JNS resolve failed: ${error}`, 500)
     }
+
+    expectValid(jnsResolveResponseSchema, data, 'JNS resolve response')
+    return data?.address as Address
   }
 
   async getRegistrationPrice(
@@ -211,15 +173,16 @@ class JNSServiceImpl implements JNSService {
     durationYears: number,
   ): Promise<bigint> {
     const normalized = normalizeJNSName(name)
-    const data = await this.client.getPrice(normalized, durationYears)
+    const { data, error } = await this.client.jns
+      .price({ name: normalized })
+      .get({ query: { years: durationYears.toString() } })
+
+    if (error) throw new JNSError(`JNS price check failed: ${error}`, 500)
+
     expectValid(jnsPriceResponseSchema, data, 'JNS price response')
-    return BigInt(data.price)
+    return BigInt(data?.price ?? '0')
   }
 }
-
-// ============================================================================
-// Singleton
-// ============================================================================
 
 let jnsService: JNSService | null = null
 
@@ -230,16 +193,11 @@ export function getJNSService(): JNSService {
   return jnsService
 }
 
-/**
- * Create a JNS client with custom configuration
- */
-export function createJNSClient(baseUrl: string): JNSClient {
-  return new JNSClient(baseUrl)
+export function createJNSClient(baseUrl: string) {
+  return treaty<JNSApp>(baseUrl, {
+    fetch: { signal: AbortSignal.timeout(JNS_TIMEOUT) },
+  })
 }
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
 
 export async function setupDAppJNS(
   owner: Address,

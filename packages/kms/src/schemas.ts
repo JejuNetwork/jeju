@@ -347,7 +347,7 @@ export const ciphertextPayloadSchema = z.object({
 
 // Validation helpers
 export function validateOrThrow<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   data: unknown,
   errorPrefix: string,
 ): T {

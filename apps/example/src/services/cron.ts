@@ -1,10 +1,9 @@
 /**
- * Cron Service
- *
- * Type-safe client for the DWS cron/trigger system.
- * Uses direct fetch with typed responses for reliability.
+ * Cron Service - Eden Client
  */
 
+import { treaty } from '@elysiajs/eden'
+import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { getDatabase } from '../db/client'
 import type { CronJob } from '../types'
@@ -13,10 +12,6 @@ import { getNextMidnight } from '../utils'
 const CRON_ENDPOINT = process.env.CRON_ENDPOINT || 'http://localhost:4200/cron'
 const WEBHOOK_BASE = process.env.WEBHOOK_BASE || 'http://localhost:4500'
 const CRON_TIMEOUT = 10000
-
-// ============================================================================
-// Types
-// ============================================================================
 
 interface Reminder {
   id: string
@@ -41,10 +36,6 @@ interface CronService {
   isHealthy(): Promise<boolean>
 }
 
-// ============================================================================
-// Error Types
-// ============================================================================
-
 export class CronError extends Error {
   constructor(
     message: string,
@@ -55,10 +46,6 @@ export class CronError extends Error {
   }
 }
 
-// ============================================================================
-// Database Row Types
-// ============================================================================
-
 interface ReminderRow {
   id: string
   todo_id: string
@@ -68,70 +55,33 @@ interface ReminderRow {
   created_at: number
 }
 
-// ============================================================================
-// Typed HTTP Client
-// ============================================================================
+const cronAppDef = new Elysia()
+  .post('/register', () => ({ success: true }), {
+    body: t.Object({
+      id: t.String(),
+      type: t.Union([t.Literal('once'), t.Literal('cron')]),
+      triggerTime: t.Optional(t.Number()),
+      expression: t.Optional(t.String()),
+      webhook: t.String(),
+      metadata: t.Optional(t.Record(t.String(), t.String())),
+    }),
+  })
+  .post('/cancel', () => ({ success: true }), {
+    body: t.Object({ id: t.String() }),
+  })
+  .get('/health', () => ({ status: 'ok' as const }))
 
-class CronClient {
-  constructor(private baseUrl: string) {}
-
-  private async request<T>(path: string, init?: RequestInit): Promise<T> {
-    const response = await fetch(`${this.baseUrl}${path}`, {
-      ...init,
-      headers: {
-        'Content-Type': 'application/json',
-        ...init?.headers,
-      },
-      signal: AbortSignal.timeout(CRON_TIMEOUT),
-    })
-
-    if (!response.ok) {
-      throw new CronError(
-        `Cron request failed: ${response.status}`,
-        response.status,
-      )
-    }
-
-    return response.json() as Promise<T>
-  }
-
-  async register(data: {
-    id: string
-    type: 'once' | 'cron'
-    triggerTime?: number
-    expression?: string
-    webhook: string
-    metadata?: Record<string, string>
-  }): Promise<{ success: boolean }> {
-    return this.request('/register', {
-      method: 'POST',
-      body: JSON.stringify(data),
-    })
-  }
-
-  async cancel(id: string): Promise<{ success: boolean }> {
-    return this.request('/cancel', {
-      method: 'POST',
-      body: JSON.stringify({ id }),
-    })
-  }
-
-  async health(): Promise<{ status: string }> {
-    return this.request('/health')
-  }
-}
-
-// ============================================================================
-// Compute Cron Service Implementation
-// ============================================================================
+type CronApp = typeof cronAppDef
 
 class ComputeCronService implements CronService {
-  private client: CronClient
+  private client: ReturnType<typeof treaty<CronApp>>
   private healthLastChecked = 0
   private healthy = false
 
   constructor() {
-    this.client = new CronClient(CRON_ENDPOINT)
+    this.client = treaty<CronApp>(CRON_ENDPOINT, {
+      fetch: { signal: AbortSignal.timeout(CRON_TIMEOUT) },
+    })
   }
 
   async scheduleReminder(
@@ -232,12 +182,8 @@ class ComputeCronService implements CronService {
       return this.healthy
     }
 
-    try {
-      await this.client.health()
-      this.healthy = true
-    } catch {
-      this.healthy = false
-    }
+    const { error } = await this.client.health.get()
+    this.healthy = !error
     this.healthLastChecked = Date.now()
     return this.healthy
   }
@@ -246,25 +192,21 @@ class ComputeCronService implements CronService {
     reminderId: string,
     triggerTime: number,
   ): Promise<void> {
-    try {
-      await this.client.register({
-        id: reminderId,
-        type: 'once',
-        triggerTime,
-        webhook: `${WEBHOOK_BASE}/webhooks/reminder/${reminderId}`,
-      })
-    } catch (error) {
+    const { error } = await this.client.register.post({
+      id: reminderId,
+      type: 'once',
+      triggerTime,
+      webhook: `${WEBHOOK_BASE}/webhooks/reminder/${reminderId}`,
+    })
+    if (error) {
       console.warn(`Failed to register cron trigger: ${error}`)
     }
   }
 
   private async cancelCronTrigger(triggerId: string): Promise<void> {
-    try {
-      await this.client.cancel(triggerId)
-    } catch (error) {
-      if (!String(error).includes('404')) {
-        console.warn(`Failed to cancel cron trigger: ${error}`)
-      }
+    const { error } = await this.client.cancel.post({ id: triggerId })
+    if (error && !String(error).includes('404')) {
+      console.warn(`Failed to cancel cron trigger: ${error}`)
     }
   }
 
@@ -272,23 +214,18 @@ class ComputeCronService implements CronService {
     jobId: string,
     owner: Address,
   ): Promise<void> {
-    try {
-      await this.client.register({
-        id: jobId,
-        type: 'cron',
-        expression: '0 0 * * *',
-        webhook: `${WEBHOOK_BASE}/webhooks/cleanup`,
-        metadata: { owner },
-      })
-    } catch (error) {
+    const { error } = await this.client.register.post({
+      id: jobId,
+      type: 'cron',
+      expression: '0 0 * * *',
+      webhook: `${WEBHOOK_BASE}/webhooks/cleanup`,
+      metadata: { owner },
+    })
+    if (error) {
       console.warn(`Failed to register cleanup job: ${error}`)
     }
   }
 }
-
-// ============================================================================
-// Singleton
-// ============================================================================
 
 let cronService: CronService | null = null
 
@@ -298,10 +235,6 @@ export function getCronService(): CronService {
   }
   return cronService
 }
-
-// ============================================================================
-// Webhook Handlers
-// ============================================================================
 
 export async function handleReminderWebhook(reminderId: string): Promise<void> {
   const cron = getCronService()

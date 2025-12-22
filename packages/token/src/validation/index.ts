@@ -5,7 +5,7 @@
  * Use these validators at system boundaries (user input, API responses, config files).
  */
 
-import type { ZodError, ZodSchema } from 'zod'
+import { type ZodError, z } from 'zod'
 import {
   addressSchema,
   bridgeRequestSchema,
@@ -39,7 +39,7 @@ export class ValidationError extends Error {
  * Parse and validate data with a Zod schema
  * Throws ValidationError if validation fails
  */
-export function validate<T>(schema: ZodSchema<T>, data: unknown): T {
+export function validate<T>(schema: z.ZodType<T>, data: unknown): T {
   const result = schema.safeParse(data)
   if (!result.success) {
     const errorMessages = result.error.issues
@@ -57,7 +57,7 @@ export function validate<T>(schema: ZodSchema<T>, data: unknown): T {
  * Safe parse - returns result object instead of throwing
  */
 export function safeParse<T>(
-  schema: ZodSchema<T>,
+  schema: z.ZodType<T>,
   data: unknown,
 ): { success: true; data: T } | { success: false; error: ZodError } {
   const result = schema.safeParse(data)

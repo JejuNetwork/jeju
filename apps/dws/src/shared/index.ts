@@ -2,6 +2,9 @@
  * Shared utilities for DWS
  */
 
+// Re-export zod for convenience
+export { z } from 'zod'
+
 // Reputation integration
 export {
   type MetricsInput,

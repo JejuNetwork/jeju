@@ -676,9 +676,6 @@ class TUNDevice extends EventEmitter {
 
       // Open TUN device for reading/writing
       await this.openTunDevice()
-    } catch (error) {
-      console.error('[TUN] Failed to create interface:', error)
-      throw error
     }
   }
 

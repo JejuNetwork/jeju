@@ -27,7 +27,7 @@ function JsonRpcResponseSchema<T extends z.ZodTypeAny>(resultSchema: T) {
 
 async function graphqlQuery<T>(
   query: string,
-  responseSchema: z.ZodSchema<T>,
+  responseSchema: z.ZodType<T>,
 ): Promise<T> {
   const response = await fetch(INDEXER_GRAPHQL_URL, {
     method: 'POST',
@@ -56,7 +56,7 @@ async function graphqlQuery<T>(
 async function rpcCall<T>(
   method: string,
   params: JsonRpcParams,
-  resultSchema: z.ZodSchema<T>,
+  resultSchema: z.ZodType<T>,
 ): Promise<T> {
   const response = await fetch(RPC_URL, {
     method: 'POST',

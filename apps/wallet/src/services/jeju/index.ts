@@ -41,7 +41,7 @@ async function graphql<T extends z.ZodTypeAny>(
 
 async function api<T>(
   endpoint: string,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context: string,
 ): Promise<T> {
   const data = await fetchApi<T>(INDEXER_URL, endpoint)
