@@ -31,6 +31,10 @@ Thumbs.db
 .ipfs/
 
 training_checkpoints/
+training_output/
+
+# Model files
+*.safetensors
 
 # Generated deployment artifacts
 deployment-*.json
