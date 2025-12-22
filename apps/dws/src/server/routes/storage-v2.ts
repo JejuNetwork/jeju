@@ -12,7 +12,7 @@
 import { Hono } from 'hono';
 import { getMultiBackendManager, MultiBackendManager } from '../../storage/multi-backend';
 import type { ContentTier, ContentCategory, StorageBackendType } from '../../storage/types';
-import { validateParams, validateQuery, validateHeaders, validateBody, cidSchema, regionHeaderSchema, z } from '../../shared';
+import { validateParams, validateQuery, validateHeaders, validateBody, cidSchema, regionHeaderSchema, z, expectValid } from '../../shared';
 import { extractClientRegion } from '../../shared/utils/common';
 import { uploadV2JsonRequestSchema, downloadV2QuerySchema, contentListQuerySchema, popularContentQuerySchema, underseededContentQuerySchema, regionalParamsSchema, torrentParamsSchema, arweaveParamsSchema, contentTierSchema, contentCategorySchema, storageBackendTypeSchema } from '../../shared/schemas/storage';
 

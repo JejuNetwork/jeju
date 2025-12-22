@@ -24,6 +24,7 @@ describe("Storage Integration Tests", () => {
         account,
         network: "localnet",
         rpcUrl: env.rpcUrl,
+        smartAccount: false,
       });
     } catch {
       // Setup failed - tests will be skipped

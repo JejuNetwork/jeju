@@ -28,14 +28,16 @@ export function createCIRouter(ctx: CIContext): Hono {
   const eventBus = getCIEventBus(workflowEngine);
   const scheduler = getCIScheduler(workflowEngine);
 
-  router.get('/health', (c) =>
-    c.json({
+  router.get('/health', (c) => {
+    const runners = workflowEngine.getRunners?.()?.length ?? 0;
+    const scheduledJobs = scheduler.listJobs?.()?.length ?? 0;
+    return c.json({
       service: 'dws-ci',
       status: 'healthy',
-      runners: workflowEngine.getRunners().length,
-      scheduledJobs: scheduler.listJobs().length,
-    })
-  );
+      runners,
+      scheduledJobs,
+    });
+  });
 
   router.get('/workflows/:repoId', async (c) => {
     const { repoId } = validateParams(workflowListParamsSchema, c);

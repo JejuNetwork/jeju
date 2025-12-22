@@ -359,7 +359,7 @@ contract KeyRegistryTest is Test {
     }
 
     function test_Version() public view {
-        assertEq(registry.version(), "1.1.0");
+        assertEq(registry.version(), "1.2.0");
     }
 
     // ============ Helpers ============

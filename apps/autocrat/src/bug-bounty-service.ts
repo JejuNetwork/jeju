@@ -1,10 +1,14 @@
 /**
  * Bug Bounty Service
  * 
- * Handles security vulnerability submissions, validation, and payouts
- * Integrates with DWS compute for sandbox testing and MPC KMS for encryption
+ * Handles security vulnerability submissions, validation, and assessment.
+ * Integrates with DWS compute for sandbox testing.
  * 
- * FULLY DECENTRALIZED - All compute/storage goes through DWS network
+ * NOTE: This is a PROTOTYPE. Current implementation uses in-memory storage.
+ * Production deployment requires:
+ * - Smart contract integration (SecurityBountyRegistry.sol)
+ * - On-chain payment processing
+ * - MPC KMS for real encryption
  */
 
 import { getDWSComputeUrl, getKMSUrl } from '@jejunetwork/config';
@@ -622,6 +626,12 @@ export function ceoDecision(
 
 // ============ Payout ============
 
+/**
+ * Process reward payout for approved submission.
+ * 
+ * PROTOTYPE: Currently marks as paid in memory only.
+ * Production requires SecurityBountyRegistry.sol integration.
+ */
 export async function payReward(submissionId: string): Promise<{ txHash: string; amount: bigint }> {
   expectDefined(submissionId, 'Submission ID is required');
   expect(submissionId.length > 0, `Submission ID cannot be empty`);
@@ -631,8 +641,8 @@ export async function payReward(submissionId: string): Promise<{ txHash: string;
   expect(submission.status === BountySubmissionStatus.APPROVED, 'Submission not approved');
   expect(submission.rewardAmount > 0n, `Reward amount must be positive, got ${submission.rewardAmount.toString()}`);
 
-  // In production, this would interact with the smart contract
-  // For now, mark as paid
+  // PROTOTYPE: In-memory state update only
+  // Production: Call SecurityBountyRegistry.payReward(submissionId)
   submission.status = BountySubmissionStatus.PAID;
   submissions.set(submissionId, submission);
 
@@ -643,10 +653,12 @@ export async function payReward(submissionId: string): Promise<{ txHash: string;
     researcherStats.set(submission.researcher, stats);
   }
 
-  console.log(`[BugBounty] Reward paid: ${submissionId.slice(0, 12)}... - ${formatEther(submission.rewardAmount)} ETH`);
+  // PROTOTYPE: Simulated txHash (not a real transaction)
+  const simulatedTxHash = keccak256(stringToHex(`payout-${submissionId}-${Date.now()}`));
+  console.log(`[BugBounty] PROTOTYPE: Reward marked as paid (no real transfer): ${submissionId.slice(0, 12)}... - ${formatEther(submission.rewardAmount)} ETH`);
 
   return {
-    txHash: keccak256(stringToHex(`payout-${submissionId}-${Date.now()}`)),
+    txHash: simulatedTxHash,
     amount: submission.rewardAmount,
   };
 }
@@ -704,6 +716,12 @@ export function getResearcherStats(address: Address): ResearcherStats {
   };
 }
 
+/**
+ * Get bounty pool statistics.
+ * 
+ * PROTOTYPE: Pool size and guardian count are placeholder values.
+ * Production: Query SecurityBountyRegistry contract.
+ */
 export function getBountyPoolStats(): BountyPoolStats {
   const allSubmissions = Array.from(submissions.values());
   
@@ -722,11 +740,12 @@ export function getBountyPoolStats(): BountyPoolStats {
   ).length;
 
   return {
-    totalPool: parseEther('100'), // Would query contract
+    // PROTOTYPE: Placeholder values - production queries contract
+    totalPool: parseEther('100'),
     totalPaidOut,
     pendingPayouts,
     activeSubmissions,
-    guardianCount: 10, // Would query contract
+    guardianCount: 10,
   };
 }
 

@@ -45,6 +45,29 @@ export {
   type JITConfig,
 } from './jit-liquidity';
 
+// Multi-Chain Price Aggregation (no external APIs)
+export {
+  MultiChainPriceAggregator,
+  getPriceAggregator,
+  type TokenPrice,
+  type PriceSource,
+  type PoolState,
+  type AggregatedPrice,
+} from './price-aggregator';
+
+// Solana Price Aggregation (lazy loaded due to buffer-layout compatibility)
+// Use: const { SolanaPriceAggregator } = await import('./solana-price-aggregator');
+export type { SolanaTokenPrice, SolanaPriceSource, RaydiumPoolState, OrcaWhirlpoolState } from './solana-price-aggregator';
+
+// Lazy loader for Solana price aggregator (avoids buffer-layout compatibility issues)
+export async function loadSolanaPriceAggregator() {
+  const mod = await import('./solana-price-aggregator');
+  return {
+    SolanaPriceAggregator: mod.SolanaPriceAggregator,
+    getSolanaPriceAggregator: mod.getSolanaPriceAggregator,
+  };
+}
+
 // Chain configurations for external protocols
 export const SUPPORTED_CHAINS = {
   ethereum: 1,
@@ -54,6 +77,8 @@ export const SUPPORTED_CHAINS = {
   polygon: 137,
   bsc: 56,
   jeju: 420691,
+  solana: 101,
+  solanaDevnet: 102,
 } as const;
 
 export type SupportedChain = keyof typeof SUPPORTED_CHAINS;

@@ -19,7 +19,7 @@ export interface BlockHeader {
  */
 export interface LogData {
   address: string;
-  topics: string[];
+  topics: readonly string[];
   data: string;
   logIndex: number;
   transactionIndex: number;

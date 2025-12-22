@@ -2,8 +2,11 @@
  * Crucible API Server
  * REST API for agent management, room coordination, and execution.
  * 
- * Uses ElizaOS-compatible runtime with DWS for decentralized AI inference.
- * Same infrastructure as Autocrat (governance) and Otto (trading).
+ * Agent Runtime Options:
+ * 1. ElizaOS + @jejunetwork/eliza-plugin: Full plugin/action support (60+ actions)
+ * 2. DWS-only: Character-template inference (fallback when ElizaOS unavailable)
+ * 
+ * The runtime auto-detects ElizaOS availability and uses full capabilities when possible.
  */
 
 import { Hono } from 'hono';
@@ -193,10 +196,12 @@ app.get('/info', async (c) => {
 });
 
 // ============================================================================
-// Agent Chat API (ElizaOS-compatible)
+// Agent Chat API
+// Uses ElizaOS + @jejunetwork/eliza-plugin when available (60+ actions)
+// Falls back to DWS character-inference when ElizaOS unavailable
 // ============================================================================
 
-// Chat with a character-based agent
+// Chat with an agent
 app.post('/api/v1/chat/:characterId', async (c) => {
   const characterId = c.req.param('characterId');
   const character = getCharacter(characterId);
@@ -212,12 +217,13 @@ app.post('/api/v1/chat/:characterId', async (c) => {
   }
   
   // Get or create runtime for this character
+  // Auto-detects ElizaOS and uses full plugin support if available
   let runtime = runtimeManager.getRuntime(characterId);
   if (!runtime) {
     runtime = await runtimeManager.createRuntime({
       agentId: characterId,
       character,
-      useElizaOS: true,
+      useJejuPlugin: true, // Enable @jejunetwork/eliza-plugin
     });
   }
   
@@ -234,9 +240,11 @@ app.post('/api/v1/chat/:characterId', async (c) => {
   
   return c.json({
     text: response.text,
+    action: response.action,
     actions: response.actions,
     character: characterId,
-    runtime: runtime.isElizaOSAvailable() ? 'elizaos' : 'dws',
+    runtime: runtime.isElizaOSAvailable() ? 'elizaos' : 'dws-fallback',
+    capabilities: runtime.isElizaOSAvailable() ? 'full-plugin-support' : 'character-inference',
   });
 });
 
@@ -251,30 +259,33 @@ app.get('/api/v1/chat/characters', async (c) => {
       description: char?.description,
       hasRuntime: !!runtime,
       runtimeType: runtime?.isElizaOSAvailable() ? 'elizaos' : (runtime ? 'dws' : null),
+      capabilities: runtime?.isElizaOSAvailable() ? 'full-plugin-support' : (runtime ? 'character-inference' : null),
     };
   });
   return c.json({ characters: characterList });
 });
 
-// Initialize all character runtimes
+// Initialize all character runtimes with full ElizaOS support
 app.post('/api/v1/chat/init', async (c) => {
-  const results: Record<string, { success: boolean; error?: string }> = {};
+  const results: Record<string, { success: boolean; elizaos: boolean; error?: string }> = {};
   
   for (const [id, character] of Object.entries(characters)) {
     try {
-      await runtimeManager.createRuntime({
+      const runtime = await runtimeManager.createRuntime({
         agentId: id,
         character,
-        useElizaOS: true,
+        useJejuPlugin: true,
       });
-      results[id] = { success: true };
+      results[id] = { success: true, elizaos: runtime.isElizaOSAvailable() };
     } catch (e) {
-      results[id] = { success: false, error: e instanceof Error ? e.message : String(e) };
+      results[id] = { success: false, elizaos: false, error: e instanceof Error ? e.message : String(e) };
     }
   }
   
+  const successResults = Object.values(results).filter(r => r.success);
   return c.json({
-    initialized: Object.values(results).filter(r => r.success).length,
+    initialized: successResults.length,
+    withElizaOS: successResults.filter(r => r.elizaos).length,
     total: Object.keys(characters).length,
     results,
   });

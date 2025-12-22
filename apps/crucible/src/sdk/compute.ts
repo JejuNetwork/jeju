@@ -155,7 +155,7 @@ export class CrucibleCompute {
     const endpoint = this.getEndpoint();
     this.log.debug('Inference request', { model, messageCount: request.messages.length, endpoint });
 
-    const r = await fetch(`${endpoint}/api/v1/inference`, {
+    const r = await fetch(`${endpoint}/compute/chat/completions`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...request, model }),
@@ -168,13 +168,39 @@ export class CrucibleCompute {
       throw new Error(`DWS inference failed (network: ${network}): ${error}`);
     }
 
-    const rawResult = await r.json();
-    const result = InferenceResponseSchema.parse(rawResult);
+    const rawResult = await r.json() as Record<string, unknown>;
+    
+    // Handle both OpenAI-compatible format and legacy format
+    let content: string;
+    let modelUsed: string;
+    let promptTokens: number;
+    let completionTokens: number;
+    let cost: bigint;
+    
+    if (rawResult.choices && Array.isArray(rawResult.choices)) {
+      // OpenAI-compatible format from DWS
+      const choice = (rawResult.choices as Array<{ message?: { content: string } }>)[0];
+      content = choice?.message?.content ?? '';
+      modelUsed = String(rawResult.model ?? model);
+      const usage = rawResult.usage as { prompt_tokens?: number; completion_tokens?: number } | undefined;
+      promptTokens = usage?.prompt_tokens ?? 0;
+      completionTokens = usage?.completion_tokens ?? 0;
+      cost = rawResult.cost ? BigInt(String(rawResult.cost)) : 0n;
+    } else {
+      // Legacy format
+      const result = InferenceResponseSchema.parse(rawResult);
+      content = result.content;
+      modelUsed = result.model;
+      promptTokens = result.usage.prompt_tokens;
+      completionTokens = result.usage.completion_tokens;
+      cost = result.cost;
+    }
+    
     return {
-      content: result.content,
-      model: result.model,
-      tokensUsed: { input: result.usage.prompt_tokens, output: result.usage.completion_tokens },
-      cost: result.cost,
+      content,
+      model: modelUsed,
+      tokensUsed: { input: promptTokens, output: completionTokens },
+      cost,
       latencyMs: Date.now() - start,
     };
   }

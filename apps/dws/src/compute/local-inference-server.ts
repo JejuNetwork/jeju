@@ -226,19 +226,11 @@ app.post('/v1/embeddings', async (c) => {
                    configured.find(p => p.id === 'together');
   
   if (!provider) {
-    // Return mock embeddings for dev
-    const inputs = Array.isArray(body.input) ? body.input : [body.input];
+    // No embedding provider available - fail with clear error
     return c.json({
-      object: 'list',
-      data: inputs.map((_, i) => ({
-        object: 'embedding',
-        index: i,
-        embedding: Array.from({ length: 1536 }, () => Math.random() * 2 - 1),
-      })),
-      model: body.model || 'text-embedding-mock',
-      usage: { prompt_tokens: 10, total_tokens: 10 },
-      provider: 'mock',
-    });
+      error: 'No embedding provider configured',
+      message: 'Set OPENAI_API_KEY or TOGETHER_API_KEY for embeddings',
+    }, 503);
   }
   
   const response = await fetch(`${provider.baseUrl}/embeddings`, {
@@ -278,7 +270,8 @@ async function registerWithDWS(): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        address: `local-inference-${PORT}`,
+        // Use a valid local Ethereum address for dev nodes
+        address: process.env.NODE_ADDRESS ?? '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
         endpoint: `http://localhost:${PORT}`,
         gpuTier: 0,
         capabilities: ['inference', 'embeddings'],
@@ -306,7 +299,7 @@ async function heartbeat(): Promise<void> {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        address: `local-inference-${PORT}`,
+        address: process.env.NODE_ADDRESS ?? '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
         load: 0,
       }),
     });

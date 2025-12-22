@@ -9,6 +9,7 @@ import {IERC721Receiver} from "@openzeppelin/contracts/token/ERC721/IERC721Recei
 import {IERC1155Receiver} from "@openzeppelin/contracts/token/ERC1155/IERC1155Receiver.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {BlockingMixin} from "../moderation/BlockingMixin.sol";
 
 /**
  * @title PlayerTradeEscrow
@@ -40,6 +41,10 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
  */
 contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
+    using BlockingMixin for BlockingMixin.Data;
+
+    /// @notice Blocking registry for user-to-user blocks
+    BlockingMixin.Data public blocking;
 
     // ============ Enums ============
 
@@ -129,6 +134,7 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
     error ContractNotApproved();
     error InvalidItem();
     error InvalidTokenType();
+    error UserBlocked();
 
     // ============ Constructor ============
 
@@ -149,6 +155,9 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
      */
     function createTrade(address playerB) external returns (uint256 tradeId) {
         if (playerB == address(0) || playerB == msg.sender) revert InvalidTrade();
+
+        // Check if playerB has blocked the caller
+        if (blocking.isBlocked(msg.sender, playerB)) revert UserBlocked();
 
         tradeId = _nextTradeId++;
         trades[tradeId] = Trade({
@@ -344,7 +353,25 @@ contract PlayerTradeEscrow is IERC721Receiver, IERC1155Receiver, ReentrancyGuard
      * @return Version string
      */
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "1.1.0";
+    }
+
+    /**
+     * @notice Set the block registry address
+     * @param _blockRegistry Block registry address
+     */
+    function setBlockRegistry(address _blockRegistry) external onlyOwner {
+        blocking.setBlockRegistry(_blockRegistry);
+    }
+
+    /**
+     * @notice Check if a trade would be blocked
+     * @param playerA First player
+     * @param playerB Second player
+     * @return True if trade would be blocked
+     */
+    function isTradeBlocked(address playerA, address playerB) external view returns (bool) {
+        return blocking.isBlocked(playerA, playerB) || blocking.isBlocked(playerB, playerA);
     }
 
     // ============ Internal Functions ============

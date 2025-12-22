@@ -17,6 +17,16 @@ let cacheClient: CacheClient | null = null;
 let initialized = false;
 let initPromise: Promise<void> | null = null;
 
+// In-memory store for tests
+const testStore = new Map<string, Map<string, Record<string, unknown>>>();
+
+function getTestStore(table: string): Map<string, Record<string, unknown>> {
+  if (!testStore.has(table)) {
+    testStore.set(table, new Map());
+  }
+  return testStore.get(table)!;
+}
+
 async function getCQLClient(): Promise<CQLClient> {
   const isTestEnv = process.env.NODE_ENV === 'test' || process.env.BUN_ENV === 'test';
   
@@ -26,12 +36,85 @@ async function getCQLClient(): Promise<CQLClient> {
   }
   
   if (!cqlClient) {
-    // Skip CQL initialization entirely in test environment - use mock client
+    // Use in-memory store in test environment
     if (isTestEnv) {
       cqlClient = {
-        isHealthy: () => Promise.resolve(false),
-        query: () => Promise.resolve({ rows: [] }),
-        exec: () => Promise.resolve({ rowsAffected: 0 }),
+        isHealthy: () => Promise.resolve(true),
+        query: <T>(sql: string, params: unknown[]): Promise<{ rows: T[] }> => {
+          // Parse table name from SELECT
+          const tableMatch = sql.match(/FROM\s+(\w+)/i);
+          if (!tableMatch) return Promise.resolve({ rows: [] });
+          const table = tableMatch[1];
+          const store = getTestStore(table);
+          
+          // Parse WHERE clause for job_id
+          const whereMatch = sql.match(/WHERE\s+job_id\s*=\s*\?/i);
+          if (whereMatch && params[0]) {
+            const row = store.get(params[0] as string);
+            return Promise.resolve({ rows: row ? [row as T] : [] });
+          }
+          
+          // Handle status filter
+          const statusMatch = sql.match(/WHERE\s+status\s*=\s*\?/i);
+          if (statusMatch && params[0]) {
+            const rows = Array.from(store.values()).filter((r) => r.status === params[0]);
+            return Promise.resolve({ rows: rows as T[] });
+          }
+          
+          // Handle LIMIT
+          let rows = Array.from(store.values());
+          const limitMatch = sql.match(/LIMIT\s+\?/i);
+          if (limitMatch) {
+            const limitIdx = params.length - 1;
+            const limit = params[limitIdx] as number;
+            if (typeof limit === 'number' && limit > 0) {
+              rows = rows.slice(0, limit);
+            }
+          }
+          
+          return Promise.resolve({ rows: rows as T[] });
+        },
+        exec: (sql: string, params: unknown[]): Promise<{ rowsAffected: number }> => {
+          // Parse table name from INSERT/UPDATE/DELETE
+          const insertMatch = sql.match(/INSERT\s+INTO\s+(\w+)/i);
+          const updateMatch = sql.match(/UPDATE\s+(\w+)/i);
+          const deleteMatch = sql.match(/DELETE\s+FROM\s+(\w+)/i);
+          
+          const table = insertMatch?.[1] ?? updateMatch?.[1] ?? deleteMatch?.[1];
+          if (!table) return Promise.resolve({ rowsAffected: 0 });
+          
+          const store = getTestStore(table);
+          
+          if (insertMatch) {
+            // Handle INSERT for compute_jobs
+            if (table === 'compute_jobs' && params.length >= 13) {
+              const row = {
+                job_id: params[0] as string,
+                command: params[1] as string,
+                shell: params[2] as string,
+                env: params[3] as string,
+                working_dir: params[4] as string | null,
+                timeout: params[5] as number,
+                status: params[6] as string,
+                output: params[7] as string,
+                exit_code: params[8] as number | null,
+                submitted_by: params[9] as string,
+                started_at: params[10] as number | null,
+                completed_at: params[11] as number | null,
+                created_at: params[12] as number,
+              };
+              store.set(row.job_id, row);
+              return Promise.resolve({ rowsAffected: 1 });
+            }
+          }
+          
+          if (deleteMatch && params[0]) {
+            const deleted = store.delete(params[0] as string);
+            return Promise.resolve({ rowsAffected: deleted ? 1 : 0 });
+          }
+          
+          return Promise.resolve({ rowsAffected: 0 });
+        },
       } as unknown as CQLClient;
       return cqlClient;
     }

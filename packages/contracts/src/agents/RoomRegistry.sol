@@ -4,6 +4,7 @@ pragma solidity ^0.8.26;
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {BlockingMixin} from "../moderation/BlockingMixin.sol";
 
 /**
  * @title RoomRegistry
@@ -18,6 +19,10 @@ import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
  * @custom:security-contact security@jejunetwork.org
  */
 contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
+    using BlockingMixin for BlockingMixin.Data;
+
+    /// @notice Blocking registry for user-to-user blocks
+    BlockingMixin.Data public blocking;
     // ============ Enums ============
 
     enum RoomType {
@@ -136,6 +141,7 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
     error NotModerator(uint256 roomId, address caller);
     error InvalidRole();
     error InvalidRoomType();
+    error AgentBlocked();
 
     // ============ Modifiers ============
 
@@ -230,6 +236,15 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
         // Check room capacity
         if (_memberLists[roomId].length >= room.maxMembers) {
             revert RoomFull(roomId);
+        }
+
+        // Check if room owner has blocked this agent
+        // We need to check existing members haven't blocked the joining agent
+        uint256[] storage memberList = _memberLists[roomId];
+        for (uint256 i = 0; i < memberList.length; i++) {
+            if (blocking.isAgentBlocked(agentId, memberList[i])) {
+                revert AgentBlocked();
+            }
         }
 
         // Validate role for room type
@@ -465,6 +480,30 @@ contract RoomRegistry is Ownable, ReentrancyGuard, Pausable {
      */
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /**
+     * @notice Set the block registry address
+     * @param _blockRegistry Block registry address
+     */
+    function setBlockRegistry(address _blockRegistry) external onlyOwner {
+        blocking.setBlockRegistry(_blockRegistry);
+    }
+
+    /**
+     * @notice Check if an agent is blocked from joining a room
+     * @param roomId Room ID
+     * @param agentId Agent ID trying to join
+     * @return blocked True if blocked by any existing member
+     */
+    function isAgentBlockedFromRoom(uint256 roomId, uint256 agentId) external view returns (bool) {
+        uint256[] storage memberList = _memberLists[roomId];
+        for (uint256 i = 0; i < memberList.length; i++) {
+            if (blocking.isAgentBlocked(agentId, memberList[i])) {
+                return true;
+            }
+        }
+        return false;
     }
 
     // ============ Internal Functions ============

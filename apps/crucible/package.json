@@ -26,11 +26,14 @@
     "clean": "rm -rf dist out cache test-results"
   },
   "dependencies": {
+    "@elizaos/core": "^1.6.4",
+    "@elizaos/adapter-sqlite": "0.25.6-alpha.1",
     "@hono/node-server": "^1.19.7",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/eliza-plugin": "workspace:*",
     "@solana/web3.js": "1.98.4",
     "hono": "4.11.1",
     "viem": "2.43.2",

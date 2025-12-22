@@ -151,7 +151,7 @@ describe('DWS Services', () => {
           'Content-Type': 'application/json',
           'x-jeju-address': testAddress,
         },
-        body: JSON.stringify({ threshold: 3, totalParties: 5 }),
+        body: JSON.stringify({ name: 'test-key', threshold: 3, totalParties: 5 }),
       });
       expect(response.status).toBe(201);
       
@@ -183,6 +183,21 @@ describe('DWS Services', () => {
     });
 
     test('sign message', async () => {
+      // Ensure keyId is set
+      if (!keyId) {
+        // Create key if not set (test isolation)
+        const createRes = await app.request('/kms/keys', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-jeju-address': testAddress,
+          },
+          body: JSON.stringify({ name: 'sign-test-key', threshold: 3, totalParties: 5 }),
+        });
+        const createData = await createRes.json() as { keyId: string };
+        keyId = createData.keyId;
+      }
+      
       const response = await app.request('/kms/sign', {
         method: 'POST',
         headers: {
@@ -191,10 +206,15 @@ describe('DWS Services', () => {
         },
         body: JSON.stringify({
           keyId,
-          messageHash: '0x' + '00'.repeat(32),
+          message: 'test message to sign',
+          encoding: 'utf8',
         }),
       });
-      expect(response.ok).toBe(true);
+      
+      if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(`Sign failed: ${response.status} - ${errorBody}`);
+      }
       
       const data = await response.json() as { signature: string };
       expect(data.signature).toBeDefined();

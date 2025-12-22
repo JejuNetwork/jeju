@@ -95,6 +95,9 @@ export function useEILConfig() {
       supportedChains: [],
       l1StakeManager: undefined,
       supportedTokens: [],
+      riskSleeve: undefined,
+      liquidityRouter: undefined,
+      multiServiceStakeManager: undefined,
     };
   }
   const chainId = chain.id.toString();
@@ -116,6 +119,11 @@ export function useEILConfig() {
 
   // Get appTokenPreference address from chain config if available
   const appTokenPreferenceAddr = chainConfig?.tokens?.['appTokenPreference'] as Address | undefined;
+  
+  // Get new liquidity contracts from chain config
+  const riskSleeveAddr = chainConfig?.oif?.['riskSleeve'] as Address | undefined;
+  const liquidityRouterAddr = chainConfig?.oif?.['liquidityRouter'] as Address | undefined;
+  const multiServiceStakeManagerAddr = chainConfig?.oif?.['multiServiceStakeManager'] as Address | undefined;
 
   return {
     isAvailable: Boolean(isAvailable),
@@ -124,6 +132,9 @@ export function useEILConfig() {
     supportedChains: configuredChains,
     l1StakeManager: (networkConfig.hub.l1StakeManager || undefined) as Address | undefined,
     supportedTokens: typedConfig.supportedTokens as readonly string[] as Address[],
+    riskSleeve: riskSleeveAddr || undefined,
+    liquidityRouter: liquidityRouterAddr || undefined,
+    multiServiceStakeManager: multiServiceStakeManagerAddr || undefined,
   };
 }
 

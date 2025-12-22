@@ -34,6 +34,8 @@ import { createVPNRouter } from './routes/vpn';
 import { createScrapingRouter } from './routes/scraping';
 import { createRPCRouter } from './routes/rpc';
 import { createEdgeRouter, handleEdgeWebSocket } from './routes/edge';
+import { createPricesRouter, handlePriceWebSocket, getPriceService } from './routes/prices';
+import { createDARouter, initializeDA, shutdownDA } from './routes/da';
 import { createBackendManager } from '../storage/backends';
 import { initializeMarketplace } from '../api-marketplace';
 import { initializeContainerSystem } from '../containers';
@@ -45,6 +47,11 @@ import {
   type P2PCoordinator, 
   type DistributedRateLimiter,
 } from '../decentralized';
+import { createAgentRouter, initRegistry, initExecutor } from '../agents';
+import { WorkerdExecutor } from '../workers/workerd/executor';
+
+// Server port - defined early for use in config
+const PORT = parseInt(process.env.DWS_PORT || process.env.PORT || '4030', 10);
 
 // Rate limiter store
 // NOTE: This is an in-memory rate limiter suitable for single-instance deployments.
@@ -247,10 +254,12 @@ app.get('/health', async (c) => {
       s3: { status: 'healthy' },
       workers: { status: 'healthy' },
       workerd: { status: 'healthy', runtime: 'V8 isolates' },
+      agents: { status: 'healthy', description: 'ElizaOS agent runtime' },
       kms: { status: 'healthy' },
       vpn: { status: 'healthy' },
       scraping: { status: 'healthy' },
       rpc: { status: 'healthy' },
+      da: { status: 'healthy', description: 'Data Availability layer' },
     },
     backends: { available: backends, health: backendHealth },
   });
@@ -264,7 +273,7 @@ app.get('/', (c) => {
     services: [
       'storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'oauth3', 
       'api-marketplace', 'containers', 's3', 'workers', 'workerd', 
-      'kms', 'vpn', 'scraping', 'rpc', 'edge'
+      'kms', 'vpn', 'scraping', 'rpc', 'edge', 'da'
     ],
     endpoints: {
       storage: '/storage/*',
@@ -286,6 +295,7 @@ app.get('/', (c) => {
       scraping: '/scraping/*',
       rpc: '/rpc/*',
       edge: '/edge/*',
+      da: '/da/*',
     },
   });
 });
@@ -311,10 +321,45 @@ app.route('/vpn', createVPNRouter());
 app.route('/scraping', createScrapingRouter());
 app.route('/rpc', createRPCRouter());
 app.route('/edge', createEdgeRouter());
+app.route('/prices', createPricesRouter());
+
+// Data Availability Layer
+const daConfig = {
+  operatorPrivateKey: process.env.DA_OPERATOR_PRIVATE_KEY as Hex | undefined,
+  operatorEndpoint: process.env.DWS_BASE_URL || `http://localhost:${PORT}`,
+  operatorRegion: process.env.DA_OPERATOR_REGION || 'default',
+  operatorCapacityGB: parseInt(process.env.DA_OPERATOR_CAPACITY_GB || '100', 10),
+  daContractAddress: process.env.DA_CONTRACT_ADDRESS as Address | undefined,
+  rpcUrl: getEnvOrDefault('RPC_URL', LOCALNET_DEFAULTS.rpcUrl),
+};
+app.route('/da', createDARouter(daConfig));
+
+// Agent system - uses workerd for execution
+app.route('/agents', createAgentRouter());
 
 // Initialize services
 initializeMarketplace();
 initializeContainerSystem();
+
+// Initialize agent system
+const CQL_URL = process.env.CQL_BLOCK_PRODUCER_ENDPOINT ?? 'http://127.0.0.1:4028';
+const AGENTS_DB_ID = process.env.AGENTS_DATABASE_ID ?? 'dws-agents';
+initRegistry({ cqlUrl: CQL_URL, databaseId: AGENTS_DB_ID }).catch(err => {
+  console.warn('[DWS] Agent registry init failed (CQL may not be running):', err.message);
+});
+
+// Initialize agent executor with workerd
+const workerdExecutor = new WorkerdExecutor(backendManager);
+workerdExecutor.initialize().then(() => {
+  initExecutor(workerdExecutor, {
+    inferenceUrl: process.env.DWS_INFERENCE_URL ?? 'http://127.0.0.1:4030/compute',
+    kmsUrl: process.env.DWS_KMS_URL ?? 'http://127.0.0.1:4030/kms',
+    cqlUrl: CQL_URL,
+  });
+  console.log('[DWS] Agent executor initialized');
+}).catch(err => {
+  console.warn('[DWS] Agent executor init failed:', err.message);
+});
 
 // Serve frontend - from IPFS when configured, fallback to local
 app.get('/app', async (c) => {
@@ -353,6 +398,24 @@ app.get('/app/ci', async (c) => {
   }
 
   return c.json({ error: 'CI frontend not available' }, 404);
+});
+
+app.get('/app/da', async (c) => {
+  const decentralizedResponse = await decentralized.frontend.serveAsset('da.html');
+  if (decentralizedResponse) return decentralizedResponse;
+
+  const file = Bun.file('./frontend/da.html');
+  if (await file.exists()) {
+    const html = await file.text();
+    return new Response(html, { 
+      headers: { 
+        'Content-Type': 'text/html',
+        'X-DWS-Source': 'local',
+      } 
+    });
+  }
+
+  return c.json({ error: 'DA dashboard not available' }, 404);
 });
 
 app.get('/app/*', async (c) => {
@@ -420,19 +483,20 @@ app.get('/.well-known/agent-card.json', (c) => {
       { name: 'vpn', endpoint: `${baseUrl}/vpn`, description: 'VPN/Proxy service' },
       { name: 'scraping', endpoint: `${baseUrl}/scraping`, description: 'Web scraping service' },
       { name: 'rpc', endpoint: `${baseUrl}/rpc`, description: 'Multi-chain RPC service' },
+      { name: 'da', endpoint: `${baseUrl}/da`, description: 'Data Availability layer' },
     ],
     a2aEndpoint: `${baseUrl}/a2a`,
     mcpEndpoint: `${baseUrl}/mcp`,
   });
 });
 
-const PORT = parseInt(process.env.DWS_PORT || process.env.PORT || '4030', 10);
-
 let server: ReturnType<typeof Bun.serve> | null = null;
 
 function shutdown(signal: string) {
   console.log(`[DWS] Received ${signal}, shutting down gracefully...`);
   clearInterval(rateLimitCleanupInterval);
+  shutdownDA();
+  console.log('[DWS] DA layer stopped');
   if (p2pCoordinator) {
     p2pCoordinator.stop();
     console.log('[DWS] P2P coordinator stopped');
@@ -459,7 +523,56 @@ if (import.meta.main) {
     console.log(`[DWS] Frontend: local filesystem (set DWS_FRONTEND_CID for decentralized)`);
   }
   
-  server = Bun.serve({ port: PORT, fetch: app.fetch });
+  server = Bun.serve({ 
+    port: PORT, 
+    fetch(req, server) {
+      // Handle WebSocket upgrades for price streaming
+      const url = new URL(req.url);
+      if (url.pathname === '/prices/ws' && req.headers.get('upgrade') === 'websocket') {
+        const success = server.upgrade(req, { data: { type: 'prices', handlers: {} } });
+        if (success) return undefined;
+        return new Response('WebSocket upgrade failed', { status: 500 });
+      }
+      // Handle edge WebSocket
+      if (url.pathname.startsWith('/edge/ws') && req.headers.get('upgrade') === 'websocket') {
+        const success = server.upgrade(req, { data: { type: 'edge', handlers: {} } });
+        if (success) return undefined;
+        return new Response('WebSocket upgrade failed', { status: 500 });
+      }
+      return app.fetch(req, server);
+    },
+    websocket: {
+      open(ws) {
+        const data = ws.data as { type: string; handlers: Record<string, (data: string) => void> };
+        if (data.type === 'prices') {
+          // Set up price subscription service
+          const service = getPriceService();
+          data.handlers.message = (msgStr: string) => {
+            const msg = JSON.parse(msgStr);
+            if (msg.type === 'subscribe') {
+              service.subscribe(ws as unknown as WebSocket, msg);
+              ws.send(JSON.stringify({ type: 'subscribed', success: true }));
+            } else if (msg.type === 'unsubscribe') {
+              service.unsubscribe(ws as unknown as WebSocket, msg);
+              ws.send(JSON.stringify({ type: 'unsubscribed', success: true }));
+            }
+          };
+          data.handlers.close = () => service.removeSubscriber(ws as unknown as WebSocket);
+        } else if (data.type === 'edge') {
+          handleEdgeWebSocket(ws as unknown as WebSocket);
+        }
+      },
+      message(ws, message) {
+        const data = ws.data as { handlers: Record<string, (data: string) => void> };
+        const msgStr = typeof message === 'string' ? message : new TextDecoder().decode(message);
+        data.handlers.message?.(msgStr);
+      },
+      close(ws) {
+        const data = ws.data as { handlers: Record<string, () => void> };
+        data.handlers.close?.();
+      },
+    },
+  });
 
   // Start P2P coordination if enabled
   if (process.env.DWS_P2P_ENABLED === 'true') {

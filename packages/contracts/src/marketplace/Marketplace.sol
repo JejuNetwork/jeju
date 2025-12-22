@@ -8,6 +8,7 @@ import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IIdentityRegistry} from "../registry/interfaces/IIdentityRegistry.sol";
 import {AssetLib} from "../libraries/AssetLib.sol";
 import {ModerationMixin} from "../moderation/ModerationMixin.sol";
+import {BlockingMixin} from "../moderation/BlockingMixin.sol";
 
 interface IFeeConfigBazaar {
     function getBazaarFee() external view returns (uint16);
@@ -21,8 +22,10 @@ interface IFeeConfigBazaar {
 contract Marketplace is ReentrancyGuard, Ownable {
     using SafeERC20 for IERC20;
     using ModerationMixin for ModerationMixin.Data;
+    using BlockingMixin for BlockingMixin.Data;
 
     ModerationMixin.Data public moderation;
+    BlockingMixin.Data public blocking;
 
     enum AssetType {
         ERC721,
@@ -131,6 +134,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
     error TransferFailed();
     error AlreadyListed();
     error UserIsBanned();
+    error UserBlocked();
 
     modifier notBanned() {
         if (moderation.isAddressBanned(msg.sender)) revert UserIsBanned();
@@ -214,6 +218,9 @@ contract Marketplace is ReentrancyGuard, Ownable {
         if (listing.status != ListingStatus.ACTIVE) revert ListingNotActive();
         if (listing.expiresAt > 0 && block.timestamp > listing.expiresAt) revert ListingNotActive();
         if (listing.seller == msg.sender) revert CannotBuyOwnListing();
+
+        // Check if seller has blocked the buyer
+        if (blocking.isBlocked(msg.sender, listing.seller)) revert UserBlocked();
 
         // Cache values
         uint256 price = listing.price;
@@ -303,6 +310,14 @@ contract Marketplace is ReentrancyGuard, Ownable {
         moderation.setBanManager(_banManager);
     }
 
+    function setBlockRegistry(address _blockRegistry) external onlyOwner {
+        blocking.setBlockRegistry(_blockRegistry);
+    }
+
+    function isUserBlocked(address source, address target) external view returns (bool) {
+        return blocking.isBlocked(source, target);
+    }
+
     function isUserBanned(address user) external view returns (bool) {
         return moderation.isAddressBanned(user);
     }
@@ -365,7 +380,7 @@ contract Marketplace is ReentrancyGuard, Ownable {
     }
 
     function version() external pure returns (string memory) {
-        return "2.0.0";
+        return "2.1.0";
     }
 
     function _buildAsset(

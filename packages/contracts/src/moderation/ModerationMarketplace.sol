@@ -171,7 +171,7 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     uint256 public constant RE_REVIEW_MULTIPLIER = 10; // 10x stake for re-review
     uint256 public constant WINNER_SHARE_BPS = 9000; // 90%
     uint256 public constant TREASURY_SHARE_BPS = 500; // 5%
-    uint256 public constant MARKET_MAKER_SHARE_BPS = 500; // 5%
+    uint256 public constant VOTER_POOL_SHARE_BPS = 500; // 5% to winning side voters
     uint256 public constant MAX_APPEAL_COUNT = 3; // Max re-reviews allowed
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -200,8 +200,8 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     /// @notice Maximum reputation score (10000 = 100%)
     uint256 public constant MAX_REPUTATION = 10000;
 
-    /// @notice Initial reputation for new moderators (HIGH tier - can report alone)
-    uint256 public constant INITIAL_REPUTATION = 7000;
+    /// @notice Initial reputation for new moderators (MEDIUM tier - needs quorum of 2)
+    uint256 public constant INITIAL_REPUTATION = 4000;
 
     /// @notice Reputation gain per successful ban
     uint256 public constant REP_GAIN_PER_WIN = 200;
@@ -254,7 +254,7 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     uint256 public constant MIN_QUORUM_STAKE_AGE = 7 days;
 
     /// @notice Minimum combined stake for quorum (prevents cheap Sybil)
-    uint256 public constant MIN_COMBINED_QUORUM_STAKE = 0.5 ether;
+    uint256 public constant MIN_COMBINED_QUORUM_STAKE = 2 ether;
 
     /// @notice Minimum stake per quorum participant
     uint256 public constant MIN_QUORUM_PARTICIPANT_STAKE = 0.1 ether;
@@ -343,6 +343,15 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     
     /// @notice Track cases where evidence resolution succeeded
     mapping(bytes32 => bool) public evidenceResolutionComplete;
+
+    /// @notice Voter reward pool per case: caseId => total reward for winning voters
+    mapping(bytes32 => uint256) public caseVoterRewardPool;
+
+    /// @notice Claimable voter rewards per user
+    mapping(address => uint256) public claimableVoterRewards;
+
+    /// @notice Total voter rewards distributed
+    uint256 public totalVoterRewardsDistributed;
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              EVENTS
@@ -1298,6 +1307,7 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         // Calculate shares
         uint256 winnerAmount = (loserStake * WINNER_SHARE_BPS) / 10000;
         uint256 treasuryAmount = (loserStake * TREASURY_SHARE_BPS) / 10000;
+        uint256 voterPoolAmount = (loserStake * VOTER_POOL_SHARE_BPS) / 10000;
 
         // Slash loser's stake (capped at their actual stake)
         StakeInfo storage loserInfo = stakes[loser];
@@ -1310,10 +1320,11 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
             }
         }
 
-        // Recalculate winner amount based on actual slash
+        // Recalculate amounts based on actual slash
         if (actualSlash < loserStake) {
             winnerAmount = (actualSlash * WINNER_SHARE_BPS) / 10000;
             treasuryAmount = (actualSlash * TREASURY_SHARE_BPS) / 10000;
+            voterPoolAmount = (actualSlash * VOTER_POOL_SHARE_BPS) / 10000;
         }
 
         // Credit winner's stake (only if winner address is not zero - target may not have staked)
@@ -1326,6 +1337,12 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
                 winnerInfo.stakedAt = block.timestamp;
                 winnerInfo.stakedBlock = block.number;
             }
+        }
+
+        // Store voter pool for later distribution
+        if (voterPoolAmount > 0) {
+            caseVoterRewardPool[caseId] = voterPoolAmount;
+            totalVoterRewardsDistributed += voterPoolAmount;
         }
 
         // Transfer treasury share
@@ -1468,6 +1485,66 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         if (block.number < stakeInfo.stakedBlock + MIN_STAKE_BLOCKS) return false;
         return true;
     }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //                         VOTER REWARDS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * @notice Claim voter reward for a resolved case
+     * @dev Voters on the winning side receive proportional share of voter pool
+     * @param caseId Case to claim rewards from
+     */
+    function claimVoterReward(bytes32 caseId) external nonReentrant caseExists(caseId) {
+        BanCase storage banCase = cases[caseId];
+        Vote storage v = votes[caseId][msg.sender];
+
+        require(banCase.resolved, "Case not resolved");
+        require(v.hasVoted, "Did not vote");
+        require(!v.hasClaimed, "Already claimed");
+
+        // Check if voter was on winning side
+        bool voterWon = (banCase.outcome == MarketOutcome.BAN_UPHELD && v.position == VotePosition.YES) ||
+                        (banCase.outcome == MarketOutcome.BAN_REJECTED && v.position == VotePosition.NO);
+
+        require(voterWon, "Not on winning side");
+
+        v.hasClaimed = true;
+
+        // Calculate proportional share
+        uint256 pool = caseVoterRewardPool[caseId];
+        if (pool == 0) return;
+
+        uint256 winningVotes = banCase.outcome == MarketOutcome.BAN_UPHELD ? banCase.yesVotes : banCase.noVotes;
+        if (winningVotes == 0) return;
+
+        uint256 reward = (pool * v.weight) / winningVotes;
+        if (reward == 0) return;
+
+        // Credit to claimable balance
+        claimableVoterRewards[msg.sender] += reward;
+
+        emit VoterRewardClaimed(caseId, msg.sender, reward);
+    }
+
+    /**
+     * @notice Withdraw accumulated voter rewards
+     */
+    function withdrawVoterRewards() external nonReentrant {
+        uint256 amount = claimableVoterRewards[msg.sender];
+        require(amount > 0, "No rewards");
+
+        claimableVoterRewards[msg.sender] = 0;
+
+        if (address(stakingToken) == address(0)) {
+            (bool success,) = msg.sender.call{value: amount}("");
+            require(success, "Transfer failed");
+        } else {
+            stakingToken.safeTransfer(msg.sender, amount);
+        }
+    }
+
+    event VoterRewardClaimed(bytes32 indexed caseId, address indexed voter, uint256 amount);
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              VIEW FUNCTIONS

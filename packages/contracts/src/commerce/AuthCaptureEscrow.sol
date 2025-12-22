@@ -17,6 +17,7 @@ import {
     OperatorConfig,
     ICommerceEvents
 } from "./ICommerceTypes.sol";
+import {BlockingMixin} from "../moderation/BlockingMixin.sol";
 
 /**
  * @title AuthCaptureEscrow
@@ -41,6 +42,10 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
     using SafeERC20 for IERC20;
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
+    using BlockingMixin for BlockingMixin.Data;
+
+    /// @notice Blocking registry for user-to-user blocks
+    BlockingMixin.Data public blocking;
 
     bytes32 public constant AUTHORIZATION_TYPEHASH = keccak256(
         "PaymentAuthorization(address merchant,address token,uint256 amount,uint256 deadline,bytes32 orderRef,uint256 nonce)"
@@ -83,6 +88,7 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
     error InvalidOperator();
     error OperatorFeeTooHigh();
     error TransferFailed();
+    error UserBlocked();
 
     constructor(
         address _owner,
@@ -117,6 +123,9 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
         if (amount == 0) revert InvalidAmount();
         if (duration > MAX_AUTH_DURATION) duration = MAX_AUTH_DURATION;
         if (duration == 0) duration = DEFAULT_AUTH_DURATION;
+
+        // Check if merchant has blocked the payer
+        if (blocking.isBlocked(msg.sender, merchant)) revert UserBlocked();
 
         paymentId = keccak256(
             abi.encodePacked(msg.sender, merchant, token, amount, block.timestamp, orderRef)
@@ -172,6 +181,9 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
         if (!supportedTokens[token]) revert InvalidToken();
         if (amount == 0) revert InvalidAmount();
         if (block.timestamp > deadline) revert PaymentExpired();
+
+        // Check if merchant has blocked the payer
+        if (blocking.isBlocked(payer, merchant)) revert UserBlocked();
 
         // Verify signature
         uint256 nonce = nonces[payer]++;
@@ -480,6 +492,14 @@ contract AuthCaptureEscrow is Ownable, ReentrancyGuard, EIP712, ICommerceEvents 
 
     function setFeeRecipient(address recipient) external onlyOwner {
         feeRecipient = recipient;
+    }
+
+    function setBlockRegistry(address _blockRegistry) external onlyOwner {
+        blocking.setBlockRegistry(_blockRegistry);
+    }
+
+    function isPaymentBlocked(address payer, address merchant) external view returns (bool) {
+        return blocking.isBlocked(payer, merchant);
     }
 
     function _executeCapture(

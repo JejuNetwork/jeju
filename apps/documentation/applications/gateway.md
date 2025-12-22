@@ -1,160 +1,166 @@
 # Gateway
 
-Gateway is the infrastructure portal for Jeju Network. It's where users bridge assets, stake tokens, register nodes, and manage infrastructure. Think of it as the control panel for interacting with Jeju's core protocol.
+The main portal for Jeju Network. Bridge assets, stake JEJU, register nodes, and manage tokens.
 
-**URLs:** Localnet at http://127.0.0.1:4001, testnet at https://gateway-testnet.jejunetwork.org, mainnet at https://gateway.jejunetwork.org
+**Live at:** https://gateway.jejunetwork.org
 
-## Bridging
+## What It Does
 
-Bridging moves assets between external chains (Ethereum, Base) and Jeju. There are two modes available.
+| Feature | Description |
+|---------|-------------|
+| **Bridge** | Move ETH/tokens from Ethereum, Base to Jeju instantly |
+| **Staking** | Stake JEJU to earn protocol fees |
+| **Token Registry** | Register tokens for gas payments |
+| **Node Registration** | Register as RPC/compute/storage provider |
+| **JNS** | Register .jeju domains |
 
-### Standard Bridge (OP Bridge)
+## Using the Bridge
 
-The standard bridge uses Optimism's native bridge infrastructure. Deposits from L1 to L2 take approximately 10 minutes. Withdrawals from L2 to L1 require a 7-day challenge period for security.
+Gateway uses EIL (Ethereum Interop Layer) for instant bridging. No 7-day waits.
 
-### Fast Bridge (EIL)
+1. Connect wallet
+2. Select source chain (Ethereum or Base)
+3. Enter amount
+4. Click Bridge
+5. Receive on Jeju in ~30 seconds
 
-The fast bridge uses XLPs (Cross-chain Liquidity Providers) for instant transfers. Deposits complete in approximately 30 seconds, and withdrawals take about 15 minutes.
+Behind the scenes, XLPs (liquidity providers) credit you instantly on Jeju, then claim your deposit from the source chain later.
 
-XLPs front liquidity for users who want instant transfers. When a user deposits on L1, an XLP immediately credits them on L2. The XLP then claims the funds later via the standard bridge. XLPs charge a small fee (0.1-0.5%) for this service.
+**Supported assets:** ETH, USDC, USDT, WBTC, and registered tokens.
 
-### Using the Bridge
+## Staking JEJU
 
-Navigate to `/bridge`, select your source chain (Ethereum or Base), choose the token and amount, then select either Standard mode (lower fee, longer wait) or Fast EIL mode (higher fee, instant). Confirm the transaction in your wallet and wait for confirmation.
+Stake JEJU to:
+- Earn protocol fee share
+- Vote in governance
+- Qualify for node operation
 
-ETH and USDC support fast bridging with 0.1% fees. JEJU has 0.2% fast bridge fees, and other ERC-20 tokens have 0.5% fees with limited availability.
+| Stake Duration | APY Boost |
+|---------------|-----------|
+| No lock | Base rate |
+| 3 months | +10% |
+| 6 months | +25% |
+| 12 months | +50% |
 
-## Staking
+## Registering a Token
 
-Staking lets you earn fees by providing liquidity. There are two types of staking available.
+Register your ERC-20 for gas payments:
 
-### Liquidity Staking (Paymaster Pools)
+1. Go to Gateway → Token Registry
+2. Click "Register Token"
+3. Provide:
+   - Token contract address
+   - Chainlink price oracle address
+   - Registration fee (100 JEJU)
+4. Once registered, users can pay gas in your token
 
-When users pay gas in tokens like USDC, the Paymaster needs liquidity to cover the actual ETH gas cost. Stakers provide this liquidity and earn 50% of the swap fees.
+**Requirements:**
+- Token must have Chainlink-compatible oracle
+- Minimum $10,000 liquidity on Jeju DEX
 
-The process works like this: a user pays gas in USDC, the Paymaster swaps USDC to ETH using staked liquidity, the Paymaster pays gas in ETH, and stakers receive their share of the fees.
+## Registering a Node
 
-To stake, navigate to `/stake`, choose a pool (ETH, USDC, or JEJU), enter the amount, approve the token spend, and confirm the stake transaction. Fees are paid continuously as transactions occur and can be claimed anytime from the dashboard. APY varies based on network usage.
+Register as an infrastructure provider:
 
-### Unstaking
+1. Go to Gateway → Nodes
+2. Click "Register Node"
+3. Select type (RPC, Compute, Storage)
+4. Stake required ETH
+5. Enter your endpoint URL
 
-Navigate to `/stake`, click "Unstake" on your position, enter the amount, wait for the 7-day cooldown period, then claim your tokens. The cooldown prevents flash-loan attacks and ensures liquidity stability for the paymaster.
+| Node Type | Stake | Purpose |
+|-----------|-------|---------|
+| RPC | 0.5 ETH | Serve RPC requests |
+| Compute | 1 ETH | AI inference |
+| Storage | 0.5 ETH | IPFS storage |
 
-## Node Registration
+## JNS (Jeju Name Service)
 
-RPC nodes can stake to join the network and earn rewards for serving requests.
+Register human-readable names:
 
-### Requirements
+1. Go to Gateway → JNS
+2. Search for available name
+3. Select duration (1-5 years)
+4. Pay registration fee
+5. Use `yourname.jeju` instead of 0x addresses
 
-Nodes need at least 8 CPU cores, 16 GB RAM, 500 GB SSD storage, 100 Mbps bandwidth, and a minimum stake of 1,000 JEJU or equivalent.
+## Run Gateway Locally
 
-### Registration Process
+```bash
+cd apps/gateway
+bun install
+bun run dev
+```
 
-Navigate to `/nodes`, click "Register Node", enter your RPC endpoint URL (must be publicly accessible), select your stake token and amount, then submit the registration. Your node will be validated by the network and start receiving RPC requests and earning rewards once validated.
+Runs on http://localhost:4001
 
-Nodes earn from base rewards (inflation distributed to staked nodes) and request fees (micropayments for RPC requests when x402 is enabled). Nodes can be slashed for extended downtime over 4 hours, serving incorrect data, or malicious behavior.
+## Environment Variables
 
-## Token Registry
+```bash
+VITE_RPC_URL=http://127.0.0.1:9545
+VITE_CHAIN_ID=1337
+VITE_WALLETCONNECT_PROJECT_ID=your_project_id
+VITE_INDEXER_URL=http://127.0.0.1:4350/graphql
+```
 
-Any ERC-20 token can be registered for gas payments via the paymaster. Once registered, users holding that token can pay gas fees with it instead of ETH. This is useful for DAOs wanting members to transact without ETH, games wanting seamless UX with game tokens, and DeFi protocols wanting single-token experiences.
-
-### Registration Process
-
-Navigate to `/tokens`, click "Register Token", enter the token address, price oracle address (Chainlink-compatible), and min/max fee bounds. Pay the 0.1 ETH registration fee and submit. The token must be ERC-20 compliant, have a reliable price oracle, and have sufficient liquidity for swaps.
-
-## Agent Registry
-
-ERC-8004 agents are registered here to obtain on-chain identity. An ERC-8004 agent is an autonomous entity with an on-chain identity (address plus metadata), an A2A endpoint for task execution, an MCP endpoint for knowledge queries, and verifiable capabilities.
-
-Navigate to `/apps`, click "Register App", enter the name, description, A2A endpoint URL, MCP endpoint URL, and metadata URI (IPFS link to full metadata), then submit. Once registered, other agents and applications can discover and interact with your agent.
-
-## Intent Viewer
-
-The intent viewer monitors OIF (Open Intents Framework) operations in real-time. Intents are declarative requests that solvers fulfill. Instead of specifying exact transaction steps, users declare what they want (like "swap 100 USDC on Ethereum for at least 99.5 USDT on Jeju") and solvers compete to fulfill the intent with the best execution.
-
-Navigate to `/intents` to view all pending intents. You can filter by source/destination chain, token pair, user address, or status.
+Full list in `apps/gateway/.env.example`.
 
 ## API Endpoints
 
-Gateway exposes several API endpoints. The web UI runs on port 4001, the node API on port 4002, A2A on port 4003, and WebSocket on port 4012.
+Gateway also exposes APIs:
 
-### A2A Skills
+| Endpoint | Port | Purpose |
+|----------|------|---------|
+| `/api/bridge` | 4001 | Bridge status |
+| `/api/nodes` | 4001 | Node registry |
+| `/api/tokens` | 4001 | Token registry |
+| `/ws` | 4001 | Real-time events |
 
-Agents can interact with Gateway using these skills: `bridge` for bridging tokens (parameters: sourceChain, destChain, token, amount), `stake` for staking tokens (pool, amount), `unstake` for unstaking (pool, amount), `register_node` for registering RPC nodes (endpoint, stake), and `register_token` for registering tokens (address, oracle).
+## Customization
 
-```bash
-curl -X POST http://localhost:4003/a2a \
-  -H "Content-Type: application/json" \
-  -d '{
-    "type": "task",
-    "task": {
-      "skill": "bridge",
-      "parameters": {
-        "sourceChain": 1,
-        "destinationChain": 420691,
-        "token": "0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48",
-        "amount": "1000000000"
-      }
-    }
-  }'
-```
-
-## Setup & Configuration
-
-Install with `cd apps/gateway && bun install`.
-
-Create `.env` with `VITE_WALLETCONNECT_PROJECT_ID` (required), `VITE_NETWORK` (localnet/testnet/mainnet), and optional overrides for `VITE_RPC_URL` and `VITE_INDEXER_URL`.
-
-Run development with `bun run dev`. For production, run `bun run build` then `bun run preview`.
-
-## Testing
-
-Run unit tests with `bun run test:unit`, E2E tests with `bun run test:e2e` (requires running chain), and wallet tests with `bun run test:wallet` (requires headed browser).
-
-## Deployment
-
-### Localnet
-
-Gateway starts automatically with `bun run dev` from the root.
-
-### Testnet/Mainnet
-
-Build the production bundle:
+Fork and customize Gateway for your project:
 
 ```bash
+cd apps/gateway
+cp .env.example .env.local
+# Edit branding in src/config/branding.ts
 bun run build
 ```
 
-Deploy via Kubernetes:
+---
 
-```bash
-cd packages/deployment/kubernetes/helmfile
-helmfile -e testnet -l app=gateway sync
+<details>
+<summary>📋 Copy as Context</summary>
+
+```
+Gateway - Jeju Network Portal
+
+Live: https://gateway.jejunetwork.org
+
+Features:
+- Bridge: Ethereum/Base → Jeju, instant via EIL (~30s)
+- Staking: Stake JEJU for fees + governance
+- Token Registry: Register tokens for gas payments
+- Node Registration: RPC (0.5 ETH), Compute (1 ETH), Storage (0.5 ETH)
+- JNS: Register .jeju domains
+
+Bridge flow:
+1. Connect wallet
+2. Select source chain
+3. Enter amount
+4. Click Bridge
+5. Receive in ~30s (XLPs front liquidity)
+
+Token registration:
+- Need Chainlink oracle
+- Need $10k liquidity
+- Pay 100 JEJU fee
+
+Run locally:
+cd apps/gateway && bun install && bun run dev
+Port 4001
+
+Env vars: VITE_RPC_URL, VITE_CHAIN_ID, VITE_WALLETCONNECT_PROJECT_ID
 ```
 
-### Required Secrets for Production
-
-Configure in AWS Secrets Manager or environment:
-- `VITE_WALLETCONNECT_PROJECT_ID` — WalletConnect project ID
-- Contract addresses are loaded from `packages/config/contracts.json`
-
-### Docker
-
-```bash
-docker build -t jeju-gateway .
-docker run -p 4001:4001 -e VITE_NETWORK=testnet jeju-gateway
-```
-
-## Common Issues
-
-"Insufficient liquidity for fast bridge" means there's not enough XLP liquidity for instant bridging. Use standard mode or try a smaller amount.
-
-"Price oracle not responding" means the registered token's price oracle is not returning data. Contact the token issuer.
-
-"Node validation failed" means your RPC endpoint is not accessible or not returning correct data. Ensure the endpoint is publicly accessible, the SSL certificate is valid, and the node is fully synced.
-
-## Next Steps
-
-- [Become an XLP](/guides/become-xlp) — Provide bridge liquidity
-- [Run an RPC Node](/guides/run-rpc-node) — Join the node network
-- [Register a Token](/guides/register-token) — Enable gas payments
+</details>

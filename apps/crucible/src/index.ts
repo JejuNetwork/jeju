@@ -3,8 +3,12 @@
  * 
  * Main entry point for the Crucible package.
  * 
- * Uses ElizaOS-compatible runtime with DWS for decentralized AI inference.
- * Same infrastructure as Autocrat (governance) and Otto (trading).
+ * Agent execution options:
+ * 1. Full ElizaOS runtime with @jejunetwork/eliza-plugin (recommended)
+ * 2. Direct DWS inference with character-based prompting (fallback)
+ * 
+ * When ElizaOS is available, agents get full plugin/action capabilities.
+ * When only DWS is available, agents run with character-template inference.
  */
 
 // Types
@@ -44,7 +48,7 @@ export {
   type ExecutorConfig,
 } from './sdk/executor';
 
-// ElizaOS-compatible Agent Runtime (unified with Autocrat/Otto)
+// Agent Runtime - ElizaOS integration with DWS fallback
 export {
   CrucibleAgentRuntime,
   CrucibleRuntimeManager,

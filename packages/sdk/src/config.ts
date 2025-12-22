@@ -76,7 +76,7 @@ export interface ContractAddresses {
  * This is a valid try/catch usage: getContract throws for missing contracts/categories
  * which is expected for optional contract deployments across different networks
  */
-function safeGetContract(
+export function safeGetContract(
   category: string,
   name: string,
   network: NetworkType,

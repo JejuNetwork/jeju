@@ -158,7 +158,7 @@ describe('CrucibleCompute', () => {
 
       await expect(compute.inference({
         messages: [{ role: 'user', content: 'Hi' }],
-      })).rejects.toThrow('Inference failed');
+      })).rejects.toThrow('DWS inference failed');
     });
 
     it('should handle empty response content', async () => {

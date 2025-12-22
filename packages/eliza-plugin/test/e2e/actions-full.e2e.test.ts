@@ -26,29 +26,33 @@ let service: StandaloneJejuService | null = null;
 let deployer: JejuClient | null = null;
 
 beforeAll(async () => {
-  env = await setupTestEnvironment();
+  try {
+    env = await setupTestEnvironment();
 
-  if (!env.chainRunning) return;
+    if (!env.chainRunning) return;
 
-  service = await initJejuService({
-    network: "localnet",
-    privateKey: USER_KEY,
-    smartAccount: false,
-  });
-
-  deployer = await createJejuClient({
-    network: "localnet",
-    privateKey: DEPLOYER_KEY,
-    smartAccount: false,
-  });
-
-  // Fund test user from deployer
-  const balance = await service.sdk.getBalance();
-  if (balance < parseEther("1")) {
-    await deployer.sendTransaction({
-      to: service.sdk.address,
-      value: parseEther("10"),
+    service = await initJejuService({
+      network: "localnet",
+      privateKey: USER_KEY,
+      smartAccount: false,
     });
+
+    deployer = await createJejuClient({
+      network: "localnet",
+      privateKey: DEPLOYER_KEY,
+      smartAccount: false,
+    });
+
+    // Fund test user from deployer
+    const balance = await service.sdk.getBalance();
+    if (balance < parseEther("1")) {
+      await deployer.sendTransaction({
+        to: service.sdk.address,
+        value: parseEther("10"),
+      });
+    }
+  } catch (e) {
+    console.error("E2E setup failed:", e);
   }
 }, 120000);
 

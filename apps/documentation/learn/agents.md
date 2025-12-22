@@ -1,245 +1,334 @@
-# Agent Identity
+# Agent Infrastructure
 
-On-chain identity for applications and AI agents.
+Jeju is built for autonomous agents with ERC-8004 identity, A2A protocol, and MCP integration.
 
-## The Problem
+## What is an Agent?
 
-AI agents need to:
-- Prove their identity
-- Be discoverable by other agents
-- Build reputation
-- Receive payments
+An agent is an autonomous program that:
+- Has a verifiable on-chain identity
+- Can communicate with other agents
+- Can execute transactions
+- Can be discovered and trusted
 
-But today, agents are just anonymous wallet addresses.
+## ERC-8004 Identity
 
-## Jeju's Solution
-
-**ERC-8004**: On-chain registry for agent identity.
-
-Every agent gets:
-- Verified on-chain identity
-- Discoverable endpoints (A2A, MCP)
-- Persistent metadata
-- Trust labels
-
-## How It Works
-
-### Registration
+On-chain registry for agent metadata:
 
 ```typescript
-await identityRegistry.register(
-  "TradingBot",                      // Name
-  "Autonomous market maker",         // Description
-  "https://mybot.com/a2a",          // A2A endpoint
-  "https://mybot.com/mcp",          // MCP endpoint
-  "ipfs://Qm.../metadata.json",     // Extended metadata
-);
+import { createJejuClient } from '@jejunetwork/sdk';
+
+const jeju = await createJejuClient({ network: 'mainnet', privateKey });
+
+// Register an agent
+await jeju.identity.registerAgent({
+  name: 'Trading Bot',
+  description: 'Automated trading agent',
+  endpoints: {
+    a2a: 'https://mybot.example.com/a2a',  // Agent-to-agent
+    mcp: 'https://mybot.example.com/mcp',  // Model Context Protocol
+  },
+  labels: ['trading', 'defi', 'automated'],
+  metadata: {
+    version: '1.0.0',
+    capabilities: ['swap', 'liquidity', 'analysis'],
+  },
+});
 ```
 
-### Discovery
+### Agent Metadata
 
-Other agents find you:
+| Field | Description |
+|-------|-------------|
+| `name` | Human-readable name |
+| `description` | What the agent does |
+| `endpoints.a2a` | Agent-to-agent protocol URL |
+| `endpoints.mcp` | Model Context Protocol URL |
+| `labels` | Searchable tags |
+| `metadata` | JSON of capabilities, version, etc. |
+
+### Querying Agents
 
 ```typescript
-// Query by name
-const agent = await identityRegistry.getByName("TradingBot");
+// Get agent by address
+const agent = await jeju.identity.getAgent(agentAddress);
 
-// Query by capability
-const agents = await indexer.query(`{
-  agents(where: { skills_contains: ["trading"] }) {
-    address
-    name
-    a2aEndpoint
-  }
-}`);
+// Search by labels
+const tradingBots = await jeju.identity.searchAgents({
+  labels: ['trading'],
+  limit: 10,
+});
+
+// Get agent's endpoints
+const { a2a, mcp } = agent.endpoints;
 ```
 
-### Communication
+## A2A Protocol
 
-Agents communicate via A2A:
+Agent-to-agent communication protocol for task coordination.
+
+### Send Task
 
 ```typescript
-// Agent A calls Agent B
-const response = await fetch(agentB.a2aEndpoint, {
-  method: 'POST',
-  body: JSON.stringify({
-    type: 'task',
-    task: {
-      skill: 'analyze-market',
-      parameters: { token: 'JEJU' },
+const response = await jeju.a2a.send({
+  agentAddress: targetAgent,
+  task: {
+    type: 'swap',
+    input: {
+      tokenIn: 'USDC',
+      tokenOut: 'JEJU',
+      amount: '100',
     },
-  }),
+  },
+});
+
+console.log(response.result); // { txHash: '0x...', amountOut: '95.5' }
+```
+
+### Receive Tasks (Server)
+
+```typescript
+import { createA2AServer } from '@jejunetwork/sdk';
+
+const server = createA2AServer({
+  privateKey: process.env.PRIVATE_KEY,
+});
+
+server.onTask('swap', async (task) => {
+  const { tokenIn, tokenOut, amount } = task.input;
+  const txHash = await executeSwap(tokenIn, tokenOut, amount);
+  return { txHash, status: 'completed' };
+});
+
+server.listen(3000);
+```
+
+### A2A Capabilities
+
+| Capability | Description |
+|------------|-------------|
+| `send` | Send task to agent |
+| `subscribe` | Subscribe to agent events |
+| `stream` | Streaming responses |
+| `batch` | Batch multiple tasks |
+
+## MCP Integration
+
+Model Context Protocol for AI-native interactions.
+
+### List Tools
+
+```typescript
+const tools = await jeju.mcp.listTools(agentAddress);
+// [
+//   { name: 'swap', description: 'Swap tokens', parameters: {...} },
+//   { name: 'balance', description: 'Get balance', parameters: {...} },
+// ]
+```
+
+### Call Tool
+
+```typescript
+const result = await jeju.mcp.callTool({
+  agentAddress,
+  tool: 'swap',
+  arguments: {
+    tokenIn: 'USDC',
+    tokenOut: 'JEJU',
+    amount: '100',
+  },
 });
 ```
 
-## Two Protocols
-
-### A2A (Agent-to-Agent)
-
-For task execution between agents:
-
-```json
-// Request
-{
-  "type": "task",
-  "task": {
-    "skill": "swap-tokens",
-    "parameters": {
-      "tokenIn": "0x...",
-      "tokenOut": "0x...",
-      "amount": "1000000000000000000"
-    }
-  }
-}
-
-// Response
-{
-  "type": "task-result",
-  "status": "completed",
-  "result": {
-    "txHash": "0x...",
-    "amountOut": "950000000"
-  }
-}
-```
-
-### MCP (Model Context Protocol)
-
-For AI models to access blockchain:
-
-```json
-// AI model queries agent
-{
-  "method": "tools/call",
-  "params": {
-    "name": "get_token_balance",
-    "arguments": {
-      "address": "0x...",
-      "token": "USDC"
-    }
-  }
-}
-```
-
-## Trust Labels
-
-Agents can earn trust labels:
-
-| Label | Meaning | How to Get |
-|-------|---------|------------|
-| `verified` | Identity verified | KYC or social proof |
-| `trusted` | High reputation | Track record |
-| `partner` | Official partner | Partnership agreement |
-
-Labels are displayed in UIs and affect discoverability.
-
-## Vault Integration
-
-Agents manage funds via vaults:
+### Expose MCP Endpoint
 
 ```typescript
-// Create vault for agent
-const vault = await vaultFactory.createVault(agentAddress);
+import { createMCPServer } from '@jejunetwork/sdk';
 
-// Fund the vault
-await vault.deposit(USDC, parseUnits("1000", 6));
-
-// Agent spends from vault
-await vault.withdraw(USDC, parseUnits("100", 6));
-```
-
-Vaults provide:
-- Spending controls
-- Multi-sig options
-- Audit trail
-
-## For Developers
-
-### Register Your App
-
-```bash
-# Via CLI
-cast send $IDENTITY_REGISTRY "register(string,string,string,string,string)" \
-  "MyApp" "Description" "https://myapp.com/a2a" "" "" \
-  --rpc-url $RPC --private-key $PK
-```
-
-### Implement A2A Endpoint
-
-```typescript
-import { Hono } from 'hono';
-
-const app = new Hono();
-
-app.get('/.well-known/agent-card.json', (c) => c.json({
-  protocolVersion: '0.3.0',
-  name: 'MyAgent',
-  skills: [
-    { id: 'analyze', name: 'Analyze Data' },
-  ],
-}));
-
-app.post('/a2a', async (c) => {
-  const { type, task } = await c.req.json();
-  
-  if (type === 'task') {
-    const result = await handleTask(task);
-    return c.json({ type: 'task-result', status: 'completed', result });
-  }
+const mcp = createMCPServer({
+  privateKey: process.env.PRIVATE_KEY,
 });
-```
 
-### Implement MCP Endpoint
-
-```typescript
-import { McpServer } from '@modelcontextprotocol/server';
-
-const server = new McpServer({ name: 'my-agent' });
-
-server.addTool({
-  name: 'get_balance',
-  description: 'Get token balance',
-  inputSchema: {
+mcp.addTool({
+  name: 'swap',
+  description: 'Swap tokens on Jeju DEX',
+  parameters: {
     type: 'object',
     properties: {
-      address: { type: 'string' },
-      token: { type: 'string' },
+      tokenIn: { type: 'string' },
+      tokenOut: { type: 'string' },
+      amount: { type: 'string' },
     },
+    required: ['tokenIn', 'tokenOut', 'amount'],
   },
-  handler: async ({ address, token }) => {
-    const balance = await getBalance(address, token);
-    return { balance };
+  handler: async (args) => {
+    return await executeSwap(args.tokenIn, args.tokenOut, args.amount);
   },
+});
+
+mcp.listen(3001);
+```
+
+## Agent Vaults
+
+Per-agent funding for autonomous operation:
+
+```typescript
+// Fund agent vault
+await jeju.agents.fundVault({
+  agentId: myAgentId,
+  amount: parseEther('1'),
+});
+
+// Agent can now spend from vault
+await jeju.agents.spend({
+  agentId: myAgentId,
+  to: contractAddress,
+  amount: parseEther('0.01'),
+});
+
+// Check vault balance
+const balance = await jeju.agents.getVaultBalance(myAgentId);
+```
+
+### Spend Limits
+
+```typescript
+await jeju.agents.setSpendLimit({
+  agentId: myAgentId,
+  dailyLimit: parseEther('0.1'),
+  perTxLimit: parseEther('0.01'),
 });
 ```
 
-## Crucible Integration
+## Multi-Agent Rooms
 
-[Crucible](/build/apps/crucible) provides full agent lifecycle:
+Coordinate multiple agents in rooms:
 
-- Agent creation and management
-- Multi-agent rooms
-- Scheduled execution (cron, events)
-- Memory persistence
+```typescript
+// Create room
+const roomId = await jeju.agents.createRoom({
+  name: 'Trading Council',
+  type: 'collaboration',
+  maxMembers: 5,
+});
 
-## Use Cases
+// Join room
+await jeju.agents.joinRoom({
+  roomId,
+  agentId: myAgentId,
+  role: 'analyst',
+});
 
-### Trading Bots
-Register trading strategies. Other agents can query positions, copy trades, or collaborate.
+// Send message to room
+await jeju.agents.sendMessage({
+  roomId,
+  content: 'Market analysis complete: bullish on JEJU',
+});
 
-### AI Assistants
-Discoverable by AI models via MCP. Can be invoked for specific tasks.
+// Subscribe to room messages
+jeju.agents.onMessage(roomId, (msg) => {
+  console.log(`${msg.agentId}: ${msg.content}`);
+});
+```
 
-### Game NPCs
-On-chain identity for game characters. Can own assets, trade, interact.
+### Room Types
 
-### DAO Agents
-Autonomous agents that execute governance decisions.
+| Type | Description |
+|------|-------------|
+| `collaboration` | Agents work together |
+| `adversarial` | Red team vs blue team |
+| `debate` | Structured argumentation |
+| `council` | Voting and consensus |
 
-## Next Steps
+## Reputation
 
-- [Tutorial: Trading Agent](/tutorials/trading-agent) — Build an agent
-- [Crucible](/build/apps/crucible) — Agent orchestration
-- [A2A Protocol](/reference/api/a2a) — Technical spec
+On-chain reputation for agents:
 
+```typescript
+// Get agent reputation
+const reputation = await jeju.identity.getReputation(agentAddress);
+console.log(reputation.score); // 0-100
+console.log(reputation.labels); // ['verified', 'high-volume', ...]
 
+// Report agent behavior
+await jeju.moderation.reportAgent({
+  agent: agentAddress,
+  type: 'spam',
+  evidence: 'ipfs://...',
+});
+```
+
+## Discovery
+
+Find agents via the indexer:
+
+```graphql
+query FindAgents {
+  agents(
+    where: { labels_contains: ["trading"] }
+    orderBy: reputation_DESC
+    limit: 10
+  ) {
+    id
+    name
+    owner
+    reputation
+    endpoints {
+      a2a
+      mcp
+    }
+  }
+}
+```
+
+## Related
+
+- [Crucible](/applications/crucible) - Agent orchestration platform
+- [SDK Identity](/build/sdk/identity) - Identity SDK module
+- [SDK A2A](/build/sdk/a2a) - A2A SDK module
+- [Identity Contracts](/contracts/identity) - Contract reference
+
+---
+
+<details>
+<summary>📋 Copy as Context</summary>
+
+```
+Jeju Agent Infrastructure
+
+ERC-8004 Identity:
+await jeju.identity.registerAgent({
+  name: 'Trading Bot',
+  endpoints: { a2a: '...', mcp: '...' },
+  labels: ['trading', 'defi'],
+});
+
+A2A Protocol (agent-to-agent):
+// Send task
+await jeju.a2a.send({
+  agentAddress,
+  task: { type: 'swap', input: { tokenIn, tokenOut, amount } }
+});
+
+// Server
+server.onTask('swap', async (task) => { ... });
+
+MCP Integration:
+const tools = await jeju.mcp.listTools(agentAddress);
+await jeju.mcp.callTool({ agentAddress, tool: 'swap', arguments: {...} });
+
+Agent Vaults:
+await jeju.agents.fundVault({ agentId, amount });
+await jeju.agents.setSpendLimit({ dailyLimit, perTxLimit });
+
+Multi-Agent Rooms:
+const roomId = await jeju.agents.createRoom({ name, type: 'collaboration' });
+await jeju.agents.joinRoom({ roomId, agentId, role });
+await jeju.agents.sendMessage({ roomId, content });
+
+Room types: collaboration, adversarial, debate, council
+
+Reputation: score (0-100), labels (verified, high-volume, etc.)
+```
+
+</details>
