@@ -23,7 +23,7 @@ import {
 import { getNetworkName } from '@jejunetwork/config';
 import { expectValid } from '../utils/validation';
 import { z } from 'zod';
-import { AddressSchema } from '@jejunetwork/types/validation';
+import { AddressSchema } from '@jejunetwork/types';
 
 // Chain IDs for different networks - unused for now but kept for future contract integration
 // const CHAIN_IDS: Record<string, number> = {

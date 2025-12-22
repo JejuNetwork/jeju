@@ -1,62 +1,23 @@
 // SPDX-License-Identifier: CC0-1.0
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
-import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
-import "@openzeppelin/contracts/utils/Pausable.sol";
-import "@openzeppelin/contracts/access/Ownable.sol";
-import "../registry/IdentityRegistry.sol";
+import "../registry/BaseArtifactRegistry.sol";
 
 /**
  * @title ContainerRegistry
  * @author Jeju Network
  * @notice Decentralized OCI container image registry with on-chain metadata
  * @dev Like Docker Hub but decentralized with IPFS/content-addressed storage
- *
- * Features:
- * - OCI-compatible image manifest storage
- * - Multi-architecture support
- * - Content-addressed layers (IPFS CIDs)
- * - Access control (public/private)
- * - Image signing and verification
- * - Pull/push tracking
- * - Organization management
  */
-contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
-
-    enum Visibility {
-        PUBLIC,
-        PRIVATE,
-        ORGANIZATION
-    }
-
-    struct Repository {
-        bytes32 repoId;
-        string name;                // e.g., "jeju/indexer"
-        string namespace;           // Organization or user
-        address owner;
-        uint256 ownerAgentId;       // ERC-8004 agent ID
-        string description;
-        Visibility visibility;
-        string[] tags;              // Keywords for discovery
-        uint256 createdAt;
-        uint256 updatedAt;
-        uint256 pullCount;
-        uint256 starCount;
-        bool isVerified;
-    }
+contract ContainerRegistry is BaseArtifactRegistry {
 
     struct ImageManifest {
-        bytes32 manifestId;
-        bytes32 repoId;
-        string tag;                 // "latest", "v1.0.0", etc.
+        // Inherits version properties from BaseArtifactRegistry.ArtifactVersion
+        // Additional properties specific to containers:
         string digest;              // sha256:abc123...
-        string manifestUri;         // IPFS CID of manifest.json
         bytes32 manifestHash;       // SHA256 of manifest
-        uint256 size;               // Total image size
         string[] architectures;     // "amd64", "arm64", etc.
         string[] layers;            // IPFS CIDs of layer blobs
-        uint256 publishedAt;
-        address publisher;
         string buildInfo;           // Optional build metadata
     }
 
@@ -79,36 +40,17 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         bool isValid;
     }
 
-    IdentityRegistry public immutable identityRegistry;
-    address public treasury;
-
-    mapping(bytes32 => Repository) public repositories;
-    mapping(bytes32 => ImageManifest[]) public manifests;
-    mapping(bytes32 => mapping(string => uint256)) public tagToManifestIndex; // repoId => tag => index
+    // Mapping from artifactId -> versionIndex -> ImageManifest
+    // We map to the index in the base versions array
+    mapping(bytes32 => mapping(uint256 => ImageManifest)) public imageManifests;
     mapping(string => LayerBlob) public layers;         // digest => LayerBlob
     mapping(bytes32 => ImageSignature[]) public signatures;
     
-    // Repository access
-    mapping(bytes32 => mapping(address => bool)) public hasAccess;
-    mapping(bytes32 => mapping(address => bool)) public isCollaborator;
+    // Name uniqueness check inherited from BaseArtifactRegistry
     
-    // Stars
-    mapping(bytes32 => mapping(address => bool)) public hasStarred;
-    
-    // Namespace ownership (org/user => owner)
-    mapping(string => address) public namespaceOwner;
-    
-    // Name uniqueness
-    mapping(bytes32 => bool) public repoNameTaken; // keccak256(namespace/name)
-    
-    bytes32[] public allRepositories;
     uint256 private _nextRepoId = 1;
     uint256 private _nextManifestId = 1;
     uint256 private _nextSignatureId = 1;
-
-    // Fees
-    uint256 public pushFee = 0;                 // Fee per push (spam prevention)
-    uint256 public storageFeePerGB = 0;         // Storage fee
 
     event RepositoryCreated(
         bytes32 indexed repoId,
@@ -116,7 +58,6 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         string name,
         address indexed owner
     );
-    event RepositoryUpdated(bytes32 indexed repoId);
     event ImagePushed(
         bytes32 indexed repoId,
         bytes32 indexed manifestId,
@@ -124,67 +65,18 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         string digest
     );
     event ImagePulled(bytes32 indexed repoId, string tag, address indexed puller);
-    event ImageDeleted(bytes32 indexed repoId, string tag);
     event LayerUploaded(string indexed digest, string cid, uint256 size);
     event ImageSigned(bytes32 indexed manifestId, address indexed signer);
-    event RepositoryStarred(bytes32 indexed repoId, address indexed user, bool starred);
-    event AccessGranted(bytes32 indexed repoId, address indexed user);
-    event AccessRevoked(bytes32 indexed repoId, address indexed user);
-    event NamespaceClaimed(string indexed namespace, address indexed owner);
 
-    error RepoNotFound();
-    error NotRepoOwner();
-    error RepoNameTaken();
-    error NamespaceNotOwned();
-    error TagNotFound();
-    error AccessDenied();
     error LayerNotFound();
-    error InvalidSignature();
-    error InsufficientPayment();
-
-    modifier repoExists(bytes32 repoId) {
-        if (repositories[repoId].createdAt == 0) revert RepoNotFound();
-        _;
-    }
-
-    modifier onlyRepoOwner(bytes32 repoId) {
-        if (repositories[repoId].owner != msg.sender) revert NotRepoOwner();
-        _;
-    }
-
-    modifier canPush(bytes32 repoId) {
-        Repository storage repo = repositories[repoId];
-        if (repo.owner != msg.sender && !isCollaborator[repoId][msg.sender]) {
-            revert AccessDenied();
-        }
-        _;
-    }
+    error TagNotFound();
+    error RepoNameTaken();
 
     constructor(
         address _identityRegistry,
         address _treasury,
         address initialOwner
-    ) Ownable(initialOwner) {
-        identityRegistry = IdentityRegistry(payable(_identityRegistry));
-        treasury = _treasury;
-    }
-
-    /**
-     * @notice Claim a namespace (organization or username)
-     */
-    function claimNamespace(string calldata namespace) external {
-        if (namespaceOwner[namespace] != address(0)) revert NamespaceNotOwned();
-        namespaceOwner[namespace] = msg.sender;
-        emit NamespaceClaimed(namespace, msg.sender);
-    }
-
-    /**
-     * @notice Transfer namespace ownership
-     */
-    function transferNamespace(string calldata namespace, address newOwner) external {
-        if (namespaceOwner[namespace] != msg.sender) revert NamespaceNotOwned();
-        namespaceOwner[namespace] = newOwner;
-    }
+    ) BaseArtifactRegistry(_identityRegistry, _treasury, initialOwner) {}
 
     /**
      * @notice Create a new container repository
@@ -196,44 +88,44 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         Visibility visibility,
         string[] calldata tags
     ) external payable nonReentrant whenNotPaused returns (bytes32 repoId) {
-        // Check namespace ownership
-        if (namespaceOwner[namespace] != address(0) && namespaceOwner[namespace] != msg.sender) {
-            revert NamespaceNotOwned();
-        }
-
-        // Check uniqueness
-        bytes32 nameHash = keccak256(abi.encodePacked(namespace, "/", name));
-        if (repoNameTaken[nameHash]) revert RepoNameTaken();
-
         // Collect fee if set
-        if (pushFee > 0 && msg.value < pushFee) revert InsufficientPayment();
+        if (publishFee > 0 && msg.value < publishFee) revert InsufficientPayment();
 
         repoId = keccak256(abi.encodePacked(_nextRepoId++, msg.sender, namespace, name, block.timestamp));
 
         uint256 agentId = _getAgentIdForAddress(msg.sender);
 
-        Repository storage repo = repositories[repoId];
-        repo.repoId = repoId;
-        repo.name = name;
-        repo.namespace = namespace;
-        repo.owner = msg.sender;
-        repo.ownerAgentId = agentId;
-        repo.description = description;
-        repo.visibility = visibility;
-        repo.tags = tags;
-        repo.createdAt = block.timestamp;
-        repo.updatedAt = block.timestamp;
-
-        repoNameTaken[nameHash] = true;
-        allRepositories.push(repoId);
-
-        // Auto-claim namespace if not claimed
-        if (namespaceOwner[namespace] == address(0)) {
-            namespaceOwner[namespace] = msg.sender;
+        try this._createArtifactWrapper(repoId, name, namespace, visibility, description, tags, agentId) {
+             // Success
+        } catch Error(string memory reason) {
+            if (keccak256(bytes(reason)) == keccak256(bytes("AlreadyExists"))) revert RepoNameTaken();
+            revert(reason);
+        } catch {
+             revert("Creation failed");
         }
 
         emit RepositoryCreated(repoId, namespace, name, msg.sender);
     }
+
+    // Wrapper to expose internal function to try/catch block (since _createArtifact is internal)
+    // Or simpler: just inline the logic or use internal call but map errors.
+    // Actually, inheritance allows direct call. The try/catch around internal isn't possible directly.
+    // I will just call internal and mapping error codes if needed, or let it revert.
+    function _createArtifactWrapper(
+        bytes32 id,
+        string memory name,
+        string memory namespace,
+        Visibility visibility,
+        string memory description,
+        string[] memory tags,
+        uint256 agentId
+    ) public {
+        require(msg.sender == address(this), "Internal use only");
+        _createArtifact(id, name, namespace, visibility, description, tags, agentId);
+    }
+    // Optimization: Just reimplement createRepository calling _createArtifact directly.
+    // But since _createArtifact reverts with "AlreadyExists", I want to map it to "RepoNameTaken" for compatibility if needed.
+    // However, "AlreadyExists" is clear enough.
 
     /**
      * @notice Push an image manifest
@@ -248,43 +140,23 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
         string[] calldata architectures,
         string[] calldata layerCids,
         string calldata buildInfo
-    ) external payable nonReentrant repoExists(repoId) canPush(repoId) returns (bytes32 manifestId) {
+    ) external payable nonReentrant exists(repoId) canPublish(repoId) returns (bytes32 manifestId) {
         // Collect fee if set
-        if (pushFee > 0 && msg.value < pushFee) revert InsufficientPayment();
+        if (publishFee > 0 && msg.value < publishFee) revert InsufficientPayment();
 
         manifestId = keccak256(abi.encodePacked(_nextManifestId++, repoId, tag, digest, block.timestamp));
 
-        ImageManifest[] storage repoManifests = manifests[repoId];
-        
-        // Check if tag exists, update if so
-        uint256 existingIndex = tagToManifestIndex[repoId][tag];
-        bool tagExists = repoManifests.length > 0 && 
-            existingIndex < repoManifests.length &&
-            keccak256(bytes(repoManifests[existingIndex].tag)) == keccak256(bytes(tag));
+        // Use base versioning
+        uint256 index = _publishVersion(repoId, manifestId, tag, manifestUri, manifestHash, size);
 
-        ImageManifest memory newManifest = ImageManifest({
-            manifestId: manifestId,
-            repoId: repoId,
-            tag: tag,
+        // Store extended metadata
+        imageManifests[repoId][index] = ImageManifest({
             digest: digest,
-            manifestUri: manifestUri,
             manifestHash: manifestHash,
-            size: size,
             architectures: architectures,
             layers: layerCids,
-            publishedAt: block.timestamp,
-            publisher: msg.sender,
             buildInfo: buildInfo
         });
-
-        if (tagExists) {
-            repoManifests[existingIndex] = newManifest;
-        } else {
-            tagToManifestIndex[repoId][tag] = repoManifests.length;
-            repoManifests.push(newManifest);
-        }
-
-        repositories[repoId].updatedAt = block.timestamp;
 
         emit ImagePushed(repoId, manifestId, tag, digest);
     }
@@ -315,16 +187,16 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
     function pullImage(bytes32 repoId, string calldata tag) 
         external 
         nonReentrant 
-        repoExists(repoId) 
+        exists(repoId) 
     {
-        Repository storage repo = repositories[repoId];
+        Artifact storage repo = artifacts[repoId];
 
         // Check access for private repos
-        if (repo.visibility == Visibility.PRIVATE && !hasAccess[repoId][msg.sender] && repo.owner != msg.sender) {
+        if (!checkAccess(repoId, msg.sender)) {
             revert AccessDenied();
         }
 
-        repo.pullCount++;
+        repo.downloadCount++;
         emit ImagePulled(repoId, tag, msg.sender);
     }
 
@@ -334,20 +206,22 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
     function signImage(bytes32 repoId, string calldata tag, bytes calldata signature, string calldata publicKeyUri)
         external
         nonReentrant
-        repoExists(repoId)
+        exists(repoId)
     {
-        uint256 idx = tagToManifestIndex[repoId][tag];
-        ImageManifest[] storage repoManifests = manifests[repoId];
-        if (idx >= repoManifests.length) revert TagNotFound();
-
-        ImageManifest storage manifest = repoManifests[idx];
-        bytes32 signatureId = keccak256(abi.encodePacked(_nextSignatureId++, manifest.manifestId, msg.sender));
+        uint256 idx = versionIndex[repoId][tag];
+        // Check if version exists
+        if (versions[repoId].length <= idx || keccak256(bytes(versions[repoId][idx].version)) != keccak256(bytes(tag))) {
+             revert TagNotFound();
+        }
+        
+        bytes32 manifestId = versions[repoId][idx].versionId;
+        bytes32 signatureId = keccak256(abi.encodePacked(_nextSignatureId++, manifestId, msg.sender));
 
         uint256 agentId = _getAgentIdForAddress(msg.sender);
 
-        signatures[manifest.manifestId].push(ImageSignature({
+        signatures[manifestId].push(ImageSignature({
             signatureId: signatureId,
-            manifestId: manifest.manifestId,
+            manifestId: manifestId,
             signer: msg.sender,
             signerAgentId: agentId,
             signature: signature,
@@ -356,74 +230,47 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
             isValid: true
         }));
 
-        emit ImageSigned(manifest.manifestId, msg.sender);
+        emit ImageSigned(manifestId, msg.sender);
     }
 
-    /**
-     * @notice Grant access to private repository
-     */
-    function grantAccess(bytes32 repoId, address user) external repoExists(repoId) onlyRepoOwner(repoId) {
-        hasAccess[repoId][user] = true;
-        emit AccessGranted(repoId, user);
-    }
-
-    /**
-     * @notice Revoke access
-     */
-    function revokeAccess(bytes32 repoId, address user) external repoExists(repoId) onlyRepoOwner(repoId) {
-        hasAccess[repoId][user] = false;
-        emit AccessRevoked(repoId, user);
-    }
-
-    /**
-     * @notice Add collaborator (can push)
-     */
-    function addCollaborator(bytes32 repoId, address user) external repoExists(repoId) onlyRepoOwner(repoId) {
-        isCollaborator[repoId][user] = true;
-        hasAccess[repoId][user] = true;
-    }
-
-    /**
-     * @notice Remove collaborator
-     */
-    function removeCollaborator(bytes32 repoId, address user) external repoExists(repoId) onlyRepoOwner(repoId) {
-        isCollaborator[repoId][user] = false;
-    }
-
-    /**
-     * @notice Star/unstar repository
-     */
-    function toggleStar(bytes32 repoId) external nonReentrant repoExists(repoId) {
-        bool starred = !hasStarred[repoId][msg.sender];
-        hasStarred[repoId][msg.sender] = starred;
-
-        Repository storage repo = repositories[repoId];
-        if (starred) {
-            repo.starCount++;
-        } else if (repo.starCount > 0) {
-            repo.starCount--;
-        }
-
-        emit RepositoryStarred(repoId, msg.sender, starred);
-    }
-
-    function _getAgentIdForAddress(address addr) internal view returns (uint256) {
+    function _getAgentIdForAddress(address /* addr */) internal pure returns (uint256) {
         return 0; // Would query indexer in production
     }
 
-    function getRepository(bytes32 repoId) external view returns (Repository memory) {
-        return repositories[repoId];
+    function getRepository(bytes32 repoId) external view returns (Artifact memory) {
+        return artifacts[repoId];
     }
 
-    function getManifests(bytes32 repoId) external view returns (ImageManifest[] memory) {
-        return manifests[repoId];
+    // Helper to combine base version data with extended manifest data
+    struct FullManifest {
+        ArtifactVersion base;
+        ImageManifest extended;
     }
 
-    function getManifestByTag(bytes32 repoId, string calldata tag) external view returns (ImageManifest memory) {
-        uint256 idx = tagToManifestIndex[repoId][tag];
-        ImageManifest[] storage repoManifests = manifests[repoId];
-        if (idx >= repoManifests.length) revert TagNotFound();
-        return repoManifests[idx];
+    function getManifests(bytes32 repoId) external view returns (FullManifest[] memory) {
+        ArtifactVersion[] memory baseVersions = versions[repoId];
+        FullManifest[] memory result = new FullManifest[](baseVersions.length);
+        
+        for (uint256 i = 0; i < baseVersions.length; i++) {
+            result[i] = FullManifest({
+                base: baseVersions[i],
+                extended: imageManifests[repoId][i]
+            });
+        }
+        return result;
+    }
+
+    function getManifestByTag(bytes32 repoId, string calldata tag) external view returns (FullManifest memory) {
+        uint256 idx = versionIndex[repoId][tag];
+        if (versions[repoId].length <= idx) revert TagNotFound();
+        
+        ArtifactVersion memory base = versions[repoId][idx];
+        if (keccak256(bytes(base.version)) != keccak256(bytes(tag))) revert TagNotFound();
+
+        return FullManifest({
+            base: base,
+            extended: imageManifests[repoId][idx]
+        });
     }
 
     function getLayer(string calldata digest) external view returns (LayerBlob memory) {
@@ -437,49 +284,24 @@ contract ContainerRegistry is ReentrancyGuard, Pausable, Ownable {
     }
 
     function getTotalRepositories() external view returns (uint256) {
-        return allRepositories.length;
+        return allArtifacts.length;
     }
 
     function getRepositoryIds(uint256 offset, uint256 limit) external view returns (bytes32[] memory) {
         uint256 end = offset + limit;
-        if (end > allRepositories.length) end = allRepositories.length;
+        if (end > allArtifacts.length) end = allArtifacts.length;
         if (offset >= end) return new bytes32[](0);
 
         bytes32[] memory result = new bytes32[](end - offset);
         for (uint256 i = offset; i < end; i++) {
-            result[i - offset] = allRepositories[i];
+            result[i - offset] = allArtifacts[i];
         }
         return result;
     }
 
-    function setTreasury(address _treasury) external onlyOwner {
-        treasury = _treasury;
-    }
-
-    function setPushFee(uint256 _fee) external onlyOwner {
-        pushFee = _fee;
-    }
-
-    function setStorageFeePerGB(uint256 _fee) external onlyOwner {
-        storageFeePerGB = _fee;
-    }
-
-    function verifyRepository(bytes32 repoId) external onlyOwner repoExists(repoId) {
-        repositories[repoId].isVerified = true;
-    }
-
-    function pause() external onlyOwner {
-        _pause();
-    }
-
-    function unpause() external onlyOwner {
-        _unpause();
-    }
-
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 
     receive() external payable {}
 }
-

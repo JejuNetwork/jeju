@@ -120,6 +120,17 @@ const KNOWN_CONTRACTS: Record<string, string> = {
   '0x5ff137d4b0fdcd49dca30c7cf57e578a026d2789': 'EntryPoint v0.6',
 };
 
+// Decoded calldata argument types
+type DecodedApproveArgs = [spender: Address, amount: bigint];
+type DecodedTransferArgs = [to: Address, amount: bigint];
+type DecodedTransferFromArgs = [from: Address, to: Address, amount: bigint];
+type DecodedArgs = DecodedApproveArgs | DecodedTransferArgs | DecodedTransferFromArgs | [];
+
+interface DecodedCalldata {
+  method: string;
+  args: DecodedArgs;
+}
+
 // Unlimited approval threshold (max uint256)
 const UNLIMITED_APPROVAL = 2n ** 256n - 1n;
 
@@ -194,8 +205,8 @@ class SimulationService {
       }
       
       // Check for approval
-      if (decoded?.method === 'approve') {
-        const [spender, amount] = decoded.args as [Address, bigint];
+      if (decoded?.method === 'approve' && decoded.args.length === 2) {
+        const [spender, amount] = decoded.args as DecodedApproveArgs;
         const isUnlimited = amount >= UNLIMITED_APPROVAL / 2n;
         const isRevoke = amount === 0n;
         
@@ -216,8 +227,8 @@ class SimulationService {
       }
       
       // Check for transfer
-      if (decoded?.method === 'transfer') {
-        const [to, amount] = decoded.args as [Address, bigint];
+      if (decoded?.method === 'transfer' && decoded.args.length === 2) {
+        const [to, amount] = decoded.args as DecodedTransferArgs;
         const symbol = await this.getTokenSymbol(tx.chainId, tx.to);
         const decimals = await this.getTokenDecimals(tx.chainId, tx.to);
         const price = await oracleService.getTokenPrice(symbol);
@@ -286,30 +297,30 @@ class SimulationService {
   /**
    * Decode calldata
    */
-  private decodeCalldata(data: Hex): { method: string; args: unknown[] } | null {
+  private decodeCalldata(data: Hex): DecodedCalldata | null {
     if (!data || data === '0x') return null;
     
     const selector = data.slice(0, 10);
     
     // Common selectors
-    const selectors: Record<string, { method: string; decode: (data: Hex) => unknown[] }> = {
+    const selectors: Record<string, { method: string; decode: (data: Hex) => DecodedArgs }> = {
       '0x095ea7b3': { // approve(address,uint256)
         method: 'approve',
-        decode: (d) => [
+        decode: (d): DecodedApproveArgs => [
           ('0x' + d.slice(34, 74)) as Address,
           BigInt('0x' + d.slice(74, 138)),
         ],
       },
       '0xa9059cbb': { // transfer(address,uint256)
         method: 'transfer',
-        decode: (d) => [
+        decode: (d): DecodedTransferArgs => [
           ('0x' + d.slice(34, 74)) as Address,
           BigInt('0x' + d.slice(74, 138)),
         ],
       },
       '0x23b872dd': { // transferFrom(address,address,uint256)
         method: 'transferFrom',
-        decode: (d) => [
+        decode: (d): DecodedTransferFromArgs => [
           ('0x' + d.slice(34, 74)) as Address,
           ('0x' + d.slice(98, 138)) as Address,
           BigInt('0x' + d.slice(138, 202)),

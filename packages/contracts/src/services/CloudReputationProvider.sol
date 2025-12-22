@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 /**
  * @dev DEPRECATION NOTICE: This contract is vendor-specific and maintained in vendor/cloud/contracts/.

@@ -6,7 +6,7 @@
 
 import { Hono } from 'hono';
 import type { Address } from 'viem';
-import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, edgeNodeRegistrationSchema, edgeCacheRequestSchema, edgeNodeParamsSchema, edgeNodesQuerySchema, edgeRouteParamsSchema, regionHeaderSchema } from '../../shared';
+import { validateBody, validateParams, validateQuery, validateHeaders, edgeNodeRegistrationSchema, edgeCacheRequestSchema, edgeNodeParamsSchema, edgeNodesQuerySchema, edgeRouteParamsSchema, regionHeaderSchema } from '../../shared';
 
 // ============================================================================
 // Types
@@ -17,6 +17,7 @@ interface EdgeNode {
   nodeType: 'wallet-edge' | 'full-node' | 'cdn-node';
   platform: string;
   operator?: Address;
+  endpoint?: string;
   capabilities: {
     proxy: boolean;
     torrent: boolean;
@@ -116,6 +117,7 @@ export function createEdgeRouter(): Hono {
       nodeType: body.nodeType,
       platform: body.platform,
       operator: body.operator,
+      endpoint: body.endpoint,
       capabilities: body.capabilities,
       region: body.region ?? 'global',
       status: 'online',
@@ -323,6 +325,7 @@ export function handleEdgeWebSocket(ws: WebSocket, nodeId?: string): void {
           nodeType: message.nodeType ?? 'wallet-edge',
           platform: message.platform ?? 'unknown',
           operator: message.operator,
+          endpoint: message.endpoint,
           capabilities: message.capabilities ?? {
             proxy: false,
             torrent: false,
@@ -411,7 +414,7 @@ export function handleEdgeWebSocket(ws: WebSocket, nodeId?: string): void {
 function findCacheNodes(
   regions: string[],
   minReplicas: number,
-  priority: 'high' | 'normal' | 'low'
+  _priority: 'high' | 'normal' | 'low'
 ): EdgeNode[] {
   const result: EdgeNode[] = [];
 

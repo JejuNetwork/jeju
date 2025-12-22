@@ -25,14 +25,13 @@ import {
 } from '../../containers';
 import { 
   validateBody, 
-  validateParams, 
   validateHeaders, 
   jejuAddressHeaderSchema, 
   containerExecutionRequestSchema,
   containerCostEstimateSchema,
   warmContainersRequestSchema,
   nodeRegistrationSchema,
-  z 
+  type JSONValue,
 } from '../../shared';
 
 export function createContainerRouter(): Hono {
@@ -79,7 +78,7 @@ export function createContainerRouter(): Hono {
       },
       mode: body.mode,
       timeout: body.timeout,
-      input: body.input,
+      input: body.input as JSONValue | undefined,
       webhook: body.webhook,
     };
 

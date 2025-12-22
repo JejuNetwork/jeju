@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 /// @title IPermit2
 /// @notice Interface for Uniswap's Permit2 contract

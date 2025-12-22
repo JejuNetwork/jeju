@@ -8,9 +8,79 @@
 
 import { z } from 'zod';
 
-// Re-export ChainConfigSchema and NetworkSchema from types
-export { ChainConfigSchema, NetworkSchema } from '../types/src/chain';
-export type { NetworkType, ChainConfig } from '../types/src/chain';
+// ============================================================================
+// Network Type
+// ============================================================================
+
+export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet']);
+export type NetworkType = z.infer<typeof NetworkSchema>;
+
+// ============================================================================
+// Chain Configuration Schema
+// ============================================================================
+
+/**
+ * Address schema using regex validation (no viem dependency)
+ */
+const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address');
+
+/**
+ * Optional address schema - allows empty strings for contracts that haven't been deployed yet
+ */
+const OptionalAddressSchema = z.string().refine(
+  (val) => val === '' || /^0x[a-fA-F0-9]{40}$/.test(val),
+  { message: 'Must be empty or valid Ethereum address' }
+);
+
+const GasTokenSchema = z.object({
+  name: z.string(),
+  symbol: z.string(),
+  decimals: z.number(),
+});
+
+/** OP Stack L2 contract addresses for chain config */
+const ChainL2ContractsSchema = z.object({
+  L2CrossDomainMessenger: AddressSchema,
+  L2StandardBridge: AddressSchema,
+  L2ToL1MessagePasser: AddressSchema,
+  L2ERC721Bridge: AddressSchema,
+  GasPriceOracle: AddressSchema,
+  L1Block: AddressSchema,
+  WETH: AddressSchema,
+});
+
+/** OP Stack L1 contract addresses for chain config - allows empty for undeployed contracts */
+const ChainL1ContractsSchema = z.object({
+  OptimismPortal: OptionalAddressSchema,
+  L2OutputOracle: OptionalAddressSchema,
+  L1CrossDomainMessenger: OptionalAddressSchema,
+  L1StandardBridge: OptionalAddressSchema,
+  SystemConfig: OptionalAddressSchema,
+});
+
+/**
+ * OP Stack chain configuration schema
+ */
+export const ChainConfigSchema = z.object({
+  chainId: z.number(),
+  networkId: z.number(),
+  name: z.string(),
+  rpcUrl: z.string(),
+  wsUrl: z.string(),
+  explorerUrl: z.string(),
+  l1ChainId: z.number(),
+  l1RpcUrl: z.string(),
+  l1Name: z.string(),
+  flashblocksEnabled: z.boolean(),
+  flashblocksSubBlockTime: z.number(),
+  blockTime: z.number(),
+  gasToken: GasTokenSchema,
+  contracts: z.object({
+    l2: ChainL2ContractsSchema,
+    l1: ChainL1ContractsSchema,
+  }),
+});
+export type ChainConfig = z.infer<typeof ChainConfigSchema>;
 
 // ============================================================================
 // Contract Schemas

@@ -23,12 +23,78 @@ import {
   PurchaseCreditsRequestSchema,
   PaymentRequirementQuerySchema,
   ChainIdSchema,
+  JsonObjectSchema,
   expect,
   expectChainId,
   expectAddress,
   validateBody,
   validateQuery,
+  type JsonObject,
 } from '../lib/validation.js';
+
+// ============================================================================
+// MCP Types for RPC Server
+// ============================================================================
+
+/** Chain info returned by MCP resources */
+interface ChainSummary {
+  chainId: number;
+  name: string;
+  isTestnet: boolean;
+  endpoint: string;
+}
+
+/** Rate limit tier configuration */
+interface TierConfig {
+  stake: number;
+  limit: number | string;
+}
+
+/** Possible MCP resource contents for RPC server */
+type RpcMcpResourceContents = 
+  | ChainSummary[]
+  | ReturnType<typeof getEndpointHealth>
+  | Record<string, TierConfig>;
+
+/** Result from list_chains tool */
+interface ListChainsResult {
+  chains: Array<{ chainId: number; name: string; isTestnet: boolean }>;
+}
+
+/** Result from create_api_key tool */
+interface CreateApiKeyResult {
+  key: string;
+  id: string;
+  tier: string;
+}
+
+/** Result from check_rate_limit tool */
+interface CheckRateLimitResult {
+  address: string;
+  apiKeys: number;
+  tiers: typeof RATE_LIMITS;
+}
+
+/** Result from get_usage tool */
+interface GetUsageResult {
+  address: string;
+  apiKeys: number;
+  totalRequests: number;
+}
+
+/** Error result for MCP tools */
+interface McpErrorResult {
+  error: string;
+}
+
+/** Union of all possible MCP tool results */
+type RpcMcpToolResult =
+  | ListChainsResult
+  | ReturnType<typeof getChain>
+  | CreateApiKeyResult
+  | CheckRateLimitResult
+  | GetUsageResult
+  | McpErrorResult;
 
 export const rpcApp = new Hono();
 
@@ -367,7 +433,7 @@ rpcApp.post('/mcp/resources/read', async (c) => {
     const validated = validateBody(z.object({ uri: z.string().min(1) }), await c.req.json(), 'MCP resource read');
     const { uri } = validated;
 
-    let contents: unknown;
+    let contents: RpcMcpResourceContents;
     switch (uri) {
       case 'rpc://chains':
         contents = Object.values(CHAINS).map(chain => ({ chainId: chain.chainId, name: chain.name, isTestnet: chain.isTestnet, endpoint: `/v1/rpc/${chain.chainId}` }));
@@ -392,13 +458,13 @@ rpcApp.post('/mcp/resources/read', async (c) => {
 rpcApp.post('/mcp/tools/list', (c) => c.json({ tools: MCP_TOOLS }));
 
 rpcApp.post('/mcp/tools/call', async (c) => {
-  let result: unknown;
+  let result: RpcMcpToolResult;
   let isError = false;
 
   try {
     const validated = validateBody(z.object({ 
       name: z.string().min(1),
-      arguments: z.record(z.string(), z.unknown()).optional().default({}),
+      arguments: JsonObjectSchema.optional().default({}),
     }), await c.req.json(), 'MCP tool call');
     const { name, arguments: args = {} } = validated;
 

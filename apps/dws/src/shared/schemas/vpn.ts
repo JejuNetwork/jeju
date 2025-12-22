@@ -3,8 +3,7 @@
  */
 
 import { z } from 'zod';
-import type { Address } from 'viem';
-import { addressSchema, nonEmptyStringSchema, positiveIntSchema, urlSchema } from '../validation';
+import { nonEmptyStringSchema, positiveIntSchema, urlSchema } from '../validation';
 
 /**
  * VPN proxy node registration request schema

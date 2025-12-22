@@ -1,14 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Activity, AlertTriangle, Target, Zap, Search, Sun, Moon, Menu, X } from 'lucide-react'
-
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: Activity },
-  { href: '/alerts', label: 'Alerts', icon: AlertTriangle },
-  { href: '/targets', label: 'Targets', icon: Target },
-  { href: '/oif', label: 'OIF', icon: Zap },
-  { href: '/query', label: 'Query', icon: Search },
-]
+import { Sun, Moon, Menu, X } from 'lucide-react'
+import { NAV_ITEMS } from './nav'
 
 export function Header() {
   const location = useLocation()
@@ -65,7 +58,7 @@ export function Header() {
             </Link>
 
             <nav className="hidden lg:flex items-center gap-1">
-              {navItems.map((item) => {
+              {NAV_ITEMS.map((item) => {
                 const Icon = item.icon
                 return (
                   <Link
@@ -128,7 +121,7 @@ export function Header() {
           </div>
 
           <div className="flex-1 py-4">
-            {navItems.map((item) => {
+            {NAV_ITEMS.map((item) => {
               const Icon = item.icon
               return (
                 <Link

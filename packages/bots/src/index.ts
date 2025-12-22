@@ -8,11 +8,21 @@
 // Types
 export * from './types';
 
-// Schemas (Zod validation)
+// Schemas (Zod validation) - exports constants and schemas
 export * from './schemas';
 
-// Shared utilities
-export * from './shared';
+// Shared utilities - exports utility functions (constants come from schemas)
+export {
+  sleep,
+  weightToBps,
+  bpsToWeight,
+  percentageDiff,
+  clamp,
+  clampBigInt,
+  formatBigInt,
+  parseBigInt,
+  generateId,
+} from './shared';
 
 // Oracle Integration
 export { OracleAggregator, TOKEN_SYMBOLS, getTokenSymbol } from './oracles';

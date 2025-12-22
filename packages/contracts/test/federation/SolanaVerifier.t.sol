@@ -181,7 +181,7 @@ contract SolanaVerifierTest is Test {
         vm.prank(owner);
         verifier.setWormhole(newWormhole);
         
-        assertEq(verifier.wormhole(), newWormhole);
+        assertEq(address(verifier.wormhole()), newWormhole);
     }
 
     function test_RevertWhen_NonOwnerAddsEntry() public {

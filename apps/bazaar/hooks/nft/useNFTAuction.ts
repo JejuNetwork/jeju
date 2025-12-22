@@ -1,6 +1,6 @@
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract, useAccount } from 'wagmi'
 import { parseEther, formatEther } from 'viem'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { AddressSchema } from '@jejunetwork/types'
 import { expect, expectPositive, expectTrue } from '@/lib/validation'
 import { NonEmptyStringSchema } from '@/schemas/common'
 import { toast } from 'sonner'

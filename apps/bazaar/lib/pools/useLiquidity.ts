@@ -1,5 +1,5 @@
 import { useWriteContract, useReadContracts, useAccount } from 'wagmi'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { AddressSchema } from '@jejunetwork/types'
 import { expect, expectPositive, expectTrue } from '@/lib/validation'
 import { getV4Contracts } from '@/config/contracts'
 import { JEJU_CHAIN_ID } from '@/config/chains'

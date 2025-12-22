@@ -3,8 +3,7 @@
  */
 
 import { z } from 'zod';
-import type { Address } from 'viem';
-import { addressSchema, nonEmptyStringSchema, cidSchema, positiveIntSchema } from '../validation';
+import { addressSchema, nonEmptyStringSchema, cidSchema } from '../validation';
 
 /**
  * Edge node registration request schema
@@ -13,6 +12,7 @@ export const edgeNodeRegistrationSchema = z.object({
   nodeType: z.enum(['wallet-edge', 'full-node', 'cdn-node']),
   platform: nonEmptyStringSchema,
   operator: addressSchema.optional(),
+  endpoint: z.string().url().optional(),
   capabilities: z.object({
     proxy: z.boolean(),
     torrent: z.boolean(),

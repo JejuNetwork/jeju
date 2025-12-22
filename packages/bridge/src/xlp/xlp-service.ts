@@ -28,6 +28,7 @@ import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { mainnet, arbitrum, optimism, base } from 'viem/chains';
 import { EventEmitter } from 'events';
 import { createLogger } from '../utils/logger.js';
+import { isSolanaChain as isSolanaChainType, ChainId } from '../types/index.js';
 
 const log = createLogger('xlp');
 
@@ -39,9 +40,6 @@ const SUPPORTED_EVM_CHAINS = {
   10: { chain: optimism, name: 'Optimism' },
   8453: { chain: base, name: 'Base' },
 } as const;
-
-// Solana chain IDs (101 = mainnet, 102 = devnet, 103 = localnet, 104 = local-solana)
-const SOLANA_CHAIN_IDS = [101, 102, 103, 104] as const;
 
 
 // XLP Contract ABI
@@ -101,8 +99,12 @@ const SOLANA_TOKENS: Record<string, string> = {
   WETH: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs', // Wormhole WETH
 };
 
+/**
+ * Check if a chain ID is a Solana chain
+ * Re-exported from types for convenience
+ */
 export function isSolanaChain(chainId: number): boolean {
-  return SOLANA_CHAIN_IDS.includes(chainId as 101 | 102 | 103 | 104);
+  return isSolanaChainType(chainId as ChainId);
 }
 
 export function getSolanaTokenMint(symbol: string): string | undefined {

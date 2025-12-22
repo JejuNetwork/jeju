@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react';
 import { request, gql } from 'graphql-request';
-import { AddressSchema } from '@jejunetwork/types/contracts';
+import { AddressSchema } from '@jejunetwork/types';
 import { expect } from '@/lib/validation';
 import { INDEXER_URL } from '@/config';
 

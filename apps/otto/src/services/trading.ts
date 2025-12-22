@@ -45,9 +45,17 @@ import {
 } from '../schemas';
 import { getRequiredEnv } from '../utils/validation';
 
-const BAZAAR_API = getRequiredEnv('BAZAAR_API_URL', 'http://localhost:3001');
-const GATEWAY_API = getRequiredEnv('GATEWAY_API_URL', 'http://localhost:4003');
-const INDEXER_API = getRequiredEnv('INDEXER_API_URL', 'http://localhost:4350');
+function getBazaarApi(): string {
+  return getRequiredEnv('BAZAAR_API_URL', 'http://localhost:3001');
+}
+
+function getGatewayApi(): string {
+  return getRequiredEnv('GATEWAY_API_URL', 'http://localhost:4003');
+}
+
+function getIndexerApi(): string {
+  return getRequiredEnv('INDEXER_API_URL', 'http://localhost:4350');
+}
 
 export class TradingService {
   private limitOrders = new Map<string, LimitOrder>();
@@ -61,7 +69,7 @@ export class TradingService {
       throw new Error('Invalid token address or symbol');
     }
     
-    const response = await fetch(`${INDEXER_API}/graphql`, {
+    const response = await fetch(`${getIndexerApi()}/graphql`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -113,7 +121,7 @@ export class TradingService {
     const balances: Balance[] = [];
 
     for (const chain of chains) {
-      const response = await fetch(`${INDEXER_API}/graphql`, {
+      const response = await fetch(`${getIndexerApi()}/graphql`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -163,7 +171,7 @@ export class TradingService {
     const chainId = validatedParams.chainId ?? DEFAULT_CHAIN_ID;
     const slippageBps = validatedParams.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
 
-    const response = await fetch(`${BAZAAR_API}/api/swap/quote`, {
+    const response = await fetch(`${getBazaarApi()}/api/swap/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -198,7 +206,7 @@ export class TradingService {
       throw new Error('User has no wallet address');
     }
 
-    const response = await fetch(`${BAZAAR_API}/api/swap/execute`, {
+    const response = await fetch(`${getBazaarApi()}/api/swap/execute`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -241,7 +249,7 @@ export class TradingService {
   async getBridgeQuote(params: BridgeParams): Promise<BridgeQuote | null> {
     const validatedParams = expectValid(BridgeParamsSchema, params, 'bridge params');
     
-    const response = await fetch(`${GATEWAY_API}/api/intents/quote`, {
+    const response = await fetch(`${getGatewayApi()}/api/intents/quote`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -281,7 +289,7 @@ export class TradingService {
       throw new Error('User has no wallet address');
     }
 
-    const response = await fetch(`${GATEWAY_API}/api/intents`, {
+    const response = await fetch(`${getGatewayApi()}/api/intents`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -319,7 +327,7 @@ export class TradingService {
   }
 
   async getBridgeStatus(intentId: string): Promise<BridgeResult> {
-    const response = await fetch(`${GATEWAY_API}/api/intents/${intentId}`);
+    const response = await fetch(`${getGatewayApi()}/api/intents/${intentId}`);
     
     if (!response.ok) {
       return { success: false, status: 'failed', error: 'Failed to get intent status' };
@@ -355,7 +363,7 @@ export class TradingService {
     
     const chainId = validatedParams.chainId ?? DEFAULT_CHAIN_ID;
 
-    const response = await fetch(`${BAZAAR_API}/api/launchpad/create`, {
+    const response = await fetch(`${getBazaarApi()}/api/launchpad/create`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',
@@ -484,7 +492,7 @@ export class TradingService {
       throw new Error('User has no wallet address');
     }
 
-    const response = await fetch(`${BAZAAR_API}/api/transfer`, {
+    const response = await fetch(`${getBazaarApi()}/api/transfer`, {
       method: 'POST',
       headers: { 
         'Content-Type': 'application/json',

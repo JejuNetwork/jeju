@@ -65,6 +65,18 @@ export interface UpdateListener {
   onError?: (error: Error) => void;
 }
 
+// Event arguments mapped by event name
+type UpdateEventArgs = {
+  onCheckStart: [];
+  onCheckComplete: [available: boolean, info: UpdateInfo | null];
+  onDownloadStart: [];
+  onDownloadProgress: [progress: number];
+  onDownloadComplete: [];
+  onInstallStart: [];
+  onInstallComplete: [];
+  onError: [error: Error];
+};
+
 // ============================================================================
 // Default Config
 // ============================================================================
@@ -521,11 +533,11 @@ export class UpdateService {
     return () => this.listeners.delete(listener);
   }
 
-  private notify(event: keyof UpdateListener, ...args: unknown[]): void {
+  private notify<E extends keyof UpdateEventArgs>(event: E, ...args: UpdateEventArgs[E]): void {
     for (const listener of this.listeners) {
       const handler = listener[event];
       if (handler) {
-        (handler as (...args: unknown[]) => void)(...args);
+        (handler as (...args: UpdateEventArgs[E]) => void)(...args);
       }
     }
   }

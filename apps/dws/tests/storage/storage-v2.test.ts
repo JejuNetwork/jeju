@@ -5,21 +5,12 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from 'bun:test';
-import { Hono } from 'hono';
-import { createStorageRouterV2 } from '../../src/server/routes/storage-v2';
+import { app } from '../../src/server';
 import { resetMultiBackendManager } from '../../src/storage/multi-backend';
 
 // ============================================================================
 // Test Setup
 // ============================================================================
-
-let app: Hono;
-
-beforeAll(() => {
-  resetMultiBackendManager();
-  app = new Hono();
-  app.route('/storage/v2', createStorageRouterV2());
-});
 
 afterAll(() => {
   resetMultiBackendManager();

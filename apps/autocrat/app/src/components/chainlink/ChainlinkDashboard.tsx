@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useAccount, useReadContract } from 'wagmi';
+import { useReadContract } from 'wagmi';
 import { formatEther, type Address } from 'viem';
 import {
   CHAINLINK_CONTRACTS,
@@ -10,10 +10,20 @@ import {
   ORACLE_ROUTER_ABI,
   CHAINLINK_GOVERNANCE_ABI,
   type ChainlinkStats,
-  type VRFFeeConfig,
-  type AutomationConfig,
-  type OracleConfig,
-  type RevenueConfig,
+  type VRFFeeConfigTuple,
+  type AutomationConfigTuple,
+  type AutomationStateTuple,
+  type OracleConfigTuple,
+  type OracleStatsTuple,
+  type GovernanceConfigTuple,
+  type RevenueConfigTuple,
+  parseVRFFeeConfig,
+  parseAutomationConfig,
+  parseAutomationState,
+  parseOracleConfig,
+  parseOracleStats,
+  parseGovernanceConfig,
+  parseRevenueConfig,
 } from '../../config/chainlink';
 
 function Tab({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
@@ -50,27 +60,46 @@ export function ChainlinkDashboard() {
   const [tab, setTab] = useState<'vrf' | 'automation' | 'oracle' | 'governance'>('vrf');
   const [stats, setStats] = useState<ChainlinkStats | null>(null);
 
-  const { data: vrfFeeConfig } = useReadContract({ address: CHAINLINK_CONTRACTS.vrfCoordinator, abi: VRF_COORDINATOR_ABI, functionName: 'feeConfig' });
+  const { data: vrfFeeConfigRaw } = useReadContract({ address: CHAINLINK_CONTRACTS.vrfCoordinator, abi: VRF_COORDINATOR_ABI, functionName: 'feeConfig' });
   const { data: vrfMinConf } = useReadContract({ address: CHAINLINK_CONTRACTS.vrfCoordinator, abi: VRF_COORDINATOR_ABI, functionName: 'minimumRequestConfirmations' });
   const { data: vrfMaxGas } = useReadContract({ address: CHAINLINK_CONTRACTS.vrfCoordinator, abi: VRF_COORDINATOR_ABI, functionName: 'maxGasLimit' });
-  const { data: autoConfig } = useReadContract({ address: CHAINLINK_CONTRACTS.automationRegistry, abi: AUTOMATION_REGISTRY_ABI, functionName: 'config' });
-  const { data: autoState } = useReadContract({ address: CHAINLINK_CONTRACTS.automationRegistry, abi: AUTOMATION_REGISTRY_ABI, functionName: 'getState' });
+  const { data: autoConfigRaw } = useReadContract({ address: CHAINLINK_CONTRACTS.automationRegistry, abi: AUTOMATION_REGISTRY_ABI, functionName: 'config' });
+  const { data: autoStateRaw } = useReadContract({ address: CHAINLINK_CONTRACTS.automationRegistry, abi: AUTOMATION_REGISTRY_ABI, functionName: 'getState' });
   const { data: activeKeepers } = useReadContract({ address: CHAINLINK_CONTRACTS.automationRegistry, abi: AUTOMATION_REGISTRY_ABI, functionName: 'getActiveKeepers' });
-  const { data: oracleConfig } = useReadContract({ address: CHAINLINK_CONTRACTS.oracleRouter, abi: ORACLE_ROUTER_ABI, functionName: 'config' });
-  const { data: oracleStats } = useReadContract({ address: CHAINLINK_CONTRACTS.oracleRouter, abi: ORACLE_ROUTER_ABI, functionName: 'getStats' });
+  const { data: oracleConfigRaw } = useReadContract({ address: CHAINLINK_CONTRACTS.oracleRouter, abi: ORACLE_ROUTER_ABI, functionName: 'config' });
+  const { data: oracleStatsRaw } = useReadContract({ address: CHAINLINK_CONTRACTS.oracleRouter, abi: ORACLE_ROUTER_ABI, functionName: 'getStats' });
   const { data: activeOracles } = useReadContract({ address: CHAINLINK_CONTRACTS.oracleRouter, abi: ORACLE_ROUTER_ABI, functionName: 'getActiveOracles' });
-  const { data: govConfig } = useReadContract({ address: CHAINLINK_CONTRACTS.chainlinkGovernance, abi: CHAINLINK_GOVERNANCE_ABI, functionName: 'config' });
-  const { data: revConfig } = useReadContract({ address: CHAINLINK_CONTRACTS.chainlinkGovernance, abi: CHAINLINK_GOVERNANCE_ABI, functionName: 'revenueConfig' });
+  const { data: govConfigRaw } = useReadContract({ address: CHAINLINK_CONTRACTS.chainlinkGovernance, abi: CHAINLINK_GOVERNANCE_ABI, functionName: 'config' });
+  const { data: revConfigRaw } = useReadContract({ address: CHAINLINK_CONTRACTS.chainlinkGovernance, abi: CHAINLINK_GOVERNANCE_ABI, functionName: 'revenueConfig' });
   const { data: isPaused } = useReadContract({ address: CHAINLINK_CONTRACTS.chainlinkGovernance, abi: CHAINLINK_GOVERNANCE_ABI, functionName: 'paused' });
+
+  // Parse tuple data using type-safe helpers
+  const vrfFeeConfig = vrfFeeConfigRaw ? parseVRFFeeConfig(vrfFeeConfigRaw as VRFFeeConfigTuple) : null;
+  const autoConfig = autoConfigRaw ? parseAutomationConfig(autoConfigRaw as AutomationConfigTuple) : null;
+  const autoState = autoStateRaw ? parseAutomationState(autoStateRaw as AutomationStateTuple) : null;
+  const oracleConfig = oracleConfigRaw ? parseOracleConfig(oracleConfigRaw as OracleConfigTuple) : null;
+  const oracleStats = oracleStatsRaw ? parseOracleStats(oracleStatsRaw as OracleStatsTuple) : null;
+  const govConfig = govConfigRaw ? parseGovernanceConfig(govConfigRaw as GovernanceConfigTuple) : null;
+  const revConfig = revConfigRaw ? parseRevenueConfig(revConfigRaw as RevenueConfigTuple) : null;
 
   useEffect(() => {
     if (autoState && oracleStats) {
-      const [upkeepCount, totalActive, totalPerforms, totalFees, keeperCount] = autoState as unknown as bigint[];
-      const [totalReqs, totalFulfilled, totalCollected, activeJobs, activeOracleCount] = oracleStats as unknown as bigint[];
       setStats({
         vrf: { totalSubscriptions: 0, totalRequests: 0n, totalFeesCollected: 0n },
-        automation: { totalUpkeeps: Number(upkeepCount), activeUpkeeps: Number(totalActive), totalPerforms, totalFeesCollected: totalFees, activeKeepers: (activeKeepers as Address[])?.length ?? 0 },
-        oracle: { totalRequests: totalReqs, totalFulfilled, totalFeesCollected: totalCollected, activeJobs: Number(activeJobs), activeOracles: (activeOracles as Address[])?.length ?? 0 },
+        automation: {
+          totalUpkeeps: Number(autoState.upkeepCount),
+          activeUpkeeps: Number(autoState.totalActive),
+          totalPerforms: autoState.totalPerforms,
+          totalFeesCollected: autoState.totalFees,
+          activeKeepers: activeKeepers?.length ?? 0,
+        },
+        oracle: {
+          totalRequests: oracleStats.totalRequests,
+          totalFulfilled: oracleStats.totalFulfilled,
+          totalFeesCollected: oracleStats.totalCollected,
+          activeJobs: Number(oracleStats.activeJobs),
+          activeOracles: activeOracles?.length ?? 0,
+        },
       });
     }
   }, [autoState, oracleStats, activeKeepers, activeOracles]);
@@ -109,8 +138,8 @@ export function ChainlinkDashboard() {
             <Row label="Max Gas" value={vrfMaxGas?.toLocaleString() ?? '-'} />
             {vrfFeeConfig && (
               <>
-                <Row label="Flat Fee (LINK)" value={`${(vrfFeeConfig as unknown as VRFFeeConfig).fulfillmentFlatFeeLinkPPM / 1e6} LINK`} />
-                <Row label="Premium" value={`${(vrfFeeConfig as unknown as VRFFeeConfig).premiumPercentage}%`} />
+                <Row label="Flat Fee (LINK)" value={`${vrfFeeConfig.fulfillmentFlatFeeLinkPPM / 1e6} LINK`} />
+                <Row label="Premium" value={`${vrfFeeConfig.premiumPercentage}%`} />
               </>
             )}
           </div>
@@ -119,21 +148,20 @@ export function ChainlinkDashboard() {
         {tab === 'automation' && autoConfig && (
           <div>
             <h3 className="text-lg font-semibold mb-4">Automation Config</h3>
-            <Row label="Min Balance" value={`${formatEther((autoConfig as unknown as AutomationConfig).minUpkeepBalance)} ETH`} />
-            <Row label="Max Gas" value={(autoConfig as unknown as AutomationConfig).maxPerformGas.toLocaleString()} />
-            <Row label="Keeper Fee" value={`${(autoConfig as unknown as AutomationConfig).keeperFeeBps / 100}%`} />
-            <Row label="Protocol Fee" value={`${(autoConfig as unknown as AutomationConfig).protocolFeeBps / 100}%`} />
-            <Row label="Min Stake" value={`${formatEther((autoConfig as unknown as AutomationConfig).minKeeperStake)} ETH`} />
+            <Row label="Min Stake" value={`${formatEther(autoConfig.minKeeperStake)} ETH`} />
+            <Row label="Max Gas" value={autoConfig.maxPerformGas.toLocaleString()} />
+            <Row label="Gas Ceiling" value={`${autoConfig.gasCeilingMultiplier}x`} />
+            <Row label="Check Gas Limit" value={autoConfig.checkGasLimit.toLocaleString()} />
           </div>
         )}
 
         {tab === 'oracle' && oracleConfig && (
           <div>
             <h3 className="text-lg font-semibold mb-4">Oracle Config</h3>
-            <Row label="Min Payment" value={`${formatEther((oracleConfig as OracleConfig).minPayment)} ETH`} />
-            <Row label="Timeout" value={`${(oracleConfig as OracleConfig).requestTimeout}s`} />
-            <Row label="Oracle Fee" value={`${(oracleConfig as OracleConfig).oracleFeeBps / 100}%`} />
-            <Row label="Protocol Fee" value={`${(oracleConfig as OracleConfig).protocolFeeBps / 100}%`} />
+            <Row label="Min Payment" value={`${formatEther(oracleConfig.minPayment)} ETH`} />
+            <Row label="Timeout" value={`${oracleConfig.requestTimeout}s`} />
+            <Row label="Oracle Fee" value={`${oracleConfig.oracleFeeBps / 100}%`} />
+            <Row label="Protocol Fee" value={`${oracleConfig.protocolFeeBps / 100}%`} />
           </div>
         )}
 
@@ -142,15 +170,16 @@ export function ChainlinkDashboard() {
             <h3 className="text-lg font-semibold mb-4">Governance</h3>
             {govConfig && (
               <>
-                <Row label="Proposal Delay" value={`${Number((govConfig as unknown as bigint[])[0]) / 86400} days`} />
-                <Row label="Grace Period" value={`${Number((govConfig as unknown as bigint[])[1]) / 86400} days`} />
+                <Row label="Proposal Delay" value={`${Number(govConfig.proposalDelay) / 86400} days`} />
+                <Row label="Grace Period" value={`${Number(govConfig.gracePeriod) / 86400} days`} />
+                <Row label="Voting Period" value={`${Number(govConfig.votingPeriod) / 86400} days`} />
               </>
             )}
             {revConfig && (
               <>
-                <Row label="Treasury" value={`${(revConfig as unknown as RevenueConfig).treasuryBps / 100}%`} />
-                <Row label="Operational" value={`${(revConfig as unknown as RevenueConfig).operationalBps / 100}%`} />
-                <Row label="Community" value={`${(revConfig as unknown as RevenueConfig).communityBps / 100}%`} />
+                <Row label="Treasury" value={`${revConfig.treasuryBps / 100}%`} />
+                <Row label="Operational" value={`${revConfig.operationalBps / 100}%`} />
+                <Row label="Community" value={`${revConfig.communityBps / 100}%`} />
               </>
             )}
           </div>

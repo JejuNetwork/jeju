@@ -4,46 +4,37 @@ import { Page, expect } from '@playwright/test';
  * Navigation helpers for network dApp testing
  */
 
-export async function navigateToMarket(page: Page, marketId?: string) {
+export async function navigateToRoute(
+  page: Page,
+  route: string,
+  options: { waitForText?: string | RegExp; timeout?: number } = {}
+): Promise<void> {
+  const { waitForText, timeout = 15000 } = options;
+  await page.goto(route);
+  if (waitForText) {
+    await expect(page.getByText(waitForText)).toBeVisible({ timeout });
+  }
+}
+
+export async function navigateToMarket(page: Page, marketId?: string): Promise<void> {
   if (marketId) {
     await page.goto(`/market/${marketId}`);
   } else {
-    // Navigate to first available market
     await page.goto('/');
     await page.waitForSelector('[data-testid="market-card"]', { timeout: 15000 });
     await page.locator('[data-testid="market-card"]').first().click();
   }
-
-  // Wait for market page to load
   await expect(page.locator('text=/Place Bet|Buy|Trade/i')).toBeVisible();
 }
 
-export async function navigateToPortfolio(page: Page) {
-  await page.goto('/portfolio');
-  await expect(page.locator('text=/Portfolio|Your Positions/i')).toBeVisible();
+export async function navigateToPortfolio(page: Page): Promise<void> {
+  await navigateToRoute(page, '/portfolio', { waitForText: /Portfolio|Your Positions/i });
 }
 
-export async function navigateToSwap(page: Page) {
-  await page.goto('/swap');
-  await expect(page.locator('text=/Swap/i')).toBeVisible();
+export async function navigateToSwap(page: Page): Promise<void> {
+  await navigateToRoute(page, '/swap', { waitForText: /Swap/i });
 }
 
-export async function navigateToLiquidity(page: Page) {
-  await page.goto('/liquidity');
-  await expect(page.locator('text=/Liquidity|Add Liquidity/i')).toBeVisible();
-}
-
-export async function navigateToPools(page: Page) {
-  await page.goto('/pools');
-  await expect(page.locator('text=/Pools/i')).toBeVisible();
-}
-
-export async function navigateToNFTs(page: Page) {
-  await page.goto('/nfts');
-  await expect(page.locator('text=/NFT|Marketplace/i')).toBeVisible();
-}
-
-export async function navigateToBridge(page: Page) {
-  await page.goto('/bridge');
-  await expect(page.locator('text=/Bridge/i')).toBeVisible();
+export async function navigateToLiquidity(page: Page): Promise<void> {
+  await navigateToRoute(page, '/liquidity', { waitForText: /Liquidity|Add Liquidity/i });
 }

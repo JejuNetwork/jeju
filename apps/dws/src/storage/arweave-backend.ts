@@ -151,7 +151,7 @@ export class ArweaveBackend {
         'Content-Type': 'application/octet-stream',
         'x-tags': JSON.stringify(tags),
       },
-      body: content,
+      body: new Uint8Array(content),
       signal: controller.signal,
     }).catch((e: Error) => {
       console.warn(`[Arweave] Bundler upload failed: ${e.message}`);

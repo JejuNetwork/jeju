@@ -22,14 +22,20 @@ export enum AuthProvider {
 }
 
 export enum ChainId {
+  // Jeju Network
   JEJU_LOCALNET = 420691,
   JEJU_TESTNET = 420690,
   JEJU_MAINNET = 420692,
+  // Ethereum & L2s
   ETHEREUM = 1,
+  OPTIMISM = 10,
+  ARBITRUM = 42161,
   BASE = 8453,
   BASE_SEPOLIA = 84532,
-  ARBITRUM = 42161,
-  OPTIMISM = 10,
+  // Other EVM chains
+  BSC = 56,
+  POLYGON = 137,
+  AVALANCHE = 43114,
 }
 
 // ============ Identity Types ============
@@ -364,11 +370,36 @@ export interface IntentSolution {
 
 // ============ Error Types ============
 
+export interface OAuth3ErrorDetails {
+  /** Provider that caused the error */
+  provider?: AuthProvider;
+  /** Session ID related to the error */
+  sessionId?: Hex;
+  /** Identity ID related to the error */
+  identityId?: Hex;
+  /** App ID related to the error */
+  appId?: Hex;
+  /** Address involved in the error */
+  address?: Address;
+  /** Credential ID related to the error */
+  credentialId?: string;
+  /** Chain ID where the error occurred */
+  chainId?: number;
+  /** Expected value in validation errors */
+  expected?: string;
+  /** Actual value in validation errors */
+  actual?: string;
+  /** Threshold-related info for MPC errors */
+  threshold?: number;
+  /** Number of participants in MPC errors */
+  participants?: number;
+}
+
 export class OAuth3Error extends Error {
   constructor(
     message: string,
     public code: OAuth3ErrorCode,
-    public details?: Record<string, unknown>
+    public details?: OAuth3ErrorDetails
   ) {
     super(message);
     this.name = 'OAuth3Error';

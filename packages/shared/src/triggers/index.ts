@@ -6,6 +6,7 @@
  */
 
 import type { Address, Hex } from 'viem';
+import type { WebhookBody } from '../types';
 
 export interface TriggerConfig {
   computeEndpoint: string;
@@ -81,7 +82,7 @@ export interface TriggerClient {
   list(filter?: { type?: string; active?: boolean; agentId?: number }): Promise<Trigger[]>;
   setActive(id: string, active: boolean): Promise<void>;
   delete(id: string): Promise<void>;
-  executeWebhook(path: string, body: unknown): Promise<TriggerProof | null>;
+  executeWebhook(path: string, body: WebhookBody): Promise<TriggerProof | null>;
   getStats(): Promise<TriggerStats>;
   depositPrepaid(amount: string): Promise<string>;
   withdrawPrepaid(amount: string): Promise<string>;
@@ -181,7 +182,7 @@ class DecentralizedTriggerClient implements TriggerClient {
     }
   }
 
-  async executeWebhook(path: string, body: unknown): Promise<TriggerProof | null> {
+  async executeWebhook(path: string, body: WebhookBody): Promise<TriggerProof | null> {
     const response = await fetch(`${this.config.computeEndpoint}/webhook${path}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -18,6 +18,11 @@ import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
 } from '@solana/spl-token';
+import {
+  calculateBondingCurveBuy,
+  calculateBondingCurveSell,
+  getBondingCurvePrice,
+} from '../dex/utils';
 
 // Program ID - matches Anchor.toml
 export const LAUNCHPAD_PROGRAM_ID = new PublicKey('6q2T4SEeE2U4XsFNa5piNy6Vzv2qvdZXmAHhQH7BYVJd');
@@ -377,22 +382,15 @@ export class LaunchpadClient {
   // ============================================================================
 
   calculateBuyAmount(curve: BondingCurve, solAmount: bigint): bigint {
-    const k = curve.virtualSolReserves * curve.virtualTokenReserves;
-    const newVirtualSol = curve.virtualSolReserves + solAmount;
-    const newVirtualToken = k / newVirtualSol;
-    return curve.virtualTokenReserves - newVirtualToken;
+    return calculateBondingCurveBuy(curve, solAmount);
   }
 
   calculateSellAmount(curve: BondingCurve, tokenAmount: bigint): bigint {
-    const k = curve.virtualSolReserves * curve.virtualTokenReserves;
-    const newVirtualToken = curve.virtualTokenReserves + tokenAmount;
-    const newVirtualSol = k / newVirtualToken;
-    return curve.virtualSolReserves - newVirtualSol;
+    return calculateBondingCurveSell(curve, tokenAmount);
   }
 
   getCurrentPrice(curve: BondingCurve): number {
-    // Price in SOL per token
-    return Number(curve.virtualSolReserves) / Number(curve.virtualTokenReserves);
+    return getBondingCurvePrice(curve);
   }
 
   getProgress(curve: BondingCurve): number {

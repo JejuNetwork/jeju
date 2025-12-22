@@ -19,13 +19,6 @@ import SimpleOracleAbiJson from '../../abis/SimpleOracle.json';
 import HyperlaneOracleAbiJson from '../../abis/HyperlaneOracle.json';
 import SuperchainOracleAbiJson from '../../abis/SuperchainOracle.json';
 
-// OTC ABIs
-import OTCAbiJson from '../../abis/OTC.json';
-import SimplePoolOracleAbiJson from '../../abis/SimplePoolOracle.json';
-import RegistrationHelperAbiJson from '../../abis/RegistrationHelper.json';
-import MockERC20AbiJson from '../../abis/MockERC20.json';
-import MockAggregatorV3AbiJson from '../../abis/MockAggregatorV3.json';
-
 // Moderation ABIs
 import BanManagerAbiJson from '../../abis/BanManager.json';
 import ModerationMarketplaceAbiJson from '../../abis/ModerationMarketplace.json';
@@ -83,13 +76,6 @@ export const SimpleOracleAbi = SimpleOracleAbiJson.abi as Abi;
 export const HyperlaneOracleAbi = HyperlaneOracleAbiJson.abi as Abi;
 export const SuperchainOracleAbi = SuperchainOracleAbiJson.abi as Abi;
 
-// OTC ABIs
-export const OTCAbi = OTCAbiJson.abi as Abi;
-export const SimplePoolOracleAbi = SimplePoolOracleAbiJson.abi as Abi;
-export const RegistrationHelperAbi = RegistrationHelperAbiJson.abi as Abi;
-export const MockERC20Abi = MockERC20AbiJson.abi as Abi;
-export const MockAggregatorV3Abi = MockAggregatorV3AbiJson.abi as Abi;
-
 // Moderation ABIs
 export const BanManagerAbi = BanManagerAbiJson.abi as Abi;
 export const ModerationMarketplaceAbi = ModerationMarketplaceAbiJson.abi as Abi;
@@ -133,7 +119,6 @@ export const ChainlinkGovernanceAbi = ChainlinkGovernanceAbiJson as Abi;
 export { ERC20AbiJson, ERC20FactoryAbiJson, BazaarAbiJson, IdentityRegistryAbiJson, ReputationRegistryAbiJson, ValidationRegistryAbiJson };
 export { InputSettlerAbiJson, OutputSettlerAbiJson, SolverRegistryAbiJson };
 export { SimpleOracleAbiJson, HyperlaneOracleAbiJson, SuperchainOracleAbiJson };
-export { OTCAbiJson, SimplePoolOracleAbiJson, RegistrationHelperAbiJson, MockERC20AbiJson, MockAggregatorV3AbiJson };
 export { BanManagerAbiJson, ModerationMarketplaceAbiJson };
 export { NetworkTokenAbiJson };
 export { CreditManagerAbiJson, MultiTokenPaymasterAbiJson };

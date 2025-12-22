@@ -5,10 +5,9 @@
 import { describe, test, expect, beforeEach } from 'bun:test';
 import { MomentumStrategy } from './momentum-strategy';
 import { OracleAggregator } from '../../oracles';
+import { WEIGHT_PRECISION } from '../../schemas';
 import type { StrategyContext } from './base-strategy';
 import type { Token, TFMMRiskParameters } from '../../types';
-
-const WEIGHT_PRECISION = 10n ** 18n;
 
 describe('MomentumStrategy', () => {
   let strategy: MomentumStrategy;

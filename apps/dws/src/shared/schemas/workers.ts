@@ -3,15 +3,14 @@
  */
 
 import { z } from 'zod';
-import type { Address } from 'viem';
-import { addressSchema, nonEmptyStringSchema, positiveIntSchema } from '../validation';
+import { nonEmptyStringSchema, JSONValueSchema } from '../validation';
 
 /**
  * Worker deployment request schema
  */
 export const deployWorkerRequestSchema = z.object({
   name: nonEmptyStringSchema,
-  runtime: z.enum(['bun', 'node', 'python', 'deno']).optional().default('bun'),
+  runtime: z.enum(['bun', 'node', 'deno']).optional().default('bun'),
   handler: z.string().optional().default('index.handler'),
   code: z.union([
     z.string(), // base64 encoded
@@ -27,7 +26,7 @@ export const deployWorkerRequestSchema = z.object({
  * Worker invocation request schema
  */
 export const invokeWorkerRequestSchema = z.object({
-  payload: z.unknown(),
+  payload: JSONValueSchema.optional(),
   async: z.boolean().default(false),
 });
 

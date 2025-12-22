@@ -48,35 +48,56 @@ import {
   type AppPreference,
 } from '../../../../scripts/shared/eil-hooks';
 
-// Load config from JSON
-import eilConfig from '@jejunetwork/config/eil';
+// ABI-inferred tuple types for getXLPStake return value
+// Returns: (stakedAmount, unbondingAmount, unbondingStartTime, slashedAmount, isActive, registeredAt)
+type XLPStakeTuple = readonly [bigint, bigint, bigint, bigint, boolean, bigint];
 
-type EILChainConfig = {
-  name: string;
-  crossChainPaymaster: string;
-  status: string;
-  oif?: Record<string, string>;
-  tokens?: Record<string, string>;
-};
+// ABI-inferred type for getAppPreference return value
+// Returns: (appAddr, preferredToken, tokenSymbol, tokenDecimals, allowFallback, minBalance, isActive, registrant, registrationTime)
+type AppPreferenceTuple = readonly [Address, Address, string, number, boolean, bigint, boolean, Address, bigint];
 
-type EILNetworkConfig = {
-  hub: { chainId: number; name: string; l1StakeManager: string; status: string };
-  chains: Record<string, EILChainConfig>;
-};
-
-// JSON config structure from eil.json
-interface EILJsonConfig {
-  version: string;
-  lastUpdated: string;
-  entryPoint: string;
-  l2Messenger: string;
-  supportedTokens: string[];
-  testnet: EILNetworkConfig;
-  mainnet: EILNetworkConfig;
-  localnet: EILNetworkConfig;
+// Converter functions
+function xlpStakeFromTuple(tuple: XLPStakeTuple, chains: readonly bigint[]): XLPPosition {
+  return {
+    stakedAmount: tuple[0],
+    unbondingAmount: tuple[1],
+    unbondingStartTime: Number(tuple[2]),
+    slashedAmount: tuple[3],
+    isActive: tuple[4],
+    registeredAt: Number(tuple[5]),
+    supportedChains: chains.map(c => Number(c)),
+    tokenLiquidity: new Map(),
+    ethBalance: 0n,
+    pendingFees: 0n,
+    totalEarnings: 0n,
+  };
 }
 
-const typedConfig = eilConfig as unknown as EILJsonConfig;
+function appPreferenceFromTuple(tuple: AppPreferenceTuple): AppPreference {
+  return {
+    appAddress: tuple[0],
+    preferredToken: tuple[1],
+    tokenSymbol: tuple[2],
+    tokenDecimals: tuple[3],
+    allowFallback: tuple[4],
+    minBalance: tuple[5],
+    isActive: tuple[6],
+    registrant: tuple[7],
+    registrationTime: tuple[8],
+  };
+}
+
+// Load and validate config from JSON
+import eilConfigRaw from '@jejunetwork/config/eil';
+import {
+  EILJsonConfigSchema,
+  type EILJsonConfig,
+  type EILNetworkConfig,
+  expectValid,
+} from '../lib/validation';
+
+// Validate the EIL config at module load time - fail fast if config is invalid
+const typedConfig: EILJsonConfig = expectValid(EILJsonConfigSchema, eilConfigRaw, 'EIL config');
 
 // Helper to get chain config based on current network
 function getNetworkConfig(): EILNetworkConfig {
@@ -213,23 +234,7 @@ export function useXLPPosition(stakeManagerAddress: Address | undefined) {
 
   const position = useMemo<XLPPosition | null>(() => {
     if (!stakeData || !chainsData) return null;
-    
-    const [stakedAmount, unbondingAmount, unbondingStartTime, slashedAmount, isActive, registeredAt] = stakeData as [bigint, bigint, bigint, bigint, boolean, bigint];
-    const chains = (chainsData as bigint[]).map(c => Number(c));
-    
-    return {
-      stakedAmount,
-      unbondingAmount,
-      unbondingStartTime: Number(unbondingStartTime),
-      slashedAmount,
-      isActive,
-      registeredAt: Number(registeredAt),
-      supportedChains: chains,
-      tokenLiquidity: new Map(),
-      ethBalance: 0n,
-      pendingFees: 0n,
-      totalEarnings: 0n,
-    };
+    return xlpStakeFromTuple(stakeData as XLPStakeTuple, chainsData as readonly bigint[]);
   }, [stakeData, chainsData]);
 
   return { position };
@@ -393,7 +398,7 @@ export function useXLPLiquidity(paymasterAddress: Address | undefined) {
   }, [paymasterAddress, writeContract]);
 
   return {
-    ethBalance: ethBalance as bigint | undefined,
+    ethBalance,
     depositETH,
     withdrawETH,
     depositToken,
@@ -480,23 +485,18 @@ export function useAppPreference(preferenceAddress: Address | undefined, appAddr
     args: appAddress ? [appAddress] : undefined,
   });
 
-  const preference: AppPreference | null = preferenceData ? {
-    appAddress: preferenceData[0] as Address,
-    preferredToken: preferenceData[1] as Address,
-    tokenSymbol: preferenceData[2] as string,
-    tokenDecimals: preferenceData[3] as number,
-    allowFallback: preferenceData[4] as boolean,
-    minBalance: preferenceData[5] as bigint,
-    isActive: preferenceData[6] as boolean,
-    registrant: preferenceData[7] as Address,
-    registrationTime: preferenceData[8] as bigint,
-  } : null;
+  const preference: AppPreference | null = preferenceData 
+    ? appPreferenceFromTuple(preferenceData as AppPreferenceTuple)
+    : null;
 
   return {
     preference,
-    fallbackTokens: fallbackTokens ? (fallbackTokens as Address[]) : [],
+    fallbackTokens: fallbackTokens ? (fallbackTokens as readonly Address[]) : [],
   };
 }
+
+// ABI returns: (bestToken, tokenCost, reason)
+type BestPaymentTokenTuple = readonly [Address, bigint, string];
 
 export function useBestGasToken(
   paymasterAddress: Address | undefined,
@@ -513,10 +513,12 @@ export function useBestGasToken(
     args: appAddress && user ? [appAddress, user, gasCostETH, userTokens, userBalances] : undefined,
   });
 
+  const typedResult = result as BestPaymentTokenTuple | undefined;
+
   return {
-    bestToken: result?.[0] as Address | undefined,
-    tokenCost: result?.[1] as bigint | undefined,
-    reason: result?.[2] as string | undefined,
+    bestToken: typedResult?.[0],
+    tokenCost: typedResult?.[1],
+    reason: typedResult?.[2],
   };
 }
 

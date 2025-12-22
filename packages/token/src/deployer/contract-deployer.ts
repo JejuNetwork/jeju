@@ -253,26 +253,6 @@ export async function deployContractCreate2(
 }
 
 /**
- * Get the ABI for a contract
- */
-export async function getContractAbi(
-  contractName: ContractName
-): Promise<readonly object[]> {
-  const artifact = await loadArtifact(contractName);
-  return artifact.abi;
-}
-
-/**
- * Get the bytecode for a contract
- */
-export async function getContractBytecode(
-  contractName: ContractName
-): Promise<Hex> {
-  const artifact = await loadArtifact(contractName);
-  return artifact.bytecode.object;
-}
-
-/**
  * Preload all artifacts (useful for startup validation)
  */
 export async function preloadAllArtifacts(): Promise<void> {

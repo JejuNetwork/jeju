@@ -4,17 +4,30 @@
  * Retrieves and displays wallet information including balances, NFTs, and activity.
  */
 
+import type { Address } from 'viem';
 import { WalletService } from '../services/wallet.service';
+
+// Logger interface for action context
+interface ActionLogger {
+  info: (msg: string, data?: Record<string, string | number | boolean>) => void;
+  warn: (msg: string, data?: Record<string, string | number | boolean>) => void;
+}
 
 export interface ActionContext {
   walletService: WalletService;
-  logger: { info: (msg: string, ...args: unknown[]) => void; warn: (msg: string, ...args: unknown[]) => void };
+  logger: ActionLogger;
 }
+
+// Action result data - flexible object with primitive and nested values
+// This allows different actions to return different data shapes
+type ActionPrimitive = string | number | boolean | null | undefined;
+type ActionResultValue = ActionPrimitive | ActionPrimitive[] | { to?: Address; data?: string; [key: string]: ActionPrimitive };
+type ActionResultData = Record<string, ActionResultValue>;
 
 export interface ActionResult {
   success: boolean;
   message: string;
-  data?: Record<string, unknown>;
+  data?: ActionResultData;
 }
 
 export const walletInfoAction = {

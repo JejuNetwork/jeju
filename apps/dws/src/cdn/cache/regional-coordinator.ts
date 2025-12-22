@@ -107,7 +107,7 @@ export class RegionalCacheCoordinator {
     this.cache = cache;
     this.config = {
       nodeId: config.nodeId ?? `node-${Math.random().toString(36).slice(2, 10)}`,
-      region: config.region ?? 'us-east',
+      region: config.region ?? 'us-east-1',
       syncIntervalMs: config.syncIntervalMs ?? 30000,
       popularityThreshold: config.popularityThreshold ?? 10,
       maxPrefetchBytes: config.maxPrefetchBytes ?? 100 * 1024 * 1024, // 100MB

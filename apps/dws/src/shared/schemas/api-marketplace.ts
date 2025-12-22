@@ -3,8 +3,44 @@
  */
 
 import { z } from 'zod';
-import type { Address } from 'viem';
-import { addressSchema, nonEmptyStringSchema, positiveBigIntSchema } from '../validation';
+import { addressSchema, nonEmptyStringSchema } from '../validation';
+
+// ============================================================================
+// Core Data Schemas (for persistent storage)
+// ============================================================================
+
+/**
+ * Usage limits schema - validates rate limiting configuration
+ */
+export const UsageLimitsSchema = z.object({
+  requestsPerSecond: z.number().int().positive(),
+  requestsPerMinute: z.number().int().positive(),
+  requestsPerDay: z.number().int().positive(),
+  requestsPerMonth: z.number().int().positive(),
+});
+export type UsageLimitsData = z.infer<typeof UsageLimitsSchema>;
+
+/**
+ * HTTP methods allowed for API access control
+ */
+export const HttpMethodSchema = z.enum(['GET', 'POST', 'PUT', 'DELETE', 'PATCH']);
+export type HttpMethod = z.infer<typeof HttpMethodSchema>;
+
+/**
+ * Access control schema - validates domain and endpoint restrictions
+ */
+export const AccessControlSchema = z.object({
+  allowedDomains: z.array(z.string()),
+  blockedDomains: z.array(z.string()),
+  allowedEndpoints: z.array(z.string()),
+  blockedEndpoints: z.array(z.string()),
+  allowedMethods: z.array(HttpMethodSchema),
+});
+export type AccessControlData = z.infer<typeof AccessControlSchema>;
+
+// ============================================================================
+// API Query Schemas
+// ============================================================================
 
 /**
  * Provider list query schema

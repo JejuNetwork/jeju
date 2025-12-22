@@ -44,6 +44,10 @@
     "@jejunetwork/types": "workspace:*",
     "hono": "4.11.1",
     "lru-cache": "11.2.4",
+    "opossum": "^9.0.0",
+    "p-retry": "^7.1.1",
+    "prom-client": "^15.1.3",
+    "croner": "^9.0.0",
     "viem": "2.43.2",
     "yaml": "^2.8.2",
     "zod": "^4.1.13"

@@ -1,16 +1,17 @@
 'use client';
 
-import { use } from 'react';
+import { use, type ComponentProps } from 'react';
 import { useReadContract } from 'wagmi';
-import { Shield, AlertTriangle, Flag, Clock, TrendingUp, Github } from 'lucide-react';
+import { Shield, AlertTriangle, Flag, Clock, TrendingUp, Github, type LucideIcon } from 'lucide-react';
 
-// Fix for Lucide React 19 type compatibility
-const ShieldIcon = Shield as any;
-const AlertTriangleIcon = AlertTriangle as any;
-const FlagIcon = Flag as any;
-const ClockIcon = Clock as any;
-const TrendingUpIcon = TrendingUp as any;
-const GithubIcon = Github as any;
+// Type-safe wrapper for Lucide icons (React 19 compatible)
+type IconProps = ComponentProps<LucideIcon>;
+const ShieldIcon = (props: IconProps) => <Shield {...props} />;
+const AlertTriangleIcon = (props: IconProps) => <AlertTriangle {...props} />;
+const FlagIcon = (props: IconProps) => <Flag {...props} />;
+const ClockIcon = (props: IconProps) => <Clock {...props} />;
+const TrendingUpIcon = (props: IconProps) => <TrendingUp {...props} />;
+const GithubIcon = (props: IconProps) => <Github {...props} />;
 import ReputationViewer from '../../../components/moderation/ReputationViewer';
 import GitHubReputationPanel from '../../../components/GitHubReputationPanel';
 import { MODERATION_CONTRACTS } from '../../../config/moderation';

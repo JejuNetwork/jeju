@@ -65,6 +65,13 @@ type ProxyService = {
   getMetrics: () => { activeConnections: number; bytesTransferred: number };
 };
 
+// Coordinator message types
+type CoordinatorMessage = 
+  | { type: 'cache_request'; cid: string; metadata?: Partial<CachedAsset> }
+  | { type: 'seed_request'; magnetUri: string }
+  | { type: 'stats_request' }
+  | { type: 'earnings_update'; earnings: string };
+
 // ============================================================================
 // Default Configuration
 // ============================================================================
@@ -619,8 +626,8 @@ export class WalletEdgeService {
     };
 
     this.coordinatorWs.onmessage = (event) => {
-      const msg = expectJson(event.data as string, CoordinatorMessageSchema, 'coordinator message');
-      this.handleCoordinatorMessage(msg as { type: string; [key: string]: unknown });
+      const msg = expectJson(event.data as string, CoordinatorMessageSchema, 'coordinator message') as CoordinatorMessage;
+      this.handleCoordinatorMessage(msg);
     };
 
     this.coordinatorWs.onerror = () => {
@@ -655,22 +662,23 @@ export class WalletEdgeService {
     }));
   }
 
-  private handleCoordinatorMessage(message: { type: string; [key: string]: unknown }): void {
+  private handleCoordinatorMessage(message: CoordinatorMessage): void {
     switch (message.type) {
-      case 'cache_request':
+      case 'cache_request': {
         // Request to cache specific content
-        const cid = message.cid as string;
+        const { cid, metadata } = message;
         this.fetchFromDWS(cid).then((data) => {
           if (data) {
-            this.cacheAsset(cid, data, message.metadata as Partial<CachedAsset>);
+            this.cacheAsset(cid, data, metadata);
           }
         });
         break;
+      }
 
       case 'seed_request':
         // Request to seed specific torrent
         if (this.torrentClient) {
-          this.torrentClient.addTorrent(message.magnetUri as string);
+          this.torrentClient.addTorrent(message.magnetUri);
         }
         break;
 
@@ -681,7 +689,7 @@ export class WalletEdgeService {
 
       case 'earnings_update':
         // Update earnings from coordinator
-        this.stats.earnings = BigInt(message.earnings as string);
+        this.stats.earnings = BigInt(message.earnings);
         break;
     }
   }

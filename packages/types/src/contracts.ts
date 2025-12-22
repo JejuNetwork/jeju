@@ -1,9 +1,6 @@
 import { z } from 'zod';
 import { AddressSchema } from './validation';
 
-export { AddressSchema };
-export type Address = z.infer<typeof AddressSchema>;
-
 // ============================================================================
 // Transaction Status Types
 // ============================================================================

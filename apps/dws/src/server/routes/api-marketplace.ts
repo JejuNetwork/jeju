@@ -5,7 +5,6 @@
  */
 
 import { Hono } from 'hono';
-import type { Address } from 'viem';
 import {
   // Registry
   getAllProviders,
@@ -42,9 +41,8 @@ import {
   accessControl as _accessControl,
   // Types
   type ProxyRequest,
-  type CreateListingParams,
 } from '../../api-marketplace';
-import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, providerListQuerySchema, providerParamsSchema, listingListQuerySchema, listingParamsSchema, createListingRequestSchema, updateListingRequestSchema, proxyRequestSchema, depositRequestSchema, withdrawRequestSchema, accountParamsSchema, createApiKeyRequestSchema, apiKeyParamsSchema, z } from '../../shared';
+import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, providerListQuerySchema, providerParamsSchema, listingListQuerySchema, listingParamsSchema, createListingRequestSchema, updateListingRequestSchema, proxyRequestSchema, depositRequestSchema, withdrawRequestSchema, apiKeyParamsSchema, z, type JSONObject } from '../../shared';
 import { extractOriginDomain } from '../../shared/utils/api-marketplace';
 
 export function createAPIMarketplaceRouter(): Hono {
@@ -281,13 +279,31 @@ export function createAPIMarketplaceRouter(): Hono {
   app.post('/proxy', async (c) => {
     const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
     const body = await validateBody(proxyRequestSchema, c);
-    const headers = validateHeaders(z.object({
-      origin: z.string().url().optional(),
-      referer: z.string().url().optional(),
-    }), c);
-    const originDomain = extractOriginDomain(headers.origin, headers.referer);
+    const origin = c.req.header('origin');
+    const referer = c.req.header('referer');
+    const originDomain = extractOriginDomain(origin, referer);
 
-    const response = await proxyRequest(body, {
+    // Find listing - prefer explicit listingId, otherwise find cheapest for provider
+    let listingId = body.listingId;
+    if (!listingId) {
+      const listing = await findCheapestListing(body.providerId);
+      if (!listing) {
+        throw new Error(`No active listings for provider: ${body.providerId}`);
+      }
+      listingId = listing.id;
+    }
+
+    // Transform schema body to ProxyRequest type
+    const proxyReq: ProxyRequest = {
+      listingId,
+      endpoint: body.path,
+      method: body.method,
+      headers: body.headers,
+      body: body.body as string | JSONObject | undefined,
+      queryParams: body.query,
+    };
+
+    const response = await proxyRequest(proxyReq, {
       userAddress,
       originDomain,
       timeout: 30000,
@@ -301,7 +317,10 @@ export function createAPIMarketplaceRouter(): Hono {
     c.res.headers.set('X-Request-Cost', response.cost.toString());
     c.res.headers.set('X-Latency-Ms', response.latencyMs.toString());
 
-    return c.json(response.body, response.status as 200);
+    return new Response(JSON.stringify(response.body), {
+      status: response.status,
+      headers: { 'Content-Type': 'application/json' },
+    });
   });
 
   // Convenience endpoint for direct provider access
@@ -319,14 +338,10 @@ export function createAPIMarketplaceRouter(): Hono {
     const endpoint = pathParts[1] || '/';
 
     // Get body if present
-    let body: string | Record<string, unknown> | undefined;
+    let reqBody: JSONObject | undefined;
     if (['POST', 'PUT', 'PATCH'].includes(c.req.method)) {
-      try {
-        body = await validateBody(z.record(z.string(), z.unknown()).optional(), c);
-      } catch {
-        // Body is optional for proxy requests
-        body = undefined;
-      }
+      const parsed = await validateBody(z.record(z.string(), z.unknown()).optional(), c);
+      reqBody = parsed as JSONObject | undefined;
     }
 
     // Get query params
@@ -343,7 +358,7 @@ export function createAPIMarketplaceRouter(): Hono {
         listingId: listing.id,
         endpoint,
         method: c.req.method as ProxyRequest['method'],
-        body,
+        body: reqBody,
         queryParams: Object.keys(queryParams).length > 0 ? queryParams : undefined,
       },
       {
@@ -360,7 +375,10 @@ export function createAPIMarketplaceRouter(): Hono {
     c.res.headers.set('X-Request-Cost', response.cost.toString());
     c.res.headers.set('X-Latency-Ms', response.latencyMs.toString());
 
-    return c.json(response.body, response.status as 200);
+    return new Response(JSON.stringify(response.body), {
+      status: response.status,
+      headers: { 'Content-Type': 'application/json' },
+    });
   });
 
   // ============================================================================
@@ -580,39 +598,57 @@ export function createAPIMarketplaceRouter(): Hono {
 
   // Embeddings endpoint (for agents/apps)
   app.post('/v1/embeddings', async (c) => {
+    const { 'x-jeju-address': userAddress } = validateHeaders(jejuAddressHeaderSchema, c);
     const body = await validateBody(z.object({
       input: z.union([z.string(), z.array(z.string())]),
+      model: z.string().optional(),
     }), c);
 
     const providers = getConfiguredProviders();
-    const embeddingProviders = providers.filter(p => p.categories.includes('embeddings'));
+    // Inference providers typically support embeddings (e.g., OpenAI)
+    const inferenceProviders = providers.filter(p => p.categories.includes('inference'));
     
-    if (embeddingProviders.length === 0) {
+    if (inferenceProviders.length === 0) {
       // Return mock embedding for dev
       const dims = 1536;
       const embedding = Array.from({ length: dims }, () => Math.random() * 2 - 1);
       return c.json({ embedding, dimensions: dims, model: 'mock-embedding' });
     }
 
-    const provider = embeddingProviders[0];
+    // Find a listing for an inference provider that supports embeddings
+    const provider = inferenceProviders.find(p => p.id === 'openai') ?? inferenceProviders[0];
+    const listing = await findCheapestListing(provider.id);
     
-    const proxyReq: ProxyRequest = {
-      providerId: provider.id,
-      path: 'embeddings',
-      method: 'POST',
-      body: JSON.stringify({
-        input: body.input,
-        model: provider.models[0]?.id ?? 'text-embedding-3-small',
-      }),
-    };
-
-    const result = await proxyRequest(proxyReq);
-    
-    if ('error' in result) {
-      return c.json(result, 500);
+    if (!listing) {
+      // Return mock embedding if no listing available
+      const dims = 1536;
+      const embedding = Array.from({ length: dims }, () => Math.random() * 2 - 1);
+      return c.json({ embedding, dimensions: dims, model: 'mock-embedding' });
     }
 
-    const responseData = await result.response.json() as {
+    const proxyReq: ProxyRequest = {
+      listingId: listing.id,
+      endpoint: '/v1/embeddings',
+      method: 'POST',
+      body: {
+        input: body.input,
+        model: body.model ?? 'text-embedding-3-small',
+      },
+    };
+
+    const result = await proxyRequest(proxyReq, {
+      userAddress,
+      timeout: 30000,
+    });
+    
+    if (result.status >= 400) {
+      return new Response(JSON.stringify(result.body), {
+        status: result.status,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const responseData = result.body as {
       data: Array<{ embedding: number[] }>;
     };
 

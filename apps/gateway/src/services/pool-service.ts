@@ -4,14 +4,11 @@ import {
   SwapQuoteRequestSchema,
   TokenPairSchema,
   expect,
-  expectAddress,
-  expectPositiveNumber,
   formatError,
   type SwapQuoteRequest,
   type TokenPair,
 } from '../lib/validation.js';
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
+import { ZERO_ADDRESS } from '../lib/contracts.js';
 const MAX_POOLS_TO_FETCH = 100;
 
 // Chainlink ETH/USD feeds (mainnet only - Network uses Ethereum price as proxy)

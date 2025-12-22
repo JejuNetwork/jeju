@@ -6,8 +6,8 @@ import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { LockManager, withTestLock } from './lock-manager';
 import { existsSync, unlinkSync, writeFileSync, readFileSync } from 'fs';
 import { join } from 'path';
+
 const TEST_LOCK_DIR = '/tmp/jeju-test-locks';
-const _TEST_LOCK_FILE = 'test.lock';
 
 // Helper to get a fresh lock manager for each test
 function createTestLock(options: { ttlMs?: number; force?: boolean } = {}) {

@@ -9,4 +9,7 @@ export * from './covenant-sql';
 export * from './migration';
 export * from './typeorm-driver';
 
+// Re-export SQL types for convenience
+export type { SqlParam, SqlDefaultValue, SqlRow } from '../types';
+
 

@@ -465,9 +465,20 @@ export function createGitRouter(ctx: GitContext): Hono {
       const user = await socialManager.getUserByName(username);
       if (!user) throw new Error('User not found');
 
-      const activity = await validateBody(z.record(z.string(), z.unknown()), c);
+      const activitySchema = z.object({
+        '@context': z.union([z.string(), z.array(z.string())]),
+        id: z.string(),
+        type: z.string(),
+        actor: z.string(),
+        object: z.union([z.string(), z.record(z.string(), z.unknown())]),
+        result: z.string().optional(),
+        published: z.string().optional(),
+        to: z.array(z.string()).optional(),
+        cc: z.array(z.string()).optional(),
+      });
+      const activity = await validateBody(activitySchema, c);
       const actorUrl = `${getBaseUrl(c)}/users/${username}`;
-      const result = await federation.handleInboxActivity(actorUrl, activity);
+      const result = await federation.handleInboxActivity(actorUrl, activity as Parameters<typeof federation.handleInboxActivity>[1]);
 
       if (result.response) {
         await federation.deliverActivity(result.response);

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 interface IProver {
     function verifyProof(bytes32 stateRoot, bytes32 claimRoot, bytes calldata proof)

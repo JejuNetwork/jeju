@@ -6,6 +6,10 @@
  */
 
 import { z } from 'zod';
+import { PaginationSchema } from './validation';
+
+// Re-export PaginationSchema for convenience
+export { PaginationSchema };
 
 // ============================================================================
 // Error Detail Types - Strongly typed alternatives to unknown
@@ -37,7 +41,7 @@ export const ErrorDetailSchema = z.union([
 // ============================================================================
 
 /**
- * Pagination info schema
+ * Pagination info schema (response metadata)
  */
 export const PaginationInfoSchema = z.object({
   page: z.number().int().positive(),
@@ -181,12 +185,6 @@ export const ApiRequestSchema = z.object({
 export type ApiRequest = z.infer<typeof ApiRequestSchema>;
 
 /**
- * Paginated request parameters schema
+ * Paginated request parameters type (uses PaginationSchema from validation)
  */
-export const PaginationParamsSchema = z.object({
-  page: z.coerce.number().int().min(1).default(1),
-  pageSize: z.coerce.number().int().min(1).max(100).default(20),
-  sortBy: z.string().optional(),
-  sortOrder: z.enum(['asc', 'desc']).default('desc'),
-});
-export type PaginationParams = z.infer<typeof PaginationParamsSchema>;
+export type PaginationParams = z.infer<typeof PaginationSchema>;

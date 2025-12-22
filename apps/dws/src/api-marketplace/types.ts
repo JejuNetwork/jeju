@@ -7,6 +7,7 @@
 
 import type { Address, Hex } from 'viem';
 import type { TEEPlatform, PoCVerificationLevel, PoCStatus } from '../poc/types';
+import type { JSONValue, JSONObject } from '../shared/validation';
 
 // ============================================================================
 // Authentication Types
@@ -152,8 +153,8 @@ export interface ProxyRequest {
   method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH';
   /** Request headers (auth headers will be stripped) */
   headers?: Record<string, string>;
-  /** Request body */
-  body?: string | Record<string, unknown>;
+  /** Request body - JSON-serializable data or raw string */
+  body?: string | JSONObject;
   /** Query parameters */
   queryParams?: Record<string, string>;
 }
@@ -163,8 +164,8 @@ export interface ProxyResponse {
   status: number;
   /** Response headers (sanitized) */
   headers: Record<string, string>;
-  /** Response body (sanitized) */
-  body: unknown;
+  /** Response body (sanitized) - JSON data or string from upstream API */
+  body: JSONValue | string;
   /** Request cost in wei */
   cost: bigint;
   /** Latency in ms */
@@ -267,10 +268,61 @@ export interface SanitizationConfig {
 // Event Types
 // ============================================================================
 
+/** Event data for listing creation */
+export interface ListingCreatedEventData {
+  listingId: string;
+  providerId: string;
+  seller: Address;
+  pricePerRequest: string;
+}
+
+/** Event data for listing updates */
+export interface ListingUpdatedEventData {
+  listingId: string;
+  changes: {
+    pricePerRequest?: string;
+    active?: boolean;
+    limits?: Partial<UsageLimits>;
+  };
+}
+
+/** Event data for served requests */
+export interface RequestServedEventData {
+  listingId: string;
+  requestId: string;
+  userAddress: Address;
+  cost: string;
+  latencyMs: number;
+  statusCode: number;
+}
+
+/** Event data for deposits */
+export interface DepositEventData {
+  userAddress: Address;
+  amount: string;
+  txHash?: string;
+}
+
+/** Event data for withdrawals */
+export interface WithdrawalEventData {
+  userAddress: Address;
+  amount: string;
+  recipient: Address;
+  txHash?: string;
+}
+
+/** Union type for all marketplace event data */
+export type MarketplaceEventData =
+  | { type: 'listing_created'; data: ListingCreatedEventData }
+  | { type: 'listing_updated'; data: ListingUpdatedEventData }
+  | { type: 'request_served'; data: RequestServedEventData }
+  | { type: 'deposit'; data: DepositEventData }
+  | { type: 'withdrawal'; data: WithdrawalEventData };
+
 export interface MarketplaceEvent {
-  type: 'listing_created' | 'listing_updated' | 'request_served' | 'deposit' | 'withdrawal';
+  type: MarketplaceEventData['type'];
   timestamp: number;
-  data: Record<string, unknown>;
+  data: ListingCreatedEventData | ListingUpdatedEventData | RequestServedEventData | DepositEventData | WithdrawalEventData;
 }
 
 // ============================================================================

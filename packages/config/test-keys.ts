@@ -384,5 +384,3 @@ export const BSC_FUNDING_WARNING = `
    2. Use Discord faucet: https://discord.gg/bnbchain
    3. Skip BSC for initial testing
 `;
-
-

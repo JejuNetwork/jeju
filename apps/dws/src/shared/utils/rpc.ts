@@ -1,9 +1,38 @@
 /**
- * RPC service utilities
+ * RPC service utilities and types
  * Business logic extracted from routes
  */
 
-import type { RPCSession, RPCProvider } from '../../../server/routes/rpc';
+import type { Address } from 'viem';
+
+export interface RPCProvider {
+  id: string;
+  operator: Address;
+  chainId: number;
+  endpoint: string;
+  wsEndpoint?: string;
+  region: string;
+  tier: 'free' | 'standard' | 'premium';
+  maxRps: number;
+  currentRps: number;
+  latency: number;
+  uptime: number;
+  lastSeen: number;
+  status: 'active' | 'degraded' | 'offline';
+}
+
+export interface RPCSession {
+  id: string;
+  user: Address;
+  chainId: number;
+  apiKey: string;
+  tier: 'free' | 'standard' | 'premium';
+  requestCount: number;
+  dailyLimit: number;
+  createdAt: number;
+  expiresAt?: number;
+  status: 'active' | 'suspended' | 'expired';
+}
 
 /**
  * Find best available RPC provider for a chain

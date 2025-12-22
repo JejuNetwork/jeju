@@ -62,6 +62,14 @@ export {
   jejuAddressHeaderSchema,
   jejuAuthHeadersSchema,
   errorResponseSchema,
+  // JSON types
+  type JSONPrimitive,
+  type JSONArray,
+  type JSONObject,
+  type JSONValue,
+  JSONValueSchema,
+  JSONObjectSchema,
+  JSONArraySchema,
 } from './validation';
 
 export * from './schemas';

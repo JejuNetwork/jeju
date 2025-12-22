@@ -40,17 +40,6 @@ interface JejuManifest {
   dependencies?: string[];
 }
 
-interface BuildResult {
-  name: string;
-  displayName: string;
-  version: string;
-  buildDir: string;
-  files: Array<{ path: string; size: number; hash: string }>;
-  totalSize: number;
-  jnsName?: string;
-  dependencies: string[];
-}
-
 // ============================================================================
 // System Manifest Builder
 // ============================================================================

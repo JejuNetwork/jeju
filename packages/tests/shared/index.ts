@@ -65,20 +65,6 @@ export {
 // Dev startup
 export { ensureInfra, cleanup as devCleanup } from './dev-startup';
 
-// OAuth3 TEE test server (uses real DstackAuthAgent in simulated TEE mode)
-export {
-  startOAuth3TestServer,
-  stopOAuth3TestServer,
-  getOAuth3TestServerUrl,
-  getOAuth3TestAgent,
-  // Legacy aliases for backwards compatibility
-  startMockOAuth3Server,
-  stopMockOAuth3Server,
-  getMockOAuth3Url,
-  clearMockOAuth3State,
-  type OAuth3TestServerConfig,
-} from './mock-oauth3-server';
-
 // Helpers
 export * from './fixtures/wallet';
 export * from './helpers/contracts';

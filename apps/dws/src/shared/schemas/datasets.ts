@@ -3,7 +3,6 @@
  */
 
 import { z } from 'zod';
-import type { Address } from 'viem';
 import { addressSchema, nonEmptyStringSchema, cidSchema } from '../validation';
 
 /**
@@ -13,10 +12,10 @@ export const datasetCreationSchema = z.object({
   name: nonEmptyStringSchema,
   organization: addressSchema.optional(),
   description: z.string(),
-  format: z.number().int().min(0).max(8),
-  license: z.number().int().min(0).max(7),
+  format: z.union([z.number().int().min(0).max(8), z.string()]).optional(),
+  license: z.union([z.number().int().min(0).max(7), z.string()]).optional(),
   licenseUri: z.string().url().optional(),
-  tags: z.array(z.string()),
+  tags: z.array(z.string()).optional(),
 });
 
 /**

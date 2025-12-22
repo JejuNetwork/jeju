@@ -11,8 +11,9 @@ import type { Address } from 'viem';
 import type { ChainConfig, TokenConfig } from './types';
 import { readFileSync } from 'fs';
 import { resolve } from 'path';
+import { ZERO_ADDRESS } from '../../lib/contracts.js';
 
-export const ZERO_ADDRESS: Address = '0x0000000000000000000000000000000000000000';
+export { ZERO_ADDRESS };
 
 interface ContractsConfig {
   testnet?: { chainId: number; payments?: { x402Facilitator?: string }; tokens?: { usdc?: string } };
@@ -39,6 +40,14 @@ function loadContractsConfig(): ContractsConfig {
   return contractsConfig;
 }
 
+/** Nested config value type for safe traversal */
+type ConfigValue = string | number | boolean | null | undefined | { [key: string]: ConfigValue };
+
+/** Type guard to check if value is a traversable config object */
+function isConfigObject(value: ConfigValue): value is { [key: string]: ConfigValue } {
+  return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
 function getEnvOrConfig(
   envKey: string,
   configPath: string[],
@@ -50,9 +59,10 @@ function getEnvOrConfig(
   
   // 2. Check contracts.json
   const config = loadContractsConfig();
-  let value: unknown = config;
+  let value: ConfigValue = config as ConfigValue;
   for (const key of configPath) {
-    value = (value as Record<string, unknown>)?.[key];
+    if (!isConfigObject(value)) break;
+    value = value[key];
     if (value === undefined) break;
   }
   if (typeof value === 'string' && value.length > 0) return value;

@@ -209,15 +209,20 @@ const MCP_TOOLS = [
   { name: 'faucet_info', description: 'Get faucet configuration and requirements', inputSchema: { type: 'object', properties: {} } },
 ] : []);
 
-import type { A2ARequest } from './lib/validation.js';
+import type { A2ARequest, JsonValue } from './lib/validation.js';
 
+/**
+ * Result of executing an A2A skill.
+ * The data field accepts any object that can be JSON-serialized.
+ */
 interface SkillResult {
   message: string;
-  data: Record<string, unknown>;
+  /** Skill result data - must be JSON-serializable (serialized in response handler) */
+  data: object;
   requiresPayment?: PaymentRequirements;
 }
 
-async function executeSkill(skillId: string, params: Record<string, unknown>, paymentHeader: string | null): Promise<SkillResult> {
+async function executeSkill(skillId: string, params: Record<string, JsonValue>, paymentHeader: string | null): Promise<SkillResult> {
   switch (skillId) {
     case 'list-protocol-tokens':
       return { message: 'Protocol tokens: elizaOS, CLANKER, VIRTUAL, CLANKERMON', data: { tokens: [{ symbol: 'elizaOS', hasPaymaster: true }, { symbol: 'CLANKER', hasPaymaster: true }, { symbol: 'VIRTUAL', hasPaymaster: true }, { symbol: 'CLANKERMON', hasPaymaster: true }] } };
@@ -530,7 +535,7 @@ app.post('/a2a', agentRateLimit(), async (req: Request, res: Response) => {
 
   let result: SkillResult;
   try {
-    result = await executeSkill(skillId, dataPart.data as Record<string, unknown>, req.headers['x-payment'] as string || null);
+    result = await executeSkill(skillId, dataPart.data as Record<string, JsonValue>, req.headers['x-payment'] as string || null);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Skill execution failed';
     return res.json({ jsonrpc: '2.0', id: body.id, error: { code: -32603, message } });
@@ -565,34 +570,35 @@ app.post('/mcp/resources/read', agentRateLimit(), async (req: Request, res: Resp
   }
 
   const { uri } = validated;
-  let contents: unknown;
+  
+  // Helper to send MCP resource response with JSON-serialized content
+  const sendResource = (data: object) => {
+    res.json({ contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(data, null, 2) }] });
+  };
 
   switch (uri) {
     // Intent Framework
-    case 'oif://routes': contents = await routeService.listRoutes(); break;
-    case 'oif://solvers': contents = await solverService.listSolvers(); break;
-    case 'oif://intents/recent': contents = await intentService.listIntents({ limit: 100 }); break;
-    case 'oif://stats': contents = await intentService.getStats(); break;
+    case 'oif://routes': return sendResource(await routeService.listRoutes());
+    case 'oif://solvers': return sendResource(await solverService.listSolvers());
+    case 'oif://intents/recent': return sendResource(await intentService.listIntents({ limit: 100 }));
+    case 'oif://stats': return sendResource(await intentService.getStats());
     // XLP Pools
-    case 'xlp://pools/v2': contents = await poolService.listV2Pools(); break;
-    case 'xlp://pools/v3': contents = { note: 'V3 pools require specific token pair query', stats: await poolService.getPoolStats() }; break;
-    case 'xlp://pools/stats': contents = await poolService.getPoolStats(); break;
-    case 'xlp://tokens': contents = poolService.getTokens(); break;
-    case 'xlp://contracts': contents = poolService.getContracts(); break;
+    case 'xlp://pools/v2': return sendResource(await poolService.listV2Pools());
+    case 'xlp://pools/v3': return sendResource({ note: 'V3 pools require specific token pair query', stats: await poolService.getPoolStats() });
+    case 'xlp://pools/stats': return sendResource(await poolService.getPoolStats());
+    case 'xlp://tokens': return sendResource(poolService.getTokens());
+    case 'xlp://contracts': return sendResource(poolService.getContracts());
     // Moderation
-    case 'moderation://cases': contents = await getModerationCases({ limit: 100 }); break;
-    case 'moderation://cases/active': contents = await getModerationCases({ activeOnly: true, limit: 50 }); break;
-    case 'moderation://reports': contents = await getReports({ limit: 100 }); break;
-    case 'moderation://stats': contents = await getModerationStats(); break;
+    case 'moderation://cases': return sendResource(await getModerationCases({ limit: 100 }));
+    case 'moderation://cases/active': return sendResource(await getModerationCases({ activeOnly: true, limit: 50 }));
+    case 'moderation://reports': return sendResource(await getReports({ limit: 100 }));
+    case 'moderation://stats': return sendResource(await getModerationStats());
     // Faucet (testnet only)
     case 'faucet://info':
       if (!IS_TESTNET) return res.status(403).json({ error: 'Faucet is only available on testnet' });
-      contents = faucetService.getFaucetInfo();
-      break;
+      return sendResource(faucetService.getFaucetInfo());
     default: return res.status(404).json({ error: 'Resource not found' });
   }
-
-  res.json({ contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(contents, null, 2) }] });
 });
 
 app.post('/mcp/tools/list', agentRateLimit(), (_req: Request, res: Response) => {
@@ -610,7 +616,7 @@ app.post('/mcp/tools/call', agentRateLimit(), async (req: Request, res: Response
   }
 
   const { name, arguments: args } = validated;
-  let result: unknown;
+  let result: object | null | undefined;
   let isError = false;
 
   try {

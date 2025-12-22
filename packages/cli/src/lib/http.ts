@@ -8,6 +8,17 @@ import { z } from 'zod';
 import { validate } from '../schemas';
 
 /**
+ * JSON-serializable value type for request bodies
+ */
+export type JsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | JsonValue[]
+  | { [key: string]: JsonValue };
+
+/**
  * Fetch JSON from a URL and validate with a Zod schema.
  * Throws on network errors, non-OK responses, or validation failures.
  */
@@ -17,7 +28,7 @@ export async function fetchJson<T>(
   options: {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
     headers?: Record<string, string>;
-    body?: unknown;
+    body?: JsonValue;
     timeout?: number;
   } = {}
 ): Promise<T> {
@@ -56,7 +67,7 @@ export async function fetchJsonRaw<T>(
   options: {
     method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
     headers?: Record<string, string>;
-    body?: unknown;
+    body?: JsonValue;
     timeout?: number;
   } = {}
 ): Promise<T> {

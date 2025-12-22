@@ -219,6 +219,7 @@ export {
   MFAMethod,
   type MFAStatus,
   type MFAChallenge,
+  type MFAChallengeMetadata,
 } from './mfa/index.js';
 
 // React SDK (separate entry point for tree-shaking)
@@ -296,6 +297,8 @@ export {
   OAuthInitResponseSchema,
   SignResponseSchema,
   CredentialVerifyResponseSchema,
+  AuthCallbackDataSchema,
+  NodeResourcesSchema,
   
   // External API schemas
   NeynarUserSchema,

@@ -14,13 +14,14 @@ describe('Edge Coordination', () => {
       const response = await app.request('/edge/health');
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { 
-        status: string; 
-        service: string; 
-        nodes: unknown; 
-        capacity: unknown; 
-        regions: unknown 
-      };
+      interface EdgeHealthResponse {
+        status: string;
+        service: string;
+        nodes: { total: number; online: number; offline: number };
+        capacity: { totalCacheBytes: number; totalBandwidthMbps: number };
+        regions: Record<string, number>;
+      }
+      const data = await response.json() as EdgeHealthResponse;
       expect(data.status).toBe('healthy');
       expect(data.service).toBe('dws-edge-coordinator');
       expect(data.nodes).toBeDefined();
@@ -89,7 +90,16 @@ describe('Edge Coordination', () => {
       const response = await app.request('/edge/nodes');
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { nodes: unknown[] };
+      interface EdgeNode {
+        id: string;
+        nodeType: string;
+        platform: string;
+        operator?: string;
+        capabilities: Record<string, boolean | number>;
+        region: string;
+        status: string;
+      }
+      const data = await response.json() as { nodes: EdgeNode[] };
       expect(data.nodes).toBeDefined();
       expect(data.nodes.length).toBeGreaterThan(0);
     });
@@ -177,11 +187,13 @@ describe('Edge Coordination', () => {
       const response = await app.request(`/edge/earnings/${testNodeId}`);
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { 
-        nodeId: string; 
-        bytesServed: unknown; 
-        estimatedEarnings: unknown 
-      };
+      interface NodeEarnings {
+        nodeId: string;
+        bytesServed: number;
+        estimatedEarnings: string;
+        period: string;
+      }
+      const data = await response.json() as NodeEarnings;
       expect(data.nodeId).toBe(testNodeId);
       expect(data.bytesServed).toBeDefined();
       expect(data.estimatedEarnings).toBeDefined();

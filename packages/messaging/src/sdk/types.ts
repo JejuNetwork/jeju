@@ -13,7 +13,6 @@ export type {
   DeliveryReceiptData,
   ReadReceiptData,
   WebSocketIncomingMessage,
-  NodeConfig,
   MessagingClientConfigBase,
 } from '../schemas';
 

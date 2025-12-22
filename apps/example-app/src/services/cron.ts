@@ -8,6 +8,7 @@
 import type { Address } from 'viem';
 import type { CronJob } from '../types';
 import { getDatabase } from '../db/client';
+import { getNextMidnight } from '../utils';
 
 const CRON_ENDPOINT = process.env.CRON_ENDPOINT || 'http://localhost:4200/cron';
 const WEBHOOK_BASE = process.env.WEBHOOK_BASE || 'http://localhost:4500';
@@ -145,7 +146,7 @@ class ComputeCronService implements CronService {
       endpoint: `${WEBHOOK_BASE}/webhooks/cleanup`,
       enabled: true,
       lastRun: null,
-      nextRun: this.getNextMidnight(),
+      nextRun: getNextMidnight(),
     };
   }
 
@@ -218,14 +219,6 @@ class ComputeCronService implements CronService {
     if (!response.ok) {
       console.warn(`Failed to register cleanup job: ${response.status}`);
     }
-  }
-
-  private getNextMidnight(): number {
-    const now = new Date();
-    const tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    return tomorrow.getTime();
   }
 }
 

@@ -81,7 +81,7 @@ export class RulerScorer {
   async scoreManifest(
     manifestCID: string,
     rubric: JudgeRubric,
-    groupSize: number
+    _groupSize: number
   ): Promise<JudgeScore[]> {
     const response = await fetch(`${this.config.computeApiUrl}/storage/get/${manifestCID}`);
     if (!response.ok) {

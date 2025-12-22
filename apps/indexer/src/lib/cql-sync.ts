@@ -11,14 +11,25 @@
 // Stubbed imports - CQL sync is reference implementation only
 // import { CovenantSQLClient, type QueryResult } from '@jejunetwork/db';
 // import { getCQLUrl } from '@jejunetwork/config';
-interface QueryResult<T = Record<string, unknown>> { rows: T[]; rowCount: number }
+
+// SQL parameter types - values that can be safely passed to SQL queries
+type SqlPrimitive = string | number | boolean | null | bigint | Date;
+type SqlParam = SqlPrimitive | SqlPrimitive[];
+type SqlRowValue = string | number | boolean | null;
+type SqlRow = Record<string, SqlRowValue>;
+
+// Entity record value types - possible values stored in TypeORM entities
+type EntityValue = string | number | boolean | bigint | Date | null | undefined | object;
+type EntityRecord = Record<string, EntityValue>;
+
+interface QueryResult<T = SqlRow> { rows: T[]; rowCount: number }
 const getCQLUrl = (): string => process.env.CQL_URL || 'http://localhost:4661';
 
 // Stub CovenantSQLClient 
 class CovenantSQLClient {
   constructor(_url: string | { blockProducerEndpoint: string; databaseId: string }, _opts?: { databaseId: string }) {}
-  async query<T = Record<string, unknown>>(_sql: string, _params?: unknown[], _dbId?: string): Promise<QueryResult<T>> { return { rows: [], rowCount: 0 }; }
-  async exec(_sql: string, _params?: unknown, _dbId?: string): Promise<void> {}
+  async query<T = SqlRow>(_sql: string, _params?: SqlParam[], _dbId?: string): Promise<QueryResult<T>> { return { rows: [], rowCount: 0 }; }
+  async exec(_sql: string, _params?: SqlParam | SqlParam[], _dbId?: string): Promise<void> {}
   async close(): Promise<void> {}
 }
 import type { DataSource, EntityMetadata } from 'typeorm';
@@ -172,7 +183,7 @@ export class CQLSyncService {
     }
 
     // Update sync state
-    const lastRecord = records[records.length - 1] as Record<string, unknown>;
+    const lastRecord = records[records.length - 1] as EntityRecord;
     const lastId = String(lastRecord[primaryColumns[0]]);
     state.lastSyncedId = lastId;
     state.lastSyncedAt = Date.now();
@@ -187,7 +198,7 @@ export class CQLSyncService {
   private async upsertToCQL(
     tableName: string,
     meta: EntityMetadata,
-    record: Record<string, unknown>
+    record: EntityRecord
   ): Promise<void> {
     const columns = meta.columns.map((c) => c.databaseName);
     const values = meta.columns.map((c) => {

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.33;
 
 import {IOAuth3AppRegistry, IOAuth3IdentityRegistry} from "./IOAuth3.sol";
 

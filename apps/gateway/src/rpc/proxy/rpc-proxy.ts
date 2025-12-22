@@ -5,18 +5,34 @@
 
 import { CHAINS, getChain, isChainSupported } from '../config/chains.js';
 
+/** JSON-RPC primitive values */
+type JsonPrimitive = string | number | boolean | null;
+
+/** JSON-RPC compatible value (any valid JSON) */
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
+/** JSON-RPC request params - array of JSON values */
+type JsonRpcParams = JsonValue[];
+
+/** JSON-RPC error structure */
+interface JsonRpcError {
+  code: number;
+  message: string;
+  data?: JsonValue;
+}
+
 interface JsonRpcRequest {
   jsonrpc: string;
   id: number | string;
   method: string;
-  params?: unknown[];
+  params?: JsonRpcParams;
 }
 
 interface JsonRpcResponse {
   jsonrpc: string;
   id: number | string;
-  result?: unknown;
-  error?: { code: number; message: string; data?: unknown };
+  result?: JsonValue;
+  error?: JsonRpcError;
 }
 
 interface ProxyResult {

@@ -14,6 +14,7 @@ import {
   jnsPriceResponseSchema,
 } from '../schemas';
 import { expectValid } from '../utils/validation';
+import { normalizeJNSName } from '../utils';
 import type { JNSRecords } from '../types';
 
 const GATEWAY_API = process.env.GATEWAY_API || 'http://localhost:4020';
@@ -30,7 +31,7 @@ interface JNSService {
 
 class JNSServiceImpl implements JNSService {
   async isNameAvailable(name: string): Promise<boolean> {
-    const normalized = this.normalizeName(name);
+    const normalized = normalizeJNSName(name);
     let response: Response;
     try {
       response = await fetch(`${GATEWAY_API}/jns/available/${normalized}`);
@@ -48,7 +49,7 @@ class JNSServiceImpl implements JNSService {
   }
 
   async register(name: string, owner: Address, durationYears: number): Promise<{ txHash: Hex; name: string }> {
-    const normalized = this.normalizeName(name);
+    const normalized = normalizeJNSName(name);
     const price = await this.getRegistrationPrice(name, durationYears);
 
     const response = await fetch(`${GATEWAY_API}/jns/register`, {
@@ -72,7 +73,7 @@ class JNSServiceImpl implements JNSService {
   }
 
   async setRecords(name: string, records: JNSRecords): Promise<{ txHash: Hex }> {
-    const normalized = this.normalizeName(name);
+    const normalized = normalizeJNSName(name);
 
     const response = await fetch(`${GATEWAY_API}/jns/records/${normalized}`, {
       method: 'POST',
@@ -90,7 +91,7 @@ class JNSServiceImpl implements JNSService {
   }
 
   async getRecords(name: string): Promise<JNSRecords> {
-    const normalized = this.normalizeName(name);
+    const normalized = normalizeJNSName(name);
     let response: Response;
     try {
       response = await fetch(`${GATEWAY_API}/jns/records/${normalized}`);
@@ -112,7 +113,7 @@ class JNSServiceImpl implements JNSService {
   }
 
   async resolve(name: string): Promise<Address | null> {
-    const normalized = this.normalizeName(name);
+    const normalized = normalizeJNSName(name);
     let response: Response;
     try {
       response = await fetch(`${GATEWAY_API}/jns/resolve/${normalized}`);
@@ -135,7 +136,7 @@ class JNSServiceImpl implements JNSService {
   }
 
   async getRegistrationPrice(name: string, durationYears: number): Promise<bigint> {
-    const normalized = this.normalizeName(name);
+    const normalized = normalizeJNSName(name);
     let response: Response;
     try {
       response = await fetch(`${GATEWAY_API}/jns/price/${normalized}?years=${durationYears}`);
@@ -150,10 +151,6 @@ class JNSServiceImpl implements JNSService {
     const data = await response.json();
     const validated = expectValid(jnsPriceResponseSchema, data, 'JNS price response');
     return BigInt(validated.price);
-  }
-
-  private normalizeName(name: string): string {
-    return name.endsWith('.jeju') ? name : `${name}.jeju`;
   }
 }
 

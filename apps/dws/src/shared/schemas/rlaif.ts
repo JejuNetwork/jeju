@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod';
-import { nonEmptyStringSchema, cidSchema, positiveIntSchema, positiveBigIntSchema } from '../validation';
+import { nonEmptyStringSchema, cidSchema, JSONValueSchema } from '../validation';
 
 /**
  * RLAIF run creation request schema
@@ -63,17 +63,17 @@ export const rlaifRolloutsSchema = z.object({
     steps: z.array(z.object({
       stepNumber: z.number().int().nonnegative(),
       timestamp: z.number().int().nonnegative(),
-      observation: z.record(z.string(), z.unknown()),
+      observation: z.record(z.string(), JSONValueSchema),
       action: z.object({
         type: nonEmptyStringSchema,
-        parameters: z.record(z.string(), z.unknown()),
+        parameters: z.record(z.string(), JSONValueSchema),
         reasoning: z.string().optional(),
       }),
       reward: z.number(),
       done: z.boolean(),
     })),
     totalReward: z.number(),
-    metadata: z.record(z.string(), z.unknown()),
+    metadata: z.record(z.string(), JSONValueSchema),
   })).min(1),
 });
 

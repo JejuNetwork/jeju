@@ -3,8 +3,7 @@
  */
 
 import { z } from 'zod';
-import type { Address } from 'viem';
-import { addressSchema, nonEmptyStringSchema, positiveIntSchema } from '../validation';
+import { addressSchema, nonEmptyStringSchema } from '../validation';
 
 /**
  * Compute job creation request schema

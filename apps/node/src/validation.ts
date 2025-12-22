@@ -11,7 +11,7 @@ import {
   NonNegativeNumberSchema,
   PositiveIntSchema,
   NonNegativeIntSchema,
-} from '@jejunetwork/types/validation';
+} from '@jejunetwork/types';
 import type {
   HardwareInfo,
   WalletInfo,
@@ -471,7 +471,7 @@ export const StartServiceRequestSchema = z.object({
   service_id: z.string().min(1),
   auto_stake: z.boolean(),
   stake_amount: WeiStringSchema.nullable(),
-  custom_settings: z.record(z.string(), z.unknown()).nullable(),
+  custom_settings: z.record(z.string(), CustomSettingValueSchema).nullable(),
 });
 
 export const StartBotRequestSchema = z.object({

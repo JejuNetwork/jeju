@@ -1,6 +1,7 @@
 import { test as base } from '@playwright/test';
 import { BrowserContext } from 'playwright-core';
 import { bootstrap, Dappwright, getWallet } from '@tenkeylabs/dappwright';
+import { SEED_PHRASE, PASSWORD, TEST_ACCOUNTS, JEJU_CHAIN, JEJU_RPC_URL, JEJU_CHAIN_ID } from '../utils';
 
 /**
  * Shared wallet fixture configuration for network
@@ -10,20 +11,19 @@ import { bootstrap, Dappwright, getWallet } from '@tenkeylabs/dappwright';
  */
 
 export const JEJU_TEST_WALLET = {
-  seed: 'test test test test test test test test test test test junk',
-  password: 'Tester@1234',
-  // Anvil default account
-  address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-  privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-};
+  seed: SEED_PHRASE,
+  password: PASSWORD,
+  address: TEST_ACCOUNTS.deployer.address,
+  privateKey: TEST_ACCOUNTS.deployer.privateKey,
+} as const;
 
 export const JEJU_NETWORK = {
-  name: 'Network Local',
-  networkName: 'Network Local', // Alias for dappwright compatibility
-  rpcUrl: process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || 'http://localhost:9545',
-  chainId: parseInt(process.env.CHAIN_ID || '1337'),
-  symbol: 'ETH',
-};
+  name: JEJU_CHAIN.name,
+  networkName: JEJU_CHAIN.name,
+  rpcUrl: process.env.L2_RPC_URL || process.env.JEJU_RPC_URL || JEJU_RPC_URL,
+  chainId: parseInt(process.env.CHAIN_ID || String(JEJU_CHAIN_ID)),
+  symbol: JEJU_CHAIN.symbol,
+} as const;
 
 /**
  * Extended Playwright test with wallet fixture

@@ -9,6 +9,7 @@
 
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
+import type { JsonRecord, JsonValue } from "../shared/types";
 import { getServicesConfig } from "../config";
 
 // ============================================================================
@@ -39,7 +40,7 @@ export interface MCPTool {
         type: string;
         description?: string;
         enum?: string[];
-        default?: unknown;
+        default?: JsonValue;
       }
     >;
     required?: string[];
@@ -120,7 +121,7 @@ export interface MCPModule {
   callTool(
     endpoint: string,
     toolName: string,
-    arguments_: Record<string, unknown>,
+    arguments_: JsonRecord,
   ): Promise<MCPToolResult>;
 
   // Resources
@@ -148,7 +149,7 @@ export interface MCPModule {
     listTools(): Promise<MCPTool[]>;
     callTool(
       toolName: string,
-      args: Record<string, unknown>,
+      args: JsonRecord,
     ): Promise<MCPToolResult>;
     listResources(): Promise<MCPResource[]>;
     readResource(uri: string): Promise<MCPResourceContent>;
@@ -158,7 +159,7 @@ export interface MCPModule {
     listTools(): Promise<MCPTool[]>;
     callTool(
       toolName: string,
-      args: Record<string, unknown>,
+      args: JsonRecord,
     ): Promise<MCPToolResult>;
     listResources(): Promise<MCPResource[]>;
     readResource(uri: string): Promise<MCPResourceContent>;
@@ -196,7 +197,7 @@ export function createMCPModule(
   async function mcpRequest<T>(
     endpoint: string,
     method: string,
-    params?: Record<string, unknown>,
+    params?: JsonRecord,
   ): Promise<T> {
     const headers = await buildAuthHeaders();
 
@@ -221,7 +222,7 @@ export function createMCPModule(
       jsonrpc: string;
       id: number;
       result?: T;
-      error?: { code: number; message: string; data?: unknown };
+      error?: { code: number; message: string; data?: JsonValue };
     };
 
     if (result.error) {
@@ -241,7 +242,7 @@ export function createMCPModule(
 
       async callTool(
         toolName: string,
-        args: Record<string, unknown>,
+        args: JsonRecord,
       ): Promise<MCPToolResult> {
         return mcpRequest<MCPToolResult>(baseUrl, "tools/call", {
           name: toolName,
@@ -355,7 +356,7 @@ export function createMCPModule(
       return result.tools;
     },
 
-    async callTool(endpoint, toolName, arguments_) {
+    async callTool(endpoint, toolName, arguments_: JsonRecord) {
       return mcpRequest<MCPToolResult>(endpoint, "tools/call", {
         name: toolName,
         arguments: arguments_,

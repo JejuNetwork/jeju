@@ -9,6 +9,7 @@
  */
 
 import type { CovenantSQLClient, TableSchema, ConsistencyLevel } from './covenant-sql';
+import type { SqlDefaultValue, SqlParam } from '../types';
 
 // ============================================================================
 // Types
@@ -276,7 +277,7 @@ export function addColumnMigration(
   table: string,
   column: string,
   type: string,
-  options: { nullable?: boolean; default?: unknown } = {}
+  options: { nullable?: boolean; default?: SqlDefaultValue } = {}
 ): Migration {
   const nullable = options.nullable ? '' : ' NOT NULL';
   const defaultVal = options.default !== undefined ? ` DEFAULT ${options.default}` : '';
@@ -321,15 +322,15 @@ export function createIndexMigration(
 /**
  * Data migration helper with batching
  */
-export async function migrateData<T extends Record<string, unknown>>(
+export async function migrateData<T extends Record<string, SqlParam>>(
   client: CovenantSQLClient,
   sourceTable: string,
   targetTable: string,
-  transform: (row: T) => Record<string, unknown>,
+  transform: (row: T) => Record<string, SqlParam>,
   options: {
     batchSize?: number;
     where?: string;
-    whereParams?: unknown[];
+    whereParams?: SqlParam[];
     consistency?: ConsistencyLevel;
   } = {}
 ): Promise<{ migrated: number }> {

@@ -4,6 +4,7 @@
  */
 
 import { createPublicClient, http, type PublicClient, type Chain } from 'viem';
+import type { JsonValue, RpcParamValue } from './validation.js';
 
 export interface RPCClientConfig {
   gatewayUrl?: string;
@@ -13,18 +14,26 @@ export interface RPCClientConfig {
   maxRetries?: number;
 }
 
+/**
+ * JSON-RPC request structure per JSON-RPC 2.0 spec.
+ * Params can be any JSON-serializable values.
+ */
 export interface JsonRpcRequest {
   jsonrpc: string;
   id: number | string;
   method: string;
-  params?: unknown[];
+  params?: RpcParamValue[];
 }
 
-export interface JsonRpcResponse<T = unknown> {
+/**
+ * JSON-RPC response structure per JSON-RPC 2.0 spec.
+ * Error data can be any JSON-serializable value per the spec.
+ */
+export interface JsonRpcResponse<T = JsonValue> {
   jsonrpc: string;
   id: number | string;
   result?: T;
-  error?: { code: number; message: string; data?: unknown };
+  error?: { code: number; message: string; data?: JsonValue };
 }
 
 export interface ChainInfo {
@@ -74,7 +83,7 @@ export class RPCClient {
     };
   }
 
-  async request<T = unknown>(chainId: number, method: string, params: unknown[] = []): Promise<T> {
+  async request<T = JsonValue>(chainId: number, method: string, params: RpcParamValue[] = []): Promise<T> {
     const request: JsonRpcRequest = { jsonrpc: '2.0', id: ++this.requestId, method, params };
 
     if (await this.isGatewayAvailable()) {

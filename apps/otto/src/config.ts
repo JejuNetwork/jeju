@@ -8,6 +8,7 @@ import { expectValid, OttoConfigSchema } from './schemas';
 export const DEFAULT_CHAIN_ID = 420691; // Jeju Network
 export const DEFAULT_SLIPPAGE_BPS = 50; // 0.5%
 export const MAX_SLIPPAGE_BPS = 1000; // 10%
+export const PENDING_ACTION_TTL = 5 * 60 * 1000; // 5 minutes
 
 export const SUPPORTED_CHAINS = [
   { chainId: 420691, name: 'Jeju', symbol: 'JEJU', isDefault: true },

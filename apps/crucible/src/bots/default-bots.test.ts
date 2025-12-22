@@ -10,7 +10,7 @@
 import { describe, test, expect } from 'bun:test';
 import { DEFAULT_BOTS, getDefaultBotsForNetwork, createTradingBotOptions, DEFAULT_CHAINS } from './default-bots';
 import type { DefaultBotConfig } from './default-bots';
-import type { ChainId } from './autocrat-types';
+import { TEST_CHAIN_IDS } from './test-utils';
 
 describe('Default Bots Configuration', () => {
   describe('DEFAULT_BOTS', () => {
@@ -189,7 +189,9 @@ describe('Default Bots Configuration', () => {
     });
 
     test('should handle invalid chain IDs gracefully', () => {
-      const config: DefaultBotConfig = { ...testBotConfig, chains: [999999] as unknown as ChainId[] };
+      // TEST_CHAIN_IDS.UNCONFIGURED is a valid positive integer (satisfies ChainId)
+      // but is not in DEFAULT_CHAINS, so it gets filtered out
+      const config: DefaultBotConfig = { ...testBotConfig, chains: [TEST_CHAIN_IDS.UNCONFIGURED] };
       const options = createTradingBotOptions(
         config,
         1n,
@@ -211,7 +213,8 @@ describe('Default Bots Configuration', () => {
     });
 
     test('should map chain IDs to chain configs correctly', () => {
-      const config = { ...testBotConfig, chains: [1, 42161, 10, 8453] as ChainId[] };
+      // These are all valid ChainIds (positive integers) that exist in DEFAULT_CHAINS
+      const config = { ...testBotConfig, chains: [1, 42161, 10, 8453] };
       const options = createTradingBotOptions(
         config,
         1n,
@@ -249,11 +252,12 @@ describe('Default Bots Configuration', () => {
 
   describe('Edge Cases', () => {
     test('should handle bots with no matching chains for network', () => {
+      // Use an unconfigured but valid chain ID
       const customBot: DefaultBotConfig = {
         name: 'Custom Bot',
         description: 'Custom',
         strategies: [{ type: 'DEX_ARBITRAGE', enabled: true, minProfitBps: 10, maxGasGwei: 100, maxSlippageBps: 50 }],
-        chains: [999999 as unknown as ChainId], // Invalid chain
+        chains: [TEST_CHAIN_IDS.UNCONFIGURED],
         initialFunding: '0.1',
       };
       

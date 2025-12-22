@@ -416,7 +416,14 @@ describe('DWS E2E Tests', () => {
       const res = await app.request('/workers');
       expect(res.status).toBe(200);
       
-      const body = await res.json() as { functions: unknown[] };
+      interface WorkerFunctionSummary {
+        id: string;
+        name: string;
+        owner: string;
+        runtime: string;
+        createdAt: string;
+      }
+      const body = await res.json() as { functions: WorkerFunctionSummary[] };
       expect(body.functions).toBeInstanceOf(Array);
     });
 
@@ -472,7 +479,13 @@ describe('DWS E2E Tests', () => {
       const res = await app.request('/edge/nodes');
       expect(res.status).toBe(200);
       
-      const body = await res.json() as { nodes: unknown[] };
+      interface EdgeNodeSummary {
+        id: string;
+        nodeType: string;
+        region: string;
+        status: string;
+      }
+      const body = await res.json() as { nodes: EdgeNodeSummary[] };
       expect(body.nodes).toBeInstanceOf(Array);
     });
   });

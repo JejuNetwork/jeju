@@ -6,6 +6,7 @@
  */
 
 import type { CovenantSQLClient, ConsistencyLevel, QueryResult } from './covenant-sql';
+import type { SqlParam, SqlDefaultValue } from '../types';
 
 // ============================================================================
 // Types
@@ -31,7 +32,7 @@ export interface ColumnMetadata {
   nullable: boolean;
   primary: boolean;
   unique: boolean;
-  default?: unknown;
+  default?: SqlDefaultValue;
 }
 
 export interface RelationMetadata {
@@ -45,12 +46,12 @@ export interface RelationMetadata {
 // Query Builder (TypeORM-compatible API)
 // ============================================================================
 
-export class CovenantQueryBuilder<T = Record<string, unknown>> {
+export class CovenantQueryBuilder<T = Record<string, SqlParam>> {
   private client: CovenantSQLClient;
   private tableName: string;
   private selectCols: string[] = ['*'];
   private whereClauses: string[] = [];
-  private whereParams: unknown[] = [];
+  private whereParams: SqlParam[] = [];
   private orderByClauses: string[] = [];
   private limitValue?: number;
   private offsetValue?: number;
@@ -69,7 +70,7 @@ export class CovenantQueryBuilder<T = Record<string, unknown>> {
     return this;
   }
 
-  where(condition: string, params?: unknown[]): this {
+  where(condition: string, params?: SqlParam[]): this {
     this.whereClauses.push(condition);
     if (params) {
       this.whereParams.push(...params);
@@ -77,11 +78,11 @@ export class CovenantQueryBuilder<T = Record<string, unknown>> {
     return this;
   }
 
-  andWhere(condition: string, params?: unknown[]): this {
+  andWhere(condition: string, params?: SqlParam[]): this {
     return this.where(condition, params);
   }
 
-  orWhere(condition: string, params?: unknown[]): this {
+  orWhere(condition: string, params?: SqlParam[]): this {
     if (this.whereClauses.length > 0) {
       const lastClause = this.whereClauses.pop();
       this.whereClauses.push(`(${lastClause}) OR (${condition})`);
@@ -136,7 +137,7 @@ export class CovenantQueryBuilder<T = Record<string, unknown>> {
     return this;
   }
 
-  having(condition: string, params?: unknown[]): this {
+  having(condition: string, params?: SqlParam[]): this {
     this.havingClauses.push(condition);
     if (params) {
       this.whereParams.push(...params);
@@ -149,7 +150,7 @@ export class CovenantQueryBuilder<T = Record<string, unknown>> {
     return this;
   }
 
-  private buildQuery(): { sql: string; params: unknown[] } {
+  private buildQuery(): { sql: string; params: SqlParam[] } {
     let sql = `SELECT ${this.selectCols.join(', ')} FROM ${this.tableName}`;
 
     if (this.joinClauses.length > 0) {
@@ -205,13 +206,13 @@ export class CovenantQueryBuilder<T = Record<string, unknown>> {
     return result.rows[0]?.count ?? 0;
   }
 
-  async getRawMany<R = Record<string, unknown>>(): Promise<R[]> {
+  async getRawMany<R = Record<string, SqlParam>>(): Promise<R[]> {
     const { sql, params } = this.buildQuery();
     const result = await this.client.query<R>(sql, params, { consistency: this.consistency });
     return result.rows;
   }
 
-  async getRawOne<R = Record<string, unknown>>(): Promise<R | null> {
+  async getRawOne<R = Record<string, SqlParam>>(): Promise<R | null> {
     this.limitValue = 1;
     const results = await this.getRawMany<R>();
     return results[0] ?? null;
@@ -226,7 +227,7 @@ export class CovenantQueryBuilder<T = Record<string, unknown>> {
 // Repository (TypeORM-compatible API)
 // ============================================================================
 
-export class CovenantRepository<T extends Record<string, unknown>> {
+export class CovenantRepository<T extends Record<string, SqlParam>> {
   private client: CovenantSQLClient;
   private tableName: string;
   private metadata: EntityMetadata;
@@ -313,20 +314,20 @@ export class CovenantRepository<T extends Record<string, unknown>> {
     
     for (const e of entities) {
       const pk = this.metadata.primaryKeys[0] ?? 'id';
-      const id = (e as Record<string, unknown>)[pk];
+      const id = e[pk];
 
       if (id && await this.findById(id as string | number)) {
         // Update existing
-        const { [pk]: _, ...data } = e as Record<string, unknown>;
+        const { [pk]: _, ...data } = e;
         await this.client.update(
           this.tableName,
           data as Partial<T>,
           `${pk} = $${Object.keys(data).length + 1}`,
-          [id]
+          [id as SqlParam]
         );
       } else {
         // Insert new
-        await this.client.insert(this.tableName, e as Record<string, unknown>);
+        await this.client.insert(this.tableName, e);
       }
     }
 
@@ -334,8 +335,7 @@ export class CovenantRepository<T extends Record<string, unknown>> {
   }
 
   async insert(entity: T | T[]): Promise<QueryResult<T>> {
-    const result = await this.client.insert(this.tableName, entity as Record<string, unknown> | Record<string, unknown>[]);
-    return result as QueryResult<T>;
+    return this.client.insert(this.tableName, entity);
   }
 
   async update(
@@ -346,7 +346,7 @@ export class CovenantRepository<T extends Record<string, unknown>> {
     const whereCondition = whereEntries
       .map(([key], i) => `${key} = $${Object.keys(partialEntity).length + i + 1}`)
       .join(' AND ');
-    const whereParams = whereEntries.map(([, value]) => value);
+    const whereParams: SqlParam[] = whereEntries.map(([, value]) => value as SqlParam);
 
     return this.client.update(
       this.tableName,
@@ -359,7 +359,7 @@ export class CovenantRepository<T extends Record<string, unknown>> {
   async delete(criteria: Partial<T>): Promise<QueryResult> {
     const entries = Object.entries(criteria);
     const whereCondition = entries.map(([key], i) => `${key} = $${i + 1}`).join(' AND ');
-    const whereParams = entries.map(([, value]) => value);
+    const whereParams: SqlParam[] = entries.map(([, value]) => value as SqlParam);
 
     return this.client.delete(this.tableName, whereCondition, whereParams);
   }
@@ -385,7 +385,7 @@ export class CovenantRepository<T extends Record<string, unknown>> {
     await this.client.query(`DELETE FROM ${this.tableName}`);
   }
 
-  async query(sql: string, params?: unknown[]): Promise<T[]> {
+  async query(sql: string, params?: SqlParam[]): Promise<T[]> {
     const result = await this.client.query<T>(sql, params);
     return result.rows;
   }
@@ -397,13 +397,13 @@ export class CovenantRepository<T extends Record<string, unknown>> {
 
 export class CovenantEntityManager {
   private client: CovenantSQLClient;
-  private repositories: Map<string, CovenantRepository<Record<string, unknown>>> = new Map();
+  private repositories: Map<string, CovenantRepository<Record<string, SqlParam>>> = new Map();
 
   constructor(client: CovenantSQLClient) {
     this.client = client;
   }
 
-  getRepository<T extends Record<string, unknown>>(
+  getRepository<T extends Record<string, SqlParam>>(
     entityOrTableName: string | { name: string }
   ): CovenantRepository<T> {
     const tableName = typeof entityOrTableName === 'string' 
@@ -432,12 +432,12 @@ export class CovenantEntityManager {
     }
   }
 
-  async query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]> {
+  async query<T = Record<string, SqlParam>>(sql: string, params?: SqlParam[]): Promise<T[]> {
     const result = await this.client.query<T>(sql, params);
     return result.rows;
   }
 
-  createQueryBuilder<T = Record<string, unknown>>(tableName: string): CovenantQueryBuilder<T> {
+  createQueryBuilder<T = Record<string, SqlParam>>(tableName: string): CovenantQueryBuilder<T> {
     return new CovenantQueryBuilder<T>(this.client, tableName);
   }
 }
@@ -481,7 +481,7 @@ export class CovenantDataSource {
     this._isInitialized = false;
   }
 
-  getRepository<T extends Record<string, unknown>>(
+  getRepository<T extends Record<string, SqlParam>>(
     entityOrTableName: string | { name: string }
   ): CovenantRepository<T> {
     return this.manager.getRepository<T>(entityOrTableName);
@@ -491,7 +491,7 @@ export class CovenantDataSource {
     return new CovenantQueryRunner(this.client);
   }
 
-  async query<T = Record<string, unknown>>(sql: string, params?: unknown[]): Promise<T[]> {
+  async query<T = Record<string, SqlParam>>(sql: string, params?: SqlParam[]): Promise<T[]> {
     return this.manager.query<T>(sql, params);
   }
 
@@ -537,8 +537,8 @@ export class CovenantQueryRunner {
     this.inTransaction = false;
   }
 
-  async query(sql: string, params?: unknown[]): Promise<unknown> {
-    const result = await this.client.query(sql, params);
+  async query<T = Record<string, SqlParam>>(sql: string, params?: SqlParam[]): Promise<T[]> {
+    const result = await this.client.query<T>(sql, params);
     return result.rows;
   }
 

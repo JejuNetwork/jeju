@@ -15,7 +15,7 @@
 
 import { BaseTFMMStrategy, type StrategyContext, type WeightCalculation, type StrategySignal } from './base-strategy';
 import type { OracleAggregator } from '../../oracles';
-import { WEIGHT_PRECISION, BPS_PRECISION } from '../../shared';
+import { WEIGHT_PRECISION, BPS_PRECISION } from '../../schemas';
 
 export interface MomentumConfig {
   lookbackPeriodMs: number;      // Default: 7 days in ms

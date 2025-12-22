@@ -264,13 +264,22 @@ export interface ParsedCommand {
   channelId: string;
 }
 
+/** Data types returned from command execution */
+export interface CommandResultData {
+  quoteId?: string;
+  url?: string;
+  txHash?: Hex;
+  tokenAddress?: Address;
+  orderId?: string;
+}
+
 export interface CommandResult {
   success: boolean;
   message: string;
   embed?: MessageEmbed;
   buttons?: MessageButton[];
   error?: string;
-  data?: Record<string, unknown>;
+  data?: CommandResultData;
 }
 
 export interface MessageEmbed {
@@ -301,14 +310,6 @@ export interface MessageButton {
 // ============================================================================
 // Webhook Types
 // ============================================================================
-
-export interface WebhookPayload {
-  platform: Platform;
-  type: string;
-  data: Record<string, unknown>;
-  timestamp: number;
-  signature?: string;
-}
 
 export interface DiscordWebhookPayload {
   type: number;
@@ -389,6 +390,22 @@ export interface TwitterWebhookPayload {
       message_data: { text: string };
     };
   }>;
+}
+
+/** Union of all platform-specific webhook payloads */
+export type WebhookPayloadData = 
+  | DiscordWebhookPayload 
+  | TelegramWebhookPayload 
+  | TwilioWebhookPayload 
+  | FarcasterFramePayload 
+  | TwitterWebhookPayload;
+
+export interface WebhookPayload {
+  platform: Platform;
+  type: string;
+  data: WebhookPayloadData;
+  timestamp: number;
+  signature?: string;
 }
 
 // ============================================================================
@@ -472,15 +489,70 @@ export interface UserSession {
   expiresAt: number;
 }
 
-export interface SessionContext {
-  awaitingConfirmation?: {
-    type: 'swap' | 'bridge' | 'send' | 'launch';
-    data: Record<string, unknown>;
-    expiresAt: number;
+/** Data for a pending swap confirmation */
+export interface PendingSwapData {
+  quote: SwapQuote;
+  params: {
+    amount: string;
+    from: string;
+    to: string;
+    chainId: number;
   };
+}
+
+/** Data for a pending bridge confirmation */
+export interface PendingBridgeData {
+  quote?: BridgeQuote;
+  params: {
+    amount: string;
+    token: string;
+    fromChain: string;
+    toChain: string;
+    sourceChainId: number;
+    destChainId: number;
+  };
+}
+
+/** Data for a pending send confirmation */
+export interface PendingSendData {
+  recipient: Address;
+  amount: string;
+  token: string;
+  chainId: number;
+}
+
+/** Data for a pending token launch confirmation */
+export interface PendingLaunchData {
+  name: string;
+  symbol: string;
+  initialSupply: string;
+  initialLiquidity?: string;
+  chainId: number;
+}
+
+/** Union of all pending action data types */
+export type PendingActionData = PendingSwapData | PendingBridgeData | PendingSendData | PendingLaunchData;
+
+/** Discriminated union for awaiting confirmation */
+export type AwaitingConfirmation = 
+  | { type: 'swap'; data: PendingSwapData; expiresAt: number }
+  | { type: 'bridge'; data: PendingBridgeData; expiresAt: number }
+  | { type: 'send'; data: PendingSendData; expiresAt: number }
+  | { type: 'launch'; data: PendingLaunchData; expiresAt: number };
+
+export interface SessionContext {
+  awaitingConfirmation?: AwaitingConfirmation;
   recentTokens?: Address[];
   conversationHistory?: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
+
+/** Transaction data by type */
+export type TransactionData = 
+  | { type: 'swap'; details: PendingSwapData }
+  | { type: 'bridge'; details: PendingBridgeData }
+  | { type: 'send'; details: PendingSendData }
+  | { type: 'launch'; details: PendingLaunchData }
+  | { type: 'limit'; details: { orderId: string } };
 
 export interface PendingTransaction {
   txId: string;
@@ -490,7 +562,7 @@ export interface PendingTransaction {
   status: 'pending' | 'submitted' | 'confirmed' | 'failed';
   createdAt: number;
   updatedAt: number;
-  data: Record<string, unknown>;
+  data: PendingActionData | { orderId: string };
 }
 
 // ============================================================================

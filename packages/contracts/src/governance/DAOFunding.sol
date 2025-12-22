@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -584,14 +584,14 @@ contract DAOFunding is ReentrancyGuard, Pausable {
         FundingProject memory project = _projects[projectId];
         DAOFundingConfig memory config = _getConfig(daoId);
 
-        uint256 stake = _projectEpochStakes[projectId][epochId];
+        uint256 projectStake = _projectEpochStakes[projectId][epochId];
         uint256 stakers = _projectEpochStakers[projectId][epochId];
 
         uint256 communityWeight;
         if (config.quadraticEnabled && stakers > 0) {
-                communityWeight = _sqrt(stake) * _sqrt(stakers);
+                communityWeight = _sqrt(projectStake) * _sqrt(stakers);
         } else {
-            communityWeight = stake;
+            communityWeight = projectStake;
         }
 
         uint256 ceoMultiplier = 10000 + project.ceoWeight;

@@ -27,6 +27,22 @@ interface AccountDetails {
   publicKey?: string;
 }
 
+// Trezor keyring serialized state
+interface TrezorSerializedState {
+  accounts: Address[];
+  accountDetails: Record<string, AccountDetails>;
+  hdPath: string;
+  hdPathType: TrezorHDPathType;
+}
+
+// Partial serialized state for deserialization from storage
+export interface PartialTrezorSerializedState {
+  accounts?: Address[];
+  accountDetails?: Record<string, AccountDetails>;
+  hdPath?: string;
+  hdPathType?: TrezorHDPathType;
+}
+
 let isInitialized = false;
 
 export class TrezorKeyring {
@@ -286,7 +302,7 @@ export class TrezorKeyring {
   }
   
   // Serialization for persistence
-  serialize(): Record<string, unknown> {
+  serialize(): TrezorSerializedState {
     return {
       accounts: this.accounts,
       accountDetails: this.accountDetails,
@@ -295,11 +311,11 @@ export class TrezorKeyring {
     };
   }
   
-  deserialize(data: Record<string, unknown>): void {
-    if (data.accounts) this.accounts = data.accounts as Address[];
-    if (data.accountDetails) this.accountDetails = data.accountDetails as Record<string, AccountDetails>;
-    if (data.hdPath) this.hdPath = data.hdPath as string;
-    if (data.hdPathType) this.hdPathType = data.hdPathType as TrezorHDPathType;
+  deserialize(data: PartialTrezorSerializedState): void {
+    if (data.accounts) this.accounts = data.accounts;
+    if (data.accountDetails) this.accountDetails = data.accountDetails;
+    if (data.hdPath) this.hdPath = data.hdPath;
+    if (data.hdPathType) this.hdPathType = data.hdPathType;
   }
 }
 

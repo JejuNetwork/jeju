@@ -19,7 +19,9 @@ import {
 } from '../schemas';
 import { getRequiredEnv } from '../utils/validation';
 
-const OAUTH3_API = getRequiredEnv('OAUTH3_API_URL', 'http://localhost:4025');
+function getOAuth3Api(): string {
+  return getRequiredEnv('OAUTH3_API_URL', 'http://localhost:4025');
+}
 
 export class WalletService {
   private stateManager = getStateManager();
@@ -56,7 +58,7 @@ export class WalletService {
       requestId,
     });
 
-    return `${OAUTH3_API}/connect/wallet?${params}`;
+    return `${getOAuth3Api()}/connect/wallet?${params}`;
   }
 
   async verifyAndConnect(
@@ -153,7 +155,7 @@ export class WalletService {
   // ============================================================================
 
   async createSmartAccount(user: OttoUser): Promise<Address> {
-    const response = await fetch(`${OAUTH3_API}/api/account/create`, {
+    const response = await fetch(`${getOAuth3Api()}/api/account/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -184,7 +186,7 @@ export class WalletService {
 
     const expiresAt = Date.now() + (permissions.validForMs ?? 24 * 60 * 60 * 1000);
 
-    const response = await fetch(`${OAUTH3_API}/api/session-key/create`, {
+    const response = await fetch(`${getOAuth3Api()}/api/session-key/create`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -218,7 +220,7 @@ export class WalletService {
       return false;
     }
 
-    const response = await fetch(`${OAUTH3_API}/api/session-key/revoke`, {
+    const response = await fetch(`${getOAuth3Api()}/api/session-key/revoke`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -310,7 +312,7 @@ export class WalletService {
       return address;
     }
 
-    const response = await fetch(`${OAUTH3_API}/api/resolve/${encodeURIComponent(nameOrAddress)}`);
+    const response = await fetch(`${getOAuth3Api()}/api/resolve/${encodeURIComponent(nameOrAddress)}`);
 
     if (!response.ok) {
       return null;
@@ -332,7 +334,7 @@ export class WalletService {
   }
 
   async getDisplayName(address: Address): Promise<string> {
-    const response = await fetch(`${OAUTH3_API}/api/reverse/${address}`);
+    const response = await fetch(`${getOAuth3Api()}/api/reverse/${address}`);
 
     if (!response.ok) {
       return `${address.slice(0, 6)}...${address.slice(-4)}`;

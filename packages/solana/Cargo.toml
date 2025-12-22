@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    "programs/agent-registry",
     "programs/jeju-launchpad",
     "programs/oif-solver",
     "programs/evm-light-client",

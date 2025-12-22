@@ -8,18 +8,15 @@
  * - Edge cases
  */
 
-import { describe, test, expect, beforeEach, afterEach, mock } from 'bun:test';
+import { describe, test, expect, beforeEach, afterEach } from 'bun:test';
 import { BotInitializer } from './initializer';
-import { TradingBot } from './trading-bot';
 import { DEFAULT_BOTS, getDefaultBotsForNetwork, createTradingBotOptions } from './default-bots';
 import type { CrucibleConfig } from '../types';
 import type { PublicClient, WalletClient } from 'viem';
 import type { AgentSDK } from '../sdk/agent';
-import type { ChainId } from './autocrat-types';
+import { createMockAgentSDK, createFailingMockAgentSDK, TEST_CHAIN_IDS, type AgentSDKRegisterOnly } from './test-utils';
 
 describe('BotInitializer', () => {
-  // mockAgentSdk is created fresh in beforeEach
-
   const mockPublicClient = {} as PublicClient;
   const mockWalletClient = {} as WalletClient;
 
@@ -43,21 +40,16 @@ describe('BotInitializer', () => {
   };
 
   let initializer: BotInitializer;
-  let mockAgentSdk: AgentSDK;
+  let mockAgentSdk: AgentSDKRegisterOnly;
 
   beforeEach(() => {
-    mockAgentSdk = {
-      registerAgent: mock(() => Promise.resolve({
-        agentId: 1n,
-        vaultAddress: '0x' + '1'.repeat(40) as `0x${string}`,
-        characterCid: 'QmTest',
-        stateCid: 'QmState',
-      })),
-    } as unknown as AgentSDK;
+    mockAgentSdk = createMockAgentSDK();
 
+    // BotInitializer only calls registerAgent, so the partial mock is sufficient.
+    // Cast is safe because we control what methods are called in the implementation.
     initializer = new BotInitializer({
       crucibleConfig: baseConfig,
-      agentSdk: mockAgentSdk,
+      agentSdk: mockAgentSdk as AgentSDK,
       publicClient: mockPublicClient,
       walletClient: mockWalletClient,
     });
@@ -140,7 +132,8 @@ describe('BotInitializer', () => {
     test('should handle missing chain configs gracefully', () => {
       const botConfig = {
         ...DEFAULT_BOTS[0],
-        chains: [999999] as unknown as ChainId[], // Invalid chain ID
+        // Use unconfigured chain ID (valid integer, but not in DEFAULT_CHAINS)
+        chains: [TEST_CHAIN_IDS.UNCONFIGURED],
       };
       const options = createTradingBotOptions(
         botConfig,
@@ -174,7 +167,7 @@ describe('BotInitializer', () => {
       const configWithoutKey = { ...baseConfig, privateKey: undefined };
       const init = new BotInitializer({
         crucibleConfig: configWithoutKey,
-        agentSdk: mockAgentSdk,
+        agentSdk: mockAgentSdk as AgentSDK,
         publicClient: mockPublicClient,
         walletClient: mockWalletClient,
       });
@@ -185,14 +178,11 @@ describe('BotInitializer', () => {
     });
 
     test('should handle registration failures gracefully', async () => {
-      // Create a failing mock for this test
-      const failingAgentSdk = {
-        registerAgent: mock(() => Promise.reject(new Error('Registration failed'))),
-      } as unknown as AgentSDK;
+      const failingAgentSdk = createFailingMockAgentSDK();
       
       const failingInitializer = new BotInitializer({
         crucibleConfig: baseConfig,
-        agentSdk: failingAgentSdk,
+        agentSdk: failingAgentSdk as AgentSDK,
         publicClient: mockPublicClient,
         walletClient: mockWalletClient,
       });
@@ -203,16 +193,7 @@ describe('BotInitializer', () => {
     });
 
     test('should handle bot initialization failures', async () => {
-      // Mock registerAgent to succeed
-      const successAgentSdk = {
-        registerAgent: mock(() => Promise.resolve({
-          agentId: 1n,
-          vaultAddress: '0x' + '1'.repeat(40) as `0x${string}`,
-          characterCid: 'QmTest',
-          stateCid: 'QmState',
-        })),
-      } as unknown as AgentSDK;
-      
+      // mockAgentSdk already succeeds (from beforeEach)
       // This will fail because TradingBot needs real dependencies
       // But initializer should handle it gracefully
       const bots = await initializer.initializeDefaultBots();
@@ -281,7 +262,7 @@ describe('BotInitializer', () => {
       const config = { ...baseConfig, network: 'localnet' as const };
       const init = new BotInitializer({
         crucibleConfig: config,
-        agentSdk: mockAgentSdk,
+        agentSdk: mockAgentSdk as AgentSDK,
         publicClient: mockPublicClient,
         walletClient: mockWalletClient,
       });

@@ -3,6 +3,7 @@
  */
 
 import { keccak_256 } from "@noble/hashes/sha3";
+import pRetry from "p-retry";
 
 // Re-export logger
 export { createLogger, type Logger, type LogLevel } from "./logger.js";
@@ -181,26 +182,16 @@ export function sleep(ms: number): Promise<void> {
 }
 
 /**
- * Retry a function with exponential backoff
+ * Retry a function with exponential backoff using p-retry
  */
 export async function retry<T>(
 	fn: () => Promise<T>,
 	maxRetries: number = 3,
 	baseDelayMs: number = 1000,
 ): Promise<T> {
-	let lastError: Error = new Error("Retry failed");
-
-	for (let attempt = 0; attempt < maxRetries; attempt++) {
-		try {
-			return await fn();
-		} catch (error) {
-			lastError = error instanceof Error ? error : new Error(String(error));
-			if (attempt < maxRetries - 1) {
-				const delay = baseDelayMs * 2 ** attempt;
-				await sleep(delay);
-			}
-		}
-	}
-
-	throw lastError;
+	return pRetry(fn, {
+		retries: maxRetries,
+		minTimeout: baseDelayMs,
+		factor: 2, // Exponential backoff factor
+	});
 }
