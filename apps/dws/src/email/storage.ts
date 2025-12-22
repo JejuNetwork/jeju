@@ -1,15 +1,4 @@
-/**
- * Email Mailbox Storage
- * 
- * Encrypted mailbox storage using DWS multi-backend:
- * - Mailbox index stored encrypted in IPFS
- * - Email content stored encrypted with per-email keys
- * - Permanent storage option via Arweave
- * - GDPR-compliant data export
- */
-
 import type { Address, Hex } from 'viem';
-import { keccak256, toBytes } from 'viem';
 import type {
   EmailEnvelope,
   EmailContent,
@@ -20,8 +9,7 @@ import type {
   FilterRule,
 } from './types';
 import { getMultiBackendManager, type MultiBackendManager } from '../storage';
-
-// ============ Storage Interface ============
+import { mailboxOperationsTotal, storageQuotaBytes } from './metrics';
 
 interface StorageBackend {
   upload(data: Buffer, options?: { permanent?: boolean; tier?: string }): Promise<string>;
@@ -34,11 +22,6 @@ interface EncryptionService {
   decrypt(data: Buffer, privateKey: Hex): Promise<Buffer>;
 }
 
-// ============ DWS Backend Adapter ============
-
-/**
- * Adapts DWS MultiBackendManager to StorageBackend interface
- */
 class DWSStorageAdapter implements StorageBackend {
   private manager: MultiBackendManager;
   
@@ -50,7 +33,7 @@ class DWSStorageAdapter implements StorageBackend {
     const result = await this.manager.upload(data, {
       tier: options?.tier === 'permanent' ? 'system' : 'private',
       encrypt: true,
-      category: 'email',
+      category: 'data', // Email content stored as data category
     });
     return result.cid;
   }
@@ -61,26 +44,55 @@ class DWSStorageAdapter implements StorageBackend {
   }
   
   async delete(cid: string): Promise<void> {
-    // DWS doesn't directly support deletion from IPFS/Arweave
-    // We mark as deleted in metadata and remove from local cache
     console.log(`[MailboxStorage] Marking ${cid} for deletion`);
   }
 }
 
-// ============ Mailbox Storage ============
+const MAX_CACHE_SIZE = 1000;
 
-// Mailbox registry CID - stores mapping of owner -> mailbox CID
-const MAILBOX_REGISTRY_KEY = 'jeju-email-mailbox-registry';
+interface CacheEntry<T> {
+  value: T;
+  lastAccessed: number;
+}
+
+class AddressLock {
+  private locks: Map<Address, Promise<void>> = new Map();
+  private resolvers: Map<Address, () => void> = new Map();
+
+  async acquire(address: Address): Promise<void> {
+    while (this.locks.has(address)) {
+      await this.locks.get(address);
+    }
+    let resolver: () => void;
+    const promise = new Promise<void>((resolve) => { resolver = resolve; });
+    this.locks.set(address, promise);
+    this.resolvers.set(address, resolver!);
+  }
+
+  release(address: Address): void {
+    const resolver = this.resolvers.get(address);
+    if (resolver) {
+      this.locks.delete(address);
+      this.resolvers.delete(address);
+      resolver();
+    }
+  }
+}
 
 export class MailboxStorage {
   private storageBackend: StorageBackend;
   private encryptionService?: EncryptionService;
-  private mailboxCache: Map<Address, Mailbox> = new Map();
-  private indexCache: Map<Address, MailboxIndex> = new Map();
+  private mailboxCache: Map<Address, CacheEntry<Mailbox>> = new Map();
+  private indexCache: Map<Address, CacheEntry<MailboxIndex>> = new Map();
   
-  // Persistent registry of owner -> mailbox metadata CID
   private mailboxRegistry: Map<Address, string> = new Map();
   private registryLoaded = false;
+  private _registryCid: string | null = null;
+  private addressLock = new AddressLock();
+  
+  getRegistryCid(): string | null {
+    return this._registryCid;
+  }
 
   constructor(
     storageBackend: StorageBackend,
@@ -90,9 +102,44 @@ export class MailboxStorage {
     this.encryptionService = encryptionService;
   }
 
-  /**
-   * Load mailbox registry from persistent storage
-   */
+  private evictOldestCacheEntries(): void {
+    if (this.mailboxCache.size > MAX_CACHE_SIZE) {
+      const entries = [...this.mailboxCache.entries()].sort((a, b) => a[1].lastAccessed - b[1].lastAccessed);
+      const toRemove = entries.slice(0, entries.length - MAX_CACHE_SIZE);
+      for (const [key] of toRemove) {
+        this.mailboxCache.delete(key);
+        this.indexCache.delete(key);
+      }
+    }
+  }
+
+  private getCachedMailbox(owner: Address): Mailbox | undefined {
+    const entry = this.mailboxCache.get(owner);
+    if (entry) {
+      entry.lastAccessed = Date.now();
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  private setCachedMailbox(owner: Address, mailbox: Mailbox): void {
+    this.mailboxCache.set(owner, { value: mailbox, lastAccessed: Date.now() });
+    this.evictOldestCacheEntries();
+  }
+
+  private getCachedIndex(owner: Address): MailboxIndex | undefined {
+    const entry = this.indexCache.get(owner);
+    if (entry) {
+      entry.lastAccessed = Date.now();
+      return entry.value;
+    }
+    return undefined;
+  }
+
+  private setCachedIndex(owner: Address, index: MailboxIndex): void {
+    this.indexCache.set(owner, { value: index, lastAccessed: Date.now() });
+  }
+
   private async loadRegistry(): Promise<void> {
     if (this.registryLoaded) return;
     
@@ -100,34 +147,40 @@ export class MailboxStorage {
     const registryCid = process.env.EMAIL_REGISTRY_CID;
     
     if (registryCid) {
-      const data = await this.storageBackend.download(registryCid).catch(() => null);
+      const data = await this.storageBackend.download(registryCid).catch((e: Error) => {
+        console.warn(`[MailboxStorage] Failed to download registry from ${registryCid}: ${e.message}`);
+        return null;
+      });
       if (data) {
         const registry = JSON.parse(data.toString()) as Record<Address, string>;
         this.mailboxRegistry = new Map(Object.entries(registry) as [Address, string][]);
+        console.log(`[MailboxStorage] Loaded registry with ${this.mailboxRegistry.size} entries`);
       }
     }
     
     this.registryLoaded = true;
   }
 
-  /**
-   * Save mailbox registry to persistent storage
-   */
   private async saveRegistry(): Promise<void> {
     const registry = Object.fromEntries(this.mailboxRegistry);
     const data = Buffer.from(JSON.stringify(registry));
     const cid = await this.storageBackend.upload(data, { tier: 'system' });
-    // In production, this would be stored in the contract or a well-known location
+    this._registryCid = cid;
     console.log(`[MailboxStorage] Registry saved: ${cid}`);
+    
+    const dwsEndpoint = process.env.DWS_ENDPOINT;
+    if (dwsEndpoint) {
+      await fetch(`${dwsEndpoint}/storage/registry/email`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cid, timestamp: Date.now() }),
+      }).catch((e: Error) => {
+        console.warn(`[MailboxStorage] Failed to persist registry CID to DWS: ${e.message}`);
+      });
+    }
   }
 
-  // ============ Mailbox Operations ============
-
-  /**
-   * Initialize mailbox for new user
-   */
   async initializeMailbox(owner: Address): Promise<Mailbox> {
-    // Check if already exists
     const existing = await this.getMailbox(owner);
     if (existing) {
       return existing;
@@ -174,31 +227,24 @@ export class MailboxStorage {
     this.mailboxRegistry.set(owner, mailboxCid);
     await this.saveRegistry();
 
-    this.mailboxCache.set(owner, mailbox);
-    this.indexCache.set(owner, index);
+    this.setCachedMailbox(owner, mailbox);
+    this.setCachedIndex(owner, index);
 
+    mailboxOperationsTotal.inc({ operation: 'initialize', status: 'success' });
+    storageQuotaBytes.set({ tier: 'default' }, Number(mailbox.quotaUsedBytes));
     return mailbox;
   }
 
-  /**
-   * Get mailbox for user
-   */
   async getMailbox(owner: Address): Promise<Mailbox | null> {
-    // Check cache
-    if (this.mailboxCache.has(owner)) {
-      return this.mailboxCache.get(owner)!;
-    }
+    const cached = this.getCachedMailbox(owner);
+    if (cached) return cached;
 
-    // Load registry if needed
     await this.loadRegistry();
-    
-    // Check registry for mailbox CID
     const mailboxCid = this.mailboxRegistry.get(owner);
     if (!mailboxCid) {
       return null;
     }
     
-    // Download and parse mailbox metadata
     const data = await this.storageBackend.download(mailboxCid).catch((e: Error) => {
       console.error(`[MailboxStorage] Failed to download mailbox ${mailboxCid}: ${e.message}`);
       return null;
@@ -206,47 +252,38 @@ export class MailboxStorage {
     
     if (!data) return null;
     
-    const mailbox = JSON.parse(data.toString()) as Mailbox;
+    const parsed = JSON.parse(data.toString()) as Record<string, unknown>;
+    const mailbox: Mailbox = {
+      owner: parsed.owner as Address,
+      encryptedIndexCid: parsed.encryptedIndexCid as string,
+      quotaUsedBytes: BigInt(parsed.quotaUsedBytes?.toString() ?? '0'),
+      quotaLimitBytes: BigInt(parsed.quotaLimitBytes?.toString() ?? String(100 * 1024 * 1024)),
+      lastUpdated: parsed.lastUpdated as number,
+      folders: parsed.folders as string[],
+    };
     
-    // Restore BigInt fields (may be undefined after deletion)
-    mailbox.quotaUsedBytes = mailbox.quotaUsedBytes != null 
-      ? BigInt(String(mailbox.quotaUsedBytes)) 
-      : 0n;
-    mailbox.quotaLimitBytes = mailbox.quotaLimitBytes != null 
-      ? BigInt(String(mailbox.quotaLimitBytes)) 
-      : 0n;
-    
-    this.mailboxCache.set(owner, mailbox);
+    this.setCachedMailbox(owner, mailbox);
     return mailbox;
   }
 
-  /**
-   * Get mailbox index
-   */
   async getIndex(owner: Address): Promise<MailboxIndex | null> {
-    // Check cache
-    if (this.indexCache.has(owner)) {
-      return this.indexCache.get(owner)!;
-    }
+    const cached = this.getCachedIndex(owner);
+    if (cached) return cached;
 
     const mailbox = await this.getMailbox(owner);
     if (!mailbox) return null;
 
-    // Download and decrypt index
     const encryptedIndex = await this.storageBackend.download(mailbox.encryptedIndexCid);
     const indexData = this.encryptionService
       ? await this.encryptionService.decrypt(encryptedIndex, '0x' as Hex)
       : encryptedIndex;
 
     const index = JSON.parse(indexData.toString()) as MailboxIndex;
-    this.indexCache.set(owner, index);
+    this.setCachedIndex(owner, index);
 
     return index;
   }
 
-  /**
-   * Save index changes
-   */
   async saveIndex(owner: Address, index: MailboxIndex): Promise<void> {
     const indexData = Buffer.from(JSON.stringify(index));
     const encryptedIndex = this.encryptionService
@@ -255,138 +292,144 @@ export class MailboxStorage {
 
     const newCid = await this.storageBackend.upload(encryptedIndex);
 
-    const mailbox = this.mailboxCache.get(owner);
+    const mailbox = this.getCachedMailbox(owner);
     if (mailbox) {
-      // Delete old index
       await this.storageBackend.delete(mailbox.encryptedIndexCid);
-      
       mailbox.encryptedIndexCid = newCid;
       mailbox.lastUpdated = Date.now();
     }
 
-    this.indexCache.set(owner, index);
+    this.setCachedIndex(owner, index);
   }
 
-  // ============ Email Operations ============
+  async saveMailbox(owner: Address, mailbox: Mailbox): Promise<void> {
+    const mailboxData = Buffer.from(JSON.stringify({
+      ...mailbox,
+      quotaUsedBytes: mailbox.quotaUsedBytes.toString(),
+      quotaLimitBytes: mailbox.quotaLimitBytes.toString(),
+    }));
+    
+    const newCid = await this.storageBackend.upload(mailboxData, { tier: 'private' });
+    
+    await this.loadRegistry();
+    const oldCid = this.mailboxRegistry.get(owner);
+    if (oldCid) {
+      await this.storageBackend.delete(oldCid);
+    }
+    
+    this.mailboxRegistry.set(owner, newCid);
+    await this.saveRegistry();
+    
+    this.setCachedMailbox(owner, mailbox);
+  }
 
-  /**
-   * Store inbound email
-   */
   async storeInbound(owner: Address, envelope: EmailEnvelope): Promise<void> {
-    let index = await this.getIndex(owner);
-    if (!index) {
-      await this.initializeMailbox(owner);
-      index = await this.getIndex(owner);
-      if (!index) throw new Error('Failed to initialize mailbox');
-    }
+    await this.addressLock.acquire(owner);
+    try {
+      let index = await this.getIndex(owner);
+      if (!index) {
+        await this.initializeMailbox(owner);
+        index = await this.getIndex(owner);
+        if (!index) throw new Error('Failed to initialize mailbox');
+      }
 
-    // Store email content
-    const contentData = Buffer.from(JSON.stringify(envelope));
-    const encryptedContent = this.encryptionService
-      ? await this.encryptionService.encrypt(contentData, '0x' as Hex)
-      : contentData;
+      const contentData = Buffer.from(JSON.stringify(envelope));
+      const encryptedContent = this.encryptionService
+        ? await this.encryptionService.encrypt(contentData, '0x' as Hex)
+        : contentData;
 
-    const contentCid = await this.storageBackend.upload(encryptedContent);
+      const contentCid = await this.storageBackend.upload(encryptedContent);
 
-    // Create reference
-    const reference: EmailReference = {
-      messageId: envelope.id,
-      contentCid,
-      from: envelope.from.full,
-      to: envelope.to.map(t => t.full),
-      subject: '', // Would be decrypted client-side
-      preview: '',
-      timestamp: envelope.timestamp,
-      size: contentData.length,
-      flags: {
-        read: false,
-        starred: false,
-        important: false,
-        answered: false,
-        forwarded: false,
-        deleted: false,
-        spam: false,
-      },
-      labels: [],
-    };
+      const reference: EmailReference = {
+        messageId: envelope.id,
+        contentCid,
+        from: envelope.from.full,
+        to: envelope.to.map(t => t.full),
+        subject: '',
+        preview: '',
+        timestamp: envelope.timestamp,
+        size: contentData.length,
+        flags: {
+          read: false,
+          starred: false,
+          important: false,
+          answered: false,
+          forwarded: false,
+          deleted: false,
+          spam: false,
+        },
+        labels: [],
+      };
 
-    // Add to inbox
-    index.inbox.unshift(reference);
+      index.inbox.unshift(reference);
+      await this.applyFilterRules(owner, index, reference);
+      await this.saveIndex(owner, index);
 
-    // Apply filter rules
-    await this.applyFilterRules(owner, index, reference);
-
-    // Save index
-    await this.saveIndex(owner, index);
-
-    // Update quota
-    const mailbox = this.mailboxCache.get(owner);
-    if (mailbox) {
-      mailbox.quotaUsedBytes += BigInt(contentData.length);
+      const mailbox = this.getCachedMailbox(owner);
+      if (mailbox) {
+        mailbox.quotaUsedBytes += BigInt(contentData.length);
+        storageQuotaBytes.set({ tier: 'default' }, Number(mailbox.quotaUsedBytes));
+      }
+      mailboxOperationsTotal.inc({ operation: 'store_inbound', status: 'success' });
+    } finally {
+      this.addressLock.release(owner);
     }
   }
 
-  /**
-   * Store outbound email (sent)
-   */
   async storeOutbound(
     owner: Address,
     envelope: EmailEnvelope,
     content: EmailContent
   ): Promise<void> {
-    let index = await this.getIndex(owner);
-    if (!index) {
-      await this.initializeMailbox(owner);
-      index = await this.getIndex(owner);
-      if (!index) throw new Error('Failed to initialize mailbox');
-    }
+    await this.addressLock.acquire(owner);
+    try {
+      let index = await this.getIndex(owner);
+      if (!index) {
+        await this.initializeMailbox(owner);
+        index = await this.getIndex(owner);
+        if (!index) throw new Error('Failed to initialize mailbox');
+      }
 
-    // Store email content
-    const contentData = Buffer.from(JSON.stringify({ envelope, content }));
-    const encryptedContent = this.encryptionService
-      ? await this.encryptionService.encrypt(contentData, '0x' as Hex)
-      : contentData;
+      const contentData = Buffer.from(JSON.stringify({ envelope, content }));
+      const encryptedContent = this.encryptionService
+        ? await this.encryptionService.encrypt(contentData, '0x' as Hex)
+        : contentData;
 
-    const contentCid = await this.storageBackend.upload(encryptedContent);
+      const contentCid = await this.storageBackend.upload(encryptedContent);
 
-    // Create reference
-    const reference: EmailReference = {
-      messageId: envelope.id,
-      contentCid,
-      from: envelope.from.full,
-      to: envelope.to.map(t => t.full),
-      subject: content.subject,
-      preview: content.bodyText.slice(0, 100),
-      timestamp: envelope.timestamp,
-      size: contentData.length,
-      flags: {
-        read: true,
-        starred: false,
-        important: false,
-        answered: false,
-        forwarded: false,
-        deleted: false,
-        spam: false,
-      },
-      labels: [],
-    };
+      const reference: EmailReference = {
+        messageId: envelope.id,
+        contentCid,
+        from: envelope.from.full,
+        to: envelope.to.map(t => t.full),
+        subject: content.subject,
+        preview: content.bodyText.slice(0, 100),
+        timestamp: envelope.timestamp,
+        size: contentData.length,
+        flags: {
+          read: true,
+          starred: false,
+          important: false,
+          answered: false,
+          forwarded: false,
+          deleted: false,
+          spam: false,
+        },
+        labels: [],
+      };
 
-    // Add to sent
-    index.sent.unshift(reference);
+      index.sent.unshift(reference);
+      await this.saveIndex(owner, index);
 
-    // Save index
-    await this.saveIndex(owner, index);
-
-    // Update quota
-    const mailbox = this.mailboxCache.get(owner);
-    if (mailbox) {
-      mailbox.quotaUsedBytes += BigInt(contentData.length);
+      const mailbox = this.getCachedMailbox(owner);
+      if (mailbox) {
+        mailbox.quotaUsedBytes += BigInt(contentData.length);
+      }
+    } finally {
+      this.addressLock.release(owner);
     }
   }
 
-  /**
-   * Get email by ID
-   */
   async getEmail(owner: Address, messageId: Hex): Promise<{
     envelope: EmailEnvelope;
     content?: EmailContent;
@@ -394,7 +437,6 @@ export class MailboxStorage {
     const index = await this.getIndex(owner);
     if (!index) return null;
 
-    // Find in all folders
     const allEmails = [
       ...index.inbox,
       ...index.sent,
@@ -408,7 +450,6 @@ export class MailboxStorage {
     const reference = allEmails.find(e => e.messageId === messageId);
     if (!reference) return null;
 
-    // Download and decrypt
     const encryptedContent = await this.storageBackend.download(reference.contentCid);
     const contentData = this.encryptionService
       ? await this.encryptionService.decrypt(encryptedContent, '0x' as Hex)
@@ -419,7 +460,6 @@ export class MailboxStorage {
       content?: EmailContent;
     } | EmailEnvelope;
 
-    // Handle both storage formats
     if ('envelope' in parsed && parsed.envelope) {
       return { envelope: parsed.envelope, content: parsed.content };
     }
@@ -427,9 +467,6 @@ export class MailboxStorage {
     return { envelope: parsed as EmailEnvelope };
   }
 
-  /**
-   * Move email to folder
-   */
   async moveToFolder(
     owner: Address,
     messageId: Hex,
@@ -438,85 +475,7 @@ export class MailboxStorage {
     const index = await this.getIndex(owner);
     if (!index) throw new Error('Mailbox not found');
 
-    // Find and remove from current location
     let reference: EmailReference | undefined;
-    
-    const folders = ['inbox', 'sent', 'drafts', 'trash', 'spam', 'archive'] as const;
-    for (const folder of folders) {
-      const idx = index[folder].findIndex(e => e.messageId === messageId);
-      if (idx !== -1) {
-        reference = index[folder].splice(idx, 1)[0];
-        break;
-      }
-    }
-
-    // Check custom folders
-    if (!reference) {
-      for (const [folderName, emails] of Object.entries(index.folders)) {
-        const idx = emails.findIndex(e => e.messageId === messageId);
-        if (idx !== -1) {
-          reference = emails.splice(idx, 1)[0];
-          break;
-        }
-      }
-    }
-
-    if (!reference) throw new Error('Email not found');
-
-    // Add to target folder
-    if (targetFolder in index) {
-      (index[targetFolder as keyof typeof index] as EmailReference[]).unshift(reference);
-    } else {
-      if (!index.folders[targetFolder]) {
-        index.folders[targetFolder] = [];
-      }
-      index.folders[targetFolder].unshift(reference);
-    }
-
-    await this.saveIndex(owner, index);
-  }
-
-  /**
-   * Update email flags
-   */
-  async updateFlags(
-    owner: Address,
-    messageId: Hex,
-    flags: Partial<EmailFlags>
-  ): Promise<void> {
-    const index = await this.getIndex(owner);
-    if (!index) throw new Error('Mailbox not found');
-
-    // Find in all folders
-    const allEmails = [
-      ...index.inbox,
-      ...index.sent,
-      ...index.drafts,
-      ...index.trash,
-      ...index.spam,
-      ...index.archive,
-      ...Object.values(index.folders).flat(),
-    ];
-
-    const reference = allEmails.find(e => e.messageId === messageId);
-    if (!reference) throw new Error('Email not found');
-
-    // Update flags
-    Object.assign(reference.flags, flags);
-
-    await this.saveIndex(owner, index);
-  }
-
-  /**
-   * Delete email permanently
-   */
-  async deleteEmail(owner: Address, messageId: Hex): Promise<void> {
-    const index = await this.getIndex(owner);
-    if (!index) throw new Error('Mailbox not found');
-
-    // Find and remove
-    let reference: EmailReference | undefined;
-    
     const folders = ['inbox', 'sent', 'drafts', 'trash', 'spam', 'archive'] as const;
     for (const folder of folders) {
       const idx = index[folder].findIndex(e => e.messageId === messageId);
@@ -538,33 +497,99 @@ export class MailboxStorage {
 
     if (!reference) throw new Error('Email not found');
 
-    // Delete content from storage
-    await this.storageBackend.delete(reference.contentCid);
-
-    // Update quota
-    const mailbox = this.mailboxCache.get(owner);
-    if (mailbox) {
-      mailbox.quotaUsedBytes -= BigInt(reference.size);
-      if (mailbox.quotaUsedBytes < BigInt(0)) mailbox.quotaUsedBytes = BigInt(0);
+    if (targetFolder in index) {
+      (index[targetFolder as keyof typeof index] as EmailReference[]).unshift(reference);
+    } else {
+      if (!index.folders[targetFolder]) {
+        index.folders[targetFolder] = [];
+      }
+      index.folders[targetFolder].unshift(reference);
     }
 
     await this.saveIndex(owner, index);
   }
 
-  // ============ Filter Rules ============
-
-  /**
-   * Apply filter rules to incoming email
-   */
-  private async applyFilterRules(
+  async updateFlags(
     owner: Address,
+    messageId: Hex,
+    flags: Partial<EmailFlags>
+  ): Promise<void> {
+    await this.addressLock.acquire(owner);
+    try {
+      const index = await this.getIndex(owner);
+      if (!index) throw new Error('Mailbox not found');
+
+      const allEmails = [
+        ...index.inbox,
+        ...index.sent,
+        ...index.drafts,
+        ...index.trash,
+        ...index.spam,
+        ...index.archive,
+        ...Object.values(index.folders).flat(),
+      ];
+
+      const reference = allEmails.find(e => e.messageId === messageId);
+      if (!reference) throw new Error('Email not found');
+
+      Object.assign(reference.flags, flags);
+
+      await this.saveIndex(owner, index);
+    } finally {
+      this.addressLock.release(owner);
+    }
+  }
+
+  async deleteEmail(owner: Address, messageId: Hex): Promise<void> {
+    await this.addressLock.acquire(owner);
+    try {
+      const index = await this.getIndex(owner);
+      if (!index) throw new Error('Mailbox not found');
+
+      let reference: EmailReference | undefined;
+      const folders = ['inbox', 'sent', 'drafts', 'trash', 'spam', 'archive'] as const;
+      for (const folder of folders) {
+        const idx = index[folder].findIndex(e => e.messageId === messageId);
+        if (idx !== -1) {
+          reference = index[folder].splice(idx, 1)[0];
+          break;
+        }
+      }
+
+      if (!reference) {
+        for (const emails of Object.values(index.folders)) {
+          const idx = emails.findIndex(e => e.messageId === messageId);
+          if (idx !== -1) {
+            reference = emails.splice(idx, 1)[0];
+            break;
+          }
+        }
+      }
+
+      if (!reference) throw new Error('Email not found');
+
+      await this.storageBackend.delete(reference.contentCid);
+
+      const mailbox = this.getCachedMailbox(owner);
+      if (mailbox) {
+        mailbox.quotaUsedBytes -= BigInt(reference.size);
+        if (mailbox.quotaUsedBytes < BigInt(0)) mailbox.quotaUsedBytes = BigInt(0);
+      }
+
+      await this.saveIndex(owner, index);
+    } finally {
+      this.addressLock.release(owner);
+    }
+  }
+
+  private async applyFilterRules(
+    _owner: Address,
     index: MailboxIndex,
     reference: EmailReference
   ): Promise<void> {
     for (const rule of index.rules) {
       if (!rule.enabled) continue;
 
-      // Check conditions
       const matches = rule.conditions.every(condition => {
         let value = '';
         switch (condition.field) {
@@ -599,7 +624,6 @@ export class MailboxStorage {
 
       if (!matches) continue;
 
-      // Apply actions
       for (const action of rule.actions) {
         switch (action.type) {
           case 'move':
@@ -634,33 +658,112 @@ export class MailboxStorage {
     }
   }
 
-  /**
-   * Add filter rule
-   */
+  async createFolder(owner: Address, folderName: string): Promise<void> {
+    await this.addressLock.acquire(owner);
+    try {
+      const mailbox = await this.getMailbox(owner);
+      if (!mailbox) throw new Error('Mailbox not found');
+
+      const index = await this.getIndex(owner);
+      if (!index) throw new Error('Index not found');
+
+      const defaultFolders = ['inbox', 'sent', 'drafts', 'trash', 'spam', 'archive'];
+      if (defaultFolders.includes(folderName.toLowerCase()) || 
+          mailbox.folders.includes(folderName) ||
+          index.folders[folderName]) {
+        throw new Error(`Folder '${folderName}' already exists`);
+      }
+
+      mailbox.folders.push(folderName);
+      index.folders[folderName] = [];
+
+      await this.saveMailbox(owner, mailbox);
+      await this.saveIndex(owner, index);
+    } finally {
+      this.addressLock.release(owner);
+    }
+  }
+
+  async deleteFolder(owner: Address, folderName: string): Promise<void> {
+    await this.addressLock.acquire(owner);
+    try {
+      const mailbox = await this.getMailbox(owner);
+      if (!mailbox) throw new Error('Mailbox not found');
+
+      const index = await this.getIndex(owner);
+      if (!index) throw new Error('Index not found');
+
+      const defaultFolders = ['inbox', 'sent', 'drafts', 'trash', 'spam', 'archive'];
+      if (defaultFolders.includes(folderName.toLowerCase())) {
+        throw new Error('Cannot delete default folder');
+      }
+
+      if (!mailbox.folders.includes(folderName)) {
+        throw new Error(`Folder '${folderName}' not found`);
+      }
+
+      const folderEmails = index.folders[folderName] ?? [];
+      index.trash.push(...folderEmails);
+
+      mailbox.folders = mailbox.folders.filter(f => f !== folderName);
+      delete index.folders[folderName];
+
+      await this.saveMailbox(owner, mailbox);
+      await this.saveIndex(owner, index);
+    } finally {
+      this.addressLock.release(owner);
+    }
+  }
+
   async addFilterRule(owner: Address, rule: FilterRule): Promise<void> {
-    const index = await this.getIndex(owner);
-    if (!index) throw new Error('Mailbox not found');
+    await this.addressLock.acquire(owner);
+    try {
+      const index = await this.getIndex(owner);
+      if (!index) throw new Error('Mailbox not found');
 
-    index.rules.push(rule);
-    await this.saveIndex(owner, index);
+      const validFields = ['from', 'to', 'subject', 'body', 'header'];
+      const validOperators = ['contains', 'equals', 'startsWith', 'endsWith', 'regex'];
+      const validActions = ['move', 'label', 'star', 'markRead', 'forward', 'delete'];
+
+      for (const condition of rule.conditions) {
+        if (!validFields.includes(condition.field)) {
+          throw new Error(`Invalid condition field: ${condition.field}`);
+        }
+        if (!validOperators.includes(condition.operator)) {
+          throw new Error(`Invalid condition operator: ${condition.operator}`);
+        }
+      }
+
+      for (const action of rule.actions) {
+        if (!validActions.includes(action.type)) {
+          throw new Error(`Invalid action type: ${action.type}`);
+        }
+      }
+
+      if (index.rules.length >= 100) {
+        throw new Error('Maximum of 100 filter rules allowed');
+      }
+
+      index.rules.push(rule);
+      await this.saveIndex(owner, index);
+    } finally {
+      this.addressLock.release(owner);
+    }
   }
 
-  /**
-   * Remove filter rule
-   */
   async removeFilterRule(owner: Address, ruleId: string): Promise<void> {
-    const index = await this.getIndex(owner);
-    if (!index) throw new Error('Mailbox not found');
+    await this.addressLock.acquire(owner);
+    try {
+      const index = await this.getIndex(owner);
+      if (!index) throw new Error('Mailbox not found');
 
-    index.rules = index.rules.filter(r => r.id !== ruleId);
-    await this.saveIndex(owner, index);
+      index.rules = index.rules.filter(r => r.id !== ruleId);
+      await this.saveIndex(owner, index);
+    } finally {
+      this.addressLock.release(owner);
+    }
   }
 
-  // ============ Data Export (GDPR) ============
-
-  /**
-   * Export all user data for GDPR compliance
-   */
   async exportUserData(owner: Address): Promise<{
     mailbox: Mailbox;
     index: MailboxIndex;
@@ -672,7 +775,6 @@ export class MailboxStorage {
     const index = await this.getIndex(owner);
     if (!index) throw new Error('Index not found');
 
-    // Collect all email references
     const allRefs = [
       ...index.inbox,
       ...index.sent,
@@ -683,7 +785,6 @@ export class MailboxStorage {
       ...Object.values(index.folders).flat(),
     ];
 
-    // Download all emails
     const emails: Array<{ envelope: EmailEnvelope; content?: EmailContent }> = [];
     for (const ref of allRefs) {
       const email = await this.getEmail(owner, ref.messageId);
@@ -693,44 +794,41 @@ export class MailboxStorage {
     return { mailbox, index, emails };
   }
 
-  /**
-   * Delete all user data (GDPR right to be forgotten)
-   */
   async deleteAllUserData(owner: Address): Promise<void> {
-    const index = await this.getIndex(owner);
-    if (!index) return;
+    await this.addressLock.acquire(owner);
+    try {
+      const index = await this.getIndex(owner);
+      if (!index) return;
 
-    // Delete all email content
-    const allRefs = [
-      ...index.inbox,
-      ...index.sent,
-      ...index.drafts,
-      ...index.trash,
-      ...index.spam,
-      ...index.archive,
-      ...Object.values(index.folders).flat(),
-    ];
+      const allRefs = [
+        ...index.inbox,
+        ...index.sent,
+        ...index.drafts,
+        ...index.trash,
+        ...index.spam,
+        ...index.archive,
+        ...Object.values(index.folders).flat(),
+      ];
 
-    for (const ref of allRefs) {
-      await this.storageBackend.delete(ref.contentCid);
+      for (const ref of allRefs) {
+        await this.storageBackend.delete(ref.contentCid);
+      }
+
+      const mailbox = this.getCachedMailbox(owner);
+      if (mailbox) {
+        await this.storageBackend.delete(mailbox.encryptedIndexCid);
+      }
+
+      this.mailboxCache.delete(owner);
+      this.indexCache.delete(owner);
+      await this.loadRegistry();
+      this.mailboxRegistry.delete(owner);
+      await this.saveRegistry();
+    } finally {
+      this.addressLock.release(owner);
     }
-
-    // Delete index
-    const mailbox = this.mailboxCache.get(owner);
-    if (mailbox) {
-      await this.storageBackend.delete(mailbox.encryptedIndexCid);
-    }
-
-    // Clear cache
-    this.mailboxCache.delete(owner);
-    this.indexCache.delete(owner);
   }
 
-  // ============ Search ============
-
-  /**
-   * Search emails in mailbox
-   */
   async searchEmails(
     owner: Address,
     query: string,
@@ -748,7 +846,6 @@ export class MailboxStorage {
     const index = await this.getIndex(owner);
     if (!index) return { results: [], total: 0 };
 
-    // Get emails from specified folder or all folders
     let emails: EmailReference[];
     if (options.folder) {
       if (options.folder in index) {
@@ -768,10 +865,8 @@ export class MailboxStorage {
       ];
     }
 
-    // Apply filters
     const queryLower = query.toLowerCase();
     let filtered = emails.filter(email => {
-      // Text search
       if (query && !email.from.toLowerCase().includes(queryLower) &&
           !email.to.some(t => t.toLowerCase().includes(queryLower)) &&
           !email.subject.toLowerCase().includes(queryLower) &&
@@ -779,17 +874,14 @@ export class MailboxStorage {
         return false;
       }
 
-      // From filter
       if (options.from && !email.from.toLowerCase().includes(options.from.toLowerCase())) {
         return false;
       }
 
-      // To filter
       if (options.to && !email.to.some(t => t.toLowerCase().includes(options.to!.toLowerCase()))) {
         return false;
       }
 
-      // Date filters
       if (options.dateFrom && email.timestamp < options.dateFrom) {
         return false;
       }
@@ -802,7 +894,6 @@ export class MailboxStorage {
 
     const total = filtered.length;
 
-    // Apply pagination
     const offset = options.offset ?? 0;
     const limit = options.limit ?? 50;
     filtered = filtered.slice(offset, offset + limit);
@@ -810,8 +901,6 @@ export class MailboxStorage {
     return { results: filtered, total };
   }
 }
-
-// ============ Factory ============
 
 let _mailboxStorage: MailboxStorage | null = null;
 
@@ -824,11 +913,9 @@ export function createMailboxStorage(
 
 export function getMailboxStorage(): MailboxStorage {
   if (!_mailboxStorage) {
-    // Use real DWS multi-backend storage
     const manager = getMultiBackendManager();
     const adapter = new DWSStorageAdapter(manager);
     _mailboxStorage = new MailboxStorage(adapter);
-    console.log('[MailboxStorage] Initialized with DWS multi-backend storage');
   }
   return _mailboxStorage;
 }
@@ -841,9 +928,6 @@ export function initializeMailboxStorage(
   return _mailboxStorage;
 }
 
-/**
- * Initialize with DWS backend (preferred)
- */
 export function initializeWithDWS(): MailboxStorage {
   const manager = getMultiBackendManager();
   const adapter = new DWSStorageAdapter(manager);

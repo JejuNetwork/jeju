@@ -15,22 +15,10 @@
  * ```
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, formatUnits, getBalance, getBlockNumber, getChainId, sendTransaction, waitForTransactionReceipt, type Address, type Chain } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, formatUnits, waitForTransactionReceipt, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import { inferChainFromRpcUrl } from '../../scripts/shared/chain-utils';
-
-const FOUNDRY_ACCOUNTS = [
-  {
-    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address,
-    privateKey: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`,
-    expectedBalance: parseEther('10000'),
-  },
-  {
-    address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address,
-    privateKey: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as `0x${string}`,
-    expectedBalance: parseEther('10000'),
-  },
-] as const;
+import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
+import { TEST_ACCOUNTS } from '../tests/setup';
 
 interface TestResultDetails {
   blockNumber?: number;
@@ -198,7 +186,7 @@ async function testPreFundedAccounts(): Promise<void> {
     const chain = inferChainFromRpcUrl(rpcUrl);
     const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
     
-    for (const account of FOUNDRY_ACCOUNTS) {
+    for (const account of [TEST_ACCOUNTS.deployer, TEST_ACCOUNTS.user1]) {
       const balance = await publicClient.getBalance({ address: account.address });
       
       if (balance >= parseEther('1000')) {
@@ -276,13 +264,13 @@ async function testTransactionExecution(): Promise<void> {
   try {
     const rpcUrl = 'http://127.0.0.1:9545';
     const chain = inferChainFromRpcUrl(rpcUrl);
-    const account = privateKeyToAccount(FOUNDRY_ACCOUNTS[0].privateKey);
+    const account = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey);
     const walletClient = createWalletClient({ chain, transport: http(rpcUrl), account });
     const publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
     
     console.log('   📤 Sending test transaction...');
     const hash = await walletClient.sendTransaction({
-      to: FOUNDRY_ACCOUNTS[1].address,
+      to: TEST_ACCOUNTS.user1.address,
       value: parseEther('0.1'),
     });
     

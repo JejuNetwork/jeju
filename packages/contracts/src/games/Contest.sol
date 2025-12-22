@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import "../prediction/IPredictionOracle.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";

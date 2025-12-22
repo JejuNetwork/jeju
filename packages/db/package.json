@@ -49,7 +49,10 @@
   ],
   "dependencies": {
     "@jejunetwork/config": "workspace:*",
+    "generic-pool": "^3.9.0",
     "hono": "4.11.1",
+    "opossum": "^9.0.0",
+    "pino": "^10.1.0",
     "viem": "2.43.2",
     "zod": "^3.24.0"
   },
@@ -62,8 +65,12 @@
     "typeorm": ">=0.3.0"
   },
   "peerDependenciesMeta": {
-    "drizzle-orm": { "optional": true },
-    "typeorm": { "optional": true }
+    "drizzle-orm": {
+      "optional": true
+    },
+    "typeorm": {
+      "optional": true
+    }
   },
   "publishConfig": {
     "access": "public"

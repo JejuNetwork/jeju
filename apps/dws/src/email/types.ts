@@ -1,64 +1,48 @@
-/**
- * Email Service Types
- * 
- * Type definitions for the decentralized email system
- */
-
 import type { Address, Hex } from 'viem';
 
-// ============ Email Address & Identity ============
-
 export interface JejuEmailAddress {
-  localPart: string;          // e.g., "alice"
-  domain: string;             // e.g., "jeju.mail"
-  full: string;               // e.g., "alice@jeju.mail"
-  jnsNode?: Hex;              // JNS name hash
-  owner?: Address;            // Wallet address
+  localPart: string;
+  domain: string;
+  full: string;
+  jnsNode?: Hex;
+  owner?: Address;
 }
 
 export interface EmailIdentity {
   address: JejuEmailAddress;
-  publicKey: Hex;             // Encryption public key (from MPC or wallet)
-  preferredRelays: string[];  // Preferred relay endpoints
+  publicKey: Hex;
+  preferredRelays: string[];
   tier: EmailTier;
   isVerified: boolean;
 }
 
 export type EmailTier = 'free' | 'staked' | 'premium';
 
-// ============ Email Content ============
-
 export interface EmailEnvelope {
-  id: Hex;                    // Message ID (keccak256)
+  id: Hex;
   from: JejuEmailAddress;
   to: JejuEmailAddress[];
   cc?: JejuEmailAddress[];
   bcc?: JejuEmailAddress[];
   replyTo?: JejuEmailAddress;
   timestamp: number;
-  
-  // Encrypted payload
   encryptedContent: EncryptedEmailContent;
-  
-  // Routing metadata (cleartext)
-  isExternal: boolean;        // External recipient (Web2)
+  isExternal: boolean;
   priority: EmailPriority;
-  
-  // Integrity
-  signature: Hex;             // Sender's signature
-  proofOfWork?: Hex;          // PoW for spam prevention (free tier)
+  signature: Hex;
+  proofOfWork?: Hex;
 }
 
 export interface EncryptedEmailContent {
-  ciphertext: Hex;            // AES-256-GCM encrypted
-  nonce: Hex;                 // GCM nonce
-  ephemeralKey: Hex;          // Sender's ephemeral ECDH key
+  ciphertext: Hex;
+  nonce: Hex;
+  ephemeralKey: Hex;
   recipients: RecipientKeyCapsule[];
 }
 
 export interface RecipientKeyCapsule {
-  address: string;            // Recipient email address
-  encryptedKey: Hex;          // Symmetric key encrypted to recipient pubkey
+  address: string;
+  encryptedKey: Hex;
 }
 
 export interface EmailContent {
@@ -67,25 +51,23 @@ export interface EmailContent {
   bodyHtml?: string;
   headers: Record<string, string>;
   attachments: EmailAttachment[];
-  inReplyTo?: Hex;            // Parent message ID
-  threadId?: Hex;             // Thread grouping
+  inReplyTo?: Hex;
+  threadId?: Hex;
 }
 
 export interface EmailAttachment {
   filename: string;
   mimeType: string;
   size: number;
-  cid: string;                // IPFS CID for encrypted content
-  checksum: Hex;              // SHA-256 of plaintext
+  cid: string;
+  checksum: Hex;
 }
 
 export type EmailPriority = 'low' | 'normal' | 'high';
 
-// ============ Mailbox Storage ============
-
 export interface Mailbox {
   owner: Address;
-  encryptedIndexCid: string;  // IPFS CID of encrypted mailbox index
+  encryptedIndexCid: string;
   quotaUsedBytes: bigint;
   quotaLimitBytes: bigint;
   lastUpdated: number;
@@ -105,11 +87,11 @@ export interface MailboxIndex {
 
 export interface EmailReference {
   messageId: Hex;
-  contentCid: string;         // IPFS CID of encrypted email
-  from: string;               // Email address
-  to: string[];               // Email addresses
-  subject: string;            // Encrypted, decrypted client-side
-  preview: string;            // First ~100 chars of body (encrypted)
+  contentCid: string;
+  from: string;
+  to: string[];
+  subject: string;
+  preview: string;
   timestamp: number;
   size: number;
   flags: EmailFlags;
@@ -146,8 +128,6 @@ export interface FilterAction {
   value?: string;
 }
 
-// ============ Content Screening ============
-
 export interface ScreeningResult {
   messageId: Hex;
   passed: boolean;
@@ -159,11 +139,11 @@ export interface ScreeningResult {
 }
 
 export interface ContentScores {
-  spam: number;               // 0-1, spam probability
-  scam: number;               // 0-1, scam/phishing probability
-  csam: number;               // 0-1, CSAM probability
-  malware: number;            // 0-1, malware probability
-  harassment: number;         // 0-1, harassment probability
+  spam: number;
+  scam: number;
+  csam: number;
+  malware: number;
+  harassment: number;
 }
 
 export interface ContentFlag {
@@ -216,8 +196,6 @@ export interface ViolationSummary {
   description: string;
 }
 
-// ============ Provider & Relay ============
-
 export interface EmailRelayNode {
   operator: Address;
   endpoint: string;
@@ -234,7 +212,7 @@ export interface RelayMetrics {
   spamBlocked: number;
   deliveryFailures: number;
   averageLatencyMs: number;
-  uptime: number;             // Basis points (10000 = 100%)
+  uptime: number;
   lastReportTimestamp: number;
 }
 
@@ -245,8 +223,6 @@ export interface ExternalProvider {
   status: RelayStatus;
   stakedAmount: bigint;
 }
-
-// ============ IMAP/SMTP Protocol ============
 
 export interface IMAPSession {
   id: string;
@@ -279,8 +255,6 @@ export type SMTPState =
   | 'data'
   | 'quit';
 
-// ============ Web2 Bridge ============
-
 export interface InboundEmailEvent {
   messageId: string;
   s3Bucket: string;
@@ -300,8 +274,6 @@ export interface OutboundEmailRequest {
   sesMessageId?: string;
 }
 
-// ============ Rate Limiting ============
-
 export interface RateLimitState {
   emailsSent: number;
   emailsReceived: number;
@@ -317,49 +289,30 @@ export interface RateLimitConfig {
   maxEmailSizeMb: number;
 }
 
-// ============ Configuration ============
-
 export interface EmailServiceConfig {
-  // Network
   rpcUrl: string;
   chainId: number;
-  
-  // Contracts
   emailRegistryAddress: Address;
   emailStakingAddress: Address;
   jnsRegistryAddress: Address;
   moderationMarketplaceAddress: Address;
   banManagerAddress: Address;
-  
-  // Infrastructure
   dwsEndpoint: string;
   storageBackend: 'ipfs' | 'arweave' | 'multi';
-  
-  // Email
   emailDomain: string;
   smtpHost: string;
   smtpPort: number;
   imapHost: string;
   imapPort: number;
-  
-  // Bridge
   sesRegion: string;
   inboundBucket: string;
-  
-  // TEE
   teeEndpoint?: string;
   teeEnabled: boolean;
-  
-  // Moderation
   contentScreeningEnabled: boolean;
   aiModelEndpoint: string;
   csamHashListUrl?: string;
-  
-  // Rate limiting
   rateLimits: Record<EmailTier, RateLimitConfig>;
 }
-
-// ============ API Types ============
 
 export interface SendEmailRequest {
   from: string;
@@ -371,7 +324,7 @@ export interface SendEmailRequest {
   bodyHtml?: string;
   attachments?: {
     filename: string;
-    content: string;  // Base64
+    content: string;
     mimeType: string;
   }[];
   priority?: EmailPriority;

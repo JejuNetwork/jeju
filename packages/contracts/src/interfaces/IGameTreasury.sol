@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 /**
  * @title IGameTreasury
- * @notice Interface for game treasuries with TEE operator management. Implemented by BabylonTreasury.
+ * @notice Interface for game treasuries with TEE operator management
+ * @dev Implemented by BabylonTreasury (standalone) and similar to GameTreasury (Treasury-based)
  */
 interface IGameTreasury {
     event OperatorRegistered(address indexed operator, bytes attestation);

@@ -3,7 +3,6 @@
  */
 
 import { z } from 'zod';
-import type { Address } from 'viem';
 import { addressSchema, nonEmptyStringSchema, strictHexSchema } from '../validation';
 
 /**
@@ -26,7 +25,7 @@ export const kmsKeyParamsSchema = z.object({
  * Sign request schema
  */
 export const signRequestSchema = z.object({
-  message: z.union([z.string(), strictHexSchema]),
+  messageHash: strictHexSchema,
   encoding: z.enum(['utf8', 'hex']).default('utf8'),
 });
 
@@ -34,7 +33,7 @@ export const signRequestSchema = z.object({
  * Encrypt request schema
  */
 export const encryptRequestSchema = z.object({
-  plaintext: z.union([z.string(), strictHexSchema]),
+  data: z.string(),
   encoding: z.enum(['utf8', 'hex']).default('utf8'),
 });
 
@@ -42,7 +41,7 @@ export const encryptRequestSchema = z.object({
  * Decrypt request schema
  */
 export const decryptRequestSchema = z.object({
-  ciphertext: strictHexSchema,
+  encrypted: z.string(),
 });
 
 /**

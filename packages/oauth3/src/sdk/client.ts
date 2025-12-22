@@ -94,13 +94,51 @@ export type OAuth3EventType =
   | 'providerUnlinked'
   | 'error';
 
-export interface OAuth3Event {
-  type: OAuth3EventType;
-  data?: unknown;
+// Event data types for each event type
+export interface LoginEventData {
+  provider: AuthProvider | string;
+  status?: 'started';
+  session?: OAuth3Session;
+}
+
+export type LogoutEventData = Record<string, never>;
+
+export interface SessionRefreshEventData {
+  session: OAuth3Session;
+}
+
+export interface ProviderLinkedEventData {
+  provider: AuthProvider;
+}
+
+export interface ProviderUnlinkedEventData {
+  provider: AuthProvider;
+}
+
+export interface ErrorEventData {
+  type: string;
+  previousNode?: string;
+  newNode?: string;
+  message?: string;
+}
+
+// Map event types to their data types
+export interface OAuth3EventDataMap {
+  login: LoginEventData;
+  logout: LogoutEventData;
+  sessionRefresh: SessionRefreshEventData;
+  providerLinked: ProviderLinkedEventData;
+  providerUnlinked: ProviderUnlinkedEventData;
+  error: ErrorEventData;
+}
+
+export interface OAuth3Event<T extends OAuth3EventType = OAuth3EventType> {
+  type: T;
+  data: OAuth3EventDataMap[T];
   timestamp: number;
 }
 
-export type OAuth3EventHandler = (event: OAuth3Event) => void;
+export type OAuth3EventHandler<T extends OAuth3EventType = OAuth3EventType> = (event: OAuth3Event<T>) => void;
 
 export class OAuth3Client {
   private config: OAuth3Config;
@@ -108,7 +146,7 @@ export class OAuth3Client {
   private identity: OAuth3Identity | null = null;
   private publicClient: PublicClient;
   private farcasterProvider: FarcasterProvider;
-  private eventHandlers: Map<OAuth3EventType, Set<OAuth3EventHandler>> = new Map();
+  private eventHandlers: Map<OAuth3EventType, Set<OAuth3EventHandler<OAuth3EventType>>> = new Map();
   
   // Decentralized infrastructure
   private discovery: OAuth3DecentralizedDiscovery | null = null;
@@ -691,20 +729,21 @@ export class OAuth3Client {
     return this.session !== null && this.session.expiresAt > Date.now();
   }
 
-  on(event: OAuth3EventType, handler: OAuth3EventHandler): () => void {
+  on<T extends OAuth3EventType>(event: T, handler: OAuth3EventHandler<T>): () => void {
     if (!this.eventHandlers.has(event)) {
       this.eventHandlers.set(event, new Set());
     }
-    this.eventHandlers.get(event)!.add(handler);
+    // Cast is safe because we're adding to the correct event type's set
+    (this.eventHandlers.get(event) as Set<OAuth3EventHandler<T>>).add(handler);
 
     return () => {
-      this.eventHandlers.get(event)?.delete(handler);
+      this.eventHandlers.get(event)?.delete(handler as OAuth3EventHandler<OAuth3EventType>);
     };
   }
 
-  private emit(type: OAuth3EventType, data?: unknown): void {
-    const event: OAuth3Event = { type, data, timestamp: Date.now() };
-    this.eventHandlers.get(type)?.forEach(handler => handler(event));
+  private emit<T extends OAuth3EventType>(type: T, data: OAuth3EventDataMap[T]): void {
+    const event: OAuth3Event<T> = { type, data, timestamp: Date.now() };
+    this.eventHandlers.get(type)?.forEach(handler => handler(event as OAuth3Event<OAuth3EventType>));
   }
 
   private setSession(session: OAuth3Session): void {
@@ -785,12 +824,42 @@ export function createOAuth3Client(config: OAuth3Config): OAuth3Client {
   return new OAuth3Client(config);
 }
 
+// EIP-1193 Provider Types
+export interface EIP1193RequestArguments {
+  method: string;
+  params?: readonly unknown[] | object;
+}
+
+export interface EIP1193ProviderRpcError extends Error {
+  code: number;
+  data?: unknown;
+}
+
+export interface EIP1193ConnectInfo {
+  chainId: string;
+}
+
+export interface EIP1193ProviderMessage {
+  type: string;
+  data: unknown;
+}
+
+export type EIP1193EventCallback = {
+  accountsChanged: (accounts: string[]) => void;
+  chainChanged: (chainId: string) => void;
+  connect: (connectInfo: EIP1193ConnectInfo) => void;
+  disconnect: (error: EIP1193ProviderRpcError) => void;
+  message: (message: EIP1193ProviderMessage) => void;
+};
+
+export interface EIP1193Provider {
+  request<T = unknown>(args: EIP1193RequestArguments): Promise<T>;
+  on<K extends keyof EIP1193EventCallback>(event: K, callback: EIP1193EventCallback[K]): void;
+  removeListener<K extends keyof EIP1193EventCallback>(event: K, callback: EIP1193EventCallback[K]): void;
+}
+
 declare global {
   interface Window {
-    ethereum?: {
-      request: <T = unknown>(args: { method: string; params?: unknown[] }) => Promise<T>;
-      on: (event: string, callback: (...args: unknown[]) => void) => void;
-      removeListener: (event: string, callback: (...args: unknown[]) => void) => void;
-    };
+    ethereum?: EIP1193Provider;
   }
 }

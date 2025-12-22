@@ -4,8 +4,7 @@
  * Common constants, types, and utilities used across the package
  */
 
-// Re-export constants from schemas
-export { WEIGHT_PRECISION, BPS_PRECISION } from './schemas';
+import { WEIGHT_PRECISION } from './schemas';
 
 /**
  * Sleep for specified milliseconds
@@ -18,7 +17,6 @@ export function sleep(ms: number): Promise<void> {
  * Convert weight (bigint with 18 decimals) to basis points (number)
  */
 export function weightToBps(weight: bigint): number {
-  const WEIGHT_PRECISION = 10n ** 18n;
   return Number((weight * 10000n) / WEIGHT_PRECISION);
 }
 
@@ -26,7 +24,6 @@ export function weightToBps(weight: bigint): number {
  * Convert basis points (number) to weight (bigint with 18 decimals)
  */
 export function bpsToWeight(bps: number): bigint {
-  const WEIGHT_PRECISION = 10n ** 18n;
   return (BigInt(bps) * WEIGHT_PRECISION) / 10000n;
 }
 

@@ -19,7 +19,7 @@ export type {
   SandwichOpportunity,
   LiquidationOpportunity,
   Opportunity,
-  ExecutionResult,
+  OpportunityExecutionResult,
   ProfitSource,
   ProfitDeposit,
   TreasuryStats,

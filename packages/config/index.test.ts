@@ -17,7 +17,7 @@ import {
   TEST_ACCOUNTS,
   L2_PREDEPLOYS,
 } from './index';
-import type { NetworkType } from '../types/src/chain';
+import type { NetworkType } from './index';
 
 describe('Configuration Loaders', () => {
   const originalEnv = { ...process.env };

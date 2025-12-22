@@ -1,4 +1,4 @@
-import { createSynpressConfig, createWalletSetup, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests';
+import { createSynpressConfig } from '@jejunetwork/tests';
 
 const DOCS_PORT = parseInt(process.env.DOCS_PORT || '3002');
 
@@ -8,6 +8,3 @@ export default createSynpressConfig({
   testDir: './tests/e2e-wallet',
   overrides: { timeout: 30000 },
 });
-
-export const basicSetup = createWalletSetup();
-export { PASSWORD, SEED_PHRASE };

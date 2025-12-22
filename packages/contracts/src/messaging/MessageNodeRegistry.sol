@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {PerformanceMetrics} from "../registry/PerformanceMetrics.sol";
 
 /**
  * @title MessageNodeRegistry
@@ -13,6 +14,7 @@ import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol
  */
 contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     using SafeERC20 for IERC20;
+    using PerformanceMetrics for PerformanceMetrics.Metrics;
 
     struct NodeInfo {
         bytes32 nodeId;
@@ -26,13 +28,6 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         uint256 feesEarned;
         bool isActive;
         bool isSlashed;
-    }
-
-    struct PerformanceMetrics {
-        uint256 uptimeScore; // 0-10000 (100.00%)
-        uint256 deliveryRate; // 0-10000 (100.00%)
-        uint256 avgLatencyMs;
-        uint256 lastUpdated;
     }
 
     struct OracleInfo {
@@ -64,7 +59,7 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
     uint256 public maxFeesPerOraclePeriod = 100000 ether;
 
     mapping(bytes32 => NodeInfo) public nodes;
-    mapping(bytes32 => PerformanceMetrics) public performance;
+    mapping(bytes32 => PerformanceMetrics.Metrics) public performance;
     mapping(address => bytes32[]) public operatorNodes;
     bytes32[] public activeNodeIds;
 
@@ -168,12 +163,12 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
             isSlashed: false
         });
 
-        performance[nodeId] = PerformanceMetrics({
-            uptimeScore: MAX_SCORE,
-            deliveryRate: MAX_SCORE,
-            avgLatencyMs: 0,
-            lastUpdated: block.timestamp
-        });
+        // Initialize with max scores using library struct
+        PerformanceMetrics.Metrics storage perf = performance[nodeId];
+        perf.uptimeScore = MAX_SCORE;
+        perf.successRate = MAX_SCORE; // Was deliveryRate
+        perf.avgLatencyMs = 0;
+        perf.lastUpdated = block.timestamp;
 
         operatorNodes[msg.sender].push(nodeId);
         activeNodeIds.push(nodeId);
@@ -303,13 +298,16 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         if (uptimeScore > MAX_SCORE) uptimeScore = MAX_SCORE;
         if (deliveryRate > MAX_SCORE) deliveryRate = MAX_SCORE;
 
-        PerformanceMetrics storage perf = performance[nodeId];
+        PerformanceMetrics.Metrics storage perf = performance[nodeId];
+        
+        // Use library update function or manual update
+        // Manual update to match previous smoothing logic:
         perf.uptimeScore = (perf.uptimeScore * 8 + uptimeScore * 2) / 10;
-        perf.deliveryRate = (perf.deliveryRate * 8 + deliveryRate * 2) / 10;
+        perf.successRate = (perf.successRate * 8 + deliveryRate * 2) / 10;
         perf.avgLatencyMs = avgLatencyMs;
         perf.lastUpdated = block.timestamp;
 
-        emit PerformanceUpdated(nodeId, perf.uptimeScore, perf.deliveryRate);
+        emit PerformanceUpdated(nodeId, perf.uptimeScore, perf.successRate);
     }
 
     function slashNode(bytes32 nodeId, string calldata reason) external onlyOwner {
@@ -373,7 +371,7 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
         return nodes[nodeId];
     }
 
-    function getPerformance(bytes32 nodeId) external view returns (PerformanceMetrics memory) {
+    function getPerformance(bytes32 nodeId) external view returns (PerformanceMetrics.Metrics memory) {
         return performance[nodeId];
     }
 
@@ -383,14 +381,13 @@ contract MessageNodeRegistry is Ownable, Pausable, ReentrancyGuard {
 
     function isNodeHealthy(bytes32 nodeId) external view returns (bool) {
         NodeInfo storage node = nodes[nodeId];
-        PerformanceMetrics storage perf = performance[nodeId];
+        PerformanceMetrics.Metrics storage perf = performance[nodeId];
 
         if (!node.isActive || node.isSlashed) return false;
         if (block.timestamp - node.lastHeartbeat > heartbeatInterval * 3) return false;
-        if (perf.uptimeScore < 9000) return false;
-        if (perf.deliveryRate < 9500) return false;
-
-        return true;
+        
+        // Use library check or custom
+        return perf.isHealthy(9000, 9500);
     }
 
     function getRandomHealthyNode(string calldata region)

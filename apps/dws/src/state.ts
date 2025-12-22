@@ -664,8 +664,19 @@ export const apiListingState = {
     seller: Address;
     keyVaultId: string;
     pricePerRequest?: string;
-    limits?: Record<string, number>;
-    accessControl?: Record<string, string[]>;
+    limits?: {
+      requestsPerSecond: number;
+      requestsPerMinute: number;
+      requestsPerDay: number;
+      requestsPerMonth: number;
+    };
+    accessControl?: {
+      allowedDomains: string[];
+      blockedDomains: string[];
+      allowedEndpoints: string[];
+      blockedEndpoints: string[];
+      allowedMethods: Array<'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH'>;
+    };
     status?: string;
   }): Promise<void> {
     const now = Date.now();

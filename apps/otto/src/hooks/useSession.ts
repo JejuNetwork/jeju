@@ -8,8 +8,6 @@ import { getStateManager, type ChatSession } from '../services/state';
 import { expectValid, ChatMessageSchema } from '../schemas';
 import type { ChatMessage } from '../types';
 
-const stateManager = getStateManager();
-
 // Chat message history per session (ephemeral, not persisted)
 const sessionMessages = new Map<string, ChatMessage[]>();
 
@@ -17,7 +15,7 @@ const sessionMessages = new Map<string, ChatMessage[]>();
  * Create a new chat session
  */
 export function createChatSession(walletAddress?: Address): { sessionId: string; messages: ChatMessage[] } {
-  const session = stateManager.createSession(walletAddress);
+  const session = getStateManager().createSession(walletAddress);
 
   const welcome: ChatMessage = {
     id: crypto.randomUUID(),
@@ -70,6 +68,7 @@ export function addSessionMessage(sessionId: string, message: ChatMessage): void
  * Get or create session
  */
 export function getOrCreateSession(sessionId: string | undefined, walletAddress?: Address): { sessionId: string; session: ChatSession } {
+  const stateManager = getStateManager();
   let session = sessionId ? stateManager.getSession(sessionId) : null;
 
   if (!session) {

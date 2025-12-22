@@ -1,0 +1,22 @@
+{
+  "version": "1.0.0",
+  "network": {
+    "name": "MyChain",
+    "chainId": 777777
+  },
+  "hub": {
+    "chainId": 11155111,
+    "rpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+    "registryAddress": "0x0000000000000000000000000000000000000000"
+  },
+  "trustedNetworks": [
+    420690
+  ],
+  "crossChain": {
+    "oracleType": "superchain",
+    "supportedChains": [
+      420690,
+      11155111
+    ]
+  }
+}

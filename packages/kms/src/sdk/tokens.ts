@@ -9,7 +9,7 @@ import type { Address, Hex } from 'viem';
 import { keccak256, toBytes, verifyMessage } from 'viem';
 import { getKMS } from '../kms.js';
 import type { AuthSignature } from '../types.js';
-import { tokenClaimsSchema, tokenHeaderSchema, tokenOptionsSchema, verifyTokenOptionsSchema } from '../schemas.js';
+import { tokenClaimsSchema, tokenOptionsSchema, verifyTokenOptionsSchema } from '../schemas.js';
 
 export interface TokenClaims {
   /** Subject (user identifier, e.g. GitHub username or wallet address) */

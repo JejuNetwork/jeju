@@ -1,8 +1,9 @@
 /**
- * CLI Logger with styled output
+ * CLI Logger - Uses shared logger with CLI-specific formatting utilities
  */
 
 import chalk from 'chalk';
+import { createLogger, type Logger as BaseLogger } from '@jejunetwork/shared';
 
 export interface LoggerOptions {
   verbose?: boolean;
@@ -12,98 +13,108 @@ export interface LoggerOptions {
 class Logger {
   private verbose = false;
   private silent = false;
+  private baseLogger = createLogger('cli');
 
   configure(options: LoggerOptions) {
     this.verbose = options.verbose ?? false;
     this.silent = options.silent ?? false;
   }
 
-  private log(message: string) {
+  info(message: string) {
     if (!this.silent) {
-      console.log(message);
+      this.baseLogger.info(message);
     }
   }
 
-  info(message: string) {
-    this.log(message);
-  }
-
   success(message: string) {
-    this.log(chalk.green('✓ ') + message);
+    if (!this.silent) {
+      this.baseLogger.info(chalk.green('✓ ') + message);
+    }
   }
 
   warn(message: string) {
-    this.log(chalk.yellow('⚠ ') + message);
+    if (!this.silent) {
+      this.baseLogger.warn(chalk.yellow('⚠ ') + message);
+    }
   }
 
   error(message: string) {
-    this.log(chalk.red('✗ ') + message);
+    if (!this.silent) {
+      this.baseLogger.error(chalk.red('✗ ') + message);
+    }
   }
 
   debug(message: string) {
-    if (this.verbose) {
-      this.log(chalk.gray('  ' + message));
+    if (this.verbose && !this.silent) {
+      this.baseLogger.debug(chalk.gray('  ' + message));
     }
   }
 
   step(message: string) {
-    this.log(chalk.blue('→ ') + message);
+    if (!this.silent) {
+      this.baseLogger.info(chalk.blue('→ ') + message);
+    }
   }
 
+  // CLI formatting utilities
   header(title: string) {
+    if (this.silent) return;
     const line = '═'.repeat(68);
-    this.log('');
-    this.log(chalk.cyan('╔' + line + '╗'));
-    this.log(chalk.cyan('║') + chalk.bold.white('  ' + title.padEnd(66)) + chalk.cyan('║'));
-    this.log(chalk.cyan('╚' + line + '╝'));
-    this.log('');
+    console.log('');
+    console.log(chalk.cyan('╔' + line + '╗'));
+    console.log(chalk.cyan('║') + chalk.bold.white('  ' + title.padEnd(66)) + chalk.cyan('║'));
+    console.log(chalk.cyan('╚' + line + '╝'));
+    console.log('');
   }
 
   subheader(title: string) {
-    this.log('');
-    this.log(chalk.bold(title));
-    this.log(chalk.dim('─'.repeat(40)));
+    if (this.silent) return;
+    console.log('');
+    console.log(chalk.bold(title));
+    console.log(chalk.dim('─'.repeat(40)));
   }
 
   table(rows: Array<{ label: string; value: string; status?: 'ok' | 'warn' | 'error' }>) {
+    if (this.silent) return;
     for (const row of rows) {
       const icon = row.status === 'ok' ? chalk.green('✓') :
                    row.status === 'warn' ? chalk.yellow('⚠') :
                    row.status === 'error' ? chalk.red('✗') : ' ';
-      this.log(`  ${icon} ${row.label.padEnd(20)} ${chalk.cyan(row.value)}`);
+      console.log(`  ${icon} ${row.label.padEnd(20)} ${chalk.cyan(row.value)}`);
     }
   }
 
   box(lines: string[]) {
+    if (this.silent) return;
     const maxLen = Math.max(...lines.map(l => l.length), 40);
     const top = '┌' + '─'.repeat(maxLen + 2) + '┐';
     const bottom = '└' + '─'.repeat(maxLen + 2) + '┘';
     
-    this.log(chalk.dim(top));
+    console.log(chalk.dim(top));
     for (const line of lines) {
-      this.log(chalk.dim('│ ') + line.padEnd(maxLen) + chalk.dim(' │'));
+      console.log(chalk.dim('│ ') + line.padEnd(maxLen) + chalk.dim(' │'));
     }
-    this.log(chalk.dim(bottom));
+    console.log(chalk.dim(bottom));
   }
 
   newline() {
-    this.log('');
+    if (!this.silent) console.log('');
   }
 
   separator() {
-    this.log(chalk.dim('─'.repeat(70)));
+    if (!this.silent) console.log(chalk.dim('─'.repeat(70)));
   }
 
   keyValue(key: string, value: string) {
-    this.log(`  ${chalk.dim(key + ':')} ${value}`);
+    if (!this.silent) console.log(`  ${chalk.dim(key + ':')} ${value}`);
   }
 
   list(items: string[]) {
+    if (this.silent) return;
     for (const item of items) {
-      this.log(`  • ${item}`);
+      console.log(`  • ${item}`);
     }
   }
 }
 
 export const logger = new Logger();
-

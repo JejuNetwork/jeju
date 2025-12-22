@@ -1,0 +1,105 @@
+# =============================================================================
+# Farcaster Hubble - Local Development
+# 
+# Runs a self-hosted Farcaster hub for local development.
+# No API keys required - fully permissionless.
+#
+# Usage:
+#   docker-compose up -d
+#   docker-compose logs -f hubble
+#
+# Access:
+#   HTTP API: http://localhost:2281
+#   gRPC API: localhost:2283
+#   Gossip: localhost:2282
+#
+# Initial sync takes ~24-48 hours for full Farcaster data.
+# =============================================================================
+
+version: '3.8'
+
+services:
+  hubble:
+    image: farcasterxyz/hubble:1.14.0
+    container_name: farcaster-hubble
+    restart: unless-stopped
+    command:
+      - node
+      - build/cli.js
+      - start
+      - --eth-mainnet-rpc-url=${ETH_RPC_URL:-https://mainnet.optimism.io}
+      - --l2-rpc-url=${ETH_RPC_URL:-https://mainnet.optimism.io}
+      - --rpc-port=2283
+      - --gossip-port=2282
+      - --http-api-port=2281
+      - --http-api-enabled
+      - --db-name=/data/rocks
+      - --bootstrap=/dns/nemes.farcaster.xyz/tcp/2282
+      - --bootstrap=/dns/hoyt.farcaster.xyz/tcp/2282
+    environment:
+      - HUB_HOST=0.0.0.0
+      - LOG_LEVEL=info
+    ports:
+      - "2281:2281"  # HTTP API
+      - "2282:2282"  # Gossip
+      - "2283:2283"  # gRPC
+    volumes:
+      - hubble-data:/data
+      - hubble-identity:/identity
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:2281/v1/info"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '4'
+          memory: 8G
+        reservations:
+          cpus: '2'
+          memory: 4G
+
+  # Optional: Grafana for monitoring
+  grafana:
+    image: grafana/grafana:10.2.0
+    container_name: farcaster-grafana
+    profiles:
+      - monitoring
+    restart: unless-stopped
+    ports:
+      - "3100:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+
+  # Optional: Prometheus for metrics
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: farcaster-prometheus
+    profiles:
+      - monitoring
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - prometheus-data:/prometheus
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=7d
+
+volumes:
+  hubble-data:
+    driver: local
+  hubble-identity:
+    driver: local
+  grafana-data:
+    driver: local
+  prometheus-data:
+    driver: local
+

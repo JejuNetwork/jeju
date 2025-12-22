@@ -13,6 +13,21 @@
 //! 1. Initialize with a trusted sync committee
 //! 2. Submit periodic updates with ZK proofs
 //! 3. Other programs can CPI to verify EVM state proofs
+//!
+//! # CPI Usage
+//!
+//! Other programs can verify EVM proofs via CPI:
+//! ```rust,ignore
+//! use evm_light_client::cpi;
+//!
+//! let is_valid = cpi::verify_account_proof(
+//!     cpi_ctx,
+//!     account_address,
+//!     storage_slot,
+//!     expected_value,
+//!     proof_data,
+//! )?;
+//! ```
 
 use anchor_lang::prelude::*;
 use solana_program::alt_bn128::prelude::*;
@@ -21,7 +36,15 @@ use solana_program::keccak;
 mod verification_key;
 use verification_key as vk;
 
-declare_id!("EVMLightCL1111111111111111111111111111111111");
+/// CPI module for cross-program invocation
+#[cfg(feature = "cpi")]
+pub mod cpi;
+
+/// Re-export CPI types when cpi feature is enabled
+#[cfg(feature = "cpi")]
+pub use cpi::{accounts as cpi_accounts, LatestStateResult};
+
+declare_id!("5TMUr2vv5TAUhKo4q8ibfkkw9SeBRzumYaRNo1iWvwsX");
 
 /// Maximum sync committee size (512 validators)
 pub const SYNC_COMMITTEE_SIZE: usize = 512;
@@ -132,6 +155,10 @@ pub mod evm_light_client {
     /// to verify EVM state proofs.
     ///
     /// The proof is serialized as: [num_nodes: u16][node1_len: u16][node1_data]...
+    ///
+    /// # Return Data
+    /// Sets return data with a single byte: 1 if valid, 0 if invalid.
+    /// CPI callers can read this via `solana_program::program::get_return_data()`.
     pub fn verify_account_proof(
         ctx: Context<VerifyProof>,
         account: [u8; 20],      // EVM address
@@ -155,12 +182,29 @@ pub mod evm_light_client {
             &state.latest_state_root,
         )?;
 
+        // Set return data for CPI callers
+        // 1 byte: 1 = valid, 0 = invalid
+        anchor_lang::solana_program::program::set_return_data(&[if valid { 1u8 } else { 0u8 }]);
+
         Ok(valid)
     }
 
     /// Get the latest verified state (for cross-program queries)
+    ///
+    /// # Return Data
+    /// Sets return data with: [8 bytes slot][32 bytes block_root][32 bytes state_root][32 bytes committee_root]
+    /// CPI callers can read this via `solana_program::program::get_return_data()`.
     pub fn get_latest_state(ctx: Context<GetState>) -> Result<LatestState> {
         let state = &ctx.accounts.state;
+
+        // Build return data for CPI callers
+        // Layout: [8 bytes slot][32 bytes block_root][32 bytes state_root][32 bytes committee_root]
+        let mut return_data = Vec::with_capacity(104);
+        return_data.extend_from_slice(&state.latest_slot.to_le_bytes());
+        return_data.extend_from_slice(&state.latest_block_root);
+        return_data.extend_from_slice(&state.latest_state_root);
+        return_data.extend_from_slice(&state.current_sync_committee_root);
+        anchor_lang::solana_program::program::set_return_data(&return_data);
 
         Ok(LatestState {
             slot: state.latest_slot,

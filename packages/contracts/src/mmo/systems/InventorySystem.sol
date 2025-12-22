@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.33;
 
 import {System} from "@latticexyz/world/src/System.sol";
 import {Player, InventorySlot, InventorySlotData, ItemMetadata, ItemMetadataData} from "../codegen/index.sol";

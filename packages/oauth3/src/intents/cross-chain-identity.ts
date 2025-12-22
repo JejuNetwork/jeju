@@ -14,9 +14,10 @@ import {
   type Address,
   type Hex,
 } from 'viem';
-import type {
-  OAuth3Session,
-  IntentSolution,
+import {
+  ChainId,
+  type OAuth3Session,
+  type IntentSolution,
 } from '../types.js';
 
 interface CrossChainIdentityInput {
@@ -26,16 +27,8 @@ interface CrossChainIdentityInput {
   smartAccount: Address;
 }
 
-export enum ChainId {
-  ETHEREUM = 1,
-  OPTIMISM = 10,
-  BSC = 56,
-  POLYGON = 137,
-  ARBITRUM = 42161,
-  AVALANCHE = 43114,
-  BASE = 8453,
-  JEJU = 420691,
-}
+// Re-export ChainId from types for convenience
+export { ChainId };
 
 export interface SupportedChain {
   chainId: ChainId;
@@ -88,7 +81,7 @@ export interface CrossChainAuthIntent {
 
 const SUPPORTED_CHAINS: SupportedChain[] = [
   {
-    chainId: ChainId.JEJU,
+    chainId: ChainId.JEJU_LOCALNET,
     name: 'Jeju Network',
     rpcUrl: process.env.JEJU_RPC_URL ?? 'https://rpc.jejunetwork.org',
     identityRegistryAddress: '0x0000000000000000000000000000000000000000' as Address,
@@ -148,7 +141,7 @@ export class CrossChainIdentityManager {
   private identityStates: Map<Hex, CrossChainIdentityState>;
   private homeChain: ChainId;
 
-  constructor(homeChain: ChainId = ChainId.JEJU) {
+  constructor(homeChain: ChainId = ChainId.JEJU_LOCALNET) {
     this.homeChain = homeChain;
     this.chainConfigs = new Map();
     this.identityStates = new Map();

@@ -1,6 +1,6 @@
 import { useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
 import { toast } from 'sonner'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { AddressSchema } from '@jejunetwork/types'
 import { expect, expectPositive, expectTrue } from '@/lib/validation'
 import NFTMarketplaceABI from '@/lib/abis/NFTMarketplace.json'
 import { CONTRACTS } from '@/config'

@@ -10,41 +10,29 @@ import type {
   OttoUser,
   Platform,
   LimitOrder,
-  SwapQuote,
-  BridgeQuote,
+  PendingSwapData,
+  PendingBridgeData,
 } from '../types';
 import { expectValid, OttoUserSchema, LimitOrderSchema, validateOrNull } from '../schemas';
 
 const DATA_DIR = process.env.OTTO_DATA_DIR ?? './data';
 
-// Pending action types
-interface PendingSwap {
+// Pending action types - extend base types with metadata
+export interface PendingSwap {
   type: 'swap';
-  quote: SwapQuote;
-  params: {
-    amount: string;
-    from: string;
-    to: string;
-    chainId: number;
-  };
+  quote: PendingSwapData['quote'];
+  params: PendingSwapData['params'];
   expiresAt: number;
 }
 
-interface PendingBridge {
+export interface PendingBridge {
   type: 'bridge';
-  quote?: BridgeQuote;
-  params: {
-    amount: string;
-    token: string;
-    fromChain: string;
-    toChain: string;
-    sourceChainId: number;
-    destChainId: number;
-  };
+  quote?: PendingBridgeData['quote'];
+  params: PendingBridgeData['params'];
   expiresAt: number;
 }
 
-type PendingAction = PendingSwap | PendingBridge;
+export type PendingAction = PendingSwap | PendingBridge;
 
 interface ConversationState {
   pendingAction?: PendingAction;
@@ -370,5 +358,5 @@ export function getStateManager(): StateManager {
   return stateManager;
 }
 
-export type { PendingAction, PendingSwap, PendingBridge, ConversationState, ChatSession };
+export type { ConversationState, ChatSession };
 

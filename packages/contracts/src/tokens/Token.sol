@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
@@ -8,6 +8,7 @@ import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {EIP712} from "@openzeppelin/contracts/utils/cryptography/EIP712.sol";
+import {EIP3009} from "./EIP3009Token.sol";
 
 /**
  * @title IBanManager
@@ -59,27 +60,13 @@ interface IInterchainGasPaymaster {
  * - Ban enforcement via moderation system
  * - Anti-whale: max wallet and transaction limits
  * - Faucet for testnet
- *
- * Fee Structure (Clanker-style):
- * - Creator fee: % to token creator on each trade
- * - Holder fee: % distributed to holders/stakers
- * - Treasury fee: % to protocol treasury
- * - Burn fee: % burned (deflationary)
- * - LP fee: % on initial liquidity provision
  */
-contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGuard {
+contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGuard, EIP3009 {
     using ECDSA for bytes32;
 
     uint256 public constant BPS_DENOMINATOR = 10000;
     uint256 public constant MAX_TOTAL_FEE_BPS = 2500; // 25% max
     uint256 public constant BRIDGE_GAS_LIMIT = 300_000;
-
-    // EIP-3009 typehashes
-    bytes32 public constant TRANSFER_WITH_AUTHORIZATION_TYPEHASH = keccak256(
-        "TransferWithAuthorization(address from,address to,uint256 value,uint256 validAfter,uint256 validBefore,bytes32 nonce)"
-    );
-    bytes32 public constant CANCEL_AUTHORIZATION_TYPEHASH =
-        keccak256("CancelAuthorization(address authorizer,bytes32 nonce)");
 
     struct TokenConfig {
         uint256 maxSupply;           // 0 = unlimited
@@ -114,7 +101,7 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
     mapping(address => bool) public feeExempt;
     mapping(address => bool) public limitExempt;
     mapping(address => bool) public banExempt;
-    mapping(address => mapping(bytes32 => bool)) public authorizationState;
+    // authorizationState inherited from EIP3009
     mapping(address => uint256) public lastFaucetClaim;
     mapping(bytes32 => bool) public processedMessages;
     uint256 public totalLocked;
@@ -127,8 +114,6 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
     event CrossChainTransfer(bytes32 indexed messageId, address indexed sender, uint32 destination, uint256 amount);
     event CrossChainReceive(bytes32 indexed messageId, uint32 origin, address indexed recipient, uint256 amount);
     event FaucetClaimed(address indexed recipient, uint256 amount);
-    event AuthorizationUsed(address indexed authorizer, bytes32 indexed nonce);
-    event AuthorizationCanceled(address indexed authorizer, bytes32 indexed nonce);
     event ConfigUpdated();
     event FeesUpdated();
 
@@ -141,10 +126,6 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
     error FaucetDisabled();
     error FaucetCooldown(uint256 nextClaim);
     error FaucetInsufficientBalance();
-    error AuthorizationAlreadyUsed();
-    error AuthorizationExpired();
-    error AuthorizationNotYetValid();
-    error InvalidSignature();
     error UnsupportedDomain(uint32 domain);
     error OnlyMailbox();
     error MessageAlreadyProcessed();
@@ -186,7 +167,7 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
         banExempt[owner_] = true;
     }
 
-    function _update(address from, address to, uint256 amount) internal virtual override {
+    function _update(address from, address to, uint256 amount) internal virtual override(ERC20) {
         if (config.transfersPaused && from != address(0) && to != address(0)) {
             revert TransfersPaused();
         }
@@ -316,51 +297,6 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
     function quoteBridge(uint32 destination, uint256 amount) external view returns (uint256 fee, uint256 gasPayment) {
         fee = (amount * fees.lpFeeBps) / BPS_DENOMINATOR; // Bridge uses LP fee
         gasPayment = igp.quoteGasPayment(destination, BRIDGE_GAS_LIMIT);
-    }
-
-    function transferWithAuthorization(
-        address from,
-        address to,
-        uint256 value,
-        uint256 validAfter,
-        uint256 validBefore,
-        bytes32 nonce,
-        bytes calldata signature
-    ) external {
-        _requireValidAuthorization(from, nonce, validAfter, validBefore);
-        bytes32 structHash = keccak256(abi.encode(
-            TRANSFER_WITH_AUTHORIZATION_TYPEHASH, from, to, value, validAfter, validBefore, nonce
-        ));
-        _verifySignature(from, structHash, signature);
-        _markAuthorizationUsed(from, nonce);
-        _transfer(from, to, value);
-    }
-
-    function cancelAuthorization(address authorizer, bytes32 nonce, bytes calldata signature) external {
-        if (authorizationState[authorizer][nonce]) revert AuthorizationAlreadyUsed();
-        bytes32 structHash = keccak256(abi.encode(CANCEL_AUTHORIZATION_TYPEHASH, authorizer, nonce));
-        _verifySignature(authorizer, structHash, signature);
-        authorizationState[authorizer][nonce] = true;
-        emit AuthorizationCanceled(authorizer, nonce);
-    }
-
-    function _requireValidAuthorization(address authorizer, bytes32 nonce, uint256 validAfter, uint256 validBefore)
-        internal view
-    {
-        if (authorizationState[authorizer][nonce]) revert AuthorizationAlreadyUsed();
-        if (block.timestamp <= validAfter) revert AuthorizationNotYetValid();
-        if (block.timestamp >= validBefore) revert AuthorizationExpired();
-    }
-
-    function _verifySignature(address signer, bytes32 structHash, bytes memory signature) internal view {
-        bytes32 digest = _hashTypedDataV4(structHash);
-        address recovered = ECDSA.recover(digest, signature);
-        if (recovered != signer) revert InvalidSignature();
-    }
-
-    function _markAuthorizationUsed(address authorizer, bytes32 nonce) internal {
-        authorizationState[authorizer][nonce] = true;
-        emit AuthorizationUsed(authorizer, nonce);
     }
 
     function faucet() external {
@@ -495,6 +431,6 @@ contract Token is ERC20, ERC20Burnable, ERC20Permit, Ownable2Step, ReentrancyGua
     }
 
     function version() external pure returns (string memory) {
-        return "1.0.0";
+        return "2.0.0";
     }
 }

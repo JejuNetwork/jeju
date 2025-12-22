@@ -9,9 +9,19 @@
  */
 
 import { z } from 'zod';
-import { isAddress, isHex } from 'viem';
+import { isAddress, isHex, type Address, type Hex } from 'viem';
 import { storage } from '../../platform/storage';
 import { expectSchema, expectAddress, expectHex, expectDefined, expectNonEmpty } from '../../lib/validation';
+import type {
+  AddEthereumChainParameter,
+  CrossChainTransferData,
+  SubmitIntentData,
+  PopupResponse,
+  ConnectionResponse,
+  BroadcastEventData,
+  ExtensionMessageResponse,
+  EIP1193Param,
+} from '../types';
 
 // ============================================================================
 // Validation Schemas
@@ -32,9 +42,23 @@ const MessageTypeSchema = z.enum([
   'jeju_submitIntent',
 ]);
 
+// EIP1193Param is already typed, we validate the structure at runtime
+const EIP1193ParamSchema: z.ZodType<EIP1193Param> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.record(z.string(), EIP1193ParamSchema),
+    z.array(EIP1193ParamSchema),
+  ])
+);
+
+const MessageDataSchema = z.record(z.string(), EIP1193ParamSchema);
+
 const MessageSchema = z.object({
   type: MessageTypeSchema,
-  data: z.record(z.string(), z.unknown()).optional(),
+  data: MessageDataSchema.optional(),
   id: z.string().optional(),
 });
 
@@ -82,6 +106,42 @@ const ConnectionResponseSchema = z.object({
   approved: z.boolean(),
 });
 
+// EIP-3085: wallet_addEthereumChain parameters
+const AddEthereumChainSchema = z.object({
+  chainId: z.string().refine((val) => /^0x[0-9a-fA-F]+$/.test(val), { message: 'Invalid chainId hex' }),
+  chainName: z.string().min(1),
+  nativeCurrency: z.object({
+    name: z.string().min(1),
+    symbol: z.string().min(2).max(6),
+    decimals: z.literal(18),
+  }),
+  rpcUrls: z.array(z.string().url()).min(1),
+  blockExplorerUrls: z.array(z.string().url()).optional(),
+  iconUrls: z.array(z.string().url()).optional(),
+});
+
+// Jeju cross-chain transfer parameters
+const CrossChainTransferSchema = z.object({
+  sourceChainId: z.number().int().positive(),
+  destinationChainId: z.number().int().positive(),
+  token: z.string().refine((val) => isAddress(val), { message: 'Invalid token address' }),
+  amount: z.string().min(1),
+  recipient: z.string().refine((val) => isAddress(val), { message: 'Invalid recipient address' }),
+  maxFee: z.string().optional(),
+});
+
+// Jeju intent submission parameters
+const SubmitIntentSchema = z.object({
+  inputToken: z.string().refine((val) => isAddress(val), { message: 'Invalid inputToken address' }),
+  inputAmount: z.string().min(1),
+  outputToken: z.string().refine((val) => isAddress(val), { message: 'Invalid outputToken address' }),
+  minOutputAmount: z.string().min(1),
+  destinationChainId: z.number().int().positive(),
+  recipient: z.string().refine((val) => isAddress(val), { message: 'Invalid recipient address' }).optional(),
+  maxFee: z.string().optional(),
+  deadline: z.number().int().positive().optional(),
+});
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -123,7 +183,7 @@ chrome.runtime.onMessage.addListener((message: unknown, sender, sendResponse) =>
   return true; // Keep channel open for async response
 });
 
-async function handleMessage(message: Message, origin: string): Promise<unknown> {
+async function handleMessage(message: Message, origin: string): Promise<ExtensionMessageResponse> {
   expectNonEmpty(origin, 'origin');
   
   switch (message.type) {
@@ -162,17 +222,20 @@ async function handleMessage(message: Message, origin: string): Promise<unknown>
 
     case 'wallet_addEthereumChain': {
       const data = expectDefined(message.data, 'message.data');
-      return handleAddChain(data);
+      const validated = expectSchema(data, AddEthereumChainSchema, 'wallet_addEthereumChain data');
+      return handleAddChain(validated);
     }
 
     case 'jeju_crossChainTransfer': {
       const data = expectDefined(message.data, 'message.data');
-      return handleCrossChainTransfer(data);
+      const validated = expectSchema(data, CrossChainTransferSchema, 'jeju_crossChainTransfer data');
+      return handleCrossChainTransfer(validated);
     }
 
     case 'jeju_submitIntent': {
       const data = expectDefined(message.data, 'message.data');
-      return handleSubmitIntent(data);
+      const validated = expectSchema(data, SubmitIntentSchema, 'jeju_submitIntent data');
+      return handleSubmitIntent(validated);
     }
 
     case 'connect':
@@ -313,7 +376,7 @@ async function handleSwitchChain(data: z.infer<typeof SwitchChainDataSchema>): P
   return null;
 }
 
-async function handleAddChain(chainData: Record<string, unknown>): Promise<null> {
+async function handleAddChain(chainData: AddEthereumChainParameter): Promise<null> {
   // Open popup to approve adding chain
   const result = await openPopupWithResult('add_chain', chainData);
   if (!result.approved) {
@@ -322,7 +385,7 @@ async function handleAddChain(chainData: Record<string, unknown>): Promise<null>
   return null;
 }
 
-async function handleCrossChainTransfer(data: Record<string, unknown>): Promise<string> {
+async function handleCrossChainTransfer(data: CrossChainTransferData): Promise<string> {
   const result = await openPopupWithResult('cross_chain', data);
   if (!result.approved) {
     throw new Error('User rejected cross-chain transfer');
@@ -333,7 +396,7 @@ async function handleCrossChainTransfer(data: Record<string, unknown>): Promise<
   return requestId;
 }
 
-async function handleSubmitIntent(data: Record<string, unknown>): Promise<string> {
+async function handleSubmitIntent(data: SubmitIntentData): Promise<string> {
   const result = await openPopupWithResult('intent', data);
   if (!result.approved) {
     throw new Error('User rejected intent');
@@ -344,8 +407,18 @@ async function handleSubmitIntent(data: Record<string, unknown>): Promise<string
   return intentId;
 }
 
+/** Popup parameter types */
+type PopupParams = 
+  | { origin: string }
+  | { tx: z.infer<typeof SendTransactionDataSchema> }
+  | { type: 'personal_sign'; message: string; address: Address }
+  | { type: 'eth_signTypedData_v4'; data: string; address: Address }
+  | AddEthereumChainParameter
+  | CrossChainTransferData
+  | SubmitIntentData;
+
 // Popup management
-async function openPopup(path: string, params?: Record<string, unknown>): Promise<void> {
+async function openPopup(path: string, params?: PopupParams): Promise<void> {
   expectNonEmpty(path, 'path');
   
   const url = new URL(chrome.runtime.getURL('popup.html'));
@@ -365,8 +438,8 @@ async function openPopup(path: string, params?: Record<string, unknown>): Promis
 
 async function openPopupWithResult(
   path: string, 
-  params: Record<string, unknown>
-): Promise<{ approved: boolean; hash?: string; signature?: string; requestId?: string; intentId?: string }> {
+  params: PopupParams
+): Promise<{ approved: boolean; hash?: Hex; signature?: Hex; requestId?: string; intentId?: Hex }> {
   expectNonEmpty(path, 'path');
   
   const requestId = crypto.randomUUID();
@@ -401,7 +474,7 @@ async function openPopupWithResult(
   });
 }
 
-function broadcastToTabs(message: Record<string, unknown>): void {
+function broadcastToTabs(message: BroadcastEventData): void {
   chrome.tabs.query({}, (tabs) => {
     for (const tab of tabs) {
       if (tab.id) {

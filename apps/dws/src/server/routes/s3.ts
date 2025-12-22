@@ -6,8 +6,7 @@
 import { Hono } from 'hono';
 import { S3Backend, S3Error, NotModifiedError } from '../../storage/s3-backend';
 import type { BackendManager } from '../../storage/backends';
-import { validateParams, validateQuery, validateBody, validateHeaders, expectValid, bucketParamsSchema, objectParamsSchema, objectListQuerySchema, createBucketRequestSchema, presignRequestSchema, completeMultipartXmlSchema } from '../../shared';
-import { z } from 'zod';
+import { validateParams, validateQuery, validateBody, validateHeaders, bucketParamsSchema, objectParamsSchema, objectListQuerySchema, presignRequestSchema, completeMultipartXmlSchema, z } from '../../shared';
 
 export function createS3Router(backend: BackendManager): Hono {
   const router = new Hono();
@@ -310,7 +309,10 @@ export function createS3Router(backend: BackendManager): Hono {
         });
       } catch (error) {
         const { status, body } = handleError(error);
-        return c.json(body, status);
+        if (status === 304) {
+          return new Response(null, { status: 304 });
+        }
+        return c.json(body, status as 200 | 400 | 403 | 404 | 409 | 410 | 413 | 500);
       }
     }
 

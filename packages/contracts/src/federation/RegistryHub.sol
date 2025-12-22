@@ -1,10 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
 import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
+import {IWormhole} from "./interfaces/IWormhole.sol";
 
 /**
  * @title RegistryHub
@@ -31,7 +33,7 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
  * - STAKED: 1+ ETH stake, trusted for federation
  * - VERIFIED: Governance-approved, full trust
  */
-contract RegistryHub is Ownable, ReentrancyGuard {
+contract RegistryHub is Ownable, ReentrancyGuard, Pausable {
     using ECDSA for bytes32;
     using MessageHashUtils for bytes32;
 
@@ -133,9 +135,15 @@ contract RegistryHub is Ownable, ReentrancyGuard {
     mapping(uint256 => bytes32[]) public registriesByChain;
     mapping(RegistryType => bytes32[]) public registriesByType;
 
-    // Oracle for Solana verification
-    address public wormholeRelayer;
+    // Wormhole for Solana verification
+    IWormhole public wormhole;
     mapping(bytes32 => bool) public verifiedSolanaRegistries;
+    
+    /// @notice Trusted Solana emitter for registry messages
+    bytes32 public trustedSolanaEmitter;
+    
+    /// @notice Processed VAA sequences for replay protection
+    mapping(uint64 => bool) public processedVAASequences;
 
     // Stats
     uint256 public totalChains;
@@ -197,13 +205,18 @@ contract RegistryHub is Ownable, ReentrancyGuard {
     error NotWormholeRelayer();
     error AlreadyVerified();
     error StillActive();
+    error VerificationFailed(string reason);
+    error InvalidChainId();
+    error InvalidEmitter();
+    error InvalidPayload();
+    error InvalidPayloadType();
 
     // ============================================================================
     // Constructor
     // ============================================================================
 
-    constructor(address _wormholeRelayer) Ownable(msg.sender) {
-        wormholeRelayer = _wormholeRelayer;
+    constructor(address _wormhole) Ownable(msg.sender) {
+        wormhole = IWormhole(_wormhole);
     }
 
     // ============================================================================
@@ -219,7 +232,7 @@ contract RegistryHub is Ownable, ReentrancyGuard {
         ChainType chainType,
         string calldata name,
         string calldata rpcUrl
-    ) external payable nonReentrant {
+    ) external payable nonReentrant whenNotPaused {
         if (chains[chainId].registeredAt != 0) revert ChainExists();
 
         TrustTier tier = TrustTier.UNSTAKED;
@@ -316,7 +329,7 @@ contract RegistryHub is Ownable, ReentrancyGuard {
         string calldata name,
         string calldata registryVersion,
         string calldata metadataUri
-    ) external {
+    ) external whenNotPaused {
         ChainInfo storage chain = chains[chainId];
         if (chain.registeredAt == 0) revert ChainNotFound();
         if (chain.networkOperator != msg.sender && msg.sender != owner()) revert NotOperator();
@@ -403,32 +416,281 @@ contract RegistryHub is Ownable, ReentrancyGuard {
     // Solana Verification (via Wormhole)
     // ============================================================================
 
+    /// @notice Payload type identifiers for Solana registry messages
+    uint8 public constant PAYLOAD_REGISTRY_REGISTER = 1;
+    uint8 public constant PAYLOAD_REGISTRY_UPDATE = 2;
+    uint8 public constant PAYLOAD_ENTRY_FEDERATE = 3;
+
     /**
      * @notice Verify a Solana registry via Wormhole VAA
-     * @param vaa Wormhole Verified Action Approval
+     * @param vaa Wormhole Verified Action Approval containing registry data
+     * @dev Parses and verifies the VAA using the Wormhole core bridge
+     *
+     * ## VAA Payload Format
+     * - payloadType: uint8 (1 = register, 2 = update, 3 = federate)
+     * - programId: bytes32 (Solana program address)
+     * - registryType: uint8 (maps to RegistryType enum)
+     * - name: string (variable length)
+     * - metadataUri: string (variable length)
      */
-    function verifySolanaRegistry(bytes calldata vaa) external {
-        // In production, parse and verify the VAA
-        // For now, only wormhole relayer can call
-        if (msg.sender != wormholeRelayer && msg.sender != owner()) {
-            revert NotWormholeRelayer();
+    function verifySolanaRegistry(bytes calldata vaa) external whenNotPaused {
+        // Parse and verify VAA through Wormhole core bridge
+        (IWormhole.VM memory vm, bool valid, string memory reason) = wormhole.parseAndVerifyVM(vaa);
+        
+        if (!valid) {
+            revert VerificationFailed(reason);
         }
 
-        // Decode VAA payload (simplified)
-        // Real implementation would use Wormhole SDK
-        (bytes32 programId, ) = abi.decode(vaa, (bytes32, string));
+        // Verify chain ID is Solana
+        if (vm.emitterChainId != WORMHOLE_SOLANA) {
+            revert InvalidChainId();
+        }
 
-        bytes32 registryId = computeRegistryId(
-            WORMHOLE_SOLANA,
-            RegistryType.IDENTITY, // Assuming identity registry
-            programId
-        );
+        // Verify emitter is trusted (if set)
+        if (trustedSolanaEmitter != bytes32(0) && vm.emitterAddress != trustedSolanaEmitter) {
+            revert InvalidEmitter();
+        }
 
-        if (verifiedSolanaRegistries[registryId]) revert AlreadyVerified();
+        // Check replay protection
+        if (processedVAASequences[vm.sequence]) {
+            revert AlreadyVerified();
+        }
+        processedVAASequences[vm.sequence] = true;
 
+        // Decode payload
+        bytes memory payload = vm.payload;
+        if (payload.length < 34) {
+            revert InvalidPayload();
+        }
+
+        uint8 payloadType = uint8(payload[0]);
+        bytes32 programId;
+        assembly {
+            programId := mload(add(payload, 33))
+        }
+
+        // Process based on payload type
+        if (payloadType == PAYLOAD_REGISTRY_REGISTER) {
+            _processRegistryRegistration(payload, programId);
+        } else if (payloadType == PAYLOAD_REGISTRY_UPDATE) {
+            _processRegistryUpdate(payload, programId);
+        } else if (payloadType == PAYLOAD_ENTRY_FEDERATE) {
+            _processFederatedEntry(payload, programId);
+        } else {
+            revert InvalidPayloadType();
+        }
+    }
+
+    /**
+     * @notice Process a registry registration from Solana
+     */
+    function _processRegistryRegistration(bytes memory payload, bytes32 programId) internal {
+        // Payload layout after type and programId:
+        // [33] registryType: uint8
+        // [34-35] nameLen: uint16
+        // [36..] name: bytes
+        // [...] metadataUriLen: uint16
+        // [...] metadataUri: bytes
+        
+        if (payload.length < 36) revert InvalidPayload();
+        
+        uint8 registryTypeRaw = uint8(payload[33]);
+        RegistryType registryType = RegistryType(registryTypeRaw);
+        
+        uint16 nameLen = uint16(uint8(payload[34])) << 8 | uint16(uint8(payload[35]));
+        
+        bytes32 registryId = computeRegistryId(WORMHOLE_SOLANA, registryType, programId);
+        
+        if (registries[registryId].registeredAt != 0) {
+            revert RegistryExists();
+        }
+
+        // Extract name
+        string memory name;
+        if (nameLen > 0 && payload.length >= 36 + nameLen) {
+            bytes memory nameBytes = new bytes(nameLen);
+            for (uint256 i = 0; i < nameLen; i++) {
+                nameBytes[i] = payload[36 + i];
+            }
+            name = string(nameBytes);
+        } else {
+            name = "Solana Registry";
+        }
+
+        // Extract metadataUri
+        uint256 metadataStart = 36 + nameLen;
+        string memory metadataUri = "";
+        if (payload.length >= metadataStart + 2) {
+            uint16 uriLen = uint16(uint8(payload[metadataStart])) << 8 | uint16(uint8(payload[metadataStart + 1]));
+            if (uriLen > 0 && payload.length >= metadataStart + 2 + uriLen) {
+                bytes memory uriBytes = new bytes(uriLen);
+                for (uint256 i = 0; i < uriLen; i++) {
+                    uriBytes[i] = payload[metadataStart + 2 + i];
+                }
+                metadataUri = string(uriBytes);
+            }
+        }
+
+        // Register Solana as a chain if not exists
+        if (chains[WORMHOLE_SOLANA].registeredAt == 0) {
+            chains[WORMHOLE_SOLANA] = ChainInfo({
+                chainId: WORMHOLE_SOLANA,
+                chainType: ChainType.SOLANA,
+                name: "Solana",
+                rpcUrl: "https://api.mainnet-beta.solana.com",
+                networkOperator: msg.sender,
+                stake: 0,
+                trustTier: TrustTier.UNSTAKED,
+                isActive: true,
+                registeredAt: block.timestamp
+            });
+            chainIds.push(WORMHOLE_SOLANA);
+            totalChains++;
+        }
+
+        // Create registry entry
+        registries[registryId] = RegistryInfo({
+            registryId: registryId,
+            chainId: WORMHOLE_SOLANA,
+            chainType: ChainType.SOLANA,
+            registryType: registryType,
+            contractAddress: programId,
+            name: name,
+            version: "1.0.0",
+            metadataUri: metadataUri,
+            entryCount: 0,
+            lastSyncBlock: 0,
+            isActive: true,
+            registeredAt: block.timestamp
+        });
+
+        registryIds.push(registryId);
+        registriesByChain[WORMHOLE_SOLANA].push(registryId);
+        registriesByType[registryType].push(registryId);
+        totalRegistries++;
         verifiedSolanaRegistries[registryId] = true;
 
+        emit RegistryRegistered(registryId, WORMHOLE_SOLANA, registryType, programId, name);
         emit SolanaRegistryVerified(registryId, programId);
+    }
+
+    /**
+     * @notice Process a registry update from Solana
+     */
+    function _processRegistryUpdate(bytes memory payload, bytes32 programId) internal {
+        // Payload layout:
+        // [33] registryType: uint8
+        // [34-41] entryCount: uint64
+        // [42-49] lastSyncSlot: uint64
+        
+        if (payload.length < 50) revert InvalidPayload();
+        
+        uint8 registryTypeRaw = uint8(payload[33]);
+        RegistryType registryType = RegistryType(registryTypeRaw);
+        
+        bytes32 registryId = computeRegistryId(WORMHOLE_SOLANA, registryType, programId);
+        RegistryInfo storage registry = registries[registryId];
+        
+        if (registry.registeredAt == 0) revert RegistryNotFound();
+
+        // Extract entry count and sync slot
+        uint64 entryCount;
+        uint64 lastSyncSlot;
+        assembly {
+            entryCount := mload(add(payload, 42))
+            lastSyncSlot := mload(add(payload, 50))
+        }
+        
+        // Update BigEndian to LittleEndian for Solana compatibility
+        entryCount = _swapEndian64(entryCount);
+        lastSyncSlot = _swapEndian64(lastSyncSlot);
+
+        registry.entryCount = uint256(entryCount);
+        registry.lastSyncBlock = uint256(lastSyncSlot);
+
+        emit RegistryUpdated(registryId, registry.entryCount, registry.lastSyncBlock);
+    }
+
+    /**
+     * @notice Process a federated entry from Solana
+     */
+    function _processFederatedEntry(bytes memory payload, bytes32 programId) internal {
+        // Payload layout:
+        // [33] registryType: uint8
+        // [34-65] originId: bytes32
+        // [66-67] nameLen: uint16
+        // [68..] name: bytes
+        // [...] metadataUriLen: uint16
+        // [...] metadataUri: bytes
+        
+        if (payload.length < 68) revert InvalidPayload();
+        
+        uint8 registryTypeRaw = uint8(payload[33]);
+        RegistryType registryType = RegistryType(registryTypeRaw);
+        
+        bytes32 originId;
+        assembly {
+            originId := mload(add(payload, 66))
+        }
+        
+        bytes32 registryId = computeRegistryId(WORMHOLE_SOLANA, registryType, programId);
+        
+        if (registries[registryId].registeredAt == 0) revert RegistryNotFound();
+
+        // Extract name
+        uint16 nameLen = uint16(uint8(payload[66])) << 8 | uint16(uint8(payload[67]));
+        string memory name = "";
+        if (nameLen > 0 && payload.length >= 68 + nameLen) {
+            bytes memory nameBytes = new bytes(nameLen);
+            for (uint256 i = 0; i < nameLen; i++) {
+                nameBytes[i] = payload[68 + i];
+            }
+            name = string(nameBytes);
+        }
+
+        // Extract metadataUri
+        uint256 metadataStart = 68 + nameLen;
+        string memory metadataUri = "";
+        if (payload.length >= metadataStart + 2) {
+            uint16 uriLen = uint16(uint8(payload[metadataStart])) << 8 | uint16(uint8(payload[metadataStart + 1]));
+            if (uriLen > 0 && payload.length >= metadataStart + 2 + uriLen) {
+                bytes memory uriBytes = new bytes(uriLen);
+                for (uint256 i = 0; i < uriLen; i++) {
+                    uriBytes[i] = payload[metadataStart + 2 + i];
+                }
+                metadataUri = string(uriBytes);
+            }
+        }
+
+        bytes32 entryId = computeEntryId(registryId, originId);
+
+        federatedEntries[entryId] = RegistryEntry({
+            entryId: entryId,
+            registryId: registryId,
+            originId: originId,
+            name: name,
+            metadataUri: metadataUri,
+            syncedAt: block.timestamp
+        });
+
+        federatedEntryIds.push(entryId);
+        totalFederatedEntries++;
+
+        emit EntryFederated(entryId, registryId, originId, name);
+    }
+
+    /**
+     * @notice Swap endianness of uint64 (Solana uses little-endian)
+     */
+    function _swapEndian64(uint64 val) internal pure returns (uint64) {
+        return ((val & 0xFF00000000000000) >> 56) |
+               ((val & 0x00FF000000000000) >> 40) |
+               ((val & 0x0000FF0000000000) >> 24) |
+               ((val & 0x000000FF00000000) >> 8) |
+               ((val & 0x00000000FF000000) << 8) |
+               ((val & 0x0000000000FF0000) << 24) |
+               ((val & 0x000000000000FF00) << 40) |
+               ((val & 0x00000000000000FF) << 56);
     }
 
     /**
@@ -548,8 +810,22 @@ contract RegistryHub is Ownable, ReentrancyGuard {
         return chains[chainId].trustTier >= TrustTier.STAKED && chains[chainId].isActive;
     }
 
-    function setWormholeRelayer(address _relayer) external onlyOwner {
-        wormholeRelayer = _relayer;
+    function setWormhole(address _wormhole) external onlyOwner {
+        wormhole = IWormhole(_wormhole);
+    }
+
+    function setTrustedSolanaEmitter(bytes32 _emitter) external onlyOwner {
+        trustedSolanaEmitter = _emitter;
+    }
+
+    /// @notice Pause all registry operations
+    function pause() external onlyOwner {
+        _pause();
+    }
+
+    /// @notice Unpause registry operations
+    function unpause() external onlyOwner {
+        _unpause();
     }
 
     function version() external pure returns (string memory) {

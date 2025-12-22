@@ -168,29 +168,6 @@ export const IndexerPositionsResponseSchema = z.object({
 });
 export type IndexerPositionsResponse = z.infer<typeof IndexerPositionsResponseSchema>;
 
-// ============ CLI Argument Schemas ============
-
-export const BacktestArgsSchema = z.object({
-  strategy: z.enum(['momentum', 'mean-reversion', 'volatility', 'composite']),
-  startDate: z.string().transform((s) => {
-    const d = new Date(s);
-    if (isNaN(d.getTime())) throw new Error(`Invalid start date: ${s}`);
-    return d;
-  }),
-  endDate: z.string().transform((s) => {
-    const d = new Date(s);
-    if (isNaN(d.getTime())) throw new Error(`Invalid end date: ${s}`);
-    return d;
-  }),
-  initialCapital: z.coerce.number().positive(),
-});
-
-export const BotStartArgsSchema = z.object({
-  chainId: EVMChainIdSchema,
-  rpcUrl: z.string().url(),
-  privateKey: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid private key format'),
-});
-
 // ============ Oracle Response Schemas ============
 
 export const PythPriceSchema = z.object({
@@ -229,32 +206,3 @@ export const BotEngineConfigSchema = z.object({
   logLevel: z.enum(['debug', 'info', 'warn', 'error']),
 });
 
-// ============ Validation Helpers ============
-
-/**
- * Validate CoinGecko API response
- */
-export function validateCoinGeckoResponse(data: unknown): CoinGeckoMarketChart {
-  return CoinGeckoMarketChartSchema.parse(data);
-}
-
-/**
- * Validate Jupiter API response
- */
-export function validateJupiterResponse(data: unknown): JupiterQuoteResponse {
-  return JupiterQuoteResponseSchema.parse(data);
-}
-
-/**
- * Validate indexer positions response
- */
-export function validateIndexerResponse(data: unknown): IndexerPositionsResponse {
-  return IndexerPositionsResponseSchema.parse(data);
-}
-
-/**
- * Validate bot engine configuration
- */
-export function validateBotEngineConfig(config: unknown): z.infer<typeof BotEngineConfigSchema> {
-  return BotEngineConfigSchema.parse(config);
-}

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {Test, console2} from "forge-std/Test.sol";
 import {Token, IBanManager} from "../../src/tokens/Token.sol";
@@ -399,6 +399,6 @@ contract TokenTest is Test {
     }
 
     function test_Version() public view {
-        assertEq(token.version(), "1.0.0");
+        assertEq(token.version(), "2.0.0");
     }
 }

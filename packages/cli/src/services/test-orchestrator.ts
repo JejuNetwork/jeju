@@ -14,7 +14,7 @@ import { logger } from '../lib/logger';
 import { LocalnetOrchestrator } from './localnet-orchestrator';
 import { DockerOrchestrator, type TestProfile } from './docker-orchestrator';
 import { AppOrchestrator } from './app-orchestrator';
-import type { TestMode } from '../types/test';
+import type { TestMode } from '../types';
 
 export interface TestOrchestratorOptions {
   mode: TestMode;

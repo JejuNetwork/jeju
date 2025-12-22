@@ -17,6 +17,7 @@ import {
   createAssociatedTokenAccountInstruction,
 } from '@solana/spl-token';
 import { EVM_LIGHT_CLIENT_PROGRAM_ID } from '../light-client';
+import { evmAddressToBytes, bytesToEvmAddress } from '../dex/utils';
 
 export const TOKEN_BRIDGE_PROGRAM_ID = new PublicKey('TknBridge1111111111111111111111111111111111');
 
@@ -391,22 +392,14 @@ export class TokenBridgeClient {
    * Convert EVM address (20 bytes) to Uint8Array
    */
   evmAddressToBytes(address: string): Uint8Array {
-    const cleaned = address.startsWith('0x') ? address.slice(2) : address;
-    if (cleaned.length !== 40) {
-      throw new Error('Invalid EVM address length');
-    }
-    const bytes = new Uint8Array(20);
-    for (let i = 0; i < 20; i++) {
-      bytes[i] = parseInt(cleaned.substr(i * 2, 2), 16);
-    }
-    return bytes;
+    return evmAddressToBytes(address);
   }
 
   /**
    * Convert bytes to EVM address string
    */
   bytesToEvmAddress(bytes: Uint8Array): string {
-    return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+    return bytesToEvmAddress(bytes);
   }
 
   // ============================================================================

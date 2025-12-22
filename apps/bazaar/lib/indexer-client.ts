@@ -1,4 +1,4 @@
-import { AddressSchema } from '@jejunetwork/types/contracts';
+import { AddressSchema } from '@jejunetwork/types';
 import { expect } from '@/lib/validation';
 import { INDEXER_URL as CONFIG_INDEXER_URL } from '../config';
 

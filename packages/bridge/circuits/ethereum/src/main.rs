@@ -211,12 +211,18 @@ fn verify_bls_signature(
     signature: &[u8; 96],
     bits: &[u8; 64],
 ) {
+    // Wrap in Vec for serde serialization (arrays > 32 bytes need wrapper)
+    let pubkey_vec = pubkey.to_vec();
+    let message_vec = message.to_vec();
+    let signature_vec = signature.to_vec();
+    let bits_vec = bits.to_vec();
+
     // Commit to the signature inputs so the proof attests to their validity
     // The SP1 prover performs BLS verification off-circuit and commits the result
-    sp1_zkvm::io::hint(pubkey);
-    sp1_zkvm::io::hint(message);
-    sp1_zkvm::io::hint(signature);
-    sp1_zkvm::io::hint(bits);
+    sp1_zkvm::io::hint(&pubkey_vec);
+    sp1_zkvm::io::hint(&message_vec);
+    sp1_zkvm::io::hint(&signature_vec);
+    sp1_zkvm::io::hint(&bits_vec);
     
     // Read the verification result from the prover
     // If signature is invalid, prover cannot generate valid proof

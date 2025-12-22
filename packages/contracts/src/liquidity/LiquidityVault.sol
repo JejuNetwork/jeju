@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -45,12 +45,14 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     error BelowMinimumLiquidity();
     error InvalidAmount();
     error OnlyPaymaster();
+    error OnlyFeeDistributor();
     error TransferFailed();
     error InsufficientShares(uint256 actual, uint256 minimum);
-
+    error InvalidAddress();
+    error NoFeesToDistribute();
 
     constructor(address _rewardToken, address initialOwner) Ownable(initialOwner) {
-        require(_rewardToken != address(0), "Invalid reward token address");
+        if (_rewardToken == address(0)) revert InvalidAddress();
         rewardToken = IERC20(_rewardToken);
     }
 
@@ -61,7 +63,7 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     }
 
     modifier onlyFeeDistributor() {
-        require(msg.sender == feeDistributor, "Only fee distributor");
+        if (msg.sender != feeDistributor) revert OnlyFeeDistributor();
         _;
     }
 
@@ -211,7 +213,7 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
      */
     function distributeFees(uint256 ethPoolFees, uint256 tokenPoolFees) external nonReentrant onlyFeeDistributor {
         uint256 totalFees = ethPoolFees + tokenPoolFees;
-        require(totalFees > 0, "No fees to distribute");
+        if (totalFees == 0) revert NoFeesToDistribute();
 
         rewardToken.safeTransferFrom(msg.sender, address(this), totalFees);
 
@@ -330,13 +332,13 @@ contract LiquidityVault is ReentrancyGuard, Ownable, Pausable {
     // ============ Admin Functions ============
 
     function setPaymaster(address _paymaster) external onlyOwner {
-        require(_paymaster != address(0), "Invalid paymaster");
+        if (_paymaster == address(0)) revert InvalidAddress();
         paymaster = _paymaster;
         emit PaymasterSet(_paymaster);
     }
 
     function setFeeDistributor(address _feeDistributor) external onlyOwner {
-        require(_feeDistributor != address(0), "Invalid distributor");
+        if (_feeDistributor == address(0)) revert InvalidAddress();
         feeDistributor = _feeDistributor;
         emit FeeDistributorSet(_feeDistributor);
     }

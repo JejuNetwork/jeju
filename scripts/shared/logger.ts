@@ -1,122 +1,46 @@
 /**
- * Colored logging with timestamps, prefixes, and emoji icons.
+ * Scripts Logger - Uses shared logger with CLI formatting utilities
  */
+
+import { createLogger, type Logger as BaseLogger } from '@jejunetwork/shared';
 
 export type LogLevel = 'debug' | 'info' | 'success' | 'warn' | 'error';
 
-interface LoggerConfig {
-  level: LogLevel;
-  prefix?: string;
-  timestamp?: boolean;
-}
-
-const DEFAULT_CONFIG: LoggerConfig = {
-  level: 'info',
-  timestamp: true,
-};
-
-const LOG_LEVELS = {
-  debug: 0,
-  info: 1,
-  success: 1,
-  warn: 2,
-  error: 3,
-};
-
-const COLORS = {
-  debug: '\x1b[90m',    // Gray
-  info: '\x1b[34m',     // Blue
-  success: '\x1b[32m',  // Green
-  warn: '\x1b[33m',     // Yellow
-  error: '\x1b[31m',    // Red
-  reset: '\x1b[0m',
-};
-
-const ICONS = {
-  debug: '🔍',
-  info: 'ℹ️ ',
-  success: '✅',
-  warn: '⚠️ ',
-  error: '❌',
-};
-
 export class Logger {
-  private config: LoggerConfig;
+  private baseLogger: BaseLogger;
+  private prefix?: string;
   
-  constructor(config: Partial<LoggerConfig> = {}) {
-    this.config = { ...DEFAULT_CONFIG, ...config };
-  }
-  
-  private shouldLog(level: LogLevel): boolean {
-    return LOG_LEVELS[level] >= LOG_LEVELS[this.config.level];
-  }
-  
-  private format(level: LogLevel, message: string): string {
-    const parts: string[] = [];
-    
-    if (this.config.timestamp) {
-      const now = new Date().toISOString();
-      parts.push(`[${now}]`);
-    }
-    
-    if (this.config.prefix) {
-      parts.push(`[${this.config.prefix}]`);
-    }
-    
-    parts.push(`${ICONS[level]} ${message}`);
-    
-    return parts.join(' ');
-  }
-  
-  private log(level: LogLevel, message: string, ...args: unknown[]): void {
-    if (!this.shouldLog(level)) return;
-    
-    const formatted = this.format(level, message);
-    const color = COLORS[level];
-    const reset = COLORS.reset;
-    
-    const output = color + formatted + reset;
-    
-    if (level === 'error') {
-      console.error(output, ...args);
-    } else if (level === 'warn') {
-      console.warn(output, ...args);
-    } else {
-      console.log(output, ...args);
-    }
+  constructor(config: { prefix?: string } = {}) {
+    this.prefix = config.prefix;
+    this.baseLogger = createLogger(config.prefix ?? 'scripts');
   }
   
   debug(message: string, ...args: unknown[]): void {
-    this.log('debug', message, ...args);
+    this.baseLogger.debug(message, args.length > 0 ? { args } : undefined);
   }
   
   info(message: string, ...args: unknown[]): void {
-    this.log('info', message, ...args);
+    this.baseLogger.info(message, args.length > 0 ? { args } : undefined);
   }
   
   success(message: string, ...args: unknown[]): void {
-    this.log('success', message, ...args);
+    this.baseLogger.info(`✅ ${message}`, args.length > 0 ? { args, success: true } : { success: true });
   }
   
   warn(message: string, ...args: unknown[]): void {
-    this.log('warn', message, ...args);
+    this.baseLogger.warn(message, args.length > 0 ? { args } : undefined);
   }
   
   error(message: string, ...args: unknown[]): void {
-    this.log('error', message, ...args);
+    this.baseLogger.error(message, args.length > 0 ? { args } : undefined);
   }
   
   child(prefix: string): Logger {
-    const childPrefix = this.config.prefix
-      ? `${this.config.prefix}:${prefix}`
-      : prefix;
-    
-    return new Logger({
-      ...this.config,
-      prefix: childPrefix,
-    });
+    const childPrefix = this.prefix ? `${this.prefix}:${prefix}` : prefix;
+    return new Logger({ prefix: childPrefix });
   }
   
+  // CLI formatting utilities
   separator(char: string = '=', length: number = 60): void {
     console.log(char.repeat(length));
   }
@@ -145,4 +69,3 @@ export const info = logger.info.bind(logger);
 export const success = logger.success.bind(logger);
 export const warn = logger.warn.bind(logger);
 export const error = logger.error.bind(logger);
-

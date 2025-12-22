@@ -7,14 +7,12 @@ export { RoomSDK, createRoomSDK, type RoomSDKConfig } from './room';
 export { ExecutorSDK, createExecutorSDK, type ExecutorConfig, type ExecutorCostConfig } from './executor';
 export { createLogger, getLogger, type Logger, type LogLevel, type LoggerConfig, type LogEntry } from './logger';
 
-// Agent Runtime - ElizaOS integration with DWS fallback
+// Agent Runtime - ElizaOS + @jejunetwork/eliza-plugin
 export {
   CrucibleAgentRuntime,
   CrucibleRuntimeManager,
   createCrucibleRuntime,
   runtimeManager,
-  checkDWSHealth,
-  dwsGenerate,
   type RuntimeConfig,
   type RuntimeMessage,
   type RuntimeResponse,

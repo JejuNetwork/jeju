@@ -2,7 +2,13 @@
  * Platform Adapter Types
  */
 
-import type { Platform, PlatformMessage, MessageEmbed, MessageButton } from '../types';
+import type { 
+  Platform, 
+  PlatformMessage, 
+  MessageEmbed, 
+  MessageButton,
+  WebhookPayloadData,
+} from '../types';
 
 export interface PlatformAdapter {
   platform: Platform;
@@ -44,7 +50,7 @@ export interface PlatformAdapter {
   registerCommands?(): Promise<void>;
   
   /** Handle webhook payload (already validated by server.ts) */
-  handleWebhook?(payload: unknown): Promise<void>;
+  handleWebhook?(payload: WebhookPayloadData): Promise<void>;
   
   /** Set the message handler callback */
   onMessage(handler: MessageHandler): void;

@@ -3,6 +3,7 @@ import cors from 'cors';
 import { createPaymentRequirement, checkPayment, PAYMENT_TIERS, type PaymentRequirements } from './lib/x402.js';
 import { Address, isAddress } from 'viem';
 import { rateLimit, agentRateLimit, strictRateLimit } from './middleware/rate-limit.js';
+import { banCheck } from './middleware/ban-check.js';
 import { intentService } from './services/intent-service.js';
 import { routeService } from './services/route-service.js';
 import { solverService } from './services/solver-service.js';
@@ -29,6 +30,20 @@ import {
   prepareChallengeTransaction,
   prepareAppealTransaction,
 } from './lib/moderation-api.js';
+import {
+  getSleeveStats,
+  getSleevePosition,
+  getRouterPosition,
+  estimateYield,
+  getDefaultStrategy,
+  getRiskTiers,
+  isRiskSleeveDeployed,
+  isLiquidityRouterDeployed,
+  getRiskSleeveAddress,
+  getLiquidityRouterAddress,
+  RiskTier,
+  RISK_TIER_NAMES,
+} from './lib/liquidity-api.js';
 import { poolService, type V2Pool, type PaymasterPool } from './services/pool-service.js';
 import { getProviderInfo } from '@jejunetwork/shared';
 import {
@@ -81,6 +96,7 @@ const PAYMENT_RECIPIENT = (process.env.GATEWAY_PAYMENT_RECIPIENT || '0x000000000
 app.use(cors());
 app.use(express.json());
 app.use(rateLimit());
+app.use(banCheck({ skipPaths: ['/health', '/.well-known', '/public', '/a2a'] })); // Ban check for API routes
 
 const GATEWAY_AGENT_CARD = {
   protocolVersion: '0.3.0',
@@ -231,15 +247,20 @@ const MCP_TOOLS = [
   { name: 'faucet_info', description: 'Get faucet configuration and requirements', inputSchema: { type: 'object', properties: {} } },
 ] : []);
 
-import type { A2ARequest } from './lib/validation.js';
+import type { A2ARequest, JsonValue } from './lib/validation.js';
 
+/**
+ * Result of executing an A2A skill.
+ * The data field accepts any object that can be JSON-serialized.
+ */
 interface SkillResult {
   message: string;
-  data: Record<string, unknown>;
+  /** Skill result data - must be JSON-serializable (serialized in response handler) */
+  data: object;
   requiresPayment?: PaymentRequirements;
 }
 
-async function executeSkill(skillId: string, params: Record<string, unknown>, paymentHeader: string | null): Promise<SkillResult> {
+async function executeSkill(skillId: string, params: Record<string, JsonValue>, paymentHeader: string | null): Promise<SkillResult> {
   switch (skillId) {
     case 'list-protocol-tokens':
       return { message: 'Protocol tokens: elizaOS, CLANKER, VIRTUAL, CLANKERMON', data: { tokens: [{ symbol: 'elizaOS', hasPaymaster: true }, { symbol: 'CLANKER', hasPaymaster: true }, { symbol: 'VIRTUAL', hasPaymaster: true }, { symbol: 'CLANKERMON', hasPaymaster: true }] } };
@@ -552,7 +573,7 @@ app.post('/a2a', agentRateLimit(), async (req: Request, res: Response) => {
 
   let result: SkillResult;
   try {
-    result = await executeSkill(skillId, dataPart.data as Record<string, unknown>, req.headers['x-payment'] as string || null);
+    result = await executeSkill(skillId, dataPart.data as Record<string, JsonValue>, req.headers['x-payment'] as string || null);
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Skill execution failed';
     return res.json({ jsonrpc: '2.0', id: body.id, error: { code: -32603, message } });
@@ -587,70 +608,79 @@ app.post('/mcp/resources/read', agentRateLimit(), async (req: Request, res: Resp
   }
 
   const { uri } = validated;
-  let contents: unknown;
+  
+  // Helper to send MCP resource response with JSON-serialized content
+  const sendResource = (data: object) => {
+    res.json({ contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(data, null, 2) }] });
+  };
 
   switch (uri) {
     // Intent Framework
-    case 'oif://routes': contents = await routeService.listRoutes(); break;
-    case 'oif://solvers': contents = await solverService.listSolvers(); break;
-    case 'oif://intents/recent': contents = await intentService.listIntents({ limit: 100 }); break;
-    case 'oif://stats': contents = await intentService.getStats(); break;
+    case 'oif://routes': return sendResource(await routeService.listRoutes());
+    case 'oif://solvers': return sendResource(await solverService.listSolvers());
+    case 'oif://intents/recent': return sendResource(await intentService.listIntents({ limit: 100 }));
+    case 'oif://stats': return sendResource(await intentService.getStats());
     // XLP Pools
-    case 'xlp://pools/v2': contents = await poolService.listV2Pools(); break;
-    case 'xlp://pools/v3': contents = { note: 'V3 pools require specific token pair query', stats: await poolService.getPoolStats() }; break;
-    case 'xlp://pools/stats': contents = await poolService.getPoolStats(); break;
-    case 'xlp://tokens': contents = poolService.getTokens(); break;
-    case 'xlp://contracts': contents = poolService.getContracts(); break;
+    case 'xlp://pools/v2': return sendResource(await poolService.listV2Pools());
+    case 'xlp://pools/v3': return sendResource({ note: 'V3 pools require specific token pair query', stats: await poolService.getPoolStats() });
+    case 'xlp://pools/stats': return sendResource(await poolService.getPoolStats());
+    case 'xlp://tokens': return sendResource(poolService.getTokens());
+    case 'xlp://contracts': return sendResource(poolService.getContracts());
     // Moderation
-    case 'moderation://cases': contents = await getModerationCases({ limit: 100 }); break;
-    case 'moderation://cases/active': contents = await getModerationCases({ activeOnly: true, limit: 50 }); break;
-    case 'moderation://reports': contents = await getReports({ limit: 100 }); break;
-    case 'moderation://stats': contents = await getModerationStats(); break;
+    case 'moderation://cases': return sendResource(await getModerationCases({ limit: 100 }));
+    case 'moderation://cases/active': return sendResource(await getModerationCases({ activeOnly: true, limit: 50 }));
+    case 'moderation://reports': return sendResource(await getReports({ limit: 100 }));
+    case 'moderation://stats': return sendResource(await getModerationStats());
     // Risk Pools
     case 'risk://tiers':
-      contents = {
-        tiers: [
-          { id: 0, name: 'Conservative', description: 'Low risk, stable yields', expectedApyBps: 300, minDeposit: '0.01 ETH' },
-          { id: 1, name: 'Balanced', description: 'Moderate risk with competitive returns', expectedApyBps: 1000, minDeposit: '0.01 ETH' },
-          { id: 2, name: 'Aggressive', description: 'Higher risk, higher potential returns', expectedApyBps: 2000, minDeposit: '0.01 ETH' },
-        ],
-      };
-      break;
-    case 'risk://stats':
-      contents = {
-        totalDeposited: '0 ETH',
-        totalUtilized: '0 ETH',
-        averageYieldBps: 0,
-        tiers: {
-          conservative: { deposited: '0', utilized: '0', yieldBps: 300 },
-          balanced: { deposited: '0', utilized: '0', yieldBps: 1000 },
-          aggressive: { deposited: '0', utilized: '0', yieldBps: 2000 },
-        },
-        note: 'Query RiskSleeve contract for live data',
-      };
-      break;
-    case 'risk://allocations':
-      contents = {
-        defaultStrategy: {
-          ethVaultBps: 3000,
-          tokenVaultBps: 2000,
-          nodeStakeBps: 2000,
-          xlpStakeBps: 2000,
-          paymasterStakeBps: 500,
-          governanceStakeBps: 500,
-        },
+      return sendResource(getRiskTiers());
+    case 'risk://stats': {
+      // Query all tiers for aggregated stats
+      const [conservative, balanced, aggressive] = await Promise.all([
+        getSleeveStats(RiskTier.CONSERVATIVE),
+        getSleeveStats(RiskTier.BALANCED),
+        getSleeveStats(RiskTier.AGGRESSIVE),
+      ]);
+      
+      if ('status' in conservative) {
+        return sendResource({ status: 'not_deployed', message: 'RiskSleeve contract pending deployment' });
+      }
+      
+      return sendResource({
+        deployed: true,
+        contractAddress: getRiskSleeveAddress(),
+        tiers: { conservative, balanced, aggressive },
+      });
+    }
+    case 'risk://allocations': {
+      const strategy = await getDefaultStrategy();
+      if ('status' in strategy) {
+        return sendResource({ 
+          status: 'not_deployed', 
+          message: 'LiquidityRouter contract pending deployment',
+          plannedDefaults: {
+            ethVaultBps: 3000,
+            tokenVaultBps: 2000,
+            nodeStakeBps: 2000,
+            xlpStakeBps: 2000,
+            paymasterStakeBps: 500,
+            governanceStakeBps: 500,
+          },
+        });
+      }
+      return sendResource({
+        deployed: true,
+        contractAddress: getLiquidityRouterAddress(),
+        defaultStrategy: strategy,
         description: 'Default allocation distributes across ETH vault, token vault, node staking, XLP staking, paymaster, and governance',
-      };
-      break;
+      });
+    }
     // Faucet (testnet only)
     case 'faucet://info':
       if (!IS_TESTNET) return res.status(403).json({ error: 'Faucet is only available on testnet' });
-      contents = faucetService.getFaucetInfo();
-      break;
+      return sendResource(faucetService.getFaucetInfo());
     default: return res.status(404).json({ error: 'Resource not found' });
   }
-
-  res.json({ contents: [{ uri, mimeType: 'application/json', text: JSON.stringify(contents, null, 2) }] });
 });
 
 app.post('/mcp/tools/list', agentRateLimit(), (_req: Request, res: Response) => {
@@ -668,7 +698,7 @@ app.post('/mcp/tools/call', agentRateLimit(), async (req: Request, res: Response
   }
 
   const { name, arguments: args } = validated;
-  let result: unknown;
+  let result: object | null | undefined;
   let isError = false;
 
   try {
@@ -853,108 +883,102 @@ app.post('/mcp/tools/call', agentRateLimit(), async (req: Request, res: Response
           isError = true;
           break;
         }
-        result = {
-          tier,
-          tierName: ['Conservative', 'Balanced', 'Aggressive'][tier],
-          deposited: '0',
-          utilized: '0',
-          available: '0',
-          utilizationBps: 0,
-          yieldBps: [300, 1000, 2000][tier],
-          note: 'Query RiskSleeve contract for live data',
-        };
+        result = await getSleeveStats(tier as RiskTier);
         break;
       }
       case 'get_sleeve_position': {
         const tier = args.tier as number;
         const address = args.address as string;
-        result = {
-          address,
-          tier,
-          tierName: ['Conservative', 'Balanced', 'Aggressive'][tier],
-          deposited: '0',
-          pendingYield: '0',
-          depositDuration: 0,
-          note: 'Query RiskSleeve.userDeposits for live data',
-        };
+        if (tier < 0 || tier > 2) {
+          result = { error: 'Invalid tier' };
+          isError = true;
+          break;
+        }
+        if (!address || !isAddress(address)) {
+          result = { error: 'Invalid address' };
+          isError = true;
+          break;
+        }
+        result = await getSleevePosition(address as Address, tier as RiskTier);
         break;
       }
       case 'prepare_sleeve_deposit': {
+        const riskSleeveAddr = getRiskSleeveAddress();
+        if (!riskSleeveAddr) {
+          result = { error: 'RiskSleeve contract not yet deployed', suggestion: 'Use the Gateway UI at /risk to deposit when contracts are live' };
+          isError = true;
+          break;
+        }
         const amount = args.amount as string;
         const tier = args.tier as number;
         result = {
           action: 'sign-and-send',
           transaction: {
-            to: 'RiskSleeve contract address', // Would come from config
+            to: riskSleeveAddr,
             value: amount,
-            data: `deposit(${amount}, ${tier})`,
-            note: 'Deposit ETH into risk sleeve',
+            data: `0x${Buffer.from('deposit(uint8)').slice(0, 4).toString('hex')}${tier.toString(16).padStart(64, '0')}`,
           },
         };
         break;
       }
       case 'prepare_sleeve_withdraw': {
+        const riskSleeveAddr = getRiskSleeveAddress();
+        if (!riskSleeveAddr) {
+          result = { error: 'RiskSleeve contract not yet deployed', suggestion: 'Use the Gateway UI at /risk to withdraw when contracts are live' };
+          isError = true;
+          break;
+        }
         const amount = args.amount as string;
         const tier = args.tier as number;
         result = {
           action: 'sign-and-send',
           transaction: {
-            to: 'RiskSleeve contract address',
-            data: `withdraw(${amount}, ${tier})`,
-            note: 'Withdraw ETH from risk sleeve',
+            to: riskSleeveAddr,
+            data: `withdraw(${tier}, ${amount})`,
           },
         };
         break;
       }
       case 'get_allocation_strategy': {
-        result = {
-          defaultStrategy: {
-            ethVaultBps: 3000,
-            tokenVaultBps: 2000,
-            nodeStakeBps: 2000,
-            xlpStakeBps: 2000,
-            paymasterStakeBps: 500,
-            governanceStakeBps: 500,
-          },
-          note: 'Query LiquidityRouter.defaultStrategy for live data',
-        };
+        result = await getDefaultStrategy();
         break;
       }
       case 'prepare_router_deposit': {
+        const routerAddr = getLiquidityRouterAddress();
+        if (!routerAddr) {
+          result = { error: 'LiquidityRouter contract not yet deployed', suggestion: 'Use the Gateway UI to deposit when contracts are live' };
+          isError = true;
+          break;
+        }
         const amount = args.amount as string;
-        const strategy = args.strategy as Record<string, number> | undefined;
         result = {
           action: 'sign-and-send',
           transaction: {
-            to: 'LiquidityRouter contract address',
+            to: routerAddr,
             value: amount,
-            data: strategy ? `deposit(${amount}, ${JSON.stringify(strategy)})` : `depositETH()`,
-            note: 'Deposit via liquidity router with strategy',
+            data: '0x', // depositETH() selector
           },
         };
         break;
       }
       case 'get_router_position': {
         const address = args.address as string;
-        result = {
-          address,
-          ethVaultShares: '0',
-          tokenVaultShares: '0',
-          stakedAmount: '0',
-          pendingRewards: '0',
-          strategy: null,
-          note: 'Query LiquidityRouter.getPosition for live data',
-        };
+        if (!address || !isAddress(address)) {
+          result = { error: 'Invalid address' };
+          isError = true;
+          break;
+        }
+        result = await getRouterPosition(address as Address);
         break;
       }
       case 'estimate_yield': {
         const address = args.address as string;
-        result = {
-          address,
-          estimatedYearlyYieldBps: 0,
-          estimatedYearlyYieldPercent: 0,
-          note: 'Query LiquidityRouter.estimateYield for live data',
-        };
+        if (!address || !isAddress(address)) {
+          result = { error: 'Invalid address' };
+          isError = true;
+          break;
+        }
+        result = await estimateYield(address as Address);
         break;
       }
       default: {

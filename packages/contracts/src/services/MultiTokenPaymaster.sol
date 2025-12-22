@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
@@ -8,13 +8,14 @@ import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint
 import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
-import {ICreditManager, IServiceRegistry} from "../interfaces/IServices.sol";
+import {ICreditManager, IServiceRegistry, ICloudServiceRegistry} from "../interfaces/IServices.sol";
 
 /**
  * @title MultiTokenPaymaster
  * @author Jeju Network
  * @notice ERC-4337 paymaster with credit system and multi-token support
- * @dev Optimized for zero-latency payments using prepaid balances
+ * @dev Optimized for zero-latency payments using prepaid balances.
+ *      Consolidates CloudPaymaster functionality.
  *
  * Payment Flow (FAST PATH - most common):
  * 1. Check user's prepaid balance in CreditManager
@@ -60,10 +61,16 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
     IPriceOracle public immutable priceOracle;
 
     /// @notice Revenue wallet for service fees
-    address public immutable revenueWallet;
+    address public revenueWallet;
 
     /// @notice Maximum gas cost allowed
     uint256 public maxGasCost = 0.1 ether;
+
+    /// @notice Fee margin for price volatility protection (basis points)
+    uint256 public feeMargin = 1000; // 10%
+
+    /// @notice Basis points denominator
+    uint256 public constant BASIS_POINTS = 10000;
 
     /// @notice Payment token selector
     enum PaymentToken {
@@ -71,7 +78,6 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
         USDC, // 1
         ElizaOS, // 2
         ETH // 3
-
     }
 
     /// @notice ETH address constant
@@ -86,6 +92,9 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
     event CreditManagerUpdated(address indexed oldManager, address indexed newManager);
     event ServiceRegistryUpdated(address indexed oldRegistry, address indexed newRegistry);
     event NativeTokenUpdated(address indexed oldToken, address indexed newToken);
+    event RevenueWalletUpdated(address indexed oldWallet, address indexed newWallet);
+    event FeeMarginUpdated(uint256 oldMargin, uint256 newMargin);
+    event EntryPointFunded(uint256 amount);
 
     // ============ Errors ============
 
@@ -93,6 +102,9 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
     error GasCostTooHigh(uint256 cost, uint256 max);
     error ServiceNotAvailable(string serviceName);
     error InsufficientCreditAndNoPayment();
+    error InsufficientLiquidity();
+    error StaleOraclePrice();
+    error InvalidRevenueWallet();
 
     // ============ Constructor ============
 
@@ -108,7 +120,8 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
     ) BasePaymaster(_entryPoint, _owner) {
         require(_usdc != address(0), "Invalid USDC");
         require(_elizaOS != address(0), "Invalid elizaOS");
-        require(_creditManager != address(0), "Invalid credit manager");
+        // creditManager can be zero if we only want direct payments initially, but constructor requires it non-zero in original code
+        require(_creditManager != address(0), "Invalid credit manager"); 
         require(_serviceRegistry != address(0), "Invalid service registry");
         require(_priceOracle != address(0), "Invalid price oracle");
         require(_revenueWallet != address(0), "Invalid revenue wallet");
@@ -134,7 +147,7 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
      * - [20 bytes] paymaster address
      * - [1 byte] service name length
      * - [N bytes] service name
-     * - [1 byte] payment token (0=USDC, 1=elizaOS, 2=ETH)
+     * - [1 byte] payment token (0=JEJU, 1=USDC, 2=elizaOS, 3=ETH)
      * - [32 bytes] overpayment amount (optional, for crediting)
      */
     function _validatePaymasterUserOp(PackedUserOperation calldata userOp, bytes32, uint256 maxCost)
@@ -146,6 +159,11 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
     {
         if (maxCost > maxGasCost) {
             revert GasCostTooHigh(maxCost, maxGasCost);
+        }
+
+        // Ensure we have enough ETH in EntryPoint to sponsor
+        if (getDeposit() < maxCost) {
+            revert InsufficientLiquidity();
         }
 
         // Parse paymasterAndData
@@ -270,6 +288,13 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
 
             emit TransactionSponsoredWithPayment(user, serviceName, token, overpayment, overpayment - actualTotalCost);
         }
+
+        // Record usage if registry supports it
+        try ICloudServiceRegistry(address(serviceRegistry)).recordUsage(user, serviceName, serviceCost) {
+            // Usage recorded
+        } catch {
+            // Ignore if not supported or failed
+        }
     }
 
     // ============ Internal Helpers ============
@@ -278,21 +303,35 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
      * @notice Calculate total cost in target token
      * @param serviceCost Service cost (in elizaOS tokens)
      * @param gasCost Gas cost (in ETH)
-     * @param paymentToken Token user is paying with
+     * @param tokenAddr Address of the payment token
      * @return totalCost Total cost in payment token
      */
-    function _calculateTotalCost(uint256 serviceCost, uint256 gasCost, address paymentToken)
+    function _calculateTotalCost(uint256 serviceCost, uint256 gasCost, address tokenAddr)
         internal
         view
         returns (uint256 totalCost)
     {
-        // Convert service cost (elizaOS) to payment token
-        uint256 serviceCostInToken = priceOracle.convertAmount(address(elizaOS), paymentToken, serviceCost);
+        // Add fee margin to gas cost
+        uint256 gasCostWithMargin = (gasCost * (BASIS_POINTS + feeMargin)) / BASIS_POINTS;
 
-        // Convert gas cost (ETH) to payment token
-        uint256 gasCostInToken = priceOracle.convertAmount(ETH_ADDRESS, paymentToken, gasCost);
+        if (tokenAddr == ETH_ADDRESS) {
+            // Convert service cost (elizaOS) to ETH
+            uint256 serviceCostInETH = priceOracle.convertAmount(address(elizaOS), ETH_ADDRESS, serviceCost);
+            totalCost = serviceCostInETH + gasCostWithMargin;
+        } else {
+            // Convert gas cost (ETH) to payment token
+            uint256 gasCostInToken = priceOracle.convertAmount(ETH_ADDRESS, tokenAddr, gasCostWithMargin);
+            
+            // Convert service cost (elizaOS) to payment token
+            uint256 serviceCostInToken = 0;
+            if (tokenAddr == address(elizaOS)) {
+                serviceCostInToken = serviceCost;
+            } else {
+                serviceCostInToken = priceOracle.convertAmount(address(elizaOS), tokenAddr, serviceCost);
+            }
 
-        totalCost = serviceCostInToken + gasCostInToken;
+            totalCost = serviceCostInToken + gasCostInToken;
+        }
     }
 
     /**
@@ -325,8 +364,31 @@ contract MultiTokenPaymaster is BasePaymaster, Pausable {
         emit NativeTokenUpdated(oldToken, _jeju);
     }
 
+    function setRevenueWallet(address newWallet) external onlyOwner {
+        if (newWallet == address(0)) revert InvalidRevenueWallet();
+        address oldWallet = revenueWallet;
+        revenueWallet = newWallet;
+        emit RevenueWalletUpdated(oldWallet, newWallet);
+    }
+
+    function setFeeMargin(uint256 newMargin) external onlyOwner {
+        require(newMargin <= 5000, "Margin too high"); // Max 50%
+        uint256 oldMargin = feeMargin;
+        feeMargin = newMargin;
+        emit FeeMarginUpdated(oldMargin, newMargin);
+    }
+
+    function setMaxGasCost(uint256 newMaxGasCost) external onlyOwner {
+        maxGasCost = newMaxGasCost;
+    }
+
     function depositToEntryPoint() external payable onlyOwner {
         entryPoint().depositTo{value: msg.value}(address(this));
+        emit EntryPointFunded(msg.value);
+    }
+
+    function withdrawFromEntryPoint(address payable to, uint256 amount) external onlyOwner {
+        entryPoint().withdrawTo(to, amount);
     }
 
     function pause() external onlyOwner {

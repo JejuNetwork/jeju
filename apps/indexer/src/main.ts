@@ -7,12 +7,13 @@
 // Initialize network configuration and register known contracts
 import './init';
 
-import {TypeormDatabase} from '@subsquid/typeorm-store'
+import {TypeormDatabase, Store} from '@subsquid/typeorm-store'
 import { getCQLSync } from './lib/cql-sync'
+import { getDataSource } from './lib/db'
 import {
-    Block, Transaction, Account, Log, Contract, TokenTransfer, 
-    DecodedEvent, Trace, TransactionStatus, TokenStandard, 
-    ContractType, TraceType, TokenBalance
+    Block as BlockEntity, Transaction as TransactionEntity, Account, Log as LogEntity, 
+    Contract, TokenTransfer, DecodedEvent, Trace as TraceEntity, TransactionStatus, 
+    TokenStandard, ContractType, TraceType, TokenBalance
 } from './model'
 import {processor, ProcessorContext} from './processor'
 import {processGameFeedEvents} from './game-feed-processor'
@@ -27,6 +28,7 @@ import {processStorageEvents} from './storage-processor'
 import {processCrossServiceEvents} from './cross-service-processor'
 import {processOracleEvents} from './oracle-processor'
 import {processDEXEvents} from './dex-processor'
+import {processModerationEvent, initModerationContracts} from './moderation-processor'
 import {
     processNetworkRegistryEvent,
     processRegistryHubEvent,
@@ -36,89 +38,32 @@ import {
     getEventCategory, getEventName,
     ERC20_TRANSFER, ERC1155_TRANSFER_SINGLE, ERC1155_TRANSFER_BATCH
 } from './contract-events'
-import { Store } from '@subsquid/typeorm-store'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
-// Extended types for processor data with all requested fields
-interface BlockHeader {
-    hash: string
-    height: number
-    parentHash: string
-    timestamp: number
-    gasUsed: bigint
-    gasLimit: bigint
-    baseFeePerGas?: bigint
-    size: number
-}
-
-interface TxData {
-    hash: string
-    from: string
-    to?: string
-    transactionIndex: number
-    value: bigint
-    gasPrice?: bigint
-    gas: bigint
-    gasUsed: bigint
-    input: string
-    nonce: number
-    status: number
-    contractAddress?: string
-    type?: number
-    maxFeePerGas?: bigint
-    maxPriorityFeePerGas?: bigint
-}
-
-interface LogData {
-    address: string
-    topics: string[]
-    data: string
-    logIndex: number
-    transactionIndex: number
-    transaction?: { hash: string }
-}
-
-interface TraceData {
-    transaction?: { hash: string }
-    traceAddress: number[]
-    error?: string
-    type: string
-    action: {
-        from: string
-        to?: string
-        value?: bigint
-        gas?: bigint
-        input?: string
-    }
-    result?: {
-        gasUsed?: bigint
-        output?: string
-    }
-}
-
 // Initialize CQL sync for decentralized reads
 const cqlSync = getCQLSync();
+let cqlInitialized = false;
 
 processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: ProcessorContext<Store>) => {
     // Initialize CQL sync with TypeORM data source on first run
-    if (ctx.blocks.length > 0 && !cqlSync.getStats().running) {
-        const dataSource = (ctx.store as unknown as { em: { connection: { createQueryRunner: () => unknown } } }).em?.connection;
-        if (dataSource) {
-            cqlSync.initialize(dataSource as Parameters<typeof cqlSync.initialize>[0])
-                .then(() => cqlSync.start())
-                .catch((err: Error) => {
-                    // Log error but don't crash - CQL sync is optional enhancement
-                    ctx.log.error(`CQL sync initialization failed: ${err.message}. Continuing without decentralized reads.`);
-                });
-        }
+    if (ctx.blocks.length > 0 && !cqlInitialized && !cqlSync.getStats().running) {
+        cqlInitialized = true;
+        getDataSource()
+            .then(dataSource => cqlSync.initialize(dataSource))
+            .then(() => cqlSync.start())
+            .catch((err: Error) => {
+                // Log error but don't crash - CQL sync is optional enhancement
+                ctx.log.error(`CQL sync initialization failed: ${err.message}. Continuing without decentralized reads.`);
+                cqlInitialized = false;
+            });
     }
-    const blocks: Block[] = []
-    const transactions: Transaction[] = []
-    const logs: Log[] = []
+    const blocks: BlockEntity[] = []
+    const transactions: TransactionEntity[] = []
+    const logs: LogEntity[] = []
     const decodedEvents: DecodedEvent[] = []
     const tokenTransfers: TokenTransfer[] = []
-    const traces: Trace[] = []
+    const traces: TraceEntity[] = []
     const accounts = new Map<string, Account>()
     const contracts = new Map<string, Contract>()
     const tokenBalances = new Map<string, TokenBalance>()
@@ -147,7 +92,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
         return account
     }
 
-    function getOrCreateContract(address: string, block: Block, creator: Account): Contract {
+    function getOrCreateContract(address: string, block: BlockEntity, creator: Account): Contract {
         const id = address.toLowerCase()
         let contract = contracts.get(id)
         if (!contract) {
@@ -173,7 +118,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
         return contract
     }
 
-    function getOrCreateTokenBalance(accountId: string, tokenAddress: string, block: Block, timestamp: Date): TokenBalance {
+    function getOrCreateTokenBalance(accountId: string, tokenAddress: string, block: BlockEntity, timestamp: Date): TokenBalance {
         const id = `${accountId}-${tokenAddress}`
         let balance = tokenBalances.get(id)
         if (!balance) {
@@ -194,9 +139,9 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
     }
 
     for (const block of ctx.blocks) {
-        const header = block.header as unknown as BlockHeader
+        const header = block.header
         const blockTimestamp = new Date(header.timestamp)
-        const blockEntity = new Block({
+        const blockEntity = new BlockEntity({
             id: header.hash,
             number: header.height,
             hash: header.hash,
@@ -206,13 +151,12 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
             gasUsed: header.gasUsed,
             gasLimit: header.gasLimit,
             baseFeePerGas: header.baseFeePerGas ?? null,
-            size: header.size,
+            size: Number(header.size),
             transactionCount: block.transactions.length
         })
         blocks.push(blockEntity)
 
-        for (const rawTx of block.transactions) {
-            const tx = rawTx as unknown as TxData
+        for (const tx of block.transactions) {
             const fromAccount = getOrCreateAccount(tx.from, header.height, blockTimestamp)
             fromAccount.transactionCount++
             fromAccount.totalValueSent += tx.value
@@ -223,7 +167,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
                 toAccount.totalValueReceived += tx.value
             }
 
-            const txEntity = new Transaction({
+            const txEntity = new TransactionEntity({
                 id: tx.hash,
                 hash: tx.hash,
                 block: blockEntity,
@@ -234,7 +178,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
                 value: tx.value,
                 gasPrice: tx.gasPrice ?? null,
                 gasLimit: tx.gas,
-                gasUsed: tx.gasUsed,
+                gasUsed: tx.gasUsed ?? 0n,
                 input: tx.input,
                 nonce: tx.nonce,
                 status: tx.status === 1 ? TransactionStatus.SUCCESS : TransactionStatus.FAILURE,
@@ -251,8 +195,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
             transactions.push(txEntity)
         }
 
-        for (const rawLog of block.logs) {
-            const log = rawLog as unknown as LogData
+        for (const log of block.logs) {
             const addressAccount = getOrCreateAccount(log.address, header.height, blockTimestamp)
             const contractEntity = getOrCreateContract(log.address, blockEntity, addressAccount)
 
@@ -262,7 +205,7 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
             )
             if (!txEntity) continue
 
-            const logEntity = new Log({
+            const logEntity = new LogEntity({
                 id: `${txEntity.hash}-${log.logIndex}`,
                 block: blockEntity,
                 transaction: txEntity,
@@ -479,35 +422,72 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
         }
 
         // Process traces if enabled (requires archive node)
-        for (const rawTrace of block.traces) {
-            const trace = rawTrace as unknown as TraceData
+        // Note: Traces require .addTrace({}) to be uncommented in processor.ts
+        // Subsquid trace type is a discriminated union: call | create | suicide | reward
+        for (const trace of block.traces) {
             if (!trace.transaction) continue
 
             const txEntity = transactions.find(t => t.hash === trace.transaction!.hash)
             if (!txEntity) continue
 
-            let traceType = TraceType.CALL
-            if (trace.type === 'create') traceType = TraceType.CREATE
-            else if (trace.type === 'create2') traceType = TraceType.CREATE2
-            else if (trace.type === 'delegatecall') traceType = TraceType.DELEGATECALL
-            else if (trace.type === 'staticcall') traceType = TraceType.STATICCALL
-            else if (trace.type === 'suicide') traceType = TraceType.SELFDESTRUCT
+            // Map Subsquid trace types to our TraceType enum
+            let traceType: TraceType
+            let fromAddr: string
+            let toAddr: string | undefined
+            let value: bigint | null = null
+            let gas: bigint | null = null
+            let gasUsed: bigint | null = null
+            let input: string | null = null
+            let output: string | null = null
 
-            const fromAddr = trace.action.from
-            const toAddr = trace.action.to
+            if (trace.type === 'call') {
+                // Call traces include: call, delegatecall, staticcall, callcode
+                const callType = trace.action.callType
+                if (callType === 'delegatecall') {
+                    traceType = TraceType.DELEGATECALL
+                } else if (callType === 'staticcall') {
+                    traceType = TraceType.STATICCALL
+                } else {
+                    traceType = TraceType.CALL
+                }
+                fromAddr = trace.action.from
+                toAddr = trace.action.to
+                value = trace.action.value ?? null
+                gas = trace.action.gas
+                input = trace.action.input ?? null
+                gasUsed = trace.result?.gasUsed ?? null
+                output = trace.result?.output ?? null
+            } else if (trace.type === 'create') {
+                traceType = TraceType.CREATE
+                fromAddr = trace.action.from
+                toAddr = trace.result?.address
+                value = trace.action.value
+                gas = trace.action.gas
+                input = trace.action.init ?? null
+                gasUsed = trace.result?.gasUsed ?? null
+                output = trace.result?.code ?? null
+            } else if (trace.type === 'suicide') {
+                traceType = TraceType.SELFDESTRUCT
+                fromAddr = trace.action.address
+                toAddr = trace.action.refundAddress
+                value = trace.action.balance
+            } else {
+                // reward type - skip as it's not a user-initiated trace
+                continue
+            }
 
-            traces.push(new Trace({
+            traces.push(new TraceEntity({
                 id: `${trace.transaction.hash}-${trace.traceAddress.join('-')}`,
                 transaction: txEntity,
                 traceAddress: trace.traceAddress,
                 type: traceType,
                 from: getOrCreateAccount(fromAddr, header.height, blockTimestamp),
                 to: toAddr ? getOrCreateAccount(toAddr, header.height, blockTimestamp) : null,
-                value: trace.action.value ?? null,
-                gas: trace.action.gas ?? null,
-                gasUsed: trace.result?.gasUsed ?? null,
-                input: trace.action.input ?? null,
-                output: trace.result?.output ?? null,
+                value,
+                gas,
+                gasUsed,
+                input,
+                output,
                 error: trace.error ?? null
             }))
         }
@@ -545,4 +525,23 @@ processor.run(new TypeormDatabase({supportHotBlocks: true}), async (ctx: Process
     await processCrossServiceEvents(ctx)
     await processOracleEvents(ctx)
     await processDEXEvents(ctx)
+    
+    // Process moderation events (bans, reports, cases)
+    for (const block of ctx.blocks) {
+        for (const log of block.logs) {
+            await processModerationEvent(
+                {
+                    address: log.address,
+                    data: log.data,
+                    topics: log.topics,
+                    logIndex: log.logIndex,
+                    transactionHash: log.transactionHash,
+                },
+                ctx.store,
+                block.header.height,
+                new Date(block.header.timestamp),
+                log.transactionHash
+            )
+        }
+    }
 })

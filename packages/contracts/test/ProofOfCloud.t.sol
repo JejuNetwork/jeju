@@ -468,7 +468,7 @@ contract ProofOfCloudTest is Test {
         uint256 nonce
     ) internal view returns (bytes memory) {
         bytes32 messageHash = keccak256(
-            abi.encodePacked(
+            abi.encode(
                 requestHash,
                 _agentId,
                 _hardwareIdHash,

@@ -34,13 +34,44 @@ import {
 } from '../lib/validation';
 import { UnifiedAccountSchema } from './schemas';
 
+// EIP-712 typed data value types (primitives that can appear in typed data)
+type TypedDataValue = string | number | bigint | boolean | null | TypedDataValue[] | { [key: string]: TypedDataValue };
+
+// EIP-712 domain types
+type TypedDataDomain = {
+  name?: string;
+  version?: string;
+  chainId?: number;
+  verifyingContract?: Address;
+  salt?: Hex;
+};
+
 // Schema for EIP-712 typed data
 const TypedDataSchema = z.object({
-  domain: z.record(z.string(), z.unknown()),
+  domain: z.record(z.string(), z.union([z.string(), z.number(), z.null()])),
   types: z.record(z.string(), z.array(z.object({ name: z.string(), type: z.string() }))),
   primaryType: z.string(),
-  message: z.record(z.string(), z.unknown()),
+  message: z.record(z.string(), z.union([z.string(), z.number(), z.boolean(), z.null(), z.array(z.string()), z.record(z.string(), z.string())])),
 });
+
+// EIP-1193 request return types based on method
+type EIP1193RequestResult = 
+  | Address[]           // eth_accounts, eth_requestAccounts
+  | string              // eth_chainId, personal_sign, eth_signTypedData_v4
+  | Hex                 // eth_sendTransaction
+  | null;               // wallet_switchEthereumChain, wallet_addEthereumChain
+
+// EIP-1193 transaction request params
+interface EIP1193TransactionParams {
+  to: Address;
+  value?: string;
+  data?: Hex;
+  from?: Address;
+  gas?: string;
+  gasPrice?: string;
+  maxFeePerGas?: string;
+  maxPriorityFeePerGas?: string;
+}
 
 // ============================================================================
 // Types
@@ -437,10 +468,10 @@ export class WalletCore {
   }
 
   async signTypedData(typedData: {
-    domain: Record<string, unknown>;
+    domain: TypedDataDomain;
     types: Record<string, Array<{ name: string; type: string }>>;
     primaryType: string;
-    message: Record<string, unknown>;
+    message: Record<string, TypedDataValue>;
   }): Promise<Hex> {
     expectDefined(typedData, 'typedData');
     expectDefined(typedData.domain, 'typedData.domain');
@@ -454,12 +485,7 @@ export class WalletCore {
 
     const signature = await this.walletClient.signTypedData({
       account: this.walletClient.account,
-      domain: typedData.domain as {
-        name?: string;
-        version?: string;
-        chainId?: number;
-        verifyingContract?: Address;
-      },
+      domain: typedData.domain,
       types: typedData.types,
       primaryType: typedData.primaryType,
       message: typedData.message,
@@ -528,7 +554,7 @@ export class WalletCore {
   // Provider Interface (EIP-1193)
   // ============================================================================
 
-  async request(args: { method: string; params?: unknown[] }): Promise<unknown> {
+  async request(args: { method: string; params?: ReadonlyArray<string | EIP1193TransactionParams | { chainId: string }> }): Promise<EIP1193RequestResult> {
     expectDefined(args, 'args');
     expectNonEmpty(args.method, 'args.method');
     const { method, params = [] } = args;
@@ -544,7 +570,7 @@ export class WalletCore {
         return `0x${this.getActiveChainId().toString(16)}`;
 
       case 'eth_sendTransaction': {
-        const [txParams] = params as [{ to: Address; value?: string; data?: Hex }];
+        const txParams = params[0] as EIP1193TransactionParams;
         expectDefined(txParams, 'txParams');
         return this.sendTransaction({
           to: txParams.to,
@@ -554,21 +580,22 @@ export class WalletCore {
       }
 
       case 'personal_sign': {
-        const [message] = params as [string];
+        const message = params[0] as string;
         expectNonEmpty(message, 'message');
         return this.signMessage(message);
       }
 
       case 'eth_signTypedData_v4': {
-        const [, typedData] = params as [string, string];
+        const typedData = params[1] as string;
         expectNonEmpty(typedData, 'typedData');
         return this.signTypedData(expectJson(typedData, TypedDataSchema, 'typedData'));
       }
 
       case 'wallet_switchEthereumChain': {
-        const [{ chainId }] = params as [{ chainId: string }];
-        expectNonEmpty(chainId, 'chainId');
-        await this.switchChain(parseInt(chainId, 16));
+        const switchParams = params[0] as { chainId: string };
+        expectDefined(switchParams, 'switchParams');
+        expectNonEmpty(switchParams.chainId, 'chainId');
+        await this.switchChain(parseInt(switchParams.chainId, 16));
         return null;
       }
 

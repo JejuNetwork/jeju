@@ -5,7 +5,8 @@
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
 import type { ServicesConfig } from "../config";
-import { AgentCardSchema, DiscoveredAgentSchema, AgentsListSchema } from "../shared/schemas";
+import type { JsonRecord, JsonValue } from "../shared/types";
+import { AgentCardSchema, AgentsListSchema } from "../shared/schemas";
 
 export interface AgentCard {
   protocolVersion: string;
@@ -44,21 +45,21 @@ export interface A2AMessage {
   parts: Array<{
     kind: "text" | "data";
     text?: string;
-    data?: Record<string, unknown>;
+    data?: JsonRecord;
   }>;
   messageId: string;
 }
 
 export interface A2ARequest {
   skillId: string;
-  params?: Record<string, unknown>;
+  params?: JsonRecord;
   paymentHeader?: string;
 }
 
 export interface A2AResponse {
   message: string;
-  data: Record<string, unknown>;
-  error?: { code: number; message: string; data?: unknown };
+  data: JsonRecord;
+  error?: { code: number; message: string; data?: JsonValue };
 }
 
 export interface DiscoveredAgent {
@@ -80,7 +81,7 @@ export interface A2AModule {
   callSkill(
     endpoint: string,
     skillId: string,
-    params?: Record<string, unknown>,
+    params?: JsonRecord,
   ): Promise<A2AResponse>;
 
   // network services shortcuts
@@ -217,10 +218,10 @@ export function createA2AModule(
         parts: Array<{
           kind: string;
           text?: string;
-          data?: Record<string, unknown>;
+          data?: JsonRecord;
         }>;
       };
-      error?: { code: number; message: string; data?: unknown };
+      error?: { code: number; message: string; data?: JsonValue };
     };
 
     if (result.error) {
@@ -249,7 +250,7 @@ export function createA2AModule(
   async function callSkill(
     endpoint: string,
     skillId: string,
-    params?: Record<string, unknown>,
+    params?: JsonRecord,
   ): Promise<A2AResponse> {
     return call(endpoint, { skillId, params });
   }
@@ -284,7 +285,7 @@ export function createA2AModule(
       name: string;
       endpoint: string;
       jnsName?: string;
-      metadata?: Record<string, unknown>;
+      metadata?: JsonRecord;
     }>;
 
     // Discover agent cards for each app

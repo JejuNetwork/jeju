@@ -1,13 +1,14 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {ProviderRegistryBase} from "../registry/ProviderRegistryBase.sol";
+import {IComputeRegistry} from "./interfaces/IComputeRegistry.sol";
 
 /**
  * @title ComputeRegistry
  * @notice Provider registry for decentralized AI compute marketplace
  */
-contract ComputeRegistry is ProviderRegistryBase {
+contract ComputeRegistry is ProviderRegistryBase, IComputeRegistry {
     struct Provider {
         address owner;
         string name;

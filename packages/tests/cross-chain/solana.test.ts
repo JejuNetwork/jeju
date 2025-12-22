@@ -7,6 +7,36 @@
 
 import { describe, test, expect, beforeAll } from 'bun:test';
 
+// Solana RPC Response Types
+interface SolanaVersionResponse {
+  result: {
+    'solana-core': string;
+    'feature-set'?: number;
+  };
+}
+
+interface SolanaClusterNode {
+  pubkey: string;
+  gossip: string | null;
+  tpu: string | null;
+  rpc: string | null;
+  version: string | null;
+  featureSet: number | null;
+  shredVersion: number | null;
+}
+
+interface SolanaClusterNodesResponse {
+  result: SolanaClusterNode[];
+}
+
+interface SolanaGenesisHashResponse {
+  result: string;
+}
+
+interface SolanaSlotResponse {
+  result: number;
+}
+
 const SOLANA_RPC = process.env.SOLANA_RPC_URL || 'http://127.0.0.1:8899';
 
 async function isSolanaRunning(): Promise<boolean> {
@@ -55,7 +85,7 @@ describe('Solana Cross-Chain', () => {
       });
 
       expect(response.ok).toBe(true);
-      const data = await response.json() as { result: { 'solana-core': string } };
+      const data = await response.json() as SolanaVersionResponse;
       expect(data.result['solana-core']).toBeDefined();
     });
 
@@ -73,7 +103,7 @@ describe('Solana Cross-Chain', () => {
       });
 
       expect(response.ok).toBe(true);
-      const data = await response.json() as { result: unknown[] };
+      const data = await response.json() as SolanaClusterNodesResponse;
       expect(Array.isArray(data.result)).toBe(true);
     });
 
@@ -91,7 +121,7 @@ describe('Solana Cross-Chain', () => {
       });
 
       expect(response.ok).toBe(true);
-      const data = await response.json() as { result: string };
+      const data = await response.json() as SolanaGenesisHashResponse;
       expect(typeof data.result).toBe('string');
       expect(data.result.length).toBeGreaterThan(40);
     });
@@ -110,7 +140,7 @@ describe('Solana Cross-Chain', () => {
       });
 
       expect(response.ok).toBe(true);
-      const data = await response.json() as { result: number };
+      const data = await response.json() as SolanaSlotResponse;
       expect(typeof data.result).toBe('number');
       expect(data.result).toBeGreaterThanOrEqual(0);
     });

@@ -49,7 +49,6 @@ export class AutoScaler {
     if (!service) return 'none';
 
     const instances = this.getRunningInstances(serviceId);
-    const currentCount = instances.length;
     const now = Date.now();
 
     // Check if we need to scale up

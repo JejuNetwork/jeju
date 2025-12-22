@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {IWormhole} from "./interfaces/IWormhole.sol";
 
 /**
  * @title SolanaVerifier
@@ -92,7 +93,7 @@ contract SolanaVerifier is Ownable {
     // ============================================================================
 
     /// @notice Wormhole core bridge contract
-    address public wormhole;
+    IWormhole public wormhole;
 
     /// @notice Trusted Solana emitter (registry program on Solana)
     bytes32 public trustedEmitter;
@@ -140,7 +141,7 @@ contract SolanaVerifier is Ownable {
     // ============================================================================
 
     constructor(address _wormhole, bytes32 _trustedEmitter) Ownable(msg.sender) {
-        wormhole = _wormhole;
+        wormhole = IWormhole(_wormhole);
         trustedEmitter = _trustedEmitter;
     }
 
@@ -287,8 +288,8 @@ contract SolanaVerifier is Ownable {
     }
 
     function setWormhole(address _wormhole) external onlyOwner {
-        emit WormholeUpdated(wormhole, _wormhole);
-        wormhole = _wormhole;
+        emit WormholeUpdated(address(wormhole), _wormhole);
+        wormhole = IWormhole(_wormhole);
     }
 
     // ============================================================================
@@ -296,32 +297,29 @@ contract SolanaVerifier is Ownable {
     // ============================================================================
 
     /**
-     * @notice Parse a Wormhole VAA
-     * @dev In production, this would call the Wormhole core bridge
+     * @notice Parse and verify a Wormhole VAA using the core bridge
+     * @dev Calls the Wormhole core bridge for guardian signature verification
      */
-    function parseVAA(bytes calldata vaa) internal pure returns (ParsedVAA memory parsed) {
-        // Simplified parsing - production would verify guardian signatures
-        // via wormhole.parseAndVerifyVM(vaa)
+    function parseVAA(bytes calldata vaa) internal view returns (ParsedVAA memory parsed) {
+        // Call Wormhole core bridge for verification
+        (IWormhole.VM memory vm, bool valid, string memory reason) = wormhole.parseAndVerifyVM(vaa);
         
-        if (vaa.length < 100) revert InvalidVAA();
+        if (!valid) {
+            // Revert with the Wormhole error reason
+            revert VerificationFailed();
+        }
 
-        // Extract basic fields
-        parsed.version = uint8(vaa[0]);
-        parsed.guardianSetIndex = uint32(bytes4(vaa[1:5]));
-        
-        // Skip signatures, get to body
-        uint256 signaturesLen = uint256(uint8(vaa[5])) * 66;
-        uint256 bodyStart = 6 + signaturesLen;
-        
-        if (vaa.length < bodyStart + 51) revert InvalidVAA();
-
-        parsed.timestamp = uint32(bytes4(vaa[bodyStart:bodyStart+4]));
-        parsed.nonce = uint32(bytes4(vaa[bodyStart+4:bodyStart+8]));
-        parsed.emitterChainId = uint16(bytes2(vaa[bodyStart+8:bodyStart+10]));
-        parsed.emitterAddress = bytes32(vaa[bodyStart+10:bodyStart+42]);
-        parsed.sequence = uint64(bytes8(vaa[bodyStart+42:bodyStart+50]));
-        parsed.consistencyLevel = uint8(vaa[bodyStart+50]);
-        parsed.payload = vaa[bodyStart+51:];
+        // Map IWormhole.VM to our ParsedVAA structure
+        parsed.version = vm.version;
+        parsed.guardianSetIndex = vm.guardianSetIndex;
+        parsed.signatures = ""; // Not needed after verification
+        parsed.timestamp = vm.timestamp;
+        parsed.nonce = vm.nonce;
+        parsed.emitterChainId = vm.emitterChainId;
+        parsed.emitterAddress = vm.emitterAddress;
+        parsed.sequence = vm.sequence;
+        parsed.consistencyLevel = vm.consistencyLevel;
+        parsed.payload = vm.payload;
 
         return parsed;
     }

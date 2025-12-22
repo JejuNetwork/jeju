@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod';
-import { cidSchema, nonEmptyStringSchema } from '../validation';
+import { cidSchema } from '../validation';
 
 /**
  * Upload request schema (multipart form)
@@ -60,7 +60,7 @@ export const contentTierSchema = z.enum(['system', 'popular', 'private']);
 /**
  * Content category enum
  */
-export const contentCategorySchema = z.enum(['data', 'media', 'code', 'document', 'other']);
+export const contentCategorySchema = z.enum(['app-bundle', 'app-manifest', 'contract-abi', 'jns-record', 'documentation', 'user-content', 'media', 'data']);
 
 /**
  * Storage backend type enum

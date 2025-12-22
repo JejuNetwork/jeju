@@ -4,7 +4,7 @@
 
 import { Hono } from 'hono';
 import { streamSSE } from 'hono/streaming';
-import type { Address, Hex } from 'viem';
+import type { Address } from 'viem';
 import type { BackendManager } from '../../storage/backends';
 import type { GitRepoManager } from '../../git/repo-manager';
 import { WorkflowEngine } from '../../ci/workflow-engine';
@@ -12,8 +12,8 @@ import { getCISecretsStore } from '../../ci/secrets-store';
 import { getCIEventBus } from '../../ci/event-bus';
 import { getCIScheduler } from '../../ci/scheduler';
 import { decodeBytes32ToOid } from '../../git/oid-utils';
-import type { LogEntry, CIEvent, Runner } from '../../ci/types';
-import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, workflowListParamsSchema, workflowDetailParamsSchema, createWorkflowRunRequestSchema, workflowRunParamsSchema, workflowRunListQuerySchema, jobRunParamsSchema, stepRunParamsSchema, logsQuerySchema, artifactListParamsSchema, artifactDownloadParamsSchema, runnerRegistrationRequestSchema, runnerParamsSchema, createSecretRequestSchema, updateSecretRequestSchema, secretParamsSchema, createEnvironmentRequestSchema, updateEnvironmentRequestSchema, environmentParamsSchema, createWebhookRequestSchema, webhookParamsSchema, webhookDeliveryParamsSchema, runIdParamsSchema, artifactParamsSchema, secretIdParamsSchema, environmentNameParamsSchema, createTriggerRequestSchema, triggerParamsSchema, badgeParamsSchema, badgeQuerySchema, z, strictHexSchema } from '../../shared';
+import type { LogEntry, CIEvent } from '../../ci/types';
+import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, workflowListParamsSchema, workflowDetailParamsSchema, createWorkflowRunRequestSchema, workflowRunParamsSchema, workflowRunListQuerySchema, logsQuerySchema, runnerRegistrationRequestSchema, runnerParamsSchema, createSecretRequestSchema, updateSecretRequestSchema, createEnvironmentRequestSchema, updateEnvironmentRequestSchema, runIdParamsSchema, artifactParamsSchema, secretIdParamsSchema, environmentNameParamsSchema, createTriggerRequestSchema, triggerParamsSchema, badgeParamsSchema, badgeQuerySchema, z, strictHexSchema } from '../../shared';
 
 interface CIContext {
   workflowEngine: WorkflowEngine;
@@ -260,7 +260,7 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.post('/runs/:runId/cancel', async (c) => {
-    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    validateHeaders(jejuAddressHeaderSchema, c);
     const { runId } = validateParams(runIdParamsSchema, c);
     const success = workflowEngine.cancelRun(runId);
 
@@ -307,7 +307,7 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.post('/artifacts', async (c) => {
-    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    validateHeaders(jejuAddressHeaderSchema, c);
 
     const formData = await c.req.formData();
     const file = formData.get('file');
@@ -315,11 +315,11 @@ export function createCIRouter(ctx: CIContext): Hono {
     const runId = formData.get('runId');
     const retentionStr = formData.get('retention');
     
-    if (!(file instanceof File) || !name || !runId) {
+    if (!(file instanceof File) || typeof name !== 'string' || typeof runId !== 'string') {
       throw new Error('Missing required fields: file, name, runId');
     }
     
-    const retention = retentionStr ? parseInt(retentionStr as string, 10) : 7;
+    const retention = typeof retentionStr === 'string' ? parseInt(retentionStr, 10) : 7;
 
     const content = Buffer.from(await file.arrayBuffer());
     const artifact = await workflowEngine.uploadArtifact(runId, name, content, [], retention);
@@ -339,7 +339,7 @@ export function createCIRouter(ctx: CIContext): Hono {
     const content = await workflowEngine.downloadArtifact(runId, name);
     if (!content) throw new Error('Artifact not found');
 
-    return new Response(content, {
+    return new Response(new Uint8Array(content), {
       headers: {
         'Content-Type': 'application/gzip',
         'Content-Disposition': `attachment; filename="${name}.tar.gz"`,
@@ -349,7 +349,7 @@ export function createCIRouter(ctx: CIContext): Hono {
 
   router.get('/secrets/:repoId', async (c) => {
     const { repoId } = validateParams(z.object({ repoId: strictHexSchema }), c);
-    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    validateHeaders(jejuAddressHeaderSchema, c);
 
     const secrets = secretsStore.listSecrets(repoId);
     return c.json({
@@ -444,7 +444,7 @@ export function createCIRouter(ctx: CIContext): Hono {
       repoId: strictHexSchema,
       name: z.string().min(1),
     }), c);
-    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    validateHeaders(jejuAddressHeaderSchema, c);
     const body = await validateBody(updateEnvironmentRequestSchema, c);
 
     const env = await secretsStore.updateEnvironment(repoId, name, body);
@@ -453,7 +453,7 @@ export function createCIRouter(ctx: CIContext): Hono {
 
   router.delete('/environments/:repoId/:name', async (c) => {
     const { repoId, name } = validateParams(environmentNameParamsSchema, c);
-    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    validateHeaders(jejuAddressHeaderSchema, c);
 
     secretsStore.deleteEnvironment(repoId, name);
     return c.json({ success: true });
@@ -521,7 +521,7 @@ export function createCIRouter(ctx: CIContext): Hono {
 
   router.delete('/runners/:runnerId', async (c) => {
     const { runnerId } = validateParams(runnerParamsSchema, c);
-    const { 'x-jeju-address': triggeredBy } = validateHeaders(jejuAddressHeaderSchema, c);
+    validateHeaders(jejuAddressHeaderSchema, c);
 
     workflowEngine.unregisterRunner(runnerId);
     return c.json({ success: true });
@@ -529,14 +529,13 @@ export function createCIRouter(ctx: CIContext): Hono {
 
   router.post('/webhooks/:repoId', async (c) => {
     const { repoId } = validateParams(z.object({ repoId: strictHexSchema }), c);
-    const { 'x-jeju-event': jejuEvent, 'x-github-event': githubEvent, 'x-jeju-signature': jejuSig, 'x-hub-signature-256': hubSig } = validateHeaders(z.object({
+    const { 'x-jeju-event': jejuEvent, 'x-github-event': githubEvent } = validateHeaders(z.object({
       'x-jeju-event': z.string().optional(),
       'x-github-event': z.string().optional(),
       'x-jeju-signature': z.string().optional(),
       'x-hub-signature-256': z.string().optional(),
     }), c);
     const event = jejuEvent || githubEvent;
-    const signature = jejuSig || hubSig;
 
     if (!event) throw new Error('Missing event header');
 
@@ -735,7 +734,7 @@ export function createCIRouter(ctx: CIContext): Hono {
   });
 
   router.get('/badge/:repoId/:workflowId', async (c) => {
-    const { repoId, workflowId } = validateParams(badgeParamsSchema, c);
+    const { workflowId } = validateParams(badgeParamsSchema, c);
     const { branch } = validateQuery(badgeQuerySchema, c);
     let runs = workflowEngine.getWorkflowRuns(workflowId);
 

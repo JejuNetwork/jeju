@@ -9,6 +9,101 @@ import type { ExecutionStatus } from '@jejunetwork/types';
 export type { ExecutionStatus };
 
 // =============================================================================
+// JSON Value Types (for truly polymorphic external data)
+// =============================================================================
+
+/** Primitive JSON values */
+export type JsonPrimitive = string | number | boolean | null;
+
+/** Recursive JSON value type for external/polymorphic data */
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
+/** JSON object type */
+export type JsonObject = { [key: string]: JsonValue };
+
+// =============================================================================
+// Agent Context Types
+// =============================================================================
+
+/** Last execution tracking stored in agent context */
+export interface LastExecutionInfo {
+  executionId: string;
+  timestamp: number;
+  triggerId?: string;
+}
+
+/** Agent context stores execution history and user-defined data */
+export interface AgentContext {
+  /** Last execution info, set by executor */
+  lastExecution?: LastExecutionInfo;
+  /** Additional context data - can be any JSON-serializable value */
+  [key: string]: JsonValue | LastExecutionInfo | undefined;
+}
+
+// =============================================================================
+// Action Types
+// =============================================================================
+
+/** Parameters passed to an agent action */
+export interface ActionParams {
+  /** Target content for POST_TO_ROOM, etc */
+  content?: string;
+  /** Target address for transfers, etc */
+  target?: string;
+  /** Amount for financial operations */
+  amount?: string;
+  /** Additional action-specific parameters */
+  [key: string]: JsonValue | undefined;
+}
+
+/** Result of an action execution - can be transaction hash or structured result */
+export type ActionResult = 
+  | string  // Transaction hash
+  | { txHash: string; success?: boolean }  // Transaction result
+  | { success: boolean; error?: string }  // Simple result
+  | JsonObject;  // Complex structured result
+
+// =============================================================================
+// State Update Types
+// =============================================================================
+
+/** State updates from agent execution */
+export interface StateUpdates {
+  /** Last inference response */
+  lastResponse?: string;
+  /** Results of executed actions */
+  lastActions?: AgentAction[];
+  /** Success rate of actions (0-1) */
+  actionSuccessRate?: number;
+}
+
+// =============================================================================
+// Room Metadata Types
+// =============================================================================
+
+/** Metadata for room state */
+export interface RoomStateMetadata {
+  /** Topic or subject of the room */
+  topic?: string;
+  /** Rules for the room */
+  rules?: string[];
+  /** Custom metadata */
+  [key: string]: JsonValue | undefined;
+}
+
+/** Metadata for individual messages */
+export interface MessageMetadata {
+  /** Source of the message (discord, api, etc) */
+  source?: string;
+  /** Reference to parent message */
+  replyTo?: string;
+  /** Attachments */
+  attachments?: string[];
+  /** Custom metadata */
+  [key: string]: JsonValue | undefined;
+}
+
+// =============================================================================
 // Bot Types
 // =============================================================================
 
@@ -79,7 +174,7 @@ export interface AgentState {
   /** Active room memberships */
   rooms: string[];
   /** Current context */
-  context: Record<string, unknown>;
+  context: AgentContext;
   /** Last updated timestamp */
   updatedAt: number;
 }
@@ -149,7 +244,7 @@ export interface RoomState {
   scores: Record<string, number>;
   currentTurn?: string;
   phase: RoomPhase;
-  metadata: Record<string, unknown>;
+  metadata: RoomStateMetadata;
   updatedAt: number;
 }
 
@@ -159,7 +254,7 @@ export interface RoomMessage {
   content: string;
   timestamp: number;
   action?: string;
-  metadata?: Record<string, unknown>;
+  metadata?: MessageMetadata;
 }
 
 export type RoomPhase = 'setup' | 'active' | 'paused' | 'completed' | 'archived';
@@ -196,7 +291,7 @@ export interface ExecutionInput {
   message?: string;
   roomId?: string;
   userId?: string;
-  context?: Record<string, unknown>;
+  context?: JsonObject;
 }
 
 export interface ExecutionOptions {
@@ -220,15 +315,15 @@ export interface ExecutionResult {
 export interface ExecutionOutput {
   response?: string;
   actions?: AgentAction[];
-  stateUpdates?: Record<string, unknown>;
+  stateUpdates?: StateUpdates;
   roomMessages?: RoomMessage[];
 }
 
 export interface AgentAction {
   type: string;
   target?: string;
-  params?: Record<string, unknown>;
-  result?: unknown;
+  params?: ActionParams;
+  result?: ActionResult;
   success: boolean;
 }
 

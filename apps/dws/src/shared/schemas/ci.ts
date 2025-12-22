@@ -3,8 +3,7 @@
  */
 
 import { z } from 'zod';
-import type { Hex } from 'viem';
-import { strictHexSchema, addressSchema, nonEmptyStringSchema, nonNegativeIntSchema, positiveIntSchema } from '../validation';
+import { strictHexSchema, addressSchema, nonEmptyStringSchema, positiveIntSchema } from '../validation';
 
 /**
  * Workflow list params schema

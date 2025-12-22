@@ -7,7 +7,7 @@
  * - Compatible with MPC key management
  */
 
-import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
+import { randomBytes, createCipheriv, createDecipheriv, createHash } from 'crypto';
 import type { Hex } from 'viem';
 
 // ============ Types ============
@@ -56,7 +56,6 @@ export function deriveSharedSecret(
   ]);
   
   // Hash to derive key
-  const { createHash } = require('crypto');
   return new Uint8Array(createHash('sha256').update(combined).digest());
 }
 

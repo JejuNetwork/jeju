@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
-/**
- * @dev DEPRECATION NOTICE: This contract is vendor-specific and maintained in vendor/cloud/contracts/.
- *      This copy remains for backwards compatibility with existing deployments.
- *      For new deployments, use the contract from vendor/cloud/contracts/CloudReputationProvider.sol
- */
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -20,11 +15,6 @@ import "../interfaces/IReputationProvider.sol";
  * @notice Enables cloud services to manage reputation and report TOS violations
  * @dev Implements IReputationProvider interface for vendor-agnostic integration.
  *      Integrates with ERC-8004 registries and delegates banning to RegistryGovernance.
- *
- * NOTE: This contract is vendor-specific and should be deployed from vendor/cloud.
- *       The core Jeju system uses IReputationProvider interface for abstraction.
- *
- * @custom:deprecated Use vendor/cloud/contracts/CloudReputationProvider.sol for new deployments
  *
  * Features:
  * - Set reputation for any agent via ReputationRegistry

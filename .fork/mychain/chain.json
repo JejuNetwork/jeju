@@ -1,0 +1,31 @@
+{
+  "chainId": 777777,
+  "networkId": 777777,
+  "name": "MyChain Network",
+  "rpcUrl": "https://testnet-rpc.mychain.network",
+  "wsUrl": "wss://testnet-ws.mychain.network",
+  "explorerUrl": "https://testnet-explorer.mychain.network",
+  "l1ChainId": 11155111,
+  "l1RpcUrl": "https://ethereum-sepolia-rpc.publicnode.com",
+  "l1Name": "Sepolia",
+  "flashblocksEnabled": true,
+  "flashblocksSubBlockTime": 200,
+  "blockTime": 2000,
+  "gasToken": {
+    "name": "Ether",
+    "symbol": "ETH",
+    "decimals": 18
+  },
+  "contracts": {
+    "l2": {
+      "L2CrossDomainMessenger": "0x4200000000000000000000000000000000000007",
+      "L2StandardBridge": "0x4200000000000000000000000000000000000010",
+      "L2ToL1MessagePasser": "0x4200000000000000000000000000000000000016",
+      "L2ERC721Bridge": "0x4200000000000000000000000000000000000014",
+      "GasPriceOracle": "0x420000000000000000000000000000000000000F",
+      "L1Block": "0x4200000000000000000000000000000000000015",
+      "WETH": "0x4200000000000000000000000000000000000006"
+    },
+    "l1": {}
+  }
+}

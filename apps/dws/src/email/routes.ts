@@ -1,21 +1,9 @@
-/**
- * Email Service API Routes
- * 
- * REST API for email operations:
- * - Send/receive emails
- * - Mailbox management
- * - Folder operations
- * - Search
- * - Data export (GDPR)
- */
-
 import { Hono } from 'hono';
-import type { Address, Hex } from 'viem';
+import { createPublicClient, http, type Address, type Hex, parseAbiItem, isAddress } from 'viem';
 import { z } from 'zod';
 import { expectValid, validateQuery } from '../shared/validation';
 import type {
   SendEmailRequest,
-  GetMailboxResponse,
   GetEmailResponse,
   SearchEmailsRequest,
   SearchEmailsResponse,
@@ -25,8 +13,27 @@ import type {
 } from './types';
 import { getEmailRelayService } from './relay';
 import { getMailboxStorage } from './storage';
+import { getMetrics, emailsSentTotal, mailboxOperationsTotal } from './metrics';
+import type { Mailbox } from './types';
 
-// ============ Schemas ============
+function serializeMailbox(mailbox: Mailbox): Record<string, unknown> {
+  return {
+    ...mailbox,
+    quotaUsedBytes: mailbox.quotaUsedBytes.toString(),
+    quotaLimitBytes: mailbox.quotaLimitBytes.toString(),
+  };
+}
+
+function bigIntReplacer(_key: string, value: unknown): unknown {
+  return typeof value === 'bigint' ? value.toString() : value;
+}
+
+const EMAIL_REGISTRY_ABI = [
+  parseAbiItem('function getAccount(address owner) view returns (address owner_, bytes32 publicKeyHash, bytes32 jnsNode, uint8 status, uint8 tier, uint256 stakedAmount, uint256 quotaUsedBytes, uint256 quotaLimitBytes, uint256 emailsSentToday, uint256 lastResetTimestamp, uint256 createdAt, uint256 lastActivityAt)'),
+] as const;
+
+const userCache = new Map<Address, { email: string; tier: EmailTier; expiresAt: number }>();
+const CACHE_TTL = 5 * 60 * 1000;
 
 const sendEmailSchema = z.object({
   from: z.string().email(),
@@ -87,48 +94,102 @@ const filterRuleSchema = z.object({
   enabled: z.boolean(),
 });
 
-// ============ Query Schemas ============
+// Schemas for request bodies that were previously using type assertions
+const folderNameSchema = z.object({
+  name: z.string().min(1).max(255),
+});
+
+const accountDeleteSchema = z.object({
+  confirm: z.literal(true),
+});
 
 const folderQuerySchema = z.object({
   limit: z.coerce.number().int().positive().max(100).default(50),
   offset: z.coerce.number().int().nonnegative().default(0),
 });
 
-// ============ Helper Functions ============
-
-function getAuthenticatedUser(c: { req: { header: (name: string) => string | undefined } }): {
+async function getAuthenticatedUser(c: { req: { header: (name: string) => string | undefined } }): Promise<{
   address: Address;
   email: string;
   tier: EmailTier;
-} | null {
+} | null> {
   const addressHeader = c.req.header('x-wallet-address');
   if (!addressHeader) return null;
 
-  return {
-    address: addressHeader as Address,
-    email: `user@jeju.mail`,
-    tier: 'staked',
-  };
+  if (!isAddress(addressHeader)) {
+    console.warn(`[EmailRoutes] Invalid address format: ${addressHeader}`);
+    return null;
+  }
+
+  const address = addressHeader as Address;
+  const cached = userCache.get(address);
+  if (cached && cached.expiresAt > Date.now()) {
+    return {
+      address,
+      email: cached.email,
+      tier: cached.tier,
+    };
+  }
+
+  const rpcUrl = process.env.JEJU_RPC_URL ?? 'http://localhost:8545';
+  const registryAddress = process.env.EMAIL_REGISTRY_ADDRESS as Address | undefined;
+
+  let tier: EmailTier = 'free';
+  let email = `${address.slice(0, 8).toLowerCase()}@jeju.mail`;
+
+  if (registryAddress) {
+    const publicClient = createPublicClient({ transport: http(rpcUrl) });
+    
+    const account = await publicClient.readContract({
+      address: registryAddress,
+      abi: EMAIL_REGISTRY_ABI,
+      functionName: 'getAccount',
+      args: [address],
+    }).catch((e: Error) => {
+      console.debug(`[EmailRoutes] Failed to fetch account for ${address}: ${e.message}`);
+      return null;
+    });
+
+    if (account) {
+      const status = account[3];
+      if (status === 2 || status === 3) {
+        console.warn(`[EmailRoutes] Account ${address} is suspended/banned (status: ${status})`);
+        return null;
+      }
+
+      const tierValue = account[4];
+      tier = tierValue === 2 ? 'premium' : tierValue === 1 ? 'staked' : 'free';
+    }
+  }
+
+  userCache.set(address, {
+    email,
+    tier,
+    expiresAt: Date.now() + CACHE_TTL,
+  });
+
+  return { address, email, tier };
 }
 
 function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
   return expectValid(schema, body, 'Request body');
 }
 
-// ============ Router ============
-
 export function createEmailRouter(): Hono {
   const app = new Hono();
 
-  // Health check
   app.get('/health', (c) => {
     return c.json({ status: 'ok', service: 'email' });
   });
 
-  // ============ Send Email ============
+  app.get('/metrics', async (c) => {
+    const metrics = await getMetrics();
+    c.header('Content-Type', 'text/plain');
+    return c.body(metrics);
+  });
 
   app.post('/send', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -139,13 +200,17 @@ export function createEmailRouter(): Hono {
     const relay = getEmailRelayService();
     const response = await relay.sendEmail(request, user.address, user.tier);
 
+    emailsSentTotal.inc({
+      tier: user.tier,
+      status: response.success ? 'success' : 'failure',
+      external: request.to.some(t => !t.endsWith('@jeju.mail')) ? 'true' : 'false',
+    });
+
     return c.json(response, response.success ? 200 : 400);
   });
 
-  // ============ Mailbox Operations ============
-
   app.get('/mailbox', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -155,27 +220,27 @@ export function createEmailRouter(): Hono {
     
     if (!mailbox) {
       mailbox = await storage.initializeMailbox(user.address);
+      mailboxOperationsTotal.inc({ operation: 'initialize', status: 'success' });
     }
 
     const index = await storage.getIndex(user.address);
     if (!index) {
+      mailboxOperationsTotal.inc({ operation: 'get_index', status: 'failure' });
       return c.json({ error: 'Failed to load mailbox' }, 500);
     }
 
+    mailboxOperationsTotal.inc({ operation: 'get_mailbox', status: 'success' });
     const unreadCount = index.inbox.filter(e => !e.flags.read).length;
 
-    const response: GetMailboxResponse = {
-      mailbox,
+    return c.json({
+      mailbox: serializeMailbox(mailbox),
       index,
       unreadCount,
-    };
-
-    return c.json(response);
+    });
   });
 
-  // Get folder contents
   app.get('/mailbox/:folder', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -211,11 +276,8 @@ export function createEmailRouter(): Hono {
     });
   });
 
-  // ============ Email Operations ============
-
-  // Get single email
   app.get('/email/:messageId', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -229,7 +291,6 @@ export function createEmailRouter(): Hono {
       return c.json({ error: 'Email not found' }, 404);
     }
 
-    // Mark as read
     await storage.updateFlags(user.address, messageId, { read: true });
 
     const index = await storage.getIndex(user.address);
@@ -267,9 +328,8 @@ export function createEmailRouter(): Hono {
     return c.json(response);
   });
 
-  // Update email flags
   app.patch('/email/:messageId/flags', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -284,9 +344,8 @@ export function createEmailRouter(): Hono {
     return c.json({ success: true });
   });
 
-  // Move email to folder
   app.post('/email/:messageId/move', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -301,9 +360,8 @@ export function createEmailRouter(): Hono {
     return c.json({ success: true });
   });
 
-  // Delete email
   app.delete('/email/:messageId', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -316,17 +374,14 @@ export function createEmailRouter(): Hono {
     if (permanent) {
       await storage.deleteEmail(user.address, messageId);
     } else {
-      // Move to trash
       await storage.moveToFolder(user.address, messageId, 'trash');
     }
 
     return c.json({ success: true });
   });
 
-  // ============ Search ============
-
   app.post('/search', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -355,16 +410,14 @@ export function createEmailRouter(): Hono {
     return c.json(response);
   });
 
-  // ============ Folder Management ============
-
-  // Create folder
   app.post('/folders', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    const { name } = await c.req.json() as { name: string };
+    const body = await c.req.json();
+    const { name } = parseBody(folderNameSchema, body);
 
     const storage = getMailboxStorage();
     const index = await storage.getIndex(user.address);
@@ -383,9 +436,8 @@ export function createEmailRouter(): Hono {
     return c.json({ success: true, folder: name });
   });
 
-  // Delete folder
   app.delete('/folders/:name', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -403,7 +455,6 @@ export function createEmailRouter(): Hono {
       return c.json({ error: 'Folder not found' }, 404);
     }
 
-    // Move emails to inbox before deleting folder
     index.inbox.push(...index.folders[name]);
     delete index.folders[name];
     
@@ -412,11 +463,8 @@ export function createEmailRouter(): Hono {
     return c.json({ success: true });
   });
 
-  // ============ Filter Rules ============
-
-  // Get filter rules
   app.get('/rules', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -431,9 +479,8 @@ export function createEmailRouter(): Hono {
     return c.json({ rules: index.rules });
   });
 
-  // Add filter rule
   app.post('/rules', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -447,9 +494,8 @@ export function createEmailRouter(): Hono {
     return c.json({ success: true, rule });
   });
 
-  // Delete filter rule
   app.delete('/rules/:ruleId', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -462,11 +508,8 @@ export function createEmailRouter(): Hono {
     return c.json({ success: true });
   });
 
-  // ============ Data Export (GDPR) ============
-
-  // Export all data
   app.get('/export', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
@@ -474,25 +517,20 @@ export function createEmailRouter(): Hono {
     const storage = getMailboxStorage();
     const data = await storage.exportUserData(user.address);
 
-    // Return as downloadable JSON
     c.header('Content-Type', 'application/json');
     c.header('Content-Disposition', `attachment; filename="jeju-mail-export-${Date.now()}.json"`);
-    
-    return c.body(JSON.stringify(data, null, 2));
+
+    return c.body(JSON.stringify(data, bigIntReplacer, 2));
   });
 
-  // Delete all data (GDPR right to be forgotten)
   app.delete('/account', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }
 
-    const { confirm } = await c.req.json() as { confirm: boolean };
-    
-    if (!confirm) {
-      return c.json({ error: 'Confirmation required' }, 400);
-    }
+    const body = await c.req.json();
+    parseBody(accountDeleteSchema, body); // Validates confirm: true is present
 
     const storage = getMailboxStorage();
     await storage.deleteAllUserData(user.address);
@@ -500,10 +538,8 @@ export function createEmailRouter(): Hono {
     return c.json({ success: true, message: 'All email data has been permanently deleted' });
   });
 
-  // ============ Delivery Status ============
-
   app.get('/status/:messageId', async (c) => {
-    const user = getAuthenticatedUser(c);
+    const user = await getAuthenticatedUser(c);
     if (!user) {
       return c.json({ error: 'Unauthorized' }, 401);
     }

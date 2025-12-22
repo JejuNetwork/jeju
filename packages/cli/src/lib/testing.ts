@@ -96,7 +96,7 @@ export async function runPreflightChecks(_rootDir: string, rpcUrl: string): Prom
   const rpcHealthy = await checkRpcHealth(rpcUrl, 5000);
   if (!rpcHealthy) {
     return {
-      phase: 'preflight',
+      name: 'preflight',
       passed: false,
       duration: Date.now() - startTime,
       output: `RPC not responding: ${rpcUrl}`,
@@ -106,7 +106,7 @@ export async function runPreflightChecks(_rootDir: string, rpcUrl: string): Prom
   logger.success('Chain is healthy');
   
   return {
-    phase: 'preflight',
+    name: 'preflight',
     passed: true,
     duration: Date.now() - startTime,
   };
@@ -128,9 +128,10 @@ export async function runTestPhase(
   if (!existsSync(cwd)) {
     logger.warn(`Directory not found: ${cwd}`);
     return {
-      phase: phase.name,
+      name: phase.name,
       passed: true,
       duration: Date.now() - startTime,
+      skipped: true,
       output: 'Skipped (directory not found)',
     };
   }
@@ -150,7 +151,7 @@ export async function runTestPhase(
     logger.success(`${phase.name} passed (${(duration / 1000).toFixed(2)}s)`);
     
     return {
-      phase: phase.name,
+      name: phase.name,
       passed: true,
       duration,
       output: result.stdout,
@@ -166,7 +167,7 @@ export async function runTestPhase(
     }
     
     return {
-      phase: phase.name,
+      name: phase.name,
       passed: false,
       duration,
       output: err.stderr || err.stdout || err.message || 'Unknown error',
@@ -286,7 +287,7 @@ export function printTestSummary(results: TestResult[]): void {
     const icon = result.passed ? '✓' : '✗';
     const status = result.passed ? 'PASS' : 'FAIL';
     const time = `${(result.duration / 1000).toFixed(2)}s`;
-    logger.info(`  ${icon} ${result.phase.padEnd(20)} ${status.padEnd(6)} ${time}`);
+    logger.info(`  ${icon} ${result.name.padEnd(20)} ${status.padEnd(6)} ${time}`);
   }
   
   logger.separator();

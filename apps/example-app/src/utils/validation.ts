@@ -23,7 +23,7 @@ export {
   expectNonEmptyString,
   expectJson,
   validateOrNull,
-} from '@jejunetwork/types/validation';
+} from '@jejunetwork/types';
 
 /**
  * Custom validation error class with Zod error details.

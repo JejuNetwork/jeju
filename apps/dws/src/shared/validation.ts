@@ -10,24 +10,72 @@ import { z } from 'zod';
 import type { Context } from 'hono';
 import type { Address, Hex } from 'viem';
 import {
-  expectValid,
+  expectValid as baseExpectValid,
   AddressSchema,
   HexSchema,
-  CidSchema,
-  PositiveIntSchema,
-  NonNegativeIntSchema,
-  NonEmptyStringSchema,
+  NonEmptyStringSchema as baseNonEmptyStringSchema,
   UrlSchema,
   EmailSchema,
   IsoDateSchema,
   TimestampSchema,
-  LimitOffsetPaginationSchema,
+  PositiveIntSchema,
+  NonNegativeIntSchema,
   PositiveBigIntSchema,
-  ErrorResponseSchema,
-} from '@jejunetwork/types/validation';
+  CidSchema,
+  PaginationSchema,
+} from '@jejunetwork/types';
 
-// Re-export expectValid from types
-export { expectValid };
+// Error response schema defined locally
+const ErrorResponseSchema = z.object({
+  error: z.string(),
+  code: z.string().optional(),
+  details: z.record(z.string(), z.unknown()).optional(),
+});
+
+// ============ JSON Value Types ============
+
+/**
+ * Represents any valid JSON primitive value
+ */
+export type JSONPrimitive = string | number | boolean | null;
+
+/**
+ * Represents any valid JSON array
+ */
+export type JSONArray = JSONValue[];
+
+/**
+ * Represents any valid JSON object
+ */
+export type JSONObject = { [key: string]: JSONValue };
+
+/**
+ * Represents any valid JSON value (recursive type)
+ * Use this for data that needs to be JSON-serializable but has no specific schema
+ */
+export type JSONValue = JSONPrimitive | JSONObject | JSONArray;
+
+/**
+ * Zod schema for JSON values (recursive)
+ */
+const jsonValueSchema: z.ZodType<JSONValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonValueSchema),
+    z.record(z.string(), jsonValueSchema),
+  ])
+);
+
+export const JSONValueSchema = jsonValueSchema;
+export const JSONObjectSchema = z.record(z.string(), jsonValueSchema) as z.ZodType<JSONObject>;
+export const JSONArraySchema = z.array(jsonValueSchema) as z.ZodType<JSONArray>;
+
+// Re-export from base
+export const expectValid = baseExpectValid;
+export const NonEmptyStringSchema = baseNonEmptyStringSchema;
 
 /**
  * Validate request body with fail-fast
@@ -134,12 +182,12 @@ export const strictHexSchema = HexSchema as z.ZodType<Hex>; // HexSchema already
 export const cidSchema = CidSchema;
 export const positiveIntSchema = PositiveIntSchema;
 export const nonNegativeIntSchema = NonNegativeIntSchema;
-export const nonEmptyStringSchema = NonEmptyStringSchema;
+export const nonEmptyStringSchema = baseNonEmptyStringSchema;
 export const urlSchema = UrlSchema;
 export const emailSchema = EmailSchema;
 export const isoDateSchema = IsoDateSchema;
 export const timestampSchema = TimestampSchema;
-export const paginationSchema = LimitOffsetPaginationSchema;
+export const paginationSchema = PaginationSchema;
 export const positiveBigIntSchema = PositiveBigIntSchema;
 export const errorResponseSchema = ErrorResponseSchema;
 

@@ -22,7 +22,6 @@ export {
   getFederatedNetworks,
   getNetworkName,
   type NetworkConfig,
-  type NetworkContracts,
   type ServicesConfig,
   type ContractCategoryName,
 } from "@jejunetwork/config";

@@ -3,7 +3,7 @@
  */
 
 import type { Address, Hex } from 'viem';
-import type { CIEvent, Workflow, WorkflowTrigger } from './types';
+import type { CIEvent, WorkflowTrigger } from './types';
 import type { WorkflowEngine } from './workflow-engine';
 
 type EventHandler = (event: CIEvent) => Promise<void>;

@@ -98,8 +98,7 @@ export class PoCMonitor {
 
     if (this.config.enableRevocationWatch) {
       this.revocationUnsubscribe = this.registryClient.subscribeToRevocations(
-        (rev) => this.handleRevocation(rev),
-        (err) => console.error('[PoCMonitor] Revocation watch error:', err),
+        (rev: PoCRevocation) => this.handleRevocation(rev),
       );
     }
 

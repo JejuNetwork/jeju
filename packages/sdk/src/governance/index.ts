@@ -3,11 +3,13 @@
  */
 
 import { type Address, type Hex, encodeFunctionData } from "viem";
-import type {
-  NetworkType,
-  ProposalType,
-  ProposalStatus,
-  VoteType,
+import {
+  ProposalTypeValue,
+  VoteTypeValue,
+  type NetworkType,
+  type ProposalType,
+  type ProposalStatus,
+  type VoteType,
 } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
 import { requireContract, getServicesConfig } from "../config";
@@ -207,7 +209,7 @@ export function createGovernanceModule(
       abi: COUNCIL_ABI,
       functionName: "createProposal",
       args: [
-        params.type,
+        ProposalTypeValue[params.type],
         contentHash,
         params.targetContract ?? "0x0000000000000000000000000000000000000000",
         params.callData ?? "0x",
@@ -258,7 +260,7 @@ export function createGovernanceModule(
     const data = encodeFunctionData({
       abi: COUNCIL_ABI,
       functionName: "castVote",
-      args: [params.proposalId, params.vote, reasonHash],
+      args: [params.proposalId, VoteTypeValue[params.vote], reasonHash],
     });
 
     return wallet.sendTransaction({ to: councilAddress, data });

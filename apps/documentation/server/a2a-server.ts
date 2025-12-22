@@ -40,8 +40,6 @@ const A2ARequestSchema = z.object({
   id: z.union([z.number(), z.string()]),
 });
 
-type A2ARequest = z.infer<typeof A2ARequestSchema>;
-
 interface SkillResult {
   message: string;
   data: Record<string, string | number | SearchResult[] | Topic[]>;

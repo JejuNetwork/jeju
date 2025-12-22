@@ -4,8 +4,8 @@
  */
 
 import type { Address, Hex } from 'viem';
-import { LedgerKeyring, ledgerKeyring, type LedgerAccount, type LedgerHDPathType } from './ledger';
-import { TrezorKeyring, trezorKeyring, type TrezorAccount, type TrezorHDPathType } from './trezor';
+import { LedgerKeyring, ledgerKeyring, type LedgerAccount, type LedgerHDPathType, type PartialLedgerSerializedState } from './ledger';
+import { TrezorKeyring, trezorKeyring, type TrezorAccount, type TrezorHDPathType, type PartialTrezorSerializedState } from './trezor';
 
 export type HardwareWalletType = 'ledger' | 'trezor';
 export type HDPathType = LedgerHDPathType | TrezorHDPathType;
@@ -274,12 +274,12 @@ class HardwareWalletService {
   /**
    * Deserialize from storage
    */
-  deserialize(data: Record<string, unknown>): void {
+  deserialize(data: { ledger?: PartialLedgerSerializedState; trezor?: PartialTrezorSerializedState }): void {
     if (data.ledger) {
-      ledgerKeyring.deserialize(data.ledger as Record<string, unknown>);
+      ledgerKeyring.deserialize(data.ledger);
     }
     if (data.trezor) {
-      trezorKeyring.deserialize(data.trezor as Record<string, unknown>);
+      trezorKeyring.deserialize(data.trezor);
     }
   }
 }

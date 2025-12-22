@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod';
-import { nonEmptyStringSchema, urlSchema, cidSchema } from '../validation';
+import { urlSchema, cidSchema } from '../validation';
 
 /**
  * CDN cache request schema

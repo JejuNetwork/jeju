@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { AddressSchema } from '@jejunetwork/types/validation';
+import { AddressSchema } from '@jejunetwork/types';
 
 // ============================================================================
 // Common Schemas

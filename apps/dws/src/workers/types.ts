@@ -4,6 +4,8 @@
  */
 
 import type { Address } from 'viem';
+import type { JSONValue } from '../shared/validation';
+import type { Subprocess, SpawnOptions } from 'bun';
 
 export type WorkerRuntime = 'bun' | 'node' | 'deno';
 // Re-export consolidated WorkerStatus
@@ -44,13 +46,13 @@ export interface WorkerInvocation {
   id: string;
   functionId: string;
   type: InvocationType;
-  payload: unknown;
+  payload: JSONValue;
   caller: Address;
   startedAt: number;
   completedAt?: number;
   durationMs?: number;
   status: 'pending' | 'running' | 'success' | 'error' | 'timeout';
-  result?: unknown;
+  result?: JSONValue;
   error?: string;
   logs: string[];
   memoryUsedMb?: number;
@@ -60,7 +62,7 @@ export interface WorkerInvocation {
 export interface WorkerEvent {
   type: 'http' | 'schedule' | 'queue' | 'storage' | 'custom';
   source: string;
-  data: unknown;
+  data: JSONValue;
   timestamp: number;
 }
 
@@ -126,7 +128,7 @@ export interface WorkerInstance {
   id: string;
   functionId: string;
   version: number;
-  process?: unknown;           // Bun.Subprocess
+  process?: Subprocess<SpawnOptions.Writable, SpawnOptions.Readable, SpawnOptions.Readable>;
   port: number;
   status: 'starting' | 'ready' | 'busy' | 'stopping' | 'stopped';
   activeInvocations: number;
@@ -163,7 +165,7 @@ export interface DeployParams {
 
 export interface InvokeParams {
   functionId: string;
-  payload?: unknown;
+  payload?: JSONValue;
   type?: InvocationType;
   timeout?: number;
 }
@@ -171,7 +173,7 @@ export interface InvokeParams {
 export interface InvokeResult {
   invocationId: string;
   status: 'success' | 'error' | 'timeout';
-  result?: unknown;
+  result?: JSONValue;
   error?: string;
   durationMs: number;
   billedDurationMs: number;

@@ -136,12 +136,15 @@ const CONTRIBUTOR_REGISTRY_ABI = parseAbi([
 ]);
 
 // ============ Platform Hashes ============
+// MUST use keccak256 to match Solidity: keccak256("github"), etc.
 
-const PLATFORM_HASHES: Record<SocialPlatform, string> = {
-  github: '0x' + Buffer.from('github').toString('hex').padEnd(64, '0'),
-  discord: '0x' + Buffer.from('discord').toString('hex').padEnd(64, '0'),
-  twitter: '0x' + Buffer.from('twitter').toString('hex').padEnd(64, '0'),
-  farcaster: '0x' + Buffer.from('farcaster').toString('hex').padEnd(64, '0'),
+import { keccak256, toBytes } from 'viem';
+
+const PLATFORM_HASHES: Record<SocialPlatform, `0x${string}`> = {
+  github: keccak256(toBytes('github')),
+  discord: keccak256(toBytes('discord')),
+  twitter: keccak256(toBytes('twitter')),
+  farcaster: keccak256(toBytes('farcaster')),
 };
 
 // ============ Type Converters ============

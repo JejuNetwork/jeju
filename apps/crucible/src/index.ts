@@ -3,12 +3,8 @@
  * 
  * Main entry point for the Crucible package.
  * 
- * Agent execution options:
- * 1. Full ElizaOS runtime with @jejunetwork/eliza-plugin (recommended)
- * 2. Direct DWS inference with character-based prompting (fallback)
- * 
- * When ElizaOS is available, agents get full plugin/action capabilities.
- * When only DWS is available, agents run with character-template inference.
+ * Uses ElizaOS AgentRuntime with @jejunetwork/eliza-plugin for full
+ * network access: compute, storage, DeFi, governance, cross-chain, A2A.
  */
 
 // Types
@@ -48,14 +44,12 @@ export {
   type ExecutorConfig,
 } from './sdk/executor';
 
-// Agent Runtime - ElizaOS integration with DWS fallback
+// Agent Runtime - ElizaOS + @jejunetwork/eliza-plugin
 export {
   CrucibleAgentRuntime,
   CrucibleRuntimeManager,
   createCrucibleRuntime,
   runtimeManager,
-  checkDWSHealth,
-  dwsGenerate,
   type RuntimeConfig,
   type RuntimeMessage,
   type RuntimeResponse,

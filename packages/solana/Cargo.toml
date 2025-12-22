@@ -1,5 +1,6 @@
 [workspace]
 members = [
+    # "programs/agent-registry", # Temporarily disabled due to mpl-token-metadata dependency conflict
     "programs/jeju-launchpad",
     "programs/oif-solver",
     "programs/evm-light-client",

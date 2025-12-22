@@ -100,6 +100,14 @@
       "liquidityPaymaster": ""
     },
     
+    "liquidity": {
+      "riskSleeve": "",
+      "liquidityRouter": "",
+      "multiServiceStakeManager": "",
+      "liquidityVault": "",
+      "federatedLiquidity": ""
+    },
+    
     "fees": {
       "feeConfig": "",
       "feeDistributor": "",
@@ -190,6 +198,14 @@
       "liquidityPaymaster": ""
     },
     
+    "liquidity": {
+      "riskSleeve": "",
+      "liquidityRouter": "",
+      "multiServiceStakeManager": "",
+      "liquidityVault": "",
+      "federatedLiquidity": ""
+    },
+    
     "fees": {
       "feeConfig": "",
       "feeDistributor": "",
@@ -278,6 +294,14 @@
       "l1StakeManager": "",
       "crossChainPaymaster": "",
       "liquidityPaymaster": ""
+    },
+    
+    "liquidity": {
+      "riskSleeve": "",
+      "liquidityRouter": "",
+      "multiServiceStakeManager": "",
+      "liquidityVault": "",
+      "federatedLiquidity": ""
     },
     
     "fees": {

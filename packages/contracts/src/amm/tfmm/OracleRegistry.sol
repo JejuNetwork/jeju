@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {IOracleRegistry} from "./IOracleRegistry.sol";
@@ -349,6 +349,18 @@ contract OracleRegistry is IOracleRegistry, Ownable {
 
     function _tryGetPythPrice(OracleInfo storage info) internal view returns (bool success, uint256 price) {
         try pyth.getPriceNoOlderThan(info.pythId, info.heartbeat) returns (IPyth.Price memory pythPrice) {
+            // Validate price is positive
+            if (pythPrice.price <= 0) {
+                return (false, 0);
+            }
+
+            // Check confidence is not too wide (conf should be < 1% of price)
+            // This protects against using unreliable prices during high volatility
+            uint64 maxConfidence = uint64(pythPrice.price) / 100; // 1% threshold
+            if (pythPrice.conf > maxConfidence) {
+                return (false, 0);
+            }
+
             int256 priceInt = int256(pythPrice.price);
             int32 expo = pythPrice.expo;
 

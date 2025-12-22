@@ -17,6 +17,119 @@ const AddressSchema = z.string()
   .transform((val) => val as `0x${string}`);
 
 // =============================================================================
+// JSON Value Schemas (for truly polymorphic external data)
+// =============================================================================
+
+/** Schema for JSON primitive values */
+const JsonPrimitiveSchema = z.union([z.string(), z.number(), z.boolean(), z.null()]);
+
+/** Recursive schema for JSON values - use z.lazy for recursive types */
+export const JsonValueSchema: z.ZodType<import('./types').JsonValue> = z.lazy(() =>
+  z.union([
+    JsonPrimitiveSchema,
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ])
+);
+
+/** Schema for JSON objects */
+export const JsonObjectSchema = z.record(z.string(), JsonValueSchema);
+
+// =============================================================================
+// Trading Bot Schemas
+// =============================================================================
+
+export const TradingBotStrategyTypeSchema = z.enum([
+  'DEX_ARBITRAGE', 'CROSS_CHAIN_ARBITRAGE', 'SANDWICH', 'LIQUIDATION', 'SOLVER', 'ORACLE_KEEPER'
+]);
+
+export const TradingBotStrategySchema = z.object({
+  type: TradingBotStrategyTypeSchema,
+  enabled: z.boolean(),
+  minProfitBps: z.number().int().min(0).max(10000),
+  maxGasGwei: z.number().int().min(1).max(10000),
+  maxSlippageBps: z.number().int().min(0).max(10000),
+  cooldownMs: z.number().int().min(0).optional(),
+}).strict();
+
+export const TradingBotChainSchema = z.object({
+  chainId: z.number().int().min(1),
+  name: z.string().min(1),
+  rpcUrl: z.string().url(),
+  wsUrl: z.string().url().optional(),
+  blockTime: z.number().int().min(1).max(60000),
+  isL2: z.boolean(),
+  nativeSymbol: z.string().min(1),
+  explorerUrl: z.string().url().optional(),
+}).strict();
+
+// =============================================================================
+// Action Types Schemas
+// =============================================================================
+
+/** Schema for action parameters */
+export const ActionParamsSchema = z.object({
+  content: z.string().optional(),
+  target: z.string().optional(),
+  amount: z.string().optional(),
+}).catchall(JsonValueSchema);
+
+/** Schema for action result - union of possible result types */
+export const ActionResultSchema = z.union([
+  z.string(), // Transaction hash
+  z.object({ txHash: z.string(), success: z.boolean().optional() }).strict(),
+  z.object({ success: z.boolean(), error: z.string().optional() }).strict(),
+  JsonObjectSchema, // Complex structured result
+]);
+
+// =============================================================================
+// State Update Schemas
+// =============================================================================
+
+// Forward declare AgentActionSchema for use in StateUpdatesSchema
+const AgentActionSchemaForStateUpdates = z.object({
+  type: z.string(),
+  target: z.string().optional(),
+  params: ActionParamsSchema.optional(),
+  result: ActionResultSchema.optional(),
+  success: z.boolean(),
+}).strict();
+
+export const StateUpdatesSchema = z.object({
+  lastResponse: z.string().optional(),
+  lastActions: z.array(AgentActionSchemaForStateUpdates).optional(),
+  actionSuccessRate: z.number().min(0).max(1).optional(),
+}).strict();
+
+// =============================================================================
+// Context and Metadata Schemas
+// =============================================================================
+
+export const LastExecutionInfoSchema = z.object({
+  executionId: z.string(),
+  timestamp: z.number(),
+  triggerId: z.string().optional(),
+}).strict();
+
+/** Agent context schema - allows lastExecution plus arbitrary JSON values */
+export const AgentContextSchema = z.object({
+  lastExecution: LastExecutionInfoSchema.optional(),
+}).catchall(JsonValueSchema);
+
+/** Room state metadata schema */
+export const RoomStateMetadataSchema = z.object({
+  topic: z.string().optional(),
+  rules: z.array(z.string()).optional(),
+}).catchall(JsonValueSchema);
+
+/** Message metadata schema */
+export const MessageMetadataSchema = z.object({
+  source: z.string().optional(),
+  replyTo: z.string().optional(),
+  attachments: z.array(z.string()).optional(),
+}).catchall(JsonValueSchema);
+
+// =============================================================================
 // Agent Schemas
 // =============================================================================
 
@@ -118,7 +231,7 @@ export const ExecutionInputSchema = z.object({
   message: z.string().optional(),
   roomId: z.string().optional(),
   userId: z.string().optional(),
-  context: z.record(z.string(), z.unknown()).optional(),
+  context: JsonObjectSchema.optional(),
 }).strict();
 
 export const ExecutionOptionsSchema = z.object({
@@ -168,7 +281,7 @@ export const A2ARequestSchema = z.object({
       parts: z.array(z.object({
         kind: z.string(),
         text: z.string().optional(),
-        data: z.record(z.string(), z.unknown()).optional(),
+        data: JsonObjectSchema.optional(),
       })),
     }).optional(),
   }).optional(),
@@ -183,7 +296,7 @@ export const MCPResourceReadRequestSchema = z.object({
 
 export const MCPToolCallRequestSchema = z.object({
   name: z.string().min(1, 'Tool name is required'),
-  arguments: z.record(z.string(), z.unknown()).optional(),
+  arguments: JsonObjectSchema.optional(),
 }).strict();
 
 // =============================================================================
@@ -288,15 +401,30 @@ export const EmbeddingResponseSchema = z.object({
   embedding: z.array(z.number()),
 }).strict();
 
+/** Agent item in search results - matches GraphQL query fields */
+export const AgentSearchItemSchema = z.object({
+  agentId: z.union([z.string(), z.number()]).transform((val) => BigInt(val)),
+  owner: AddressSchema,
+  name: z.string(),
+  characterCid: z.string().optional(),
+  stateCid: z.string(),
+  vaultAddress: AddressSchema,
+  botType: z.enum(['ai_agent', 'trading_bot', 'org_tool']).optional().default('ai_agent'),
+  active: z.boolean(),
+  registeredAt: z.number(),
+  lastExecutedAt: z.number(),
+  executionCount: z.number(),
+});
+
 export const AgentSearchResponseSchema = z.object({
   data: z.object({
     agents: z.object({
-      items: z.array(z.unknown()),
+      items: z.array(AgentSearchItemSchema),
       total: z.number(),
       hasMore: z.boolean(),
-    }).strict(),
-  }).strict(),
-}).strict();
+    }),
+  }),
+});
 
 // =============================================================================
 // State Schemas (for JSON.parse validation)
@@ -315,7 +443,7 @@ export const AgentStateSchema = z.object({
     userId: z.string().optional(),
   }).strict()),
   rooms: z.array(z.string()),
-  context: z.record(z.string(), z.unknown()),
+  context: AgentContextSchema,
   updatedAt: z.number(),
 }).strict();
 
@@ -328,12 +456,12 @@ export const RoomStateSchema = z.object({
     content: z.string(),
     timestamp: z.number(),
     action: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
+    metadata: MessageMetadataSchema.optional(),
   }).strict()),
   scores: z.record(z.string(), z.number()),
   currentTurn: z.string().optional(),
   phase: z.enum(['setup', 'active', 'paused', 'completed', 'archived']),
-  metadata: z.record(z.string(), z.unknown()),
+  metadata: RoomStateMetadataSchema,
   updatedAt: z.number(),
 }).strict();
 
@@ -349,8 +477,8 @@ export const AgentDefinitionSchema = z.object({
   registeredAt: z.number(),
   lastExecutedAt: z.number(),
   executionCount: z.number(),
-  strategies: z.array(z.unknown()).optional(),
-  chains: z.array(z.unknown()).optional(),
+  strategies: z.array(TradingBotStrategySchema).optional(),
+  chains: z.array(TradingBotChainSchema).optional(),
   treasuryAddress: AddressSchema.optional(),
   orgId: z.string().optional(),
   capabilities: z.array(z.string()).optional(),
@@ -415,7 +543,7 @@ export const OrgStateSchema = z.object({
       todosCompleted: z.number(),
     }).strict(),
   }).strict()),
-  metadata: z.record(z.string(), z.unknown()),
+  metadata: JsonObjectSchema,
   updatedAt: z.number(),
 }).strict();
 
@@ -477,8 +605,8 @@ export const OrgToolStateSchema = z.object({
 // JSON Array Schemas (for JSON.parse validation)
 // =============================================================================
 
-export const TradingBotStrategyArraySchema = z.array(z.unknown());
-export const TradingBotChainArraySchema = z.array(z.unknown());
+export const TradingBotStrategyArraySchema = z.array(TradingBotStrategySchema);
+export const TradingBotChainArraySchema = z.array(TradingBotChainSchema);
 export const StringArraySchema = z.array(z.string());
 export const RoomMemberSchema = z.object({
   agentId: z.string().transform((val) => BigInt(val)),
@@ -516,24 +644,28 @@ export const RoomSchema = z.object({
   createdAt: z.number(),
 }).strict();
 
+export const AgentActionSchema = z.object({
+  type: z.string(),
+  target: z.string().optional(),
+  params: ActionParamsSchema.optional(),
+  result: ActionResultSchema.optional(),
+  success: z.boolean(),
+}).strict();
+
+export const RoomMessageSchema = z.object({
+  id: z.string(),
+  agentId: z.string(),
+  content: z.string(),
+  timestamp: z.number(),
+  action: z.string().optional(),
+  metadata: MessageMetadataSchema.optional(),
+}).strict();
+
 export const ExecutionOutputSchema = z.object({
   response: z.string().optional(),
-  actions: z.array(z.object({
-    type: z.string(),
-    target: z.string().optional(),
-    params: z.record(z.string(), z.unknown()).optional(),
-    result: z.unknown().optional(),
-    success: z.boolean(),
-  }).strict()).optional(),
-  stateUpdates: z.record(z.string(), z.unknown()).optional(),
-  roomMessages: z.array(z.object({
-    id: z.string(),
-    agentId: z.string(),
-    content: z.string(),
-    timestamp: z.number(),
-    action: z.string().optional(),
-    metadata: z.record(z.string(), z.unknown()).optional(),
-  }).strict()).optional(),
+  actions: z.array(AgentActionSchema).optional(),
+  stateUpdates: StateUpdatesSchema.optional(),
+  roomMessages: z.array(RoomMessageSchema).optional(),
 }).strict();
 
 export const ExecutionCostSchema = z.object({

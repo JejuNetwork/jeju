@@ -325,22 +325,6 @@ export function createEVMLightClientClient(
   return new EVMLightClientClient(connection, programId);
 }
 
-/**
- * Helper to convert hex string to bytes
- */
-export function hexToBytes(hex: string): Uint8Array {
-  const cleaned = hex.startsWith('0x') ? hex.slice(2) : hex;
-  const bytes = new Uint8Array(cleaned.length / 2);
-  for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(cleaned.substr(i * 2, 2), 16);
-  }
-  return bytes;
-}
-
-/**
- * Helper to convert bytes to hex string
- */
-export function bytesToHex(bytes: Uint8Array): string {
-  return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
-}
+// Re-export hex/bytes utilities from shared utils for backward compatibility
+export { hexToBytes, bytesToHex } from '../dex/utils';
 

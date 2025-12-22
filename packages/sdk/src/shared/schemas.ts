@@ -6,6 +6,30 @@
  */
 
 import { z } from "zod";
+import type { JsonValue, JsonRecord } from "./types";
+
+// ============================================================================
+// JSON Value Schema
+// ============================================================================
+
+/**
+ * Zod schema for JSON values - use instead of z.unknown() for JSON data
+ */
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ])
+);
+
+/**
+ * Zod schema for JSON records (objects)
+ */
+export const JsonRecordSchema: z.ZodType<JsonRecord> = z.record(z.string(), JsonValueSchema);
 
 // ============================================================================
 // Common Schemas
@@ -238,13 +262,13 @@ export const A2AResponseSchema = z.object({
     parts: z.array(z.object({
       kind: z.string(),
       text: z.string().optional(),
-      data: z.record(z.string(), z.unknown()).optional(),
+      data: JsonRecordSchema.optional(),
     })),
   }).optional(),
   error: z.object({
     code: z.number(),
     message: z.string(),
-    data: z.unknown().optional(),
+    data: JsonValueSchema.optional(),
   }).optional(),
 });
 
@@ -401,7 +425,7 @@ export const WorkflowStepSchema = z.object({
   stepId: z.string(),
   name: z.string(),
   type: z.enum(["compute", "storage", "contract", "http", "transform"]),
-  config: z.record(z.string(), z.unknown()),
+  config: JsonRecordSchema,
   dependencies: z.array(z.string()),
   timeout: z.number(),
   retries: z.number(),
@@ -428,8 +452,8 @@ export const JobSchema = z.object({
   startedAt: z.number(),
   completedAt: z.number(),
   duration: z.number(),
-  input: z.record(z.string(), z.unknown()),
-  output: z.record(z.string(), z.unknown()),
+  input: JsonRecordSchema,
+  output: JsonRecordSchema,
   error: z.string().nullable(),
   logs: z.array(z.string()),
   stepResults: z.array(z.object({
@@ -437,7 +461,7 @@ export const JobSchema = z.object({
     status: z.enum(["pending", "running", "completed", "failed", "cancelled"]),
     startedAt: z.number(),
     completedAt: z.number(),
-    output: z.record(z.string(), z.unknown()),
+    output: JsonRecordSchema,
     error: z.string().nullable(),
   })),
 });

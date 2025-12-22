@@ -246,7 +246,7 @@ export function useApplyForBounty() {
 
 // ============ Model Hooks ============
 
-export function useModel(modelId: `0x${string}` | undefined) {
+export function useModelContract(modelId: `0x${string}` | undefined) {
   const address = getContractAddressSafe('modelRegistry');
   
   return useReadContract({

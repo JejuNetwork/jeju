@@ -158,7 +158,9 @@ export class TrajectoryStore {
 
   async storeModel(modelData: Uint8Array, metadata: Record<string, unknown>): Promise<string> {
     const formData = new FormData();
-    formData.append('model', new Blob([modelData]));
+    const buffer = new ArrayBuffer(modelData.byteLength);
+    new Uint8Array(buffer).set(modelData);
+    formData.append('model', new Blob([buffer]));
     formData.append('metadata', JSON.stringify(metadata));
 
     const response = await fetch(`${this.config.storageApiUrl}/upload/model`, {

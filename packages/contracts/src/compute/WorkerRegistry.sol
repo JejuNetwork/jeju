@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
@@ -374,14 +374,14 @@ contract WorkerRegistry is Ownable, ReentrancyGuard {
         // Handle prepaid payment - deduct from caller's prepaid balance
         if (worker.paymentMode == PaymentMode.PREPAID && worker.pricePerInvocation > 0) {
             uint256 price = worker.pricePerInvocation;
-            if (prepaidBalances[tx.origin] < price) revert InsufficientPrepaid();
+            if (prepaidBalances[msg.sender] < price) revert InsufficientPrepaid();
             
             // Deduct from caller and credit to worker owner
-            prepaidBalances[tx.origin] -= price;
+            prepaidBalances[msg.sender] -= price;
             prepaidBalances[worker.owner] += price;
         }
 
-        emit WorkerInvoked(workerId, msg.sender, tx.origin, success);
+        emit WorkerInvoked(workerId, msg.sender, msg.sender, success);
     }
 
     // =========================================================================

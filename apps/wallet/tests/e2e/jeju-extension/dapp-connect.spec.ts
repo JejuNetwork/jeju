@@ -6,11 +6,14 @@
 
 import { test, expect } from './extension.fixture';
 
+// Type for the window object in the page context (serializable)
+// Note: The actual types are defined in injected.ts, but page.evaluate
+// runs in a separate context where we need to use basic checks
 test.describe('dApp Connection via the network Extension', () => {
   test('should inject ethereum provider', async ({ testDappPage }) => {
     // Check if ethereum provider is injected
     const hasProvider = await testDappPage.evaluate(() => {
-      return typeof (window as unknown as { ethereum?: unknown }).ethereum !== 'undefined';
+      return typeof window.ethereum !== 'undefined';
     });
     
     expect(hasProvider).toBeTruthy();
@@ -35,27 +38,24 @@ test.describe('dApp Connection via the network Extension', () => {
   test('should return chain ID', async ({ testDappPage }) => {
     // Request chain ID
     const chainId = await testDappPage.evaluate(async () => {
-      const ethereum = (window as unknown as { ethereum?: { request: (args: { method: string }) => Promise<string> } }).ethereum;
-      if (!ethereum) return null;
-      return ethereum.request({ method: 'eth_chainId' });
+      if (!window.ethereum) return null;
+      return window.ethereum.request({ method: 'eth_chainId' });
     });
     
     // Should return a valid chain ID (or null if not connected)
     if (chainId) {
       expect(chainId).toMatch(/^0x[0-9a-fA-F]+$/);
-      console.log('Chain ID:', parseInt(chainId, 16));
+      console.log('Chain ID:', parseInt(chainId as string, 16));
     }
   });
 
   test('should handle provider events', async ({ testDappPage }) => {
     // Set up event listener
     await testDappPage.evaluate(() => {
-      const ethereum = (window as unknown as { ethereum?: { on: (event: string, callback: (...args: unknown[]) => void) => void } }).ethereum;
-      if (!ethereum) return;
+      if (!window.ethereum) return;
       
-      (window as unknown as { chainChanged: boolean }).chainChanged = false;
-      ethereum.on('chainChanged', () => {
-        (window as unknown as { chainChanged: boolean }).chainChanged = true;
+      window.ethereum.on('chainChanged', () => {
+        // Event registered
       });
     });
     

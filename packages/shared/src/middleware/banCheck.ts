@@ -5,7 +5,7 @@
  * Can be used with Express, Hono, or any HTTP framework.
  */
 
-import { createPublicClient, http, type Address, type Hex } from 'viem';
+import { createPublicClient, http, type Address, type Hex, type PublicClient, type Chain, type Transport } from 'viem';
 import { baseSepolia, base } from 'viem/chains';
 
 // ============ Types ============
@@ -94,7 +94,7 @@ const cache = new Map<string, CacheEntry>();
 
 export class BanChecker {
   private config: Required<BanCheckConfig>;
-  private publicClient: ReturnType<typeof createPublicClient>;
+  private publicClient: PublicClient<Transport, Chain>;
 
   constructor(config: BanCheckConfig) {
     const network = config.network || 'testnet';
@@ -117,7 +117,7 @@ export class BanChecker {
     this.publicClient = createPublicClient({
       chain,
       transport: http(this.config.rpcUrl),
-    });
+    }) as PublicClient<Transport, Chain>;
   }
 
   /**

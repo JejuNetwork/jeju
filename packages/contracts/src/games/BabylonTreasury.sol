@@ -1,11 +1,6 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
-/**
- * @dev DEPRECATION NOTICE: This contract is vendor-specific and maintained in vendor/babylon/contracts/.
- *      This copy remains for backwards compatibility with existing deployments.
- *      For new deployments, use the contract from vendor/babylon/contracts/BabylonTreasury.sol
- */
 import "@openzeppelin/contracts/access/AccessControl.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Pausable.sol";
@@ -16,11 +11,6 @@ import "../interfaces/IGameTreasury.sol";
  * @notice Unruggable game treasury for permissionless Babylon
  * @dev Implements IGameTreasury interface for vendor-agnostic integration.
  *      Manages funds, state tracking, operator authorization, and security council.
- *
- * NOTE: This contract is vendor-specific and should be deployed from vendor/babylon.
- *       The core Jeju system uses IGameTreasury interface for abstraction.
- *
- * @custom:deprecated Use vendor/babylon/contracts/BabylonTreasury.sol for new deployments
  *
  * Key Security Features:
  * - Rate-limited withdrawals prevent fund draining

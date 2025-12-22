@@ -10,10 +10,14 @@ interface SecretsStoreConfig {
   mpcNetwork?: 'localnet' | 'testnet' | 'mainnet';
 }
 
+// Module-level storage for encrypted secret values (simulates secure storage)
+const secretStorage = new Map<string, string>();
+
 export class CISecretsStore {
   private secrets = new Map<string, CISecret>();
   private environments = new Map<string, Environment>();
   private mpc = getMPCCoordinator();
+  private partyCounter = 0;
 
   constructor(_config: SecretsStoreConfig = {}) {}
 
@@ -21,7 +25,7 @@ export class CISecretsStore {
     repoId: Hex,
     name: string,
     value: string,
-    owner: Address,
+    _owner: Address,
     environment?: string
   ): Promise<CISecret> {
     const secretId = `${repoId}-${environment || 'repo'}-${name}`;
@@ -29,11 +33,15 @@ export class CISecretsStore {
     const partyIds = ['party-1', 'party-2', 'party-3'];
     for (const id of partyIds) {
       if (!this.mpc.getActiveParties().find((p) => p.id === id)) {
+        this.partyCounter++;
         this.mpc.registerParty({
           id,
+          index: this.partyCounter,
+          endpoint: `http://localhost:${3000 + this.partyCounter}`,
           address: `0x${'0'.repeat(38)}${id.slice(-2)}` as Address,
           publicKey: `0x${'0'.repeat(64)}` as Hex,
           stake: 1000n,
+          registeredAt: Date.now(),
         });
       }
     }
@@ -43,6 +51,7 @@ export class CISecretsStore {
       threshold: 2,
       totalParties: 3,
       partyIds,
+      curve: 'secp256k1',
     });
 
     const encoder = new TextEncoder();
@@ -62,17 +71,17 @@ export class CISecretsStore {
     this.secrets.set(secretId, secret);
 
     const storageKey = `secret:${secretId}:value`;
-    (globalThis as Record<string, string>)[storageKey] = encryptedValue;
+    secretStorage.set(storageKey, encryptedValue);
 
     return secret;
   }
 
-  async getSecretValue(secretId: string, accessor: Address): Promise<string> {
+  async getSecretValue(secretId: string, _accessor: Address): Promise<string> {
     const secret = this.secrets.get(secretId);
     if (!secret) throw new Error(`Secret not found: ${secretId}`);
 
     const storageKey = `secret:${secretId}:value`;
-    const encryptedValue = (globalThis as Record<string, string>)[storageKey];
+    const encryptedValue = secretStorage.get(storageKey);
     if (!encryptedValue) throw new Error(`Secret value not found: ${secretId}`);
 
     const decrypted = Buffer.from(encryptedValue, 'base64').toString('utf8');
@@ -105,24 +114,24 @@ export class CISecretsStore {
     return result;
   }
 
-  async updateSecret(secretId: string, value: string, updater: Address): Promise<CISecret> {
+  async updateSecret(secretId: string, value: string, _updater: Address): Promise<CISecret> {
     const secret = this.secrets.get(secretId);
     if (!secret) throw new Error(`Secret not found: ${secretId}`);
 
-    await this.mpc.rotateKey({ keyId: secret.mpcKeyId });
+    await this.mpc.rotateKey({ keyId: secret.mpcKeyId, preserveAddress: true });
 
     const encoder = new TextEncoder();
     const valueBytes = encoder.encode(value);
     const encryptedValue = Buffer.from(valueBytes).toString('base64');
 
     const storageKey = `secret:${secretId}:value`;
-    (globalThis as Record<string, string>)[storageKey] = encryptedValue;
+    secretStorage.set(storageKey, encryptedValue);
 
     secret.updatedAt = Date.now();
     return secret;
   }
 
-  async deleteSecret(secretId: string, deleter: Address): Promise<void> {
+  async deleteSecret(secretId: string, _deleter: Address): Promise<void> {
     const secret = this.secrets.get(secretId);
     if (!secret) throw new Error(`Secret not found: ${secretId}`);
 
@@ -130,7 +139,7 @@ export class CISecretsStore {
     this.secrets.delete(secretId);
 
     const storageKey = `secret:${secretId}:value`;
-    delete (globalThis as Record<string, string>)[storageKey];
+    secretStorage.delete(storageKey);
   }
 
   listSecrets(repoId: Hex, environment?: string): CISecret[] {
@@ -142,7 +151,7 @@ export class CISecretsStore {
   async createEnvironment(
     repoId: Hex,
     name: string,
-    owner: Address,
+    _owner: Address,
     options: {
       url?: string;
       protectionRules?: ProtectionRules;

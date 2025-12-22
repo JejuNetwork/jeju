@@ -8,7 +8,7 @@ use anchor_lang::solana_program::{
 };
 use anchor_spl::token::{self, Token, TokenAccount, Transfer};
 
-declare_id!("x4o2Faci11111111111111111111111111111111111");
+declare_id!("FEsMtN2PfdzMPYCFLDLth3VxjfrozuzHodV24znt22B7");
 
 pub const MAX_PAYMENT_AGE: i64 = 300;
 pub const MAX_FEE_BPS: u16 = 1000;

@@ -323,7 +323,10 @@ export class BeaconChainWatcher {
   /**
    * Post data to relayer
    */
-  private async postToRelayer(path: string, data: unknown): Promise<void> {
+  private async postToRelayer(
+    path: string,
+    data: LightClientUpdate | SyncCommittee | FinalityUpdate
+  ): Promise<void> {
     try {
       const response = await fetch(`${this.config.relayerEndpoint}${path}`, {
         method: 'POST',

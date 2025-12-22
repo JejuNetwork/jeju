@@ -1,8 +1,63 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {Test} from "forge-std/Test.sol";
 import {SolanaVerifier} from "../../src/federation/SolanaVerifier.sol";
+import {IWormhole} from "../../src/federation/interfaces/IWormhole.sol";
+
+/**
+ * @title MockWormhole
+ * @notice Mock Wormhole contract for testing VAA verification
+ */
+contract MockWormhole {
+    bool public shouldFail;
+    string public failReason;
+    uint16 public mockChainId;
+    bytes32 public mockEmitter;
+    uint64 public mockSequence;
+    bytes public mockPayload;
+
+    function setMockData(
+        uint16 chainId,
+        bytes32 emitter,
+        uint64 sequence,
+        bytes memory payload
+    ) external {
+        mockChainId = chainId;
+        mockEmitter = emitter;
+        mockSequence = sequence;
+        mockPayload = payload;
+        shouldFail = false;
+    }
+
+    function setShouldFail(bool _shouldFail, string memory _reason) external {
+        shouldFail = _shouldFail;
+        failReason = _reason;
+    }
+
+    function parseAndVerifyVM(bytes calldata)
+        external
+        view
+        returns (IWormhole.VM memory vm, bool valid, string memory reason)
+    {
+        if (shouldFail) {
+            return (vm, false, failReason);
+        }
+
+        vm.version = 1;
+        vm.timestamp = uint32(block.timestamp);
+        vm.nonce = 0;
+        vm.emitterChainId = mockChainId;
+        vm.emitterAddress = mockEmitter;
+        vm.sequence = mockSequence;
+        vm.consistencyLevel = 1;
+        vm.payload = mockPayload;
+        vm.guardianSetIndex = 0;
+        vm.hash = keccak256(mockPayload);
+
+        return (vm, true, "");
+    }
+}
 
 /**
  * @title SolanaVerifierTest
@@ -16,9 +71,9 @@ import {SolanaVerifier} from "../../src/federation/SolanaVerifier.sol";
  */
 contract SolanaVerifierTest is Test {
     SolanaVerifier verifier;
+    MockWormhole mockWormhole;
     
     address owner;
-    address wormhole;
     bytes32 trustedEmitter;
 
     bytes32 constant MOCK_MINT_1 = bytes32(uint256(0x1111111111111111));
@@ -28,11 +83,13 @@ contract SolanaVerifierTest is Test {
 
     function setUp() public {
         owner = makeAddr("owner");
-        wormhole = makeAddr("wormhole");
         trustedEmitter = keccak256("trusted-emitter");
 
+        // Deploy mock wormhole
+        mockWormhole = new MockWormhole();
+
         vm.startPrank(owner);
-        verifier = new SolanaVerifier(wormhole, trustedEmitter);
+        verifier = new SolanaVerifier(address(mockWormhole), trustedEmitter);
         vm.stopPrank();
     }
 
@@ -181,7 +238,7 @@ contract SolanaVerifierTest is Test {
         vm.prank(owner);
         verifier.setWormhole(newWormhole);
         
-        assertEq(verifier.wormhole(), newWormhole);
+        assertEq(address(verifier.wormhole()), newWormhole);
     }
 
     function test_RevertWhen_NonOwnerAddsEntry() public {
@@ -201,23 +258,29 @@ contract SolanaVerifierTest is Test {
         );
     }
 
-    // ============ Wormhole VAA Tests (Simplified) ============
+    // ============ Wormhole VAA Tests ============
 
     function test_VerifyEntry_RevertOnInvalidVAA() public {
-        bytes memory shortVaa = hex"0000";
+        // Set mock to return invalid (fail verification)
+        mockWormhole.setShouldFail(true, "VAA verification failed");
         
-        vm.expectRevert(SolanaVerifier.InvalidVAA.selector);
-        verifier.verifyEntry(shortVaa);
+        bytes memory mockVaa = hex"0000";
+        
+        vm.expectRevert(SolanaVerifier.VerificationFailed.selector);
+        verifier.verifyEntry(mockVaa);
     }
 
     function test_VerifyEntry_RevertOnWrongChain() public {
-        // Create a mock VAA with wrong chain ID
-        bytes memory mockVaa = _createMockVAA(
+        // Set mock to return a valid VAA but with wrong chain ID
+        mockWormhole.setMockData(
             2, // Ethereum chain ID instead of Solana (1)
             trustedEmitter,
-            1 // sequence
+            1,
+            new bytes(100)
         );
 
+        bytes memory mockVaa = hex"0000";
+        
         vm.expectRevert(SolanaVerifier.InvalidChainId.selector);
         verifier.verifyEntry(mockVaa);
     }
@@ -225,30 +288,18 @@ contract SolanaVerifierTest is Test {
     function test_VerifyEntry_RevertOnWrongEmitter() public {
         bytes32 wrongEmitter = keccak256("wrong-emitter");
         
-        bytes memory mockVaa = _createMockVAA(
+        // Set mock to return a valid VAA but with wrong emitter
+        mockWormhole.setMockData(
             1, // Solana chain ID
             wrongEmitter,
-            1
+            1,
+            new bytes(100)
         );
 
+        bytes memory mockVaa = hex"0000";
+        
         vm.expectRevert(SolanaVerifier.InvalidEmitter.selector);
         verifier.verifyEntry(mockVaa);
-    }
-
-    function test_VerifyEntry_RevertOnReplay() public {
-        bytes memory mockVaa = _createMockVAA(
-            1,
-            trustedEmitter,
-            1
-        );
-
-        // First call succeeds (assuming valid payload)
-        // Note: In actual implementation, this would need a valid payload
-        // For now, we test the replay protection logic
-        
-        // Simulate successful first verification by marking sequence as processed
-        // This is internal state, so we can't directly test without a valid VAA
-        // The test demonstrates the expected behavior
     }
 
     // ============ Constants Tests ============
@@ -302,48 +353,4 @@ contract SolanaVerifierTest is Test {
 
         vm.stopPrank();
     }
-
-    /**
-     * @dev Create a mock VAA for testing
-     * This is a simplified structure, real VAAs have more complex encoding
-     */
-    function _createMockVAA(
-        uint16 chainId,
-        bytes32 emitter,
-        uint64 sequence
-    ) internal view returns (bytes memory) {
-        // VAA structure (simplified):
-        // version (1 byte)
-        // guardian set index (4 bytes)
-        // num signatures (1 byte)
-        // signatures (66 * numSigs bytes) - we use 0 for testing
-        // timestamp (4 bytes)
-        // nonce (4 bytes)
-        // emitter chain id (2 bytes)
-        // emitter address (32 bytes)
-        // sequence (8 bytes)
-        // consistency level (1 byte)
-        // payload (variable)
-
-        bytes memory body = abi.encodePacked(
-            uint32(block.timestamp), // timestamp
-            uint32(0),               // nonce
-            chainId,                 // emitter chain
-            emitter,                 // emitter address
-            sequence,                // sequence
-            uint8(1)                 // consistency level
-        );
-
-        // Minimal payload (just enough to pass length check)
-        bytes memory payload = new bytes(100);
-
-        return abi.encodePacked(
-            uint8(1),                // version
-            uint32(0),               // guardian set index
-            uint8(0),                // 0 signatures (for testing)
-            body,
-            payload
-        );
-    }
 }
-

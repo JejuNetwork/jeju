@@ -15,6 +15,7 @@
 import { Pool, PoolClient, PoolConfig, QueryResult, QueryResultRow } from 'pg';
 import { z } from 'zod';
 import { Registry, Counter, Histogram, Gauge } from 'prom-client';
+import type { SqlParam } from '../types';
 
 // ============================================================================
 // Configuration Schema
@@ -242,7 +243,7 @@ export class DatabaseReplicaRouter {
 
   async query<T extends QueryResultRow = QueryResultRow>(
     sql: string,
-    params?: unknown[],
+    params?: SqlParam[],
     options?: QueryOptions
   ): Promise<QueryResult<T>> {
     const isWrite = isWriteQuery(sql);

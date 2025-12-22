@@ -6,8 +6,7 @@
 
 import { z } from "zod";
 import type { Memory, IAgentRuntime } from "@elizaos/core";
-import type { Address, Hex } from "viem";
-import { JEJU_SERVICE_NAME, type JejuService } from "./service";
+import { JEJU_SERVICE_NAME } from "./service";
 
 // ============================================================================
 // Core Extraction Utilities
@@ -32,19 +31,6 @@ export function getMessageText(message: Memory): string {
 export function getOptionalMessageText(message: Memory): string {
   const text = message.content?.text;
   return typeof text === "string" ? text : "";
-}
-
-/**
- * Get the Jeju service from runtime - throws if not available
- */
-export function getService(runtime: IAgentRuntime): JejuService {
-  const service = runtime.getService(JEJU_SERVICE_NAME) as
-    | JejuService
-    | undefined;
-  if (!service) {
-    throw new Error("Jeju service not initialized");
-  }
-  return service;
 }
 
 /**
@@ -108,23 +94,8 @@ const addressSchema = z
   .string()
   .regex(/^0x[a-fA-F0-9]{40}$/, "Invalid Ethereum address");
 
-/** Hex string (32 bytes) */
-const bytes32Schema = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]{64}$/, "Invalid bytes32 hex string");
-
-/** CID (IPFS content identifier) */
-const cidSchema = z
-  .string()
-  .regex(/^(Qm[a-zA-Z0-9]{44}|bafy[a-zA-Z0-9]+)$/, "Invalid IPFS CID");
-
 /** Positive ETH amount string */
 const ethAmountSchema = z.string().regex(/^\d+(\.\d+)?$/, "Invalid ETH amount");
-
-/** JNS name */
-const jnsNameSchema = z
-  .string()
-  .regex(/^[a-z0-9-]+\.jeju$/i, "Invalid JNS name");
 
 /** Report types for moderation */
 const reportTypeSchema = z.enum([
@@ -134,16 +105,6 @@ const reportTypeSchema = z.enum([
   "illegal",
   "tos_violation",
   "other",
-]);
-
-/** Bounty/task status */
-const workStatusSchema = z.enum([
-  "open",
-  "in_progress",
-  "review",
-  "completed",
-  "cancelled",
-  "disputed",
 ]);
 
 /** Case status for moderation */
@@ -157,30 +118,6 @@ const caseStatusSchema = z.enum([
 
 /** Evidence position */
 const evidencePositionSchema = z.enum(["for", "against"]);
-
-export const schemas = {
-  address: addressSchema,
-  bytes32: bytes32Schema,
-  cid: cidSchema,
-  ethAmount: ethAmountSchema,
-  jnsName: jnsNameSchema,
-  reportType: reportTypeSchema,
-  workStatus: workStatusSchema,
-  caseStatus: caseStatusSchema,
-  evidencePosition: evidencePositionSchema,
-
-  /** Provider resources */
-  providerResources: z.object({
-    gpuType: z.string(),
-    gpuCount: z.number(),
-  }),
-
-  /** Provider pricing */
-  providerPricing: z.object({
-    pricePerHour: z.bigint().or(z.number()),
-    pricePerHourFormatted: z.string().optional(),
-  }),
-};
 
 // ============================================================================
 // Message Content Schemas for Actions
@@ -351,61 +288,6 @@ export function parseContent<T extends z.ZodType>(
   return result.data;
 }
 
-/**
- * Parse content with safe fallback - returns null if parsing fails
- */
-export function safeParseContent<T extends z.ZodType>(
-  message: Memory,
-  schema: T,
-): z.infer<T> | null {
-  const result = schema.safeParse(message.content);
-  return result.success ? result.data : null;
-}
-
-// ============================================================================
-// Text Extraction Utilities
-// ============================================================================
-
-/**
- * Extract address from text
- */
-export function extractAddress(text: string): Address | undefined {
-  const match = text.match(/0x[a-fA-F0-9]{40}/);
-  return match ? (match[0] as Address) : undefined;
-}
-
-/**
- * Extract bytes32 hex from text
- */
-export function extractBytes32(text: string): Hex | undefined {
-  const match = text.match(/0x[a-fA-F0-9]{64}/);
-  return match ? (match[0] as Hex) : undefined;
-}
-
-/**
- * Extract any hex value from text
- */
-export function extractHex(text: string): Hex | undefined {
-  const match = text.match(/0x[a-fA-F0-9]+/);
-  return match ? (match[0] as Hex) : undefined;
-}
-
-/**
- * Extract CID from text
- */
-export function extractCid(text: string): string | undefined {
-  const match = text.match(/Qm[a-zA-Z0-9]{44}|bafy[a-zA-Z0-9]+/);
-  return match ? match[0] : undefined;
-}
-
-/**
- * Extract ETH amount from text
- */
-export function extractEthAmount(text: string): string | undefined {
-  const match = text.match(/(\d+(?:\.\d+)?)\s*(?:eth)?/i);
-  return match ? match[1] : undefined;
-}
-
 // ============================================================================
 // Provider Validation
 // ============================================================================
@@ -546,20 +428,6 @@ export function validateIntentInfo(data: Record<string, unknown>): IntentInfo {
 // ============================================================================
 
 /**
- * Format a list of items for display
- */
-export function formatList<T>(
-  items: T[],
-  formatter: (item: T, index: number) => string,
-  maxItems = 10,
-): string {
-  return items
-    .slice(0, maxItems)
-    .map((item, i) => formatter(item, i))
-    .join("\n");
-}
-
-/**
  * Format a numbered list
  */
 export function formatNumberedList<T>(
@@ -570,19 +438,5 @@ export function formatNumberedList<T>(
   return items
     .slice(0, maxItems)
     .map((item, i) => `${i + 1}. ${formatter(item)}`)
-    .join("\n");
-}
-
-/**
- * Format a bulleted list
- */
-export function formatBulletList<T>(
-  items: T[],
-  formatter: (item: T) => string,
-  maxItems = 10,
-): string {
-  return items
-    .slice(0, maxItems)
-    .map((item) => `• ${formatter(item)}`)
     .join("\n");
 }

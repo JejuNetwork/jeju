@@ -4,6 +4,7 @@
  */
 
 import type { Address } from 'viem';
+import type { JSONValue } from '../shared/validation';
 
 // ============================================================================
 // Container Image Types
@@ -82,7 +83,8 @@ export interface ExecutionRequest {
   resources: ContainerResources;
   mode: ExecutionMode;
   timeout: number;
-  input?: unknown;
+  /** Input data to pass to the container (JSON-serializable) */
+  input?: JSONValue;
   webhook?: string;
   warmthConfig?: WarmthConfig;
 }
@@ -91,7 +93,8 @@ export interface ExecutionResult {
   executionId: string;
   instanceId: string;
   status: 'success' | 'failed' | 'timeout' | 'cancelled';
-  output: unknown;
+  /** Output data from the container (JSON-serializable or null) */
+  output: JSONValue | null;
   logs?: string;
   exitCode: number | null;
   metrics: ExecutionMetrics;

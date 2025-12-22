@@ -20,7 +20,7 @@ import {
   parseEther,
   encodePacked,
 } from 'viem'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { AddressSchema } from '@jejunetwork/types'
 import { expect } from '@/lib/validation'
 import { getGameContracts } from '@/config/contracts'
 import { JEJU_CHAIN_ID } from '@/config/chains'

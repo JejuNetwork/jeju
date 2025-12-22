@@ -10,6 +10,9 @@ import type { Address, Hex } from 'viem';
 import { z } from 'zod';
 import { getCQLUrl, getCQLMinerUrl } from '@jejunetwork/config';
 import { parseTimeout } from './utils.js';
+import CircuitBreakerLib from 'opossum';
+import { createPool, type Pool } from 'generic-pool';
+import pino from 'pino';
 import type {
   CQLConfig, CQLConnection, CQLConnectionPool, CQLTransaction,
   DatabaseConfig, DatabaseInfo, ExecResult, QueryParam, QueryResult,
@@ -43,79 +46,46 @@ const CQLConfigSchema = z.object({
   debug: z.boolean().optional(),
 });
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
-const LOG_LEVELS: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
-const DEFAULT_LOG_LEVEL: LogLevel = 'info';
+// Structured logger using pino
+const log = pino({
+  name: 'cql',
+  level: process.env.LOG_LEVEL ?? 'info',
+  transport: process.env.NODE_ENV !== 'production' ? { target: 'pino-pretty', options: { colorize: true } } : undefined,
+});
 
-function getLogLevel(): LogLevel {
-  const envLevel = process.env.LOG_LEVEL?.toLowerCase();
-  if (envLevel && envLevel in LOG_LEVELS) {
-    return envLevel as LogLevel;
-  }
-  return DEFAULT_LOG_LEVEL;
-}
+// Circuit breaker using opossum
+const circuitBreakerOptions = {
+  timeout: 30000,
+  errorThresholdPercentage: 50,
+  resetTimeout: 30000,
+  volumeThreshold: 5,
+};
 
-function log(level: LogLevel, msg: string, data?: Record<string, unknown>): void {
-  const minLevel = getLogLevel();
-  if (LOG_LEVELS[level] < LOG_LEVELS[minLevel]) return;
-  const entry = { timestamp: new Date().toISOString(), level, service: 'cql', message: msg, ...data };
-  const out = process.env.NODE_ENV === 'production' ? JSON.stringify(entry) : `[${entry.timestamp}] [${level.toUpperCase()}] [cql] ${msg}${data ? ' ' + JSON.stringify(data) : ''}`;
-  console[level === 'debug' ? 'debug' : level === 'info' ? 'info' : level === 'warn' ? 'warn' : 'error'](out);
-}
+// Typed circuit breaker that wraps async functions
+type CircuitBreakerAction<T> = () => Promise<T>;
+const circuitBreaker = new CircuitBreakerLib<[CircuitBreakerAction<Response>], Response>(
+  async (fn: CircuitBreakerAction<Response>) => fn(),
+  circuitBreakerOptions
+);
 
-class CircuitBreaker {
-  private failures = 0;
-  private lastFailure = 0;
-  private state: 'closed' | 'open' | 'half-open' = 'closed';
-  
-  constructor(private threshold = 5, private resetTimeMs = 30000) {}
-
-  async execute<T>(fn: () => Promise<T>): Promise<T> {
-    if (this.state === 'open') {
-      if (Date.now() - this.lastFailure > this.resetTimeMs) {
-        this.state = 'half-open';
-        log('info', 'Circuit breaker half-open, attempting recovery');
-      } else {
-        throw new Error('Circuit breaker is open - service unavailable');
-      }
-    }
-    
-    try {
-      const result = await fn();
-      if (this.state === 'half-open') {
-        this.state = 'closed';
-        this.failures = 0;
-        log('info', 'Circuit breaker closed, service recovered');
-      }
-      return result;
-    } catch (error) {
-      this.failures++;
-      this.lastFailure = Date.now();
-      if (this.failures >= this.threshold) {
-        this.state = 'open';
-        log('warn', 'Circuit breaker opened', { failures: this.failures, threshold: this.threshold });
-      }
-      throw error;
-    }
-  }
-
-  getState() { return { state: this.state, failures: this.failures }; }
-}
-
-const circuitBreaker = new CircuitBreaker();
+circuitBreaker.on('open', () => log.warn('Circuit breaker opened'));
+circuitBreaker.on('halfOpen', () => log.info('Circuit breaker half-open, attempting recovery'));
+circuitBreaker.on('close', () => log.info('Circuit breaker closed, service recovered'));
 
 async function request<T>(url: string, options?: RequestInit): Promise<T> {
-  return circuitBreaker.execute(async () => {
-    const response = await fetch(url, options);
-    if (!response.ok) throw new Error(`Request failed: ${response.status}`);
-    return response.json() as Promise<T>;
+  const response = await circuitBreaker.fire(async () => {
+    const res = await fetch(url, options);
+    if (!res.ok) throw new Error(`Request failed: ${res.status}`);
+    return res;
   });
+  return response.json() as Promise<T>;
 }
 
 async function requestVoid(url: string, options?: RequestInit): Promise<void> {
-  return circuitBreaker.execute(async () => {
+  await circuitBreaker.fire(async () => {
     const response = await fetch(url, options);
     if (!response.ok) throw new Error(`Request failed: ${response.status}`);
+    return response;
   });
 }
 
@@ -226,50 +196,51 @@ class CQLTransactionImpl implements CQLTransaction {
 }
 
 class CQLConnectionPoolImpl implements CQLConnectionPool {
-  private config: CQLConfig;
+  private pool: Pool<CQLConnectionImpl>;
   private dbId: string;
-  private all: CQLConnectionImpl[] = [];
-  private idle: CQLConnectionImpl[] = [];
-  private maxSize: number;
 
   constructor(config: CQLConfig, dbId: string, maxSize = 10) {
-    this.config = config;
     this.dbId = dbId;
-    this.maxSize = maxSize;
-  }
-
-  async acquire(): Promise<CQLConnection> {
-    const conn = this.idle.pop();
-    if (conn) { conn.active = true; return conn; }
-    
-    if (this.all.length < this.maxSize) {
-      const newConn = new CQLConnectionImpl(`conn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, this.dbId, this.config);
-      this.all.push(newConn);
-      return newConn;
-    }
-
-    // Wait for available connection
-    return new Promise(resolve => {
-      const check = setInterval(() => {
-        const c = this.idle.pop();
-        if (c) { clearInterval(check); c.active = true; resolve(c); }
-      }, 50);
+    this.pool = createPool<CQLConnectionImpl>({
+      create: async () => {
+        const id = `conn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        return new CQLConnectionImpl(id, dbId, config);
+      },
+      destroy: async (conn) => {
+        await conn.close();
+      },
+      validate: async (conn) => conn.active,
+    }, {
+      max: maxSize,
+      min: 2,
+      acquireTimeoutMillis: 10000,
+      idleTimeoutMillis: 30000,
     });
   }
 
+  async acquire(): Promise<CQLConnection> {
+    const conn = await this.pool.acquire();
+    conn.active = true;
+    return conn;
+  }
+
   release(conn: CQLConnection): void {
-    (conn as CQLConnectionImpl).active = false;
-    this.idle.push(conn as CQLConnectionImpl);
+    const impl = conn as CQLConnectionImpl;
+    impl.active = false;
+    this.pool.release(impl);
   }
 
   async close(): Promise<void> {
-    await Promise.all(this.all.map(c => c.close()));
-    this.all = [];
-    this.idle = [];
+    await this.pool.drain();
+    await this.pool.clear();
   }
 
   stats() {
-    return { active: this.all.filter(c => c.active).length, idle: this.idle.length, total: this.all.length };
+    return { 
+      active: this.pool.borrowed, 
+      idle: this.pool.available, 
+      total: this.pool.size 
+    };
   }
 }
 
@@ -367,13 +338,19 @@ export class CQLClient {
   }
 
   async isHealthy(): Promise<boolean> {
-    return circuitBreaker.execute(async () => {
+    const response = await circuitBreaker.fire(async () => {
       const res = await fetch(`${this.endpoint}/health`, { signal: AbortSignal.timeout(5000) });
-      return res.ok;
-    }).catch(() => false);
+      return res;
+    }).catch(() => null);
+    return response?.ok ?? false;
   }
 
-  getCircuitState() { return circuitBreaker.getState(); }
+  getCircuitState() { 
+    return { 
+      state: circuitBreaker.opened ? 'open' : circuitBreaker.halfOpen ? 'half-open' : 'closed',
+      failures: circuitBreaker.stats.failures 
+    }; 
+  }
 
   async close(): Promise<void> {
     await Promise.all(Array.from(this.pools.values()).map(p => p.close()));

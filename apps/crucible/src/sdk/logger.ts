@@ -1,81 +1,90 @@
 /**
- * Structured Logger - Provides consistent logging across all SDKs.
+ * Crucible Logger
+ * 
+ * Simple structured logging for Crucible components.
  */
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-export interface LogEntry {
-  level: LogLevel;
-  component: string;
-  message: string;
-  timestamp: string;
-  data?: Record<string, unknown>;
-}
-
 export interface Logger {
-  debug(message: string, data?: Record<string, unknown>): void;
-  info(message: string, data?: Record<string, unknown>): void;
-  warn(message: string, data?: Record<string, unknown>): void;
-  error(message: string, data?: Record<string, unknown>): void;
+  debug: (message: string, data?: Record<string, unknown>) => void;
+  info: (message: string, data?: Record<string, unknown>) => void;
+  warn: (message: string, data?: Record<string, unknown>) => void;
+  error: (message: string, data?: Record<string, unknown>) => void;
 }
-
-const LOG_LEVELS: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
 
 export interface LoggerConfig {
   level?: LogLevel;
-  json?: boolean;
   silent?: boolean;
 }
 
-class StructuredLogger implements Logger {
-  private component: string;
-  private level: number;
-  private json: boolean;
-  private silent: boolean;
-
-  constructor(component: string, config: LoggerConfig = {}) {
-    this.component = component;
-    this.level = LOG_LEVELS[config.level ?? (process.env.LOG_LEVEL as LogLevel) ?? 'info'];
-    this.json = config.json ?? process.env.LOG_FORMAT === 'json';
-    this.silent = config.silent ?? false;
-  }
-
-  debug(message: string, data?: Record<string, unknown>) { this.log('debug', message, data); }
-  info(message: string, data?: Record<string, unknown>) { this.log('info', message, data); }
-  warn(message: string, data?: Record<string, unknown>) { this.log('warn', message, data); }
-  error(message: string, data?: Record<string, unknown>) { this.log('error', message, data); }
-
-  private log(level: LogLevel, message: string, data?: Record<string, unknown>) {
-    if (this.silent || LOG_LEVELS[level] < this.level) return;
-
-    const entry: LogEntry = {
-      level,
-      component: this.component,
-      message,
-      timestamp: new Date().toISOString(),
-      ...(data && Object.keys(data).length > 0 ? { data } : {}),
-    };
-
-    if (this.json) {
-      console[level === 'debug' ? 'log' : level](JSON.stringify(entry));
-    } else {
-      const prefix = `[${entry.timestamp}] [${level.toUpperCase()}] [${this.component}]`;
-      const suffix = data ? ` ${JSON.stringify(data)}` : '';
-      console[level === 'debug' ? 'log' : level](`${prefix} ${message}${suffix}`);
-    }
-  }
+export interface LogEntry {
+  timestamp: string;
+  level: LogLevel;
+  service: string;
+  message: string;
+  data?: Record<string, unknown>;
 }
 
-export function createLogger(component: string, config?: LoggerConfig): Logger {
-  return new StructuredLogger(component, config);
+const LOG_LEVELS: Record<LogLevel, number> = {
+  debug: 0,
+  info: 1,
+  warn: 2,
+  error: 3,
+};
+
+const currentLevel = (process.env.LOG_LEVEL as LogLevel) ?? 'info';
+
+function shouldLog(level: LogLevel, config?: LoggerConfig): boolean {
+  if (config?.silent) return false;
+  const minLevel = config?.level ?? currentLevel;
+  return LOG_LEVELS[level] >= LOG_LEVELS[minLevel];
 }
 
-// Singleton loggers for each component
+function formatLog(service: string, level: LogLevel, message: string, data?: Record<string, unknown>): string {
+  const timestamp = new Date().toISOString();
+  const dataStr = data ? ` ${JSON.stringify(data)}` : '';
+  return `[${timestamp}] [${level.toUpperCase()}] [${service}] ${message}${dataStr}`;
+}
+
+/**
+ * Create a logger instance for a specific service/component
+ */
+export function createLogger(service: string, config?: LoggerConfig): Logger {
+  return {
+    debug: (message: string, data?: Record<string, unknown>) => {
+      if (shouldLog('debug', config)) {
+        console.debug(formatLog(service, 'debug', message, data));
+      }
+    },
+    info: (message: string, data?: Record<string, unknown>) => {
+      if (shouldLog('info', config)) {
+        console.info(formatLog(service, 'info', message, data));
+      }
+    },
+    warn: (message: string, data?: Record<string, unknown>) => {
+      if (shouldLog('warn', config)) {
+        console.warn(formatLog(service, 'warn', message, data));
+      }
+    },
+    error: (message: string, data?: Record<string, unknown>) => {
+      if (shouldLog('error', config)) {
+        console.error(formatLog(service, 'error', message, data));
+      }
+    },
+  };
+}
+
+// Singleton loggers cache
 const loggers = new Map<string, Logger>();
 
-export function getLogger(component: string): Logger {
-  if (!loggers.has(component)) {
-    loggers.set(component, createLogger(component));
+/**
+ * Get or create a logger for a service (cached)
+ */
+export function getLogger(service: string): Logger {
+  if (!loggers.has(service)) {
+    loggers.set(service, createLogger(service));
   }
-  return loggers.get(component)!;
+  return loggers.get(service)!;
 }
+
