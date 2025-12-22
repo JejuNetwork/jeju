@@ -8,6 +8,10 @@
  */
 
 import { EventEmitter } from 'node:events'
+import {
+  AlchemySubscriptionMessageSchema,
+  WebSocketEthSubscriptionMessageSchema,
+} from '../../schemas'
 import { createLogger } from '../../sdk/logger'
 import type { ChainId } from '../autocrat-types'
 
@@ -310,33 +314,22 @@ export class MempoolStreamer extends EventEmitter {
   }
 
   private handleAlchemyMessage(chainId: ChainId, data: string): void {
-    try {
-      const message = JSON.parse(data) as {
-        method?: string
-        params?: {
-          result?: {
-            hash: string
-            from: string
-            to: string
-            value: string
-            gasPrice?: string
-            maxFeePerGas?: string
-            maxPriorityFeePerGas?: string
-            gas: string
-            input: string
-            nonce: string
-          }
-        }
-      }
+    const parsed = JSON.parse(data)
+    const result = AlchemySubscriptionMessageSchema.safeParse(parsed)
 
-      if (message.method !== 'eth_subscription' || !message.params?.result)
-        return
-
-      const tx = message.params.result
-      this.processPendingTx(chainId, tx, 'alchemy')
-    } catch {
-      // Ignore parse errors
+    if (!result.success) {
+      log.debug('Invalid Alchemy message', {
+        chainId,
+        errors: result.error.issues.map((e) => e.path.join('.')).join(', '),
+      })
+      return
     }
+
+    const message = result.data
+    if (message.method !== 'eth_subscription' || !message.params?.result) return
+
+    const tx = message.params.result
+    this.processPendingTx(chainId, tx, 'alchemy')
   }
 
   private async handleWebSocketMessage(
@@ -344,29 +337,29 @@ export class MempoolStreamer extends EventEmitter {
     wsUrl: string,
     data: string,
   ): Promise<void> {
-    try {
-      const message = JSON.parse(data) as {
-        method?: string
-        params?: {
-          result?: string
-        }
-      }
+    const parsed = JSON.parse(data)
+    const result = WebSocketEthSubscriptionMessageSchema.safeParse(parsed)
 
-      if (message.method !== 'eth_subscription' || !message.params?.result)
-        return
+    if (!result.success) {
+      log.debug('Invalid WebSocket message', {
+        chainId,
+        errors: result.error.issues.map((e) => e.path.join('.')).join(', '),
+      })
+      return
+    }
 
-      const txHash = message.params.result
+    const message = result.data
+    if (message.method !== 'eth_subscription' || !message.params?.result) return
 
-      // Need to fetch full transaction - this adds latency but WebSocket only gives hash
-      const txData = await this.fetchTransaction(
-        wsUrl.replace('wss://', 'https://').replace('ws://', 'http://'),
-        txHash,
-      )
-      if (txData) {
-        this.processPendingTx(chainId, txData, 'websocket')
-      }
-    } catch {
-      // Ignore errors
+    const txHash = message.params.result
+
+    // Need to fetch full transaction - this adds latency but WebSocket only gives hash
+    const txData = await this.fetchTransaction(
+      wsUrl.replace('wss://', 'https://').replace('ws://', 'http://'),
+      txHash,
+    )
+    if (txData) {
+      this.processPendingTx(chainId, txData, 'websocket')
     }
   }
 

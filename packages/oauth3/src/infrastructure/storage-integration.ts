@@ -9,6 +9,15 @@ import type {
   OAuth3Session,
   VerifiableCredential,
 } from '../types.js'
+import {
+  CredentialIndexSchema,
+  expectJson,
+  IPFSAddResponseSchema,
+  OAuth3SessionSchema,
+  SessionIndexSchema,
+  validateResponse,
+  VerifiableCredentialSchema,
+} from '../validation.js'
 import { DEFAULT_IPFS_API, DEFAULT_IPFS_GATEWAY } from './config.js'
 
 export type StorageTier = 'hot' | 'warm' | 'cold' | 'permanent'
@@ -107,7 +116,11 @@ export class OAuth3StorageService {
       return null
     }
 
-    const session = JSON.parse(await this.decrypt(data)) as OAuth3Session
+    const session = expectJson(
+      await this.decrypt(data),
+      OAuth3SessionSchema,
+      'encrypted session',
+    )
     if (session.expiresAt < Date.now()) {
       await this.deleteSession(sessionId)
       return null
@@ -119,7 +132,11 @@ export class OAuth3StorageService {
     const data = await this.retrieve(cid)
     if (!data) return null
 
-    const session = JSON.parse(await this.decrypt(data)) as OAuth3Session
+    const session = expectJson(
+      await this.decrypt(data),
+      OAuth3SessionSchema,
+      'encrypted session',
+    )
     this.sessionCache.set(session.sessionId, cid)
     return session.expiresAt < Date.now() ? null : session
   }
@@ -176,7 +193,11 @@ export class OAuth3StorageService {
     const cid = this.credentialCache.get(credentialId)
     if (!cid) return null
     const data = await this.retrieve(cid)
-    return data ? JSON.parse(new TextDecoder().decode(data)) : null
+    if (!data) return null
+    const result = VerifiableCredentialSchema.safeParse(
+      JSON.parse(new TextDecoder().decode(data)),
+    )
+    return result.success ? result.data : null
   }
 
   async retrieveCredentialByCid(
@@ -184,9 +205,11 @@ export class OAuth3StorageService {
   ): Promise<VerifiableCredential | null> {
     const data = await this.retrieve(cid)
     if (!data) return null
-    const credential = JSON.parse(
-      new TextDecoder().decode(data),
-    ) as VerifiableCredential
+    const result = VerifiableCredentialSchema.safeParse(
+      JSON.parse(new TextDecoder().decode(data)),
+    )
+    if (!result.success) return null
+    const credential = result.data
     this.credentialCache.set(credential.id, cid)
     return credential
   }
@@ -234,7 +257,11 @@ export class OAuth3StorageService {
 
   async retrieveAppMetadata(cid: string): Promise<Partial<OAuth3App> | null> {
     const data = await this.retrieve(cid)
-    return data ? JSON.parse(new TextDecoder().decode(data)) : null
+    if (!data) return null
+    // App metadata is stored as partial data, use safeParse for best-effort validation
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(data))
+    if (typeof parsed !== 'object' || parsed === null) return null
+    return parsed as Partial<OAuth3App>
   }
 
   async storeIdentityMetadata(
@@ -272,7 +299,11 @@ export class OAuth3StorageService {
     })
     if (!response.ok) throw new Error(`IPFS upload failed: ${response.status}`)
 
-    const result = (await response.json()) as { Hash: string; Size: string }
+    const result = validateResponse(
+      IPFSAddResponseSchema,
+      await response.json(),
+      'IPFS upload response',
+    )
     return {
       cid: result.Hash,
       size: parseInt(result.Size, 10),
@@ -375,10 +406,14 @@ export class OAuth3StorageService {
   async loadSessionIndex(indexCid: string): Promise<void> {
     const data = await this.retrieve(indexCid)
     if (!data) throw new Error(`Index not found: ${indexCid}`)
-    const index = JSON.parse(new TextDecoder().decode(data)) as {
-      sessions: Array<{ sessionId: Hex; cid: string }>
-    }
-    index.sessions.forEach((e) => this.sessionCache.set(e.sessionId, e.cid))
+    const index = expectJson(
+      new TextDecoder().decode(data),
+      SessionIndexSchema,
+      'session index',
+    )
+    index.sessions.forEach((e) => {
+      this.sessionCache.set(e.sessionId, e.cid)
+    })
   }
 
   async saveCredentialIndex(): Promise<string> {
@@ -398,12 +433,14 @@ export class OAuth3StorageService {
   async loadCredentialIndex(indexCid: string): Promise<void> {
     const data = await this.retrieve(indexCid)
     if (!data) throw new Error(`Index not found: ${indexCid}`)
-    const index = JSON.parse(new TextDecoder().decode(data)) as {
-      credentials: Array<{ credentialId: string; cid: string }>
-    }
-    index.credentials.forEach((e) =>
-      this.credentialCache.set(e.credentialId, e.cid),
+    const index = expectJson(
+      new TextDecoder().decode(data),
+      CredentialIndexSchema,
+      'credential index',
     )
+    index.credentials.forEach((e) => {
+      this.credentialCache.set(e.credentialId, e.cid)
+    })
   }
 
   async isHealthy(): Promise<boolean> {

@@ -7,6 +7,7 @@
  * - Subgraphs
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { CoinGeckoMarketChartSchema } from '../schemas'
 import type { Token } from '../types'
 import type { PriceDataPoint } from './backtester'
@@ -112,8 +113,11 @@ export class HistoricalDataFetcher {
       throw new Error(`CoinGecko API error: ${response.status}`)
     }
 
-    const rawData: unknown = await response.json()
-    const data = CoinGeckoMarketChartSchema.parse(rawData)
+    const data = expectValid(
+      CoinGeckoMarketChartSchema,
+      await response.json(),
+      `CoinGecko price data for ${geckoId}`,
+    )
 
     const priceMap = new Map<number, number>()
     for (const [timestamp, price] of data.prices) {

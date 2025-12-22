@@ -1,11 +1,11 @@
 import { BarChart3 } from 'lucide-react'
 import { type Address, formatEther } from 'viem'
-import { useLiquidityVault } from '@/hooks/useLiquidityVault'
+import { useLiquidityVault } from '../../hooks/useLiquidityVault'
 import {
   usePaymasterDeployment,
   usePaymasterFactory,
-} from '@/hooks/usePaymasterFactory'
-import { useTokenRegistry } from '@/hooks/useTokenRegistry'
+} from '../../hooks/usePaymasterFactory'
+import { useTokenRegistry } from '../../hooks/useTokenRegistry'
 
 // Adapter for useTokenConfig
 function useTokenConfig(tokenAddress: Address) {
@@ -113,6 +113,7 @@ function PositionCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
           )}
 
           <button
+            type="button"
             className="button"
             style={{ width: '100%', marginTop: '1rem' }}
             onClick={() => claimFees()}

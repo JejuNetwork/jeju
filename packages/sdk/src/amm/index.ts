@@ -18,10 +18,11 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum PoolType {
-  V2 = 0,
-  V3 = 1,
-}
+export const PoolType = {
+  V2: 0,
+  V3: 1,
+} as const
+export type PoolType = (typeof PoolType)[keyof typeof PoolType]
 
 export interface V2Pool {
   pairAddress: Address

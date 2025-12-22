@@ -936,7 +936,7 @@ describe('NetworkConfigSchema - Network Configuration Validation', () => {
       chainId: 1337,
       chainIdHex: '0x539',
       name: 'Localnet',
-      rpcUrl: 'http://127.0.0.1:9545',
+      rpcUrl: 'http://127.0.0.1:6546',
       symbol: 'ETH',
     })
     expect(result.success).toBe(true)
@@ -970,7 +970,7 @@ describe('NetworkConfigSchema - Network Configuration Validation', () => {
       chainId: 0,
       chainIdHex: '0x0',
       name: 'Test',
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: 'http://localhost:6545',
       symbol: 'ETH',
     })
     expect(result.success).toBe(false)

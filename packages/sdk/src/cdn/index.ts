@@ -17,21 +17,24 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum CDNProviderType {
-  FULL = 0,
-  EDGE_ONLY = 1,
-  ORIGIN_ONLY = 2,
-}
+export const CDNProviderType = {
+  FULL: 0,
+  EDGE_ONLY: 1,
+  ORIGIN_ONLY: 2,
+} as const
+export type CDNProviderType =
+  (typeof CDNProviderType)[keyof typeof CDNProviderType]
 
-export enum CDNRegion {
-  GLOBAL = 0,
-  NORTH_AMERICA = 1,
-  EUROPE = 2,
-  ASIA_PACIFIC = 3,
-  SOUTH_AMERICA = 4,
-  AFRICA = 5,
-  MIDDLE_EAST = 6,
-}
+export const CDNRegion = {
+  GLOBAL: 0,
+  NORTH_AMERICA: 1,
+  EUROPE: 2,
+  ASIA_PACIFIC: 3,
+  SOUTH_AMERICA: 4,
+  AFRICA: 5,
+  MIDDLE_EAST: 6,
+} as const
+export type CDNRegion = (typeof CDNRegion)[keyof typeof CDNRegion]
 
 export interface CDNProvider {
   providerAddress: Address

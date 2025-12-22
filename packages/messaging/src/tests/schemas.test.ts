@@ -329,7 +329,7 @@ describe('MessagingClientConfigBaseSchema', () => {
     expect(
       MessagingClientConfigBaseSchema.safeParse({
         ...validConfig,
-        rpcUrl: 'http://localhost:8545',
+        rpcUrl: 'http://localhost:6545',
       }).success,
     ).toBe(true)
 

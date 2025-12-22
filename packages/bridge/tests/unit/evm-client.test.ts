@@ -29,7 +29,7 @@ describe('EVMClient', () => {
     it('should create client with valid config', () => {
       const config: EVMClientConfig = {
         chainId: ChainId.LOCAL_EVM,
-        rpcUrl: 'http://127.0.0.1:8545',
+        rpcUrl: 'http://127.0.0.1:6545',
         bridgeAddress: MOCK_BRIDGE,
         lightClientAddress: MOCK_LIGHT_CLIENT,
       }
@@ -42,7 +42,7 @@ describe('EVMClient', () => {
     it('should create client with private key', () => {
       const config: EVMClientConfig = {
         chainId: ChainId.LOCAL_EVM,
-        rpcUrl: 'http://127.0.0.1:8545',
+        rpcUrl: 'http://127.0.0.1:6545',
         privateKey: MOCK_PRIVATE_KEY,
         bridgeAddress: MOCK_BRIDGE,
         lightClientAddress: MOCK_LIGHT_CLIENT,
@@ -56,7 +56,7 @@ describe('EVMClient', () => {
     it('should create read-only client without private key', () => {
       const config: EVMClientConfig = {
         chainId: ChainId.LOCAL_EVM,
-        rpcUrl: 'http://127.0.0.1:8545',
+        rpcUrl: 'http://127.0.0.1:6545',
         bridgeAddress: MOCK_BRIDGE,
         lightClientAddress: MOCK_LIGHT_CLIENT,
       }
@@ -76,7 +76,7 @@ describe('EVMClient', () => {
       for (const chainId of chainIds) {
         const client = createEVMClient({
           chainId,
-          rpcUrl: 'http://127.0.0.1:8545',
+          rpcUrl: 'http://127.0.0.1:6545',
           bridgeAddress: MOCK_BRIDGE,
           lightClientAddress: MOCK_LIGHT_CLIENT,
         })
@@ -90,7 +90,7 @@ describe('EVMClient', () => {
     it('should return correct address format', () => {
       const client = createEVMClient({
         chainId: ChainId.LOCAL_EVM,
-        rpcUrl: 'http://127.0.0.1:8545',
+        rpcUrl: 'http://127.0.0.1:6545',
         privateKey: MOCK_PRIVATE_KEY,
         bridgeAddress: MOCK_BRIDGE,
         lightClientAddress: MOCK_LIGHT_CLIENT,
@@ -125,7 +125,7 @@ describe('EVMClient', () => {
     it('should throw when initiating transfer without wallet', async () => {
       const client = createEVMClient({
         chainId: ChainId.LOCAL_EVM,
-        rpcUrl: 'http://127.0.0.1:8545',
+        rpcUrl: 'http://127.0.0.1:6545',
         bridgeAddress: MOCK_BRIDGE,
         lightClientAddress: MOCK_LIGHT_CLIENT,
         // No private key
@@ -154,7 +154,7 @@ describe('EVMClient', () => {
       for (const chainId of validChainIds) {
         const client = createEVMClient({
           chainId,
-          rpcUrl: 'http://127.0.0.1:8545',
+          rpcUrl: 'http://127.0.0.1:6545',
           bridgeAddress: MOCK_BRIDGE,
           lightClientAddress: MOCK_LIGHT_CLIENT,
         })
@@ -167,7 +167,7 @@ describe('EVMClient', () => {
     it('should derive correct address from private key', () => {
       const client = createEVMClient({
         chainId: ChainId.LOCAL_EVM,
-        rpcUrl: 'http://127.0.0.1:8545',
+        rpcUrl: 'http://127.0.0.1:6545',
         privateKey: MOCK_PRIVATE_KEY,
         bridgeAddress: MOCK_BRIDGE,
         lightClientAddress: MOCK_LIGHT_CLIENT,
@@ -188,7 +188,7 @@ describe('EVMClient', () => {
 
       const client = createEVMClient({
         chainId: ChainId.LOCAL_EVM,
-        rpcUrl: 'http://127.0.0.1:8545',
+        rpcUrl: 'http://127.0.0.1:6545',
         bridgeAddress: customBridge,
         lightClientAddress: MOCK_LIGHT_CLIENT,
       })
@@ -202,7 +202,7 @@ describe('EVMClient', () => {
 
       const client = createEVMClient({
         chainId: ChainId.LOCAL_EVM,
-        rpcUrl: 'http://127.0.0.1:8545',
+        rpcUrl: 'http://127.0.0.1:6545',
         bridgeAddress: MOCK_BRIDGE,
         lightClientAddress: customLightClient,
       })

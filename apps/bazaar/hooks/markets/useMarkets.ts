@@ -1,9 +1,12 @@
 import { gql, request } from 'graphql-request'
 import { useEffect, useState } from 'react'
-import { INDEXER_URL } from '@/config'
-import { calculateNoPrice, calculateYesPrice } from '@/lib/markets/lmsrPricing'
-import { expect } from '@/lib/validation'
-import type { Market } from '@/types/markets'
+import { INDEXER_URL } from '../../config'
+import {
+  calculateNoPrice,
+  calculateYesPrice,
+} from '../../lib/markets/lmsrPricing'
+import { expect } from '../../lib/validation'
+import type { Market } from '../../types/markets'
 
 const MARKETS_QUERY = gql`
   query GetMarkets($limit: Int, $orderBy: [PredictionMarketOrderByInput!]) {

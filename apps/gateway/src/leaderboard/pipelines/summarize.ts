@@ -5,6 +5,7 @@
  * Uses OpenRouter or compatible LLM API.
  */
 
+import { DWSChatCompletionResponseSchema } from '../../lib/validation.js'
 import { LEADERBOARD_CONFIG } from '../config.js'
 import { exec, initLeaderboardDB, query } from '../db.js'
 
@@ -556,13 +557,16 @@ async function callLLM(
     throw new Error(`DWS inference error: ${response.status} - ${error}`)
   }
 
-  const data = (await response.json()) as {
-    choices: Array<{ message: { content: string } }>
-    usage: { total_tokens: number }
+  const rawData = await response.json()
+  const parseResult = DWSChatCompletionResponseSchema.safeParse(rawData)
+  if (!parseResult.success) {
+    throw new Error(
+      `DWS inference returned invalid response: ${parseResult.error.message}`,
+    )
   }
 
   return {
-    text: data.choices[0]?.message?.content || '',
-    tokens: data.usage?.total_tokens || 0,
+    text: parseResult.data.choices[0]?.message?.content || '',
+    tokens: parseResult.data.usage?.total_tokens || 0,
   }
 }

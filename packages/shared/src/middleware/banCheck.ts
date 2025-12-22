@@ -2,9 +2,10 @@
  * Ban Check Middleware
  *
  * Universal middleware for checking ban status before processing requests.
- * Can be used with Express, Hono, or any HTTP framework.
+ * Can be used with Express, Elysia, or any HTTP framework.
  */
 
+import { Elysia } from 'elysia'
 import {
   type Address,
   type Chain,
@@ -133,7 +134,7 @@ export class BanChecker {
         ? 'https://mainnet.base.org'
         : network === 'testnet'
           ? 'https://sepolia.base.org'
-          : 'http://localhost:8545'
+          : 'http://localhost:6545'
 
     this.config = {
       banManagerAddress: config.banManagerAddress,
@@ -292,9 +293,56 @@ export function createExpressBanMiddleware(config: BanCheckConfig) {
   }
 }
 
-// ============ Hono Middleware ============
+// ============ Elysia Middleware ============
 
-export interface HonoContext {
+/**
+ * Create Elysia plugin for ban checking
+ */
+export function createElysiaBanMiddleware(config: BanCheckConfig) {
+  const checker = new BanChecker(config)
+
+  return new Elysia({ name: 'ban-check' })
+    .derive(async ({ headers, body, query, set }) => {
+      // Extract address from various sources
+      let address = headers['x-wallet-address'] || (query as Record<string, string | undefined>)?.address
+
+      if (!address && body && typeof body === 'object') {
+        const bodyObj = body as { address?: string; from?: string; sender?: string }
+        address = bodyObj.address || bodyObj.from || bodyObj.sender
+      }
+
+      if (!address) {
+        return { banCheckResult: null }
+      }
+
+      const result = await checker.checkBan(address as Address)
+
+      if (!result.allowed) {
+        set.status = 403
+        return {
+          banCheckResult: result,
+          banCheckError: {
+            error: 'BANNED',
+            message: result.status?.reason || 'User is banned from this service',
+            banType: result.status?.banType,
+            caseId: result.status?.caseId,
+            canAppeal: result.status?.canAppeal,
+          },
+        }
+      }
+
+      return { banCheckResult: result, banCheckError: null }
+    })
+    .onBeforeHandle(({ banCheckError }) => {
+      if (banCheckError) {
+        return banCheckError
+      }
+      return undefined
+    })
+}
+
+// Legacy Hono middleware type alias for backwards compatibility
+export type HonoContext = {
   req: {
     header(name: string): string | undefined
     json(): Promise<{ address?: string; from?: string; sender?: string }>
@@ -307,6 +355,7 @@ export type HonoNextFunction = () => Promise<void>
 
 /**
  * Create Hono middleware for ban checking
+ * @deprecated Use createElysiaBanMiddleware instead
  */
 export function createHonoBanMiddleware(config: BanCheckConfig) {
   const checker = new BanChecker(config)

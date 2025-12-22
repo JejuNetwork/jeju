@@ -9,11 +9,22 @@
  */
 
 import { beforeAll, describe, expect, it } from 'bun:test'
+import { z } from 'zod'
 
 const GRAPHQL_ENDPOINT =
   process.env.INDEXER_GRAPHQL_URL || 'http://localhost:4350/graphql'
 
-interface GraphQLResponse<T> {
+// GraphQL response schema - validates structure before type narrowing
+const GraphQLErrorSchema = z.object({
+  message: z.string(),
+})
+
+const GraphQLResponseSchema = z.object({
+  data: z.unknown().optional(),
+  errors: z.array(GraphQLErrorSchema).optional(),
+})
+
+type GraphQLResponse<T> = {
   data?: T
   errors?: Array<{ message: string }>
 }
@@ -35,11 +46,10 @@ async function checkEndpointAvailability(): Promise<boolean> {
       return false
     }
     try {
-      const result = JSON.parse(text)
+      const parsed = JSON.parse(text)
+      const validated = GraphQLResponseSchema.safeParse(parsed)
       // Check if it's a valid GraphQL response (has data or errors)
-      return (
-        result && (result.data !== undefined || result.errors !== undefined)
-      )
+      return validated.success && (validated.data.data !== undefined || validated.data.errors !== undefined)
     } catch {
       return false
     }
@@ -80,7 +90,9 @@ async function query<T>(
 
   let result: GraphQLResponse<T>
   try {
-    result = JSON.parse(text) as GraphQLResponse<T>
+    const parsed = JSON.parse(text)
+    const validated = GraphQLResponseSchema.parse(parsed)
+    result = validated as GraphQLResponse<T>
   } catch (error) {
     throw new Error(
       `Failed to parse JSON response: ${error instanceof Error ? error.message : String(error)}. Response: ${text.substring(0, 200)}`,

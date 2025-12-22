@@ -220,11 +220,11 @@ describe('Notification Utilities - AGGRESSIVE TESTS', () => {
       expect(telegramCall).toBeTruthy()
 
       // ASSERT: Correct endpoint
-      expect(telegramCall![0]).toContain('/sendMessage')
-      expect(telegramCall![0]).toContain('bot-token-123')
+      expect(telegramCall?.[0]).toContain('/sendMessage')
+      expect(telegramCall?.[0]).toContain('bot-token-123')
 
       // ASSERT: Correct payload
-      const body = JSON.parse((telegramCall![1]?.body as string) || '{}')
+      const body = JSON.parse((telegramCall?.[1]?.body as string) || '{}')
       expect(body.chat_id).toBe('chat-456')
       expect(body.text).toContain('Test message')
       expect(body.parse_mode).toBe('Markdown')

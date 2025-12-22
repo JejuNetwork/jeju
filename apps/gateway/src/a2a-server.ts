@@ -1,6 +1,6 @@
+import { cors } from '@elysiajs/cors'
 import { getProviderInfo } from '@jejunetwork/shared'
-import cors from 'cors'
-import express, { type Request, type Response } from 'express'
+import { Elysia } from 'elysia'
 import { type Address, isAddress } from 'viem'
 import {
   getChainName,
@@ -34,6 +34,7 @@ import {
   prepareVoteTransaction,
 } from './lib/moderation-api.js'
 import {
+  type A2ARequest,
   A2ARequestSchema,
   AgentIdSchema,
   CancelIntentRequestSchema,
@@ -52,6 +53,7 @@ import {
   GetReportsQuerySchema,
   GetVolumeQuerySchema,
   IntentIdSchema,
+  type JsonValue,
   ListIntentsQuerySchema,
   ListPoolsQuerySchema,
   ListRoutesQuerySchema,
@@ -68,7 +70,6 @@ import {
   SwapQuoteRequestSchema,
   TokenPairSchema,
   toResponseData,
-  validateBody,
   validateQuery,
 } from './lib/validation.js'
 import {
@@ -77,11 +78,11 @@ import {
   PAYMENT_TIERS,
   type PaymentRequirements,
 } from './lib/x402.js'
-import { banCheck } from './middleware/ban-check.js'
+import { banCheckPlugin } from './middleware/ban-check.js'
 import {
-  agentRateLimit,
-  rateLimit,
-  strictRateLimit,
+  agentRateLimitPlugin,
+  rateLimitPlugin,
+  strictRateLimitPlugin,
 } from './middleware/rate-limit.js'
 import {
   createApiKey,
@@ -100,24 +101,13 @@ import { routeService } from './services/route-service.js'
 import { solverService } from './services/solver-service.js'
 import { getWebSocketServer } from './services/websocket.js'
 
-const app = express()
 const PORT = PORTS.a2a
 const WS_PORT = PORTS.websocket
-// Only env var needed: payment recipient address (optional)
 const PAYMENT_RECIPIENT = (process.env.GATEWAY_PAYMENT_RECIPIENT ||
   '0x0000000000000000000000000000000000000000') as Address
 
-// SECURITY: Configure CORS based on environment
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
 const isProduction = process.env.NODE_ENV === 'production'
-const corsOptions =
-  isProduction && CORS_ORIGINS?.length ? { origin: CORS_ORIGINS } : {}
-
-app.use(cors(corsOptions))
-// SECURITY: Limit request body size to prevent DoS attacks
-app.use(express.json({ limit: '1mb' }))
-app.use(rateLimit())
-app.use(banCheck({ skipPaths: ['/health', '/.well-known', '/public', '/a2a'] })) // Ban check for API routes
 
 const GATEWAY_AGENT_CARD = {
   protocolVersion: '0.3.0',
@@ -136,7 +126,6 @@ const GATEWAY_AGENT_CARD = {
   defaultInputModes: ['text', 'data'],
   defaultOutputModes: ['text', 'data'],
   skills: [
-    // Protocol Infrastructure
     {
       id: 'list-protocol-tokens',
       name: 'List Protocol Tokens',
@@ -172,7 +161,6 @@ const GATEWAY_AGENT_CARD = {
       tags: ['query', 'registry', 'discovery'],
       examples: ['Show me games', 'List marketplaces'],
     },
-    // Cross-Chain Intents
     {
       id: 'create-intent',
       name: 'Create Cross-Chain Intent',
@@ -243,7 +231,6 @@ const GATEWAY_AGENT_CARD = {
       tags: ['analytics', 'volume'],
       examples: ['Volume on Ethereum to Arbitrum route'],
     },
-    // XLP Pools
     {
       id: 'list-v2-pools',
       name: 'List V2 Pools',
@@ -293,7 +280,6 @@ const GATEWAY_AGENT_CARD = {
       tags: ['pools', 'discovery'],
       examples: ['All ETH/USDC pools', 'Available liquidity for pair'],
     },
-    // Moderation & Governance
     {
       id: 'check-ban-status',
       name: 'Check Ban Status',
@@ -380,7 +366,6 @@ const GATEWAY_AGENT_CARD = {
       tags: ['moderation', 'appeal', 'action'],
       examples: ['Appeal case 0x...'],
     },
-    // RPC Gateway
     {
       id: 'rpc-list-chains',
       name: 'List RPC Chains',
@@ -416,7 +401,6 @@ const GATEWAY_AGENT_CARD = {
       tags: ['rpc', 'staking', 'query'],
       examples: ['How do I get higher rate limits?', 'RPC staking tiers'],
     },
-    // Risk-Based Liquidity
     {
       id: 'get-risk-tiers',
       name: 'Get Risk Tiers',
@@ -467,7 +451,6 @@ const GATEWAY_AGENT_CARD = {
       tags: ['liquidity', 'yield', 'query'],
       examples: ['Expected yearly yield', 'Estimate my returns'],
     },
-    // Faucet (testnet only - added dynamically)
   ].concat(
     IS_TESTNET
       ? [
@@ -507,7 +490,6 @@ const MCP_SERVER_INFO = {
 }
 
 const MCP_RESOURCES = [
-  // Intent Framework
   {
     uri: 'oif://routes',
     name: 'Intent Routes',
@@ -532,7 +514,6 @@ const MCP_RESOURCES = [
     description: 'Global intent framework statistics',
     mimeType: 'application/json',
   },
-  // XLP Pools
   {
     uri: 'xlp://pools/v2',
     name: 'V2 Pools',
@@ -564,7 +545,6 @@ const MCP_RESOURCES = [
     description: 'XLP contract deployment addresses',
     mimeType: 'application/json',
   },
-  // Moderation & Governance
   {
     uri: 'moderation://cases',
     name: 'Moderation Cases',
@@ -589,7 +569,6 @@ const MCP_RESOURCES = [
     description: 'System-wide moderation statistics',
     mimeType: 'application/json',
   },
-  // Risk-Based Liquidity
   {
     uri: 'risk://tiers',
     name: 'Risk Tiers',
@@ -608,7 +587,6 @@ const MCP_RESOURCES = [
     description: 'Available liquidity allocation strategies',
     mimeType: 'application/json',
   },
-  // Faucet (testnet only - added dynamically)
 ].concat(
   IS_TESTNET
     ? [
@@ -623,7 +601,6 @@ const MCP_RESOURCES = [
 )
 
 const MCP_TOOLS = [
-  // Intent Tools
   {
     name: 'create_intent',
     description: 'Create a cross-chain swap intent',
@@ -699,7 +676,6 @@ const MCP_TOOLS = [
       },
     },
   },
-  // XLP Pool Tools
   {
     name: 'list_v2_pools',
     description: 'List all XLP V2 pools',
@@ -710,10 +686,7 @@ const MCP_TOOLS = [
     description: 'Get reserves for a token pair across all pool types',
     inputSchema: {
       type: 'object',
-      properties: {
-        token0: { type: 'string', description: 'First token address' },
-        token1: { type: 'string', description: 'Second token address' },
-      },
+      properties: { token0: { type: 'string' }, token1: { type: 'string' } },
       required: ['token0', 'token1'],
     },
   },
@@ -723,12 +696,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        tokenIn: { type: 'string', description: 'Input token address' },
-        tokenOut: { type: 'string', description: 'Output token address' },
-        amountIn: {
-          type: 'string',
-          description: 'Amount to swap (in ether units)',
-        },
+        tokenIn: { type: 'string' },
+        tokenOut: { type: 'string' },
+        amountIn: { type: 'string' },
       },
       required: ['tokenIn', 'tokenOut', 'amountIn'],
     },
@@ -739,12 +709,9 @@ const MCP_TOOLS = [
     inputSchema: {
       type: 'object',
       properties: {
-        tokenIn: { type: 'string', description: 'Input token address' },
-        tokenOut: { type: 'string', description: 'Output token address' },
-        amountIn: {
-          type: 'string',
-          description: 'Amount to swap (in ether units)',
-        },
+        tokenIn: { type: 'string' },
+        tokenOut: { type: 'string' },
+        amountIn: { type: 'string' },
       },
       required: ['tokenIn', 'tokenOut', 'amountIn'],
     },
@@ -763,15 +730,12 @@ const MCP_TOOLS = [
       required: ['token0', 'token1'],
     },
   },
-  // Moderation Tools
   {
     name: 'check_ban_status',
     description: 'Check if an address is banned',
     inputSchema: {
       type: 'object',
-      properties: {
-        address: { type: 'string', description: 'Wallet address to check' },
-      },
+      properties: { address: { type: 'string' } },
       required: ['address'],
     },
   },
@@ -780,9 +744,7 @@ const MCP_TOOLS = [
     description: 'Get moderator profile with reputation and P&L',
     inputSchema: {
       type: 'object',
-      properties: {
-        address: { type: 'string', description: 'Moderator address' },
-      },
+      properties: { address: { type: 'string' } },
       required: ['address'],
     },
   },
@@ -837,9 +799,7 @@ const MCP_TOOLS = [
     description: 'Prepare moderation stake transaction',
     inputSchema: {
       type: 'object',
-      properties: {
-        amount: { type: 'string', description: 'ETH amount to stake' },
-      },
+      properties: { amount: { type: 'string' } },
       required: ['amount'],
     },
   },
@@ -889,25 +849,17 @@ const MCP_TOOLS = [
       required: ['caseId', 'stakeAmount'],
     },
   },
-  // Risk Sleeve & Liquidity Router Tools
   {
     name: 'get_risk_tiers',
-    description:
-      'Get available risk tiers (Conservative, Balanced, Aggressive) with expected APYs',
+    description: 'Get available risk tiers with expected APYs',
     inputSchema: { type: 'object', properties: {} },
   },
   {
     name: 'get_sleeve_stats',
-    description:
-      'Get statistics for a risk tier (deposited, utilized, available, yield)',
+    description: 'Get statistics for a risk tier',
     inputSchema: {
       type: 'object',
-      properties: {
-        tier: {
-          type: 'number',
-          description: 'Risk tier: 0=Conservative, 1=Balanced, 2=Aggressive',
-        },
-      },
+      properties: { tier: { type: 'number' } },
       required: ['tier'],
     },
   },
@@ -925,13 +877,7 @@ const MCP_TOOLS = [
     description: 'Prepare transaction to deposit ETH into a risk sleeve',
     inputSchema: {
       type: 'object',
-      properties: {
-        amount: { type: 'string', description: 'ETH amount to deposit' },
-        tier: {
-          type: 'number',
-          description: 'Risk tier: 0=Conservative, 1=Balanced, 2=Aggressive',
-        },
-      },
+      properties: { amount: { type: 'string' }, tier: { type: 'number' } },
       required: ['amount', 'tier'],
     },
   },
@@ -940,10 +886,7 @@ const MCP_TOOLS = [
     description: 'Prepare transaction to withdraw from a risk sleeve',
     inputSchema: {
       type: 'object',
-      properties: {
-        amount: { type: 'string', description: 'ETH amount to withdraw' },
-        tier: { type: 'number', description: 'Risk tier' },
-      },
+      properties: { amount: { type: 'string' }, tier: { type: 'number' } },
       required: ['amount', 'tier'],
     },
   },
@@ -954,22 +897,10 @@ const MCP_TOOLS = [
   },
   {
     name: 'prepare_router_deposit',
-    description:
-      'Prepare transaction to deposit via liquidity router with custom strategy',
+    description: 'Prepare transaction to deposit via liquidity router',
     inputSchema: {
       type: 'object',
-      properties: {
-        amount: { type: 'string' },
-        strategy: {
-          type: 'object',
-          properties: {
-            ethVaultBps: { type: 'number' },
-            tokenVaultBps: { type: 'number' },
-            nodeStakeBps: { type: 'number' },
-            xlpStakeBps: { type: 'number' },
-          },
-        },
-      },
+      properties: { amount: { type: 'string' }, strategy: { type: 'object' } },
       required: ['amount'],
     },
   },
@@ -991,7 +922,6 @@ const MCP_TOOLS = [
       required: ['address'],
     },
   },
-  // Faucet Tools (testnet only - added dynamically)
 ].concat(
   IS_TESTNET
     ? [
@@ -1000,27 +930,16 @@ const MCP_TOOLS = [
           description: 'Check faucet eligibility and cooldown for an address',
           inputSchema: {
             type: 'object',
-            properties: {
-              address: {
-                type: 'string',
-                description: 'Wallet address to check',
-              },
-            },
+            properties: { address: { type: 'string' } },
             required: ['address'],
           },
         },
         {
           name: 'faucet_claim',
-          description:
-            'Claim JEJU tokens from faucet (requires ERC-8004 registration)',
+          description: 'Claim JEJU tokens from faucet',
           inputSchema: {
             type: 'object',
-            properties: {
-              address: {
-                type: 'string',
-                description: 'Wallet address to receive tokens',
-              },
-            },
+            properties: { address: { type: 'string' } },
             required: ['address'],
           },
         },
@@ -1033,15 +952,8 @@ const MCP_TOOLS = [
     : [],
 )
 
-import type { A2ARequest, JsonValue } from './lib/validation.js'
-
-/**
- * Result of executing an A2A skill.
- * The data field accepts any object that can be JSON-serialized.
- */
 interface SkillResult {
   message: string
-  /** Skill result data - must be JSON-serializable (serialized in response handler) */
   data: object
   requiresPayment?: PaymentRequirements
 }
@@ -1137,18 +1049,15 @@ async function executeSkill(
         'track-intent intentId',
       )
       const intent = await intentService.getIntent(intentId)
-      if (!intent) {
-        throw new Error(`Intent not found: ${intentId}`)
-      }
+      if (!intent) throw new Error(`Intent not found: ${intentId}`)
       return {
         message: `Intent ${intentId} status: ${intent.status}`,
         data: intent,
       }
     }
     case 'cancel-intent': {
-      if (!params.intentId || !params.user) {
+      if (!params.intentId || !params.user)
         throw new Error('intentId and user required')
-      }
       const intentId = expect(
         params.intentId,
         IntentIdSchema,
@@ -1171,18 +1080,15 @@ async function executeSkill(
       }
     }
     case 'get-best-route': {
-      if (!params.sourceChain || !params.destinationChain) {
+      if (!params.sourceChain || !params.destinationChain)
         throw new Error('sourceChain and destinationChain required')
-      }
       const validated = expect(
         params,
         GetBestRouteRequestSchema,
         'get-best-route params',
       )
       const route = await routeService.getBestRoute(validated)
-      if (!route) {
-        throw new Error('No route available')
-      }
+      if (!route) throw new Error('No route available')
       return {
         message: `Best route found via ${route.oracle}`,
         data: { route },
@@ -1225,7 +1131,6 @@ async function executeSkill(
         data: volume,
       }
     }
-    // XLP Pool Skills
     case 'list-v2-pools': {
       const pools = await poolService.listV2Pools()
       return {
@@ -1289,11 +1194,10 @@ async function executeSkill(
         validated.tokenOut as Address,
         validated.amountIn,
       )
-      if (!quote) {
+      if (!quote)
         throw new Error(
           `No liquidity available for swap: ${validated.tokenIn} -> ${validated.tokenOut}`,
         )
-      }
       return {
         message: `Best quote: ${validated.amountIn} → ${quote.amountOut} via ${quote.poolType} pool (${quote.priceImpactBps / 100}% impact)`,
         data: { quote },
@@ -1356,11 +1260,10 @@ async function executeSkill(
         'get-moderator-profile params',
       )
       const profile = await getModeratorProfile(validated.address as Address)
-      if (!profile) {
+      if (!profile)
         throw new Error(
           `Moderator profile not found for address: ${validated.address}`,
         )
-      }
       return {
         message: `${profile.tier} tier moderator with ${profile.winRate}% win rate and ${profile.netPnL} ETH P&L`,
         data: toResponseData(profile),
@@ -1388,9 +1291,7 @@ async function executeSkill(
         'get-moderation-case caseId',
       )
       const caseData = await getModerationCase(caseId)
-      if (!caseData) {
-        throw new Error(`Moderation case not found: ${caseId}`)
-      }
+      if (!caseData) throw new Error(`Moderation case not found: ${caseId}`)
       return {
         message: `Case ${caseData.status}: ${caseData.target.slice(0, 10)}... - ${caseData.reason.slice(0, 50)}`,
         data: toResponseData(caseData),
@@ -1457,7 +1358,7 @@ async function executeSkill(
         validated.evidenceHash as `0x${string}`,
       )
       return {
-        message: `Prepared report transaction`,
+        message: 'Prepared report transaction',
         data: {
           action: 'sign-and-send',
           transaction: tx,
@@ -1488,7 +1389,7 @@ async function executeSkill(
         validated.stakeAmount,
       )
       return {
-        message: `Prepared challenge transaction`,
+        message: 'Prepared challenge transaction',
         data: {
           action: 'sign-and-send',
           transaction: tx,
@@ -1507,7 +1408,7 @@ async function executeSkill(
         validated.stakeAmount,
       )
       return {
-        message: `Prepared appeal transaction`,
+        message: 'Prepared appeal transaction',
         data: {
           action: 'sign-and-send',
           transaction: tx,
@@ -1515,11 +1416,8 @@ async function executeSkill(
         },
       }
     }
-    // Faucet skills (testnet only)
     case 'faucet-status': {
-      if (!IS_TESTNET) {
-        throw new Error('Faucet is only available on testnet')
-      }
+      if (!IS_TESTNET) throw new Error('Faucet is only available on testnet')
       const validated = expect(
         params,
         FaucetStatusRequestSchema,
@@ -1536,9 +1434,7 @@ async function executeSkill(
       return { message, data: toResponseData(status) }
     }
     case 'faucet-claim': {
-      if (!IS_TESTNET) {
-        throw new Error('Faucet is only available on testnet')
-      }
+      if (!IS_TESTNET) throw new Error('Faucet is only available on testnet')
       const validated = expect(
         params,
         FaucetClaimRequestSchema,
@@ -1547,11 +1443,11 @@ async function executeSkill(
       const result = await faucetService.claimFromFaucet(
         validated.address as Address,
       )
-      if (!result.success) {
-        throw new Error(result.error || 'Claim failed')
+      if (!result.success) throw new Error(result.error || 'Claim failed')
+      return {
+        message: `Successfully claimed ${result.amount} JEJU. TX: ${result.txHash}`,
+        data: toResponseData(result),
       }
-      const message = `Successfully claimed ${result.amount} JEJU. TX: ${result.txHash}`
-      return { message, data: toResponseData(result) }
     }
     case 'faucet-info': {
       if (!IS_TESTNET)
@@ -1565,7 +1461,6 @@ async function executeSkill(
         data: toResponseData(info),
       }
     }
-    // RPC Gateway Skills (using local imports)
     case 'rpc-list-chains': {
       const chains = Object.values(RPC_CHAINS).map((c) => ({
         chainId: c.chainId,
@@ -1605,9 +1500,8 @@ async function executeSkill(
         typeof params.name === 'string' ? params.name : 'A2A Generated'
       ).slice(0, 100)
       const existingKeys = await getApiKeysForAddress(address)
-      if (existingKeys.filter((k) => k.isActive).length >= 10) {
+      if (existingKeys.filter((k) => k.isActive).length >= 10)
         throw new Error('Maximum API keys reached (10)')
-      }
       const { key, record } = await createApiKey(address, name)
       return {
         message: `API key created: ${key.slice(0, 15)}...`,
@@ -1619,7 +1513,7 @@ async function executeSkill(
         },
       }
     }
-    case 'rpc-staking-info': {
+    case 'rpc-staking-info':
       return {
         message:
           'RPC rate limits based on staked JEJU. Higher stake = higher limits. 7-day unbonding period.',
@@ -1650,7 +1544,6 @@ async function executeSkill(
           unbondingPeriod: '7 days',
         },
       }
-    }
     default:
       return {
         message: 'Unknown skill',
@@ -1662,131 +1555,540 @@ async function executeSkill(
   }
 }
 
-app.get('/.well-known/agent-card.json', (_req: Request, res: Response) => {
-  res.json(GATEWAY_AGENT_CARD)
-})
+async function executeMcpTool(
+  name: string,
+  args: Record<string, JsonValue>,
+): Promise<{ result: object; isError: boolean }> {
+  let result: object
+  let isError = false
 
-app.get(
-  '/.well-known/governance-agent-card.json',
-  (_req: Request, res: Response) => {
-    res.json({
-      id: 'jeju-futarchy-governance',
-      name: `${getChainName(JEJU_CHAIN_ID)} Futarchy Governance`,
-      description:
-        'Market-based governance using prediction markets for parameter decisions',
-      version: '1.0.0',
-      protocol: 'a2a',
-      protocolVersion: '0.3.0',
-      capabilities: {
-        governance: true,
-        futarchy: true,
-        predictionMarkets: true,
-      },
-      skills: [
-        {
-          id: 'get-active-quests',
-          name: 'Get Active Governance Quests',
-          description: 'Returns all active futarchy governance quests',
-          inputs: [],
-          outputs: { quests: 'array' },
-          endpoint: '/a2a/governance',
+  switch (name) {
+    case 'create_intent': {
+      const validatedArgs = expect(
+        args,
+        CreateIntentRequestSchema,
+        'create_intent',
+      )
+      result = await intentService.createIntent({
+        ...validatedArgs,
+        sourceToken: validatedArgs.sourceToken as Address,
+        destinationToken: validatedArgs.destinationToken as Address,
+        recipient: validatedArgs.recipient as Address | undefined,
+      })
+      break
+    }
+    case 'get_quote': {
+      const validatedArgs = expect(args, GetQuoteRequestSchema, 'get_quote')
+      result = await intentService.getQuotes({
+        ...validatedArgs,
+        sourceToken: validatedArgs.sourceToken as Address,
+        destinationToken: validatedArgs.destinationToken as Address,
+      })
+      break
+    }
+    case 'track_intent': {
+      const intentId = expect(
+        args.intentId,
+        IntentIdSchema,
+        'track_intent intentId',
+      )
+      result = (await intentService.getIntent(intentId)) ?? {
+        error: 'Intent not found',
+      }
+      break
+    }
+    case 'list_routes': {
+      const validatedArgs =
+        args && Object.keys(args).length > 0
+          ? expect(args, ListRoutesQuerySchema, 'list_routes')
+          : undefined
+      result = await routeService.listRoutes(validatedArgs)
+      break
+    }
+    case 'list_solvers': {
+      const validatedArgs =
+        args && Object.keys(args).length > 0
+          ? expect(args, ListSolversQuerySchema, 'list_solvers')
+          : undefined
+      result = await solverService.listSolvers(validatedArgs)
+      break
+    }
+    case 'list_v2_pools':
+      result = await poolService.listV2Pools()
+      break
+    case 'get_pool_reserves': {
+      const validatedArgs = expect(args, TokenPairSchema, 'get_pool_reserves')
+      result = await poolService.listPoolsForPair(
+        validatedArgs.token0 as Address,
+        validatedArgs.token1 as Address,
+      )
+      break
+    }
+    case 'get_swap_quote': {
+      const validatedArgs = expect(
+        args,
+        SwapQuoteRequestSchema,
+        'get_swap_quote',
+      )
+      result = (await poolService.getSwapQuote(
+        validatedArgs.tokenIn as Address,
+        validatedArgs.tokenOut as Address,
+        validatedArgs.amountIn,
+      )) ?? { error: 'No liquidity' }
+      break
+    }
+    case 'get_all_swap_quotes': {
+      const validatedArgs = expect(
+        args,
+        SwapQuoteRequestSchema,
+        'get_all_swap_quotes',
+      )
+      result = await poolService.getAllSwapQuotes(
+        validatedArgs.tokenIn as Address,
+        validatedArgs.tokenOut as Address,
+        validatedArgs.amountIn,
+      )
+      break
+    }
+    case 'get_pool_stats':
+      result = await poolService.getPoolStats()
+      break
+    case 'list_pools_for_pair': {
+      const validatedArgs = expect(args, TokenPairSchema, 'list_pools_for_pair')
+      result = await poolService.listPoolsForPair(
+        validatedArgs.token0 as Address,
+        validatedArgs.token1 as Address,
+      )
+      break
+    }
+    case 'check_ban_status': {
+      const validatedArgs = expect(
+        args,
+        CheckBanStatusRequestSchema,
+        'check_ban_status',
+      )
+      result = await checkBanStatus(validatedArgs.address as Address)
+      break
+    }
+    case 'get_moderator_profile': {
+      const validatedArgs = expect(
+        args,
+        GetModeratorProfileRequestSchema,
+        'get_moderator_profile',
+      )
+      result = (await getModeratorProfile(
+        validatedArgs.address as Address,
+      )) ?? { error: 'Profile not found' }
+      break
+    }
+    case 'get_moderation_cases': {
+      const validatedArgs =
+        args && Object.keys(args).length > 0
+          ? expect(args, GetModerationCasesQuerySchema, 'get_moderation_cases')
+          : {}
+      result = await getModerationCases(validatedArgs)
+      break
+    }
+    case 'get_moderation_case': {
+      const caseId = expect(
+        args.caseId,
+        CaseIdSchema,
+        'get_moderation_case caseId',
+      )
+      result = (await getModerationCase(caseId)) ?? { error: 'Case not found' }
+      break
+    }
+    case 'get_reports': {
+      const validatedArgs =
+        args && Object.keys(args).length > 0
+          ? expect(args, GetReportsQuerySchema, 'get_reports')
+          : {}
+      result = await getReports(validatedArgs)
+      break
+    }
+    case 'get_agent_labels': {
+      const agentId = expect(
+        args.agentId,
+        AgentIdSchema,
+        'get_agent_labels agentId',
+      )
+      result = await getAgentLabels(agentId)
+      break
+    }
+    case 'get_moderation_stats':
+      result = await getModerationStats()
+      break
+    case 'prepare_stake': {
+      const validatedArgs = expect(
+        args,
+        PrepareStakeRequestSchema,
+        'prepare_stake',
+      )
+      result = {
+        action: 'sign-and-send',
+        transaction: prepareStakeTransaction(validatedArgs.amount),
+      }
+      break
+    }
+    case 'prepare_report': {
+      const validatedArgs = expect(
+        args,
+        PrepareReportRequestSchema,
+        'prepare_report',
+      )
+      result = {
+        action: 'sign-and-send',
+        transaction: prepareReportTransaction(
+          validatedArgs.target as Address,
+          validatedArgs.reason,
+          validatedArgs.evidenceHash as `0x${string}`,
+        ),
+      }
+      break
+    }
+    case 'prepare_vote': {
+      const validatedArgs = expect(
+        args,
+        PrepareVoteRequestSchema,
+        'prepare_vote',
+      )
+      result = {
+        action: 'sign-and-send',
+        transaction: prepareVoteTransaction(
+          validatedArgs.caseId,
+          validatedArgs.voteYes,
+        ),
+      }
+      break
+    }
+    case 'prepare_challenge': {
+      const validatedArgs = expect(
+        args,
+        PrepareChallengeRequestSchema,
+        'prepare_challenge',
+      )
+      result = {
+        action: 'sign-and-send',
+        transaction: prepareChallengeTransaction(
+          validatedArgs.caseId,
+          validatedArgs.stakeAmount,
+        ),
+      }
+      break
+    }
+    case 'prepare_appeal': {
+      const validatedArgs = expect(
+        args,
+        PrepareAppealRequestSchema,
+        'prepare_appeal',
+      )
+      result = {
+        action: 'sign-and-send',
+        transaction: prepareAppealTransaction(
+          validatedArgs.caseId,
+          validatedArgs.stakeAmount,
+        ),
+      }
+      break
+    }
+    case 'faucet_status': {
+      if (!IS_TESTNET) {
+        result = { error: 'Faucet is only available on testnet' }
+        isError = true
+        break
+      }
+      const validatedArgs = expect(
+        args,
+        FaucetStatusRequestSchema,
+        'faucet_status',
+      )
+      result = await faucetService.getFaucetStatus(
+        validatedArgs.address as Address,
+      )
+      break
+    }
+    case 'faucet_claim': {
+      if (!IS_TESTNET) {
+        result = { error: 'Faucet is only available on testnet' }
+        isError = true
+        break
+      }
+      const validatedArgs = expect(
+        args,
+        FaucetClaimRequestSchema,
+        'faucet_claim',
+      )
+      result = await faucetService.claimFromFaucet(
+        validatedArgs.address as Address,
+      )
+      break
+    }
+    case 'faucet_info': {
+      if (!IS_TESTNET) {
+        result = { error: 'Faucet is only available on testnet' }
+        isError = true
+        break
+      }
+      result = faucetService.getFaucetInfo()
+      break
+    }
+    case 'get_risk_tiers':
+      result = {
+        tiers: [
+          {
+            id: 0,
+            name: 'Conservative',
+            description: 'Low risk, stable yields',
+            expectedApyBps: 300,
+            minDeposit: '0.01',
+          },
+          {
+            id: 1,
+            name: 'Balanced',
+            description: 'Moderate risk with competitive returns',
+            expectedApyBps: 1000,
+            minDeposit: '0.01',
+          },
+          {
+            id: 2,
+            name: 'Aggressive',
+            description: 'Higher risk, higher potential returns',
+            expectedApyBps: 2000,
+            minDeposit: '0.01',
+          },
+        ],
+      }
+      break
+    case 'get_sleeve_stats': {
+      const tier = args.tier as number
+      if (tier < 0 || tier > 2) {
+        result = { error: 'Invalid tier' }
+        isError = true
+        break
+      }
+      result = await getSleeveStats(tier as RiskTier)
+      break
+    }
+    case 'get_sleeve_position': {
+      const tier = args.tier as number
+      const address = args.address as string
+      if (tier < 0 || tier > 2 || !address || !isAddress(address)) {
+        result = { error: 'Invalid parameters' }
+        isError = true
+        break
+      }
+      result = await getSleevePosition(address as Address, tier as RiskTier)
+      break
+    }
+    case 'prepare_sleeve_deposit': {
+      const riskSleeveAddr = getRiskSleeveAddress()
+      if (!riskSleeveAddr) {
+        result = { error: 'RiskSleeve contract not yet deployed' }
+        isError = true
+        break
+      }
+      result = {
+        action: 'sign-and-send',
+        transaction: {
+          to: riskSleeveAddr,
+          value: args.amount as string,
+          data: `0x${Buffer.from('deposit(uint8)').slice(0, 4).toString('hex')}${(args.tier as number).toString(16).padStart(64, '0')}`,
         },
-        {
-          id: 'get-voting-power',
-          name: 'Get Voting Power',
-          description: 'Calculate voting power from stakes',
-          inputs: [{ name: 'address', type: 'string', required: true }],
-          outputs: { breakdown: 'object' },
-          endpoint: '/a2a/governance',
+      }
+      break
+    }
+    case 'prepare_sleeve_withdraw': {
+      const riskSleeveAddr = getRiskSleeveAddress()
+      if (!riskSleeveAddr) {
+        result = { error: 'RiskSleeve contract not yet deployed' }
+        isError = true
+        break
+      }
+      result = {
+        action: 'sign-and-send',
+        transaction: {
+          to: riskSleeveAddr,
+          data: `withdraw(${args.tier}, ${args.amount})`,
         },
-        {
-          id: 'create-quest',
-          name: 'Create Governance Quest',
-          description: 'Propose new governance change with futarchy markets',
-          inputs: [
-            { name: 'title', type: 'string', required: true },
-            { name: 'objective', type: 'string', required: true },
-          ],
-          outputs: { questId: 'string' },
-          endpoint: '/a2a/governance',
+      }
+      break
+    }
+    case 'get_allocation_strategy':
+      result = await getDefaultStrategy()
+      break
+    case 'prepare_router_deposit': {
+      const routerAddr = getLiquidityRouterAddress()
+      if (!routerAddr) {
+        result = { error: 'LiquidityRouter contract not yet deployed' }
+        isError = true
+        break
+      }
+      result = {
+        action: 'sign-and-send',
+        transaction: {
+          to: routerAddr,
+          value: args.amount as string,
+          data: '0x',
         },
-      ],
-      endpoints: {
-        jsonrpc: `http://localhost:${PORT}/a2a/governance`,
-        rest: `http://localhost:${PORT}/api/governance`,
-      },
-      metadata: {
-        governance_type: 'futarchy',
-        voting_mechanism: 'stake_weighted',
-      },
-    })
-  },
-)
-
-app.post('/a2a', agentRateLimit(), async (req: Request, res: Response) => {
-  let body: A2ARequest
-  try {
-    body = validateBody(A2ARequestSchema, req.body, 'A2A request')
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return res.json({
-      jsonrpc: '2.0',
-      id: null,
-      error: { code: -32600, message },
-    })
+      }
+      break
+    }
+    case 'get_router_position': {
+      const address = args.address as string
+      if (!address || !isAddress(address)) {
+        result = { error: 'Invalid address' }
+        isError = true
+        break
+      }
+      result = await getRouterPosition(address as Address)
+      break
+    }
+    case 'estimate_yield': {
+      const address = args.address as string
+      if (!address || !isAddress(address)) {
+        result = { error: 'Invalid address' }
+        isError = true
+        break
+      }
+      result = await estimateYield(address as Address)
+      break
+    }
+    default:
+      result = { error: 'Tool not found' }
+      isError = true
   }
 
-  const message = body.params.message
+  return { result, isError }
+}
+
+const app = new Elysia()
+  .use(
+    cors(isProduction && CORS_ORIGINS?.length ? { origin: CORS_ORIGINS } : {}),
+  )
+  .use(rateLimitPlugin())
+  .use(
+    banCheckPlugin({
+      skipPaths: ['/health', '/.well-known', '/public', '/a2a'],
+    }),
+  )
+  .get('/.well-known/agent-card.json', () => GATEWAY_AGENT_CARD)
+  .get('/.well-known/governance-agent-card.json', () => ({
+    id: 'jeju-futarchy-governance',
+    name: `${getChainName(JEJU_CHAIN_ID)} Futarchy Governance`,
+    description:
+      'Market-based governance using prediction markets for parameter decisions',
+    version: '1.0.0',
+    protocol: 'a2a',
+    protocolVersion: '0.3.0',
+    capabilities: { governance: true, futarchy: true, predictionMarkets: true },
+    skills: [
+      {
+        id: 'get-active-quests',
+        name: 'Get Active Governance Quests',
+        description: 'Returns all active futarchy governance quests',
+        inputs: [],
+        outputs: { quests: 'array' },
+        endpoint: '/a2a/governance',
+      },
+      {
+        id: 'get-voting-power',
+        name: 'Get Voting Power',
+        description: 'Calculate voting power from stakes',
+        inputs: [{ name: 'address', type: 'string', required: true }],
+        outputs: { breakdown: 'object' },
+        endpoint: '/a2a/governance',
+      },
+      {
+        id: 'create-quest',
+        name: 'Create Governance Quest',
+        description: 'Propose new governance change with futarchy markets',
+        inputs: [
+          { name: 'title', type: 'string', required: true },
+          { name: 'objective', type: 'string', required: true },
+        ],
+        outputs: { questId: 'string' },
+        endpoint: '/a2a/governance',
+      },
+    ],
+    endpoints: {
+      jsonrpc: `http://localhost:${PORT}/a2a/governance`,
+      rest: `http://localhost:${PORT}/api/governance`,
+    },
+    metadata: {
+      governance_type: 'futarchy',
+      voting_mechanism: 'stake_weighted',
+    },
+  }))
+
+// A2A endpoint
+app.use(agentRateLimitPlugin()).post('/a2a', async ({ body, headers, set }) => {
+  let parsedBody: A2ARequest
+  const rawBody = body as Record<string, JsonValue>
+  const parseResult = A2ARequestSchema.safeParse(rawBody)
+  if (!parseResult.success) {
+    return {
+      jsonrpc: '2.0',
+      id: null,
+      error: { code: -32600, message: parseResult.error.message },
+    }
+  }
+  parsedBody = parseResult.data
+
+  const message = parsedBody.params.message
   const dataPart = message.parts.find((p) => p.kind === 'data')
   if (!dataPart?.data) {
-    return res.json({
+    return {
       jsonrpc: '2.0',
-      id: body.id,
+      id: parsedBody.id,
       error: { code: -32602, message: 'No data part found' },
-    })
+    }
   }
 
   const skillId = dataPart.data.skillId
   if (typeof skillId !== 'string' || !skillId) {
-    return res.json({
+    return {
       jsonrpc: '2.0',
-      id: body.id,
+      id: parsedBody.id,
       error: { code: -32602, message: 'No skillId specified' },
-    })
+    }
   }
 
   let result: SkillResult
-  try {
-    result = await executeSkill(
-      skillId,
-      dataPart.data as Record<string, JsonValue>,
-      (req.headers['x-payment'] as string) || null,
-    )
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Skill execution failed'
-    return res.json({
+  const skillResult = await executeSkill(
+    skillId,
+    dataPart.data as Record<string, JsonValue>,
+    (headers['x-payment'] as string) || null,
+  ).catch((err: Error) => ({
+    message: err.message,
+    data: { error: err.message },
+    isError: true,
+  }))
+
+  if ('isError' in skillResult) {
+    return {
       jsonrpc: '2.0',
-      id: body.id,
-      error: { code: -32603, message },
-    })
+      id: parsedBody.id,
+      error: { code: -32603, message: skillResult.message },
+    }
   }
+  result = skillResult
 
   if (result.requiresPayment) {
-    return res.status(402).json({
+    set.status = 402
+    return {
       jsonrpc: '2.0',
-      id: body.id,
+      id: parsedBody.id,
       error: {
         code: 402,
         message: 'Payment Required',
         data: result.requiresPayment,
       },
-    })
+    }
   }
 
-  res.json({
+  return {
     jsonrpc: '2.0',
-    id: body.id,
+    id: parsedBody.id,
     result: {
       role: 'agent',
       parts: [
@@ -1796,62 +2098,39 @@ app.post('/a2a', agentRateLimit(), async (req: Request, res: Response) => {
       messageId: message.messageId,
       kind: 'message',
     },
-  })
+  }
 })
 
-app.post(
-  '/mcp/initialize',
-  agentRateLimit(),
-  (_req: Request, res: Response) => {
-    res.json({
-      protocolVersion: '2024-11-05',
-      serverInfo: MCP_SERVER_INFO,
-      capabilities: MCP_SERVER_INFO.capabilities,
+// MCP endpoints
+app.use(agentRateLimitPlugin()).post('/mcp/initialize', () => ({
+  protocolVersion: '2024-11-05',
+  serverInfo: MCP_SERVER_INFO,
+  capabilities: MCP_SERVER_INFO.capabilities,
+}))
+app
+  .use(agentRateLimitPlugin())
+  .post('/mcp/resources/list', () => ({ resources: MCP_RESOURCES }))
+app
+  .use(agentRateLimitPlugin())
+  .post('/mcp/resources/read', async ({ body, set }) => {
+    const rawBody = body as Record<string, JsonValue>
+    const parseResult = McpResourceReadRequestSchema.safeParse(rawBody)
+    if (!parseResult.success) {
+      set.status = 400
+      return { error: parseResult.error.message }
+    }
+    const { uri } = parseResult.data
+    const sendResource = (data: object) => ({
+      contents: [
+        {
+          uri,
+          mimeType: 'application/json',
+          text: JSON.stringify(data, null, 2),
+        },
+      ],
     })
-  },
-)
-
-app.post(
-  '/mcp/resources/list',
-  agentRateLimit(),
-  (_req: Request, res: Response) => {
-    res.json({ resources: MCP_RESOURCES })
-  },
-)
-
-app.post(
-  '/mcp/resources/read',
-  agentRateLimit(),
-  async (req: Request, res: Response) => {
-    let validated: { uri: string }
-    try {
-      validated = validateBody(
-        McpResourceReadRequestSchema,
-        req.body,
-        'MCP resource read',
-      )
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid request'
-      return res.status(400).json({ error: message })
-    }
-
-    const { uri } = validated
-
-    // Helper to send MCP resource response with JSON-serialized content
-    const sendResource = (data: object) => {
-      res.json({
-        contents: [
-          {
-            uri,
-            mimeType: 'application/json',
-            text: JSON.stringify(data, null, 2),
-          },
-        ],
-      })
-    }
 
     switch (uri) {
-      // Intent Framework
       case 'oif://routes':
         return sendResource(await routeService.listRoutes())
       case 'oif://solvers':
@@ -1860,7 +2139,6 @@ app.post(
         return sendResource(await intentService.listIntents({ limit: 100 }))
       case 'oif://stats':
         return sendResource(await intentService.getStats())
-      // XLP Pools
       case 'xlp://pools/v2':
         return sendResource(await poolService.listV2Pools())
       case 'xlp://pools/v3':
@@ -1874,7 +2152,6 @@ app.post(
         return sendResource(poolService.getTokens())
       case 'xlp://contracts':
         return sendResource(poolService.getContracts())
-      // Moderation
       case 'moderation://cases':
         return sendResource(await getModerationCases({ limit: 100 }))
       case 'moderation://cases/active':
@@ -1885,24 +2162,19 @@ app.post(
         return sendResource(await getReports({ limit: 100 }))
       case 'moderation://stats':
         return sendResource(await getModerationStats())
-      // Risk Pools
       case 'risk://tiers':
         return sendResource(getRiskTiers())
       case 'risk://stats': {
-        // Query all tiers for aggregated stats
         const [conservative, balanced, aggressive] = await Promise.all([
           getSleeveStats(RiskTier.CONSERVATIVE),
           getSleeveStats(RiskTier.BALANCED),
           getSleeveStats(RiskTier.AGGRESSIVE),
         ])
-
-        if ('status' in conservative) {
+        if ('status' in conservative)
           return sendResource({
             status: 'not_deployed',
             message: 'RiskSleeve contract pending deployment',
           })
-        }
-
         return sendResource({
           deployed: true,
           contractAddress: getRiskSleeveAddress(),
@@ -1911,7 +2183,7 @@ app.post(
       }
       case 'risk://allocations': {
         const strategy = await getDefaultStrategy()
-        if ('status' in strategy) {
+        if ('status' in strategy)
           return sendResource({
             status: 'not_deployed',
             message: 'LiquidityRouter contract pending deployment',
@@ -1924,929 +2196,343 @@ app.post(
               governanceStakeBps: 500,
             },
           })
-        }
         return sendResource({
           deployed: true,
           contractAddress: getLiquidityRouterAddress(),
           defaultStrategy: strategy,
-          description:
-            'Default allocation distributes across ETH vault, token vault, node staking, XLP staking, paymaster, and governance',
         })
       }
-      // Faucet (testnet only)
       case 'faucet://info':
-        if (!IS_TESTNET)
-          return res
-            .status(403)
-            .json({ error: 'Faucet is only available on testnet' })
+        if (!IS_TESTNET) {
+          set.status = 403
+          return { error: 'Faucet is only available on testnet' }
+        }
         return sendResource(faucetService.getFaucetInfo())
       default:
-        return res.status(404).json({ error: 'Resource not found' })
+        set.status = 404
+        return { error: 'Resource not found' }
     }
-  },
-)
+  })
 
-app.post(
-  '/mcp/tools/list',
-  agentRateLimit(),
-  (_req: Request, res: Response) => {
-    res.json({ tools: MCP_TOOLS })
-  },
-)
-
-app.post(
-  '/mcp/tools/call',
-  agentRateLimit(),
-  async (req: Request, res: Response) => {
-    let validated: { name: string; arguments: Record<string, unknown> }
-    try {
-      const parsed = validateBody(
-        McpToolCallRequestSchema,
-        req.body,
-        'MCP tool call',
-      )
-      validated = { name: parsed.name, arguments: parsed.arguments || {} }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid request'
-      return res.status(400).json({ error: message })
+app
+  .use(agentRateLimitPlugin())
+  .post('/mcp/tools/list', () => ({ tools: MCP_TOOLS }))
+app
+  .use(agentRateLimitPlugin())
+  .post('/mcp/tools/call', async ({ body, set }) => {
+    const rawBody = body as Record<string, JsonValue>
+    const parseResult = McpToolCallRequestSchema.safeParse(rawBody)
+    if (!parseResult.success) {
+      set.status = 400
+      return { error: parseResult.error.message }
     }
+    const { name, arguments: args } = parseResult.data
 
-    const { name, arguments: args } = validated
-    let result: object | null | undefined
-    let isError = false
-
-    try {
-      switch (name) {
-        // Intent Tools
-        case 'create_intent': {
-          const validatedArgs = expect(
-            args,
-            CreateIntentRequestSchema,
-            'create_intent',
-          )
-          result = await intentService.createIntent({
-            ...validatedArgs,
-            sourceToken: validatedArgs.sourceToken as Address,
-            destinationToken: validatedArgs.destinationToken as Address,
-            recipient: validatedArgs.recipient as Address | undefined,
-          })
-          break
-        }
-        case 'get_quote': {
-          const validatedArgs = expect(args, GetQuoteRequestSchema, 'get_quote')
-          result = await intentService.getQuotes({
-            ...validatedArgs,
-            sourceToken: validatedArgs.sourceToken as Address,
-            destinationToken: validatedArgs.destinationToken as Address,
-          })
-          break
-        }
-        case 'track_intent': {
-          const intentId = expect(
-            args.intentId,
-            IntentIdSchema,
-            'track_intent intentId',
-          )
-          result = await intentService.getIntent(intentId)
-          break
-        }
-        case 'list_routes': {
-          const validatedArgs =
-            args && Object.keys(args).length > 0
-              ? expect(args, ListRoutesQuerySchema, 'list_routes')
-              : undefined
-          result = await routeService.listRoutes(validatedArgs)
-          break
-        }
-        case 'list_solvers': {
-          const validatedArgs =
-            args && Object.keys(args).length > 0
-              ? expect(args, ListSolversQuerySchema, 'list_solvers')
-              : undefined
-          result = await solverService.listSolvers(validatedArgs)
-          break
-        }
-        // XLP Pool Tools
-        case 'list_v2_pools': {
-          result = await poolService.listV2Pools()
-          break
-        }
-        case 'get_pool_reserves': {
-          const validatedArgs = expect(
-            args,
-            TokenPairSchema,
-            'get_pool_reserves',
-          )
-          result = await poolService.listPoolsForPair(
-            validatedArgs.token0 as Address,
-            validatedArgs.token1 as Address,
-          )
-          break
-        }
-        case 'get_swap_quote': {
-          const validatedArgs = expect(
-            args,
-            SwapQuoteRequestSchema,
-            'get_swap_quote',
-          )
-          result = await poolService.getSwapQuote(
-            validatedArgs.tokenIn as Address,
-            validatedArgs.tokenOut as Address,
-            validatedArgs.amountIn,
-          )
-          break
-        }
-        case 'get_all_swap_quotes': {
-          const validatedArgs = expect(
-            args,
-            SwapQuoteRequestSchema,
-            'get_all_swap_quotes',
-          )
-          result = await poolService.getAllSwapQuotes(
-            validatedArgs.tokenIn as Address,
-            validatedArgs.tokenOut as Address,
-            validatedArgs.amountIn,
-          )
-          break
-        }
-        case 'get_pool_stats': {
-          result = await poolService.getPoolStats()
-          break
-        }
-        case 'list_pools_for_pair': {
-          const validatedArgs = expect(
-            args,
-            TokenPairSchema,
-            'list_pools_for_pair',
-          )
-          result = await poolService.listPoolsForPair(
-            validatedArgs.token0 as Address,
-            validatedArgs.token1 as Address,
-          )
-          break
-        }
-        // Moderation Tools
-        case 'check_ban_status': {
-          const validatedArgs = expect(
-            args,
-            CheckBanStatusRequestSchema,
-            'check_ban_status',
-          )
-          result = await checkBanStatus(validatedArgs.address as Address)
-          break
-        }
-        case 'get_moderator_profile': {
-          const validatedArgs = expect(
-            args,
-            GetModeratorProfileRequestSchema,
-            'get_moderator_profile',
-          )
-          result = await getModeratorProfile(validatedArgs.address as Address)
-          break
-        }
-        case 'get_moderation_cases': {
-          const validatedArgs =
-            args && Object.keys(args).length > 0
-              ? expect(
-                  args,
-                  GetModerationCasesQuerySchema,
-                  'get_moderation_cases',
-                )
-              : {}
-          result = await getModerationCases(validatedArgs)
-          break
-        }
-        case 'get_moderation_case': {
-          const caseId = expect(
-            args.caseId,
-            CaseIdSchema,
-            'get_moderation_case caseId',
-          )
-          result = await getModerationCase(caseId)
-          break
-        }
-        case 'get_reports': {
-          const validatedArgs =
-            args && Object.keys(args).length > 0
-              ? expect(args, GetReportsQuerySchema, 'get_reports')
-              : {}
-          result = await getReports(validatedArgs)
-          break
-        }
-        case 'get_agent_labels': {
-          const agentId = expect(
-            args.agentId,
-            AgentIdSchema,
-            'get_agent_labels agentId',
-          )
-          result = await getAgentLabels(agentId)
-          break
-        }
-        case 'get_moderation_stats': {
-          result = await getModerationStats()
-          break
-        }
-        case 'prepare_stake': {
-          const validatedArgs = expect(
-            args,
-            PrepareStakeRequestSchema,
-            'prepare_stake',
-          )
-          result = {
-            action: 'sign-and-send',
-            transaction: prepareStakeTransaction(validatedArgs.amount),
-          }
-          break
-        }
-        case 'prepare_report': {
-          const validatedArgs = expect(
-            args,
-            PrepareReportRequestSchema,
-            'prepare_report',
-          )
-          result = {
-            action: 'sign-and-send',
-            transaction: prepareReportTransaction(
-              validatedArgs.target as Address,
-              validatedArgs.reason,
-              validatedArgs.evidenceHash as `0x${string}`,
-            ),
-          }
-          break
-        }
-        case 'prepare_vote': {
-          const validatedArgs = expect(
-            args,
-            PrepareVoteRequestSchema,
-            'prepare_vote',
-          )
-          result = {
-            action: 'sign-and-send',
-            transaction: prepareVoteTransaction(
-              validatedArgs.caseId,
-              validatedArgs.voteYes,
-            ),
-          }
-          break
-        }
-        case 'prepare_challenge': {
-          const validatedArgs = expect(
-            args,
-            PrepareChallengeRequestSchema,
-            'prepare_challenge',
-          )
-          result = {
-            action: 'sign-and-send',
-            transaction: prepareChallengeTransaction(
-              validatedArgs.caseId,
-              validatedArgs.stakeAmount,
-            ),
-          }
-          break
-        }
-        case 'prepare_appeal': {
-          const validatedArgs = expect(
-            args,
-            PrepareAppealRequestSchema,
-            'prepare_appeal',
-          )
-          result = {
-            action: 'sign-and-send',
-            transaction: prepareAppealTransaction(
-              validatedArgs.caseId,
-              validatedArgs.stakeAmount,
-            ),
-          }
-          break
-        }
-        // Faucet Tools (testnet only)
-        case 'faucet_status': {
-          if (!IS_TESTNET) {
-            result = { error: 'Faucet is only available on testnet' }
-            isError = true
-            break
-          }
-          const validatedArgs = expect(
-            args,
-            FaucetStatusRequestSchema,
-            'faucet_status',
-          )
-          result = await faucetService.getFaucetStatus(
-            validatedArgs.address as Address,
-          )
-          break
-        }
-        case 'faucet_claim': {
-          if (!IS_TESTNET) {
-            result = { error: 'Faucet is only available on testnet' }
-            isError = true
-            break
-          }
-          const validatedArgs = expect(
-            args,
-            FaucetClaimRequestSchema,
-            'faucet_claim',
-          )
-          result = await faucetService.claimFromFaucet(
-            validatedArgs.address as Address,
-          )
-          break
-        }
-        case 'faucet_info': {
-          if (!IS_TESTNET) {
-            result = { error: 'Faucet is only available on testnet' }
-            isError = true
-            break
-          }
-          result = faucetService.getFaucetInfo()
-          break
-        }
-        // Risk Sleeve Tools
-        case 'get_risk_tiers': {
-          result = {
-            tiers: [
-              {
-                id: 0,
-                name: 'Conservative',
-                description: 'Low risk, stable yields',
-                expectedApyBps: 300,
-                minDeposit: '0.01',
-              },
-              {
-                id: 1,
-                name: 'Balanced',
-                description: 'Moderate risk with competitive returns',
-                expectedApyBps: 1000,
-                minDeposit: '0.01',
-              },
-              {
-                id: 2,
-                name: 'Aggressive',
-                description: 'Higher risk, higher potential returns',
-                expectedApyBps: 2000,
-                minDeposit: '0.01',
-              },
-            ],
-          }
-          break
-        }
-        case 'get_sleeve_stats': {
-          const tier = args.tier as number
-          if (tier < 0 || tier > 2) {
-            result = {
-              error:
-                'Invalid tier: must be 0 (Conservative), 1 (Balanced), or 2 (Aggressive)',
-            }
-            isError = true
-            break
-          }
-          result = await getSleeveStats(tier as RiskTier)
-          break
-        }
-        case 'get_sleeve_position': {
-          const tier = args.tier as number
-          const address = args.address as string
-          if (tier < 0 || tier > 2) {
-            result = { error: 'Invalid tier' }
-            isError = true
-            break
-          }
-          if (!address || !isAddress(address)) {
-            result = { error: 'Invalid address' }
-            isError = true
-            break
-          }
-          result = await getSleevePosition(address as Address, tier as RiskTier)
-          break
-        }
-        case 'prepare_sleeve_deposit': {
-          const riskSleeveAddr = getRiskSleeveAddress()
-          if (!riskSleeveAddr) {
-            result = {
-              error: 'RiskSleeve contract not yet deployed',
-              suggestion:
-                'Use the Gateway UI at /risk to deposit when contracts are live',
-            }
-            isError = true
-            break
-          }
-          const amount = args.amount as string
-          const tier = args.tier as number
-          result = {
-            action: 'sign-and-send',
-            transaction: {
-              to: riskSleeveAddr,
-              value: amount,
-              data: `0x${Buffer.from('deposit(uint8)').slice(0, 4).toString('hex')}${tier.toString(16).padStart(64, '0')}`,
-            },
-          }
-          break
-        }
-        case 'prepare_sleeve_withdraw': {
-          const riskSleeveAddr = getRiskSleeveAddress()
-          if (!riskSleeveAddr) {
-            result = {
-              error: 'RiskSleeve contract not yet deployed',
-              suggestion:
-                'Use the Gateway UI at /risk to withdraw when contracts are live',
-            }
-            isError = true
-            break
-          }
-          const amount = args.amount as string
-          const tier = args.tier as number
-          result = {
-            action: 'sign-and-send',
-            transaction: {
-              to: riskSleeveAddr,
-              data: `withdraw(${tier}, ${amount})`,
-            },
-          }
-          break
-        }
-        case 'get_allocation_strategy': {
-          result = await getDefaultStrategy()
-          break
-        }
-        case 'prepare_router_deposit': {
-          const routerAddr = getLiquidityRouterAddress()
-          if (!routerAddr) {
-            result = {
-              error: 'LiquidityRouter contract not yet deployed',
-              suggestion:
-                'Use the Gateway UI to deposit when contracts are live',
-            }
-            isError = true
-            break
-          }
-          const amount = args.amount as string
-          result = {
-            action: 'sign-and-send',
-            transaction: {
-              to: routerAddr,
-              value: amount,
-              data: '0x', // depositETH() selector
-            },
-          }
-          break
-        }
-        case 'get_router_position': {
-          const address = args.address as string
-          if (!address || !isAddress(address)) {
-            result = { error: 'Invalid address' }
-            isError = true
-            break
-          }
-          result = await getRouterPosition(address as Address)
-          break
-        }
-        case 'estimate_yield': {
-          const address = args.address as string
-          if (!address || !isAddress(address)) {
-            result = { error: 'Invalid address' }
-            isError = true
-            break
-          }
-          result = await estimateYield(address as Address)
-          break
-        }
-        default: {
-          result = { error: 'Tool not found' }
-          isError = true
-          break
-        }
-      }
-    } catch (error) {
-      const message =
-        error instanceof Error ? error.message : 'Tool execution failed'
-      result = { error: message }
-      isError = true
+    const toolResult = await executeMcpTool(name, args || {}).catch(
+      (err: Error) => ({ result: { error: err.message }, isError: true }),
+    )
+    return {
+      content: [
+        { type: 'text', text: JSON.stringify(toolResult.result, null, 2) },
+      ],
+      isError: toolResult.isError,
     }
+  })
 
-    res.json({
-      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-      isError,
-    })
-  },
-)
+app.use(agentRateLimitPlugin()).get('/mcp', () => ({
+  server: MCP_SERVER_INFO.name,
+  version: MCP_SERVER_INFO.version,
+  description: MCP_SERVER_INFO.description,
+  resources: MCP_RESOURCES,
+  tools: MCP_TOOLS,
+  capabilities: MCP_SERVER_INFO.capabilities,
+}))
 
-app.get('/mcp', agentRateLimit(), (_req: Request, res: Response) => {
-  res.json({
-    server: MCP_SERVER_INFO.name,
-    version: MCP_SERVER_INFO.version,
-    description: MCP_SERVER_INFO.description,
-    resources: MCP_RESOURCES,
-    tools: MCP_TOOLS,
-    capabilities: MCP_SERVER_INFO.capabilities,
+// REST API endpoints
+app.use(strictRateLimitPlugin()).post('/api/intents', async ({ body, set }) => {
+  const rawBody = body as Record<string, JsonValue>
+  const parseResult = CreateIntentRequestSchema.safeParse(rawBody)
+  if (!parseResult.success) {
+    set.status = 400
+    return { error: parseResult.error.message }
+  }
+  const validated = parseResult.data
+  return await intentService.createIntent({
+    ...validated,
+    sourceToken: validated.sourceToken as Address,
+    destinationToken: validated.destinationToken as Address,
+    recipient: validated.recipient as Address | undefined,
   })
 })
 
-app.post(
-  '/api/intents',
-  strictRateLimit(),
-  async (req: Request, res: Response) => {
-    try {
-      const validated = validateBody(
-        CreateIntentRequestSchema,
-        req.body,
-        'create intent',
-      )
-      res.json(
-        await intentService.createIntent({
-          ...validated,
-          sourceToken: validated.sourceToken as Address,
-          destinationToken: validated.destinationToken as Address,
-          recipient: validated.recipient as Address | undefined,
-        }),
-      )
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid request'
-      res.status(400).json({ error: message })
-    }
-  },
-)
-
-app.get('/api/intents/:intentId', async (req: Request, res: Response) => {
-  try {
-    const intentId = expect(req.params.intentId, IntentIdSchema, 'intentId')
-    const intent = await intentService.getIntent(intentId)
-    if (!intent) {
-      return res.status(404).json({ error: 'Intent not found' })
-    }
-    res.json(intent)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
+app.get('/api/intents/:intentId', async ({ params, set }) => {
+  const intentId = expect(params.intentId, IntentIdSchema, 'intentId')
+  const intent = await intentService.getIntent(intentId)
+  if (!intent) {
+    set.status = 404
+    return { error: 'Intent not found' }
   }
+  return intent
 })
 
-app.get('/api/intents', async (req: Request, res: Response) => {
-  try {
-    const validated =
-      Object.keys(req.query).length > 0
-        ? validateQuery(ListIntentsQuerySchema, req.query, 'list intents')
-        : undefined
-    res.json(await intentService.listIntents(validated))
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
-  }
+app.get('/api/intents', async ({ query }) => {
+  const validated =
+    Object.keys(query).length > 0
+      ? validateQuery(ListIntentsQuerySchema, query, 'list intents')
+      : undefined
+  return await intentService.listIntents(validated)
 })
 
-app.post(
-  '/api/intents/:intentId/cancel',
-  strictRateLimit(),
-  async (req: Request, res: Response) => {
-    try {
-      const intentId = expect(req.params.intentId, IntentIdSchema, 'intentId')
-      const validated = validateBody(
-        CancelIntentRequestSchema,
-        req.body,
-        'cancel intent',
-      )
-      res.json(await intentService.cancelIntent(intentId, validated.user))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid request'
-      res.status(400).json({ error: message })
+app
+  .use(strictRateLimitPlugin())
+  .post('/api/intents/:intentId/cancel', async ({ params, body, set }) => {
+    const intentId = expect(params.intentId, IntentIdSchema, 'intentId')
+    const rawBody = body as Record<string, JsonValue>
+    const parseResult = CancelIntentRequestSchema.safeParse(rawBody)
+    if (!parseResult.success) {
+      set.status = 400
+      return { error: parseResult.error.message }
     }
-  },
-)
+    return await intentService.cancelIntent(intentId, parseResult.data.user)
+  })
 
-app.post('/api/intents/quote', async (req: Request, res: Response) => {
-  try {
-    const validated = validateBody(GetQuoteRequestSchema, req.body, 'get quote')
-    res.json(
-      await intentService.getQuotes({
-        ...validated,
-        sourceToken: validated.sourceToken as Address,
-        destinationToken: validated.destinationToken as Address,
-      }),
+app.post('/api/intents/quote', async ({ body, set }) => {
+  const rawBody = body as Record<string, JsonValue>
+  const parseResult = GetQuoteRequestSchema.safeParse(rawBody)
+  if (!parseResult.success) {
+    set.status = 400
+    return { error: parseResult.error.message }
+  }
+  const validated = parseResult.data
+  return await intentService.getQuotes({
+    ...validated,
+    sourceToken: validated.sourceToken as Address,
+    destinationToken: validated.destinationToken as Address,
+  })
+})
+
+app.get('/api/routes', async ({ query }) => {
+  const validated =
+    Object.keys(query).length > 0
+      ? validateQuery(ListRoutesQuerySchema, query, 'list routes')
+      : undefined
+  return await routeService.listRoutes(validated)
+})
+
+app.get('/api/routes/:routeId', async ({ params, set }) => {
+  const routeId = expect(params.routeId, RouteIdSchema, 'routeId')
+  const route = await routeService.getRoute(routeId)
+  if (!route) {
+    set.status = 404
+    return { error: 'Route not found' }
+  }
+  return route
+})
+
+app.post('/api/routes/best', async ({ body, set }) => {
+  const rawBody = body as Record<string, JsonValue>
+  const parseResult = GetBestRouteRequestSchema.safeParse(rawBody)
+  if (!parseResult.success) {
+    set.status = 400
+    return { error: parseResult.error.message }
+  }
+  return await routeService.getBestRoute(parseResult.data)
+})
+
+app.get('/api/routes/:routeId/volume', async ({ params, query }) => {
+  const routeId = expect(params.routeId, RouteIdSchema, 'routeId')
+  const validated = validateQuery(
+    GetVolumeQuerySchema,
+    { ...query, routeId },
+    'get volume',
+  )
+  return await routeService.getVolume(validated)
+})
+
+app.get('/api/solvers/leaderboard', async ({ query }) => {
+  const validated =
+    Object.keys(query).length > 0
+      ? validateQuery(SolverLeaderboardQuerySchema, query, 'solver leaderboard')
+      : undefined
+  return await solverService.getLeaderboard(validated)
+})
+
+app.get('/api/solvers', async ({ query }) => {
+  const validated =
+    Object.keys(query).length > 0
+      ? validateQuery(ListSolversQuerySchema, query, 'list solvers')
+      : undefined
+  return await solverService.listSolvers(validated)
+})
+
+app.get('/api/solvers/:address/liquidity', async ({ params }) => {
+  const address = expectAddress(params.address, 'solver address')
+  return await solverService.getSolverLiquidity(address)
+})
+
+app.get('/api/solvers/:address', async ({ params, set }) => {
+  const address = expectAddress(params.address, 'solver address')
+  const solver = await solverService.getSolver(address)
+  if (!solver) {
+    set.status = 404
+    return { error: 'Solver not found' }
+  }
+  return solver
+})
+
+app.get('/api/stats', async () => await intentService.getStats())
+
+app.get('/api/stats/chain/:chainId', async ({ params }) => {
+  const chainId = expectChainId(Number(params.chainId), 'chainId')
+  return await intentService.getChainStats(chainId)
+})
+
+app.get('/api/config/chains', () => routeService.getChains())
+
+app.get('/api/config/tokens', ({ query }) => {
+  const chainId = query.chainId
+  if (chainId) return routeService.getTokens(Number(chainId))
+  return routeService.getChains().map((c) => ({
+    chainId: c.chainId,
+    chainName: c.name,
+    tokens: routeService.getTokens(c.chainId),
+  }))
+})
+
+app.get('/api/pools', async ({ query, set: _set }) => {
+  const validated = validateQuery(ListPoolsQuerySchema, query, 'list pools')
+  if (validated.token0 && validated.token1) {
+    const pools = await poolService.listPoolsForPair(
+      validated.token0 as Address,
+      validated.token1 as Address,
     )
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
+    return { pools, count: pools.length }
   }
-})
-
-app.get('/api/routes', async (req: Request, res: Response) => {
-  try {
-    const validated =
-      Object.keys(req.query).length > 0
-        ? validateQuery(ListRoutesQuerySchema, req.query, 'list routes')
-        : undefined
-    res.json(await routeService.listRoutes(validated))
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
+  if (validated.type === 'v2') {
+    const pools = await poolService.listV2Pools()
+    return { pools, count: pools.length }
   }
+  return await poolService.getPoolStats()
 })
 
-app.get('/api/routes/:routeId', async (req: Request, res: Response) => {
-  try {
-    const routeId = expect(req.params.routeId, RouteIdSchema, 'routeId')
-    const route = await routeService.getRoute(routeId)
-    if (!route) {
-      return res.status(404).json({ error: 'Route not found' })
-    }
-    res.json(route)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
-  }
-})
-
-app.post('/api/routes/best', async (req: Request, res: Response) => {
-  try {
-    const validated = validateBody(
-      GetBestRouteRequestSchema,
-      req.body,
-      'get best route',
-    )
-    res.json(await routeService.getBestRoute(validated))
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
-  }
-})
-
-app.get('/api/routes/:routeId/volume', async (req: Request, res: Response) => {
-  try {
-    const routeId = expect(req.params.routeId, RouteIdSchema, 'routeId')
-    const validated = validateQuery(
-      GetVolumeQuerySchema,
-      { ...req.query, routeId },
-      'get volume',
-    )
-    res.json(await routeService.getVolume(validated))
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
-  }
-})
-
-app.get('/api/solvers/leaderboard', async (req: Request, res: Response) => {
-  try {
-    const validated =
-      Object.keys(req.query).length > 0
-        ? validateQuery(
-            SolverLeaderboardQuerySchema,
-            req.query,
-            'solver leaderboard',
-          )
-        : undefined
-    res.json(await solverService.getLeaderboard(validated))
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
-  }
-})
-
-app.get('/api/solvers', async (req: Request, res: Response) => {
-  try {
-    const validated =
-      Object.keys(req.query).length > 0
-        ? validateQuery(ListSolversQuerySchema, req.query, 'list solvers')
-        : undefined
-    res.json(await solverService.listSolvers(validated))
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
-  }
-})
-
-app.get(
-  '/api/solvers/:address/liquidity',
-  async (req: Request, res: Response) => {
-    try {
-      const address = expectAddress(req.params.address, 'solver address')
-      res.json(await solverService.getSolverLiquidity(address))
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid request'
-      res.status(400).json({ error: message })
-    }
-  },
-)
-
-app.get('/api/solvers/:address', async (req: Request, res: Response) => {
-  try {
-    const address = expectAddress(req.params.address, 'solver address')
-    const solver = await solverService.getSolver(address)
-    if (!solver) {
-      return res.status(404).json({ error: 'Solver not found' })
-    }
-    res.json(solver)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
-  }
-})
-
-app.get('/api/stats', async (_req: Request, res: Response) => {
-  res.json(await intentService.getStats())
-})
-
-app.get('/api/stats/chain/:chainId', async (req: Request, res: Response) => {
-  try {
-    const chainId = expectChainId(Number(req.params.chainId), 'chainId')
-    res.json(await intentService.getChainStats(chainId))
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
-  }
-})
-
-app.get('/api/config/chains', (_req: Request, res: Response) => {
-  res.json(routeService.getChains())
-})
-
-app.get('/api/config/tokens', (req: Request, res: Response) => {
-  const { chainId } = req.query
-  if (chainId) {
-    res.json(routeService.getTokens(Number(chainId)))
-  } else {
-    res.json(
-      routeService.getChains().map((c) => ({
-        chainId: c.chainId,
-        chainName: c.name,
-        tokens: routeService.getTokens(c.chainId),
-      })),
-    )
-  }
-})
-
-app.get('/api/pools', async (req: Request, res: Response) => {
-  try {
-    const validated = validateQuery(
-      ListPoolsQuerySchema,
-      req.query,
-      'list pools',
-    )
-    if (validated.token0 && validated.token1) {
-      const pools = await poolService.listPoolsForPair(
-        validated.token0 as Address,
-        validated.token1 as Address,
-      )
-      return res.json({ pools, count: pools.length })
-    }
-    if (validated.type === 'v2') {
-      const pools = await poolService.listV2Pools()
-      return res.json({ pools, count: pools.length })
-    }
-    const stats = await poolService.getPoolStats()
-    res.json(stats)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
-  }
-})
-
-app.get('/api/pools/v2', async (_req: Request, res: Response) => {
+app.get('/api/pools/v2', async () => {
   const pools = await poolService.listV2Pools()
-  res.json({ pools, count: pools.length })
+  return { pools, count: pools.length }
 })
 
-app.get('/api/pools/stats', async (_req: Request, res: Response) => {
-  const stats = await poolService.getPoolStats()
-  res.json(stats)
-})
+app.get('/api/pools/stats', async () => await poolService.getPoolStats())
+app.get('/api/pools/tokens', () => poolService.getTokens())
+app.get('/api/pools/contracts', () => poolService.getContracts())
 
-app.get('/api/pools/tokens', (_req: Request, res: Response) => {
-  res.json(poolService.getTokens())
-})
-
-app.get('/api/pools/contracts', (_req: Request, res: Response) => {
-  res.json(poolService.getContracts())
-})
-
-app.post('/api/pools/quote', async (req: Request, res: Response) => {
-  try {
-    const validated = validateBody(
-      SwapQuoteRequestSchema,
-      req.body,
-      'swap quote',
-    )
-    const quote = await poolService.getSwapQuote(
-      validated.tokenIn as Address,
-      validated.tokenOut as Address,
-      validated.amountIn,
-    )
-    if (!quote) {
-      return res
-        .status(404)
-        .json({ error: 'No liquidity available for this swap' })
-    }
-    res.json(quote)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
+app.post('/api/pools/quote', async ({ body, set }) => {
+  const rawBody = body as Record<string, JsonValue>
+  const parseResult = SwapQuoteRequestSchema.safeParse(rawBody)
+  if (!parseResult.success) {
+    set.status = 400
+    return { error: parseResult.error.message }
   }
-})
-
-app.post('/api/pools/quotes', async (req: Request, res: Response) => {
-  try {
-    const validated = validateBody(
-      SwapQuoteRequestSchema,
-      req.body,
-      'swap quotes',
-    )
-    const quotes = await poolService.getAllSwapQuotes(
-      validated.tokenIn as Address,
-      validated.tokenOut as Address,
-      validated.amountIn,
-    )
-    res.json({ quotes, bestQuote: quotes[0] || null, count: quotes.length })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
+  const validated = parseResult.data
+  const quote = await poolService.getSwapQuote(
+    validated.tokenIn as Address,
+    validated.tokenOut as Address,
+    validated.amountIn,
+  )
+  if (!quote) {
+    set.status = 404
+    return { error: 'No liquidity available for this swap' }
   }
+  return quote
 })
 
-app.get(
-  '/api/pools/pair/:token0/:token1',
-  async (req: Request, res: Response) => {
-    try {
-      const validated = expect(
-        { token0: req.params.token0, token1: req.params.token1 },
-        TokenPairSchema,
-        'token pair',
-      )
-      const pools = await poolService.listPoolsForPair(
-        validated.token0 as Address,
-        validated.token1 as Address,
-      )
-      res.json({ pools, count: pools.length })
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid request'
-      res.status(400).json({ error: message })
-    }
-  },
-)
-
-// Faucet REST API (testnet only)
-app.get('/api/faucet/info', (_req: Request, res: Response) => {
-  if (!IS_TESTNET)
-    return res
-      .status(403)
-      .json({ error: 'Faucet is only available on testnet' })
-  res.json(faucetService.getFaucetInfo())
+app.post('/api/pools/quotes', async ({ body, set }) => {
+  const rawBody = body as Record<string, JsonValue>
+  const parseResult = SwapQuoteRequestSchema.safeParse(rawBody)
+  if (!parseResult.success) {
+    set.status = 400
+    return { error: parseResult.error.message }
+  }
+  const validated = parseResult.data
+  const quotes = await poolService.getAllSwapQuotes(
+    validated.tokenIn as Address,
+    validated.tokenOut as Address,
+    validated.amountIn,
+  )
+  return { quotes, bestQuote: quotes[0] || null, count: quotes.length }
 })
 
-app.get('/api/faucet/status/:address', async (req: Request, res: Response) => {
+app.get('/api/pools/pair/:token0/:token1', async ({ params }) => {
+  const validated = expect(
+    { token0: params.token0, token1: params.token1 },
+    TokenPairSchema,
+    'token pair',
+  )
+  const pools = await poolService.listPoolsForPair(
+    validated.token0 as Address,
+    validated.token1 as Address,
+  )
+  return { pools, count: pools.length }
+})
+
+// Faucet endpoints (testnet only)
+app.get('/api/faucet/info', ({ set }) => {
   if (!IS_TESTNET) {
-    return res
-      .status(403)
-      .json({ error: 'Faucet is only available on testnet' })
+    set.status = 403
+    return { error: 'Faucet is only available on testnet' }
   }
-  try {
-    const address = expectAddress(req.params.address, 'faucet status address')
-    const status = await faucetService.getFaucetStatus(address)
-    res.json(status)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    res.status(400).json({ error: message })
-  }
+  return faucetService.getFaucetInfo()
 })
 
-app.post(
-  '/api/faucet/claim',
-  strictRateLimit(),
-  async (req: Request, res: Response) => {
-    if (!IS_TESTNET) {
-      return res
-        .status(403)
-        .json({ error: 'Faucet is only available on testnet' })
-    }
-    try {
-      const validated = validateBody(
-        FaucetClaimRequestSchema,
-        req.body,
-        'faucet claim',
-      )
-      const result = await faucetService.claimFromFaucet(
-        validated.address as Address,
-      )
-      if (!result.success) {
-        return res.status(400).json(result)
-      }
-      res.json(result)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Invalid request'
-      res.status(400).json({ error: message })
-    }
-  },
-)
+app.get('/api/faucet/status/:address', async ({ params, set }) => {
+  if (!IS_TESTNET) {
+    set.status = 403
+    return { error: 'Faucet is only available on testnet' }
+  }
+  const address = expectAddress(params.address, 'faucet status address')
+  return await faucetService.getFaucetStatus(address)
+})
 
-app.get('/health', (_req: Request, res: Response) => {
+app
+  .use(strictRateLimitPlugin())
+  .post('/api/faucet/claim', async ({ body, set }) => {
+    if (!IS_TESTNET) {
+      set.status = 403
+      return { error: 'Faucet is only available on testnet' }
+    }
+    const rawBody = body as Record<string, JsonValue>
+    const parseResult = FaucetClaimRequestSchema.safeParse(rawBody)
+    if (!parseResult.success) {
+      set.status = 400
+      return { error: parseResult.error.message }
+    }
+    const result = await faucetService.claimFromFaucet(
+      parseResult.data.address as Address,
+    )
+    if (!result.success) {
+      set.status = 400
+      return result
+    }
+    return result
+  })
+
+// Health check
+app.get('/health', () => {
   const poolHealth = poolService.getHealthStatus()
-  res.json({
+  return {
     status: poolHealth.configured ? 'ok' : 'degraded',
     service: 'gateway-a2a',
     version: '1.0.0',
     wsClients: getWebSocketServer(Number(WS_PORT)).getClientCount(),
     poolService: poolHealth,
-  })
+  }
 })
 
+/**
+ * Export the app type for Eden Treaty client type inference.
+ * This enables fully typed API clients across the codebase.
+ */
+export type App = typeof app
+
+// Start server
 getWebSocketServer(Number(WS_PORT))
 
 app.listen(PORT, () => {
@@ -2861,5 +2547,5 @@ app.listen(PORT, () => {
   console.log(`   MCP Endpoint: http://localhost:${PORT}/mcp`)
   console.log(`   REST API: http://localhost:${PORT}/api`)
   console.log(`   WebSocket: ws://localhost:${WS_PORT}`)
-  if (IS_TESTNET) console.log(`   Faucet: enabled`)
+  if (IS_TESTNET) console.log('   Faucet: enabled')
 })

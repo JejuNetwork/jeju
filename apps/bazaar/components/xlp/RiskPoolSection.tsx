@@ -10,12 +10,13 @@ import {
   useWriteContract,
 } from 'wagmi'
 
-// Risk tier enum matching the contract
-enum RiskTier {
-  CONSERVATIVE = 0,
-  BALANCED = 1,
-  AGGRESSIVE = 2,
-}
+// Risk tier const matching the contract
+const RiskTier = {
+  CONSERVATIVE: 0,
+  BALANCED: 1,
+  AGGRESSIVE: 2,
+} as const
+type RiskTier = (typeof RiskTier)[keyof typeof RiskTier]
 
 const RISK_SLEEVE_ABI = [
   {
@@ -177,7 +178,11 @@ function RiskPoolCard({
     <div
       className={`rounded-lg border-2 transition-all p-4 ${isExpanded ? 'border-primary' : 'border-border'}`}
     >
-      <div className="cursor-pointer" onClick={onToggle}>
+      <button
+        type="button"
+        className="cursor-pointer w-full text-left"
+        onClick={onToggle}
+      >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${config.bgClass}`}>
@@ -206,7 +211,7 @@ function RiskPoolCard({
             )}
           </div>
         </div>
-      </div>
+      </button>
 
       {isExpanded && (
         <div className="mt-4 space-y-4">
@@ -226,9 +231,15 @@ function RiskPoolCard({
           </div>
 
           <form onSubmit={handleDeposit} className="space-y-2">
-            <label className="text-sm font-medium">Deposit ETH</label>
+            <label
+              htmlFor={`deposit-eth-${config.tier}`}
+              className="text-sm font-medium"
+            >
+              Deposit ETH
+            </label>
             <div className="flex gap-2">
               <input
+                id={`deposit-eth-${config.tier}`}
                 type="number"
                 step="0.01"
                 placeholder="0.0"
@@ -252,9 +263,15 @@ function RiskPoolCard({
           {userDeposit > 0n && (
             <>
               <form onSubmit={handleWithdraw} className="space-y-2">
-                <label className="text-sm font-medium">Withdraw ETH</label>
+                <label
+                  htmlFor={`withdraw-eth-${config.tier}`}
+                  className="text-sm font-medium"
+                >
+                  Withdraw ETH
+                </label>
                 <div className="flex gap-2">
                   <input
+                    id={`withdraw-eth-${config.tier}`}
                     type="number"
                     step="0.01"
                     placeholder="0.0"
@@ -276,6 +293,7 @@ function RiskPoolCard({
               </form>
 
               <button
+                type="button"
                 className="w-full inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50"
                 onClick={handleClaimYield}
                 disabled={isLoading}

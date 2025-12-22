@@ -62,6 +62,7 @@ export function PoolsView({ address }: PoolsViewProps) {
             </p>
           </div>
           <button
+            type="button"
             onClick={fetchPositions}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-xl disabled:opacity-50"
@@ -110,6 +111,7 @@ export function PoolsView({ address }: PoolsViewProps) {
             { id: 'remove' as const, label: 'Remove', icon: Minus },
           ].map(({ id, label, icon: Icon }) => (
             <button
+              type="button"
               key={id}
               onClick={() => setTab(id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -144,6 +146,7 @@ export function PoolsView({ address }: PoolsViewProps) {
                   Add liquidity to start earning trading fees
                 </p>
                 <button
+                  type="button"
                   onClick={() => setTab('add')}
                   className="mt-4 px-6 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-xl"
                 >
@@ -159,9 +162,9 @@ export function PoolsView({ address }: PoolsViewProps) {
                       V2 Pools (Constant Product)
                     </h3>
                     <div className="space-y-3">
-                      {v2Positions.map((pos, i) => (
+                      {v2Positions.map((pos) => (
                         <div
-                          key={i}
+                          key={`v2-${pos.pool.address}-${pos.pool.chainId}`}
                           className="bg-card border border-border rounded-xl p-4"
                         >
                           <div className="flex items-center justify-between">
@@ -240,7 +243,10 @@ export function PoolsView({ address }: PoolsViewProps) {
                     </div>
 
                     {hasUnclaimedFees && (
-                      <button className="w-full mt-4 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium">
+                      <button
+                        type="button"
+                        className="w-full mt-4 px-6 py-3 bg-emerald-500 hover:bg-emerald-600 text-white rounded-xl font-medium"
+                      >
                         Collect All Fees
                       </button>
                     )}
@@ -259,38 +265,44 @@ export function PoolsView({ address }: PoolsViewProps) {
             </p>
 
             <div className="space-y-4">
-              <div>
-                <label className="text-sm text-muted-foreground mb-2 block">
+              <label htmlFor="token-a" className="block">
+                <span className="text-sm text-muted-foreground mb-2 block">
                   Token A
-                </label>
+                </span>
                 <input
+                  id="token-a"
                   type="text"
                   placeholder="Select token..."
                   className="w-full px-4 py-3 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground mb-2 block">
+              </label>
+              <label htmlFor="token-b" className="block">
+                <span className="text-sm text-muted-foreground mb-2 block">
                   Token B
-                </label>
+                </span>
                 <input
+                  id="token-b"
                   type="text"
                   placeholder="Select token..."
                   className="w-full px-4 py-3 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-              </div>
-              <div>
-                <label className="text-sm text-muted-foreground mb-2 block">
+              </label>
+              <label htmlFor="amount-a" className="block">
+                <span className="text-sm text-muted-foreground mb-2 block">
                   Amount A
-                </label>
+                </span>
                 <input
+                  id="amount-a"
                   type="text"
                   placeholder="0.0"
                   className="w-full px-4 py-3 bg-secondary rounded-xl border border-border focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-              </div>
+              </label>
 
-              <button className="w-full px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium">
+              <button
+                type="button"
+                className="w-full px-6 py-3 bg-blue-500 hover:bg-blue-600 text-white rounded-xl font-medium"
+              >
                 Add Liquidity
               </button>
             </div>

@@ -14,7 +14,7 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { expect, expectPositive } from '@/lib/validation'
+import { expect, expectPositive } from '../lib/validation'
 
 // Re-export shared types and utilities
 export {
@@ -115,7 +115,7 @@ type EILConfig = {
   localnet: EILNetworkConfig
 }
 
-import { NETWORK } from '@/config'
+import { NETWORK } from '../config'
 
 // Helper to get chain config based on current network
 function getNetworkConfig(): EILNetworkConfig {

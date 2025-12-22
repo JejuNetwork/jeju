@@ -30,6 +30,7 @@ import {
 } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
 import { normalize } from 'viem/ens'
+import { ResolvedContentSchema } from './lib/validation'
 
 const JNS_RESOLVER_ABI = [
   {
@@ -299,6 +300,8 @@ export class JNSGateway {
 
   /**
    * Initialize decentralized cache
+   * Uses dynamic import to avoid loading @jejunetwork/shared if cache is unavailable
+   * and to handle optional dependency gracefully
    */
   private async initDecentralizedCache(): Promise<void> {
     if (this.decentralizedCache) return
@@ -324,7 +327,10 @@ export class JNSGateway {
         .get(`jns:${name}`)
         .catch(() => null)
       if (cached) {
-        return JSON.parse(cached) as ResolvedContent
+        const parsed = ResolvedContentSchema.safeParse(JSON.parse(cached))
+        if (parsed.success) {
+          return parsed.data
+        }
       }
     }
 
@@ -573,7 +579,7 @@ export async function startJNSGateway(): Promise<JNSGateway> {
     rpcUrl:
       process.env.JEJU_RPC_URL ??
       process.env.RPC_URL ??
-      'http://localhost:9545',
+      'http://localhost:6546',
     jnsRegistryAddress: (jnsRegistryAddress ??
       '0x0000000000000000000000000000000000000000') as Address,
     ipfsGatewayUrl,

@@ -271,7 +271,7 @@ describe('findJejuWorkspaceRoot - Real Workspace', () => {
 // ============================================================================
 
 const FAKE_RPC = 'http://localhost:59999'
-const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:9545'
+const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:6546'
 
 describe('checkRpcHealth - Error Handling', () => {
   test('should return unavailable for unreachable RPC', async () => {
@@ -296,7 +296,7 @@ describe('checkRpcHealth - Error Handling', () => {
     expect(result.available).toBe(false)
     expect(result.error).toBeTruthy()
     // Error message varies by platform/runtime
-    expect(result.error!.length).toBeGreaterThan(0)
+    expect(result.error?.length).toBeGreaterThan(0)
   })
 })
 
@@ -496,8 +496,8 @@ describe('getTestEnv - Environment Config', () => {
 
     const env = getTestEnv()
 
-    expect(env.L1_RPC_URL).toBe('http://127.0.0.1:8545')
-    expect(env.L2_RPC_URL).toBe('http://127.0.0.1:9545')
+    expect(env.L1_RPC_URL).toBe('http://127.0.0.1:6545')
+    expect(env.L2_RPC_URL).toBe('http://127.0.0.1:6546')
     expect(env.CHAIN_ID).toBe('1337')
   })
 

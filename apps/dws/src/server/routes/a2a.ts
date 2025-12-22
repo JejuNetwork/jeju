@@ -1,11 +1,8 @@
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 
-export function createA2ARouter(): Hono {
-  const app = new Hono()
+export const a2aRoutes = new Elysia({ name: 'a2a', prefix: '/a2a' })
+  .get('/capabilities', () => ({
+    capabilities: ['storage', 'compute', 'cdn'],
+  }))
 
-  app.get('/capabilities', (c) => {
-    return c.json({ capabilities: ['storage', 'compute', 'cdn'] })
-  })
-
-  return app
-}
+export type A2ARoutes = typeof a2aRoutes

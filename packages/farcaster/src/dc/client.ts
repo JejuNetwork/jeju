@@ -12,6 +12,11 @@ import { hkdf } from '@noble/hashes/hkdf'
 import { sha256 } from '@noble/hashes/sha256'
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils'
 import type { Hex } from 'viem'
+import {
+  DCPersistenceDataSchema,
+  DCSignerEventsResponseSchema,
+  DCUserDataResponseSchema,
+} from '../hub/schemas'
 import type {
   DCClientConfig,
   DCClientState,
@@ -460,13 +465,11 @@ export class DirectCastClient {
       )
       if (!response.ok) return null
 
-      const data = (await response.json()) as {
-        messages?: Array<{
-          data?: {
-            userDataBody?: { type: number; value?: string }
-          }
-        }>
-      }
+      const rawData: unknown = await response.json()
+      const parseResult = DCUserDataResponseSchema.safeParse(rawData)
+      if (!parseResult.success) return null
+
+      const data = parseResult.data
 
       // Look for DC encryption key in user data (custom type 100)
       const keyData = data.messages?.find(
@@ -633,11 +636,11 @@ export class DirectCastClient {
       )
       if (!response.ok) return null
 
-      const data = (await response.json()) as {
-        events?: Array<{
-          signerEventBody?: { key?: string }
-        }>
-      }
+      const rawData: unknown = await response.json()
+      const parseResult = DCSignerEventsResponseSchema.safeParse(rawData)
+      if (!parseResult.success) return null
+
+      const data = parseResult.data
 
       // Get the first active signer key
       const signerEvent = data.events?.find((e) => e.signerEventBody?.key)
@@ -753,17 +756,21 @@ export class DirectCastClient {
     try {
       const file = Bun.file(this.config.persistencePath)
       if (await file.exists()) {
-        const data = (await file.json()) as {
-          conversations: DirectCastConversation[]
-          messages: Record<string, DirectCast[]>
+        const rawData: unknown = await file.json()
+        const parseResult = DCPersistenceDataSchema.safeParse(rawData)
+        if (!parseResult.success) {
+          console.log(`[DC Client] Invalid persistence data, starting fresh`)
+          return
         }
 
+        const data = parseResult.data
+
         for (const conv of data.conversations) {
-          this.conversations.set(conv.id, conv)
+          this.conversations.set(conv.id, conv as DirectCastConversation)
         }
 
         for (const [id, msgs] of Object.entries(data.messages)) {
-          this.messages.set(id, msgs)
+          this.messages.set(id, msgs as DirectCast[])
         }
       }
     } catch {

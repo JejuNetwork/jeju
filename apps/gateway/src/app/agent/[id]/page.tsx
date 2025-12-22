@@ -156,7 +156,10 @@ export default function AgentProfilePage({ params }: PageProps) {
             </div>
 
             <div className="flex gap-2">
-              <button className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2">
+              <button
+                type="button"
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 flex items-center gap-2"
+              >
                 <FlagIcon size={16} />
                 Report
               </button>
@@ -235,7 +238,10 @@ export default function AgentProfilePage({ params }: PageProps) {
                         Click to view details
                       </div>
                     </div>
-                    <button className="text-blue-500 hover:text-blue-600">
+                    <button
+                      type="button"
+                      className="text-blue-500 hover:text-blue-600"
+                    >
                       View →
                     </button>
                   </div>

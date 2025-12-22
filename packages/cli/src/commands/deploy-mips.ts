@@ -11,9 +11,24 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Command } from 'commander'
 import { createPublicClient, http } from 'viem'
+import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
+import { validate } from '../schemas'
 import { CHAIN_CONFIG, type NetworkType } from '../types'
+
+// Schema for deployment data validation
+const MipsDeploymentDataSchema = z.object({
+  network: z.string().optional(),
+  chainId: z.number().optional(),
+  stage2: z
+    .object({
+      CannonProver: z.string().optional(),
+    })
+    .passthrough()
+    .optional(),
+  deployer: z.string().optional(),
+})
 
 interface MipsAddresses {
   mips: string
@@ -65,7 +80,12 @@ async function checkCannonProverTestMode(
     throw new Error(`Deployment file not found: ${deploymentPath}`)
   }
 
-  const deployment = JSON.parse(readFileSync(deploymentPath, 'utf-8'))
+  const rawData = JSON.parse(readFileSync(deploymentPath, 'utf-8'))
+  const deployment = validate(
+    rawData,
+    MipsDeploymentDataSchema,
+    `deployment file at ${deploymentPath}`,
+  )
   const cannonProverAddress = deployment.stage2?.CannonProver
 
   if (!cannonProverAddress) {
@@ -134,7 +154,12 @@ async function updateCannonProver(
     throw new Error(`Deployment file not found: ${deploymentPath}`)
   }
 
-  const deployment = JSON.parse(readFileSync(deploymentPath, 'utf-8'))
+  const rawData = JSON.parse(readFileSync(deploymentPath, 'utf-8'))
+  const deployment = validate(
+    rawData,
+    MipsDeploymentDataSchema,
+    `deployment file at ${deploymentPath}`,
+  )
   const cannonProverAddress = deployment.stage2?.CannonProver
 
   if (!cannonProverAddress) {

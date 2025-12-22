@@ -303,6 +303,105 @@ export const IPFSAddResponseSchema = z.object({
   Size: z.string(),
 })
 
+// ============ Infrastructure Response Schemas ============
+
+// TEE Provider Discovery Response
+export const ProvidersListResponseSchema = z.object({
+  providers: z.array(z.string()).optional(),
+})
+
+// Threshold Encryption Schemas
+export const ThresholdDecryptResponseSchema = z.object({
+  plaintext: z.string().min(1),
+})
+
+export const ThresholdClusterInfoResponseSchema = z.object({
+  clusterId: z.string().min(1),
+  threshold: z.number().int().positive(),
+  totalNodes: z.number().int().positive(),
+  publicKey: HexSchema,
+})
+
+// X402 Payment Header Schema
+export const X402PaymentHeaderSchema = z.object({
+  recipient: z.string().min(1),
+  amount: z.string().min(1),
+  token: z.string().min(1),
+  resource: z.string().min(1),
+  expiry: z.number().int(),
+  nonce: z.string().min(1),
+})
+
+// Twilio Response Schema
+export const TwilioMessageResponseSchema = z.object({
+  message: z.string().optional(),
+  sid: z.string().optional(),
+  status: z.string().optional(),
+  error_code: z.number().optional(),
+  error_message: z.string().optional(),
+})
+
+// MFA Backup Codes Response
+export const BackupCodesResponseSchema = z.object({
+  codes: z.array(z.string()),
+})
+
+// Passkey Registration Options Response
+export const PasskeyOptionsResponseSchema = z.object({
+  challengeId: z.string().min(1),
+  publicKey: z.record(z.string(), z.unknown()),
+})
+
+// ============ Storage Index Schemas ============
+
+// Session Index Schema (for IPFS storage)
+export const SessionIndexSchema = z.object({
+  version: z.number().optional(),
+  sessions: z.array(
+    z.object({
+      sessionId: HexSchema,
+      cid: z.string().min(1),
+    }),
+  ),
+  lastUpdated: z.number().optional(),
+})
+
+// Credential Index Schema (for IPFS storage)
+export const CredentialIndexSchema = z.object({
+  version: z.number().optional(),
+  credentials: z.array(
+    z.object({
+      credentialId: z.string().min(1),
+      cid: z.string().min(1),
+    }),
+  ),
+  lastUpdated: z.number().optional(),
+})
+
+// ============ Farcaster SIWF Schemas ============
+
+// Sign In With Farcaster result schema
+export const SIWFResultSchema = z.object({
+  result: z
+    .object({
+      fid: z.number().int().positive().optional(),
+    })
+    .optional(),
+})
+
+// Cast submission response schema
+export const CastSubmitResponseSchema = z.object({
+  hash: z.string().min(1),
+})
+
+// TEE/dstack Quote Response Schemas
+export const DstackQuoteResponseSchema = z.object({
+  quote: z.string().min(1),
+  eventLog: z.string(),
+})
+
+export type DstackQuoteResponse = z.infer<typeof DstackQuoteResponseSchema>
+
 // ============ Helper Functions ============
 
 /**
@@ -367,6 +466,26 @@ export function extractError(response: unknown): string {
     return parsed.data.error ?? parsed.data.message ?? 'Unknown error'
   }
   return 'Unknown error'
+}
+
+/**
+ * Parse JSON string and validate with Zod schema (fail-fast)
+ * Use this instead of JSON.parse(...) as Type
+ */
+export function expectJson<T>(
+  json: string,
+  schema: z.ZodType<T>,
+  context = 'JSON data',
+): T {
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch (error) {
+    throw new Error(
+      `Invalid ${context}: failed to parse JSON - ${error instanceof Error ? error.message : String(error)}`,
+    )
+  }
+  return validateResponse(schema, parsed, context)
 }
 
 /**

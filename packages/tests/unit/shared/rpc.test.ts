@@ -9,7 +9,7 @@ import { inferChainFromRpcUrl } from './chain-utils'
 import { checkRPC, FailoverProvider, getNetworkInfo } from './rpc'
 
 describe('RPC Utilities', () => {
-  const LOCALNET_RPC = process.env.RPC_ETH_HTTP || 'http://127.0.0.1:9545'
+  const LOCALNET_RPC = process.env.RPC_ETH_HTTP || 'http://127.0.0.1:6546'
 
   describe('FailoverProvider', () => {
     it('should create provider with single URL', () => {

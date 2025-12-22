@@ -113,10 +113,16 @@ class WebSecureStorage implements SecureStorageAdapter {
       )
     }
 
+    // Create new ArrayBuffer views to ensure proper typing for SubtleCrypto
+    const ivBuffer = new ArrayBuffer(ivBytes.length)
+    new Uint8Array(ivBuffer).set(ivBytes)
+    const dataBuffer = new ArrayBuffer(dataBytes.length)
+    new Uint8Array(dataBuffer).set(dataBytes)
+
     const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: ivBytes },
+      { name: 'AES-GCM', iv: new Uint8Array(ivBuffer) },
       cryptoKey,
-      dataBytes,
+      new Uint8Array(dataBuffer),
     )
 
     return new TextDecoder().decode(decrypted)
@@ -203,6 +209,7 @@ class TauriSecureStorage implements SecureStorageAdapter {
   ): Promise<string | null> {
     if (this.isTauri()) {
       try {
+        // Dynamic import: Conditional - only loaded on Tauri desktop platform
         const { invoke } = await import('@tauri-apps/api/core')
         return invoke('keyring_get', { key })
       } catch (tauriError) {
@@ -223,6 +230,7 @@ class TauriSecureStorage implements SecureStorageAdapter {
   ): Promise<void> {
     if (this.isTauri()) {
       try {
+        // Dynamic import: Conditional - only loaded on Tauri desktop platform
         const { invoke } = await import('@tauri-apps/api/core')
         await invoke('keyring_set', { key, value })
         return
@@ -240,6 +248,7 @@ class TauriSecureStorage implements SecureStorageAdapter {
   async remove(key: string): Promise<void> {
     if (this.isTauri()) {
       try {
+        // Dynamic import: Conditional - only loaded on Tauri desktop platform
         const { invoke } = await import('@tauri-apps/api/core')
         await invoke('keyring_delete', { key })
         return
@@ -265,6 +274,7 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
     key: string,
     _options?: SecureStorageOptions,
   ): Promise<string | null> {
+    // Dynamic import: Conditional - only loaded on mobile platforms
     const { Preferences } = await import('@capacitor/preferences')
     const result = await Preferences.get({ key: `secure_${key}` })
     return result.value
@@ -275,11 +285,13 @@ class CapacitorSecureStorage implements SecureStorageAdapter {
     value: string,
     _options?: SecureStorageOptions,
   ): Promise<void> {
+    // Dynamic import: Conditional - only loaded on mobile platforms
     const { Preferences } = await import('@capacitor/preferences')
     await Preferences.set({ key: `secure_${key}`, value })
   }
 
   async remove(key: string): Promise<void> {
+    // Dynamic import: Conditional - only loaded on mobile platforms
     const { Preferences } = await import('@capacitor/preferences')
     await Preferences.remove({ key: `secure_${key}` })
   }

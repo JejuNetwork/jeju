@@ -62,6 +62,7 @@ export default function MarketplacePage() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
           <button
+            type="button"
             className={`btn ${!selectedCategory ? 'btn-primary' : 'btn-secondary'}`}
             onClick={() => setSelectedCategory(null)}
           >
@@ -70,6 +71,7 @@ export default function MarketplacePage() {
           {categories.slice(0, 5).map((cat) => (
             <button
               key={cat}
+              type="button"
               className={`btn ${selectedCategory === cat ? 'btn-primary' : 'btn-secondary'}`}
               onClick={() => setSelectedCategory(cat)}
             >

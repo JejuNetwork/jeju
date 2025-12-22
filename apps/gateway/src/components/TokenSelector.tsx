@@ -50,6 +50,7 @@ export default function TokenSelector({
   return (
     <div style={{ position: 'relative' }}>
       <label
+        htmlFor="token-selector-button"
         style={{ display: 'block', marginBottom: '0.5rem', fontWeight: '600' }}
       >
         {label}
@@ -57,6 +58,7 @@ export default function TokenSelector({
 
       {/* Selected Token Display */}
       <button
+        id="token-selector-button"
         type="button"
         className="input"
         onClick={() => !disabled && setIsOpen(!isOpen)}
@@ -79,8 +81,10 @@ export default function TokenSelector({
               <img
                 src={selected.logoUrl}
                 alt={selected.symbol}
+                width={24}
+                height={24}
                 style={{ width: '24px', height: '24px', borderRadius: '50%' }}
-                onError={(e) => {
+                onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                   e.currentTarget.style.display = 'none'
                 }}
               />
@@ -123,6 +127,14 @@ export default function TokenSelector({
               zIndex: 40,
             }}
             onClick={() => setIsOpen(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                setIsOpen(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+            aria-label="Close dropdown"
           />
           <div
             style={{
@@ -173,12 +185,14 @@ export default function TokenSelector({
                     <img
                       src={token.logoUrl}
                       alt={token.symbol}
+                      width={32}
+                      height={32}
                       style={{
                         width: '32px',
                         height: '32px',
                         borderRadius: '50%',
                       }}
-                      onError={(e) => {
+                      onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                         e.currentTarget.style.display = 'none'
                       }}
                     />

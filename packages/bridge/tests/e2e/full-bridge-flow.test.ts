@@ -28,6 +28,7 @@ import {
   type CrossChainTransfer,
   createEVMClient,
   createTEEBatcher,
+  SolanaHealthResponseSchema,
   TransferStatus,
   toHash32,
 } from '../../src/index.js'
@@ -40,7 +41,7 @@ import {
 setDefaultTimeout(120000)
 
 const TEST_CONFIG = {
-  evmRpc: 'http://127.0.0.1:8545',
+  evmRpc: 'http://127.0.0.1:6545',
   solanaRpc: 'http://127.0.0.1:8899',
   relayerPort: 18081,
 }
@@ -540,8 +541,10 @@ async function isSolanaRunning(): Promise<boolean> {
       }),
     })
     if (!response.ok) return false
-    const data = (await response.json()) as { result?: string }
-    return data.result === 'ok'
+    const rawData: unknown = await response.json()
+    const parseResult = SolanaHealthResponseSchema.safeParse(rawData)
+    if (!parseResult.success) return false
+    return parseResult.data.result === 'ok'
   } catch {
     return false
   }

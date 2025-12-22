@@ -11,52 +11,71 @@ import {
   MAX_STRING_LENGTH,
 } from './validation'
 
-// ============ Enums ============
+// ============ Consts ============
 
-export enum BanType {
-  NONE = 0,
-  ON_NOTICE = 1, // Immediate flag, pending market
-  CHALLENGED = 2, // Target staked, market active
-  PERMANENT = 3, // Market resolved, ban confirmed
-}
+export const BanType = {
+  NONE: 0,
+  ON_NOTICE: 1, // Immediate flag, pending market
+  CHALLENGED: 2, // Target staked, market active
+  PERMANENT: 3, // Market resolved, ban confirmed
+} as const
+export type BanType = (typeof BanType)[keyof typeof BanType]
 
-export const BanTypeSchema = z.nativeEnum(BanType)
+export const BanTypeSchema = z.enum([...Object.values(BanType).map(String)] as [
+  string,
+  ...string[],
+])
 
-export enum BanStatus {
-  NONE = 'NONE',
-  ON_NOTICE = 'ON_NOTICE',
-  CHALLENGED = 'CHALLENGED',
-  BANNED = 'BANNED',
-  CLEARED = 'CLEARED',
-  APPEALING = 'APPEALING',
-}
+export const BanStatus = {
+  NONE: 'NONE',
+  ON_NOTICE: 'ON_NOTICE',
+  CHALLENGED: 'CHALLENGED',
+  BANNED: 'BANNED',
+  CLEARED: 'CLEARED',
+  APPEALING: 'APPEALING',
+} as const
+export type BanStatus = (typeof BanStatus)[keyof typeof BanStatus]
 
-export const BanStatusSchema = z.nativeEnum(BanStatus)
+export const BanStatusSchema = z.enum([...Object.values(BanStatus)] as [
+  string,
+  ...string[],
+])
 
-export enum MarketOutcome {
-  PENDING = 'PENDING',
-  BAN_UPHELD = 'BAN_UPHELD',
-  BAN_REJECTED = 'BAN_REJECTED',
-}
+export const MarketOutcome = {
+  PENDING: 'PENDING',
+  BAN_UPHELD: 'BAN_UPHELD',
+  BAN_REJECTED: 'BAN_REJECTED',
+} as const
+export type MarketOutcome = (typeof MarketOutcome)[keyof typeof MarketOutcome]
 
-export const MarketOutcomeSchema = z.nativeEnum(MarketOutcome)
+export const MarketOutcomeSchema = z.enum([...Object.values(MarketOutcome)] as [
+  string,
+  ...string[],
+])
 
-export enum VotePosition {
-  YES = 0,
-  NO = 1,
-}
+export const VotePosition = {
+  YES: 0,
+  NO: 1,
+} as const
+export type VotePosition = (typeof VotePosition)[keyof typeof VotePosition]
 
-export const VotePositionSchema = z.nativeEnum(VotePosition)
+export const VotePositionSchema = z.enum([
+  ...Object.values(VotePosition).map(String),
+] as [string, ...string[]])
 
-export enum ReputationTier {
-  UNTRUSTED = 0, // 0-1000 score: Can't report alone
-  LOW = 1, // 1001-3000: Needs 3 users for quorum
-  MEDIUM = 2, // 3001-6000: Needs 2 users for quorum
-  HIGH = 3, // 6001-8000: Can report alone, normal stake
-  TRUSTED = 4, // 8001-10000: Can report alone, reduced stake
-}
+export const ReputationTier = {
+  UNTRUSTED: 0, // 0-1000 score: Can't report alone
+  LOW: 1, // 1001-3000: Needs 3 users for quorum
+  MEDIUM: 2, // 3001-6000: Needs 2 users for quorum
+  HIGH: 3, // 6001-8000: Can report alone, normal stake
+  TRUSTED: 4, // 8001-10000: Can report alone, reduced stake
+} as const
+export type ReputationTier =
+  (typeof ReputationTier)[keyof typeof ReputationTier]
 
-export const ReputationTierSchema = z.nativeEnum(ReputationTier)
+export const ReputationTierSchema = z.enum([
+  ...Object.values(ReputationTier).map(String),
+] as [string, ...string[]])
 
 // ============ Interfaces ============
 

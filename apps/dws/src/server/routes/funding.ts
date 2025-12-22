@@ -318,7 +318,7 @@ function getConfig(): FundingConfig {
   }
 
   return {
-    rpcUrl: process.env.RPC_URL || 'http://localhost:8545',
+    rpcUrl: process.env.RPC_URL || 'http://localhost:6545',
     chainId:
       network === 'localnet' ? 31337 : network === 'testnet' ? 84532 : 8453,
     contracts,

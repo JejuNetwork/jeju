@@ -1,0 +1,58 @@
+{
+  "name": "@jejunetwork/a2a",
+  "version": "0.1.0",
+  "description": "A2A Protocol - Agent-to-Agent communication for Jeju Network",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "import": "./src/index.ts",
+      "require": "./src/index.ts"
+    },
+    "./types": {
+      "types": "./src/types/index.ts",
+      "import": "./src/types/index.ts"
+    },
+    "./core": {
+      "types": "./src/core/index.ts",
+      "import": "./src/core/index.ts"
+    },
+    "./blockchain": {
+      "types": "./src/blockchain/index.ts",
+      "import": "./src/blockchain/index.ts"
+    },
+    "./payments": {
+      "types": "./src/payments/index.ts",
+      "import": "./src/payments/index.ts"
+    },
+    "./sdk": {
+      "types": "./src/sdk/index.ts",
+      "import": "./src/sdk/index.ts"
+    },
+    "./utils": {
+      "types": "./src/utils/index.ts",
+      "import": "./src/utils/index.ts"
+    }
+  },
+  "scripts": {
+    "lint": "biome lint .",
+    "typecheck": "tsc -b ."
+  },
+  "dependencies": {
+    "@jejunetwork/contracts": "workspace:*",
+    "uuid": "^13.0.0"
+  },
+  "peerDependencies": {
+    "@a2a-js/sdk": "^0.3.5",
+    "ioredis": "^5.4.0",
+    "viem": "^2.43.2",
+    "zod": "^4.1.12"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.0",
+    "@types/uuid": "^10.0.0",
+    "bun-types": "^1.3.2",
+    "typescript": "^5.9.3"
+  }
+}

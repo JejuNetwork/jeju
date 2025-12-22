@@ -39,7 +39,7 @@ This generates everything you need: branding config, genesis, operator keys, Kub
 
 | Network | Chain ID | RPC |
 |---------|----------|-----|
-| Localnet | 1337 | http://127.0.0.1:9545 |
+| Localnet | 1337 | http://127.0.0.1:6546 |
 | Testnet | 420690 | https://testnet-rpc.jejunetwork.org |
 | Mainnet | 420691 | https://rpc.jejunetwork.org |
 
@@ -50,8 +50,10 @@ This generates everything you need: branding config, genesis, operator keys, Kub
 | Gateway | 4001 | Bridge, paymasters, staking |
 | Bazaar | 4006 | DeFi, NFTs, launchpad, JNS |
 | Compute | 4007 | AI inference marketplace |
-| Storage | 4010 | IPFS storage marketplace |
+| Storage | 3100 | IPFS storage marketplace |
 | Crucible | 4020 | Agent orchestration |
+| DWS | 4030 | Decentralized web services |
+| Autocrat | 4040 | DAO governance |
 | Indexer | 4350 | GraphQL API |
 
 ## Key Features
@@ -62,9 +64,38 @@ This generates everything you need: branding config, genesis, operator keys, Kub
 - **Instant bridging** via XLP liquidity (EIL)
 - **Agent identity** via ERC-8004
 
+## Configuration
+
+All configuration is centralized in `packages/config`:
+
+```typescript
+import { getConfig, getContract, getServiceUrl } from '@jejunetwork/config';
+
+const config = getConfig();              // Full network config
+const solver = getContract('oif', 'solverRegistry');  // Contract address
+const indexer = getServiceUrl('indexer', 'graphql');  // Service URL
+```
+
+**For localnet:** No configuration needed - everything works out of the box.
+
+**For testnet/mainnet:** Set environment variables:
+
+```bash
+export JEJU_NETWORK=testnet
+export DEPLOYER_PRIVATE_KEY=0x...
+```
+
+See [packages/config/README.md](packages/config/README.md) for full documentation on:
+- All available secrets and API keys
+- Port allocations
+- Service URLs
+- Contract addresses
+- Environment overrides
+
 ## Documentation
 
 - [Quick Start](apps/documentation/getting-started/quick-start.md)
+- [Configuration](packages/config/README.md)
 - [Architecture](apps/documentation/architecture.md)
 - [Contract Deployment](apps/documentation/deployment/contracts.md)
 - [API Reference](apps/documentation/api-reference/rpc.md)
@@ -98,11 +129,12 @@ Pre-funded with 10,000 ETH on localnet.
 
 ```
 jeju/
-├── apps/           # Applications (gateway, bazaar, compute, etc.)
+├── apps/           # Applications (gateway, bazaar, crucible, dws, etc.)
 ├── packages/
-│   ├── config/     # Network config, contract addresses
+│   ├── config/     # Centralized config, secrets, ports, contract addresses
 │   ├── contracts/  # Solidity smart contracts
 │   ├── deployment/ # Terraform, Kubernetes, Kurtosis
+│   ├── sdk/        # Client SDK
 │   ├── shared/     # Shared TypeScript utilities
 │   └── types/      # Shared type definitions
 └── scripts/        # Deployment and utility scripts

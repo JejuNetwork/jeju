@@ -141,6 +141,114 @@ export const SendMessageRequestSchema = z.object({
 /** Send message request */
 export type SendMessageRequest = z.infer<typeof SendMessageRequestSchema>
 
+// ============ Send Message Response Schema ============
+
+export const SendMessageResponseSchema = z.object({
+  success: z.boolean(),
+  messageId: z.string(),
+  timestamp: z.number(),
+  nodeId: z.string().optional(),
+  error: z.string().optional(),
+})
+
+/** Send message response */
+export type SendMessageResponseValidated = z.infer<
+  typeof SendMessageResponseSchema
+>
+
+// ============ Sync State Schema ============
+
+export const SyncStateSchema = z.object({
+  lastSyncedBlock: z.number().int().nonnegative(),
+  lastSyncedAt: z.number().int().nonnegative(),
+  pendingMessages: z.number().int().nonnegative(),
+  isSyncing: z.boolean(),
+})
+
+/** Sync state for XMTP sync service */
+export type SyncStateValidated = z.infer<typeof SyncStateSchema>
+
+// ============ Sync Peer Schema ============
+
+export const SyncPeerSchema = z.object({
+  nodeId: z.string().min(1),
+  url: z.string().url(),
+  lastSyncedAt: z.number().int().nonnegative(),
+  cursor: z.string(),
+})
+
+/** Sync peer for XMTP sync service */
+export type SyncPeerValidated = z.infer<typeof SyncPeerSchema>
+
+// ============ Sync Persistence Schema ============
+
+export const SyncPersistenceSchema = z.object({
+  state: SyncStateSchema,
+  peers: z.array(SyncPeerSchema),
+  timestamp: z.number().int().positive().optional(),
+})
+
+/** Persisted sync data */
+export type SyncPersistenceData = z.infer<typeof SyncPersistenceSchema>
+
+// ============ Sync Event Schema ============
+
+export const SyncEventSchema = z.object({
+  type: z.enum(['message', 'conversation', 'identity', 'group']),
+  id: z.string().min(1),
+  timestamp: z.number().int().positive(),
+  data: z.record(z.unknown()), // XMTP envelope/conversation/message data
+})
+
+/** Sync event from peer */
+export type SyncEventValidated = z.infer<typeof SyncEventSchema>
+
+export const SyncEventsArraySchema = z.array(SyncEventSchema)
+
+// ============ Relay Response Schemas ============
+
+export const RelayHealthResponseSchema = z.object({
+  status: z.string(),
+  nodeId: z.string(),
+  uptime: z.number().optional(),
+  stats: z
+    .object({
+      messagesRelayed: z.number(),
+      bytesRelayed: z.number(),
+      activeSubscribers: z.number(),
+      pendingMessages: z.number(),
+    })
+    .optional(),
+  timestamp: z.number().optional(),
+})
+
+/** Health check response */
+export type RelayHealthResponse = z.infer<typeof RelayHealthResponseSchema>
+
+export const RelayStatsResponseSchema = z.object({
+  nodeId: z.string(),
+  totalMessagesRelayed: z.number(),
+  totalBytesRelayed: z.number(),
+  activeSubscribers: z.number(),
+  pendingMessages: z.number(),
+  uptime: z.number(),
+})
+
+/** Stats response */
+export type RelayStatsResponse = z.infer<typeof RelayStatsResponseSchema>
+
+export const RelayMessagesResponseSchema = z.object({
+  address: z.string().optional(),
+  messages: z.array(MessageEnvelopeSchema.extend({
+    cid: z.string().optional(),
+    receivedAt: z.number().optional(),
+  })),
+  count: z.number().int().nonnegative(),
+})
+
+/** Messages fetch response */
+export type RelayMessagesResponse = z.infer<typeof RelayMessagesResponseSchema>
+
 // ============ Encrypted Backup Schema (TEE) ============
 
 /** Hex string schema that validates and transforms to Hex type */

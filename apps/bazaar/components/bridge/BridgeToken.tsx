@@ -4,14 +4,14 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import type { TokenOption } from '@/components/TokenSelector'
-import TokenSelector from '@/components/TokenSelector'
-import { useProtocolTokens } from '@/hooks/useProtocolTokens'
+import { useProtocolTokens } from '../../hooks/useProtocolTokens'
 import {
   calculateUSDValue,
   formatUsd as formatUSD,
   parseTokenAmount,
-} from '@/lib/tokenUtils'
+} from '../../lib/tokenUtils'
+import type { TokenOption } from '../TokenSelector'
+import TokenSelector from '../TokenSelector'
 
 const STANDARD_BRIDGE_ADDRESS =
   '0x4200000000000000000000000000000000000010' as const
@@ -148,6 +148,7 @@ export default function BridgeToken() {
           ) : (
             <div>
               <label
+                htmlFor="bridge-custom-token"
                 style={{
                   display: 'block',
                   marginBottom: '0.5rem',
@@ -157,6 +158,7 @@ export default function BridgeToken() {
                 Custom Token Address (Ethereum)
               </label>
               <input
+                id="bridge-custom-token"
                 className="input"
                 type="text"
                 placeholder="0x..."
@@ -180,6 +182,7 @@ export default function BridgeToken() {
 
         <div style={{ marginTop: '1rem' }}>
           <label
+            htmlFor="bridge-amount"
             style={{
               display: 'block',
               marginBottom: '0.5rem',
@@ -189,6 +192,7 @@ export default function BridgeToken() {
             Amount
           </label>
           <input
+            id="bridge-amount"
             className="input"
             type="number"
             step="any"
@@ -212,6 +216,7 @@ export default function BridgeToken() {
 
         <div style={{ marginTop: '1rem' }}>
           <label
+            htmlFor="bridge-recipient"
             style={{
               display: 'block',
               marginBottom: '0.5rem',
@@ -221,6 +226,7 @@ export default function BridgeToken() {
             Recipient (optional)
           </label>
           <input
+            id="bridge-recipient"
             className="input"
             type="text"
             placeholder={userAddress || '0x...'}

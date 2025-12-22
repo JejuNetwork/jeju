@@ -80,14 +80,14 @@ export function StatsView() {
           icon={<UsersIcon size={24} />}
           iconBg="linear-gradient(135deg, var(--accent-primary), var(--accent-secondary))"
           title="Active Solvers"
-          value={stats?.activeSolvers.toString() || '0'}
-          subtitle={`${stats?.totalSolvers || 0} total registered`}
+          value={(stats?.activeSolvers ?? stats?.totalSolvers ?? 0).toString()}
+          subtitle={`${stats?.totalSolvers ?? 0} total registered`}
         />
         <StatCard
           icon={<CheckCircleIcon size={24} />}
           iconBg="linear-gradient(135deg, var(--success-bright), var(--accent-tertiary))"
           title="Success Rate"
-          value={`${stats?.successRate.toFixed(1) || 0}%`}
+          value={`${(stats?.successRate ?? 0).toFixed(1)}%`}
           subtitle="Across all routes"
         />
       </div>
@@ -114,7 +114,7 @@ export function StatsView() {
         <MiniStat
           icon={<ActivityIcon size={18} />}
           label="Active Routes"
-          value={stats?.activeRoutes.toString() || '0'}
+          value={(stats?.activeRoutes ?? stats?.totalRoutes ?? 0).toString()}
         />
         <MiniStat
           icon={<DollarSignIcon size={18} />}

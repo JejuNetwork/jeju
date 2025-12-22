@@ -46,6 +46,15 @@ import {
   VersionedTransaction,
 } from '@solana/web3.js'
 import type { ArbOpportunity } from './bridge'
+import {
+  BridgeTransferResponseSchema,
+  BridgeTxResponseSchema,
+  HyperliquidPricesResponseSchema,
+  JitoBundleResponseSchema,
+  JitoBundleStatusResponseSchema,
+  JupiterSwapResponseSchema,
+  OneInchSwapResponseSchema,
+} from '../../validation'
 
 // ============ Configuration ============
 
@@ -138,10 +147,7 @@ interface JupiterQuote {
   routePlan: Array<{ swapInfo: { ammKey: string; label: string } }>
 }
 
-interface JupiterSwapResponse {
-  swapTransaction: string
-  lastValidBlockHeight: number
-}
+// JupiterSwapResponse type from validation.ts
 
 // ============ Arbitrage Executor ============
 
@@ -632,7 +638,12 @@ export class ArbitrageExecutor {
       throw new Error(`Jupiter swap API failed: ${response.status}`)
     }
 
-    const { swapTransaction } = (await response.json()) as JupiterSwapResponse
+    const json: unknown = await response.json()
+    const parsed = JupiterSwapResponseSchema.safeParse(json)
+    if (!parsed.success) {
+      throw new Error(`Invalid Jupiter swap response: ${parsed.error.issues[0]?.message}`)
+    }
+    const { swapTransaction } = parsed.data
 
     // Deserialize, sign, and send
     const txBuffer = Buffer.from(swapTransaction, 'base64')
@@ -687,10 +698,15 @@ export class ArbitrageExecutor {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: string
-      error?: { message: string }
+    const json: unknown = await response.json()
+    const parsed = JitoBundleResponseSchema.safeParse(json)
+    if (!parsed.success) {
+      console.warn('Invalid Jito response, using regular submission')
+      const signature = await this.solanaConnection.sendTransaction(tx)
+      await this.solanaConnection.confirmTransaction(signature, 'confirmed')
+      return signature
     }
+    const result = parsed.data
 
     if (result.error) {
       // Fall back to regular submission
@@ -726,11 +742,11 @@ export class ArbitrageExecutor {
         }),
       })
 
-      const result = (await response.json()) as {
-        result?: { value: Array<{ confirmation_status: string }> }
-      }
+      const json: unknown = await response.json()
+      const parsed = JitoBundleStatusResponseSchema.safeParse(json)
+      if (!parsed.success) continue
 
-      const status = result.result?.value?.[0]?.confirmation_status
+      const status = parsed.data.result?.value?.[0]?.confirmation_status
       if (status === 'confirmed' || status === 'finalized') {
         return
       }
@@ -765,10 +781,13 @@ export class ArbitrageExecutor {
       return this.getUniswapQuote(chainId, fromToken, toToken, amount)
     }
 
-    const data = (await response.json()) as {
-      dstAmount: string
-      tx: { to: Address; data: Hex; value: string }
+    const json: unknown = await response.json()
+    const parsed = OneInchSwapResponseSchema.safeParse(json)
+    if (!parsed.success) {
+      console.error('Invalid 1inch response:', parsed.error.issues)
+      return this.getUniswapQuote(chainId, fromToken, toToken, amount)
     }
+    const data = parsed.data
 
     return {
       inputToken: fromToken,
@@ -777,7 +796,7 @@ export class ArbitrageExecutor {
       outputAmount: BigInt(data.dstAmount),
       priceImpactBps: 10, // 1inch doesn't return this directly
       route: '1inch',
-      txData: data.tx.data,
+      txData: data.tx.data as Hex,
     }
   }
 
@@ -969,11 +988,12 @@ export class ArbitrageExecutor {
       )
     }
 
-    const result = (await response.json()) as {
-      transferId: string
-      status: string
+    const json: unknown = await response.json()
+    const parsed = BridgeTransferResponseSchema.safeParse(json)
+    if (!parsed.success) {
+      throw new Error(`Invalid bridge response: ${parsed.error.issues[0]?.message}`)
     }
-    return result.transferId
+    return parsed.data.transferId
   }
 
   private async bridgeEvmToSolana(
@@ -1021,11 +1041,12 @@ export class ArbitrageExecutor {
       throw new Error(`Bridge API failed: ${response.status}`)
     }
 
-    const result = (await response.json()) as {
-      transferId: string
-      status: string
+    const json: unknown = await response.json()
+    const parsed = BridgeTransferResponseSchema.safeParse(json)
+    if (!parsed.success) {
+      throw new Error(`Invalid bridge response: ${parsed.error.issues[0]?.message}`)
     }
-    return result.transferId
+    return parsed.data.transferId
   }
 
   private async bridgeEvmToEvm(
@@ -1056,8 +1077,12 @@ export class ArbitrageExecutor {
       throw new Error(`Bridge API failed: ${response.status}`)
     }
 
-    const { txHash } = (await response.json()) as { txHash: string }
-    return txHash
+    const json: unknown = await response.json()
+    const parsed = BridgeTxResponseSchema.safeParse(json)
+    if (!parsed.success) {
+      throw new Error(`Invalid bridge response: ${parsed.error.issues[0]?.message}`)
+    }
+    return parsed.data.txHash
   }
 
   // ============ Hyperliquid Integration ============
@@ -1075,8 +1100,13 @@ export class ArbitrageExecutor {
       body: JSON.stringify({ type: 'allMids' }),
     })
 
-    const prices = (await priceResponse.json()) as Record<string, string>
-    const price = parseFloat(prices[symbol])
+    const priceJson: unknown = await priceResponse.json()
+    const pricesParsed = HyperliquidPricesResponseSchema.safeParse(priceJson)
+    if (!pricesParsed.success) {
+      return { success: false, error: 'Invalid Hyperliquid prices response' }
+    }
+    const prices = pricesParsed.data
+    const price = parseFloat(prices[symbol] || '')
     if (!price) {
       return { success: false, error: `No price for ${symbol}` }
     }

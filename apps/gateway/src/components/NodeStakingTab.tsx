@@ -37,6 +37,7 @@ export default function NodeStakingTab() {
         }}
       >
         <button
+          type="button"
           className={`button nav-tab ${activeSection === 'overview' ? '' : 'button-secondary'}`}
           onClick={() => setActiveSection('overview')}
         >
@@ -44,6 +45,7 @@ export default function NodeStakingTab() {
           Overview
         </button>
         <button
+          type="button"
           className={`button nav-tab ${activeSection === 'my-nodes' ? '' : 'button-secondary'}`}
           onClick={() => setActiveSection('my-nodes')}
         >
@@ -51,6 +53,7 @@ export default function NodeStakingTab() {
           My Nodes
         </button>
         <button
+          type="button"
           className={`button nav-tab ${activeSection === 'register' ? '' : 'button-secondary'}`}
           onClick={() => setActiveSection('register')}
         >

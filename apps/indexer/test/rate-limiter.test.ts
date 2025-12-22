@@ -549,7 +549,11 @@ describe('Stats Collection', () => {
 
     store.set('free-1', { count: 10, resetAt: now + WINDOW_MS, tier: 'FREE' })
     store.set('free-2', { count: 20, resetAt: now + WINDOW_MS, tier: 'FREE' })
-    store.set('basic-1', { count: 100, resetAt: now + WINDOW_MS, tier: 'BASIC' })
+    store.set('basic-1', {
+      count: 100,
+      resetAt: now + WINDOW_MS,
+      tier: 'BASIC',
+    })
     store.set('pro-1', { count: 500, resetAt: now + WINDOW_MS, tier: 'PRO' })
     store.set('unlimited-1', {
       count: 10000,

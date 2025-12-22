@@ -14,8 +14,8 @@ import {
   parsePresaleStatus,
   parseUserContribution,
   type UserContribution,
-} from '@/lib/launchpad'
-import { expect } from '@/lib/validation'
+} from '../../lib/launchpad'
+import { expect } from '../../lib/validation'
 
 export type { PresaleStatus, UserContribution }
 
@@ -286,9 +286,3 @@ export function useICOPresale(presaleAddress: Address | null) {
     reset,
   }
 }
-
-// Re-export formatting functions from lib/launchpad
-export {
-  formatBasisPoints as formatPresaleProgress,
-  formatDuration as formatTimeRemaining,
-} from '@/lib/launchpad'

@@ -581,10 +581,12 @@ export async function fetchWithTimeout(
 }
 
 /**
- * Safely parse JSON with size and depth limits
+ * Safely parse JSON with size and depth limits, and validate with Zod schema
+ * Use this for JSON strings from external sources that need validation
  */
 export function safeJsonParse<T>(
   jsonString: string,
+  schema: z.ZodType<T>,
   maxSize: number = MAX_JSON_SIZE,
 ): T {
   if (jsonString.length > maxSize) {
@@ -608,7 +610,45 @@ export function safeJsonParse<T>(
     }
   }
 
-  return JSON.parse(jsonString) as T
+  const parsed: unknown = JSON.parse(jsonString)
+  const result = schema.safeParse(parsed)
+  if (!result.success) {
+    throw new Error(`JSON validation failed: ${result.error.message}`)
+  }
+  return result.data
+}
+
+/**
+ * Safely parse JSON with size and depth limits (unvalidated)
+ * INTERNAL USE ONLY - Use safeJsonParse with a schema for external data
+ * Returns unknown to force caller to validate the result
+ */
+export function safeJsonParseUnknown(
+  jsonString: string,
+  maxSize: number = MAX_JSON_SIZE,
+): unknown {
+  if (jsonString.length > maxSize) {
+    throw new Error(`JSON input exceeds maximum size of ${maxSize} bytes`)
+  }
+
+  // Simple depth check by counting nested brackets
+  let depth = 0
+  let maxDepthReached = 0
+  for (const char of jsonString) {
+    if (char === '{' || char === '[') {
+      depth++
+      maxDepthReached = Math.max(maxDepthReached, depth)
+      if (maxDepthReached > MAX_JSON_DEPTH) {
+        throw new Error(
+          `JSON exceeds maximum nesting depth of ${MAX_JSON_DEPTH}`,
+        )
+      }
+    } else if (char === '}' || char === ']') {
+      depth--
+    }
+  }
+
+  return JSON.parse(jsonString)
 }
 
 /**

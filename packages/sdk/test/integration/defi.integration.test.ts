@@ -12,7 +12,7 @@ import { createJejuClient, type JejuClient } from '../../src'
 
 const TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:9545'
+const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:6546'
 
 describe('DeFi Integration Tests', () => {
   let client: JejuClient | null = null

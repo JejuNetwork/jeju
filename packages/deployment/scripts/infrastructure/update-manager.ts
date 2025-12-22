@@ -14,6 +14,11 @@
 import { exec } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { promisify } from 'node:util'
+import {
+  expectValid,
+  GitHubReleaseSchema,
+  JsonRpcBlockNumberResponseSchema,
+} from '../../schemas'
 
 const execAsync = promisify(exec)
 
@@ -56,12 +61,6 @@ async function saveVersion(version: Version): Promise<void> {
   writeFileSync(versionFile, JSON.stringify(version, null, 2))
 }
 
-interface GitHubRelease {
-  published_at: string
-  tag_name?: string
-  body?: string
-}
-
 async function getLatestVersion(): Promise<Version> {
   try {
     // Check GitHub releases
@@ -75,7 +74,8 @@ async function getLatestVersion(): Promise<Version> {
       )
     }
 
-    const release = (await response.json()) as GitHubRelease
+    const releaseRaw = await response.json()
+    const release = expectValid(GitHubReleaseSchema, releaseRaw, 'GitHub release')
 
     // Parse version from release notes
     // Look for version strings in format: "reth: v1.0.3" or "op-node: v1.7.6"
@@ -286,7 +286,7 @@ async function verifyUpdate(): Promise<boolean> {
 
   try {
     // Check if RPC is responding
-    const response = await fetch('http://localhost:9545', {
+    const response = await fetch('http://localhost:6546', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -297,7 +297,8 @@ async function verifyUpdate(): Promise<boolean> {
       }),
     })
 
-    const data = (await response.json()) as { result?: string }
+    const dataRaw = await response.json()
+    const data = expectValid(JsonRpcBlockNumberResponseSchema, dataRaw, 'eth_blockNumber')
 
     if (!data.result) {
       throw new Error('RPC not responding correctly')

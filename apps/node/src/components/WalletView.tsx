@@ -108,6 +108,7 @@ export function WalletView() {
         {/* Wallet Options */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <button
+            type="button"
             onClick={() => setAction('create')}
             className="card-hover p-6 text-left group"
           >
@@ -125,6 +126,7 @@ export function WalletView() {
           </button>
 
           <button
+            type="button"
             onClick={() => setAction('import')}
             className="card-hover p-6 text-left group"
           >
@@ -142,6 +144,7 @@ export function WalletView() {
           </button>
 
           <button
+            type="button"
             onClick={() => setAction('external')}
             className="card-hover p-6 text-left group"
           >
@@ -159,6 +162,7 @@ export function WalletView() {
           </button>
 
           <button
+            type="button"
             onClick={() => setAction('jeju')}
             className="card-hover p-6 text-left group border-jeju-500/30"
           >
@@ -209,8 +213,14 @@ export function WalletView() {
 
                     <div className="space-y-4">
                       <div>
-                        <label className="label">Password</label>
+                        <label
+                          htmlFor="create-password-input"
+                          className="label"
+                        >
+                          Password
+                        </label>
                         <input
+                          id="create-password-input"
                           type="password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
@@ -225,12 +235,14 @@ export function WalletView() {
 
                     <div className="flex gap-3 mt-6">
                       <button
+                        type="button"
                         onClick={() => setAction(null)}
                         className="btn-secondary flex-1"
                       >
                         Cancel
                       </button>
                       <button
+                        type="button"
                         onClick={handleCreate}
                         disabled={loading}
                         className="btn-primary flex-1"
@@ -254,6 +266,7 @@ export function WalletView() {
                     <div className="space-y-4">
                       <div className="flex gap-2 bg-volcanic-800 rounded-lg p-1">
                         <button
+                          type="button"
                           onClick={() => setImportType('mnemonic')}
                           className={clsx(
                             'flex-1 py-2 rounded-md text-sm transition-all',
@@ -265,6 +278,7 @@ export function WalletView() {
                           Seed Phrase
                         </button>
                         <button
+                          type="button"
                           onClick={() => setImportType('key')}
                           className={clsx(
                             'flex-1 py-2 rounded-md text-sm transition-all',
@@ -279,8 +293,11 @@ export function WalletView() {
 
                       {importType === 'mnemonic' ? (
                         <div>
-                          <label className="label">Seed Phrase</label>
+                          <label htmlFor="mnemonic-input" className="label">
+                            Seed Phrase
+                          </label>
                           <textarea
+                            id="mnemonic-input"
                             value={mnemonic}
                             onChange={(e) => setMnemonic(e.target.value)}
                             className="input h-24"
@@ -289,8 +306,11 @@ export function WalletView() {
                         </div>
                       ) : (
                         <div>
-                          <label className="label">Private Key</label>
+                          <label htmlFor="private-key-input" className="label">
+                            Private Key
+                          </label>
                           <input
+                            id="private-key-input"
                             type="password"
                             value={privateKey}
                             onChange={(e) => setPrivateKey(e.target.value)}
@@ -301,8 +321,14 @@ export function WalletView() {
                       )}
 
                       <div>
-                        <label className="label">Password</label>
+                        <label
+                          htmlFor="import-password-input"
+                          className="label"
+                        >
+                          Password
+                        </label>
                         <input
+                          id="import-password-input"
                           type="password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
@@ -314,12 +340,14 @@ export function WalletView() {
 
                     <div className="flex gap-3 mt-6">
                       <button
+                        type="button"
                         onClick={() => setAction(null)}
                         className="btn-secondary flex-1"
                       >
                         Cancel
                       </button>
                       <button
+                        type="button"
                         onClick={handleImport}
                         disabled={loading}
                         className="btn-primary flex-1"
@@ -344,6 +372,7 @@ export function WalletView() {
                     </p>
 
                     <button
+                      type="button"
                       onClick={() => setAction(null)}
                       className="btn-secondary w-full"
                     >
@@ -385,6 +414,7 @@ export function WalletView() {
                   {wallet.address.slice(0, 10)}...{wallet.address.slice(-8)}
                 </code>
                 <button
+                  type="button"
                   onClick={copyAddress}
                   className="p-1.5 rounded-lg hover:bg-volcanic-800 transition-colors"
                 >
@@ -399,6 +429,7 @@ export function WalletView() {
           </div>
 
           <button
+            type="button"
             onClick={() => {
               fetchWallet()
               fetchBalance()
@@ -469,7 +500,9 @@ export function WalletView() {
             <p className="text-volcanic-400 mb-4">
               Register an ERC-8004 agent to participate in the network
             </p>
-            <button className="btn-primary">Register Agent</button>
+            <button type="button" className="btn-primary">
+              Register Agent
+            </button>
           </div>
         )}
       </div>
@@ -482,15 +515,24 @@ export function WalletView() {
         </h2>
 
         <div className="space-y-3">
-          <button className="btn-secondary w-full text-left flex items-center justify-between">
+          <button
+            type="button"
+            className="btn-secondary w-full text-left flex items-center justify-between"
+          >
             <span>Export Private Key</span>
             <ExternalLink size={16} />
           </button>
-          <button className="btn-secondary w-full text-left flex items-center justify-between">
+          <button
+            type="button"
+            className="btn-secondary w-full text-left flex items-center justify-between"
+          >
             <span>Change Password</span>
             <Key size={16} />
           </button>
-          <button className="btn-ghost w-full text-left text-red-400 hover:text-red-300 flex items-center justify-between">
+          <button
+            type="button"
+            className="btn-ghost w-full text-left text-red-400 hover:text-red-300 flex items-center justify-between"
+          >
             <span>Disconnect Wallet</span>
           </button>
         </div>

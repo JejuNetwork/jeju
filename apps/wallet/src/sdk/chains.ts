@@ -164,11 +164,11 @@ export const chains: Record<number, ChainConfig> = {
     network: 'localnet',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     rpcUrls: {
-      default: { http: ['http://localhost:9545'] },
-      jeju: { http: ['http://localhost:9545'] },
+      default: { http: ['http://localhost:6546'] },
+      jeju: { http: ['http://localhost:6546'] },
     },
     blockExplorers: {
-      default: { name: 'Local', url: 'http://localhost:9545' },
+      default: { name: 'Local', url: 'http://localhost:6546' },
     },
     testnet: true,
     eilSupported: true,

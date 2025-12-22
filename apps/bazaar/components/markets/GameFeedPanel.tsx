@@ -1,7 +1,7 @@
 'use client'
 
-import { EXPLORER_URL } from '@/config'
-import { useGameFeed } from '@/hooks/markets/useGameFeed'
+import { EXPLORER_URL } from '../../config'
+import { useGameFeed } from '../../hooks/markets/useGameFeed'
 
 interface GameFeedPanelProps {
   sessionId: string
@@ -19,9 +19,11 @@ export function GameFeedPanel({
       <div className={`animate-pulse ${className}`}>
         <div className="h-8 bg-gray-700 rounded mb-4"></div>
         <div className="space-y-3">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="h-20 bg-gray-700 rounded"></div>
-          ))}
+          <div className="h-20 bg-gray-700 rounded" />
+          <div className="h-20 bg-gray-700 rounded" />
+          <div className="h-20 bg-gray-700 rounded" />
+          <div className="h-20 bg-gray-700 rounded" />
+          <div className="h-20 bg-gray-700 rounded" />
         </div>
       </div>
     )

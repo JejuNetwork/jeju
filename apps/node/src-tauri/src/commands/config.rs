@@ -171,7 +171,7 @@ pub async fn set_network(
         "localnet" => NetworkConfig {
             network: "localnet".to_string(),
             chain_id: 1337,
-            rpc_url: "http://localhost:9545".to_string(),
+            rpc_url: "http://localhost:6546".to_string(),
             ws_url: Some("ws://localhost:6547".to_string()),
             explorer_url: "http://localhost:4000".to_string(),
         },

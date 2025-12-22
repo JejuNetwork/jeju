@@ -31,7 +31,7 @@ beforeEach(() => {
 })
 
 const FAKE_RPC = 'http://localhost:59999'
-const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:9545'
+const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:6546'
 
 // Well-known test addresses
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address

@@ -43,7 +43,7 @@ export const TEST_WALLET_ADDRESS =
 export const JEJU_CHAIN_ID = 1337
 
 /** RPC URL for localnet - fixed for E2E consistency */
-export const JEJU_RPC_URL = 'http://127.0.0.1:9545'
+export const JEJU_RPC_URL = 'http://127.0.0.1:6546'
 
 /**
  * Test accounts (Anvil/Hardhat defaults) - canonical source
@@ -394,9 +394,9 @@ export function getChainId(): number {
  */
 export function getTestEnv(): Record<string, string> {
   return {
-    L1_RPC_URL: process.env.L1_RPC_URL ?? 'http://127.0.0.1:8545',
-    L2_RPC_URL: process.env.L2_RPC_URL ?? 'http://127.0.0.1:9545',
-    JEJU_RPC_URL: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:9545',
+    L1_RPC_URL: process.env.L1_RPC_URL ?? 'http://127.0.0.1:6545',
+    L2_RPC_URL: process.env.L2_RPC_URL ?? 'http://127.0.0.1:6546',
+    JEJU_RPC_URL: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546',
     CHAIN_ID: process.env.CHAIN_ID ?? '1337',
     INDEXER_GRAPHQL_URL:
       process.env.INDEXER_GRAPHQL_URL ?? 'http://127.0.0.1:4350/graphql',

@@ -95,13 +95,19 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
     FEED_CATEGORY_LABELS[feedSpec.category as FeedCategory] ?? 'Unknown'
 
   return (
-    <div
-      className={`card p-4 cursor-pointer transition-all ${
+    <button
+      type="button"
+      className={`card p-4 cursor-pointer transition-all text-left ${
         isSelected
           ? 'ring-2 ring-purple-500'
           : 'hover:bg-gray-50 dark:hover:bg-gray-800'
       }`}
       onClick={onSelect}
+      style={{
+        width: '100%',
+        border: 'none',
+        background: 'inherit',
+      }}
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
@@ -150,6 +156,7 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
 
         {/* Refresh Button */}
         <button
+          type="button"
           className="ml-4 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           onClick={(e) => {
             e.stopPropagation()
@@ -159,7 +166,7 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
           <RefreshCwIcon size={16} />
         </button>
       </div>
-    </div>
+    </button>
   )
 }
 
@@ -179,6 +186,7 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold">{feedSpec.symbol} Feed Details</h3>
         <button
+          type="button"
           className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
           onClick={onClose}
         >
@@ -248,6 +256,7 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
 
       <div className="mt-4 flex justify-end">
         <button
+          type="button"
           className="button button-secondary flex items-center gap-2"
           onClick={() => refetch()}
         >

@@ -17,9 +17,12 @@ import { z } from 'zod'
 import { ceoPlugin } from './agents/ceo-plugin'
 import { ceoAgent } from './agents/templates'
 import {
+  A2AJsonRpcResponseSchema,
   A2AMessageSchema,
   expect,
   expectDefined,
+  expectValid,
+  extractA2AData,
   ProposalIdSchema,
   validateOrThrow,
 } from './schemas'
@@ -402,24 +405,16 @@ app.post('/mcp/resources/read', async (c) => {
         `Failed to fetch stats: ${response.status} ${response.statusText}`,
       )
     }
-    const data = (await response.json()) as {
-      result?: {
-        parts?: Array<{ kind: string; data?: Record<string, unknown> }>
-      }
-      error?: { message: string }
-    }
-    if (data.error) {
-      throw new Error(`Stats fetch failed: ${data.error.message}`)
-    }
-    const parts = data.result?.parts
-    if (!parts || parts.length === 0) {
-      throw new Error('Stats response contains no parts')
-    }
-    const dataPart = parts.find((p) => p.kind === 'data')
-    if (!dataPart || !dataPart.data) {
-      throw new Error('Stats response contains no data part')
-    }
-    content = JSON.stringify(dataPart.data, null, 2)
+    const data = expectValid(
+      A2AJsonRpcResponseSchema,
+      await response.json(),
+      'stats A2A response',
+    )
+    const statsData = extractA2AData<Record<string, unknown>>(
+      data,
+      'stats A2A response',
+    )
+    content = JSON.stringify(statsData, null, 2)
   } else if (uri === 'autocrat://treasury') {
     content = 'Treasury data available via get_governance_dashboard tool.'
   }
@@ -555,25 +550,19 @@ async function getDashboard(): Promise<{
       `Failed to fetch dashboard: ${response.status} ${response.statusText}`,
     )
   }
-  const result = (await response.json()) as {
-    result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }
-    error?: { message: string }
-  }
-  if (result.error) {
-    throw new Error(`Dashboard fetch failed: ${result.error.message}`)
-  }
-  const parts = result.result?.parts
-  if (!parts || parts.length === 0) {
-    throw new Error('Dashboard response contains no parts')
-  }
-  const dataPart = parts.find((p) => p.kind === 'data')
-  if (!dataPart || !dataPart.data) {
-    throw new Error('Dashboard response contains no data part')
-  }
+  const result = expectValid(
+    A2AJsonRpcResponseSchema,
+    await response.json(),
+    'dashboard A2A response',
+  )
+  const dashboardData = extractA2AData<Record<string, unknown>>(
+    result,
+    'dashboard A2A response',
+  )
 
   return {
     text: 'CEO Governance Dashboard',
-    data: dataPart.data,
+    data: dashboardData,
   }
 }
 
@@ -606,26 +595,19 @@ async function getActiveProposals(): Promise<{
       `Failed to fetch active proposals: ${response.status} ${response.statusText}`,
     )
   }
-  const result = (await response.json()) as {
-    result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }
-    error?: { message: string }
-  }
-  if (result.error) {
-    throw new Error(`Active proposals fetch failed: ${result.error.message}`)
-  }
-  const parts = result.result?.parts
-  if (!parts || parts.length === 0) {
-    throw new Error('Active proposals response contains no parts')
-  }
-  const dataPart = parts.find((p) => p.kind === 'data')
-  if (!dataPart || !dataPart.data) {
-    throw new Error('Active proposals response contains no data part')
-  }
+  const result = expectValid(
+    A2AJsonRpcResponseSchema,
+    await response.json(),
+    'active proposals A2A response',
+  )
+  const proposalsData = extractA2AData<{ total?: number }>(
+    result,
+    'active proposals A2A response',
+  )
 
-  const data = dataPart.data as { total?: number }
   return {
-    text: `Active proposals: ${data.total ?? 0}`,
-    data: dataPart.data,
+    text: `Active proposals: ${proposalsData.total ?? 0}`,
+    data: proposalsData,
   }
 }
 
@@ -665,25 +647,19 @@ async function getAutocratVotes(
       `Failed to fetch autocrat votes: ${response.status} ${response.statusText}`,
     )
   }
-  const result = (await response.json()) as {
-    result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }
-    error?: { message: string }
-  }
-  if (result.error) {
-    throw new Error(`Autocrat votes fetch failed: ${result.error.message}`)
-  }
-  const parts = result.result?.parts
-  if (!parts || parts.length === 0) {
-    throw new Error('Autocrat votes response contains no parts')
-  }
-  const dataPart = parts.find((p) => p.kind === 'data')
-  if (!dataPart || !dataPart.data) {
-    throw new Error('Autocrat votes response contains no data part')
-  }
+  const result = expectValid(
+    A2AJsonRpcResponseSchema,
+    await response.json(),
+    'autocrat votes A2A response',
+  )
+  const votesData = extractA2AData<Record<string, unknown>>(
+    result,
+    'autocrat votes A2A response',
+  )
 
   return {
     text: `Autocrat votes for ${validatedProposalId.slice(0, 10)}...`,
-    data: dataPart.data,
+    data: votesData,
   }
 }
 

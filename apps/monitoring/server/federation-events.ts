@@ -49,7 +49,7 @@ import {
 } from 'viem'
 
 // Configuration
-const RPC_URL = process.env.RPC_URL || 'http://localhost:9545'
+const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
 const REGISTRY_HUB = process.env.REGISTRY_HUB as Address
 const NETWORK_REGISTRY = process.env.NETWORK_REGISTRY as Address
 const CROSS_CHAIN_SYNC = process.env.CROSS_CHAIN_SYNC as Address
@@ -57,12 +57,13 @@ const ALERT_WEBHOOK = process.env.ALERT_WEBHOOK
 const PROMETHEUS_PORT = parseInt(process.env.PROMETHEUS_PORT || '9090', 10)
 
 // Alert severity levels
-enum AlertSeverity {
-  INFO = 'info',
-  WARNING = 'warning',
-  HIGH = 'high',
-  CRITICAL = 'critical',
-}
+const AlertSeverity = {
+  INFO: 'info',
+  WARNING: 'warning',
+  HIGH: 'high',
+  CRITICAL: 'critical',
+} as const
+type AlertSeverity = (typeof AlertSeverity)[keyof typeof AlertSeverity]
 
 // Metrics storage with atomic update helpers to prevent race conditions
 interface Metrics {

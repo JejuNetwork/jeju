@@ -9,8 +9,15 @@
  * - Session keys
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex, PublicClient, WalletClient } from 'viem'
 import { concat, encodeFunctionData } from 'viem'
+import {
+  GasEstimationResponseSchema,
+  PaymasterTokensResponseSchema,
+  SendUserOpResponseSchema,
+  UserOpReceiptResponseSchema,
+} from '../schemas/api-responses'
 import { getChainContracts } from './chains'
 import type { GasEstimate, GasOption, UserOperation } from './types'
 
@@ -312,10 +319,15 @@ export class AAClient {
       }),
     })
 
-    const data = await response.json()
+    const data = expectValid(
+      GasEstimationResponseSchema,
+      await response.json(),
+      'gas estimation response',
+    )
     if (data.error) {
       throw new Error(data.error.message ?? 'Gas estimation failed')
     }
+    if (!data.result) throw new Error('Gas estimation result is undefined')
 
     const gasLimits = {
       callGasLimit: BigInt(data.result.callGasLimit),
@@ -333,7 +345,7 @@ export class AAClient {
     // Get token options if paymaster available
     let tokenOptions: GasOption[] = []
     if (this.paymasterUrl && paymentTokens?.length) {
-      const response = await fetch(`${this.paymasterUrl}/tokens`, {
+      const paymasterResponse = await fetch(`${this.paymasterUrl}/tokens`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -341,11 +353,17 @@ export class AAClient {
           tokens: paymentTokens,
         }),
       })
-      if (!response.ok) {
-        throw new Error(`Paymaster token fetch failed: ${response.status}`)
+      if (!paymasterResponse.ok) {
+        throw new Error(
+          `Paymaster token fetch failed: ${paymasterResponse.status}`,
+        )
       }
-      const data = await response.json()
-      tokenOptions = data.options ?? []
+      const paymasterData = expectValid(
+        PaymasterTokensResponseSchema,
+        await paymasterResponse.json(),
+        'paymaster tokens response',
+      )
+      tokenOptions = paymasterData.options ?? []
     }
 
     return {
@@ -451,13 +469,21 @@ export class AAClient {
       }),
     })
 
-    const data = await response.json()
+    const data = expectValid(
+      SendUserOpResponseSchema,
+      await response.json(),
+      'sendUserOp response',
+    )
 
     if (data.error) {
       throw new Error(data.error.message ?? 'Failed to send UserOp')
     }
 
-    return data.result as Hex
+    if (!data.result) {
+      throw new Error('No result in sendUserOp response')
+    }
+
+    return data.result
   }
 
   /**
@@ -486,7 +512,11 @@ export class AAClient {
           }),
         })
 
-        const data = await response.json()
+        const data = expectValid(
+          UserOpReceiptResponseSchema,
+          await response.json(),
+          'getUserOperationReceipt response',
+        )
 
         if (data.result) {
           return {

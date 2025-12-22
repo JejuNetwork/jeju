@@ -4,15 +4,15 @@
  */
 
 import { AddressSchema } from '@jejunetwork/types'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { getV4Contracts } from '@/config/contracts'
+import { JEJU_CHAIN_ID } from '../../config/chains'
+import { getV4Contracts } from '../../config/contracts'
 import {
   getContractDetails,
   getLatestBlocks,
   getNetworkTokens,
   getTokenHolders,
   getTokenTransfers,
-} from '@/lib/indexer-client'
+} from '../indexer-client'
 import {
   type BanStatus,
   checkBanStatus,
@@ -28,8 +28,8 @@ import {
   prepareStakeTransaction,
   prepareVoteTransaction,
   type TransactionRequest,
-} from '@/lib/moderation-api'
-import { expect, expectPositive } from '@/lib/validation'
+} from '../moderation-api'
+import { expect, expectPositive } from '../validation'
 
 // Result data types for each tool
 interface TokenInfo {

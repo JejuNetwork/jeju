@@ -28,7 +28,7 @@ const BAN_MANAGER_ADDRESS = process.env.BAN_MANAGER_ADDRESS as
   | undefined
 const MODERATION_MARKETPLACE_ADDRESS = process.env
   .MODERATION_MARKETPLACE_ADDRESS as Address | undefined
-const RPC_URL = process.env.RPC_URL || 'http://localhost:8545'
+const RPC_URL = process.env.RPC_URL || 'http://localhost:6545'
 const NETWORK = (process.env.NETWORK || 'localnet') as
   | 'mainnet'
   | 'testnet'

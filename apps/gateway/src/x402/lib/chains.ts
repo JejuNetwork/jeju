@@ -106,7 +106,7 @@ export const CHAIN_CONFIGS: Record<string, ChainConfig> = {
     chainId: 420691,
     name: 'Jeju',
     network: 'jeju',
-    rpcUrl: getRpcUrl('JEJU_RPC_URL', 'http://127.0.0.1:9545'),
+    rpcUrl: getRpcUrl('JEJU_RPC_URL', 'http://127.0.0.1:6546'),
     usdc: getEnvOrConfig(
       'JEJU_USDC_ADDRESS',
       ['mainnet', 'tokens', 'usdc'],

@@ -1,10 +1,10 @@
 import { AddressSchema } from '@jejunetwork/types'
 import type { Abi } from 'viem'
 import { useReadContracts, useWriteContract } from 'wagmi'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { getV4Contracts } from '@/config/contracts'
-import { expect } from '@/lib/validation'
+import { JEJU_CHAIN_ID } from '../../config/chains'
+import { getV4Contracts } from '../../config/contracts'
 import PoolManagerABI from '../abis/PoolManager.json'
+import { expect } from '../validation'
 import type { CreatePoolParams, Pool, PoolKey } from './types'
 import { computePoolId, validatePoolKey } from './utils'
 

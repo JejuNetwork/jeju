@@ -6,7 +6,7 @@
 processor:
   env:
     - name: RPC_ENDPOINT
-      value: "http://localhost:9545"  # Jeju localnet
+      value: "http://localhost:6546"  # Jeju localnet
     - name: START_BLOCK
       value: "0"
     - name: CHAIN_ID

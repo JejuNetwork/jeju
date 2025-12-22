@@ -5,8 +5,14 @@
  * Supports app-specific secrets, automatic rotation detection, and audit logging.
  */
 
+import { expectValid } from '@jejunetwork/types';
 import type { Address, Hex } from 'viem';
 import { keccak256, toBytes } from 'viem';
+import {
+  GetSecretResponseSchema,
+  ListSecretsResponseSchema,
+  StoreSecretResponseSchema,
+} from '../schemas';
 
 export interface SecretsConfig {
   vaultEndpoint: string;
@@ -16,16 +22,10 @@ export interface SecretsConfig {
   timeout?: number;
 }
 
-export interface SecretMetadata {
-  id: string;
-  name: string;
-  version: number;
-  owner: Address;
-  createdAt: number;
-  updatedAt: number;
-  expiresAt?: number;
-  tags: string[];
-}
+// Re-export SecretMetadata type from schemas
+export type { SecretMetadata } from '../schemas';
+
+import type { SecretMetadata } from '../schemas';
 
 export interface SecretsLoader {
   loadAll(): Promise<Record<string, string>>;
@@ -34,25 +34,6 @@ export interface SecretsLoader {
   rotate(secretName: string, newValue: string): Promise<SecretMetadata>;
   list(): Promise<SecretMetadata[]>;
   inject(): Promise<void>;
-}
-
-interface StoreSecretResponse {
-  id: string;
-  name: string;
-  version: number;
-  owner: Address;
-  createdAt: number;
-  updatedAt: number;
-  expiresAt?: number;
-  tags: string[];
-}
-
-interface GetSecretResponse {
-  value: string;
-}
-
-interface ListSecretsResponse {
-  secrets: SecretMetadata[];
 }
 
 class DecentralizedSecretsLoader implements SecretsLoader {
@@ -98,7 +79,11 @@ class DecentralizedSecretsLoader implements SecretsLoader {
       throw new Error(`Failed to get secret ${secretName}: ${response.statusText}`);
     }
 
-    const data = await response.json() as GetSecretResponse;
+    const data = expectValid(
+      GetSecretResponseSchema,
+      await response.json(),
+      `get secret ${secretName} response`,
+    );
     return data.value;
   }
 
@@ -125,8 +110,11 @@ class DecentralizedSecretsLoader implements SecretsLoader {
       throw new Error(`Failed to store secret ${secretName}: ${response.statusText}`);
     }
 
-    const data = await response.json() as StoreSecretResponse;
-    return data;
+    return expectValid(
+      StoreSecretResponseSchema,
+      await response.json(),
+      `store secret ${secretName} response`,
+    );
   }
 
   async rotate(secretName: string, newValue: string): Promise<SecretMetadata> {
@@ -149,11 +137,15 @@ class DecentralizedSecretsLoader implements SecretsLoader {
       throw new Error(`Failed to rotate secret ${secretName}: ${response.statusText}`);
     }
 
-    const data = await response.json() as StoreSecretResponse;
-    
+    const data = expectValid(
+      StoreSecretResponseSchema,
+      await response.json(),
+      `rotate secret ${secretName} response`,
+    );
+
     // Update cached value
     this.loadedSecrets.set(secretName, newValue);
-    
+
     return data;
   }
 
@@ -173,7 +165,11 @@ class DecentralizedSecretsLoader implements SecretsLoader {
       throw new Error(`Failed to list secrets: ${response.statusText}`);
     }
 
-    const data = await response.json() as ListSecretsResponse;
+    const data = expectValid(
+      ListSecretsResponseSchema,
+      await response.json(),
+      'list secrets response',
+    );
     return data.secrets;
   }
 

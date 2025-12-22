@@ -5,8 +5,42 @@
  * @notice Sends regular heartbeats to node explorer
  */
 
-import { inferChainFromRpcUrl } from '@jejunetwork/deployment/scripts/shared/chain-utils'
-import { createPublicClient, http } from 'viem'
+import { type Chain, createPublicClient, http } from 'viem'
+
+/**
+ * Infer chain configuration from RPC URL
+ */
+function inferChainFromRpcUrl(rpcUrl: string): Chain {
+  if (
+    rpcUrl.includes('localhost') ||
+    rpcUrl.includes('127.0.0.1') ||
+    rpcUrl.includes(':6545') ||
+    rpcUrl.includes(':6546') ||
+    rpcUrl.includes(':6547')
+  ) {
+    return {
+      id: 1337,
+      name: 'Local Network',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [rpcUrl] } },
+    }
+  }
+  if (rpcUrl.includes('testnet')) {
+    return {
+      id: 420691,
+      name: 'Network Testnet',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [rpcUrl] } },
+    }
+  }
+  return {
+    id: 42069,
+    name: 'Network',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: [rpcUrl] } },
+  }
+}
+
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 
@@ -40,7 +74,7 @@ if (!OPERATOR_PRIVATE_KEY) {
 // Optional config with explicit defaults
 const NODE_EXPLORER_API =
   process.env.NODE_EXPLORER_API ?? 'https://nodes.jejunetwork.org/api'
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:9545'
+const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546'
 const HEARTBEAT_INTERVAL = process.env.HEARTBEAT_INTERVAL
 const INTERVAL = HEARTBEAT_INTERVAL ? parseInt(HEARTBEAT_INTERVAL, 10) : 300000
 

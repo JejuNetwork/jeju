@@ -42,7 +42,7 @@ const logger = new Logger('cloud-e2e-test')
 
 // Test configuration
 const TEST_CONFIG = {
-  rpcUrl: 'http://localhost:9545',
+  rpcUrl: 'http://localhost:6546',
   chainId: 31337, // Anvil default
   deploymentTimeout: 60000,
   testTimeout: 30000,

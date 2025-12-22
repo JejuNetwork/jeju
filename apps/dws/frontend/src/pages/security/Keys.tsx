@@ -61,10 +61,15 @@ export default function KeysPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
             disabled={!isConnected}
@@ -129,6 +134,7 @@ export default function KeysPage() {
             <h3>No keys created</h3>
             <p>Create your first threshold signing key</p>
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setShowModal(true)}
               disabled={!isConnected}
@@ -180,6 +186,7 @@ export default function KeysPage() {
                           {key.publicKey.slice(0, 20)}...
                         </code>
                         <button
+                          type="button"
                           className="btn btn-ghost btn-icon"
                           style={{ padding: '0.25rem' }}
                           onClick={() =>
@@ -206,6 +213,7 @@ export default function KeysPage() {
                           {key.address.slice(0, 6)}...{key.address.slice(-4)}
                         </code>
                         <button
+                          type="button"
                           className="btn btn-ghost btn-icon"
                           style={{ padding: '0.25rem' }}
                           onClick={() =>
@@ -230,7 +238,11 @@ export default function KeysPage() {
                     </td>
                     <td>{new Date(key.createdAt).toLocaleDateString()}</td>
                     <td>
-                      <button className="btn btn-ghost btn-sm" title="Delete">
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        title="Delete"
+                      >
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -308,11 +320,29 @@ export default function KeysPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowModal(false)}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">Create Threshold Key</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowModal(false)}
               >
@@ -349,8 +379,11 @@ export default function KeysPage() {
                   }}
                 >
                   <div className="form-group">
-                    <label className="form-label">Threshold (M)</label>
+                    <label htmlFor="key-threshold" className="form-label">
+                      Threshold (M)
+                    </label>
                     <select
+                      id="key-threshold"
                       className="input"
                       value={formData.threshold}
                       onChange={(e) =>
@@ -366,8 +399,11 @@ export default function KeysPage() {
                     <div className="form-hint">Signatures required</div>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Total Parties (N)</label>
+                    <label htmlFor="key-total-parties" className="form-label">
+                      Total Parties (N)
+                    </label>
                     <select
+                      id="key-total-parties"
                       className="input"
                       value={formData.totalParties}
                       onChange={(e) =>

@@ -13,6 +13,75 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import { CQLClient, getCQL, resetCQL } from './client.js'
 
+// Valid test addresses for mocking
+const MOCK_ADDRESS = '0x1234567890123456789012345678901234567890' as const
+const MOCK_ADDRESS_2 = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as const
+
+// Mock data factories
+function createMockDatabaseInfo(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'db-123',
+    createdAt: Date.now(),
+    owner: MOCK_ADDRESS,
+    nodeCount: 3,
+    consistencyMode: 'strong' as const,
+    status: 'running' as const,
+    blockHeight: 100,
+    sizeBytes: 1024,
+    monthlyCost: '1000000',
+    ...overrides,
+  }
+}
+
+function createMockRentalInfo(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'rental-123',
+    databaseId: 'db-123',
+    renter: MOCK_ADDRESS,
+    planId: 'plan-basic',
+    startedAt: Date.now(),
+    expiresAt: Date.now() + 30 * 24 * 60 * 60 * 1000,
+    autoRenew: true,
+    paymentStatus: 'current' as const,
+    ...overrides,
+  }
+}
+
+function createMockRentalPlan(overrides: Record<string, unknown> = {}) {
+  return {
+    id: 'plan-basic',
+    name: 'Basic Plan',
+    nodeCount: 3,
+    storageBytes: '1073741824',
+    queriesPerMonth: '1000000',
+    pricePerMonth: '10000000',
+    paymentToken: MOCK_ADDRESS,
+    ...overrides,
+  }
+}
+
+function createMockBlockProducerInfo(overrides: Record<string, unknown> = {}) {
+  return {
+    address: MOCK_ADDRESS,
+    endpoint: 'http://localhost:4020',
+    blockHeight: 1000,
+    databases: 10,
+    stake: '1000000000000000000',
+    status: 'active' as const,
+    ...overrides,
+  }
+}
+
+function createMockACLRule(overrides: Record<string, unknown> = {}) {
+  return {
+    grantee: MOCK_ADDRESS,
+    table: 'test_table',
+    columns: ['id', 'name'],
+    permissions: ['SELECT', 'INSERT'] as const,
+    ...overrides,
+  }
+}
+
 // Mock fetch for testing
 const originalFetch = globalThis.fetch
 let mockFetch: ReturnType<typeof mock>
@@ -81,12 +150,7 @@ describe('CQLClient', () => {
 
   describe('Database Management', () => {
     it('should create database with minimal config', async () => {
-      const mockDb = {
-        id: 'db-123',
-        owner: '0x1234',
-        status: 'running',
-        createdAt: Date.now(),
-      }
+      const mockDb = createMockDatabaseInfo()
       mockFetch.mockImplementationOnce(() =>
         Promise.resolve({
           ok: true,
@@ -96,7 +160,7 @@ describe('CQLClient', () => {
 
       const result = await client.createDatabase({
         nodeCount: 3,
-        owner: '0x1234' as `0x${string}`,
+        owner: MOCK_ADDRESS,
       })
 
       expect(result.id).toBe('db-123')
@@ -104,12 +168,11 @@ describe('CQLClient', () => {
     })
 
     it('should create database with full config', async () => {
-      const mockDb = {
+      const mockDb = createMockDatabaseInfo({
         id: 'db-456',
-        owner: '0x5678',
+        owner: MOCK_ADDRESS_2,
         status: 'creating',
-        createdAt: Date.now(),
-      }
+      })
       mockFetch.mockImplementationOnce(() =>
         Promise.resolve({
           ok: true,
@@ -122,8 +185,8 @@ describe('CQLClient', () => {
         useEventualConsistency: true,
         regions: ['us-east', 'eu-west'],
         schema: 'CREATE TABLE test (id INT)',
-        owner: '0x5678' as `0x${string}`,
-        paymentToken: '0xtoken' as `0x${string}`,
+        owner: MOCK_ADDRESS_2,
+        paymentToken: MOCK_ADDRESS,
       })
 
       expect(result.id).toBe('db-456')
@@ -143,18 +206,13 @@ describe('CQLClient', () => {
       await expect(
         client.createDatabase({
           nodeCount: 3,
-          owner: '0x1234' as `0x${string}`,
+          owner: MOCK_ADDRESS,
         }),
       ).rejects.toThrow('Request failed: 400')
     })
 
     it('should get database info', async () => {
-      const mockInfo = {
-        id: 'db-123',
-        owner: '0x1234',
-        status: 'running',
-        createdAt: Date.now(),
-      }
+      const mockInfo = createMockDatabaseInfo()
       mockFetch.mockImplementationOnce(() =>
         Promise.resolve({
           ok: true,
@@ -174,7 +232,12 @@ describe('CQLClient', () => {
     })
 
     it('should list databases by owner', async () => {
-      const mockDbs = { databases: [{ id: 'db-1' }, { id: 'db-2' }] }
+      const mockDbs = {
+        databases: [
+          createMockDatabaseInfo({ id: 'db-1' }),
+          createMockDatabaseInfo({ id: 'db-2' }),
+        ],
+      }
       mockFetch.mockImplementationOnce(() =>
         Promise.resolve({
           ok: true,
@@ -182,7 +245,7 @@ describe('CQLClient', () => {
         } as Response),
       )
 
-      const result = await client.listDatabases('0x1234' as `0x${string}`)
+      const result = await client.listDatabases(MOCK_ADDRESS)
       expect(result.length).toBe(2)
       expect(result[0].id).toBe('db-1')
     })
@@ -432,8 +495,9 @@ describe('CQLClient', () => {
       )
 
       await client.grant('db-123', {
-        grantee: '0x5678' as `0x${string}`,
-        permissions: ['read', 'write'],
+        grantee: MOCK_ADDRESS_2,
+        table: 'test_table',
+        permissions: ['SELECT', 'INSERT'],
       })
 
       const call = mockFetch.mock.calls[0]
@@ -447,8 +511,9 @@ describe('CQLClient', () => {
       )
 
       await client.revoke('db-123', {
-        grantee: '0x5678' as `0x${string}`,
-        permissions: ['write'],
+        grantee: MOCK_ADDRESS_2,
+        table: 'test_table',
+        permissions: ['INSERT'],
       })
 
       const call = mockFetch.mock.calls[0]
@@ -457,7 +522,7 @@ describe('CQLClient', () => {
 
     it('should list ACL rules', async () => {
       const mockRules = {
-        rules: [{ grantee: '0x1234', permissions: ['read', 'write'] }],
+        rules: [createMockACLRule()],
       }
       mockFetch.mockImplementationOnce(() =>
         Promise.resolve({
@@ -468,7 +533,7 @@ describe('CQLClient', () => {
 
       const result = await client.listACL('db-123')
       expect(result.length).toBe(1)
-      expect(result[0].permissions).toContain('read')
+      expect(result[0].permissions).toContain('SELECT')
     })
   })
 
@@ -476,8 +541,8 @@ describe('CQLClient', () => {
     it('should list available plans', async () => {
       const mockPlans = {
         plans: [
-          { id: 'basic', name: 'Basic', nodeCount: 3 },
-          { id: 'pro', name: 'Pro', nodeCount: 5 },
+          createMockRentalPlan({ id: 'basic', name: 'Basic', nodeCount: 3 }),
+          createMockRentalPlan({ id: 'pro', name: 'Pro', nodeCount: 5 }),
         ],
       }
       mockFetch.mockImplementationOnce(() =>
@@ -493,11 +558,7 @@ describe('CQLClient', () => {
     })
 
     it('should create rental', async () => {
-      const mockRental = {
-        id: 'rental-123',
-        databaseId: 'db-456',
-        status: 'active',
-      }
+      const mockRental = createMockRentalInfo({ databaseId: 'db-456' })
       mockFetch.mockImplementationOnce(() =>
         Promise.resolve({
           ok: true,
@@ -506,14 +567,13 @@ describe('CQLClient', () => {
       )
 
       const result = await client.createRental({
-        planId: 'basic',
-        owner: '0x1234' as `0x${string}`,
+        planId: 'plan-basic',
       })
       expect(result.id).toBe('rental-123')
     })
 
     it('should get rental info', async () => {
-      const mockRental = { id: 'rental-123', status: 'active' }
+      const mockRental = createMockRentalInfo()
       mockFetch.mockImplementationOnce(() =>
         Promise.resolve({
           ok: true,
@@ -522,14 +582,13 @@ describe('CQLClient', () => {
       )
 
       const result = await client.getRental('rental-123')
-      expect(result.status).toBe('active')
+      expect(result.paymentStatus).toBe('current')
     })
 
     it('should extend rental', async () => {
-      const mockRental = {
-        id: 'rental-123',
+      const mockRental = createMockRentalInfo({
         expiresAt: Date.now() + 60 * 24 * 60 * 60 * 1000,
-      }
+      })
       mockFetch.mockImplementationOnce(() =>
         Promise.resolve({
           ok: true,
@@ -557,11 +616,7 @@ describe('CQLClient', () => {
 
   describe('Block Producer', () => {
     it('should get block producer info', async () => {
-      const mockInfo = {
-        nodeCount: 10,
-        blockHeight: 1000,
-        pendingTransactions: 5,
-      }
+      const mockInfo = createMockBlockProducerInfo()
       mockFetch.mockImplementationOnce(() =>
         Promise.resolve({
           ok: true,
@@ -570,7 +625,7 @@ describe('CQLClient', () => {
       )
 
       const result = await client.getBlockProducerInfo()
-      expect(result.nodeCount).toBe(10)
+      expect(result.blockHeight).toBe(1000)
     })
   })
 
@@ -688,7 +743,9 @@ describe('Concurrent Operations', () => {
     const results = await Promise.all(promises)
 
     expect(results.length).toBe(100)
-    results.forEach((r) => expect(r.rowCount).toBe(1))
+    results.forEach((r) => {
+      expect(r.rowCount).toBe(1)
+    })
   })
 
   it('should handle mixed read/write operations', async () => {

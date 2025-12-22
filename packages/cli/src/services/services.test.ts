@@ -3,6 +3,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
+import { JNSRegistrationResponseSchema, validate } from '../schemas'
 import { createInferenceServer, type LocalInferenceServer } from './inference'
 import { createOrchestrator, type ServicesOrchestrator } from './orchestrator'
 
@@ -280,11 +281,11 @@ describe('ServicesOrchestrator', () => {
         }),
       })
       expect(response.ok).toBe(true)
-      const data = (await response.json()) as {
-        success: boolean
-        name: string
-        total: number
-      }
+      const data = validate(
+        await response.json(),
+        JNSRegistrationResponseSchema,
+        'JNS registration response',
+      )
       expect(data.success).toBe(true)
       expect(data.name).toBe(uniqueName)
       expect(data.total).toBeGreaterThan(0)

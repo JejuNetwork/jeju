@@ -732,7 +732,7 @@ export function createGasRouter(
 ): GasIntentRouter {
   const fullConfig: RouterConfig = {
     rpcUrl:
-      config.rpcUrl || process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
+      config.rpcUrl || process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
     chainId: config.chainId || 1337,
     paymasterFactoryAddress: (config.paymasterFactoryAddress ||
       process.env.PAYMASTER_FACTORY_ADDRESS ||

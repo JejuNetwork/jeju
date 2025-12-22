@@ -63,6 +63,7 @@ export default function ReportButton({
   if (variant === 'icon') {
     return (
       <button
+        type="button"
         onClick={handleReport}
         className="p-2 text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
         title="Report this user"
@@ -75,6 +76,7 @@ export default function ReportButton({
   if (variant === 'text') {
     return (
       <button
+        type="button"
         onClick={handleReport}
         className="text-sm text-gray-600 hover:text-red-600 transition-colors flex items-center gap-1"
       >
@@ -86,6 +88,7 @@ export default function ReportButton({
 
   return (
     <button
+      type="button"
       onClick={handleReport}
       className="px-3 py-1.5 bg-red-50 text-red-600 hover:bg-red-100 rounded-lg transition-colors flex items-center gap-2 text-sm font-medium"
     >

@@ -12,9 +12,8 @@
       "@components/*": ["./src/components/*"],
       "@platform/*": ["./src/platform/*"]
     },
-    "types": ["vite/client", "@types/chrome", "bun"]
+    "types": ["@types/chrome", "bun"]
   },
   "include": ["src"],
-  "exclude": ["src/extension/**/*", "**/*.test.ts", "**/*.test.tsx"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "exclude": ["src/extension/**/*", "**/*.test.ts", "**/*.test.tsx"]
 }

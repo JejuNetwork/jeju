@@ -10,6 +10,12 @@
  */
 
 import { getDWSComputeUrl } from '@jejunetwork/config'
+import {
+  DWSChatResponseSchema,
+  DWSNodeStatsSchema,
+  parseOrThrow,
+  safeParse,
+} from '../schemas'
 import type { AgentCharacter } from '../types'
 import { createLogger, type Logger } from './logger'
 
@@ -72,8 +78,8 @@ export async function checkDWSInferenceAvailable(): Promise<{
   if (!r?.ok) {
     return { available: false, nodes: 0, error: 'DWS not reachable' }
   }
-  const stats = (await r.json()) as { inference?: { activeNodes?: number } }
-  const activeNodes = stats.inference?.activeNodes ?? 0
+  const stats = safeParse(DWSNodeStatsSchema, await r.json())
+  const activeNodes = stats?.inference?.activeNodes ?? 0
   return {
     available: activeNodes > 0,
     nodes: activeNodes,
@@ -94,17 +100,6 @@ interface DWSChatRequest {
   messages: DWSChatMessage[]
   temperature?: number
   max_tokens?: number
-}
-
-interface DWSChatResponse {
-  choices: Array<{
-    message: { role: string; content: string }
-    finish_reason: string
-  }>
-  node?: string
-  provider?: string
-  error?: string
-  message?: string
 }
 
 /**
@@ -136,19 +131,20 @@ async function generateResponse(
   })
 
   if (!response.ok) {
-    const data = (await response.json().catch(() => ({}))) as DWSChatResponse
-    if (data.error === 'No inference nodes available') {
+    const rawData = await response.json().catch(() => ({}))
+    const data = safeParse(DWSChatResponseSchema, rawData)
+    if (data?.error === 'No inference nodes available') {
       throw new Error(
         `DWS has no inference nodes available. ` +
           `For local dev, run: cd apps/dws && bun run inference\n` +
           `For production, ensure inference nodes are registered with the DWS network.`,
       )
     }
-    const error = data.error ?? data.message ?? (await response.text())
+    const error = data?.error ?? data?.message ?? (await response.text())
     throw new Error(`DWS inference failed: ${response.status} ${error}`)
   }
 
-  const data = (await response.json()) as DWSChatResponse
+  const data = parseOrThrow(DWSChatResponseSchema, await response.json(), 'DWS chat response')
   return data.choices[0]?.message?.content ?? ''
 }
 
@@ -199,6 +195,7 @@ export class CrucibleAgentRuntime {
     // Load jeju plugin actions if not already loaded
     if (!jejuPluginLoaded) {
       try {
+        // Conditional dynamic import: jeju plugin may not be available in all environments
         const jejuPlugin = await import('@jejunetwork/eliza-plugin')
         if (jejuPlugin?.jejuPlugin?.actions) {
           jejuActions = (jejuPlugin.jejuPlugin.actions as JejuAction[]).map(

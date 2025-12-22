@@ -169,6 +169,7 @@ async function main() {
 
   // Test Type Imports
   console.log('\n4. Type System Verification')
+  // Conditional import: only loaded during test execution
   await test('RLAIF types are properly exported', async () => {
     const { RLAlgorithm, RLRunState } = await import(
       '../apps/dws/src/rlaif/types'
@@ -179,6 +180,7 @@ async function main() {
       throw new Error('RLRunState incorrect')
   })
 
+  // Conditional import: only loaded during test execution
   await test('Coordinator can be imported', async () => {
     const { createRLAIFCoordinator } = await import(
       '../apps/dws/src/rlaif/coordinator'
@@ -187,6 +189,7 @@ async function main() {
       throw new Error('Not a function')
   })
 
+  // Conditional import: only loaded during test execution
   await test('TrajectoryStore can be imported', async () => {
     const { createTrajectoryStore } = await import(
       '../apps/dws/src/rlaif/trajectory-store'
@@ -195,6 +198,7 @@ async function main() {
       throw new Error('Not a function')
   })
 
+  // Conditional import: only loaded during test execution
   await test('RulerScorer can be imported', async () => {
     const { createRulerScorer } = await import(
       '../apps/dws/src/rlaif/ruler-scorer'
@@ -205,6 +209,7 @@ async function main() {
 
   // Test Babylon Adapter
   console.log('\n5. Babylon Adapter Verification')
+  // Conditional import: only loaded during test execution
   await test('Babylon adapter exports are available', async () => {
     const exports = await import(
       '../vendor/babylon/packages/training/src/compute/jeju-rlaif-adapter'
@@ -217,6 +222,7 @@ async function main() {
       throw new Error('trainWithJejuRLAIF not exported')
   })
 
+  // Conditional import: only loaded during test execution
   await test('Babylon compute index exports adapter', async () => {
     const exports = await import(
       '../vendor/babylon/packages/training/src/compute/index'
@@ -229,6 +235,7 @@ async function main() {
 
   // Test CLI Commands
   console.log('\n6. CLI Command Verification')
+  // Conditional import: only loaded during test execution
   await test('Training command is exported', async () => {
     const { trainingCommand } = await import(
       '../packages/cli/src/commands/training'

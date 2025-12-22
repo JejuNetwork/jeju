@@ -133,6 +133,7 @@ export function createKMSRouter(): Hono {
     const privateKey = `0x${Array.from(randomBytes)
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('')}` as Hex
+    // Dynamic import: only needed when creating keys (conditional - inside route handler)
     const { privateKeyToAccount } = await import('viem/accounts')
     const account = privateKeyToAccount(privateKey as `0x${string}`)
 
@@ -287,6 +288,7 @@ export function createKMSRouter(): Hono {
     // Production: would initiate MPC signing session with threshold parties
     const mpcEnabled = !!process.env.MPC_COORDINATOR_URL
 
+    // Dynamic import: only needed when signing (conditional - inside route handler)
     const { privateKeyToAccount } = await import('viem/accounts')
     const { keccak256, toBytes, toHex: _toHex, fromHex } = await import('viem')
 
@@ -329,6 +331,7 @@ export function createKMSRouter(): Hono {
     )
 
     // AES-256-GCM encryption (development mode - key stored in memory)
+    // Dynamic import: only needed when encrypting (conditional - inside route handler)
     const nodeCrypto = await import('node:crypto')
     const { keccak256, toBytes } = await import('viem')
 
@@ -368,6 +371,7 @@ export function createKMSRouter(): Hono {
     const mpcEnabled = !!process.env.MPC_COORDINATOR_URL
 
     // Decrypt with AES-256-GCM (development mode)
+    // Dynamic import: only needed when decrypting (conditional - inside route handler)
     const nodeCrypto = await import('node:crypto')
     const { keccak256, toBytes } = await import('viem')
 
@@ -447,6 +451,7 @@ export function createKMSRouter(): Hono {
     }
 
     const id = crypto.randomUUID()
+    // Dynamic import: only needed when storing secrets (conditional - inside route handler)
     const { keccak256, toBytes } = await import('viem')
     const nodeCrypto = await import('node:crypto')
 
@@ -554,6 +559,7 @@ export function createKMSRouter(): Hono {
     }
 
     // Decrypt the value with AES-256-GCM
+    // Dynamic import: only needed when revealing secrets (conditional - inside route handler)
     const { keccak256, toBytes } = await import('viem')
     const nodeCrypto = await import('node:crypto')
 

@@ -1,0 +1,49 @@
+{
+  "name": "factory",
+  "version": "1.0.0",
+  "description": "Factory - Jeju Developer Coordination Hub",
+  "main": "index.ts",
+  "compatibility_date": "2024-01-01",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "factory.jejunetwork.org/*", "zone_id": "auto" },
+    { "pattern": "factory.jns/*", "zone_id": "auto" }
+  ],
+  "bindings": [
+    {
+      "type": "plain_text",
+      "name": "COVENANTSQL_NODES",
+      "text": "http://localhost:4661"
+    },
+    {
+      "type": "plain_text",
+      "name": "FACTORY_DATABASE_ID",
+      "text": "factory"
+    },
+    {
+      "type": "secret_text",
+      "name": "FACTORY_DB_PRIVATE_KEY"
+    },
+    {
+      "type": "plain_text",
+      "name": "DWS_URL",
+      "text": "http://localhost:4030"
+    },
+    {
+      "type": "plain_text",
+      "name": "RPC_URL",
+      "text": "http://localhost:6546"
+    }
+  ],
+  "triggers": {
+    "crons": []
+  },
+  "tee": {
+    "enabled": false,
+    "attestation_required": false
+  },
+  "limits": {
+    "cpu_ms": 50,
+    "memory_mb": 128
+  }
+}

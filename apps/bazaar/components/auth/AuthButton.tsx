@@ -41,7 +41,7 @@ type AuthMethod =
   | 'twitter'
   | 'discord'
 
-import { WALLETCONNECT_PROJECT_ID } from '@/config'
+import { WALLETCONNECT_PROJECT_ID } from '../../config'
 
 export function AuthButton({
   onAuthSuccess,
@@ -232,6 +232,7 @@ export function AuthButton({
     return (
       <div className="relative">
         <button
+          type="button"
           onClick={() => setShowModal(!showModal)}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl transition-all duration-200 ${className}`}
           style={{
@@ -249,9 +250,11 @@ export function AuthButton({
 
         {showModal && (
           <>
-            <div
-              className="fixed inset-0 z-40"
+            <button
+              type="button"
+              className="fixed inset-0 z-40 cursor-default"
               onClick={() => setShowModal(false)}
+              aria-label="Close dropdown"
             />
             <div
               className="absolute right-0 top-full mt-2 w-48 rounded-xl border shadow-lg z-50 overflow-hidden"
@@ -261,6 +264,7 @@ export function AuthButton({
               }}
             >
               <button
+                type="button"
                 onClick={handleDisconnect}
                 className="w-full flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-secondary)] text-left"
               >
@@ -277,6 +281,7 @@ export function AuthButton({
   return (
     <>
       <button
+        type="button"
         onClick={() => setShowModal(true)}
         className={`btn-primary ${className}`}
       >
@@ -286,9 +291,11 @@ export function AuthButton({
       {/* Auth Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default"
             onClick={() => setShowModal(false)}
+            aria-label="Close modal"
           />
 
           <div
@@ -316,6 +323,7 @@ export function AuthButton({
                 </div>
               </div>
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
                 className="p-2 rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
               >
@@ -341,6 +349,7 @@ export function AuthButton({
                   Wallet
                 </p>
                 <button
+                  type="button"
                   onClick={() => handleWalletConnect('injected')}
                   disabled={isLoading}
                   className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-[var(--bg-secondary)]"
@@ -361,6 +370,7 @@ export function AuthButton({
 
                 {WALLETCONNECT_PROJECT_ID && (
                   <button
+                    type="button"
                     onClick={() => handleWalletConnect('walletConnect')}
                     disabled={isLoading}
                     className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-[var(--bg-secondary)]"
@@ -389,6 +399,7 @@ export function AuthButton({
                   Social
                 </p>
                 <button
+                  type="button"
                   onClick={handleFarcasterConnect}
                   disabled={isLoading}
                   className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-purple-500/10 hover:border-purple-500/30"
@@ -415,6 +426,7 @@ export function AuthButton({
                     (provider) => (
                       <button
                         key={provider}
+                        type="button"
                         onClick={() => handleSocialConnect(provider)}
                         disabled={isLoading}
                         className="flex items-center justify-center p-3 rounded-xl border transition-all hover:bg-[var(--bg-secondary)]"
@@ -444,6 +456,7 @@ export function AuthButton({
                     Passkey
                   </p>
                   <button
+                    type="button"
                     onClick={handlePasskeyConnect}
                     disabled={isLoading}
                     className="w-full flex items-center gap-4 p-4 rounded-xl border transition-all hover:bg-emerald-500/10 hover:border-emerald-500/30"
@@ -491,6 +504,7 @@ export function AuthButton({
 function Spinner() {
   return (
     <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24" fill="none">
+      <title>Loading</title>
       <circle
         className="opacity-25"
         cx="12"

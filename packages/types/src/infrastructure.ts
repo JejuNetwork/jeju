@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { NetworkSchema, type NetworkType } from './chain'
+import type { NetworkType } from './chain'
 import {
   MAX_ARRAY_LENGTH,
   MAX_RECORD_KEYS,
@@ -8,8 +8,6 @@ import {
   MAX_STRING_LENGTH,
 } from './validation'
 
-// Re-export NetworkSchema as Environment for backward compatibility
-export { NetworkSchema as EnvironmentSchema }
 export type Environment = NetworkType
 
 // ============ Deployment & Infrastructure Status Types ============

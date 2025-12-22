@@ -23,6 +23,10 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
+import {
+  CloudflareDNSRecordListSchema,
+  expectValid,
+} from '../../schemas'
 
 // AWS SDK types (optional - loaded dynamically)
 interface ResourceRecordSet {
@@ -109,6 +113,7 @@ function castSDKClass<T>(sdkExport: { new (...args: never[]): object }): T {
   return sdkExport as T
 }
 
+// Conditional import: AWS SDK is optional - only loaded if Route53 provider is configured
 async function loadAWSSDK(): Promise<boolean> {
   try {
     const aws = await import('@aws-sdk/client-route-53')
@@ -130,6 +135,7 @@ async function loadAWSSDK(): Promise<boolean> {
   }
 }
 
+// Conditional import: GCP SDK is optional - only loaded if Cloud DNS provider is configured
 async function loadGCPSDK(): Promise<boolean> {
   try {
     const gcp = await import('@google-cloud/dns')
@@ -654,9 +660,8 @@ export class DNSSyncService {
           this.config.retryDelayMs,
         )
 
-        const listData = (await listResponse.json()) as {
-          result: Array<{ id: string }>
-        }
+        const listDataRaw = await listResponse.json()
+        const listData = expectValid(CloudflareDNSRecordListSchema, listDataRaw, 'Cloudflare DNS records')
         const existing = listData.result[0]
 
         const recordData = {

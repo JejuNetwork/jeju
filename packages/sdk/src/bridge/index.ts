@@ -18,18 +18,20 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum BridgeType {
-  CANONICAL = 0,
-  HYPERLANE = 1,
-  ZK = 2,
-}
+export const BridgeType = {
+  CANONICAL: 0,
+  HYPERLANE: 1,
+  ZK: 2,
+} as const
+export type BridgeType = (typeof BridgeType)[keyof typeof BridgeType]
 
-export enum MessageStatus {
-  PENDING = 0,
-  RELAYED = 1,
-  FAILED = 2,
-  FINALIZED = 3,
-}
+export const MessageStatus = {
+  PENDING: 0,
+  RELAYED: 1,
+  FAILED: 2,
+  FINALIZED: 3,
+} as const
+export type MessageStatus = (typeof MessageStatus)[keyof typeof MessageStatus]
 
 export interface BridgeDeposit {
   depositId: Hex

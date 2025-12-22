@@ -62,7 +62,7 @@ describe('Complete User Workflow E2E', () => {
   beforeAll(async () => {
     logger.info('🚀 Setting up complete workflow test...')
 
-    const rpcUrl = 'http://localhost:9545'
+    const rpcUrl = 'http://localhost:6546'
     const chain = inferChainFromRpcUrl(rpcUrl)
 
     publicClient = createPublicClient({
@@ -391,10 +391,12 @@ describe('Auto-Ban Threshold Workflow E2E', () => {
 
     const newUserPrivateKey = generatePrivateKey()
     const newUserAccount = privateKeyToAccount(newUserPrivateKey)
+    const chain = publicClient.chain
+    if (!chain) throw new Error('Public client chain not configured')
     const newUser = createWalletClient({
       account: newUserAccount,
-      chain: publicClient.chain!,
-      transport: http('http://localhost:9545'),
+      chain,
+      transport: http('http://localhost:6546'),
     })
 
     // Fund user with ETH

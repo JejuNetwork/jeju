@@ -210,9 +210,9 @@ export default function AppealSubmission({
 
       {/* New Evidence Upload */}
       <div>
-        <label className="block text-sm font-medium mb-2">
+        <span className="block text-sm font-medium mb-2">
           New Evidence * (IPFS Upload)
-        </label>
+        </span>
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
           {!evidenceFile ? (
             <>
@@ -249,8 +249,14 @@ export default function AppealSubmission({
 
       {/* Explanation */}
       <div>
-        <label className="block text-sm font-medium mb-2">Explanation *</label>
+        <label
+          htmlFor="appeal-explanation"
+          className="block text-sm font-medium mb-2"
+        >
+          Explanation *
+        </label>
         <textarea
+          id="appeal-explanation"
           value={explanation}
           onChange={(e) => setExplanation(e.target.value)}
           placeholder="Explain why the ban was unjust and what new evidence you're providing..."

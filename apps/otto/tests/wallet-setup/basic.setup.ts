@@ -1,11 +1,6 @@
-/**
- * Synpress Wallet Setup for Otto E2E Tests
- */
-
 import { defineWalletSetup } from '@synthetixio/synpress'
 import { MetaMask } from '@synthetixio/synpress/playwright'
 
-// Test seed phrase (DO NOT use in production)
 const SEED_PHRASE =
   'test test test test test test test test test test test junk'
 const PASSWORD = 'Tester@1234'
@@ -19,7 +14,7 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
   // Add Jeju Network
   await metamask.addNetwork({
     name: 'Jeju Network',
-    rpcUrl: 'http://localhost:9545',
+    rpcUrl: 'http://localhost:6546',
     chainId: 420691,
     symbol: 'JEJU',
     blockExplorer: 'http://localhost:4000',

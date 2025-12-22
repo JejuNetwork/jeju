@@ -74,10 +74,15 @@ export default function CDNPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
           >
@@ -148,6 +153,7 @@ export default function CDNPage() {
               Create an endpoint to serve content from the global edge network
             </p>
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setShowModal(true)}
             >
@@ -183,6 +189,7 @@ export default function CDNPage() {
                           {endpoint.origin}
                         </code>
                         <button
+                          type="button"
                           className="btn btn-ghost btn-icon"
                           style={{ padding: '0.25rem' }}
                           onClick={() =>
@@ -225,7 +232,11 @@ export default function CDNPage() {
                       {formatBytes(endpoint.bandwidth)}
                     </td>
                     <td>
-                      <button className="btn btn-ghost btn-sm" title="Delete">
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        title="Delete"
+                      >
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -250,10 +261,10 @@ export default function CDNPage() {
             gap: '1rem',
           }}
         >
-          <button className="btn btn-secondary">
+          <button type="button" className="btn btn-secondary">
             <RefreshCw size={16} /> Purge All Cache
           </button>
-          <button className="btn btn-secondary">
+          <button type="button" className="btn btn-secondary">
             <Trash2 size={16} /> Purge by Path
           </button>
         </div>
@@ -299,11 +310,29 @@ export default function CDNPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowModal(false)}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">Create CDN Endpoint</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowModal(false)}
               >
@@ -313,8 +342,11 @@ export default function CDNPage() {
             <form onSubmit={handleCreate}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Origin URL *</label>
+                  <label htmlFor="cdn-origin" className="form-label">
+                    Origin URL *
+                  </label>
                   <input
+                    id="cdn-origin"
                     className="input"
                     placeholder="https://your-origin.com"
                     value={formData.origin}
@@ -328,8 +360,11 @@ export default function CDNPage() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Custom Domain</label>
+                  <label htmlFor="cdn-domain" className="form-label">
+                    Custom Domain
+                  </label>
                   <input
+                    id="cdn-domain"
                     className="input"
                     placeholder="cdn.yourdomain.com"
                     value={formData.customDomain}

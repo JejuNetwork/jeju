@@ -29,6 +29,12 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
+import {
+  expectJson,
+  expectValid,
+  IPFSAddResponseLineSchema,
+  JejuAppManifestSchema,
+} from '../../schemas'
 
 // Configuration
 interface DeployConfig {
@@ -271,10 +277,9 @@ async function uploadToIPFS(
   const lines = text.trim().split('\n')
 
   // The last line is the directory hash
-  const lastLine = JSON.parse(lines[lines.length - 1]) as {
-    Hash: string
-    Name: string
-  }
+  const lastLineStr = lines[lines.length - 1]
+  if (!lastLineStr) throw new Error('Empty IPFS response')
+  const lastLine = expectJson(lastLineStr, IPFSAddResponseLineSchema, 'IPFS add response')
   const cid = lastLine.Hash
 
   console.log(`✅ Uploaded to IPFS: ${cid}`)
@@ -411,11 +416,6 @@ async function deploy(config: DeployConfig): Promise<DeployResult> {
   }
 }
 
-interface JejuAppManifest {
-  jns?: { name?: string }
-  decentralization?: { frontend?: { jnsName?: string } }
-}
-
 // Parse command line arguments
 async function parseArgs(): Promise<DeployConfig> {
   const args = process.argv.slice(2)
@@ -445,18 +445,16 @@ async function parseArgs(): Promise<DeployConfig> {
   let jnsName = `${appName}.jeju`
 
   if (existsSync(manifestPath)) {
-    const manifest = (await Bun.file(manifestPath).json()) as JejuAppManifest
-    jnsName =
-      manifest.decentralization?.frontend?.jnsName ??
-      manifest.jns?.name ??
-      jnsName
+    const manifestRaw = await Bun.file(manifestPath).json()
+    const manifest = expectValid(JejuAppManifestSchema, manifestRaw, `manifest ${appName}`)
+    jnsName = manifest.jns?.name ?? jnsName
   }
 
   // Network-specific configuration
   const networkConfigs = {
     localnet: {
       ipfsApiUrl: process.env.IPFS_API_URL ?? 'http://localhost:5001',
-      rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
+      rpcUrl: process.env.RPC_URL ?? 'http://localhost:6546',
       jnsRegistryAddress: (process.env.JNS_REGISTRY_ADDRESS ??
         '0x0000000000000000000000000000000000000000') as Address,
       jnsResolverAddress: (process.env.JNS_RESOLVER_ADDRESS ??

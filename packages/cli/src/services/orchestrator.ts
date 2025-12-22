@@ -22,9 +22,19 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type Subprocess, spawn } from 'bun'
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
 import { logger } from '../lib/logger'
+import {
+  CoinGeckoPriceResponseSchema,
+  PriceDataResponseSchema,
+  validate,
+} from '../schemas'
 import { DEFAULT_PORTS } from '../types'
 import { createInferenceServer, type LocalInferenceServer } from './inference'
+
+// Schema for contract addresses from deployment files
+// Accept any object structure - we handle the extraction in code
+const ContractAddressesSchema = z.record(z.string(), z.unknown())
 
 export interface ServiceConfig {
   inference: boolean
@@ -87,10 +97,12 @@ async function fetchRealPrices(): Promise<
       { signal: AbortSignal.timeout(5000) },
     )
     if (response.ok) {
-      const data = (await response.json()) as {
-        ethereum?: { usd: number }
-        bitcoin?: { usd: number }
-      }
+      const rawData = await response.json()
+      const data = validate(
+        rawData,
+        CoinGeckoPriceResponseSchema,
+        'CoinGecko price response',
+      )
       if (data.ethereum?.usd) {
         prices['ETH/USD'] = {
           price: data.ethereum.usd,
@@ -179,7 +191,7 @@ class ServicesOrchestrator {
   private rootDir: string
   private rpcUrl: string
 
-  constructor(rootDir: string, rpcUrl = 'http://localhost:9545') {
+  constructor(rootDir: string, rpcUrl = 'http://localhost:6546') {
     this.rootDir = rootDir
     this.rpcUrl = rpcUrl
   }
@@ -387,6 +399,7 @@ class ServicesOrchestrator {
           }
 
           // Read from on-chain PriceOracle
+          // Dynamic import: only needed when PriceOracle is deployed (conditional)
           const { createPublicClient, http } = await import('viem')
           const client = createPublicClient({ transport: http(rpcUrl) })
 
@@ -438,10 +451,12 @@ class ServicesOrchestrator {
           const response = await fetch(
             `http://localhost:${port}/api/v1/prices?pair=${encodeURIComponent(pair)}`,
           )
-          const data = (await response.json()) as {
-            price?: number
-            priceRaw?: string
-          }
+          const rawData = await response.json()
+          const data = validate(
+            rawData,
+            PriceDataResponseSchema,
+            'price data response',
+          )
 
           if (data.price) {
             return Response.json({
@@ -502,8 +517,19 @@ class ServicesOrchestrator {
     for (const path of paths) {
       if (existsSync(path)) {
         if (path.endsWith('.json')) {
-          const data = JSON.parse(readFileSync(path, 'utf-8'))
-          return data.contracts || data
+          const rawData = JSON.parse(readFileSync(path, 'utf-8'))
+          // Validate structure is an object
+          const validated = validate(
+            rawData,
+            ContractAddressesSchema,
+            `contract addresses at ${path}`,
+          )
+          // Handle both formats - if it has a contracts key, use that, otherwise use the whole object
+          const contracts = validated.contracts
+          if (typeof contracts === 'object' && contracts !== null) {
+            return contracts as Record<string, string | Record<string, string>>
+          }
+          return validated as Record<string, string | Record<string, string>>
         } else {
           // Parse .env file
           const content = readFileSync(path, 'utf-8')
@@ -743,7 +769,7 @@ class ServicesOrchestrator {
       'function setText(bytes32 node, string key, string value) external',
     ]
 
-    // Import viem utilities for namehash
+    // Dynamic import: viem utilities only needed when JNS service is started (conditional)
     const { keccak256, encodePacked, toHex } = await import('viem')
 
     // ENS-compatible namehash
@@ -789,6 +815,7 @@ class ServicesOrchestrator {
           const node = namehash(name)
 
           // Call on-chain resolver
+          // Dynamic import: only needed when resolver is deployed (conditional)
           const { createPublicClient, http } = await import('viem')
           const client = createPublicClient({ transport: http(rpcUrl) })
 
@@ -841,6 +868,7 @@ class ServicesOrchestrator {
             })
           }
 
+          // Dynamic import: only needed when registrar is deployed (conditional)
           const { createPublicClient, http } = await import('viem')
           const client = createPublicClient({ transport: http(rpcUrl) })
 
@@ -880,6 +908,7 @@ class ServicesOrchestrator {
             })
           }
 
+          // Dynamic import: only needed when registrar is deployed (conditional)
           const { createPublicClient, http } = await import('viem')
           const client = createPublicClient({ transport: http(rpcUrl) })
           const duration = BigInt(years * 365 * 24 * 60 * 60) // years in seconds

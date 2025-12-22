@@ -12,41 +12,47 @@ import type { NetworkType } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { getContractAddresses, getServicesConfig } from '../config'
+import { DatasetUploadResponseSchema, JsonRecordSchema } from '../shared/schemas'
 import type { JejuWallet } from '../wallet'
 
 // ============================================================================
 // Types
 // ============================================================================
 
-export enum DatasetFormat {
-  PARQUET = 0,
-  JSON = 1,
-  CSV = 2,
-  ARROW = 3,
-  TEXT = 4,
-  IMAGE = 5,
-  AUDIO = 6,
-  VIDEO = 7,
-  CUSTOM = 8,
-}
+export const DatasetFormat = {
+  PARQUET: 0,
+  JSON: 1,
+  CSV: 2,
+  ARROW: 3,
+  TEXT: 4,
+  IMAGE: 5,
+  AUDIO: 6,
+  VIDEO: 7,
+  CUSTOM: 8,
+} as const
+export type DatasetFormat = (typeof DatasetFormat)[keyof typeof DatasetFormat]
 
-export enum DatasetLicense {
-  MIT = 0,
-  APACHE_2 = 1,
-  CC_BY_4 = 2,
-  CC_BY_SA_4 = 3,
-  CC_BY_NC_4 = 4,
-  CC0 = 5,
-  ODC_BY = 6,
-  CUSTOM = 7,
-  PROPRIETARY = 8,
-}
+export const DatasetLicense = {
+  MIT: 0,
+  APACHE_2: 1,
+  CC_BY_4: 2,
+  CC_BY_SA_4: 3,
+  CC_BY_NC_4: 4,
+  CC0: 5,
+  ODC_BY: 6,
+  CUSTOM: 7,
+  PROPRIETARY: 8,
+} as const
+export type DatasetLicense =
+  (typeof DatasetLicense)[keyof typeof DatasetLicense]
 
-export enum DatasetAccessLevel {
-  PUBLIC = 0,
-  GATED = 1,
-  PRIVATE = 2,
-}
+export const DatasetAccessLevel = {
+  PUBLIC: 0,
+  GATED: 1,
+  PRIVATE: 2,
+} as const
+export type DatasetAccessLevel =
+  (typeof DatasetAccessLevel)[keyof typeof DatasetAccessLevel]
 
 export interface Dataset {
   datasetId: Hex
@@ -508,13 +514,34 @@ export function createDatasetsModule(
 
         for (const line of lines) {
           if (line.trim()) {
-            yield JSON.parse(line) as Record<string, unknown>
+            // Use safeParse since individual JSONL rows may be malformed
+            let parsed: unknown
+            try {
+              parsed = JSON.parse(line)
+            } catch {
+              // Skip malformed JSON lines
+              continue
+            }
+            const result = JsonRecordSchema.safeParse(parsed)
+            if (result.success) {
+              yield result.data as Record<string, unknown>
+            }
           }
         }
       }
 
       if (buffer.trim()) {
-        yield JSON.parse(buffer) as Record<string, unknown>
+        // Use safeParse for final buffer
+        let parsed: unknown
+        try {
+          parsed = JSON.parse(buffer)
+        } catch {
+          return
+        }
+        const result = JsonRecordSchema.safeParse(parsed)
+        if (result.success) {
+          yield result.data as Record<string, unknown>
+        }
       }
     },
 
@@ -643,8 +670,8 @@ export function createDatasetsModule(
         throw new Error(`Failed to upload dataset: ${response.statusText}`)
       }
 
-      const result = (await response.json()) as { txHash: Hex; datasetId: Hex }
-      return result
+      const rawData: unknown = await response.json()
+      return DatasetUploadResponseSchema.parse(rawData)
     },
 
     async updateMetadata(datasetId, updates) {

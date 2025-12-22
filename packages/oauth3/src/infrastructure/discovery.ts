@@ -12,6 +12,11 @@ import {
   toBytes,
 } from 'viem'
 import { AuthProvider, type TEEAttestation, TEEProvider } from '../types.js'
+import {
+  ProvidersListResponseSchema,
+  TEEAttestationSchema,
+  validateResponse,
+} from '../validation.js'
 import { OAUTH3_APP_REGISTRY_ABI } from './abis.js'
 import {
   createOAuth3ComputeService,
@@ -276,7 +281,11 @@ export class OAuth3DecentralizedDiscovery {
     }).catch(() => null)
     if (!response?.ok) return [AuthProvider.WALLET]
 
-    const data = (await response.json()) as { providers?: string[] }
+    const data = validateResponse(
+      ProvidersListResponseSchema,
+      await response.json(),
+      'providers list response',
+    )
     if (!data.providers?.length) return [AuthProvider.WALLET]
 
     // Map string values to AuthProvider enum
@@ -338,7 +347,13 @@ export class OAuth3DecentralizedDiscovery {
     if (!attestResponse?.ok)
       return { valid: false, latency, error: 'No attestation' }
 
-    const attestation = (await attestResponse.json()) as TEEAttestation
+    const attestResult = TEEAttestationSchema.safeParse(
+      await attestResponse.json(),
+    )
+    if (!attestResult.success) {
+      return { valid: false, latency, error: 'Invalid attestation format' }
+    }
+    const attestation = attestResult.data
 
     // SECURITY: Simulated TEE is ONLY allowed in localnet (chain 420691 or 1337)
     // Use the configured chainId from the service, not environment variable

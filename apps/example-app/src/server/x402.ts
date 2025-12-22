@@ -7,8 +7,7 @@
  * All validation uses zod with expect/throw patterns.
  */
 
-import type { Context, Next } from 'hono'
-import { Hono } from 'hono'
+import { Elysia, type Context } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { createPublicClient, http, parseAbi, verifyMessage } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
@@ -82,7 +81,10 @@ export interface X402Middleware {
   config: X402Config
   requirePayment: (
     price?: keyof typeof PRICES,
-  ) => (c: Context, next: Next) => Promise<Response | undefined>
+  ) => (ctx: Context) => Promise<
+    | { error: string; details?: string }
+    | undefined
+  >
   verifyPayment: (header: string) => Promise<X402PaymentResult>
   getPaymentInfo: () => {
     address: Address
@@ -113,35 +115,36 @@ class X402MiddlewareImpl implements X402Middleware {
   }
 
   requirePayment(price: keyof typeof PRICES = 'basic') {
-    return async (c: Context, next: Next): Promise<Response | undefined> => {
+    return async (ctx: Context): Promise<
+      | { error: string; details?: string }
+      | undefined
+    > => {
       // Skip payment check if disabled
       if (!this.config.enabled) {
-        return next()
+        return undefined
       }
 
       // Free tier doesn't require payment
       if (price === 'free') {
-        return next()
+        return undefined
       }
 
-      const paymentHeader = c.req.header('X-Payment')
+      const paymentHeader = ctx.request.headers.get('X-Payment')
 
       if (!paymentHeader) {
-        return this.sendPaymentRequired(c, price)
+        return this.sendPaymentRequired(ctx.set, price)
       }
 
       const result = await this.verifyPayment(paymentHeader)
 
       if (!result.valid) {
-        return c.json(
-          { error: 'Payment verification failed', details: result.error },
-          402,
-        )
+        ctx.set.status = 402
+        return { error: 'Payment verification failed', details: result.error }
       }
 
-      // Payment verified, continue
-      c.set('x402TxHash', result.txHash)
-      return next()
+      // Payment verified, store txHash in context
+      ctx.store = { ...ctx.store, x402TxHash: result.txHash }
+      return undefined
     }
   }
 
@@ -295,28 +298,29 @@ class X402MiddlewareImpl implements X402Middleware {
     return { valid: true }
   }
 
-  private sendPaymentRequired(c: Context, tier: keyof typeof PRICES): Response {
+  private sendPaymentRequired(
+    set: Context['set'],
+    tier: keyof typeof PRICES,
+  ): { error: string; code: string; payment: Record<string, unknown> } {
     const price = PRICES[tier]
     const acceptedTokens = this.config.acceptedTokens
       .map((t) => t.symbol)
       .join(', ')
 
-    return c.json(
-      {
-        error: 'Payment Required',
-        code: 'PAYMENT_REQUIRED',
-        payment: {
-          recipient: this.config.paymentAddress,
-          amount: price.toString(),
-          currency: 'USDC',
-          acceptedTokens,
-          network: this.config.network,
-          message: `x402 payment required. Send ${price} to ${this.config.paymentAddress} and include X-Payment header.`,
-          headerFormat: 'token:amount:payer:payee:nonce:deadline:signature',
-        },
+    set.status = 402
+    return {
+      error: 'Payment Required',
+      code: 'PAYMENT_REQUIRED',
+      payment: {
+        recipient: this.config.paymentAddress,
+        amount: price.toString(),
+        currency: 'USDC',
+        acceptedTokens,
+        network: this.config.network,
+        message: `x402 payment required. Send ${price} to ${this.config.paymentAddress} and include X-Payment header.`,
+        headerFormat: 'token:amount:payer:payee:nonce:deadline:signature',
       },
-      402,
-    )
+    }
   }
 }
 
@@ -330,54 +334,49 @@ export function getX402Middleware(): X402Middleware {
 }
 
 // Helper to create x402 routes
-export function createX402Routes(): Hono {
-  const app = new Hono()
+export function createX402Routes(): Elysia {
   const x402 = getX402Middleware()
 
-  // Payment info endpoint
-  app.get('/info', (c) => {
-    const info = x402.getPaymentInfo()
-    return c.json({
-      enabled: x402.config.enabled,
-      paymentAddress: info.address,
-      acceptedTokens: info.tokens.map((t) => ({
-        symbol: t.symbol,
-        address: t.address,
-        decimals: t.decimals,
-      })),
-      prices: Object.fromEntries(
-        Object.entries(info.prices).map(([k, v]) => [k, v.toString()]),
-      ),
-      network: x402.config.network,
+  return new Elysia({ prefix: '/x402' })
+    .onError(({ error, set }) => {
+      console.error('[x402 Error]', error)
+
+      if (error instanceof ValidationError) {
+        set.status = 400
+        return { valid: false, error: error.message }
+      }
+
+      const safeMessage = sanitizeErrorMessage(error, IS_LOCALNET)
+      set.status = 500
+      return { valid: false, error: safeMessage }
     })
-  })
+    .get('/info', () => {
+      const info = x402.getPaymentInfo()
+      return {
+        enabled: x402.config.enabled,
+        paymentAddress: info.address,
+        acceptedTokens: info.tokens.map((t) => ({
+          symbol: t.symbol,
+          address: t.address,
+          decimals: t.decimals,
+        })),
+        prices: Object.fromEntries(
+          Object.entries(info.prices).map(([k, v]) => [k, v.toString()]),
+        ),
+        network: x402.config.network,
+      }
+    })
+    .post('/verify', async ({ body, set }) => {
+      const validatedInput = expectValid(
+        x402VerifySchema,
+        body,
+        'Verify payment input',
+      )
 
-  // Error handler with sanitized messages
-  app.onError((err, c) => {
-    // Log full error for debugging (server-side only)
-    console.error('[x402 Error]', err)
-
-    if (err instanceof ValidationError) {
-      return c.json({ valid: false, error: err.message }, 400)
-    }
-
-    // Return sanitized message to client
-    const safeMessage = sanitizeErrorMessage(err, IS_LOCALNET)
-    return c.json({ valid: false, error: safeMessage }, 500)
-  })
-
-  // Verify payment endpoint with validated input
-  app.post('/verify', async (c) => {
-    const body = await c.req.json()
-    const validatedInput = expectValid(
-      x402VerifySchema,
-      body,
-      'Verify payment input',
-    )
-
-    const result = await x402.verifyPayment(validatedInput.header)
-    return c.json(result, result.valid ? 200 : 400)
-  })
-
-  return app
+      const result = await x402.verifyPayment(validatedInput.header)
+      if (!result.valid) {
+        set.status = 400
+      }
+      return result
+    })
 }

@@ -1,6 +1,6 @@
 import { type Address, createPublicClient, http, parseAbi } from 'viem'
-import { CONTRACTS } from '@/config'
-import { jeju } from '@/config/chains'
+import { CONTRACTS } from '../config'
+import { jeju } from '../config/chains'
 
 const IDENTITY_REGISTRY_ABI = parseAbi([
   'function getAgentId(address agentAddress) external view returns (uint256)',

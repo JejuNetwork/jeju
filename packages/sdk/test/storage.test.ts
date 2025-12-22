@@ -6,7 +6,7 @@ import { beforeAll, describe, expect, test } from 'bun:test'
 import { generatePrivateKey } from 'viem/accounts'
 import { createJejuClient, type JejuClient } from '../src/client'
 
-const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:9545'
+const RPC_URL = process.env.RPC_URL || 'http://127.0.0.1:6546'
 
 describe('Storage Module', () => {
   let client: JejuClient | null = null

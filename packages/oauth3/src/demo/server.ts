@@ -5,34 +5,36 @@
  * Demonstrates wallet login, Farcaster login, and credential issuance.
  */
 
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import { html } from 'hono/html'
+import { cors } from '@elysiajs/cors'
+import { html } from '@elysiajs/html'
+import { AddressSchema } from '@jejunetwork/types'
+import { Elysia } from 'elysia'
 import { type Address, keccak256, toBytes } from 'viem'
 import { generatePrivateKey } from 'viem/accounts'
+import { z } from 'zod'
 import { createMultiTenantCouncilManager } from '../council/multi-tenant.js'
 import { VerifiableCredentialIssuer } from '../credentials/verifiable-credentials.js'
 import { FROSTCoordinator } from '../mpc/frost-signing.js'
 import { AuthProvider } from '../types.js'
 import { generateCallbackHtml } from './callback-handler.js'
 
-const app = new Hono()
+// Request validation schemas
+const WalletAuthSchema = z.object({
+  address: AddressSchema,
+  signature: z.string(),
+  message: z.string(),
+})
 
-// SECURITY: Demo server only allows local development origins
-app.use(
-  '*',
-  cors({
-    origin: (origin) => {
-      if (!origin) return null
-      // Only allow localhost for demo
-      if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
-        return origin
-      }
-      return null
-    },
-    credentials: true,
-  }),
-)
+const CredentialIssueSchema = z.object({
+  provider: z.string(),
+  providerId: z.string(),
+  providerHandle: z.string(),
+  walletAddress: AddressSchema,
+})
+
+const MPCSignSchema = z.object({
+  message: z.string(),
+})
 
 const CHAIN_ID = 420691
 
@@ -57,9 +59,32 @@ async function initDemo() {
   await frostCoordinator.initializeCluster()
 }
 
-app.get('/', (c) => {
-  return c.html(html`
-    <!DOCTYPE html>
+// SECURITY: Define allowed callback origins for demo server
+const DEMO_ALLOWED_ORIGINS = [
+  'http://localhost:4300',
+  'http://127.0.0.1:4300',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+]
+
+const app = new Elysia()
+  .use(html())
+  .use(
+    cors({
+      origin: (request) => {
+        const origin = request.headers.get('origin')
+        if (!origin) return false
+        // Only allow localhost for demo
+        if (origin.includes('localhost') || origin.includes('127.0.0.1')) {
+          return true
+        }
+        return false
+      },
+      credentials: true,
+    }),
+  )
+  .get('/', () => {
+    return `<!DOCTYPE html>
     <html lang="en">
     <head>
       <meta charset="UTF-8">
@@ -306,125 +331,117 @@ app.get('/', (c) => {
         }
       </script>
     </body>
-    </html>
-  `)
-})
-
-// SECURITY: Define allowed callback origins for demo server
-const DEMO_ALLOWED_ORIGINS = [
-  'http://localhost:4300',
-  'http://127.0.0.1:4300',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
-]
-
-app.get('/callback', (c) => {
-  const requestedOrigin = c.req.query('origin')
-  // SECURITY: Validate origin against allowlist
-  const origin =
-    requestedOrigin && DEMO_ALLOWED_ORIGINS.includes(requestedOrigin)
-      ? requestedOrigin
-      : DEMO_ALLOWED_ORIGINS[0]
-  return c.html(generateCallbackHtml(origin))
-})
-
-app.post('/api/auth/wallet', async (c) => {
-  const { address } = (await c.req.json()) as {
-    address: string
-    signature: string
-    message: string
-  }
-
-  const sessionId = keccak256(toBytes(`session:${address}:${Date.now()}`))
-  const identityId = keccak256(
-    toBytes(`identity:wallet:${address.toLowerCase()}`),
-  )
-
-  return c.json({
-    success: true,
-    session: {
-      sessionId,
-      identityId,
-      address,
-      expiresAt: Date.now() + 86400000,
-    },
-    attestation: {
-      provider: 'simulated',
-      verified: false,
-      timestamp: Date.now(),
-    },
+    </html>`
   })
-})
-
-app.post('/api/credential/issue', async (c) => {
-  const { provider, providerId, providerHandle, walletAddress } =
-    (await c.req.json()) as {
-      provider: string
-      providerId: string
-      providerHandle: string
-      walletAddress: string
+  .get('/callback', ({ query }) => {
+    const requestedOrigin = query.origin as string | undefined
+    // SECURITY: Validate origin against allowlist
+    const origin =
+      requestedOrigin && DEMO_ALLOWED_ORIGINS.includes(requestedOrigin)
+        ? requestedOrigin
+        : DEMO_ALLOWED_ORIGINS[0]
+    return generateCallbackHtml(origin)
+  })
+  .post('/api/auth/wallet', ({ body, set }) => {
+    const parseResult = WalletAuthSchema.safeParse(body)
+    if (!parseResult.success) {
+      set.status = 400
+      return { error: 'Invalid request' }
     }
 
-  const authProvider =
-    AuthProvider[provider.toUpperCase() as keyof typeof AuthProvider] ||
-    AuthProvider.WALLET
-  const credential = await credentialIssuer.issueProviderCredential(
-    authProvider,
-    providerId,
-    providerHandle,
-    walletAddress as Address,
-  )
+    const { address } = parseResult.data
 
-  return c.json({
-    success: true,
-    credential,
+    const sessionId = keccak256(toBytes(`session:${address}:${Date.now()}`))
+    const identityId = keccak256(
+      toBytes(`identity:wallet:${address.toLowerCase()}`),
+    )
+
+    return {
+      success: true,
+      session: {
+        sessionId,
+        identityId,
+        address,
+        expiresAt: Date.now() + 86400000,
+      },
+      attestation: {
+        provider: 'simulated',
+        verified: false,
+        timestamp: Date.now(),
+      },
+    }
   })
-})
+  .post('/api/credential/issue', async ({ body, set }) => {
+    const parseResult = CredentialIssueSchema.safeParse(body)
+    if (!parseResult.success) {
+      set.status = 400
+      return { error: 'Invalid request' }
+    }
 
-app.post('/api/mpc/sign', async (c) => {
-  const { message } = (await c.req.json()) as { message: string }
+    const { provider, providerId, providerHandle, walletAddress } =
+      parseResult.data
 
-  const messageHash = keccak256(toBytes(message))
-  const signature = await frostCoordinator.sign(messageHash, [1, 2])
+    const authProvider =
+      AuthProvider[provider.toUpperCase() as keyof typeof AuthProvider] ||
+      AuthProvider.WALLET
+    const credential = await credentialIssuer.issueProviderCredential(
+      authProvider,
+      providerId,
+      providerHandle,
+      walletAddress,
+    )
 
-  return c.json({
-    success: true,
-    message,
-    messageHash,
-    signature: {
-      r: signature.r,
-      s: signature.s,
-      v: signature.v,
-    },
-    cluster: {
-      address: frostCoordinator.getAddress(),
-      threshold: 2,
-      parties: 3,
-    },
+    return {
+      success: true,
+      credential,
+    }
   })
-})
+  .post('/api/mpc/sign', async ({ body, set }) => {
+    const parseResult = MPCSignSchema.safeParse(body)
+    if (!parseResult.success) {
+      set.status = 400
+      return { error: 'Invalid request' }
+    }
 
-app.get('/api/councils', async (c) => {
-  const councils = councilManager.getAllCouncils()
-  return c.json({
-    councils: councils.map((c) => ({
-      type: c.councilType,
-      name: c.config.name,
-      ceo: c.ceo.name,
-      agents: c.agents.length,
-      appId: c.oauth3App.appId,
-    })),
+    const { message } = parseResult.data
+
+    const messageHash = keccak256(toBytes(message))
+    const signature = await frostCoordinator.sign(messageHash, [1, 2])
+
+    return {
+      success: true,
+      message,
+      messageHash,
+      signature: {
+        r: signature.r,
+        s: signature.s,
+        v: signature.v,
+      },
+      cluster: {
+        address: frostCoordinator.getAddress(),
+        threshold: 2,
+        parties: 3,
+      },
+    }
   })
-})
-
-app.get('/health', (c) => {
-  return c.json({
+  .get('/api/councils', () => {
+    const councils = councilManager.getAllCouncils()
+    return {
+      councils: councils.map((council) => ({
+        type: council.councilType,
+        name: council.config.name,
+        ceo: council.ceo.name,
+        agents: council.agents.length,
+        appId: council.oauth3App.appId,
+      })),
+    }
+  })
+  .get('/health', () => ({
     status: 'healthy',
     version: '0.1.0',
     issuer: credentialIssuer.getIssuerDid(),
     mpcCluster: frostCoordinator.getAddress(),
-  })
-})
+  }))
 
 const PORT = parseInt(process.env.DEMO_PORT || '4300', 10)
 
@@ -439,10 +456,7 @@ initDemo().then(() => {
 ╚════════════════════════════════════════════════════════════╝
 `)
 
-  Bun.serve({
-    port: PORT,
-    fetch: app.fetch,
-  })
+  app.listen(PORT)
 })
 
 export { app }

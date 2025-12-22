@@ -24,7 +24,7 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import {
   type Address,
   concat,
@@ -43,6 +43,7 @@ import {
   waitForTransactionReceipt,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { expectValid, SignRequestSchema } from '../../schemas'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
 
 const ROOT = join(import.meta.dir, '../..')
@@ -80,7 +81,7 @@ interface SignResponse {
 }
 
 class ThresholdBatcherProxy {
-  private app: Hono
+  private app: Elysia
   private publicClient: PublicClient
   private walletClient: WalletClient
   private contractAddress: Address
@@ -108,7 +109,7 @@ class ThresholdBatcherProxy {
     this.contractAddress = contractAddress as Address
     this.signers = signers
     this.threshold = threshold
-    this.app = new Hono()
+    this.app = new Elysia()
     this.setupRoutes()
   }
 
@@ -141,54 +142,44 @@ class ThresholdBatcherProxy {
 
   private setupRoutes(): void {
     // Health check
-    this.app.get('/health', (c) =>
-      c.json({ status: 'ok', service: 'threshold-batcher' }),
-    )
+    this.app.get('/health', () => ({ status: 'ok', service: 'threshold-batcher' }))
 
     // Metrics
-    this.app.get('/metrics', (c) => {
-      return c.text(
-        [
-          '# TYPE threshold_batcher_pending_batches gauge',
-          `threshold_batcher_pending_batches ${this.pendingBatches.size}`,
-          '# TYPE threshold_batcher_threshold gauge',
-          `threshold_batcher_threshold ${this.threshold}`,
-          '# TYPE threshold_batcher_signers gauge',
-          `threshold_batcher_signers ${this.signers.length}`,
-        ].join('\n'),
-      )
+    this.app.get('/metrics', ({ set }) => {
+      set.headers['content-type'] = 'text/plain'
+      return [
+        '# TYPE threshold_batcher_pending_batches gauge',
+        `threshold_batcher_pending_batches ${this.pendingBatches.size}`,
+        '# TYPE threshold_batcher_threshold gauge',
+        `threshold_batcher_threshold ${this.threshold}`,
+        '# TYPE threshold_batcher_signers gauge',
+        `threshold_batcher_signers ${this.signers.length}`,
+      ].join('\n')
     })
 
     // Submit batch (called by op-batcher)
-    this.app.post('/submit', async (c) => {
-      try {
-        const body = (await c.req.json()) as { data: string }
-        if (!body.data) {
-          return c.json({ error: 'Missing batch data' }, 400)
-        }
-
-        const result = await this.submitBatch(body.data)
-        return c.json(result)
-      } catch (error) {
-        const errorMsg = error instanceof Error ? error.message : String(error)
-        console.error('[ThresholdBatcher] Submit error:', errorMsg)
-        return c.json({ error: errorMsg }, 500)
-      }
+    this.app.post('/submit', async ({ body }) => {
+      const validated = expectValid(
+        SignRequestSchema,
+        body,
+        'batch submission request',
+      )
+      return this.submitBatch(validated.data)
     })
 
     // Get pending batches
-    this.app.get('/pending', (c) => {
+    this.app.get('/pending', () => {
       const batches = Array.from(this.pendingBatches.values()).map((b) => ({
         id: b.id,
         hash: b.hash,
         signatures: b.signatures.size,
         timestamp: b.timestamp,
       }))
-      return c.json({ batches, threshold: this.threshold })
+      return { batches, threshold: this.threshold }
     })
 
     // Get status
-    this.app.get('/status', async (c) => {
+    this.app.get('/status', async () => {
       const nonce = await readContract(this.publicClient, {
         address: this.contractAddress,
         abi: THRESHOLD_BATCH_SUBMITTER_ABI,
@@ -197,13 +188,13 @@ class ThresholdBatcherProxy {
       const balance = await getBalance(this.publicClient, {
         address: this.walletClient.account.address,
       })
-      return c.json({
+      return {
         nonce: Number(nonce),
         coordinatorBalance: (Number(balance) / 1e18).toFixed(6),
         pendingBatches: this.pendingBatches.size,
         threshold: this.threshold,
         signers: this.signers.length,
-      })
+      }
     })
   }
 
@@ -379,7 +370,7 @@ class ThresholdBatcherProxy {
     )
   }
 
-  getApp(): Hono {
+  getApp(): Elysia {
     return this.app
   }
 }
@@ -389,7 +380,7 @@ async function main(): Promise<void> {
   console.log('🔐 Threshold Batch Submitter Proxy\n')
 
   const network = process.env.NETWORK || 'localnet'
-  const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:8545'
+  const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
   const port = parseInt(process.env.BATCHER_PROXY_PORT || '4200', 10)
 
   // Load contract address
@@ -440,10 +431,7 @@ async function main(): Promise<void> {
 
   await proxy.initialize()
 
-  const server = Bun.serve({
-    port,
-    fetch: proxy.getApp().fetch,
-  })
+  proxy.getApp().listen(port)
 
   console.log(`\n🚀 Threshold Batcher Proxy running on port ${port}`)
   console.log(`   Submit batches to: POST http://localhost:${port}/submit`)
@@ -451,11 +439,11 @@ async function main(): Promise<void> {
   console.log(`   Status: GET http://localhost:${port}/status\n`)
 
   process.on('SIGINT', () => {
-    server.stop()
+    proxy.getApp().stop()
     process.exit(0)
   })
   process.on('SIGTERM', () => {
-    server.stop()
+    proxy.getApp().stop()
     process.exit(0)
   })
 }

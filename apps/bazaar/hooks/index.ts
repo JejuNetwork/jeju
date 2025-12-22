@@ -1,5 +1,5 @@
 // OIFChainInfo is now defined in config/chains
-export type { OIFChainInfo } from '@/config/chains'
+export type { OIFChainInfo } from '../config/chains'
 // Token Launchpad (Bonding Curve & ICO)
 export * from './launchpad'
 export * from './markets/useClaim'

@@ -1,18 +1,19 @@
 {
-  "version": "1.1.0",
-  "lastUpdated": "2025-12-14",
+  "version": "1.2.0",
+  "lastUpdated": "2025-12-22",
   "description": "Service URLs for Jeju networks. Env overrides: VITE_/NEXT_PUBLIC_ + SERVICE_URL (e.g., VITE_INDEXER_URL)",
   
   "localnet": {
     "rpc": {
-      "l1": "http://127.0.0.1:8545",
-      "l2": "http://127.0.0.1:9545",
-      "ws": "ws://127.0.0.1:9546"
+      "l1": "http://127.0.0.1:6545",
+      "l2": "http://127.0.0.1:6546",
+      "ws": "ws://127.0.0.1:6547"
     },
     "explorer": "http://127.0.0.1:4000",
     "indexer": {
       "graphql": "http://127.0.0.1:4350/graphql",
-      "websocket": "ws://127.0.0.1:4350/graphql"
+      "websocket": "ws://127.0.0.1:4350/graphql",
+      "rest": "http://127.0.0.1:4351"
     },
     "gateway": {
       "ui": "http://127.0.0.1:4001",
@@ -32,7 +33,7 @@
       "nodeApi": "http://127.0.0.1:4008"
     },
     "oif": {
-      "aggregator": "http://127.0.0.1:4010/api"
+      "aggregator": "http://127.0.0.1:4011"
     },
     "leaderboard": {
       "api": "http://127.0.0.1:4005",
@@ -44,7 +45,8 @@
     },
     "crucible": {
       "api": "http://127.0.0.1:4020",
-      "executor": "http://127.0.0.1:4021"
+      "executor": "http://127.0.0.1:4021",
+      "bots": "http://127.0.0.1:4022"
     },
     "cql": {
       "blockProducer": "http://127.0.0.1:4661",
@@ -52,20 +54,58 @@
     },
     "dws": {
       "api": "http://127.0.0.1:4030",
-      "compute": "http://127.0.0.1:4030/compute"
+      "compute": "http://127.0.0.1:4030/compute",
+      "inference": "http://127.0.0.1:4031",
+      "gateway": "http://127.0.0.1:4032",
+      "triggers": "http://127.0.0.1:4016"
     },
     "autocrat": {
       "api": "http://127.0.0.1:4040",
-      "a2a": "http://127.0.0.1:4040/a2a"
+      "a2a": "http://127.0.0.1:4040/a2a",
+      "mcp": "http://127.0.0.1:4040/mcp",
+      "ceo": "http://127.0.0.1:4041"
     },
     "kms": {
       "api": "http://127.0.0.1:4050",
-      "mpc": "http://127.0.0.1:4050/mpc"
+      "mpc": "http://127.0.0.1:4050/mpc",
+      "defaultProvider": "encryption"
     },
     "factory": {
       "ui": "http://127.0.0.1:4009",
       "api": "http://127.0.0.1:4009",
       "mcp": "http://127.0.0.1:4009/api/mcp"
+    },
+    "otto": {
+      "api": "http://127.0.0.1:4042",
+      "webhook": "http://127.0.0.1:4043"
+    },
+    "oauth3": {
+      "api": "http://127.0.0.1:4060",
+      "tee": "http://127.0.0.1:4061"
+    },
+    "oracle": {
+      "api": "http://127.0.0.1:4070",
+      "feeds": "http://127.0.0.1:4071"
+    },
+    "node": {
+      "api": "http://127.0.0.1:4080",
+      "cdn": "http://127.0.0.1:4081",
+      "vpn": "http://127.0.0.1:4082",
+      "proxy": "http://127.0.0.1:4083"
+    },
+    "externalRpcs": {
+      "ethereum": "http://127.0.0.1:6545",
+      "base": "http://127.0.0.1:6545",
+      "arbitrum": "http://127.0.0.1:6545",
+      "optimism": "http://127.0.0.1:6545",
+      "solana": "http://127.0.0.1:8899"
+    },
+    "external": {
+      "farcaster": {
+        "hub": "https://nemes.farcaster.xyz:2281",
+        "api": "https://api.neynar.com/v2"
+      },
+      "bundler": "http://127.0.0.1:4337"
     }
   },
   
@@ -78,7 +118,8 @@
     "explorer": "https://explorer.testnet.jejunetwork.org",
     "indexer": {
       "graphql": "https://indexer.testnet.jejunetwork.org/graphql",
-      "websocket": "wss://indexer.testnet.jejunetwork.org/graphql"
+      "websocket": "wss://indexer.testnet.jejunetwork.org/graphql",
+      "rest": "https://indexer.testnet.jejunetwork.org/rest"
     },
     "gateway": {
       "ui": "https://gateway.testnet.jejunetwork.org",
@@ -110,7 +151,8 @@
     },
     "crucible": {
       "api": "https://crucible.testnet.jejunetwork.org",
-      "executor": "https://crucible.testnet.jejunetwork.org"
+      "executor": "https://crucible.testnet.jejunetwork.org",
+      "bots": "https://crucible.testnet.jejunetwork.org/bots"
     },
     "cql": {
       "blockProducer": "https://cql.testnet.jejunetwork.org",
@@ -118,27 +160,59 @@
     },
     "dws": {
       "api": "https://dws.testnet.jejunetwork.org",
-      "compute": "https://dws.testnet.jejunetwork.org/compute"
+      "compute": "https://dws.testnet.jejunetwork.org/compute",
+      "inference": "https://dws.testnet.jejunetwork.org/inference",
+      "gateway": "https://dws.testnet.jejunetwork.org/gateway",
+      "triggers": "https://dws.testnet.jejunetwork.org/triggers"
     },
     "autocrat": {
       "api": "https://autocrat.testnet.jejunetwork.org",
-      "a2a": "https://autocrat.testnet.jejunetwork.org/a2a"
+      "a2a": "https://autocrat.testnet.jejunetwork.org/a2a",
+      "mcp": "https://autocrat.testnet.jejunetwork.org/mcp",
+      "ceo": "https://autocrat.testnet.jejunetwork.org/ceo"
     },
     "kms": {
       "api": "https://kms.testnet.jejunetwork.org",
-      "mpc": "https://kms.testnet.jejunetwork.org/mpc"
+      "mpc": "https://kms.testnet.jejunetwork.org/mpc",
+      "defaultProvider": "aws"
     },
     "factory": {
       "ui": "https://factory.testnet.jejunetwork.org",
       "api": "https://factory.testnet.jejunetwork.org",
       "mcp": "https://factory.testnet.jejunetwork.org/api/mcp"
     },
+    "otto": {
+      "api": "https://otto.testnet.jejunetwork.org",
+      "webhook": "https://otto.testnet.jejunetwork.org/webhook"
+    },
+    "oauth3": {
+      "api": "https://oauth3.testnet.jejunetwork.org",
+      "tee": "https://oauth3.testnet.jejunetwork.org/tee"
+    },
+    "oracle": {
+      "api": "https://oracle.testnet.jejunetwork.org",
+      "feeds": "https://oracle.testnet.jejunetwork.org/feeds"
+    },
+    "node": {
+      "api": "https://node.testnet.jejunetwork.org",
+      "cdn": "https://cdn.testnet.jejunetwork.org",
+      "vpn": "https://vpn.testnet.jejunetwork.org",
+      "proxy": "https://proxy.testnet.jejunetwork.org"
+    },
     "externalRpcs": {
       "ethSepolia": "https://ethereum-sepolia-rpc.publicnode.com",
       "baseSepolia": "https://sepolia.base.org",
       "arbitrumSepolia": "https://sepolia-rollup.arbitrum.io/rpc",
       "optimismSepolia": "https://sepolia.optimism.io",
-      "bscTestnet": "https://data-seed-prebsc-1-s1.bnbchain.org:8545"
+      "bscTestnet": "https://data-seed-prebsc-1-s1.bnbchain.org:8545",
+      "solanaDevnet": "https://api.devnet.solana.com"
+    },
+    "external": {
+      "farcaster": {
+        "hub": "https://nemes.farcaster.xyz:2281",
+        "api": "https://api.neynar.com/v2"
+      },
+      "bundler": "https://bundler.testnet.jejunetwork.org"
     }
   },
   
@@ -151,7 +225,8 @@
     "explorer": "https://explorer.jejunetwork.org",
     "indexer": {
       "graphql": "https://indexer.jejunetwork.org/graphql",
-      "websocket": "wss://indexer.jejunetwork.org/graphql"
+      "websocket": "wss://indexer.jejunetwork.org/graphql",
+      "rest": "https://indexer.jejunetwork.org/rest"
     },
     "gateway": {
       "ui": "https://gateway.jejunetwork.org",
@@ -183,7 +258,8 @@
     },
     "crucible": {
       "api": "https://crucible.jejunetwork.org",
-      "executor": "https://crucible-executor.jejunetwork.org"
+      "executor": "https://crucible-executor.jejunetwork.org",
+      "bots": "https://crucible-bots.jejunetwork.org"
     },
     "cql": {
       "blockProducer": "https://cql.jejunetwork.org",
@@ -191,27 +267,59 @@
     },
     "dws": {
       "api": "https://dws.jejunetwork.org",
-      "compute": "https://dws.jejunetwork.org/compute"
+      "compute": "https://dws.jejunetwork.org/compute",
+      "inference": "https://dws.jejunetwork.org/inference",
+      "gateway": "https://dws.jejunetwork.org/gateway",
+      "triggers": "https://dws.jejunetwork.org/triggers"
     },
     "autocrat": {
       "api": "https://autocrat.jejunetwork.org",
-      "a2a": "https://autocrat.jejunetwork.org/a2a"
+      "a2a": "https://autocrat.jejunetwork.org/a2a",
+      "mcp": "https://autocrat.jejunetwork.org/mcp",
+      "ceo": "https://autocrat.jejunetwork.org/ceo"
     },
     "kms": {
       "api": "https://kms.jejunetwork.org",
-      "mpc": "https://kms.jejunetwork.org/mpc"
+      "mpc": "https://kms.jejunetwork.org/mpc",
+      "defaultProvider": "aws"
     },
     "factory": {
       "ui": "https://factory.jejunetwork.org",
       "api": "https://factory.jejunetwork.org",
       "mcp": "https://factory.jejunetwork.org/api/mcp"
     },
+    "otto": {
+      "api": "https://otto.jejunetwork.org",
+      "webhook": "https://otto.jejunetwork.org/webhook"
+    },
+    "oauth3": {
+      "api": "https://oauth3.jejunetwork.org",
+      "tee": "https://oauth3.jejunetwork.org/tee"
+    },
+    "oracle": {
+      "api": "https://oracle.jejunetwork.org",
+      "feeds": "https://oracle.jejunetwork.org/feeds"
+    },
+    "node": {
+      "api": "https://node.jejunetwork.org",
+      "cdn": "https://cdn.jejunetwork.org",
+      "vpn": "https://vpn.jejunetwork.org",
+      "proxy": "https://proxy.jejunetwork.org"
+    },
     "externalRpcs": {
       "ethereum": "https://eth.llamarpc.com",
       "base": "https://mainnet.base.org",
       "arbitrum": "https://arb1.arbitrum.io/rpc",
       "optimism": "https://mainnet.optimism.io",
-      "bsc": "https://bsc-dataseed.bnbchain.org"
+      "bsc": "https://bsc-dataseed.bnbchain.org",
+      "solana": "https://api.mainnet-beta.solana.com"
+    },
+    "external": {
+      "farcaster": {
+        "hub": "https://nemes.farcaster.xyz:2281",
+        "api": "https://api.neynar.com/v2"
+      },
+      "bundler": "https://bundler.jejunetwork.org"
     }
   }
 }

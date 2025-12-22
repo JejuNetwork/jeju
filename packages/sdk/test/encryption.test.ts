@@ -310,12 +310,12 @@ describe('Email Encryption', () => {
 
       // Eve tries to use Alice's key package with her own private key
       const aliceKey = result.recipientKeys.get('alice')
-      expect(aliceKey).toBeDefined()
+      if (!aliceKey) throw new Error('Alice key not found')
 
       expect(() => {
         decryptFromMultipleRecipients(
           result.encryptedContent,
-          aliceKey!,
+          aliceKey,
           eve.privateKey,
         )
       }).toThrow()
@@ -401,9 +401,9 @@ describe('Email Encryption', () => {
 
       const aliceKey = result.recipientKeys.get('alice')
       expect(aliceKey).toBeDefined()
-      expect(aliceKey!.startsWith('0x')).toBe(true)
+      expect(aliceKey?.startsWith('0x')).toBe(true)
       // Key package = 12 (nonce) + 32 (encrypted key) + 16 (tag) + 65 (uncompressed ephemeral key) = 125 bytes = 250 hex + 2 (0x)
-      expect(aliceKey!.length).toBe(252)
+      expect(aliceKey?.length).toBe(252)
     })
 
     test('multi-recipient round-trip encryption/decryption works', () => {
@@ -420,7 +420,8 @@ describe('Email Encryption', () => {
       const result = encryptForMultipleRecipients(message, recipients)
 
       // Alice can decrypt
-      const aliceKey = result.recipientKeys.get('alice')!
+      const aliceKey = result.recipientKeys.get('alice')
+      if (!aliceKey) throw new Error('Alice key not found')
       const aliceDecrypted = decryptFromMultipleRecipients(
         result.encryptedContent,
         aliceKey,
@@ -429,7 +430,8 @@ describe('Email Encryption', () => {
       expect(aliceDecrypted).toBe(message)
 
       // Bob can also decrypt
-      const bobKey = result.recipientKeys.get('bob')!
+      const bobKey = result.recipientKeys.get('bob')
+      if (!bobKey) throw new Error('Bob key not found')
       const bobDecrypted = decryptFromMultipleRecipients(
         result.encryptedContent,
         bobKey,

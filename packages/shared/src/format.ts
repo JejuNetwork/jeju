@@ -9,6 +9,7 @@ import { type ClassValue, clsx } from 'clsx'
 import { nanoid } from 'nanoid'
 import prettyBytes from 'pretty-bytes'
 import prettyMs from 'pretty-ms'
+import { twMerge } from 'tailwind-merge'
 import { format as timeagoFormat } from 'timeago.js'
 
 // ============================================================================
@@ -204,17 +205,21 @@ export function generatePrefixedId(prefix: string, size = 16): string {
 // ============================================================================
 
 /**
- * Merge CSS class names conditionally
+ * Merge CSS class names conditionally with Tailwind CSS class conflict resolution
+ * @example cn("p-4 px-2") // "p-4 px-2" → "px-2" (px-2 overrides p-4's horizontal padding)
+ * @example cn("text-red-500", isActive && "text-blue-500") // Conditionally applies blue
+ */
+export function cn(...inputs: ClassValue[]): string {
+  return twMerge(clsx(inputs))
+}
+
+/**
+ * Merge CSS class names conditionally (alias for cn without Tailwind merge)
  * @example classNames("btn", isActive && "btn-active", "btn-lg")
  */
 export function classNames(...inputs: ClassValue[]): string {
   return clsx(inputs)
 }
-
-/**
- * Alias for classNames
- */
-export const cn = classNames
 
 // ============================================================================
 // Utility Functions

@@ -78,10 +78,11 @@ export default function IPFSPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary">
+          <button type="button" className="btn btn-secondary">
             <RefreshCw size={16} /> Refresh
           </button>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => fileInputRef.current?.click()}
             disabled={!isConnected || uploadFile.isPending}
@@ -191,6 +192,7 @@ export default function IPFSPage() {
               Upload files to IPFS for decentralized, content-addressed storage
             </p>
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => fileInputRef.current?.click()}
               disabled={!isConnected}
@@ -235,6 +237,7 @@ export default function IPFSPage() {
                           {file.cid}
                         </code>
                         <button
+                          type="button"
                           className="btn btn-ghost btn-icon"
                           style={{ padding: '0.25rem' }}
                           onClick={() => handleCopy(file.cid, file.cid)}
@@ -277,7 +280,11 @@ export default function IPFSPage() {
                       >
                         <ExternalLink size={14} />
                       </a>
-                      <button className="btn btn-ghost btn-sm" title="Unpin">
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        title="Unpin"
+                      >
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -312,6 +319,7 @@ export default function IPFSPage() {
             >
               https://ipfs.jejunetwork.org
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 style={{ padding: '0.25rem' }}
                 onClick={() =>
@@ -343,6 +351,7 @@ export default function IPFSPage() {
               {healthData?.backends?.[0] ?? 'Not available'}
               {healthData?.backends?.[0] && (
                 <button
+                  type="button"
                   className="btn btn-ghost btn-icon"
                   style={{ padding: '0.25rem' }}
                   onClick={() =>

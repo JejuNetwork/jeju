@@ -17,17 +17,17 @@ describe('jejuPlugin', () => {
 
   test('has providers', () => {
     expect(jejuPlugin.providers).toBeDefined()
-    expect(jejuPlugin.providers!.length).toBeGreaterThan(0)
+    expect(jejuPlugin.providers?.length).toBeGreaterThan(0)
   })
 
   test('has actions', () => {
     expect(jejuPlugin.actions).toBeDefined()
-    expect(jejuPlugin.actions!.length).toBeGreaterThan(0)
+    expect(jejuPlugin.actions?.length).toBeGreaterThan(0)
   })
 
   test('has services', () => {
     expect(jejuPlugin.services).toBeDefined()
-    expect(jejuPlugin.services!.length).toBeGreaterThan(0)
+    expect(jejuPlugin.services?.length).toBeGreaterThan(0)
   })
 })
 
@@ -42,7 +42,7 @@ describe('Plugin Actions - Compute', () => {
 
   for (const name of computeActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -61,7 +61,7 @@ describe('Plugin Actions - Storage', () => {
 
   for (const name of storageActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -79,7 +79,7 @@ describe('Plugin Actions - DeFi', () => {
 
   for (const name of defiActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -90,7 +90,7 @@ describe('Plugin Actions - Governance', () => {
 
   for (const name of govActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -101,7 +101,7 @@ describe('Plugin Actions - Names (JNS)', () => {
 
   for (const name of nameActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -112,7 +112,7 @@ describe('Plugin Actions - Identity', () => {
 
   for (const name of identityActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -128,7 +128,7 @@ describe('Plugin Actions - Cross-chain', () => {
 
   for (const name of crosschainActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -139,7 +139,7 @@ describe('Plugin Actions - Payments', () => {
 
   for (const name of paymentActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -150,7 +150,7 @@ describe('Plugin Actions - Infrastructure', () => {
 
   for (const name of infraActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -161,7 +161,7 @@ describe('Plugin Actions - A2A', () => {
 
   for (const name of a2aActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -180,7 +180,7 @@ describe('Plugin Actions - Games', () => {
 
   for (const name of gameActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -199,7 +199,7 @@ describe('Plugin Actions - Containers', () => {
 
   for (const name of containerActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -221,7 +221,7 @@ describe('Plugin Actions - Launchpad', () => {
 
   for (const name of launchpadActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -245,7 +245,7 @@ describe('Plugin Actions - Moderation', () => {
 
   for (const name of modActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -269,7 +269,7 @@ describe('Plugin Actions - Work', () => {
 
   for (const name of workActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }
@@ -280,7 +280,7 @@ describe('Plugin Actions - NFTs', () => {
 
   for (const name of nftActions) {
     test(`has ${name} action`, () => {
-      const action = jejuPlugin.actions!.find((a) => a.name === name)
+      const action = jejuPlugin.actions?.find((a) => a.name === name)
       expect(action).toBeDefined()
     })
   }

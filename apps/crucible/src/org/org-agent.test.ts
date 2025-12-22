@@ -9,7 +9,7 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
-import type { CQLQueryable, ExecResult, QueryResult } from '@jeju/db'
+import type { CQLQueryable, ExecResult, QueryResult } from '@jejunetwork/db'
 import { OrgAgent } from './org-agent'
 
 /** Database row for todo queries */
@@ -76,7 +76,9 @@ function createMockFn<T>(defaultValue: T): MockFn<T> {
   const fn = ((...args: MockFnArgs) => {
     calls.push(args)
     if (values.length > 0) {
-      const { type, value } = values.shift()!
+      const shifted = values.shift()
+      if (!shifted) throw new Error('values.shift() returned undefined')
+      const { type, value } = shifted
       if (type === 'reject') return Promise.reject(value)
       return Promise.resolve(value)
     }

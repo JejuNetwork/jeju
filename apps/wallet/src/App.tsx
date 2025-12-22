@@ -179,6 +179,7 @@ function App() {
               </div>
             </div>
             <button
+              type="button"
               onClick={() => setIsSidebarOpen(false)}
               className="lg:hidden p-2 rounded-lg hover:bg-accent"
             >
@@ -190,6 +191,7 @@ function App() {
           <nav className="flex-1 p-4 space-y-1">
             {NAV_ITEMS.map(({ id, label, icon: Icon }) => (
               <button
+                type="button"
                 key={id}
                 onClick={() => {
                   setViewMode(id)
@@ -216,6 +218,7 @@ function App() {
                     Portfolio Value
                   </span>
                   <button
+                    type="button"
                     onClick={() => refetch()}
                     className="p-1 hover:bg-accent rounded"
                     title="Refresh"
@@ -246,6 +249,7 @@ function App() {
                       {chain?.name ?? 'Multi-Chain'}
                     </p>
                     <button
+                      type="button"
                       onClick={copyAddress}
                       className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground font-mono group"
                     >
@@ -263,12 +267,14 @@ function App() {
                 {/* Quick Actions */}
                 <div className="flex gap-2">
                   <button
+                    type="button"
                     onClick={() => setViewMode('chat')}
                     className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs rounded-lg bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/20"
                   >
                     <Send className="w-3 h-3" /> Send
                   </button>
                   <button
+                    type="button"
                     onClick={copyAddress}
                     className="flex-1 flex items-center justify-center gap-1 px-3 py-2 text-xs rounded-lg bg-secondary hover:bg-secondary/80"
                   >
@@ -277,6 +283,7 @@ function App() {
                 </div>
 
                 <button
+                  type="button"
                   onClick={() => disconnect()}
                   className="w-full px-4 py-2 text-xs rounded-lg bg-secondary/50 hover:bg-secondary transition-colors"
                 >
@@ -287,6 +294,7 @@ function App() {
               <div className="space-y-2">
                 {connectors.slice(0, 2).map((connector) => (
                   <button
+                    type="button"
                     key={connector.id}
                     onClick={() => connect(connector.id)}
                     disabled={isConnecting}
@@ -302,6 +310,7 @@ function App() {
           {/* Settings */}
           <div className="p-4 border-t border-border">
             <button
+              type="button"
               onClick={() => {
                 setViewMode('settings')
                 setIsSidebarOpen(false)
@@ -321,9 +330,11 @@ function App() {
 
       {/* Mobile overlay */}
       {isSidebarOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/50 lg:hidden"
+        <button
+          type="button"
+          className="fixed inset-0 z-40 bg-black/50 lg:hidden cursor-default"
           onClick={() => setIsSidebarOpen(false)}
+          aria-label="Close sidebar"
         />
       )}
 
@@ -332,6 +343,7 @@ function App() {
         {/* Mobile Header */}
         <header className="lg:hidden flex items-center justify-between p-4 border-b border-border bg-card">
           <button
+            type="button"
             onClick={() => setIsSidebarOpen(true)}
             className="p-2 rounded-lg hover:bg-accent"
           >
@@ -416,6 +428,7 @@ function PortfolioView({
             </p>
           </div>
           <button
+            type="button"
             onClick={onRefresh}
             disabled={balancesLoading}
             className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-xl disabled:opacity-50 transition-colors"
@@ -496,9 +509,9 @@ function PortfolioView({
 
                   {agg.chains.length > 1 && (
                     <div className="mt-3 pl-13 space-y-2">
-                      {agg.chains.map((c, i) => (
+                      {agg.chains.map((c) => (
                         <div
-                          key={i}
+                          key={`${agg.symbol}-${c.token.chainId}-${c.token.name}`}
                           className="flex items-center justify-between text-sm py-1"
                         >
                           <span className="text-muted-foreground">

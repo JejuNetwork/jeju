@@ -18,10 +18,11 @@ describe('Crucible Agent Runtime', () => {
     test('should create runtime with character', async () => {
       const character = getCharacter('project-manager')
       expect(character).toBeDefined()
+      if (!character) throw new Error('character not found')
 
       const runtime = createCrucibleRuntime({
         agentId: 'test-pm',
-        character: character!,
+        character: character,
       })
 
       expect(runtime).toBeInstanceOf(CrucibleAgentRuntime)
@@ -31,10 +32,11 @@ describe('Crucible Agent Runtime', () => {
     test('should initialize runtime with jejuPlugin actions', async () => {
       const character = getCharacter('community-manager')
       expect(character).toBeDefined()
+      if (!character) throw new Error('character not found')
 
       const runtime = createCrucibleRuntime({
         agentId: 'test-cm',
-        character: character!,
+        character: character,
       })
 
       await runtime.initialize()
@@ -46,9 +48,10 @@ describe('Crucible Agent Runtime', () => {
   describe('Message Processing', () => {
     test('should process message through ElizaOS', async () => {
       const character = getCharacter('project-manager')
+      if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
         agentId: 'test-pm-msg',
-        character: character!,
+        character: character,
       })
 
       await runtime.initialize()
@@ -76,9 +79,10 @@ describe('Crucible Agent Runtime', () => {
 
     test('should handle action responses', async () => {
       const character = getCharacter('project-manager')
+      if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
         agentId: 'test-pm-action',
-        character: character!,
+        character: character,
       })
 
       await runtime.initialize()
@@ -105,10 +109,11 @@ describe('Crucible Agent Runtime', () => {
     test('should create and track runtimes', async () => {
       const character = getCharacter('devrel')
       expect(character).toBeDefined()
+      if (!character) throw new Error('character not found')
 
       const runtime = await runtimeManager.createRuntime({
         agentId: 'devrel-test',
-        character: character!,
+        character: character,
       })
 
       expect(runtime).toBeInstanceOf(CrucibleAgentRuntime)
@@ -123,15 +128,16 @@ describe('Crucible Agent Runtime', () => {
     test('should not duplicate runtimes', async () => {
       const character = getCharacter('liaison')
       expect(character).toBeDefined()
+      if (!character) throw new Error('character not found')
 
       const runtime1 = await runtimeManager.createRuntime({
         agentId: 'liaison-test',
-        character: character!,
+        character: character,
       })
 
       const runtime2 = await runtimeManager.createRuntime({
         agentId: 'liaison-test',
-        character: character!,
+        character: character,
       })
 
       expect(runtime1).toBe(runtime2)
@@ -180,9 +186,10 @@ describe('Crucible Agent Runtime', () => {
   describe('Plugin Integration', () => {
     test('should load jeju plugin actions', async () => {
       const character = getCharacter('community-manager')
+      if (!character) throw new Error('character not found')
       const runtime = createCrucibleRuntime({
         agentId: 'plugin-test',
-        character: character!,
+        character: character,
       })
 
       await runtime.initialize()

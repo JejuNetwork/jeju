@@ -8,7 +8,11 @@
  */
 
 import { keccak256, toBytes } from 'viem'
-import { generateOTP } from '../validation.js'
+import {
+  generateOTP,
+  TwilioMessageResponseSchema,
+  validateResponse,
+} from '../validation.js'
 
 export interface PhoneAuthConfig {
   twilioAccountSid?: string
@@ -446,8 +450,14 @@ export class PhoneProvider {
     )
 
     if (!response.ok) {
-      const error = (await response.json()) as { message?: string }
-      throw new Error(`Twilio error: ${error.message ?? response.status}`)
+      const error = validateResponse(
+        TwilioMessageResponseSchema,
+        await response.json(),
+        'Twilio error response',
+      )
+      throw new Error(
+        `Twilio error: ${error.message ?? error.error_message ?? response.status}`,
+      )
     }
   }
 

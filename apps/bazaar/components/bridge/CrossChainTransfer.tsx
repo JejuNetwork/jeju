@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { Address } from 'viem'
 import { useAccount } from 'wagmi'
-import type { TokenOption } from '@/components/TokenSelector'
-import TokenSelector from '@/components/TokenSelector'
-import { EXPLORER_URL } from '@/config'
-import { useCrossChainSwap, useEILConfig } from '@/hooks/useEIL'
-import { useProtocolTokens } from '@/hooks/useProtocolTokens'
+import { EXPLORER_URL } from '../../config'
+import { useCrossChainSwap, useEILConfig } from '../../hooks/useEIL'
+import { useProtocolTokens } from '../../hooks/useProtocolTokens'
 import {
   calculateUSDValue,
   formatUsd as formatUSD,
   parseTokenAmount,
-} from '@/lib/tokenUtils'
+} from '../../lib/tokenUtils'
+import type { TokenOption } from '../TokenSelector'
+import TokenSelector from '../TokenSelector'
 
 const DESTINATION_CHAINS = [
   { id: 1, name: 'Ethereum', icon: '💎' },
@@ -130,7 +130,7 @@ export default function CrossChainTransfer() {
       {step === 'input' && (
         <form onSubmit={handleTransfer}>
           <div style={{ marginBottom: '1.5rem' }}>
-            <label
+            <div
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -138,7 +138,7 @@ export default function CrossChainTransfer() {
               }}
             >
               Destination Chain
-            </label>
+            </div>
             <div
               style={{
                 display: 'grid',
@@ -200,6 +200,7 @@ export default function CrossChainTransfer() {
 
           <div style={{ marginBottom: '1rem' }}>
             <label
+              htmlFor="crosschain-amount"
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -209,6 +210,7 @@ export default function CrossChainTransfer() {
               Amount
             </label>
             <input
+              id="crosschain-amount"
               className="input"
               type="number"
               step="any"
@@ -233,6 +235,7 @@ export default function CrossChainTransfer() {
 
           <div style={{ marginBottom: '1.5rem' }}>
             <label
+              htmlFor="crosschain-recipient"
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -242,6 +245,7 @@ export default function CrossChainTransfer() {
               Recipient (optional)
             </label>
             <input
+              id="crosschain-recipient"
               className="input"
               type="text"
               placeholder={userAddress || '0x...'}
@@ -434,6 +438,7 @@ export default function CrossChainTransfer() {
           )}
 
           <button
+            type="button"
             className="button"
             onClick={resetForm}
             style={{ width: '100%' }}
@@ -474,6 +479,7 @@ export default function CrossChainTransfer() {
           </p>
 
           <button
+            type="button"
             className="button"
             onClick={resetForm}
             style={{ width: '100%' }}

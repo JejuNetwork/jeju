@@ -10,6 +10,18 @@
 import type { Address, Hex, WalletClient } from 'viem'
 import { createPublicClient, createWalletClient, http } from 'viem'
 import { type LocalAccount, privateKeyToAccount } from 'viem/accounts'
+import {
+  HealthCheckResponseSchema,
+  LoginResponseSchema,
+  PackageErrorResponseSchema,
+  PackageManifestResponseSchema,
+  PackagePublishResponseSchema,
+  PackageSearchResponseSchema,
+  PackageVersionInfoSchema,
+  PublisherInfoSchema,
+  SyncResponseSchema,
+  WhoamiResponseSchema,
+} from '../shared/schemas'
 import type { JsonValue } from '../shared/types'
 
 export interface PackageSDKConfig {
@@ -354,7 +366,6 @@ const PACKAGE_REGISTRY_ABI = [
 
 export class JejuPkgSDK {
   private config: PackageSDKConfig
-  private publicClient: ReturnType<typeof createPublicClient>
   private walletClient?: WalletClient
   private account?: LocalAccount
 
@@ -386,17 +397,8 @@ export class JejuPkgSDK {
       throw new Error(`Failed to get package: ${response.statusText}`)
     }
 
-    const manifest = (await response.json()) as {
-      name: string
-      description?: string
-      'dist-tags': Record<string, string>
-      versions: Record<string, PackageVersion>
-      maintainers?: Array<{ name: string }>
-      license?: string
-      repository?: { type: string; url: string }
-      keywords?: string[]
-      time?: Record<string, string>
-    }
+    const rawData: unknown = await response.json()
+    const manifest = PackageManifestResponseSchema.parse(rawData)
 
     return {
       name: manifest.name,
@@ -430,7 +432,8 @@ export class JejuPkgSDK {
     if (!response.ok) {
       throw new Error(`Failed to get package version: ${response.statusText}`)
     }
-    return response.json() as Promise<PackageVersion>
+    const rawData: unknown = await response.json()
+    return PackageVersionInfoSchema.parse(rawData)
   }
 
   async searchPackages(
@@ -452,10 +455,8 @@ export class JejuPkgSDK {
       throw new Error(`Failed to search packages: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as {
-      objects: SearchResult[]
-      total: number
-    }
+    const rawData: unknown = await response.json()
+    const data = PackageSearchResponseSchema.parse(rawData)
     return { total: data.total, items: data.objects }
   }
 
@@ -510,13 +511,17 @@ export class JejuPkgSDK {
       // Attempt to get error details from JSON response
       const contentType = response.headers.get('content-type')
       if (contentType?.includes('application/json')) {
-        const errorBody = (await response.json()) as { error?: string }
-        errorMessage = errorBody.error ?? response.statusText
+        const rawError: unknown = await response.json()
+        const errorResult = PackageErrorResponseSchema.safeParse(rawError)
+        if (errorResult.success && errorResult.data.error) {
+          errorMessage = errorResult.data.error
+        }
       }
       throw new Error(`Failed to publish package: ${errorMessage}`)
     }
 
-    return response.json() as Promise<{ ok: boolean; id: string; rev: string }>
+    const rawData: unknown = await response.json()
+    return PackagePublishResponseSchema.parse(rawData)
   }
 
   async unpublish(
@@ -651,7 +656,8 @@ export class JejuPkgSDK {
       throw new Error(`Failed to sync package: ${response.statusText}`)
     }
 
-    return response.json() as Promise<{ synced: number }>
+    const rawData: unknown = await response.json()
+    return SyncResponseSchema.parse(rawData)
   }
 
   // Publisher Operations
@@ -663,7 +669,8 @@ export class JejuPkgSDK {
     if (!response.ok) {
       throw new Error(`Failed to get publisher: ${response.statusText}`)
     }
-    return response.json() as Promise<Publisher>
+    const rawData: unknown = await response.json()
+    return PublisherInfoSchema.parse(rawData)
   }
 
   async login(username: string, password: string): Promise<string> {
@@ -682,7 +689,8 @@ export class JejuPkgSDK {
       throw new Error(`Failed to login: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as { token: string }
+    const rawData: unknown = await response.json()
+    const data = LoginResponseSchema.parse(rawData)
     return data.token
   }
 
@@ -697,7 +705,8 @@ export class JejuPkgSDK {
       throw new Error(`Failed to get user: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as { username: string }
+    const rawData: unknown = await response.json()
+    const data = WhoamiResponseSchema.parse(rawData)
     return data.username
   }
 
@@ -774,7 +783,8 @@ export class JejuPkgSDK {
     if (!response.ok) {
       throw new Error(`Health check failed: ${response.statusText}`)
     }
-    return response.json() as Promise<{ status: string; service: string }>
+    const rawData: unknown = await response.json()
+    return HealthCheckResponseSchema.parse(rawData)
   }
 
   // Registry URL helper for npm/bun config (compatibility)
@@ -791,7 +801,7 @@ export function createJejuPkgSDK(config: PackageSDKConfig): JejuPkgSDK {
 // Convenience function for default config
 export function createDefaultPkgSDK(): JejuPkgSDK {
   return new JejuPkgSDK({
-    rpcUrl: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:9545',
+    rpcUrl: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546',
     registryUrl: process.env.JEJUPKG_URL ?? 'http://localhost:4030/pkg',
     registryAddress: process.env.PACKAGE_REGISTRY_ADDRESS as
       | Address

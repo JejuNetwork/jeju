@@ -251,7 +251,9 @@ export function getNodeStats(): {
 
   for (const node of active) {
     allProviders.add(node.provider)
-    node.models.forEach((m) => allModels.add(m))
+    node.models.forEach((m) => {
+      allModels.add(m)
+    })
   }
 
   return {

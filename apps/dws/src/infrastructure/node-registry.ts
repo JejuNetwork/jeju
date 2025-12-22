@@ -6,6 +6,7 @@
  * Users discover nodes via on-chain queries and P2P gossip.
  */
 
+import { expectJson } from '@jejunetwork/types'
 import {
   type Address,
   type Chain,
@@ -21,6 +22,7 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia } from 'viem/chains'
+import { z } from 'zod'
 import { parseQuote, verifyQuote } from '../poc/quote-parser'
 import type {
   InfraEvent,
@@ -31,6 +33,32 @@ import type {
   NodeSpecs,
   TEEPlatform,
 } from './types'
+
+// ============================================================================
+// Validation Schemas
+// ============================================================================
+
+const NodeSpecsSchema = z.object({
+  cpuCores: z.number().int().positive(),
+  memoryMb: z.number().int().positive(),
+  storageMb: z.number().int().nonnegative(),
+  bandwidthMbps: z.number().int().nonnegative(),
+  teePlatform: z.enum(['sgx', 'sev', 'tdx', 'nitro', 'none']),
+})
+
+const NodePricingSchema = z.object({
+  pricePerHour: z.string(),
+  pricePerGb: z.string(),
+  pricePerRequest: z.string(),
+})
+
+const NodeAttestationSchema = z.object({
+  quote: z.string().startsWith('0x'),
+  measurement: z.string().startsWith('0x'),
+  platform: z.string(),
+  verifiedAt: z.number(),
+  expiresAt: z.number(),
+})
 
 // ============================================================================
 // Chain Configuration
@@ -790,7 +818,7 @@ export class DecentralizedNodeRegistry {
 
   private decodeSpecs(data: Hex): NodeSpecs {
     const json = Buffer.from(data.slice(2), 'hex').toString()
-    return JSON.parse(json) as NodeSpecs
+    return expectJson(json, NodeSpecsSchema, 'node specs')
   }
 
   private encodePricing(pricing: {
@@ -813,11 +841,7 @@ export class DecentralizedNodeRegistry {
     pricePerRequest: bigint
   } {
     const json = Buffer.from(data.slice(2), 'hex').toString()
-    const parsed = JSON.parse(json) as {
-      pricePerHour: string
-      pricePerGb: string
-      pricePerRequest: string
-    }
+    const parsed = expectJson(json, NodePricingSchema, 'node pricing')
     return {
       pricePerHour: BigInt(parsed.pricePerHour),
       pricePerGb: BigInt(parsed.pricePerGb),
@@ -831,16 +855,10 @@ export class DecentralizedNodeRegistry {
 
   private decodeAttestation(data: Hex): NodeConfig['attestation'] {
     const json = Buffer.from(data.slice(2), 'hex').toString()
-    const parsed = JSON.parse(json) as {
-      quote: Hex
-      measurement: Hex
-      platform: string
-      verifiedAt: number
-      expiresAt: number
-    }
+    const parsed = expectJson(json, NodeAttestationSchema, 'node attestation')
     return {
-      quote: parsed.quote,
-      measurement: parsed.measurement,
+      quote: parsed.quote as Hex,
+      measurement: parsed.measurement as Hex,
       verifiedAt: parsed.verifiedAt,
       expiresAt: parsed.expiresAt,
     }

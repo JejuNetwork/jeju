@@ -201,7 +201,7 @@ services:
       - "4005:4005"
     environment:
       - JNS_GATEWAY_PORT=4005
-      - JEJU_RPC_URL=${JEJU_RPC_URL:-http://host.docker.internal:9545}
+      - JEJU_RPC_URL=${JEJU_RPC_URL:-http://host.docker.internal:6546}
       - JNS_REGISTRY_ADDRESS=${JNS_REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
       - JNS_RESOLVER_ADDRESS=${JNS_RESOLVER_ADDRESS:-0x0000000000000000000000000000000000000000}
       - IPFS_GATEWAY_URL=http://ipfs:8080
@@ -233,7 +233,7 @@ services:
       - "4016:4016"
     environment:
       - TRIGGER_PORT=4016
-      - JEJU_RPC_URL=${JEJU_RPC_URL:-http://host.docker.internal:9545}
+      - JEJU_RPC_URL=${JEJU_RPC_URL:-http://host.docker.internal:6546}
       - TRIGGER_REGISTRY_ADDRESS=${TRIGGER_REGISTRY_ADDRESS:-0x0000000000000000000000000000000000000000}
       - PRIVATE_KEY=${PRIVATE_KEY:-}
       - POLL_INTERVAL_MS=60000
@@ -260,7 +260,7 @@ services:
     ports:
       - "4337:4337"
     environment:
-      - ALTO_RPC_URL=${JEJU_RPC_URL:-http://host.docker.internal:9545}
+      - ALTO_RPC_URL=${JEJU_RPC_URL:-http://host.docker.internal:6546}
       - ALTO_CHAIN_ID=${CHAIN_ID:-420691}
       - ALTO_ENTRYPOINT=0x0000000071727De22E5E9d8BAf0edAc6f37da032
       # SECURITY: Private key required - set BUNDLER_PRIVATE_KEY env var

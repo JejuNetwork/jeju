@@ -108,7 +108,7 @@ describe('ServiceHealthResponseSchema', () => {
       version: '1.0.0',
       uptime: 3600,
       mode: 'production',
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: 'http://localhost:6545',
       services: {
         database: { status: 'ok' },
         cache: { status: 'degraded' },
@@ -251,7 +251,7 @@ describe('PackageSearchResultSchema', () => {
       objects: [
         {
           package: {
-            name: '@jeju/sdk',
+            name: '@jejunetwork/sdk',
             scope: 'jeju',
             version: '1.0.0',
             description: 'Jeju SDK',
@@ -264,7 +264,7 @@ describe('PackageSearchResultSchema', () => {
 
     const result = validate(data, PackageSearchResultSchema)
 
-    expect(result.objects[0].package.name).toBe('@jeju/sdk')
+    expect(result.objects[0].package.name).toBe('@jejunetwork/sdk')
   })
 
   test('validates empty search result', () => {
@@ -276,7 +276,7 @@ describe('PackageSearchResultSchema', () => {
 
   test('rejects invalid package structure', () => {
     const data = {
-      objects: [{ package: { name: '@jeju/sdk' } }], // Missing required fields
+      objects: [{ package: { name: '@jejunetwork/sdk' } }], // Missing required fields
       total: 1,
     }
 

@@ -25,6 +25,7 @@ import { Command } from 'commander'
 import { type ExecaError, execa } from 'execa'
 import { logger } from '../lib/logger'
 import { discoverApps } from '../lib/testing'
+import { EthChainIdResponseSchema, validate } from '../schemas'
 import { createTestOrchestrator } from '../services/test-orchestrator'
 import type { CoverageReport, TestMode, TestResult } from '../types'
 
@@ -386,7 +387,7 @@ testCommand
 
     if (options.setupOnly) {
       logger.success('Infrastructure ready. Run tests with --skip-infra')
-      logger.info('Chain: http://127.0.0.1:9545 (chainId: 1337)')
+      logger.info('Chain: http://127.0.0.1:6546 (chainId: 1337)')
       // Keep Anvil running by not calling cleanup
       return
     }
@@ -1127,8 +1128,8 @@ async function setupE2EInfra(
 ): Promise<() => Promise<void>> {
   logger.step('Setting up E2E infrastructure...')
 
-  // E2E test configuration - fixed values for consistency
-  const E2E_PORT = 9545
+  // E2E test configuration - fixed values for consistency. Port 6546 avoids Anvil/Hardhat default (8545)
+  const E2E_PORT = 6546
   const E2E_CHAIN_ID = 1337
   const rpcUrl = `http://127.0.0.1:${E2E_PORT}`
   let anvilPid: number | null = null
@@ -1165,10 +1166,12 @@ async function setupE2EInfra(
 
       if (result.exitCode !== 0) return false
 
-      const data = JSON.parse(result.stdout) as {
-        result?: string
-        error?: { message: string }
-      }
+      const rawData = JSON.parse(result.stdout)
+      const data = validate(
+        rawData,
+        EthChainIdResponseSchema,
+        'eth_chainId response',
+      )
       if (!data.result || data.error) return false
 
       if (expectedChainId !== undefined) {
@@ -1452,7 +1455,7 @@ async function runSynpressTests(
   const results: TestResult[] = []
 
   // E2E test defaults - consistent with setupE2EInfra
-  const E2E_RPC_URL = 'http://127.0.0.1:9545'
+  const E2E_RPC_URL = 'http://127.0.0.1:6546'
   const E2E_CHAIN_ID = '1337'
   const TEST_WALLET = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
   const DEPLOYER_KEY =

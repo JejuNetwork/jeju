@@ -3,6 +3,11 @@
  */
 
 import { z } from 'zod'
+import {
+  expectValid,
+  extractLLMContent,
+  LLMCompletionResponseSchema,
+} from './schemas'
 
 /**
  * Parse JSON from LLM response that may include markdown code fences
@@ -326,24 +331,12 @@ Return ONLY valid JSON:
 
   if (!response.ok) throw new Error(`AI assessment failed: ${response.status}`)
 
-  const data = (await response.json()) as {
-    choices: Array<{ message: { content: string } }>
-  }
-  if (
-    !data.choices ||
-    !Array.isArray(data.choices) ||
-    data.choices.length === 0
-  ) {
-    throw new Error('AI assessment returned no choices')
-  }
-  const firstChoice = data.choices[0]
-  if (!firstChoice.message || typeof firstChoice.message.content !== 'string') {
-    throw new Error('AI assessment response missing message content')
-  }
-  const content = firstChoice.message.content
-  if (content.length === 0) {
-    throw new Error('AI assessment returned empty content')
-  }
+  const data = expectValid(
+    LLMCompletionResponseSchema,
+    await response.json(),
+    'AI assessment response',
+  )
+  const content = extractLLMContent(data, 'AI assessment')
 
   const rawParsed = JSON.parse(content)
   const parsed = AIAssessmentResponseSchema.parse(rawParsed)

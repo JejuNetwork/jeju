@@ -17,12 +17,13 @@ export {
 } from './passkeys.js'
 export { TOTPManager, type TOTPSecret, type TOTPVerifyResult } from './totp.js'
 
-export enum MFAMethod {
-  PASSKEY = 'passkey',
-  TOTP = 'totp',
-  SMS = 'sms',
-  BACKUP_CODE = 'backup_code',
-}
+export const MFAMethod = {
+  PASSKEY: 'passkey',
+  TOTP: 'totp',
+  SMS: 'sms',
+  BACKUP_CODE: 'backup_code',
+} as const
+export type MFAMethod = (typeof MFAMethod)[keyof typeof MFAMethod]
 
 export interface MFAStatus {
   enabled: boolean

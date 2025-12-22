@@ -6,12 +6,14 @@
 import {
   AddressSchema,
   BigIntSchema,
+  EvmChainIdSchema,
   HashSchema,
   IsoDateSchema,
   NonEmptyStringSchema,
   NonNegativeNumberSchema,
   PercentageSchema,
   PositiveNumberSchema,
+  SolanaNetworkIdSchema,
   UrlSchema,
 } from '@jejunetwork/types'
 import { z } from 'zod'
@@ -23,40 +25,18 @@ export {
   PositiveNumberSchema,
   NonNegativeNumberSchema,
   PercentageSchema,
+  EvmChainIdSchema,
+  SolanaNetworkIdSchema,
 }
 export { UrlSchema as URLSchema }
 export { IsoDateSchema as DateStringSchema }
 
+// Re-export types
+export type { EvmChainId, SolanaNetworkId } from '@jejunetwork/types'
+
 // App-specific: Chain type enum
 export const ChainTypeSchema = z.enum(['evm', 'solana'])
 export type ChainType = z.infer<typeof ChainTypeSchema>
-
-// App-specific: Supported EVM chain IDs
-export const EvmChainIdSchema = z.union([
-  z.literal(1), // Ethereum Mainnet
-  z.literal(10), // Optimism
-  z.literal(56), // BSC
-  z.literal(137), // Polygon
-  z.literal(42161), // Arbitrum One
-  z.literal(43114), // Avalanche
-  z.literal(8453), // Base
-  z.literal(84532), // Base Sepolia
-  z.literal(11155111), // Sepolia
-  z.literal(11155420), // Optimism Sepolia
-  z.literal(421614), // Arbitrum Sepolia
-  z.literal(420690), // Jeju Testnet
-  z.literal(420691), // Jeju Mainnet
-  z.literal(1337), // Localnet
-  z.literal(31337), // Local EVM
-])
-export type EvmChainId = z.infer<typeof EvmChainIdSchema>
-
-// App-specific: Supported Solana network IDs
-export const SolanaNetworkIdSchema = z.union([
-  z.literal(101), // Mainnet
-  z.literal(103), // Devnet
-])
-export type SolanaNetworkId = z.infer<typeof SolanaNetworkIdSchema>
 
 // App-specific: Combined chain IDs
 export const ChainIdSchema = z.union([EvmChainIdSchema, SolanaNetworkIdSchema])

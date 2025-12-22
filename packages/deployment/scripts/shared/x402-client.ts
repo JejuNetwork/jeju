@@ -45,6 +45,13 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import {
+  expectValid,
+  X402SettlementResponseSchema,
+  X402SettlementWithFeeResponseSchema,
+  X402SupportedSchemesResponseSchema,
+  X402VerificationResponseSchema,
+} from '../../schemas'
 
 // ============ Types ============
 
@@ -267,7 +274,7 @@ export const CHAIN_CONFIGS: Record<
 > = {
   420691: {
     name: 'Network',
-    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
+    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
     usdc: '0x0165878A594ca255338adfa4d48449f69242Eb8F' as Address,
   },
   420690: {
@@ -313,7 +320,7 @@ export class X402Client {
     this.config = config
     const chainConfig = CHAIN_CONFIGS[config.chainId]
     const rpcUrl =
-      config.rpcUrl || chainConfig?.rpcUrl || 'http://127.0.0.1:9545'
+      config.rpcUrl || chainConfig?.rpcUrl || 'http://127.0.0.1:6546'
 
     const chain: Chain = {
       id: config.chainId,
@@ -706,12 +713,8 @@ export class X402Client {
       }),
     })
 
-    const result = (await response.json()) as {
-      success: boolean
-      txHash: string | null
-      paymentId?: string
-      error: string | null
-    }
+    const resultRaw = await response.json()
+    const result = expectValid(X402SettlementResponseSchema, resultRaw, 'x402 gasless settlement')
 
     return {
       success: result.success,
@@ -968,13 +971,14 @@ export async function verifyPaymentViaHttp(
     }),
   })
 
-  const result = (await response.json()) as {
-    isValid: boolean
-    invalidReason: string | null
-    payer: Address | null
-  }
+  const resultRaw = await response.json()
+  const validated = expectValid(X402VerificationResponseSchema, resultRaw, 'x402 verification')
 
-  return result
+  return {
+    isValid: validated.isValid ?? validated.valid,
+    invalidReason: validated.invalidReason ?? validated.error ?? null,
+    payer: validated.payer as Address | null,
+  }
 }
 
 /**
@@ -1008,13 +1012,8 @@ export async function settlePaymentViaHttp(
     }),
   })
 
-  const result = (await response.json()) as {
-    success: boolean
-    txHash: string | null
-    error: string | null
-    fee?: { human: string; base: string; bps: number }
-    net?: { human: string; base: string }
-  }
+  const resultRaw = await response.json()
+  const result = expectValid(X402SettlementWithFeeResponseSchema, resultRaw, 'x402 settlement')
 
   return result
 }
@@ -1034,11 +1033,8 @@ export async function getSupportedSchemes(facilitatorUrl: string): Promise<{
 
     if (!response.ok) return null
 
-    return (await response.json()) as {
-      kinds: Array<{ scheme: string; network: string }>
-      x402Version: number
-      facilitator: { name: string; version: string; url: string }
-    }
+    const resultRaw = await response.json()
+    return expectValid(X402SupportedSchemesResponseSchema, resultRaw, 'x402 supported schemes')
   } catch {
     return null
   }

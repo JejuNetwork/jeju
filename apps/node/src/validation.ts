@@ -874,3 +874,101 @@ export function validateNodeUpdateInfo(data: unknown): NodeUpdateInfo {
 export function validateNodeUpdateState(data: unknown): NodeUpdateState {
   return expectValid(NodeUpdateStateSchema, data, 'NodeUpdateState')
 }
+
+// ============================================================================
+// External API Response Schemas
+// ============================================================================
+
+/** Jupiter swap response */
+export const JupiterSwapResponseSchema = z.object({
+  swapTransaction: z.string(),
+  lastValidBlockHeight: z.number().int().positive().optional(),
+})
+
+/** Jito bundle response */
+export const JitoBundleResponseSchema = z.object({
+  result: z.string().optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
+
+/** Jito bundle status response */
+export const JitoBundleStatusResponseSchema = z.object({
+  result: z
+    .object({
+      value: z.array(
+        z.object({
+          confirmation_status: z.string(),
+        }),
+      ),
+    })
+    .optional(),
+})
+
+/** 1inch swap response */
+export const OneInchSwapResponseSchema = z.object({
+  dstAmount: z.string(),
+  tx: z.object({
+    to: z.string(),
+    data: z.string(),
+    value: z.string(),
+  }),
+})
+
+/** Bridge API transfer response */
+export const BridgeTransferResponseSchema = z.object({
+  transferId: z.string(),
+  status: z.string(),
+})
+
+/** Bridge API tx hash response */
+export const BridgeTxResponseSchema = z.object({
+  txHash: z.string(),
+})
+
+/** Hyperliquid prices response */
+export const HyperliquidPricesResponseSchema = z.record(z.string(), z.string())
+
+/** Jito tip floor response */
+export const JitoTipFloorResponseSchema = z.object({
+  result: z
+    .object({
+      tip_floor_lamports: z.number(),
+    })
+    .optional(),
+})
+
+/** Oracle attestation */
+export const OracleAttestationSchema = z.object({
+  seeder: z.string(),
+  infohash: z.string(),
+  bytesUploaded: z.number().int().nonnegative(),
+  timestamp: z.number().int().positive(),
+  nonce: z.string(),
+  signature: z.string(),
+})
+
+/** JSON-RPC result response */
+export const JsonRpcResultResponseSchema = z.object({
+  result: z.string().optional(),
+})
+
+/** Jupiter price response */
+export const JupiterPriceResponseSchema = z.object({
+  data: z.record(z.string(), z.object({ price: z.number() })).optional(),
+})
+
+// Type exports
+export type JupiterSwapResponse = z.infer<typeof JupiterSwapResponseSchema>
+export type JitoBundleResponse = z.infer<typeof JitoBundleResponseSchema>
+export type JitoBundleStatusResponse = z.infer<
+  typeof JitoBundleStatusResponseSchema
+>
+export type OneInchSwapResponse = z.infer<typeof OneInchSwapResponseSchema>
+export type BridgeTransferResponse = z.infer<typeof BridgeTransferResponseSchema>
+export type BridgeTxResponse = z.infer<typeof BridgeTxResponseSchema>
+export type HyperliquidPricesResponse = z.infer<
+  typeof HyperliquidPricesResponseSchema
+>
+export type JitoTipFloorResponse = z.infer<typeof JitoTipFloorResponseSchema>
+export type OracleAttestation = z.infer<typeof OracleAttestationSchema>
+export type JsonRpcResultResponse = z.infer<typeof JsonRpcResultResponseSchema>

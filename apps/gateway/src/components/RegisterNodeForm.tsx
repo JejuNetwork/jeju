@@ -123,6 +123,7 @@ export default function RegisterNodeForm() {
         {/* Amount */}
         <div style={{ marginBottom: '1.5rem' }}>
           <label
+            htmlFor="stake-amount"
             style={{
               display: 'block',
               marginBottom: '0.5rem',
@@ -132,6 +133,7 @@ export default function RegisterNodeForm() {
             Amount to Stake
           </label>
           <input
+            id="stake-amount"
             className="input"
             type="number"
             step="any"
@@ -191,6 +193,7 @@ export default function RegisterNodeForm() {
         {/* RPC URL */}
         <div style={{ marginBottom: '1.5rem' }}>
           <label
+            htmlFor="rpc-url"
             style={{
               display: 'block',
               marginBottom: '0.5rem',
@@ -200,6 +203,7 @@ export default function RegisterNodeForm() {
             RPC URL
           </label>
           <input
+            id="rpc-url"
             className="input"
             type="url"
             placeholder="https://your-node-ip:8545"
@@ -221,6 +225,7 @@ export default function RegisterNodeForm() {
         {/* Region */}
         <div style={{ marginBottom: '1.5rem' }}>
           <label
+            htmlFor="region"
             style={{
               display: 'block',
               marginBottom: '0.5rem',
@@ -230,6 +235,7 @@ export default function RegisterNodeForm() {
             Geographic Region
           </label>
           <select
+            id="region"
             className="input"
             value={region}
             onChange={(e) => setRegion(Number(e.target.value) as Region)}

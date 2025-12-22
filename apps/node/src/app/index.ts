@@ -18,8 +18,10 @@ import { createInterface } from 'node:readline'
 import { parseArgs } from 'node:util'
 import chalk from 'chalk'
 import { formatEther } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import { createNodeClient } from '../lib/contracts'
+import { JsonRpcResultResponseSchema } from '../validation'
 import type { ServiceRequirements } from '../lib/hardware'
 import {
   convertHardwareToCamelCase,
@@ -212,13 +214,20 @@ function safeMergeConfig(
   return result
 }
 
+/** Schema for raw parsed config before validation */
+const RawConfigSchema = z.record(z.string(), z.unknown())
+
 function loadConfig(): CliAppConfig {
   const configPath = getConfigPath()
   if (existsSync(configPath)) {
     const fileContent = readFileSync(configPath, 'utf-8')
-    const parsed = JSON.parse(fileContent) as Record<string, unknown>
+    const rawResult = RawConfigSchema.safeParse(JSON.parse(fileContent))
+    if (!rawResult.success) {
+      console.error('Config file is not a valid JSON object, using defaults')
+      return DEFAULT_CONFIG
+    }
     // Safely merge with prototype pollution protection
-    const merged = safeMergeConfig(DEFAULT_CONFIG, parsed)
+    const merged = safeMergeConfig(DEFAULT_CONFIG, rawResult.data)
     // Validate the merged config
     const result = CliAppConfigSchema.safeParse(merged)
     if (!result.success) {
@@ -346,7 +355,7 @@ async function cmdSetup(): Promise<void> {
       ? 'https://rpc.jejunetwork.org'
       : config.network === 'testnet'
         ? 'https://testnet-rpc.jejunetwork.org'
-        : 'http://localhost:8545'
+        : 'http://localhost:6545'
   config.chainId =
     config.network === 'mainnet'
       ? 420690
@@ -367,7 +376,6 @@ async function cmdSetup(): Promise<void> {
             'Invalid private key format: must be 64 hex characters (with or without 0x prefix)',
           )
         }
-        const { privateKeyToAccount } = await import('viem/accounts')
         config.privateKey = normalizedKey
         config.walletAddress = privateKeyToAccount(
           normalizedKey as `0x${string}`,
@@ -419,10 +427,11 @@ async function cmdStatus(): Promise<void> {
       id: 1,
     }),
   })
-  const data = (await res.json()) as { result?: string }
-  if (data.result) {
+  const json: unknown = await res.json()
+  const parsed = JsonRpcResultResponseSchema.safeParse(json)
+  if (parsed.success && parsed.data.result) {
     connected = true
-    blockNum = parseInt(data.result, 16)
+    blockNum = parseInt(parsed.data.result, 16)
   }
 
   console.log(`  ${chalk.bold('Network')}`)
@@ -496,7 +505,6 @@ async function cmdStart(): Promise<void> {
       )
     }
     config.privateKey = normalizedKey
-    const { privateKeyToAccount } = await import('viem/accounts')
     config.walletAddress = privateKeyToAccount(
       normalizedKey as `0x${string}`,
     ).address
@@ -527,8 +535,9 @@ async function cmdStart(): Promise<void> {
         id: 1,
       }),
     })
-    const data = (await res.json()) as { result?: string }
-    if (!data.result) throw new Error('No response')
+    const json: unknown = await res.json()
+    const parsed = JsonRpcResultResponseSchema.safeParse(json)
+    if (!parsed.success || !parsed.data.result) throw new Error('No response')
     log('success', 'Connected to network')
   } catch {
     log('error', `Cannot connect to ${config.rpcUrl}`)
@@ -756,7 +765,7 @@ async function main(): Promise<void> {
         ? 'https://rpc.jejunetwork.org'
         : config.network === 'testnet'
           ? 'https://testnet-rpc.jejunetwork.org'
-          : 'http://localhost:8545'
+          : 'http://localhost:6545'
     config.chainId =
       config.network === 'mainnet'
         ? 420690
@@ -816,7 +825,7 @@ ${chalk.bold('Quick Start:')}
         ? 'https://rpc.jejunetwork.org'
         : config.network === 'testnet'
           ? 'https://testnet-rpc.jejunetwork.org'
-          : 'http://localhost:8545'
+          : 'http://localhost:6545'
     config.chainId =
       config.network === 'mainnet'
         ? 420690

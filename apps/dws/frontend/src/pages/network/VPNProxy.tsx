@@ -76,6 +76,7 @@ export default function VPNProxyPage() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
             disabled={!isConnected}
@@ -336,17 +337,33 @@ export default function VPNProxyPage() {
       </div>
 
       {showModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => {
-            setShowModal(false)
-            setSessionInfo(null)
-          }}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => {
+              setShowModal(false)
+              setSessionInfo(null)
+            }}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowModal(false)
+                setSessionInfo(null)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">New Proxy Session</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => {
                   setShowModal(false)
@@ -426,6 +443,7 @@ export default function VPNProxyPage() {
                           {item.value}
                         </code>
                         <button
+                          type="button"
                           className="btn btn-ghost btn-icon"
                           style={{ padding: '0.25rem' }}
                           onClick={() => handleCopy(item.value, item.id)}
@@ -445,8 +463,11 @@ export default function VPNProxyPage() {
               <form onSubmit={handleCreate}>
                 <div className="modal-body">
                   <div className="form-group">
-                    <label className="form-label">Region</label>
+                    <label htmlFor="proxy-region" className="form-label">
+                      Region
+                    </label>
                     <select
+                      id="proxy-region"
                       className="input"
                       value={formData.region}
                       onChange={(e) =>
@@ -462,8 +483,11 @@ export default function VPNProxyPage() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Proxy Type</label>
+                    <label htmlFor="proxy-type" className="form-label">
+                      Proxy Type
+                    </label>
                     <select
+                      id="proxy-type"
                       className="input"
                       value={formData.type}
                       onChange={(e) =>
@@ -476,8 +500,11 @@ export default function VPNProxyPage() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Duration</label>
+                    <label htmlFor="proxy-duration" className="form-label">
+                      Duration
+                    </label>
                     <select
+                      id="proxy-duration"
                       className="input"
                       value={formData.duration}
                       onChange={(e) =>
@@ -517,6 +544,7 @@ export default function VPNProxyPage() {
             {sessionInfo && (
               <div className="modal-footer">
                 <button
+                  type="button"
                   className="btn btn-secondary"
                   onClick={() => {
                     setShowModal(false)

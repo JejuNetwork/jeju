@@ -15,11 +15,12 @@ import type { JejuWallet } from './wallet'
 // Types
 // ============================================================================
 
-export enum VPNNodeStatus {
-  INACTIVE = 0,
-  ACTIVE = 1,
-  SUSPENDED = 2,
-}
+export const VPNNodeStatus = {
+  INACTIVE: 0,
+  ACTIVE: 1,
+  SUSPENDED: 2,
+} as const
+export type VPNNodeStatus = (typeof VPNNodeStatus)[keyof typeof VPNNodeStatus]
 
 export interface VPNNodeInfo {
   operator: Address

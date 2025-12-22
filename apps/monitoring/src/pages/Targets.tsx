@@ -54,6 +54,7 @@ export function Targets() {
           Targets
         </h1>
         <button
+          type="button"
           onClick={() => refetch()}
           disabled={loading}
           className="btn-secondary flex items-center gap-2"
@@ -74,6 +75,7 @@ export function Targets() {
 
           <div className="flex-1 w-full grid grid-cols-3 gap-4">
             <button
+              type="button"
               onClick={() => setHealthFilter('all')}
               className={`p-4 rounded-xl text-center ${healthFilter === 'all' ? 'ring-2 ring-jeju-primary' : ''}`}
               style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -93,6 +95,7 @@ export function Targets() {
             </button>
 
             <button
+              type="button"
               onClick={() => setHealthFilter('up')}
               className={`p-4 rounded-xl text-center ${healthFilter === 'up' ? 'ring-2 ring-jeju-success' : ''}`}
               style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -112,6 +115,7 @@ export function Targets() {
             </button>
 
             <button
+              type="button"
               onClick={() => setHealthFilter('down')}
               className={`p-4 rounded-xl text-center ${healthFilter === 'down' ? 'ring-2 ring-jeju-error' : ''}`}
               style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -166,11 +170,15 @@ export function Targets() {
       {/* Targets */}
       {loading ? (
         <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="card-static p-4">
-              <div className="shimmer h-20 w-full rounded" />
-            </div>
-          ))}
+          <div key="skeleton-0" className="card-static p-4">
+            <div className="shimmer h-20 w-full rounded" />
+          </div>
+          <div key="skeleton-1" className="card-static p-4">
+            <div className="shimmer h-20 w-full rounded" />
+          </div>
+          <div key="skeleton-2" className="card-static p-4">
+            <div className="shimmer h-20 w-full rounded" />
+          </div>
         </div>
       ) : filteredTargets.length === 0 ? (
         <div className="card-static p-8 text-center">
@@ -213,8 +221,11 @@ export function Targets() {
                 className="divide-y"
                 style={{ borderColor: 'var(--border)' }}
               >
-                {jobTargets.map((target, i) => (
-                  <TargetRow key={i} target={target} />
+                {jobTargets.map((target) => (
+                  <TargetRow
+                    key={`${target.scrapeUrl}-${target.labels.instance || ''}`}
+                    target={target}
+                  />
                 ))}
               </div>
             </div>

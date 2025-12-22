@@ -120,7 +120,7 @@ describe('OpenAI Live', () => {
       choices?: Array<{ message?: { content?: string } }>
     }
     expect(body.choices).toBeDefined()
-    expect(body.choices![0].message?.content).toBeDefined()
+    expect(body.choices?.[0].message?.content).toBeDefined()
 
     // Verify no key leakage
     const bodyStr = JSON.stringify(response.body)
@@ -157,7 +157,7 @@ describe('OpenAI Live', () => {
     expect(response.status).toBe(200)
     const body = response.body as { data?: Array<{ id: string }> }
     expect(body.data).toBeDefined()
-    expect(body.data!.length).toBeGreaterThan(0)
+    expect(body.data?.length).toBeGreaterThan(0)
   })
 })
 
@@ -276,7 +276,7 @@ describe('Helius Live', () => {
 
     const response = await proxyRequest(
       {
-        listingId: listing!.id,
+        listingId: listing?.id,
         endpoint: '/',
         method: 'POST',
         body: {
@@ -303,7 +303,7 @@ describe('Helius Live', () => {
 
     const response = await proxyRequest(
       {
-        listingId: listing!.id,
+        listingId: listing?.id,
         endpoint: '/',
         method: 'POST',
         body: {
@@ -339,7 +339,7 @@ describe('Birdeye Live', () => {
 
     const response = await proxyRequest(
       {
-        listingId: listing!.id,
+        listingId: listing?.id,
         endpoint: `/defi/price`,
         method: 'GET',
         queryParams: {
@@ -372,7 +372,7 @@ describe('CoinGecko Live', () => {
 
     const response = await proxyRequest(
       {
-        listingId: listing!.id,
+        listingId: listing?.id,
         endpoint: '/simple/price',
         method: 'GET',
         queryParams: {
@@ -407,7 +407,7 @@ describe('AWS Bedrock Live', () => {
 
     const response = await proxyRequest(
       {
-        listingId: listing!.id,
+        listingId: listing?.id,
         endpoint: '/model/anthropic.claude-3-haiku-20240307-v1:0/invoke',
         method: 'POST',
         body: {
@@ -444,7 +444,7 @@ describe('GCP Vertex AI Live', () => {
     // Note: Actual endpoint depends on project/location
     const response = await proxyRequest(
       {
-        listingId: listing!.id,
+        listingId: listing?.id,
         endpoint:
           '/projects/test-project/locations/us-central1/publishers/google/models/gemini-1.5-flash:generateContent',
         method: 'POST',
@@ -481,7 +481,7 @@ describe('Azure OpenAI Live', () => {
     // Note: Actual endpoint depends on resource-name and deployment-id
     const response = await proxyRequest(
       {
-        listingId: listing!.id,
+        listingId: listing?.id,
         endpoint:
           '/deployments/gpt-4/chat/completions?api-version=2024-02-15-preview',
         method: 'POST',
@@ -517,7 +517,7 @@ describe('Tavily Live', () => {
 
     const response = await proxyRequest(
       {
-        listingId: listing!.id,
+        listingId: listing?.id,
         endpoint: '/search',
         method: 'POST',
         body: {

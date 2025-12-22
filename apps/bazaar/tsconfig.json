@@ -1,7 +1,8 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "jsx": "preserve",
+    "jsx": "react-jsx",
+    "jsxImportSource": "react",
     "allowJs": true,
     "noEmit": true,
     "incremental": true,
@@ -10,44 +11,26 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "skipLibCheck": true,
-    "plugins": [
-      {
-        "name": "next"
-      }
-    ],
+    "moduleResolution": "bundler",
     "paths": {
-      "@/*": [
-        "./*"
-      ],
-      "@/components/*": [
-        "./components/*"
-      ],
-      "@/lib/*": [
-        "./lib/*"
-      ],
-      "@/hooks/*": [
-        "./hooks/*"
-      ],
-      "@/config/*": [
-        "./config/*"
-      ]
+      "@/*": ["./*"],
+      "@/components/*": ["./components/*"],
+      "@/lib/*": ["./lib/*"],
+      "@/hooks/*": ["./hooks/*"],
+      "@/config/*": ["./config/*"]
     }
   },
   "include": [
-    "next-env.d.ts",
-    "app/**/*.ts",
-    "app/**/*.tsx",
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "api/**/*.ts",
     "components/**/*.ts",
     "components/**/*.tsx",
     "config/**/*.ts",
     "hooks/**/*.ts",
     "lib/**/*.ts",
     "types/**/*.ts",
-    ".next/types/**/*.ts"
+    "schemas/**/*.ts"
   ],
-  "exclude": [
-    "node_modules",
-    "tests/**/*",
-    "test/**/*"
-  ]
+  "exclude": ["node_modules", "tests/**/*", "test/**/*", "dist"]
 }

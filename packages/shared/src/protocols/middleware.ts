@@ -9,7 +9,7 @@
  */
 
 import { timingSafeEqual } from 'node:crypto'
-import type { Context, Next } from 'hono'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { createPublicClient, getAddress, http, verifyMessage } from 'viem'
 import { z } from 'zod'
@@ -93,6 +93,14 @@ export interface AgentInfo {
   tags: string[]
   banned: boolean
   banReason?: string
+}
+
+// Context types for Elysia derive
+export interface ProtocolContext {
+  userAddress: Address | null
+  agentInfo: AgentInfo | null
+  paymentVerified: boolean
+  paymentSigner: Address | null
 }
 
 // ============================================================================
@@ -232,44 +240,90 @@ export async function getAgentInfo(
   }
 }
 
+/**
+ * ERC-8004 context type for route handlers
+ */
+export interface ERC8004Context {
+  userAddress: Address | null
+  agentInfo: AgentInfo | null
+  erc8004Error: { error: string; reason?: string } | null
+}
+
+/**
+ * Helper to verify ERC-8004 identity from headers
+ */
+export async function verifyERC8004Identity(
+  headers: Record<string, string | undefined>,
+  options: { requireRegistration?: boolean; requireActive?: boolean } = {},
+): Promise<ERC8004Context> {
+  const address = headers['x-jeju-address'] as Address | undefined
+
+  if (!address) {
+    if (options.requireRegistration) {
+      return {
+        userAddress: null,
+        agentInfo: null,
+        erc8004Error: { error: 'x-jeju-address header required' },
+      }
+    }
+    return {
+      userAddress: null,
+      agentInfo: null,
+      erc8004Error: null,
+    }
+  }
+
+  const agentInfo = await getAgentInfo(address)
+
+  if (options.requireRegistration && !agentInfo) {
+    return {
+      userAddress: address,
+      agentInfo: null,
+      erc8004Error: { error: 'Address not registered as ERC-8004 agent' },
+    }
+  }
+
+  if (agentInfo?.banned) {
+    return {
+      userAddress: address,
+      agentInfo,
+      erc8004Error: {
+        error: 'Agent is banned from the network',
+        reason: agentInfo.banReason,
+      },
+    }
+  }
+
+  if (options.requireActive && agentInfo && !agentInfo.active) {
+    return {
+      userAddress: address,
+      agentInfo,
+      erc8004Error: { error: 'Agent registration is not active' },
+    }
+  }
+
+  return {
+    userAddress: address,
+    agentInfo,
+    erc8004Error: null,
+  }
+}
+
+/**
+ * Creates an Elysia plugin for ERC-8004 identity verification
+ */
 export function erc8004Middleware(
   options: { requireRegistration?: boolean; requireActive?: boolean } = {},
 ) {
-  return async (c: Context, next: Next) => {
-    const address = c.req.header('x-jeju-address') as Address | undefined
+  return new Elysia({ name: 'erc8004' }).derive(async ({ headers, set }) => {
+    const context = await verifyERC8004Identity(headers, options)
 
-    if (!address) {
-      if (options.requireRegistration) {
-        return c.json({ error: 'x-jeju-address header required' }, 401)
-      }
-      c.set('agentInfo', null)
-      return next()
+    if (context.erc8004Error) {
+      set.status = context.userAddress ? 403 : 401
     }
 
-    const agentInfo = await getAgentInfo(address)
-
-    if (options.requireRegistration && !agentInfo) {
-      return c.json({ error: 'Address not registered as ERC-8004 agent' }, 403)
-    }
-
-    if (agentInfo?.banned) {
-      return c.json(
-        {
-          error: 'Agent is banned from the network',
-          reason: agentInfo.banReason,
-        },
-        403,
-      )
-    }
-
-    if (options.requireActive && agentInfo && !agentInfo.active) {
-      return c.json({ error: 'Agent registration is not active' }, 403)
-    }
-
-    c.set('agentInfo', agentInfo)
-    c.set('userAddress', address)
-    return next()
-  }
+    return { ...context }
+  })
 }
 
 // ============================================================================
@@ -452,48 +506,85 @@ export async function verifyX402Payment(
   return { valid: true, signer }
 }
 
-export function x402Middleware(requiredAmount?: bigint) {
-  return async (c: Context, next: Next) => {
-    const paymentHeader = c.req.header('x-payment')
+/**
+ * X402 context type for route handlers
+ */
+export interface X402Context {
+  paymentVerified: boolean
+  paymentSigner: Address | null
+  x402Error: { error: string; x402?: PaymentRequirement; details?: string } | null
+}
 
-    if (!paymentHeader) {
-      if (requiredAmount && requiredAmount > 0n) {
-        const requirement = createPaymentRequirement(
-          c.req.path,
-          requiredAmount.toString(),
-          'Payment required for this endpoint',
-        )
-        return c.json(
-          {
-            error: 'Payment Required',
-            x402: requirement,
-          },
-          402,
-        )
-      }
-      return next()
-    }
+/**
+ * Helper to verify x402 payment from headers
+ */
+export async function verifyX402FromHeaders(
+  headers: Record<string, string | undefined>,
+  path: string,
+  requiredAmount?: bigint,
+): Promise<X402Context> {
+  const paymentHeader = headers['x-payment']
 
-    const result = await verifyX402Payment(
-      paymentHeader,
-      requiredAmount ?? 0n,
-      c.req.path,
-    )
-
-    if (!result.valid) {
-      return c.json(
-        {
-          error: 'Payment verification failed',
-          details: result.error,
-        },
-        402,
+  if (!paymentHeader) {
+    if (requiredAmount && requiredAmount > 0n) {
+      const requirement = createPaymentRequirement(
+        path,
+        requiredAmount.toString(),
+        'Payment required for this endpoint',
       )
+      return {
+        paymentVerified: false,
+        paymentSigner: null,
+        x402Error: {
+          error: 'Payment Required',
+          x402: requirement,
+        },
+      }
+    }
+    return {
+      paymentVerified: false,
+      paymentSigner: null,
+      x402Error: null,
+    }
+  }
+
+  const result = await verifyX402Payment(
+    paymentHeader,
+    requiredAmount ?? 0n,
+    path,
+  )
+
+  if (!result.valid) {
+    return {
+      paymentVerified: false,
+      paymentSigner: null,
+      x402Error: {
+        error: 'Payment verification failed',
+        details: result.error,
+      },
+    }
+  }
+
+  return {
+    paymentVerified: true,
+    paymentSigner: result.signer ?? null,
+    x402Error: null,
+  }
+}
+
+/**
+ * Creates an Elysia plugin for x402 payment verification
+ */
+export function x402Middleware(requiredAmount?: bigint) {
+  return new Elysia({ name: 'x402' }).derive(async ({ headers, path, set }) => {
+    const context = await verifyX402FromHeaders(headers, path, requiredAmount)
+
+    if (context.x402Error) {
+      set.status = 402
     }
 
-    c.set('paymentSigner', result.signer)
-    c.set('paymentVerified', true)
-    return next()
-  }
+    return { ...context }
+  })
 }
 
 // ============================================================================

@@ -6,15 +6,16 @@ import { join } from 'node:path'
 import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'
 
-export enum FlagType {
-  DUPLICATE = 'DUPLICATE',
-  SPAM = 'SPAM',
-  HARMFUL = 'HARMFUL',
-  INFEASIBLE = 'INFEASIBLE',
-  MISALIGNED = 'MISALIGNED',
-  LOW_QUALITY = 'LOW_QUALITY',
-  NEEDS_WORK = 'NEEDS_WORK',
-}
+export const FlagType = {
+  DUPLICATE: 'DUPLICATE',
+  SPAM: 'SPAM',
+  HARMFUL: 'HARMFUL',
+  INFEASIBLE: 'INFEASIBLE',
+  MISALIGNED: 'MISALIGNED',
+  LOW_QUALITY: 'LOW_QUALITY',
+  NEEDS_WORK: 'NEEDS_WORK',
+} as const
+export type FlagType = (typeof FlagType)[keyof typeof FlagType]
 
 export interface ProposalFlag {
   flagId: string
@@ -61,7 +62,15 @@ const ProposalFlagSchema = z.object({
   flagId: z.string(),
   proposalId: z.string(),
   flagger: z.string(),
-  flagType: z.nativeEnum(FlagType),
+  flagType: z.enum([
+    FlagType.DUPLICATE,
+    FlagType.SPAM,
+    FlagType.HARMFUL,
+    FlagType.INFEASIBLE,
+    FlagType.MISALIGNED,
+    FlagType.LOW_QUALITY,
+    FlagType.NEEDS_WORK,
+  ]),
   reason: z.string(),
   evidence: z.string().optional(),
   stake: z.number(),
@@ -462,7 +471,12 @@ export class ModerationSystem {
 }
 
 let instance: ModerationSystem | null = null
-export const getModerationSystem = () => (instance ??= new ModerationSystem())
+export const getModerationSystem = () => {
+  if (!instance) {
+    instance = new ModerationSystem()
+  }
+  return instance
+}
 export const initModeration = async () => {
   await getModerationSystem().init()
 }

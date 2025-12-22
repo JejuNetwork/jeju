@@ -90,7 +90,9 @@ export const portsCommand = new Command('ports')
       logger.info(
         `Found ${envOverrides.length} environment variable override(s):`,
       )
-      envOverrides.forEach((override) => logger.info(override))
+      envOverrides.forEach((override) => {
+        logger.info(override)
+      })
       logger.newline()
     } else {
       logger.success('No environment variable overrides (using defaults)')

@@ -13,8 +13,8 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { INDEXER_URL } from '@/config'
-import type { PricePoint } from '@/types/markets'
+import { INDEXER_URL } from '../../config'
+import type { PricePoint } from '../../types/markets'
 
 const PRICE_HISTORY_QUERY = gql`
   query GetPriceHistory($marketId: String!) {

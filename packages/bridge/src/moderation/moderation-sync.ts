@@ -105,21 +105,24 @@ export interface ModerationSyncResult {
   action: 'ban' | 'unban' | 'report'
 }
 
-export enum ReportCategory {
-  SPAM = 0,
-  ABUSE = 1,
-  FRAUD = 2,
-  IMPERSONATION = 3,
-  ILLEGAL_CONTENT = 4,
-  OTHER = 5,
-}
+export const ReportCategory = {
+  SPAM: 0,
+  ABUSE: 1,
+  FRAUD: 2,
+  IMPERSONATION: 3,
+  ILLEGAL_CONTENT: 4,
+  OTHER: 5,
+} as const
+export type ReportCategory =
+  (typeof ReportCategory)[keyof typeof ReportCategory]
 
-export enum ReportStatus {
-  PENDING = 0,
-  RESOLVED_BAN = 1,
-  RESOLVED_WARNING = 2,
-  DISMISSED = 3,
-}
+export const ReportStatus = {
+  PENDING: 0,
+  RESOLVED_BAN: 1,
+  RESOLVED_WARNING: 2,
+  DISMISSED: 3,
+} as const
+export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus]
 
 export class ModerationSyncService extends EventEmitter {
   private config: ModerationSyncConfig

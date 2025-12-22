@@ -11,7 +11,7 @@ import type { WorkerdConfig, WorkerdWorkerDefinition } from './types'
 export function generateWorkerConfig(
   worker: WorkerdWorkerDefinition,
   port: number,
-  config: WorkerdConfig,
+  _config: WorkerdConfig,
 ): string {
   const workerName = sanitizeName(worker.name)
   const _mainModuleName = worker.mainModule || 'worker.js'
@@ -60,6 +60,11 @@ export function generateWorkerConfig(
     ? `\n    compatibilityFlags = [${worker.compatibilityFlags.map((f) => `"${f}"`).join(', ')}],`
     : ''
 
+  // Use camelCase for the worker name to comply with Cap'n Proto conventions
+  const camelCaseName = workerName.replace(/_([a-z])/g, (_, c) =>
+    c.toUpperCase(),
+  )
+
   const capnpConfig = `# Auto-generated workerd configuration for ${worker.name}
 # Worker ID: ${worker.id}
 # Version: ${worker.version}
@@ -69,19 +74,19 @@ using Workerd = import "/workerd/workerd.capnp";
 
 const config :Workerd.Config = (
   services = [
-    (name = "main", worker = .${workerName}Worker),
+    (name = "main", worker = .${camelCaseName}Worker),
   ],
   sockets = [
     (
       name = "http",
-      address = "*:${port}",
+      address = "127.0.0.1:${port}",
       http = (),
       service = "main"
     ),
   ],
 );
 
-const ${workerName}Worker :Workerd.Worker = (
+const ${camelCaseName}Worker :Workerd.Worker = (
   modules = [
 ${modules}
   ],
@@ -89,14 +94,6 @@ ${modules}
 ${bindings}
   ],
   compatibilityDate = "${worker.compatibilityDate}",${compatFlags}
-);
-
-# Limits
-const limits :Workerd.Limit = (
-  cpuMs = ${worker.cpuTimeMs || config.cpuTimeLimitMs},
-  memoryMb = ${worker.memoryMb || config.isolateMemoryMb},
-  requestTimeoutMs = ${worker.timeoutMs || config.requestTimeoutMs},
-  subrequests = ${config.subrequestLimit},
 );
 `
 
@@ -112,16 +109,9 @@ export function generatePoolConfig(
   config: WorkerdConfig,
 ): string {
   const services = workers
-    .map((w, _i) => {
-      const name = sanitizeName(w.name)
-      return `    (name = "${name}", worker = .${name}Worker)`
-    })
-    .join(',\n')
-
-  const _routes = workers
     .map((w) => {
-      const name = sanitizeName(w.name)
-      return `      ("/${w.id}/*", "${name}")`
+      const name = toCamelCase(sanitizeName(w.name))
+      return `    (name = "${name}", worker = .${name}Worker)`
     })
     .join(',\n')
 
@@ -143,7 +133,7 @@ ${services}
   sockets = [
     (
       name = "http",
-      address = "*:${port}",
+      address = "127.0.0.1:${port}",
       http = (),
       service = "router"
     ),
@@ -156,7 +146,7 @@ const routerWorker :Workerd.Worker = (
     (name = "router.js", esModule = embed "router.js")
   ],
   bindings = [
-${workers.map((w) => `    (name = "${sanitizeName(w.name)}", service = "${sanitizeName(w.name)}")`).join(',\n')}
+${workers.map((w) => `    (name = "${toCamelCase(sanitizeName(w.name))}", service = "${toCamelCase(sanitizeName(w.name))}")`).join(',\n')}
   ],
   compatibilityDate = "2024-01-01",
 );
@@ -172,7 +162,7 @@ function generateInlineWorkerDef(
   worker: WorkerdWorkerDefinition,
   _config: WorkerdConfig,
 ): string {
-  const name = sanitizeName(worker.name)
+  const name = toCamelCase(sanitizeName(worker.name))
 
   const modules = worker.modules
     .map((mod) => {
@@ -271,6 +261,13 @@ function sanitizeName(name: string): string {
     .replace(/[^a-zA-Z0-9]/g, '_')
     .replace(/^[0-9]/, '_$&')
     .replace(/__+/g, '_')
+}
+
+/**
+ * Convert snake_case to camelCase for Cap'n Proto compliance
+ */
+function toCamelCase(name: string): string {
+  return name.replace(/_([a-z])/g, (_, c) => c.toUpperCase())
 }
 
 /**

@@ -6,8 +6,8 @@
  */
 
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import {
   MCPPromptGetSchema,
   MCPRequestSchema,
@@ -25,19 +25,20 @@ const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',') ?? [
 ]
 
 const corsConfig = {
-  origin: (origin: string) => {
+  origin: (request: Request) => {
+    const origin = request.headers.get('origin') ?? ''
     // Allow requests with no origin (like mobile apps or curl) in development
     if (!origin && process.env.NODE_ENV !== 'production') {
-      return '*'
+      return true
     }
     if (CORS_ORIGINS.includes(origin)) {
-      return origin
+      return true
     }
-    return ''
+    return false
   },
   credentials: true,
-  allowMethods: ['GET', 'POST', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  methods: ['GET', 'POST', 'OPTIONS'],
 }
 
 // ============================================================================
@@ -331,62 +332,58 @@ const MCP_PROMPTS = [
 // Server Implementation
 // ============================================================================
 
-export function createMonitoringA2AServer(): Hono {
-  const app = new Hono()
-  app.use('/*', cors(corsConfig))
+export function createMonitoringA2AServer() {
+  return new Elysia({ prefix: '/a2a' })
+    .use(cors(corsConfig))
+    .get('/.well-known/agent-card.json', () => AGENT_CARD)
+    .post('/', async ({ body }) => {
+      const rawBody = body as Record<string, unknown>
+      const parseResult = MCPRequestSchema.safeParse(rawBody)
 
-  app.get('/.well-known/agent-card.json', (c) => c.json(AGENT_CARD))
+      if (!parseResult.success) {
+        return {
+          jsonrpc: '2.0',
+          id: rawBody.id,
+          error: {
+            code: -32600,
+            message: `Invalid request: ${parseResult.error.message}`,
+          },
+        }
+      }
 
-  app.post('/', async (c) => {
-    const rawBody = await c.req.json()
-    const parseResult = MCPRequestSchema.safeParse(rawBody)
+      const parsedBody = parseResult.data
 
-    if (!parseResult.success) {
-      return c.json({
+      if (parsedBody.method !== 'message/send') {
+        return {
+          jsonrpc: '2.0',
+          id: parsedBody.id,
+          error: { code: -32601, message: 'Method not found' },
+        }
+      }
+
+      const parts = parsedBody.params?.message?.parts ?? []
+      const dataPart = parts.find((p) => p.kind === 'data')
+      const skillId = (dataPart?.data?.skillId as string) ?? ''
+      const skillParams = {
+        service: dataPart?.data?.service as string | undefined,
+        alertId: dataPart?.data?.alertId as string | undefined,
+      }
+      const result = await executeSkill(skillId, skillParams)
+
+      return {
         jsonrpc: '2.0',
-        id: rawBody.id,
-        error: {
-          code: -32600,
-          message: `Invalid request: ${parseResult.error.message}`,
+        id: parsedBody.id,
+        result: {
+          role: 'agent',
+          parts: [
+            { kind: 'text', text: result.message },
+            { kind: 'data', data: result.data },
+          ],
+          messageId: parsedBody.params?.message?.messageId,
+          kind: 'message',
         },
-      })
-    }
-
-    const body = parseResult.data
-
-    if (body.method !== 'message/send') {
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32601, message: 'Method not found' },
-      })
-    }
-
-    const parts = body.params?.message?.parts ?? []
-    const dataPart = parts.find((p) => p.kind === 'data')
-    const skillId = (dataPart?.data?.skillId as string) ?? ''
-    const skillParams = {
-      service: dataPart?.data?.service as string | undefined,
-      alertId: dataPart?.data?.alertId as string | undefined,
-    }
-    const result = await executeSkill(skillId, skillParams)
-
-    return c.json({
-      jsonrpc: '2.0',
-      id: body.id,
-      result: {
-        role: 'agent',
-        parts: [
-          { kind: 'text', text: result.message },
-          { kind: 'data', data: result.data },
-        ],
-        messageId: body.params?.message?.messageId,
-        kind: 'message',
-      },
+      }
     })
-  })
-
-  return app
 }
 
 interface SkillParams {
@@ -430,205 +427,185 @@ async function executeSkill(
   }
 }
 
-export function createMonitoringMCPServer(): Hono {
-  const app = new Hono()
-  app.use('/*', cors(corsConfig))
-
-  app.post('/initialize', (c) =>
-    c.json({
+export function createMonitoringMCPServer() {
+  return new Elysia({ prefix: '/mcp' })
+    .use(cors(corsConfig))
+    .post('/initialize', () => ({
       protocolVersion: '2024-11-05',
       serverInfo: MCP_SERVER_INFO,
       capabilities: MCP_SERVER_INFO.capabilities,
-    }),
-  )
+    }))
+    .post('/resources/list', () => ({ resources: MCP_RESOURCES }))
+    .post('/resources/read', async ({ body, set }) => {
+      const rawBody = body as Record<string, unknown>
+      const parseResult = MCPResourceReadSchema.safeParse(rawBody)
 
-  app.post('/resources/list', (c) => c.json({ resources: MCP_RESOURCES }))
+      if (!parseResult.success) {
+        set.status = 400
+        return { error: `Invalid request: ${parseResult.error.message}` }
+      }
 
-  app.post('/resources/read', async (c) => {
-    const rawBody = await c.req.json()
-    const parseResult = MCPResourceReadSchema.safeParse(rawBody)
+      const { uri } = parseResult.data
+      let contents: MCPResourceContent
 
-    if (!parseResult.success) {
-      return c.json(
-        { error: `Invalid request: ${parseResult.error.message}` },
-        400,
-      )
-    }
+      switch (uri) {
+        case 'monitoring://services':
+          contents = {
+            services: [
+              { name: 'storage', status: 'healthy', uptime: 99.9 },
+              { name: 'indexer', status: 'healthy', uptime: 99.8 },
+              { name: 'council', status: 'healthy', uptime: 99.9 },
+            ],
+          }
+          break
+        case 'monitoring://alerts/active':
+          contents = { alerts: [] }
+          break
+        case 'monitoring://chain/stats':
+          contents = { blockNumber: 0, avgBlockTime: 2, tps: 100 }
+          break
+        case 'monitoring://infrastructure':
+          contents = { nodes: 3, databases: 1, storage: '100GB' }
+          break
+        case 'monitoring://dashboard':
+          contents = { status: 'healthy', services: 10, alerts: 0, uptime: 99.9 }
+          break
+        default:
+          set.status = 404
+          return { error: 'Resource not found' }
+      }
 
-    const { uri } = parseResult.data
-    let contents: MCPResourceContent
-
-    switch (uri) {
-      case 'monitoring://services':
-        contents = {
-          services: [
-            { name: 'storage', status: 'healthy', uptime: 99.9 },
-            { name: 'indexer', status: 'healthy', uptime: 99.8 },
-            { name: 'council', status: 'healthy', uptime: 99.9 },
-          ],
-        }
-        break
-      case 'monitoring://alerts/active':
-        contents = { alerts: [] }
-        break
-      case 'monitoring://chain/stats':
-        contents = { blockNumber: 0, avgBlockTime: 2, tps: 100 }
-        break
-      case 'monitoring://infrastructure':
-        contents = { nodes: 3, databases: 1, storage: '100GB' }
-        break
-      case 'monitoring://dashboard':
-        contents = { status: 'healthy', services: 10, alerts: 0, uptime: 99.9 }
-        break
-      default:
-        return c.json({ error: 'Resource not found' }, 404)
-    }
-
-    return c.json({
-      contents: [
-        { uri, mimeType: 'application/json', text: JSON.stringify(contents) },
-      ],
-    })
-  })
-
-  app.post('/tools/list', (c) => c.json({ tools: MCP_TOOLS }))
-
-  app.post('/tools/call', async (c) => {
-    const rawBody = await c.req.json()
-    const parseResult = MCPToolCallSchema.safeParse(rawBody)
-
-    if (!parseResult.success) {
-      return c.json({
-        content: [
-          {
-            type: 'text',
-            text: `Invalid request: ${parseResult.error.message}`,
-          },
+      return {
+        contents: [
+          { uri, mimeType: 'application/json', text: JSON.stringify(contents) },
         ],
-        isError: true,
-      })
-    }
-
-    const { name, arguments: args } = parseResult.data
-    let result: MCPToolResult
-
-    switch (name) {
-      case 'check_service':
-        result = {
-          service: args.service,
-          status: 'healthy',
-          latency: 45,
-          uptime: 99.9,
-        }
-        break
-      case 'query_logs':
-        result = { logs: [], total: 0, query: args.query }
-        break
-      case 'create_alert_rule':
-        result = { ruleId: crypto.randomUUID(), name: args.name, active: true }
-        break
-      case 'acknowledge_alert':
-        result = { success: true, alertId: args.alertId }
-        break
-      case 'get_metrics':
-        result = { target: args.target, metric: args.metric, values: [] }
-        break
-      default:
-        return c.json({
-          content: [{ type: 'text', text: 'Tool not found' }],
-          isError: true,
-        })
-    }
-
-    return c.json({
-      content: [{ type: 'text', text: JSON.stringify(result) }],
-      isError: false,
+      }
     })
-  })
+    .post('/tools/list', () => ({ tools: MCP_TOOLS }))
+    .post('/tools/call', async ({ body }) => {
+      const rawBody = body as Record<string, unknown>
+      const parseResult = MCPToolCallSchema.safeParse(rawBody)
 
-  app.post('/prompts/list', (c) => c.json({ prompts: MCP_PROMPTS }))
-
-  app.post('/prompts/get', async (c) => {
-    const rawBody = await c.req.json()
-    const parseResult = MCPPromptGetSchema.safeParse(rawBody)
-
-    if (!parseResult.success) {
-      return c.json(
-        { error: `Invalid request: ${parseResult.error.message}` },
-        400,
-      )
-    }
-
-    const { name, arguments: args } = parseResult.data
-    let messages: Array<{
-      role: string
-      content: { type: string; text: string }
-    }>
-
-    switch (name) {
-      case 'analyze_incident': {
-        const alertId = args.alertId
-        if (!alertId) {
-          return c.json({ error: 'alertId argument is required' }, 400)
+      if (!parseResult.success) {
+        return {
+          content: [
+            {
+              type: 'text',
+              text: `Invalid request: ${parseResult.error.message}`,
+            },
+          ],
+          isError: true,
         }
-        messages = [
-          {
-            role: 'user',
-            content: {
-              type: 'text',
-              text: `Analyze the monitoring incident with alert ID ${alertId}. Provide root cause analysis and recommended actions.`,
-            },
-          },
-        ]
-        break
       }
-      case 'summarize_health': {
-        const timeframe = args.timeframe ?? 'last 24 hours'
-        messages = [
-          {
-            role: 'user',
-            content: {
-              type: 'text',
-              text: `Summarize the system health status over the ${timeframe}. Include key metrics and any concerning trends.`,
-            },
-          },
-        ]
-        break
+
+      const { name, arguments: args } = parseResult.data
+      let result: MCPToolResult
+
+      switch (name) {
+        case 'check_service':
+          result = {
+            service: args.service,
+            status: 'healthy',
+            latency: 45,
+            uptime: 99.9,
+          }
+          break
+        case 'query_logs':
+          result = { logs: [], total: 0, query: args.query }
+          break
+        case 'create_alert_rule':
+          result = { ruleId: crypto.randomUUID(), name: args.name, active: true }
+          break
+        case 'acknowledge_alert':
+          result = { success: true, alertId: args.alertId }
+          break
+        case 'get_metrics':
+          result = { target: args.target, metric: args.metric, values: [] }
+          break
+        default:
+          return {
+            content: [{ type: 'text', text: 'Tool not found' }],
+            isError: true,
+          }
       }
-      default:
-        return c.json({ error: 'Prompt not found' }, 404)
-    }
 
-    return c.json({ messages })
-  })
+      return {
+        content: [{ type: 'text', text: JSON.stringify(result) }],
+        isError: false,
+      }
+    })
+    .post('/prompts/list', () => ({ prompts: MCP_PROMPTS }))
+    .post('/prompts/get', async ({ body, set }) => {
+      const rawBody = body as Record<string, unknown>
+      const parseResult = MCPPromptGetSchema.safeParse(rawBody)
 
-  app.get('/', (c) =>
-    c.json({
+      if (!parseResult.success) {
+        set.status = 400
+        return { error: `Invalid request: ${parseResult.error.message}` }
+      }
+
+      const { name, arguments: args } = parseResult.data
+      let messages: Array<{
+        role: string
+        content: { type: string; text: string }
+      }>
+
+      switch (name) {
+        case 'analyze_incident': {
+          const alertId = args.alertId
+          if (!alertId) {
+            set.status = 400
+            return { error: 'alertId argument is required' }
+          }
+          messages = [
+            {
+              role: 'user',
+              content: {
+                type: 'text',
+                text: `Analyze the monitoring incident with alert ID ${alertId}. Provide root cause analysis and recommended actions.`,
+              },
+            },
+          ]
+          break
+        }
+        case 'summarize_health': {
+          const timeframe = args.timeframe ?? 'last 24 hours'
+          messages = [
+            {
+              role: 'user',
+              content: {
+                type: 'text',
+                text: `Summarize the system health status over the ${timeframe}. Include key metrics and any concerning trends.`,
+              },
+            },
+          ]
+          break
+        }
+        default:
+          set.status = 404
+          return { error: 'Prompt not found' }
+      }
+
+      return { messages }
+    })
+    .get('/', () => ({
       ...MCP_SERVER_INFO,
       resources: MCP_RESOURCES,
       tools: MCP_TOOLS,
       prompts: MCP_PROMPTS,
-    }),
-  )
-
-  return app
+    }))
 }
 
-export function createMonitoringServer(): Hono {
-  const app = new Hono()
-  app.route('/a2a', createMonitoringA2AServer())
-  app.route('/mcp', createMonitoringMCPServer())
-
-  app.get('/health', (c) =>
-    c.json({
+export function createMonitoringServer() {
+  return new Elysia()
+    .use(createMonitoringA2AServer())
+    .use(createMonitoringMCPServer())
+    .get('/health', () => ({
       status: 'healthy',
       service: 'jeju-monitoring',
       version: '1.0.0',
-    }),
-  )
-
-  app.get('/', (c) =>
-    c.json({
+    }))
+    .get('/', () => ({
       name: `${getNetworkName()} Monitoring`,
       version: '1.0.0',
       endpoints: {
@@ -637,8 +614,5 @@ export function createMonitoringServer(): Hono {
         health: '/health',
         agentCard: '/a2a/.well-known/agent-card.json',
       },
-    }),
-  )
-
-  return app
+    }))
 }

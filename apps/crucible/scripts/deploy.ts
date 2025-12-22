@@ -143,7 +143,7 @@ function getChainConfig(network: string) {
     default:
       return {
         chain: localhost,
-        rpcUrl: process.env.RPC_URL ?? 'http://127.0.0.1:9545',
+        rpcUrl: process.env.RPC_URL ?? 'http://127.0.0.1:6546',
       }
   }
 }

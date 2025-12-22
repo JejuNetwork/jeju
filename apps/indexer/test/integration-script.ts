@@ -4,6 +4,9 @@
  */
 
 import { exec } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { promisify } from 'node:util'
 
 const execAsync = promisify(exec)
@@ -42,11 +45,6 @@ async function checkDatabaseAvailable(): Promise<boolean> {
 async function startDatabase(): Promise<boolean> {
   console.log('🚀 Starting indexer database...')
   try {
-    // Check if docker-compose exists - use indexer directory
-    const { existsSync } = await import('node:fs')
-    const { join, dirname } = await import('node:path')
-    const { fileURLToPath } = await import('node:url')
-
     // Get indexer directory from this file's location
     const __filename = fileURLToPath(import.meta.url)
     const __dirname = dirname(__filename)

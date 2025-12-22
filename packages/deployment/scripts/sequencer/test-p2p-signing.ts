@@ -26,6 +26,10 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
+import {
+  expectValid,
+  SignResponseSchema,
+} from '../../schemas'
 
 const ACCOUNTS = [
   {
@@ -45,7 +49,7 @@ const ACCOUNTS = [
   },
 ]
 
-const RPC_URL = process.env.L1_RPC_URL || 'http://localhost:8545'
+const RPC_URL = process.env.L1_RPC_URL || 'http://localhost:6545'
 const THRESHOLD = 2
 const SIGNER_BASE_PORT = 4200
 
@@ -54,12 +58,6 @@ interface SignerProcess {
   port: number
   address: string
   url: string
-}
-
-interface SignResponse {
-  signature: string
-  signer: string
-  error?: string
 }
 
 class P2PSigningTest {
@@ -212,7 +210,8 @@ class P2PSigningTest {
         }),
       })
 
-      const result = (await response.json()) as SignResponse
+      const resultRaw = await response.json()
+      const result = expectValid(SignResponseSchema, resultRaw, 'sign response')
 
       if (result.error) {
         throw new Error(result.error)

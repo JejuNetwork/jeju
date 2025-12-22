@@ -18,6 +18,18 @@
 import { EventEmitter } from 'node:events'
 import { type Address, type Hash, type Hex, keccak256, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import {
+  expectValid,
+  FlashbotsBlockNumberResponseSchema,
+  FlashbotsBundleHashResponseSchema,
+  FlashbotsBundleStatsResponseSchema,
+  FlashbotsL2BlockResponseSchema,
+  FlashbotsProtectedStatusResponseSchema,
+  FlashbotsProtectedTxResponseSchema,
+  FlashbotsSimulationResponseSchema,
+  FlashbotsSuaveResponseSchema,
+  MevShareEventDataSchema,
+} from '../../lib/validation'
 
 // ============================================================================
 // FLASHBOTS ENDPOINTS
@@ -282,10 +294,11 @@ export class MevBoostProvider extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: Hash
-      error?: { message: string }
-    }
+    const result = expectValid(
+      FlashbotsProtectedTxResponseSchema,
+      await response.json(),
+      'Protect RPC response',
+    )
 
     if (result.error) {
       throw new Error(`Protect RPC error: ${result.error.message}`)
@@ -310,10 +323,9 @@ export class MevBoostProvider extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: boolean
-      error?: { message: string }
-    }
+    const json = await response.json()
+    // Simple boolean response, use basic shape validation
+    const result = json as { result?: boolean; error?: { message: string } }
     return result.result ?? false
   }
 
@@ -335,10 +347,11 @@ export class MevBoostProvider extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: { status: string; includedBlock?: string }
-      error?: { message: string }
-    }
+    const result = expectValid(
+      FlashbotsProtectedStatusResponseSchema,
+      await response.json(),
+      'protected tx status response',
+    )
 
     return {
       status:
@@ -384,10 +397,11 @@ export class MevBoostProvider extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: { bundleHash: Hash }
-      error?: { message: string }
-    }
+    const result = expectValid(
+      FlashbotsBundleHashResponseSchema,
+      await response.json(),
+      'bundle submission response',
+    )
 
     if (result.error) {
       throw new Error(`Bundle submission error: ${result.error.message}`)
@@ -434,10 +448,11 @@ export class MevBoostProvider extends EventEmitter {
           }),
         })
 
-        const result = (await response.json()) as {
-          result?: { bundleHash: Hash }
-          error?: { message: string }
-        }
+        const result = expectValid(
+          FlashbotsBundleHashResponseSchema,
+          await response.json(),
+          `builder ${endpoint} response`,
+        )
 
         if (result.error) {
           results.set(endpoint, { success: false, error: result.error.message })
@@ -491,20 +506,11 @@ export class MevBoostProvider extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: {
-        results: Array<{
-          txHash: string
-          gasUsed: string
-          value: string
-          error?: string
-        }>
-        totalGasUsed: string
-        coinbaseDiff: string
-        ethSentToCoinbase: string
-      }
-      error?: { message: string }
-    }
+    const result = expectValid(
+      FlashbotsSimulationResponseSchema,
+      await response.json(),
+      'bundle simulation response',
+    )
 
     if (result.error) {
       return {
@@ -562,10 +568,11 @@ export class MevBoostProvider extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: Record<string, unknown>
-      error?: { message: string }
-    }
+    const result = expectValid(
+      FlashbotsBundleStatsResponseSchema,
+      await response.json(),
+      'bundle stats response',
+    )
 
     if (result.error) {
       throw new Error(`getBundleStats error: ${result.error.message}`)
@@ -597,13 +604,15 @@ export class MevBoostProvider extends EventEmitter {
     )
 
     eventSource.onmessage = (event) => {
-      const data = JSON.parse(event.data) as {
-        hash: string
-        logs: Array<{ address: string; topics: string[]; data: string }>
-        txs: Array<{ to: string; functionSelector: string; callData?: string }>
-        mevGasPrice?: string
-        gasUsed?: string
+      // Parse and validate SSE data - use safeParse since streams can have invalid data
+      const parseResult = MevShareEventDataSchema.safeParse(
+        JSON.parse(event.data),
+      )
+      if (!parseResult.success) {
+        this.emit('mevShareError', new Error('Invalid event data'))
+        return
       }
+      const data = parseResult.data
 
       callback({
         hash: data.hash as Hash,
@@ -649,10 +658,11 @@ export class MevBoostProvider extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: { bundleHash: Hash }
-      error?: { message: string }
-    }
+    const result = expectValid(
+      FlashbotsBundleHashResponseSchema,
+      await response.json(),
+      'MEV-Share bundle response',
+    )
 
     if (result.error) {
       throw new Error(`MEV-Share submission error: ${result.error.message}`)
@@ -695,10 +705,11 @@ export class MevBoostProvider extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: { bundleHash: Hash }
-      error?: { message: string }
-    }
+    const result = expectValid(
+      FlashbotsBundleHashResponseSchema,
+      await response.json(),
+      'BuilderNet response',
+    )
 
     if (result.error) {
       throw new Error(`BuilderNet error: ${result.error.message}`)
@@ -749,10 +760,11 @@ export class MevBoostProvider extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: { blockHash: Hash }
-      error?: { message: string }
-    }
+    const result = expectValid(
+      FlashbotsL2BlockResponseSchema,
+      await response.json(),
+      'Rollup-Boost response',
+    )
 
     if (result.error) {
       throw new Error(`Rollup-Boost error: ${result.error.message}`)
@@ -793,10 +805,11 @@ export class MevBoostProvider extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: { requestId: Hash }
-      error?: { message: string }
-    }
+    const result = expectValid(
+      FlashbotsSuaveResponseSchema,
+      await response.json(),
+      'SUAVE response',
+    )
 
     if (result.error) {
       throw new Error(`SUAVE error: ${result.error.message}`)
@@ -837,7 +850,11 @@ export class MevBoostProvider extends EventEmitter {
       }),
     })
 
-    const result = (await response.json()) as { result?: string }
+    const result = expectValid(
+      FlashbotsBlockNumberResponseSchema,
+      await response.json(),
+      'block number response',
+    )
     return BigInt(result.result ?? '0')
   }
 }

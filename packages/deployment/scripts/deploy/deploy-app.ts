@@ -450,7 +450,7 @@ async function main() {
     process.exit(1)
   }
 
-  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:9545'
+  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:6546'
   const ipfsApiUrl = process.env.IPFS_API_URL ?? 'http://localhost:5001'
   const jnsRegistrar = (process.env.JNS_REGISTRAR ?? '0x0') as Address
   const jnsResolver = (process.env.JNS_RESOLVER ?? '0x0') as Address

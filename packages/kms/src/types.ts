@@ -4,11 +4,13 @@
 
 import type { Address, Hex } from 'viem'
 
-export enum KMSProviderType {
-  ENCRYPTION = 'encryption',
-  TEE = 'tee',
-  MPC = 'mpc',
-}
+export const KMSProviderType = {
+  ENCRYPTION: 'encryption',
+  TEE: 'tee',
+  MPC: 'mpc',
+} as const
+export type KMSProviderType =
+  (typeof KMSProviderType)[keyof typeof KMSProviderType]
 
 export interface KMSProvider {
   type: KMSProviderType
@@ -17,15 +19,17 @@ export interface KMSProvider {
   disconnect(): Promise<void>
 }
 
-export enum ConditionOperator {
-  EQUALS = '=',
-  NOT_EQUALS = '!=',
-  GREATER_THAN = '>',
-  LESS_THAN = '<',
-  GREATER_THAN_OR_EQUAL = '>=',
-  LESS_THAN_OR_EQUAL = '<=',
-  CONTAINS = 'contains',
-}
+export const ConditionOperator = {
+  EQUALS: '=',
+  NOT_EQUALS: '!=',
+  GREATER_THAN: '>',
+  LESS_THAN: '<',
+  GREATER_THAN_OR_EQUAL: '>=',
+  LESS_THAN_OR_EQUAL: '<=',
+  CONTAINS: 'contains',
+} as const
+export type ConditionOperator =
+  (typeof ConditionOperator)[keyof typeof ConditionOperator]
 
 export interface ContractCondition {
   type: 'contract'

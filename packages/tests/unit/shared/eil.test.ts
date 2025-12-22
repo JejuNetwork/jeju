@@ -23,8 +23,8 @@ import {
 
 // Test fixtures
 const TEST_CONFIG: EILConfig = {
-  l1RpcUrl: 'http://localhost:8545',
-  l2RpcUrl: 'http://localhost:9545',
+  l1RpcUrl: 'http://localhost:6545',
+  l2RpcUrl: 'http://localhost:6546',
   l1StakeManager: '0x1234567890123456789012345678901234567890',
   crossChainPaymaster: '0x9876543210987654321098765432109876543210',
   l1ChainId: 11155111,

@@ -8,6 +8,20 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import {
+  IERC20_ABI,
+  LIQUIDITY_VAULT_ABI,
+  PAYMASTER_FACTORY_ABI,
+  TOKEN_REGISTRY_ABI,
+  ZERO_ADDRESS,
+  ZERO_BYTES32,
+} from '../src/contracts'
+import {
+  calculateSharePercent,
+  parseLPPosition,
+  parsePositionFromBalance,
+  parsePositionFromTuple,
+} from '../src/hooks/liquidity-utils'
 
 // Check if SDK is available (needed for dynamic imports of hooks that depend on SDK)
 let sdkAvailable = false
@@ -20,67 +34,51 @@ try {
 
 // Test pure utility exports that don't require SDK
 describe('Pure Utility Exports', () => {
-  test('exports ZERO_ADDRESS constant', async () => {
-    const { ZERO_ADDRESS } = await import('../src/contracts')
+  test('exports ZERO_ADDRESS constant', () => {
     expect(ZERO_ADDRESS).toBe('0x0000000000000000000000000000000000000000')
   })
 
-  test('exports ZERO_BYTES32 constant', async () => {
-    const { ZERO_BYTES32 } = await import('../src/contracts')
+  test('exports ZERO_BYTES32 constant', () => {
     expect(ZERO_BYTES32).toBe(
       '0x0000000000000000000000000000000000000000000000000000000000000000',
     )
   })
 
-  test('exports TOKEN_REGISTRY_ABI', async () => {
-    const { TOKEN_REGISTRY_ABI } = await import('../src/contracts')
+  test('exports TOKEN_REGISTRY_ABI', () => {
     expect(Array.isArray(TOKEN_REGISTRY_ABI)).toBe(true)
     expect(TOKEN_REGISTRY_ABI.length).toBeGreaterThan(0)
   })
 
-  test('exports PAYMASTER_FACTORY_ABI', async () => {
-    const { PAYMASTER_FACTORY_ABI } = await import('../src/contracts')
+  test('exports PAYMASTER_FACTORY_ABI', () => {
     expect(Array.isArray(PAYMASTER_FACTORY_ABI)).toBe(true)
     expect(PAYMASTER_FACTORY_ABI.length).toBeGreaterThan(0)
   })
 
-  test('exports LIQUIDITY_VAULT_ABI', async () => {
-    const { LIQUIDITY_VAULT_ABI } = await import('../src/contracts')
+  test('exports LIQUIDITY_VAULT_ABI', () => {
     expect(Array.isArray(LIQUIDITY_VAULT_ABI)).toBe(true)
     expect(LIQUIDITY_VAULT_ABI.length).toBeGreaterThan(0)
   })
 
-  test('exports IERC20_ABI', async () => {
-    const { IERC20_ABI } = await import('../src/contracts')
+  test('exports IERC20_ABI', () => {
     expect(Array.isArray(IERC20_ABI)).toBe(true)
     expect(IERC20_ABI.length).toBeGreaterThan(0)
   })
 })
 
 describe('Liquidity Utils Exports', () => {
-  test('exports calculateSharePercent function', async () => {
-    const { calculateSharePercent } = await import(
-      '../src/hooks/liquidity-utils'
-    )
+  test('exports calculateSharePercent function', () => {
     expect(typeof calculateSharePercent).toBe('function')
   })
 
-  test('exports parsePositionFromTuple function', async () => {
-    const { parsePositionFromTuple } = await import(
-      '../src/hooks/liquidity-utils'
-    )
+  test('exports parsePositionFromTuple function', () => {
     expect(typeof parsePositionFromTuple).toBe('function')
   })
 
-  test('exports parsePositionFromBalance function', async () => {
-    const { parsePositionFromBalance } = await import(
-      '../src/hooks/liquidity-utils'
-    )
+  test('exports parsePositionFromBalance function', () => {
     expect(typeof parsePositionFromBalance).toBe('function')
   })
 
-  test('exports parseLPPosition function', async () => {
-    const { parseLPPosition } = await import('../src/hooks/liquidity-utils')
+  test('exports parseLPPosition function', () => {
     expect(typeof parseLPPosition).toBe('function')
   })
 })

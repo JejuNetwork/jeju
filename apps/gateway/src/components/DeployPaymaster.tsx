@@ -116,6 +116,7 @@ export default function DeployPaymaster({
         <form onSubmit={handleDeploy} style={{ marginTop: '1.5rem' }}>
           <div style={{ marginBottom: '1rem' }}>
             <label
+              htmlFor="fee-margin"
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -125,6 +126,7 @@ export default function DeployPaymaster({
               Fee Margin (basis points)
             </label>
             <input
+              id="fee-margin"
               className="input"
               type="range"
               min={config.minFeeMargin.toString()}

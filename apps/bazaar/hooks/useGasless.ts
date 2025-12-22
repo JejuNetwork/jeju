@@ -21,9 +21,13 @@ import {
   parseEther,
 } from 'viem'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { getGameContracts } from '@/config/contracts'
-import { expect } from '@/lib/validation'
+import { JEJU_CHAIN_ID } from '../config/chains'
+import { getGameContracts } from '../config/contracts'
+import { expect } from '../lib/validation'
+import {
+  BundlerSendUserOpResponseSchema,
+  BundlerUserOpReceiptResponseSchema,
+} from '../schemas/api'
 
 // ============ Constants ============
 
@@ -438,10 +442,13 @@ async function submitViaUserOperation(
     }),
   })
 
-  const result = (await response.json()) as {
-    result?: string
-    error?: { message: string }
+  const rawJson: unknown = await response.json()
+  const parsed = BundlerSendUserOpResponseSchema.safeParse(rawJson)
+  if (!parsed.success) {
+    console.error('Invalid bundler response:', parsed.error.message)
+    return null
   }
+  const result = parsed.data
 
   if (result.error) {
     console.error('Bundler error:', result.error.message)
@@ -484,12 +491,15 @@ async function waitForUserOpReceipt(
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: { receipt?: { transactionHash: `0x${string}` } }
+    const rawJson: unknown = await response.json()
+    const parsed = BundlerUserOpReceiptResponseSchema.safeParse(rawJson)
+    if (!parsed.success) {
+      continue // Malformed response, retry
     }
+    const result = parsed.data
 
     if (result.result?.receipt?.transactionHash) {
-      return result.result.receipt.transactionHash
+      return result.result.receipt.transactionHash as `0x${string}`
     }
 
     await new Promise((resolve) => setTimeout(resolve, 2000))

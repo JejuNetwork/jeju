@@ -197,7 +197,7 @@ interface DAOState {
   isActive: boolean
 }
 
-interface OrchestratorStatus {
+export interface OrchestratorStatus {
   running: boolean
   cycleCount: number
   lastCycle: number
@@ -208,7 +208,7 @@ interface OrchestratorStatus {
   errors: string[]
 }
 
-interface DAOStateStatus {
+export interface DAOStateStatus {
   daoId: string
   name: string
   displayName: string

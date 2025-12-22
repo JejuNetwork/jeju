@@ -9,8 +9,7 @@
  * Uses fail-fast validation patterns
  */
 
-import type { Context } from 'hono'
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { verifyAuth } from './auth'
 import {
@@ -42,13 +41,14 @@ import {
   getSessionsForAddress,
   verifySessionOwnership,
 } from './utils/sessions'
+import { validateProxyUrlWithDNS } from './utils/proxy-validation'
 import { verifyX402Payment } from './x402'
 
 // ============================================================================
 // Types
 // ============================================================================
 
-interface MCPServerInfo {
+export interface MCPServerInfo {
   name: string
   version: string
   description: string
@@ -59,14 +59,14 @@ interface MCPServerInfo {
   }
 }
 
-interface MCPResource {
+export interface MCPResource {
   uri: string
   name: string
   description: string
   mimeType: string
 }
 
-interface MCPTool {
+export interface MCPTool {
   name: string
   description: string
   inputSchema: {
@@ -79,7 +79,7 @@ interface MCPTool {
   }
 }
 
-interface MCPPrompt {
+export interface MCPPrompt {
   name: string
   description: string
   arguments?: Array<{ name: string; description: string; required?: boolean }>
@@ -348,121 +348,115 @@ const MCP_PROMPTS: MCPPrompt[] = [
 // Router
 // ============================================================================
 
-export function createMCPRouter(ctx: VPNServiceContext): Hono {
-  const router = new Hono()
-
-  // Error handling middleware
-  router.onError((err, c) => {
-    console.error('MCP API error:', err)
-    return c.json({ error: err.message || 'Internal server error' }, 500)
-  })
-
-  /**
-   * POST /initialize - Initialize MCP session
-   */
-  router.post('/initialize', (c) => {
-    return c.json({
-      protocolVersion: '2024-11-05',
-      serverInfo: MCP_SERVER_INFO,
-      capabilities: MCP_SERVER_INFO.capabilities,
+export function createMCPRouter(ctx: VPNServiceContext) {
+  const router = new Elysia({ prefix: '/mcp' })
+    // Error handling middleware
+    .onError(({ error, set }) => {
+      console.error('MCP API error:', error)
+      set.status = 500
+      const message = error instanceof Error ? error.message : 'Internal server error'
+      return { error: message }
     })
-  })
 
-  /**
-   * POST /resources/list - List available resources
-   */
-  router.post('/resources/list', (c) => {
-    return c.json({ resources: MCP_RESOURCES })
-  })
-
-  /**
-   * POST /resources/read - Read a resource
-   */
-  router.post('/resources/read', async (c) => {
-    const auth = await verifyAuth(c)
-    const address = auth.valid ? auth.address : null
-
-    const rawBody = await c.req.json()
-    const body = expectValid(
-      MCPResourceReadSchema,
-      rawBody,
-      'resource read request',
-    )
-
-    const content = await readResource(ctx, body.uri, address as Address | null)
-    const resource = MCP_RESOURCES.find((r) => r.uri === body.uri)
-    if (!resource) {
-      throw new Error(`Resource not found: ${body.uri}`)
-    }
-
-    return c.json({
-      contents: [
-        {
-          uri: body.uri,
-          mimeType: resource.mimeType,
-          text: JSON.stringify(content, null, 2),
-        },
-      ],
+    /**
+     * POST /initialize - Initialize MCP session
+     */
+    .post('/initialize', () => {
+      return {
+        protocolVersion: '2024-11-05',
+        serverInfo: MCP_SERVER_INFO,
+        capabilities: MCP_SERVER_INFO.capabilities,
+      }
     })
-  })
 
-  /**
-   * POST /tools/list - List available tools
-   */
-  router.post('/tools/list', (c) => {
-    return c.json({ tools: MCP_TOOLS })
-  })
-
-  /**
-   * POST /tools/call - Call a tool
-   */
-  router.post('/tools/call', async (c) => {
-    const auth = await verifyAuth(c)
-    const address = auth.valid ? auth.address : null
-
-    const rawBody = await c.req.json()
-    const body = expectValid(MCPToolCallSchema, rawBody, 'tool call request')
-
-    const result = await callTool(
-      ctx,
-      c,
-      body.name,
-      body.arguments,
-      address as Address | null,
-    )
-
-    return c.json({
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(result.result, null, 2),
-        },
-      ],
-      isError: result.isError,
+    /**
+     * POST /resources/list - List available resources
+     */
+    .post('/resources/list', () => {
+      return { resources: MCP_RESOURCES }
     })
-  })
 
-  /**
-   * POST /prompts/list - List available prompts
-   */
-  router.post('/prompts/list', (c) => {
-    return c.json({ prompts: MCP_PROMPTS })
-  })
+    /**
+     * POST /resources/read - Read a resource
+     */
+    .post('/resources/read', async ({ request, body }) => {
+      const auth = await verifyAuth(request)
+      // auth.address is already validated as Address by verifyAuth when valid
+      const address = auth.valid && auth.address ? auth.address : null
 
-  /**
-   * POST /prompts/get - Get a prompt
-   */
-  router.post('/prompts/get', async (c) => {
-    const rawBody = await c.req.json()
-    const body = expectValid(MCPPromptGetSchema, rawBody, 'prompt get request')
+      const validatedBody = expectValid(
+        MCPResourceReadSchema,
+        body,
+        'resource read request',
+      )
 
-    const prompt = await getPrompt(ctx, body.name, body.arguments ?? {})
+      const content = await readResource(ctx, validatedBody.uri, address)
+      const resource = MCP_RESOURCES.find((r) => r.uri === validatedBody.uri)
+      if (!resource) {
+        throw new Error(`Resource not found: ${validatedBody.uri}`)
+      }
 
-    return c.json({
-      description: prompt.description,
-      messages: prompt.messages,
+      return {
+        contents: [
+          {
+            uri: validatedBody.uri,
+            mimeType: resource.mimeType,
+            text: JSON.stringify(content, null, 2),
+          },
+        ],
+      }
     })
-  })
+
+    /**
+     * POST /tools/list - List available tools
+     */
+    .post('/tools/list', () => {
+      return { tools: MCP_TOOLS }
+    })
+
+    /**
+     * POST /tools/call - Call a tool
+     */
+    .post('/tools/call', async ({ request, body }) => {
+      const auth = await verifyAuth(request)
+      // auth.address is already validated as Address by verifyAuth when valid
+      const address = auth.valid && auth.address ? auth.address : null
+
+      const validatedBody = expectValid(MCPToolCallSchema, body, 'tool call request')
+
+      const result = await callTool(ctx, request, validatedBody.name, validatedBody.arguments, address)
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify(result.result, null, 2),
+          },
+        ],
+        isError: result.isError,
+      }
+    })
+
+    /**
+     * POST /prompts/list - List available prompts
+     */
+    .post('/prompts/list', () => {
+      return { prompts: MCP_PROMPTS }
+    })
+
+    /**
+     * POST /prompts/get - Get a prompt
+     */
+    .post('/prompts/get', async ({ body }) => {
+      const validatedBody = expectValid(MCPPromptGetSchema, body, 'prompt get request')
+
+      const prompt = await getPrompt(ctx, validatedBody.name, validatedBody.arguments ?? {})
+
+      return {
+        description: prompt.description,
+        messages: prompt.messages,
+      }
+    })
 
   return router
 }
@@ -546,7 +540,7 @@ async function readResource(
 
 async function callTool(
   ctx: VPNServiceContext,
-  c: Context,
+  request: Request,
   name: string,
   args: Record<string, unknown>,
   address: Address | null,
@@ -637,7 +631,7 @@ async function callTool(
     }
 
     case 'proxy_request': {
-      const paymentHeader = c.req.header('x-payment')
+      const paymentHeader = request.headers.get('x-payment')
       const paymentResult = await verifyX402Payment(
         paymentHeader || '',
         BigInt(ctx.config.pricing.pricePerRequest),
@@ -658,9 +652,6 @@ async function callTool(
       )
 
       // SECURITY: Validate URL with DNS resolution to prevent SSRF and DNS rebinding attacks
-      const { validateProxyUrlWithDNS } = await import(
-        './utils/proxy-validation'
-      )
       await validateProxyUrlWithDNS(proxyRequest.url)
 
       const controller = new AbortController()

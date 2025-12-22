@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import type { GameItem } from '@/schemas/games'
+import type { GameItem } from '../../schemas/games'
 import {
   calculateKDRatio,
   filterItemsByCategory,

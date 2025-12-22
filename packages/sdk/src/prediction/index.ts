@@ -17,19 +17,21 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum GameType {
-  GENERIC = 0,
-  CALIGULAND = 1,
-  CONTEST = 2,
-  HYPERSCAPE = 3,
-  CUSTOM = 4,
-}
+export const GameType = {
+  GENERIC: 0,
+  CALIGULAND: 1,
+  CONTEST: 2,
+  HYPERSCAPE: 3,
+  CUSTOM: 4,
+} as const
+export type GameType = (typeof GameType)[keyof typeof GameType]
 
-export enum MarketStatus {
-  OPEN = 0,
-  RESOLVED = 1,
-  CANCELLED = 2,
-}
+export const MarketStatus = {
+  OPEN: 0,
+  RESOLVED: 1,
+  CANCELLED: 2,
+} as const
+export type MarketStatus = (typeof MarketStatus)[keyof typeof MarketStatus]
 
 export interface PredictionMarket {
   marketId: Hex

@@ -9,7 +9,7 @@
  * Additional content screening for external traffic.
  */
 
-import { createHash, createHmac } from 'node:crypto'
+import { createHash, createHmac, createSign } from 'node:crypto'
 import type { Address, Hex } from 'viem'
 import { getContentScreeningPipeline } from './content-screening'
 import { bridgeOperationsTotal } from './metrics'
@@ -406,8 +406,6 @@ export class Web2Bridge {
       console.warn('[Web2Bridge] DKIM not configured - sending unsigned')
       return rawEmail
     }
-
-    const { createSign, createHash } = await import('node:crypto')
 
     // Parse headers and body
     const [headerSection, ...bodyParts] = rawEmail.split(/\r?\n\r?\n/)

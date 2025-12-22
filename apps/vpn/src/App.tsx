@@ -114,6 +114,7 @@ function App() {
       {/* Bottom Navigation */}
       <nav className="flex items-center justify-around border-t border-[#2a2a35] py-3">
         <button
+          type="button"
           onClick={() => setActiveTab('vpn')}
           className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-colors ${
             activeTab === 'vpn'
@@ -125,6 +126,7 @@ function App() {
           <span className="text-xs">VPN</span>
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('contribution')}
           className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-colors ${
             activeTab === 'contribution'
@@ -136,6 +138,7 @@ function App() {
           <span className="text-xs">Contribute</span>
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('settings')}
           className={`flex flex-col items-center gap-1 px-6 py-2 rounded-xl transition-colors ${
             activeTab === 'settings'

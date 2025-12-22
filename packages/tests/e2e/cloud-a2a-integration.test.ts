@@ -68,7 +68,7 @@ describe('Cloud A2A E2E - Agent Discovery', () => {
 
     // Query IdentityRegistry for cloud agent
     const publicClient = createPublicClient({
-      transport: http('http://localhost:9545'),
+      transport: http('http://localhost:6546'),
     })
     const identityRegistryAbi = [
       {
@@ -302,7 +302,7 @@ describe('Cloud A2A E2E - Reputation Integration', () => {
     logger.info('⭐ Testing reputation update...')
 
     const publicClient = createPublicClient({
-      transport: http('http://localhost:9545'),
+      transport: http('http://localhost:6546'),
     })
     const reputationRegistryAbi = [
       {

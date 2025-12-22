@@ -57,6 +57,7 @@ export function SubscriptionsView() {
               </div>
             </div>
             <button
+              type="button"
               className="button flex items-center gap-2"
               onClick={() => setShowNewSubscription(true)}
             >
@@ -87,6 +88,7 @@ export function SubscriptionsView() {
             Subscribe to oracle feeds to access real-time price data.
           </p>
           <button
+            type="button"
             className="button"
             onClick={() => setShowNewSubscription(true)}
           >
@@ -220,6 +222,7 @@ function NewSubscriptionForm({
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold">New Subscription</h3>
         <button
+          type="button"
           className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
           onClick={onClose}
         >
@@ -229,7 +232,7 @@ function NewSubscriptionForm({
 
       {/* Feed Selection */}
       <div className="mb-4">
-        <label className="block text-sm font-medium mb-2">Select Feeds</label>
+        <span className="block text-sm font-medium mb-2">Select Feeds</span>
         <div className="max-h-48 overflow-y-auto border rounded-lg p-2">
           {activeFeedIds.length === 0 ? (
             <div className="text-sm text-gray-500 text-center py-4">
@@ -262,10 +265,14 @@ function NewSubscriptionForm({
 
       {/* Duration */}
       <div className="mb-4">
-        <label className="block text-sm font-medium mb-2">
+        <label
+          htmlFor="subscription-duration"
+          className="block text-sm font-medium mb-2"
+        >
           Duration (months)
         </label>
         <select
+          id="subscription-duration"
           value={duration}
           onChange={(e) => setDuration(Number(e.target.value))}
           className="input w-full"
@@ -290,10 +297,15 @@ function NewSubscriptionForm({
 
       {/* Actions */}
       <div className="flex gap-2 justify-end">
-        <button className="button button-secondary" onClick={onClose}>
+        <button
+          type="button"
+          className="button button-secondary"
+          onClick={onClose}
+        >
           Cancel
         </button>
         <button
+          type="button"
           className="button flex items-center gap-2"
           onClick={handleSubscribe}
           disabled={selectedFeeds.length === 0 || !price || isSubscribing}

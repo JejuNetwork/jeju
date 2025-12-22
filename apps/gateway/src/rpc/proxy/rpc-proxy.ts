@@ -3,6 +3,7 @@
  * Forwards JSON-RPC requests to appropriate chain endpoints with failover
  */
 
+import { JsonRpcResponseSchema } from '../../lib/validation.js'
 import { CHAINS, getChain, isChainSupported } from '../config/chains.js'
 
 /** JSON-RPC primitive values */
@@ -107,7 +108,12 @@ async function makeRpcRequest(
   clearTimeout(timeoutId)
   if (!response.ok)
     throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-  return response.json() as Promise<JsonRpcResponse>
+  const data = await response.json()
+  const parsed = JsonRpcResponseSchema.safeParse(data)
+  if (!parsed.success) {
+    throw new Error(`Invalid JSON-RPC response: ${parsed.error.message}`)
+  }
+  return parsed.data
 }
 
 export async function proxyRequest(

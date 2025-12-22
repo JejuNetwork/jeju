@@ -152,10 +152,9 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
     try {
       // Use OAuth3 SDK if available
       if (oauth3Context?.login) {
-        await oauth3Context.login({ provider: AuthProvider.FARCASTER })
+        await oauth3Context.login(AuthProvider.FARCASTER)
         const session: AuthSession = {
-          address:
-            oauth3Context.session?.smartAccountAddress || 'oauth3-farcaster',
+          address: 'oauth3-farcaster',
           method: 'siwf',
           expiresAt: Date.now() + 24 * 60 * 60 * 1000,
           provider: 'farcaster',
@@ -206,10 +205,9 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           twitter: AuthProvider.TWITTER,
           discord: AuthProvider.DISCORD,
         }
-        await oauth3Context.login({ provider: providerMap[provider] })
+        await oauth3Context.login(providerMap[provider])
         const session: AuthSession = {
-          address:
-            oauth3Context.session?.smartAccountAddress || `oauth3-${provider}`,
+          address: `oauth3-${provider}`,
           method: 'social',
           expiresAt: Date.now() + 24 * 60 * 60 * 1000,
           provider,
@@ -406,6 +404,14 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            onClose()
+          }
+        }}
+        role="presentation"
+        tabIndex={-1}
+        aria-hidden="true"
       />
 
       <div className="relative w-full max-w-md bg-card border border-border rounded-2xl shadow-2xl animate-in fade-in zoom-in-95 duration-200">
@@ -421,6 +427,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-accent transition-colors"
           >
@@ -441,10 +448,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
             <>
               {/* Wallet Section */}
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Wallet (SIWE)
-                </label>
+                </span>
                 <button
+                  type="button"
                   onClick={handleWalletConnect}
                   className="w-full flex items-center gap-4 p-4 rounded-xl bg-secondary/50 border border-border hover:bg-secondary hover:border-violet-500/30 transition-all group"
                 >
@@ -462,10 +470,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
               {/* Farcaster */}
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Farcaster (SIWF)
-                </label>
+                </span>
                 <button
+                  type="button"
                   onClick={handleFarcaster}
                   disabled={isLoading}
                   className="w-full flex items-center gap-4 p-4 rounded-xl bg-secondary/50 border border-border hover:bg-purple-500/10 hover:border-purple-500/30 transition-all"
@@ -487,11 +496,12 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
               {/* Social Logins */}
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Social (OAuth3)
-                </label>
+                </span>
                 <div className="grid grid-cols-4 gap-2">
                   <button
+                    type="button"
                     onClick={() => handleSocial('google')}
                     disabled={isLoading}
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-red-500/10 hover:border-red-500/30 transition-all"
@@ -500,6 +510,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     <ChromeIcon className="w-5 h-5" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleSocial('github')}
                     disabled={isLoading}
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-gray-500/10 hover:border-gray-500/30 transition-all"
@@ -508,6 +519,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     <GithubIcon className="w-5 h-5" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleSocial('twitter')}
                     disabled={isLoading}
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
@@ -516,6 +528,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     <TwitterIcon className="w-5 h-5" />
                   </button>
                   <button
+                    type="button"
                     onClick={() => handleSocial('discord')}
                     disabled={isLoading}
                     className="flex items-center justify-center p-3 rounded-xl bg-secondary/50 border border-border hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-all"
@@ -528,11 +541,12 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
               {/* Email/Phone */}
               <div className="space-y-2">
-                <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   Email / Phone
-                </label>
+                </span>
                 <div className="grid grid-cols-2 gap-2">
                   <button
+                    type="button"
                     onClick={handleEmail}
                     disabled={isLoading}
                     className="flex items-center justify-center gap-2 p-3 rounded-xl bg-secondary/50 border border-border hover:bg-blue-500/10 hover:border-blue-500/30 transition-all"
@@ -541,6 +555,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     <span className="text-sm">Email</span>
                   </button>
                   <button
+                    type="button"
                     onClick={handlePhone}
                     disabled={isLoading}
                     className="flex items-center justify-center gap-2 p-3 rounded-xl bg-secondary/50 border border-border hover:bg-green-500/10 hover:border-green-500/30 transition-all"
@@ -554,10 +569,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               {/* Passkeys */}
               {hasPasskeys && (
                 <div className="space-y-2">
-                  <label className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                     Passkey (WebAuthn)
-                  </label>
+                  </span>
                   <button
+                    type="button"
                     onClick={handlePasskey}
                     disabled={isLoading}
                     className="w-full flex items-center gap-4 p-4 rounded-xl bg-secondary/50 border border-border hover:bg-emerald-500/10 hover:border-emerald-500/30 transition-all"
@@ -583,6 +599,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           {step === 'email' && (
             <div className="space-y-4">
               <button
+                type="button"
                 onClick={() => {
                   setStep('choose')
                   setCodeSent(false)
@@ -593,8 +610,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               </button>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Email Address</label>
+                <label htmlFor="email-input" className="text-sm font-medium">
+                  Email Address
+                </label>
                 <input
+                  id="email-input"
                   type="email"
                   value={emailInput}
                   onChange={(e) => setEmailInput(e.target.value)}
@@ -606,6 +626,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
               {!codeSent ? (
                 <button
+                  type="button"
                   onClick={handleSendEmailCode}
                   disabled={isLoading || !emailInput}
                   className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
@@ -619,10 +640,14 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               ) : (
                 <>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">
+                    <label
+                      htmlFor="email-code-input"
+                      className="text-sm font-medium"
+                    >
                       Verification Code
                     </label>
                     <input
+                      id="email-code-input"
                       type="text"
                       value={codeInput}
                       onChange={(e) => setCodeInput(e.target.value)}
@@ -632,6 +657,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     />
                   </div>
                   <button
+                    type="button"
                     onClick={handleVerifyEmailCode}
                     disabled={isLoading || codeInput.length < 6}
                     className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
@@ -650,6 +676,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
           {step === 'phone' && (
             <div className="space-y-4">
               <button
+                type="button"
                 onClick={() => {
                   setStep('choose')
                   setCodeSent(false)
@@ -660,8 +687,11 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               </button>
 
               <div className="space-y-2">
-                <label className="text-sm font-medium">Phone Number</label>
+                <label htmlFor="phone-input" className="text-sm font-medium">
+                  Phone Number
+                </label>
                 <input
+                  id="phone-input"
                   type="tel"
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}
@@ -673,6 +703,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
 
               {!codeSent ? (
                 <button
+                  type="button"
                   onClick={handleSendPhoneCode}
                   disabled={isLoading || !phoneInput}
                   className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
@@ -686,10 +717,14 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               ) : (
                 <>
                   <div className="space-y-2">
-                    <label className="text-sm font-medium">
+                    <label
+                      htmlFor="phone-code-input"
+                      className="text-sm font-medium"
+                    >
                       Verification Code
                     </label>
                     <input
+                      id="phone-code-input"
                       type="text"
                       value={codeInput}
                       onChange={(e) => setCodeInput(e.target.value)}
@@ -699,6 +734,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
                     />
                   </div>
                   <button
+                    type="button"
                     onClick={handleVerifyPhoneCode}
                     disabled={isLoading || codeInput.length < 6}
                     className="w-full p-3 rounded-xl bg-violet-600 hover:bg-violet-700 text-white font-medium transition-colors disabled:opacity-50"
@@ -755,6 +791,7 @@ export function AuthModal({ isOpen, onClose, onSuccess }: AuthModalProps) {
               </div>
               <p className="mt-4 font-semibold text-red-400">Sign in failed</p>
               <button
+                type="button"
                 onClick={() => {
                   setStep('choose')
                   setError(null)

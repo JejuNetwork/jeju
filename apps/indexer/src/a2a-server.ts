@@ -5,8 +5,8 @@
  * Provides indexed blockchain data via A2A protocol.
  */
 
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { Elysia } from 'elysia'
+import { cors } from '@elysiajs/cors'
 import {
   buildAccountQuery,
   buildAgentQuery,
@@ -38,6 +38,7 @@ import {
   getSolverSkillSchema,
   getTokenBalancesSkillSchema,
   getTransactionSkillSchema,
+  type JsonValue,
   validateBody,
   validateOrThrow,
 } from './lib/validation'
@@ -561,160 +562,141 @@ setInterval(() => {
   }
 }, 60_000).unref()
 
-export function createIndexerA2AServer(): Hono {
-  const app = new Hono()
-
-  // SECURITY: Global error handler for JSON parse errors and other exceptions
-  app.onError((err, c) => {
-    console.error('[A2A] Error:', err.message)
-
-    // Handle JSON parse errors
-    if (err.message.includes('JSON') || err.message.includes('Unexpected')) {
-      return c.json(
-        {
-          jsonrpc: '2.0',
-          id: null,
-          error: { code: -32700, message: 'Parse error: Invalid JSON' },
-        },
-        400,
-      )
-    }
-
-    // Handle validation errors
-    if (err.message.includes('Validation') || err.name === 'BadRequestError') {
-      return c.json(
-        {
-          jsonrpc: '2.0',
-          id: null,
-          error: { code: -32600, message: err.message },
-        },
-        400,
-      )
-    }
-
-    // Don't expose internal error details
-    return c.json(
-      {
-        jsonrpc: '2.0',
-        id: null,
-        error: { code: -32603, message: 'Internal error' },
-      },
-      500,
-    )
-  })
-
+export function createIndexerA2AServer() {
   // SECURITY: Configure CORS with allowlist - defaults to permissive for local dev
   const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',')
     .map((o) => o.trim())
     .filter(Boolean)
 
-  if (CORS_ORIGINS?.length) {
-    app.use('/*', cors({ origin: CORS_ORIGINS, credentials: true }))
-  } else {
-    // Permissive CORS for local development when CORS_ORIGINS not set
-    app.use('/*', cors())
-  }
+  const app = new Elysia()
+    // CORS middleware
+    .use(
+      CORS_ORIGINS?.length
+        ? cors({ origin: CORS_ORIGINS, credentials: true })
+        : cors(),
+    )
+    // SECURITY: Global error handler for JSON parse errors and other exceptions
+    .onError(({ error, set }) => {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorName = error instanceof Error ? error.name : 'Error'
+      console.error('[A2A] Error:', errorMessage)
 
-  // SECURITY: Request body size limit middleware
-  app.use('/*', async (c, next) => {
-    const contentLength = c.req.header('content-length')
-    if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
-      return c.json(
-        {
+      // Handle JSON parse errors
+      if (errorMessage.includes('JSON') || errorMessage.includes('Unexpected')) {
+        set.status = 400
+        return {
           jsonrpc: '2.0',
+          id: null,
+          error: { code: -32700, message: 'Parse error: Invalid JSON' },
+        }
+      }
+
+      // Handle validation errors
+      if (errorMessage.includes('Validation') || errorName === 'BadRequestError') {
+        set.status = 400
+        return {
+          jsonrpc: '2.0',
+          id: null,
+          error: { code: -32600, message: errorMessage },
+        }
+      }
+
+      // Don't expose internal error details
+      set.status = 500
+      return {
+        jsonrpc: '2.0',
+        id: null,
+        error: { code: -32603, message: 'Internal error' },
+      }
+    })
+    // SECURITY: Request body size limit and rate limiting middleware
+    .onBeforeHandle(({ request, set, path }) => {
+      // Body size limit
+      const contentLength = request.headers.get('content-length')
+      if (contentLength && parseInt(contentLength, 10) > MAX_BODY_SIZE) {
+        set.status = 413
+        return {
+          jsonrpc: '2.0' as const,
           id: null,
           error: { code: -32600, message: 'Request body too large' },
-        },
-        413,
+        }
+      }
+
+      // Skip rate limiting for agent card and info endpoints
+      if (path === '/' || path === '/.well-known/agent-card.json') return
+
+      // Use IP or Agent ID for rate limiting
+      const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      const agentId = request.headers.get('x-agent-id')
+      const clientKey = agentId
+        ? `agent:${agentId}`
+        : `ip:${forwarded || 'unknown'}`
+
+      const now = Date.now()
+      let record = a2aRateLimitStore.get(clientKey)
+      if (!record || now > record.resetAt) {
+        record = { count: 0, resetAt: now + A2A_RATE_WINDOW }
+        a2aRateLimitStore.set(clientKey, record)
+      }
+      record.count++
+
+      set.headers['X-RateLimit-Limit'] = String(A2A_RATE_LIMIT)
+      set.headers['X-RateLimit-Remaining'] = String(
+        Math.max(0, A2A_RATE_LIMIT - record.count),
       )
-    }
-    return next()
-  })
+      set.headers['X-RateLimit-Reset'] = String(Math.ceil(record.resetAt / 1000))
 
-  // SECURITY: Rate limiting middleware
-  app.use('/*', async (c, next) => {
-    // Skip rate limiting for agent card and info endpoints
-    if (c.req.path === '/' || c.req.path === '/.well-known/agent-card.json')
-      return next()
-
-    // Use IP or Agent ID for rate limiting
-    const forwarded = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
-    const agentId = c.req.header('x-agent-id')
-    const clientKey = agentId
-      ? `agent:${agentId}`
-      : `ip:${forwarded || 'unknown'}`
-
-    const now = Date.now()
-    let record = a2aRateLimitStore.get(clientKey)
-    if (!record || now > record.resetAt) {
-      record = { count: 0, resetAt: now + A2A_RATE_WINDOW }
-      a2aRateLimitStore.set(clientKey, record)
-    }
-    record.count++
-
-    c.header('X-RateLimit-Limit', String(A2A_RATE_LIMIT))
-    c.header(
-      'X-RateLimit-Remaining',
-      String(Math.max(0, A2A_RATE_LIMIT - record.count)),
-    )
-    c.header('X-RateLimit-Reset', String(Math.ceil(record.resetAt / 1000)))
-
-    if (record.count > A2A_RATE_LIMIT) {
-      return c.json(
-        {
-          jsonrpc: '2.0',
+      if (record.count > A2A_RATE_LIMIT) {
+        set.status = 429
+        return {
+          jsonrpc: '2.0' as const,
           id: null,
           error: { code: -32600, message: 'Rate limit exceeded' },
-        },
-        429,
-      )
-    }
-
-    return next()
-  })
-
-  app.get('/.well-known/agent-card.json', (c) => c.json(AGENT_CARD))
-
-  app.post('/', async (c) => {
-    const body = await c.req.json()
-    const validated = validateBody(a2aRequestSchema, body, 'A2A POST /')
-
-    const message = validated.params.message
-    const dataPart = message.parts.find((p) => p.kind === 'data')
-
-    if (!dataPart?.data) {
-      throw new BadRequestError('No data part found in message')
-    }
-
-    const skillId = dataPart.data.skillId
-    if (typeof skillId !== 'string' || !skillId) {
-      throw new BadRequestError('skillId is required and must be a string')
-    }
-
-    const result = await executeSkill(skillId, dataPart.data)
-
-    return c.json({
-      jsonrpc: '2.0',
-      id: validated.id,
-      result: {
-        role: 'agent',
-        parts: [
-          { kind: 'text', text: result.message },
-          { kind: 'data', data: result.data },
-        ],
-        messageId: message.messageId,
-        kind: 'message',
-      },
+        }
+      }
+      return undefined
     })
-  })
+    .get('/.well-known/agent-card.json', () => AGENT_CARD)
+    .post('/', async ({ body }) => {
+      const validated = validateBody(
+        a2aRequestSchema,
+        body as Record<string, JsonValue>,
+        'A2A POST /',
+      )
 
-  app.get('/', (c) =>
-    c.json({
+      const message = validated.params.message
+      const dataPart = message.parts.find((p) => p.kind === 'data')
+
+      if (!dataPart?.data) {
+        throw new BadRequestError('No data part found in message')
+      }
+
+      const skillId = dataPart.data.skillId
+      if (typeof skillId !== 'string' || !skillId) {
+        throw new BadRequestError('skillId is required and must be a string')
+      }
+
+      const result = await executeSkill(skillId, dataPart.data)
+
+      return {
+        jsonrpc: '2.0',
+        id: validated.id,
+        result: {
+          role: 'agent',
+          parts: [
+            { kind: 'text', text: result.message },
+            { kind: 'data', data: result.data },
+          ],
+          messageId: message.messageId,
+          kind: 'message',
+        },
+      }
+    })
+    .get('/', () => ({
       service: 'indexer-a2a',
       version: '1.0.0',
       agentCard: '/.well-known/agent-card.json',
-    }),
-  )
+    }))
 
   return app
 }
@@ -723,12 +705,8 @@ const A2A_PORT = parseInt(process.env.A2A_PORT || '4351', 10)
 
 export async function startA2AServer(): Promise<void> {
   const app = createIndexerA2AServer()
-  const { serve } = await import('@hono/node-server')
 
-  serve({
-    fetch: app.fetch,
-    port: A2A_PORT,
-  })
+  app.listen(A2A_PORT)
 
   console.log(`📡 A2A Server running on http://localhost:${A2A_PORT}`)
 }

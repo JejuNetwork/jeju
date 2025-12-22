@@ -89,7 +89,7 @@ export interface UseAuthReturn {
 const OAUTH3_TEE_URL =
   import.meta.env.VITE_OAUTH3_TEE_URL ?? 'http://localhost:4010'
 const OAUTH3_APP_ID = import.meta.env.VITE_OAUTH3_APP_ID ?? 'wallet.apps.jeju'
-const RPC_URL = import.meta.env.VITE_RPC_URL ?? 'http://localhost:9545'
+const RPC_URL = import.meta.env.VITE_RPC_URL ?? 'http://localhost:6546'
 const CHAIN_ID = parseInt(import.meta.env.VITE_CHAIN_ID ?? '420691', 10)
 
 function mapAuthProvider(provider: AuthProvider): OAuth3AuthProvider {

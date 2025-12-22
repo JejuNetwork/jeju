@@ -8,6 +8,7 @@
  */
 
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
+import { DWSInferenceAltSchema, safeParse } from '../schemas'
 
 function getDWSEndpoint(): string {
   return process.env.DWS_URL ?? getDWSComputeUrl()
@@ -44,11 +45,8 @@ export async function dwsGenerate(
     )
   }
 
-  const data = (await r.json()) as {
-    choices?: Array<{ message?: { content: string } }>
-    content?: string
-  }
-  return data.choices?.[0]?.message?.content ?? data.content ?? ''
+  const data = safeParse(DWSInferenceAltSchema, await r.json())
+  return data?.choices?.[0]?.message?.content ?? data?.content ?? ''
 }
 
 /**

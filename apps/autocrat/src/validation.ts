@@ -16,19 +16,6 @@ import type { Context } from 'hono'
 import { isHex } from 'viem'
 import type { z } from 'zod'
 
-// Re-export shared validation helpers for convenience
-export {
-  expect,
-  expectBigInt,
-  expectDefined,
-  expectHex,
-  expectNonEmpty,
-  expectTrue,
-  expectValid,
-  expectValid as validateOrThrow,
-  UrlSchema,
-} from '@jejunetwork/types'
-
 /**
  * Parse and validate JSON body from Hono request
  */

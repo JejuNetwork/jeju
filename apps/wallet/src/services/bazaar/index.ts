@@ -98,18 +98,20 @@ const BAZAAR_ABI = [
   },
 ] as const
 
-export enum AssetType {
-  ERC721 = 0,
-  ERC1155 = 1,
-  ERC20 = 2,
-}
+export const AssetType = {
+  ERC721: 0,
+  ERC1155: 1,
+  ERC20: 2,
+} as const
+export type AssetType = (typeof AssetType)[keyof typeof AssetType]
 
-export enum ListingStatus {
-  Active = 0,
-  Sold = 1,
-  Cancelled = 2,
-  Expired = 3,
-}
+export const ListingStatus = {
+  Active: 0,
+  Sold: 1,
+  Cancelled: 2,
+  Expired: 3,
+} as const
+export type ListingStatus = (typeof ListingStatus)[keyof typeof ListingStatus]
 
 export interface Listing {
   id: bigint
@@ -176,7 +178,7 @@ export class BazaarService {
     if (cached) {
       return cached
     }
-    const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:9545'
+    const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:6546'
     const client = createPublicClient({ transport: http(rpcUrl) })
     this.clientCache.set(this.chainId, client)
     return client

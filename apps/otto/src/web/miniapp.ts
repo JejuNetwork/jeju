@@ -3,10 +3,9 @@
  * Minimal chat interface for Telegram, Farcaster, and Web
  */
 
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import { getConfig } from '../config'
 
-export const miniappApi = new Hono()
 const config = getConfig()
 
 const html = (platform: 'telegram' | 'farcaster' | 'web') => `<!DOCTYPE html>
@@ -91,8 +90,18 @@ const html = (platform: 'telegram' | 'farcaster' | 'web') => `<!DOCTYPE html>
 </body>
 </html>`
 
-miniappApi.get('/', (c) => c.html(html('web')))
-miniappApi.get('/telegram', (c) => c.html(html('telegram')))
-miniappApi.get('/farcaster', (c) => c.html(html('farcaster')))
+export const miniappApi = new Elysia({ prefix: '/miniapp' })
+  .get('/', ({ set }) => {
+    set.headers['Content-Type'] = 'text/html'
+    return html('web')
+  })
+  .get('/telegram', ({ set }) => {
+    set.headers['Content-Type'] = 'text/html'
+    return html('telegram')
+  })
+  .get('/farcaster', ({ set }) => {
+    set.headers['Content-Type'] = 'text/html'
+    return html('farcaster')
+  })
 
 export default miniappApi

@@ -493,15 +493,42 @@ export function createHelmProviderRouter(): Hono {
             required: ['apiVersion', 'kind', 'metadata'],
             properties: {
               apiVersion: { type: 'string' },
-              kind: { type: 'string', enum: ['Deployment', 'Service', 'ConfigMap', 'Secret', 'Job', 'CronJob', 'StatefulSet', 'DaemonSet', 'Ingress', 'PersistentVolumeClaim'] },
-              metadata: { type: 'object', properties: { name: { type: 'string' }, namespace: { type: 'string' } } },
+              kind: {
+                type: 'string',
+                enum: [
+                  'Deployment',
+                  'Service',
+                  'ConfigMap',
+                  'Secret',
+                  'Job',
+                  'CronJob',
+                  'StatefulSet',
+                  'DaemonSet',
+                  'Ingress',
+                  'PersistentVolumeClaim',
+                ],
+              },
+              metadata: {
+                type: 'object',
+                properties: {
+                  name: { type: 'string' },
+                  namespace: { type: 'string' },
+                },
+              },
               spec: { type: 'object' },
             },
           },
         },
         release: { type: 'string', description: 'Name of the Helm release' },
-        namespace: { type: 'string', description: 'Target Kubernetes namespace', default: 'default' },
-        values: { type: 'object', description: 'Values to pass to Helm templates' },
+        namespace: {
+          type: 'string',
+          description: 'Target Kubernetes namespace',
+          default: 'default',
+        },
+        values: {
+          type: 'object',
+          description: 'Values to pass to Helm templates',
+        },
       },
     })
   })

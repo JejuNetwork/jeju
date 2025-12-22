@@ -1,13 +1,11 @@
-'use client'
-
 import { Menu, Moon, Sun, X } from 'lucide-react'
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { AuthButton } from './auth/AuthButton'
 
 export function Header() {
-  const pathname = usePathname()
+  const location = useLocation()
+  const pathname = location.pathname
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [isDark, setIsDark] = useState(false)
 
@@ -45,7 +43,7 @@ export function Header() {
       <div className="container mx-auto px-3 sm:px-4">
         <div className="flex items-center justify-between h-14">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 shrink-0">
+          <Link to="/" className="flex items-center gap-2 shrink-0">
             <span className="text-xl">🏛️</span>
             <span className="font-semibold hidden xs:inline">Autocrat</span>
           </Link>
@@ -55,7 +53,7 @@ export function Header() {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                to={link.href}
                 className={`px-3 py-1.5 rounded text-sm transition-colors ${
                   pathname === link.href ? 'bg-gray-100 dark:bg-gray-800' : ''
                 }`}
@@ -74,6 +72,7 @@ export function Header() {
           {/* Right Actions */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
+              type="button"
               onClick={toggleTheme}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               aria-label="Toggle theme"
@@ -85,6 +84,7 @@ export function Header() {
 
             {/* Mobile Menu Toggle */}
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               aria-label="Toggle menu"
@@ -104,7 +104,7 @@ export function Header() {
             {navLinks.map((link) => (
               <Link
                 key={link.href}
-                href={link.href}
+                to={link.href}
                 className={`block px-3 py-3 rounded-lg text-sm font-medium transition-colors ${
                   pathname === link.href ? 'bg-gray-100 dark:bg-gray-800' : ''
                 }`}

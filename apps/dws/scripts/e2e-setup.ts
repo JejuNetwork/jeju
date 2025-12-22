@@ -16,13 +16,14 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type Subprocess, spawn } from 'bun'
+import { z } from 'zod'
 
 // ============================================================================
 // Configuration
 // ============================================================================
 
-const JEJU_L2_RPC = 'http://127.0.0.1:9545'
-const JEJU_L1_RPC = 'http://127.0.0.1:8545'
+const JEJU_L2_RPC = 'http://127.0.0.1:6546'
+const JEJU_L1_RPC = 'http://127.0.0.1:6545'
 const DWS_PORT = 4030
 
 const TEST_ACCOUNTS = [
@@ -88,6 +89,11 @@ interface DeployedContracts {
   [key: string]: string | undefined
 }
 
+/** Schema for deployment file structure */
+const DeploymentFileSchema = z.object({
+  contracts: z.record(z.string(), z.string().optional()),
+})
+
 async function getDeployedContracts(): Promise<DeployedContracts | null> {
   const deploymentPath = join(
     process.cwd(),
@@ -103,13 +109,13 @@ async function getDeployedContracts(): Promise<DeployedContracts | null> {
     return null
   }
 
-  try {
-    const content = readFileSync(deploymentPath, 'utf-8')
-    const data = JSON.parse(content) as { contracts: DeployedContracts }
-    return data.contracts
-  } catch {
+  const content = readFileSync(deploymentPath, 'utf-8')
+  const result = DeploymentFileSchema.safeParse(JSON.parse(content))
+  if (!result.success) {
+    console.warn('[E2E Setup] Invalid deployment file structure')
     return null
   }
+  return result.data.contracts as DeployedContracts
 }
 
 async function ensureContractsDeployed(): Promise<DeployedContracts> {

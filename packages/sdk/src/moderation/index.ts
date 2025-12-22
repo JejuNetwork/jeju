@@ -18,34 +18,38 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum BanType {
-  NONE = 0,
-  ON_NOTICE = 1,
-  CHALLENGED = 2,
-  PERMANENT = 3,
-}
+export const BanType = {
+  NONE: 0,
+  ON_NOTICE: 1,
+  CHALLENGED: 2,
+  PERMANENT: 3,
+} as const
+export type BanType = (typeof BanType)[keyof typeof BanType]
 
-export enum ReportType {
-  NETWORK_BAN = 0,
-  APP_BAN = 1,
-  LABEL_HACKER = 2,
-  LABEL_SCAMMER = 3,
-}
+export const ReportType = {
+  NETWORK_BAN: 0,
+  APP_BAN: 1,
+  LABEL_HACKER: 2,
+  LABEL_SCAMMER: 3,
+} as const
+export type ReportType = (typeof ReportType)[keyof typeof ReportType]
 
-export enum SeverityLevel {
-  LOW = 0, // 7 day voting
-  MEDIUM = 1, // 3 day voting
-  HIGH = 2, // 24 hour voting
-  CRITICAL = 3, // Immediate temp ban + 24 hour voting
-}
+export const SeverityLevel = {
+  LOW: 0, // 7 day voting
+  MEDIUM: 1, // 3 day voting
+  HIGH: 2, // 24 hour voting
+  CRITICAL: 3, // Immediate temp ban + 24 hour voting
+} as const
+export type SeverityLevel = (typeof SeverityLevel)[keyof typeof SeverityLevel]
 
-export enum ReportStatus {
-  PENDING = 0,
-  VOTING = 1,
-  RESOLVED_YES = 2,
-  RESOLVED_NO = 3,
-  CANCELLED = 4,
-}
+export const ReportStatus = {
+  PENDING: 0,
+  VOTING: 1,
+  RESOLVED_YES: 2,
+  RESOLVED_NO: 3,
+  CANCELLED: 4,
+} as const
+export type ReportStatus = (typeof ReportStatus)[keyof typeof ReportStatus]
 
 export interface BanRecord {
   isBanned: boolean
@@ -86,32 +90,38 @@ export interface CreateReportParams {
   stake?: bigint
 }
 
-export enum EvidencePosition {
-  FOR_ACTION = 0, // Evidence supports taking action (ban/slash)
-  AGAINST_ACTION = 1, // Evidence opposes taking action
-}
+export const EvidencePosition = {
+  FOR_ACTION: 0, // Evidence supports taking action (ban/slash)
+  AGAINST_ACTION: 1, // Evidence opposes taking action
+} as const
+export type EvidencePosition =
+  (typeof EvidencePosition)[keyof typeof EvidencePosition]
 
-export enum EvidenceStatus {
-  ACTIVE = 0, // Case still open
-  REWARDED = 1, // Case resolved in evidence's favor
-  SLASHED = 2, // Case resolved against evidence
-}
+export const EvidenceStatus = {
+  ACTIVE: 0, // Case still open
+  REWARDED: 1, // Case resolved in evidence's favor
+  SLASHED: 2, // Case resolved against evidence
+} as const
+export type EvidenceStatus =
+  (typeof EvidenceStatus)[keyof typeof EvidenceStatus]
 
-export enum CaseStatus {
-  PENDING = 0,
-  UNDER_REVIEW = 1,
-  RESOLVED = 2,
-  APPEALED = 3,
-  CLOSED = 4,
-}
+export const CaseStatus = {
+  PENDING: 0,
+  UNDER_REVIEW: 1,
+  RESOLVED: 2,
+  APPEALED: 3,
+  CLOSED: 4,
+} as const
+export type CaseStatus = (typeof CaseStatus)[keyof typeof CaseStatus]
 
-export enum CaseOutcome {
-  NO_ACTION = 0,
-  WARNING = 1,
-  TEMPORARY_BAN = 2,
-  PERMANENT_BAN = 3,
-  SLASH = 4,
-}
+export const CaseOutcome = {
+  NO_ACTION: 0,
+  WARNING: 1,
+  TEMPORARY_BAN: 2,
+  PERMANENT_BAN: 3,
+  SLASH: 4,
+} as const
+export type CaseOutcome = (typeof CaseOutcome)[keyof typeof CaseOutcome]
 
 export interface Evidence {
   evidenceId: Hex

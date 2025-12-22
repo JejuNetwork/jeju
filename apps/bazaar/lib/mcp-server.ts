@@ -1,10 +1,7 @@
-import type { NextRequest } from 'next/server'
-import { NextResponse } from 'next/server'
-import { expectExists, expectValid } from '@/lib/validation'
 import {
   MCPResourceReadRequestSchema,
   MCPToolCallRequestSchema,
-} from '@/schemas/api'
+} from '../schemas/api'
 import {
   getCORSHeaders,
   MCP_RESOURCES,
@@ -13,27 +10,34 @@ import {
 } from './mcp/constants'
 import { readMCPResource } from './mcp/resources'
 import { callMCPTool } from './mcp/tools'
+import { expectExists, expectValid } from './validation'
+
+function jsonResponse(data: object, headers: Record<string, string>): Response {
+  return new Response(JSON.stringify(data), {
+    headers: { ...headers, 'Content-Type': 'application/json' },
+  })
+}
 
 export async function handleMCPRequest(
-  request: NextRequest,
+  request: Request,
   endpoint: string,
-): Promise<NextResponse> {
+): Promise<Response> {
   const origin = request.headers.get('origin')
   const headers = getCORSHeaders(origin)
 
   switch (endpoint) {
     case 'initialize':
-      return NextResponse.json(
+      return jsonResponse(
         {
           protocolVersion: '2024-11-05',
           serverInfo: MCP_SERVER_INFO,
           capabilities: MCP_SERVER_INFO.capabilities,
         },
-        { headers },
+        headers,
       )
 
     case 'resources/list':
-      return NextResponse.json({ resources: MCP_RESOURCES }, { headers })
+      return jsonResponse({ resources: MCP_RESOURCES }, headers)
 
     case 'resources/read': {
       const body = await request.json()
@@ -46,7 +50,7 @@ export async function handleMCPRequest(
       const contents = await readMCPResource(uri)
       expectExists(contents, 'Resource not found')
 
-      return NextResponse.json(
+      return jsonResponse(
         {
           contents: [
             {
@@ -56,12 +60,12 @@ export async function handleMCPRequest(
             },
           ],
         },
-        { headers },
+        headers,
       )
     }
 
     case 'tools/list':
-      return NextResponse.json({ tools: MCP_TOOLS }, { headers })
+      return jsonResponse({ tools: MCP_TOOLS }, headers)
 
     case 'tools/call': {
       const body = await request.json()
@@ -72,16 +76,19 @@ export async function handleMCPRequest(
       )
 
       const result = await callMCPTool(name, args || {})
-      return NextResponse.json(result, { headers })
+      return jsonResponse(result, headers)
     }
 
     default:
-      return NextResponse.json({ error: 'Not found' }, { status: 404, headers })
+      return new Response(JSON.stringify({ error: 'Not found' }), {
+        status: 404,
+        headers: { ...headers, 'Content-Type': 'application/json' },
+      })
   }
 }
 
-export function handleMCPInfo(): NextResponse {
-  return NextResponse.json({
+export function handleMCPInfo(): Response {
+  return Response.json({
     server: MCP_SERVER_INFO.name,
     version: MCP_SERVER_INFO.version,
     description: MCP_SERVER_INFO.description,

@@ -1,6 +1,9 @@
 import { describe, expect, mock, test } from 'bun:test'
 import { parseEther } from 'viem'
-import { calculateNoPrice, calculateYesPrice } from '@/lib/markets/lmsrPricing'
+import {
+  calculateNoPrice,
+  calculateYesPrice,
+} from '../../../lib/markets/lmsrPricing'
 import { useMarkets } from '../useMarkets'
 
 // Mock graphql-request

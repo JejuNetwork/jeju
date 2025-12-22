@@ -398,6 +398,7 @@ class KeyringService {
       // We need to use the HDAccount's method to get the private key
       // Since viem's HDAccount doesn't expose privateKey directly,
       // we derive it from the seed
+      // Dynamic import: Only needed when exporting HD account private keys
       const { HDKey } = await import('@scure/bip32')
       const { mnemonicToSeedSync } = await import('@scure/bip39')
       const seed = mnemonicToSeedSync(mnemonic)

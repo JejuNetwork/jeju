@@ -11,7 +11,9 @@
  * Content is NEVER stored if flagged as CSAM.
  */
 
+import { readFile, writeFile } from 'node:fs/promises'
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
 import {
   accountBansTotal,
   contentScreeningDuration,
@@ -29,6 +31,31 @@ import type {
   ScreeningResult,
   ViolationSummary,
 } from './types'
+
+// ============ Zod Schemas for JSON Parsing ============
+
+// Schema for AI classification response content
+const ContentScoresSchema = z.object({
+  spam: z.number().min(0).max(1).default(0),
+  scam: z.number().min(0).max(1).default(0),
+  csam: z.number().min(0).max(1).default(0),
+  malware: z.number().min(0).max(1).default(0),
+  harassment: z.number().min(0).max(1).default(0),
+})
+
+// Schema for account review AI response
+const AccountReviewResponseSchema = z.object({
+  assessment: z.string(),
+  reasoning: z.string(),
+  recommendation: z.enum(['allow', 'warn', 'suspend', 'ban']),
+  confidence: z.number().min(0).max(1),
+})
+
+// Schema for hash list response - can be array or newline-separated
+const HashListSchema = z.array(z.string())
+
+// Schema for moderation queue (array of AccountReview)
+const ModerationQueueSchema = z.array(z.unknown())
 
 // ============ Configuration ============
 
@@ -304,13 +331,17 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
     // Parse JSON response
     const jsonMatch = content_response.match(/\{[\s\S]*\}/)
     if (jsonMatch) {
-      const parsed = JSON.parse(jsonMatch[0]) as ContentScores
-      return {
-        spam: Math.max(0, Math.min(1, parsed.spam ?? 0)),
-        scam: Math.max(0, Math.min(1, parsed.scam ?? 0)),
-        csam: Math.max(0, Math.min(1, parsed.csam ?? 0)),
-        malware: Math.max(0, Math.min(1, parsed.malware ?? 0)),
-        harassment: Math.max(0, Math.min(1, parsed.harassment ?? 0)),
+      const parseResult = ContentScoresSchema.safeParse(
+        JSON.parse(jsonMatch[0]),
+      )
+      if (parseResult.success) {
+        return {
+          spam: Math.max(0, Math.min(1, parseResult.data.spam)),
+          scam: Math.max(0, Math.min(1, parseResult.data.scam)),
+          csam: Math.max(0, Math.min(1, parseResult.data.csam)),
+          malware: Math.max(0, Math.min(1, parseResult.data.malware)),
+          harassment: Math.max(0, Math.min(1, parseResult.data.harassment)),
+        }
       }
     }
 
@@ -503,25 +534,14 @@ Return ONLY valid JSON:
         const jsonMatch = content.match(/\{[\s\S]*\}/)
 
         if (jsonMatch) {
-          const parsed = JSON.parse(jsonMatch[0]) as {
-            assessment: string
-            reasoning: string
-            recommendation: string
-            confidence: number
-          }
-
-          assessment = parsed.assessment
-          reasoning = parsed.reasoning
-          confidence = parsed.confidence
-
-          if (
-            ['allow', 'warn', 'suspend', 'ban'].includes(parsed.recommendation)
-          ) {
-            recommendation = parsed.recommendation as
-              | 'allow'
-              | 'warn'
-              | 'suspend'
-              | 'ban'
+          const parseResult = AccountReviewResponseSchema.safeParse(
+            JSON.parse(jsonMatch[0]),
+          )
+          if (parseResult.success) {
+            assessment = parseResult.data.assessment
+            reasoning = parseResult.data.reasoning
+            confidence = parseResult.data.confidence
+            recommendation = parseResult.data.recommendation
           }
         }
       }
@@ -629,18 +649,22 @@ Return ONLY valid JSON:
       process.env.MODERATION_QUEUE_FILE ?? '/tmp/email-moderation-queue.json'
 
     try {
-      const fs = await import('node:fs/promises')
       let queue: AccountReview[] = []
 
       try {
-        const existing = await fs.readFile(queueFile, 'utf-8')
-        queue = JSON.parse(existing) as AccountReview[]
+        const existing = await readFile(queueFile, 'utf-8')
+        const parseResult = ModerationQueueSchema.safeParse(
+          JSON.parse(existing),
+        )
+        if (parseResult.success) {
+          queue = parseResult.data as AccountReview[]
+        }
       } catch {
         // File doesn't exist yet
       }
 
       queue.push(review)
-      await fs.writeFile(queueFile, JSON.stringify(queue, null, 2))
+      await writeFile(queueFile, JSON.stringify(queue, null, 2))
       console.log(`[ContentScreening] Review queued locally: ${queueFile}`)
     } catch (e) {
       console.error('[ContentScreening] Failed to queue review:', e)
@@ -761,9 +785,18 @@ Return ONLY valid JSON:
       // Parse hash list - supports newline-separated or JSON array format
       let hashes: string[]
       try {
-        hashes = JSON.parse(data) as string[]
+        const parseResult = HashListSchema.safeParse(JSON.parse(data))
+        if (parseResult.success) {
+          hashes = parseResult.data
+        } else {
+          // Valid JSON but wrong schema - treat as newline-separated
+          hashes = data
+            .split('\n')
+            .map((h) => h.trim())
+            .filter((h) => h.length > 0)
+        }
       } catch {
-        // Newline-separated format
+        // Not valid JSON - newline-separated format
         hashes = data
           .split('\n')
           .map((h) => h.trim())
@@ -803,8 +836,18 @@ Return ONLY valid JSON:
 
       let hashes: string[]
       try {
-        hashes = JSON.parse(data) as string[]
+        const parseResult = HashListSchema.safeParse(JSON.parse(data))
+        if (parseResult.success) {
+          hashes = parseResult.data
+        } else {
+          // Valid JSON but wrong schema - treat as newline-separated
+          hashes = data
+            .split('\n')
+            .map((h) => h.trim())
+            .filter((h) => h.length > 0)
+        }
       } catch {
+        // Not valid JSON - newline-separated format
         hashes = data
           .split('\n')
           .map((h) => h.trim())

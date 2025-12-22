@@ -147,7 +147,7 @@ export const NETWORK_RPC_CONFIGS: Record<NetworkType, NetworkRpcConfig> = {
     rpcUrlEnvVar: 'JEJU_LOCALNET_RPC_URL',
     chainId: 31337,
     name: 'Localnet',
-    defaultLocalnet: 'http://localhost:9545',
+    defaultLocalnet: 'http://localhost:6546',
   },
 }
 

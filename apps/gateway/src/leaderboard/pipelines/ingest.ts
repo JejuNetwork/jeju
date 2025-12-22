@@ -146,9 +146,15 @@ export async function runIngest(options: IngestOptions = {}): Promise<{
     totalIssues += issues.count
     totalCommits += commits.count
 
-    prs.users.forEach((u) => usersSet.add(u))
-    issues.users.forEach((u) => usersSet.add(u))
-    commits.users.forEach((u) => usersSet.add(u))
+    for (const u of prs.users) {
+      usersSet.add(u)
+    }
+    for (const u of issues.users) {
+      usersSet.add(u)
+    }
+    for (const u of commits.users) {
+      usersSet.add(u)
+    }
   }
 
   console.log(
@@ -266,18 +272,17 @@ async function fetchAndStorePullRequests(
       throw new Error(`GitHub API error: ${response.status}`)
     }
 
-    const data = (await response.json()) as {
-      data: {
-        repository: {
-          pullRequests: {
-            pageInfo: { hasNextPage: boolean; endCursor: string }
-            nodes: GitHubPullRequest[]
-          }
-        }
-      }
+    const data = await response.json()
+    const prsData = data?.data?.repository?.pullRequests
+    if (!prsData) {
+      hasNextPage = false
+      break
     }
 
-    const prs = data.data.repository.pullRequests
+    const prs = prsData as {
+      pageInfo: { hasNextPage: boolean; endCursor: string }
+      nodes: GitHubPullRequest[]
+    }
     hasNextPage = prs.pageInfo.hasNextPage
     cursor = prs.pageInfo.endCursor
 
@@ -388,18 +393,17 @@ async function fetchAndStoreIssues(
       throw new Error(`GitHub API error: ${response.status}`)
     }
 
-    const data = (await response.json()) as {
-      data: {
-        repository: {
-          issues: {
-            pageInfo: { hasNextPage: boolean; endCursor: string }
-            nodes: GitHubIssue[]
-          }
-        }
-      }
+    const data = await response.json()
+    const issuesData = data?.data?.repository?.issues
+    if (!issuesData) {
+      hasNextPage = false
+      break
     }
 
-    const issues = data.data.repository.issues
+    const issues = issuesData as {
+      pageInfo: { hasNextPage: boolean; endCursor: string }
+      nodes: GitHubIssue[]
+    }
     hasNextPage = issues.pageInfo.hasNextPage
     cursor = issues.pageInfo.endCursor
 
@@ -514,22 +518,13 @@ async function fetchAndStoreCommits(
       throw new Error(`GitHub API error: ${response.status}`)
     }
 
-    const data = (await response.json()) as {
-      data: {
-        repository: {
-          defaultBranchRef: {
-            target: {
-              history: {
-                pageInfo: { hasNextPage: boolean; endCursor: string }
-                nodes: GitHubCommit[]
-              }
-            }
-          }
+    const data = await response.json()
+    const history = data?.data?.repository?.defaultBranchRef?.target?.history as
+      | {
+          pageInfo: { hasNextPage: boolean; endCursor: string }
+          nodes: GitHubCommit[]
         }
-      }
-    }
-
-    const history = data.data.repository?.defaultBranchRef?.target?.history
+      | undefined
     if (!history) {
       hasNextPage = false
       break
@@ -591,9 +586,11 @@ async function ensureUser(username: string): Promise<void> {
   if (existing.length === 0) {
     // Fetch avatar URL from GitHub - fail-fast on errors
     const response = await fetch(`https://api.github.com/users/${username}`)
-    const avatarUrl = response.ok
-      ? ((await response.json()) as { avatar_url: string }).avatar_url
-      : ''
+    let avatarUrl = ''
+    if (response.ok) {
+      const data = await response.json()
+      avatarUrl = typeof data?.avatar_url === 'string' ? data.avatar_url : ''
+    }
 
     await exec(
       `INSERT OR IGNORE INTO users (username, avatar_url, is_bot, last_updated)

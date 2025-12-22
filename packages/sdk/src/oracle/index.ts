@@ -49,12 +49,13 @@ export interface OracleConfig {
   description: string
 }
 
-export enum OracleType {
-  CHAINLINK = 0,
-  TWAP = 1,
-  CUSTOM = 2,
-  PYTH = 3,
-}
+export const OracleType = {
+  CHAINLINK: 0,
+  TWAP: 1,
+  CUSTOM: 2,
+  PYTH: 3,
+} as const
+export type OracleType = (typeof OracleType)[keyof typeof OracleType]
 
 export interface RegisterOracleParams {
   feedAddress: Address

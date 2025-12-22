@@ -8,19 +8,17 @@
 import {
   AddressSchema,
   BigIntSchema,
+  expect,
+  expectDefined,
+  expectValid,
   HashSchema,
   HexSchema,
+  validateOrThrow,
 } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// Re-export shared schemas and helpers for convenience
-export {
-  BigIntSchema,
-  expectDefined,
-  expectTrue as expect,
-  expectValid,
-  expectValid as validateOrThrow,
-} from '@jejunetwork/types'
+// Re-export validation functions for local imports
+export { expect, expectDefined, expectValid, validateOrThrow }
 
 // ============ Base Schemas ============
 
@@ -465,6 +463,32 @@ export const BountyGuardianVoteSchema = z.object({
   votedAt: z.number().int().positive(),
 })
 
+/** Full BountySubmission schema for cached data parsing */
+export const BountySubmissionSchema = BountySubmissionDraftSchema.extend({
+  submissionId: z.string().min(1),
+  researcher: AddressSchema,
+  researcherAgentId: BigIntSchema,
+  stake: BigIntSchema,
+  rewardAmount: BigIntSchema,
+  status: BountySubmissionStatusSchema,
+  validationResult: ValidationResultSchema,
+  validationNotes: z.string().optional(),
+  guardianApprovals: z.number().int().nonnegative(),
+  guardianRejections: z.number().int().nonnegative(),
+  submittedAt: z.number().int().positive(),
+  validatedAt: z.number().int().positive().optional(),
+  resolvedAt: z.number().int().positive().optional(),
+  fixCommitHash: z.string().optional(),
+  disclosureDate: z.number().int().positive().optional(),
+  researcherDisclosed: z.boolean().optional(),
+  encryptedReportCid: z.string().min(1),
+  encryptionKeyId: z.string().min(1),
+  proofOfConceptHash: z.string().min(1),
+})
+
+/** Schema for string arrays (affectedComponents, stepsToReproduce) */
+export const StringArraySchema = z.array(z.string())
+
 // ============ API Request Schemas ============
 
 export const AssessProposalRequestSchema = ProposalDraftSchema
@@ -756,3 +780,366 @@ export const BugBountyListQuerySchema = PaginationQuerySchema.extend({
   limit?: number
   offset?: number
 }>
+
+// ============ External API Response Schemas ============
+
+// --- GitHub API Responses ---
+
+export const GitHubTokenResponseSchema = z.object({
+  access_token: z.string(),
+  token_type: z.string(),
+  scope: z.string().optional(),
+})
+
+export const GitHubUserProfileSchema = z.object({
+  id: z.number(),
+  login: z.string(),
+  name: z.string().nullable(),
+  email: z.string().nullable(),
+  avatar_url: z.string(),
+})
+
+export const GitHubRepoPermissionsSchema = z.object({
+  permissions: z
+    .object({
+      admin: z.boolean().optional(),
+      push: z.boolean().optional(),
+      maintain: z.boolean().optional(),
+    })
+    .optional(),
+})
+
+// --- A2A Protocol Response Schemas ---
+
+export const A2APartSchema = z.union([
+  z.object({
+    kind: z.literal('text'),
+    text: z.string(),
+  }),
+  z.object({
+    kind: z.literal('data'),
+    data: z.record(z.string(), z.unknown()).optional(),
+  }),
+])
+
+export const A2AResultSchema = z.object({
+  parts: z.array(A2APartSchema).optional(),
+})
+
+export const A2AJsonRpcResponseSchema = z.object({
+  jsonrpc: z.literal('2.0').optional(),
+  id: z.union([z.number(), z.string()]).optional(),
+  result: A2AResultSchema.optional(),
+  error: z
+    .object({
+      code: z.number().optional(),
+      message: z.string(),
+    })
+    .optional(),
+})
+
+export type A2AJsonRpcResponse = z.infer<typeof A2AJsonRpcResponseSchema>
+
+// --- LLM/Compute API Response Schemas ---
+
+export const LLMChoiceSchema = z.object({
+  message: z
+    .object({
+      content: z.string(),
+      role: z.string().optional(),
+    })
+    .optional(),
+  index: z.number().optional(),
+  finish_reason: z.string().optional(),
+})
+
+export const LLMCompletionResponseSchema = z.object({
+  choices: z.array(LLMChoiceSchema).optional(),
+  content: z.string().optional(), // Alternative format
+  usage: z
+    .object({
+      prompt_tokens: z.number().optional(),
+      completion_tokens: z.number().optional(),
+      total_tokens: z.number().optional(),
+    })
+    .optional(),
+})
+
+export const ComputeInferenceResponseSchema = z.object({
+  requestId: z.string().optional(),
+  content: z.string().optional(),
+  tokensUsed: z
+    .object({
+      input: z.number(),
+      output: z.number(),
+    })
+    .optional(),
+  cost: z.object({
+    amount: z.string(),
+    currency: z.string(),
+    paid: z.boolean().optional(),
+  }),
+  latencyMs: z.number(),
+})
+
+export type ComputeInferenceResponse = z.infer<
+  typeof ComputeInferenceResponseSchema
+>
+
+// --- Sandbox/Container Execution Response Schemas ---
+
+export const SandboxExecutionResponseSchema = z.object({
+  executionId: z.string().optional(),
+  status: z.string(),
+  output: z
+    .object({
+      exploitTriggered: z.boolean().optional(),
+      exploitDetails: z.string().optional(),
+      result: z.string().optional(),
+    })
+    .optional(),
+  logs: z.string().optional(),
+  exitCode: z.number().optional(),
+  metrics: z
+    .object({
+      executionTimeMs: z.number().optional(),
+      memoryUsedMb: z.number().optional(),
+      cpuUsagePercent: z.number().optional(),
+    })
+    .optional(),
+})
+
+export type SandboxExecutionResponse = z.infer<
+  typeof SandboxExecutionResponseSchema
+>
+
+export const SandboxResultSchema = z.object({
+  success: z.boolean(),
+  exploitTriggered: z.boolean(),
+  exploitDetails: z.string().optional(),
+  executionTimeMs: z.number().optional(),
+  stdout: z.string().optional(),
+  stderr: z.string().optional(),
+})
+
+export type SandboxResult = z.infer<typeof SandboxResultSchema>
+
+// --- KMS/Encryption Response Schemas ---
+
+export const KMSEncryptResponseSchema = z.object({
+  cid: z.string(),
+  keyId: z.string(),
+  encrypted: z.string(),
+})
+
+// --- npm Registry Response Schemas ---
+
+export const NpmPackageResponseSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  homepage: z.string().optional(),
+  repository: z
+    .union([z.string(), z.object({ url: z.string().optional() })])
+    .optional(),
+  maintainers: z
+    .array(
+      z.object({ name: z.string().optional(), email: z.string().optional() }),
+    )
+    .optional(),
+  license: z.string().optional(),
+  'dist-tags': z.record(z.string(), z.string()).optional(),
+  versions: z
+    .record(z.string(), z.object({ license: z.string().optional() }))
+    .optional(),
+})
+
+export const NpmPackageLatestSchema = z.object({
+  dependencies: z.record(z.string(), z.string()).optional(),
+})
+
+// --- PyPI Response Schema ---
+
+export const PyPIPackageResponseSchema = z.object({
+  info: z
+    .object({
+      summary: z.string().optional(),
+      home_page: z.string().optional(),
+      project_url: z.string().optional(),
+      project_urls: z.record(z.string(), z.string()).optional(),
+      author: z.string().optional(),
+      maintainer: z.string().optional(),
+      license: z.string().optional(),
+      requires_dist: z.array(z.string()).optional(),
+    })
+    .optional(),
+})
+
+// --- Crates.io Response Schema ---
+
+export const CrateResponseSchema = z.object({
+  crate: z
+    .object({
+      description: z.string().optional(),
+      homepage: z.string().optional(),
+      repository: z.string().optional(),
+      downloads: z.number().optional(),
+    })
+    .optional(),
+  versions: z
+    .array(
+      z.object({
+        num: z.string().optional(),
+        license: z.string().optional(),
+      }),
+    )
+    .optional(),
+})
+
+export const CrateDependenciesResponseSchema = z.object({
+  dependencies: z
+    .array(
+      z.object({
+        kind: z.string(),
+        crate_id: z.string(),
+      }),
+    )
+    .optional(),
+})
+
+// --- Compute Trigger Response Schemas ---
+
+export const TriggerRegisterResponseSchema = z.object({
+  id: z.string(),
+})
+
+export const TriggerListResponseSchema = z.object({
+  triggers: z.array(
+    z.object({
+      id: z.string(),
+      source: z.string().optional(),
+      type: z.string().optional(),
+      name: z.string().optional(),
+      active: z.boolean().optional(),
+    }),
+  ),
+})
+
+export const TriggerHistoryResponseSchema = z.object({
+  executions: z.array(
+    z.object({
+      executionId: z.string(),
+      triggerId: z.string(),
+      status: z.string(),
+      startedAt: z.string().optional(),
+      finishedAt: z.string().optional(),
+      output: z.record(z.string(), z.unknown()).optional(),
+      error: z.string().optional(),
+    }),
+  ),
+})
+
+// --- MCP Tools Response Schema ---
+
+export const MCPToolsResponseSchema = z.object({
+  tools: z
+    .array(
+      z.object({
+        name: z.string(),
+        description: z.string(),
+      }),
+    )
+    .optional(),
+})
+
+export const MCPToolCallResponseSchema = z.object({
+  content: z
+    .array(
+      z.object({
+        type: z.string().optional(),
+        text: z.string().optional(),
+      }),
+    )
+    .optional(),
+})
+
+// --- Agent Card Response Schema ---
+
+export const AgentCardSchema = z.object({
+  protocolVersion: z.string().optional(),
+  name: z.string().optional(),
+  description: z.string().optional(),
+  url: z.string().optional(),
+  skills: z
+    .array(
+      z.object({
+        id: z.string(),
+        name: z.string().optional(),
+        description: z.string().optional(),
+      }),
+    )
+    .optional(),
+})
+
+// ============ Helper Functions for Validated JSON Parsing ============
+
+/**
+ * Safely parse response.json() and validate against schema
+ * Throws on validation failure for fail-fast behavior
+ */
+export async function expectValidResponse<T>(
+  response: Response,
+  schema: z.ZodSchema<T>,
+  context: string,
+): Promise<T> {
+  if (!response.ok) {
+    throw new Error(
+      `${context}: HTTP ${response.status} ${response.statusText}`,
+    )
+  }
+  const raw: unknown = await response.json()
+  return expectValid(schema, raw, context)
+}
+
+/**
+ * Extract data from A2A response with validation
+ * Returns the data part from the A2A response or throws
+ */
+export function extractA2AData<T>(
+  response: A2AJsonRpcResponse,
+  context: string,
+): T {
+  if (response.error) {
+    throw new Error(`${context}: ${response.error.message}`)
+  }
+  const parts = response.result?.parts
+  if (!parts || parts.length === 0) {
+    throw new Error(`${context}: Response contains no parts`)
+  }
+  const dataPart = parts.find((p) => p.kind === 'data')
+  if (!dataPart || dataPart.kind !== 'data' || !dataPart.data) {
+    throw new Error(`${context}: Response contains no data part`)
+  }
+  return dataPart.data as T
+}
+
+/**
+ * Extract text content from LLM response
+ * Handles both OpenAI-style and direct content format
+ */
+export function extractLLMContent(
+  response: z.infer<typeof LLMCompletionResponseSchema>,
+  context: string,
+): string {
+  // Check for OpenAI-style response
+  if (response.choices && response.choices.length > 0) {
+    const content = response.choices[0]?.message?.content
+    if (content && content.length > 0) {
+      return content
+    }
+  }
+  // Check for direct content field
+  if (response.content && response.content.length > 0) {
+    return response.content
+  }
+  throw new Error(`${context}: No valid content in LLM response`)
+}

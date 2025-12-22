@@ -19,6 +19,7 @@ import {
   http,
 } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
+import { RevocationMessageSchema } from '../shared/schemas/internal-storage'
 import {
   type PoCEndorsement,
   PoCError,
@@ -330,7 +331,14 @@ export class PoCRegistryClient {
       ws.onopen = () => {
         reconnectAttempts = 0
       }
-      ws.onmessage = (e) => onRevocation(JSON.parse(e.data as string))
+      ws.onmessage = (e) => {
+        const parsed = RevocationMessageSchema.safeParse(
+          JSON.parse(String(e.data)),
+        )
+        if (parsed.success) {
+          onRevocation(parsed.data)
+        }
+      }
       ws.onerror = () => {
         currentEndpointIndex =
           (currentEndpointIndex + 1) % this.offChainEndpoints.length

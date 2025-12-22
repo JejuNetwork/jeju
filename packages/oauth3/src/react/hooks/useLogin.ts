@@ -6,7 +6,12 @@
 
 import { useCallback, useState } from 'react'
 import type { AuthProvider, OAuth3Session } from '../../index.js'
-import { extractError, getEndpointWithDevFallback } from '../../validation.js'
+import {
+  extractError,
+  getEndpointWithDevFallback,
+  OAuth3SessionSchema,
+  validateResponse,
+} from '../../validation.js'
 import { useOAuth3 } from '../provider.js'
 
 export interface UseLoginOptions {
@@ -123,7 +128,11 @@ export function useLogin(options: UseLoginOptions = {}): UseLoginReturn {
         return null
       }
 
-      const session = (await response.json()) as OAuth3Session
+      const session = validateResponse(
+        OAuth3SessionSchema,
+        await response.json(),
+        'email verification session',
+      )
       options.onSuccess?.(session)
       return session
     },
@@ -153,7 +162,11 @@ export function useLogin(options: UseLoginOptions = {}): UseLoginReturn {
         return null
       }
 
-      const session = (await response.json()) as OAuth3Session
+      const session = validateResponse(
+        OAuth3SessionSchema,
+        await response.json(),
+        'phone verification session',
+      )
       options.onSuccess?.(session)
       return session
     },

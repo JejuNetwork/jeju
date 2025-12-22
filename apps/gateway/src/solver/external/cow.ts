@@ -344,7 +344,10 @@ export class CowProtocolSolver extends EventEmitter {
       return { success: false, error }
     }
 
-    const uid = (await response.json()) as string
+    const uid = await response.json()
+    if (typeof uid !== 'string' || !uid.startsWith('0x')) {
+      return { success: false, error: 'Invalid order UID returned from API' }
+    }
     console.log(`   ✅ CoW order created: ${uid.slice(0, 20)}...`)
 
     return { success: true, orderUid: uid as `0x${string}` }

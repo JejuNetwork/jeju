@@ -1,12 +1,12 @@
 /**
  * Jeju viem chain definitions for deploy scripts
- * 
+ *
  * Use these chains for ALL deployments to Jeju L2.
  * Base/Optimism/Arbitrum chains should only be used for cross-chain contracts (EIL, OIF).
  */
 
-import type { Chain } from 'viem';
-import { sepolia } from 'viem/chains';
+import type { Chain } from 'viem'
+import { sepolia } from 'viem/chains'
 
 // ============================================================================
 // Jeju L2 Chains (PRIMARY - deploy apps here)
@@ -22,10 +22,13 @@ export const jejuTestnet: Chain = {
     public: { http: ['https://testnet-rpc.jejunetwork.org'] },
   },
   blockExplorers: {
-    default: { name: 'Jeju Explorer', url: 'https://testnet-explorer.jejunetwork.org' },
+    default: {
+      name: 'Jeju Explorer',
+      url: 'https://testnet-explorer.jejunetwork.org',
+    },
   },
   testnet: true,
-};
+}
 
 /** Jeju Mainnet - L2 rolling up to Ethereum */
 export const jejuMainnet: Chain = {
@@ -39,7 +42,7 @@ export const jejuMainnet: Chain = {
   blockExplorers: {
     default: { name: 'Jeju Explorer', url: 'https://explorer.jejunetwork.org' },
   },
-};
+}
 
 /** Jeju Localnet - for local development */
 export const jejuLocalnet: Chain = {
@@ -50,13 +53,13 @@ export const jejuLocalnet: Chain = {
     default: { http: ['http://localhost:6546'] },
   },
   testnet: true,
-};
+}
 
 // ============================================================================
 // Chain Selection Helpers
 // ============================================================================
 
-export type JejuNetwork = 'localnet' | 'testnet' | 'mainnet';
+export type JejuNetwork = 'localnet' | 'testnet' | 'mainnet'
 
 /**
  * Get the Jeju chain for a network type
@@ -64,9 +67,12 @@ export type JejuNetwork = 'localnet' | 'testnet' | 'mainnet';
  */
 export function getJejuChain(network: JejuNetwork): Chain {
   switch (network) {
-    case 'mainnet': return jejuMainnet;
-    case 'testnet': return jejuTestnet;
-    case 'localnet': return jejuLocalnet;
+    case 'mainnet':
+      return jejuMainnet
+    case 'testnet':
+      return jejuTestnet
+    case 'localnet':
+      return jejuLocalnet
   }
 }
 
@@ -87,9 +93,9 @@ export function getL1Chain(network: JejuNetwork): Chain {
       blockExplorers: {
         default: { name: 'Etherscan', url: 'https://etherscan.io' },
       },
-    };
+    }
   }
-  return sepolia;
+  return sepolia
 }
 
 /**
@@ -97,29 +103,32 @@ export function getL1Chain(network: JejuNetwork): Chain {
  */
 export function getJejuRpcUrl(network: JejuNetwork): string {
   // Check env overrides first
-  const envKey = network === 'mainnet' ? 'JEJU_RPC_URL'
-    : network === 'testnet' ? 'JEJU_TESTNET_RPC_URL'
-    : 'RPC_URL';
-  
-  const envUrl = process.env[envKey] || process.env.JEJU_RPC_URL;
-  if (envUrl) return envUrl;
-  
+  const envKey =
+    network === 'mainnet'
+      ? 'JEJU_RPC_URL'
+      : network === 'testnet'
+        ? 'JEJU_TESTNET_RPC_URL'
+        : 'RPC_URL'
+
+  const envUrl = process.env[envKey] || process.env.JEJU_RPC_URL
+  if (envUrl) return envUrl
+
   // Use chain defaults
-  const chain = getJejuChain(network);
-  return chain.rpcUrls.default.http[0];
+  const chain = getJejuChain(network)
+  return chain.rpcUrls.default.http[0]
 }
 
 /**
  * Get L1 RPC URL for a Jeju network with env override support
  */
 export function getL1RpcUrl(network: JejuNetwork): string {
-  const envUrl = process.env.L1_RPC_URL || process.env.SEPOLIA_RPC_URL;
-  if (envUrl) return envUrl;
-  
+  const envUrl = process.env.L1_RPC_URL || process.env.SEPOLIA_RPC_URL
+  if (envUrl) return envUrl
+
   if (network === 'mainnet') {
-    return process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com';
+    return process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com'
   }
-  return 'https://ethereum-sepolia-rpc.publicnode.com';
+  return 'https://ethereum-sepolia-rpc.publicnode.com'
 }
 
 // ============================================================================
@@ -130,11 +139,10 @@ export const JEJU_CHAIN_IDS = {
   localnet: 1337,
   testnet: 420690,
   mainnet: 420691,
-} as const;
+} as const
 
 export const L1_CHAIN_IDS = {
-  localnet: 11155111,  // Sepolia
-  testnet: 11155111,   // Sepolia
-  mainnet: 1,          // Ethereum
-} as const;
-
+  localnet: 11155111, // Sepolia
+  testnet: 11155111, // Sepolia
+  mainnet: 1, // Ethereum
+} as const

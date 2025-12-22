@@ -3,11 +3,8 @@
  * Multi-chain RPC proxy with stake-based rate limiting and X402 payments
  */
 
-import { type Context, Hono } from 'hono'
-import { bodyLimit } from 'hono/body-limit'
-import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
-import { secureHeaders } from 'hono/secure-headers'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import { type Address, isAddress } from 'viem'
 import { z } from 'zod'
 import {
@@ -34,7 +31,7 @@ import {
 import {
   getRateLimitStats,
   RATE_LIMITS,
-  rateLimiter,
+  rateLimiterPlugin,
 } from './middleware/rate-limiter.js'
 import {
   getChainStats,
@@ -120,482 +117,16 @@ type RpcMcpToolResult =
   | GetUsageResult
   | McpErrorResult
 
-export const rpcApp = new Hono()
-
 // SECURITY: Configure CORS based on environment
-// In production, require explicit origin whitelist
 const CORS_ORIGINS_ENV = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
 const isProduction = process.env.NODE_ENV === 'production'
 const CORS_ORIGINS =
   isProduction && CORS_ORIGINS_ENV?.length ? CORS_ORIGINS_ENV : ['*']
 
 const MAX_API_KEYS_PER_ADDRESS = 10
-
-// Middleware
-rpcApp.use('*', secureHeaders())
-rpcApp.use(
-  '*',
-  cors({
-    origin: CORS_ORIGINS,
-    allowMethods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
-    allowHeaders: [
-      'Content-Type',
-      'X-Api-Key',
-      'X-Wallet-Address',
-      'X-Payment',
-    ],
-    exposeHeaders: [
-      'X-RateLimit-Limit',
-      'X-RateLimit-Remaining',
-      'X-RateLimit-Reset',
-      'X-RateLimit-Tier',
-      'X-RPC-Latency-Ms',
-      'X-Payment-Required',
-    ],
-    maxAge: 86400,
-  }),
-)
-rpcApp.use('*', logger())
-
-// SECURITY: Limit request body size to prevent DoS attacks
 const MAX_BODY_SIZE = 512 * 1024 // 512KB for RPC batch requests
-rpcApp.use(
-  '*',
-  bodyLimit({
-    maxSize: MAX_BODY_SIZE,
-    onError: (c: Context) => {
-      return c.json(
-        { error: 'Request body too large', maxSize: MAX_BODY_SIZE },
-        413,
-      )
-    },
-  }),
-)
 
-rpcApp.use('/v1/*', rateLimiter())
-
-rpcApp.onError((err, c) => {
-  // Log full error details server-side only
-  console.error(`[RPC Gateway Error] ${err.message}`, err.stack)
-  // SECURITY: Never expose error details to clients
-  return c.json({ error: 'Internal server error' }, 500)
-})
-
-function getValidatedAddress(c: {
-  req: { header: (name: string) => string | undefined }
-}): Address | null {
-  const address = c.req.header('X-Wallet-Address')
-  if (!address || !isAddress(address)) return null
-  return address as Address
-}
-
-// Health & Discovery
-rpcApp.get('/', (c) =>
-  c.json({
-    service: 'jeju-rpc-gateway',
-    version: '1.0.0',
-    description: 'Multi-chain RPC Gateway with stake-based rate limiting',
-    endpoints: {
-      chains: '/v1/chains',
-      rpc: '/v1/rpc/:chainId',
-      keys: '/v1/keys',
-      usage: '/v1/usage',
-      health: '/health',
-    },
-  }),
-)
-
-rpcApp.get('/health', (c) => {
-  const chainStats = getChainStats()
-  const rateLimitStats = getRateLimitStats()
-  const apiKeyStats = getApiKeyStats()
-  const endpointHealth = getEndpointHealth()
-  const unhealthyEndpoints = Object.entries(endpointHealth)
-    .filter(([, h]) => !h.healthy)
-    .map(([url]) => url)
-  const status =
-    unhealthyEndpoints.length > chainStats.supported / 2 ? 'degraded' : 'ok'
-
-  return c.json({
-    status,
-    service: 'rpc-gateway',
-    version: '1.0.0',
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    chains: { ...chainStats, unhealthyEndpoints: unhealthyEndpoints.length },
-    rateLimits: rateLimitStats,
-    apiKeys: { total: apiKeyStats.total, active: apiKeyStats.active },
-  })
-})
-
-// Chain Information
-rpcApp.get('/v1/chains', (c) => {
-  const testnet = c.req.query('testnet')
-  const chains =
-    testnet === 'true'
-      ? getTestnetChains()
-      : testnet === 'false'
-        ? getMainnetChains()
-        : Object.values(CHAINS)
-
-  return c.json({
-    chains: chains.map((chain) => ({
-      chainId: chain.chainId,
-      name: chain.name,
-      shortName: chain.shortName,
-      rpcEndpoint: `/v1/rpc/${chain.chainId}`,
-      explorerUrl: chain.explorerUrl,
-      isTestnet: chain.isTestnet,
-      nativeCurrency: chain.nativeCurrency,
-    })),
-    totalCount: chains.length,
-  })
-})
-
-rpcApp.get('/v1/chains/:chainId', (c) => {
-  const chainIdParam = Number(c.req.param('chainId'))
-  const chainId = expectChainId(chainIdParam, 'chainId')
-  if (!isChainSupported(chainId)) {
-    return c.json({ error: `Unsupported chain: ${chainId}` }, 404)
-  }
-
-  const chain = getChain(chainId)
-  const health = getEndpointHealth()
-
-  return c.json({
-    chainId: chain.chainId,
-    name: chain.name,
-    shortName: chain.shortName,
-    rpcEndpoint: `/v1/rpc/${chain.chainId}`,
-    explorerUrl: chain.explorerUrl,
-    isTestnet: chain.isTestnet,
-    nativeCurrency: chain.nativeCurrency,
-    endpoints: {
-      primary: {
-        url: chain.rpcUrl,
-        healthy: health[chain.rpcUrl]?.healthy ?? true,
-      },
-      fallbacks: chain.fallbackRpcs.map((url) => ({
-        url,
-        healthy: health[url]?.healthy ?? true,
-      })),
-    },
-  })
-})
-
-// RPC Proxy
-rpcApp.post('/v1/rpc/:chainId', async (c) => {
-  const chainIdParam = Number(c.req.param('chainId'))
-  const chainId = expectChainId(chainIdParam, 'chainId')
-
-  if (!isChainSupported(chainId)) {
-    return c.json(
-      {
-        jsonrpc: '2.0',
-        id: null,
-        error: { code: -32001, message: `Unsupported chain: ${chainId}` },
-      },
-      400,
-    )
-  }
-
-  let body: unknown
-  try {
-    body = await c.req.json()
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Parse error: Invalid JSON'
-    return c.json(
-      { jsonrpc: '2.0', id: null, error: { code: -32700, message } },
-      400,
-    )
-  }
-
-  // Get user address for x402 payment processing
-  const userAddressHeader = c.req.header('X-Wallet-Address')
-  const userAddress =
-    userAddressHeader && isAddress(userAddressHeader)
-      ? userAddressHeader
-      : undefined
-  const paymentHeader = c.req.header('X-Payment')
-
-  if (Array.isArray(body)) {
-    const validated = expect(body, RpcBatchRequestSchema, 'RPC batch request')
-
-    // Check x402 payment for batch (use first method as reference)
-    const firstMethod = validated[0]?.method || 'eth_call'
-    const paymentResult = await processPayment(
-      paymentHeader,
-      chainId,
-      firstMethod,
-      userAddress,
-    )
-    if (!paymentResult.allowed) {
-      c.header('X-Payment-Required', 'true')
-      return c.json(
-        {
-          jsonrpc: '2.0',
-          id: null,
-          error: {
-            code: 402,
-            message: 'Payment required',
-            data: paymentResult.requirement,
-          },
-        },
-        402,
-      )
-    }
-
-    const results = await proxyBatchRequest(chainId, validated)
-    return c.json(results.map((r) => r.response))
-  }
-
-  const rpcBody = expect(body, RpcRequestSchema, 'RPC request')
-
-  // Check x402 payment for single request
-  const paymentResult = await processPayment(
-    paymentHeader,
-    chainId,
-    rpcBody.method,
-    userAddress,
-  )
-  if (!paymentResult.allowed) {
-    c.header('X-Payment-Required', 'true')
-    return c.json(
-      {
-        jsonrpc: '2.0',
-        id: rpcBody.id,
-        error: {
-          code: 402,
-          message: 'Payment required',
-          data: paymentResult.requirement,
-        },
-      },
-      402,
-    )
-  }
-
-  const result = await proxyRequest(chainId, rpcBody)
-  c.header('X-RPC-Latency-Ms', String(result.latencyMs))
-  if (result.usedFallback) c.header('X-RPC-Used-Fallback', 'true')
-
-  return c.json(result.response)
-})
-
-// API Key Management
-rpcApp.get('/v1/keys', async (c) => {
-  const address = getValidatedAddress(c)
-  if (!address)
-    return c.json({ error: 'Valid X-Wallet-Address header required' }, 401)
-
-  const keys = await getApiKeysForAddress(address)
-  return c.json({
-    keys: keys.map((k) => ({
-      id: k.id,
-      name: k.name,
-      tier: k.tier,
-      createdAt: k.createdAt,
-      lastUsedAt: k.lastUsedAt,
-      requestCount: k.requestCount,
-      isActive: k.isActive,
-    })),
-  })
-})
-
-rpcApp.post('/v1/keys', async (c) => {
-  const address = getValidatedAddress(c)
-  if (!address) {
-    return c.json({ error: 'Valid X-Wallet-Address header required' }, 401)
-  }
-
-  const existingKeys = await getApiKeysForAddress(address)
-  if (
-    existingKeys.filter((k) => k.isActive).length >= MAX_API_KEYS_PER_ADDRESS
-  ) {
-    return c.json(
-      {
-        error: `Maximum API keys reached (${MAX_API_KEYS_PER_ADDRESS}). Revoke an existing key first.`,
-      },
-      400,
-    )
-  }
-
-  let body: { name?: string } = {}
-  try {
-    body = await c.req.json()
-  } catch {
-    // Body is optional for this endpoint, continue with empty object
-  }
-
-  const validated = expect(
-    { ...body, address },
-    CreateApiKeyRequestSchema,
-    'create API key',
-  )
-  const name = (validated.name || 'Default').slice(0, 100)
-  const { key, record } = await createApiKey(address, name)
-
-  return c.json(
-    {
-      message:
-        'API key created. Store this key securely - it cannot be retrieved again.',
-      key,
-      id: record.id,
-      name: record.name,
-      tier: record.tier,
-      createdAt: record.createdAt,
-    },
-    201,
-  )
-})
-
-rpcApp.delete('/v1/keys/:keyId', async (c) => {
-  const address = getValidatedAddress(c)
-  if (!address) {
-    return c.json({ error: 'Valid X-Wallet-Address header required' }, 401)
-  }
-
-  const keyId = expect(c.req.param('keyId'), KeyIdSchema, 'keyId')
-  const success = await revokeApiKeyById(keyId, address)
-  if (!success) {
-    return c.json({ error: 'Key not found or not owned by this address' }, 404)
-  }
-
-  return c.json({ message: 'API key revoked', id: keyId })
-})
-
-// Usage & Staking Info
-rpcApp.get('/v1/usage', async (c) => {
-  const address = getValidatedAddress(c)
-  if (!address)
-    return c.json({ error: 'Valid X-Wallet-Address header required' }, 401)
-
-  const keys = await getApiKeysForAddress(address)
-  const activeKeys = keys.filter((k) => k.isActive)
-  const totalRequests = keys.reduce((sum, k) => sum + k.requestCount, 0)
-  const tier = (c.res.headers.get('X-RateLimit-Tier') ||
-    'FREE') as keyof typeof RATE_LIMITS
-  const remaining =
-    c.res.headers.get('X-RateLimit-Remaining') || String(RATE_LIMITS.FREE)
-
-  return c.json({
-    address,
-    currentTier: tier,
-    rateLimit: RATE_LIMITS[tier],
-    remaining: remaining === 'unlimited' ? -1 : Number(remaining),
-    apiKeys: {
-      total: keys.length,
-      active: activeKeys.length,
-      maxAllowed: MAX_API_KEYS_PER_ADDRESS,
-    },
-    totalRequests,
-    tiers: {
-      FREE: { stake: '0', limit: RATE_LIMITS.FREE },
-      BASIC: { stake: '100 JEJU', limit: RATE_LIMITS.BASIC },
-      PRO: { stake: '1,000 JEJU', limit: RATE_LIMITS.PRO },
-      UNLIMITED: { stake: '10,000 JEJU', limit: 'unlimited' },
-    },
-  })
-})
-
-rpcApp.get('/v1/stake', async (c) =>
-  c.json({
-    contract: process.env.RPC_STAKING_ADDRESS || 'Not deployed',
-    pricing: 'USD-denominated (dynamic based on JEJU price)',
-    tiers: {
-      FREE: { minUsd: 0, rateLimit: 10, description: '10 requests/minute' },
-      BASIC: { minUsd: 10, rateLimit: 100, description: '100 requests/minute' },
-      PRO: {
-        minUsd: 100,
-        rateLimit: 1000,
-        description: '1,000 requests/minute',
-      },
-      UNLIMITED: {
-        minUsd: 1000,
-        rateLimit: 'unlimited',
-        description: 'Unlimited requests',
-      },
-    },
-    unbondingPeriod: '7 days',
-    reputationDiscount:
-      'Up to 50% effective stake multiplier for high-reputation users',
-    priceOracle: 'Chainlink-compatible, with $0.10 fallback',
-  }),
-)
-
-// X402 Payment Endpoints
-rpcApp.get('/v1/payments', (c) => {
-  const info = getPaymentInfo()
-  return c.json({
-    x402Enabled: info.enabled,
-    pricing: {
-      standard: info.pricing.standard.toString(),
-      archive: info.pricing.archive.toString(),
-      trace: info.pricing.trace.toString(),
-    },
-    acceptedAssets: info.acceptedAssets,
-    recipient: info.recipient,
-    description: 'Pay-per-request pricing for RPC access without staking',
-  })
-})
-
-rpcApp.get('/v1/payments/credits', async (c) => {
-  const address = getValidatedAddress(c)
-  if (!address)
-    return c.json({ error: 'Valid X-Wallet-Address header required' }, 401)
-  const balance = await getCredits(address)
-  return c.json({
-    address,
-    credits: balance.toString(),
-    creditsFormatted: `${Number(balance) / 1e18} JEJU`,
-  })
-})
-
-rpcApp.post('/v1/payments/credits', async (c) => {
-  const address = getValidatedAddress(c)
-  if (!address) {
-    return c.json({ error: 'Valid X-Wallet-Address header required' }, 401)
-  }
-
-  try {
-    const validated = validateBody(
-      PurchaseCreditsRequestSchema,
-      await c.req.json(),
-      'purchase credits',
-    )
-    const result = await purchaseCredits(
-      address,
-      validated.txHash,
-      BigInt(validated.amount),
-    )
-    return c.json({
-      success: result.success,
-      newBalance: result.newBalance.toString(),
-      message: 'Credits added to your account',
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
-
-rpcApp.get('/v1/payments/requirement', (c) => {
-  try {
-    const validated = validateQuery(
-      PaymentRequirementQuerySchema,
-      c.req.query(),
-      'payment requirement',
-    )
-    const chainId = validated.chainId || 1
-    const method = validated.method || 'eth_blockNumber'
-    return c.json(generatePaymentRequirement(chainId, method), 402)
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
-
-// MCP Server Endpoints
+// MCP Server Info
 const MCP_SERVER_INFO = {
   name: 'jeju-rpc-gateway',
   version: '1.0.0',
@@ -671,20 +202,122 @@ const MCP_TOOLS = [
   },
 ]
 
-rpcApp.post('/mcp/initialize', (c) =>
-  c.json({
+// Helper to get validated address from headers
+function getValidatedAddress(request: Request): Address | null {
+  const address = request.headers.get('X-Wallet-Address')
+  if (!address || !isAddress(address)) return null
+  return address as Address
+}
+
+// Security headers plugin
+const securityHeaders = new Elysia({ name: 'security-headers' }).onAfterHandle(
+  ({ set }) => {
+    set.headers['X-Content-Type-Options'] = 'nosniff'
+    set.headers['X-Frame-Options'] = 'DENY'
+    set.headers['X-XSS-Protection'] = '1; mode=block'
+    set.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    set.headers['Content-Security-Policy'] = "default-src 'self'"
+  },
+)
+
+// Logger plugin
+const loggerPlugin = new Elysia({ name: 'logger' }).onBeforeHandle(
+  ({ request }) => {
+    console.log(`${request.method} ${new URL(request.url).pathname}`)
+  },
+)
+
+// Create the Elysia app
+export const rpcApp = new Elysia({ name: 'rpc-gateway' })
+  .use(securityHeaders)
+  .use(
+    cors({
+      origin: CORS_ORIGINS,
+      methods: ['GET', 'POST', 'DELETE', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type',
+        'X-Api-Key',
+        'X-Wallet-Address',
+        'X-Payment',
+      ],
+      exposeHeaders: [
+        'X-RateLimit-Limit',
+        'X-RateLimit-Remaining',
+        'X-RateLimit-Reset',
+        'X-RateLimit-Tier',
+        'X-RPC-Latency-Ms',
+        'X-Payment-Required',
+      ],
+      maxAge: 86400,
+    }),
+  )
+  .use(loggerPlugin)
+  .onParse(async ({ request, contentType }) => {
+    // Check body size limit
+    const contentLength = request.headers.get('content-length')
+    if (contentLength && Number.parseInt(contentLength) > MAX_BODY_SIZE) {
+      throw new Error('Request body too large')
+    }
+    // Let Elysia handle the parsing
+    return undefined
+  })
+  .onError(({ error, set }) => {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorStack = error instanceof Error ? error.stack : undefined
+    console.error(`[RPC Gateway Error] ${errorMessage}`, errorStack)
+    if (errorMessage === 'Request body too large') {
+      set.status = 413
+      return { error: 'Request body too large', maxSize: MAX_BODY_SIZE }
+    }
+    set.status = 500
+    return { error: 'Internal server error' }
+  })
+  // Health & Discovery
+  .get('/', () => ({
+    service: 'jeju-rpc-gateway',
+    version: '1.0.0',
+    description: 'Multi-chain RPC Gateway with stake-based rate limiting',
+    endpoints: {
+      chains: '/v1/chains',
+      rpc: '/v1/rpc/:chainId',
+      keys: '/v1/keys',
+      usage: '/v1/usage',
+      health: '/health',
+    },
+  }))
+  .get('/health', () => {
+    const chainStats = getChainStats()
+    const rateLimitStats = getRateLimitStats()
+    const apiKeyStats = getApiKeyStats()
+    const endpointHealth = getEndpointHealth()
+    const unhealthyEndpoints = Object.entries(endpointHealth)
+      .filter(([, h]) => !h.healthy)
+      .map(([url]) => url)
+    const status =
+      unhealthyEndpoints.length > chainStats.supported / 2 ? 'degraded' : 'ok'
+
+    return {
+      status,
+      service: 'rpc-gateway',
+      version: '1.0.0',
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      chains: { ...chainStats, unhealthyEndpoints: unhealthyEndpoints.length },
+      rateLimits: rateLimitStats,
+      apiKeys: { total: apiKeyStats.total, active: apiKeyStats.active },
+    }
+  })
+  // MCP endpoints (outside rate limiting)
+  .post('/mcp/initialize', () => ({
     protocolVersion: '2024-11-05',
     serverInfo: MCP_SERVER_INFO,
     capabilities: MCP_SERVER_INFO.capabilities,
-  }),
-)
-rpcApp.post('/mcp/resources/list', (c) => c.json({ resources: MCP_RESOURCES }))
-
-rpcApp.post('/mcp/resources/read', async (c) => {
-  try {
+  }))
+  .post('/mcp/resources/list', () => ({ resources: MCP_RESOURCES }))
+  .post('/mcp/resources/read', async ({ body, set }) => {
     const validated = validateBody(
       z.object({ uri: z.string().min(1) }),
-      await c.req.json(),
+      body,
       'MCP resource read',
     )
     const { uri } = validated
@@ -711,10 +344,11 @@ rpcApp.post('/mcp/resources/read', async (c) => {
         }
         break
       default:
-        return c.json({ error: 'Resource not found' }, 404)
+        set.status = 404
+        return { error: 'Resource not found' }
     }
 
-    return c.json({
+    return {
       contents: [
         {
           uri,
@@ -722,26 +356,19 @@ rpcApp.post('/mcp/resources/read', async (c) => {
           text: JSON.stringify(contents, null, 2),
         },
       ],
-    })
-  } catch (error) {
-    const message = error instanceof Error ? error.message : 'Invalid request'
-    return c.json({ error: message }, 400)
-  }
-})
+    }
+  })
+  .post('/mcp/tools/list', () => ({ tools: MCP_TOOLS }))
+  .post('/mcp/tools/call', async ({ body, set }) => {
+    let result: RpcMcpToolResult
+    let isError = false
 
-rpcApp.post('/mcp/tools/list', (c) => c.json({ tools: MCP_TOOLS }))
-
-rpcApp.post('/mcp/tools/call', async (c) => {
-  let result: RpcMcpToolResult
-  let isError = false
-
-  try {
     const validated = validateBody(
       z.object({
         name: z.string().min(1),
         arguments: JsonObjectSchema.optional().default({}),
       }),
-      await c.req.json(),
+      body,
       'MCP tool call',
     )
     const { name, arguments: args = {} } = validated
@@ -762,69 +389,46 @@ rpcApp.post('/mcp/tools/call', async (c) => {
         break
       }
       case 'get_chain': {
-        try {
-          const chainId = expectChainId(args.chainId as number, 'chainId')
-          if (!isChainSupported(chainId)) {
-            result = { error: `Unsupported chain: ${chainId}` }
-            isError = true
-          } else {
-            result = getChain(chainId)
-          }
-        } catch {
-          result = { error: 'Invalid chain ID' }
+        const chainId = expectChainId(args.chainId as number, 'chainId')
+        if (!isChainSupported(chainId)) {
+          result = { error: `Unsupported chain: ${chainId}` }
           isError = true
+        } else {
+          result = getChain(chainId)
         }
         break
       }
       case 'create_api_key': {
-        try {
-          const address = expectAddress(args.address, 'address')
-          const existingKeys = await getApiKeysForAddress(address)
-          if (
-            existingKeys.filter((k) => k.isActive).length >=
-            MAX_API_KEYS_PER_ADDRESS
-          ) {
-            result = {
-              error: `Maximum API keys reached (${MAX_API_KEYS_PER_ADDRESS})`,
-            }
-            isError = true
-            break
+        const address = expectAddress(args.address, 'address')
+        const existingKeys = await getApiKeysForAddress(address)
+        if (
+          existingKeys.filter((k) => k.isActive).length >=
+          MAX_API_KEYS_PER_ADDRESS
+        ) {
+          result = {
+            error: `Maximum API keys reached (${MAX_API_KEYS_PER_ADDRESS})`,
           }
-          const keyName = ((args.name as string) || 'MCP Generated').slice(
-            0,
-            100,
-          )
-          const { key, record } = await createApiKey(address, keyName)
-          result = { key, id: record.id, tier: record.tier }
-        } catch {
-          result = { error: 'Invalid address' }
           isError = true
+          break
         }
+        const keyName = ((args.name as string) || 'MCP Generated').slice(0, 100)
+        const { key, record } = await createApiKey(address, keyName)
+        result = { key, id: record.id, tier: record.tier }
         break
       }
       case 'check_rate_limit': {
-        try {
-          const address = expectAddress(args.address, 'address')
-          const keys = await getApiKeysForAddress(address)
-          result = { address, apiKeys: keys.length, tiers: RATE_LIMITS }
-        } catch {
-          result = { error: 'Invalid address' }
-          isError = true
-        }
+        const address = expectAddress(args.address, 'address')
+        const keys = await getApiKeysForAddress(address)
+        result = { address, apiKeys: keys.length, tiers: RATE_LIMITS }
         break
       }
       case 'get_usage': {
-        try {
-          const address = expectAddress(args.address, 'address')
-          const keys = await getApiKeysForAddress(address)
-          result = {
-            address,
-            apiKeys: keys.length,
-            totalRequests: keys.reduce((sum, k) => sum + k.requestCount, 0),
-          }
-        } catch {
-          result = { error: 'Invalid address' }
-          isError = true
+        const address = expectAddress(args.address, 'address')
+        const keys = await getApiKeysForAddress(address)
+        result = {
+          address,
+          apiKeys: keys.length,
+          totalRequests: keys.reduce((sum, k) => sum + k.requestCount, 0),
         }
         break
       }
@@ -832,29 +436,359 @@ rpcApp.post('/mcp/tools/call', async (c) => {
         result = { error: 'Tool not found' }
         isError = true
     }
-  } catch (error) {
-    const message =
-      error instanceof Error ? error.message : 'Tool execution failed'
-    result = { error: message }
-    isError = true
-  }
 
-  return c.json({
-    content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
-    isError,
+    return {
+      content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+      isError,
+    }
   })
-})
-
-rpcApp.get('/mcp', (c) =>
-  c.json({
+  .get('/mcp', () => ({
     server: MCP_SERVER_INFO.name,
     version: MCP_SERVER_INFO.version,
     description: MCP_SERVER_INFO.description,
     resources: MCP_RESOURCES,
     tools: MCP_TOOLS,
     capabilities: MCP_SERVER_INFO.capabilities,
-  }),
-)
+  }))
+  // Rate-limited v1 routes
+  .group('/v1', (app) =>
+    app
+      .use(rateLimiterPlugin)
+      // Chain Information
+      .get('/chains', ({ query }) => {
+        const testnet = query.testnet
+        const chains =
+          testnet === 'true'
+            ? getTestnetChains()
+            : testnet === 'false'
+              ? getMainnetChains()
+              : Object.values(CHAINS)
+
+        return {
+          chains: chains.map((chain) => ({
+            chainId: chain.chainId,
+            name: chain.name,
+            shortName: chain.shortName,
+            rpcEndpoint: `/v1/rpc/${chain.chainId}`,
+            explorerUrl: chain.explorerUrl,
+            isTestnet: chain.isTestnet,
+            nativeCurrency: chain.nativeCurrency,
+          })),
+          totalCount: chains.length,
+        }
+      })
+      .get('/chains/:chainId', ({ params, set }) => {
+        const chainIdParam = Number(params.chainId)
+        const chainId = expectChainId(chainIdParam, 'chainId')
+        if (!isChainSupported(chainId)) {
+          set.status = 404
+          return { error: `Unsupported chain: ${chainId}` }
+        }
+
+        const chain = getChain(chainId)
+        const health = getEndpointHealth()
+
+        return {
+          chainId: chain.chainId,
+          name: chain.name,
+          shortName: chain.shortName,
+          rpcEndpoint: `/v1/rpc/${chain.chainId}`,
+          explorerUrl: chain.explorerUrl,
+          isTestnet: chain.isTestnet,
+          nativeCurrency: chain.nativeCurrency,
+          endpoints: {
+            primary: {
+              url: chain.rpcUrl,
+              healthy: health[chain.rpcUrl]?.healthy ?? true,
+            },
+            fallbacks: chain.fallbackRpcs.map((url) => ({
+              url,
+              healthy: health[url]?.healthy ?? true,
+            })),
+          },
+        }
+      })
+      // RPC Proxy
+      .post('/rpc/:chainId', async ({ params, body, request, set }) => {
+        const chainIdParam = Number(params.chainId)
+        const chainId = expectChainId(chainIdParam, 'chainId')
+
+        if (!isChainSupported(chainId)) {
+          set.status = 400
+          return {
+            jsonrpc: '2.0',
+            id: null,
+            error: { code: -32001, message: `Unsupported chain: ${chainId}` },
+          }
+        }
+
+        const userAddressHeader = request.headers.get('X-Wallet-Address')
+        const userAddress =
+          userAddressHeader && isAddress(userAddressHeader)
+            ? userAddressHeader
+            : undefined
+        const paymentHeader = request.headers.get('X-Payment') ?? undefined
+
+        if (Array.isArray(body)) {
+          const validated = expect(
+            body,
+            RpcBatchRequestSchema,
+            'RPC batch request',
+          )
+
+          const firstMethod = validated[0]?.method || 'eth_call'
+          const paymentResult = await processPayment(
+            paymentHeader,
+            chainId,
+            firstMethod,
+            userAddress,
+          )
+          if (!paymentResult.allowed) {
+            set.headers['X-Payment-Required'] = 'true'
+            set.status = 402
+            return {
+              jsonrpc: '2.0',
+              id: null,
+              error: {
+                code: 402,
+                message: 'Payment required',
+                data: paymentResult.requirement,
+              },
+            }
+          }
+
+          const results = await proxyBatchRequest(chainId, validated)
+          return results.map((r) => r.response)
+        }
+
+        const rpcBody = expect(body, RpcRequestSchema, 'RPC request')
+
+        const paymentResult = await processPayment(
+          paymentHeader,
+          chainId,
+          rpcBody.method,
+          userAddress,
+        )
+        if (!paymentResult.allowed) {
+          set.headers['X-Payment-Required'] = 'true'
+          set.status = 402
+          return {
+            jsonrpc: '2.0',
+            id: rpcBody.id,
+            error: {
+              code: 402,
+              message: 'Payment required',
+              data: paymentResult.requirement,
+            },
+          }
+        }
+
+        const result = await proxyRequest(chainId, rpcBody)
+        set.headers['X-RPC-Latency-Ms'] = String(result.latencyMs)
+        if (result.usedFallback) set.headers['X-RPC-Used-Fallback'] = 'true'
+
+        return result.response
+      })
+      // API Key Management
+      .get('/keys', async ({ request, set }) => {
+        const address = getValidatedAddress(request)
+        if (!address) {
+          set.status = 401
+          return { error: 'Valid X-Wallet-Address header required' }
+        }
+
+        const keys = await getApiKeysForAddress(address)
+        return {
+          keys: keys.map((k) => ({
+            id: k.id,
+            name: k.name,
+            tier: k.tier,
+            createdAt: k.createdAt,
+            lastUsedAt: k.lastUsedAt,
+            requestCount: k.requestCount,
+            isActive: k.isActive,
+          })),
+        }
+      })
+      .post('/keys', async ({ body, request, set }) => {
+        const address = getValidatedAddress(request)
+        if (!address) {
+          set.status = 401
+          return { error: 'Valid X-Wallet-Address header required' }
+        }
+
+        const existingKeys = await getApiKeysForAddress(address)
+        if (
+          existingKeys.filter((k) => k.isActive).length >=
+          MAX_API_KEYS_PER_ADDRESS
+        ) {
+          set.status = 400
+          return {
+            error: `Maximum API keys reached (${MAX_API_KEYS_PER_ADDRESS}). Revoke an existing key first.`,
+          }
+        }
+
+        const reqBody = (body as { name?: string }) || {}
+        const validated = expect(
+          { ...reqBody, address },
+          CreateApiKeyRequestSchema,
+          'create API key',
+        )
+        const name = (validated.name || 'Default').slice(0, 100)
+        const { key, record } = await createApiKey(address, name)
+
+        set.status = 201
+        return {
+          message:
+            'API key created. Store this key securely - it cannot be retrieved again.',
+          key,
+          id: record.id,
+          name: record.name,
+          tier: record.tier,
+          createdAt: record.createdAt,
+        }
+      })
+      .delete('/keys/:keyId', async ({ params, request, set }) => {
+        const address = getValidatedAddress(request)
+        if (!address) {
+          set.status = 401
+          return { error: 'Valid X-Wallet-Address header required' }
+        }
+
+        const keyId = expect(params.keyId, KeyIdSchema, 'keyId')
+        const success = await revokeApiKeyById(keyId, address)
+        if (!success) {
+          set.status = 404
+          return { error: 'Key not found or not owned by this address' }
+        }
+
+        return { message: 'API key revoked', id: keyId }
+      })
+      // Usage & Staking Info
+      .get('/usage', async ({ request, set, rateLimit }) => {
+        const address = getValidatedAddress(request)
+        if (!address) {
+          set.status = 401
+          return { error: 'Valid X-Wallet-Address header required' }
+        }
+
+        const keys = await getApiKeysForAddress(address)
+        const activeKeys = keys.filter((k) => k.isActive)
+        const totalRequests = keys.reduce((sum, k) => sum + k.requestCount, 0)
+        const tier = (rateLimit?.tier || 'FREE') as keyof typeof RATE_LIMITS
+        const remaining = rateLimit?.remaining ?? RATE_LIMITS.FREE
+
+        return {
+          address,
+          currentTier: tier,
+          rateLimit: RATE_LIMITS[tier],
+          remaining: remaining === -1 ? -1 : remaining,
+          apiKeys: {
+            total: keys.length,
+            active: activeKeys.length,
+            maxAllowed: MAX_API_KEYS_PER_ADDRESS,
+          },
+          totalRequests,
+          tiers: {
+            FREE: { stake: '0', limit: RATE_LIMITS.FREE },
+            BASIC: { stake: '100 JEJU', limit: RATE_LIMITS.BASIC },
+            PRO: { stake: '1,000 JEJU', limit: RATE_LIMITS.PRO },
+            UNLIMITED: { stake: '10,000 JEJU', limit: 'unlimited' },
+          },
+        }
+      })
+      .get('/stake', () => ({
+        contract: process.env.RPC_STAKING_ADDRESS || 'Not deployed',
+        pricing: 'USD-denominated (dynamic based on JEJU price)',
+        tiers: {
+          FREE: { minUsd: 0, rateLimit: 10, description: '10 requests/minute' },
+          BASIC: {
+            minUsd: 10,
+            rateLimit: 100,
+            description: '100 requests/minute',
+          },
+          PRO: {
+            minUsd: 100,
+            rateLimit: 1000,
+            description: '1,000 requests/minute',
+          },
+          UNLIMITED: {
+            minUsd: 1000,
+            rateLimit: 'unlimited',
+            description: 'Unlimited requests',
+          },
+        },
+        unbondingPeriod: '7 days',
+        reputationDiscount:
+          'Up to 50% effective stake multiplier for high-reputation users',
+        priceOracle: 'Chainlink-compatible, with $0.10 fallback',
+      }))
+      // X402 Payment Endpoints
+      .get('/payments', () => {
+        const info = getPaymentInfo()
+        return {
+          x402Enabled: info.enabled,
+          pricing: {
+            standard: info.pricing.standard.toString(),
+            archive: info.pricing.archive.toString(),
+            trace: info.pricing.trace.toString(),
+          },
+          acceptedAssets: info.acceptedAssets,
+          recipient: info.recipient,
+          description: 'Pay-per-request pricing for RPC access without staking',
+        }
+      })
+      .get('/payments/credits', async ({ request, set }) => {
+        const address = getValidatedAddress(request)
+        if (!address) {
+          set.status = 401
+          return { error: 'Valid X-Wallet-Address header required' }
+        }
+        const balance = await getCredits(address)
+        return {
+          address,
+          credits: balance.toString(),
+          creditsFormatted: `${Number(balance) / 1e18} JEJU`,
+        }
+      })
+      .post('/payments/credits', async ({ body, request, set }) => {
+        const address = getValidatedAddress(request)
+        if (!address) {
+          set.status = 401
+          return { error: 'Valid X-Wallet-Address header required' }
+        }
+
+        const validated = validateBody(
+          PurchaseCreditsRequestSchema,
+          body,
+          'purchase credits',
+        )
+        const result = await purchaseCredits(
+          address,
+          validated.txHash,
+          BigInt(validated.amount),
+        )
+        return {
+          success: result.success,
+          newBalance: result.newBalance.toString(),
+          message: 'Credits added to your account',
+        }
+      })
+      .get('/payments/requirement', ({ query, set }) => {
+        const validated = validateQuery(
+          PaymentRequirementQuerySchema,
+          query,
+          'payment requirement',
+        )
+        const chainId = validated.chainId || 1
+        const method = validated.method || 'eth_blockNumber'
+        set.status = 402
+        return generatePaymentRequirement(chainId, method)
+      }),
+  )
+
+// Export the app type for Eden Treaty client type inference
+export type RpcApp = typeof rpcApp
 
 // Server startup function
 export function startRpcServer(port = 4004, host = '0.0.0.0') {
@@ -863,11 +797,10 @@ export function startRpcServer(port = 4004, host = '0.0.0.0') {
   console.log(`   MCP endpoint: http://${host}:${port}/mcp`)
   console.log(`   RPC endpoint: http://${host}:${port}/v1/rpc/:chainId`)
 
-  return {
+  return rpcApp.listen({
     port,
     hostname: host,
-    fetch: rpcApp.fetch,
-  }
+  })
 }
 
 export default rpcApp

@@ -20,7 +20,7 @@ const NETWORKS = {
     verify: true,
   },
   localnet: {
-    rpc: 'http://localhost:9545',
+    rpc: 'http://localhost:6546',
     chain: 'local',
     verify: false,
   },

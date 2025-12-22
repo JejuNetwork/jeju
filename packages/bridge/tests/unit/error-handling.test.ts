@@ -246,7 +246,7 @@ describe('Recovery Scenarios', () => {
   it('should not corrupt state after failed operations', () => {
     const client = createEVMClient({
       chainId: ChainId.LOCAL_EVM,
-      rpcUrl: 'http://127.0.0.1:8545',
+      rpcUrl: 'http://127.0.0.1:6545',
       bridgeAddress: MOCK_BRIDGE,
       lightClientAddress: MOCK_LIGHT_CLIENT,
     })
@@ -278,7 +278,7 @@ describe('Graceful Degradation', () => {
   it('should handle read-only mode gracefully', async () => {
     const client = createEVMClient({
       chainId: ChainId.LOCAL_EVM,
-      rpcUrl: 'http://127.0.0.1:8545',
+      rpcUrl: 'http://127.0.0.1:6545',
       bridgeAddress: MOCK_BRIDGE,
       lightClientAddress: MOCK_LIGHT_CLIENT,
       // No private key - read-only

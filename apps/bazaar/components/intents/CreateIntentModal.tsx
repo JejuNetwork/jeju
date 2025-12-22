@@ -15,8 +15,8 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { useIntentQuote, useSupportedChains } from '@/hooks/useIntentAPI'
-import { useOIFConfig } from '@/hooks/useOIF'
+import { useIntentQuote, useSupportedChains } from '../../hooks/useIntentAPI'
+import { useOIFConfig } from '../../hooks/useOIF'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as const
 
@@ -177,10 +177,15 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
         zIndex: 1000,
         padding: '1rem',
       }}
-      onClick={onClose}
     >
+      <button
+        type="button"
+        className="absolute inset-0 cursor-default"
+        onClick={onClose}
+        aria-label="Close modal"
+      />
       <div
-        className="card"
+        className="card relative"
         style={{
           margin: 0,
           padding: 'clamp(1rem, 4vw, 2rem)',
@@ -189,7 +194,15 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
           maxHeight: '90vh',
           overflow: 'auto',
         }}
+        role="dialog"
+        aria-modal="true"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => {
+          e.stopPropagation()
+          if (e.key === 'Escape') {
+            onClose()
+          }
+        }}
       >
         <div
           style={{
@@ -222,6 +235,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="button button-ghost"
             style={{ padding: '0.5rem', flexShrink: 0 }}
@@ -233,6 +247,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label
+              htmlFor="intent-source-chain"
               style={{
                 display: 'block',
                 fontSize: '0.75rem',
@@ -244,6 +259,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
             </label>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <select
+                id="intent-source-chain"
                 className="input"
                 value={sourceChain}
                 onChange={(e) => setSourceChain(Number(e.target.value))}
@@ -256,11 +272,13 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
                 ))}
               </select>
               <input
+                id="intent-source-amount"
                 className="input"
                 type="text"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.0"
+                aria-label="Amount"
                 style={{
                   width: '110px',
                   fontFamily: 'var(--font-mono)',
@@ -294,6 +312,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
 
           <div>
             <label
+              htmlFor="intent-dest-chain"
               style={{
                 display: 'block',
                 fontSize: '0.75rem',
@@ -304,6 +323,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
               To
             </label>
             <select
+              id="intent-dest-chain"
               className="input"
               value={destChain}
               onChange={(e) => setDestChain(Number(e.target.value))}
@@ -437,6 +457,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
           )}
 
           <button
+            type="button"
             className="button"
             onClick={handleSubmit}
             disabled={

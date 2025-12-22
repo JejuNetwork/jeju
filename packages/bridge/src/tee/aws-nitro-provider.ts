@@ -18,6 +18,7 @@ import { keccak256, toBytes } from 'viem'
 import type { TEEAttestation } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
 import { createLogger } from '../utils/logger.js'
+import { NitroDocumentSchema } from '../utils/validation.js'
 import type {
   AttestationRequest,
   AttestationResponse,
@@ -184,6 +185,7 @@ export class AWSNitroProvider implements ITEEProvider {
     // Check for Nitro-specific files/devices
     try {
       // Check for NSM device
+      // Dynamic import: only needed when checking for NSM device (conditional check)
       const { existsSync } = await import('node:fs')
       if (existsSync('/dev/nsm')) {
         return true
@@ -399,15 +401,10 @@ export class AWSNitroProvider implements ITEEProvider {
     // Validate simulated attestation structure
     const docString = Buffer.from(quote).toString('utf-8')
 
-    const doc = JSON.parse(docString) as NitroAttestationDocument
+    const parsed: unknown = JSON.parse(docString)
+    const doc = NitroDocumentSchema.parse(parsed) as NitroAttestationDocument
 
-    // Verify required fields exist
-    if (!doc.moduleId || !doc.timestamp || !doc.digest) {
-      log.error('Invalid document: missing required fields')
-      return false
-    }
-
-    // Verify PCRs exist
+    // Verify PCRs exist (additional check beyond schema validation)
     if (!doc.pcrs || typeof doc.pcrs[0] !== 'string') {
       log.error('Invalid document: missing PCR values')
       return false

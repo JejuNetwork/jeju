@@ -1,9 +1,6 @@
 import { type Address, type Hex, isAddress, isHex } from 'viem'
 import { type ZodIssue, type ZodSchema, z } from 'zod'
 
-// Re-export Address and Hex types from viem for convenience
-export type { Address, Hex }
-
 // ============================================================================
 // Security Constants - Prevent DoS via unbounded inputs
 // ============================================================================

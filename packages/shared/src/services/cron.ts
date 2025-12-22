@@ -7,6 +7,7 @@
 import { Cron } from 'croner'
 import type { Address } from 'viem'
 import { z } from 'zod'
+import { CronJobSchema, CronListResponseSchema } from '../schemas'
 
 const CronConfigSchema = z.object({
   endpoint: z.string().url(),
@@ -327,8 +328,16 @@ class CronServiceImpl implements CronService {
       console.error(`[Cron] remoteList failed: ${response.status}`)
       return null
     }
-    const data = (await response.json()) as { jobs: CronJob[] }
-    return data.jobs
+    // Use safeParse for external cron service responses
+    const parseResult = CronListResponseSchema.safeParse(await response.json())
+    if (!parseResult.success) {
+      console.error(
+        '[Cron] Invalid list response:',
+        parseResult.error.message,
+      )
+      return null
+    }
+    return parseResult.data.jobs
   }
 
   private async remoteGet(jobId: string): Promise<CronJob | null> {
@@ -340,7 +349,13 @@ class CronServiceImpl implements CronService {
       console.error(`[Cron] remoteGet failed: ${response.status}`)
       return null
     }
-    return (await response.json()) as CronJob
+    // Use safeParse for external cron service responses
+    const parseResult = CronJobSchema.safeParse(await response.json())
+    if (!parseResult.success) {
+      console.error('[Cron] Invalid job response:', parseResult.error.message)
+      return null
+    }
+    return parseResult.data
   }
 
   private async checkHealth(): Promise<boolean> {

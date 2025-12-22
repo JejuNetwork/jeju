@@ -91,14 +91,18 @@ export function IntentsTab() {
             className="hide-mobile"
             style={{ display: 'flex', gap: '1.25rem' }}
           >
-            <Stat label="Intents" value={stats?.totalIntents || 0} />
-            <Stat label="Solvers" value={stats?.activeSolvers || 0} />
+            <Stat label="Intents" value={stats?.totalIntents ?? 0} />
+            <Stat
+              label="Solvers"
+              value={stats?.activeSolvers ?? stats?.totalSolvers ?? 0}
+            />
             <Stat
               label="Success"
-              value={`${stats?.successRate?.toFixed(1) || 0}%`}
+              value={`${(stats?.successRate ?? 0).toFixed(1)}%`}
             />
           </div>
           <button
+            type="button"
             className={`button nav-tab ${isConnected ? '' : 'button-secondary'}`}
             onClick={() => setShowCreate(true)}
             disabled={!isConnected}
@@ -167,6 +171,7 @@ function Tab({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={active ? 'pill pill-active' : 'pill'}
       style={{ borderRadius: 'var(--radius-md)', border: 'none' }}

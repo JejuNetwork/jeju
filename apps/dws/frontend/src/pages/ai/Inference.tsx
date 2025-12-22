@@ -79,6 +79,7 @@ export default function InferencePage() {
             <option value="mixtral-8x7b">Mixtral 8x7B</option>
           </select>
           <button
+            type="button"
             className="btn btn-secondary"
             onClick={handleClear}
             disabled={messages.length === 0}
@@ -135,6 +136,7 @@ export default function InferencePage() {
                   'Help me debug code',
                 ].map((prompt) => (
                   <button
+                    type="button"
                     key={prompt}
                     className="btn btn-secondary"
                     onClick={() => setInput(prompt)}
@@ -147,7 +149,7 @@ export default function InferencePage() {
           ) : (
             messages.map((message, i) => (
               <div
-                key={i}
+                key={`${message.role}-${message.content.slice(0, 50)}-${i}`}
                 style={{
                   display: 'flex',
                   justifyContent:
@@ -173,6 +175,7 @@ export default function InferencePage() {
                   </div>
                   {message.role === 'assistant' && (
                     <button
+                      type="button"
                       className="btn btn-ghost btn-icon"
                       style={{
                         position: 'absolute',

@@ -13,6 +13,11 @@
  */
 
 import { type Hex, keccak256, toBytes, toHex } from 'viem'
+import {
+  ThresholdClusterInfoResponseSchema,
+  ThresholdDecryptResponseSchema,
+  validateResponse,
+} from '../validation.js'
 
 export interface ThresholdKeyConfig {
   /** Cluster ID for the MPC group */
@@ -145,7 +150,11 @@ export class ThresholdEncryptionService {
       throw new Error(`MPC decryption failed: ${response.status}`)
     }
 
-    const result = (await response.json()) as { plaintext: string }
+    const result = validateResponse(
+      ThresholdDecryptResponseSchema,
+      await response.json(),
+      'MPC decrypt response',
+    )
     return result.plaintext
   }
 
@@ -253,12 +262,11 @@ export async function createThresholdEncryption(
     throw new Error(`Failed to get cluster info: ${response.status}`)
   }
 
-  const clusterInfo = (await response.json()) as {
-    clusterId: string
-    threshold: number
-    totalNodes: number
-    publicKey: Hex
-  }
+  const clusterInfo = validateResponse(
+    ThresholdClusterInfoResponseSchema,
+    await response.json(),
+    'MPC cluster info response',
+  )
 
   return new ThresholdEncryptionService({
     clusterId: clusterInfo.clusterId,

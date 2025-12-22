@@ -87,9 +87,7 @@ test.describe('Page Routes', () => {
 
   test('loads bounties page', async ({ page }) => {
     await page.goto('/bounties')
-    await expect(
-      page.getByRole('heading', { name: /bounties/i }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: /bounties/i })).toBeVisible()
   })
 
   test('loads repositories page', async ({ page }) => {
@@ -101,9 +99,7 @@ test.describe('Page Routes', () => {
 
   test('loads packages page', async ({ page }) => {
     await page.goto('/packages')
-    await expect(
-      page.getByRole('heading', { name: /packages/i }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: /packages/i })).toBeVisible()
   })
 
   test('loads containers page', async ({ page }) => {
@@ -166,7 +162,7 @@ test.describe('Detail Pages', () => {
   test('loads package detail page', async ({ page }) => {
     await page.goto('/packages/%40jeju/sdk')
     await expect(
-      page.locator('h1').filter({ hasText: '@jeju/sdk' }),
+      page.locator('h1').filter({ hasText: '@jejunetwork/sdk' }),
     ).toBeVisible()
   })
 

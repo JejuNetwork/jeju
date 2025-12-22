@@ -5,6 +5,12 @@
  * Ensures message consistency and handles offline message queuing.
  */
 
+import { expectValid } from '@jejunetwork/types'
+import {
+  IPFSAddResponseSchema,
+  SyncEventsArraySchema,
+  SyncPersistenceSchema,
+} from '../schemas'
 import type {
   SyncState,
   XMTPConversation,
@@ -194,7 +200,8 @@ export class XMTPSyncService {
       throw new Error(`Peer sync failed: ${response.status}`)
     }
 
-    return response.json() as Promise<SyncEvent[]>
+    const rawEvents: unknown = await response.json()
+    return expectValid(SyncEventsArraySchema, rawEvents, 'peer sync events')
   }
 
   /**
@@ -329,7 +336,7 @@ export class XMTPSyncService {
   // ============ State Persistence ============
 
   /**
-   * Load persisted state
+   * Load persisted state with validation
    */
   private async loadState(): Promise<void> {
     if (!this.config.persistencePath) return
@@ -337,15 +344,25 @@ export class XMTPSyncService {
     try {
       const file = Bun.file(this.config.persistencePath)
       if (await file.exists()) {
-        const data = await file.json()
+        const rawData: unknown = await file.json()
+        const data = expectValid(
+          SyncPersistenceSchema,
+          rawData,
+          'sync persistence load',
+        )
         this.state = data.state
 
         for (const peer of data.peers) {
           this.peers.set(peer.nodeId, peer)
         }
       }
-    } catch {
-      console.log('[XMTP Sync] No previous state found')
+    } catch (error) {
+      // Log the actual error for debugging, then continue with fresh state
+      if (error instanceof Error) {
+        console.log(`[XMTP Sync] Failed to load state: ${error.message}`)
+      } else {
+        console.log('[XMTP Sync] No previous state found')
+      }
     }
   }
 
@@ -389,7 +406,8 @@ export class XMTPSyncService {
 
     if (!response.ok) return null
 
-    const result = (await response.json()) as { Hash: string }
+    const rawResult: unknown = await response.json()
+    const result = expectValid(IPFSAddResponseSchema, rawResult, 'IPFS add')
     return result.Hash
   }
 
@@ -415,10 +433,12 @@ export class XMTPSyncService {
     )
     if (!response.ok) return
 
-    const data = (await response.json()) as {
-      state: SyncState
-      peers: SyncPeer[]
-    }
+    const rawData: unknown = await response.json()
+    const data = expectValid(
+      SyncPersistenceSchema,
+      rawData,
+      'IPFS restore data',
+    )
 
     this.state = data.state
     for (const peer of data.peers) {

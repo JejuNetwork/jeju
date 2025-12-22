@@ -103,11 +103,12 @@ export interface SignerRegistrationConfig {
   rpcUrl?: string
 }
 
-export enum KeyState {
-  NULL = 0,
-  ADDED = 1,
-  REMOVED = 2,
-}
+export const KeyState = {
+  NULL: 0,
+  ADDED: 1,
+  REMOVED: 2,
+} as const
+export type KeyState = (typeof KeyState)[keyof typeof KeyState]
 
 export interface KeyData {
   state: KeyState
@@ -220,7 +221,7 @@ export class SignerRegistration {
       args: [BigInt(fid), publicKey],
     })
 
-    return { state, keyType }
+    return { state: state as KeyState, keyType }
   }
 
   /**

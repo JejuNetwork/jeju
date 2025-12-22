@@ -93,7 +93,7 @@ export {
   validateImage,
   validateTransaction,
 } from './mls'
-// Re-export SDK (browser-compatible)
+// SDK (browser-compatible)
 export * from './sdk'
 // TEE-backed key management
 export * from './tee'
@@ -104,7 +104,7 @@ export {
   type MessageHandler,
   type NodeConnectionState,
 } from './xmtp/node'
-// Re-export RelayNode from xmtp as XMTPRelayNode to avoid conflict
+// Router (RelayNode renamed to XMTPRelayNode to avoid conflict)
 export {
   createRouter,
   type RelayNode as XMTPRelayNode,

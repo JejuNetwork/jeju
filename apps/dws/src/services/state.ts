@@ -224,19 +224,18 @@ export const x402State = {
   async deductCredits(address: string, amount: bigint): Promise<boolean> {
     if (!db) await initializeState()
 
-    const current = await this.getCredits(address)
-    if (current < amount) return false
-
-    const newBalance = (current - amount).toString()
-
-    getDb().run(
+    // Atomic deduction with balance check in single query to prevent race conditions
+    const result = getDb().run(
       `
-      UPDATE x402_credits SET balance = ?, updated_at = ? WHERE LOWER(address) = LOWER(?)
+      UPDATE x402_credits 
+      SET balance = CAST(CAST(balance AS INTEGER) - ? AS TEXT), updated_at = ? 
+      WHERE LOWER(address) = LOWER(?) 
+        AND CAST(balance AS INTEGER) >= ?
     `,
-      [newBalance, Date.now(), address],
+      [amount.toString(), Date.now(), address, amount.toString()],
     )
 
-    return true
+    return result.changes > 0
   },
 
   async isNonceUsed(nonceKey: string): Promise<boolean> {

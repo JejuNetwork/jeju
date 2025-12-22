@@ -1,6 +1,6 @@
 {
-  "version": "1.0.0",
-  "lastUpdated": "2025-12-10",
+  "version": "1.1.0",
+  "lastUpdated": "2025-12-22",
   "description": "All contract addresses for Jeju networks. Env overrides use VITE_/NEXT_PUBLIC_ + name (e.g., VITE_BAN_MANAGER_ADDRESS)",
   "constants": {
     "entryPoint": "0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789",
@@ -16,6 +16,13 @@
       "elizaOS": "0xf5059a5D33d5853360D16C683c16e67980206f36",
       "usdc": "0x851356ae760d987E095750cCeb3bC6014560891C",
       "weth": "0x4200000000000000000000000000000000000006"
+    },
+    "babylon": {
+      "BBLNToken": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+      "BabylonTreasury": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512",
+      "BabylonAgentVault": "0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0",
+      "BabylonDAO": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+      "TrainingOrchestrator": "0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9"
     },
     "registry": {
       "identity": "0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf",
@@ -100,6 +107,24 @@
       "feeConfig": "",
       "feeDistributor": "",
       "feeGovernance": ""
+    },
+    "oracle": {
+      "feedRegistry": "",
+      "reportVerifier": "",
+      "attestationVerifier": "",
+      "rewardManager": ""
+    },
+    "chainlink": {
+      "vrfCoordinator": "",
+      "vrfSubscription": "",
+      "automationRegistry": "",
+      "automationForwarder": "",
+      "linkToken": ""
+    },
+    "cdn": {
+      "registry": "",
+      "billing": "",
+      "nodeRegistry": ""
     }
   },
   "testnet": {
@@ -109,6 +134,13 @@
       "elizaOS": "0x7af64e6aE21076DE21EFe71F243A75664a17C34b",
       "usdc": "0x953F6516E5d2864cE7f13186B45dE418EA665EB2",
       "weth": "0x4200000000000000000000000000000000000006"
+    },
+    "babylon": {
+      "BBLNToken": "",
+      "BabylonTreasury": "",
+      "BabylonAgentVault": "",
+      "BabylonDAO": "",
+      "TrainingOrchestrator": ""
     },
     "registry": {
       "identity": "",
@@ -187,6 +219,24 @@
       "feeConfig": "",
       "feeDistributor": "",
       "feeGovernance": ""
+    },
+    "oracle": {
+      "feedRegistry": "",
+      "reportVerifier": "",
+      "attestationVerifier": "",
+      "rewardManager": ""
+    },
+    "chainlink": {
+      "vrfCoordinator": "",
+      "vrfSubscription": "",
+      "automationRegistry": "",
+      "automationForwarder": "",
+      "linkToken": ""
+    },
+    "cdn": {
+      "registry": "",
+      "billing": "",
+      "nodeRegistry": ""
     }
   },
   "mainnet": {
@@ -274,6 +324,24 @@
       "feeConfig": "",
       "feeDistributor": "",
       "feeGovernance": ""
+    },
+    "oracle": {
+      "feedRegistry": "",
+      "reportVerifier": "",
+      "attestationVerifier": "",
+      "rewardManager": ""
+    },
+    "chainlink": {
+      "vrfCoordinator": "",
+      "vrfSubscription": "",
+      "automationRegistry": "",
+      "automationForwarder": "",
+      "linkToken": ""
+    },
+    "cdn": {
+      "registry": "",
+      "billing": "",
+      "nodeRegistry": ""
     }
   },
   "external": {

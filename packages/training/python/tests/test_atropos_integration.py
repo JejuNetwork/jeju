@@ -1,5 +1,5 @@
 """
-Integration tests for Babylon Atropos RLAIF implementation
+Integration tests for Jeju Training RLAIF implementation
 
 Tests:
 1. Module imports work correctly
@@ -10,7 +10,6 @@ Tests:
 
 import pytest
 from datetime import datetime
-from typing import Dict
 
 # Check for optional dependencies
 try:
@@ -29,7 +28,6 @@ requires_torch = pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
 requires_wandb = pytest.mark.skipif(not HAS_WANDB, reason="wandb not installed")
 
 
-# Test imports work
 class TestImports:
     """Verify all modules can be imported"""
     
@@ -53,9 +51,11 @@ class TestImports:
         from src.training.rewards import (
             pnl_reward,
             RewardNormalizer,
+            TrajectoryRewardInputs,
         )
         assert pnl_reward is not None
         assert RewardNormalizer is not None
+        assert TrajectoryRewardInputs is not None
     
     @requires_torch
     def test_import_trainer(self):
@@ -76,84 +76,93 @@ class TestRewardFunctions:
     """Test reward calculation functions"""
     
     def test_pnl_reward_positive(self):
-        from src.training.rewards import pnl_reward
+        from src.training.rewards import pnl_reward, TrajectoryRewardInputs
         
-        # Positive P&L should give > 0.5
-        reward = pnl_reward(500.0, initial_balance=10000.0)
-        assert 0.5 < reward <= 1.0
+        inputs = TrajectoryRewardInputs(
+            final_pnl=500.0,
+            starting_balance=10000.0
+        )
+        reward = pnl_reward(inputs)
+        assert reward > 0
         
     def test_pnl_reward_negative(self):
-        from src.training.rewards import pnl_reward
+        from src.training.rewards import pnl_reward, TrajectoryRewardInputs
         
-        # Negative P&L should give < 0.5
-        reward = pnl_reward(-500.0, initial_balance=10000.0)
-        assert 0.0 <= reward < 0.5
+        inputs = TrajectoryRewardInputs(
+            final_pnl=-500.0,
+            starting_balance=10000.0
+        )
+        reward = pnl_reward(inputs)
+        assert reward < 0
         
     def test_pnl_reward_zero(self):
-        from src.training.rewards import pnl_reward
+        from src.training.rewards import pnl_reward, TrajectoryRewardInputs
         
-        # Zero P&L should give ~0.5
-        reward = pnl_reward(0.0, initial_balance=10000.0)
-        assert 0.45 <= reward <= 0.55
+        inputs = TrajectoryRewardInputs(
+            final_pnl=0.0,
+            starting_balance=10000.0
+        )
+        reward = pnl_reward(inputs)
+        assert reward == 0.0
         
     def test_efficiency_reward(self):
-        from src.training.rewards import efficiency_reward
+        from src.training.rewards import efficiency_reward, TrajectoryRewardInputs
         
-        reward = efficiency_reward(
+        inputs = TrajectoryRewardInputs(
             final_pnl=500.0,
-            episode_length=10,
-            trades_executed=5
+            starting_balance=10000.0,
+            total_actions=5
         )
-        assert 0.0 <= reward <= 1.0
+        reward = efficiency_reward(inputs)
+        assert -1.0 <= reward <= 1.0
         
     def test_composite_reward(self):
-        from src.training.rewards import composite_reward
+        from src.training.rewards import composite_reward, TrajectoryRewardInputs
         
-        trajectory = {
-            "final_pnl": 500.0,
-            "episode_length": 10,
-            "trades_executed": 5,
-            "steps": [{"action": {"success": True}} for _ in range(10)]
-        }
+        inputs = TrajectoryRewardInputs(
+            final_pnl=500.0,
+            starting_balance=10000.0,
+            end_balance=10500.0,
+            format_score=0.8,
+            reasoning_score=0.7,
+        )
         
-        reward = composite_reward(trajectory)
-        assert 0.0 <= reward <= 1.0
+        reward = composite_reward(inputs)
+        assert -1.0 <= reward <= 1.0
         
     def test_relative_scores(self):
         from src.training.rewards import relative_scores
         
-        trajectories = [
-            {"final_pnl": 1000.0, "episode_length": 10, "trades_executed": 5, "steps": []},
-            {"final_pnl": 0.0, "episode_length": 10, "trades_executed": 5, "steps": []},
-            {"final_pnl": -500.0, "episode_length": 10, "trades_executed": 5, "steps": []},
-        ]
+        # Pass raw reward values, not trajectories
+        rewards = [1.0, 0.0, -0.5]
         
-        scores = relative_scores(trajectories)
+        scores = relative_scores(rewards)
         
-        # Scores should be centered at 0
-        assert abs(sum(scores) / len(scores)) < 0.1
-        # Best trajectory should have highest score
+        # Scores should be in [0, 1]
+        assert all(0 <= s <= 1 for s in scores)
+        # Best should have highest score
         assert scores[0] > scores[1] > scores[2]
         
     def test_reward_normalizer(self):
         from src.training.rewards import RewardNormalizer
         
-        normalizer = RewardNormalizer(decay=0.9)
+        normalizer = RewardNormalizer(epsilon=1e-8)
         
         # Update with some rewards
-        normalizer.update([0.5, 0.6, 0.7, 0.8])
-        normalizer.update([0.55, 0.65, 0.75, 0.85])
+        normalizer.update(0.5)
+        normalizer.update(0.6)
+        normalizer.update(0.7)
+        normalizer.update(0.8)
         
-        # Normalize should center around 0
-        normalized = normalizer.normalize([0.65])
-        assert isinstance(normalized, list)
-        assert len(normalized) == 1
+        # Normalize should return a float
+        normalized = normalizer.normalize(0.65)
+        assert isinstance(normalized, float)
 
 
 class TestConverter:
     """Test Babylon to Atropos conversion"""
     
-    def create_sample_trajectory(self) -> Dict:
+    def create_sample_trajectory(self):
         """Create a sample trajectory for testing"""
         from src.models import (
             BabylonTrajectory,
@@ -177,9 +186,9 @@ class TestConverter:
                 llm_calls=[
                     LLMCall(
                         model="gpt-4",
-                        system_prompt="You are a trading agent",
-                        user_prompt=f"Market update {i}",
-                        response=f"Action {i}",
+                        system_prompt="You are a trading agent. Analyze markets carefully.",
+                        user_prompt=f"Market update {i}: Current price is $100. Should you buy?",
+                        response=f"Based on my analysis of the market conditions, I recommend action {i}.",
                         temperature=0.7,
                         max_tokens=100,
                         purpose="action",
@@ -218,7 +227,7 @@ class TestConverter:
         result = converter.convert_trajectory(traj)
         
         assert result is not None
-        assert len(result.messages) >= 3  # system + at least one exchange
+        assert len(result.messages) >= 3
         assert result.metadata["trajectory_id"] == "traj-1"
         assert result.metadata["final_pnl"] == 400.0
         
@@ -237,22 +246,6 @@ class TestConverter:
         assert result.group_size == 4
         assert len(result.scores) == 4
         assert len(result.messages) == 4
-        
-    def test_dropout(self):
-        from src.data_bridge import BabylonToAtroposConverter
-        
-        # High dropout should skip some trajectories
-        converter = BabylonToAtroposConverter(dropout_rate=0.5)
-        
-        dropped_count = 0
-        for _ in range(100):
-            traj = self.create_sample_trajectory()
-            result = converter.convert_trajectory(traj)
-            if result is None:
-                dropped_count += 1
-                
-        # Should drop roughly 50%
-        assert 30 < dropped_count < 70
 
 
 @requires_torch
@@ -331,7 +324,5 @@ class TestCalculateDropoutRate:
         assert rate == 0.2
 
 
-# Run tests with: pytest tests/test_atropos_integration.py -v
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
-

@@ -2,10 +2,10 @@ import { AddressSchema } from '@jejunetwork/types'
 import { toast } from 'sonner'
 import { parseEther } from 'viem'
 import { useWaitForTransactionReceipt, useWriteContract } from 'wagmi'
-import { CONTRACTS } from '@/config'
-import NFTMarketplaceABI from '@/lib/abis/NFTMarketplace.json'
-import { expectPositive, expectTrue } from '@/lib/validation'
-import { NonEmptyStringSchema } from '@/schemas/common'
+import { CONTRACTS } from '../../config'
+import NFTMarketplaceABI from '../../lib/abis/NFTMarketplace.json'
+import { expectPositive, expectTrue } from '../../lib/validation'
+import { NonEmptyStringSchema } from '../../schemas/common'
 
 const MARKETPLACE_ADDRESS = CONTRACTS.nftMarketplace
 

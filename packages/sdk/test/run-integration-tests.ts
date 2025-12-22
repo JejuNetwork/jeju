@@ -52,7 +52,7 @@ interface TestResult {
 
 async function checkChain(): Promise<boolean> {
   try {
-    const response = await fetch('http://127.0.0.1:9545', {
+    const response = await fetch('http://127.0.0.1:6546', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -128,7 +128,7 @@ async function deployContracts(): Promise<void> {
       'script',
       'deploy/Deploy.s.sol:DeployAll',
       '--rpc-url',
-      'http://127.0.0.1:9545',
+      'http://127.0.0.1:6546',
       '--private-key',
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
       '--broadcast',
@@ -239,13 +239,13 @@ async function main(): Promise<void> {
       await startLocalnet()
       await deployContracts()
     } else {
-      console.log('⚠ Chain not running at http://127.0.0.1:9545')
+      console.log('⚠ Chain not running at http://127.0.0.1:6546')
       console.log('  Start with: anvil --port 9545')
       console.log('  Or run with: --setup flag')
       process.exit(1)
     }
   } else {
-    console.log('✓ Chain running at http://127.0.0.1:9545')
+    console.log('✓ Chain running at http://127.0.0.1:6546')
   }
 
   // Run tests

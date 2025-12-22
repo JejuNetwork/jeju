@@ -44,6 +44,7 @@ export function Alerts() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl md:text-3xl font-bold text-gradient">Alerts</h1>
         <button
+          type="button"
           onClick={() => refetch()}
           disabled={loading}
           className="btn-secondary flex items-center gap-2"
@@ -56,6 +57,7 @@ export function Alerts() {
       {/* Summary */}
       <div className="grid grid-cols-4 gap-4">
         <button
+          type="button"
           onClick={() => setSeverityFilter('all')}
           className={`card-static p-4 text-center ${severityFilter === 'all' ? 'ring-2 ring-jeju-primary' : ''}`}
         >
@@ -71,6 +73,7 @@ export function Alerts() {
         </button>
 
         <button
+          type="button"
           onClick={() => setSeverityFilter('critical')}
           className={`card-static p-4 text-center ${severityFilter === 'critical' ? 'ring-2 ring-jeju-error' : ''}`}
         >
@@ -91,6 +94,7 @@ export function Alerts() {
         </button>
 
         <button
+          type="button"
           onClick={() => setSeverityFilter('warning')}
           className={`card-static p-4 text-center ${severityFilter === 'warning' ? 'ring-2 ring-jeju-warning' : ''}`}
         >
@@ -111,6 +115,7 @@ export function Alerts() {
         </button>
 
         <button
+          type="button"
           onClick={() => setSeverityFilter('info')}
           className={`card-static p-4 text-center ${severityFilter === 'info' ? 'ring-2 ring-jeju-info' : ''}`}
         >
@@ -154,11 +159,21 @@ export function Alerts() {
       {/* List */}
       {loading ? (
         <div className="space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="card-static p-4">
-              <div className="shimmer h-16 w-full rounded" />
-            </div>
-          ))}
+          <div key="skeleton-0" className="card-static p-4">
+            <div className="shimmer h-16 w-full rounded" />
+          </div>
+          <div key="skeleton-1" className="card-static p-4">
+            <div className="shimmer h-16 w-full rounded" />
+          </div>
+          <div key="skeleton-2" className="card-static p-4">
+            <div className="shimmer h-16 w-full rounded" />
+          </div>
+          <div key="skeleton-3" className="card-static p-4">
+            <div className="shimmer h-16 w-full rounded" />
+          </div>
+          <div key="skeleton-4" className="card-static p-4">
+            <div className="shimmer h-16 w-full rounded" />
+          </div>
         </div>
       ) : filteredAlerts.length === 0 ? (
         <div className="card-static p-8 text-center">
@@ -170,9 +185,10 @@ export function Alerts() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredAlerts.map((alert, i) => (
-            <AlertCard key={i} alert={alert} />
-          ))}
+          {filteredAlerts.map((alert) => {
+            const alertKey = `${alert.labels.alertname || 'unknown'}-${alert.labels.instance || ''}-${alert.labels.job || ''}-${alert.activeAt || ''}`
+            return <AlertCard key={alertKey} alert={alert} />
+          })}
         </div>
       )}
     </div>

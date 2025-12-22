@@ -171,18 +171,18 @@ jobs:
       - name: Install Playwright browsers
         run: bunx playwright install chromium --with-deps
 
-      - name: Start Anvil
+      - name: Start Anvil (Jeju L2 on port 6546)
         run: |
-          anvil --chain-id 1337 --port 9545 --block-time 1 --accounts 10 --balance 10000 &
+          anvil --chain-id 1337 --port 6546 --block-time 1 --accounts 10 --balance 10000 &
           sleep 5
-          curl -s -X POST http://127.0.0.1:9545 \
+          curl -s -X POST http://127.0.0.1:6546 \
             -H "Content-Type: application/json" \
             -d '{"jsonrpc":"2.0","method":"eth_chainId","params":[],"id":1}'
 
       - name: Run chain preflight checks
         run: bun run test:preflight
         env:
-          L2_RPC_URL: http://127.0.0.1:9545
+          L2_RPC_URL: http://127.0.0.1:6546
           CHAIN_ID: "1337"
 
       - name: Run E2E smoke test
@@ -190,7 +190,7 @@ jobs:
           cd packages/tests
           bunx playwright test smoke/chain-preflight.spec.ts --config smoke/playwright.config.ts
         env:
-          L2_RPC_URL: http://127.0.0.1:9545
+          L2_RPC_URL: http://127.0.0.1:6546
           CHAIN_ID: "1337"
         continue-on-error: true
 

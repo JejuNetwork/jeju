@@ -87,10 +87,10 @@ describe('Token SDK', () => {
 
       const decoded = decodeToken(token.token)
       expect(decoded).not.toBeNull()
-      expect(decoded!.iat).toBeGreaterThanOrEqual(before)
-      expect(decoded!.iat).toBeLessThanOrEqual(after)
-      expect(decoded!.jti).toBeDefined()
-      expect(typeof decoded!.jti).toBe('string')
+      expect(decoded?.iat).toBeGreaterThanOrEqual(before)
+      expect(decoded?.iat).toBeLessThanOrEqual(after)
+      expect(decoded?.jti).toBeDefined()
+      expect(typeof decoded?.jti).toBe('string')
     })
 
     it('should set expiration from options', async () => {
@@ -102,9 +102,11 @@ describe('Token SDK', () => {
 
       const token = await createWalletToken(claims, { expiresInSeconds: 7200 })
       const decoded = decodeToken(token.token)
+      expect(decoded).toBeDefined()
+      expect(decoded?.iat).toBeDefined()
 
-      const expectedExp = decoded!.iat! + 7200
-      expect(decoded!.exp).toBe(expectedExp)
+      const expectedExp = (decoded?.iat ?? 0) + 7200
+      expect(decoded?.exp).toBe(expectedExp)
     })
 
     it('should respect exp from claims if provided', async () => {
@@ -119,7 +121,7 @@ describe('Token SDK', () => {
       const token = await createWalletToken(claims)
       const decoded = decodeToken(token.token)
 
-      expect(decoded!.exp).toBe(futureExp)
+      expect(decoded?.exp).toBe(futureExp)
     })
 
     it('should include wallet address in claims', async () => {
@@ -132,7 +134,7 @@ describe('Token SDK', () => {
       const token = await createWalletToken(claims)
       const decoded = decodeToken(token.token)
 
-      expect(decoded!.wallet).toBe(testAccount.address)
+      expect(decoded?.wallet).toBe(testAccount.address)
     })
 
     it('should include optional claims', async () => {
@@ -148,9 +150,9 @@ describe('Token SDK', () => {
       const token = await createWalletToken(claims)
       const decoded = decodeToken(token.token)
 
-      expect(decoded!.chainId).toBe('eip155:8453')
-      expect(decoded!.provider).toBe('github')
-      expect(decoded!.scopes).toEqual(['read', 'write'])
+      expect(decoded?.chainId).toBe('eip155:8453')
+      expect(decoded?.provider).toBe('github')
+      expect(decoded?.scopes).toEqual(['read', 'write'])
     })
   })
 
@@ -257,10 +259,10 @@ describe('Token SDK', () => {
       const decoded = decodeToken(token.token)
 
       expect(decoded).not.toBeNull()
-      expect(decoded!.sub).toBe('user123')
-      expect(decoded!.iss).toBe('jeju:oauth3')
-      expect(decoded!.aud).toBe('gateway')
-      expect(decoded!.wallet).toBe(testAccount.address)
+      expect(decoded?.sub).toBe('user123')
+      expect(decoded?.iss).toBe('jeju:oauth3')
+      expect(decoded?.aud).toBe('gateway')
+      expect(decoded?.wallet).toBe(testAccount.address)
     })
 
     it('should return null for invalid token', () => {
@@ -357,7 +359,7 @@ describe('Base64URL Encoding Edge Cases', () => {
     const token = await createWalletToken(claims)
     const decoded = decodeToken(token.token)
 
-    expect(decoded!.sub).toBe('user+special/chars=test')
+    expect(decoded?.sub).toBe('user+special/chars=test')
   })
 
   it('should handle unicode in claims', async () => {
@@ -370,7 +372,7 @@ describe('Base64URL Encoding Edge Cases', () => {
     const token = await createWalletToken(claims)
     const decoded = decodeToken(token.token)
 
-    expect(decoded!.sub).toBe('ユーザー🔐')
+    expect(decoded?.sub).toBe('ユーザー🔐')
   })
 })
 
@@ -408,7 +410,7 @@ describe('Token Security Properties', () => {
       Array.from({ length: 100 }, () => createWalletToken(claims)),
     )
 
-    const jtis = new Set(tokens.map((t) => decodeToken(t.token)!.jti))
+    const jtis = new Set(tokens.map((t) => decodeToken(t.token)?.jti))
     expect(jtis.size).toBe(100)
   })
 
@@ -579,7 +581,7 @@ describe('Direct issueTokenWithWallet', () => {
     const decoded = decodeToken(token.token)
     const expectedMinExp = before + 7200
 
-    expect(decoded!.exp).toBeGreaterThanOrEqual(expectedMinExp)
-    expect(decoded!.exp).toBeLessThanOrEqual(expectedMinExp + 5) // Allow 5 sec tolerance
+    expect(decoded?.exp).toBeGreaterThanOrEqual(expectedMinExp)
+    expect(decoded?.exp).toBeLessThanOrEqual(expectedMinExp + 5) // Allow 5 sec tolerance
   })
 })

@@ -5,8 +5,18 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { z } from 'zod'
 import { MFAMethod, type MFAStatus } from '../../mfa/index.js'
-import { extractError, getEndpointWithDevFallback } from '../../validation.js'
+import {
+  BackupCodesResponseSchema,
+  extractError,
+  getEndpointWithDevFallback,
+  MFAStatusSchema,
+  PasskeyListItemSchema,
+  PasskeyOptionsResponseSchema,
+  TOTPSetupResponseSchema,
+  validateResponse,
+} from '../../validation.js'
 import { useOAuth3 } from '../provider.js'
 
 export interface UseMFAOptions {
@@ -67,7 +77,11 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
     setIsLoading(false)
 
     if (response.ok) {
-      const status = (await response.json()) as MFAStatus
+      const status = validateResponse(
+        MFAStatusSchema,
+        await response.json(),
+        'MFA status response',
+      )
       setMFAStatus(status)
     }
   }, [client, session])
@@ -106,11 +120,11 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
       return null
     }
 
-    return response.json() as Promise<{
-      secret: string
-      uri: string
-      qrCode: string
-    }>
+    return validateResponse(
+      TOTPSetupResponseSchema,
+      await response.json(),
+      'TOTP setup response',
+    )
   }, [client, session, options])
 
   const verifyTOTP = useCallback(
@@ -199,7 +213,11 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
         return false
       }
 
-      const { challengeId, publicKey } = (await optionsResponse.json()) as {
+      const { challengeId, publicKey } = validateResponse(
+        PasskeyOptionsResponseSchema,
+        await optionsResponse.json(),
+        'passkey registration options',
+      ) as {
         challengeId: string
         publicKey: PublicKeyCredentialCreationOptions
       }
@@ -276,10 +294,11 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
       return false
     }
 
-    const { challengeId, publicKey } = (await optionsResponse.json()) as {
-      challengeId: string
-      publicKey: PublicKeyCredentialRequestOptions
-    }
+    const { challengeId, publicKey } = validateResponse(
+      PasskeyOptionsResponseSchema,
+      await optionsResponse.json(),
+      'passkey authentication options',
+    ) as { challengeId: string; publicKey: PublicKeyCredentialRequestOptions }
 
     // Get credential using WebAuthn
     const credential = (await navigator.credentials.get({
@@ -347,9 +366,11 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
 
     if (!response.ok) return []
 
-    return response.json() as Promise<
-      Array<{ id: string; deviceName: string; createdAt: number }>
-    >
+    return validateResponse(
+      z.array(PasskeyListItemSchema),
+      await response.json(),
+      'passkey list response',
+    )
   }, [client, session])
 
   const removePasskey = useCallback(
@@ -394,9 +415,13 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
       return null
     }
 
-    const { codes } = (await response.json()) as { codes: string[] }
+    const result = validateResponse(
+      BackupCodesResponseSchema,
+      await response.json(),
+      'backup codes response',
+    )
     await refreshStatus()
-    return codes
+    return result.codes
   }, [client, session, refreshStatus])
 
   const verifyBackupCode = useCallback(

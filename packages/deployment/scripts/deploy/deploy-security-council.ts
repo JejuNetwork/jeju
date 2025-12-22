@@ -183,7 +183,7 @@ async function main(): Promise<void> {
 
   const network = process.env.NETWORK || 'localnet'
   const rpcUrl =
-    process.env.RPC_URL || process.env.L1_RPC_URL || 'http://127.0.0.1:9545'
+    process.env.RPC_URL || process.env.L1_RPC_URL || 'http://127.0.0.1:6546'
 
   // Check if we're on a testnet/mainnet where Safe is deployed
   const chain = inferChainFromRpcUrl(rpcUrl)
@@ -218,6 +218,7 @@ async function main(): Promise<void> {
       }
 
       // Generate deterministic test addresses
+      // Conditional import: only needed for localnet test owners
       const { generatePrivateKey } = await import('viem/accounts')
       for (let i = 0; i < 5; i++) {
         const account = privateKeyToAccount(generatePrivateKey())

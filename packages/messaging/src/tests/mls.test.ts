@@ -33,7 +33,7 @@ describe('MLS Client', () => {
       keyRegistryAddress:
         '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: 'http://localhost:6545',
       network: 'testnet',
     })
 
@@ -103,7 +103,7 @@ describe('MLS Client', () => {
       keyRegistryAddress:
         '0x2222222222222222222222222222222222222222' as Address,
       relayUrl: 'http://localhost:3000',
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: 'http://localhost:6545',
       network: 'testnet',
     })
 
@@ -126,7 +126,7 @@ describe('MLS Group', () => {
       keyRegistryAddress:
         '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: 'http://localhost:6545',
       network: 'testnet',
     })
 
@@ -151,7 +151,7 @@ describe('MLS Group', () => {
 
     const messages = await group.getMessages({ limit: 1 })
     expect(messages.length).toBe(1)
-    expect(messages[0]!.content).toBe('Hello, World!')
+    expect(messages[0]?.content).toBe('Hello, World!')
   })
 
   test('sends rich content', async () => {
@@ -166,7 +166,7 @@ describe('MLS Group', () => {
     expect(typeof messageId).toBe('string')
 
     const messages = await group.getMessages({ limit: 1, direction: 'desc' })
-    const parsed = deserializeContent(messages[0]!.content)
+    const parsed = deserializeContent(messages[0]?.content)
     expect(parsed.type).toBe('image')
   })
 
@@ -229,7 +229,7 @@ describe('MLS Group', () => {
 
     const secondPage = await group.getMessages({
       limit: 2,
-      after: firstPage[1]!.id,
+      after: firstPage[1]?.id,
     })
     expect(secondPage.length).toBe(2)
   })
@@ -241,7 +241,7 @@ describe('MLS Group', () => {
       keyRegistryAddress:
         '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: 'http://localhost:6545',
       network: 'testnet',
     })
 
@@ -381,7 +381,7 @@ describe('Member Removal with Key Rotation', () => {
       keyRegistryAddress:
         '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: 'http://localhost:6545',
       network: 'testnet',
     })
 
@@ -390,7 +390,7 @@ describe('Member Removal with Key Rotation', () => {
       keyRegistryAddress:
         '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: 'http://localhost:6545',
       network: 'testnet',
     })
 
@@ -434,7 +434,7 @@ describe('Message Sync Across Devices', () => {
       keyRegistryAddress:
         '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: 'http://localhost:6545',
       network: 'testnet',
       persistenceEnabled: true,
     })
@@ -461,7 +461,7 @@ describe('Offline/Online Transitions', () => {
       keyRegistryAddress:
         '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: 'http://localhost:6545',
       network: 'testnet',
     })
 
@@ -492,7 +492,7 @@ describe('Large Group Support', () => {
       keyRegistryAddress:
         '0x1234567890123456789012345678901234567890' as Address,
       relayUrl: 'http://localhost:3000',
-      rpcUrl: 'http://localhost:8545',
+      rpcUrl: 'http://localhost:6545',
       network: 'testnet',
     })
 

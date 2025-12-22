@@ -34,6 +34,14 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, base } from 'viem/chains'
+import {
+  HyperliquidAllMidsSchema,
+  HyperliquidMetaAndAssetCtxsSchema,
+  HyperliquidMetaSchema,
+  HyperliquidOrderResultSchema,
+  HyperliquidStateSchema,
+  parseOrThrow,
+} from '../../schemas'
 
 const HYPERLIQUID_API = 'https://api.hyperliquid.xyz'
 
@@ -109,40 +117,11 @@ interface FundingPosition {
   status: 'active' | 'closing' | 'closed'
 }
 
-interface HyperliquidMeta {
-  universe: Array<{
-    name: string
-    szDecimals: number
-  }>
-}
+import type { z } from 'zod'
 
-interface HyperliquidAssetCtx {
-  funding: string
-  openInterest: string
-  prevDayPx: string
-  dayNtlVlm: string
-  premium: string
-  oraclePx: string
-  markPx: string
-}
-
-interface HyperliquidState {
-  assetPositions: Array<{
-    position: {
-      coin: string
-      szi: string
-      entryPx: string
-      positionValue: string
-      unrealizedPnl: string
-      leverage: { type: string; value: number }
-    }
-  }>
-  marginSummary: {
-    accountValue: string
-    totalMarginUsed: string
-    totalNtlPos: string
-  }
-}
+// Infer types from schemas for type-safe usage
+type HyperliquidMeta = z.infer<typeof HyperliquidMetaSchema>
+type HyperliquidState = z.infer<typeof HyperliquidStateSchema>
 
 // Client types for multi-chain support - use base types with Transport/Chain generics
 type ChainPublicClient = PublicClient<Transport, Chain>
@@ -203,7 +182,7 @@ export class FundingArbStrategy extends EventEmitter {
       body: JSON.stringify({ type: 'meta' }),
     })
 
-    const meta = (await metaResponse.json()) as HyperliquidMeta
+    const meta = parseOrThrow(HyperliquidMetaSchema, await metaResponse.json(), 'Hyperliquid meta')
 
     for (const asset of meta.universe) {
       this.assetMeta.set(asset.name, { szDecimals: asset.szDecimals })
@@ -259,10 +238,7 @@ export class FundingArbStrategy extends EventEmitter {
       body: JSON.stringify({ type: 'metaAndAssetCtxs' }),
     })
 
-    const data = (await response.json()) as [
-      HyperliquidMeta,
-      HyperliquidAssetCtx[],
-    ]
+    const data = parseOrThrow(HyperliquidMetaAndAssetCtxsSchema, await response.json(), 'Hyperliquid meta and asset contexts')
     const [meta, assetCtxs] = data
 
     for (let i = 0; i < meta.universe.length; i++) {
@@ -463,7 +439,7 @@ export class FundingArbStrategy extends EventEmitter {
       body: JSON.stringify({ type: 'allMids' }),
     })
 
-    const prices = (await pricesResponse.json()) as Record<string, string>
+    const prices = parseOrThrow(HyperliquidAllMidsSchema, await pricesResponse.json(), 'Hyperliquid prices')
     const price = parseFloat(prices[asset])
 
     if (!price) {
@@ -482,7 +458,7 @@ export class FundingArbStrategy extends EventEmitter {
       body: JSON.stringify({ type: 'meta' }),
     })
 
-    const meta = (await metaResponse.json()) as HyperliquidMeta
+    const meta = parseOrThrow(HyperliquidMetaSchema, await metaResponse.json(), 'Hyperliquid meta')
     const assetIndex = meta.universe.findIndex((a) => a.name === asset)
 
     if (assetIndex === -1) {
@@ -563,10 +539,7 @@ export class FundingArbStrategy extends EventEmitter {
       }),
     })
 
-    const orderResult = (await orderResponse.json()) as {
-      status: string
-      response?: { data?: { statuses: Array<{ resting?: { oid: number } }> } }
-    }
+    const orderResult = parseOrThrow(HyperliquidOrderResultSchema, await orderResponse.json(), 'Hyperliquid order result')
 
     if (orderResult.status !== 'ok') {
       return {
@@ -602,7 +575,7 @@ export class FundingArbStrategy extends EventEmitter {
       }),
     })
 
-    const state = (await stateResponse.json()) as HyperliquidState
+    const state = parseOrThrow(HyperliquidStateSchema, await stateResponse.json(), 'Hyperliquid state')
 
     const position = state.assetPositions.find((p) => p.position.coin === asset)
     if (!position) {

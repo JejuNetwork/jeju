@@ -6,6 +6,8 @@
  */
 
 import { createHash } from 'node:crypto'
+import { expectJson } from '@jejunetwork/types'
+import { z } from 'zod'
 import type { ContentCategory, ContentTier, StorageBackendType } from './types'
 
 // ============================================================================
@@ -42,6 +44,22 @@ interface ArweaveBackendConfig {
 }
 
 // ============================================================================
+// Schemas
+// ============================================================================
+
+const ArweaveWalletSchema = z.object({
+  kty: z.string(),
+  n: z.string(),
+  e: z.string(),
+  d: z.string().optional(),
+  p: z.string().optional(),
+  q: z.string().optional(),
+  dp: z.string().optional(),
+  dq: z.string().optional(),
+  qi: z.string().optional(),
+})
+
+// ============================================================================
 // Arweave Backend
 // ============================================================================
 
@@ -66,7 +84,11 @@ export class ArweaveBackend {
     if (config.wallet) {
       this.wallet = config.wallet
     } else if (process.env.ARWEAVE_WALLET_JSON) {
-      this.wallet = JSON.parse(process.env.ARWEAVE_WALLET_JSON) as ArweaveWallet
+      this.wallet = expectJson(
+        process.env.ARWEAVE_WALLET_JSON,
+        ArweaveWalletSchema,
+        'Arweave wallet JSON',
+      )
     }
   }
 

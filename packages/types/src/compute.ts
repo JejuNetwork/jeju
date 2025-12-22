@@ -195,17 +195,22 @@ export const ComputeStakeTypeSchema = z.enum([
 ])
 export type ComputeStakeTypeEnum = z.infer<typeof ComputeStakeTypeSchema>
 
-/** Numeric enum for contract compatibility */
-export enum ComputeStakeType {
-  NONE = 0,
-  USER = 1,
-  PROVIDER = 2,
-  GUARDIAN = 3,
-}
+/** Numeric const for contract compatibility */
+export const ComputeStakeType = {
+  NONE: 0,
+  USER: 1,
+  PROVIDER: 2,
+  GUARDIAN: 3,
+} as const
+export type ComputeStakeType =
+  (typeof ComputeStakeType)[keyof typeof ComputeStakeType]
 
 export const ComputeStakeSchema = z.object({
   amount: z.bigint(),
-  stakeType: z.nativeEnum(ComputeStakeType),
+  stakeType: z.enum([...Object.values(ComputeStakeType).map(String)] as [
+    string,
+    ...string[],
+  ]),
   stakedAt: z.number(),
   lockedUntil: z.number(),
   slashed: z.boolean(),
@@ -341,29 +346,36 @@ export type ComputeDeployment = z.infer<typeof ComputeDeploymentSchema>
 // Compute Resource Types (vast.ai-style)
 // ============================================================================
 
-export enum ResourceType {
-  GPU = 0,
-  CPU = 1,
-  MEMORY = 2,
-  STORAGE = 3,
-}
+export const ResourceType = {
+  GPU: 0,
+  CPU: 1,
+  MEMORY: 2,
+  STORAGE: 3,
+} as const
+export type ResourceType = (typeof ResourceType)[keyof typeof ResourceType]
 
-export const ResourceTypeSchema = z.nativeEnum(ResourceType)
+export const ResourceTypeSchema = z.enum([
+  ...Object.values(ResourceType).map(String),
+] as [string, ...string[]])
 
-export enum GPUType {
-  NONE = 0,
-  NVIDIA_RTX_4090 = 1,
-  NVIDIA_A100_40GB = 2,
-  NVIDIA_A100_80GB = 3,
-  NVIDIA_H100 = 4,
-  NVIDIA_H200 = 5,
-  AMD_MI300X = 6,
-  APPLE_M1_MAX = 7,
-  APPLE_M2_ULTRA = 8,
-  APPLE_M3_MAX = 9,
-}
+export const GPUType = {
+  NONE: 0,
+  NVIDIA_RTX_4090: 1,
+  NVIDIA_A100_40GB: 2,
+  NVIDIA_A100_80GB: 3,
+  NVIDIA_H100: 4,
+  NVIDIA_H200: 5,
+  AMD_MI300X: 6,
+  APPLE_M1_MAX: 7,
+  APPLE_M2_ULTRA: 8,
+  APPLE_M3_MAX: 9,
+} as const
+export type GPUType = (typeof GPUType)[keyof typeof GPUType]
 
-export const GPUTypeSchema = z.nativeEnum(GPUType)
+export const GPUTypeSchema = z.enum([...Object.values(GPUType).map(String)] as [
+  string,
+  ...string[],
+])
 
 export const ComputeResourcesSchema = z.object({
   gpuType: GPUTypeSchema,
@@ -389,16 +401,19 @@ export type ResourcePricing = z.infer<typeof ResourcePricingSchema>
 // Rental/Session Types
 // ============================================================================
 
-export enum RentalStatus {
-  PENDING = 0,
-  ACTIVE = 1,
-  PAUSED = 2,
-  COMPLETED = 3,
-  CANCELLED = 4,
-  EXPIRED = 5,
-}
+export const RentalStatus = {
+  PENDING: 0,
+  ACTIVE: 1,
+  PAUSED: 2,
+  COMPLETED: 3,
+  CANCELLED: 4,
+  EXPIRED: 5,
+} as const
+export type RentalStatus = (typeof RentalStatus)[keyof typeof RentalStatus]
 
-export const RentalStatusSchema = z.nativeEnum(RentalStatus)
+export const RentalStatusSchema = z.enum([
+  ...Object.values(RentalStatus).map(String),
+] as [string, ...string[]])
 
 export const ComputeRentalSchema = z.object({
   rentalId: z.string(),

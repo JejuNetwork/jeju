@@ -7,6 +7,7 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { RedstonePriceResponseSchema, safeParse } from '../../schemas'
 import type { ChainConfig, ChainId, StrategyConfig } from '../autocrat-types'
 import { CHAINLINK_AGGREGATOR_ABI, PRICE_ORACLE_ABI } from '../lib/contracts'
 
@@ -105,6 +106,7 @@ export class OracleKeeperStrategy {
   private checkInterval: ReturnType<typeof setInterval> | null = null
   private running = false
   private chainId: ChainId
+  private config: StrategyConfig
 
   constructor(chainId: ChainId, config: StrategyConfig, privateKey: string) {
     this.chainId = chainId
@@ -422,11 +424,8 @@ export class OracleKeeperStrategy {
 
       if (!response.ok) return null
 
-      const data = (await response.json()) as Record<
-        string,
-        { value: number; timestamp: number }
-      >
-      const priceData = data[symbol]
+      const data = safeParse(RedstonePriceResponseSchema, await response.json())
+      const priceData = data?.[symbol]
 
       if (!priceData) return null
 

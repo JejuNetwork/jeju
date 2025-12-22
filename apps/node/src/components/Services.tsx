@@ -238,9 +238,10 @@ export function Services() {
           {/* Compute Type Selection */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
             {/* CPU Compute */}
-            <div
+            <button
+              type="button"
               className={clsx(
-                'p-4 rounded-xl border-2 cursor-pointer transition-all',
+                'p-4 rounded-xl border-2 cursor-pointer transition-all text-left w-full',
                 computeConfig.type === 'cpu' || computeConfig.type === 'both'
                   ? 'border-jeju-500 bg-jeju-500/10'
                   : 'border-volcanic-700 hover:border-volcanic-600',
@@ -290,10 +291,14 @@ export function Services() {
               {(computeConfig.type === 'cpu' ||
                 computeConfig.type === 'both') && (
                 <div className="mt-3 pt-3 border-t border-volcanic-700">
-                  <label className="text-sm text-volcanic-400">
+                  <label
+                    htmlFor="cpu-cores"
+                    className="text-sm text-volcanic-400"
+                  >
                     Cores to allocate:
                   </label>
                   <input
+                    id="cpu-cores"
                     type="range"
                     min="1"
                     max={hardware?.cpu?.cores_physical || 4}
@@ -322,12 +327,14 @@ export function Services() {
                   <NonTeeWarningBadge computeType="cpu" />
                 </div>
               )}
-            </div>
+            </button>
 
             {/* GPU Compute */}
-            <div
+            <button
+              type="button"
+              disabled={(hardware?.gpus?.length || 0) === 0}
               className={clsx(
-                'p-4 rounded-xl border-2 transition-all',
+                'p-4 rounded-xl border-2 transition-all text-left w-full',
                 (hardware?.gpus?.length || 0) === 0
                   ? 'border-volcanic-800 bg-volcanic-900/50 opacity-50 cursor-not-allowed'
                   : computeConfig.type === 'gpu' ||
@@ -381,11 +388,18 @@ export function Services() {
                       <div className="mt-3 pt-3 border-t border-volcanic-700 space-y-2">
                         {hardware.gpus.map((gpu, i) => (
                           <label
-                            key={i}
+                            key={`gpu-${gpu.index}`}
+                            htmlFor={`gpu-checkbox-${i}`}
                             className="flex items-center gap-3 cursor-pointer"
                             onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.stopPropagation()
+                              }
+                            }}
                           >
                             <input
+                              id={`gpu-checkbox-${i}`}
                               type="checkbox"
                               checked={computeConfig.gpuIds.includes(i)}
                               onChange={(e) => {
@@ -422,7 +436,7 @@ export function Services() {
                   No NVIDIA GPUs detected. Install nvidia-smi to enable.
                 </div>
               )}
-            </div>
+            </button>
           </div>
 
           {/* Docker Option */}
@@ -470,10 +484,14 @@ export function Services() {
           {/* Pricing */}
           <div className="flex items-center gap-4 mb-4">
             <div className="flex-1">
-              <label className="text-sm text-volcanic-400">
+              <label
+                htmlFor="hourly-rate"
+                className="text-sm text-volcanic-400"
+              >
                 Hourly Rate (ETH)
               </label>
               <input
+                id="hourly-rate"
                 type="number"
                 step="0.001"
                 value={computeConfig.pricePerHour}
@@ -502,6 +520,7 @@ export function Services() {
 
           {/* Start/Stop Button */}
           <button
+            type="button"
             onClick={() => handleToggleService(computeService)}
             disabled={
               !computeService.meets_requirements &&
@@ -612,9 +631,9 @@ export function Services() {
                   {/* Requirement Issues */}
                   {service.requirement_issues.length > 0 && (
                     <div className="mt-3 space-y-1">
-                      {service.requirement_issues.map((issue, i) => (
+                      {service.requirement_issues.map((issue) => (
                         <div
-                          key={i}
+                          key={issue}
                           className="flex items-center gap-2 text-sm text-yellow-400"
                         >
                           <AlertTriangle size={14} />
@@ -628,8 +647,11 @@ export function Services() {
                   {service.metadata.warnings.length > 0 &&
                     expandedService === service.metadata.id && (
                       <div className="mt-3 p-3 bg-volcanic-800/50 rounded-lg space-y-1">
-                        {service.metadata.warnings.map((warning, i) => (
-                          <p key={i} className="text-sm text-volcanic-400">
+                        {service.metadata.warnings.map((warning) => (
+                          <p
+                            key={warning}
+                            className="text-sm text-volcanic-400"
+                          >
                             {warning}
                           </p>
                         ))}
@@ -656,6 +678,7 @@ export function Services() {
               <div className="flex items-center gap-2">
                 {service.metadata.warnings.length > 0 && (
                   <button
+                    type="button"
                     onClick={() =>
                       setExpandedService(
                         expandedService === service.metadata.id
@@ -674,6 +697,7 @@ export function Services() {
                 )}
 
                 <button
+                  type="button"
                   onClick={() => handleToggleService(service)}
                   disabled={
                     !service.meets_requirements && !service.status.running
@@ -769,12 +793,14 @@ export function Services() {
 
               <div className="flex gap-3 mt-6">
                 <button
+                  type="button"
                   onClick={() => setConfirmingSequencer(false)}
                   className="btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirmSequencer}
                   className="btn-danger flex-1"
                 >

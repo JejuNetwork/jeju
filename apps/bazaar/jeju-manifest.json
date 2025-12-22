@@ -2,31 +2,56 @@
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "bazaar",
   "displayName": "Bazaar",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "core",
-  "description": "Unified DeFi + NFT + Token Launchpad - Uniswap V4 swaps, liquidity pools, NFT trading, JNS name marketplace, and multi-chain token creation",
+  "description": "Unified DeFi + NFT + Token Launchpad - Decentralized marketplace with Elysia backend and static frontend",
+  "architecture": {
+    "type": "serverless",
+    "runtime": "workerd",
+    "frontend": {
+      "type": "spa",
+      "builder": "bun",
+      "entrypoint": "index.html",
+      "outputDir": "dist/static"
+    },
+    "backend": {
+      "type": "elysia",
+      "entrypoint": "api/worker.ts",
+      "outputDir": "dist/worker"
+    }
+  },
   "commands": {
-    "dev": "bun run dev",
-    "build": "bun run build",
-    "start": "bun run start",
-    "test": "bun run test"
+    "dev": "bun run scripts/dev.ts",
+    "dev:api": "bun --watch api/server.ts",
+    "build": "bun run scripts/build.ts",
+    "build:worker": "bun run scripts/build-worker.ts",
+    "start": "bun run scripts/serve.ts",
+    "test": "bun run test:unit",
+    "deploy": "bun run scripts/deploy.ts"
   },
   "ports": {
-    "main": 4006
+    "frontend": 4006,
+    "api": 4007
   },
-  "dependencies": ["contracts", "config", "dws"],
+  "dependencies": ["contracts", "config", "dws", "shared"],
   "optional": false,
   "enabled": true,
   "autoStart": true,
-  "tags": ["defi", "nft", "marketplace", "uniswap-v4", "launchpad", "multi-chain", "jns", "names", "core"],
+  "tags": ["defi", "nft", "marketplace", "uniswap-v4", "launchpad", "multi-chain", "jns", "core", "serverless"],
   "jns": {
     "name": "bazaar.jeju",
     "description": "DeFi + NFT + Names Marketplace",
     "url": "https://bazaar.jejunetwork.org"
   },
   "healthCheck": {
-    "url": "http://localhost:4006",
-    "interval": 30000
+    "frontend": {
+      "url": "http://localhost:4006",
+      "interval": 30000
+    },
+    "api": {
+      "url": "http://localhost:4007/health",
+      "interval": 30000
+    }
   },
   "agent": {
     "enabled": true,
@@ -42,30 +67,52 @@
     "x402Support": true,
     "jnsName": "bazaar.jeju"
   },
-  "decentralization": {
+  "dws": {
+    "worker": {
+      "name": "bazaar-api",
+      "entrypoint": "api/worker.ts",
+      "compatibilityDate": "2024-01-01",
+      "tee": {
+        "required": false,
+        "preferred": true,
+        "platforms": ["dstack", "phala"]
+      },
+      "bindings": {
+        "kv": {
+          "BAZAAR_CACHE": "bazaar-cache-kv"
+        },
+        "secrets": ["DATABASE_URL", "PRIVATE_KEY"]
+      },
+      "routes": [
+        { "pattern": "/api/*", "zone": "bazaar-api" },
+        { "pattern": "/health", "zone": "bazaar-api" }
+      ]
+    },
+    "database": {
+      "type": "covenantsql",
+      "name": "bazaar-db",
+      "consistency": "strong",
+      "tables": ["faucet_claims", "market_cache", "user_preferences"]
+    },
     "cdn": {
       "enabled": true,
       "regions": ["global"],
+      "staticDir": "dist/static",
       "cacheRules": [
-        { "pattern": "/_next/static/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/api/prices/**", "ttl": 5 },
-        { "pattern": "/api/pools/**", "ttl": 10, "staleWhileRevalidate": 60 },
-        { "pattern": "/api/**", "ttl": 0 },
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/*.css", "ttl": 86400 },
         { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
-      ],
-      "apiCaching": {
-        "enabled": true,
-        "defaultTtl": 10,
-        "varyHeaders": ["x-jeju-address"]
-      },
-      "serviceWorker": true
-    },
+      ]
+    }
+  },
+  "decentralization": {
     "frontend": {
       "ipfs": true,
       "arweave": true,
       "jnsName": "bazaar.jeju",
-      "buildDir": ".next",
-      "spa": false
+      "buildDir": "dist/static",
+      "spa": true
     },
     "robustness": {
       "multiOrigin": true,
@@ -84,12 +131,12 @@
       "timeout": 300000,
       "requiresChain": true
     },
-    "wallet": {
-      "command": "bunx playwright test tests/wallet --config=synpress.config.ts",
+    "integration": {
+      "command": "bun run test:integration",
       "timeout": 600000,
       "requiresChain": true,
-      "requiresWallet": true
+      "requiresDWS": true
     },
-    "services": ["contracts", "indexer"]
+    "services": ["contracts", "indexer", "dws"]
   }
 }

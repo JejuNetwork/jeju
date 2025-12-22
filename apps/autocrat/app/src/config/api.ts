@@ -1,4 +1,16 @@
-const API_BASE = process.env.NEXT_PUBLIC_AUTOCRAT_API || ''
+/**
+ * Autocrat API Client - Eden Treaty
+ *
+ * End-to-end type-safe API calls using Eden Treaty
+ */
+
+import { api, extractData, extractDataOrDefault } from '../lib/client'
+
+const API_BASE = import.meta.env.VITE_AUTOCRAT_API || ''
+
+// ============================================================================
+// A2A Protocol (JSON-RPC) - Kept for A2A-specific calls
+// ============================================================================
 
 interface A2ARequest {
   skillId: string
@@ -40,7 +52,6 @@ async function callA2A<T>(request: A2ARequest): Promise<A2AResponse<T>> {
 
   const json = await response.json()
 
-  // Check for JSON-RPC error
   if (json.error) {
     throw new Error(json.error.message || 'A2A error')
   }
@@ -57,6 +68,10 @@ async function callA2A<T>(request: A2ARequest): Promise<A2AResponse<T>> {
     data: (dataPart?.data || {}) as T,
   }
 }
+
+// ============================================================================
+// Types
+// ============================================================================
 
 export interface Proposal {
   proposalId: string
@@ -137,32 +152,39 @@ export interface AutocratStatus {
   gracePeriod: string
 }
 
-export async function fetchHealth() {
-  const response = await fetch(`${API_BASE}/health`)
-  return response.json()
+export interface ProposalDraft {
+  daoId?: string
+  title: string
+  summary: string
+  description: string
+  proposalType: number
+  casualCategory?: string
+  targetContract?: string
+  calldata?: string
+  value?: string
+  tags?: string[]
+  linkedPackageId?: string
+  linkedRepoId?: string
 }
 
-export async function fetchProposals(
-  activeOnly = false,
-): Promise<ProposalList> {
-  const result = await callA2A<ProposalList>({
-    skillId: 'list-proposals',
-    params: { activeOnly },
-  })
-  return result.data
+export interface SimilarProposal {
+  proposalId: string
+  title: string
+  similarity: number
+  status: string
+  reason: string
 }
 
-export async function fetchProposal(proposalId: string): Promise<Proposal> {
-  const result = await callA2A<Proposal>({
-    skillId: 'get-proposal',
-    params: { proposalId },
-  })
-  return result.data
+export interface FullQualityAssessment extends QualityAssessment {
+  similarProposals: SimilarProposal[]
+  assessedAt: number
+  model: string
 }
 
-export async function fetchCEOStatus(): Promise<CEOStatus> {
-  const result = await callA2A<CEOStatus>({ skillId: 'get-ceo-status' })
-  return result.data
+export interface QuickScoreResult {
+  score: number
+  contentHash: string
+  readyForFullAssessment: boolean
 }
 
 export interface ModelCandidate {
@@ -187,184 +209,15 @@ export interface Decision {
   overridden: boolean
 }
 
-export async function fetchModelCandidates(): Promise<ModelCandidate[]> {
-  const response = await fetch(`${API_BASE}/api/v1/ceo/models`)
-  if (!response.ok) return []
-  const data = await response.json()
-  return data.models ?? []
-}
-
-export async function fetchRecentDecisions(limit = 10): Promise<Decision[]> {
-  const response = await fetch(
-    `${API_BASE}/api/v1/ceo/decisions?limit=${limit}`,
-  )
-  if (!response.ok) return []
-  const data = await response.json()
-  return data.decisions ?? []
-}
-
-export async function fetchGovernanceStats(): Promise<GovernanceStats> {
-  const result = await callA2A<GovernanceStats>({
-    skillId: 'get-governance-stats',
-  })
-  return result.data
-}
-
-export async function fetchAutocratStatus(): Promise<AutocratStatus> {
-  const result = await callA2A<AutocratStatus>({
-    skillId: 'get-autocrat-status',
-  })
-  return result.data
-}
-
-export async function assessProposal(params: {
-  title: string
-  summary: string
-  description: string
-  proposalType: string
-}): Promise<QualityAssessment> {
-  const result = await callA2A<QualityAssessment>({
-    skillId: 'assess-proposal',
-    params,
-  })
-  return result.data
-}
-
-export async function prepareSubmitProposal(params: {
-  proposalType: number
-  qualityScore: number
-  contentHash: string
-  targetContract?: string
-  callData?: string
-  value?: string
-}) {
-  const result = await callA2A({ skillId: 'submit-proposal', params })
-  return result.data
-}
-
-// ============================================================================
-// Proposal Assistant API (REST endpoints)
-// ============================================================================
-
-export interface ProposalDraft {
-  title: string
-  summary: string
-  description: string
-  proposalType: number
-  targetContract?: string
-  calldata?: string
-  value?: string
-  tags?: string[]
-}
-
-export interface SimilarProposal {
-  proposalId: string
-  title: string
-  similarity: number
-  status: string
-  reason: string
-}
-
-export interface FullQualityAssessment extends QualityAssessment {
-  similarProposals: SimilarProposal[]
-  assessedAt: number
-  model: string
-}
-
-export interface QuickScoreResult {
-  score: number
-  contentHash: string
-  readyForFullAssessment: boolean
-}
-
-export interface ImprovementResult {
-  improved: string
-}
-
-export interface GeneratedProposal {
-  title: string
-  summary: string
-  description: string
-  tags: string[]
-}
-
-export async function assessProposalFull(
-  draft: ProposalDraft,
-): Promise<FullQualityAssessment> {
-  const response = await fetch(`${API_BASE}/api/v1/proposals/assess`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(draft),
-  })
-  if (!response.ok) throw new Error('Assessment failed')
-  return response.json()
-}
-
-export async function checkDuplicates(
-  draft: ProposalDraft,
-): Promise<SimilarProposal[]> {
-  const response = await fetch(
-    `${API_BASE}/api/v1/proposals/check-duplicates`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(draft),
-    },
-  )
-  if (!response.ok) throw new Error('Duplicate check failed')
-  const data = await response.json()
-  return data.duplicates
-}
-
-export async function improveProposal(
-  draft: ProposalDraft,
-  criterion: string,
-): Promise<string> {
-  const response = await fetch(`${API_BASE}/api/v1/proposals/improve`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ draft, criterion }),
-  })
-  if (!response.ok) throw new Error('Improvement failed')
-  const data: ImprovementResult = await response.json()
-  return data.improved
-}
-
-export async function generateProposal(
-  idea: string,
-  proposalType: number,
-): Promise<GeneratedProposal> {
-  const response = await fetch(`${API_BASE}/api/v1/proposals/generate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idea, proposalType }),
-  })
-  if (!response.ok) throw new Error('Generation failed')
-  return response.json()
-}
-
-export async function quickScore(
-  draft: ProposalDraft,
-): Promise<QuickScoreResult> {
-  const response = await fetch(`${API_BASE}/api/v1/proposals/quick-score`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(draft),
-  })
-  if (!response.ok) throw new Error('Quick score failed')
-  return response.json()
-}
-
-// ============================================================================
-// Research API
-// ============================================================================
-
 export interface ResearchRequest {
   proposalId: string
   title: string
-  summary: string
   description: string
-  proposalType: number
+  proposalType?: string
+  references?: string[]
+  depth?: 'quick' | 'standard' | 'deep'
+  daoId?: string
+  daoName?: string
 }
 
 export interface ResearchSection {
@@ -397,66 +250,483 @@ export interface QuickScreenResult {
   greenFlags: string[]
 }
 
-export async function conductResearch(
-  request: ResearchRequest,
-): Promise<ResearchReport> {
-  const response = await fetch(`${API_BASE}/api/v1/research/conduct`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  })
-  if (!response.ok) throw new Error('Research failed')
-  return response.json()
-}
-
-export async function quickScreenResearch(
-  request: ResearchRequest,
-): Promise<QuickScreenResult> {
-  const response = await fetch(`${API_BASE}/api/v1/research/quick-screen`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request),
-  })
-  if (!response.ok) throw new Error('Quick screen failed')
-  return response.json()
-}
-
-export async function factCheck(claim: string, context: string) {
-  const response = await fetch(`${API_BASE}/api/v1/research/fact-check`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ claim, context }),
-  })
-  if (!response.ok) throw new Error('Fact check failed')
-  return response.json()
-}
-
-// ============================================================================
-// Orchestrator & Triggers API
-// ============================================================================
-
 export interface OrchestratorStatus {
   running: boolean
   cycleCount: number
-  lastCycle: number
-  processedProposals: number
+  lastCycle?: number
+  processedProposals?: number
+  message?: string
 }
 
+// Bug Bounty Types
+export interface BountySubmission {
+  submissionId: string
+  title: string
+  severity: number
+  vulnType: number
+  status: number
+  submittedAt: number
+  researcher: string
+  stake: string
+  rewardAmount: string
+  guardianApprovals: number
+  guardianRejections: number
+}
+
+export interface BountyStats {
+  totalPool: string
+  totalPaidOut: string
+  pendingPayouts: string
+  activeSubmissions: number
+  guardianCount: number
+}
+
+export interface BountyAssessment {
+  severity: number
+  estimatedReward: { min: number; max: number; currency: string }
+  qualityScore: number
+  issues: string[]
+  readyToSubmit: boolean
+}
+
+export interface BountySubmissionDraft {
+  title: string
+  summary: string
+  description: string
+  severity: number
+  vulnType: number
+  affectedComponents: string[]
+  stepsToReproduce: string[]
+  proofOfConcept?: string
+  suggestedFix?: string
+  impact?: string
+}
+
+// ============================================================================
+// Health & Status - Eden Treaty
+// ============================================================================
+
+export async function fetchHealth() {
+  const response = await api.health.get()
+  return extractData(response)
+}
+
+// ============================================================================
+// Proposals - Eden Treaty
+// ============================================================================
+
+export async function fetchProposals(
+  activeOnly = false,
+): Promise<ProposalList> {
+  const response = await api.api.v1.proposals.get({
+    query: { active: activeOnly ? 'true' : undefined },
+  })
+  if (response.error) {
+    return { proposals: [], total: 0 }
+  }
+  const data = response.data as unknown as ProposalList | null
+  return data ?? { proposals: [], total: 0 }
+}
+
+export async function fetchProposal(proposalId: string): Promise<Proposal> {
+  const response = await api.api.v1.proposals({ id: proposalId }).get()
+  if (response.error || !response.data) {
+    throw new Error('Proposal not found')
+  }
+  return response.data as unknown as Proposal
+}
+
+export async function assessProposal(params: {
+  title: string
+  summary: string
+  description: string
+  proposalType: string
+}): Promise<QualityAssessment> {
+  // This still uses A2A for backwards compatibility
+  const result = await callA2A<QualityAssessment>({
+    skillId: 'assess-proposal',
+    params,
+  })
+  return result.data
+}
+
+export async function prepareSubmitProposal(params: {
+  proposalType: number
+  qualityScore: number
+  contentHash: string
+  targetContract?: string
+  callData?: string
+  value?: string
+}) {
+  const result = await callA2A({ skillId: 'submit-proposal', params })
+  return result.data
+}
+
+// ============================================================================
+// Proposal Assistant - Eden Treaty
+// ============================================================================
+
+export async function assessProposalFull(
+  draft: ProposalDraft,
+): Promise<FullQualityAssessment> {
+  const response = await api.api.v1.proposals.assess.post({
+    daoId: draft.daoId ?? 'jeju',
+    title: draft.title,
+    summary: draft.summary,
+    description: draft.description,
+    proposalType: draft.proposalType,
+    casualCategory: draft.casualCategory,
+    targetContract: draft.targetContract,
+    calldata: draft.calldata,
+    value: draft.value,
+    tags: draft.tags,
+    linkedPackageId: draft.linkedPackageId,
+    linkedRepoId: draft.linkedRepoId,
+  })
+  const data = extractData(response) as unknown as QualityAssessment
+  return {
+    ...data,
+    similarProposals: [],
+    assessedAt: Date.now(),
+    model: 'gpt-4',
+  }
+}
+
+export async function checkDuplicates(
+  draft: ProposalDraft,
+): Promise<SimilarProposal[]> {
+  const response = await api.api.v1.proposals['check-duplicates'].post({
+    daoId: draft.daoId ?? 'jeju',
+    title: draft.title,
+    summary: draft.summary,
+    description: draft.description,
+    proposalType: draft.proposalType,
+  })
+  const data = extractData(response)
+  return (data as { duplicates: SimilarProposal[] }).duplicates
+}
+
+export async function improveProposal(
+  draft: ProposalDraft,
+  criterion: string,
+): Promise<string> {
+  const response = await api.api.v1.proposals.improve.post({
+    draft: {
+      daoId: draft.daoId ?? 'jeju',
+      title: draft.title,
+      summary: draft.summary,
+      description: draft.description,
+      proposalType: draft.proposalType,
+    },
+    criterion,
+  })
+  const data = extractData(response)
+  return (data as { improved: string }).improved
+}
+
+export async function generateProposal(
+  idea: string,
+  proposalType: number,
+): Promise<ProposalDraft> {
+  const response = await api.api.v1.proposals.generate.post({
+    idea,
+    proposalType,
+  })
+  return extractData(response) as ProposalDraft
+}
+
+export async function quickScore(
+  draft: ProposalDraft,
+): Promise<QuickScoreResult> {
+  const response = await api.api.v1.proposals['quick-score'].post({
+    daoId: draft.daoId ?? 'jeju',
+    title: draft.title,
+    summary: draft.summary,
+    description: draft.description,
+    proposalType: draft.proposalType,
+  })
+  return extractData(response) as QuickScoreResult
+}
+
+// ============================================================================
+// CEO - Eden Treaty
+// ============================================================================
+
+export async function fetchCEOStatus(): Promise<CEOStatus> {
+  // Still uses A2A for CEO status as it's provided by the agent skill
+  const result = await callA2A<CEOStatus>({ skillId: 'get-ceo-status' })
+  return result.data
+}
+
+export async function fetchModelCandidates(): Promise<ModelCandidate[]> {
+  const response = await api.api.v1.agents.ceo.models.get()
+  const data = extractDataOrDefault(response, { models: [] })
+  return (data as { models: ModelCandidate[] }).models
+}
+
+export async function fetchRecentDecisions(limit = 10): Promise<Decision[]> {
+  const response = await api.api.v1.agents.ceo.decisions.get({
+    query: { limit: String(limit) },
+  })
+  const data = extractDataOrDefault(response, { decisions: [] })
+  return (data as { decisions: Decision[] }).decisions
+}
+
+export async function fetchGovernanceStats(): Promise<GovernanceStats> {
+  const result = await callA2A<GovernanceStats>({
+    skillId: 'get-governance-stats',
+  })
+  return result.data
+}
+
+export async function fetchAutocratStatus(): Promise<AutocratStatus> {
+  const result = await callA2A<AutocratStatus>({
+    skillId: 'get-autocrat-status',
+  })
+  return result.data
+}
+
+// ============================================================================
+// Research - Eden Treaty
+// ============================================================================
+
+export async function conductResearch(request: ResearchRequest) {
+  const response = await api.api.v1.research.conduct.post(request)
+  return extractData(response)
+}
+
+export async function quickScreenResearch(request: {
+  proposalId: string
+  title: string
+  description: string
+}) {
+  const response = await api.api.v1.research['quick-screen'].post(request)
+  return extractData(response)
+}
+
+export async function factCheck(claim: string, context: string) {
+  const response = await api.api.v1.research['fact-check'].post({
+    claim,
+    context,
+  })
+  return extractData(response)
+}
+
+// ============================================================================
+// Orchestrator - Eden Treaty
+// ============================================================================
+
 export async function fetchOrchestratorStatus(): Promise<OrchestratorStatus> {
-  const response = await fetch(`${API_BASE}/api/v1/orchestrator/status`)
-  return response.json()
+  const response = await api.api.v1.orchestrator.status.get()
+  if (response.error || !response.data) {
+    return {
+      running: false,
+      cycleCount: 0,
+      message: 'Unable to fetch status',
+    }
+  }
+  return response.data as OrchestratorStatus
 }
 
 export async function startOrchestrator() {
-  const response = await fetch(`${API_BASE}/api/v1/orchestrator/start`, {
-    method: 'POST',
-  })
-  return response.json()
+  const response = await api.api.v1.orchestrator.start.post()
+  return extractData(response)
 }
 
 export async function stopOrchestrator() {
-  const response = await fetch(`${API_BASE}/api/v1/orchestrator/stop`, {
-    method: 'POST',
+  const response = await api.api.v1.orchestrator.stop.post()
+  return extractData(response)
+}
+
+// ============================================================================
+// Bug Bounty - Eden Treaty
+// ============================================================================
+
+export async function fetchBugBountyStats(): Promise<BountyStats> {
+  const response = await api.api.v1['bug-bounty'].stats.get()
+  return extractData(response) as BountyStats
+}
+
+export async function fetchBugBountySubmissions(
+  limit?: number,
+  status?: number,
+  researcher?: string,
+) {
+  const response = await api.api.v1['bug-bounty'].submissions.get({
+    query: {
+      limit: limit ? String(limit) : undefined,
+      status: status !== undefined ? String(status) : undefined,
+      researcher,
+    },
   })
-  return response.json()
+  return extractData(response) as {
+    submissions: BountySubmission[]
+    total: number
+  }
+}
+
+export async function fetchBugBountySubmission(id: string) {
+  const response = await api.api.v1['bug-bounty'].submissions({ id }).get()
+  return extractData(response)
+}
+
+export async function assessBugBounty(
+  draft: BountySubmissionDraft,
+): Promise<BountyAssessment> {
+  const response = await api.api.v1['bug-bounty'].assess.post(draft)
+  return extractData(response) as BountyAssessment
+}
+
+export async function submitBugBounty(
+  draft: BountySubmissionDraft,
+  researcher: string,
+  researcherAgentId?: string,
+) {
+  const response = await api.api.v1['bug-bounty'].submit.post({
+    ...draft,
+    researcher,
+    researcherAgentId,
+  })
+  return extractData(response)
+}
+
+export async function fetchResearcherStats(address: string) {
+  const response = await api.api.v1['bug-bounty'].researcher({ address }).get()
+  return extractData(response)
+}
+
+// ============================================================================
+// DAO - Eden Treaty
+// ============================================================================
+
+export async function fetchDAOs() {
+  const response = await api.api.v1.dao.list.get()
+  return extractData(response)
+}
+
+export async function fetchActiveDAOs() {
+  const response = await api.api.v1.dao.active.get()
+  return extractData(response)
+}
+
+export async function fetchDAO(daoId: string) {
+  const response = await api.api.v1.dao({ daoId }).get()
+  return extractData(response)
+}
+
+export async function fetchDAOPersona(daoId: string) {
+  const response = await api.api.v1.dao({ daoId }).persona.get()
+  return extractData(response)
+}
+
+export async function fetchDAOCouncil(daoId: string) {
+  const response = await api.api.v1.dao({ daoId }).council.get()
+  return extractData(response)
+}
+
+// ============================================================================
+// Moderation - Eden Treaty
+// ============================================================================
+
+export async function submitModerationFlag(params: {
+  proposalId: string
+  flagger: string
+  flagType: string
+  reason: string
+  stake?: number
+  evidence?: string[]
+}) {
+  const response = await api.api.v1.moderation.flag.post(params)
+  return extractData(response)
+}
+
+export async function voteOnFlag(
+  flagId: string,
+  voter: string,
+  upvote: boolean,
+) {
+  const response = await api.api.v1.moderation.vote.post({
+    flagId,
+    voter,
+    upvote,
+  })
+  return extractData(response)
+}
+
+export async function fetchProposalModerationScore(proposalId: string) {
+  const response = await api.api.v1.moderation.score({ proposalId }).get()
+  return extractData(response)
+}
+
+export async function fetchProposalFlags(proposalId: string) {
+  const response = await api.api.v1.moderation.flags({ proposalId }).get()
+  return extractData(response)
+}
+
+export async function fetchActiveFlags() {
+  const response = await api.api.v1.moderation['active-flags'].get()
+  return extractData(response)
+}
+
+export async function fetchModeratorLeaderboard(limit = 10) {
+  const response = await api.api.v1.moderation.leaderboard.get({
+    query: { limit: String(limit) },
+  })
+  return extractData(response)
+}
+
+export async function fetchModeratorStats(address: string) {
+  const response = await api.api.v1.moderation.moderator({ address }).get()
+  return extractData(response)
+}
+
+// ============================================================================
+// RLAIF - Eden Treaty
+// ============================================================================
+
+export async function createRLAIFRun(params: {
+  environment: { id: string; type: string; configCID: string }
+  archetype?: string
+  baseModel: string
+  trajectoryBatchCID?: string
+  trainingConfig: { steps: number; batchSize: number; learningRate: number }
+}) {
+  const response = await api.rlaif.runs.post(params)
+  return extractData(response)
+}
+
+export async function fetchRLAIFRuns(environment?: string) {
+  const response = await api.rlaif.runs.get({
+    query: { environment },
+  })
+  return extractData(response)
+}
+
+export async function fetchRLAIFRun(id: string) {
+  const response = await api.rlaif.runs({ id }).get()
+  return extractData(response)
+}
+
+export async function startRLAIFRun(id: string, maxIterations?: number) {
+  const response = await api.rlaif
+    .runs({ id })
+    .start.post(maxIterations ? { maxIterations } : {})
+  return extractData(response)
+}
+
+export async function cancelRLAIFRun(id: string) {
+  const response = await api.rlaif.runs({ id }).cancel.post()
+  return extractData(response)
+}
+
+export async function fetchRLAIFHealth() {
+  const response = await api.rlaif.health.get()
+  return extractData(response)
+}
+
+export async function fetchTrajectoryStats(environment = 'babylon') {
+  const response = await api.rlaif.trajectories.stats.get({
+    query: { environment },
+  })
+  return extractData(response)
 }

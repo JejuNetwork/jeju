@@ -144,9 +144,7 @@ test.describe('Pull Requests', () => {
   test('displays pull requests list', async ({ page }) => {
     await page.goto('/git/jeju/factory')
     await page.getByRole('button', { name: /pull requests/i }).click()
-    await expect(
-      page.locator('.card, [class*="empty"]').first(),
-    ).toBeVisible()
+    await expect(page.locator('.card, [class*="empty"]').first()).toBeVisible()
   })
 
   test('displays new PR form', async ({ page }) => {

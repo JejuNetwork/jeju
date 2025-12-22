@@ -290,8 +290,8 @@ export class FraudProofGenerator {
     const preimageDir = this.cannonInterface.preparePreimageDir(preimages)
 
     // Run execution trace
-    const l1Rpc = process.env.L1_RPC_URL || 'http://127.0.0.1:8545'
-    const l2Rpc = process.env.L2_RPC_URL || 'http://localhost:8545'
+    const l1Rpc = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
+    const l2Rpc = process.env.L2_RPC_URL || 'http://localhost:6545'
 
     const result = await this.cannonInterface.runFullTrace(
       preimageDir,
@@ -872,7 +872,7 @@ async function main(): Promise<void> {
   console.log('🔐 Fraud Proof Generator')
   console.log('='.repeat(50))
 
-  const l1Rpc = process.env.L1_RPC_URL || 'http://127.0.0.1:8545'
+  const l1Rpc = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
   const l2Rpc = process.env.L2_RPC_URL
 
   // SECURITY: Get private key from environment

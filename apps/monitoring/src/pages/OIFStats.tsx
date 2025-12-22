@@ -53,6 +53,7 @@ export function OIFStats() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl md:text-3xl font-bold text-gradient">OIF</h1>
         <button
+          type="button"
           onClick={() => refetch()}
           disabled={loading}
           className="btn-secondary flex items-center gap-2"
@@ -71,6 +72,7 @@ export function OIFStats() {
           const Icon = tab.icon
           return (
             <button
+              type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all ${
@@ -215,18 +217,30 @@ export function OIFStats() {
         <div className="space-y-4">
           {loading ? (
             <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="card-static p-4">
-                  <div className="shimmer h-16 w-full rounded" />
-                </div>
-              ))}
+              <div key="skeleton-0" className="card-static p-4">
+                <div className="shimmer h-16 w-full rounded" />
+              </div>
+              <div key="skeleton-1" className="card-static p-4">
+                <div className="shimmer h-16 w-full rounded" />
+              </div>
+              <div key="skeleton-2" className="card-static p-4">
+                <div className="shimmer h-16 w-full rounded" />
+              </div>
+              <div key="skeleton-3" className="card-static p-4">
+                <div className="shimmer h-16 w-full rounded" />
+              </div>
+              <div key="skeleton-4" className="card-static p-4">
+                <div className="shimmer h-16 w-full rounded" />
+              </div>
             </div>
           ) : solvers.length === 0 ? (
             <div className="card-static p-8 text-center">
               <p style={{ color: 'var(--text-tertiary)' }}>No solvers</p>
             </div>
           ) : (
-            solvers.map((solver, i) => <SolverCard key={i} solver={solver} />)
+            solvers.map((solver) => (
+              <SolverCard key={solver.address} solver={solver} />
+            ))
           )}
         </div>
       )}
@@ -236,18 +250,30 @@ export function OIFStats() {
         <div className="space-y-4">
           {loading ? (
             <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="card-static p-4">
-                  <div className="shimmer h-16 w-full rounded" />
-                </div>
-              ))}
+              <div key="skeleton-0" className="card-static p-4">
+                <div className="shimmer h-16 w-full rounded" />
+              </div>
+              <div key="skeleton-1" className="card-static p-4">
+                <div className="shimmer h-16 w-full rounded" />
+              </div>
+              <div key="skeleton-2" className="card-static p-4">
+                <div className="shimmer h-16 w-full rounded" />
+              </div>
+              <div key="skeleton-3" className="card-static p-4">
+                <div className="shimmer h-16 w-full rounded" />
+              </div>
+              <div key="skeleton-4" className="card-static p-4">
+                <div className="shimmer h-16 w-full rounded" />
+              </div>
             </div>
           ) : routes.length === 0 ? (
             <div className="card-static p-8 text-center">
               <p style={{ color: 'var(--text-tertiary)' }}>No routes</p>
             </div>
           ) : (
-            routes.map((route, i) => <RouteCard key={i} route={route} />)
+            routes.map((route) => (
+              <RouteCard key={route.routeId} route={route} />
+            ))
           )}
         </div>
       )}

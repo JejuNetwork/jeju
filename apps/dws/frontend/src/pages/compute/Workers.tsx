@@ -94,10 +94,15 @@ export default function WorkersPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
             disabled={!isConnected}
@@ -182,6 +187,7 @@ export default function WorkersPage() {
             <h3>No workers deployed</h3>
             <p>Deploy your first serverless function</p>
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setShowModal(true)}
               disabled={!isConnected}
@@ -228,13 +234,18 @@ export default function WorkersPage() {
                     <td>{worker.memory}MB</td>
                     <td style={{ display: 'flex', gap: '0.25rem' }}>
                       <button
+                        type="button"
                         className="btn btn-ghost btn-sm"
                         title="Invoke"
                         onClick={() => setShowInvokeModal(worker.id)}
                       >
                         <Play size={14} />
                       </button>
-                      <button className="btn btn-ghost btn-sm" title="Delete">
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-sm"
+                        title="Delete"
+                      >
                         <Trash2 size={14} />
                       </button>
                     </td>
@@ -247,15 +258,30 @@ export default function WorkersPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowModal(false)}
+            aria-label="Close modal"
+          />
           <div
             className="modal"
             style={{ maxWidth: '700px' }}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
           >
             <div className="modal-header">
               <h3 className="modal-title">Deploy Worker</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowModal(false)}
               >
@@ -265,8 +291,11 @@ export default function WorkersPage() {
             <form onSubmit={handleDeploy}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Function Name *</label>
+                  <label htmlFor="worker-name" className="form-label">
+                    Function Name *
+                  </label>
                   <input
+                    id="worker-name"
                     className="input"
                     placeholder="my-worker"
                     value={formData.name}
@@ -278,8 +307,11 @@ export default function WorkersPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Code *</label>
+                  <label htmlFor="worker-code" className="form-label">
+                    Code *
+                  </label>
                   <textarea
+                    id="worker-code"
                     className="input"
                     style={{
                       fontFamily: 'var(--font-mono)',
@@ -300,8 +332,11 @@ export default function WorkersPage() {
                   }}
                 >
                   <div className="form-group">
-                    <label className="form-label">Runtime</label>
+                    <label htmlFor="worker-runtime" className="form-label">
+                      Runtime
+                    </label>
                     <select
+                      id="worker-runtime"
                       className="input"
                       value={formData.runtime}
                       onChange={(e) =>
@@ -314,8 +349,11 @@ export default function WorkersPage() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Handler</label>
+                    <label htmlFor="worker-handler" className="form-label">
+                      Handler
+                    </label>
                     <input
+                      id="worker-handler"
                       className="input"
                       value={formData.handler}
                       onChange={(e) =>
@@ -324,8 +362,11 @@ export default function WorkersPage() {
                     />
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Memory</label>
+                    <label htmlFor="worker-memory" className="form-label">
+                      Memory
+                    </label>
                     <select
+                      id="worker-memory"
                       className="input"
                       value={formData.memory}
                       onChange={(e) =>
@@ -339,8 +380,11 @@ export default function WorkersPage() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Timeout</label>
+                    <label htmlFor="worker-timeout" className="form-label">
+                      Timeout
+                    </label>
                     <select
+                      id="worker-timeout"
                       className="input"
                       value={formData.timeout}
                       onChange={(e) =>
@@ -383,17 +427,33 @@ export default function WorkersPage() {
       )}
 
       {showInvokeModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => {
-            setShowInvokeModal(null)
-            setInvokeResult(null)
-          }}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => {
+              setShowInvokeModal(null)
+              setInvokeResult(null)
+            }}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowInvokeModal(null)
+                setInvokeResult(null)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">Invoke Worker</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => {
                   setShowInvokeModal(null)
@@ -405,8 +465,11 @@ export default function WorkersPage() {
             </div>
             <div className="modal-body">
               <div className="form-group">
-                <label className="form-label">Payload (JSON)</label>
+                <label htmlFor="worker-invoke-payload" className="form-label">
+                  Payload (JSON)
+                </label>
                 <textarea
+                  id="worker-invoke-payload"
                   className="input"
                   style={{ fontFamily: 'var(--font-mono)', minHeight: '100px' }}
                   value={invokePayload}
@@ -415,7 +478,7 @@ export default function WorkersPage() {
               </div>
               {invokeResult && (
                 <div className="form-group">
-                  <label className="form-label">Result</label>
+                  <span className="form-label">Result</span>
                   <pre
                     style={{
                       background: 'var(--bg-tertiary)',
@@ -432,6 +495,7 @@ export default function WorkersPage() {
             </div>
             <div className="modal-footer">
               <button
+                type="button"
                 className="btn btn-secondary"
                 onClick={() => {
                   setShowInvokeModal(null)
@@ -441,6 +505,7 @@ export default function WorkersPage() {
                 Close
               </button>
               <button
+                type="button"
                 className="btn btn-primary"
                 onClick={() => handleInvoke(showInvokeModal)}
                 disabled={invokeWorker.isPending}

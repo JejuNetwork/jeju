@@ -81,7 +81,7 @@ describe('Real RPC Integration', () => {
 
       const code = await clients.sepolia.getCode({ address: settler })
       expect(code).toBeDefined()
-      expect(code!.length).toBeGreaterThan(2) // More than just "0x"
+      expect(code?.length).toBeGreaterThan(2) // More than just "0x"
     })
 
     test('should verify OutputSettler has code on Base Sepolia', async () => {
@@ -95,7 +95,7 @@ describe('Real RPC Integration', () => {
 
       const code = await clients.baseSepolia.getCode({ address: settler })
       expect(code).toBeDefined()
-      expect(code!.length).toBeGreaterThan(2)
+      expect(code?.length).toBeGreaterThan(2)
     })
 
     test('should verify Oracle has code on deployed chains', async () => {
@@ -114,7 +114,7 @@ describe('Real RPC Integration', () => {
 
         const code = await clients[clientName].getCode({ address: oracle })
         expect(code).toBeDefined()
-        expect(code!.length).toBeGreaterThan(2)
+        expect(code?.length).toBeGreaterThan(2)
       }
     })
   })

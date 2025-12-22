@@ -10,10 +10,8 @@ Key features:
 - Uses LLM-as-judge for RLAIF scoring (relative comparison within groups)
 - Supports multi-turn agent interactions
 - Integrates with Atropos's async rollout system
-- Optional Tinker integration for cloud-based training
 
 Based on: https://github.com/NousResearch/atropos/blob/main/environments/rlaif_server.py
-Tinker integration: https://tinker-docs.thinkingmachines.ai/
 """
 
 import asyncpg
@@ -25,7 +23,6 @@ import random
 from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 import openai
-import wandb
 from dotenv import load_dotenv
 from pydantic import Field
 
@@ -41,10 +38,6 @@ from atroposlib.envs.base import (
 from .rewards import TrajectoryRewardInputs, composite_reward
 from .quality_utils import calculate_detailed_tick_quality
 from ..models import Action
-
-# Optional Tinker support
-if TYPE_CHECKING:
-    from .tinker_client import BabylonTinkerClient
 
 logger = logging.getLogger(__name__)
 

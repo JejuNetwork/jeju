@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test'
 import { parseEther } from 'viem'
-import type { Position } from '@/types/markets'
+import type { Position } from '../../types/markets'
 import {
   calculatePortfolioStats,
   calculatePositionCurrentValue,

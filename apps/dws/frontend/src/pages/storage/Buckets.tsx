@@ -89,6 +89,7 @@ export default function BucketsPage() {
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
           <button
+            type="button"
             className="btn btn-secondary"
             onClick={() => fileInputRef.current?.click()}
             disabled={!isConnected}
@@ -102,6 +103,7 @@ export default function BucketsPage() {
             onChange={handleFileUpload}
           />
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => setShowCreateModal(true)}
             disabled={!isConnected}
@@ -176,6 +178,7 @@ export default function BucketsPage() {
               <h3>No buckets yet</h3>
               <p>Create your first storage bucket</p>
               <button
+                type="button"
                 className="btn btn-primary"
                 onClick={() => setShowCreateModal(true)}
                 disabled={!isConnected}
@@ -186,7 +189,8 @@ export default function BucketsPage() {
           ) : (
             <div style={{ display: 'grid', gap: '0.5rem' }}>
               {buckets.map((bucket) => (
-                <div
+                <button
+                  type="button"
                   key={bucket.name}
                   onClick={() => setSelectedBucket(bucket.name)}
                   style={{
@@ -227,7 +231,7 @@ export default function BucketsPage() {
                   ) : (
                     <EyeOff size={16} style={{ color: 'var(--text-muted)' }} />
                   )}
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -271,12 +275,14 @@ export default function BucketsPage() {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
+                  type="button"
                   className="btn btn-secondary btn-sm"
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Upload size={14} /> Upload
                 </button>
                 <button
+                  type="button"
                   className="btn btn-ghost btn-sm"
                   onClick={() => setSelectedBucket(null)}
                 >
@@ -290,6 +296,7 @@ export default function BucketsPage() {
                 <File size={32} />
                 <p>No objects in this bucket</p>
                 <button
+                  type="button"
                   className="btn btn-primary btn-sm"
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -334,12 +341,14 @@ export default function BucketsPage() {
                           </td>
                           <td style={{ display: 'flex', gap: '0.25rem' }}>
                             <button
+                              type="button"
                               className="btn btn-ghost btn-sm"
                               title="Download"
                             >
                               <Download size={14} />
                             </button>
                             <button
+                              type="button"
                               className="btn btn-ghost btn-sm"
                               title="Delete"
                             >
@@ -357,14 +366,29 @@ export default function BucketsPage() {
       </div>
 
       {showCreateModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => setShowCreateModal(false)}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowCreateModal(false)}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowCreateModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">Create Bucket</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowCreateModal(false)}
               >
@@ -374,8 +398,11 @@ export default function BucketsPage() {
             <form onSubmit={handleCreateBucket}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Bucket Name *</label>
+                  <label htmlFor="bucket-name" className="form-label">
+                    Bucket Name *
+                  </label>
                   <input
+                    id="bucket-name"
                     className="input"
                     placeholder="my-bucket"
                     value={formData.name}
@@ -390,8 +417,11 @@ export default function BucketsPage() {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Visibility</label>
+                  <label htmlFor="bucket-visibility" className="form-label">
+                    Visibility
+                  </label>
                   <select
+                    id="bucket-visibility"
                     className="input"
                     value={formData.visibility}
                     onChange={(e) =>
@@ -403,8 +433,11 @@ export default function BucketsPage() {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Region</label>
+                  <label htmlFor="bucket-region" className="form-label">
+                    Region
+                  </label>
                   <select
+                    id="bucket-region"
                     className="input"
                     value={formData.region}
                     onChange={(e) =>

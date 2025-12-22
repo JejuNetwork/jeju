@@ -18,29 +18,33 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum PositionSide {
-  Long = 0,
-  Short = 1,
-}
+export const PositionSide = {
+  Long: 0,
+  Short: 1,
+} as const
+export type PositionSide = (typeof PositionSide)[keyof typeof PositionSide]
 
-export enum MarginType {
-  Isolated = 0,
-  Cross = 1,
-}
+export const MarginType = {
+  Isolated: 0,
+  Cross: 1,
+} as const
+export type MarginType = (typeof MarginType)[keyof typeof MarginType]
 
-export enum OrderType {
-  Market = 0,
-  Limit = 1,
-  StopLoss = 2,
-  TakeProfit = 3,
-}
+export const OrderType = {
+  Market: 0,
+  Limit: 1,
+  StopLoss: 2,
+  TakeProfit: 3,
+} as const
+export type OrderType = (typeof OrderType)[keyof typeof OrderType]
 
-export enum OrderStatus {
-  Pending = 0,
-  Filled = 1,
-  Cancelled = 2,
-  Expired = 3,
-}
+export const OrderStatus = {
+  Pending: 0,
+  Filled: 1,
+  Cancelled: 2,
+  Expired: 3,
+} as const
+export type OrderStatus = (typeof OrderStatus)[keyof typeof OrderStatus]
 
 export interface MarketConfig {
   marketId: Hex

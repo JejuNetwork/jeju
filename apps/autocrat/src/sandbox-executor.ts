@@ -9,6 +9,7 @@
 
 import { getDWSComputeUrl } from '@jejunetwork/config'
 import { keccak256, stringToHex } from 'viem'
+import { expectValid, SandboxExecutionResponseSchema } from './schemas'
 import { ValidationResult, VulnerabilityType } from './types'
 
 // ============ Configuration (Network-Aware) ============
@@ -321,39 +322,15 @@ export async function executeInSandbox(
 
   job.status = 'running'
 
-  const result = (await response.json()) as {
-    executionId: string
-    status: string
-    output: {
-      exploitTriggered?: boolean
-      exploitDetails?: string
-      result?: string
-    }
-    logs?: string
-    exitCode?: number
-    metrics?: {
-      executionTimeMs: number
-      memoryUsedMb: number
-      cpuUsagePercent: number
-    }
-  }
+  const result = expectValid(
+    SandboxExecutionResponseSchema,
+    await response.json(),
+    'DWS sandbox execution',
+  )
 
   job.completedAt = Date.now()
 
-  // Validate result structure before processing
-  if (!result.status) {
-    job.status = 'failed'
-    job.result = {
-      success: false,
-      exitCode: -1,
-      exploitTriggered: false,
-      exploitDetails: '',
-      stdout: '',
-      stderr: 'DWS response missing status field',
-      metrics: { executionTimeMs: 0, peakMemoryMb: 0, cpuTimeMs: 0 },
-      artifacts: [],
-    }
-  } else if (result.status === 'success' || result.status === 'completed') {
+  if (result.status === 'success' || result.status === 'completed') {
     // Extract metrics safely - these are expected for successful executions
     const executionTimeMs = result.metrics?.executionTimeMs
     const memoryUsedMb = result.metrics?.memoryUsedMb

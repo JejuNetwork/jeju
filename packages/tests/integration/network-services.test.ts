@@ -9,6 +9,7 @@
  */
 
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
+import * as crypto from 'node:crypto'
 import { EdgeCoordinator } from '../../../apps/node/src/lib/services/edge-coordinator'
 
 // HybridTorrentService requires native modules (node-datachannel) that may not be available
@@ -83,7 +84,7 @@ describe('EdgeCoordinator', () => {
 
       const location = coordinator1.getContentLocations(contentHash)
       expect(location).not.toBeNull()
-      expect(location!.nodeIds).toContain('test-node-1')
+      expect(location?.nodeIds).toContain('test-node-1')
     })
 
     it('should query content across network', async () => {
@@ -117,7 +118,6 @@ describe('EdgeCoordinator', () => {
 describe('Content Verification', () => {
   it('should verify SHA256 hash', async () => {
     const data = Buffer.from('Test data for hashing')
-    const crypto = await import('node:crypto')
     const hash = crypto.createHash('sha256').update(data).digest('hex')
 
     expect(await verifyContentHash(data, `0x${hash}`)).toBe(true)
@@ -133,7 +133,6 @@ describe('Content Verification', () => {
 
   it('should handle infohash format', async () => {
     const data = Buffer.from('BitTorrent content')
-    const crypto = await import('node:crypto')
     const hash = crypto.createHash('sha1').update(data).digest('hex')
 
     expect(await verifyContentHash(data, hash)).toBe(true)
@@ -145,8 +144,6 @@ async function verifyContentHash(
   data: Buffer,
   expectedHash: string,
 ): Promise<boolean> {
-  const crypto = await import('node:crypto')
-
   if (expectedHash.startsWith('0x')) {
     const hash = crypto.createHash('sha256').update(data).digest('hex')
     return `0x${hash}` === expectedHash

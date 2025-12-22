@@ -6,9 +6,9 @@ import {
   useReadContracts,
   useWriteContract,
 } from 'wagmi'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { getXLPContracts } from '@/config/contracts'
-import { expect, expectTrue } from '@/lib/validation'
+import { JEJU_CHAIN_ID } from '../../config/chains'
+import { getXLPContracts } from '../../config/contracts'
+import { expect, expectTrue } from '../validation'
 
 // XLP V2 Factory ABI (minimal)
 const V2_FACTORY_ABI: Abi = [

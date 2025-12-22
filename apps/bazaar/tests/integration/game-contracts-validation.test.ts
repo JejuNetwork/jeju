@@ -25,7 +25,7 @@ import {
   useMintItem,
 } from '@/hooks/nft/useGameItems'
 
-const LOCALNET_RPC = process.env.LOCALNET_RPC || 'http://localhost:9545'
+const LOCALNET_RPC = process.env.LOCALNET_RPC || 'http://localhost:6546'
 const CHAIN_ID = 1337
 
 // Skip if no localnet
@@ -81,7 +81,7 @@ describe('Game Contracts On-Chain Validation', () => {
 
       const bytecode = await client.getBytecode({ address: itemsAddress })
       expect(bytecode).toBeDefined()
-      expect(bytecode!.length).toBeGreaterThan(2) // '0x' + bytecode
+      expect(bytecode?.length).toBeGreaterThan(2) // '0x' + bytecode
     })
 
     test('should return valid gameSigner', async () => {
@@ -165,7 +165,7 @@ describe('Game Contracts On-Chain Validation', () => {
 
       const bytecode = await client.getBytecode({ address: goldAddress })
       expect(bytecode).toBeDefined()
-      expect(bytecode!.length).toBeGreaterThan(2)
+      expect(bytecode?.length).toBeGreaterThan(2)
     })
 
     test('should return valid token name', async () => {
@@ -232,7 +232,7 @@ describe('Game Contracts On-Chain Validation', () => {
         address: gameIntegrationAddress,
       })
       expect(bytecode).toBeDefined()
-      expect(bytecode!.length).toBeGreaterThan(2)
+      expect(bytecode?.length).toBeGreaterThan(2)
     })
 
     test('should return connected contracts', async () => {

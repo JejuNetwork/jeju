@@ -1,4 +1,4 @@
-import { type Context, Hono } from 'hono'
+import { Elysia } from 'elysia'
 import type { Hex, PublicClient, WalletClient } from 'viem'
 import { config } from '../config'
 import {
@@ -21,8 +21,6 @@ import {
 } from '../services/settler'
 import { verifyPayment } from '../services/verifier'
 
-const app = new Hono()
-
 type SettleBody = {
   paymentHeader: string
   paymentRequirements: PaymentRequirements
@@ -41,26 +39,28 @@ type GaslessSettleFn = (
   authParams: AuthParams,
 ) => Promise<SettlementResult>
 
+type ProcessSettlementResult = {
+  status: number
+  response: Record<string, unknown>
+}
+
 async function processSettlement(
-  c: Context,
   body: SettleBody,
   network: string,
   settlementFn: StandardSettleFn,
-): Promise<Response>
+): Promise<ProcessSettlementResult>
 async function processSettlement(
-  c: Context,
   body: SettleBody,
   network: string,
   settlementFn: GaslessSettleFn,
   authParams: AuthParams,
-): Promise<Response>
+): Promise<ProcessSettlementResult>
 async function processSettlement(
-  c: Context,
   body: SettleBody,
   network: string,
   settlementFn: StandardSettleFn | GaslessSettleFn,
   authParams?: AuthParams,
-) {
+): Promise<ProcessSettlementResult> {
   const requirements: PaymentRequirements = {
     ...body.paymentRequirements,
     network,
@@ -74,39 +74,39 @@ async function processSettlement(
   )
 
   if (!verifyResult.valid) {
-    return c.json(
-      buildSettleErrorResponse(
+    return {
+      status: 200,
+      response: buildSettleErrorResponse(
         network,
         verifyResult.error ?? 'Payment verification failed',
       ),
-      200,
-    )
+    }
   }
 
   if (!verifyResult.decodedPayment) {
-    return c.json(
-      buildSettleErrorResponse(
+    return {
+      status: 500,
+      response: buildSettleErrorResponse(
         network,
         'Verification succeeded but payment data missing',
       ),
-      500,
-    )
+    }
   }
 
   const payment = verifyResult.decodedPayment
   const amountInfo = formatAmount(payment.amount, network, payment.token)
 
   if (!walletClient) {
-    return c.json(
-      buildSettleErrorResponse(
+    return {
+      status: 503,
+      response: buildSettleErrorResponse(
         network,
         'Settlement wallet not configured',
         payment.payer,
         payment.recipient,
         amountInfo,
       ),
-      503,
-    )
+    }
   }
 
   const stats = await getFacilitatorStats(publicClient)
@@ -127,8 +127,9 @@ async function processSettlement(
       )
 
   if (!settlementResult.success) {
-    return c.json(
-      buildSettleErrorResponse(
+    return {
+      status: 200,
+      response: buildSettleErrorResponse(
         network,
         settlementResult.error ?? 'Settlement failed',
         payment.payer,
@@ -136,108 +137,100 @@ async function processSettlement(
         amountInfo,
         settlementResult.txHash ?? null,
       ),
-      200,
-    )
+    }
   }
 
-  return c.json(
-    buildSettleSuccessResponse(network, payment, settlementResult, feeBps),
-    200,
-  )
+  return {
+    status: 200,
+    response: buildSettleSuccessResponse(network, payment, settlementResult, feeBps),
+  }
 }
 
-app.post('/', async (c) => {
-  const cfg = config()
-  const parseResult = await parseJsonBody(c)
-  if (parseResult.error) {
-    return c.json(
-      buildSettleErrorResponse(cfg.network, 'Invalid JSON request body'),
-      400,
+const settleRoutes = new Elysia({ prefix: '/settle' })
+  .post('/', async ({ request, set }) => {
+    const cfg = config()
+    const parseResult = await parseJsonBody(request)
+    if (parseResult.error) {
+      set.status = 400
+      return buildSettleErrorResponse(cfg.network, 'Invalid JSON request body')
+    }
+
+    const handleResult = handleSettleRequest(parseResult.body, cfg.network)
+    if (!handleResult.valid) {
+      set.status = handleResult.status
+      return handleResult.response
+    }
+
+    const bodyWithNetwork: {
+      paymentHeader: string
+      paymentRequirements: PaymentRequirements
+    } = {
+      paymentHeader: handleResult.body.paymentHeader,
+      paymentRequirements: {
+        ...handleResult.body.paymentRequirements,
+        network: handleResult.network,
+      } as PaymentRequirements,
+    }
+
+    const result = await processSettlement(
+      bodyWithNetwork,
+      handleResult.network,
+      settlePayment,
     )
-  }
+    set.status = result.status
+    return result.response
+  })
+  .post('/gasless', async ({ request, set }) => {
+    const cfg = config()
+    const parseResult = await parseJsonBody(request)
+    if (parseResult.error) {
+      set.status = 400
+      return buildSettleErrorResponse(cfg.network, 'Invalid JSON request body')
+    }
 
-  const handleResult = handleSettleRequest(c, parseResult.body, cfg.network)
-  if (!handleResult.valid) {
-    return handleResult.response
-  }
+    const handleResult = handleSettleRequest(parseResult.body, cfg.network, true)
+    if (!handleResult.valid) {
+      set.status = handleResult.status
+      return handleResult.response
+    }
 
-  const bodyWithNetwork: {
-    paymentHeader: string
-    paymentRequirements: PaymentRequirements
-  } = {
-    paymentHeader: handleResult.body.paymentHeader,
-    paymentRequirements: {
-      ...handleResult.body.paymentRequirements,
-      network: handleResult.network,
-    } as PaymentRequirements,
-  }
+    const authParams = handleResult.body.authParams
+    if (!authParams || typeof authParams !== 'object') {
+      set.status = 400
+      return buildSettleErrorResponse(cfg.network, 'Missing authParams for EIP-3009')
+    }
 
-  return processSettlement(
-    c,
-    bodyWithNetwork,
-    handleResult.network,
-    settlePayment,
-  )
-})
+    const auth: {
+      validAfter: number
+      validBefore: number
+      authNonce: Hex
+      authSignature: Hex
+    } = {
+      validAfter: authParams.validAfter as number,
+      validBefore: authParams.validBefore as number,
+      authNonce: authParams.authNonce as Hex,
+      authSignature: authParams.authSignature as Hex,
+    }
 
-app.post('/gasless', async (c) => {
-  const cfg = config()
-  const parseResult = await parseJsonBody(c)
-  if (parseResult.error) {
-    return c.json(
-      buildSettleErrorResponse(cfg.network, 'Invalid JSON request body'),
-      400,
+    const bodyWithNetwork: {
+      paymentHeader: string
+      paymentRequirements: PaymentRequirements
+    } = {
+      paymentHeader: handleResult.body.paymentHeader,
+      paymentRequirements: {
+        ...handleResult.body.paymentRequirements,
+        network: handleResult.network,
+      } as PaymentRequirements,
+    }
+
+    const result = await processSettlement(
+      bodyWithNetwork,
+      handleResult.network,
+      settleGaslessPayment,
+      auth,
     )
-  }
+    set.status = result.status
+    return result.response
+  })
 
-  const handleResult = handleSettleRequest(
-    c,
-    parseResult.body,
-    cfg.network,
-    true,
-  )
-  if (!handleResult.valid) {
-    return handleResult.response
-  }
-
-  const authParams = handleResult.body.authParams
-  if (!authParams || typeof authParams !== 'object') {
-    return c.json(
-      buildSettleErrorResponse(cfg.network, 'Missing authParams for EIP-3009'),
-      400,
-    )
-  }
-
-  const auth: {
-    validAfter: number
-    validBefore: number
-    authNonce: Hex
-    authSignature: Hex
-  } = {
-    validAfter: authParams.validAfter as number,
-    validBefore: authParams.validBefore as number,
-    authNonce: authParams.authNonce as Hex,
-    authSignature: authParams.authSignature as Hex,
-  }
-
-  const bodyWithNetwork: {
-    paymentHeader: string
-    paymentRequirements: PaymentRequirements
-  } = {
-    paymentHeader: handleResult.body.paymentHeader,
-    paymentRequirements: {
-      ...handleResult.body.paymentRequirements,
-      network: handleResult.network,
-    } as PaymentRequirements,
-  }
-
-  return processSettlement(
-    c,
-    bodyWithNetwork,
-    handleResult.network,
-    settleGaslessPayment,
-    auth,
-  )
-})
-
-export default app
+export default settleRoutes

@@ -53,7 +53,7 @@ services:
       - --maxpeers=0
     healthcheck:
       <<: *healthcheck-defaults
-      test: ["CMD-SHELL", "wget -qO- http://localhost:9545 || exit 1"]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:6546 || exit 1"]
     networks:
       - jeju-test
 

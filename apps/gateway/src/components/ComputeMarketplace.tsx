@@ -269,6 +269,7 @@ function ProviderCard({ provider, onRent }: ProviderCardProps) {
           )}
         </div>
         <button
+          type="button"
           className="button"
           onClick={() => onRent(provider.address)}
           disabled={available === 0}
@@ -353,6 +354,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
             access details.
           </p>
           <button
+            type="button"
             className="button"
             onClick={onClose}
             style={{ marginTop: '1rem' }}
@@ -369,20 +371,33 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0,0,0,0.5)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
       }}
-      onClick={(e) => e.target === e.currentTarget && onClose()}
     >
+      <button
+        type="button"
+        onClick={onClose}
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0,0,0,0.5)',
+          border: 'none',
+          cursor: 'default',
+        }}
+        aria-label="Close modal"
+      />
       <div
+        role="dialog"
+        aria-modal="true"
         style={{
           background: 'var(--surface)',
           padding: '2rem',
           borderRadius: '12px',
           maxWidth: '500px',
+          position: 'relative',
           width: '90%',
           maxHeight: '90vh',
           overflow: 'auto',
@@ -394,6 +409,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
           {/* Duration */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label
+              htmlFor="duration-hours"
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -403,6 +419,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
               Duration (hours)
             </label>
             <input
+              id="duration-hours"
               type="number"
               className="input"
               min={minHours}
@@ -425,6 +442,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
           {/* SSH Key */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label
+              htmlFor="ssh-key"
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -434,6 +452,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
               SSH Public Key *
             </label>
             <textarea
+              id="ssh-key"
               className="input"
               rows={3}
               placeholder="ssh-ed25519 AAAA... your-key"
@@ -457,6 +476,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
           {resources?.dockerEnabled && (
             <div style={{ marginBottom: '1.5rem' }}>
               <label
+                htmlFor="docker-image"
                 style={{
                   display: 'block',
                   marginBottom: '0.5rem',
@@ -466,6 +486,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
                 Docker Image (optional)
               </label>
               <input
+                id="docker-image"
                 type="text"
                 className="input"
                 placeholder="nvidia/cuda:12.0-runtime-ubuntu22.04"
@@ -478,6 +499,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
           {/* Startup Script (optional) */}
           <div style={{ marginBottom: '1.5rem' }}>
             <label
+              htmlFor="startup-script"
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -487,6 +509,7 @@ function RentalForm({ provider, onClose }: RentalFormProps) {
               Startup Script (optional)
             </label>
             <textarea
+              id="startup-script"
               className="input"
               rows={3}
               placeholder="#!/bin/bash\napt update\npip install torch"
@@ -731,6 +754,7 @@ function RentalCard({ rentalId, onCancel, isCancelling }: RentalCardProps) {
       {/* Actions */}
       {isPending && (
         <button
+          type="button"
           onClick={onCancel}
           disabled={isCancelling}
           style={{
@@ -792,6 +816,7 @@ export default function ComputeMarketplace() {
         }}
       >
         <button
+          type="button"
           onClick={() => setActiveTab('browse')}
           style={{
             padding: '0.5rem 1rem',
@@ -806,6 +831,7 @@ export default function ComputeMarketplace() {
           Browse Providers
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('my-rentals')}
           style={{
             padding: '0.5rem 1rem',

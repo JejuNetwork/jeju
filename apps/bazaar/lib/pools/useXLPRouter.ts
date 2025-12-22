@@ -2,9 +2,9 @@ import { AddressSchema } from '@jejunetwork/types'
 import type { Abi, Address } from 'viem'
 import { encodePacked } from 'viem'
 import { useAccount, useReadContracts, useWriteContract } from 'wagmi'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { getXLPContracts } from '@/config/contracts'
-import { expect, expectPositive, expectTrue } from '@/lib/validation'
+import { JEJU_CHAIN_ID } from '../../config/chains'
+import { getXLPContracts } from '../../config/contracts'
+import { expect, expectPositive, expectTrue } from '../validation'
 
 // XLP Router ABI (minimal)
 const ROUTER_ABI: Abi = [
@@ -146,7 +146,9 @@ export function useSwapV2() {
 
     expectPositive(params.amountIn, 'AmountIn must be positive')
     expectTrue(params.path.length >= 2, 'Path must have at least 2 tokens')
-    params.path.forEach((token) => AddressSchema.parse(token))
+    for (const token of params.path) {
+      AddressSchema.parse(token)
+    }
 
     const hash = await writeContractAsync({
       address: router,
@@ -173,7 +175,9 @@ export function useSwapV2() {
 
     expectPositive(params.value, 'Value must be positive')
     expectTrue(params.path.length >= 2, 'Path must have at least 2 tokens')
-    params.path.forEach((token) => AddressSchema.parse(token))
+    for (const token of params.path) {
+      AddressSchema.parse(token)
+    }
 
     const hash = await writeContractAsync({
       address: router,
@@ -198,7 +202,9 @@ export function useSwapV2() {
 
     expectPositive(params.amountIn, 'AmountIn must be positive')
     expectTrue(params.path.length >= 2, 'Path must have at least 2 tokens')
-    params.path.forEach((token) => AddressSchema.parse(token))
+    for (const token of params.path) {
+      AddressSchema.parse(token)
+    }
 
     const hash = await writeContractAsync({
       address: router,
@@ -365,13 +371,15 @@ export function encodeV3Path(tokens: Address[], fees: number[]): `0x${string}` {
   )
   expectTrue(tokens.length >= 2, 'Path must have at least 2 tokens')
 
-  tokens.forEach((token) => AddressSchema.parse(token))
-  fees.forEach((fee) =>
+  for (const token of tokens) {
+    AddressSchema.parse(token)
+  }
+  for (const fee of fees) {
     expectTrue(
       fee >= 0 && fee <= 1000000,
       `Fee must be between 0 and 1000000, got ${fee}`,
-    ),
-  )
+    )
+  }
 
   const types: ('address' | 'uint24')[] = []
   const values: (Address | number)[] = []

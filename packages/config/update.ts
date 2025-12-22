@@ -47,9 +47,7 @@ function safeReadFile(path: string): string {
 import {
   ChainConfigSchema,
   type ContractCategoryExtended,
-  type ContractsConfig,
   ContractsConfigSchema,
-  type EILConfig,
   EILConfigSchema,
   type ExternalChainContractsDynamic,
   type NetworkContractsDynamic,
@@ -110,20 +108,20 @@ export type TerraformOutputs = z.infer<typeof TerraformOutputsSchema>
 // Contract Updates
 // ============================================================================
 
+// Schema for contracts.json with optional lastUpdated field
+const ContractsFileSchema = ContractsConfigSchema.extend({
+  lastUpdated: z.string().optional(),
+})
+
 // Helper to load and parse contracts.json with type safety
-function loadContractsFile(): ContractsConfig & { lastUpdated?: string } {
+function loadContractsFile(): z.infer<typeof ContractsFileSchema> {
   const contractsPath = join(CONFIG_DIR, 'contracts.json')
-  const raw = JSON.parse(safeReadFile(contractsPath)) as ContractsConfig & {
-    lastUpdated?: string
-  }
-  // Validate structure matches expected schema
-  ContractsConfigSchema.parse(raw)
-  return raw
+  return ContractsFileSchema.parse(JSON.parse(safeReadFile(contractsPath)))
 }
 
 // Helper to save contracts.json with proper formatting
 function saveContractsFile(
-  contracts: ContractsConfig & { lastUpdated?: string },
+  contracts: z.infer<typeof ContractsFileSchema>,
 ): void {
   const contractsPath = join(CONFIG_DIR, 'contracts.json')
   contracts.lastUpdated = new Date().toISOString().split('T')[0]
@@ -260,9 +258,7 @@ const UrlSchema = z.string().url('Invalid URL format')
 // Helper to load and parse services.json with type safety
 function loadServicesFile(): ServicesConfig {
   const servicesPath = join(CONFIG_DIR, 'services.json')
-  const raw = JSON.parse(safeReadFile(servicesPath)) as ServicesConfig
-  ServicesConfigSchema.parse(raw)
-  return raw
+  return ServicesConfigSchema.parse(JSON.parse(safeReadFile(servicesPath)))
 }
 
 // Helper to save services.json with proper formatting
@@ -341,18 +337,19 @@ export function updateExternalRpc(
 // EIL Config Updates
 // ============================================================================
 
+// Schema for eil.json with optional lastUpdated field
+const EILFileSchema = EILConfigSchema.extend({
+  lastUpdated: z.string().optional(),
+})
+
 // Helper to load and parse eil.json with type safety
-function loadEILFile(): EILConfig & { lastUpdated?: string } {
+function loadEILFile(): z.infer<typeof EILFileSchema> {
   const eilPath = join(CONFIG_DIR, 'eil.json')
-  const raw = JSON.parse(safeReadFile(eilPath)) as EILConfig & {
-    lastUpdated?: string
-  }
-  EILConfigSchema.parse(raw)
-  return raw
+  return EILFileSchema.parse(JSON.parse(safeReadFile(eilPath)))
 }
 
 // Helper to save eil.json with proper formatting
-function saveEILFile(eil: EILConfig & { lastUpdated?: string }): void {
+function saveEILFile(eil: z.infer<typeof EILFileSchema>): void {
   const eilPath = join(CONFIG_DIR, 'eil.json')
   eil.lastUpdated = new Date().toISOString().split('T')[0]
   writeFileSync(eilPath, `${JSON.stringify(eil, null, 2)}\n`)

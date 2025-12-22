@@ -12,7 +12,7 @@ import { foundry } from 'viem/chains'
 
 const TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-const RPC_URL = process.env.RPC_URL || 'http://localhost:8545'
+const RPC_URL = process.env.RPC_URL || 'http://localhost:6545'
 
 // Mock addresses (would be deployed contracts in real tests)
 const _MOCK_ADDRESSES = {

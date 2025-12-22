@@ -64,9 +64,7 @@ function getVersion(): string {
   const __dirname = dirname(__filename)
   const pkgPath = join(__dirname, '..', 'package.json')
   if (existsSync(pkgPath)) {
-    const pkg = JSON.parse(readFileSync(pkgPath, 'utf-8')) as {
-      version: string
-    }
+    const pkg = expectJson(readFileSync(pkgPath, 'utf-8'), PackageJsonSchema, 'package.json')
     return pkg.version
   }
   return '0.1.0'
@@ -593,7 +591,9 @@ program.exitOverride()
 try {
   await program.parseAsync(process.argv)
 } catch (error) {
-  const err = error as { code?: string; message?: string }
+  // Commander throws objects with code/message properties
+  const parsed = CommanderErrorSchema.safeParse(error)
+  const err = parsed.success ? parsed.data : { message: String(error) }
 
   if (err.code === 'commander.help' || err.code === 'commander.helpDisplayed') {
     process.exit(0)
@@ -612,6 +612,6 @@ try {
     process.exit(1)
   }
 
-  console.error(chalk.red(`\nError: ${err.message}\n`))
+  console.error(chalk.red(`\nError: ${err.message ?? 'Unknown error'}\n`))
   process.exit(1)
 }

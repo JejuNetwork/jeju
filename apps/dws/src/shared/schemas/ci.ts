@@ -93,6 +93,27 @@ export const logsQuerySchema = z.object({
 })
 
 /**
+ * Log entry schema for parsing stored log entries
+ */
+export const logEntrySchema = z.object({
+  timestamp: z.number(),
+  runId: z.string(),
+  jobId: z.string(),
+  stepId: z.string().optional(),
+  level: z.enum([
+    'info',
+    'warn',
+    'error',
+    'debug',
+    'group',
+    'endgroup',
+    'command',
+  ]),
+  message: z.string(),
+  stream: z.enum(['stdout', 'stderr']),
+})
+
+/**
  * Artifact list params schema
  */
 export const artifactListParamsSchema = z.object({

@@ -92,14 +92,15 @@ export interface OpenIntent {
   solver: Address
 }
 
-export enum IntentStatus {
-  Open = 0,
-  Pending = 1,
-  Filled = 2,
-  Expired = 3,
-  Cancelled = 4,
-  Failed = 5,
-}
+export const IntentStatus = {
+  Open: 0,
+  Pending: 1,
+  Filled: 2,
+  Expired: 3,
+  Cancelled: 4,
+  Failed: 5,
+} as const
+export type IntentStatus = (typeof IntentStatus)[keyof typeof IntentStatus]
 
 export interface OIFSolverConfig {
   name: string

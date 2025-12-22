@@ -312,21 +312,36 @@ export class MCPFundingServer {
       }
 
       case 'get_contributor_profile': {
-        let result: { success: boolean; data?: unknown; error?: string }
         if (args.contributorId) {
-          result = await fundingApi.getContributor(args.contributorId as string)
+          const result = await fundingApi.getContributor(
+            args.contributorId as string,
+          )
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result.data ?? result.error, null, 2),
+              },
+            ],
+          }
         } else if (args.wallet) {
-          result = await fundingApi.getContributorByWallet(
+          const result = await fundingApi.getContributorByWallet(
             args.wallet as Address,
           )
-        } else {
-          result = { success: false, error: 'Provide contributorId or wallet' }
+          return {
+            content: [
+              {
+                type: 'text',
+                text: JSON.stringify(result.data ?? result.error, null, 2),
+              },
+            ],
+          }
         }
         return {
           content: [
             {
               type: 'text',
-              text: JSON.stringify(result.data ?? result.error, null, 2),
+              text: JSON.stringify('Provide contributorId or wallet', null, 2),
             },
           ],
         }

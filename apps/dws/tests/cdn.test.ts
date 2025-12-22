@@ -153,7 +153,7 @@ describe('EdgeCache Unit Tests', () => {
       const { entry, status } = cache.get(key)
       expect(status).toBe('HIT')
       expect(entry).not.toBeNull()
-      expect(entry!.data.toString()).toBe('cached content')
+      expect(entry?.data.toString()).toBe('cached content')
     })
 
     test('should return MISS for non-existent key', () => {
@@ -192,7 +192,7 @@ describe('EdgeCache Unit Tests', () => {
       cache.set(key, Buffer.from('{}'), { contentType: 'application/json' })
 
       const { entry } = cache.get(key)
-      expect(entry!.metadata.contentType).toBe('application/json')
+      expect(entry?.metadata.contentType).toBe('application/json')
     })
 
     test('should handle binary data', () => {
@@ -202,7 +202,7 @@ describe('EdgeCache Unit Tests', () => {
       cache.set(key, binaryData, { contentType: 'image/png' })
 
       const { entry } = cache.get(key)
-      expect(entry!.data.equals(binaryData)).toBe(true)
+      expect(entry?.data.equals(binaryData)).toBe(true)
     })
 
     test('should handle empty buffer', () => {
@@ -210,7 +210,7 @@ describe('EdgeCache Unit Tests', () => {
       cache.set(key, Buffer.alloc(0), {})
 
       const { entry } = cache.get(key)
-      expect(entry!.data.length).toBe(0)
+      expect(entry?.data.length).toBe(0)
     })
 
     test('should preserve headers', () => {
@@ -220,7 +220,7 @@ describe('EdgeCache Unit Tests', () => {
       })
 
       const { entry } = cache.get(key)
-      expect(entry!.metadata.headers['x-custom']).toBe('value')
+      expect(entry?.metadata.headers['x-custom']).toBe('value')
     })
   })
 
@@ -441,7 +441,7 @@ describe('EdgeCache Edge Cases', () => {
 
     const { entry, status } = cache.get(key)
     expect(status).toBe('HIT')
-    expect(entry!.data.length).toBe(largeBuffer.length)
+    expect(entry?.data.length).toBe(largeBuffer.length)
   })
 
   test('should handle overwriting existing key', () => {
@@ -451,7 +451,7 @@ describe('EdgeCache Edge Cases', () => {
     cache.set(key, Buffer.from('updated'), {})
 
     const { entry } = cache.get(key)
-    expect(entry!.data.toString()).toBe('updated')
+    expect(entry?.data.toString()).toBe('updated')
   })
 })
 

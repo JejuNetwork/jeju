@@ -12,7 +12,7 @@
  * - gateway.local.jejunetwork.org -> localhost:4001
  * - bazaar.local.jejunetwork.org -> localhost:4006
  * - docs.local.jejunetwork.org -> localhost:4004
- * - rpc.local.jejunetwork.org -> localhost:9545
+ * - rpc.local.jejunetwork.org -> localhost:6546
  */
 
 import {

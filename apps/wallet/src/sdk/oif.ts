@@ -10,8 +10,10 @@
  * No manual bridging, routing, or chain switching required.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex, PublicClient, WalletClient } from 'viem'
 import { encodeAbiParameters, parseEther } from 'viem'
+import { OIFQuoteResponseSchema } from '../schemas/api-responses'
 import { getChainContracts } from './chains'
 import type { Intent, IntentParams, IntentQuote, IntentStatus } from './types'
 
@@ -248,7 +250,11 @@ export class OIFClient {
       return this.estimateQuote(params)
     }
 
-    return response.json()
+    return expectValid(
+      OIFQuoteResponseSchema,
+      await response.json(),
+      'OIF quote response',
+    )
   }
 
   /**

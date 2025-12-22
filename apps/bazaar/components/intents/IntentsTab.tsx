@@ -1,7 +1,7 @@
 import { Activity, BarChart3, Route, Users, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { useOIFStats } from '@/hooks/useIntentAPI'
+import { useOIFStats } from '../../hooks/useIntentAPI'
 import { CreateIntentModal } from './CreateIntentModal'
 import { IntentsView } from './IntentsView'
 import { RoutesView } from './RoutesView'
@@ -86,6 +86,7 @@ export function IntentsTab() {
             />
           </div>
           <button
+            type="button"
             className={`button nav-tab ${isConnected ? '' : 'button-secondary'}`}
             onClick={() => setShowCreate(true)}
             disabled={!isConnected}
@@ -154,6 +155,7 @@ function Tab({
 }) {
   return (
     <button
+      type="button"
       onClick={onClick}
       className={active ? 'pill pill-active' : 'pill'}
       style={{ borderRadius: 'var(--radius-md)', border: 'none' }}

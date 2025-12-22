@@ -108,9 +108,9 @@ describe('Uniswap V4 Integration Tests', () => {
 
       expect(code).toBeDefined()
       expect(code).not.toBe('0x')
-      expect(code!.length).toBeGreaterThan(100)
+      expect(code?.length).toBeGreaterThan(100)
 
-      console.log(`   Bytecode size: ${code!.length} bytes`)
+      console.log(`   Bytecode size: ${code?.length} bytes`)
     })
 
     test('should have elizaOS token deployed', async () => {

@@ -1,10 +1,10 @@
 import { AddressSchema } from '@jejunetwork/types'
 import type { Abi } from 'viem'
 import { useAccount, useReadContracts, useWriteContract } from 'wagmi'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { getV4Contracts } from '@/config/contracts'
-import { expect, expectPositive, expectTrue } from '@/lib/validation'
+import { JEJU_CHAIN_ID } from '../../config/chains'
+import { getV4Contracts } from '../../config/contracts'
 import PositionManagerABI from '../abis/PositionManager.json'
+import { expect, expectPositive, expectTrue } from '../validation'
 import type {
   AddLiquidityParams,
   PoolKey,

@@ -41,12 +41,13 @@ export const MODERATION_CONFIG = {
 } as const
 
 // Ban types for display
-export enum BanType {
-  NONE = 0,
-  ON_NOTICE = 1,
-  CHALLENGED = 2,
-  PERMANENT = 3,
-}
+export const BanType = {
+  NONE: 0,
+  ON_NOTICE: 1,
+  CHALLENGED: 2,
+  PERMANENT: 3,
+} as const
+export type BanType = (typeof BanType)[keyof typeof BanType]
 
 export const BAN_TYPE_LABELS: Record<BanType, string> = {
   [BanType.NONE]: 'Not Banned',

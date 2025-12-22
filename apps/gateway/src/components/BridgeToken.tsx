@@ -146,6 +146,7 @@ export default function BridgeToken() {
           ) : (
             <div>
               <label
+                htmlFor="custom-token-address"
                 style={{
                   display: 'block',
                   marginBottom: '0.5rem',
@@ -155,6 +156,7 @@ export default function BridgeToken() {
                 Custom Token Address (Ethereum)
               </label>
               <input
+                id="custom-token-address"
                 className="input"
                 type="text"
                 placeholder="0x..."
@@ -178,6 +180,7 @@ export default function BridgeToken() {
 
         <div style={{ marginTop: '1rem' }}>
           <label
+            htmlFor="bridge-amount"
             style={{
               display: 'block',
               marginBottom: '0.5rem',
@@ -187,6 +190,7 @@ export default function BridgeToken() {
             Amount
           </label>
           <input
+            id="bridge-amount"
             className="input"
             type="number"
             step="any"
@@ -210,6 +214,7 @@ export default function BridgeToken() {
 
         <div style={{ marginTop: '1rem' }}>
           <label
+            htmlFor="bridge-recipient"
             style={{
               display: 'block',
               marginBottom: '0.5rem',
@@ -219,6 +224,7 @@ export default function BridgeToken() {
             Recipient (optional)
           </label>
           <input
+            id="bridge-recipient"
             className="input"
             type="text"
             placeholder={userAddress || '0x...'}

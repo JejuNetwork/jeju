@@ -128,8 +128,15 @@ class CacheServiceImpl implements CacheService {
       console.error(`[Cache] remoteGet failed: ${response.status}`)
       return null
     }
-    const data = (await response.json()) as { value: T | null }
-    return data.value
+    // Cache values are generic - use safeParse with a loose schema
+    // The value is already serialized by our cache service, so we trust it
+    const CacheResponseSchema = z.object({ value: z.unknown().nullable() })
+    const parseResult = CacheResponseSchema.safeParse(await response.json())
+    if (!parseResult.success) {
+      console.error('[Cache] Invalid cache response:', parseResult.error.message)
+      return null
+    }
+    return parseResult.data.value as T | null
   }
 
   private async remoteSet<T>(

@@ -7,8 +7,8 @@
 import { AddressSchema } from '@jejunetwork/types'
 import { formatEther, parseEther } from 'viem'
 import { z } from 'zod'
-import { BigIntSchema, NonEmptyStringSchema } from '@/schemas/common'
-import type { NormalizedNFT } from '@/schemas/nft'
+import { BigIntSchema, NonEmptyStringSchema } from '../schemas/common'
+import type { NormalizedNFT } from '../schemas/nft'
 
 // ============================================================================
 // Schemas

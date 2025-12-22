@@ -266,17 +266,19 @@ describe('Configuration', () => {
 })
 
 describe('Todo Prioritization', () => {
-  const createTodo = (overrides: Partial<{
-    id: string
-    priority: 'low' | 'medium' | 'high'
-    dueDate: number | null
-    completed: boolean
-    title: string
-  }>) => {
+  const createTodo = (
+    overrides: Partial<{
+      id: string
+      priority: 'low' | 'medium' | 'high'
+      dueDate: number | null
+      completed: boolean
+      title: string
+    }>,
+  ) => {
     const now = Date.now()
     return {
       id: overrides.id || '1',
-      priority: overrides.priority || 'medium' as const,
+      priority: overrides.priority || ('medium' as const),
       dueDate: overrides.dueDate ?? null,
       completed: overrides.completed ?? false,
       title: overrides.title || 'Test',
@@ -294,10 +296,30 @@ describe('Todo Prioritization', () => {
 
     const now = Date.now()
     const todos = [
-      createTodo({ id: '1', priority: 'low', dueDate: now + 1000, title: 'Low soon' }),
-      createTodo({ id: '2', priority: 'high', dueDate: now + 5000, title: 'High later' }),
-      createTodo({ id: '3', priority: 'high', dueDate: now + 2000, title: 'High soon' }),
-      createTodo({ id: '4', priority: 'medium', dueDate: null, title: 'Medium no date' }),
+      createTodo({
+        id: '1',
+        priority: 'low',
+        dueDate: now + 1000,
+        title: 'Low soon',
+      }),
+      createTodo({
+        id: '2',
+        priority: 'high',
+        dueDate: now + 5000,
+        title: 'High later',
+      }),
+      createTodo({
+        id: '3',
+        priority: 'high',
+        dueDate: now + 2000,
+        title: 'High soon',
+      }),
+      createTodo({
+        id: '4',
+        priority: 'medium',
+        dueDate: null,
+        title: 'Medium no date',
+      }),
     ]
 
     const sorted = prioritizeTodos(todos)
@@ -313,8 +335,18 @@ describe('Todo Prioritization', () => {
 
     const now = Date.now()
     const todos = [
-      createTodo({ id: '1', priority: 'high', dueDate: null, title: 'High no date' }),
-      createTodo({ id: '2', priority: 'high', dueDate: now + 1000, title: 'High with date' }),
+      createTodo({
+        id: '1',
+        priority: 'high',
+        dueDate: null,
+        title: 'High no date',
+      }),
+      createTodo({
+        id: '2',
+        priority: 'high',
+        dueDate: now + 1000,
+        title: 'High with date',
+      }),
     ]
 
     const sorted = prioritizeTodos(todos)
@@ -330,17 +362,19 @@ describe('Todo Prioritization', () => {
 })
 
 describe('Filter Overdue', () => {
-  const createTodo = (overrides: Partial<{
-    id: string
-    priority: 'low' | 'medium' | 'high'
-    dueDate: number | null
-    completed: boolean
-    title: string
-  }>) => {
+  const createTodo = (
+    overrides: Partial<{
+      id: string
+      priority: 'low' | 'medium' | 'high'
+      dueDate: number | null
+      completed: boolean
+      title: string
+    }>,
+  ) => {
     const now = Date.now()
     return {
       id: overrides.id || '1',
-      priority: overrides.priority || 'high' as const,
+      priority: overrides.priority || ('high' as const),
       dueDate: overrides.dueDate ?? null,
       completed: overrides.completed ?? false,
       title: overrides.title || 'Test',
@@ -358,10 +392,31 @@ describe('Filter Overdue', () => {
 
     const now = Date.now()
     const todos = [
-      createTodo({ id: '1', dueDate: now - 1000, completed: false, title: 'Overdue' }),
-      createTodo({ id: '2', dueDate: now + 5000, completed: false, title: 'Future' }),
-      createTodo({ id: '3', dueDate: now - 2000, completed: true, title: 'Overdue but done' }),
-      createTodo({ id: '4', priority: 'low', dueDate: null, completed: false, title: 'No due date' }),
+      createTodo({
+        id: '1',
+        dueDate: now - 1000,
+        completed: false,
+        title: 'Overdue',
+      }),
+      createTodo({
+        id: '2',
+        dueDate: now + 5000,
+        completed: false,
+        title: 'Future',
+      }),
+      createTodo({
+        id: '3',
+        dueDate: now - 2000,
+        completed: true,
+        title: 'Overdue but done',
+      }),
+      createTodo({
+        id: '4',
+        priority: 'low',
+        dueDate: null,
+        completed: false,
+        title: 'No due date',
+      }),
     ]
 
     const overdue = filterOverdue(todos)
@@ -375,7 +430,12 @@ describe('Filter Overdue', () => {
 
     const now = Date.now()
     const todos = [
-      createTodo({ id: '1', dueDate: now + 5000, completed: false, title: 'Future' }),
+      createTodo({
+        id: '1',
+        dueDate: now + 5000,
+        completed: false,
+        title: 'Future',
+      }),
     ]
 
     expect(filterOverdue(todos)).toEqual([])
@@ -383,17 +443,19 @@ describe('Filter Overdue', () => {
 })
 
 describe('Get Top Priorities', () => {
-  const createTodo = (overrides: Partial<{
-    id: string
-    priority: 'low' | 'medium' | 'high'
-    dueDate: number | null
-    completed: boolean
-    title: string
-  }>) => {
+  const createTodo = (
+    overrides: Partial<{
+      id: string
+      priority: 'low' | 'medium' | 'high'
+      dueDate: number | null
+      completed: boolean
+      title: string
+    }>,
+  ) => {
     const now = Date.now()
     return {
       id: overrides.id || '1',
-      priority: overrides.priority || 'medium' as const,
+      priority: overrides.priority || ('medium' as const),
       dueDate: overrides.dueDate ?? null,
       completed: overrides.completed ?? false,
       title: overrides.title || 'Test',
@@ -412,7 +474,12 @@ describe('Get Top Priorities', () => {
     const todos = [
       createTodo({ id: '1', priority: 'low', title: 'Low' }),
       createTodo({ id: '2', priority: 'high', title: 'High' }),
-      createTodo({ id: '3', priority: 'medium', completed: true, title: 'Medium done' }),
+      createTodo({
+        id: '3',
+        priority: 'medium',
+        completed: true,
+        title: 'Medium done',
+      }),
       createTodo({ id: '4', priority: 'medium', title: 'Medium' }),
     ]
 
@@ -427,7 +494,7 @@ describe('Get Top Priorities', () => {
     const { getTopPriorities } = await import('../utils')
 
     const todos = Array.from({ length: 10 }, (_, i) =>
-      createTodo({ id: String(i), title: `Todo ${i}` })
+      createTodo({ id: String(i), title: `Todo ${i}` }),
     )
 
     const top = getTopPriorities(todos)
@@ -448,14 +515,19 @@ describe('Address Formatting', () => {
   test('should format address with default chars', async () => {
     const { formatAddress } = await import('../utils')
 
-    const formatted = formatAddress('0x1234567890123456789012345678901234567890')
+    const formatted = formatAddress(
+      '0x1234567890123456789012345678901234567890',
+    )
     expect(formatted).toBe('0x1234...7890')
   })
 
   test('should format address with custom chars', async () => {
     const { formatAddress } = await import('../utils')
 
-    const formatted = formatAddress('0x1234567890123456789012345678901234567890', 6)
+    const formatted = formatAddress(
+      '0x1234567890123456789012345678901234567890',
+      6,
+    )
     expect(formatted).toBe('0x123456...567890')
   })
 
@@ -467,7 +539,9 @@ describe('Address Formatting', () => {
   test('should throw on invalid address format', async () => {
     const { formatAddress } = await import('../utils')
 
-    expect(() => formatAddress('not-an-address')).toThrow('Invalid address format')
+    expect(() => formatAddress('not-an-address')).toThrow(
+      'Invalid address format',
+    )
     expect(() => formatAddress('0x123')).toThrow('Invalid address format')
   })
 })
@@ -507,11 +581,15 @@ describe('Validation Utilities', () => {
   })
 
   test('expectDefined should throw on null or undefined', async () => {
-    const { expectDefined, ValidationError } = await import('../utils/validation')
+    const { expectDefined, ValidationError } = await import(
+      '../utils/validation'
+    )
 
     expect(() => expectDefined(null)).toThrow(ValidationError)
     expect(() => expectDefined(undefined)).toThrow(ValidationError)
-    expect(() => expectDefined(null, 'Custom message')).toThrow('Custom message')
+    expect(() => expectDefined(null, 'Custom message')).toThrow(
+      'Custom message',
+    )
   })
 
   test('expectTruthy should return value when truthy', async () => {
@@ -524,7 +602,9 @@ describe('Validation Utilities', () => {
   })
 
   test('expectTruthy should throw on falsy values', async () => {
-    const { expectTruthy, ValidationError } = await import('../utils/validation')
+    const { expectTruthy, ValidationError } = await import(
+      '../utils/validation'
+    )
 
     expect(() => expectTruthy(null)).toThrow(ValidationError)
     expect(() => expectTruthy(undefined)).toThrow(ValidationError)
@@ -534,7 +614,9 @@ describe('Validation Utilities', () => {
   })
 
   test('expectInRange should validate number ranges', async () => {
-    const { expectInRange, ValidationError } = await import('../utils/validation')
+    const { expectInRange, ValidationError } = await import(
+      '../utils/validation'
+    )
 
     expect(expectInRange(5, 0, 10)).toBe(5)
     expect(expectInRange(0, 0, 10)).toBe(0)
@@ -557,7 +639,9 @@ describe('Validation Utilities', () => {
   })
 
   test('expectMinLength should validate minimum array length', async () => {
-    const { expectMinLength, ValidationError } = await import('../utils/validation')
+    const { expectMinLength, ValidationError } = await import(
+      '../utils/validation'
+    )
 
     expect(expectMinLength([1, 2, 3], 2)).toEqual([1, 2, 3])
     expect(expectMinLength([1], 1)).toEqual([1])
@@ -568,7 +652,9 @@ describe('Validation Utilities', () => {
   })
 
   test('expectMaxLength should validate maximum array length', async () => {
-    const { expectMaxLength, ValidationError } = await import('../utils/validation')
+    const { expectMaxLength, ValidationError } = await import(
+      '../utils/validation'
+    )
 
     expect(expectMaxLength([1, 2], 3)).toEqual([1, 2])
     expect(expectMaxLength([1, 2, 3], 3)).toEqual([1, 2, 3])
@@ -591,13 +677,19 @@ describe('Validation Utilities', () => {
       age: 25,
     })
 
-    expect(() => expectValid(schema, { name: '', age: 25 })).toThrow(ValidationError)
-    expect(() => expectValid(schema, { name: 'Test', age: -1 })).toThrow(ValidationError)
+    expect(() => expectValid(schema, { name: '', age: 25 })).toThrow(
+      ValidationError,
+    )
+    expect(() => expectValid(schema, { name: 'Test', age: -1 })).toThrow(
+      ValidationError,
+    )
     expect(() => expectValid(schema, null)).toThrow(ValidationError)
   })
 
   test('isValidationError should correctly identify ValidationError', async () => {
-    const { isValidationError, ValidationError } = await import('../utils/validation')
+    const { isValidationError, ValidationError } = await import(
+      '../utils/validation'
+    )
 
     expect(isValidationError(new ValidationError('test'))).toBe(true)
     expect(isValidationError(new Error('test'))).toBe(false)

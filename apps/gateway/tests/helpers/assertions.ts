@@ -24,11 +24,6 @@ export async function assertAllProtocolTokens(page: Page) {
 }
 
 /**
- * Select token from dropdown (avoid duplicate export warning)
- */
-export { selectToken }
-
-/**
  * Assert success message is shown
  */
 export async function assertSuccessMessage(page: Page, message: string) {

@@ -109,7 +109,10 @@ export function subscribeToPoCEvents(listener: PoCEventListener): () => void {
   const unsubs: Array<() => void> = []
   if (verifierInstance) unsubs.push(verifierInstance.addEventListener(listener))
   if (monitorInstance) unsubs.push(monitorInstance.addEventListener(listener))
-  return () => unsubs.forEach((fn) => fn())
+  return () =>
+    unsubs.forEach((fn) => {
+      fn()
+    })
 }
 
 export function getPoCSystemStatus(): {

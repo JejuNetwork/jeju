@@ -9,7 +9,19 @@
 
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
 import { z } from 'zod'
-import { BountySeverity, ValidationResult, VulnerabilityType } from './types'
+import {
+  expectValid,
+  extractLLMContent,
+  LLMCompletionResponseSchema,
+  SandboxExecutionResponseSchema,
+} from './schemas'
+import {
+  BountySeverity,
+  BountySeverityName,
+  ValidationResult,
+  VulnerabilityType,
+  VulnerabilityTypeName,
+} from './types'
 
 // Schemas for AI response parsing
 const SecurityValidationResponseSchema = z.object({
@@ -94,31 +106,13 @@ async function analyzeWithAI(
     )
   }
 
-  const data = (await response.json()) as {
-    choices?: Array<{ message?: { content: string } }>
-    content?: string
-  }
-
-  // Check for content in standard OpenAI format first
-  if (data.choices && Array.isArray(data.choices) && data.choices.length > 0) {
-    const firstChoice = data.choices[0]
-    if (
-      firstChoice.message &&
-      typeof firstChoice.message.content === 'string' &&
-      firstChoice.message.content.length > 0
-    ) {
-      return firstChoice.message.content
-    }
-  }
-
-  // Check for direct content field (alternative format)
-  if (typeof data.content === 'string' && data.content.length > 0) {
-    return data.content
-  }
-
-  throw new Error(
-    'DWS returned response without valid content - cannot proceed with security validation',
+  const data = expectValid(
+    LLMCompletionResponseSchema,
+    await response.json(),
+    'DWS security AI response',
   )
+
+  return extractLLMContent(data, 'DWS security AI response')
 }
 
 // ============ Sandbox Execution (Decentralized via DWS) ============
@@ -178,24 +172,11 @@ async function executePoCInSandbox(
     }
   }
 
-  const result = (await response.json()) as {
-    status: string
-    output: { exploitTriggered?: boolean; result?: string }
-    logs: string
-    metrics: { executionTimeMs: number; memoryUsedMb: number }
-  }
-
-  // Validate expected fields exist
-  if (!result.status) {
-    return {
-      success: false,
-      exploitTriggered: false,
-      output: '',
-      errorLogs: 'Sandbox response missing status field',
-      executionTime: 0,
-      memoryUsed: 0,
-    }
-  }
+  const result = expectValid(
+    SandboxExecutionResponseSchema,
+    await response.json(),
+    'Sandbox execution response',
+  )
 
   return {
     success: result.status === 'success',
@@ -300,7 +281,9 @@ export async function validateSubmission(
 
   // Step 3: Assess severity
   const severityAssessment = await assessSeverity(context, sandboxResult)
-  securityNotes.push(`Assessed severity: ${BountySeverity[severityAssessment]}`)
+  securityNotes.push(
+    `Assessed severity: ${BountySeverityName[severityAssessment]}`,
+  )
 
   // Step 4: Analyze suggested fix
   let fixAnalysis = ''
@@ -355,8 +338,8 @@ Respond in JSON format: { "isLikelyValid": boolean, "notes": string[] }`
 
   const prompt = `VULNERABILITY SUBMISSION:
 Title: ${context.title}
-Claimed Severity: ${BountySeverity[context.severity]}
-Type: ${VulnerabilityType[context.vulnType]}
+Claimed Severity: ${BountySeverityName[context.severity]}
+Type: ${VulnerabilityTypeName[context.vulnType]}
 
 Description:
 ${context.description}
@@ -508,8 +491,8 @@ Be clear, technical, and focus on real-world impact. Include:
 4. Urgency of fix`
 
   const prompt = `VULNERABILITY: ${context.title}
-TYPE: ${VulnerabilityType[context.vulnType]}
-SEVERITY: ${BountySeverity[assessedSeverity]}
+TYPE: ${VulnerabilityTypeName[context.vulnType]}
+SEVERITY: ${BountySeverityName[assessedSeverity]}
 DESCRIPTION: ${context.description}
 AFFECTED: ${context.affectedComponents.join(', ')}
 

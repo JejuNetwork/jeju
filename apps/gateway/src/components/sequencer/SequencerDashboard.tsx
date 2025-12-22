@@ -266,6 +266,7 @@ export function SequencerDashboard() {
         </div>
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={handleRotate}
             disabled={!canRotate() || isRotating || isRotateConfirming}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -286,6 +287,7 @@ export function SequencerDashboard() {
       <div className="flex gap-4 border-b">
         {(['overview', 'rotation', 'sequencers'] as const).map((tab) => (
           <button
+            type="button"
             key={tab}
             onClick={() => setSelectedTab(tab)}
             className={`pb-3 px-1 font-medium capitalize ${
@@ -456,6 +458,7 @@ export function SequencerDashboard() {
                 </p>
               </div>
               <button
+                type="button"
                 onClick={handleRotate}
                 disabled={!canRotate() || isRotating || isRotateConfirming}
                 className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"

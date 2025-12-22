@@ -246,7 +246,7 @@ class BenchmarkRunner {
 
     const evmClient = createEVMClient({
       chainId: ChainId.LOCAL_EVM,
-      rpcUrl: 'http://127.0.0.1:8545',
+      rpcUrl: 'http://127.0.0.1:6545',
       privateKey:
         '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
       bridgeAddress: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
@@ -275,7 +275,7 @@ class BenchmarkRunner {
 
     const publicClient = createPublicClient({
       chain: anvil,
-      transport: http('http://127.0.0.1:8545'),
+      transport: http('http://127.0.0.1:6545'),
     })
 
     // Estimate gas for various operations
@@ -333,7 +333,7 @@ class BenchmarkRunner {
 
   private async isEVMRunning(): Promise<boolean> {
     try {
-      const response = await fetch('http://127.0.0.1:8545', {
+      const response = await fetch('http://127.0.0.1:6545', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

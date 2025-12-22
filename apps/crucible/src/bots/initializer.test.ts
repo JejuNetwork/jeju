@@ -30,7 +30,7 @@ describe('BotInitializer', () => {
   const mockWalletClient = {} as WalletClient
 
   const baseConfig: CrucibleConfig = {
-    rpcUrl: 'http://localhost:9545',
+    rpcUrl: 'http://localhost:6546',
     privateKey: `0x${'1'.repeat(64)}`,
     contracts: {
       agentVault: `0x${'1'.repeat(40)}` as `0x${string}`,

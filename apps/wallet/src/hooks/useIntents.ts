@@ -2,9 +2,11 @@
  * @fileoverview Intent-based transaction hooks using OIF
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Hex } from 'viem'
 import { useAccount, useChainId, usePublicClient, useWalletClient } from 'wagmi'
+import { IntentHistoryResponseSchema } from '../schemas/api-responses'
 import { chains } from '../sdk/chains'
 import { OIFClient } from '../sdk/oif'
 import type {
@@ -264,10 +266,11 @@ export function useIntentHistory() {
         )
       }
 
-      const data = await response.json()
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid intent history response format')
-      }
+      const data = expectValid(
+        IntentHistoryResponseSchema,
+        await response.json(),
+        'intent history response',
+      )
       setIntents(data.intents ?? [])
     } catch (historyError) {
       // Log error but don't throw - history is non-critical UI feature

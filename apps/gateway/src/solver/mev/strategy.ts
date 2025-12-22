@@ -24,6 +24,7 @@ import {
   type Chain,
   createPublicClient,
   encodeAbiParameters,
+  encodeFunctionData,
   formatEther,
   type Hash,
   type Hex,
@@ -568,8 +569,6 @@ export class ExternalChainMevEngine extends EventEmitter {
   }
 
   private async buildSandwichBundle(swap: SwapIntent): Promise<Hex[]> {
-    const { encodeFunctionData } = await import('viem')
-
     if (!swap.pool || !swap.tokenIn || !swap.tokenOut) {
       throw new Error('Swap intent missing required fields for sandwich')
     }
@@ -645,8 +644,6 @@ export class ExternalChainMevEngine extends EventEmitter {
   }
 
   private async buildBackrunTx(swap: SwapIntent): Promise<Hex> {
-    const { encodeFunctionData } = await import('viem')
-
     if (!swap.pool || !swap.tokenIn || !swap.tokenOut) {
       throw new Error('Swap intent missing required fields for backrun')
     }
@@ -700,8 +697,6 @@ export class ExternalChainMevEngine extends EventEmitter {
     path: Address[],
     amountIn: bigint,
   ): Promise<Hex> {
-    const { encodeFunctionData } = await import('viem')
-
     if (path.length < 2) {
       throw new Error('Path must have at least 2 tokens')
     }

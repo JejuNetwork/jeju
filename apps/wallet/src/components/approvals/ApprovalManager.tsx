@@ -177,6 +177,7 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
       {/* Header Stats */}
       <div className="grid grid-cols-3 gap-3">
         <button
+          type="button"
           onClick={() => setFilter('all')}
           className={`p-3 rounded-lg text-center transition-colors ${
             filter === 'all'
@@ -188,6 +189,7 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
           <p className="text-xs text-zinc-400">Total</p>
         </button>
         <button
+          type="button"
           onClick={() => setFilter('unlimited')}
           className={`p-3 rounded-lg text-center transition-colors ${
             filter === 'unlimited'
@@ -199,6 +201,7 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
           <p className="text-xs text-zinc-400">Unlimited</p>
         </button>
         <button
+          type="button"
           onClick={() => setFilter('risky')}
           className={`p-3 rounded-lg text-center transition-colors ${
             filter === 'risky' ? 'bg-red-600' : 'bg-zinc-800 hover:bg-zinc-700'
@@ -213,6 +216,7 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={selectAll}
             className="px-3 py-1.5 text-sm bg-zinc-800 hover:bg-zinc-700 rounded transition-colors"
           >
@@ -222,6 +226,7 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
           </button>
           {selected.size > 0 && (
             <button
+              type="button"
               onClick={handleBatchRevoke}
               className="px-3 py-1.5 text-sm bg-red-600 hover:bg-red-500 rounded transition-colors"
             >
@@ -240,6 +245,7 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
             <option value="risk">Highest Risk</option>
           </select>
           <button
+            type="button"
             onClick={onRefresh}
             className="p-1.5 bg-zinc-800 hover:bg-zinc-700 rounded transition-colors"
           >
@@ -254,6 +260,7 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
           <p>No approvals found</p>
           {filter !== 'all' && (
             <button
+              type="button"
               onClick={() => setFilter('all')}
               className="mt-2 text-sm text-emerald-500 hover:text-emerald-400"
             >
@@ -280,6 +287,7 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
                 <div className="flex items-start gap-3">
                   {/* Checkbox */}
                   <button
+                    type="button"
                     onClick={() => toggleSelect(approval)}
                     className={`mt-1 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
                       isSelected
@@ -323,6 +331,7 @@ export const ApprovalManager: React.FC<ApprovalManagerProps> = ({
                       {approval.isUnlimited ? '∞' : approval.allowanceFormatted}
                     </p>
                     <button
+                      type="button"
                       onClick={() => handleRevoke(approval)}
                       disabled={isRevoking}
                       className={`px-3 py-1 text-sm rounded transition-colors ${

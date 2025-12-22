@@ -39,31 +39,34 @@ import { privateKeyToAccount } from 'viem/accounts'
 // Types
 // ============================================================================
 
-export enum TrustTier {
-  UNSTAKED = 0,
-  STAKED = 1,
-  VERIFIED = 2,
-}
+export const TrustTier = {
+  UNSTAKED: 0,
+  STAKED: 1,
+  VERIFIED: 2,
+} as const
+export type TrustTier = (typeof TrustTier)[keyof typeof TrustTier]
 
-export enum ChainType {
-  EVM = 0,
-  SOLANA = 1,
-  COSMOS = 2,
-  OTHER = 3,
-}
+export const ChainType = {
+  EVM: 0,
+  SOLANA: 1,
+  COSMOS: 2,
+  OTHER: 3,
+} as const
+export type ChainType = (typeof ChainType)[keyof typeof ChainType]
 
-export enum RegistryType {
-  IDENTITY = 0,
-  COMPUTE = 1,
-  STORAGE = 2,
-  SOLVER = 3,
-  PACKAGE = 4,
-  CONTAINER = 5,
-  MODEL = 6,
-  NAME_SERVICE = 7,
-  REPUTATION = 8,
-  OTHER = 9,
-}
+export const RegistryType = {
+  IDENTITY: 0,
+  COMPUTE: 1,
+  STORAGE: 2,
+  SOLVER: 3,
+  PACKAGE: 4,
+  CONTAINER: 5,
+  MODEL: 6,
+  NAME_SERVICE: 7,
+  REPUTATION: 8,
+  OTHER: 9,
+} as const
+export type RegistryType = (typeof RegistryType)[keyof typeof RegistryType]
 
 export interface NetworkInfo {
   chainId: bigint

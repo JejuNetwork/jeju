@@ -40,8 +40,8 @@ export interface LocalChainConfig {
 export const LOCAL_CHAIN_CONFIG: LocalChainConfig = {
   evm: {
     chainId: 31337,
-    rpcUrl: 'http://127.0.0.1:8545',
-    wsUrl: 'ws://127.0.0.1:8545',
+    rpcUrl: 'http://127.0.0.1:6545',
+    wsUrl: 'ws://127.0.0.1:6545',
     // SECURITY: These are well-known Anvil test keys - LOCAL DEVELOPMENT ONLY
     // Account #0: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266
     // Account #1: 0x70997970C51812dc3A010C7d01b50e0d17dc79C8

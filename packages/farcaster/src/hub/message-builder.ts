@@ -15,45 +15,53 @@ const FARCASTER_EPOCH = 1609459200
 
 // ============ Enums ============
 
-export enum MessageType {
-  CAST_ADD = 1,
-  CAST_REMOVE = 2,
-  REACTION_ADD = 3,
-  REACTION_REMOVE = 4,
-  LINK_ADD = 5,
-  LINK_REMOVE = 6,
-  VERIFICATION_ADD_ETH_ADDRESS = 7,
-  VERIFICATION_REMOVE = 8,
-  USER_DATA_ADD = 11,
-  FRAME_ACTION = 13,
-}
+export const MessageType = {
+  CAST_ADD: 1,
+  CAST_REMOVE: 2,
+  REACTION_ADD: 3,
+  REACTION_REMOVE: 4,
+  LINK_ADD: 5,
+  LINK_REMOVE: 6,
+  VERIFICATION_ADD_ETH_ADDRESS: 7,
+  VERIFICATION_REMOVE: 8,
+  USER_DATA_ADD: 11,
+  FRAME_ACTION: 13,
+} as const
+export type MessageType = (typeof MessageType)[keyof typeof MessageType]
 
-export enum ReactionType {
-  LIKE = 1,
-  RECAST = 2,
-}
+export const ReactionType = {
+  LIKE: 1,
+  RECAST: 2,
+} as const
+export type ReactionType = (typeof ReactionType)[keyof typeof ReactionType]
 
-export enum UserDataType {
-  PFP = 1,
-  DISPLAY = 2,
-  BIO = 3,
-  URL = 5,
-  USERNAME = 6,
-}
+export const UserDataType = {
+  PFP: 1,
+  DISPLAY: 2,
+  BIO: 3,
+  URL: 5,
+  USERNAME: 6,
+} as const
+export type UserDataType = (typeof UserDataType)[keyof typeof UserDataType]
 
-export enum HashScheme {
-  BLAKE3 = 1,
-}
+export const HashScheme = {
+  BLAKE3: 1,
+} as const
+export type HashScheme = (typeof HashScheme)[keyof typeof HashScheme]
 
-export enum SignatureScheme {
-  ED25519 = 1,
-}
+export const SignatureScheme = {
+  ED25519: 1,
+} as const
+export type SignatureScheme =
+  (typeof SignatureScheme)[keyof typeof SignatureScheme]
 
-export enum FarcasterNetwork {
-  MAINNET = 1,
-  TESTNET = 2,
-  DEVNET = 3,
-}
+export const FarcasterNetwork = {
+  MAINNET: 1,
+  TESTNET: 2,
+  DEVNET: 3,
+} as const
+export type FarcasterNetwork =
+  (typeof FarcasterNetwork)[keyof typeof FarcasterNetwork]
 
 // ============ Types ============
 

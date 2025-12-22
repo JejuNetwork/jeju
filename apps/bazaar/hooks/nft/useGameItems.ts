@@ -25,10 +25,13 @@ import {
 } from 'wagmi'
 import { useSponsorshipStatus } from '../useGasless'
 
+// Re-export getRarityInfo from lib/games for convenience
+export { getRarityInfo } from '../../lib/games'
+
 const INDEXER_URL =
   process.env.NEXT_PUBLIC_INDEXER_URL || 'http://localhost:4350/graphql'
 
-import type { GameItem } from '@/schemas/games'
+import type { GameItem } from '../../schemas/games'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
 
@@ -54,9 +57,6 @@ const ITEMS_QUERY = gql`
     }
   }
 `
-
-// Re-export GameItem type for backwards compatibility
-export type { GameItem } from '@/schemas/games'
 
 /**
  * Fetch items from Items.sol or return empty in web2 mode
@@ -346,6 +346,3 @@ export function useBurnItem(
     hasChain,
   }
 }
-
-// Re-export getRarityInfo from centralized lib for backwards compatibility
-export { getRarityInfo } from '@/lib/games'

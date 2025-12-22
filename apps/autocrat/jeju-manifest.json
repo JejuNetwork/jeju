@@ -2,22 +2,23 @@
   "$schema": "../../packages/config/jeju-manifest.schema.json",
   "name": "autocrat",
   "displayName": "Autocrat DAO",
-  "version": "1.0.0",
+  "version": "3.0.0",
   "type": "core",
   "description": "AI-powered autonomous governance with futarchy, deep research, and multi-agent decision making",
   "maintainer": "jeju-network",
   "repository": "https://github.com/jejunetwork/jeju",
   "commands": {
-    "dev": "bun run dev",
-    "build": "bun run build",
-    "start": "bun run start",
+    "dev": "bun run src/server.ts",
+    "build": "bun build src/server.ts --outdir dist --target bun",
+    "build:frontend": "bun run app/build.ts",
+    "start": "bun run dist/server.js",
     "test": "bun test tests/integration"
   },
   "ports": {
-    "main": 4007,
-    "api": 4008
+    "main": 8010,
+    "frontend": 8011
   },
-  "dependencies": ["contracts", "config", "dws"],
+  "dependencies": ["contracts", "config", "dws", "db"],
   "optional": false,
   "enabled": true,
   "autoStart": true,
@@ -34,7 +35,7 @@
     "url": "https://autocrat.jejunetwork.org"
   },
   "healthCheck": {
-    "url": "http://localhost:4007/health",
+    "url": "http://localhost:8010/health",
     "interval": 30000
   },
   "agent": {
@@ -120,7 +121,7 @@
       "enabled": true,
       "regions": ["global"],
       "cacheRules": [
-        { "pattern": "/_next/static/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/static/**", "ttl": 31536000, "immutable": true },
         { "pattern": "/api/**", "ttl": 0 },
         { "pattern": "/**/*.html", "ttl": 300, "staleWhileRevalidate": 86400 }
       ],
@@ -130,8 +131,9 @@
       "ipfs": true,
       "arweave": true,
       "jnsName": "autocrat.jeju",
-      "buildDir": "app/.next",
-      "spa": false
+      "buildDir": "app/dist",
+      "spa": true,
+      "generator": "bun"
     },
     "robustness": {
       "multiOrigin": true,
@@ -140,9 +142,42 @@
       "contentAddressed": true
     }
   },
+  "dws": {
+    "backend": {
+      "enabled": true,
+      "runtime": "bun",
+      "entrypoint": "src/server.ts",
+      "memory": 512,
+      "timeout": 30000,
+      "minInstances": 1,
+      "maxInstances": 10,
+      "teeRequired": true,
+      "regions": ["global"]
+    },
+    "triggers": [
+      {
+        "name": "autocrat-orchestrator-cycle",
+        "schedule": "*/30 * * * *",
+        "entrypoint": "src/compute-trigger.ts",
+        "handler": "runOrchestratorCycle"
+      },
+      {
+        "name": "autocrat-proposal-submitted",
+        "event": "proposal_submitted",
+        "entrypoint": "src/compute-trigger.ts",
+        "handler": "handleProposalSubmitted"
+      }
+    ],
+    "tee": {
+      "platform": "dstack",
+      "attestation": true,
+      "decryption": true,
+      "secrets": ["OPERATOR_KEY", "ASSESSOR_KEY"]
+    }
+  },
   "testing": {
     "unit": {
-      "command": "bun test tests/integration/compute-marketplace.test.ts",
+      "command": "bun test tests/*.test.ts",
       "timeout": 60000
     },
     "e2e": {

@@ -10,6 +10,7 @@
  */
 
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
+import { validateResponse, X402PaymentHeaderSchema } from '../validation.js'
 
 export interface PaymentConfig {
   /** Wallet address for payments */
@@ -133,14 +134,11 @@ export class X402PaymentClient {
       return null
     }
 
-    const parsed = JSON.parse(paymentHeader) as {
-      recipient: string
-      amount: string
-      token: string
-      resource: string
-      expiry: number
-      nonce: string
-    }
+    const parsed = validateResponse(
+      X402PaymentHeaderSchema,
+      JSON.parse(paymentHeader),
+      'x402 payment header',
+    )
 
     return {
       recipient: parsed.recipient as Address,

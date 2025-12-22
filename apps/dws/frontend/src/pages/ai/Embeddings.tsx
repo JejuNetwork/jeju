@@ -98,6 +98,7 @@ export default function EmbeddingsPage() {
             </option>
           </select>
           <button
+            type="button"
             className="btn btn-secondary"
             onClick={handleClear}
             disabled={results.length === 0}
@@ -144,7 +145,7 @@ export default function EmbeddingsPage() {
           <div style={{ display: 'grid', gap: '1rem' }}>
             {results.map((result, i) => (
               <div
-                key={i}
+                key={`${result.input}-${result.model}-${result.tokens}-${i}`}
                 style={{
                   padding: '1rem',
                   background: 'var(--bg-tertiary)',
@@ -172,6 +173,7 @@ export default function EmbeddingsPage() {
                     </div>
                   </div>
                   <button
+                    type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => handleCopy(result.embedding, i)}
                   >

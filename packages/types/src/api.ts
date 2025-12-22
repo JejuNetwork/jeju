@@ -6,10 +6,6 @@
  */
 
 import { z } from 'zod'
-import { PaginationSchema } from './validation'
-
-// Re-export PaginationSchema for convenience
-export { PaginationSchema }
 
 // ============================================================================
 // Error Detail Types - Strongly typed alternatives to unknown

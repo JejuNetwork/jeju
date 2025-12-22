@@ -1,6 +1,7 @@
 // Hook exports
 
 // Re-export useful utilities and presets from lib
+// Formatting utilities from lib (formatPrice excluded to avoid conflict with tfmm/useTFMMOracles)
 export {
   calculateBuyPriceImpact,
   calculateEthOut,
@@ -10,22 +11,19 @@ export {
   DEFAULT_BONDING_CONFIG,
   DEFAULT_ICO_CONFIG,
   DEGEN_ICO_CONFIG,
+  formatBasisPoints,
+  formatDuration,
+  formatEthAmount,
   validateBondingCurveLaunch,
   validateICOLaunch,
-} from '@/lib/launchpad'
-
+} from '../../lib/launchpad'
 export {
   type BondingCurveQuote,
   type BondingCurveStats,
-  formatBondingCurvePrice,
-  formatProgress,
   useBondingCurve,
   useBondingCurveQuote,
 } from './useBondingCurve'
-
 export {
-  formatPresaleProgress,
-  formatTimeRemaining,
   type PresaleStatus,
   type UserContribution,
   useICOPresale,

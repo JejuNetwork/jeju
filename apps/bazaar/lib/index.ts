@@ -1,7 +1,46 @@
+// API client and typed helpers
+
+export {
+  claimFaucet,
+  createTFMMPool,
+  getA2AInfo,
+  getAgentCard,
+  getHealth,
+  getMCPInfo,
+  getTFMMOracles,
+  getTFMMPool,
+  getTFMMPools,
+  getTFMMStrategies,
+  triggerTFMMRebalance,
+  updateTFMMStrategy,
+} from './api'
 export { checkTradeAllowed } from './banCheck'
+export {
+  API_BASE,
+  ApiError,
+  api,
+  type BazaarClient,
+  type FaucetClaimResult,
+  type FaucetInfo,
+  type FaucetStatus,
+  type HealthResponse,
+  type TFMMPool,
+  type TFMMPoolsResponse,
+} from './client'
 export * from './crosschain'
 export * from './erc8004'
-export * from './faucet'
+// Faucet - re-export only schemas and types (API functions are in ./api)
+export {
+  ClaimRequestSchema,
+  FaucetClaimResultSchema,
+  FaucetInfoSchema,
+  FaucetStatusSchema,
+  faucetService,
+  faucetState,
+  formatCooldownTime,
+  isFaucetConfigured,
+  parseJsonResponse,
+} from './faucet'
 export * from './games'
 export * from './indexer-client'
 // Re-export launchpad with renamed formatPrice to avoid conflict with markets

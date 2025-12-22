@@ -59,8 +59,8 @@ describe('Configuration Loaders', () => {
 
       expect(config.chainId).toBe(1337)
       expect(config.name).toBe('Jeju Localnet')
-      expect(config.rpcUrl).toBe('http://127.0.0.1:9545')
-      expect(config.l1ChainId).toBe(1337)
+      expect(config.rpcUrl).toBe('http://127.0.0.1:6546')
+      expect(config.l1ChainId).toBe(31337) // Jeju L1 chain ID
     })
 
     it('should validate schema and reject invalid configs', () => {
@@ -200,9 +200,9 @@ describe('Configuration Loaders', () => {
       })
 
       it('should override with environment variable', () => {
-        process.env.JEJU_RPC_URL = 'http://localhost:9545'
+        process.env.JEJU_RPC_URL = 'http://localhost:6546'
         const rpcUrl = getRpcUrl('mainnet')
-        expect(rpcUrl).toBe('http://localhost:9545')
+        expect(rpcUrl).toBe('http://localhost:6546')
       })
     })
 
@@ -248,9 +248,9 @@ describe('Configuration Loaders', () => {
       })
 
       it('should override with environment variable', () => {
-        process.env.JEJU_L1_RPC_URL = 'http://localhost:8545'
+        process.env.JEJU_L1_RPC_URL = 'http://localhost:6545'
         const l1Rpc = getL1RpcUrl('mainnet')
-        expect(l1Rpc).toBe('http://localhost:8545')
+        expect(l1Rpc).toBe('http://localhost:6545')
       })
     })
 
@@ -295,7 +295,7 @@ describe('Configuration Loaders', () => {
 
       expect(mainnet.l1ChainId).toBe(1) // Ethereum mainnet
       expect(testnet.l1ChainId).toBe(11155111) // Sepolia
-      expect(localnet.l1ChainId).toBe(1337) // Local
+      expect(localnet.l1ChainId).toBe(31337) // Jeju L1 (not standard Anvil chain ID)
     })
 
     it('should have correct L2 chain IDs', () => {

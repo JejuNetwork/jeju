@@ -138,7 +138,9 @@ export async function search(
       .take(limit)
       .skip(offset)
       .getMany()
-    agents.forEach((a) => scores.set(a.id, a.stakeTier / 4))
+    for (const a of agents) {
+      scores.set(a.id, a.stakeTier / 4)
+    }
   }
 
   const providers: ProviderResult[] = []

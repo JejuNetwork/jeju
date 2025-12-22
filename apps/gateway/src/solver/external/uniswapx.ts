@@ -13,6 +13,7 @@
 
 import { EventEmitter } from 'node:events'
 import type { Address, PublicClient, WalletClient } from 'viem'
+import { UniswapXOrderResponseSchema } from '../../lib/validation.js'
 
 // UniswapX Reactor addresses
 export const UNISWAPX_REACTORS: Record<number, Address> = {
@@ -169,6 +170,7 @@ void FILL_CALLBACK_ABI
 export class UniswapXAdapter extends EventEmitter {
   private clients: Map<number, { public: PublicClient; wallet?: WalletClient }>
   private supportedChains: number[]
+  private isTestnet: boolean
   private pollInterval: ReturnType<typeof setInterval> | null = null
   private running = false
   private processedOrders = new Set<string>()
@@ -260,31 +262,16 @@ export class UniswapXAdapter extends EventEmitter {
       throw new Error(`UniswapX API returned ${response.status}`)
     }
 
-    const data = (await response.json()) as {
-      orders: Array<{
-        orderHash: string
-        chainId: number
-        swapper: string
-        reactor: string
-        deadline: number
-        input: { token: string; startAmount: string; endAmount: string }
-        outputs: Array<{
-          token: string
-          startAmount: string
-          endAmount: string
-          recipient: string
-        }>
-        decayStartTime: number
-        decayEndTime: number
-        exclusiveFiller?: string
-        exclusivityOverrideBps?: number
-        nonce: string
-        encodedOrder: string
-        signature: string
-        createdAt: number
-        orderStatus: string
-      }>
+    const rawData = await response.json()
+    const parseResult = UniswapXOrderResponseSchema.safeParse(rawData)
+    if (!parseResult.success) {
+      console.error(
+        '[UniswapX] Invalid orders response:',
+        parseResult.error.message,
+      )
+      return []
     }
+    const data = parseResult.data
 
     return data.orders.map((o) => ({
       orderHash: o.orderHash as `0x${string}`,

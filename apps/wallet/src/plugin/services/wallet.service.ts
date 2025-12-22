@@ -181,6 +181,7 @@ export class WalletService {
 
     if (options.type === 'hd') {
       // Generate new mnemonic
+      // Dynamic import: Only needed when creating HD wallets
       const bip39 = await import('@scure/bip39')
       const { wordlist } = await import('@scure/bip39/wordlists/english')
       const mnemonic = bip39.generateMnemonic(wordlist)

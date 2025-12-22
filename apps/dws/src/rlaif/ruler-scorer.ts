@@ -9,8 +9,11 @@
  * - Uses LLM judge to score trajectories (0-1)
  * - Extracts common message prefixes for token efficiency
  * - Supports custom rubrics per environment/archetype
+ * - Integrates with Jeju rubric registry for centralized rubric management
  */
 
+import { getRubricOrDefault } from '@jejunetwork/training/rubrics'
+import { z } from 'zod'
 import type { JudgeRubric, JudgeScore, Trajectory } from './types'
 
 export interface RulerScorerConfig {
@@ -39,6 +42,16 @@ interface JudgeResponse {
     score: number
   }>
 }
+
+const JudgeResponseSchema = z.object({
+  scores: z.array(
+    z.object({
+      trajectory_id: z.string(),
+      explanation: z.string(),
+      score: z.number().min(0).max(1),
+    }),
+  ),
+})
 
 export class RulerScorer {
   private config: RulerScorerConfig
@@ -108,6 +121,50 @@ export class RulerScorer {
     }
 
     return this.scoreTrajectories(trajectories, rubric)
+  }
+
+  /**
+   * Score trajectories by rubric ID, looking up from the global registry
+   *
+   * This allows scoring with rubrics registered by different environments
+   * (e.g., Babylon archetypes registered via registerBabylonRubrics)
+   */
+  async scoreByRubricId(
+    trajectories: Trajectory[],
+    rubricId: string,
+  ): Promise<JudgeScore[]> {
+    const registryRubric = getRubricOrDefault(rubricId)
+
+    const rubric: JudgeRubric = {
+      id: registryRubric.id,
+      name: registryRubric.name,
+      description: registryRubric.description,
+      criteria: registryRubric.criteria,
+      priorityMetrics: registryRubric.priorityMetrics,
+    }
+
+    return this.scoreTrajectories(trajectories, rubric)
+  }
+
+  /**
+   * Score manifest by rubric ID
+   */
+  async scoreManifestByRubricId(
+    manifestCID: string,
+    rubricId: string,
+    groupSize: number,
+  ): Promise<JudgeScore[]> {
+    const registryRubric = getRubricOrDefault(rubricId)
+
+    const rubric: JudgeRubric = {
+      id: registryRubric.id,
+      name: registryRubric.name,
+      description: registryRubric.description,
+      criteria: registryRubric.criteria,
+      priorityMetrics: registryRubric.priorityMetrics,
+    }
+
+    return this.scoreManifest(manifestCID, rubric, groupSize)
   }
 
   private async scoreBatch(
@@ -332,12 +389,14 @@ ${rubric.description ? `Context: ${rubric.description}` : ''}`
       return null
     }
 
-    const parsed = JSON.parse(jsonMatch[0]) as JudgeResponse
-
-    if (!parsed.scores || !Array.isArray(parsed.scores)) {
+    const parseResult = JudgeResponseSchema.safeParse(JSON.parse(jsonMatch[0]))
+    if (!parseResult.success) {
+      console.warn('[RULER] Failed to parse judge response:', parseResult.error)
       return null
     }
 
+    const parsed = parseResult.data
+    // Clamp scores to 0-1 range
     for (const score of parsed.scores) {
       score.score = Math.max(0, Math.min(1, score.score))
     }

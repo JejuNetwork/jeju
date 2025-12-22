@@ -39,6 +39,9 @@
     "deploy:mainnet": "NETWORK=mainnet bun run scripts/deploy-full.ts"
   },
   "dependencies": {
+    "@elysiajs/cors": "^1.2.0",
+    "@jejunetwork/types": "workspace:*",
+    "elysia": "^1.2.25",
     "viem": "2.43.2",
     "zod": "4.2.1"
   },

@@ -554,6 +554,48 @@ export function getCrucibleUrl(network?: NetworkType): string {
   return getServicesConfig(network).crucible.api
 }
 
+/** Get Otto (multi-platform bot) API URL */
+export function getOttoUrl(network?: NetworkType): string {
+  const config = getServicesConfig(network)
+  return config.otto?.api ?? 'http://127.0.0.1:4042'
+}
+
+/** Get OAuth3 (decentralized identity) API URL */
+export function getOAuth3Url(network?: NetworkType): string {
+  const config = getServicesConfig(network)
+  return config.oauth3?.api ?? 'http://127.0.0.1:4060'
+}
+
+/** Get Oracle API URL */
+export function getOracleUrl(network?: NetworkType): string {
+  const config = getServicesConfig(network)
+  return config.oracle?.api ?? 'http://127.0.0.1:4070'
+}
+
+/** Get Node API URL */
+export function getNodeUrl(network?: NetworkType): string {
+  const config = getServicesConfig(network)
+  return config.node?.api ?? 'http://127.0.0.1:4080'
+}
+
+/** Get external bundler URL */
+export function getBundlerUrl(network?: NetworkType): string {
+  const config = getServicesConfig(network)
+  return config.external?.bundler ?? 'http://127.0.0.1:4337'
+}
+
+/** Get Farcaster hub URL */
+export function getFarcasterHubUrl(network?: NetworkType): string {
+  const config = getServicesConfig(network)
+  return config.external?.farcaster?.hub ?? 'https://nemes.farcaster.xyz:2281'
+}
+
+/** Get Farcaster API URL (Neynar) */
+export function getFarcasterApiUrl(network?: NetworkType): string {
+  const config = getServicesConfig(network)
+  return config.external?.farcaster?.api ?? 'https://api.neynar.com/v2'
+}
+
 /** Get SecurityBountyRegistry contract address */
 export function getSecurityBountyRegistryAddress(
   network?: NetworkType,

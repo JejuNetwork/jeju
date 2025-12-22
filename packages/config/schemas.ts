@@ -112,6 +112,7 @@ export type ContractCategory =
   | 'amm'
   | 'bridge'
   | 'cdn'
+  | 'chainlink'
   | 'commerce'
   | 'distributor'
   | 'fees'
@@ -151,6 +152,7 @@ const NetworkContractsSchema = z.object({
   amm: ContractCategorySchema.optional(),
   bridge: ContractCategorySchema.optional(),
   cdn: ContractCategorySchema.optional(),
+  chainlink: ContractCategorySchema.optional(),
   commerce: ContractCategorySchema.optional(),
   distributor: ContractCategorySchema.optional(),
   fees: ContractCategorySchema.optional(),
@@ -221,6 +223,7 @@ export const ServicesNetworkConfigSchema = z.object({
   indexer: z.object({
     graphql: z.string(),
     websocket: z.string(),
+    rest: z.string().optional(),
   }),
   gateway: z.object({
     ui: z.string(),
@@ -253,6 +256,7 @@ export const ServicesNetworkConfigSchema = z.object({
   crucible: z.object({
     api: z.string(),
     executor: z.string(),
+    bots: z.string().optional(),
   }),
   cql: z.object({
     blockProducer: z.string(),
@@ -261,21 +265,64 @@ export const ServicesNetworkConfigSchema = z.object({
   dws: z.object({
     api: z.string(),
     compute: z.string(),
+    inference: z.string().optional(),
+    gateway: z.string().optional(),
+    triggers: z.string().optional(),
   }),
   autocrat: z.object({
     api: z.string(),
     a2a: z.string(),
+    mcp: z.string().optional(),
+    ceo: z.string().optional(),
   }),
   kms: z.object({
     api: z.string(),
     mpc: z.string(),
+    defaultProvider: z.string().optional(),
   }),
   factory: z.object({
     ui: z.string(),
     api: z.string(),
     mcp: z.string(),
   }),
+  otto: z
+    .object({
+      api: z.string(),
+      webhook: z.string(),
+    })
+    .optional(),
+  oauth3: z
+    .object({
+      api: z.string(),
+      tee: z.string(),
+    })
+    .optional(),
+  oracle: z
+    .object({
+      api: z.string(),
+      feeds: z.string(),
+    })
+    .optional(),
+  node: z
+    .object({
+      api: z.string(),
+      cdn: z.string(),
+      vpn: z.string(),
+      proxy: z.string(),
+    })
+    .optional(),
   externalRpcs: z.record(z.string(), z.string()).optional(),
+  external: z
+    .object({
+      farcaster: z
+        .object({
+          hub: z.string(),
+          api: z.string(),
+        })
+        .optional(),
+      bundler: z.string().optional(),
+    })
+    .optional(),
 })
 export type ServicesNetworkConfig = z.infer<typeof ServicesNetworkConfigSchema>
 
@@ -284,10 +331,15 @@ export type ServicesNetworkConfig = z.infer<typeof ServicesNetworkConfigSchema>
  * Used when dynamically updating service URLs by category name.
  * Loses strict typing for known categories but allows dynamic writes.
  */
-export type ServicesNetworkConfigDynamic = Record<
-  string,
-  string | Record<string, string> | undefined
->
+/**
+ * Nested service value type - allows string values or nested objects
+ */
+type ServiceValue =
+  | string
+  | { [key: string]: string | ServiceValue | undefined }
+  | undefined
+
+export type ServicesNetworkConfigDynamic = Record<string, ServiceValue>
 
 export const ServicesConfigSchema = z.object({
   localnet: ServicesNetworkConfigSchema,
@@ -659,3 +711,51 @@ export const SolanaKeyPairSchema = z.object({
   secretKey: z.string(),
 })
 export type SolanaKeyPair = z.infer<typeof SolanaKeyPairSchema>
+
+// ============================================================================
+// Deployment File Schemas (for loading contract addresses from deployment files)
+// ============================================================================
+
+/**
+ * JSON value type for deployment files - can be any valid JSON
+ */
+type DeploymentJsonValue =
+  | string
+  | number
+  | boolean
+  | null
+  | DeploymentJsonValue[]
+  | { [key: string]: DeploymentJsonValue }
+
+/**
+ * Schema for deployment file data values (recursive JSON)
+ * Handles various deployment file formats including:
+ * - Flat addresses (strings)
+ * - Numeric values (chainId, timestamps)
+ * - Nested objects (contracts object)
+ */
+const DeploymentValueSchema: z.ZodType<DeploymentJsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(DeploymentValueSchema),
+    z.record(z.string(), DeploymentValueSchema),
+  ]),
+)
+
+export const DeploymentFileDataSchema = z.record(z.string(), DeploymentValueSchema)
+export type DeploymentFileData = z.infer<typeof DeploymentFileDataSchema>
+
+// ============================================================================
+// RPC Response Schemas (for validating JSON-RPC responses)
+// ============================================================================
+
+/**
+ * Simple RPC response with optional hex result (for eth_blockNumber, eth_getBalance, etc.)
+ */
+export const RpcHexResultSchema = z.object({
+  result: z.string().optional(),
+})
+export type RpcHexResult = z.infer<typeof RpcHexResultSchema>

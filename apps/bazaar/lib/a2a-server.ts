@@ -1,8 +1,6 @@
-import type { NextRequest } from 'next/server'
-import { NextResponse } from 'next/server'
-import { NETWORK_NAME } from '@/config'
-import { expect } from '@/lib/validation'
-import type { A2ARequest as A2ARequestType } from '@/schemas/api'
+import { NETWORK_NAME } from '../config'
+import type { A2ARequest as A2ARequestType } from '../schemas/api'
+import { expect } from './validation'
 
 // Client-safe A2A helpers (avoiding @jejunetwork/shared which uses fs)
 function _getServiceName(service: string): string {
@@ -1004,7 +1002,7 @@ async function executeSkill(
     }
 
     case 'get-top-tokens': {
-      const { sortBy: _sortBy, limit: _limit } = params as {
+      const { sortBy, limit: _limit } = params as {
         sortBy?: string
         limit?: number
       }
@@ -1048,9 +1046,9 @@ async function executeSkill(
 }
 
 export async function handleA2ARequest(
-  _request: NextRequest,
+  _request: Request,
   validatedBody: A2ARequestType,
-): Promise<NextResponse> {
+): Promise<Response> {
   if (validatedBody.method !== 'message/send') {
     throw new Error(`Method not found: ${validatedBody.method}`)
   }
@@ -1070,7 +1068,7 @@ export async function handleA2ARequest(
   )
   const result = await executeSkill(skillId, dataPartData)
 
-  return NextResponse.json({
+  return Response.json({
     jsonrpc: '2.0',
     id: validatedBody.id,
     result: {
@@ -1085,6 +1083,6 @@ export async function handleA2ARequest(
   })
 }
 
-export function handleAgentCard(): NextResponse {
-  return NextResponse.json(BAZAAR_AGENT_CARD)
+export function handleAgentCard(): Response {
+  return Response.json(BAZAAR_AGENT_CARD)
 }

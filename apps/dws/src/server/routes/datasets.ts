@@ -43,28 +43,31 @@ const nativeDatasetsQuerySchema = z.object({
 // Types
 // ============================================================================
 
-export enum DatasetFormat {
-  PARQUET = 0,
-  CSV = 1,
-  JSON = 2,
-  JSONL = 3,
-  ARROW = 4,
-  TEXT = 5,
-  IMAGEFOLDER = 6,
-  AUDIOFOLDER = 7,
-  OTHER = 8,
-}
+export const DatasetFormat = {
+  PARQUET: 0,
+  CSV: 1,
+  JSON: 2,
+  JSONL: 3,
+  ARROW: 4,
+  TEXT: 5,
+  IMAGEFOLDER: 6,
+  AUDIOFOLDER: 7,
+  OTHER: 8,
+} as const
+export type DatasetFormat = (typeof DatasetFormat)[keyof typeof DatasetFormat]
 
-export enum DatasetLicense {
-  MIT = 0,
-  APACHE_2 = 1,
-  CC_BY_4 = 2,
-  CC_BY_SA_4 = 3,
-  CC_BY_NC_4 = 4,
-  CC0 = 5,
-  ODC_BY = 6,
-  OTHER = 7,
-}
+export const DatasetLicense = {
+  MIT: 0,
+  APACHE_2: 1,
+  CC_BY_4: 2,
+  CC_BY_SA_4: 3,
+  CC_BY_NC_4: 4,
+  CC0: 5,
+  ODC_BY: 6,
+  OTHER: 7,
+} as const
+export type DatasetLicense =
+  (typeof DatasetLicense)[keyof typeof DatasetLicense]
 
 export interface Dataset {
   datasetId: string

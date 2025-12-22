@@ -13,8 +13,9 @@
  * @see https://github.com/Dstack-TEE/dstack
  */
 
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { existsSync } from 'node:fs'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
@@ -37,7 +38,13 @@ import type {
 } from '../types.js'
 import {
   AddressSchema,
+  DiscordUserSchema,
+  DstackQuoteResponseSchema,
+  GitHubUserSchema,
+  GoogleUserInfoSchema,
   HexSchema,
+  OAuthTokenResponseSchema,
+  TwitterUserSchema,
   VerifiableCredentialSchema,
   validateResponse,
 } from '../validation.js'
@@ -81,13 +88,10 @@ const CredentialIssueSchema = z.object({
   walletAddress: AddressSchema,
 })
 
+import type { DstackQuoteResponse } from '../validation.js'
+
 const DSTACK_SOCKET = process.env.DSTACK_SOCKET ?? '/var/run/dstack.sock'
 const TEE_MODE = process.env.TEE_MODE ?? 'simulated'
-
-interface DstackQuoteResponse {
-  quote: string
-  eventLog: string
-}
 
 interface PhalaQuoteResponse {
   quote: string
@@ -122,14 +126,6 @@ interface OAuthTokenResponse {
   id_token?: string
 }
 
-interface GoogleUserInfo {
-  sub: string
-  email: string
-  email_verified: boolean
-  name: string
-  picture: string
-}
-
 interface SessionStore {
   /** Internal sessions with signing keys - NEVER expose to clients */
   sessions: Map<string, OAuth3InternalSession>
@@ -159,7 +155,7 @@ interface PendingAuth {
 }
 
 export class DstackAuthAgent {
-  private app: Hono
+  private app: Elysia
   private config: AuthAgentConfig
   private store: SessionStore
   private decentralizedStore: DecentralizedSessionStore | null = null
@@ -167,10 +163,11 @@ export class DstackAuthAgent {
   private mpcCoordinator: FROSTCoordinator | null = null
   private mpcInitialized = false
   private cleanupInterval: ReturnType<typeof setInterval> | null = null
+  private nodePrivateKey: Uint8Array
 
   constructor(config: AuthAgentConfig) {
     this.config = config
-    this.app = new Hono()
+    this.app = new Elysia()
     this.store = {
       sessions: new Map(),
       pendingAuths: new Map(),
@@ -231,99 +228,95 @@ export class DstackAuthAgent {
     const allowedOrigins = this.getAllowedOrigins()
 
     this.app.use(
-      '*',
       cors({
-        origin: (origin) => {
+        origin: (request) => {
+          const origin = request.headers.get('origin')
           // Allow requests with no origin (same-origin, mobile apps, etc.)
-          if (!origin) return null
+          if (!origin) return false
 
           // In development, allow localhost
           if (
             this.isDevelopment() &&
             (origin.includes('localhost') || origin.includes('127.0.0.1'))
           ) {
-            return origin
+            return true
           }
 
           // Check against allowed origins
           if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
-            return origin
+            return true
           }
 
           // Reject unknown origins in production
-          return null
+          return false
         },
         credentials: true,
-        allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-        allowHeaders: ['Content-Type', 'Authorization'],
+        allowedHeaders: ['Content-Type', 'Authorization'],
         maxAge: 86400,
       }),
     )
 
-    this.app.get('/health', (c) =>
-      c.json({
-        status: 'healthy',
-        nodeId: this.config.nodeId,
-        clusterId: this.config.clusterId,
-        address: this.nodeAccount.address,
-      }),
-    )
+    this.app.get('/health', () => ({
+      status: 'healthy',
+      nodeId: this.config.nodeId,
+      clusterId: this.config.clusterId,
+      address: this.nodeAccount.address,
+    }))
 
-    this.app.get('/attestation', async (c) => {
+    this.app.get('/attestation', async () => {
       const attestation = await this.getAttestation()
-      return c.json(attestation)
+      return attestation
     })
 
-    this.app.post('/auth/init', async (c) => {
-      const rawBody = await c.req.json()
-      const body = validateResponse(
+    this.app.post('/auth/init', async ({ body }) => {
+      const validatedBody = validateResponse(
         AuthInitSchema,
-        rawBody,
+        body,
         'auth init request',
       )
       const result = await this.initAuth(
-        body.provider as AuthProvider,
-        body.appId,
-        body.redirectUri,
+        validatedBody.provider as AuthProvider,
+        validatedBody.appId,
+        validatedBody.redirectUri,
       )
-      return c.json(result)
+      return result
     })
 
-    this.app.post('/auth/callback', async (c) => {
-      const rawBody = await c.req.json()
-      const body = validateResponse(
+    this.app.post('/auth/callback', async ({ body }) => {
+      const validatedBody = validateResponse(
         AuthCallbackSchema,
-        rawBody,
+        body,
         'auth callback request',
       )
-      const result = await this.handleCallback(body.state, body.code)
-      return c.json(result)
+      const result = await this.handleCallback(
+        validatedBody.state,
+        validatedBody.code,
+      )
+      return result
     })
 
-    this.app.post('/auth/farcaster', async (c) => {
-      const rawBody = await c.req.json()
-      const body = validateResponse(
+    this.app.post('/auth/farcaster', async ({ body }) => {
+      const validatedBody = validateResponse(
         FarcasterAuthSchema,
-        rawBody,
+        body,
         'farcaster auth request',
       )
-      const result = await this.authFarcaster(body)
-      return c.json(result)
+      const result = await this.authFarcaster(validatedBody)
+      return result
     })
 
-    this.app.post('/auth/wallet', async (c) => {
-      const rawBody = await c.req.json()
-      const body = validateResponse(
+    this.app.post('/auth/wallet', async ({ body }) => {
+      const validatedBody = validateResponse(
         WalletAuthSchema,
-        rawBody,
+        body,
         'wallet auth request',
       )
-      const result = await this.authWallet(body)
-      return c.json(result)
+      const result = await this.authWallet(validatedBody)
+      return result
     })
 
-    this.app.get('/session/:sessionId', async (c) => {
-      const sessionId = c.req.param('sessionId') as Hex
+    this.app.get('/session/:sessionId', async ({ params, set }) => {
+      const sessionId = params.sessionId as Hex
 
       // SECURITY: Get internal session but return only public data
       const internalSession = this.store.sessions.get(sessionId)
@@ -334,48 +327,52 @@ export class DstackAuthAgent {
           const publicSession =
             await this.decentralizedStore.storage.retrieveSession(sessionId)
           if (publicSession) {
-            return c.json(publicSession)
+            return publicSession
           }
         }
-        return c.json({ error: 'Session not found' }, 404)
+        set.status = 404
+        return { error: 'Session not found' }
       }
 
       if (internalSession.expiresAt < Date.now()) {
         await this.deleteSession(sessionId)
-        return c.json({ error: 'Session expired' }, 401)
+        set.status = 401
+        return { error: 'Session expired' }
       }
 
       // SECURITY: Return public session only (no signing key)
-      return c.json(this.toPublicSession(internalSession))
+      return this.toPublicSession(internalSession)
     })
 
-    this.app.post('/session/:sessionId/refresh', async (c) => {
-      const sessionId = c.req.param('sessionId') as Hex
+    this.app.post('/session/:sessionId/refresh', async ({ params, set }) => {
+      const sessionId = params.sessionId as Hex
 
       // SECURITY: Only use internal sessions from local store (with signing keys)
       const internalSession = this.store.sessions.get(sessionId)
 
       if (!internalSession) {
-        return c.json({ error: 'Session not found' }, 404)
+        set.status = 404
+        return { error: 'Session not found' }
       }
 
       if (internalSession.expiresAt < Date.now()) {
         await this.deleteSession(sessionId)
-        return c.json({ error: 'Session expired' }, 401)
+        set.status = 401
+        return { error: 'Session expired' }
       }
 
       const newSession = await this.refreshSession(internalSession)
-      return c.json(newSession)
+      return newSession
     })
 
-    this.app.delete('/session/:sessionId', async (c) => {
-      const sessionId = c.req.param('sessionId') as Hex
+    this.app.delete('/session/:sessionId', async ({ params }) => {
+      const sessionId = params.sessionId as Hex
       await this.deleteSession(sessionId)
-      return c.json({ success: true })
+      return { success: true }
     })
 
     // Health endpoint with infrastructure status
-    this.app.get('/infrastructure/health', async (c) => {
+    this.app.get('/infrastructure/health', async () => {
       const health = {
         tee: true,
         storage: this.decentralizedStore
@@ -387,37 +384,41 @@ export class DstackAuthAgent {
               .catch(() => false)) !== false
           : false,
       }
-      return c.json(health)
+      return health
     })
 
-    this.app.post('/sign', async (c) => {
-      const rawBody = await c.req.json()
-      const body = validateResponse(SignRequestSchema, rawBody, 'sign request')
-      const result = await this.sign(body.sessionId, body.message)
-      return c.json(result)
+    this.app.post('/sign', async ({ body }) => {
+      const validatedBody = validateResponse(
+        SignRequestSchema,
+        body,
+        'sign request',
+      )
+      const result = await this.sign(
+        validatedBody.sessionId,
+        validatedBody.message,
+      )
+      return result
     })
 
-    this.app.post('/credential/issue', async (c) => {
-      const rawBody = await c.req.json()
-      const body = validateResponse(
+    this.app.post('/credential/issue', async ({ body }) => {
+      const validatedBody = validateResponse(
         CredentialIssueSchema,
-        rawBody,
+        body,
         'credential issue request',
       )
       const credential = await this.issueCredential({
-        ...body,
-        provider: body.provider as AuthProvider,
+        ...validatedBody,
+        provider: validatedBody.provider as AuthProvider,
       })
-      return c.json(credential)
+      return credential
     })
 
-    this.app.post('/credential/verify', async (c) => {
-      const rawBody = await c.req.json()
-      const body = z
+    this.app.post('/credential/verify', async ({ body }) => {
+      const validatedBody = z
         .object({ credential: VerifiableCredentialSchema })
-        .parse(rawBody)
-      const valid = await this.verifyCredential(body.credential)
-      return c.json({ valid })
+        .parse(body)
+      const valid = await this.verifyCredential(validatedBody.credential)
+      return { valid }
     })
   }
 
@@ -499,8 +500,7 @@ export class DstackAuthAgent {
   }
 
   private async isInDstackTEE(): Promise<boolean> {
-    const fs = await import('node:fs')
-    return fs.existsSync(DSTACK_SOCKET)
+    return existsSync(DSTACK_SOCKET)
   }
 
   private async isInPhalaTEE(): Promise<boolean> {
@@ -519,7 +519,11 @@ export class DstackAuthAgent {
       throw new Error(`Failed to get dstack quote: ${response.status}`)
     }
 
-    return response.json() as Promise<DstackQuoteResponse>
+    return validateResponse(
+      DstackQuoteResponseSchema,
+      await response.json(),
+      'dstack quote response',
+    )
   }
 
   private async getPhalaQuote(reportData: Hex): Promise<PhalaQuoteResponse> {
@@ -766,7 +770,11 @@ export class DstackAuthAgent {
             redirect_uri: redirectUri,
           }),
         })
-        return response.json() as Promise<OAuthTokenResponse>
+        return validateResponse(
+          OAuthTokenResponseSchema,
+          await response.json(),
+          'Google OAuth token response',
+        )
       }
 
       case 'github' as AuthProvider: {
@@ -787,7 +795,11 @@ export class DstackAuthAgent {
             }),
           },
         )
-        return response.json() as Promise<OAuthTokenResponse>
+        return validateResponse(
+          OAuthTokenResponseSchema,
+          await response.json(),
+          'GitHub OAuth token response',
+        )
       }
 
       case 'twitter' as AuthProvider: {
@@ -802,7 +814,11 @@ export class DstackAuthAgent {
             redirect_uri: redirectUri,
           }),
         })
-        return response.json() as Promise<OAuthTokenResponse>
+        return validateResponse(
+          OAuthTokenResponseSchema,
+          await response.json(),
+          'Twitter OAuth token response',
+        )
       }
 
       case 'discord' as AuthProvider: {
@@ -818,7 +834,11 @@ export class DstackAuthAgent {
             redirect_uri: redirectUri,
           }),
         })
-        return response.json() as Promise<OAuthTokenResponse>
+        return validateResponse(
+          OAuthTokenResponseSchema,
+          await response.json(),
+          'Discord OAuth token response',
+        )
       }
 
       default:
@@ -838,9 +858,13 @@ export class DstackAuthAgent {
             headers: { Authorization: `Bearer ${accessToken}` },
           },
         )
-        const data = (await response.json()) as GoogleUserInfo
+        const data = validateResponse(
+          GoogleUserInfoSchema,
+          await response.json(),
+          'Google user info response',
+        )
         return {
-          id: data.sub,
+          id: data.sub ?? data.id ?? '',
           handle: data.email,
           name: data.name,
           avatar: data.picture,
@@ -851,16 +875,15 @@ export class DstackAuthAgent {
         const response = await fetch('https://api.github.com/user', {
           headers: { Authorization: `Bearer ${accessToken}` },
         })
-        const data = (await response.json()) as {
-          id: number
-          login: string
-          name: string
-          avatar_url: string
-        }
+        const data = validateResponse(
+          GitHubUserSchema,
+          await response.json(),
+          'GitHub user info response',
+        )
         return {
           id: String(data.id),
           handle: data.login,
-          name: data.name,
+          name: data.name ?? data.login,
           avatar: data.avatar_url,
         }
       }
@@ -869,19 +892,16 @@ export class DstackAuthAgent {
         const response = await fetch('https://api.twitter.com/2/users/me', {
           headers: { Authorization: `Bearer ${accessToken}` },
         })
-        const data = (await response.json()) as {
-          data: {
-            id: string
-            username: string
-            name: string
-            profile_image_url: string
-          }
-        }
+        const data = validateResponse(
+          TwitterUserSchema,
+          await response.json(),
+          'Twitter user info response',
+        )
         return {
           id: data.data.id,
           handle: data.data.username,
           name: data.data.name,
-          avatar: data.data.profile_image_url,
+          avatar: data.data.profile_image_url ?? '',
         }
       }
 
@@ -889,16 +909,15 @@ export class DstackAuthAgent {
         const response = await fetch('https://discord.com/api/users/@me', {
           headers: { Authorization: `Bearer ${accessToken}` },
         })
-        const data = (await response.json()) as {
-          id: string
-          username: string
-          global_name: string
-          avatar: string
-        }
+        const data = validateResponse(
+          DiscordUserSchema,
+          await response.json(),
+          'Discord user info response',
+        )
         return {
           id: data.id,
           handle: data.username,
-          name: data.global_name || data.username,
+          name: data.global_name ?? data.username,
           avatar: data.avatar
             ? `https://cdn.discordapp.com/avatars/${data.id}/${data.avatar}.png`
             : '',
@@ -1264,15 +1283,12 @@ export class DstackAuthAgent {
     return []
   }
 
-  getApp(): Hono {
+  getApp(): Elysia {
     return this.app
   }
 
   async start(port: number): Promise<void> {
-    Bun.serve({
-      port,
-      fetch: this.app.fetch,
-    })
+    this.app.listen(port)
   }
 }
 
@@ -1312,7 +1328,7 @@ export async function startAuthAgent(): Promise<DstackAuthAgent> {
       '0x0000000000000000000000000000000000000000') as Address,
     appRegistryAddress: (process.env.APP_REGISTRY_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
-    chainRpcUrl: process.env.JEJU_RPC_URL ?? 'http://localhost:9545',
+    chainRpcUrl: process.env.JEJU_RPC_URL ?? 'http://localhost:6546',
     chainId,
     jnsGateway:
       process.env.JNS_GATEWAY ??

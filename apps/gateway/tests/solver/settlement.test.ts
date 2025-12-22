@@ -264,7 +264,7 @@ describe('Settlement Flow', () => {
 
       const settleFn = INPUT_SETTLER_ABI.find((f) => f.name === 'settle')
       expect(settleFn).toBeDefined()
-      expect(settleFn!.inputs[0].type).toBe('bytes32')
+      expect(settleFn?.inputs[0].type).toBe('bytes32')
     })
 
     it('should have canSettle function ABI', () => {
@@ -280,7 +280,7 @@ describe('Settlement Flow', () => {
 
       const canSettleFn = INPUT_SETTLER_ABI.find((f) => f.name === 'canSettle')
       expect(canSettleFn).toBeDefined()
-      expect(canSettleFn!.outputs[0].type).toBe('bool')
+      expect(canSettleFn?.outputs[0].type).toBe('bool')
     })
 
     it('should have getOrder function ABI', () => {
@@ -304,7 +304,7 @@ describe('Settlement Flow', () => {
 
       const getOrderFn = INPUT_SETTLER_ABI.find((f) => f.name === 'getOrder')
       expect(getOrderFn).toBeDefined()
-      expect(getOrderFn!.outputs[0].type).toBe('tuple')
+      expect(getOrderFn?.outputs[0].type).toBe('tuple')
     })
   })
 })

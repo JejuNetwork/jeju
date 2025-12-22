@@ -1,6 +1,6 @@
 'use client'
 
-import { JEJU_TOKENOMICS } from '@/config/jeju-tokenomics'
+import { JEJU_TOKENOMICS } from '../../config/jeju-tokenomics'
 
 const ICONS: Record<string, string> = {
   vote: '🗳️',

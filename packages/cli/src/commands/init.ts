@@ -25,9 +25,59 @@ import chalk from 'chalk'
 import { Command } from 'commander'
 import { execa } from 'execa'
 import prompts from 'prompts'
+import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { validateAppName } from '../lib/security'
 import { findMonorepoRoot } from '../lib/system'
+import { validate } from '../schemas'
+
+// Schema for template package.json
+const TemplatePackageJsonSchema = z
+  .object({
+    name: z.string(),
+    description: z.string().optional(),
+    version: z.string().optional(),
+    scripts: z.record(z.string(), z.string()).optional(),
+    dependencies: z.record(z.string(), z.string()).optional(),
+    devDependencies: z.record(z.string(), z.string()).optional(),
+    peerDependencies: z.record(z.string(), z.string()).optional(),
+  })
+  .passthrough()
+
+// Schema for jeju-manifest.json in templates
+const TemplateManifestSchema = z
+  .object({
+    name: z.string(),
+    displayName: z.string().optional(),
+    description: z.string().optional(),
+    version: z.string().optional(),
+    jns: z
+      .object({
+        name: z.string().optional(),
+        description: z.string().optional(),
+      })
+      .optional(),
+    services: z
+      .object({
+        database: z
+          .object({
+            databaseId: z.string().optional(),
+          })
+          .passthrough()
+          .optional(),
+      })
+      .passthrough()
+      .optional(),
+    agent: z
+      .object({
+        jnsName: z.string().optional(),
+        x402Support: z.boolean().optional(),
+      })
+      .passthrough()
+      .optional(),
+    template: z.unknown().optional(),
+  })
+  .passthrough()
 
 interface InitConfig {
   name: string
@@ -362,7 +412,12 @@ function transformContent(content: string, config: InitConfig): string {
 async function generateCustomFiles(config: InitConfig): Promise<void> {
   // Generate customized package.json
   const packageJsonPath = join(config.outputDir, 'package.json')
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
+  const rawPackageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8'))
+  const packageJson = validate(
+    rawPackageJson,
+    TemplatePackageJsonSchema,
+    `template package.json at ${packageJsonPath}`,
+  )
 
   packageJson.name = `@jejunetwork/${config.name}`
   packageJson.description = config.description
@@ -371,16 +426,27 @@ async function generateCustomFiles(config: InitConfig): Promise<void> {
 
   // Generate customized manifest
   const manifestPath = join(config.outputDir, 'jeju-manifest.json')
-  const manifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+  const rawManifest = JSON.parse(readFileSync(manifestPath, 'utf-8'))
+  const manifest = validate(
+    rawManifest,
+    TemplateManifestSchema,
+    `template manifest at ${manifestPath}`,
+  )
 
   manifest.name = config.name
   manifest.displayName = config.displayName
   manifest.description = config.description
-  manifest.jns.name = config.jnsName
-  manifest.jns.description = config.displayName
-  manifest.services.database.databaseId = config.databaseId
-  manifest.agent.jnsName = config.jnsName
-  manifest.agent.x402Support = config.x402Enabled
+  if (manifest.jns) {
+    manifest.jns.name = config.jnsName
+    manifest.jns.description = config.displayName
+  }
+  if (manifest.services?.database) {
+    manifest.services.database.databaseId = config.databaseId
+  }
+  if (manifest.agent) {
+    manifest.agent.jnsName = config.jnsName
+    manifest.agent.x402Support = config.x402Enabled
+  }
 
   // Remove template-specific fields
   delete manifest.template
@@ -397,7 +463,7 @@ APP_NAME="${config.displayName}"
 
 # Network
 NETWORK=localnet
-L2_RPC_URL=http://localhost:9545
+L2_RPC_URL=http://localhost:6546
 
 # Services
 CQL_BLOCK_PRODUCER_ENDPOINT=http://localhost:4300

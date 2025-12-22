@@ -95,7 +95,7 @@ const localnet: Chain = {
   name: 'Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['http://localhost:9545'] },
+    default: { http: ['http://localhost:6546'] },
   },
 }
 
@@ -173,7 +173,9 @@ export class EventCollector extends EventEmitter {
 
   async stop(): Promise<void> {
     this.running = false
-    this.unwatchers.forEach((unwatch) => unwatch())
+    for (const unwatch of this.unwatchers) {
+      unwatch()
+    }
     this.unwatchers = []
     log.info('Event collection stopped')
   }

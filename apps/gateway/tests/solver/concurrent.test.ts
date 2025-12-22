@@ -208,8 +208,10 @@ describe('Async Event Handling', () => {
     private async processQueue(): Promise<void> {
       this.processing = true
       while (this.queue.length > 0) {
-        const item = this.queue.shift()!
-        await this.processEvent(item.event)
+        const item = this.queue.shift()
+        if (item) {
+          await this.processEvent(item.event)
+        }
       }
       this.processing = false
     }

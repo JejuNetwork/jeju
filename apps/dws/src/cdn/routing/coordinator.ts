@@ -22,6 +22,7 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
+import { z } from 'zod'
 import { type GeoRouter, getGeoRouter } from './geo-router'
 
 function inferChainFromRpcUrl(rpcUrl: string) {
@@ -58,6 +59,17 @@ const CDN_REGISTRY_ABI = parseAbi([
 // const CDN_BILLING_ABI = parseAbi([
 //   'function recordUsage(address user, address provider, uint256 bytesEgress, uint256 requests, uint256 storageBytes, tuple(uint256 pricePerGBEgress, uint256 pricePerMillionRequests, uint256 pricePerGBStorage) rates) external',
 // ]);
+
+// ============================================================================
+// Schemas
+// ============================================================================
+
+// Schema for invalidation result from edge nodes
+const InvalidationResultSchema = z.object({
+  pathsInvalidated: z.number().optional(),
+  success: z.boolean().optional(),
+  error: z.string().optional(),
+})
 
 // ============================================================================
 // Coordinator Server
@@ -383,12 +395,13 @@ export class CDNCoordinator {
             throw new Error(`HTTP ${response.status}`)
           }
 
-          const result = (await response.json()) as {
-            pathsInvalidated?: number
-          }
+          const parseResult = InvalidationResultSchema.safeParse(
+            await response.json(),
+          )
           progress.nodesProcessed++
-          progress.pathsInvalidated +=
-            result.pathsInvalidated ?? request.paths.length
+          progress.pathsInvalidated += parseResult.success
+            ? (parseResult.data.pathsInvalidated ?? request.paths.length)
+            : request.paths.length
         } catch (e) {
           progress.errors.push({
             nodeId: node.nodeId,
@@ -517,7 +530,7 @@ export async function startCoordinator(): Promise<CDNCoordinator> {
       '0x0000000000000000000000000000000000000000') as Address,
     billingAddress: (process.env.CDN_BILLING_ADDRESS ??
       '0x0000000000000000000000000000000000000000') as Address,
-    rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
+    rpcUrl: process.env.RPC_URL ?? 'http://localhost:6546',
     healthCheckInterval: parseInt(
       process.env.CDN_HEALTH_CHECK_INTERVAL ?? '60000',
       10,

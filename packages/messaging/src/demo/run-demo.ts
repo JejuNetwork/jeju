@@ -10,7 +10,13 @@
  * 6. Verify message integrity
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { startRelayServer } from '../node'
+import {
+  RelayMessagesResponseSchema,
+  RelayStatsResponseSchema,
+  SendMessageResponseSchema,
+} from '../schemas'
 import {
   decryptMessageToString,
   deserializeEncryptedMessage,
@@ -128,11 +134,12 @@ async function runDemo(): Promise<void> {
     body: JSON.stringify(envelope),
   })
 
-  const sendResult = (await response.json()) as {
-    success: boolean
-    messageId: string
-    cid: string
-  }
+  const rawSendResult: unknown = await response.json()
+  const sendResult = expectValid(
+    SendMessageResponseSchema,
+    rawSendResult,
+    'send message response',
+  )
   console.log(`   ✅ Message sent! ID: ${sendResult.messageId}`)
   console.log(`   CID: ${sendResult.cid}`)
 
@@ -141,10 +148,12 @@ async function runDemo(): Promise<void> {
 
   // Fetch pending messages
   const messagesResponse = await fetch(`${RELAY_URL}/messages/${bob.address}`)
-  const messagesResult = (await messagesResponse.json()) as {
-    messages: MessageEnvelope[]
-    count: number
-  }
+  const rawMessagesResult: unknown = await messagesResponse.json()
+  const messagesResult = expectValid(
+    RelayMessagesResponseSchema,
+    rawMessagesResult,
+    'fetch messages response',
+  )
 
   console.log(`   Found ${messagesResult.count} pending message(s)`)
 
@@ -187,12 +196,12 @@ async function runDemo(): Promise<void> {
   console.log('\n📊 Step 7: Relay node stats...')
 
   const statsResponse = await fetch(`${RELAY_URL}/stats`)
-  const stats = (await statsResponse.json()) as {
-    totalMessagesRelayed: number
-    totalBytesRelayed: number
-    activeSubscribers: number
-    pendingMessages: number
-  }
+  const rawStats: unknown = await statsResponse.json()
+  const stats = expectValid(
+    RelayStatsResponseSchema,
+    rawStats,
+    'relay stats response',
+  )
 
   console.log(`   Total messages relayed: ${stats.totalMessagesRelayed}`)
   console.log(`   Total bytes relayed: ${stats.totalBytesRelayed}`)

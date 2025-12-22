@@ -41,7 +41,7 @@ const RPC_STAKING_ABI = [
 ] as const
 
 const STAKING_ADDR = process.env.RPC_STAKING_ADDRESS as Address | undefined
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:9545'
+const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = Number(process.env.JEJU_CHAIN_ID || 420690)
 
 const chain: Chain = {

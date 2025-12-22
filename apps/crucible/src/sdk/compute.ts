@@ -7,10 +7,12 @@
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
 import {
   AgentCharacterSchema,
+  DWSOpenAICompatSchema,
   EmbeddingResponseSchema,
   expect,
   InferenceResponseSchema,
   ModelsResponseSchema,
+  safeParse,
 } from '../schemas'
 import type { AgentCharacter, ExecutionOptions } from '../types'
 import { createLogger, type Logger } from './logger'
@@ -228,7 +230,7 @@ export class CrucibleCompute {
       throw new Error(`DWS inference failed (network: ${network}): ${error}`)
     }
 
-    const rawResult = (await r.json()) as Record<string, unknown>
+    const rawResult = await r.json()
 
     // Handle both OpenAI-compatible format and legacy format
     let content: string
@@ -237,19 +239,15 @@ export class CrucibleCompute {
     let completionTokens: number
     let cost: bigint
 
-    if (rawResult.choices && Array.isArray(rawResult.choices)) {
+    // Try OpenAI-compatible format first
+    const openAIResult = safeParse(DWSOpenAICompatSchema, rawResult)
+    if (openAIResult?.choices?.length) {
       // OpenAI-compatible format from DWS
-      const choice = (
-        rawResult.choices as Array<{ message?: { content: string } }>
-      )[0]
-      content = choice?.message?.content ?? ''
-      modelUsed = String(rawResult.model ?? model)
-      const usage = rawResult.usage as
-        | { prompt_tokens?: number; completion_tokens?: number }
-        | undefined
-      promptTokens = usage?.prompt_tokens ?? 0
-      completionTokens = usage?.completion_tokens ?? 0
-      cost = rawResult.cost ? BigInt(String(rawResult.cost)) : 0n
+      content = openAIResult.choices[0]?.message?.content ?? ''
+      modelUsed = openAIResult.model ?? model
+      promptTokens = openAIResult.usage?.prompt_tokens ?? 0
+      completionTokens = openAIResult.usage?.completion_tokens ?? 0
+      cost = openAIResult.cost ? BigInt(String(openAIResult.cost)) : 0n
     } else {
       // Legacy format
       const result = InferenceResponseSchema.parse(rawResult)

@@ -8,9 +8,7 @@ import { expect, test } from '@playwright/test'
 test.describe('Package List', () => {
   test('displays package list', async ({ page }) => {
     await page.goto('/packages')
-    await expect(
-      page.getByRole('heading', { name: /packages/i }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: /packages/i })).toBeVisible()
   })
 
   test('shows package stats', async ({ page }) => {
@@ -44,7 +42,7 @@ test.describe('Package Detail', () => {
   test('displays package header', async ({ page }) => {
     await page.goto('/packages/%40jeju/sdk')
     await expect(
-      page.locator('h1').filter({ hasText: '@jeju/sdk' }),
+      page.locator('h1').filter({ hasText: '@jejunetwork/sdk' }),
     ).toBeVisible()
   })
 

@@ -24,8 +24,9 @@ function inferChainFromRpcUrl(rpcUrl: string): Chain {
   if (
     rpcUrl.includes('localhost') ||
     rpcUrl.includes('127.0.0.1') ||
-    rpcUrl.includes(':9545') ||
-    rpcUrl.includes(':8545')
+    rpcUrl.includes(':6545') ||
+    rpcUrl.includes(':6546') ||
+    rpcUrl.includes(':6547')
   ) {
     return {
       id: 1337,

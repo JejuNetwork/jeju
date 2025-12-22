@@ -7,7 +7,15 @@
  * @see https://x402.org
  */
 
-import { type Address, formatEther, parseEther } from 'viem'
+import {
+  type Address,
+  formatEther,
+  parseEther,
+  recoverTypedDataAddress,
+  verifyTypedData,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { PaymentPayloadSchema } from '../../schemas'
 
 // ============ Types ============
 
@@ -101,7 +109,7 @@ export const RPC_URLS: Record<X402Network, string> = {
   'base-sepolia': 'https://sepolia.base.org',
   ethereum: 'https://eth.llamarpc.com',
   base: 'https://mainnet.base.org',
-  jeju: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
+  jeju: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
   'jeju-testnet':
     process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
 }
@@ -253,21 +261,23 @@ export function createPaymentPayload(
 
 /**
  * Parse x402 payment header from request
+ * Validates against schema to ensure all required fields are present
  */
 export function parsePaymentHeader(
   headerValue: string | null,
 ): PaymentPayload | null {
   if (!headerValue) return null
 
-  let parsed: PaymentPayload
   try {
-    parsed = JSON.parse(headerValue) as PaymentPayload
+    const parsed = JSON.parse(headerValue)
+    const result = PaymentPayloadSchema.safeParse(parsed)
+    if (!result.success) {
+      return null
+    }
+    return result.data as PaymentPayload
   } catch {
     return null
   }
-
-  if (!parsed || typeof parsed !== 'object') return null
-  return parsed
 }
 
 /**
@@ -307,8 +317,6 @@ export async function verifyPayment(
   if (!payload.signature) {
     return { valid: false, error: 'Payment signature required' }
   }
-
-  const { verifyTypedData, recoverTypedDataAddress } = await import('viem')
 
   const network = payload.network as X402Network
   const domain = getEIP712Domain(network)
@@ -355,8 +363,6 @@ export async function signPaymentPayload(
   payload: Omit<PaymentPayload, 'signature'>,
   privateKey: `0x${string}`,
 ): Promise<PaymentPayload> {
-  const { privateKeyToAccount } = await import('viem/accounts')
-
   const account = privateKeyToAccount(privateKey)
   const network = payload.network as X402Network
   const domain = getEIP712Domain(network)

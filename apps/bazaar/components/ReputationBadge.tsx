@@ -3,7 +3,7 @@
 import { AlertTriangle, Award, Shield, Zap } from 'lucide-react'
 import type { Address } from 'viem'
 import { useReadContract } from 'wagmi'
-import { CONTRACTS } from '@/config'
+import { CONTRACTS } from '../config'
 
 interface ReputationBadgeProps {
   address: Address

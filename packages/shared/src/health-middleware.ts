@@ -1,14 +1,14 @@
 /**
  * the network Standard Health Check Middleware
  *
- * Drop-in middleware for Hono apps to implement the standard health check API.
+ * Drop-in middleware for Elysia apps to implement the standard health check API.
  * This enables automatic monitoring and recovery via the KeepaliveRegistry.
  *
  * Usage:
  *   import { healthMiddleware } from '@jejunetwork/shared';
  *
- *   const app = new Hono();
- *   app.route('/health', healthMiddleware({
+ *   const app = new Elysia();
+ *   app.use(healthMiddleware({
  *     service: 'my-app',
  *     version: '1.0.0',
  *     dependencies: [
@@ -20,7 +20,7 @@
 
 // Re-export consolidated HealthStatus
 import type { HealthStatus } from '@jejunetwork/types'
-import { type Context, Hono } from 'hono'
+import { Elysia } from 'elysia'
 export type { HealthStatus }
 type DependencyType =
   | 'database'
@@ -113,170 +113,179 @@ interface ResourceHealthResponse {
 
 const startTime = Date.now()
 
-export function healthMiddleware(config: HealthMiddlewareConfig): Hono {
-  const app = new Hono()
+export function healthMiddleware(config: HealthMiddlewareConfig) {
+  return new Elysia({ prefix: '/health' })
+    // GET /health - Basic health check
+    .get('/', async ({ set }) => {
+      let status: HealthStatus = 'healthy'
 
-  // GET /health - Basic health check
-  app.get('/', async (c: Context) => {
-    let status: HealthStatus = 'healthy'
-
-    // Quick check of critical dependencies
-    if (config.dependencies) {
-      const criticalDeps = config.dependencies.filter(
-        (d) => d.required !== false,
-      )
-      for (const dep of criticalDeps) {
-        const isHealthy = await dep.check().catch(() => false)
-        if (!isHealthy) {
-          status = 'unhealthy'
-          break
-        }
-      }
-    }
-
-    const response: HealthResponse = {
-      status,
-      service: config.service,
-      version: config.version,
-      timestamp: new Date().toISOString(),
-      uptime: Date.now() - startTime,
-    }
-
-    return c.json(response, status === 'healthy' ? 200 : 503)
-  })
-
-  // GET /health/ready - Readiness check with dependency details
-  app.get('/ready', async (c: Context) => {
-    const dependencies: DependencyHealth[] = []
-    let overallStatus: HealthStatus = 'healthy'
-    let ready = true
-
-    if (config.dependencies) {
-      for (const dep of config.dependencies) {
-        const start = Date.now()
-        let depStatus: HealthStatus = 'healthy'
-        let error: string | undefined
-
-        const isHealthy = await dep.check().catch((e) => {
-          error = e instanceof Error ? e.message : String(e)
-          return false
-        })
-
-        if (!isHealthy) {
-          depStatus = 'unhealthy'
-          if (dep.required !== false) {
-            overallStatus = 'unhealthy'
-            ready = false
-          } else if (overallStatus === 'healthy') {
-            overallStatus = 'degraded'
+      // Quick check of critical dependencies
+      if (config.dependencies) {
+        const criticalDeps = config.dependencies.filter(
+          (d) => d.required !== false,
+        )
+        for (const dep of criticalDeps) {
+          const isHealthy = await dep.check().catch(() => false)
+          if (!isHealthy) {
+            status = 'unhealthy'
+            break
           }
         }
-
-        dependencies.push({
-          name: dep.name,
-          type: dep.type,
-          status: depStatus,
-          latencyMs: Date.now() - start,
-          error,
-        })
       }
-    }
 
-    const response: ReadinessResponse = {
-      ready,
-      status: overallStatus,
-      dependencies,
-    }
+      const response: HealthResponse = {
+        status,
+        service: config.service,
+        version: config.version,
+        timestamp: new Date().toISOString(),
+        uptime: Date.now() - startTime,
+      }
 
-    return c.json(response, ready ? 200 : 503)
-  })
+      if (status !== 'healthy') {
+        set.status = 503
+      }
 
-  // GET /health/live - Liveness check (is the process alive?)
-  app.get('/live', (c: Context) => {
-    const mem = process.memoryUsage()
+      return response
+    })
 
-    const response: LivenessResponse = {
-      alive: true,
-      pid: process.pid,
-      memoryUsage: {
-        heapUsed: mem.heapUsed,
-        heapTotal: mem.heapTotal,
-        rss: mem.rss,
-      },
-    }
+    // GET /health/ready - Readiness check with dependency details
+    .get('/ready', async ({ set }) => {
+      const dependencies: DependencyHealth[] = []
+      let overallStatus: HealthStatus = 'healthy'
+      let ready = true
 
-    return c.json(response)
-  })
+      if (config.dependencies) {
+        for (const dep of config.dependencies) {
+          const start = Date.now()
+          let depStatus: HealthStatus = 'healthy'
+          let error: string | undefined
 
-  // GET /health/resources - Resource-level health with funding status
-  app.get('/resources', async (c: Context) => {
-    const resources: ResourceHealth[] = []
-    let overallStatus: HealthStatus = 'healthy'
-
-    // Check resources
-    if (config.resources) {
-      for (const res of config.resources) {
-        const start = Date.now()
-        let resStatus: HealthStatus = 'healthy'
-        let error: string | undefined
-
-        if (res.check) {
-          const isHealthy = await res.check().catch((e) => {
+          const isHealthy = await dep.check().catch((e) => {
             error = e instanceof Error ? e.message : String(e)
             return false
           })
 
           if (!isHealthy) {
-            resStatus = 'unhealthy'
-            if (res.required !== false) {
+            depStatus = 'unhealthy'
+            if (dep.required !== false) {
               overallStatus = 'unhealthy'
+              ready = false
             } else if (overallStatus === 'healthy') {
               overallStatus = 'degraded'
             }
           }
+
+          dependencies.push({
+            name: dep.name,
+            type: dep.type,
+            status: depStatus,
+            latencyMs: Date.now() - start,
+            error,
+          })
         }
-
-        resources.push({
-          type: res.type,
-          identifier: res.identifier,
-          status: resStatus,
-          required: res.required !== false,
-          lastCheck: new Date().toISOString(),
-          latencyMs: Date.now() - start,
-          error,
-        })
       }
-    }
 
-    // Check funding
-    let balance = 0n
-    let funded = true
-
-    if (config.funding) {
-      balance = await config.funding.getCurrentBalance().catch(() => 0n)
-      funded = balance >= config.funding.minRequired
-
-      if (!funded) {
-        overallStatus = 'unfunded'
+      const response: ReadinessResponse = {
+        ready,
+        status: overallStatus,
+        dependencies,
       }
-    }
 
-    const response: ResourceHealthResponse = {
-      status: overallStatus,
-      resources,
-      funding: {
-        funded,
-        balance: balance.toString(),
-        minRequired: config.funding?.minRequired.toString() ?? '0',
-        vaultAddress: config.funding?.vaultAddress ?? '0x0',
-        autoFundEnabled: config.funding?.autoFundEnabled ?? false,
-      },
-    }
+      if (!ready) {
+        set.status = 503
+      }
 
-    return c.json(response, overallStatus === 'healthy' ? 200 : 503)
-  })
+      return response
+    })
 
-  return app
+    // GET /health/live - Liveness check (is the process alive?)
+    .get('/live', () => {
+      const mem = process.memoryUsage()
+
+      const response: LivenessResponse = {
+        alive: true,
+        pid: process.pid,
+        memoryUsage: {
+          heapUsed: mem.heapUsed,
+          heapTotal: mem.heapTotal,
+          rss: mem.rss,
+        },
+      }
+
+      return response
+    })
+
+    // GET /health/resources - Resource-level health with funding status
+    .get('/resources', async ({ set }) => {
+      const resources: ResourceHealth[] = []
+      let overallStatus: HealthStatus = 'healthy'
+
+      // Check resources
+      if (config.resources) {
+        for (const res of config.resources) {
+          const start = Date.now()
+          let resStatus: HealthStatus = 'healthy'
+          let error: string | undefined
+
+          if (res.check) {
+            const isHealthy = await res.check().catch((e) => {
+              error = e instanceof Error ? e.message : String(e)
+              return false
+            })
+
+            if (!isHealthy) {
+              resStatus = 'unhealthy'
+              if (res.required !== false) {
+                overallStatus = 'unhealthy'
+              } else if (overallStatus === 'healthy') {
+                overallStatus = 'degraded'
+              }
+            }
+          }
+
+          resources.push({
+            type: res.type,
+            identifier: res.identifier,
+            status: resStatus,
+            required: res.required !== false,
+            lastCheck: new Date().toISOString(),
+            latencyMs: Date.now() - start,
+            error,
+          })
+        }
+      }
+
+      // Check funding
+      let balance = 0n
+      let funded = true
+
+      if (config.funding) {
+        balance = await config.funding.getCurrentBalance().catch(() => 0n)
+        funded = balance >= config.funding.minRequired
+
+        if (!funded) {
+          overallStatus = 'unfunded'
+        }
+      }
+
+      const response: ResourceHealthResponse = {
+        status: overallStatus,
+        resources,
+        funding: {
+          funded,
+          balance: balance.toString(),
+          minRequired: config.funding?.minRequired.toString() ?? '0',
+          vaultAddress: config.funding?.vaultAddress ?? '0x0',
+          autoFundEnabled: config.funding?.autoFundEnabled ?? false,
+        },
+      }
+
+      if (overallStatus !== 'healthy') {
+        set.status = 503
+      }
+
+      return response
+    })
 }
 
 /**

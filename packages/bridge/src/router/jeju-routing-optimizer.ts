@@ -8,22 +8,23 @@ import type { Address } from 'viem'
 export const JEJU_CHAIN_ID = 420691
 export const JEJU_TESTNET_CHAIN_ID = 420690
 
-export enum ChainId {
-  ETHEREUM = 1,
-  BASE = 8453,
-  BSC = 56,
-  ARBITRUM = 42161,
-  OPTIMISM = 10,
-  JEJU = 420691,
-  SEPOLIA = 11155111,
-  BASE_SEPOLIA = 84532,
-  BSC_TESTNET = 97,
-  ARBITRUM_SEPOLIA = 421614,
-  OPTIMISM_SEPOLIA = 11155420,
-  JEJU_TESTNET = 420690,
-  SOLANA_MAINNET = 101,
-  SOLANA_DEVNET = 103,
-}
+export const ChainId = {
+  ETHEREUM: 1,
+  BASE: 8453,
+  BSC: 56,
+  ARBITRUM: 42161,
+  OPTIMISM: 10,
+  JEJU: 420691,
+  SEPOLIA: 11155111,
+  BASE_SEPOLIA: 84532,
+  BSC_TESTNET: 97,
+  ARBITRUM_SEPOLIA: 421614,
+  OPTIMISM_SEPOLIA: 11155420,
+  JEJU_TESTNET: 420690,
+  SOLANA_MAINNET: 101,
+  SOLANA_DEVNET: 103,
+} as const
+export type ChainId = (typeof ChainId)[keyof typeof ChainId]
 
 export interface ChainConfig {
   chainId: ChainId | number

@@ -1,4 +1,3 @@
-import type { Intent, IntentStatus } from '@jejunetwork/types'
 import {
   AlertCircle,
   ArrowRight,
@@ -9,7 +8,9 @@ import {
   XCircle,
 } from 'lucide-react'
 import { type ComponentType, useState } from 'react'
-import { useIntents } from '../../hooks/useIntentAPI'
+import { type Intent, useIntents } from '../../hooks/useIntentAPI'
+
+type IntentStatus = string
 
 const ClockIcon = Clock as ComponentType<LucideProps>
 const AlertCircleIcon = AlertCircle as ComponentType<LucideProps>
@@ -83,6 +84,7 @@ export function IntentsView() {
       >
         {['', 'open', 'pending', 'filled', 'expired'].map((status) => (
           <button
+            type="button"
             key={status}
             onClick={() => setStatusFilter(status)}
             className={`pill ${statusFilter === status ? 'pill-active' : ''}`}
@@ -191,6 +193,7 @@ function IntentCard({ intent }: { intent: Intent }) {
             </div>
           </div>
           <button
+            type="button"
             className="button button-ghost"
             style={{
               flexShrink: 0,

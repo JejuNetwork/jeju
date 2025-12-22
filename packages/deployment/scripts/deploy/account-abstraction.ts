@@ -52,7 +52,7 @@ function getNetworkConfig(
     case 'localnet':
       return {
         network: 'localnet',
-        rpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:9545',
+        rpcUrl: process.env.JEJU_RPC_URL || 'http://localhost:6546',
         chainId: 420691,
       }
     case 'testnet':

@@ -4,8 +4,7 @@
  * Uses fail-fast validation patterns
  */
 
-import type { Context } from 'hono'
-import { type Address, getAddress, type Hex, verifyMessage } from 'viem'
+import { type Address, getAddress, verifyMessage } from 'viem'
 import { AuthHeadersSchema, expect, expectValid } from './schemas'
 
 export interface AuthResult {
@@ -17,10 +16,10 @@ export interface AuthResult {
 /**
  * Verify authentication from request headers
  */
-export async function verifyAuth(c: Context): Promise<AuthResult> {
-  const address = c.req.header('x-jeju-address')
-  const timestamp = c.req.header('x-jeju-timestamp')
-  const signature = c.req.header('x-jeju-signature')
+export async function verifyAuth(request: Request): Promise<AuthResult> {
+  const address = request.headers.get('x-jeju-address')
+  const timestamp = request.headers.get('x-jeju-timestamp')
+  const signature = request.headers.get('x-jeju-signature')
 
   // Check if headers are present
   if (!address || !timestamp || !signature) {
@@ -52,14 +51,16 @@ export async function verifyAuth(c: Context): Promise<AuthResult> {
   )
 
   // Verify signature
+  // validatedHeaders is already validated by AuthHeadersSchema which uses:
+  // - AddressSchema (returns Address type)
+  // - HexSchema (returns Hex type)
   const message = `jeju-vpn:${timestamp}`
   const validAddress = getAddress(validatedHeaders['x-jeju-address'])
-  const validSignature = validatedHeaders['x-jeju-signature'] as Hex
 
   const isValid = await verifyMessage({
     address: validAddress,
     message,
-    signature: validSignature,
+    signature: validatedHeaders['x-jeju-signature'],
   })
 
   if (!isValid) {

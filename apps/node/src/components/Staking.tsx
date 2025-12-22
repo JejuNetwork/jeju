@@ -122,6 +122,7 @@ export function Staking() {
               </div>
             </div>
             <button
+              type="button"
               onClick={toggleAutoClaim}
               className={clsx(
                 'relative w-12 h-6 rounded-full transition-colors',
@@ -149,7 +150,11 @@ export function Staking() {
                 {formatEther(staking?.pending_rewards_wei || '0')} ETH available
               </p>
             </div>
-            <button onClick={handleClaimAll} className="btn-primary">
+            <button
+              type="button"
+              onClick={handleClaimAll}
+              className="btn-primary"
+            >
               Claim All
             </button>
           </div>
@@ -215,6 +220,7 @@ export function Staking() {
                   )}
 
                   <button
+                    type="button"
                     onClick={() => {
                       setStakingService(service.metadata.id)
                       setIsUnstaking(false)
@@ -227,6 +233,7 @@ export function Staking() {
                   {stakedAmount > 0 && (
                     <>
                       <button
+                        type="button"
                         onClick={() => {
                           setStakingService(service.metadata.id)
                           setIsUnstaking(true)
@@ -237,6 +244,7 @@ export function Staking() {
                       </button>
                       {pendingRewards > 0 && (
                         <button
+                          type="button"
                           onClick={() => handleClaim(service.metadata.id)}
                           className="btn-primary"
                         >
@@ -341,8 +349,11 @@ export function Staking() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="label">Amount (ETH)</label>
+                  <label htmlFor="stake-amount" className="label">
+                    Amount (ETH)
+                  </label>
                   <input
+                    id="stake-amount"
                     type="number"
                     value={stakeAmount}
                     onChange={(e) => setStakeAmount(e.target.value)}
@@ -378,12 +389,14 @@ export function Staking() {
 
               <div className="flex gap-3 mt-6">
                 <button
+                  type="button"
                   onClick={() => setStakingService(null)}
                   className="btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={isUnstaking ? handleUnstake : handleStake}
                   className={clsx(
                     'flex-1',

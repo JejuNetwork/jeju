@@ -175,13 +175,15 @@ export default function MultiTokenBalanceDisplay() {
                   <img
                     src={token.logoUrl}
                     alt={token.symbol}
+                    width={36}
+                    height={36}
                     style={{
                       width: '36px',
                       height: '36px',
                       borderRadius: '50%',
                       flexShrink: 0,
                     }}
-                    onError={(e) => {
+                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                       e.currentTarget.style.display = 'none'
                     }}
                   />

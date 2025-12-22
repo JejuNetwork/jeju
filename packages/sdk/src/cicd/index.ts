@@ -16,19 +16,23 @@ import type { JejuWallet } from '../wallet'
 // Types
 // ============================================================================
 
-export enum CICDWorkflowStatus {
-  PENDING = 'pending',
-  QUEUED = 'queued',
-  RUNNING = 'running',
-  SUCCESS = 'success',
-  FAILED = 'failed',
-  CANCELLED = 'cancelled',
-}
+export const CICDWorkflowStatus = {
+  PENDING: 'pending',
+  QUEUED: 'queued',
+  RUNNING: 'running',
+  SUCCESS: 'success',
+  FAILED: 'failed',
+  CANCELLED: 'cancelled',
+} as const
+export type CICDWorkflowStatus =
+  (typeof CICDWorkflowStatus)[keyof typeof CICDWorkflowStatus]
 
-export enum DeploymentEnvironment {
-  STAGING = 'staging',
-  PRODUCTION = 'production',
-}
+export const DeploymentEnvironment = {
+  STAGING: 'staging',
+  PRODUCTION: 'production',
+} as const
+export type DeploymentEnvironment =
+  (typeof DeploymentEnvironment)[keyof typeof DeploymentEnvironment]
 
 export interface CICDWorkflow {
   id: string

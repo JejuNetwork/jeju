@@ -52,7 +52,7 @@ describe('WorkflowEngine', () => {
 
   beforeEach(() => {
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:9545', dwsUrl: 'http://localhost:4030' },
+      { rpcUrl: 'http://localhost:6546', dwsUrl: 'http://localhost:4030' },
       mockBackend as never,
       mockRepoManager as never,
     )
@@ -350,7 +350,7 @@ describe('CIScheduler', () => {
   beforeEach(() => {
     resetCIScheduler()
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:9545' },
+      { rpcUrl: 'http://localhost:6546' },
       mockBackend as never,
       mockRepoManager as never,
     )
@@ -400,8 +400,8 @@ describe('CIScheduler', () => {
 
     const job = scheduler.addJob(workflow, workflow.triggers[0])
     expect(job?.nextRun).toBeDefined()
-    expect(job!.nextRun).toBeGreaterThan(Date.now())
-    expect(job!.nextRun).toBeLessThan(Date.now() + 2 * 60 * 1000)
+    expect(job?.nextRun).toBeGreaterThan(Date.now())
+    expect(job?.nextRun).toBeLessThan(Date.now() + 2 * 60 * 1000)
   })
 
   test('lists jobs by repo', () => {
@@ -462,11 +462,11 @@ describe('CIScheduler', () => {
     const job = scheduler.addJob(workflow, workflow.triggers[0])
     expect(job?.enabled).toBe(true)
 
-    scheduler.disableJob(job!.jobId)
-    expect(scheduler.getJob(job!.jobId)?.enabled).toBe(false)
+    scheduler.disableJob(job?.jobId)
+    expect(scheduler.getJob(job?.jobId)?.enabled).toBe(false)
 
-    scheduler.enableJob(job!.jobId)
-    expect(scheduler.getJob(job!.jobId)?.enabled).toBe(true)
+    scheduler.enableJob(job?.jobId)
+    expect(scheduler.getJob(job?.jobId)?.enabled).toBe(true)
   })
 })
 
@@ -584,8 +584,9 @@ describe('RunnerManager', () => {
     const before = manager.getRunner('heartbeat-test')?.lastHeartbeat
     manager.runnerHeartbeat('heartbeat-test')
     const after = manager.getRunner('heartbeat-test')?.lastHeartbeat
+    if (before === undefined) throw new Error('before should be defined')
 
-    expect(after).toBeGreaterThan(before!)
+    expect(after).toBeGreaterThan(before)
   })
 
   test('unregisters runner', () => {
@@ -649,7 +650,7 @@ describe('CIEventBus', () => {
   beforeEach(() => {
     resetCIEventBus()
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:9545' },
+      { rpcUrl: 'http://localhost:6546' },
       mockBackend as never,
       mockRepoManager as never,
     )
@@ -773,7 +774,7 @@ describe('Expression Evaluation', () => {
 
   beforeEach(() => {
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:9545' },
+      { rpcUrl: 'http://localhost:6546' },
       mockBackend as never,
       mockRepoManager as never,
     )
@@ -808,7 +809,7 @@ describe('Matrix Expansion', () => {
 
   beforeEach(() => {
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:9545' },
+      { rpcUrl: 'http://localhost:6546' },
       mockBackend as never,
       mockRepoManager as never,
     )
@@ -847,7 +848,7 @@ describe('Workflow Concurrency', () => {
 
   beforeEach(() => {
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:9545' },
+      { rpcUrl: 'http://localhost:6546' },
       mockBackend as never,
       mockRepoManager as never,
     )
@@ -895,7 +896,7 @@ describe('Workflow Triggers', () => {
 
   beforeEach(() => {
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:9545' },
+      { rpcUrl: 'http://localhost:6546' },
       mockBackend as never,
       mockRepoManager as never,
     )

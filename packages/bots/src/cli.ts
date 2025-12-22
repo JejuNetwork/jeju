@@ -13,6 +13,7 @@ import { BotEngine } from './engine'
 import { EVMChainIdSchema } from './schemas'
 import { type BacktestConfig, Backtester } from './simulation/backtester'
 import { HistoricalDataFetcher } from './simulation/data-fetcher'
+import { PortfolioSimulator } from './simulation/portfolio-simulator'
 import type { EVMChainId, Token } from './types'
 
 // ============ CLI Argument Schemas ============
@@ -223,11 +224,6 @@ async function runSimulation(args: string[]): Promise<void> {
   const { blocks } = validated
 
   console.log(`Running simulation for ${blocks} blocks...`)
-
-  // Use portfolio simulator
-  const { PortfolioSimulator } = await import(
-    './simulation/portfolio-simulator'
-  )
 
   const tokens: Token[] = [
     { address: '0x1', symbol: 'WETH', decimals: 18, chainId: 8453 },

@@ -55,10 +55,15 @@ export default function RPCGatewayPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
             disabled={!isConnected}
@@ -140,6 +145,7 @@ export default function RPCGatewayPage() {
               https://rpc.jejunetwork.org/v1/rpc/{'{chainId}'}
             </code>
             <button
+              type="button"
               className="btn btn-ghost btn-sm"
               onClick={() =>
                 handleCopy('https://rpc.jejunetwork.org/v1/rpc/', 'base')
@@ -162,8 +168,12 @@ export default function RPCGatewayPage() {
       </div>
 
       <div className="tabs" style={{ marginBottom: '0' }}>
-        <button className="tab active">Mainnets</button>
-        <button className="tab">Testnets</button>
+        <button type="button" className="tab active">
+          Mainnets
+        </button>
+        <button type="button" className="tab">
+          Testnets
+        </button>
       </div>
 
       <div className="card" style={{ borderTopLeftRadius: 0 }}>
@@ -226,6 +236,7 @@ export default function RPCGatewayPage() {
                           /v1/rpc/{chain.chainId}
                         </code>
                         <button
+                          type="button"
                           className="btn btn-ghost btn-icon"
                           style={{ padding: '0.25rem' }}
                           onClick={() =>
@@ -252,17 +263,33 @@ export default function RPCGatewayPage() {
       </div>
 
       {showModal && (
-        <div
-          className="modal-overlay"
-          onClick={() => {
-            setShowModal(false)
-            setApiKey(null)
-          }}
-        >
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => {
+              setShowModal(false)
+              setApiKey(null)
+            }}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowModal(false)
+                setApiKey(null)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">Get API Key</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => {
                   setShowModal(false)
@@ -320,6 +347,7 @@ export default function RPCGatewayPage() {
                         {apiKey}
                       </code>
                       <button
+                        type="button"
                         className="btn btn-ghost btn-sm"
                         onClick={() => handleCopy(apiKey, 'apikey')}
                       >
@@ -334,7 +362,7 @@ export default function RPCGatewayPage() {
                 </div>
               ) : (
                 <div className="form-group">
-                  <label className="form-label">Tier</label>
+                  <span className="form-label">Tier</span>
                   <div style={{ display: 'grid', gap: '0.75rem' }}>
                     {[
                       {
@@ -407,6 +435,7 @@ export default function RPCGatewayPage() {
             </div>
             <div className="modal-footer">
               <button
+                type="button"
                 className="btn btn-secondary"
                 onClick={() => {
                   setShowModal(false)
@@ -417,6 +446,7 @@ export default function RPCGatewayPage() {
               </button>
               {!apiKey && (
                 <button
+                  type="button"
                   className="btn btn-primary"
                   onClick={handleCreateKey}
                   disabled={createKey.isPending}

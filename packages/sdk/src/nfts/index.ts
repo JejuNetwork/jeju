@@ -14,6 +14,16 @@ import {
 } from 'viem'
 import { getServicesConfig } from '../config'
 import type { SupportedChain } from '../crosschain'
+import {
+  NFTApprovalResponseSchema,
+  NFTBridgeQuotesResponseSchema,
+  NFTInfoResponseSchema,
+  NFTNonceResponseSchema,
+  NFTTransferStatusSchema,
+  NFTTransfersListSchema,
+  ProvenanceResponseSchema,
+  WrappedNFTInfoResponseSchema,
+} from '../shared/schemas'
 import type { JejuWallet } from '../wallet'
 
 // ============ Types ============
@@ -417,16 +427,8 @@ export function createNFTModule(
       `${services.storage.api}/nft/${collection}/${tokenId}`,
     )
     if (!response.ok) throw new Error('Failed to get NFT info')
-    const data = (await response.json()) as {
-      assetType: string
-      collection: Address
-      tokenId: string
-      amount: string
-      tokenURI: string
-      owner: Address
-      royaltyReceiver?: Address
-      royaltyBps?: number
-    }
+    const rawData: unknown = await response.json()
+    const data = NFTInfoResponseSchema.parse(rawData)
     return {
       assetType: data.assetType as NFTAssetType,
       collection: data.collection,
@@ -447,16 +449,8 @@ export function createNFTModule(
       `${services.storage.api}/nft/${collection}/${tokenId}/provenance`,
     )
     if (!response.ok) return []
-    const data = (await response.json()) as {
-      provenance: Array<{
-        chainId: number
-        blockNumber: string
-        timestamp: string
-        from: Address
-        to: Address
-        txHash: Hex
-      }>
-    }
+    const rawData: unknown = await response.json()
+    const data = ProvenanceResponseSchema.parse(rawData)
     return data.provenance.map((p) => ({
       chainId: p.chainId,
       blockNumber: BigInt(p.blockNumber),
@@ -478,21 +472,8 @@ export function createNFTModule(
     if (!response.ok) {
       throw new Error(`Failed to get wrapped info: ${response.statusText}`)
     }
-    const data = (await response.json()) as {
-      isWrapped: boolean
-      homeChainId: number
-      originalCollection: Address
-      originalTokenId: string
-      wrappedAt: string
-      provenance: Array<{
-        chainId: number
-        blockNumber: string
-        timestamp: string
-        from: Address
-        to: Address
-        txHash: Hex
-      }>
-    }
+    const rawData: unknown = await response.json()
+    const data = WrappedNFTInfoResponseSchema.parse(rawData)
     return {
       isWrapped: data.isWrapped,
       homeChainId: data.homeChainId,
@@ -538,23 +519,8 @@ export function createNFTModule(
     if (!response.ok)
       throw new Error(`Failed to get quotes: ${response.statusText}`)
 
-    const data = (await response.json()) as {
-      quotes: Array<{
-        quoteId: string
-        sourceChain: SupportedChain
-        destinationChain: SupportedChain
-        collection: Address
-        tokenId: string
-        amount: string
-        gasFee: string
-        xlpFee?: string
-        estimatedTimeSeconds: number
-        route: 'hyperlane' | 'eil' | 'oif'
-        xlp?: Address
-        solver?: Address
-        validUntil: number
-      }>
-    }
+    const rawData: unknown = await response.json()
+    const data = NFTBridgeQuotesResponseSchema.parse(rawData)
 
     return data.quotes.map((q) => ({
       ...q,
@@ -620,7 +586,8 @@ export function createNFTModule(
       `${services.oif.aggregator}/nft/voucher/${requestId}`,
     )
     if (!response.ok) throw new Error('Failed to get voucher request status')
-    return (await response.json()) as NFTTransferStatus
+    const rawData: unknown = await response.json()
+    return NFTTransferStatusSchema.parse(rawData) as NFTTransferStatus
   }
 
   async function refundVoucherRequest(requestId: Hex): Promise<Hex> {
@@ -645,7 +612,8 @@ export function createNFTModule(
     const response = await fetch(
       `${services.oif.aggregator}/nft/nonce/${wallet.address}`,
     )
-    const { nonce } = (await response.json()) as { nonce: string }
+    const rawData: unknown = await response.json()
+    const { nonce } = NFTNonceResponseSchema.parse(rawData)
 
     // Encode NFT transfer data
     const orderData = encodeAbiParameters(
@@ -688,7 +656,8 @@ export function createNFTModule(
       `${services.oif.aggregator}/nft/intent/${intentId}`,
     )
     if (!response.ok) throw new Error('Failed to get intent status')
-    return (await response.json()) as NFTTransferStatus
+    const rawData: unknown = await response.json()
+    return NFTTransferStatusSchema.parse(rawData) as NFTTransferStatus
   }
 
   async function cancelNFTIntent(intentId: Hex): Promise<Hex> {
@@ -759,7 +728,8 @@ export function createNFTModule(
       `${services.oif.aggregator}/nft/approved?collection=${collection}&operator=${operator}&owner=${wallet.address}${tokenId ? `&tokenId=${tokenId}` : ''}`,
     )
     if (!response.ok) return false
-    const data = (await response.json()) as { approved: boolean }
+    const rawData: unknown = await response.json()
+    const data = NFTApprovalResponseSchema.parse(rawData)
     return data.approved
   }
 
@@ -768,8 +738,9 @@ export function createNFTModule(
       `${services.oif.aggregator}/nft/transfers?user=${wallet.address}`,
     )
     if (!response.ok) return []
-    const data = (await response.json()) as { transfers: NFTTransferStatus[] }
-    return data.transfers
+    const rawData: unknown = await response.json()
+    const data = NFTTransfersListSchema.parse(rawData)
+    return data.transfers as NFTTransferStatus[]
   }
 
   async function listPendingTransfers(): Promise<NFTTransferStatus[]> {

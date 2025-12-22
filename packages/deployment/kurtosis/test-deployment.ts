@@ -127,7 +127,7 @@ async function testL1RPC(): Promise<void> {
   console.log('2️⃣  Testing L1 RPC...')
 
   try {
-    const rpcUrl = 'http://127.0.0.1:8545'
+    const rpcUrl = 'http://127.0.0.1:6545'
     const chain = inferChainFromRpcUrl(rpcUrl)
     const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
     const blockNumber = await publicClient.getBlockNumber()
@@ -162,7 +162,7 @@ async function testL2RPC(): Promise<void> {
   console.log('3️⃣  Testing L2 RPC...')
 
   try {
-    const rpcUrl = 'http://127.0.0.1:9545'
+    const rpcUrl = 'http://127.0.0.1:6546'
     const chain = inferChainFromRpcUrl(rpcUrl)
     const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
     const blockNumber = await publicClient.getBlockNumber()
@@ -200,7 +200,7 @@ async function testPreFundedAccounts(): Promise<void> {
   console.log('4️⃣  Verifying pre-funded accounts...')
 
   try {
-    const rpcUrl = 'http://127.0.0.1:9545'
+    const rpcUrl = 'http://127.0.0.1:6546'
     const chain = inferChainFromRpcUrl(rpcUrl)
     const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
 
@@ -243,7 +243,7 @@ async function testBlockProduction(): Promise<void> {
   console.log('5️⃣  Testing block production...')
 
   try {
-    const rpcUrl = 'http://127.0.0.1:9545'
+    const rpcUrl = 'http://127.0.0.1:6546'
     const chain = inferChainFromRpcUrl(rpcUrl)
     const publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
 
@@ -288,7 +288,7 @@ async function testTransactionExecution(): Promise<void> {
   console.log('6️⃣  Testing transaction execution...')
 
   try {
-    const rpcUrl = 'http://127.0.0.1:9545'
+    const rpcUrl = 'http://127.0.0.1:6546'
     const chain = inferChainFromRpcUrl(rpcUrl)
     const account = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey)
     const walletClient = createWalletClient({
@@ -379,8 +379,6 @@ interface ExecResult {
  * Execute shell command
  */
 async function execAsync(command: string): Promise<ExecResult> {
-  const { exec } = await import('node:child_process')
-  const { promisify } = await import('node:util')
   const execPromise = promisify(exec)
   return execPromise(command)
 }

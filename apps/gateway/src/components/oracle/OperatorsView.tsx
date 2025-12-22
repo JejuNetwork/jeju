@@ -121,6 +121,7 @@ export function OperatorsView({ onRegister }: OperatorsViewProps) {
               providing price data and earn rewards.
             </p>
             <button
+              type="button"
               className="button"
               onClick={() => setShowRegistration(true)}
             >
@@ -232,7 +233,11 @@ function OperatorRegistrationForm({
     <div className="card p-6">
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-bold">Register as Oracle Operator</h3>
-        <button className="text-gray-500 hover:text-gray-700" onClick={onClose}>
+        <button
+          type="button"
+          className="text-gray-500 hover:text-gray-700"
+          onClick={onClose}
+        >
           ×
         </button>
       </div>
@@ -240,10 +245,14 @@ function OperatorRegistrationForm({
       <div className="space-y-4">
         {/* Worker Key */}
         <div>
-          <label className="block text-sm font-medium mb-1">
+          <label
+            htmlFor="worker-key"
+            className="block text-sm font-medium mb-1"
+          >
             Worker Key Address
           </label>
           <input
+            id="worker-key"
             type="text"
             className="input w-full"
             placeholder="0x..."
@@ -258,10 +267,14 @@ function OperatorRegistrationForm({
 
         {/* Staking Oracle ID (optional) */}
         <div>
-          <label className="block text-sm font-medium mb-1">
+          <label
+            htmlFor="staking-oracle-id-display"
+            className="block text-sm font-medium mb-1"
+          >
             Staking Oracle ID <span className="text-gray-400">(optional)</span>
           </label>
           <input
+            id="staking-oracle-id-display"
             type="text"
             className="input w-full"
             placeholder="0x... (if registered with OracleStakingManager)"
@@ -272,10 +285,11 @@ function OperatorRegistrationForm({
 
         {/* Agent ID (optional) */}
         <div>
-          <label className="block text-sm font-medium mb-1">
+          <label htmlFor="agent-id" className="block text-sm font-medium mb-1">
             ERC-8004 Agent ID <span className="text-gray-400">(optional)</span>
           </label>
           <input
+            id="agent-id"
             type="number"
             className="input w-full"
             placeholder="Agent ID for reputation tracking"
@@ -311,6 +325,7 @@ function OperatorRegistrationForm({
         {/* Actions */}
         <div className="flex gap-2 justify-end pt-4">
           <button
+            type="button"
             className="button button-secondary"
             onClick={onClose}
             disabled={isRegistering}
@@ -318,6 +333,7 @@ function OperatorRegistrationForm({
             Cancel
           </button>
           <button
+            type="button"
             className="button"
             onClick={handleRegister}
             disabled={isRegistering || !workerKey}

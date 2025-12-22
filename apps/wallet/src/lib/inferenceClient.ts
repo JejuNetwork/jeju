@@ -8,8 +8,13 @@
  * - Supports TEE for private inference
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { z } from 'zod'
+import {
+  ChatCompletionResponseSchema,
+  ModelsListResponseSchema,
+} from '../schemas/api-responses'
 import { expectJson } from './validation'
 
 // ============================================================================
@@ -227,11 +232,12 @@ class InferenceClient {
         throw new Error(`Failed to fetch models: ${response.status}`)
       }
 
-      const data = await response.json()
-      const models = data.models || data.data
-      if (!Array.isArray(models)) {
-        throw new Error('Invalid models response: expected array')
-      }
+      const data = expectValid(
+        ModelsListResponseSchema,
+        await response.json(),
+        'models list response',
+      )
+      const models = data.models ?? data.data ?? []
       this.availableModels = models
       this.lastModelFetch = now
       return this.availableModels
@@ -307,11 +313,15 @@ class InferenceClient {
           throw new Error(`Inference failed: ${response.status} ${errorText}`)
         }
 
-        const data = await response.json()
+        const data = expectValid(
+          ChatCompletionResponseSchema,
+          await response.json(),
+          'chat completion response',
+        )
         const latencyMs = Date.now() - startTime
 
         // Extract response content
-        const assistantContent = data.choices?.[0]?.message?.content || ''
+        const assistantContent = data.choices?.[0]?.message?.content ?? ''
 
         // Add assistant response to history
         this.conversationHistory.push({

@@ -110,7 +110,15 @@ describe('OIF Contract Verification', () => {
   const deployments = loadOIFDeployments('testnet')
   const deployedChains = Object.entries(deployments)
     .filter(([, d]) => d.status === 'deployed' && d.contracts?.solverRegistry)
-    .map(([id, d]) => ({ chainId: Number(id), contracts: d.contracts! }))
+    .filter(
+      (
+        entry,
+      ): entry is [
+        string,
+        OIFDeployment & { contracts: NonNullable<OIFDeployment['contracts']> },
+      ] => entry[1].contracts !== undefined,
+    )
+    .map(([id, d]) => ({ chainId: Number(id), contracts: d.contracts }))
 
   test('should have at least one deployed chain', () => {
     expect(deployedChains.length).toBeGreaterThan(0)
@@ -533,7 +541,7 @@ describe('Concurrent Operations', () => {
         })
         const registryAbi = parseAbi(SOLVER_REGISTRY_ABI)
         const stats = (await readContract(publicClient, {
-          address: data.contracts!.solverRegistry as Address,
+          address: data.contracts?.solverRegistry as Address,
           abi: registryAbi,
           functionName: 'getStats',
         })) as [bigint, bigint, bigint]

@@ -104,6 +104,7 @@ export function AuthCallback() {
             <p className="text-lg text-red-400">Sign in failed</p>
             <p className="text-sm text-muted-foreground">{error}</p>
             <button
+              type="button"
               onClick={() => window.close()}
               className="mt-4 px-4 py-2 bg-secondary rounded-lg hover:bg-secondary/80 transition-colors"
             >

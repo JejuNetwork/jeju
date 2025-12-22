@@ -9,6 +9,7 @@
 
 import { EventEmitter } from 'node:events'
 import type { Address, Hash, Hex } from 'viem'
+import { AlchemyPendingTxMessageSchema } from '../../lib/validation.js'
 
 // Mempool data providers
 export const MEMPOOL_PROVIDERS = {
@@ -202,7 +203,12 @@ export class MempoolMonitor extends EventEmitter {
       }
 
       ws.onmessage = (event) => {
-        this.handlePendingTx(chainId, JSON.parse(event.data as string))
+        const parsed = AlchemyPendingTxMessageSchema.safeParse(
+          JSON.parse(String(event.data)),
+        )
+        if (parsed.success) {
+          this.handlePendingTx(chainId, parsed.data)
+        }
       }
 
       ws.onerror = (error) => {
@@ -231,7 +237,7 @@ export class MempoolMonitor extends EventEmitter {
         result?: {
           hash: string
           from: string
-          to: string
+          to: string | null
           input: string
           value: string
           gasPrice?: string
@@ -243,7 +249,7 @@ export class MempoolMonitor extends EventEmitter {
     },
   ): void {
     const tx = message.params?.result
-    if (!tx) return
+    if (!tx || !tx.to) return
 
     // Skip if already processed
     if (this.processedHashes.has(tx.hash as Hash)) return
@@ -251,17 +257,20 @@ export class MempoolMonitor extends EventEmitter {
 
     // Filter out Jeju transactions
     if (this.config.filterJejuTxs) {
-      if (this.jejuContracts.has(tx.to?.toLowerCase() || '')) {
+      if (this.jejuContracts.has(tx.to.toLowerCase())) {
         return
       }
-      if (this.jejuContracts.has(tx.from?.toLowerCase() || '')) {
+      if (this.jejuContracts.has(tx.from.toLowerCase())) {
         return
       }
     }
 
     // Parse as swap if it's to a known DEX router
     const routers = DEX_ROUTERS[chainId] || []
-    if (!routers.some((r) => r.toLowerCase() === tx.to?.toLowerCase())) {
+    if (
+      !tx.to ||
+      !routers.some((r) => r.toLowerCase() === tx.to?.toLowerCase())
+    ) {
       return
     }
 

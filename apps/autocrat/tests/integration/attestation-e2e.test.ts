@@ -25,7 +25,7 @@ import {
 import { foundry } from 'viem/chains'
 
 const RPC_URL =
-  process.env.RPC_URL ?? process.env.L2_RPC_URL ?? 'http://localhost:9545'
+  process.env.RPC_URL ?? process.env.L2_RPC_URL ?? 'http://localhost:6546'
 const CHAIN_ID = 31337
 const DEPLOYER_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as const
@@ -264,8 +264,9 @@ describe('Attestation End-to-End Tests', () => {
       (log) => log.topics[0] === proposalSubmittedTopic,
     )
     expect(submittedLog).toBeDefined()
+    if (!submittedLog) throw new Error('submittedLog not found')
 
-    const proposalId = submittedLog!.topics[1]
+    const proposalId = submittedLog.topics[1]
     console.log(`   Proposal ID: ${proposalId}`)
     expect(proposalId).toMatch(/^0x[a-fA-F0-9]{64}$/)
     console.log('✅ Proposal verified on-chain (created with attestation)')

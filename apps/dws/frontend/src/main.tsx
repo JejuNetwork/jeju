@@ -77,7 +77,6 @@ if (root) {
                 decentralized: true,
               }}
               autoConnect={true}
-              persistSession={true}
             >
               <BrowserRouter>
                 <App />

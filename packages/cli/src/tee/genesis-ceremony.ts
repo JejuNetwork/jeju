@@ -133,7 +133,7 @@ export async function runTeeCeremony(
   let useNewApi = false
 
   try {
-    // Try to import dstack SDK
+    // Dynamic import: dstack SDK is optional and may not be installed (conditional)
     const dstackModule = await import('@phala/dstack-sdk')
 
     // Try new DstackClient first, fall back to TappdClient

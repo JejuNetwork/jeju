@@ -9,8 +9,8 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { JEJU_CONTRACTS, JEJU_TOKENOMICS } from '@/config/jeju-tokenomics'
+import { JEJU_CHAIN_ID } from '../../config/chains'
+import { JEJU_CONTRACTS, JEJU_TOKENOMICS } from '../../config/jeju-tokenomics'
 
 type PresalePhase =
   | 'NOT_STARTED'
@@ -373,6 +373,7 @@ export function JejuPresaleCard() {
       <div className="space-y-4">
         <div>
           <label
+            htmlFor="jeju-contribution-amount"
             className="text-sm mb-2 block"
             style={{ color: 'var(--text-tertiary)' }}
           >
@@ -380,6 +381,7 @@ export function JejuPresaleCard() {
           </label>
           <div className="relative">
             <input
+              id="jeju-contribution-amount"
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
@@ -391,6 +393,7 @@ export function JejuPresaleCard() {
               {['0.1', '1', '5'].map((val) => (
                 <button
                   key={val}
+                  type="button"
                   onClick={() => setAmount(val)}
                   className="text-xs px-2 py-1 rounded hover:bg-bazaar-primary/20 transition-colors"
                   style={{
@@ -445,6 +448,7 @@ export function JejuPresaleCard() {
         )}
 
         <button
+          type="button"
           onClick={handleContribute}
           disabled={isContributing || !amount}
           className="btn-primary w-full py-4 disabled:opacity-50"

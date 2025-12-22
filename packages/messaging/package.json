@@ -50,10 +50,12 @@
     "privacy"
   ],
   "dependencies": {
+    "@elysiajs/cors": "^1.4.0",
+    "@jejunetwork/types": "workspace:*",
     "@noble/curves": "2.0.1",
     "@noble/ciphers": "1.2.1",
     "@noble/hashes": "1.7.1",
-    "hono": "4.11.1",
+    "elysia": "^1.4.19",
     "viem": "2.43.2",
     "ws": "8.18.3",
     "zod": "3.25.49"

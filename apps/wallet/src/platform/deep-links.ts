@@ -113,6 +113,7 @@ export async function initDeepLinks(): Promise<void> {
 
 async function initCapacitorDeepLinks(): Promise<void> {
   try {
+    // Dynamic import: Capacitor is only available on mobile platforms
     const { App } = await import('@capacitor/app')
 
     App.addListener('appUrlOpen', ({ url }) => {
@@ -132,6 +133,7 @@ async function initCapacitorDeepLinks(): Promise<void> {
 
 async function initTauriDeepLinks(): Promise<void> {
   try {
+    // Dynamic import: Tauri is only available on desktop platforms
     const { listen } = await import('@tauri-apps/api/event')
 
     await listen<string>('deep-link', (event) => {

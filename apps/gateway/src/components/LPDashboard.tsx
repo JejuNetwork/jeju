@@ -110,6 +110,7 @@ function PositionCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
           )}
 
           <button
+            type="button"
             className="button"
             style={{ width: '100%', marginTop: '1rem' }}
             onClick={() => claimFees()}

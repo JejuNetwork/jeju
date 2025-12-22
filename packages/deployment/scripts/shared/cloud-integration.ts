@@ -70,19 +70,20 @@ export interface CloudService {
   a2aEndpoint?: string
 }
 
-export enum ViolationType {
-  API_ABUSE = 0,
-  RESOURCE_EXPLOITATION = 1,
-  SCAMMING = 2,
-  PHISHING = 3,
-  HACKING = 4,
-  UNAUTHORIZED_ACCESS = 5,
-  DATA_THEFT = 6,
-  ILLEGAL_CONTENT = 7,
-  HARASSMENT = 8,
-  SPAM = 9,
-  TOS_VIOLATION = 10,
-}
+export const ViolationType = {
+  API_ABUSE: 0,
+  RESOURCE_EXPLOITATION: 1,
+  SCAMMING: 2,
+  PHISHING: 3,
+  HACKING: 4,
+  UNAUTHORIZED_ACCESS: 5,
+  DATA_THEFT: 6,
+  ILLEGAL_CONTENT: 7,
+  HARASSMENT: 8,
+  SPAM: 9,
+  TOS_VIOLATION: 10,
+} as const
+export type ViolationType = (typeof ViolationType)[keyof typeof ViolationType]
 
 const REPUTATION_REGISTRY_ABI = parseAbi([
   'function giveFeedback(uint256 agentId, uint8 score, bytes32 tag1, bytes32 tag2, string calldata fileuri, bytes32 filehash, bytes memory feedbackAuth) external',

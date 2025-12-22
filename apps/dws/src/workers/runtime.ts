@@ -402,6 +402,7 @@ export class WorkerRuntime {
       const tarPath = `${tempDir}.tar.gz`
       await Bun.write(tarPath, result.content)
 
+      // Dynamic import: only needed when extracting tarball (conditional check)
       const { spawn } = await import('bun')
       const proc = spawn(['tar', '-xzf', tarPath, '-C', tempDir], {
         cwd: '/tmp',

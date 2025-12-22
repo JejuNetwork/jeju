@@ -1,3 +1,4 @@
+import { expectJson } from '@jejunetwork/types'
 import { Keypair } from '@solana/web3.js'
 import {
   type Address,
@@ -17,6 +18,7 @@ import type {
   DeploymentResult,
 } from '../types'
 import { addressToBytes32 } from '../utils/address'
+import { solanaPrivateKeyBytesSchema } from '../validation'
 import { type ContractName, deployContractCreate2 } from './contract-deployer'
 import { deployLiquidity } from './liquidity-deployer'
 import { deploySolanaChain } from './solana-deployer'
@@ -408,40 +410,17 @@ export class MultiChainLauncher {
     // Parse the private key (supports both base58 and JSON array formats)
     let payer: Keypair
     if (solanaPrivateKey.startsWith('[')) {
-      // JSON array format: [1,2,3,...] - validate it's a proper JSON array of numbers
-      let parsed: number[]
-      try {
-        parsed = JSON.parse(solanaPrivateKey) as number[]
-      } catch {
-        throw new Error(
-          'SOLANA_PRIVATE_KEY appears to be JSON format but failed to parse. ' +
-            'Expected format: [1,2,3,...] (array of 64 bytes)',
-        )
-      }
-
-      if (!Array.isArray(parsed)) {
-        throw new Error(
-          'SOLANA_PRIVATE_KEY JSON must be an array of bytes. ' +
-            'Expected format: [1,2,3,...] (64 bytes)',
-        )
-      }
-
-      if (parsed.length !== 64) {
-        throw new Error(
-          `SOLANA_PRIVATE_KEY must be exactly 64 bytes, got ${parsed.length}`,
-        )
-      }
-
-      if (!parsed.every((b) => Number.isInteger(b) && b >= 0 && b <= 255)) {
-        throw new Error(
-          'SOLANA_PRIVATE_KEY array must contain only integers 0-255',
-        )
-      }
+      // JSON array format: [1,2,3,...] - validate with Zod schema
+      const parsed = expectJson(
+        solanaPrivateKey,
+        solanaPrivateKeyBytesSchema,
+        'SOLANA_PRIVATE_KEY',
+      )
 
       const secretKey = new Uint8Array(parsed)
       payer = Keypair.fromSecretKey(secretKey)
     } else {
-      // Base58 format - decode from base58
+      // Conditional import: only loaded when private key is in base58 format (not JSON array)
       const bs58 = await import('bs58')
       let secretKey: Uint8Array
       try {

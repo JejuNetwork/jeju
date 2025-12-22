@@ -88,6 +88,15 @@ const SOLANA_TOKENS: Record<string, string> = {
 }
 
 import { createLogger } from '../utils/logger.js'
+import { createPublicClient, http } from 'viem'
+import { arbitrum, base, mainnet, optimism } from 'viem/chains'
+import {
+  HyperliquidAllMidsResponseSchema,
+  JitoBundleResponseSchema,
+  JitoTipFloorResponseSchema,
+  JupiterArbQuoteResponseSchema,
+  OneInchQuoteResponseSchema,
+} from '../utils/validation.js'
 
 const log = createLogger('arbitrage')
 
@@ -376,11 +385,8 @@ export class ArbitrageDetector {
     const response = await fetch(url)
     if (!response.ok) return null
 
-    const data = (await response.json()) as {
-      inAmount: string
-      outAmount: string
-      priceImpactPct: string
-    }
+    const rawData: unknown = await response.json()
+    const data = JupiterArbQuoteResponseSchema.parse(rawData)
 
     return {
       chain: 'solana',
@@ -446,7 +452,8 @@ export class ArbitrageDetector {
         throw new Error(`1inch API error: ${response.status}`)
       }
 
-      const data = (await response.json()) as { dstAmount: string }
+      const rawData: unknown = await response.json()
+      const data = OneInchQuoteResponseSchema.parse(rawData)
 
       return {
         chain: `evm:${chainId}`,
@@ -486,8 +493,6 @@ export class ArbitrageDetector {
     if (!quoterAddress) return null
 
     try {
-      const { createPublicClient, http } = await import('viem')
-      const { mainnet, arbitrum, optimism, base } = await import('viem/chains')
 
       const chains = {
         1: mainnet,
@@ -573,7 +578,8 @@ export class ArbitrageDetector {
 
     if (!response.ok) return null
 
-    const data = (await response.json()) as Record<string, string>
+    const rawData: unknown = await response.json()
+    const data = HyperliquidAllMidsResponseSchema.parse(rawData)
     const symbol = pair.split('-')[0]
     if (!symbol) return null
 
@@ -702,7 +708,8 @@ export class ArbitrageDetector {
         return { bundleId: '', landed: false }
       }
 
-      const data = (await response.json()) as { result: { bundle_id: string } }
+      const rawData: unknown = await response.json()
+      const data = JitoBundleResponseSchema.parse(rawData)
       return { bundleId: data.result.bundle_id, landed: true }
     } catch {
       return { bundleId: '', landed: false }
@@ -719,7 +726,8 @@ export class ArbitrageDetector {
       )
       if (!response.ok) return 1000n // Default 1000 lamports
 
-      const data = (await response.json()) as { tip_floor: string }
+      const rawData: unknown = await response.json()
+      const data = JitoTipFloorResponseSchema.parse(rawData)
       return BigInt(data.tip_floor)
     } catch {
       return 1000n
