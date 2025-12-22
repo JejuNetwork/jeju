@@ -14,14 +14,11 @@ import {
   type Hex,
   type Abi,
   keccak256,
-  encodeAbiParameters,
-  encodeFunctionData,
-  decodeEventLog,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
-import fs from 'fs';
-import path from 'path';
+import * as fs from 'fs';
+import * as path from 'path';
 
 const EVM_RPC_URL = 'http://localhost:6546';
 const EVM_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex;
@@ -29,7 +26,7 @@ const SECOND_PRIVATE_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412
 
 // Mock ERC20 for testing
 const MOCK_ERC20_ABI = parseAbi([
-  'constructor(string name, string symbol)',
+  'constructor()',
   'function mint(address to, uint256 amount) public',
   'function approve(address spender, uint256 amount) public returns (bool)',
   'function balanceOf(address owner) public view returns (uint256)',

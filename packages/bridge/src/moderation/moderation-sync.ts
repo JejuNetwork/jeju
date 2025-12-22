@@ -33,7 +33,7 @@ const BAN_MANAGER_ABI = parseAbi([
   'function isNetworkBanned(uint256 agentId) view returns (bool)',
   'function getNetworkBan(uint256 agentId) view returns (bool isBanned, uint256 bannedAt, string reason, bytes32 proposalId)',
   'function getBanReason(uint256 agentId, bytes32 appId) view returns (string)',
-  'function banFromNetwork(uint256 agentId, string reason, bytes32 proposalId) external',
+  'function banFromNetwork(uint256 agentId, string calldata reason, bytes32 proposalId) external',
   'function unbanFromNetwork(uint256 agentId) external',
   'event NetworkBanApplied(uint256 indexed agentId, string reason, bytes32 indexed proposalId, uint256 timestamp)',
   'event NetworkBanRemoved(uint256 indexed agentId, uint256 timestamp)',
@@ -162,28 +162,16 @@ export class ModerationSyncService extends EventEmitter {
    * Get ban status on EVM
    */
   async getEVMBanStatus(agentId: bigint): Promise<BanStatus> {
-    const [isBanned, reason, expiry] = await Promise.all([
-      this.publicClient.readContract({
-        address: this.config.banManagerAddress,
-        abi: BAN_MANAGER_ABI,
-        functionName: 'isBanned',
-        args: [agentId],
-      }) as Promise<boolean>,
-      this.publicClient.readContract({
-        address: this.config.banManagerAddress,
-        abi: BAN_MANAGER_ABI,
-        functionName: 'getBanReason',
-        args: [agentId],
-      }) as Promise<string>,
-      this.publicClient.readContract({
-        address: this.config.banManagerAddress,
-        abi: BAN_MANAGER_ABI,
-        functionName: 'getBanExpiry',
-        args: [agentId],
-      }) as Promise<bigint>,
-    ]);
+    const result = await this.publicClient.readContract({
+      address: this.config.banManagerAddress,
+      abi: BAN_MANAGER_ABI,
+      functionName: 'getNetworkBan',
+      args: [agentId],
+    }) as [boolean, bigint, string, `0x${string}`];
 
-    return { isBanned, reason, expiry };
+    const [isBanned, bannedAt, reason] = result;
+    // BanManager doesn't have expiry for network bans, use 0 to indicate no expiry
+    return { isBanned, reason, expiry: 0n };
   }
 
   /**
@@ -291,24 +279,20 @@ export class ModerationSyncService extends EventEmitter {
       };
     }
 
-    const proof = await this.generateBanProof(
-      solanaAgentId,
-      solanaBan.reason,
-      solanaBan.expiry
-    );
-
     const sourceChainId = this.config.solanaRpcUrl.includes('devnet') ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID;
 
+    // Use banFromNetwork to apply the cross-chain ban
+    // The proposalId is derived from the source chain + agent ID for traceability
+    const proposalId = keccak256(encodePacked(['uint256', 'uint256'], [BigInt(sourceChainId), solanaAgentId]));
+    
     const hash = await this.walletClient.writeContract({
       address: this.config.banManagerAddress,
       abi: BAN_MANAGER_ABI,
-      functionName: 'syncExternalBan',
+      functionName: 'banFromNetwork',
       args: [
         evmAgentId,
-        BigInt(sourceChainId),
-        solanaBan.reason,
-        solanaBan.expiry,
-        proof,
+        `Cross-chain ban from Solana: ${solanaBan.reason}`,
+        proposalId,
       ],
       account: this.account,
       chain: null,

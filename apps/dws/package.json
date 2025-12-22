@@ -24,7 +24,7 @@
     "start": "bun run src/server/index.ts",
     "node": "bun run src/node/index.ts",
     "inference": "bun run src/compute/local-inference-server.ts",
-    "test": "NODE_ENV=test bun test src/tests src/cdn/tests tests/*.test.ts tests/integration/*.test.ts",
+    "test": "NODE_ENV=test bun test src/tests src/cdn/tests src/agents src/email/tests src/poc/tests src/training tests/*.test.ts tests/integration/*.test.ts tests/storage/*.test.ts",
     "test:workerd": "NODE_ENV=test bun test tests/workerd.test.ts",
     "test:integration": "bun test tests/*.test.ts tests/integration/*.test.ts",
     "test:unit": "bun test src/tests src/cdn/tests",

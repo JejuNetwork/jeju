@@ -16,115 +16,12 @@ import {
   AlertTriangle,
   Tag,
   Terminal,
+  Loader2,
 } from 'lucide-react';
 import { clsx } from 'clsx';
+import { usePackage, usePackageVersions, usePackageReadme } from '../../../../hooks/usePackages';
 
 type PackageTab = 'readme' | 'versions' | 'dependencies' | 'files';
-
-interface PackageVersion {
-  version: string;
-  publishedAt: number;
-  tarballCid: string;
-  size: number;
-  deprecated: boolean;
-}
-
-interface PackageInfo {
-  name: string;
-  scope: string;
-  version: string;
-  description: string;
-  author: string;
-  license: string;
-  homepage: string;
-  repository: string;
-  downloads: number;
-  weeklyDownloads: number;
-  publishedAt: number;
-  versions: PackageVersion[];
-  dependencies: Record<string, string>;
-  devDependencies: Record<string, string>;
-  keywords: string[];
-  verified: boolean;
-  hasTypes: boolean;
-  deprecated: boolean;
-  readme: string;
-}
-
-// Mock data for demo
-const mockPackage: PackageInfo = {
-  name: '@jeju/sdk',
-  scope: '@jeju',
-  version: '1.5.2',
-  description: 'Official Jeju Network SDK - interact with contracts, bounties, guardians, and models.',
-  author: 'jeju',
-  license: 'MIT',
-  homepage: 'https://jejunetwork.org',
-  repository: 'https://git.jejunetwork.org/jeju/sdk',
-  downloads: 45230,
-  weeklyDownloads: 3240,
-  publishedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-  versions: [
-    { version: '1.5.2', publishedAt: Date.now() - 2 * 24 * 60 * 60 * 1000, tarballCid: 'bafybeiabc123', size: 234567, deprecated: false },
-    { version: '1.5.1', publishedAt: Date.now() - 7 * 24 * 60 * 60 * 1000, tarballCid: 'bafybeiabc122', size: 232456, deprecated: false },
-    { version: '1.5.0', publishedAt: Date.now() - 14 * 24 * 60 * 60 * 1000, tarballCid: 'bafybeiabc121', size: 230123, deprecated: false },
-    { version: '1.4.0', publishedAt: Date.now() - 30 * 24 * 60 * 60 * 1000, tarballCid: 'bafybeiabc120', size: 225678, deprecated: true },
-  ],
-  dependencies: {
-    'viem': '^2.30.0',
-    'wagmi': '^2.15.0',
-    '@tanstack/react-query': '^5.0.0',
-  },
-  devDependencies: {
-    'typescript': '^5.0.0',
-    '@types/node': '^20.0.0',
-  },
-  keywords: ['jeju', 'web3', 'sdk', 'ethereum', 'bounties'],
-  verified: true,
-  hasTypes: true,
-  deprecated: false,
-  readme: `# @jeju/sdk
-
-Official Jeju Network SDK for building dApps with bounties, guardians, and AI models.
-
-## Installation
-
-\`\`\`bash
-bun add @jeju/sdk
-# or
-npm install @jeju/sdk
-\`\`\`
-
-## Quick Start
-
-\`\`\`typescript
-import { JejuSDK } from '@jeju/sdk';
-
-const sdk = new JejuSDK({
-  rpcUrl: 'https://rpc.jejunetwork.org',
-  chainId: 420691, // Jeju Mainnet
-});
-
-// Create a bounty
-const bountyId = await sdk.bounties.create({
-  title: 'Build a feature',
-  reward: parseEther('1'),
-  deadline: BigInt(Date.now() + 7 * 24 * 60 * 60 * 1000),
-});
-\`\`\`
-
-## Features
-
-- **Bounties**: Create, fund, and manage bounties
-- **Guardians**: Interact with the guardian validator network
-- **Models**: Access the AI model hub
-- **Identity**: ERC-8004 agent registration
-
-## Documentation
-
-Full documentation at [docs.jejunetwork.org](https://docs.jejunetwork.org)
-`,
-};
 
 export default function PackageDetailPage() {
   const params = useParams();
@@ -136,10 +33,12 @@ export default function PackageDetailPage() {
   const scope = decodeURIComponent(rawScope);
   
   const [tab, setTab] = useState<PackageTab>('readme');
-  // const [selectedVersion, setSelectedVersion] = useState(mockPackage.version);
   const [copied, setCopied] = useState<string | null>(null);
-  const [pkg] = useState<PackageInfo>(mockPackage);
-  // const [setPkg] = useState<PackageInfo>(mockPackage);
+
+  // Fetch real data
+  const { package: pkg, isLoading, error } = usePackage(scope, name);
+  const { versions, isLoading: versionsLoading } = usePackageVersions(scope, name);
+  const { readme, isLoading: readmeLoading } = usePackageReadme(scope, name);
 
   const fullName = scope.startsWith('@') ? `${scope}/${name}` : name;
 
@@ -169,6 +68,29 @@ export default function PackageDetailPage() {
     if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-accent-400" />
+      </div>
+    );
+  }
+
+  if (error || !pkg) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Package className="w-16 h-16 mx-auto mb-4 text-factory-600" />
+          <h2 className="text-xl font-semibold text-factory-300 mb-2">Package not found</h2>
+          <p className="text-factory-500">{fullName} does not exist in the registry.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Use fetched versions or package versions
+  const displayVersions = versions.length > 0 ? versions : pkg.versions;
 
   return (
     <div className="min-h-screen">
@@ -255,7 +177,7 @@ export default function PackageDetailPage() {
           <div className="flex gap-1 mt-6 overflow-x-auto -mb-px">
             {([
               { id: 'readme' as const, label: 'Readme', icon: FileText },
-              { id: 'versions' as const, label: `Versions (${pkg.versions.length})`, icon: Tag },
+              { id: 'versions' as const, label: `Versions (${displayVersions.length})`, icon: Tag },
               { id: 'dependencies' as const, label: 'Dependencies', icon: GitFork },
               { id: 'files' as const, label: 'Files', icon: Code },
             ]).map(({ id, label, icon: Icon }) => (
@@ -284,51 +206,72 @@ export default function PackageDetailPage() {
           <div className="lg:col-span-3">
             {tab === 'readme' && (
               <div className="card p-6 prose prose-invert max-w-none">
-                <div dangerouslySetInnerHTML={{ __html: pkg.readme.replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>').replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\n/g, '<br/>') }} />
+                {readmeLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-accent-400" />
+                  </div>
+                ) : readme ? (
+                  <div dangerouslySetInnerHTML={{ 
+                    __html: readme
+                      .replace(/```(\w+)?\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
+                      .replace(/`([^`]+)`/g, '<code>$1</code>')
+                      .replace(/\n/g, '<br/>') 
+                  }} />
+                ) : (
+                  <p className="text-factory-500">No README available</p>
+                )}
               </div>
             )}
 
             {tab === 'versions' && (
               <div className="card divide-y divide-factory-800">
-                {pkg.versions.map((version) => (
-                  <div
-                    key={version.version}
-                    className={clsx(
-                      'p-4 flex items-center justify-between',
-                      version.deprecated && 'opacity-60'
-                    )}
-                  >
-                    <div className="flex items-center gap-3">
-                      <Tag className="w-4 h-4 text-factory-400" />
-                      <span className={clsx(
-                        'font-mono',
-                        version.version === pkg.version ? 'text-accent-400' : 'text-factory-200'
-                      )}>
-                        v{version.version}
-                      </span>
-                      {version.version === pkg.version && (
-                        <span className="badge bg-accent-500/20 text-accent-400 border border-accent-500/30">
-                          latest
-                        </span>
-                      )}
-                      {version.deprecated && (
-                        <span className="badge bg-amber-500/20 text-amber-400 border border-amber-500/30">
-                          deprecated
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-factory-500">
-                      <span>{formatSize(version.size)}</span>
-                      <span>{formatDate(version.publishedAt)}</span>
-                      <button
-                        onClick={() => copyToClipboard(`bun add ${fullName}@${version.version}`, version.version)}
-                        className="btn btn-secondary text-xs py-1 px-2"
-                      >
-                        {copied === version.version ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                      </button>
-                    </div>
+                {versionsLoading ? (
+                  <div className="flex justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-accent-400" />
                   </div>
-                ))}
+                ) : displayVersions.length > 0 ? (
+                  displayVersions.map((version) => (
+                    <div
+                      key={version.version}
+                      className={clsx(
+                        'p-4 flex items-center justify-between',
+                        version.deprecated && 'opacity-60'
+                      )}
+                    >
+                      <div className="flex items-center gap-3">
+                        <Tag className="w-4 h-4 text-factory-400" />
+                        <span className={clsx(
+                          'font-mono',
+                          version.version === pkg.version ? 'text-accent-400' : 'text-factory-200'
+                        )}>
+                          v{version.version}
+                        </span>
+                        {version.version === pkg.version && (
+                          <span className="badge bg-accent-500/20 text-accent-400 border border-accent-500/30">
+                            latest
+                          </span>
+                        )}
+                        {version.deprecated && (
+                          <span className="badge bg-amber-500/20 text-amber-400 border border-amber-500/30">
+                            deprecated
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-4 text-sm text-factory-500">
+                        <span>{formatSize(version.size)}</span>
+                        <span>{formatDate(version.publishedAt)}</span>
+                        <button
+                          onClick={() => copyToClipboard(`bun add ${fullName}@${version.version}`, version.version)}
+                          className="btn btn-secondary text-xs py-1 px-2"
+                        >
+                          {copied === version.version ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
+                        </button>
+                      </div>
+                    </div>
+                  ))
+                ) : (
+                  <p className="p-4 text-factory-500">No versions available</p>
+                )}
               </div>
             )}
 
@@ -374,10 +317,7 @@ export default function PackageDetailPage() {
                 <div className="bg-factory-900 rounded-lg p-4 font-mono text-sm text-factory-300">
                   <pre>{`├── dist/
 │   ├── index.js
-│   ├── index.d.ts
-│   ├── bounties/
-│   ├── guardians/
-│   └── models/
+│   └── index.d.ts
 ├── package.json
 ├── README.md
 └── LICENSE`}</pre>
@@ -447,7 +387,7 @@ export default function PackageDetailPage() {
               </h3>
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-full bg-factory-800 flex items-center justify-center">
-                  <span className="text-factory-400 font-medium">J</span>
+                  <span className="text-factory-400 font-medium">{pkg.author[0]?.toUpperCase()}</span>
                 </div>
                 <div>
                   <p className="text-factory-200">{pkg.author}</p>

@@ -18,9 +18,7 @@ import {
   createGRPOTrainer,
   createPsycheClient,
   createCrossChainBridge,
-  createFundamentalPredictionEnv,
   type TrainingJobRequest,
-  type RolloutBundle,
 } from './index';
 import { Keypair } from '@solana/web3.js';
 import type { Address, Hex } from 'viem';
@@ -53,7 +51,7 @@ async function main() {
   console.log('[1/6] Starting Atropos Rollout Server...');
   
   const atroposApp = createAtroposServer();
-  const atroposServer = Bun.serve({
+  Bun.serve({
     port: CONFIG.atroposPort,
     fetch: atroposApp.fetch,
   });
@@ -72,7 +70,7 @@ async function main() {
   const trainingService = createDWSTrainingService();
   const trainingApi = trainingService.getApp();
   
-  const trainingServer = Bun.serve({
+  Bun.serve({
     port: CONFIG.trainingApiPort,
     fetch: trainingApi.fetch,
   });

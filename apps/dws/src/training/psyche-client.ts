@@ -21,7 +21,7 @@ import {
   sendAndConfirmTransaction,
   SystemProgram,
 } from '@solana/web3.js';
-import { createPublicClient, createWalletClient, http, type Address, type Hex } from 'viem';
+import { createWalletClient, http, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
 import * as borsh from 'borsh';
@@ -48,9 +48,8 @@ export const PSYCHE_MINING_POOL_PROGRAM_ID = new PublicKey(
   '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7'
 );
 
-// Coordinator account discriminator and version
+// Coordinator account discriminator
 const COORDINATOR_DISCRIMINATOR = Buffer.from([0x63, 0x6f, 0x6f, 0x72, 0x64, 0x69, 0x6e, 0x61]);
-const COORDINATOR_VERSION = 1n;
 
 // ============================================================================
 // Types
@@ -458,7 +457,6 @@ Provide your evaluation as JSON.`;
 
 export class PsycheClient {
   private connection: Connection;
-  private evmPublicClient;
   private evmWalletClient;
   private evmAccount;
   private solanaKeypair: Keypair | null = null;
@@ -472,20 +470,13 @@ export class PsycheClient {
       this.solanaKeypair = config.solanaKeypair;
     }
 
-    if (config.evmRpcUrl) {
-      this.evmPublicClient = createPublicClient({
+    if (config.evmRpcUrl && config.evmPrivateKey) {
+      this.evmAccount = privateKeyToAccount(config.evmPrivateKey);
+      this.evmWalletClient = createWalletClient({
+        account: this.evmAccount,
         chain: foundry,
         transport: http(config.evmRpcUrl),
       });
-
-      if (config.evmPrivateKey) {
-        this.evmAccount = privateKeyToAccount(config.evmPrivateKey);
-        this.evmWalletClient = createWalletClient({
-          account: this.evmAccount,
-          chain: foundry,
-          transport: http(config.evmRpcUrl),
-        });
-      }
     }
   }
 

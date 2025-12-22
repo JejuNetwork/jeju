@@ -8,8 +8,6 @@
  * (earnings, revenue, etc.) based on financial data and news.
  */
 
-import { HfInference } from '@huggingface/inference';
-
 // ============================================================================
 // Types
 // ============================================================================
@@ -230,7 +228,6 @@ function calculateMagnitudeScore(
 export class FundamentalPredictionEnv {
   private config: EnvConfig;
   private serverConfigs: APIServerConfig[];
-  private hf: HfInference | null = null;
   private train: DatasetItem[] = [];
   private test: DatasetItem[] = [];
   private iter = 0;
@@ -280,12 +277,6 @@ export class FundamentalPredictionEnv {
     console.log(
       `[FundamentalPrediction] Loaded dataset with ${this.train.length} training and ${this.test.length} test examples`
     );
-
-    // Initialize HF inference client if API key available
-    const hfToken = process.env.HF_TOKEN;
-    if (hfToken) {
-      this.hf = new HfInference(hfToken);
-    }
   }
 
   async getNextItem(): Promise<TrainingItem> {

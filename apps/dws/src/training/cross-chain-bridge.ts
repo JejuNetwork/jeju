@@ -11,7 +11,6 @@
  */
 
 import {
-  Connection,
   PublicKey,
   Keypair,
 } from '@solana/web3.js';
@@ -328,7 +327,6 @@ export class CrossChainTrainingBridge {
   private evmPublicClient;
   private evmWalletClient;
   private evmAccount;
-  private solanaConnection: Connection;
   private solanaKeypair: Keypair | null = null;
   private config: BridgeConfig;
   private psycheClient: PsycheClient | null = null;
@@ -351,8 +349,6 @@ export class CrossChainTrainingBridge {
         transport: http(config.evmRpcUrl),
       });
     }
-
-    this.solanaConnection = new Connection(config.solanaRpcUrl, 'confirmed');
     
     if (config.solanaKeypair) {
       this.solanaKeypair = config.solanaKeypair;
@@ -465,7 +461,7 @@ export class CrossChainTrainingBridge {
     const modelHash = this.stringToBytes32(solanaState.model.sha256);
 
     // Create signature from Solana keypair if available
-    let solanaSignature: Hex = '0x' + '00'.repeat(64);
+    let solanaSignature: Hex = `0x${'00'.repeat(64)}` as Hex;
     if (this.solanaKeypair) {
       const message = Buffer.concat([
         Buffer.from(runId),
@@ -543,9 +539,12 @@ export class CrossChainTrainingBridge {
     const receipt = await this.evmPublicClient.waitForTransactionReceipt({ hash });
     
     // Parse client ID from logs
+    const eventSignature = keccak256(
+      new TextEncoder().encode('ClientRegistered(uint32,address,bytes32)')
+    );
     for (const log of receipt.logs) {
       // Find ClientRegistered event
-      if (log.topics[0] === keccak256('ClientRegistered(uint32,address,bytes32)')) {
+      if (log.topics[0] === eventSignature) {
         const clientId = parseInt(log.topics[1] ?? '0', 16);
         return clientId;
       }
