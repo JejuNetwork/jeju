@@ -27,11 +27,17 @@
     "./warmup": "./shared/warmup.ts",
     "./global-setup": "./shared/global-setup.ts",
     "./bun-global-setup": "./shared/bun-global-setup.ts",
-    "./dev-startup": "./shared/dev-startup.ts"
+    "./dev-startup": "./shared/dev-startup.ts",
+    "./load": "./load/index.ts",
+    "./load/simulator": "./load/simulator.ts",
+    "./load/analyzer": "./load/analyzer.ts",
+    "./load/configs": "./load/configs/index.ts",
+    "./load/types": "./load/types.ts"
   },
   "files": [
     "shared",
-    "smoke"
+    "smoke",
+    "load"
   ],
   "scripts": {
     "test": "bun test",
@@ -45,7 +51,16 @@
     "smoke": "bunx playwright test --config smoke/playwright.config.ts",
     "smoke:wallet": "bunx playwright test --config smoke/synpress.config.ts",
     "smoke:chain": "bunx playwright test smoke/chain-preflight.spec.ts --config smoke/playwright.config.ts",
-    "preflight": "bun run smoke:chain"
+    "preflight": "bun run smoke:chain",
+    "load": "bun run load/runner.ts",
+    "load:all": "bun run load/runner.ts --all --scenario=light",
+    "load:smoke": "bun run load/runner.ts --all --scenario=smoke",
+    "load:normal": "bun run load/runner.ts --all --scenario=normal",
+    "load:heavy": "bun run load/runner.ts --all --scenario=heavy",
+    "load:stress": "bun run load/runner.ts --all --scenario=stress",
+    "load:testnet": "bun run load/runner.ts --all --scenario=normal --network=testnet",
+    "load:continuous": "bun run load/continuous.ts",
+    "load:watch": "bun run load/continuous.ts --watch --json"
   },
   "repository": {
     "type": "git",

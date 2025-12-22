@@ -177,8 +177,8 @@
   },
   "testing": {
     "unit": {
-      "command": "bun test tests/*.test.ts",
-      "timeout": 60000
+      "command": "SKIP_TEE_TESTS=true bun test tests/*.test.ts tests/integration/",
+      "timeout": 300000
     },
     "e2e": {
       "command": "bunx playwright test tests/synpress",

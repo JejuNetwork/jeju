@@ -150,7 +150,7 @@ async function main() {
   console.log('[5/6] Creating GRPO Trainer...')
 
   const trainer = createGRPOTrainer({
-    modelName: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+    modelName: 'distilgpt2',
     trainingSteps: 5,
     batchSize: 1,
     learningRate: 5e-6,
@@ -174,7 +174,7 @@ async function main() {
   const jobRequest: TrainingJobRequest = {
     jobId: `demo-${Date.now()}`,
     runId: `run-${Date.now()}`,
-    modelName: 'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
+    modelName: 'distilgpt2',
     trainingSteps: 5,
     batchSize: 1,
     learningRate: 5e-6,

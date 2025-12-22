@@ -3,10 +3,17 @@
  * Executes triggers via HTTP webhooks, cron schedules, or event listeners.
  */
 
-import { cors } from '@elysiajs/cors'
-import { Elysia } from 'elysia'
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
 
-const app = new Elysia().use(cors({ origin: '*' }))
+const app = new Hono()
+// SECURITY: Configure CORS based on environment
+const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
+const isProduction = process.env.NODE_ENV === 'production'
+app.use('/*', cors({ 
+  origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
+  credentials: true,
+}))
 
 interface TriggerExecution {
   executionId: string
@@ -36,136 +43,135 @@ interface Trigger {
 const triggers = new Map<string, Trigger>()
 const cronIntervals = new Map<string, ReturnType<typeof setInterval>>()
 
-app
-  .get('/health', () => ({
+app.get('/health', (c) => {
+  return c.json({
     status: 'healthy',
     service: 'dws-triggers',
     activeTriggers: triggers.size,
     enabledTriggers: [...triggers.values()].filter((t) => t.enabled).length,
-  }))
+  })
+})
 
-  .get('/triggers', () => ({
+app.get('/triggers', (c) => {
+  return c.json({
     triggers: Array.from(triggers.values()).map((t) => ({
       ...t,
-      executions: t.executions.slice(-10),
+      executions: t.executions.slice(-10), // Only return last 10 executions
     })),
-  }))
-
-  .get('/triggers/:id', ({ params, set }) => {
-    const trigger = triggers.get(params.id)
-    if (!trigger) {
-      set.status = 404
-      return { error: 'Trigger not found' }
-    }
-    return { trigger }
   })
+})
 
-  .post('/triggers', ({ body, set }) => {
-    const triggerBody = body as Omit<
-      Trigger,
-      'id' | 'executions' | 'lastRun' | 'lastStatus'
-    >
+app.get('/triggers/:id', (c) => {
+  const trigger = triggers.get(c.req.param('id'))
+  if (!trigger) {
+    return c.json({ error: 'Trigger not found' }, 404)
+  }
+  return c.json({ trigger })
+})
 
-    if (!triggerBody.target) {
-      set.status = 400
-      return { error: 'target URL is required' }
+app.post('/triggers', async (c) => {
+  const body =
+    await c.req.json<
+      Omit<Trigger, 'id' | 'executions' | 'lastRun' | 'lastStatus'>
+    >()
+
+  if (!body.target) {
+    return c.json({ error: 'target URL is required' }, 400)
+  }
+
+  if (!body.type) {
+    return c.json({ error: 'type is required (cron, event, or webhook)' }, 400)
+  }
+
+  const id = crypto.randomUUID()
+  const trigger: Trigger = {
+    id,
+    ...body,
+    executions: [],
+    nextRun:
+      body.type === 'cron' ? calculateNextCronRun(body.config.cron) : undefined,
+  }
+  triggers.set(id, trigger)
+
+  // Set up cron if applicable
+  if (trigger.type === 'cron' && trigger.enabled && trigger.config.cron) {
+    setupCronTrigger(trigger)
+  }
+
+  return c.json({ success: true, trigger }, 201)
+})
+
+app.put('/triggers/:id', async (c) => {
+  const id = c.req.param('id')
+  const existing = triggers.get(id)
+  if (!existing) {
+    return c.json({ error: 'Trigger not found' }, 404)
+  }
+
+  const body = await c.req.json<Partial<Trigger>>()
+  const updated: Trigger = {
+    ...existing,
+    ...body,
+    id,
+    executions: existing.executions,
+  }
+  triggers.set(id, updated)
+
+  // Update cron if needed
+  if (updated.type === 'cron') {
+    if (cronIntervals.has(id)) {
+      clearInterval(cronIntervals.get(id))
+      cronIntervals.delete(id)
     }
-
-    if (!triggerBody.type) {
-      set.status = 400
-      return { error: 'type is required (cron, event, or webhook)' }
+    if (updated.enabled && updated.config.cron) {
+      setupCronTrigger(updated)
     }
+  }
 
-    const id = crypto.randomUUID()
-    const trigger: Trigger = {
-      id,
-      ...triggerBody,
-      executions: [],
-      nextRun:
-        triggerBody.type === 'cron'
-          ? calculateNextCronRun(triggerBody.config.cron)
-          : undefined,
-    }
-    triggers.set(id, trigger)
+  return c.json({ success: true, trigger: updated })
+})
 
-    if (trigger.type === 'cron' && trigger.enabled && trigger.config.cron) {
-      setupCronTrigger(trigger)
-    }
+app.delete('/triggers/:id', (c) => {
+  const id = c.req.param('id')
 
-    set.status = 201
-    return { success: true, trigger }
+  if (cronIntervals.has(id)) {
+    clearInterval(cronIntervals.get(id))
+    cronIntervals.delete(id)
+  }
+
+  if (triggers.delete(id)) {
+    return c.json({ success: true })
+  }
+  return c.json({ error: 'Trigger not found' }, 404)
+})
+
+app.post('/triggers/:id/run', async (c) => {
+  const id = c.req.param('id')
+  const trigger = triggers.get(id)
+  if (!trigger) {
+    return c.json({ error: 'Trigger not found' }, 404)
+  }
+
+  const execution = await executeTrigger(trigger)
+
+  return c.json({
+    success: execution.status === 'success',
+    execution,
   })
+})
 
-  .put('/triggers/:id', ({ params, body, set }) => {
-    const existing = triggers.get(params.id)
-    if (!existing) {
-      set.status = 404
-      return { error: 'Trigger not found' }
-    }
+app.get('/triggers/:id/executions', (c) => {
+  const trigger = triggers.get(c.req.param('id'))
+  if (!trigger) {
+    return c.json({ error: 'Trigger not found' }, 404)
+  }
 
-    const updateBody = body as Partial<Trigger>
-    const updated: Trigger = {
-      ...existing,
-      ...updateBody,
-      id: params.id,
-      executions: existing.executions,
-    }
-    triggers.set(params.id, updated)
-
-    if (updated.type === 'cron') {
-      if (cronIntervals.has(params.id)) {
-        clearInterval(cronIntervals.get(params.id))
-        cronIntervals.delete(params.id)
-      }
-      if (updated.enabled && updated.config.cron) {
-        setupCronTrigger(updated)
-      }
-    }
-
-    return { success: true, trigger: updated }
+  const limit = parseInt(c.req.query('limit') || '20', 10)
+  return c.json({
+    executions: trigger.executions.slice(-limit),
+    total: trigger.executions.length,
   })
-
-  .delete('/triggers/:id', ({ params, set }) => {
-    if (cronIntervals.has(params.id)) {
-      clearInterval(cronIntervals.get(params.id))
-      cronIntervals.delete(params.id)
-    }
-
-    if (triggers.delete(params.id)) {
-      return { success: true }
-    }
-    set.status = 404
-    return { error: 'Trigger not found' }
-  })
-
-  .post('/triggers/:id/run', async ({ params, set }) => {
-    const trigger = triggers.get(params.id)
-    if (!trigger) {
-      set.status = 404
-      return { error: 'Trigger not found' }
-    }
-
-    const execution = await executeTrigger(trigger)
-
-    return {
-      success: execution.status === 'success',
-      execution,
-    }
-  })
-
-  .get('/triggers/:id/executions', ({ params, query, set }) => {
-    const trigger = triggers.get(params.id)
-    if (!trigger) {
-      set.status = 404
-      return { error: 'Trigger not found' }
-    }
-
-    const limit = parseInt(query.limit || '20', 10)
-    return {
-      executions: trigger.executions.slice(-limit),
-      total: trigger.executions.length,
-    }
-  })
+})
 
 async function executeTrigger(trigger: Trigger): Promise<TriggerExecution> {
   const executionId = crypto.randomUUID()
@@ -287,7 +293,7 @@ const PORT = parseInt(process.env.TRIGGER_PORT || '4016', 10)
 
 if (import.meta.main) {
   console.log(`[DWS Triggers] Running at http://localhost:${PORT}`)
-  app.listen(PORT)
+  Bun.serve({ port: PORT, fetch: app.fetch })
 }
 
 export { app as triggerApp }

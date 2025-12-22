@@ -22,6 +22,8 @@ import {
 } from '@jejunetwork/config'
 import chalk from 'chalk'
 import { Command } from 'commander'
+import { CommanderErrorSchema, PackageJsonSchema } from './schemas'
+import { expectJson } from '@jejunetwork/types'
 import { appsCommand } from './commands/apps'
 import { botsCommand } from './commands/bots'
 import { buildCommand } from './commands/build'

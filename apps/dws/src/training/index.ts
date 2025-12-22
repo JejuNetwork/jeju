@@ -1,58 +1,28 @@
 /**
- * Training module exports
+ * DWS Training Module
+ *
+ * Provides distributed training infrastructure for Jeju
  */
 
-export {
-  type AtroposState,
-  createAtroposServer,
-  type EnvConfig,
-  type Message,
-  type RegisterEnv,
-  type Registration,
-  type ScoredData,
-  startAtroposServer,
-} from './atropos-server'
+// Core training components
+export { createAtroposServer } from './atropos-server'
+export { GRPOTrainer, createGRPOTrainer, createDistributedTrainer } from './grpo-trainer'
+export { createDWSTrainingService, NodeProvisioner } from './dws-integration'
 
+// Environment interfaces
 export {
-  type BridgeConfig,
-  type BridgedRunState,
-  type CheckpointData,
-  type ClientRegistration,
-  CrossChainTrainingBridge,
-  createCrossChainBridge,
-  type RewardDistribution,
-} from './cross-chain-bridge'
+  createTicTacToeEnv,
+  trajectoryToTrainingFormat,
+} from './environments/tic-tac-toe'
+export { FundamentalPredictionEnv } from './environments/fundamental-prediction'
 
-export {
-  createDWSTrainingService,
-  createTrainingRoutes,
-  DWSTrainingService,
-  type NodeAllocation,
-  type PsycheJobConfig,
-  type TrainingJobRequest,
-  type TrainingJobStatus,
-} from './dws-integration'
+// Cross-chain and Psyche integration
+export { PsycheClient } from './psyche-client'
+export { CrossChainTrainingBridge } from './cross-chain-bridge'
 
-export {
-  type BatchData,
-  createDistributedGRPOTrainer,
-  createGRPOTrainer,
-  DistributedGRPOTrainer,
-  GRPOTrainer,
-  type TrainerStatus,
-  type TrainingConfig,
-  type TrainingMetrics,
-} from './grpo-trainer'
+// Types
+export type { TrainingConfig, TrainingJobConfig } from './grpo-trainer'
+export type { TrainingJob, JobStatus, DWSTrainingService } from './dws-integration'
+export type { PsycheConfig, RunState } from './psyche-client'
+export type { BridgeConfig, RewardDistribution } from './cross-chain-bridge'
 
-export {
-  type ClientInfo,
-  type CoordinatorConfig,
-  type CoordinatorProgress,
-  type CoordinatorState,
-  createPsycheClient,
-  type Model,
-  PsycheClient,
-  type PsycheConfig,
-  type RunMetadata,
-  type WitnessProof,
-} from './psyche-client'

@@ -91,7 +91,7 @@ interface InitConfig {
   outputDir: string
 }
 
-const TEMPLATE_PATH = join(import.meta.dir, '../../../../apps/example-app')
+const TEMPLATE_PATH = join(import.meta.dir, '../../../../apps/example')
 
 // Vendor manifest subcommand
 const vendorSubcommand = new Command('vendor')
@@ -147,7 +147,7 @@ Examples:
       // Validate template exists
       if (!existsSync(TEMPLATE_PATH)) {
         logger.error(`Template not found at ${TEMPLATE_PATH}`)
-        logger.info('Make sure example-app exists in apps/')
+        logger.info('Make sure example exists in apps/')
         process.exit(1)
       }
 
@@ -398,11 +398,11 @@ async function copyTemplate(
 function transformContent(content: string, config: InitConfig): string {
   // Replace template placeholders
   return content
-    .replace(/example-app/g, config.name)
+    .replace(/example/g, config.name)
     .replace(/Decentralized App Template/g, config.displayName)
     .replace(/template\.jeju/g, config.jnsName)
-    .replace(/example-app-db/g, config.databaseId)
-    .replace(/@jejunetwork\/example-app/g, `@jejunetwork/${config.name}`)
+    .replace(/example-db/g, config.databaseId)
+    .replace(/@jejunetwork\/example/g, `@jejunetwork/${config.name}`)
     .replace(
       /A production-ready template for building fully decentralized applications/g,
       config.description,

@@ -2,9 +2,12 @@
  * Crucible Agent Characters
  *
  * Pre-built character definitions for common agent types.
- * These can be stored on IPFS and used as templates.
+ * Organized into red team (adversarial) and blue team (defensive).
  */
 
+import type { AgentCharacter } from '../types'
+
+// Original characters
 export { blueTeamCharacter } from './blue-team'
 export { communityManagerCharacter } from './community-manager'
 export { devRelCharacter } from './devrel'
@@ -13,7 +16,22 @@ export { projectManagerCharacter } from './project-manager'
 export { redTeamCharacter } from './red-team'
 export { socialMediaManagerCharacter } from './social-media-manager'
 
-import type { AgentCharacter } from '../types'
+// Red Team (Adversarial) Characters
+export {
+  scammerCharacter,
+  securityResearcherCharacter,
+  contractsExpertCharacter,
+  fuzzTesterCharacter,
+} from './red-team/index'
+
+// Blue Team (Defensive) Characters
+export {
+  moderatorCharacter,
+  networkGuardianCharacter,
+  contractsAuditorCharacter,
+} from './blue-team/index'
+
+// Import all for character registry
 import { blueTeamCharacter } from './blue-team'
 import { communityManagerCharacter } from './community-manager'
 import { devRelCharacter } from './devrel'
@@ -22,18 +40,66 @@ import { projectManagerCharacter } from './project-manager'
 import { redTeamCharacter } from './red-team'
 import { socialMediaManagerCharacter } from './social-media-manager'
 
+// Red team imports
+import {
+  scammerCharacter,
+  securityResearcherCharacter,
+  contractsExpertCharacter,
+  fuzzTesterCharacter,
+} from './red-team/index'
+
+// Blue team imports
+import {
+  moderatorCharacter,
+  networkGuardianCharacter,
+  contractsAuditorCharacter,
+} from './blue-team/index'
+
 /**
- * All available characters
+ * All available characters by ID
  */
 export const characters: Record<string, AgentCharacter> = {
+  // General purpose agents
   'project-manager': projectManagerCharacter,
   'community-manager': communityManagerCharacter,
   devrel: devRelCharacter,
   liaison: liaisonCharacter,
   'social-media-manager': socialMediaManagerCharacter,
+
+  // Red Team (adversarial security testing)
   'red-team': redTeamCharacter,
+  scammer: scammerCharacter,
+  'security-researcher': securityResearcherCharacter,
+  'contracts-expert': contractsExpertCharacter,
+  'fuzz-tester': fuzzTesterCharacter,
+
+  // Blue Team (defensive protection)
   'blue-team': blueTeamCharacter,
+  moderator: moderatorCharacter,
+  'network-guardian': networkGuardianCharacter,
+  'contracts-auditor': contractsAuditorCharacter,
 }
+
+/**
+ * Red team character IDs (for adversarial testing)
+ */
+export const RED_TEAM_CHARACTERS = [
+  'red-team',
+  'scammer',
+  'security-researcher',
+  'contracts-expert',
+  'fuzz-tester',
+] as const
+
+/**
+ * Blue team character IDs (for defense/moderation)
+ */
+export const BLUE_TEAM_CHARACTERS = [
+  'blue-team',
+  'moderator',
+  'network-guardian',
+  'contracts-auditor',
+] as const
 
 /**
  * Get character by ID
@@ -48,4 +114,22 @@ export function getCharacter(id: string): AgentCharacter | null {
  */
 export function listCharacters(): string[] {
   return Object.keys(characters)
+}
+
+/**
+ * Get all red team characters
+ */
+export function getRedTeamCharacters(): AgentCharacter[] {
+  return RED_TEAM_CHARACTERS.map((id) => characters[id]).filter(
+    (c): c is AgentCharacter => c !== undefined,
+  )
+}
+
+/**
+ * Get all blue team characters
+ */
+export function getBlueTeamCharacters(): AgentCharacter[] {
+  return BLUE_TEAM_CHARACTERS.map((id) => characters[id]).filter(
+    (c): c is AgentCharacter => c !== undefined,
+  )
 }

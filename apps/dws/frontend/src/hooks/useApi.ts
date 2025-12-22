@@ -1,62 +1,36 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
-import { z } from 'zod'
-import { fetchApi, postApi, uploadFile } from '../lib/eden'
-import {
-  type APIListing,
-  type APIProvider,
-  apiListingsResponseSchema,
-  apiProvidersResponseSchema,
-  type CDNStats,
-  type CIPipeline,
-  type ComputeJob,
-  type ComputeNode,
-  type Container,
-  cdnStatsSchema,
-  computeJobsResponseSchema,
-  computeNodeSchema,
-  containersResponseSchema,
-  createListingResponseSchema,
-  type DWSHealth,
-  depositResponseSchema,
-  dwsHealthSchema,
-  embeddingsResponseSchema,
-  inferenceResponseSchema,
-  type KMSKey,
-  kmsKeySchema,
-  kmsKeysResponseSchema,
-  type Package,
-  packagesResponseSchema,
-  pipelinesResponseSchema,
-  type Repository,
-  type RPCChain,
-  registerNodeResponseSchema,
-  repositoriesResponseSchema,
-  repositorySchema,
-  rpcChainsResponseSchema,
-  rpcKeyResponseSchema,
-  type Secret,
-  secretSchema,
-  secretsResponseSchema,
-  storageHealthSchema,
-  submitJobResponseSchema,
-  type TrainingRun,
-  trainingRunSchema,
-  type UserAccount,
-  userAccountSchema,
-  type VPNSession,
-  vpnRegionsResponseSchema,
-  vpnSessionSchema,
-  type WorkerFunction,
-  workerFunctionSchema,
-  workersResponseSchema,
-} from '../lib/schemas'
+import { DWS_API_URL } from '../config'
+import { api } from '../lib/eden'
+import type {
+  APIListing,
+  APIProvider,
+  CIPipeline,
+  ComputeJob,
+  ComputeNode,
+  Container,
+  DWSHealth,
+  KMSKey,
+  Package,
+  Repository,
+  RPCChain,
+  Secret,
+  TrainingRun,
+  UserAccount,
+  VPNSession,
+  WorkerFunction,
+} from '../types'
 
-// Health checks
+// Eden-based hooks with type safety
+
 export function useHealth() {
   return useQuery({
     queryKey: ['health'],
-    queryFn: () => fetchApi<DWSHealth>('/health', undefined, dwsHealthSchema),
+    queryFn: async () => {
+      const { data, error } = await api.health.get()
+      if (error) throw new Error(String(error))
+      return data as DWSHealth
+    },
     refetchInterval: 30000,
   })
 }
@@ -64,33 +38,41 @@ export function useHealth() {
 export function useStorageHealth() {
   return useQuery({
     queryKey: ['storage-health'],
-    queryFn: () =>
-      fetchApi<{ service: string; status: string; backends: string[] }>(
-        '/storage/health',
-        undefined,
-        storageHealthSchema,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.storage.health.get()
+      if (error) throw new Error(String(error))
+      return data
+    },
   })
 }
 
 export function useCDNStats() {
   return useQuery({
     queryKey: ['cdn-stats'],
-    queryFn: () => fetchApi<CDNStats>('/cdn/stats', undefined, cdnStatsSchema),
+    queryFn: async () => {
+      const { data, error } = await api.cdn.stats.get()
+      if (error) throw new Error(String(error))
+      return data as {
+        entries: number
+        sizeBytes: number
+        maxSizeBytes: number
+        hitRate: number
+      }
+    },
   })
 }
 
-// Compute - Jobs
 export function useJobs() {
   const { address } = useAccount()
   return useQuery({
     queryKey: ['jobs', address],
-    queryFn: () =>
-      fetchApi<{ jobs: ComputeJob[]; total: number }>(
-        '/compute/jobs',
-        { address },
-        computeJobsResponseSchema,
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.compute.jobs.get({
+        headers: { 'x-jeju-address': address || '' },
+      })
+      if (error) throw new Error(String(error))
+      return data as { jobs: ComputeJob[]; total: number }
+    },
     enabled: !!address,
     refetchInterval: 5000,
   })
@@ -101,65 +83,67 @@ export function useSubmitJob() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (params: {
+    mutationFn: async (params: {
       command: string
       shell?: string
       timeout?: number
-    }) =>
-      postApi<{ jobId: string; status: string }>(
-        '/compute/jobs',
-        params,
-        { address },
-        submitJobResponseSchema,
-      ),
+    }) => {
+      const { data, error } = await api.compute.jobs.post({
+        command: params.command,
+        shell: params.shell,
+        timeout: params.timeout,
+      }, {
+        headers: { 'x-jeju-address': address || '' },
+      })
+      if (error) throw new Error(String(error))
+      return data
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['jobs'] })
     },
   })
 }
 
-// Compute - Inference
 export function useInference() {
   return useMutation({
-    mutationFn: (params: {
+    mutationFn: async (params: {
       model?: string
       messages: Array<{ role: string; content: string }>
-    }) =>
-      postApi<{
+    }) => {
+      const { data, error } = await api.compute['chat']['completions'].post(params)
+      if (error) throw new Error(String(error))
+      return data as {
         id: string
         model: string
         choices: Array<{ message: { content: string } }>
         usage: { total_tokens: number }
-      }>(
-        '/compute/chat/completions',
-        params,
-        undefined,
-        inferenceResponseSchema,
-      ),
+      }
+    },
   })
 }
 
 export function useEmbeddings() {
   return useMutation({
-    mutationFn: (params: { input: string | string[]; model?: string }) =>
-      postApi<{
+    mutationFn: async (params: { input: string | string[]; model?: string }) => {
+      const { data, error } = await api.compute.embeddings.post(params)
+      if (error) throw new Error(String(error))
+      return data as {
         data: Array<{ embedding: number[] }>
         model: string
         usage: { total_tokens: number }
-      }>('/compute/embeddings', params, undefined, embeddingsResponseSchema),
+      }
+    },
   })
 }
 
-// Compute - Training
 export function useTrainingRuns() {
   return useQuery({
     queryKey: ['training-runs'],
-    queryFn: () =>
-      fetchApi<TrainingRun[]>(
-        '/compute/training/runs',
-        undefined,
-        z.array(trainingRunSchema),
-      ),
+    queryFn: async () => {
+      const { data, error } = await api.compute.training.runs.get()
+      if (error) throw new Error(String(error))
+      return data as TrainingRun[]
+    },
     refetchInterval: 10000,
   })
 }
@@ -168,54 +152,66 @@ export function useComputeNodes() {
   return useQuery({
     queryKey: ['compute-nodes'],
     queryFn: async () => {
-      const nodes = await fetchApi<ComputeNode[]>(
-        '/compute/nodes',
-        undefined,
-        z.array(computeNodeSchema),
-      )
-      return { nodes }
+      const { data, error } = await api.compute.nodes.get()
+      if (error) throw new Error(String(error))
+      return { nodes: data as ComputeNode[] }
     },
     refetchInterval: 30000,
   })
 }
 
-export function useRegisterNode() {
-  const { address } = useAccount()
-  const queryClient = useQueryClient()
+// Legacy fetch-based hooks for routes not yet converted to Elysia
 
-  return useMutation({
-    mutationFn: (params: {
-      nodeId: string
-      endpoint: string
-      region: string
-      zone: string
-      totalCpu: number
-      totalMemoryMb: number
-      totalStorageMb: number
-    }) =>
-      postApi<{ nodeId: string; status: string }>(
-        '/containers/nodes',
-        { ...params, address },
-        { address },
-        registerNodeResponseSchema,
-      ),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['compute-nodes'] })
-    },
+async function fetchApi<T>(
+  endpoint: string,
+  options?: RequestInit & { address?: string },
+): Promise<T> {
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options?.headers as Record<string, string>),
+  }
+
+  if (options?.address) {
+    headers['X-Jeju-Address'] = options.address
+  }
+
+  const response = await fetch(`${DWS_API_URL}${endpoint}`, {
+    ...options,
+    headers,
+  })
+
+  if (!response.ok) {
+    const error = await response
+      .json()
+      .catch(() => ({ error: response.statusText }))
+    throw new Error(error.error || error.message || 'API request failed')
+  }
+
+  return response.json()
+}
+
+// Generic hook for any DWS endpoint
+export function useDWSApi<T>(
+  endpoint: string,
+  options?: { enabled?: boolean; refetchInterval?: number },
+) {
+  const { address } = useAccount()
+  return useQuery({
+    queryKey: ['dws-api', endpoint, address],
+    queryFn: () => fetchApi<T>(endpoint, { address }),
+    enabled: options?.enabled ?? true,
+    refetchInterval: options?.refetchInterval,
   })
 }
 
-// Containers
 export function useContainers() {
   const { address } = useAccount()
   return useQuery({
     queryKey: ['containers', address],
     queryFn: () =>
-      fetchApi<{ executions: Container[] }>(
-        '/containers/executions',
-        { address },
-        containersResponseSchema,
-      ),
+      fetchApi<{ executions: Container[] }>('/containers/executions', {
+        address,
+      }),
     enabled: !!address,
     refetchInterval: 5000,
   })
@@ -232,42 +228,23 @@ export function useRunContainer() {
       env?: Record<string, string>
       mode?: string
     }) =>
-      postApi<Container>(
-        '/containers/execute',
-        params,
-        { address },
-        z.object({
-          executionId: z.string(),
-          instanceId: z.string(),
-          image: z.string(),
-          status: z.enum([
-            'pending',
-            'running',
-            'completed',
-            'failed',
-            'cancelled',
-          ]),
-          submittedAt: z.number(),
-          startedAt: z.number().nullable(),
-        }),
-      ),
+      fetchApi<Container>('/containers/execute', {
+        method: 'POST',
+        body: JSON.stringify(params),
+        address,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['containers'] })
     },
   })
 }
 
-// Workers
 export function useWorkers() {
   const { address } = useAccount()
   return useQuery({
     queryKey: ['workers', address],
     queryFn: () =>
-      fetchApi<{ functions: WorkerFunction[] }>(
-        '/workers',
-        { address },
-        workersResponseSchema,
-      ),
+      fetchApi<{ functions: WorkerFunction[] }>('/workers', { address }),
     enabled: !!address,
   })
 }
@@ -285,12 +262,11 @@ export function useDeployWorker() {
       memory?: number
       timeout?: number
     }) =>
-      postApi<WorkerFunction>(
-        '/workers',
-        { ...params, code: btoa(params.code) },
-        { address },
-        workerFunctionSchema,
-      ),
+      fetchApi<WorkerFunction>('/workers', {
+        method: 'POST',
+        body: JSON.stringify({ ...params, code: btoa(params.code) }),
+        address,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workers'] })
     },
@@ -305,28 +281,40 @@ export function useInvokeWorker() {
     }: {
       id: string
       payload: Record<string, unknown>
-    }) => postApi<Record<string, unknown>>(`/workers/${id}/invoke`, payload),
+    }) =>
+      fetchApi<unknown>(`/workers/${id}/invoke`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }),
   })
 }
 
-// Storage
 export function useUploadFile() {
   const { address } = useAccount()
 
   return useMutation({
-    mutationFn: (file: File) => uploadFile('/storage/upload', file, address),
+    mutationFn: async (file: File) => {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch(`${DWS_API_URL}/storage/upload`, {
+        method: 'POST',
+        headers: { 'X-Jeju-Address': address || '' },
+        body: formData,
+      })
+
+      if (!response.ok) throw new Error('Upload failed')
+      return response.json()
+    },
   })
 }
 
-// Git
 export function useRepositories(limit = 20) {
   return useQuery({
     queryKey: ['repositories', limit],
     queryFn: () =>
       fetchApi<{ repositories: Repository[]; total: number }>(
         `/git/repos?limit=${limit}`,
-        undefined,
-        repositoriesResponseSchema,
       ),
   })
 }
@@ -341,53 +329,43 @@ export function useCreateRepository() {
       description?: string
       visibility?: string
     }) =>
-      postApi<Repository>('/git/repos', params, { address }, repositorySchema),
+      fetchApi<Repository>('/git/repos', {
+        method: 'POST',
+        body: JSON.stringify(params),
+        address,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['repositories'] })
     },
   })
 }
 
-// Packages
 export function usePackages(limit = 20) {
   return useQuery({
     queryKey: ['packages', limit],
     queryFn: () =>
       fetchApi<{ packages: Package[]; total: number }>(
         `/pkg/packages?limit=${limit}`,
-        undefined,
-        packagesResponseSchema,
       ),
   })
 }
 
-// CI
 export function usePipelines() {
   const { address } = useAccount()
   return useQuery({
     queryKey: ['pipelines', address],
     queryFn: () =>
-      fetchApi<{ pipelines: CIPipeline[] }>(
-        '/ci/pipelines',
-        { address },
-        pipelinesResponseSchema,
-      ),
+      fetchApi<{ pipelines: CIPipeline[] }>('/ci/pipelines', { address }),
     enabled: !!address,
     refetchInterval: 10000,
   })
 }
 
-// KMS
 export function useKMSKeys() {
   const { address } = useAccount()
   return useQuery({
     queryKey: ['kms-keys', address],
-    queryFn: () =>
-      fetchApi<{ keys: KMSKey[] }>(
-        '/kms/keys',
-        { address },
-        kmsKeysResponseSchema,
-      ),
+    queryFn: () => fetchApi<{ keys: KMSKey[] }>('/kms/keys', { address }),
     enabled: !!address,
   })
 }
@@ -398,7 +376,11 @@ export function useCreateKey() {
 
   return useMutation({
     mutationFn: (params: { threshold?: number; totalParties?: number }) =>
-      postApi<KMSKey>('/kms/keys', params, { address }, kmsKeySchema),
+      fetchApi<KMSKey>('/kms/keys', {
+        method: 'POST',
+        body: JSON.stringify(params),
+        address,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kms-keys'] })
     },
@@ -410,11 +392,7 @@ export function useSecrets() {
   return useQuery({
     queryKey: ['secrets', address],
     queryFn: () =>
-      fetchApi<{ secrets: Secret[] }>(
-        '/kms/vault/secrets',
-        { address },
-        secretsResponseSchema,
-      ),
+      fetchApi<{ secrets: Secret[] }>('/kms/vault/secrets', { address }),
     enabled: !!address,
   })
 }
@@ -425,23 +403,21 @@ export function useCreateSecret() {
 
   return useMutation({
     mutationFn: (params: { name: string; value: string; expiresIn?: number }) =>
-      postApi<Secret>('/kms/vault/secrets', params, { address }, secretSchema),
+      fetchApi<Secret>('/kms/vault/secrets', {
+        method: 'POST',
+        body: JSON.stringify(params),
+        address,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['secrets'] })
     },
   })
 }
 
-// RPC
 export function useRPCChains() {
   return useQuery({
     queryKey: ['rpc-chains'],
-    queryFn: () =>
-      fetchApi<{ chains: RPCChain[] }>(
-        '/rpc/chains?testnet=true',
-        undefined,
-        rpcChainsResponseSchema,
-      ),
+    queryFn: () => fetchApi<{ chains: RPCChain[] }>('/rpc/chains?testnet=true'),
   })
 }
 
@@ -450,15 +426,18 @@ export function useCreateRPCKey() {
 
   return useMutation({
     mutationFn: (params: { tier?: string }) =>
-      postApi<{
+      fetchApi<{
         apiKey: string
         tier: string
         limits: { rps: number; daily: number }
-      }>('/rpc/keys', params, { address }, rpcKeyResponseSchema),
+      }>('/rpc/keys', {
+        method: 'POST',
+        body: JSON.stringify(params),
+        address,
+      }),
   })
 }
 
-// VPN
 export function useVPNRegions() {
   return useQuery({
     queryKey: ['vpn-regions'],
@@ -470,7 +449,7 @@ export function useVPNRegions() {
           country: string
           nodeCount: number
         }>
-      }>('/vpn/regions', undefined, vpnRegionsResponseSchema),
+      }>('/vpn/regions'),
   })
 }
 
@@ -484,25 +463,18 @@ export function useCreateVPNSession() {
       type?: string
       duration?: number
     }) =>
-      postApi<VPNSession>(
-        '/vpn/sessions',
-        params,
-        { address },
-        vpnSessionSchema,
-      ),
+      fetchApi<VPNSession>('/vpn/sessions', {
+        method: 'POST',
+        body: JSON.stringify(params),
+        address,
+      }),
   })
 }
 
-// API Marketplace
 export function useAPIProviders() {
   return useQuery({
     queryKey: ['api-providers'],
-    queryFn: () =>
-      fetchApi<{ providers: APIProvider[] }>(
-        '/api/providers',
-        undefined,
-        apiProvidersResponseSchema,
-      ),
+    queryFn: () => fetchApi<{ providers: APIProvider[] }>('/api/providers'),
   })
 }
 
@@ -512,8 +484,6 @@ export function useAPIListings(providerId?: string) {
     queryFn: () =>
       fetchApi<{ listings: APIListing[] }>(
         `/api/listings${providerId ? `?provider=${providerId}` : ''}`,
-        undefined,
-        apiListingsResponseSchema,
       ),
   })
 }
@@ -528,12 +498,11 @@ export function useCreateListing() {
       apiKey: string
       pricePerRequest?: string
     }) =>
-      postApi<{ listing: APIListing }>(
-        '/api/listings',
-        params,
-        { address },
-        createListingResponseSchema,
-      ),
+      fetchApi<{ listing: APIListing }>('/api/listings', {
+        method: 'POST',
+        body: JSON.stringify(params),
+        address,
+      }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['api-listings'] })
     },
@@ -544,8 +513,7 @@ export function useUserAccount() {
   const { address } = useAccount()
   return useQuery({
     queryKey: ['user-account', address],
-    queryFn: () =>
-      fetchApi<UserAccount>('/api/account', { address }, userAccountSchema),
+    queryFn: () => fetchApi<UserAccount>('/api/account', { address }),
     enabled: !!address,
   })
 }
@@ -556,14 +524,45 @@ export function useDeposit() {
 
   return useMutation({
     mutationFn: (amount: string) =>
-      postApi<{ success: boolean; newBalance: string }>(
+      fetchApi<{ success: boolean; newBalance: string }>(
         '/api/account/deposit',
-        { amount },
-        { address },
-        depositResponseSchema,
+        {
+          method: 'POST',
+          body: JSON.stringify({ amount }),
+          address,
+        },
       ),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['user-account'] })
+    },
+  })
+}
+
+export function useRegisterNode() {
+  const { address } = useAccount()
+  const queryClient = useQueryClient()
+
+  return useMutation({
+    mutationFn: async (params: {
+      nodeId: string
+      endpoint: string
+      region: string
+      zone: string
+      totalCpu: number
+      totalMemoryMb: number
+      totalStorageMb: number
+    }) => {
+      const { data, error } = await api.compute.nodes.register.post({
+        address: params.nodeId,
+        gpuTier: 'cpu',
+        endpoint: params.endpoint,
+        region: params.region,
+      })
+      if (error) throw new Error(String(error))
+      return data
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['compute-nodes'] })
     },
   })
 }

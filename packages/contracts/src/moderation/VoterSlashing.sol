@@ -47,7 +47,41 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
         uint256 penaltyTier;
         bool votingBanned;
         uint256 votingBanExpiry;
+        uint256 qualityVotes; // SECURITY: Votes on high-quality cases only
+        uint256 qualityLosses; // SECURITY: Losses on high-quality cases only
     }
+
+    // ============ SECURITY: Case Quality Tracking ============
+    // Prevents griefing where attackers create frivolous cases to slash honest voters
+    
+    enum CaseQuality {
+        UNKNOWN,      // Not yet assessed
+        LOW,          // Frivolous or spam case - losses don't count
+        MEDIUM,       // Borderline case - 50% weight on losses
+        HIGH          // Legitimate case - full loss weight
+    }
+
+    struct CaseQualityRecord {
+        CaseQuality quality;
+        uint256 assessedAt;
+        uint256 yesVotes;
+        uint256 noVotes;
+        uint256 totalStake;
+        bool hasEvidence;
+        address assessor;
+    }
+
+    // caseId => quality record
+    mapping(bytes32 => CaseQualityRecord) public caseQuality;
+
+    // Minimum total stake for a case to be considered "high quality"
+    uint256 public constant MIN_QUALITY_STAKE = 1 ether;
+    
+    // Minimum vote margin for quality assessment (prevents 50/50 cases from being "low")
+    uint256 public constant MIN_QUALITY_MARGIN_BPS = 2000; // 20%
+
+    // Addresses authorized to assess case quality (moderation council)
+    mapping(address => bool) public qualityAssessors;
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              CONSTANTS
@@ -120,6 +154,17 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
         string reason
     );
 
+    event CaseQualityAssessed(
+        bytes32 indexed caseId,
+        CaseQuality quality,
+        address assessor
+    );
+
+    event QualityAssessorUpdated(
+        address indexed assessor,
+        bool authorized
+    );
+
     // ═══════════════════════════════════════════════════════════════════════
     //                              ERRORS
     // ═══════════════════════════════════════════════════════════════════════
@@ -147,6 +192,7 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
 
     /**
      * @notice Record a vote outcome for a voter
+     * @dev SECURITY: Only considers losses on HIGH quality cases for slashing
      * @param voter The voter address
      * @param caseId The case they voted on
      * @param won Whether they voted on the winning side
@@ -161,6 +207,7 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
         if (msg.sender != moderationMarketplace) revert OnlyMarketplace();
 
         VoterRecord storage record = voterRecords[voter];
+        CaseQualityRecord storage quality = caseQuality[caseId];
         
         // Check for inactivity reset
         if (record.lastVoteTimestamp > 0 && 
@@ -187,13 +234,40 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
 
         // Loss handling
         record.losingVotes++;
-        record.consecutiveLosses++;
         record.consecutiveWins = 0;
+
+        // SECURITY: Only count losses on high-quality cases for slashing
+        // This prevents griefing where attackers create frivolous cases
+        bool countForSlashing = false;
+        
+        if (quality.quality == CaseQuality.HIGH) {
+            // High quality case - full weight
+            record.consecutiveLosses++;
+            record.qualityLosses++;
+            countForSlashing = true;
+        } else if (quality.quality == CaseQuality.MEDIUM) {
+            // Medium quality - only count every other loss
+            if (record.losingVotes % 2 == 0) {
+                record.consecutiveLosses++;
+            }
+            countForSlashing = record.consecutiveLosses >= TIER_1_LOSSES;
+        } else {
+            // LOW or UNKNOWN quality - auto-assess based on stake
+            if (quality.totalStake >= MIN_QUALITY_STAKE) {
+                // Looks legitimate - assess as medium and count
+                quality.quality = CaseQuality.MEDIUM;
+                quality.assessedAt = block.timestamp;
+                if (record.losingVotes % 2 == 0) {
+                    record.consecutiveLosses++;
+                }
+            }
+            // LOW quality cases don't count toward slashing at all
+        }
 
         emit VoteRecorded(voter, caseId, false, record.consecutiveLosses);
 
-        // Check if slashing is warranted
-        if (record.consecutiveLosses >= TIER_1_LOSSES && stakeAtRisk >= MIN_SLASHABLE_STAKE) {
+        // Check if slashing is warranted (only for quality cases)
+        if (countForSlashing && record.consecutiveLosses >= TIER_1_LOSSES && stakeAtRisk >= MIN_SLASHABLE_STAKE) {
             slashAmount = _applySlash(voter, stakeAtRisk);
         }
 
@@ -374,6 +448,113 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
     }
 
     // ═══════════════════════════════════════════════════════════════════════
+    //                         CASE QUALITY ASSESSMENT
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * @notice Assess the quality of a case (determines if losses count for slashing)
+     * @dev Only callable by authorized assessors or marketplace
+     * @param caseId The case to assess
+     * @param quality The quality level to assign
+     * @param yesVotes Total YES votes on the case
+     * @param noVotes Total NO votes on the case
+     * @param totalStake Total stake involved in the case
+     * @param hasEvidence Whether the case has verified evidence
+     */
+    function assessCaseQuality(
+        bytes32 caseId,
+        CaseQuality quality,
+        uint256 yesVotes,
+        uint256 noVotes,
+        uint256 totalStake,
+        bool hasEvidence
+    ) external {
+        if (msg.sender != moderationMarketplace && !qualityAssessors[msg.sender]) {
+            revert OnlyMarketplace();
+        }
+
+        CaseQualityRecord storage record = caseQuality[caseId];
+        
+        record.quality = quality;
+        record.assessedAt = block.timestamp;
+        record.yesVotes = yesVotes;
+        record.noVotes = noVotes;
+        record.totalStake = totalStake;
+        record.hasEvidence = hasEvidence;
+        record.assessor = msg.sender;
+
+        emit CaseQualityAssessed(caseId, quality, msg.sender);
+    }
+
+    /**
+     * @notice Auto-assess case quality based on metrics
+     * @dev Called by marketplace when case resolves
+     */
+    function autoAssessCaseQuality(
+        bytes32 caseId,
+        uint256 yesVotes,
+        uint256 noVotes,
+        uint256 totalStake,
+        bool hasEvidence
+    ) external {
+        if (msg.sender != moderationMarketplace) revert OnlyMarketplace();
+
+        CaseQualityRecord storage record = caseQuality[caseId];
+        
+        record.yesVotes = yesVotes;
+        record.noVotes = noVotes;
+        record.totalStake = totalStake;
+        record.hasEvidence = hasEvidence;
+        record.assessedAt = block.timestamp;
+        record.assessor = msg.sender;
+
+        // Auto-assessment logic
+        uint256 totalVotes = yesVotes + noVotes;
+        
+        if (totalStake < MIN_QUALITY_STAKE || totalVotes < 3) {
+            // Low stake or few voters = low quality (likely spam/griefing)
+            record.quality = CaseQuality.LOW;
+        } else if (!hasEvidence) {
+            // No evidence = medium quality at best
+            record.quality = CaseQuality.MEDIUM;
+        } else {
+            // Check vote margin - controversial cases (close votes) are medium quality
+            uint256 larger = yesVotes > noVotes ? yesVotes : noVotes;
+            uint256 marginBps = ((larger - (totalVotes - larger)) * 10000) / totalVotes;
+            
+            if (marginBps >= MIN_QUALITY_MARGIN_BPS) {
+                // Clear consensus + evidence = high quality
+                record.quality = CaseQuality.HIGH;
+            } else {
+                // Controversial = medium quality
+                record.quality = CaseQuality.MEDIUM;
+            }
+        }
+
+        emit CaseQualityAssessed(caseId, record.quality, msg.sender);
+    }
+
+    /**
+     * @notice Get case quality info
+     */
+    function getCaseQuality(bytes32 caseId) external view returns (
+        CaseQuality quality,
+        uint256 assessedAt,
+        uint256 totalStake,
+        bool hasEvidence,
+        address assessor
+    ) {
+        CaseQualityRecord storage record = caseQuality[caseId];
+        return (
+            record.quality,
+            record.assessedAt,
+            record.totalStake,
+            record.hasEvidence,
+            record.assessor
+        );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
     //                              ADMIN
     // ═══════════════════════════════════════════════════════════════════════
 
@@ -383,6 +564,14 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
 
     function setTreasury(address _treasury) external onlyOwner {
         treasury = _treasury;
+    }
+
+    /**
+     * @notice Add or remove a quality assessor
+     */
+    function setQualityAssessor(address assessor, bool authorized) external onlyOwner {
+        qualityAssessors[assessor] = authorized;
+        emit QualityAssessorUpdated(assessor, authorized);
     }
 
     /**

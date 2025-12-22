@@ -12,5 +12,4 @@ export default createAppConfig({
   port: DEFAULT_PORT,
   testDir: './e2e',
   timeout: 60000,
-  // No webServer - these tests run against existing infrastructure
 })

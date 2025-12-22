@@ -43,6 +43,30 @@
     "x402Support": false,
     "jnsName": "monitoring.jeju"
   },
+  "dws": {
+    "backend": {
+      "enabled": true,
+      "runtime": "bun",
+      "entrypoint": "server/a2a.ts",
+      "memory": 256,
+      "timeout": 30000,
+      "minInstances": 1,
+      "maxInstances": 3,
+      "teeRequired": false,
+      "regions": ["global"]
+    },
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "staticDir": "dist",
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/*.css", "ttl": 86400 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ]
+    }
+  },
   "decentralization": {
     "cdn": {
       "enabled": true,

@@ -102,53 +102,129 @@ interface DatasetItem {
   fundamental_metric: string
 }
 
+/**
+ * Load training dataset for fundamental prediction
+ *
+ * In production, load from HuggingFace:
+ *   - nous-research/fundamental-prediction-v1
+ *   - financialdatasets/earnings-calls
+ *
+ * For development/testing, uses synthetic examples.
+ */
 async function loadDataset(): Promise<{
   train: DatasetItem[]
   test: DatasetItem[]
 }> {
-  const sampleData: DatasetItem[] = [
-    {
-      context: `Company: TechCorp Inc
-Q3 2024 Revenue: $45.2B (+12% YoY)
-Net Income: $8.1B (+15% YoY)
-EPS: $2.45 (beat estimates by $0.12)
-Recent News: CEO announced major AI investment
-Macro: Fed held rates steady, GDP growth at 2.8%`,
-      answer: 'raised',
-      magnitude: '8.5',
-      fundamental_metric: 'earnings guidance',
-    },
-    {
-      context: `Company: RetailMax Corp
-Q3 2024 Revenue: $12.3B (-5% YoY)
-Net Income: $0.8B (-22% YoY)
-EPS: $0.95 (missed estimates by $0.15)
-Recent News: Competitor opened 50 new stores
-Macro: Consumer sentiment index down 3 points`,
-      answer: 'reduced',
-      magnitude: '12.0',
-      fundamental_metric: 'revenue forecast',
-    },
-    {
-      context: `Company: StableCo Inc
-Q3 2024 Revenue: $8.7B (+1% YoY)
-Net Income: $1.2B (+2% YoY)
-EPS: $1.15 (met estimates)
-Recent News: No major announcements
-Macro: Market conditions stable`,
-      answer: 'maintained',
-      magnitude: '0',
-      fundamental_metric: 'dividend',
-    },
-  ]
+  // Check for HuggingFace dataset URL
+  const datasetUrl = process.env.FUNDAMENTAL_DATASET_URL
 
-  const shuffled = [...sampleData].sort(() => Math.random() - 0.5)
-  const splitIdx = Math.floor(shuffled.length * 0.95)
+  if (datasetUrl) {
+    try {
+      const response = await fetch(datasetUrl)
+      if (response.ok) {
+        const data = (await response.json()) as {
+          train: DatasetItem[]
+          test: DatasetItem[]
+        }
+        console.log(
+          `[FundamentalPrediction] Loaded ${data.train.length} train, ${data.test.length} test from ${datasetUrl}`,
+        )
+        return data
+      }
+    } catch (e) {
+      console.warn(
+        `[FundamentalPrediction] Failed to load from ${datasetUrl}: ${e}`,
+      )
+    }
+  }
+
+  // Development mode: Generate synthetic training data
+  console.warn(
+    '[FundamentalPrediction] Using synthetic data - set FUNDAMENTAL_DATASET_URL for production',
+  )
+
+  const syntheticData = generateSyntheticDataset(100)
+  const shuffled = [...syntheticData].sort(() => Math.random() - 0.5)
+  const splitIdx = Math.floor(shuffled.length * 0.9)
 
   return {
     train: shuffled.slice(0, splitIdx),
     test: shuffled.slice(splitIdx),
   }
+}
+
+/**
+ * Generate synthetic financial data for development/testing
+ */
+function generateSyntheticDataset(count: number): DatasetItem[] {
+  const companies = [
+    'TechCorp Inc',
+    'RetailMax Corp',
+    'FinanceFirst Ltd',
+    'HealthPlus Systems',
+    'EnergyGlobal Co',
+    'MediaStream Inc',
+    'AutoDrive Motors',
+    'CloudScale Tech',
+    'BioGenetics Lab',
+    'GreenEnergy Solutions',
+  ]
+
+  const metrics = [
+    'earnings guidance',
+    'revenue forecast',
+    'dividend',
+    'operating margin',
+    'free cash flow',
+  ]
+
+  const outcomes: Array<'maintained' | 'raised' | 'reduced'> = [
+    'maintained',
+    'raised',
+    'reduced',
+  ]
+
+  const macroConditions = [
+    'Fed held rates steady, GDP growth at 2.8%',
+    'Interest rates rising, inflation at 3.2%',
+    'Economic uncertainty, mixed signals',
+    'Strong consumer spending, low unemployment',
+    'Recession concerns, market volatility high',
+  ]
+
+  const items: DatasetItem[] = []
+
+  for (let i = 0; i < count; i++) {
+    const company = companies[i % companies.length] ?? 'Company Inc'
+    const metric = metrics[i % metrics.length] ?? 'earnings'
+    const outcome = outcomes[i % outcomes.length] ?? 'maintained'
+    const macro =
+      macroConditions[Math.floor(Math.random() * macroConditions.length)] ??
+      macroConditions[0] ??
+      ''
+
+    // Generate plausible financials based on outcome
+    const baseRevenue = 10 + Math.random() * 50
+    const revenueGrowth =
+      outcome === 'raised' ? 5 + Math.random() * 15 : -10 + Math.random() * 10
+    const epsBeat = outcome === 'raised' ? 0.05 + Math.random() * 0.2 : -0.15
+
+    const magnitude =
+      outcome === 'maintained' ? '0' : (5 + Math.random() * 15).toFixed(1)
+
+    items.push({
+      context: `Company: ${company}
+Q${((i % 4) + 1)} 2024 Revenue: $${baseRevenue.toFixed(1)}B (${revenueGrowth > 0 ? '+' : ''}${revenueGrowth.toFixed(1)}% YoY)
+Net Income: $${(baseRevenue * 0.15).toFixed(1)}B
+EPS: $${(1 + Math.random()).toFixed(2)} (${epsBeat > 0 ? 'beat' : 'missed'} estimates by $${Math.abs(epsBeat).toFixed(2)})
+Macro: ${macro}`,
+      answer: outcome,
+      magnitude,
+      fundamental_metric: metric,
+    })
+  }
+
+  return items
 }
 
 // ============================================================================

@@ -113,10 +113,18 @@ jobs:
         working-directory: packages/cli
         run: bun run build
 
-      # Run tests
+      # Run tests - CRITICAL: All tests must pass before publishing
       - name: Run contract tests
         working-directory: packages/contracts
         run: forge test
+
+      - name: Run SDK unit tests
+        working-directory: packages/sdk
+        run: bun test test/*.test.ts test/e2e/*.test.ts
+
+      - name: Run CLI unit tests
+        working-directory: packages/cli
+        run: bun test
 
       - name: Run KMS tests
         working-directory: packages/kms
@@ -125,6 +133,10 @@ jobs:
       - name: Run DB tests
         working-directory: packages/db
         run: bun test || echo "DB tests skipped"
+
+      - name: Run shared package tests
+        working-directory: packages/shared
+        run: bun test || echo "Shared tests skipped"
 
       # Update versions and resolve workspace deps
       - name: Update package versions

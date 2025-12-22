@@ -308,9 +308,8 @@ describe('MailboxStorage', () => {
     await storage.deleteAllUserData(owner)
 
     const mailbox = await storage.getMailbox(owner)
-    // After deletion, mailbox is reset to empty state (quotas zeroed)
-    expect(mailbox).toBeDefined()
-    expect(mailbox?.quotaUsedBytes).toBe(0n)
+    // After deletion, mailbox no longer exists
+    expect(mailbox).toBeNull()
   })
 })
 

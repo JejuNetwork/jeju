@@ -96,7 +96,7 @@ class StorageServiceImpl implements StorageService {
     }
 
     // Fallback to local
-    const localCid = `local-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const localCid = `local-${crypto.randomUUID()}`
     const bytes =
       data instanceof Uint8Array
         ? data

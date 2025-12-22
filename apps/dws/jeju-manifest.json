@@ -1,65 +1,48 @@
 {
-  "name": "@jejunetwork/dws",
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "dws",
+  "displayName": "Decentralized Web Services",
   "version": "1.0.0",
-  "description": "Decentralized Web Services - Storage, Compute, CDN, Funding",
-  "type": "service",
-  "deployment": {
-    "testnet": {
-      "network": "jeju-testnet",
-      "chainId": 420690,
-      "contracts": {
-        "IdentityRegistry": "${IDENTITY_REGISTRY_ADDRESS}",
-        "DAORegistry": "${DAO_REGISTRY_ADDRESS}",
-        "ContributorRegistry": "${CONTRIBUTOR_REGISTRY_ADDRESS}",
-        "PaymentRequestRegistry": "${PAYMENT_REQUEST_REGISTRY_ADDRESS}",
-        "DeepFundingDistributor": "${DEEP_FUNDING_DISTRIBUTOR_ADDRESS}",
-        "JNSRegistry": "${JNS_REGISTRY_ADDRESS}"
-      },
-      "services": {
-        "dws": {
-          "port": 4030,
-          "replicas": 3,
-          "resources": {
-            "cpu": "2",
-            "memory": "4Gi"
-          }
-        }
-      }
+  "type": "core",
+  "description": "Decentralized Web Services - Storage, Compute, CDN, Funding. The foundational infrastructure for all Jeju apps.",
+  "commands": {
+    "dev": "bun run scripts/dev.ts",
+    "build": "bun build src/index.ts --outdir dist --target bun",
+    "build:frontend": "cd frontend && bun run build",
+    "start": "bun run src/server/index.ts",
+    "test": "bun test"
+  },
+  "ports": {
+    "main": 4030,
+    "frontend": 4031
+  },
+  "dependencies": ["contracts", "config"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": true,
+  "tags": ["dws", "storage", "compute", "cdn", "infrastructure", "core"],
+  "jns": {
+    "name": "dws.jeju",
+    "description": "Decentralized Web Services",
+    "url": "https://dws.jejunetwork.org"
+  },
+  "healthCheck": {
+    "url": "http://localhost:4030/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": ["jeju-app", "dws", "storage", "compute", "cdn"],
+    "metadata": {
+      "category": "infrastructure",
+      "provider": "jeju-network",
+      "features": ["storage", "compute", "cdn", "git", "pkg", "ci", "containers"]
     },
-    "mainnet": {
-      "network": "jeju",
-      "chainId": 420691,
-      "contracts": {
-        "IdentityRegistry": "${IDENTITY_REGISTRY_ADDRESS}",
-        "DAORegistry": "${DAO_REGISTRY_ADDRESS}",
-        "ContributorRegistry": "${CONTRIBUTOR_REGISTRY_ADDRESS}",
-        "PaymentRequestRegistry": "${PAYMENT_REQUEST_REGISTRY_ADDRESS}",
-        "DeepFundingDistributor": "${DEEP_FUNDING_DISTRIBUTOR_ADDRESS}",
-        "JNSRegistry": "${JNS_REGISTRY_ADDRESS}"
-      },
-      "services": {
-        "dws": {
-          "port": 4030,
-          "replicas": 5,
-          "resources": {
-            "cpu": "4",
-            "memory": "8Gi"
-          }
-        }
-      }
-    },
-    "localnet": {
-      "network": "anvil",
-      "chainId": 31337,
-      "contracts": {
-        "IdentityRegistry": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
-        "DAORegistry": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
-        "ContributorRegistry": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
-        "PaymentRequestRegistry": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
-        "DeepFundingDistributor": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
-        "JNSRegistry": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788"
-      }
-    }
+    "trustModels": ["open", "staked"],
+    "x402Support": true,
+    "jnsName": "dws.jeju"
   },
   "endpoints": {
     "storage": "/storage/*",
@@ -76,12 +59,100 @@
     "funding": "/funding/*",
     "registry": "/registry/*"
   },
+  "dws": {
+    "backend": {
+      "enabled": true,
+      "runtime": "bun",
+      "entrypoint": "src/server/index.ts",
+      "memory": 2048,
+      "timeout": 60000,
+      "minInstances": 3,
+      "maxInstances": 20,
+      "teeRequired": true,
+      "regions": ["global"]
+    },
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "staticDir": "frontend/dist",
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/*.css", "ttl": 86400 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ]
+    },
+    "tee": {
+      "platform": "dstack",
+      "attestation": true,
+      "decryption": true
+    }
+  },
   "decentralization": {
     "frontendStorage": "ipfs",
     "dataStorage": "cql",
     "nodeDiscovery": "on-chain",
     "coordination": "p2p",
     "execution": ["workerd", "containers", "tee"],
-    "payments": "x402"
+    "payments": "x402",
+    "frontend": {
+      "ipfs": true,
+      "arweave": true,
+      "jnsName": "dws.jeju",
+      "buildDir": "frontend/dist",
+      "spa": true
+    },
+    "robustness": {
+      "multiOrigin": true,
+      "offlineSupport": true,
+      "p2pFallback": true,
+      "contentAddressed": true
+    }
+  },
+  "deployment": {
+    "testnet": {
+      "network": "jeju-testnet",
+      "chainId": 420690,
+      "services": {
+        "dws": {
+          "port": 4030,
+          "replicas": 3,
+          "resources": {
+            "cpu": "2",
+            "memory": "4Gi"
+          }
+        }
+      }
+    },
+    "mainnet": {
+      "network": "jeju",
+      "chainId": 420691,
+      "services": {
+        "dws": {
+          "port": 4030,
+          "replicas": 5,
+          "resources": {
+            "cpu": "4",
+            "memory": "8Gi"
+          }
+        }
+      }
+    }
+  },
+  "testing": {
+    "unit": {
+      "command": "bun run test",
+      "timeout": 120000
+    },
+    "integration": {
+      "command": "bun test tests/integration",
+      "timeout": 300000,
+      "requiresServices": true
+    },
+    "e2e": {
+      "command": "bun run test:e2e",
+      "timeout": 600000,
+      "requiresChain": true
+    }
   }
 }

@@ -22,3 +22,7 @@ external = [
   "native-dns",
   "native-dns-cache"
 ]
+
+[test]
+coverage = true
+coverageDir = "./test-results/coverage"

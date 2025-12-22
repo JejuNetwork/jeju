@@ -22,11 +22,11 @@ import {
 const CONFIG = {
   atroposPort: 8400,
   dwsPort: 8401,
-  modelName: 'distilgpt2',
+  modelName: 'distilgpt2', // 82M params, very low memory
   trainedModelPath: './training_output/dws-ttt-trained',
-  numGames: 100,
-  trainingEpochs: 10,
-  batchSize: 8,
+  numGames: 50, // Reduced for faster iteration
+  trainingEpochs: 5,
+  batchSize: 2, // Small batch for memory efficiency
 }
 
 // ============================================================================

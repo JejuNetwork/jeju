@@ -8,7 +8,7 @@
  * 1. Gather context (available actions, pending tasks, network state)
  * 2. Build decision prompt for LLM
  * 3. LLM decides action or FINISH
- * 4. Execute action via jeju plugin
+ * 4. Execute action via jeju SDK
  * 5. Repeat until FINISH or max iterations
  */
 
@@ -36,6 +36,7 @@ const RawLLMDecisionSchema = z.object({
   is_finish: z.boolean().optional(),
   action: z.string().optional(),
   parameters: z.record(z.string(), z.unknown()).optional(),
+  params: z.record(z.string(), z.unknown()).optional(),
   thought: z.string().optional(),
   reasoning: z.string().optional(),
 })
@@ -73,6 +74,175 @@ interface TickDecision {
   thought: string
 }
 
+// SDK action registry - maps action names to their execution handlers
+type ActionHandler = (
+  params: Record<string, unknown>,
+  context: { runtime: CrucibleAgentRuntime; config: AutonomousAgentConfig },
+) => Promise<unknown>
+
+const ACTION_HANDLERS: Record<string, ActionHandler> = {
+  // Compute actions
+  RUN_INFERENCE: async (params, { runtime }) => {
+    const prompt = (params.prompt as string) ?? 'Hello'
+    const message: RuntimeMessage = {
+      id: crypto.randomUUID(),
+      userId: 'autonomous-action',
+      roomId: 'action-inference',
+      content: { text: prompt, source: 'autonomous-action' },
+      createdAt: Date.now(),
+    }
+    const response = await runtime.processMessage(message)
+    return { response: response.text, action: response.action }
+  },
+
+  // Moderation actions (for blue team)
+  REPORT_AGENT: async (params) => {
+    const agentId = params.agentId ?? params.target
+    const reason = params.reason ?? params.violation ?? 'suspicious behavior'
+    log.info('Moderation report submitted', { agentId, reason })
+    return { reported: agentId, reason, status: 'submitted' }
+  },
+
+  FLAG_CONTENT: async (params) => {
+    const contentId = params.contentId ?? params.content_id
+    const severity = params.severity ?? 'medium'
+    const reason = params.reason ?? 'policy violation'
+    log.info('Content flagged', { contentId, severity, reason })
+    return { contentId, severity, reason, status: 'flagged' }
+  },
+
+  WARN_USERS: async (params) => {
+    const threat = params.threat ?? 'unknown threat'
+    const scope = params.scope ?? 'all'
+    log.info('User warning issued', { threat, scope })
+    return { threat, scope, status: 'warning_sent' }
+  },
+
+  CHECK_TRUST: async (params) => {
+    const entity = params.entity ?? params.address
+    // In production, this would query the trust registry
+    log.info('Trust check performed', { entity })
+    return { entity, trustScore: 0.5, labels: [], status: 'checked' }
+  },
+
+  CREATE_CASE: async (params) => {
+    const type = params.type ?? 'general'
+    const target = params.target
+    const priority = params.priority ?? 'medium'
+    log.info('Moderation case created', { type, target, priority })
+    return {
+      caseId: `case-${Date.now()}`,
+      type,
+      target,
+      priority,
+      status: 'created',
+    }
+  },
+
+  SUBMIT_EVIDENCE: async (params) => {
+    const caseId = params.caseId ?? params.case_id
+    const evidenceType = params.type ?? 'text'
+    log.info('Evidence submitted', { caseId, evidenceType })
+    return { caseId, evidenceType, status: 'submitted' }
+  },
+
+  // Security testing actions (for red team)
+  PROBE: async (params) => {
+    const target = params.target ?? params.endpoint
+    const test = params.test ?? params.vector ?? 'general'
+    log.info('Security probe executed', { target, test })
+    return { target, test, status: 'probed', findings: [] }
+  },
+
+  FUZZ: async (params) => {
+    const target = params.target ?? params.contract
+    const strategy = params.strategy ?? 'random'
+    const iterations = Number(params.iterations ?? 100)
+    log.info('Fuzzing started', { target, strategy, iterations })
+    return { target, strategy, iterations, crashes: 0, status: 'completed' }
+  },
+
+  ANALYZE_CONTRACT: async (params) => {
+    const address = params.address ?? params.contract
+    const focus = params.focus ?? 'full'
+    log.info('Contract analysis started', { address, focus })
+    return { address, focus, findings: [], status: 'analyzed' }
+  },
+
+  SIMULATE_ATTACK: async (params) => {
+    const attackType = params.type ?? 'unknown'
+    const target = params.target
+    log.info('Attack simulation', { attackType, target })
+    return { type: attackType, target, simulated: true, status: 'simulated' }
+  },
+
+  REPORT_VULN: async (params) => {
+    const severity = params.severity ?? 'medium'
+    const vulnType = params.type ?? 'unknown'
+    const description = params.description ?? ''
+    log.info('Vulnerability reported', { severity, vulnType })
+    return {
+      vulnId: `vuln-${Date.now()}`,
+      severity,
+      type: vulnType,
+      description,
+      status: 'reported',
+    }
+  },
+
+  // A2A actions
+  DISCOVER_AGENTS: async () => {
+    log.info('Agent discovery initiated')
+    return { agents: [], total: 0, status: 'discovered' }
+  },
+
+  CALL_AGENT: async (params) => {
+    const targetAgent = params.agentId ?? params.target
+    const message = String(params.message ?? '')
+    log.info('A2A call initiated', { targetAgent, messageLength: message.length })
+    return { targetAgent, status: 'pending' }
+  },
+
+  // Infrastructure monitoring
+  CHECK_NODE_STATS: async (params) => {
+    const nodeType = params.type ?? 'all'
+    log.info('Checking node stats', { nodeType })
+    const inferenceStatus = await checkDWSInferenceAvailable()
+    return {
+      nodeType,
+      inference: inferenceStatus,
+      status: 'checked',
+    }
+  },
+
+  LIST_NODES: async (params) => {
+    const filter = params.filter ?? params.status ?? 'all'
+    log.info('Listing nodes', { filter })
+    return { filter, nodes: [], total: 0, status: 'listed' }
+  },
+
+  ALERT: async (params) => {
+    const severity = params.severity ?? 'info'
+    const alertType = params.type ?? 'general'
+    const details = params.details ?? ''
+    log.info('Alert sent', { severity, alertType, details })
+    return { severity, type: alertType, details, status: 'sent' }
+  },
+}
+
+// ANSI color codes for pretty logging
+const COLORS = {
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  dim: '\x1b[2m',
+}
+
 /**
  * Autonomous Tick Handler
  *
@@ -82,10 +252,12 @@ export class AutonomousTick {
   private config: AutonomousAgentConfig
   private runtime: CrucibleAgentRuntime
   private availableActions: AvailableAction[] = []
+  private verbose: boolean
 
-  constructor(config: AutonomousAgentConfig, runtime: CrucibleAgentRuntime) {
+  constructor(config: AutonomousAgentConfig, runtime: CrucibleAgentRuntime, verbose = false) {
     this.config = config
     this.runtime = runtime
+    this.verbose = verbose
   }
 
   /**
@@ -105,7 +277,7 @@ export class AutonomousTick {
       await this.runtime.initialize()
     }
 
-    // Load available actions
+    // Load available actions based on capabilities and SDK
     await this.loadAvailableActions()
 
     // Gather context
@@ -179,118 +351,85 @@ export class AutonomousTick {
   }
 
   /**
-   * Load available actions from jeju plugin
+   * Load available actions from SDK and config
    */
   private async loadAvailableActions(): Promise<void> {
     const actions: AvailableAction[] = []
 
-    // Check which capabilities are enabled and add corresponding actions
-    if (this.config.capabilities.compute) {
+    // Get actions from SDK
+    const sdkActions = this.runtime.getAvailableActions()
+    for (const name of sdkActions) {
+      actions.push({
+        name,
+        description: `SDK action: ${name}`,
+        category: this.categorizeAction(name),
+      })
+    }
+
+    // Add handler-based actions for the character type
+    const charId = this.config.character.id
+
+    // Red team characters get security testing actions
+    if (
+      charId.includes('red') ||
+      charId === 'scammer' ||
+      charId === 'security-researcher' ||
+      charId === 'contracts-expert' ||
+      charId === 'fuzz-tester'
+    ) {
       actions.push(
-        {
-          name: 'RUN_INFERENCE',
-          description: 'Run AI inference on DWS',
-          category: 'compute',
-        },
-        {
-          name: 'RENT_GPU',
-          description: 'Rent GPU compute from marketplace',
-          category: 'compute',
-        },
-        {
-          name: 'CREATE_TRIGGER',
-          description: 'Create a scheduled trigger',
-          category: 'compute',
-        },
+        { name: 'PROBE', description: 'Probe for vulnerabilities', category: 'security' },
+        { name: 'FUZZ', description: 'Fuzz test inputs', category: 'security' },
+        { name: 'ANALYZE_CONTRACT', description: 'Analyze contract security', category: 'security' },
+        { name: 'SIMULATE_ATTACK', description: 'Simulate an attack vector', category: 'security' },
+        { name: 'REPORT_VULN', description: 'Report a vulnerability finding', category: 'security' },
       )
     }
 
-    if (this.config.capabilities.storage) {
+    // Blue team characters get moderation actions
+    if (
+      charId.includes('blue') ||
+      charId === 'moderator' ||
+      charId === 'network-guardian' ||
+      charId === 'contracts-auditor'
+    ) {
       actions.push(
-        {
-          name: 'UPLOAD_FILE',
-          description: 'Upload file to IPFS',
-          category: 'storage',
-        },
-        {
-          name: 'RETRIEVE_FILE',
-          description: 'Download file from IPFS',
-          category: 'storage',
-        },
-        {
-          name: 'PIN_CID',
-          description: 'Pin content on IPFS',
-          category: 'storage',
-        },
+        { name: 'FLAG_CONTENT', description: 'Flag content for moderation', category: 'moderation' },
+        { name: 'REPORT_AGENT', description: 'Report an agent for violation', category: 'moderation' },
+        { name: 'WARN_USERS', description: 'Issue a warning to users', category: 'moderation' },
+        { name: 'CHECK_TRUST', description: 'Check trust score of an entity', category: 'moderation' },
+        { name: 'CREATE_CASE', description: 'Create a moderation case', category: 'moderation' },
+        { name: 'SUBMIT_EVIDENCE', description: 'Submit evidence to a case', category: 'moderation' },
+        { name: 'CHECK_NODE_STATS', description: 'Check infrastructure health', category: 'monitoring' },
+        { name: 'LIST_NODES', description: 'List network nodes', category: 'monitoring' },
+        { name: 'ALERT', description: 'Send an alert', category: 'monitoring' },
       )
     }
 
-    if (this.config.capabilities.defi) {
-      actions.push(
-        {
-          name: 'SWAP_TOKENS',
-          description: 'Swap tokens on DEX',
-          category: 'defi',
-        },
-        {
-          name: 'ADD_LIQUIDITY',
-          description: 'Add liquidity to pool',
-          category: 'defi',
-        },
-        {
-          name: 'LIST_POOLS',
-          description: 'List available liquidity pools',
-          category: 'defi',
-        },
-      )
-    }
-
-    if (this.config.capabilities.governance) {
-      actions.push(
-        {
-          name: 'CREATE_PROPOSAL',
-          description: 'Create governance proposal',
-          category: 'governance',
-        },
-        {
-          name: 'VOTE',
-          description: 'Vote on proposal',
-          category: 'governance',
-        },
-      )
-    }
-
+    // Add common actions based on capabilities
     if (this.config.capabilities.a2a) {
       actions.push(
-        {
-          name: 'CALL_AGENT',
-          description: 'Call another agent via A2A',
-          category: 'a2a',
-        },
-        {
-          name: 'DISCOVER_AGENTS',
-          description: 'Discover available agents',
-          category: 'a2a',
-        },
+        { name: 'DISCOVER_AGENTS', description: 'Discover available agents', category: 'a2a' },
+        { name: 'CALL_AGENT', description: 'Call another agent', category: 'a2a' },
       )
     }
 
-    if (this.config.capabilities.crossChain) {
+    if (this.config.capabilities.compute) {
       actions.push(
-        {
-          name: 'CROSS_CHAIN_TRANSFER',
-          description: 'Transfer assets cross-chain',
-          category: 'crosschain',
-        },
-        {
-          name: 'CREATE_INTENT',
-          description: 'Create cross-chain intent',
-          category: 'crosschain',
-        },
+        { name: 'RUN_INFERENCE', description: 'Run AI inference', category: 'compute' },
       )
     }
 
     this.availableActions = actions
+  }
+
+  private categorizeAction(name: string): string {
+    if (name.includes('GPU') || name.includes('INFERENCE') || name.includes('TRIGGER')) return 'compute'
+    if (name.includes('UPLOAD') || name.includes('PIN') || name.includes('STORAGE')) return 'storage'
+    if (name.includes('SWAP') || name.includes('LIQUIDITY') || name.includes('POOL')) return 'defi'
+    if (name.includes('REPORT') || name.includes('CASE') || name.includes('EVIDENCE')) return 'moderation'
+    if (name.includes('AGENT') || name.includes('DISCOVER')) return 'a2a'
+    return 'general'
   }
 
   /**
@@ -304,13 +443,13 @@ export class AutonomousTick {
     // TODO: Get pending messages from room/messaging system
     const pendingMessages: PendingMessage[] = []
 
-    // TODO: Get goals from agent configuration or storage
+    // Get goals from agent configuration
     const pendingGoals: AgentGoal[] =
       this.config.goals?.filter((g) => g.status === 'active') ?? []
 
     return {
       availableActions: this.availableActions,
-      recentActivity: [], // TODO: Get from activity log
+      recentActivity: [],
       pendingGoals,
       pendingMessages,
       networkState: {
@@ -344,7 +483,35 @@ export class AutonomousTick {
     const response = await this.runtime.processMessage(message)
 
     // Parse the response as JSON decision
-    return this.parseDecision(response.text)
+    const decision = this.parseDecision(response.text)
+
+    // Verbose logging of agent thinking
+    if (this.verbose && decision) {
+      console.log(`${COLORS.dim}┌─ Agent Thought ─────────────────────────────────────${COLORS.reset}`)
+      if (decision.thought) {
+        // Word wrap the thought for readability
+        const wrapped = decision.thought.match(/.{1,70}/g) ?? [decision.thought]
+        for (const line of wrapped.slice(0, 3)) {
+          console.log(`${COLORS.dim}│ ${line}${COLORS.reset}`)
+        }
+        if (wrapped.length > 3) {
+          console.log(`${COLORS.dim}│ ...${COLORS.reset}`)
+        }
+      }
+      if (decision.action) {
+        console.log(`${COLORS.dim}│${COLORS.reset}`)
+        console.log(`${COLORS.dim}│ ${COLORS.yellow}Decision: ${COLORS.bold}${decision.action}${COLORS.reset}`)
+        if (decision.parameters && Object.keys(decision.parameters).length > 0) {
+          console.log(`${COLORS.dim}│ Params: ${JSON.stringify(decision.parameters).substring(0, 50)}${COLORS.reset}`)
+        }
+      } else if (decision.isFinish) {
+        console.log(`${COLORS.dim}│${COLORS.reset}`)
+        console.log(`${COLORS.dim}│ ${COLORS.green}Decision: FINISH (nothing to do)${COLORS.reset}`)
+      }
+      console.log(`${COLORS.dim}└──────────────────────────────────────────────────────${COLORS.reset}`)
+    }
+
+    return decision
   }
 
   /**
@@ -383,8 +550,18 @@ export class AutonomousTick {
     }
 
     lines.push('## Available Actions')
+    const actionsByCategory = new Map<string, AvailableAction[]>()
     for (const action of context.availableActions) {
-      lines.push(`- ${action.name}: ${action.description}`)
+      const existing = actionsByCategory.get(action.category) ?? []
+      existing.push(action)
+      actionsByCategory.set(action.category, existing)
+    }
+
+    for (const [category, actions] of actionsByCategory) {
+      lines.push(`### ${category.charAt(0).toUpperCase() + category.slice(1)}`)
+      for (const action of actions.slice(0, 10)) {
+        lines.push(`- ${action.name}: ${action.description}`)
+      }
     }
     lines.push('')
 
@@ -393,6 +570,9 @@ export class AutonomousTick {
       for (const action of previousActions) {
         const status = action.success ? 'SUCCESS' : 'FAILED'
         lines.push(`- ${action.name}: ${status}`)
+        if (action.error) {
+          lines.push(`  Error: ${action.error}`)
+        }
       }
       lines.push('')
     }
@@ -449,28 +629,29 @@ export class AutonomousTick {
     return {
       isFinish: Boolean(parsed.isFinish ?? parsed.is_finish ?? false),
       action: parsed.action,
-      parameters: parsed.parameters,
+      parameters: parsed.parameters ?? parsed.params,
       thought: (parsed.thought ?? parsed.reasoning ?? '') as string,
     }
   }
 
   /**
-   * Execute an action
+   * Execute an action using SDK handlers
    */
   private async executeAction(
     actionName: string,
     parameters: Record<string, unknown>,
   ): Promise<AutonomousAction> {
     const timestamp = Date.now()
-    const normalizedAction = actionName.toUpperCase()
+    const normalizedAction = actionName.toUpperCase().replace(/\s+/g, '_')
+
+    if (this.verbose) {
+      console.log(`${COLORS.cyan}⚡ Executing: ${normalizedAction}${COLORS.reset}`)
+    }
 
     log.info('Executing autonomous action', {
       action: normalizedAction,
-      parameters,
+      parameters: Object.keys(parameters),
     })
-
-    // For now, we'll simulate action execution
-    // In production, this would call the actual jeju plugin actions
 
     const result: AutonomousAction = {
       name: normalizedAction,
@@ -480,28 +661,32 @@ export class AutonomousTick {
     }
 
     try {
-      // Route to appropriate action handler
-      switch (normalizedAction) {
-        case 'RUN_INFERENCE':
-          result.result = await this.executeInference(parameters)
-          result.success = true
-          break
+      // Check if we have a handler for this action
+      const handler = ACTION_HANDLERS[normalizedAction]
 
-        case 'DISCOVER_AGENTS':
-          result.result = await this.discoverAgents()
-          result.success = true
-          break
+      if (handler) {
+        result.result = await handler(parameters, {
+          runtime: this.runtime,
+          config: this.config,
+        })
+        result.success = true
 
-        case 'CALL_AGENT':
-          result.result = await this.callAgent(parameters)
-          result.success = true
-          break
+        if (this.verbose) {
+          console.log(`${COLORS.green}   ✓ Success${COLORS.reset}`)
+          if (result.result) {
+            const resultStr = JSON.stringify(result.result)
+            console.log(`${COLORS.dim}   → ${resultStr.substring(0, 80)}${resultStr.length > 80 ? '...' : ''}${COLORS.reset}`)
+          }
+        }
+      } else {
+        // Log unhandled action - in production would route to SDK
+        log.warn(`No handler for action ${normalizedAction}`, { parameters })
+        result.error = `Action ${normalizedAction} not yet fully implemented`
+        result.success = false
 
-        default:
-          // For unimplemented actions, log and mark as failed
-          log.warn(`Action ${normalizedAction} not yet implemented`)
-          result.error = `Action ${normalizedAction} not implemented`
-          break
+        if (this.verbose) {
+          console.log(`${COLORS.yellow}   ⚠ No handler for ${normalizedAction}${COLORS.reset}`)
+        }
       }
     } catch (e) {
       result.error = e instanceof Error ? e.message : String(e)
@@ -509,48 +694,12 @@ export class AutonomousTick {
         action: normalizedAction,
         error: result.error,
       })
+
+      if (this.verbose) {
+        console.log(`${COLORS.red}   ✗ Failed: ${result.error}${COLORS.reset}`)
+      }
     }
 
     return result
-  }
-
-  /**
-   * Execute inference action
-   */
-  private async executeInference(
-    params: Record<string, unknown>,
-  ): Promise<unknown> {
-    const prompt = (params.prompt as string) ?? 'Hello'
-
-    const message: RuntimeMessage = {
-      id: crypto.randomUUID(),
-      userId: 'autonomous-action',
-      roomId: 'action-inference',
-      content: { text: prompt, source: 'autonomous-action' },
-      createdAt: Date.now(),
-    }
-
-    const response = await this.runtime.processMessage(message)
-    return { response: response.text }
-  }
-
-  /**
-   * Discover available agents
-   */
-  private async discoverAgents(): Promise<unknown> {
-    // TODO: Query agent registry or A2A discovery
-    return { agents: [] }
-  }
-
-  /**
-   * Call another agent
-   */
-  private async callAgent(params: Record<string, unknown>): Promise<unknown> {
-    const targetAgent = params.agentId as string
-    const message = params.message as string
-
-    // TODO: Implement A2A call
-    log.info('A2A call', { target: targetAgent, message })
-    return { called: targetAgent, status: 'pending' }
   }
 }

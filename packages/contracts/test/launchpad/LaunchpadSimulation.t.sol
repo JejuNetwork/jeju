@@ -138,17 +138,25 @@ contract LaunchpadSimulationTest is Test {
 
         assertGt(ethReceived, 0);
 
-        // 4. More buying to trigger graduation
+        // 4. More buying to trigger graduation queue
         uint256 remaining = curve.graduationTarget() - curve.realEthReserves();
         vm.prank(buyers[5]);
         curve.buy{value: remaining + 1 ether}(0);
 
-        // 5. Verify graduation happened
+        // 5. Graduation is now queued (security fix - 24hr delay)
+        assertTrue(curve.graduationQueued());
+        assertFalse(curve.graduated());
+
+        // 6. Warp past graduation delay and execute
+        vm.warp(block.timestamp + 24 hours + 1);
+        curve.executeGraduation();
+
+        // 7. Verify graduation happened
         assertTrue(curve.graduated());
         address lpPair = curve.lpPair();
         assertFalse(lpPair == address(0));
 
-        // 6. Verify LP pair has liquidity
+        // 8. Verify LP pair has liquidity
         uint256 lpTotalSupply = IERC20(lpPair).totalSupply();
         assertGt(lpTotalSupply, 0);
     }
@@ -377,9 +385,16 @@ contract LaunchpadSimulationTest is Test {
         BondingCurve curve = BondingCurve(payable(launch.bondingCurve));
         curve.initialize();
 
-        // Graduate immediately
+        // Queue graduation
         vm.prank(buyers[0]);
         curve.buy{value: 6 ether}(0);
+
+        // Graduation is now queued (security fix - 24hr delay)
+        assertTrue(curve.graduationQueued());
+
+        // Warp past graduation delay and execute
+        vm.warp(block.timestamp + 24 hours + 1);
+        curve.executeGraduation();
 
         assertTrue(curve.graduated());
         address lpPairAddr = curve.lpPair();
@@ -390,7 +405,7 @@ contract LaunchpadSimulationTest is Test {
         assertGt(reserve0, 0);
         assertGt(reserve1, 0);
 
-        // Verify LP tokens minted
+        // Verify LP tokens minted (now locked in curve for 30 days)
         uint256 lpBalance = lpPair.balanceOf(address(curve));
         assertGt(lpBalance, 0);
     }

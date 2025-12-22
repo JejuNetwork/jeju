@@ -9,8 +9,7 @@ import { createAppConfig } from '../shared/playwright.config.base'
 
 export default createAppConfig({
   name: 'smoke',
-  port: 0, // No web server needed for chain tests
+  port: 0,
   testDir: '.',
   timeout: 60000,
-  // No webServer - these tests run against existing infrastructure
 })

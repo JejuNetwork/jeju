@@ -10,8 +10,8 @@
  * - storage.jejunetwork.org/api/... -> Storage API
  */
 
-import { cors } from '@elysiajs/cors'
-import { Elysia } from 'elysia'
+import { type Context, Hono } from 'hono'
+import { cors } from 'hono/cors'
 import {
   type Address,
   createPublicClient,
@@ -74,7 +74,7 @@ const JNS_RESOLVER_ABI = parseAbi([
 // ============================================================================
 
 export class JNSGateway {
-  private app: Elysia
+  private app: Hono
   private config: JNSGatewayConfig
   private cache: EdgeCache
   private originFetcher: OriginFetcher
@@ -90,7 +90,7 @@ export class JNSGateway {
 
   constructor(config: JNSGatewayConfig) {
     this.config = config
-    this.app = new Elysia()
+    this.app = new Hono()
     this.cache = getEdgeCache()
     this.originFetcher = getOriginFetcher([
       {
@@ -125,70 +125,75 @@ export class JNSGateway {
   // ============================================================================
 
   private setupRoutes(): void {
-    this.app.use(cors({ origin: '*' }))
+    // SECURITY: Configure CORS based on environment
+    const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
+    const isProduction = process.env.NODE_ENV === 'production'
+    this.app.use('/*', cors({ 
+      origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
+      credentials: true,
+    }))
 
     // Health check
-    this.app.get('/health', () => {
-      return { status: 'healthy', service: 'jns-gateway' }
+    this.app.get('/health', (c) => {
+      return c.json({ status: 'healthy', service: 'jns-gateway' })
     })
 
     // Direct IPFS access: /ipfs/CID/path
-    this.app.get('/ipfs/:cid/*', async ({ params, path, set }) => {
-      const cid = params.cid
-      const subpath = path.replace(`/ipfs/${cid}`, '') || '/'
-      return this.serveIPFS(cid, subpath, set)
+    this.app.get('/ipfs/:cid{.+}', async (c) => {
+      const cid = c.req.param('cid')
+      const path = c.req.path.replace(`/ipfs/${cid}`, '') || '/'
+      return this.serveIPFS(c, cid, path)
     })
 
     // Direct IPNS access: /ipns/name/path
-    this.app.get('/ipns/:name/*', async ({ params, path, set }) => {
-      const name = params.name
-      const subpath = path.replace(`/ipns/${name}`, '') || '/'
-      return this.serveIPNS(name, subpath, set)
+    this.app.get('/ipns/:name{.+}', async (c) => {
+      const name = c.req.param('name')
+      const path = c.req.path.replace(`/ipns/${name}`, '') || '/'
+      return this.serveIPNS(c, name, path)
     })
 
     // JNS resolution: /jns/name/path
-    this.app.get('/jns/:name/*', async ({ params, path, set }) => {
-      const name = params.name
-      const subpath = path.replace(`/jns/${name}`, '') || '/'
-      return this.serveJNS(name, subpath, set)
+    this.app.get('/jns/:name{.+}', async (c) => {
+      const name = c.req.param('name')
+      const path = c.req.path.replace(`/jns/${name}`, '') || '/'
+      return this.serveJNS(c, name, path)
     })
 
     // Resolve endpoint
-    this.app.get('/resolve/:name', async ({ params, set }) => {
-      const name = params.name
+    this.app.get('/resolve/:name', async (c) => {
+      const name = c.req.param('name')
       const fullName = name.endsWith('.jns') ? name : `${name}.jns`
 
       const contentHash = await this.resolveJNS(fullName)
       if (!contentHash) {
-        set.status = 404
-        return { error: 'Name not found' }
+        return c.json({ error: 'Name not found' }, 404)
       }
 
-      return {
+      return c.json({
         name: fullName,
         contentHash: {
           protocol: contentHash.protocol,
           hash: contentHash.hash,
         },
         resolvedAt: Date.now(),
-      }
+      })
     })
 
     // Wildcard subdomain handling (for *.jns.jejunetwork.org)
-    this.app.get('/*', async ({ request, path, set }) => {
-      const host = request.headers.get('host') ?? ''
+    this.app.get('/*', async (c) => {
+      const host = c.req.header('host') ?? ''
 
       // Check if this is a JNS subdomain request
       // e.g., myapp.jns.jejunetwork.org
       const jnsMatch = host.match(/^([^.]+)\.jns\./)
       if (jnsMatch?.[1]) {
         const name = `${jnsMatch[1]}.jns`
-        return this.serveJNS(name, path, set)
+        const path = c.req.path
+        return this.serveJNS(c, name, path)
       }
 
       // Default 404
-      set.status = 404
-      return 'Not Found'
+      return c.text('Not Found', 404)
     })
   }
 
@@ -373,10 +378,10 @@ export class JNSGateway {
    * Serve content from IPFS
    */
   private async serveIPFS(
+    c: Context,
     cid: string,
     path: string,
-    set: { status?: number | string },
-  ): Promise<Response | { error: string }> {
+  ): Promise<Response> {
     const fullPath = `/ipfs/${cid}${path}`
 
     // Try cache first
@@ -389,9 +394,10 @@ export class JNSGateway {
     const result = await this.originFetcher.fetch(fullPath, 'ipfs')
 
     if (!result.success) {
-      set.status = result.status || 502
-      const errorMsg: string = result.error || 'Unknown error'
-      return { error: errorMsg }
+      return c.json(
+        { error: result.error },
+        (result.status || 502) as 400 | 401 | 403 | 404 | 500 | 502 | 503,
+      )
     }
 
     // Cache immutable IPFS content
@@ -409,10 +415,10 @@ export class JNSGateway {
    * Serve content from IPNS
    */
   private async serveIPNS(
+    c: Context,
     name: string,
     path: string,
-    set: { status?: number | string },
-  ): Promise<Response | { error: string }> {
+  ): Promise<Response> {
     const fullPath = `/ipns/${name}${path}`
 
     // Shorter cache for IPNS (can change)
@@ -424,9 +430,10 @@ export class JNSGateway {
     const result = await this.originFetcher.fetch(fullPath, 'ipfs')
 
     if (!result.success) {
-      set.status = result.status || 502
-      const errorMsg: string = result.error || 'Unknown error'
-      return { error: errorMsg }
+      return c.json(
+        { error: result.error },
+        (result.status || 502) as 400 | 401 | 403 | 404 | 500 | 502 | 503,
+      )
     }
 
     // Cache IPNS content with shorter TTL
@@ -445,30 +452,31 @@ export class JNSGateway {
    * Serve content from JNS name
    */
   private async serveJNS(
+    c: Context,
     name: string,
     path: string,
-    set: { status?: number | string },
-  ): Promise<Response | { error: string }> {
+  ): Promise<Response> {
     // Resolve JNS name to content hash
     const fullName = name.endsWith('.jns') ? name : `${name}.jns`
     const contentHash = await this.resolveJNS(fullName)
 
     if (!contentHash) {
-      set.status = 404
-      return { error: `JNS name not found: ${fullName}` }
+      return c.json({ error: `JNS name not found: ${fullName}` }, 404)
     }
 
     // Serve based on protocol
     switch (contentHash.protocol) {
       case 'ipfs':
-        return this.serveIPFS(contentHash.hash, path, set)
+        return this.serveIPFS(c, contentHash.hash, path)
       case 'ipns':
-        return this.serveIPNS(contentHash.hash, path, set)
+        return this.serveIPNS(c, contentHash.hash, path)
       case 'arweave':
-        return this.serveArweave(contentHash.hash, path, set)
+        return this.serveArweave(c, contentHash.hash, path)
       default:
-        set.status = 400
-        return { error: `Unsupported protocol: ${contentHash.protocol}` }
+        return c.json(
+          { error: `Unsupported protocol: ${contentHash.protocol}` },
+          400,
+        )
     }
   }
 
@@ -476,10 +484,10 @@ export class JNSGateway {
    * Serve content from Arweave
    */
   private async serveArweave(
+    c: Context,
     txId: string,
     path: string,
-    set: { status?: number | string },
-  ): Promise<Response | { error: string }> {
+  ): Promise<Response> {
     const fullPath = `/${txId}${path}`
 
     const { entry, status } = this.cache.get(fullPath)
@@ -490,9 +498,10 @@ export class JNSGateway {
     const result = await this.originFetcher.fetch(fullPath, 'arweave')
 
     if (!result.success) {
-      set.status = result.status || 502
-      const errorMsg: string = result.error || 'Unknown error'
-      return { error: errorMsg }
+      return c.json(
+        { error: result.error },
+        (result.status || 502) as 400 | 401 | 403 | 404 | 500 | 502 | 503,
+      )
     }
 
     // Arweave is permanent
@@ -542,12 +551,15 @@ export class JNSGateway {
 ╚═══════════════════════════════════════════════════════════════╝
 `)
 
-    this.app.listen(this.config.port)
+    Bun.serve({
+      port: this.config.port,
+      fetch: this.app.fetch,
+    })
 
     console.log(`[JNS Gateway] Listening on port ${this.config.port}`)
   }
 
-  getApp(): Elysia {
+  getApp(): Hono {
     return this.app
   }
 }

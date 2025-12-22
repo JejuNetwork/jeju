@@ -200,8 +200,6 @@ export class OracleAggregator {
       return null
     }
 
-    // Calculate confidence ratio and validate it's acceptable
-    // Confidence interval should be a small fraction of the price
     const confidenceRatio = Number(result.conf) / Number(result.price)
     if (confidenceRatio > this.MAX_CONFIDENCE_RATIO) {
       console.warn(
@@ -210,24 +208,17 @@ export class OracleAggregator {
       return null
     }
 
-    // Convert Pyth price to standard format (8 decimals)
     const exponent = result.expo
     const rawPrice = result.price
     const targetDecimals = 8
-
-    // Handle negative exponents properly
     let normalizedPrice: bigint
     if (exponent >= 0) {
-      // Price needs to be scaled up
       normalizedPrice = rawPrice * BigInt(10 ** (targetDecimals + exponent))
     } else {
-      // Price needs to be scaled - handle negative exponent
       const scaleDown = -exponent
       if (scaleDown > targetDecimals) {
-        // Need to divide
         normalizedPrice = rawPrice / BigInt(10 ** (scaleDown - targetDecimals))
       } else {
-        // Need to multiply
         normalizedPrice = rawPrice * BigInt(10 ** (targetDecimals - scaleDown))
       }
     }
@@ -277,7 +268,6 @@ export class OracleAggregator {
       return null
     }
 
-    // Normalize to 8 decimals
     const targetDecimals = 8
     let normalizedPrice: bigint
     if (decimals > targetDecimals) {
@@ -314,29 +304,23 @@ export class OracleAggregator {
 
     const tickDiff = Number(tickCumulatives[1] - tickCumulatives[0])
     const twapTick = Math.floor(tickDiff / twapPeriodSeconds)
-
-    // Convert tick to price
     const price = this.tickToPrice(twapTick)
 
     return { tick: twapTick, price }
   }
 
   private tickToPrice(tick: number): bigint {
-    // price = 1.0001 ^ tick
-    // Clamp tick to prevent overflow (-887272 to 887272 is valid range for Uniswap V3)
     const MAX_TICK = 887272
     const clampedTick = Math.max(-MAX_TICK, Math.min(MAX_TICK, tick))
 
     const price = 1.0001 ** clampedTick
 
-    // Guard against Infinity or NaN
     if (!Number.isFinite(price) || price <= 0) {
       throw new Error(
         `Invalid TWAP price calculation: tick ${tick} resulted in ${price}`,
       )
     }
 
-    // Cap to prevent BigInt overflow (max safe price ~10^37)
     const maxPrice = 1e37
     const safePrice = Math.min(price, maxPrice)
 
@@ -351,7 +335,6 @@ export class OracleAggregator {
   }
 
   isStale(price: OraclePrice, maxAgeMs: number): boolean {
-    // With zero maxAge, any price is considered stale (no caching allowed)
     if (maxAgeMs === 0) return true
     return Date.now() - price.timestamp > maxAgeMs
   }
@@ -375,23 +358,18 @@ export class OracleAggregator {
     }
 
     if (!pythPrice && chainlinkPrice) {
-      // Only Chainlink available
       return { valid: true, price: chainlinkPrice }
     }
 
     if (pythPrice && !chainlinkPrice) {
-      // Only Pyth available
       return { valid: true, price: pythPrice }
     }
 
-    // Both prices are available (exhaustive check guarantees this)
-    // TypeScript can't infer this, so we explicitly narrow
     const pyth = pythPrice as OraclePrice
     const chainlink = chainlinkPrice as OraclePrice
 
     const deviation = this.calculateDeviation(pyth.price, chainlink.price)
 
-    // Use Pyth as primary, validate against Chainlink
     return {
       valid: deviation <= maxDeviationBps,
       price: pyth,

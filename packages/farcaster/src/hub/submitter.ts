@@ -4,13 +4,13 @@
  * Submits signed messages to Farcaster hubs via HTTP API.
  */
 
-import { expectValid } from '@jejunetwork/types'
 import type { Hex } from 'viem'
 import type { Message } from './message-builder'
 import { messageBytesToHex, serializeMessage } from './message-builder'
+import { expectValid } from '@jejunetwork/types'
 import {
-  type HubInfo,
   HubInfoSchema,
+  type HubInfo,
   ValidateMessageResponseSchema,
 } from './schemas'
 
@@ -284,14 +284,23 @@ export async function selectBestHub(
   hubs: HubEndpoint[],
   timeoutMs: number = 5000,
 ): Promise<HubEndpoint | null> {
+  // Sort by priority
   const sorted = [...hubs].sort((a, b) => a.priority - b.priority)
 
   for (const hub of sorted) {
     const submitter = new HubSubmitter({ hubUrl: hub.url, timeoutMs })
 
-    const ready = await submitter.isReady().catch(() => false)
-    if (ready) {
-      return hub
+    try {
+      const ready = await submitter.isReady()
+      if (ready) {
+        return hub
+      }
+    } catch (error) {
+      // Hub unavailable, try next one
+      console.debug(
+        `[HubSubmitter] Hub ${hub.url} unavailable:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      )
     }
   }
 
@@ -324,11 +333,17 @@ export class FailoverHubSubmitter {
         timeoutMs: this.timeout,
       })
 
-      const info = await submitter.getHubInfo().catch(() => null)
-      if (info) {
+      try {
+        await submitter.getHubInfo()
         this.currentHub = submitter
         this.currentIndex = i
         return submitter
+      } catch (error) {
+        // Hub unavailable, try next one
+        console.debug(
+          `[FailoverHubSubmitter] Hub ${hub.url} unavailable:`,
+          error instanceof Error ? error.message : 'Unknown error',
+        )
       }
     }
 

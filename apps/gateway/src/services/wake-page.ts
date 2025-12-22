@@ -420,74 +420,79 @@ export async function checkWakePage(
   keepaliveRegistryAddress: Address,
   publicClient: PublicClient,
 ): Promise<WakePageCheck> {
-  const jnsNode = namehash(jnsName)
+  try {
+    const jnsNode = namehash(jnsName)
 
-  // Fetch status by JNS
-  const statusResult = (await publicClient.readContract({
-    address: keepaliveRegistryAddress,
-    abi: KEEPALIVE_ABI,
-    functionName: 'getStatusByJNS',
-    args: [jnsNode],
-  })) as [boolean, boolean, number, `0x${string}`]
+    // Fetch status by JNS
+    const statusResult = (await publicClient.readContract({
+      address: keepaliveRegistryAddress,
+      abi: KEEPALIVE_ABI,
+      functionName: 'getStatusByJNS',
+      args: [jnsNode],
+    })) as [boolean, boolean, number, `0x${string}`]
 
-  const [exists, funded, , keepaliveId] = statusResult
+    const [exists, funded, , keepaliveId] = statusResult
 
-  if (!exists || funded) {
+    if (!exists || funded) {
+      return { shouldShowWakePage: false }
+    }
+
+    // Fetch full keepalive config
+    const keepalive = (await publicClient.readContract({
+      address: keepaliveRegistryAddress,
+      abi: KEEPALIVE_ABI,
+      functionName: 'keepalives',
+      args: [keepaliveId],
+    })) as [
+      `0x${string}`,
+      Address,
+      `0x${string}`,
+      bigint,
+      Address,
+      bigint,
+      bigint,
+      bigint,
+      boolean,
+      boolean,
+      bigint,
+      bigint,
+      number,
+    ]
+
+    const owner = keepalive[1]
+    const vaultAddress = keepalive[4]
+    const minRequired = keepalive[5]
+    const lastCheckAt = keepalive[11]
+
+    // Fetch last health check for current balance
+    const healthCheck = (await publicClient.readContract({
+      address: keepaliveRegistryAddress,
+      abi: KEEPALIVE_ABI,
+      functionName: 'lastHealthCheck',
+      args: [keepaliveId],
+    })) as [`0x${string}`, number, bigint, bigint, number, number]
+
+    const currentBalance = healthCheck[3]
+    const fundingNeeded =
+      minRequired > currentBalance ? minRequired - currentBalance : 0n
+
+    return {
+      shouldShowWakePage: true,
+      data: {
+        jnsName,
+        appName: jnsName.replace('.jeju', ''),
+        description: 'This decentralized app needs funding to resume operation.',
+        owner,
+        vaultAddress,
+        currentBalance,
+        minRequired,
+        fundingNeeded,
+        lastHealthy: Number(lastCheckAt) * 1000,
+        agentId: keepalive[3] > 0n ? keepalive[3] : undefined,
+      },
+    }
+  } catch {
+    // Handle contract call failures gracefully
     return { shouldShowWakePage: false }
-  }
-
-  // Fetch full keepalive config
-  const keepalive = (await publicClient.readContract({
-    address: keepaliveRegistryAddress,
-    abi: KEEPALIVE_ABI,
-    functionName: 'keepalives',
-    args: [keepaliveId],
-  })) as [
-    `0x${string}`,
-    Address,
-    `0x${string}`,
-    bigint,
-    Address,
-    bigint,
-    bigint,
-    bigint,
-    boolean,
-    boolean,
-    bigint,
-    bigint,
-    number,
-  ]
-
-  const owner = keepalive[1]
-  const vaultAddress = keepalive[4]
-  const minRequired = keepalive[5]
-  const lastCheckAt = keepalive[11]
-
-  // Fetch last health check for current balance
-  const healthCheck = (await publicClient.readContract({
-    address: keepaliveRegistryAddress,
-    abi: KEEPALIVE_ABI,
-    functionName: 'lastHealthCheck',
-    args: [keepaliveId],
-  })) as [`0x${string}`, number, bigint, bigint, number, number]
-
-  const currentBalance = healthCheck[3]
-  const fundingNeeded =
-    minRequired > currentBalance ? minRequired - currentBalance : 0n
-
-  return {
-    shouldShowWakePage: true,
-    data: {
-      jnsName,
-      appName: jnsName.replace('.jeju', ''),
-      description: 'This decentralized app needs funding to resume operation.',
-      owner,
-      vaultAddress,
-      currentBalance,
-      minRequired,
-      fundingNeeded,
-      lastHealthy: Number(lastCheckAt) * 1000,
-      agentId: keepalive[3] > 0n ? keepalive[3] : undefined,
-    },
   }
 }

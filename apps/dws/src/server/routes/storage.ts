@@ -10,503 +10,402 @@
  * - IPFS-compatible API
  */
 
-import { Elysia, t } from 'elysia'
-import { extractClientRegion } from '../../shared/utils/common'
-import { getMultiBackendManager } from '../../storage/multi-backend'
+import { Hono } from 'hono';
+import { extractClientRegion } from '../../shared/utils/common';
+import type { BackendManager } from '../../storage/backends';
+import { getMultiBackendManager } from '../../storage/multi-backend';
 import type {
   ContentCategory,
   ContentTier,
   StorageBackendType,
-} from '../../storage/types'
+} from '../../storage/types';
 
-const contentTierValues = ['system', 'popular', 'private'] as const
-const contentCategoryValues = ['data', 'media', 'code', 'document'] as const
-const storageBackendValues = ['ipfs', 'arweave', 'webtorrent'] as const
-
-export const storageRoutes = new Elysia({ name: 'storage', prefix: '/storage' })
-  .decorate('storageManager', getMultiBackendManager())
+export function createStorageRouter(backend?: BackendManager): Hono {
+  const router = new Hono();
+  const storageManager = getMultiBackendManager();
 
   // Health & Stats
-  .get('/health', async ({ storageManager }) => {
-    const backends = storageManager.listBackends()
-    const health = await storageManager.healthCheck()
-    const stats = storageManager.getNodeStats()
+  router.get('/health', async (c) => {
+    const backends = storageManager.listBackends();
+    const health = await storageManager.healthCheck();
+    const stats = storageManager.getNodeStats();
 
-    return {
+    return c.json({
       service: 'dws-storage',
       status: 'healthy' as const,
       backends,
       health,
       stats,
+    });
+  });
+
+  router.get('/stats', (c) => c.json(storageManager.getNodeStats()));
+
+  // Upload with multipart form
+  router.post('/upload', async (c) => {
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
+    
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400);
     }
-  })
 
-  .get('/stats', ({ storageManager }) => storageManager.getNodeStats())
+    const tier = (formData.get('tier') as string) || 'popular';
+    const category = (formData.get('category') as string) || 'data';
+    const encrypt = formData.get('encrypt') === 'true';
+    const permanent = formData.get('permanent') === 'true';
+    const backendsStr = formData.get('backends') as string | null;
+    const accessPolicy = formData.get('accessPolicy') as string | null;
 
-  // Upload endpoints
-  .post(
-    '/upload',
-    async ({ body, storageManager }) => {
-      const {
-        file,
-        tier,
-        category,
-        encrypt,
-        permanent,
-        backends,
-        accessPolicy,
-      } = body
+    const content = Buffer.from(await file.arrayBuffer());
+    const preferredBackends = backendsStr
+      ?.split(',')
+      .filter(Boolean) as StorageBackendType[] | undefined;
 
-      const content = Buffer.from(await file.arrayBuffer())
+    const result = await storageManager.upload(content, {
+      filename: file.name,
+      contentType: file.type,
+      tier: tier as ContentTier,
+      category: category as ContentCategory,
+      encrypt,
+      preferredBackends,
+      accessPolicy: accessPolicy ?? undefined,
+    });
 
-      const preferredBackends = backends?.split(',').filter(Boolean) as
-        | StorageBackendType[]
-        | undefined
-
-      const result = await storageManager.upload(content, {
+    if (permanent) {
+      const permanentResult = await storageManager.uploadPermanent(content, {
         filename: file.name,
         contentType: file.type,
-        tier: (tier || 'popular') as ContentTier,
-        category: (category || 'data') as ContentCategory,
-        encrypt: encrypt === 'true',
-        preferredBackends,
-        accessPolicy,
-      })
+        tier: tier as ContentTier,
+        category: category as ContentCategory,
+      });
+      return c.json(permanentResult);
+    }
 
-      if (permanent === 'true') {
-        const permanentResult = await storageManager.uploadPermanent(content, {
-          filename: file.name,
-          contentType: file.type,
-          tier: (tier || 'popular') as ContentTier,
-          category: (category || 'data') as ContentCategory,
-        })
-        return permanentResult
-      }
+    return c.json(result);
+  });
 
-      return result
-    },
-    {
-      body: t.Object({
-        file: t.File(),
-        tier: t.Optional(t.Union(contentTierValues.map((v) => t.Literal(v)))),
-        category: t.Optional(
-          t.Union(contentCategoryValues.map((v) => t.Literal(v))),
-        ),
-        encrypt: t.Optional(t.String()),
-        permanent: t.Optional(t.String()),
-        backends: t.Optional(t.String()),
-        accessPolicy: t.Optional(t.String()),
-      }),
-    },
-  )
+  // Raw upload (simple body as content)
+  router.post('/upload/raw', async (c) => {
+    const contentType = c.req.header('content-type') || 'application/octet-stream';
+    const filename = c.req.header('x-filename') || 'upload';
+    const tier = (c.req.query('tier') as ContentTier) || 'popular';
+    const category = (c.req.query('category') as ContentCategory) || 'data';
 
-  .post('/upload/raw', () => {
-    // Raw bytes upload requires multipart form
-    return { message: 'Use multipart upload via /upload endpoint' }
-  })
+    const content = Buffer.from(await c.req.arrayBuffer());
 
-  .post(
-    '/upload/json',
-    async ({ body, storageManager }) => {
-      const content = Buffer.from(JSON.stringify(body.data))
+    // Use the simple backend if provided, otherwise use multi-backend
+    if (backend) {
+      const cid = await backend.upload(content, { 
+        filename,
+        contentType,
+      });
+      return c.json({ cid, size: content.length });
+    }
 
-      const result = await storageManager.upload(content, {
-        filename: body.name ?? 'data.json',
-        contentType: 'application/json',
-        tier: (body.tier ?? 'popular') as ContentTier,
-        category: (body.category ?? 'data') as ContentCategory,
-        encrypt: body.encrypt,
-      })
+    const result = await storageManager.upload(content, {
+      filename,
+      contentType,
+      tier,
+      category,
+    });
 
-      return result
-    },
-    {
-      body: t.Object({
-        data: t.Unknown(),
-        name: t.Optional(t.String()),
-        tier: t.Optional(t.Union(contentTierValues.map((v) => t.Literal(v)))),
-        category: t.Optional(
-          t.Union(contentCategoryValues.map((v) => t.Literal(v))),
-        ),
-        encrypt: t.Optional(t.Boolean()),
-      }),
-    },
-  )
+    return c.json(result);
+  });
 
-  .post(
-    '/upload/permanent',
-    async ({ body, storageManager }) => {
-      const { file, tier, category } = body
-      const content = Buffer.from(await file.arrayBuffer())
+  // JSON upload
+  router.post('/upload/json', async (c) => {
+    const body = await c.req.json() as {
+      data: unknown;
+      name?: string;
+      tier?: ContentTier;
+      category?: ContentCategory;
+      encrypt?: boolean;
+    };
 
-      const result = await storageManager.uploadPermanent(content, {
-        filename: file.name,
-        contentType: file.type,
-        tier: (tier || 'popular') as ContentTier,
-        category: (category || 'data') as ContentCategory,
-      })
+    const content = Buffer.from(JSON.stringify(body.data));
 
-      return result
-    },
-    {
-      body: t.Object({
-        file: t.File(),
-        tier: t.Optional(t.Union(contentTierValues.map((v) => t.Literal(v)))),
-        category: t.Optional(
-          t.Union(contentCategoryValues.map((v) => t.Literal(v))),
-        ),
-      }),
-    },
-  )
+    const result = await storageManager.upload(content, {
+      filename: body.name ?? 'data.json',
+      contentType: 'application/json',
+      tier: body.tier ?? 'popular',
+      category: body.category ?? 'data',
+      encrypt: body.encrypt,
+    });
 
-  // Download endpoints
-  .get(
-    '/download/:cid',
-    async ({ params, query, headers, storageManager, set }) => {
-      const region = extractClientRegion(
-        headers['x-region'],
-        headers['cf-ipcountry'],
-      )
-      const decrypt = query.decrypt === 'true'
-      const preferredBackend = query.backend as StorageBackendType | undefined
+    return c.json(result);
+  });
 
-      const result = await storageManager.download(params.cid, {
-        region,
-        preferredBackends: preferredBackend ? [preferredBackend] : undefined,
-        decryptionKeyId: decrypt ? headers['x-decryption-key-id'] : undefined,
-      })
+  // Permanent upload
+  router.post('/upload/permanent', async (c) => {
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
 
-      const metadata = result.metadata
-      const contentType = metadata?.contentType ?? 'application/octet-stream'
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400);
+    }
 
-      set.headers['Content-Type'] = contentType
-      set.headers['Content-Length'] = String(result.content.length)
-      set.headers['X-Backend'] = result.backend
-      set.headers['X-Latency-Ms'] = String(result.latencyMs)
-      set.headers['X-From-Cache'] = String(result.fromCache)
-      if (metadata?.tier) {
-        set.headers['X-Content-Tier'] = metadata.tier
-      }
+    const tier = (formData.get('tier') as string) || 'popular';
+    const category = (formData.get('category') as string) || 'data';
+    const content = Buffer.from(await file.arrayBuffer());
 
-      return new Uint8Array(result.content)
-    },
-    {
-      params: t.Object({
-        cid: t.String({ minLength: 1 }),
-      }),
-      query: t.Object({
-        backend: t.Optional(
-          t.Union(storageBackendValues.map((v) => t.Literal(v))),
-        ),
-        decrypt: t.Optional(t.String()),
-      }),
-      headers: t.Object({
-        'x-region': t.Optional(t.String()),
-        'cf-ipcountry': t.Optional(t.String()),
-        'x-decryption-key-id': t.Optional(t.String()),
-      }),
-    },
-  )
+    const result = await storageManager.uploadPermanent(content, {
+      filename: file.name,
+      contentType: file.type,
+      tier: tier as ContentTier,
+      category: category as ContentCategory,
+    });
 
-  .get(
-    '/download/:cid/json',
-    async ({ params, headers, storageManager, set }) => {
-      const region = headers['x-region'] ?? 'unknown'
+    return c.json(result);
+  });
 
-      const result = await storageManager
-        .download(params.cid, { region })
-        .catch(() => null)
+  // Download
+  router.get('/download/:cid', async (c) => {
+    const cid = c.req.param('cid');
+    const region = extractClientRegion(
+      c.req.header('x-region'),
+      c.req.header('cf-ipcountry'),
+    );
+    const decrypt = c.req.query('decrypt') === 'true';
+    const preferredBackend = c.req.query('backend') as StorageBackendType | undefined;
 
+    // Use simple backend if provided
+    if (backend) {
+      const result = await backend.download(cid).catch(() => null);
       if (!result) {
-        set.status = 404
-        return { error: 'Not found' }
+        return c.json({ error: 'Not found' }, 404);
       }
+      c.header('Content-Type', result.contentType);
+      return new Response(result.content);
+    }
 
-      return JSON.parse(result.content.toString('utf-8'))
-    },
-    {
-      params: t.Object({
-        cid: t.String({ minLength: 1 }),
-      }),
-      headers: t.Object({
-        'x-region': t.Optional(t.String()),
-      }),
-    },
-  )
+    const result = await storageManager.download(cid, {
+      region,
+      preferredBackends: preferredBackend ? [preferredBackend] : undefined,
+      decryptionKeyId: decrypt ? c.req.header('x-decryption-key-id') : undefined,
+    });
 
-  // Content Management
-  .get(
-    '/content/:cid',
-    ({ params, storageManager, set }) => {
-      const metadata = storageManager.getMetadata(params.cid)
+    const metadata = result.metadata;
+    const contentType = metadata?.contentType ?? 'application/octet-stream';
 
-      if (!metadata) {
-        set.status = 404
-        return { error: 'Not found' }
-      }
+    c.header('Content-Type', contentType);
+    c.header('Content-Length', String(result.content.length));
+    c.header('X-Backend', result.backend);
+    c.header('X-Latency-Ms', String(result.latencyMs));
+    c.header('X-From-Cache', String(result.fromCache));
+    if (metadata?.tier) {
+      c.header('X-Content-Tier', metadata.tier);
+    }
 
-      return metadata
-    },
-    {
-      params: t.Object({
-        cid: t.String({ minLength: 1 }),
-      }),
-    },
-  )
+    return new Response(new Uint8Array(result.content));
+  });
 
-  .get(
-    '/content',
-    ({ query, storageManager }) => {
-      const tier = query.tier as ContentTier | undefined
-      const category = query.category as ContentCategory | undefined
-      const limit = parseInt(query.limit ?? '100', 10)
-      const offset = parseInt(query.offset ?? '0', 10)
+  // Download as JSON
+  router.get('/download/:cid/json', async (c) => {
+    const cid = c.req.param('cid');
+    const region = c.req.header('x-region') ?? 'unknown';
 
-      let items = tier
-        ? storageManager.listByTier(tier)
-        : category
-          ? storageManager.listByCategory(category)
-          : [
-              ...storageManager.listByTier('system'),
-              ...storageManager.listByTier('popular'),
-              ...storageManager.listByTier('private'),
-            ]
+    const result = await storageManager
+      .download(cid, { region })
+      .catch(() => null);
 
-      const total = items.length
-      items = items.slice(offset, offset + limit)
+    if (!result) {
+      return c.json({ error: 'Not found' }, 404);
+    }
 
-      return { items, total, limit, offset }
-    },
-    {
-      query: t.Object({
-        tier: t.Optional(t.Union(contentTierValues.map((v) => t.Literal(v)))),
-        category: t.Optional(
-          t.Union(contentCategoryValues.map((v) => t.Literal(v))),
-        ),
-        limit: t.Optional(t.String()),
-        offset: t.Optional(t.String()),
-      }),
-    },
-  )
+    return c.json(JSON.parse(result.content.toString('utf-8')));
+  });
 
-  .get(
-    '/exists/:cid',
-    async ({ params, storageManager }) => {
-      const exists = await storageManager.exists(params.cid)
-      return { cid: params.cid, exists }
-    },
-    {
-      params: t.Object({
-        cid: t.String({ minLength: 1 }),
-      }),
-    },
-  )
+  // Get content metadata
+  router.get('/content/:cid', (c) => {
+    const cid = c.req.param('cid');
+    const metadata = storageManager.getMetadata(cid);
 
-  // Popularity & Regional
-  .get(
-    '/popular',
-    ({ query, storageManager }) => {
-      const limit = parseInt(query.limit ?? '10', 10)
-      const popular = storageManager.getPopularContent(limit)
-      return { items: popular }
-    },
-    {
-      query: t.Object({
-        limit: t.Optional(t.String()),
-      }),
-    },
-  )
+    if (!metadata) {
+      return c.json({ error: 'Not found' }, 404);
+    }
 
-  .get(
-    '/underseeded',
-    ({ query, storageManager }) => {
-      const minSeeders = parseInt(query.min ?? '3', 10)
-      const underseeded = storageManager.getUnderseededContent(minSeeders)
-      return { items: underseeded }
-    },
-    {
-      query: t.Object({
-        min: t.Optional(t.String()),
-      }),
-    },
-  )
+    return c.json(metadata);
+  });
 
-  .get(
-    '/regional/:region',
-    ({ params, storageManager }) => {
-      const popularity = storageManager.getRegionalPopularity(params.region)
-      return popularity
-    },
-    {
-      params: t.Object({
-        region: t.String({ minLength: 1 }),
-      }),
-    },
-  )
+  // List content
+  router.get('/content', (c) => {
+    const tier = c.req.query('tier') as ContentTier | undefined;
+    const category = c.req.query('category') as ContentCategory | undefined;
+    const limit = parseInt(c.req.query('limit') ?? '100', 10);
+    const offset = parseInt(c.req.query('offset') ?? '0', 10);
 
-  // WebTorrent
-  .get(
-    '/torrent/:cid',
-    ({ params, storageManager, set }) => {
-      const metadata = storageManager.getMetadata(params.cid)
+    let items = tier
+      ? storageManager.listByTier(tier)
+      : category
+        ? storageManager.listByCategory(category)
+        : [
+            ...storageManager.listByTier('system'),
+            ...storageManager.listByTier('popular'),
+            ...storageManager.listByTier('private'),
+          ];
 
-      if (!metadata || !metadata.addresses.magnetUri) {
-        set.status = 404
-        return { error: 'Torrent not found' }
-      }
+    const total = items.length;
+    items = items.slice(offset, offset + limit);
 
-      return {
-        cid: params.cid,
-        magnetUri: metadata.addresses.magnetUri,
-        infoHash: metadata.addresses.cid,
-        size: metadata.size,
-        tier: metadata.tier,
-      }
-    },
-    {
-      params: t.Object({
-        cid: t.String({ minLength: 1 }),
-      }),
-    },
-  )
+    return c.json({ items, total, limit, offset });
+  });
 
-  .get(
-    '/magnet/:cid',
-    ({ params, storageManager, set }) => {
-      const metadata = storageManager.getMetadata(params.cid)
+  // Check if content exists
+  router.get('/exists/:cid', async (c) => {
+    const cid = c.req.param('cid');
+    
+    // Use simple backend if provided
+    if (backend) {
+      const result = await backend.download(cid).catch(() => null);
+      return c.json({ cid, exists: !!result });
+    }
 
-      if (!metadata || !metadata.addresses.magnetUri) {
-        set.status = 404
-        return { error: 'Magnet URI not found' }
-      }
+    const exists = await storageManager.exists(cid);
+    return c.json({ cid, exists });
+  });
 
-      set.headers['Content-Type'] = 'text/plain'
-      return metadata.addresses.magnetUri
-    },
-    {
-      params: t.Object({
-        cid: t.String({ minLength: 1 }),
-      }),
-    },
-  )
+  // Popular content
+  router.get('/popular', (c) => {
+    const limit = parseInt(c.req.query('limit') ?? '10', 10);
+    const popular = storageManager.getPopularContent(limit);
+    return c.json({ items: popular });
+  });
 
-  // Arweave
-  .get(
-    '/arweave/:txId',
-    async ({ params, storageManager, set }) => {
-      const result = await storageManager
-        .download(params.txId, {
-          preferredBackends: ['arweave'],
-        })
-        .catch(() => null)
+  // Underseeded content
+  router.get('/underseeded', (c) => {
+    const minSeeders = parseInt(c.req.query('min') ?? '3', 10);
+    const underseeded = storageManager.getUnderseededContent(minSeeders);
+    return c.json({ items: underseeded });
+  });
 
-      if (!result) {
-        set.status = 404
-        return { error: 'Not found' }
-      }
+  // Regional popularity
+  router.get('/regional/:region', (c) => {
+    const region = c.req.param('region');
+    const popularity = storageManager.getRegionalPopularity(region);
+    return c.json(popularity);
+  });
 
-      const contentType =
-        result.metadata?.contentType ?? 'application/octet-stream'
+  // WebTorrent info
+  router.get('/torrent/:cid', (c) => {
+    const cid = c.req.param('cid');
+    const metadata = storageManager.getMetadata(cid);
 
-      set.headers['Content-Type'] = contentType
-      set.headers['X-Arweave-Tx'] = params.txId
+    if (!metadata || !metadata.addresses.magnetUri) {
+      return c.json({ error: 'Torrent not found' }, 404);
+    }
 
-      return new Uint8Array(result.content)
-    },
-    {
-      params: t.Object({
-        txId: t.String({ minLength: 1 }),
-      }),
-    },
-  )
+    return c.json({
+      cid,
+      magnetUri: metadata.addresses.magnetUri,
+      infoHash: metadata.addresses.cid,
+      size: metadata.size,
+      tier: metadata.tier,
+    });
+  });
 
-  // IPFS Compatibility
-  .post(
-    '/api/v0/add',
-    async ({ body, storageManager }) => {
-      const { file } = body
-      const content = Buffer.from(await file.arrayBuffer())
-      const result = await storageManager.upload(content, {
-        filename: file.name,
-        contentType: file.type,
-        tier: 'popular',
+  // Get magnet URI
+  router.get('/magnet/:cid', (c) => {
+    const cid = c.req.param('cid');
+    const metadata = storageManager.getMetadata(cid);
+
+    if (!metadata || !metadata.addresses.magnetUri) {
+      return c.json({ error: 'Magnet URI not found' }, 404);
+    }
+
+    c.header('Content-Type', 'text/plain');
+    return c.text(metadata.addresses.magnetUri);
+  });
+
+  // Arweave content
+  router.get('/arweave/:txId', async (c) => {
+    const txId = c.req.param('txId');
+
+    const result = await storageManager
+      .download(txId, {
+        preferredBackends: ['arweave'],
       })
+      .catch(() => null);
 
-      return {
-        Hash: result.cid,
-        Size: String(result.size),
-        Name: file.name,
-      }
-    },
-    {
-      body: t.Object({
-        file: t.File(),
-      }),
-    },
-  )
+    if (!result) {
+      return c.json({ error: 'Not found' }, 404);
+    }
 
-  .post('/api/v0/id', async ({ storageManager, set }) => {
-    const health = await storageManager.healthCheck()
-    const allHealthy = Object.values(health).every((h) => h)
+    const contentType = result.metadata?.contentType ?? 'application/octet-stream';
+
+    c.header('Content-Type', contentType);
+    c.header('X-Arweave-Tx', txId);
+
+    return new Response(new Uint8Array(result.content));
+  });
+
+  // IPFS Compatibility - Add
+  router.post('/api/v0/add', async (c) => {
+    const formData = await c.req.formData();
+    const file = formData.get('file') as File | null;
+
+    if (!file) {
+      return c.json({ error: 'No file provided' }, 400);
+    }
+
+    const content = Buffer.from(await file.arrayBuffer());
+    const result = await storageManager.upload(content, {
+      filename: file.name,
+      contentType: file.type,
+      tier: 'popular',
+    });
+
+    return c.json({
+      Hash: result.cid,
+      Size: String(result.size),
+      Name: file.name,
+    });
+  });
+
+  // IPFS Compatibility - ID
+  router.post('/api/v0/id', async (c) => {
+    const health = await storageManager.healthCheck();
+    const allHealthy = Object.values(health).every((h) => h);
 
     if (!allHealthy) {
-      set.status = 503
-      return { error: 'Storage backends unhealthy' }
+      return c.json({ error: 'Storage backends unhealthy' }, 503);
     }
 
-    const backends = storageManager.listBackends()
+    const backends = storageManager.listBackends();
 
-    return {
+    return c.json({
       ID: 'dws-storage',
       AgentVersion: 'dws/2.0.0',
       Addresses: [],
       Backends: backends,
+    });
+  });
+
+  // IPFS Compatibility - Unpin
+  router.post('/api/v0/pin/rm', (c) => {
+    const arg = c.req.query('arg');
+    return c.json({ Pins: [arg] });
+  });
+
+  // IPFS path
+  router.get('/ipfs/:cid', async (c) => {
+    const cid = c.req.param('cid');
+    const region = c.req.header('x-region') ?? 'unknown';
+
+    const result = await storageManager.download(cid, { region }).catch(() => null);
+
+    if (!result) {
+      return c.json({ error: 'Not found' }, 404);
     }
-  })
 
-  .post(
-    '/api/v0/pin/rm',
-    ({ query }) => {
-      return { Pins: [query.arg] }
-    },
-    {
-      query: t.Object({
-        arg: t.String({ minLength: 1 }),
-      }),
-    },
-  )
+    const contentType = result.metadata?.contentType ?? 'application/octet-stream';
 
-  .get(
-    '/ipfs/:cid',
-    async ({ params, headers, storageManager, set }) => {
-      const region = headers['x-region'] ?? 'unknown'
+    c.header('Content-Type', contentType);
+    c.header('X-Ipfs-Path', `/ipfs/${cid}`);
+    c.header('X-Backend', result.backend);
 
-      const result = await storageManager
-        .download(params.cid, { region })
-        .catch(() => null)
+    return new Response(new Uint8Array(result.content));
+  });
 
-      if (!result) {
-        set.status = 404
-        return { error: 'Not found' }
-      }
-
-      const contentType =
-        result.metadata?.contentType ?? 'application/octet-stream'
-
-      set.headers['Content-Type'] = contentType
-      set.headers['X-Ipfs-Path'] = `/ipfs/${params.cid}`
-      set.headers['X-Backend'] = result.backend
-
-      return new Uint8Array(result.content)
-    },
-    {
-      params: t.Object({
-        cid: t.String({ minLength: 1 }),
-      }),
-      headers: t.Object({
-        'x-region': t.Optional(t.String()),
-      }),
-    },
-  )
-
-export type StorageRoutes = typeof storageRoutes
+  return router;
+}

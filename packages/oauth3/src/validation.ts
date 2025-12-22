@@ -17,6 +17,15 @@ export {
 } from '@jejunetwork/types'
 import { AddressSchema, HexSchema } from '@jejunetwork/types'
 
+// Type guard helpers for runtime validation
+export function isHex(value: unknown): value is `0x${string}` {
+  return typeof value === 'string' && HexSchema.safeParse(value).success
+}
+
+export function isAddress(value: unknown): value is `0x${string}` {
+  return typeof value === 'string' && AddressSchema.safeParse(value).success
+}
+
 export const Bytes32Schema = z
   .string()
   .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid bytes32') as z.ZodType<Hex>

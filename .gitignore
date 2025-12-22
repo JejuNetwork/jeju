@@ -139,3 +139,4 @@ test-ledger/
 **/src-tauri/target/
 .next/
 .ruff_cache
+training_output

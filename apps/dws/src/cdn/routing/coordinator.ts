@@ -8,8 +8,9 @@
  * - Coordinates billing and settlement
  */
 
-import { cors } from '@elysiajs/cors'
-import { Elysia } from 'elysia'
+import { type Context, Hono } from 'hono'
+import { cors } from 'hono/cors'
+import { logger } from 'hono/logger'
 import {
   type Address,
   createPublicClient,
@@ -75,7 +76,7 @@ const InvalidationResultSchema = z.object({
 // ============================================================================
 
 export class CDNCoordinator {
-  private app: Elysia
+  private app: Hono
   private config: CoordinatorConfig
   private router: GeoRouter
   private account: PrivateKeyAccount
@@ -98,7 +99,7 @@ export class CDNCoordinator {
 
   constructor(config: CoordinatorConfig) {
     this.config = config
-    this.app = new Elysia()
+    this.app = new Hono()
     this.router = getGeoRouter()
 
     const privateKey = process.env.PRIVATE_KEY
@@ -108,7 +109,7 @@ export class CDNCoordinator {
     this.publicClient = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
-    }) as PublicClient
+    })
     this.walletClient = createWalletClient({
       account: this.account,
       chain,
@@ -126,88 +127,83 @@ export class CDNCoordinator {
   // ============================================================================
 
   private setupRoutes(): void {
-    this.app.use(cors())
+    // SECURITY: Configure CORS based on environment
+    const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
+    const isProduction = process.env.NODE_ENV === 'production'
+    this.app.use('/*', cors({
+      origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
+      credentials: true,
+    }))
+    this.app.use('/*', logger())
 
     // Health
-    this.app.get('/health', () => {
-      return {
+    this.app.get('/health', (c) => {
+      return c.json({
         status: 'healthy',
         service: 'cdn-coordinator',
         nodeCount: this.router.getNodeCount(),
         regionStats: this.router.getRegionStats(),
-      }
+      })
     })
 
     // Node registration
-    this.app.post('/nodes/register', async ({ body, set }) => {
-      return this.handleNodeRegistration(
-        body as {
-          nodeId: string
-          address: string
-          endpoint: string
-          region: CDNRegion
-          providerType: string
-        },
-        set,
-      )
+    this.app.post('/nodes/register', async (c) => {
+      return this.handleNodeRegistration(c)
     })
 
     // Node heartbeat
-    this.app.post('/nodes/:nodeId/heartbeat', async ({ params, body }) => {
-      return this.handleNodeHeartbeat(params.nodeId, body as EdgeNodeMetrics)
+    this.app.post('/nodes/:nodeId/heartbeat', async (c) => {
+      return this.handleNodeHeartbeat(c)
     })
 
     // Get routing decision
-    this.app.post('/route', async ({ body, set }) => {
-      return this.handleRouteRequest(body as RouteRequest, set)
+    this.app.post('/route', async (c) => {
+      return this.handleRouteRequest(c)
     })
 
     // Get multiple routes (for failover)
-    this.app.post('/route/multi', async ({ body, set }) => {
-      return this.handleMultiRouteRequest(
-        body as RouteRequest & { count?: number },
-        set,
-      )
+    this.app.post('/route/multi', async (c) => {
+      return this.handleMultiRouteRequest(c)
     })
 
     // Request invalidation
-    this.app.post('/invalidate', async ({ body }) => {
-      return this.handleInvalidationRequest(body as InvalidationRequest)
+    this.app.post('/invalidate', async (c) => {
+      return this.handleInvalidationRequest(c)
     })
 
     // Get invalidation status
-    this.app.get('/invalidate/:requestId', ({ params, set }) => {
-      return this.handleInvalidationStatus(params.requestId, set)
+    this.app.get('/invalidate/:requestId', async (c) => {
+      return this.handleInvalidationStatus(c)
     })
 
     // List nodes
-    this.app.get('/nodes', ({ query }) => {
-      const region = query.region as CDNRegion | undefined
+    this.app.get('/nodes', (c) => {
+      const region = c.req.query('region') as CDNRegion | undefined
       const nodes = region
         ? this.router.getNodesByRegion(region)
         : this.router.getAllNodes()
-      return { nodes, count: nodes.length }
+      return c.json({ nodes, count: nodes.length })
     })
 
     // Get node details
-    this.app.get('/nodes/:nodeId', ({ params, set }) => {
+    this.app.get('/nodes/:nodeId', (c) => {
+      const nodeId = c.req.param('nodeId')
       const nodes = this.router.getAllNodes()
-      const node = nodes.find((n) => n.nodeId === params.nodeId)
+      const node = nodes.find((n) => n.nodeId === nodeId)
       if (!node) {
-        set.status = 404
-        return { error: 'Node not found' }
+        return c.json({ error: 'Node not found' }, 404)
       }
-      return node
+      return c.json(node)
     })
 
     // Region stats
-    this.app.get('/regions', () => {
-      return this.router.getRegionStats()
+    this.app.get('/regions', (c) => {
+      return c.json(this.router.getRegionStats())
     })
 
     // Metrics
-    this.app.get('/metrics', () => {
-      return this.getMetrics()
+    this.app.get('/metrics', (c) => {
+      return c.json(this.getMetrics())
     })
 
     // Prometheus metrics
@@ -241,16 +237,15 @@ export class CDNCoordinator {
   // Request Handlers
   // ============================================================================
 
-  private async handleNodeRegistration(
-    body: {
+  private async handleNodeRegistration(c: Context): Promise<Response> {
+    const body = await c.req.json<{
       nodeId: string
       address: string
       endpoint: string
       region: CDNRegion
       providerType: string
-    },
-    set: { status?: number | string },
-  ): Promise<{ success: boolean; connectionId: string } | { error: string }> {
+    }>()
+
     // Verify node is registered on-chain
     const nodeIdBytes = body.nodeId.startsWith('0x')
       ? body.nodeId
@@ -266,8 +261,7 @@ export class CDNCoordinator {
       !onChainNode ||
       onChainNode.operator === '0x0000000000000000000000000000000000000000'
     ) {
-      set.status = 400
-      return { error: 'Node not registered on-chain' }
+      return c.json({ error: 'Node not registered on-chain' }, { status: 400 })
     }
 
     const node: ConnectedEdgeNode = {
@@ -307,54 +301,42 @@ export class CDNCoordinator {
 
     this.router.registerNode(node)
 
-    return { success: true, connectionId: node.connectionId }
+    return c.json({ success: true, connectionId: node.connectionId })
   }
 
-  private async handleNodeHeartbeat(
-    nodeId: string,
-    metrics: EdgeNodeMetrics,
-  ): Promise<{ success: boolean }> {
+  private async handleNodeHeartbeat(c: Context): Promise<Response> {
+    const nodeId = c.req.param('nodeId')
+    const metrics = await c.req.json<EdgeNodeMetrics>()
+
     this.router.updateNodeMetrics(nodeId, metrics)
-    return { success: true }
+
+    return c.json({ success: true })
   }
 
-  private async handleRouteRequest(
-    request: RouteRequest,
-    set: { status?: number | string },
-  ): Promise<ReturnType<GeoRouter['route']> | { error: string }> {
+  private async handleRouteRequest(c: Context): Promise<Response> {
+    const request = await c.req.json<RouteRequest>()
     const decision = this.router.route(request)
 
     if (!decision) {
-      set.status = 503
-      return { error: 'No available nodes' }
+      return c.json({ error: 'No available nodes' }, 503)
     }
 
-    return decision
+    return c.json(decision)
   }
 
-  private async handleMultiRouteRequest(
-    body: RouteRequest & { count?: number },
-    set: { status?: number | string },
-  ): Promise<
-    { routes: ReturnType<GeoRouter['routeMultiple']> } | { error: string }
-  > {
+  private async handleMultiRouteRequest(c: Context): Promise<Response> {
+    const body = await c.req.json<RouteRequest & { count?: number }>()
     const decisions = this.router.routeMultiple(body, body.count ?? 3)
 
     if (decisions.length === 0) {
-      set.status = 503
-      return { error: 'No available nodes' }
+      return c.json({ error: 'No available nodes' }, 503)
     }
 
-    return { routes: decisions }
+    return c.json({ routes: decisions })
   }
 
-  private async handleInvalidationRequest(
-    request: InvalidationRequest,
-  ): Promise<{
-    requestId: string
-    status: string
-    nodesTotal: number
-  }> {
+  private async handleInvalidationRequest(c: Context): Promise<Response> {
+    const request = await c.req.json<InvalidationRequest>()
     const requestId = request.requestId ?? crypto.randomUUID()
 
     // Get target nodes
@@ -378,25 +360,22 @@ export class CDNCoordinator {
     // Send invalidation to all nodes (async)
     this.broadcastInvalidation(request, targetNodes, progress)
 
-    return {
+    return c.json({
       requestId,
       status: 'processing',
       nodesTotal: targetNodes.length,
-    }
+    })
   }
 
-  private handleInvalidationStatus(
-    requestId: string,
-    set: { status?: number | string },
-  ): InvalidationProgress | { error: string } {
+  private async handleInvalidationStatus(c: Context): Promise<Response> {
+    const requestId = c.req.param('requestId')
     const progress = this.invalidations.get(requestId)
 
     if (!progress) {
-      set.status = 404
-      return { error: 'Invalidation request not found' }
+      return c.json({ error: 'Invalidation request not found' }, 404)
     }
 
-    return progress
+    return c.json(progress)
   }
 
   // ============================================================================
@@ -453,7 +432,6 @@ export class CDNCoordinator {
       functionName: 'completeInvalidation',
       args: [requestIdBytes as `0x${string}`, BigInt(progress.nodesProcessed)],
       account: this.account,
-      chain: this.walletClient.chain,
     })
   }
 
@@ -534,12 +512,15 @@ export class CDNCoordinator {
 ╚═══════════════════════════════════════════════════════════════╝
 `)
 
-    this.app.listen(this.config.port)
+    Bun.serve({
+      port: this.config.port,
+      fetch: this.app.fetch,
+    })
 
     console.log(`[Coordinator] Listening on port ${this.config.port}`)
   }
 
-  getApp(): Elysia {
+  getApp(): Hono {
     return this.app
   }
 }

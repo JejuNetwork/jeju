@@ -222,8 +222,8 @@ async function runTrainingPipeline(atroposUrl: string) {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      wandb_group: 'e2e-test',
-      wandb_project: 'jeju-training',
+      run_group: 'e2e-test',
+      run_project: 'jeju-training',
       batch_size: CONFIG.batchSize,
       max_token_len: 512,
       starting_step: 0,

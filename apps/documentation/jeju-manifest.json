@@ -41,6 +41,19 @@
     "x402Support": false,
     "jnsName": "docs.jeju"
   },
+  "dws": {
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "staticDir": ".vitepress/dist",
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/*.css", "ttl": 86400 },
+        { "pattern": "/**/*.html", "ttl": 3600, "staleWhileRevalidate": 86400 }
+      ]
+    }
+  },
   "decentralization": {
     "cdn": {
       "enabled": true,

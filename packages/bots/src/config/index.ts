@@ -1,15 +1,10 @@
 /**
  * Bot Configuration
- *
- * Default configurations for all strategies, loaded from environment
- * and/or config files.
  */
 
 import type { EVMChainId } from '@jejunetwork/types'
 import { expectEVMChainId } from '../schemas'
 import type { FeeConfig, TFMMRiskParameters } from '../types'
-
-// ============ Environment Loading ============
 
 function getEnvWithDefault(key: string, defaultValue: string): string {
   const value = process.env[key]
@@ -26,8 +21,6 @@ function getEnvBoolean(key: string, defaultValue: boolean): boolean {
   if (value === undefined) return defaultValue
   return value.toLowerCase() === 'true' || value === '1'
 }
-
-// ============ Chain Configuration ============
 
 export interface ChainRpcConfig {
   chainId: EVMChainId
@@ -73,8 +66,6 @@ export function getChainConfig(chainId: EVMChainId): ChainRpcConfig {
   }
 }
 
-// ============ TFMM Configuration ============
-
 export interface TFMMConfig {
   updateIntervalMs: number
   minConfidenceThreshold: number
@@ -103,9 +94,6 @@ export function getTFMMConfig(): TFMMConfig {
     },
   }
 }
-
-// ============ Strategy Configuration ============
-// Types imported from schemas.ts via Zod inference
 
 import type {
   CompositeStrategyConfig,
@@ -162,10 +150,6 @@ export function getCompositeConfig(): CompositeStrategyConfig {
   }
 }
 
-// ============ Cross-Chain Arbitrage Configuration ============
-// Note: CrossChainArbConfig includes enabledChains as EVMChainId[] (local type)
-// The validated schema type is CrossChainArbConfigValidated from schemas.ts
-
 export interface CrossChainArbConfig {
   minProfitBps: number
   minProfitUsd: number
@@ -195,8 +179,6 @@ export function getCrossChainArbConfig(): CrossChainArbConfig {
     enableExecution: getEnvBoolean('CROSS_CHAIN_ENABLE_EXECUTION', false),
   }
 }
-
-// ============ Fee Configuration ============
 
 export interface DefaultFeeConfig {
   standard: FeeConfig
@@ -265,8 +247,6 @@ export function getDefaultFees(): DefaultFeeConfig {
     },
   }
 }
-
-// ============ Bot Engine Configuration ============
 
 export interface FullBotConfig {
   chainId: EVMChainId

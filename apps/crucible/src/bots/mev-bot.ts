@@ -1,7 +1,7 @@
 /**
- * MEV + Liquidity Management Bot
+ * Unified MEV + Liquidity Management Bot
  *
- * Combines all profit strategies into a single bot:
+ * Combines all profit strategies into a single unified bot:
  * - DEX Arbitrage (same-chain)
  * - Cross-Chain Arbitrage (EVM <-> Solana)
  * - Sandwich (pending block analysis)
@@ -27,7 +27,7 @@ import type {
   CrossChainArbOpportunity,
   StrategyConfig,
   StrategyType,
-} from './autocrat-types-source'
+} from './autocrat-types'
 // Contract integrations (EIL/XLP/OIF)
 import {
   type LiquidityRequest,
@@ -48,8 +48,8 @@ import { DexArbitrageStrategy } from './strategies/dex-arbitrage'
 import {
   LiquidityManager,
   type LiquidityManagerConfig,
-  type Position,
   type RebalanceAction,
+  type UnifiedPosition,
 } from './strategies/liquidity-manager'
 import { SolanaArbStrategy } from './strategies/solana-arb'
 import {
@@ -58,11 +58,11 @@ import {
   type YieldOpportunity,
 } from './strategies/yield-farming'
 
-const log = createLogger('MevBot')
+const log = createLogger('UnifiedBot')
 
 // ============ Types ============
 
-export interface MevBotConfig {
+export interface UnifiedBotConfig {
   // Chain configuration
   evmChains: ChainId[]
   solanaNetwork: 'mainnet-beta' | 'devnet' | 'localnet'
@@ -138,10 +138,10 @@ export interface TradeResult {
   error?: string
 }
 
-// ============ MEV Bot ============
+// ============ Unified Bot ============
 
-export class MevBot extends EventEmitter {
-  private config: MevBotConfig
+export class UnifiedBot extends EventEmitter {
+  private config: UnifiedBotConfig
   private startTime: number = 0
   private running = false
 
@@ -162,14 +162,14 @@ export class MevBot extends EventEmitter {
   private oifSolver: OIFSolver | null = null
   private xlpProfile: XLPProfile | null = null
 
-  // Risk management
-  private riskManager: RiskManager | null = null
-
   // Stats
   private trades: TradeResult[] = []
   private totalProfitUsd = 0
 
-  constructor(config: MevBotConfig) {
+  // Engine
+  private riskManager: RiskManager | null = null
+
+  constructor(config: UnifiedBotConfig) {
     super()
     this.config = config
   }
@@ -178,7 +178,7 @@ export class MevBot extends EventEmitter {
    * Initialize all components
    */
   async initialize(): Promise<void> {
-    log.info('Initializing MEV + LP Bot', {
+    log.info('Initializing Unified MEV + LP Bot', {
       evmChains: this.config.evmChains,
       solanaNetwork: this.config.solanaNetwork,
     })
@@ -383,7 +383,7 @@ export class MevBot extends EventEmitter {
 
       if (Object.keys(chainConfigs).length > 0) {
         this.oifSolver = new OIFSolver({
-          name: this.config.oifSolverName ?? 'jeju-mev-bot',
+          name: this.config.oifSolverName ?? 'jeju-unified-bot',
           chainConfigs: chainConfigs as OIFSolverConfig['chainConfigs'],
           privateKey: this.config.evmPrivateKey,
           minProfitBps: this.config.minProfitBps,
@@ -471,7 +471,7 @@ export class MevBot extends EventEmitter {
     this.running = true
     this.startTime = Date.now()
 
-    console.log('🚀 Starting MEV Bot...')
+    console.log('🚀 Starting Unified Bot...')
 
     // Start strategies
     if (this.config.enableSolanaArb) {
@@ -509,7 +509,7 @@ export class MevBot extends EventEmitter {
     if (!this.running) return
     this.running = false
 
-    console.log('🛑 Stopping MEV Bot...')
+    console.log('🛑 Stopping Unified Bot...')
 
     this.solanaArb?.stop()
     this.liquidityManager?.stop()
@@ -709,7 +709,7 @@ export class MevBot extends EventEmitter {
   /**
    * Get liquidity positions
    */
-  getLiquidityPositions(): Position[] {
+  getLiquidityPositions(): UnifiedPosition[] {
     return this.liquidityManager?.getPositions() ?? []
   }
 

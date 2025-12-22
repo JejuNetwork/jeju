@@ -44,6 +44,23 @@
     "x402Support": false,
     "jnsName": "indexer.jeju"
   },
+  "dws": {
+    "backend": {
+      "enabled": true,
+      "runtime": "node",
+      "entrypoint": "lib/main.js",
+      "memory": 1024,
+      "timeout": 60000,
+      "minInstances": 1,
+      "maxInstances": 5,
+      "teeRequired": false,
+      "regions": ["global"]
+    },
+    "database": {
+      "type": "postgres",
+      "name": "indexer-db"
+    }
+  },
   "decentralization": {
     "cdn": {
       "enabled": true,
@@ -76,7 +93,7 @@
   },
   "testing": {
     "unit": {
-      "command": "bun test",
+      "command": "bun run test",
       "timeout": 120000
     },
     "integration": {

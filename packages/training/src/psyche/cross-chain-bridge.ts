@@ -391,11 +391,39 @@ export class CrossChainTrainingBridge {
       `[Bridge] Registered client ${registration.evmAddress}: ${hash}`,
     )
 
-    await this.evmPublicClient.waitForTransactionReceipt({
+    const receipt = await this.evmPublicClient.waitForTransactionReceipt({
       hash,
     })
 
-    return 0
+    // Parse clientId from transaction logs
+    // The registerClient function returns uint32 clientId
+    for (const log of receipt.logs) {
+      // Look for ClientRegistered event with signature:
+      // event ClientRegistered(uint32 indexed clientId, address indexed client)
+      if (log.topics.length >= 2) {
+        const clientIdHex = log.topics[1]
+        if (clientIdHex) {
+          return parseInt(clientIdHex.slice(-8), 16)
+        }
+      }
+    }
+
+    // Fallback: query the contract for the client count
+    const clientCount = await this.evmPublicClient.readContract({
+      address: this.config.bridgeContractAddress,
+      abi: [
+        {
+          inputs: [],
+          name: 'clientCount',
+          outputs: [{ type: 'uint32' }],
+          stateMutability: 'view',
+          type: 'function',
+        },
+      ] as const,
+      functionName: 'clientCount',
+    })
+
+    return clientCount - 1
   }
 
   async distributeRewards(

@@ -1,3 +1,13 @@
+/**
+ * OAuth3 Registry Seeding Script
+ *
+ * Seeds the OAuth3 registry with:
+ * - The example as an OAuth3 application
+ * - A mock TEE node for local development
+ *
+ * Run with: bun run seed
+ */
+
 import { getNetworkName } from '@jejunetwork/config'
 import { AuthProvider, TEEProvider } from '@jejunetwork/oauth3'
 import type { Address, Hex } from 'viem'
@@ -18,7 +28,7 @@ async function seedOAuth3Registry() {
     return
   }
 
-  const appId = process.env.OAUTH3_APP_ID || 'example-app.oauth3.jeju'
+  const appId = process.env.OAUTH3_APP_ID || 'example.oauth3.jeju'
   const frontendPort = process.env.FRONTEND_PORT || '4501'
   const teeAgentPort = process.env.OAUTH3_TEE_AGENT_PORT || '8004'
 

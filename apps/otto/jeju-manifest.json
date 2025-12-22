@@ -97,6 +97,25 @@
     "x402Support": true,
     "jnsName": "otto.jeju"
   },
+  "dws": {
+    "backend": {
+      "enabled": true,
+      "runtime": "bun",
+      "entrypoint": "src/server.ts",
+      "memory": 512,
+      "timeout": 30000,
+      "minInstances": 1,
+      "maxInstances": 5,
+      "teeRequired": false,
+      "regions": ["global"]
+    },
+    "tee": {
+      "platform": "dstack",
+      "attestation": true,
+      "decryption": true,
+      "secrets": ["DISCORD_BOT_TOKEN", "TELEGRAM_BOT_TOKEN", "TWITTER_BEARER_TOKEN"]
+    }
+  },
   "decentralization": {
     "cdn": {
       "enabled": true,

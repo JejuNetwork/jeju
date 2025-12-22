@@ -440,7 +440,7 @@ export class ProverService {
   }
 
   private generateRequestId(): string {
-    return `proof_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`
+    return `proof_${crypto.randomUUID()}`
   }
 
   private emptyProof(): SP1Proof {

@@ -12,16 +12,41 @@
  */
 
 import type { Address } from 'viem'
-import { getCharacter, listCharacters } from '../characters'
+import {
+  getCharacter,
+  listCharacters,
+  RED_TEAM_CHARACTERS,
+  BLUE_TEAM_CHARACTERS,
+} from '../characters'
 import {
   type CrucibleAgentRuntime,
   createCrucibleRuntime,
 } from '../sdk/eliza-runtime'
 import { createLogger } from '../sdk/logger'
 import { AutonomousTick, type AutonomousTickResult } from './tick'
-import { type AutonomousAgentConfig, DEFAULT_AUTONOMOUS_CONFIG } from './types'
+import {
+  type AutonomousAgentConfig,
+  DEFAULT_AUTONOMOUS_CONFIG,
+  RED_TEAM_CONFIG,
+  BLUE_TEAM_CONFIG,
+  getRedTeamConfig,
+  DEFAULT_SMALL_MODEL,
+} from './types'
 
 const log = createLogger('AutonomousRunner')
+
+// ANSI color codes for pretty logging
+const COLORS = {
+  red: '\x1b[31m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  blue: '\x1b[34m',
+  magenta: '\x1b[35m',
+  cyan: '\x1b[36m',
+  reset: '\x1b[0m',
+  bold: '\x1b[1m',
+  dim: '\x1b[2m',
+}
 
 /**
  * Configuration for the autonomous runner
@@ -37,6 +62,10 @@ export interface AutonomousRunnerConfig {
   defaultTickIntervalMs: number
   /** Enable all pre-built characters as autonomous */
   enableBuiltinCharacters: boolean
+  /** Only load red/blue team agents (skip general purpose) */
+  redBlueTeamOnly: boolean
+  /** Verbose logging to see agent thinking */
+  verbose: boolean
 }
 
 /**
@@ -128,6 +157,14 @@ export class AutonomousAgentRunner {
    * Load autonomous agents
    */
   private async loadAgents(): Promise<void> {
+    // Check if red team is enabled for this network
+    const redTeamSettings = getRedTeamConfig(this.config.network)
+
+    console.log(`\n${COLORS.bold}${COLORS.cyan}════════════════════════════════════════════════════════════════${COLORS.reset}`)
+    console.log(`${COLORS.bold}${COLORS.cyan}  AUTONOMOUS AGENT LOADER${COLORS.reset}`)
+    console.log(`${COLORS.bold}${COLORS.cyan}════════════════════════════════════════════════════════════════${COLORS.reset}`)
+    console.log(`${COLORS.dim}Network: ${this.config.network} | Model: ${redTeamSettings.model} | Max Agents: ${this.config.maxConcurrentAgents}${COLORS.reset}\n`)
+
     // If enabled, load all built-in characters as autonomous agents
     if (this.config.enableBuiltinCharacters) {
       const characterIds = listCharacters()
@@ -143,18 +180,71 @@ export class AutonomousAgentRunner {
         const character = getCharacter(characterId)
         if (!character) continue
 
+        // Determine base config based on character type
+        const isRedTeam = (RED_TEAM_CHARACTERS as readonly string[]).includes(
+          characterId,
+        )
+        const isBlueTeam = (BLUE_TEAM_CHARACTERS as readonly string[]).includes(
+          characterId,
+        )
+
+        // If redBlueTeamOnly, skip general purpose agents
+        if (this.config.redBlueTeamOnly && !isRedTeam && !isBlueTeam) {
+          continue
+        }
+
+        // Skip red team agents if not enabled for this network
+        if (isRedTeam && !redTeamSettings.enabled) {
+          log.info('Skipping red team agent (disabled on this network)', {
+            characterId,
+            network: this.config.network,
+          })
+          continue
+        }
+
+        // Select appropriate config
+        let baseConfig = DEFAULT_AUTONOMOUS_CONFIG
+        if (isRedTeam) {
+          baseConfig = RED_TEAM_CONFIG
+        } else if (isBlueTeam) {
+          baseConfig = BLUE_TEAM_CONFIG
+        }
+
+        // Override model preference to use small cheap model
+        const characterWithModel = {
+          ...character,
+          modelPreferences: {
+            ...character.modelPreferences,
+            small: DEFAULT_SMALL_MODEL,
+            large: DEFAULT_SMALL_MODEL, // Use small model for everything in dev
+          },
+        }
+
         const agentConfig: AutonomousAgentConfig = {
-          ...DEFAULT_AUTONOMOUS_CONFIG,
+          ...baseConfig,
           agentId: `autonomous-${characterId}`,
-          character,
-          tickIntervalMs: this.config.defaultTickIntervalMs,
+          character: characterWithModel,
+          tickIntervalMs:
+            baseConfig.tickIntervalMs ?? this.config.defaultTickIntervalMs,
+          redTeamMode: isRedTeam
+            ? this.config.network === 'testnet'
+              ? 'testnet'
+              : 'dev'
+            : undefined,
         }
 
         await this.registerAgent(agentConfig)
+
+        // Pretty print agent loading
+        const teamColor = isRedTeam ? COLORS.red : isBlueTeam ? COLORS.blue : COLORS.green
+        const teamLabel = isRedTeam ? 'RED' : isBlueTeam ? 'BLUE' : 'GENERAL'
+        console.log(`${teamColor}[${teamLabel}]${COLORS.reset} ${COLORS.bold}${character.name}${COLORS.reset} (${characterId}) - ${character.description.substring(0, 50)}...`)
       }
     }
 
-    // TODO: Load additional agents from configuration/database
+    console.log(`\n${COLORS.cyan}Loaded ${this.agents.size} agents${COLORS.reset}`)
+    console.log(`${COLORS.dim}Red Team: ${RED_TEAM_CHARACTERS.length} | Blue Team: ${BLUE_TEAM_CHARACTERS.length}${COLORS.reset}`)
+    console.log(`${COLORS.bold}${COLORS.cyan}════════════════════════════════════════════════════════════════${COLORS.reset}\n`)
   }
 
   /**
@@ -277,14 +367,22 @@ export class AutonomousAgentRunner {
     const { config, runtime, execution } = agent
     const now = Date.now()
 
-    log.info('Executing autonomous tick', {
-      agentId,
-      character: config.character.name,
-    })
+    // Determine team color for logging
+    const charId = config.character.id
+    const isRedTeam = (RED_TEAM_CHARACTERS as readonly string[]).includes(charId)
+    const isBlueTeam = (BLUE_TEAM_CHARACTERS as readonly string[]).includes(charId)
+    const teamColor = isRedTeam ? COLORS.red : isBlueTeam ? COLORS.blue : COLORS.green
+    const teamEmoji = isRedTeam ? '🔴' : isBlueTeam ? '🔵' : '🟢'
+
+    if (this.config.verbose) {
+      console.log(`\n${teamColor}${COLORS.bold}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLORS.reset}`)
+      console.log(`${teamEmoji} ${teamColor}${COLORS.bold}${config.character.name}${COLORS.reset} is thinking...`)
+      console.log(`${COLORS.dim}Agent: ${agentId} | Tick #${execution.lastTickAt > 0 ? Math.floor((now - execution.lastTickAt) / config.tickIntervalMs) + 1 : 1}${COLORS.reset}`)
+    }
 
     try {
-      // Create tick handler
-      const tick = new AutonomousTick(config, runtime)
+      // Create tick handler with verbose mode
+      const tick = new AutonomousTick(config, runtime, this.config.verbose)
 
       // Execute tick
       const result = await tick.execute()
@@ -300,10 +398,26 @@ export class AutonomousAgentRunner {
         execution.errors = 0 // Reset on success
       }
 
+      // Log result summary
+      if (this.config.verbose && result.actionsExecuted.length > 0) {
+        console.log(`${teamColor}${COLORS.bold}Actions taken:${COLORS.reset}`)
+        for (const action of result.actionsExecuted) {
+          const status = action.success ? `${COLORS.green}✓${COLORS.reset}` : `${COLORS.red}✗${COLORS.reset}`
+          console.log(`  ${status} ${action.name}`)
+          if (action.result && this.config.verbose) {
+            console.log(`    ${COLORS.dim}→ ${JSON.stringify(action.result).substring(0, 100)}${COLORS.reset}`)
+          }
+        }
+      }
+
       return result
     } catch (e) {
       const error = e instanceof Error ? e.message : String(e)
       log.error('Tick execution failed', { agentId, error })
+
+      if (this.config.verbose) {
+        console.log(`${COLORS.red}Error: ${error}${COLORS.reset}`)
+      }
 
       execution.lastTickAt = now
       execution.nextTickAt = now + config.tickIntervalMs
@@ -372,9 +486,11 @@ export function createAgentRunner(
   const fullConfig: AutonomousRunnerConfig = {
     network:
       (process.env.NETWORK as 'localnet' | 'testnet' | 'mainnet') ?? 'localnet',
-    maxConcurrentAgents: Number(process.env.MAX_CONCURRENT_AGENTS ?? 10),
-    defaultTickIntervalMs: Number(process.env.TICK_INTERVAL_MS ?? 60_000),
-    enableBuiltinCharacters: process.env.ENABLE_BUILTIN_CHARACTERS !== 'false',
+    maxConcurrentAgents: Number(process.env.MAX_CONCURRENT_AGENTS ?? 20),
+    defaultTickIntervalMs: Number(process.env.TICK_INTERVAL_MS ?? 20_000), // 20 seconds default
+    enableBuiltinCharacters: true, // Always enable
+    redBlueTeamOnly: process.env.RED_BLUE_ONLY !== 'false', // Default to red/blue team only
+    verbose: process.env.VERBOSE !== 'false', // Default to verbose
     ...config,
   }
 
@@ -385,13 +501,27 @@ export function createAgentRunner(
  * Main entry point for running as a standalone daemon
  */
 export async function runAutonomousDaemon(): Promise<void> {
-  log.info('Starting autonomous agent daemon')
+  console.log(`
+${COLORS.bold}${COLORS.magenta}
+   ██████╗██████╗ ██╗   ██╗ ██████╗██╗██████╗ ██╗     ███████╗
+  ██╔════╝██╔══██╗██║   ██║██╔════╝██║██╔══██╗██║     ██╔════╝
+  ██║     ██████╔╝██║   ██║██║     ██║██████╔╝██║     █████╗  
+  ██║     ██╔══██╗██║   ██║██║     ██║██╔══██╗██║     ██╔══╝  
+  ╚██████╗██║  ██║╚██████╔╝╚██████╗██║██████╔╝███████╗███████╗
+   ╚═════╝╚═╝  ╚═╝ ╚═════╝  ╚═════╝╚═╝╚═════╝ ╚══════╝╚══════╝
+${COLORS.reset}
+${COLORS.cyan}  Autonomous Red/Blue Team Agent Runner${COLORS.reset}
+${COLORS.dim}  Using Groq llama-3.1-8b-instant for fast, cheap inference${COLORS.reset}
+`)
 
-  const runner = createAgentRunner()
+  const runner = createAgentRunner({
+    redBlueTeamOnly: true, // Only run red/blue team agents
+    verbose: true, // Show agent thinking
+  })
 
   // Handle shutdown gracefully
   const shutdown = async () => {
-    log.info('Shutting down autonomous daemon...')
+    console.log(`\n${COLORS.yellow}Shutting down autonomous agents...${COLORS.reset}`)
     await runner.stop()
     process.exit(0)
   }
@@ -401,5 +531,6 @@ export async function runAutonomousDaemon(): Promise<void> {
 
   await runner.start()
 
-  log.info('Autonomous daemon running. Press Ctrl+C to stop.')
+  console.log(`\n${COLORS.green}${COLORS.bold}Agents are now running autonomously.${COLORS.reset}`)
+  console.log(`${COLORS.dim}Press Ctrl+C to stop.${COLORS.reset}\n`)
 }
