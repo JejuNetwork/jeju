@@ -38,7 +38,6 @@ const EVM_RPC_URL = process.env.EVM_RPC_URL || 'http://localhost:6546';
 const EVM_PRIVATE_KEY = (process.env.EVM_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex; // Anvil default
 // Deployed contracts from forge script
 const COORDINATOR_ADDRESS = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as Address;
-const _TOKEN_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address; // Reserved for future use
 const MOCK_BRIDGE_ADDRESS = COORDINATOR_ADDRESS; // Use coordinator as bridge for testing
 
 // Psyche Coordinator Program ID
@@ -169,12 +168,6 @@ async function testEvmConnection(): Promise<void> {
 async function testEvmWalletSetup(): Promise<void> {
   const account = privateKeyToAccount(EVM_PRIVATE_KEY);
   
-  const _walletClient = createWalletClient({
-    account,
-    chain: foundry,
-    transport: http(EVM_RPC_URL),
-  });
-  
   const publicClient = createPublicClient({
     chain: foundry,
     transport: http(EVM_RPC_URL),
@@ -294,7 +287,7 @@ async function testMerkleProofGeneration(): Promise<void> {
     { client: '0x4444444444444444444444444444444444444444' as Address, amount: 4000n },
   ];
   
-  const _root = bridge.computeRewardsMerkleRoot(rewards); // Root stored for verification
+  bridge.computeRewardsMerkleRoot(rewards); // Verify Merkle root computation works
   const proof0 = bridge.generateMerkleProof(rewards, 0);
   const proof1 = bridge.generateMerkleProof(rewards, 1);
   
@@ -422,7 +415,7 @@ async function testEvmCoordinatorNextClientId(): Promise<void> {
 async function testEvmCoordinatorRegisterClient(): Promise<void> {
   const account = privateKeyToAccount(SECOND_PRIVATE_KEY);
   
-  const _walletClient = createWalletClient({
+  const walletClient = createWalletClient({
     account,
     chain: foundry,
     transport: http(EVM_RPC_URL),
@@ -468,7 +461,7 @@ async function testEvmCoordinatorRegisterClient(): Promise<void> {
 async function testEvmCoordinatorCreateRun(): Promise<void> {
   const account = privateKeyToAccount(EVM_PRIVATE_KEY);
   
-  const _walletClient = createWalletClient({
+  const walletClient = createWalletClient({
     account,
     chain: foundry,
     transport: http(EVM_RPC_URL),

@@ -24,15 +24,25 @@ import type {
 } from './types';
 import { SampleVerifier } from './sampling';
 import { verifyProof } from './commitment';
-import { sign, type BLSSecretKey } from './crypto/bls';
+import { 
+  sign as blsSign,
+  signAttestation as blsSignAttestation,
+  generateKeyPair,
+  derivePublicKey,
+  type BLSSecretKey,
+  type BLSPublicKey,
+  type BLSSignature,
+} from './crypto/bls';
 
 // ============================================================================
 // Operator Configuration
 // ============================================================================
 
 export interface OperatorConfig {
-  /** Operator private key */
+  /** Operator private key (ECDSA for Ethereum transactions) */
   privateKey: Hex;
+  /** BLS secret key for DA attestations (auto-generated if not provided) */
+  blsSecretKey?: BLSSecretKey;
   /** Operator endpoint */
   endpoint: string;
   /** Storage capacity in GB */
@@ -66,6 +76,10 @@ export class DAOperator {
   private readonly chunkData: Map<Hex, Map<number, Uint8Array>> = new Map();
   private readonly eventListeners = new Set<DAEventListener>();
   
+  /** BLS keys for DA attestation signing */
+  private readonly blsSecretKey: BLSSecretKey;
+  private readonly blsPublicKey: BLSPublicKey;
+  
   private status: OperatorStatus = 'stopped';
   private heartbeatInterval: ReturnType<typeof setInterval> | null = null;
   private gcInterval: ReturnType<typeof setInterval> | null = null;
@@ -81,6 +95,17 @@ export class DAOperator {
     this.config = config;
     this.account = privateKeyToAccount(config.privateKey);
     this.verifier = new SampleVerifier();
+    
+    // Initialize BLS keys for DA attestations
+    if (config.blsSecretKey) {
+      this.blsSecretKey = config.blsSecretKey;
+      this.blsPublicKey = derivePublicKey(config.blsSecretKey);
+    } else {
+      // Generate new BLS key pair if not provided
+      const keyPair = generateKeyPair();
+      this.blsSecretKey = keyPair.secretKey;
+      this.blsPublicKey = keyPair.publicKey;
+    }
   }
 
   /**
@@ -202,13 +227,14 @@ export class DAOperator {
   }
 
   /**
-   * Sign attestation for stored chunks
+   * Sign attestation for stored chunks using BLS
+   * The signature can be aggregated with other operator signatures
    */
-  async signAttestation(
+  signAttestation(
     blobId: Hex,
     commitment: Hex,
     chunkIndices: number[]
-  ): Promise<Hex> {
+  ): BLSSignature {
     // Verify we have all the chunks
     const blobChunks = this.chunkData.get(blobId);
     if (!blobChunks) {
@@ -221,17 +247,16 @@ export class DAOperator {
       }
     }
     
-    // Create attestation message
-    const message = keccak256(
-      toBytes(`attest:${blobId}:${commitment}:${chunkIndices.join(',')}:${Date.now()}`)
+    // Sign attestation with BLS for aggregation support
+    // Uses proper BLS signing with domain separation
+    const timestamp = Date.now();
+    return blsSignAttestation(
+      this.blsSecretKey,
+      blobId,
+      commitment,
+      chunkIndices,
+      timestamp
     );
-    
-    // Sign with operator key
-    const signature = await this.account.signMessage({
-      message: { raw: toBytes(message) },
-    });
-    
-    return signature;
   }
 
   /**
@@ -284,6 +309,13 @@ export class DAOperator {
   }
 
   /**
+   * Get operator's BLS public key for signature verification
+   */
+  getBlsPublicKey(): BLSPublicKey {
+    return this.blsPublicKey;
+  }
+
+  /**
    * Get operator status
    */
   getStatus(): OperatorStatus {
@@ -331,22 +363,16 @@ export class DAOperator {
   // Private Methods
   // ============================================================================
 
-  private signResponse(request: SampleRequest): Hex {
-    // Create deterministic message for signing
+  private signResponse(request: SampleRequest): BLSSignature {
+    // Create deterministic message for BLS signing
     const message = keccak256(
       toBytes(`sample:${request.blobId}:${request.nonce}:${request.timestamp}`)
     );
     
-    // Create signature by signing the message hash
-    // Use signMessage async in production, but for sync response handling
-    // we create a deterministic signature commitment
-    const signaturePreimage = keccak256(
-      toBytes(`${message}:${this.account.address}:${this.config.privateKey.slice(0, 10)}`)
-    );
-    
-    // Return commitment that can be verified by knowing operator address
-    // Full BLS signature should be used for production attestations
-    return signaturePreimage;
+    // Sign with BLS secret key - proper cryptographic signature
+    // This signature can be verified with the operator's BLS public key
+    // and aggregated with other operator signatures for quorum verification
+    return blsSign(this.blsSecretKey, toBytes(message));
   }
 
   private heartbeat(): void {

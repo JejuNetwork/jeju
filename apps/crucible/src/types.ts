@@ -141,8 +141,9 @@ export interface AgentCharacter {
   name: string;
   description: string;
   system: string;
-  bio: string[];
+  bio: string | string[];
   messageExamples: MessageExample[][];
+  postExamples?: string[];
   topics: string[];
   adjectives: string[];
   style: {
@@ -150,6 +151,7 @@ export interface AgentCharacter {
     chat: string[];
     post: string[];
   };
+  settings?: Record<string, string | boolean | number>;
   modelPreferences?: {
     small: string;
     large: string;

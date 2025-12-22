@@ -8,11 +8,11 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createAtroposServer, startAtroposServer } from './atropos-server';
-import { createGRPOTrainer, createDistributedGRPOTrainer, type TrainingConfig } from './grpo-trainer';
-import { createPsycheClient, type PsycheConfig, type RolloutBundle } from './psyche-client';
-import { createCrossChainBridge, type BridgeConfig } from './cross-chain-bridge';
-import { Keypair, PublicKey } from '@solana/web3.js';
+import { startAtroposServer } from './atropos-server';
+import { createDistributedGRPOTrainer } from './grpo-trainer';
+import { createPsycheClient, type RolloutBundle } from './psyche-client';
+import { createCrossChainBridge } from './cross-chain-bridge';
+import { Keypair } from '@solana/web3.js';
 import type { Address, Hex } from 'viem';
 
 // ============================================================================
@@ -350,7 +350,6 @@ class PsycheJobListener {
 
 export function createTrainingRoutes(
   jobQueue: TrainingJobQueue,
-  provisioner: NodeProvisioner,
   psycheListener?: PsycheJobListener
 ): Hono {
   const app = new Hono();
@@ -424,9 +423,7 @@ export function createTrainingRoutes(
 
   // Start Atropos server for a job
   app.post('/jobs/:jobId/atropos', async (c) => {
-    const jobId = c.req.param('jobId');
     const body = await c.req.json() as { port?: number };
-
     const port = body.port ?? 8000 + Math.floor(Math.random() * 1000);
     
     // Start Atropos server in background
@@ -451,7 +448,7 @@ export class DWSTrainingService {
   constructor() {
     this.jobQueue = new TrainingJobQueue();
     this.provisioner = new NodeProvisioner();
-    this.app = createTrainingRoutes(this.jobQueue, this.provisioner);
+    this.app = createTrainingRoutes(this.jobQueue);
   }
 
   configurePsyche(config: PsycheJobConfig): void {
@@ -464,7 +461,6 @@ export class DWSTrainingService {
     // Recreate routes with psyche listener
     this.app = createTrainingRoutes(
       this.jobQueue,
-      this.provisioner,
       this.psycheListener
     );
   }

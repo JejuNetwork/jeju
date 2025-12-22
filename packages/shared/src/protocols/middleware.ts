@@ -13,6 +13,7 @@ import type { Address } from 'viem';
 import { createPublicClient, http, verifyMessage, getAddress } from 'viem';
 import { z } from 'zod';
 import { getChain } from '../chains';
+import { BAN_MANAGER_ABI } from '@jejunetwork/types';
 
 const X402PaymentPayloadSchema = z.object({
   scheme: z.string(),
@@ -106,31 +107,7 @@ const IDENTITY_REGISTRY_ABI = [
   },
 ] as const;
 
-// Agent-based BAN_MANAGER_ABI (different from address-based ABI in @jejunetwork/types)
-const BAN_MANAGER_ABI = [
-  {
-    name: 'isNetworkBanned',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{ name: '', type: 'bool' }],
-  },
-  {
-    name: 'getNetworkBan',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{
-      type: 'tuple',
-      components: [
-        { name: 'isBanned', type: 'bool' },
-        { name: 'bannedAt', type: 'uint256' },
-        { name: 'reason', type: 'string' },
-        { name: 'proposalId', type: 'bytes32' },
-      ],
-    }],
-  },
-] as const;
+// BAN_MANAGER_ABI imported from @jejunetwork/types
 
 // ============================================================================
 // ERC-8004 Identity Verification

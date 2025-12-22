@@ -22,7 +22,6 @@
  *   WANDB_PROJECT - W&B project name
  */
 
-import { startAtroposServer } from '../atropos-server';
 import { createFundamentalPredictionEnv } from '../environments/fundamental-prediction';
 import { createGRPOTrainer, createDistributedGRPOTrainer } from '../grpo-trainer';
 import { createPsycheClient } from '../psyche-client';

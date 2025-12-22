@@ -13,7 +13,13 @@ import type { Address, Hex, PublicClient, WalletClient } from 'viem';
 import { createPublicClient, createWalletClient, http, toBytes, toHex, keccak256, encodeFunctionData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { DAClient, createDAClient, type DAClientConfig } from '../client';
-import type { BlobCommitment, AvailabilityAttestation, BlobSubmissionResult } from '../types';
+import type { BlobCommitment, AvailabilityAttestation, BlobSubmissionResult, OperatorSignature } from '../types';
+import { 
+  verifyAttestation, 
+  verifyAggregate,
+  type BLSPublicKey,
+  type BLSSignature,
+} from '../crypto/bls';
 
 // L1 Contract ABIs
 const DACommitmentVerifierABI = [
@@ -318,14 +324,61 @@ export class RollupDAAdapter {
 
   /**
    * Verify DA reference is valid
+   * Performs cryptographic verification of attestation signatures
    */
-  async verifyDAReference(daRef: DAReference): Promise<boolean> {
+  async verifyDAReference(
+    daRef: DAReference,
+    registeredOperatorKeys?: Map<Address, BLSPublicKey>
+  ): Promise<boolean> {
     // Verify blob is available
     const isAvailable = await this.daClient.isAvailable(daRef.blobId);
     if (!isAvailable) return false;
     
-    // Verify quorum attestation
+    // Verify quorum status
     if (!daRef.attestation.quorumReached) return false;
+    
+    // Verify attestation signatures cryptographically
+    const attestation = daRef.attestation;
+    
+    // If aggregate signature is provided, verify it
+    if (attestation.aggregateSignature && registeredOperatorKeys) {
+      const publicKeys = attestation.signatures.map(sig => {
+        const pk = registeredOperatorKeys.get(sig.operator);
+        if (!pk) throw new Error(`Unknown operator: ${sig.operator}`);
+        return pk;
+      });
+      
+      // Verify the aggregate signature against the commitment
+      const aggregateValid = verifyAggregate(
+        publicKeys,
+        toBytes(`DA_ATTEST:${attestation.blobId}:${attestation.commitment}:${attestation.timestamp}`),
+        attestation.aggregateSignature as BLSSignature
+      );
+      
+      if (!aggregateValid) return false;
+    } else if (registeredOperatorKeys) {
+      // Verify individual signatures
+      for (const sig of attestation.signatures) {
+        const pk = registeredOperatorKeys.get(sig.operator);
+        if (!pk) {
+          // Operator not registered
+          return false;
+        }
+        
+        const valid = verifyAttestation(
+          pk,
+          sig.signature as BLSSignature,
+          attestation.blobId,
+          attestation.commitment,
+          sig.chunkIndices,
+          attestation.timestamp
+        );
+        
+        if (!valid) return false;
+      }
+    }
+    // Note: If no operator keys provided, we can only check availability and quorum flag
+    // For full security, on-chain verification should be used: verifyAttestationOnChain()
     
     return true;
   }

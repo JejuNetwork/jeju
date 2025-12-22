@@ -238,7 +238,8 @@ export class CrucibleCompute {
 
   private buildSystemPrompt(character: AgentCharacter, context: { memories?: string[]; roomContext?: string }): string {
     const parts = [character.system];
-    if (character.bio.length) parts.push('\n\nBackground:', character.bio.join('\n'));
+    const bio = Array.isArray(character.bio) ? character.bio : [character.bio];
+    if (bio.length) parts.push('\n\nBackground:', bio.join('\n'));
     if (character.style.all.length) parts.push('\n\nStyle:', character.style.all.join('\n'));
     if (context.memories?.length) parts.push('\n\nMemories:', context.memories.join('\n'));
     if (context.roomContext) parts.push('\n\nContext:', context.roomContext);

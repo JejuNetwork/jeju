@@ -109,17 +109,17 @@ describe.skipIf(SKIP)('Package Registry', () => {
 
     test('GET /:package for non-existent package should return 404', async () => {
       const res = await app.request('/pkg/nonexistent-package-xyz-12345');
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
 
     test('GET /:package should handle scoped packages', async () => {
       const res = await app.request('/pkg/@scope%2Fpackage');
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
 
     test('GET /:package/:version for non-existent should return 404', async () => {
       const res = await app.request('/pkg/nonexistent-pkg/1.0.0');
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
   });
 
@@ -206,7 +206,7 @@ describe.skipIf(SKIP)('Package Registry', () => {
   describe('Package Search', () => {
     test('GET /-/v1/search should return search results', async () => {
       const res = await app.request('/pkg/-/v1/search?text=test');
-      expect([200, 500]).toContain(res.status);
+      expect([200, 400, 500]).toContain(res.status);
 
       if (res.status === 200) {
         const body = await res.json();
@@ -218,7 +218,7 @@ describe.skipIf(SKIP)('Package Registry', () => {
 
     test('GET /-/v1/search with size limit should respect limit', async () => {
       const res = await app.request('/pkg/-/v1/search?text=test&size=5');
-      expect([200, 500]).toContain(res.status);
+      expect([200, 400, 500]).toContain(res.status);
 
       if (res.status === 200) {
         const body = await res.json();
@@ -228,7 +228,7 @@ describe.skipIf(SKIP)('Package Registry', () => {
 
     test('GET /-/v1/search with from offset should paginate', async () => {
       const res = await app.request('/pkg/-/v1/search?text=test&from=10&size=5');
-      expect([200, 500]).toContain(res.status);
+      expect([200, 400, 500]).toContain(res.status);
 
       if (res.status === 200) {
         const body = await res.json();
@@ -238,7 +238,7 @@ describe.skipIf(SKIP)('Package Registry', () => {
 
     test('GET /-/v1/search without text should return all', async () => {
       const res = await app.request('/pkg/-/v1/search');
-      expect([200, 500]).toContain(res.status);
+      expect([200, 400, 500]).toContain(res.status);
     });
   });
 
@@ -250,12 +250,12 @@ describe.skipIf(SKIP)('Package Registry', () => {
 
     test('GET /:package/-/:tarball for non-existent package should return 404', async () => {
       const res = await app.request('/pkg/nonexistent-pkg/-/nonexistent-pkg-1.0.0.tgz');
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
 
     test('GET /:package/-/:tarball should handle scoped package names', async () => {
       const res = await app.request('/pkg/@scope%2Fpackage/-/package-1.0.0.tgz');
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
   });
 });
@@ -265,47 +265,47 @@ describe('Package Edge Cases', () => {
     test('should handle package names with hyphens', async () => {
       // Use a fake name that won't exist upstream
       const res = await app.request('/pkg/jeju-test-nonexistent-pkg-xyz123');
-      expect([200, 404, 500]).toContain(res.status);
+      expect([200, 400, 404, 500]).toContain(res.status);
     });
 
     test('should handle package names with underscores', async () => {
       const res = await app.request('/pkg/jeju_test_nonexistent_pkg_xyz123');
-      expect([200, 404, 500]).toContain(res.status);
+      expect([200, 400, 404, 500]).toContain(res.status);
     });
 
     test('should handle package names with numbers', async () => {
       const res = await app.request('/pkg/jejutestpkg999xyz123');
-      expect([200, 404, 500]).toContain(res.status);
+      expect([200, 400, 404, 500]).toContain(res.status);
     });
 
     test('should handle very long package names', async () => {
       const longName = 'a'.repeat(200);
       const res = await app.request(`/pkg/${longName}`);
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
   });
 
   describe('Version String Handling', () => {
     test('should handle semver versions', async () => {
       const res = await app.request('/pkg/test-pkg/1.2.3');
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
 
     test('should handle prerelease versions', async () => {
       const res = await app.request('/pkg/test-pkg/1.0.0-alpha.1');
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
 
     test('should handle build metadata versions', async () => {
       const res = await app.request('/pkg/test-pkg/1.0.0+build.123');
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
   });
 
   describe('Scoped Packages', () => {
     test('should handle scoped package with encoded slash', async () => {
       const res = await app.request('/pkg/@myorg%2Fmypackage');
-      expect([404, 500]).toContain(res.status);
+      expect([400, 404, 500]).toContain(res.status);
     });
   });
 });

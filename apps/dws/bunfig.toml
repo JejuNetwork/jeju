@@ -11,3 +11,10 @@ retry = 1
 # Exclude frontend tests - they use Playwright and must be run separately
 # Run frontend tests with: cd frontend && bun run test
 # Run synpress tests with: cd frontend && bun run test:e2e:full
+root = "."
+
+# Only test these patterns
+include = ["**/*.test.ts"]
+
+# Exclude frontend Playwright tests
+exclude = ["**/frontend/**", "**/node_modules/**"]

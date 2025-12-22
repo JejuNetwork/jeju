@@ -8,9 +8,9 @@ const IDENTITY_REGISTRY_ABI = parseAbi([
 
 const BAN_MANAGER_ABI = parseAbi([
   'function isAccessAllowed(uint256 agentId, bytes32 appId) external view returns (bool)',
-  'function isBanned(uint256 agentId) external view returns (bool)',
-  'function getBanReason(uint256 agentId) external view returns (string memory)',
-  'function getBanExpiry(uint256 agentId) external view returns (uint256)',
+  'function isNetworkBanned(uint256 agentId) external view returns (bool)',
+  'function getNetworkBan(uint256 agentId) external view returns (bool isBanned, uint256 bannedAt, string reason, bytes32 proposalId)',
+  'function getBanReason(uint256 agentId, bytes32 appId) external view returns (string memory)',
 ]);
 
 const REPUTATION_MANAGER_ABI = parseAbi([
@@ -51,33 +51,20 @@ export async function checkUserBan(userAddress: Address, appId?: string): Promis
 
   if (!agentId || agentId === 0n) return { allowed: true };
 
-  const isBanned = await publicClient.readContract({
+  const banResult = await publicClient.readContract({
     address: BAN_MANAGER_ADDRESS,
     abi: BAN_MANAGER_ABI,
-    functionName: 'isBanned',
+    functionName: 'getNetworkBan',
     args: [agentId],
-  });
+  }) as [boolean, bigint, string, `0x${string}`];
+
+  const [isBanned, , reason] = banResult;
 
   if (isBanned) {
-    const [reason, expiry] = await Promise.all([
-      publicClient.readContract({
-        address: BAN_MANAGER_ADDRESS,
-        abi: BAN_MANAGER_ABI,
-        functionName: 'getBanReason',
-        args: [agentId],
-      }),
-      publicClient.readContract({
-        address: BAN_MANAGER_ADDRESS,
-        abi: BAN_MANAGER_ABI,
-        functionName: 'getBanExpiry',
-        args: [agentId],
-      }),
-    ]);
-
     return {
       allowed: false,
-      reason: reason as string,
-      bannedUntil: Number(expiry),
+      reason: reason,
+      bannedUntil: 0, // Network bans don't have expiry in BanManager
     };
   }
 
