@@ -92,6 +92,9 @@ test-results/
 **/__pycache__/
 **/*.cpython-314.pyc
 
+# ML model files
+*.safetensors
+
 # Private keys - NEVER commit
 packages/deployment/.keys/
 
