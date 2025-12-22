@@ -1,26 +1,92 @@
 /**
- * Jeju DWS Distributed Training Module
+ * Jeju DWS Training Module
  *
- * Complete distributed training infrastructure with:
- * - Atropos API server for rollout coordination
- * - Psyche SDK integration for Solana-based distributed training
- * - Cross-chain bridge for Solana ↔ Jeju EVM
- * - GRPO trainer for reinforcement learning
- * - DWS integration for job management
- * - Environment implementations for various training tasks
+ * Re-exports from the consolidated @jejunetwork/training package.
+ *
+ * @deprecated Import directly from @jejunetwork/training instead
  */
 
-// Core components
-export * from './atropos-server';
-export * from './cross-chain-bridge';
-export * from './grpo-trainer';
-export * from './psyche-client';
-export * from './dws-integration';
-
-// Environments
-export * from './environments/fundamental-prediction';
-export * from './environments/tic-tac-toe';
-
-// Integrations
-export * from './crucible-integration';
-export * from './autocrat-integration';
+// Re-export everything from the training package
+export {
+  // GRPO
+  createAtroposServer,
+  startAtroposServer,
+  createDistributedGRPOTrainer,
+  createGRPOTrainer,
+  DistributedGRPOTrainer,
+  GRPOTrainer,
+  type AtroposState,
+  type AtroposEnvConfig,
+  type AtroposMessage,
+  type BatchData,
+  type Registration,
+  type RegisterEnv,
+  type ScoredData,
+  type TrainerStatus,
+  type TrainingConfig,
+  type TrainingMetrics,
+  // Psyche
+  createPsycheClient,
+  PsycheClient,
+  createCrossChainBridge,
+  CrossChainTrainingBridge,
+  type BridgeConfig,
+  type BridgedRunState,
+  type CheckpointData,
+  type ClientInfo,
+  type ClientRegistration,
+  type CoordinatorConfig,
+  type CoordinatorProgress,
+  type CoordinatorState,
+  type Model,
+  type PsycheConfig,
+  type PsycheTrainingMetrics,
+  type RewardDistribution,
+  type RunMetadata,
+  type WitnessProof,
+  // Environments
+  createTicTacToeEnv,
+  TicTacToeEnv,
+  trajectoryToTrainingFormat,
+  createFundamentalPredictionEnv,
+  FundamentalPredictionEnv,
+  type Board,
+  type Cell,
+  type GameState,
+  type GameStep,
+  type GameTrajectory,
+  type Move,
+  type Player,
+  type APIServerConfig,
+  type Completion,
+  type CompletionResult,
+  type FundamentalEnvConfig,
+  type FundamentalMessage,
+  type ScoredDataGroup,
+  type TrainingItem,
+  // Compute
+  createDWSClient,
+  DWSTrainingClient,
+  getDefaultDWSConfig,
+  isDWSAvailable,
+  type DWSClientConfig,
+  type DWSJobStatus,
+  type JudgeResult,
+  type RolloutData,
+  type TrainingJobRequest,
+  type TrainingJobResult,
+  type TrainingJobStatus,
+  // Integrations
+  createCrucibleTrainingClient,
+  CrucibleTrainingClient,
+  createAutocratTrainingClient,
+  AutocratTrainingClient,
+  type AgentTrajectory,
+  type CrucibleTrainingMetrics,
+  type ModelDeploymentProposal,
+  type TrainingAgentConfig,
+  type TrainingEnvironment,
+  type TrainingProposal,
+  type TrainingRun,
+  type TrajectoryStep,
+} from '@jejunetwork/training';

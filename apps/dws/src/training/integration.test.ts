@@ -12,19 +12,14 @@
  */
 
 import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import {
-  createAtroposServer,
-  startAtroposServer,
-  createGRPOTrainer,
-  createDistributedGRPOTrainer,
-  createPsycheClient,
-  createCrossChainBridge,
-  createDWSTrainingService,
-  createFundamentalPredictionEnv,
-  type ScoredData,
-  type TrainingJobRequest,
-  type RolloutBundle,
-} from './index';
+import { createAtroposServer } from './atropos-server';
+import { createGRPOTrainer, createDistributedGRPOTrainer } from './grpo-trainer';
+import { createPsycheClient } from './psyche-client';
+import { createCrossChainBridge } from './cross-chain-bridge';
+import { createDWSTrainingService } from './dws-integration';
+import { createFundamentalPredictionEnv } from './environments/fundamental-prediction';
+import type { ScoredData } from './atropos-server';
+import type { TrainingJobRequest } from './dws-integration';
 import { Keypair, PublicKey } from '@solana/web3.js';
 import type { Address, Hex } from 'viem';
 

@@ -129,7 +129,7 @@ async function main() {
   // ============================================================================
   console.log('\n[3/7] Submitting training job to DWS...');
   
-  const jobRes = await fetch(`http://localhost:${CONFIG.dwsPort}/training/jobs`, {
+  const jobRes = await fetch(`http://localhost:${CONFIG.dwsPort}/jobs`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -208,6 +208,14 @@ async function main() {
 
   console.log(`      Training on ${trainingTexts.length} examples`);
 
+  // Clean training texts for JSON serialization
+  const cleanedTexts = trainingTexts.slice(0, 100).map(t => 
+    t.replace(/[\n\r]/g, ' ').replace(/\s+/g, ' ').trim()
+  );
+  
+  // Base64 encode to avoid string escaping issues
+  const trainingDataB64 = Buffer.from(JSON.stringify(cleanedTexts)).toString('base64');
+
   // Run actual PyTorch training
   const pythonTraining = `
 import torch
@@ -216,6 +224,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, get_linear_schedul
 from torch.utils.data import Dataset, DataLoader
 import json
 import os
+import base64
 
 MODEL = "${CONFIG.modelName}"
 OUTPUT = "${CONFIG.trainedModelPath}"
@@ -223,8 +232,8 @@ EPOCHS = ${CONFIG.trainingEpochs}
 BATCH_SIZE = ${CONFIG.batchSize}
 LR = 5e-4
 
-# Training data from DWS
-training_texts = json.loads('''${JSON.stringify(trainingTexts.slice(0, 100))}''')
+# Training data from DWS (base64 encoded)
+training_texts = json.loads(base64.b64decode("${trainingDataB64}").decode('utf-8'))
 print(f"Training on {len(training_texts)} examples from DWS pipeline")
 
 tokenizer = AutoTokenizer.from_pretrained(MODEL)
@@ -279,7 +288,7 @@ print(f"Saved to {OUTPUT}")
   await trainProc.exited;
 
   // Update job status in DWS
-  const statusRes = await fetch(`http://localhost:${CONFIG.dwsPort}/training/jobs/${job.jobId}`);
+  const statusRes = await fetch(`http://localhost:${CONFIG.dwsPort}/jobs/${job.jobId}`);
   const status = await statusRes.json() as { status: string };
   console.log(`      DWS Job Status: ${status.status}`);
 

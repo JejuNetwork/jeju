@@ -24,6 +24,7 @@
     "@jejunetwork/db": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
+    "@jejunetwork/training": "workspace:*",
     "@jejunetwork/eliza-plugin": "workspace:*",
     "@solana/web3.js": "1.98.4",
     "hono": "4.11.1",

@@ -307,14 +307,26 @@ export class CrossChainTrainingBridge {
     if (!this.evmWalletClient) {
       throw new Error('EVM wallet required for bridging')
     }
+    if (!this.solanaKeypair) {
+      throw new Error('Solana keypair required for signing bridge messages')
+    }
 
     const runIdBytes =
       `0x${Buffer.from(runId).toString('hex').padEnd(64, '0')}` as Hex
     const modelHash =
       `0x${Buffer.from(solanaState.model.sha256).toString('hex').padEnd(64, '0')}` as Hex
 
-    // Create signature placeholder (in production, this would be a Solana signature)
-    const solanaSignature = new Uint8Array(64)
+    // Create message to sign: runId + epoch + step + clientCount
+    const message = new Uint8Array(32 + 4 + 8 + 4)
+    Buffer.from(runId.slice(0, 32)).copy(Buffer.from(message.buffer), 0)
+    const view = new DataView(message.buffer)
+    view.setUint32(32, solanaState.currentEpoch, true)
+    view.setBigUint64(36, BigInt(solanaState.totalSteps), true)
+    view.setUint32(44, solanaState.clients.length, true)
+
+    // Sign with Solana keypair using nacl
+    const { sign } = await import('tweetnacl')
+    const solanaSignature = sign.detached(message, this.solanaKeypair.secretKey)
 
     const hash = await this.evmWalletClient.writeContract({
       address: this.config.bridgeContractAddress,
