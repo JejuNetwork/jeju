@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test'
-import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests'
+import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/playwright-only'
 
 test.describe('Bazaar Homepage', () => {
   test('should display homepage with all features', async ({ page }) => {
@@ -18,14 +18,14 @@ test.describe('Bazaar Homepage', () => {
           name: 'features-visible',
           action: async () => {
             // Check title
-            await expect(page.getByRole('heading', { name: /Welcome to Bazaar/i })).toBeVisible()
+            await expect(page.getByRole('heading', { name: /^Bazaar$/i })).toBeVisible()
 
-            // Check feature cards by looking for the heading inside each card
-            await expect(page.getByRole('heading', { name: /^Coins$/i })).toBeVisible()
-            await expect(page.getByRole('heading', { name: /^Swap$/i })).toBeVisible()
-            await expect(page.getByRole('heading', { name: /^Pools$/i })).toBeVisible()
-            await expect(page.getByRole('heading', { name: /^Markets$/i })).toBeVisible()
-            await expect(page.getByRole('heading', { name: /^Items$/i })).toBeVisible()
+            // Check feature links on homepage cards
+            await expect(page.getByRole('link', { name: /Coins/i }).first()).toBeVisible()
+            await expect(page.getByRole('link', { name: /Swap/i }).first()).toBeVisible()
+            await expect(page.getByRole('link', { name: /Pools/i }).first()).toBeVisible()
+            await expect(page.getByRole('link', { name: /Predict/i }).first()).toBeVisible()
+            await expect(page.getByRole('link', { name: /NFTs/i }).first()).toBeVisible()
           },
         },
       ],
@@ -78,8 +78,8 @@ test.describe('Bazaar Homepage', () => {
     await expect(page.getByRole('link', { name: /^Coins$/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /^Swap$/i })).toBeVisible()
     await expect(page.getByRole('link', { name: /^Pools$/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /^Markets$/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /^Items$/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /^Predict$/i })).toBeVisible()
+    await expect(page.getByRole('link', { name: /^NFTs$/i })).toBeVisible()
 
     // Capture final state with all nav items visible
     await captureScreenshot(page, {

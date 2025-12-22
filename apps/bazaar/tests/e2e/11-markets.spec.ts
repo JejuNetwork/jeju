@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '@jejunetwork/tests';
+import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only';
 
 test.describe('Markets Page', () => {
   test('should display markets page without errors', async ({ page }) => {

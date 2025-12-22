@@ -465,6 +465,11 @@ export function getCrucibleUrl(network?: NetworkType): string {
   return getServicesConfig(network).crucible.api;
 }
 
+/** Get SecurityBountyRegistry contract address */
+export function getSecurityBountyRegistryAddress(network?: NetworkType): string {
+  return getContract('security', 'bountyRegistry', network);
+}
+
 export function getBridgeContractAddress(
   network: NetworkType,
   layer: 'l1' | 'l2',

@@ -4,7 +4,7 @@ Decentralized agent orchestration platform for autonomous AI agents.
 
 ## Overview
 
-Crucible provides agent deployment with **ElizaOS + @jejunetwork/eliza-plugin**, giving agents access to **60+ network actions**:
+Crucible provides **fully decentralized** agent deployment using the DWS compute network for AI inference. Agents use **@jejunetwork/eliza-plugin** which provides **60+ network actions**:
 
 - **Compute**: GPU rental, inference, triggers
 - **Storage**: IPFS upload/download, pinning
@@ -25,70 +25,92 @@ Crucible provides agent deployment with **ElizaOS + @jejunetwork/eliza-plugin**,
 ├─────────────────┴─────────────────┴─────────────────────────────┤
 │                     Agent Runtime                                │
 │  ┌──────────────────────────────────────────────────────────┐   │
-│  │ ElizaOS AgentRuntime + @jejunetwork/eliza-plugin         │   │
+│  │ Character-based agents + @jejunetwork/eliza-plugin       │   │
 │  │ (60+ network actions)                                     │   │
 │  └──────────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────────┤
-│                     Smart Contracts                              │
+│                  Decentralized Services                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ AgentVault   │  │ RoomRegistry │  │ TriggerRegistry      │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
-├─────────────────────────────────────────────────────────────────┤
-│                  External Services                               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ IPFS Storage │  │ DWS Compute  │  │ ERC-8004 Registry    │   │
+│  │ DWS Compute  │  │ IPFS Storage │  │ On-chain Contracts   │   │
+│  │ (Inference)  │  │              │  │                      │   │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-## Quick Start
+All AI inference goes through the decentralized DWS compute network - no centralized API dependencies.
+
+## Local Development
 
 ### Prerequisites
 
 - Bun 1.0+
-- Running DWS service (for inference)
-- Running storage service (IPFS)
-- Local chain (anvil) or testnet access
+- Anvil (foundry) for local blockchain
+- At least one AI provider API key (GROQ_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY)
 
-### Installation
+### Quick Start (Full Stack)
 
-```bash
-bun install
-```
-
-### Configuration
+The `bun run dev` script starts the entire local decentralized stack:
 
 ```bash
-# Required
-export PRIVATE_KEY=0x...
-export RPC_URL=http://127.0.0.1:6546
-export NETWORK=localnet # or testnet, mainnet
-
-# Contract addresses (after deployment)
-export AGENT_VAULT_ADDRESS=0x...
-export ROOM_REGISTRY_ADDRESS=0x...
-export TRIGGER_REGISTRY_ADDRESS=0x...
-export IDENTITY_REGISTRY_ADDRESS=0x...
-export SERVICE_REGISTRY_ADDRESS=0x...
-
-# Services
-export STORAGE_API_URL=http://127.0.0.1:3100
-export IPFS_GATEWAY=http://127.0.0.1:3100
-export COMPUTE_MARKETPLACE_URL=http://127.0.0.1:4007
-export INDEXER_GRAPHQL_URL=http://127.0.0.1:4350/graphql
-export PORT=3000
-```
-
-### Run API Server
-
-```bash
+cd apps/crucible
 bun run dev
 ```
 
-### Run Executor Daemon
+This automatically starts:
+1. **Localnet** (anvil) - Local blockchain on port 9545
+2. **Contracts** - Deploys Crucible smart contracts
+3. **DWS** - Decentralized Workstation Service on port 4030
+4. **Inference Node** - Local AI inference node on port 4031 (registers with DWS)
+5. **Crucible** - Agent orchestration API on port 3000
+
+### Configuration
+
+Set at least one AI provider API key for the inference node:
 
 ```bash
-bun run executor
+# At least one of these (for inference node)
+export GROQ_API_KEY=gsk_...        # Recommended - fast & free
+export OPENAI_API_KEY=sk-...       # OpenAI
+export ANTHROPIC_API_KEY=sk-...    # Anthropic
+```
+
+Optional configuration:
+
+```bash
+export PORT=3000                   # Crucible API port
+export NETWORK=localnet            # localnet, testnet, or mainnet
+export PRIVATE_KEY=0x...           # For on-chain operations
+```
+
+### Manual Service Startup
+
+If you need to start services individually:
+
+```bash
+# 1. Start localnet
+anvil --port 9545
+
+# 2. Start DWS
+cd apps/dws && bun run dev
+
+# 3. Start inference node (required for AI inference)
+cd apps/dws && bun run inference
+
+# 4. Start Crucible
+cd apps/crucible && bun run dev:server
+```
+
+### Verify Stack is Running
+
+```bash
+# Check DWS
+curl http://localhost:4030/health
+
+# Check inference node status
+curl http://localhost:4030/compute/nodes/stats
+
+# Check Crucible
+curl http://localhost:3000/health
 ```
 
 ## API Reference
@@ -96,55 +118,36 @@ bun run executor
 ### Chat with Agents
 
 ```bash
-# Chat with an agent
-POST /api/v1/chat/:characterId
-{
-  "text": "Hello, agent!",
-  "userId": "user-123",
-  "roomId": "room-456"
-}
+# Chat with an agent (decentralized inference via DWS)
+curl -X POST http://localhost:3000/api/v1/chat/project-manager \
+  -H "Content-Type: application/json" \
+  -d '{"text": "Hello!", "userId": "user-1", "roomId": "room-1"}'
 
 # Response
 {
-  "text": "...",
-  "action": "SWAP_TOKENS",
+  "text": "Hello! I'm Jimmy, your project manager...",
   "character": "project-manager"
 }
 ```
 
-### Initialize Runtimes
+### List Available Characters
 
 ```bash
-# Initialize all character runtimes
-POST /api/v1/chat/init
-
-# Response
-{
-  "initialized": 7,
-  "total": 7,
-  "results": { ... }
-}
+curl http://localhost:3000/api/v1/chat/characters
 ```
 
-### Characters
+### Initialize All Runtimes
 
 ```bash
-# List character templates
-GET /api/v1/characters
-
-# Get specific character
-GET /api/v1/characters/:id
+curl -X POST http://localhost:3000/api/v1/chat/init
 ```
 
-### Agents
+### Agent Management
 
 ```bash
 # Register new agent
 POST /api/v1/agents
-{
-  "character": { ... },
-  "initialFunding": "10000000000000000"
-}
+{ "character": { ... }, "initialFunding": "10000000000000000" }
 
 # Get agent
 GET /api/v1/agents/:agentId
@@ -158,17 +161,12 @@ POST /api/v1/agents/:agentId/memory
 { "content": "User prefers TypeScript" }
 ```
 
-### Rooms
+### Room Coordination
 
 ```bash
 # Create room
 POST /api/v1/rooms
-{
-  "name": "Security Challenge",
-  "description": "Red vs Blue",
-  "roomType": "adversarial",
-  "config": { "maxMembers": 10 }
-}
+{ "name": "Security Challenge", "roomType": "adversarial" }
 
 # Join room
 POST /api/v1/rooms/:roomId/join
@@ -195,71 +193,51 @@ POST /api/v1/rooms/:roomId/message
 
 Agents have access to all @jejunetwork/eliza-plugin actions:
 
-### Compute
-- `RENT_GPU` - Rent GPU from compute marketplace
-- `RUN_INFERENCE` - Execute AI inference
-- `CREATE_TRIGGER` - Set up cron/webhook triggers
-
-### Storage
-- `UPLOAD_FILE` - Upload to IPFS
-- `RETRIEVE_FILE` - Download from IPFS
-- `PIN_CID` - Pin content
-
-### DeFi
-- `SWAP_TOKENS` - Token swaps
-- `ADD_LIQUIDITY` - LP provisioning
-- `LIST_POOLS` - View available pools
-
-### Governance
-- `CREATE_PROPOSAL` - Submit governance proposals
-- `VOTE` - Cast votes
-
-### Cross-chain
-- `CROSS_CHAIN_TRANSFER` - Bridge assets
-- `CREATE_INTENT` - Submit intents
-- `TRACK_INTENT` - Monitor intent status
-
-### A2A Protocol
-- `CALL_AGENT` - Call another agent
-- `DISCOVER_AGENTS` - Find available agents
+- **Compute**: `RENT_GPU`, `RUN_INFERENCE`, `CREATE_TRIGGER`
+- **Storage**: `UPLOAD_FILE`, `RETRIEVE_FILE`, `PIN_CID`
+- **DeFi**: `SWAP_TOKENS`, `ADD_LIQUIDITY`, `LIST_POOLS`
+- **Governance**: `CREATE_PROPOSAL`, `VOTE`
+- **Cross-chain**: `CROSS_CHAIN_TRANSFER`, `CREATE_INTENT`, `TRACK_INTENT`
+- **A2A Protocol**: `CALL_AGENT`, `DISCOVER_AGENTS`
 
 See `@jejunetwork/eliza-plugin` for the full list of 60+ actions.
 
-## Adding New Capabilities
+## Deployment
 
-### For Users: Custom Plugins
+### Testnet
 
-Create an ElizaOS plugin and pass it to the runtime:
+Deploy to testnet by pointing to testnet DWS:
 
-```typescript
-import { runtimeManager } from '@jejunetwork/crucible';
-
-const myPlugin = {
-  name: 'my-plugin',
-  actions: [myAction1, myAction2],
-  providers: [myProvider],
-};
-
-const runtime = await runtimeManager.createRuntime({
-  agentId: 'my-agent',
-  character: myCharacter,
-  plugins: [myPlugin],
-});
+```bash
+export NETWORK=testnet
+export DWS_URL=https://dws-testnet.jejunetwork.org
+export RPC_URL=https://base-sepolia-rpc.jejunetwork.org
+# ... other testnet contract addresses
+bun run dev:server
 ```
 
-### For Jeju Devs: Extending @jejunetwork/eliza-plugin
+### Production (Mainnet)
 
-1. Add action in `packages/eliza-plugin/src/actions/`
-2. Import and add to the `actions` array in `index.ts`
-3. Build and publish
+For production, deploy Crucible as a container that connects to the mainnet DWS network:
+
+```bash
+docker build -t crucible .
+docker run -e NETWORK=mainnet \
+  -e DWS_URL=https://dws.jejunetwork.org \
+  -e RPC_URL=https://base-mainnet-rpc.jejunetwork.org \
+  crucible
+```
 
 ## Testing
 
 ```bash
 # Unit tests
-bun test src/
+bun test
 
-# Synpress wallet tests
+# Integration tests (requires local stack)
+bun run test:integration
+
+# Wallet tests (Synpress)
 bun run test:wallet
 ```
 

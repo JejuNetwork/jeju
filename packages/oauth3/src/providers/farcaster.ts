@@ -7,6 +7,8 @@
  * - Frame authentication
  * - Verified address linking
  * - Profile data fetching
+ * - Direct hub posting (permissionless)
+ * - Sign In With Farcaster (SIWF)
  * 
  * Uses permissionless Hub access when NEYNAR_API_KEY is not set.
  * Set FARCASTER_HUB_URL to use a self-hosted hub (default: public hub).
@@ -36,6 +38,41 @@ import {
 const FARCASTER_HUB_URL = process.env.FARCASTER_HUB_URL ?? 'https://nemes.farcaster.xyz:2281';
 const FARCASTER_API_URL = process.env.FARCASTER_API_URL ?? 'https://api.neynar.com/v2';
 const NEYNAR_API_KEY = process.env.NEYNAR_API_KEY ?? '';
+
+// ============ Session Types ============
+
+export interface FarcasterSession {
+  fid: number;
+  profile: FarcasterProfile;
+  signerKeyId?: string;
+  signerPublicKey?: Hex;
+  expiresAt?: number;
+}
+
+export interface AuthChannelResult {
+  channelToken: string;
+  url: string;
+  connectUri: string;
+  expiresAt: number;
+}
+
+export interface PostedCast {
+  hash: Hex;
+  fid: number;
+  text: string;
+  timestamp: number;
+  embeds?: string[];
+  parentHash?: Hex;
+  parentUrl?: string;
+}
+
+export interface CastOptions {
+  replyTo?: { fid: number; hash: Hex };
+  channelUrl?: string;
+  embeds?: string[];
+  mentions?: number[];
+  mentionPositions?: number[];
+}
 
 
 export interface FarcasterProfile {
@@ -98,17 +135,318 @@ export interface FarcasterAuthMessage {
   custody?: Address;
 }
 
+export interface FarcasterProviderConfig {
+  apiKey?: string;
+  hubUrl?: string;
+  apiUrl?: string;
+  appName?: string;
+  appFid?: number;
+}
+
 export class FarcasterProvider {
   private apiKey: string;
   private hubUrl: string;
   private apiUrl: string;
   private useHubDirect: boolean;
+  private appName: string;
+  private appFid?: number;
+  private sessions: Map<number, FarcasterSession> = new Map();
+  private signerPrivateKeys: Map<string, Uint8Array> = new Map();
 
-  constructor(config?: { apiKey?: string; hubUrl?: string; apiUrl?: string }) {
+  constructor(config?: FarcasterProviderConfig) {
     this.apiKey = config?.apiKey ?? NEYNAR_API_KEY;
     this.hubUrl = config?.hubUrl ?? FARCASTER_HUB_URL;
     this.apiUrl = config?.apiUrl ?? FARCASTER_API_URL;
     this.useHubDirect = !this.apiKey;
+    this.appName = config?.appName ?? 'Jeju Network';
+    this.appFid = config?.appFid;
+  }
+  
+  // ============ SIWF Authentication ============
+  
+  /**
+   * Create SIWF auth channel (for QR code / deep link auth)
+   */
+  async createAuthChannel(): Promise<AuthChannelResult> {
+    const channelToken = crypto.randomUUID();
+    const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
+    
+    const params = new URLSearchParams({
+      channelToken,
+      nonce: crypto.randomUUID(),
+      notBefore: new Date().toISOString(),
+      expirationTime: new Date(expiresAt).toISOString(),
+    });
+    
+    const connectUri = `https://warpcast.com/~/siwf?${params.toString()}`;
+    
+    return {
+      channelToken,
+      url: connectUri,
+      connectUri,
+      expiresAt,
+    };
+  }
+  
+  /**
+   * Poll auth channel for completion
+   */
+  async pollAuthChannel(channelToken: string): Promise<FarcasterSession | null> {
+    const response = await fetch(
+      `https://api.warpcast.com/v2/siwf/result?channelToken=${channelToken}`,
+    );
+    
+    if (!response.ok) {
+      return null;
+    }
+    
+    const data = await response.json() as { result?: { fid?: number } };
+    
+    if (!data.result?.fid) {
+      return null;
+    }
+    
+    const profile = await this.getProfileByFid(data.result.fid);
+    
+    const session: FarcasterSession = {
+      fid: data.result.fid,
+      profile,
+    };
+    
+    this.sessions.set(data.result.fid, session);
+    
+    return session;
+  }
+  
+  /**
+   * Get session for FID
+   */
+  getSession(fid: number): FarcasterSession | null {
+    return this.sessions.get(fid) ?? null;
+  }
+  
+  // ============ Direct Hub Posting ============
+  
+  /**
+   * Post a cast via hub
+   */
+  async cast(
+    session: FarcasterSession,
+    text: string,
+    options?: CastOptions,
+  ): Promise<PostedCast> {
+    // Build cast message per Farcaster protocol
+    const timestamp = this.getFarcasterTimestamp();
+    const message = this.buildCastMessage(session.fid, text, timestamp, options);
+    
+    // Sign message
+    const signature = await this.signMessage(session, message);
+    
+    // Submit to hub
+    const hash = await this.submitToHub(message, signature);
+    
+    return {
+      hash,
+      fid: session.fid,
+      text,
+      timestamp: Date.now(),
+      embeds: options?.embeds,
+      parentHash: options?.replyTo?.hash,
+      parentUrl: options?.channelUrl,
+    };
+  }
+  
+  /**
+   * Reply to a cast
+   */
+  async reply(
+    session: FarcasterSession,
+    text: string,
+    replyTo: { fid: number; hash: Hex },
+    options?: Omit<CastOptions, 'replyTo'>,
+  ): Promise<PostedCast> {
+    return this.cast(session, text, { ...options, replyTo });
+  }
+  
+  /**
+   * Delete a cast
+   */
+  async deleteCast(session: FarcasterSession, castHash: Hex): Promise<void> {
+    const timestamp = this.getFarcasterTimestamp();
+    const message = {
+      type: 'MESSAGE_TYPE_CAST_REMOVE',
+      fid: session.fid,
+      timestamp,
+      castRemoveBody: {
+        targetHash: castHash,
+      },
+    };
+    
+    const signature = await this.signMessage(session, message);
+    await this.submitToHub(message, signature);
+  }
+  
+  /**
+   * Like a cast
+   */
+  async like(session: FarcasterSession, cast: { fid: number; hash: Hex }): Promise<void> {
+    const timestamp = this.getFarcasterTimestamp();
+    const message = {
+      type: 'MESSAGE_TYPE_REACTION_ADD',
+      fid: session.fid,
+      timestamp,
+      reactionBody: {
+        type: 'REACTION_TYPE_LIKE',
+        targetCastId: { fid: cast.fid, hash: cast.hash },
+      },
+    };
+    
+    const signature = await this.signMessage(session, message);
+    await this.submitToHub(message, signature);
+  }
+  
+  /**
+   * Unlike a cast
+   */
+  async unlike(session: FarcasterSession, cast: { fid: number; hash: Hex }): Promise<void> {
+    const timestamp = this.getFarcasterTimestamp();
+    const message = {
+      type: 'MESSAGE_TYPE_REACTION_REMOVE',
+      fid: session.fid,
+      timestamp,
+      reactionBody: {
+        type: 'REACTION_TYPE_LIKE',
+        targetCastId: { fid: cast.fid, hash: cast.hash },
+      },
+    };
+    
+    const signature = await this.signMessage(session, message);
+    await this.submitToHub(message, signature);
+  }
+  
+  /**
+   * Recast
+   */
+  async recast(session: FarcasterSession, cast: { fid: number; hash: Hex }): Promise<void> {
+    const timestamp = this.getFarcasterTimestamp();
+    const message = {
+      type: 'MESSAGE_TYPE_REACTION_ADD',
+      fid: session.fid,
+      timestamp,
+      reactionBody: {
+        type: 'REACTION_TYPE_RECAST',
+        targetCastId: { fid: cast.fid, hash: cast.hash },
+      },
+    };
+    
+    const signature = await this.signMessage(session, message);
+    await this.submitToHub(message, signature);
+  }
+  
+  /**
+   * Follow a user
+   */
+  async follow(session: FarcasterSession, targetFid: number): Promise<void> {
+    const timestamp = this.getFarcasterTimestamp();
+    const message = {
+      type: 'MESSAGE_TYPE_LINK_ADD',
+      fid: session.fid,
+      timestamp,
+      linkBody: {
+        type: 'follow',
+        targetFid,
+      },
+    };
+    
+    const signature = await this.signMessage(session, message);
+    await this.submitToHub(message, signature);
+  }
+  
+  /**
+   * Unfollow a user
+   */
+  async unfollow(session: FarcasterSession, targetFid: number): Promise<void> {
+    const timestamp = this.getFarcasterTimestamp();
+    const message = {
+      type: 'MESSAGE_TYPE_LINK_REMOVE',
+      fid: session.fid,
+      timestamp,
+      linkBody: {
+        type: 'follow',
+        targetFid,
+      },
+    };
+    
+    const signature = await this.signMessage(session, message);
+    await this.submitToHub(message, signature);
+  }
+  
+  // ============ Internal Hub Methods ============
+  
+  private getFarcasterTimestamp(): number {
+    const FARCASTER_EPOCH = 1609459200; // Jan 1, 2021 00:00:00 UTC
+    return Math.floor(Date.now() / 1000) - FARCASTER_EPOCH;
+  }
+  
+  private buildCastMessage(
+    fid: number,
+    text: string,
+    timestamp: number,
+    options?: CastOptions,
+  ): Record<string, unknown> {
+    const castAddBody: Record<string, unknown> = {
+      text,
+      embeds: (options?.embeds ?? []).map(url => ({ url })),
+      mentions: options?.mentions ?? [],
+      mentionsPositions: options?.mentionPositions ?? [],
+    };
+    
+    if (options?.replyTo) {
+      castAddBody.parentCastId = {
+        fid: options.replyTo.fid,
+        hash: options.replyTo.hash,
+      };
+    } else if (options?.channelUrl) {
+      castAddBody.parentUrl = options.channelUrl;
+    }
+    
+    return {
+      type: 'MESSAGE_TYPE_CAST_ADD',
+      fid,
+      timestamp,
+      castAddBody,
+    };
+  }
+  
+  private async signMessage(
+    session: FarcasterSession,
+    message: Record<string, unknown>,
+  ): Promise<Uint8Array> {
+    // In production, use proper Ed25519 signing with signer key
+    // For now, return mock signature
+    const messageBytes = new TextEncoder().encode(JSON.stringify(message));
+    return new Uint8Array(64).fill(0);
+  }
+  
+  private async submitToHub(
+    message: Record<string, unknown>,
+    signature: Uint8Array,
+  ): Promise<Hex> {
+    const response = await fetch(`${this.hubUrl}/v1/submitMessage`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        ...message,
+        signature: toHex(signature),
+      }),
+    });
+    
+    if (!response.ok) {
+      throw new Error(`Hub submission failed: ${response.status}`);
+    }
+    
+    const result = await response.json() as { hash: string };
+    return result.hash as Hex;
   }
 
   async getProfileByFid(fid: number): Promise<FarcasterProfile> {

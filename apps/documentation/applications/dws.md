@@ -1,19 +1,46 @@
 # DWS (Decentralized Web Services)
 
-Decentralized cloud infrastructure - compute, storage, CDN, and more.
+Compute, storage, and CDN in one package.
 
-## Overview
+## What It Does
 
-DWS provides AWS/GCP-like services on a decentralized network:
-
-- **Compute** - Run containers, serverless functions, AI inference
-- **Storage** - IPFS-backed object storage with pinning
-- **CDN** - Edge caching and content delivery
-- **Triggers** - Cron jobs and event-driven execution
-
-All services are payable in JEJU, USDC, or other registered tokens.
+| Service | Description |
+|---------|-------------|
+| **Compute** | GPU rental, AI inference |
+| **Storage** | IPFS upload, pinning |
+| **CDN** | Edge caching, JNS gateway |
 
 ## Quick Start
+
+### Using the SDK
+
+```typescript
+import { createJejuClient } from '@jejunetwork/sdk';
+
+const jeju = await createJejuClient({
+  network: 'testnet',
+  privateKey: process.env.PRIVATE_KEY as `0x${string}`,
+});
+
+// Upload a file
+const cid = await jeju.storage.upload(file);
+console.log('CID:', cid);
+
+// Run inference
+const result = await jeju.compute.inference({
+  model: 'llama3.2',
+  prompt: 'Hello',
+});
+console.log(result.text);
+
+// Rent GPU
+const rental = await jeju.compute.createRental({
+  provider: providerAddress,
+  durationHours: 2,
+});
+```
+
+### Running DWS Locally
 
 ```bash
 cd apps/dws
@@ -21,139 +48,112 @@ bun install
 bun run dev
 ```
 
-DWS runs on http://localhost:4008
+Runs on http://localhost:4007
 
-## Features
+## Storage
 
-### Compute
-
-Deploy containers and serverless functions:
+### Upload
 
 ```typescript
-import { createJejuClient } from '@jejunetwork/sdk';
-
-const jeju = await createJejuClient({ network: 'mainnet', privateKey });
-
-// Deploy a container
-const container = await jeju.dws.deploy({
-  image: 'myapp:latest',
-  ports: [3000],
-  env: { NODE_ENV: 'production' },
-  resources: { cpu: 2, memory: '4Gi' },
-});
-
-console.log(`Running at: ${container.url}`);
+const cid = await jeju.storage.upload(file);
 ```
 
-### AI Inference
+### Pin
 
-Run inference on decentralized compute:
+```typescript
+await jeju.storage.pin(cid, {
+  duration: 30 * 24 * 60 * 60, // 30 days
+});
+```
+
+### Download
+
+```typescript
+const data = await jeju.storage.get(cid);
+```
+
+### Check Status
+
+```typescript
+const pins = await jeju.storage.listPins();
+```
+
+## Compute
+
+### List Providers
+
+```typescript
+const providers = await jeju.compute.listProviders();
+```
+
+### List Models
+
+```typescript
+const models = await jeju.compute.listModels();
+```
+
+### Run Inference
 
 ```typescript
 const result = await jeju.compute.inference({
   model: 'llama3.2',
-  prompt: 'Explain cross-chain intents',
-  maxTokens: 500,
+  prompt: 'Explain DeFi',
+  maxTokens: 100,
 });
 ```
 
-### Storage
-
-Upload and pin files to IPFS:
+### Rent GPU
 
 ```typescript
-// Upload file
-const cid = await jeju.storage.upload(file);
-
-// Pin for persistence
-await jeju.storage.pin(cid, { duration: 30 * 24 * 60 * 60 }); // 30 days
-
-// Get file
-const data = await jeju.storage.get(cid);
-```
-
-### CDN
-
-Serve content from edge nodes:
-
-```typescript
-// Create CDN distribution
-const cdn = await jeju.cdn.create({
-  origin: `ipfs://${cid}`,
-  domain: 'assets.myapp.jeju',
-});
-```
-
-### Triggers
-
-Schedule automated tasks:
-
-```typescript
-// Cron trigger
-await jeju.dws.createTrigger({
-  type: 'cron',
-  schedule: '0 */6 * * *', // Every 6 hours
-  endpoint: 'https://myapp.com/api/sync',
+const rental = await jeju.compute.createRental({
+  provider: '0x...',
+  durationHours: 2,
 });
 
-// Webhook trigger
-await jeju.dws.createTrigger({
-  type: 'webhook',
-  url: 'https://myapp.com/api/webhook',
-  secret: 'my-secret',
-});
+// End early
+await jeju.compute.endRental(rental.id);
 ```
 
-## Pricing
+## CDN
 
-| Service | Price |
-|---------|-------|
-| Compute (per vCPU-hour) | 0.01 USDC |
-| Storage (per GB/month) | 0.02 USDC |
-| Bandwidth (per GB) | 0.001 USDC |
-| Inference (per 1K tokens) | 0.002 USDC |
+DWS includes edge caching and a JNS gateway.
 
-## vs. Traditional Cloud
+### JNS Gateway
 
-| Feature | DWS | AWS/GCP |
-|---------|-----|---------|
-| Vendor lock-in | No | Yes |
-| Payment | Crypto | Credit card |
-| Censorship | Resistant | Subject to ToS |
-| Pricing | Transparent | Complex |
-| Decentralized | Yes | No |
+Access content via `.jeju` domains:
 
-## Node Operations
+```
+https://myapp.jeju.network/
+```
 
-Run DWS infrastructure to earn rewards:
+### Edge Nodes
+
+Content is cached at edge nodes for low latency.
+
+## Running a Node
+
+See [Compute Node](/operate/compute-node) and [Storage Node](/operate/storage-node).
+
+## API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/storage/upload` | POST | Upload file |
+| `/storage/:cid` | GET | Download file |
+| `/storage/pin` | POST | Pin CID |
+| `/compute/inference` | POST | Run inference |
+| `/compute/providers` | GET | List providers |
+| `/health` | GET | Health check |
+
+## Environment Variables
 
 ```bash
-# Start compute node
-bun run node
-
-# Start with GPU for inference
-GPU_ENABLED=true bun run node
+NETWORK=localnet
+RPC_URL=http://127.0.0.1:9545
+PRIVATE_KEY=0x...
+STORAGE_PATH=/data/ipfs
+COMPUTE_GPU_ENABLED=true
 ```
-
-Requirements:
-- **Compute Node**: 16+ cores, 64GB RAM, 1TB SSD
-- **Storage Node**: 8+ cores, 32GB RAM, 10TB storage
-- **Edge Node**: 4+ cores, 8GB RAM, low latency
-
-## Development
-
-```bash
-bun run dev          # Start server
-bun run dev:frontend # Start frontend
-bun run test         # Run tests
-bun run inference    # Local inference server
-```
-
-## Related
-
-- [SDK DWS Module](/build/sdk/dws) - Full SDK documentation
-- [Run Compute Node](/operate/compute-node) - Node operator guide
-- [Run Storage Node](/operate/storage-node) - Storage provider guide
 
 ---
 
@@ -163,49 +163,29 @@ bun run inference    # Local inference server
 ```
 DWS - Decentralized Web Services
 
-Decentralized alternative to AWS/GCP/Azure.
+Services: Compute + Storage + CDN
 
-Services:
-- Compute: Containers, serverless, AI inference
-- Storage: IPFS-backed with pinning
-- CDN: Edge caching and delivery
-- Triggers: Cron and event-driven execution
+Storage:
+await jeju.storage.upload(file) → cid
+await jeju.storage.pin(cid, { duration })
+await jeju.storage.get(cid)
 
-SDK Usage:
-// Deploy container
-const container = await jeju.dws.deploy({
-  image: 'myapp:latest',
-  ports: [3000],
-  resources: { cpu: 2, memory: '4Gi' },
-});
+Compute:
+await jeju.compute.listProviders()
+await jeju.compute.listModels()
+await jeju.compute.inference({ model: 'llama3.2', prompt })
+await jeju.compute.createRental({ provider, durationHours })
 
-// Upload to storage
-const cid = await jeju.storage.upload(file);
-await jeju.storage.pin(cid, { duration: 30*24*60*60 });
+Run locally:
+cd apps/dws && bun run dev
+Port: 4007
 
-// AI inference
-const result = await jeju.compute.inference({
-  model: 'llama3.2',
-  prompt: 'Explain cross-chain intents',
-});
-
-// Create trigger
-await jeju.dws.createTrigger({
-  type: 'cron',
-  schedule: '0 */6 * * *',
-  endpoint: 'https://myapp.com/api/sync',
-});
-
-Pricing:
-- Compute: 0.01 USDC/vCPU-hour
-- Storage: 0.02 USDC/GB/month
-- Bandwidth: 0.001 USDC/GB
-- Inference: 0.002 USDC/1K tokens
-
-Run a node:
-bun run node
-GPU_ENABLED=true bun run node
+API:
+POST /storage/upload
+GET /storage/:cid
+POST /storage/pin
+POST /compute/inference
+GET /compute/providers
 ```
 
 </details>
-

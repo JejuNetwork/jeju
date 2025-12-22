@@ -17,7 +17,7 @@
 import { Hono } from 'hono';
 import type { Context } from 'hono';
 import { cors } from 'hono/cors';
-import { createPublicClient, http, type Address, type Hex, keccak256 as viemKeccak256, toHex } from 'viem';
+import { createPublicClient, http, type Address, type Hex, type PublicClient, type Chain, type Transport, keccak256 as viemKeccak256, toHex } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
 import { normalize } from 'viem/ens';
 
@@ -197,7 +197,7 @@ function getMimeType(path: string): string {
 export class JNSGateway {
   private app: Hono;
   private config: JNSGatewayConfig;
-  private client: ReturnType<typeof createPublicClient>;
+  private client: PublicClient<Transport, Chain>;
   private localCache: Map<string, { content: ResolvedContent; expiry: number }> =
     new Map();
   private readonly CACHE_TTL = 300_000; // 5 minutes
@@ -216,7 +216,7 @@ export class JNSGateway {
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
-    });
+    }) as PublicClient<Transport, Chain>;
 
     this.setupRoutes();
   }

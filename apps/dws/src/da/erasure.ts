@@ -341,13 +341,19 @@ export class ReedSolomonCodec {
     
     for (let i = 0; i < shards.length; i++) {
       const proof = this.getMerkleProof(merkleTree, i);
+      // Generate opening proof: hash of chunk data with index and blob ID
+      // This binds the chunk to its position in the polynomial
+      const openingProof = keccak256(
+        toBytes(`opening:${blobId}:${i}:${keccak256(shards[i])}`)
+      );
+      
       chunks.push({
         index: i,
         data: shards[i],
         blobId,
         proof: {
           merkleProof: proof,
-          openingProof: '0x' as Hex, // Placeholder for polynomial opening
+          openingProof,
           polynomialIndex: i,
         },
       });

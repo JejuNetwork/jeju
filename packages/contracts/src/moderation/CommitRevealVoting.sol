@@ -81,6 +81,9 @@ contract CommitRevealVoting is Ownable, ReentrancyGuard {
     // List of voters per case for iteration
     mapping(bytes32 => address[]) public caseVoters;
     
+    // Track revealed vote positions: caseId => voter => position (0=YES, 1=NO)
+    mapping(bytes32 => mapping(address => uint8)) public revealedPositions;
+    
     address public moderationMarketplace;
     address public treasury;
 
@@ -218,6 +221,7 @@ contract CommitRevealVoting is Ownable, ReentrancyGuard {
 
         commit.revealed = true;
         voting.totalRevealed += commit.stakeAmount;
+        revealedPositions[caseId][msg.sender] = position;
 
         // Count vote with stake weight
         if (position == 0) {
@@ -317,17 +321,19 @@ contract CommitRevealVoting is Ownable, ReentrancyGuard {
             
             if (!commit.revealed || commit.forfeited) continue;
 
-            // Winners are determined by stake proportion
-            // Note: Full implementation would track individual vote positions
+            // Winners are determined by stake proportion - only pay winning side
+            uint8 voterPosition = revealedPositions[caseId][voters[i]];
+            bool isWinner = (voting.outcome == 1 && voterPosition == 0) || // BAN_UPHELD and voted YES
+                           (voting.outcome == 2 && voterPosition == 1);    // BAN_REJECTED and voted NO
+            
+            if (!isWinner) continue;
             
             // Return original stake + proportional winnings
             uint256 share = commit.stakeAmount + 
                 ((commit.stakeAmount * winnerPrize) / winnerPool);
             
             (bool sent, ) = voters[i].call{value: share}("");
-            if (!sent) {
-                // Handle failed transfer - could implement a withdrawal pattern
-            }
+            require(sent, "Transfer failed");
         }
     }
 

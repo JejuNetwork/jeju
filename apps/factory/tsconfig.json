@@ -22,6 +22,9 @@
       ],
       "@/config/*": [
         "./config/*"
+      ],
+      "@jeju/types/*": [
+        "../../types/*"
       ]
     }
   },
@@ -33,7 +36,9 @@
     "components/**/*.tsx",
     "config/**/*.ts",
     "lib/**/*.ts",
+    "hooks/**/*.ts",
     "types/**/*.ts",
+    "../../types/**/*.ts",
     ".next/types/**/*.ts"
   ],
   "exclude": [

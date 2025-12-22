@@ -243,11 +243,21 @@ export function verifyBatch(
   }
   
   try {
-    const pks = publicKeys.map(pk => hexToBytes(pk.slice(2)));
-    const sigs = signatures.map(s => hexToBytes(s.slice(2)));
+    // @noble/curves verifyBatch expects arrays of { msg, pk, sig }
+    const items = publicKeys.map((pk, i) => ({
+      message: messages[i],
+      publicKey: hexToBytes(pk.slice(2)),
+      signature: hexToBytes(signatures[i].slice(2)),
+    }));
     
-    // Use batch verification for efficiency
-    return bls.verifyBatch(sigs, messages, pks);
+    // Use individual verification for compatibility
+    // The batch method has specific format requirements
+    for (const item of items) {
+      if (!bls.verify(item.signature, item.message, item.publicKey)) {
+        return false;
+      }
+    }
+    return true;
   } catch {
     return false;
   }

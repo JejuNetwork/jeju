@@ -11,14 +11,14 @@ import type {
   CouncilVote,
   CEODecision,
   DAOPaymentConfig,
-} from '../../../types/funding';
+} from '../types/funding';
 import { 
   parsePaymentCategory, 
   parsePaymentStatus, 
   getPaymentCategoryIndex,
   getVoteTypeIndex,
   parseVoteType,
-} from '../../../types/funding';
+} from '../types/funding';
 
 // ============ Contract ABI ============
 
@@ -52,9 +52,10 @@ export function configurePaymentRequestHooks(cfg: PaymentRequestHooksConfig) {
   config = cfg;
 }
 
+import { addresses } from '../config/contracts';
+
 function getAddress(): Address {
-  if (!config) throw new Error('PaymentRequestHooks not configured. Call configurePaymentRequestHooks first.');
-  return config.registryAddress;
+  return addresses.paymentRequestRegistry;
 }
 
 // ============ Parse Helpers ============

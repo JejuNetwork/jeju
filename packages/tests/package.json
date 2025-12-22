@@ -8,6 +8,7 @@
   "types": "./shared/index.ts",
   "exports": {
     ".": "./shared/index.ts",
+    "./playwright-only": "./shared/playwright-only.ts",
     "./fixtures": "./shared/fixtures/index.ts",
     "./fixtures/wallet": "./shared/fixtures/wallet.ts",
     "./fixtures/synpress-wallet": "./shared/fixtures/synpress-wallet.ts",

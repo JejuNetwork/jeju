@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '@jejunetwork/tests';
+import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only';
 
 test.describe('Markets Page - Deep Button Testing', () => {
   test('should test ALL filter buttons sequentially', async ({ page }) => {

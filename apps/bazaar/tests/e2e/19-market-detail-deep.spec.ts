@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '@jejunetwork/tests';
+import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only';
 
 test.describe('Market Detail - Deep Button Testing', () => {
   test('should test YES/NO button toggling extensively', async ({ page }) => {

@@ -21,6 +21,8 @@ import {
   http, 
   type PublicClient, 
   type Address,
+  type Chain,
+  type Transport,
   parseAbi,
 } from 'viem';
 import { mainnet, arbitrum, optimism, base } from 'viem/chains';
@@ -175,7 +177,7 @@ const MAJOR_POOLS: Record<number, Array<{ pool: Address; dex: string; version: '
 // ============ Price Aggregator Class ============
 
 export class MultiChainPriceAggregator {
-  private clients: Map<number, PublicClient> = new Map();
+  private clients: Map<number, PublicClient<Transport, Chain>> = new Map();
   private priceCache: Map<string, { price: TokenPrice; expires: number }> = new Map();
   private ethPrice: Map<number, number> = new Map();
   
@@ -196,7 +198,7 @@ export class MultiChainPriceAggregator {
       const client = createPublicClient({
         chain: this.getViemChain(config.chainId),
         transport: http(config.rpcUrl),
-      });
+      }) as PublicClient<Transport, Chain>;
       this.clients.set(config.chainId, client);
     }
   }

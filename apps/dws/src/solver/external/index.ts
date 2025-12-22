@@ -49,7 +49,7 @@ export {
 export {
   MultiChainPriceAggregator,
   getPriceAggregator,
-  type TokenPrice,
+  type TokenPrice as AggregatorTokenPrice,
   type PriceSource,
   type PoolState,
   type AggregatedPrice,

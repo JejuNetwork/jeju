@@ -1,249 +1,143 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAccount } from 'wagmi';
 import { formatEther, parseEther } from 'viem';
+import type { PaymentRequest, PaymentCategory, PaymentRequestStatus, VoteType } from '../../types/funding';
+import { 
+  PAYMENT_CATEGORIES, 
+  PAYMENT_CATEGORY_DISPLAY, 
+  PAYMENT_STATUS_DISPLAY,
+} from '../../types/funding';
+import {
+  usePendingRequests,
+  usePaymentRequest,
+  useCouncilVotes,
+  useCEODecision,
+  useSubmitPaymentRequest,
+  useCouncilVote,
+  useCancelRequest,
+} from '../../hooks/usePaymentRequest';
+import { useContributorByWallet } from '../../hooks/useContributor';
+import { PaymentStatusBadge, RetroactiveBadge } from '../../components/shared/StatusBadge';
 
-// ============ Types ============
-
-type PaymentCategory =
-  | 'MARKETING'
-  | 'COMMUNITY_MANAGEMENT'
-  | 'OPERATIONS'
-  | 'DOCUMENTATION'
-  | 'DESIGN'
-  | 'SUPPORT'
-  | 'RESEARCH'
-  | 'PARTNERSHIP'
-  | 'EVENTS'
-  | 'INFRASTRUCTURE'
-  | 'OTHER';
-
-type PaymentRequestStatus =
-  | 'SUBMITTED'
-  | 'COUNCIL_REVIEW'
-  | 'CEO_REVIEW'
-  | 'APPROVED'
-  | 'REJECTED'
-  | 'PAID'
-  | 'DISPUTED'
-  | 'CANCELLED';
-
-interface PaymentRequest {
-  requestId: string;
-  daoId: string;
-  daoName: string;
-  requester: string;
-  category: PaymentCategory;
-  title: string;
-  description: string;
-  evidenceUri: string;
-  requestedAmount: bigint;
-  approvedAmount: bigint;
-  status: PaymentRequestStatus;
-  isRetroactive: boolean;
-  workStartDate: number;
-  workEndDate: number;
-  submittedAt: number;
-  councilVotes: { approve: number; reject: number; abstain: number };
-}
-
-// ============ Mock Data ============
-
-const MOCK_REQUESTS: PaymentRequest[] = [
-  {
-    requestId: '0xreq1',
-    daoId: '0xjeju',
-    daoName: 'Jeju Network',
-    requester: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
-    category: 'MARKETING',
-    title: 'Q4 2025 Marketing Campaign',
-    description: 'Social media management, content creation, and community growth initiatives for Q4.',
-    evidenceUri: 'ipfs://QmEvidence1',
-    requestedAmount: parseEther('25'),
-    approvedAmount: 0n,
-    status: 'COUNCIL_REVIEW',
-    isRetroactive: false,
-    workStartDate: Date.now(),
-    workEndDate: Date.now() + 90 * 24 * 60 * 60 * 1000,
-    submittedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-    councilVotes: { approve: 2, reject: 0, abstain: 1 },
-  },
-  {
-    requestId: '0xreq2',
-    daoId: '0xjeju',
-    daoName: 'Jeju Network',
-    requester: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
-    category: 'COMMUNITY_MANAGEMENT',
-    title: 'Discord Moderation - November',
-    description: 'Daily moderation, user support, and community event organization.',
-    evidenceUri: 'ipfs://QmEvidence2',
-    requestedAmount: parseEther('8'),
-    approvedAmount: parseEther('8'),
-    status: 'APPROVED',
-    isRetroactive: true,
-    workStartDate: Date.now() - 30 * 24 * 60 * 60 * 1000,
-    workEndDate: Date.now(),
-    submittedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-    councilVotes: { approve: 4, reject: 0, abstain: 0 },
-  },
-  {
-    requestId: '0xreq3',
-    daoId: '0xeliza',
-    daoName: 'ElizaOS',
-    requester: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
-    category: 'DOCUMENTATION',
-    title: 'API Documentation Overhaul',
-    description: 'Complete rewrite of developer documentation with examples and tutorials.',
-    evidenceUri: 'ipfs://QmEvidence3',
-    requestedAmount: parseEther('15'),
-    approvedAmount: 0n,
-    status: 'CEO_REVIEW',
-    isRetroactive: false,
-    workStartDate: Date.now() - 14 * 24 * 60 * 60 * 1000,
-    workEndDate: Date.now() + 14 * 24 * 60 * 60 * 1000,
-    submittedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-    councilVotes: { approve: 2, reject: 1, abstain: 2 },
-  },
-  {
-    requestId: '0xreq4',
-    daoId: '0xjeju',
-    daoName: 'Jeju Network',
-    requester: '0x90F79bf6EB2c4f870365E785982E1f101E93b906',
-    category: 'OPERATIONS',
-    title: 'Infrastructure Cost Reimbursement',
-    description: 'Server hosting and monitoring costs for the past quarter.',
-    evidenceUri: 'ipfs://QmEvidence4',
-    requestedAmount: parseEther('12'),
-    approvedAmount: parseEther('12'),
-    status: 'PAID',
-    isRetroactive: true,
-    workStartDate: Date.now() - 90 * 24 * 60 * 60 * 1000,
-    workEndDate: Date.now() - 1 * 24 * 60 * 60 * 1000,
-    submittedAt: Date.now() - 10 * 24 * 60 * 60 * 1000,
-    councilVotes: { approve: 5, reject: 0, abstain: 0 },
-  },
-];
+// Hardcoded DAO ID for demo
+const DEFAULT_DAO_ID = '0x' + '0'.repeat(63) + '1';
 
 // ============ Components ============
 
-const CATEGORY_DISPLAY: Record<PaymentCategory, { label: string; icon: string; color: string }> = {
-  MARKETING: { label: 'Marketing', icon: '📣', color: 'text-pink-400' },
-  COMMUNITY_MANAGEMENT: { label: 'Community', icon: '👥', color: 'text-blue-400' },
-  OPERATIONS: { label: 'Operations', icon: '⚙️', color: 'text-slate-400' },
-  DOCUMENTATION: { label: 'Documentation', icon: '📚', color: 'text-amber-400' },
-  DESIGN: { label: 'Design', icon: '🎨', color: 'text-purple-400' },
-  SUPPORT: { label: 'Support', icon: '🎧', color: 'text-teal-400' },
-  RESEARCH: { label: 'Research', icon: '🔬', color: 'text-cyan-400' },
-  PARTNERSHIP: { label: 'Partnership', icon: '🤝', color: 'text-orange-400' },
-  EVENTS: { label: 'Events', icon: '🎉', color: 'text-rose-400' },
-  INFRASTRUCTURE: { label: 'Infrastructure', icon: '🏗️', color: 'text-emerald-400' },
-  OTHER: { label: 'Other', icon: '📦', color: 'text-slate-400' },
-};
-
-const STATUS_STYLES: Record<PaymentRequestStatus, { bg: string; text: string; label: string }> = {
-  SUBMITTED: { bg: 'bg-slate-500/20', text: 'text-slate-400', label: 'Submitted' },
-  COUNCIL_REVIEW: { bg: 'bg-amber-500/20', text: 'text-amber-400', label: 'Council Review' },
-  CEO_REVIEW: { bg: 'bg-purple-500/20', text: 'text-purple-400', label: 'CEO Review' },
-  APPROVED: { bg: 'bg-emerald-500/20', text: 'text-emerald-400', label: 'Approved' },
-  REJECTED: { bg: 'bg-rose-500/20', text: 'text-rose-400', label: 'Rejected' },
-  PAID: { bg: 'bg-indigo-500/20', text: 'text-indigo-400', label: 'Paid' },
-  DISPUTED: { bg: 'bg-orange-500/20', text: 'text-orange-400', label: 'Disputed' },
-  CANCELLED: { bg: 'bg-slate-500/20', text: 'text-slate-500', label: 'Cancelled' },
-};
-
-function StatusBadge({ status }: { status: PaymentRequestStatus }) {
-  const style = STATUS_STYLES[status];
+function CategoryBadge({ category }: { category: PaymentCategory }) {
+  const style = PAYMENT_CATEGORY_DISPLAY[category];
   return (
-    <span className={`px-2.5 py-1 text-xs font-medium rounded-full ${style.bg} ${style.text}`}>
+    <span className={`flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium ${style.color} bg-slate-800 rounded-full`}>
+      <span>{style.icon}</span>
       {style.label}
     </span>
   );
 }
 
 function RequestCard({ request, onSelect }: { request: PaymentRequest; onSelect: () => void }) {
-  const category = CATEGORY_DISPLAY[request.category];
-
   return (
     <div
       onClick={onSelect}
-      className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-5 cursor-pointer hover:border-indigo-500/50 hover:bg-slate-800/60 transition-all duration-200"
+      className="bg-slate-800/50 border border-slate-700 rounded-xl p-5 cursor-pointer hover:border-indigo-500/50 transition-all duration-200 hover:shadow-lg hover:shadow-indigo-500/5"
     >
       <div className="flex items-start justify-between mb-3">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">{category.icon}</span>
-          <div>
-            <h3 className="text-white font-medium line-clamp-1">{request.title}</h3>
-            <p className={`text-sm ${category.color}`}>{category.label}</p>
+        <div className="flex-1">
+          <div className="flex items-center gap-2 mb-2">
+            <CategoryBadge category={request.category} />
+            {request.isRetroactive && <RetroactiveBadge />}
           </div>
+          <h3 className="text-white font-semibold text-lg">{request.title}</h3>
         </div>
-        <StatusBadge status={request.status} />
+        <PaymentStatusBadge status={request.status} />
       </div>
 
       <p className="text-slate-400 text-sm line-clamp-2 mb-4">{request.description}</p>
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pt-4 border-t border-slate-700/50">
         <div>
           <p className="text-slate-500 text-xs">Requested</p>
-          <p className="text-white font-semibold">{parseFloat(formatEther(request.requestedAmount)).toFixed(2)} ETH</p>
+          <p className="text-white font-semibold">{formatEther(request.requestedAmount)} ETH</p>
         </div>
         <div className="text-right">
-          <p className="text-slate-500 text-xs">{request.daoName}</p>
-          {request.isRetroactive && (
-            <span className="text-xs text-amber-400">Retroactive</span>
-          )}
+          <p className="text-slate-500 text-xs">Submitted</p>
+          <p className="text-slate-400 text-sm">
+            {new Date(request.submittedAt * 1000).toLocaleDateString()}
+          </p>
         </div>
       </div>
-
-      {request.status === 'COUNCIL_REVIEW' && (
-        <div className="mt-4 pt-3 border-t border-slate-700/50">
-          <div className="flex items-center gap-4 text-xs">
-            <span className="text-emerald-400">✓ {request.councilVotes.approve}</span>
-            <span className="text-rose-400">✗ {request.councilVotes.reject}</span>
-            <span className="text-slate-400">○ {request.councilVotes.abstain}</span>
-            <span className="text-slate-500 ml-auto">
-              Needs {5 - (request.councilVotes.approve + request.councilVotes.reject + request.councilVotes.abstain)} more votes
-            </span>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
-function SubmitRequestForm({ onClose }: { onClose: () => void }) {
-  const [category, setCategory] = useState<PaymentCategory>('OTHER');
+function SubmitRequestForm({ 
+  contributorId,
+  onClose, 
+  onSuccess 
+}: { 
+  contributorId: string;
+  onClose: () => void; 
+  onSuccess: () => void;
+}) {
+  const [category, setCategory] = useState<PaymentCategory>('MARKETING');
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
+  const [evidenceUri, setEvidenceUri] = useState('');
   const [amount, setAmount] = useState('');
   const [isRetroactive, setIsRetroactive] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [workStartDate, setWorkStartDate] = useState('');
+  const [workEndDate, setWorkEndDate] = useState('');
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const { submit, isPending, isConfirming, isSuccess, error } = useSubmitPaymentRequest();
+
+  useEffect(() => {
+    if (isSuccess) {
+      onSuccess();
+      onClose();
+    }
+  }, [isSuccess, onSuccess, onClose]);
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
-    setLoading(false);
-    onClose();
+    submit({
+      daoId: DEFAULT_DAO_ID,
+      contributorId,
+      category,
+      title,
+      description,
+      evidenceUri,
+      requestedAmount: parseEther(amount || '0'),
+      isRetroactive,
+      workStartDate: workStartDate ? Math.floor(new Date(workStartDate).getTime() / 1000) : 0,
+      workEndDate: workEndDate ? Math.floor(new Date(workEndDate).getTime() / 1000) : 0,
+    });
   };
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-lg w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
-        <h3 className="text-xl font-semibold text-white mb-4">Submit Payment Request</h3>
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl p-6 max-w-2xl w-full mx-4 shadow-2xl max-h-[90vh] overflow-y-auto">
+        <h3 className="text-xl font-semibold text-white mb-6">Submit Payment Request</h3>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-slate-300 mb-2">Category</label>
-            <select
-              value={category}
-              onChange={e => setCategory(e.target.value as PaymentCategory)}
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:border-indigo-500 focus:outline-none"
-            >
-              {Object.entries(CATEGORY_DISPLAY).map(([key, { label, icon }]) => (
-                <option key={key} value={key}>{icon} {label}</option>
+            <div className="grid grid-cols-4 gap-2">
+              {PAYMENT_CATEGORIES.slice(0, 8).map(cat => (
+                <button
+                  key={cat}
+                  type="button"
+                  onClick={() => setCategory(cat)}
+                  className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+                    category === cat
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+                  }`}
+                >
+                  {PAYMENT_CATEGORY_DISPLAY[cat].icon} {PAYMENT_CATEGORY_DISPLAY[cat].label}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
 
           <div>
@@ -252,8 +146,9 @@ function SubmitRequestForm({ onClose }: { onClose: () => void }) {
               type="text"
               value={title}
               onChange={e => setTitle(e.target.value)}
-              placeholder="Brief description of work"
+              placeholder="Brief description of the work"
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              required
             />
           </div>
 
@@ -262,23 +157,36 @@ function SubmitRequestForm({ onClose }: { onClose: () => void }) {
             <textarea
               value={description}
               onChange={e => setDescription(e.target.value)}
-              placeholder="Detailed description of work performed or to be performed..."
+              placeholder="Detailed explanation of the work completed or proposed..."
               rows={4}
               className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none resize-none"
+              required
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-300 mb-2">Requested Amount (ETH)</label>
-            <input
-              type="number"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-              placeholder="0.00"
-              step="0.01"
-              min="0"
-              className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Amount (ETH)</label>
+              <input
+                type="number"
+                step="0.01"
+                value={amount}
+                onChange={e => setAmount(e.target.value)}
+                placeholder="0.00"
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-300 mb-2">Evidence URI</label>
+              <input
+                type="text"
+                value={evidenceUri}
+                onChange={e => setEvidenceUri(e.target.value)}
+                placeholder="ipfs://..."
+                className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+              />
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -287,37 +195,53 @@ function SubmitRequestForm({ onClose }: { onClose: () => void }) {
               id="retroactive"
               checked={isRetroactive}
               onChange={e => setIsRetroactive(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-600 bg-slate-800 text-indigo-600 focus:ring-indigo-500"
+              className="w-4 h-4 bg-slate-800 border-slate-600 rounded"
             />
             <label htmlFor="retroactive" className="text-sm text-slate-300">
-              This is a retroactive funding request (work already completed)
+              This is for work already completed (retroactive funding)
             </label>
           </div>
 
           {isRetroactive && (
-            <div className="bg-amber-500/10 border border-amber-500/30 rounded-lg p-4 text-sm">
-              <p className="text-amber-400 font-medium">Retroactive Funding Note</p>
-              <p className="text-amber-300/80 mt-1">
-                Retroactive requests require supermajority council approval and strong evidence.
-                Upload detailed proof of work completion.
-              </p>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Work Start Date</label>
+                <input
+                  type="date"
+                  value={workStartDate}
+                  onChange={e => setWorkStartDate(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-slate-300 mb-2">Work End Date</label>
+                <input
+                  type="date"
+                  value={workEndDate}
+                  onChange={e => setWorkEndDate(e.target.value)}
+                  className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white focus:border-indigo-500 focus:outline-none"
+                />
+              </div>
             </div>
           )}
+
+          {error && <p className="text-rose-400 text-sm">{error.message}</p>}
 
           <div className="flex gap-3 pt-4">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 px-4 py-2.5 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors"
+              disabled={isPending || isConfirming}
+              className="flex-1 px-4 py-2.5 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={loading || !title || !amount}
+              disabled={isPending || isConfirming || !title || !amount}
               className="flex-1 px-4 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-500 transition-colors disabled:opacity-50"
             >
-              {loading ? 'Submitting...' : 'Submit Request'}
+              {isPending ? 'Signing...' : isConfirming ? 'Confirming...' : 'Submit Request'}
             </button>
           </div>
         </form>
@@ -326,159 +250,173 @@ function SubmitRequestForm({ onClose }: { onClose: () => void }) {
   );
 }
 
-function RequestDetails({ request, onClose }: { request: PaymentRequest; onClose: () => void }) {
-  const category = CATEGORY_DISPLAY[request.category];
-  const [voting, setVoting] = useState(false);
+function RequestDetails({ 
+  requestId, 
+  onClose 
+}: { 
+  requestId: string; 
+  onClose: () => void;
+}) {
+  const { request } = usePaymentRequest(requestId);
+  const { votes } = useCouncilVotes(requestId);
+  const { decision } = useCEODecision(requestId);
+  const { vote, isPending: voting, isConfirming: confirmingVote } = useCouncilVote();
+  const [voteReason, setVoteReason] = useState('');
 
-  const handleVote = async (vote: 'approve' | 'reject' | 'abstain') => {
-    setVoting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setVoting(false);
+  if (!request) {
+    return null;
+  }
+
+  const handleVote = (voteType: VoteType) => {
+    vote(requestId, voteType, voteReason);
+    setVoteReason('');
   };
+
+  const approveCount = votes.filter(v => v.vote === 'APPROVE').length;
+  const rejectCount = votes.filter(v => v.vote === 'REJECT').length;
+  const abstainCount = votes.filter(v => v.vote === 'ABSTAIN').length;
 
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-2xl w-full mx-4 shadow-2xl max-h-[85vh] overflow-hidden flex flex-col">
+      <div className="bg-slate-900 border border-slate-700 rounded-2xl max-w-3xl w-full mx-4 shadow-2xl max-h-[85vh] overflow-hidden flex flex-col">
+        {/* Header */}
         <div className="p-6 border-b border-slate-700">
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-4">
-              <span className="text-4xl">{category.icon}</span>
-              <div>
-                <h3 className="text-xl font-semibold text-white">{request.title}</h3>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className={`text-sm ${category.color}`}>{category.label}</span>
-                  <span className="text-slate-500">•</span>
-                  <span className="text-slate-400 text-sm">{request.daoName}</span>
-                  {request.isRetroactive && (
-                    <>
-                      <span className="text-slate-500">•</span>
-                      <span className="text-amber-400 text-sm">Retroactive</span>
-                    </>
-                  )}
-                </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-3 mb-2">
+                <CategoryBadge category={request.category} />
+                {request.isRetroactive && <RetroactiveBadge />}
+                <PaymentStatusBadge status={request.status} />
               </div>
+              <h2 className="text-2xl font-bold text-white">{request.title}</h2>
             </div>
             <button onClick={onClose} className="text-slate-400 hover:text-white text-2xl">×</button>
           </div>
-
-          <div className="grid grid-cols-3 gap-4 mt-6">
-            <div className="bg-slate-800/50 rounded-lg p-4">
-              <p className="text-slate-400 text-sm">Requested</p>
-              <p className="text-white text-xl font-bold">{parseFloat(formatEther(request.requestedAmount)).toFixed(2)} ETH</p>
-            </div>
-            <div className="bg-slate-800/50 rounded-lg p-4">
-              <p className="text-slate-400 text-sm">Status</p>
-              <div className="mt-1">
-                <StatusBadge status={request.status} />
-              </div>
-            </div>
-            <div className="bg-slate-800/50 rounded-lg p-4">
-              <p className="text-slate-400 text-sm">Submitted</p>
-              <p className="text-white font-medium">{new Date(request.submittedAt).toLocaleDateString()}</p>
-            </div>
-          </div>
         </div>
 
-        <div className="p-6 overflow-y-auto flex-1 space-y-6">
-          <div>
-            <h4 className="text-sm font-medium text-slate-400 mb-2">Description</h4>
-            <p className="text-white">{request.description}</p>
-          </div>
+        {/* Content */}
+        <div className="p-6 overflow-y-auto flex-1">
+          <div className="space-y-6">
+            {/* Description */}
+            <div>
+              <h3 className="text-sm font-medium text-slate-400 mb-2">Description</h3>
+              <p className="text-white">{request.description}</p>
+            </div>
 
-          <div>
-            <h4 className="text-sm font-medium text-slate-400 mb-2">Work Period</h4>
-            <p className="text-white">
-              {new Date(request.workStartDate).toLocaleDateString()} – {new Date(request.workEndDate).toLocaleDateString()}
-            </p>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-medium text-slate-400 mb-2">Evidence</h4>
-            <a
-              href={request.evidenceUri}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-indigo-400 hover:text-indigo-300 text-sm"
-            >
-              {request.evidenceUri}
-            </a>
-          </div>
-
-          <div>
-            <h4 className="text-sm font-medium text-slate-400 mb-2">Requester</h4>
-            <p className="text-white font-mono text-sm">{request.requester}</p>
-          </div>
-
-          {/* Council Votes */}
-          <div>
-            <h4 className="text-sm font-medium text-slate-400 mb-3">Council Votes</h4>
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold">
-                  {request.councilVotes.approve}
-                </div>
-                <span className="text-slate-400">Approve</span>
+            {/* Amounts */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-slate-800/50 rounded-lg p-4">
+                <p className="text-slate-400 text-sm">Requested</p>
+                <p className="text-white text-xl font-bold">{formatEther(request.requestedAmount)} ETH</p>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-rose-500/20 flex items-center justify-center text-rose-400 font-bold">
-                  {request.councilVotes.reject}
+              {request.approvedAmount > 0n && (
+                <div className="bg-emerald-500/10 rounded-lg p-4">
+                  <p className="text-emerald-400 text-sm">Approved</p>
+                  <p className="text-emerald-300 text-xl font-bold">{formatEther(request.approvedAmount)} ETH</p>
                 </div>
-                <span className="text-slate-400">Reject</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-full bg-slate-500/20 flex items-center justify-center text-slate-400 font-bold">
-                  {request.councilVotes.abstain}
-                </div>
-                <span className="text-slate-400">Abstain</span>
+              )}
+              <div className="bg-slate-800/50 rounded-lg p-4">
+                <p className="text-slate-400 text-sm">Submitted</p>
+                <p className="text-white">{new Date(request.submittedAt * 1000).toLocaleDateString()}</p>
               </div>
             </div>
-            <div className="mt-3 bg-slate-800/50 rounded-full h-2 overflow-hidden">
-              <div className="flex h-full">
-                <div
-                  className="bg-emerald-500"
-                  style={{ width: `${(request.councilVotes.approve / 5) * 100}%` }}
-                />
-                <div
-                  className="bg-rose-500"
-                  style={{ width: `${(request.councilVotes.reject / 5) * 100}%` }}
-                />
+
+            {/* Council Votes */}
+            <div>
+              <h3 className="text-sm font-medium text-slate-400 mb-3">Council Votes</h3>
+              <div className="flex gap-4 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                  <span className="text-slate-300">Approve: {approveCount}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-rose-500" />
+                  <span className="text-slate-300">Reject: {rejectCount}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-slate-500" />
+                  <span className="text-slate-300">Abstain: {abstainCount}</span>
+                </div>
               </div>
+
+              {votes.length > 0 && (
+                <div className="space-y-2">
+                  {votes.map((v, i) => (
+                    <div key={i} className="flex items-center justify-between bg-slate-800/50 rounded-lg p-3">
+                      <span className="text-slate-400 font-mono text-sm">
+                        {v.voter.slice(0, 6)}...{v.voter.slice(-4)}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
+                        v.vote === 'APPROVE' ? 'bg-emerald-500/20 text-emerald-400' :
+                        v.vote === 'REJECT' ? 'bg-rose-500/20 text-rose-400' :
+                        'bg-slate-500/20 text-slate-400'
+                      }`}>
+                        {v.vote}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <p className="text-xs text-slate-500 mt-2">
-              67% supermajority required for approval • {5 - (request.councilVotes.approve + request.councilVotes.reject + request.councilVotes.abstain)} votes remaining
-            </p>
+
+            {/* CEO Decision */}
+            {decision && (
+              <div>
+                <h3 className="text-sm font-medium text-slate-400 mb-3">CEO Decision</h3>
+                <div className={`rounded-lg p-4 ${decision.approved ? 'bg-emerald-500/10' : 'bg-rose-500/10'}`}>
+                  <p className={`font-medium ${decision.approved ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {decision.approved ? 'Approved' : 'Rejected'}
+                  </p>
+                  {decision.reason && <p className="text-slate-300 mt-1">{decision.reason}</p>}
+                  {decision.modifiedAmount > 0n && (
+                    <p className="text-slate-400 mt-2">
+                      Modified Amount: {formatEther(decision.modifiedAmount)} ETH
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Vote Form (for pending requests) */}
+            {(request.status === 'SUBMITTED' || request.status === 'COUNCIL_REVIEW') && (
+              <div className="border-t border-slate-700 pt-6">
+                <h3 className="text-sm font-medium text-slate-400 mb-3">Cast Your Vote</h3>
+                <div className="space-y-3">
+                  <input
+                    type="text"
+                    value={voteReason}
+                    onChange={e => setVoteReason(e.target.value)}
+                    placeholder="Reason for your vote (optional)"
+                    className="w-full bg-slate-800 border border-slate-700 rounded-lg px-4 py-2.5 text-white placeholder-slate-500 focus:border-indigo-500 focus:outline-none"
+                  />
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => handleVote('APPROVE')}
+                      disabled={voting || confirmingVote}
+                      className="flex-1 px-4 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-500 transition-colors disabled:opacity-50"
+                    >
+                      {voting || confirmingVote ? '...' : 'Approve'}
+                    </button>
+                    <button
+                      onClick={() => handleVote('REJECT')}
+                      disabled={voting || confirmingVote}
+                      className="flex-1 px-4 py-2.5 bg-rose-600 text-white rounded-lg hover:bg-rose-500 transition-colors disabled:opacity-50"
+                    >
+                      {voting || confirmingVote ? '...' : 'Reject'}
+                    </button>
+                    <button
+                      onClick={() => handleVote('ABSTAIN')}
+                      disabled={voting || confirmingVote}
+                      className="flex-1 px-4 py-2.5 bg-slate-700 text-white rounded-lg hover:bg-slate-600 transition-colors disabled:opacity-50"
+                    >
+                      {voting || confirmingVote ? '...' : 'Abstain'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
-
-        {/* Vote Actions */}
-        {request.status === 'COUNCIL_REVIEW' && (
-          <div className="p-6 border-t border-slate-700 bg-slate-800/30">
-            <p className="text-sm text-slate-400 mb-3">Cast your vote as a council member:</p>
-            <div className="flex gap-3">
-              <button
-                onClick={() => handleVote('approve')}
-                disabled={voting}
-                className="flex-1 px-4 py-2.5 bg-emerald-600/20 border border-emerald-500/30 text-emerald-400 rounded-lg hover:bg-emerald-600/30 transition-colors disabled:opacity-50"
-              >
-                ✓ Approve
-              </button>
-              <button
-                onClick={() => handleVote('reject')}
-                disabled={voting}
-                className="flex-1 px-4 py-2.5 bg-rose-600/20 border border-rose-500/30 text-rose-400 rounded-lg hover:bg-rose-600/30 transition-colors disabled:opacity-50"
-              >
-                ✗ Reject
-              </button>
-              <button
-                onClick={() => handleVote('abstain')}
-                disabled={voting}
-                className="flex-1 px-4 py-2.5 bg-slate-600/20 border border-slate-500/30 text-slate-400 rounded-lg hover:bg-slate-600/30 transition-colors disabled:opacity-50"
-              >
-                ○ Abstain
-              </button>
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );
@@ -487,20 +425,17 @@ function RequestDetails({ request, onClose }: { request: PaymentRequest; onClose
 // ============ Main Page ============
 
 export default function PaymentRequestsPage() {
-  const { isConnected } = useAccount();
+  const { address, isConnected } = useAccount();
   const [showSubmit, setShowSubmit] = useState(false);
-  const [selectedRequest, setSelectedRequest] = useState<PaymentRequest | null>(null);
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<PaymentRequestStatus | 'ALL'>('ALL');
-  const [categoryFilter, setCategoryFilter] = useState<PaymentCategory | 'ALL'>('ALL');
 
-  const filteredRequests = MOCK_REQUESTS.filter(r => {
-    if (statusFilter !== 'ALL' && r.status !== statusFilter) return false;
-    if (categoryFilter !== 'ALL' && r.category !== categoryFilter) return false;
-    return true;
-  });
+  const { profile: myProfile } = useContributorByWallet(address);
+  const { requests, refetch } = usePendingRequests(DEFAULT_DAO_ID);
 
-  const pendingReview = MOCK_REQUESTS.filter(r => r.status === 'COUNCIL_REVIEW' || r.status === 'CEO_REVIEW').length;
-  const totalPaid = MOCK_REQUESTS.filter(r => r.status === 'PAID').reduce((sum, r) => sum + r.approvedAmount, 0n);
+  const filteredRequests = statusFilter === 'ALL' 
+    ? requests 
+    : requests.filter(r => r.status === statusFilter);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
@@ -509,9 +444,9 @@ export default function PaymentRequestsPage() {
         <div className="flex items-center justify-between mb-8">
           <div>
             <h1 className="text-3xl font-bold text-white mb-2">Payment Requests</h1>
-            <p className="text-slate-400">Request funding for non-bounty work like marketing, ops, and community</p>
+            <p className="text-slate-400">Submit and track payment requests for non-bounty contributions</p>
           </div>
-          {isConnected && (
+          {isConnected && myProfile && (
             <button
               onClick={() => setShowSubmit(true)}
               className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-500 transition-colors flex items-center gap-2"
@@ -525,74 +460,93 @@ export default function PaymentRequestsPage() {
         <div className="grid grid-cols-4 gap-4 mb-8">
           <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
             <p className="text-slate-400 text-sm">Total Requests</p>
-            <p className="text-2xl font-bold text-white">{MOCK_REQUESTS.length}</p>
+            <p className="text-2xl font-bold text-white mt-1">{requests.length}</p>
           </div>
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-5">
-            <p className="text-amber-400 text-sm">Pending Review</p>
-            <p className="text-2xl font-bold text-amber-400">{pendingReview}</p>
+          <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
+            <p className="text-slate-400 text-sm">Pending Review</p>
+            <p className="text-2xl font-bold text-amber-400 mt-1">
+              {requests.filter(r => r.status === 'COUNCIL_REVIEW' || r.status === 'CEO_REVIEW').length}
+            </p>
           </div>
-          <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-5">
-            <p className="text-emerald-400 text-sm">Total Paid</p>
-            <p className="text-2xl font-bold text-emerald-400">{parseFloat(formatEther(totalPaid)).toFixed(2)} ETH</p>
+          <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
+            <p className="text-slate-400 text-sm">Approved</p>
+            <p className="text-2xl font-bold text-emerald-400 mt-1">
+              {requests.filter(r => r.status === 'APPROVED' || r.status === 'PAID').length}
+            </p>
           </div>
-          <div className="bg-indigo-500/10 border border-indigo-500/30 rounded-xl p-5">
-            <p className="text-indigo-400 text-sm">Your Requests</p>
-            <p className="text-2xl font-bold text-indigo-400">0</p>
+          <div className="bg-slate-800/30 border border-slate-700/50 rounded-xl p-5">
+            <p className="text-slate-400 text-sm">Total Value</p>
+            <p className="text-2xl font-bold text-white mt-1">
+              {formatEther(requests.reduce((sum, r) => sum + r.requestedAmount, 0n))} ETH
+            </p>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-4 mb-6">
-          <select
-            value={statusFilter}
-            onChange={e => setStatusFilter(e.target.value as PaymentRequestStatus | 'ALL')}
-            className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
-          >
-            <option value="ALL">All Statuses</option>
-            {Object.entries(STATUS_STYLES).map(([key, { label }]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
-
-          <select
-            value={categoryFilter}
-            onChange={e => setCategoryFilter(e.target.value as PaymentCategory | 'ALL')}
-            className="bg-slate-800/50 border border-slate-700 rounded-lg px-4 py-2 text-white focus:border-indigo-500 focus:outline-none"
-          >
-            <option value="ALL">All Categories</option>
-            {Object.entries(CATEGORY_DISPLAY).map(([key, { label, icon }]) => (
-              <option key={key} value={key}>{icon} {label}</option>
-            ))}
-          </select>
+        <div className="flex gap-2 mb-6">
+          {(['ALL', 'SUBMITTED', 'COUNCIL_REVIEW', 'CEO_REVIEW', 'APPROVED', 'REJECTED', 'PAID'] as const).map(status => (
+            <button
+              key={status}
+              onClick={() => setStatusFilter(status)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                statusFilter === status
+                  ? 'bg-indigo-600 text-white'
+                  : 'bg-slate-800 text-slate-400 hover:bg-slate-700'
+              }`}
+            >
+              {status === 'ALL' ? 'All' : PAYMENT_STATUS_DISPLAY[status]?.label || status}
+            </button>
+          ))}
         </div>
 
         {/* Requests Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {filteredRequests.map(request => (
             <RequestCard
               key={request.requestId}
               request={request}
-              onSelect={() => setSelectedRequest(request)}
+              onSelect={() => setSelectedRequestId(request.requestId)}
             />
           ))}
         </div>
 
         {filteredRequests.length === 0 && (
-          <div className="text-center py-12">
-            <p className="text-slate-400">No payment requests match your filters.</p>
+          <div className="text-center py-12 bg-slate-800/30 rounded-xl border border-slate-700">
+            <p className="text-slate-400 text-lg">No payment requests found</p>
+            {isConnected && myProfile && (
+              <button
+                onClick={() => setShowSubmit(true)}
+                className="mt-4 px-6 py-2.5 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-500 transition-colors"
+              >
+                Submit Your First Request
+              </button>
+            )}
+          </div>
+        )}
+
+        {/* Not registered notice */}
+        {isConnected && !myProfile && (
+          <div className="mt-8 p-6 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+            <p className="text-amber-400 font-medium">You need to register as a contributor to submit payment requests</p>
+            <p className="text-slate-400 text-sm mt-1">Go to the Contributors page to register first.</p>
           </div>
         )}
       </div>
 
       {/* Modals */}
-      {showSubmit && <SubmitRequestForm onClose={() => setShowSubmit(false)} />}
-      {selectedRequest && (
+      {showSubmit && myProfile && (
+        <SubmitRequestForm 
+          contributorId={myProfile.contributorId}
+          onClose={() => setShowSubmit(false)}
+          onSuccess={() => refetch()}
+        />
+      )}
+      {selectedRequestId && (
         <RequestDetails
-          request={selectedRequest}
-          onClose={() => setSelectedRequest(null)}
+          requestId={selectedRequestId}
+          onClose={() => setSelectedRequestId(null)}
         />
       )}
     </div>
   );
 }
-

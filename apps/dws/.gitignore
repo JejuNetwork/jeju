@@ -30,3 +30,4 @@ Thumbs.db
 # IPFS data (use ~/.ipfs instead)
 .ipfs/
 
+training_checkpoints/

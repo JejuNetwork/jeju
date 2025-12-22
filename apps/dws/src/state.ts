@@ -5,7 +5,7 @@
  * CQL is REQUIRED - no fallbacks. Run infrastructure before starting DWS.
  */
 
-import { getCQL, resetCQL, type CQLClient } from '@jejunetwork/db';
+import { getCQL, resetCQL, type CQLClient, type QueryParam } from '@jejunetwork/db';
 import { getCacheClient, type CacheClient } from '@jejunetwork/shared';
 import { getCurrentNetwork, getCQLUrl, getCQLMinerUrl } from '@jejunetwork/config';
 import type { Address } from 'viem';
@@ -1040,7 +1040,7 @@ export const trainingState = {
   async listRuns(status?: 'active' | 'completed' | 'paused'): Promise<TrainingRunRow[]> {
     const client = await getCQLClient();
     let query = 'SELECT * FROM training_runs';
-    const params: unknown[] = [];
+    const params: QueryParam[] = [];
     
     if (status === 'active') {
       query += ' WHERE state >= 1 AND state <= 5';

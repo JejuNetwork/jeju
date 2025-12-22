@@ -37,8 +37,14 @@ export function discoverAppsForWarmup(rootDir = process.cwd()): AppConfig[] {
     const manifestPath = join(appPath, 'jeju-manifest.json');
     if (!existsSync(manifestPath)) continue;
 
-    const manifestRaw = JSON.parse(readFileSync(manifestPath, 'utf-8'));
-    const manifest = parseAppManifest(manifestRaw);
+    let manifest;
+    try {
+      const manifestRaw = JSON.parse(readFileSync(manifestPath, 'utf-8'));
+      manifest = parseAppManifest(manifestRaw);
+    } catch {
+      // Skip apps with invalid/incomplete manifests
+      continue;
+    }
     const mainPort = manifest.ports.main;
 
     // Only include apps with test configs

@@ -32,6 +32,11 @@ interface IInterchainGasPaymasterArb {
     ) external view returns (uint256);
 }
 
+interface IBanManagerArb {
+    function applyAddressBan(address target, bytes32 caseId, string calldata reason) external;
+    function removeAddressBan(address target) external;
+}
+
 /**
  * @title CrossChainArbitration
  * @author Jeju Network
@@ -112,6 +117,7 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
 
     IMailboxArb public mailbox;
     IInterchainGasPaymasterArb public igp;
+    IBanManagerArb public banManager;
     
     // caseId => case data
     mapping(bytes32 => CrossChainCase) public cases;
@@ -194,6 +200,13 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
         igp = IInterchainGasPaymasterArb(_igp);
         hubDomain = _hubDomain;
         isHub = mailbox.localDomain() == _hubDomain;
+    }
+
+    /**
+     * @notice Set the BanManager contract for local ban enforcement
+     */
+    function setBanManager(address _banManager) external onlyOwner {
+        banManager = IBanManagerArb(_banManager);
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -393,7 +406,17 @@ contract CrossChainArbitration is Ownable, ReentrancyGuard {
             c.totalNoVotes
         );
 
-        // TODO: Trigger local BanManager update based on outcome
+        // Apply ban if outcome is BAN_UPHELD (1)
+        if (resolution.outcome == 1 && address(banManager) != address(0)) {
+            banManager.applyAddressBan(
+                c.target,
+                resolution.caseId,
+                string(abi.encodePacked("Cross-chain arbitration: ", c.reason))
+            );
+        } else if (resolution.outcome == 2 && address(banManager) != address(0)) {
+            // Clear any pending bans if CLEARED (2)
+            banManager.removeAddressBan(c.target);
+        }
     }
 
     function _handleEscalation(uint32 origin, bytes calldata payload) internal {

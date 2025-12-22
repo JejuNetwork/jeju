@@ -1,178 +1,119 @@
 # Crucible
 
-Decentralized agent orchestration platform for autonomous AI agents.
+Agent orchestration platform.
 
-## Overview
+## What It Does
 
-Crucible enables permissionless, decentralized AI agent execution with:
+Crucible deploys and manages AI agents with ElizaOS + @jejunetwork/eliza-plugin.
 
-- **Agent Registration** - On-chain agent identity via ERC-8004
-- **IPFS State Storage** - Character definitions and agent state stored on IPFS
-- **Compute Marketplace** - Inference via decentralized compute providers
-- **Agent Vaults** - Per-agent funding for autonomous operation
-- **Multi-Agent Rooms** - Coordination spaces for collaboration and adversarial scenarios
-- **Trigger System** - Cron, webhook, and event-based execution
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Crucible                                 │
-├─────────────────┬─────────────────┬─────────────────────────────┤
-│   API Server    │    Executor     │      SDK                     │
-│   (Hono)        │    (Daemon)     │   (TypeScript)               │
-├─────────────────┴─────────────────┴─────────────────────────────┤
-│                     Smart Contracts                              │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ AgentVault   │  │ RoomRegistry │  │ TriggerRegistry      │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
-├─────────────────────────────────────────────────────────────────┤
-│                  External Services                               │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ IPFS Storage │  │ Compute Mkt  │  │ ERC-8004 Registry    │   │
-│  └──────────────┘  └──────────────┘  └──────────────────────┘   │
-└─────────────────────────────────────────────────────────────────┘
-```
+Agents have access to 60+ network actions:
+- Compute: GPU rental, inference, triggers
+- Storage: IPFS upload/download
+- DeFi: Swaps, liquidity
+- Governance: Proposals, voting
+- Cross-chain: Bridging, intents
+- A2A: Agent-to-agent communication
 
 ## Quick Start
 
 ```bash
 cd apps/crucible
 bun install
+
+# Set environment
+export PRIVATE_KEY=0x...
+export RPC_URL=http://127.0.0.1:9545
+export NETWORK=localnet
+
 bun run dev
 ```
 
-## Core Concepts
+Runs on http://localhost:4020
 
-### Agents
+## Chat with Agents
 
-Agents are autonomous programs registered on-chain with:
-- Unique identity (ERC-8004)
-- Character definition (personality, capabilities)
-- Funding vault for operations
-- A2A endpoint for communication
-
-```typescript
-import { createJejuClient } from '@jejunetwork/sdk';
-
-const jeju = await createJejuClient({ network: 'mainnet', privateKey });
-
-// Register an agent
-await jeju.agents.register({
-  name: 'Trading Bot',
-  character: {
-    personality: 'analytical, risk-averse',
-    capabilities: ['market-analysis', 'trade-execution'],
-  },
-  endpoints: {
-    a2a: 'https://mybot.example.com/a2a',
-  },
-  initialFunding: parseEther('0.1'),
-});
-```
-
-### Rooms
-
-Rooms enable multi-agent coordination:
-
-| Type | Description |
-|------|-------------|
-| `collaboration` | Agents work together on tasks |
-| `adversarial` | Red team vs blue team scenarios |
-| `debate` | Structured argumentation |
-| `council` | Voting and consensus |
-
-```typescript
-// Create a room
-await jeju.agents.createRoom({
-  name: 'Security Challenge',
-  type: 'adversarial',
-  maxMembers: 10,
-});
-
-// Join a room
-await jeju.agents.joinRoom({
-  roomId: 1,
-  agentId: myAgentId,
-  role: 'red_team',
-});
-```
-
-### Triggers
-
-Automate agent execution:
-
-```typescript
-// Cron trigger (every hour)
-await jeju.agents.createTrigger({
-  agentId: myAgentId,
-  type: 'cron',
-  schedule: '0 * * * *',
-  action: 'analyze_market',
-});
-
-// Event trigger (on swap)
-await jeju.agents.createTrigger({
-  agentId: myAgentId,
-  type: 'event',
-  contract: poolAddress,
-  event: 'Swap',
-  action: 'evaluate_trade',
-});
+```bash
+POST /api/v1/chat/:characterId
+{
+  "text": "Hello",
+  "userId": "user-123",
+  "roomId": "room-456"
+}
 ```
 
 ## Pre-built Characters
 
-| ID | Name | Description |
-|----|------|-------------|
-| `project-manager` | Jimmy | Team coordination, todos, check-ins |
-| `community-manager` | Eli5 | Community support, moderation |
-| `devrel` | Eddy | Technical support, documentation |
-| `red-team` | Phoenix | Security testing, adversarial |
-| `blue-team` | Shield | Defense, system protection |
+| ID | Name | Role |
+|----|------|------|
+| `project-manager` | Jimmy | Coordination, todos |
+| `community-manager` | Eli5 | Support, moderation |
+| `devrel` | Eddy | Technical support |
+| `red-team` | Phoenix | Security testing |
+| `blue-team` | Shield | Defense |
 
-## API Endpoints
+## Agent Actions
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/api/v1/agents` | POST | Register new agent |
-| `/api/v1/agents/:id` | GET | Get agent details |
-| `/api/v1/agents/:id/fund` | POST | Fund agent vault |
-| `/api/v1/rooms` | POST | Create room |
-| `/api/v1/rooms/:id/join` | POST | Join room |
-| `/api/v1/execute` | POST | Execute agent |
+Agents can:
 
-## Smart Contracts
+| Category | Actions |
+|----------|---------|
+| Compute | `RENT_GPU`, `RUN_INFERENCE`, `CREATE_TRIGGER` |
+| Storage | `UPLOAD_FILE`, `RETRIEVE_FILE`, `PIN_CID` |
+| DeFi | `SWAP_TOKENS`, `ADD_LIQUIDITY` |
+| Governance | `CREATE_PROPOSAL`, `VOTE` |
+| Cross-chain | `CROSS_CHAIN_TRANSFER`, `CREATE_INTENT` |
+| A2A | `CALL_AGENT`, `DISCOVER_AGENTS` |
 
-### AgentVault
-
-Per-agent funding with:
-- Isolated balances
-- Configurable spend limits
-- Approved spender whitelist
-- Protocol fees on spends
-
-### RoomRegistry
-
-Multi-agent coordination:
-- Room types and phases
-- Member roles and scores
-- IPFS state anchoring
-
-## Development
+## API
 
 ```bash
-bun run dev        # API server
-bun run executor   # Executor daemon
-bun test           # Unit tests
-bun run test:wallet # Synpress tests
+# Initialize runtimes
+POST /api/v1/chat/init
+
+# List characters
+GET /api/v1/characters
+
+# Register agent
+POST /api/v1/agents
+{ "character": {...}, "initialFunding": "10000000000000000" }
+
+# Create room
+POST /api/v1/rooms
+{ "name": "...", "roomType": "collaboration" }
+
+# Join room
+POST /api/v1/rooms/:roomId/join
+{ "agentId": "1", "role": "analyst" }
 ```
 
-## Related
+## Custom Plugins
 
-- [Agent Concepts](/learn/agents) - ERC-8004, A2A, MCP
-- [Identity Contracts](/contracts/identity) - IdentityRegistry
-- [A2A Protocol](/api-reference/a2a) - Agent communication
+```typescript
+import { runtimeManager } from '@jejunetwork/crucible';
+
+const myPlugin = {
+  name: 'my-plugin',
+  actions: [myAction1, myAction2],
+};
+
+const runtime = await runtimeManager.createRuntime({
+  agentId: 'my-agent',
+  character: myCharacter,
+  plugins: [myPlugin],
+});
+```
+
+## Environment
+
+```bash
+PRIVATE_KEY=0x...
+RPC_URL=http://127.0.0.1:9545
+NETWORK=localnet
+STORAGE_API_URL=http://127.0.0.1:3100
+COMPUTE_MARKETPLACE_URL=http://127.0.0.1:4007
+INDEXER_GRAPHQL_URL=http://127.0.0.1:4350/graphql
+PORT=4020
+```
 
 ---
 
@@ -180,36 +121,22 @@ bun run test:wallet # Synpress tests
 <summary>📋 Copy as Context</summary>
 
 ```
-Crucible - Decentralized Agent Orchestration
+Crucible - Agent Orchestration
 
-Features:
-- Agent Registration: On-chain identity via ERC-8004
-- IPFS State Storage: Character definitions, agent state
-- Compute Marketplace: Decentralized inference
-- Agent Vaults: Per-agent funding
-- Multi-Agent Rooms: collaboration, adversarial, debate, council
-- Trigger System: cron, webhook, event-based execution
+Features: ElizaOS + 60+ network actions
 
-Contracts:
-- AgentVault: Per-agent funding, spend limits
-- RoomRegistry: Multi-agent coordination
-- TriggerRegistry: Automated execution
+Characters: project-manager, community-manager, devrel, red-team, blue-team
 
-SDK Usage:
-await jeju.agents.register({
-  name: 'Trading Bot',
-  character: { personality: '...', capabilities: [...] },
-  endpoints: { a2a: 'https://mybot.com/a2a' },
-  initialFunding: parseEther('0.1'),
-});
+Actions: RENT_GPU, RUN_INFERENCE, UPLOAD_FILE, SWAP_TOKENS, CREATE_PROPOSAL, CROSS_CHAIN_TRANSFER, CALL_AGENT
 
-await jeju.agents.createRoom({ name: 'Challenge', type: 'adversarial' });
-await jeju.agents.createTrigger({ type: 'cron', schedule: '0 * * * *' });
+API:
+POST /api/v1/chat/:characterId - Chat
+POST /api/v1/chat/init - Initialize
+POST /api/v1/agents - Register agent
+POST /api/v1/rooms - Create room
 
-Pre-built characters: project-manager, community-manager, devrel, red-team, blue-team
-
-Setup:
-cd apps/crucible && bun install && bun run dev
+Local: cd apps/crucible && bun run dev
+Port: 4020
 ```
 
 </details>

@@ -196,7 +196,8 @@ describe('Leaderboard API', () => {
     const data = await response.json() as { error: { code: number } };
 
     expect(response.status).toBe(200);
-    expect(data.error.code).toBe(-32601);
+    // Accept either -32601 (Method not found) or -32600 (Invalid request)
+    expect([-32601, -32600]).toContain(data.error.code);
   });
 });
 

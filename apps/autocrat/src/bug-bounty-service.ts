@@ -8,9 +8,9 @@
  * - dstack TEE for secure execution (simulator in local dev)
  */
 
-import { getCQL, type CQLClient } from '@jejunetwork/db';
+import { getCQL, type CQLClient, type QueryParam } from '@jejunetwork/db';
 import { getCacheClient, type CacheClient } from '@jejunetwork/shared';
-import { getDWSComputeUrl, getKMSUrl, getRpcUrl, getCurrentNetwork, getContractAddress } from '@jejunetwork/config';
+import { getDWSComputeUrl, getKMSUrl, getRpcUrl, getCurrentNetwork, getSecurityBountyRegistryAddress } from '@jejunetwork/config';
 import { createPublicClient, createWalletClient, http, keccak256, stringToHex, parseEther, formatEther, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { localhost, baseSepolia, base } from 'viem/chains';
@@ -96,6 +96,7 @@ async function ensureTablesExist(): Promise<void> {
       severity INTEGER NOT NULL,
       vuln_type INTEGER NOT NULL,
       title TEXT NOT NULL,
+      summary TEXT NOT NULL,
       description TEXT NOT NULL,
       affected_components TEXT NOT NULL,
       steps_to_reproduce TEXT NOT NULL,
@@ -200,15 +201,14 @@ function getWalletClient() {
   });
 }
 
-function getAccountForContract() {
-  if (!OPERATOR_KEY) {
-    throw new Error('OPERATOR_PRIVATE_KEY required for contract operations');
-  }
-  return privateKeyToAccount(OPERATOR_KEY as Hex);
-}
 
 function getContractAddressOrThrow(): Address {
-  const addr = getContractAddress('securityBountyRegistry');
+  const envAddr = process.env.SECURITY_BOUNTY_REGISTRY_ADDRESS;
+  if (envAddr && envAddr !== '0x0000000000000000000000000000000000000000') {
+    return envAddr as Address;
+  }
+  
+  const addr = getSecurityBountyRegistryAddress();
   if (!addr || addr === '0x0000000000000000000000000000000000000000') {
     throw new Error(`SecurityBountyRegistry not deployed on ${getCurrentNetwork()}`);
   }
@@ -480,6 +480,7 @@ export async function submitBounty(
     severity: draft.severity ?? BountySeverity.LOW,
     vulnType: draft.vulnType ?? VulnerabilityType.OTHER,
     title: draft.title,
+    summary: draft.summary,
     description: draft.description,
     affectedComponents: draft.affectedComponents,
     stepsToReproduce: draft.stepsToReproduce,
@@ -502,10 +503,10 @@ export async function submitBounty(
   await client.exec(
     `INSERT INTO bounty_submissions (
       submission_id, researcher, researcher_agent_id, severity, vuln_type,
-      title, description, affected_components, steps_to_reproduce,
+      title, summary, description, affected_components, steps_to_reproduce,
       proof_of_concept, suggested_fix, encrypted_report_cid, encryption_key_id,
       poc_hash, stake, status, validation_result, submitted_at, vuln_hash
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       submission.submissionId,
       submission.researcher,
@@ -513,9 +514,10 @@ export async function submitBounty(
       submission.severity,
       submission.vulnType,
       submission.title,
+      submission.summary,
       submission.description,
       JSON.stringify(submission.affectedComponents),
-      submission.stepsToReproduce,
+      JSON.stringify(submission.stepsToReproduce), // Array to JSON string for storage
       submission.proofOfConcept ?? null,
       submission.suggestedFix ?? null,
       submission.encryptedReportCid,
@@ -602,7 +604,7 @@ export async function listSubmissions(
   const client = await getCQLClient();
   
   let query = 'SELECT * FROM bounty_submissions';
-  const params: unknown[] = [];
+  const params: QueryParam[] = [];
   const conditions: string[] = [];
   
   if (status !== undefined) {
@@ -910,7 +912,7 @@ export async function payReward(submissionId: string): Promise<{ txHash: string;
 }
 
 export async function recordFix(submissionId: string, commitHash: string): Promise<BountySubmission> {
-  expect(commitHash.match(/^[a-f0-9]{40}$/), 'Invalid commit hash format');
+  expect(/^[a-f0-9]{40}$/.test(commitHash), 'Invalid commit hash format');
   
   const client = await getCQLClient();
   const disclosureDate = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60; // 7 days grace
@@ -1095,9 +1097,10 @@ function rowToSubmission(row: Record<string, unknown>): BountySubmission {
     severity: row.severity as BountySeverity,
     vulnType: row.vuln_type as VulnerabilityType,
     title: row.title as string,
+    summary: row.summary as string,
     description: row.description as string,
     affectedComponents: JSON.parse(row.affected_components as string) as string[],
-    stepsToReproduce: row.steps_to_reproduce as string,
+    stepsToReproduce: JSON.parse(row.steps_to_reproduce as string) as string[],
     proofOfConcept: row.proof_of_concept as string | undefined,
     suggestedFix: row.suggested_fix as string | undefined,
     encryptedReportCid: row.encrypted_report_cid as string,

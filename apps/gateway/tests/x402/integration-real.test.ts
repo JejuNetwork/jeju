@@ -114,9 +114,12 @@ describe('Real RPC Integration', () => {
     
     const { publicClient } = await createClients('jeju');
     const chainId = await publicClient.getChainId();
-    
-    // Accept either network mainnet (420691) or local Anvil (31337)
-    const validChainIds = [420691, 31337];
+
+    // Accept various chain IDs depending on environment:
+    // - 420691: Jeju mainnet
+    // - 420690: Jeju testnet
+    // - 31337 or 1337: Local Anvil
+    const validChainIds = [420691, 420690, 31337, 1337];
     expect(validChainIds).toContain(Number(chainId));
   });
 
@@ -396,8 +399,8 @@ describe('Concurrent Real Operations', () => {
       expect(chainId).toBe(firstChainId);
     }
     
-    // Accept either network mainnet (420691) or local Anvil (31337)
-    const validChainIds = [420691, 31337];
+    // Accept various chain IDs depending on environment
+    const validChainIds = [420691, 420690, 31337, 1337];
     expect(validChainIds).toContain(firstChainId);
   });
 

@@ -753,6 +753,30 @@ deployCommand
   });
 
 deployCommand
+  .command('liquidity')
+  .description('Deploy liquidity system (RiskSleeve, LiquidityRouter, MultiServiceStakeManager)')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet', 'localnet')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'packages/contracts/script/DeployLiquidity.s.sol');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Liquidity deploy script not found');
+      return;
+    }
+    
+    const network = options.network as NetworkType;
+    const rpcUrl = CHAIN_CONFIG[network]?.rpcUrl || 'http://127.0.0.1:6546';
+    
+    logger.step('Deploying liquidity contracts...');
+    await execa('forge', ['script', 'script/DeployLiquidity.s.sol', '--rpc-url', rpcUrl, '--broadcast'], {
+      cwd: join(rootDir, 'packages/contracts'),
+      stdio: 'inherit',
+    });
+    logger.success('Liquidity contracts deployed');
+  });
+
+deployCommand
   .command('account-abstraction')
   .description('Deploy account abstraction infrastructure')
   .option('--network <network>', 'Network: localnet | testnet | mainnet', 'localnet')

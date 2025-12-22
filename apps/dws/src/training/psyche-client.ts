@@ -23,16 +23,19 @@ import * as borsh from 'borsh';
 // Constants
 // ============================================================================
 
+// Psyche program IDs from vendor_examples/psyche
 const PSYCHE_COORDINATOR_PROGRAM_ID = new PublicKey(
   '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7'
 );
 
+// These are placeholders - use real deployed addresses in production
+// Using the coordinator program ID as a fallback for now
 const PSYCHE_TREASURER_PROGRAM_ID = new PublicKey(
-  'PsycheTreasurer111111111111111111111111111111'
+  'PsyAUmhpmiUouWsnJdNGFSX8vZ6rWjXjgDPHsgqPGyw' // From psyche docker test
 );
 
 const PSYCHE_MINING_POOL_PROGRAM_ID = new PublicKey(
-  'PsycheMiningPool111111111111111111111111111111'
+  '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7' // Placeholder
 );
 
 // ============================================================================

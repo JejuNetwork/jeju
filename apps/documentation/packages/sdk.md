@@ -1,6 +1,6 @@
 # SDK
 
-TypeScript SDK for Jeju. Everything you need: DeFi, bridging, storage, compute, identity.
+TypeScript SDK for Jeju.
 
 ## Install
 
@@ -21,7 +21,6 @@ const jeju = await createJejuClient({
 
 // Check balance
 const balance = await jeju.getBalance();
-console.log('Balance:', balance);
 
 // Swap tokens
 await jeju.defi.swap({
@@ -43,33 +42,25 @@ await jeju.crosschain.transfer({
 
 ```typescript
 const jeju = await createJejuClient({
-  // Required: which network
-  network: 'testnet',
-  
-  // One of these required:
-  privateKey: '0x...',      // Private key
-  mnemonic: 'word word...', // Or mnemonic
-  
-  // Optional:
-  smartAccount: true,  // Use ERC-4337 account (default: true)
-  rpcUrl: '...',       // Override RPC
-  bundlerUrl: '...',   // Override bundler
+  network: 'testnet',           // Required
+  privateKey: '0x...',          // Or mnemonic
+  smartAccount: true,           // Default: true (ERC-4337)
+  rpcUrl: '...',                // Override RPC
+  bundlerUrl: '...',            // Override bundler
 });
 ```
 
 ## Core Modules
 
-These are the most-used modules. Start here.
-
-### defi — Swaps & Liquidity
+### defi
 
 ```typescript
-// Swap tokens
+// Swap
 await jeju.defi.swap({
   tokenIn: 'USDC',
   tokenOut: 'JEJU',
   amountIn: parseUnits('100', 6),
-  slippage: 0.5, // 0.5% max slippage
+  slippage: 0.5,
 });
 
 // Add liquidity
@@ -83,175 +74,172 @@ await jeju.defi.addLiquidity({
 // Remove liquidity
 await jeju.defi.removeLiquidity({
   pair: 'JEJU/USDC',
-  percent: 50, // Remove 50%
+  percent: 50,
 });
 ```
 
-### crosschain — Bridging & Intents
+### crosschain
 
 ```typescript
-// Instant bridge (EIL)
+// Bridge (EIL - instant)
 await jeju.crosschain.transfer({
-  from: 'ethereum', // 'ethereum' | 'base'
+  from: 'ethereum',
   to: 'jeju',
   token: 'ETH',
   amount: parseEther('1'),
 });
 
-// Cross-chain swap (OIF)
-const intentHash = await jeju.crosschain.createIntent({
-  sourceChain: 8453, // Base
-  inputToken: '0x...', // USDC on Base
+// Create intent (OIF)
+const hash = await jeju.crosschain.createIntent({
+  sourceChain: 8453,
+  inputToken: '0x...',
   inputAmount: parseUnits('100', 6),
-  outputChain: 420691, // Jeju
-  outputToken: '0x...', // JEJU
+  outputChain: 420691,
+  outputToken: '0x...',
   minOutputAmount: parseUnits('95', 18),
   deadline: Math.floor(Date.now() / 1000) + 3600,
 });
 
-// Check intent status
-const status = await jeju.crosschain.getIntentStatus(intentHash);
-// 'pending' | 'filled' | 'expired' | 'settled'
+// Check status
+const status = await jeju.crosschain.getIntentStatus(hash);
 ```
 
-### payments — Gasless Transactions
+### payments
 
 ```typescript
-// User pays gas in USDC
+// User pays in token
 await jeju.payments.payWithToken({
   to: contractAddress,
   data: calldata,
   gasToken: 'USDC',
 });
 
-// Your app sponsors gas (free for user)
+// You sponsor
 await jeju.payments.sponsoredCall({
-  paymaster: yourPaymasterAddress,
+  paymaster: paymasterAddress,
   to: contractAddress,
   data: calldata,
 });
 
-// Deploy your own paymaster
+// Deploy paymaster
 const paymaster = await jeju.payments.deployPaymaster({
-  name: 'My App Paymaster',
+  name: 'My Paymaster',
 });
 
-// Fund it
+// Fund paymaster
 await jeju.payments.fundPaymaster({
   paymaster: paymaster.address,
   amount: parseEther('1'),
 });
 ```
 
-### storage — IPFS
+### storage
 
 ```typescript
 // Upload
 const cid = await jeju.storage.upload(file);
-console.log('CID:', cid);
 
-// Pin for 30 days
-await jeju.storage.pin(cid, { 
-  duration: 30 * 24 * 60 * 60 
-});
+// Pin
+await jeju.storage.pin(cid, { duration: 30 * 24 * 60 * 60 });
 
 // Download
 const data = await jeju.storage.get(cid);
 ```
 
-### compute — AI Inference
+### compute
 
 ```typescript
-// List available models
+// List models
 const models = await jeju.compute.listModels();
 
 // Run inference
 const result = await jeju.compute.inference({
   model: 'llama3.2',
-  prompt: 'Explain DeFi in one sentence',
+  prompt: 'Hello',
   maxTokens: 100,
 });
 
-console.log(result.text);
+// List providers
+const providers = await jeju.compute.listProviders();
+
+// Rent GPU
+const rental = await jeju.compute.createRental({
+  provider: '0x...',
+  durationHours: 2,
+});
 ```
 
-### identity — Agent Registry
+### identity
 
 ```typescript
-// Register as an agent
+// Register agent
 await jeju.identity.registerAgent({
-  name: 'My Trading Bot',
-  description: 'Automated DeFi trading',
-  endpoints: {
-    a2a: 'https://mybot.com/a2a',
-  },
-  labels: ['trading', 'defi'],
+  name: 'My Bot',
+  description: 'Trading bot',
+  endpoints: { a2a: 'https://mybot.com/a2a' },
+  labels: ['trading'],
 });
 
-// Look up an agent
+// Get agent
 const agent = await jeju.identity.getAgent('0x...');
-console.log(agent.name, agent.endpoints);
 
 // Search agents
-const bots = await jeju.identity.searchAgents({
+const agents = await jeju.identity.searchAgents({
   labels: ['trading'],
   limit: 10,
 });
 ```
 
-### names — JNS Domains
+### names
 
 ```typescript
-// Register alice.jeju
+// Register .jeju domain
 await jeju.names.register({
   name: 'alice',
-  duration: 365 * 24 * 60 * 60, // 1 year
+  duration: 365 * 24 * 60 * 60,
 });
 
 // Resolve name → address
 const address = await jeju.names.resolve('alice.jeju');
 
-// Reverse lookup address → name
+// Reverse lookup
 const name = await jeju.names.reverse('0x...');
 ```
 
 ## Extended Modules
 
-Less common, but available:
-
-| Module | What it does |
-|--------|--------------|
-| `agents` | Agent vaults, multi-agent rooms |
-| `staking` | JEJU staking, node staking |
+| Module | Description |
+|--------|-------------|
+| `agents` | Agent vaults, rooms |
+| `staking` | Node staking |
 | `governance` | Proposals, voting |
-| `launchpad` | Token launches, presales |
-| `moderation` | Reputation, reporting |
-| `work` | Bounties, projects |
-| `otc` | Peer-to-peer trades |
+| `launchpad` | Token launches |
+| `moderation` | Reporting |
+| `work` | Bounties |
+| `otc` | Peer trades |
 | `messaging` | Encrypted messaging |
-| `perps` | Perpetual futures |
+| `perps` | Perpetuals |
 | `oracle` | Price feeds |
-| `vpn` | Decentralized VPN |
+| `vpn` | VPN nodes |
 | `models` | Model registry |
 | `mcp` | Model Context Protocol |
+| `a2a` | Agent-to-agent |
+| `bridge` | Bridge operations |
+| `feed` | Social feed |
+| `cdn` | CDN operations |
 
 ## Wallet Access
 
 ```typescript
-// Get underlying wallet
 const { wallet } = jeju;
 
-// Address
 console.log(wallet.address);
-
-// Is smart account?
 console.log(wallet.isSmartAccount);
 
 // Direct transaction
 const hash = await jeju.sendTransaction({
   to: '0x...',
   value: parseEther('1'),
-  data: '0x',
 });
 ```
 
@@ -264,16 +252,13 @@ try {
   await jeju.defi.swap({ ... });
 } catch (error) {
   if (error instanceof JejuError) {
-    console.error(`Error ${error.code}: ${error.message}`);
-    // Common codes: INSUFFICIENT_BALANCE, SLIPPAGE_EXCEEDED, TX_FAILED
+    console.error(`${error.code}: ${error.message}`);
   }
   throw error;
 }
 ```
 
-## TypeScript
-
-The SDK is fully typed. Import types:
+## Types
 
 ```typescript
 import type { 
@@ -284,17 +269,15 @@ import type {
 } from '@jejunetwork/sdk';
 ```
 
-## Using with viem Directly
-
-You can access the underlying viem clients:
+## Using with viem
 
 ```typescript
 const { wallet } = jeju;
 
-// Public client (read-only)
+// Public client
 const block = await wallet.publicClient.getBlockNumber();
 
-// Wallet client (write)
+// Wallet client
 await wallet.walletClient.sendTransaction({ ... });
 ```
 
@@ -314,23 +297,17 @@ import { parseUnits, parseEther } from 'viem';
 const jeju = await createJejuClient({ network: 'testnet', privateKey: '0x...' });
 
 Core modules:
-- jeju.defi.swap({ tokenIn, tokenOut, amountIn })
-- jeju.crosschain.transfer({ from, to, token, amount })
-- jeju.payments.payWithToken({ to, data, gasToken })
-- jeju.payments.sponsoredCall({ paymaster, to, data })
-- jeju.storage.upload(file) → cid
-- jeju.compute.inference({ model, prompt })
-- jeju.identity.registerAgent({ name, endpoints })
-- jeju.names.register({ name, duration })
+- defi: swap, addLiquidity, removeLiquidity
+- crosschain: transfer (EIL), createIntent (OIF)
+- payments: payWithToken, sponsoredCall, deployPaymaster
+- storage: upload, pin, get
+- compute: inference, listModels, createRental
+- identity: registerAgent, getAgent, searchAgents
+- names: register, resolve, reverse
 
-Extended: agents, staking, governance, launchpad, moderation, work, otc, messaging, perps, oracle, vpn, models, mcp
+Extended: agents, staking, governance, launchpad, moderation, work, otc, messaging, perps, oracle, vpn, models, mcp, a2a, bridge, feed, cdn
 
-Config:
-- network: 'mainnet' | 'testnet' | 'localnet'
-- privateKey or mnemonic
-- smartAccount: true (default, uses ERC-4337)
-
-Direct wallet: jeju.wallet.address, jeju.wallet.publicClient, jeju.sendTransaction()
+Wallet: jeju.wallet.address, jeju.sendTransaction()
 ```
 
 </details>

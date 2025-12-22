@@ -215,12 +215,10 @@ describe('LockManager - Edge Cases', () => {
     const lock = createTestLock();
     const lockPath = lock.getLockPath();
 
-    // Partial metadata
+    // Partial metadata - should throw because schema requires all fields
     writeFileSync(lockPath, JSON.stringify({ pid: 12345 }));
 
-    // Should still work (may throw on missing timestamp)
-    const status = lock.isLocked();
-    expect(status.locked).toBe(true);
+    expect(() => lock.isLocked()).toThrow();
 
     unlinkSync(lockPath);
   });

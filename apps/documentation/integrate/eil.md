@@ -1,26 +1,19 @@
-# EIL Integration
+# EIL (Ethereum Interop Layer)
 
-EIL (Ethereum Interop Layer) enables instant bridging to Jeju. Users deposit on Ethereum/Base, receive on Jeju in ~30 seconds.
+Instant cross-chain transfers via liquidity providers.
 
 ## How It Works
 
-```
-User deposits on Ethereum
-        ↓
-XLP monitors for deposit event
-        ↓
-XLP credits user on Jeju (instant)
-        ↓
-User has funds on Jeju
-        ↓
-~15 min later: XLP claims deposit from Ethereum
-```
+1. User deposits on source chain (Ethereum/Base)
+2. XLP (liquidity provider) sees deposit
+3. XLP credits user instantly on Jeju
+4. XLP claims deposit from source chain later
 
-XLPs (Cross-chain Liquidity Providers) front the capital, so users don't wait.
+Transfer time: ~30 seconds.
 
-## For DApp Developers
+## For Users
 
-### Accept Cross-Chain Deposits
+Use the SDK:
 
 ```typescript
 import { createJejuClient } from '@jejunetwork/sdk';
@@ -31,200 +24,133 @@ const jeju = await createJejuClient({
   privateKey: process.env.PRIVATE_KEY as `0x${string}`,
 });
 
-// User bridges ETH from Ethereum to Jeju
-const tx = await jeju.crosschain.transfer({
+await jeju.crosschain.transfer({
   from: 'ethereum',
   to: 'jeju',
   token: 'ETH',
   amount: parseEther('1'),
 });
 
-console.log('Bridge tx:', tx.hash);
-
-// Wait for credit on Jeju (usually <30 seconds)
+// Wait for completion
 const receipt = await jeju.crosschain.waitForTransfer(tx.hash);
-console.log('Credited on Jeju:', receipt);
 ```
 
-### Monitor Deposits
+## For DApps
+
+Add bridging to your app:
 
 ```typescript
-// Watch for incoming deposits to your app
-jeju.crosschain.onDeposit((deposit) => {
-  console.log(`${deposit.from} deposited ${deposit.amount} ${deposit.token}`);
-  
-  // Credit user in your app
-  await creditUserBalance(deposit.from, deposit.amount);
+// Show available liquidity
+const liquidity = await jeju.crosschain.getAvailableLiquidity({
+  from: 'ethereum',
+  to: 'jeju',
+  token: 'ETH',
+});
+
+// Check fee
+const fee = await jeju.crosschain.estimateFee({
+  from: 'ethereum',
+  to: 'jeju',
+  token: 'ETH',
+  amount: parseEther('1'),
+});
+
+// Execute
+const tx = await jeju.crosschain.transfer({
+  from: 'ethereum',
+  to: 'jeju',
+  token: 'ETH',
+  amount: parseEther('1'),
 });
 ```
 
 ## For XLPs (Liquidity Providers)
 
-XLPs earn 0.1-0.3% on each transfer by fronting liquidity.
+Provide liquidity and earn fees.
 
 ### Requirements
 
-- 1 ETH stake on L1
-- Capital on Jeju to front (recommend 5+ ETH worth)
-- Server to run the XLP bot
+- 1 ETH stake
+- Liquidity capital on Jeju (minimum 5 ETH worth)
+- Running infrastructure
 
-### Step 1: Stake on L1
-
-```bash
-# Using cast
-cast send 0x742d35Cc6634C0532925a3b844Bc9e7595f7a1B2 \
-  "register(uint256[])" "[420691]" \
-  --value 1ether \
-  --rpc-url https://eth-sepolia.g.alchemy.com/v2/YOUR_KEY \
-  --private-key $PRIVATE_KEY
-```
-
-Or via SDK:
+### Register
 
 ```typescript
-import { createJejuClient } from '@jejunetwork/sdk';
 import { parseEther } from 'viem';
 
-const jeju = await createJejuClient({
-  network: 'mainnet',
-  privateKey: process.env.PRIVATE_KEY as `0x${string}`,
-});
-
-await jeju.crosschain.registerXLP({
+await jeju.staking.registerXLP({
   stake: parseEther('1'),
-  chains: [420691], // Jeju mainnet
+  chains: ['ethereum', 'base'],
+  tokens: ['ETH', 'USDC'],
 });
 ```
 
-### Step 2: Deposit Liquidity on Jeju
+### Provide Liquidity
 
 ```typescript
-// Deposit ETH liquidity that you'll use to credit users
-await jeju.crosschain.depositXLPLiquidity({
+await jeju.crosschain.provideLiquidity({
   token: 'ETH',
-  amount: parseEther('5'),
+  amount: parseEther('10'),
 });
 ```
 
-### Step 3: Run the XLP Bot
+### Run XLP Bot
 
 ```bash
-cd packages/bots
-cp .env.example .env
-# Configure PRIVATE_KEY, L1_RPC_URL, L2_RPC_URL
-
+cd packages/bridge
 bun run xlp
 ```
 
 The bot:
-1. Monitors L1 for deposits
-2. Credits users on L2
-3. Tracks deposits to claim later
-4. Claims after L1 finality (~15 min)
+- Monitors source chains for deposits
+- Credits users on Jeju
+- Claims deposits from source chains
+- Manages liquidity across chains
 
-### Step 4: Monitor Earnings
+### Earnings
 
-```typescript
-const stats = await jeju.crosschain.getXLPStats(myAddress);
-console.log('Total volume:', stats.volume);
-console.log('Total earned:', stats.earnings);
-console.log('Current liquidity:', stats.liquidity);
-```
+XLPs earn 0.1-0.3% per transfer.
 
-## Economics
+| Transfer Size | Fee | XLP Earnings |
+|---------------|-----|--------------|
+| 1 ETH | 0.002 ETH | 0.002 ETH |
+| 10 ETH | 0.02 ETH | 0.02 ETH |
+| 100 ETH | 0.2 ETH | 0.2 ETH |
 
-| Parameter | Value |
-|-----------|-------|
-| Min XLP Stake | 1 ETH |
-| Spread | 0.1-0.3% |
-| Protocol Fee | 0.05% |
-| XLP Share | 95% of spread |
-| Settlement | ~15 minutes |
+## Contracts
 
-### Example Earnings
+| Contract | Description |
+|----------|-------------|
+| `L1StakeManager` | Manages XLP stakes on L1 |
+| `CrossChainPaymaster` | Handles credits on Jeju |
+| `LiquidityPaymaster` | Manages liquidity pools |
 
-```
-Daily volume: $100,000
-Spread: 0.2%
-Gross: $200/day
-Protocol fee: -$50
-Net: $150/day = ~$4,500/month
+### Testnet Addresses
 
-On $50k capital = ~9% monthly return
-```
+| Contract | Address |
+|----------|---------|
+| L1StakeManager (Sepolia) | `0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0` |
+| CrossChainPaymaster (Jeju) | `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9` |
 
-*Returns vary with volume and competition.*
+## Supported Tokens
 
-## Contracts (Testnet)
-
-| Contract | Network | Address |
-|----------|---------|---------|
-| L1StakeManager | Sepolia | `0x742d35Cc6634C0532925a3b844Bc9e7595f7a1B2` |
-| CrossChainPaymaster | Jeju Testnet | `0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9` |
-
-## Contract Functions
-
-### L1StakeManager (on Ethereum)
-
-```solidity
-// Register as XLP (requires stake)
-function register(uint256[] calldata chains) external payable;
-
-// User deposits for transfer to Jeju
-function depositForUser(
-    address recipient,
-    uint256 destChain,
-    address xlp
-) external payable;
-
-// XLP claims after L1 finality
-function claimDeposit(bytes32 depositHash) external;
-```
-
-### CrossChainPaymaster (on Jeju)
-
-```solidity
-// XLP deposits liquidity
-function depositETH() external payable;
-function depositToken(address token, uint256 amount) external;
-
-// XLP credits user (called by XLP bot)
-function creditUser(
-    address user,
-    address token,
-    uint256 amount,
-    bytes32 l1TxHash
-) external;
-
-// XLP withdraws liquidity
-function withdraw(address token, uint256 amount) external;
-```
+| Token | Ethereum | Base | Jeju |
+|-------|----------|------|------|
+| ETH | ✅ | ✅ | ✅ |
+| USDC | ✅ | ✅ | ✅ |
+| USDT | ✅ | ✅ | ✅ |
+| WBTC | ✅ | — | ✅ |
 
 ## Slashing
 
-XLPs are slashed for:
+XLPs can be slashed for:
 
-| Offense | Slash |
-|---------|-------|
-| Not crediting user within 5 minutes | 10% |
-| Double-crediting | 50% |
-| Providing wrong amount | 25% |
-
-Users can report via Gateway UI → "Report Missing Credit".
-
-## FAQ
-
-**What if no XLP is available?**
-
-Users can still use the native OP Stack bridge, which takes ~7 days. EIL is an optimization layer.
-
-**What tokens are supported?**
-
-ETH, USDC, USDT, WBTC. More can be added via governance.
-
-**What's the minimum transfer?**
-
-0.01 ETH equivalent. Smaller transfers aren't profitable for XLPs.
+| Offense | Penalty |
+|---------|---------|
+| Failure to credit within 5 minutes | 10% |
+| Invalid credit amount | 25% |
+| Fraud | 100% |
 
 ---
 
@@ -232,37 +158,27 @@ ETH, USDC, USDT, WBTC. More can be added via governance.
 <summary>📋 Copy as Context</summary>
 
 ```
-EIL - Ethereum Interop Layer
+EIL - Instant Bridging
 
-Flow:
-1. User deposits on L1 (Ethereum/Base)
-2. XLP detects deposit
-3. XLP credits user on Jeju (instant, ~30s)
-4. XLP claims deposit after L1 finality (~15 min)
+How it works:
+1. User deposits on source chain
+2. XLP sees deposit
+3. XLP credits user on Jeju instantly
+4. XLP claims deposit later
 
-For DApps:
+For users:
 await jeju.crosschain.transfer({
-  from: 'ethereum', to: 'jeju',
-  token: 'ETH', amount: parseEther('1')
+  from: 'ethereum', to: 'jeju', token: 'ETH', amount: parseEther('1')
 });
-await jeju.crosschain.waitForTransfer(tx.hash);
 
 For XLPs:
-1. Stake 1 ETH: await jeju.crosschain.registerXLP({ stake, chains })
-2. Deposit liquidity: await jeju.crosschain.depositXLPLiquidity({ token, amount })
-3. Run bot: cd packages/bots && bun run xlp
+await jeju.staking.registerXLP({ stake: parseEther('1'), chains, tokens });
+await jeju.crosschain.provideLiquidity({ token, amount });
+Run: cd packages/bridge && bun run xlp
 
-Contracts (testnet):
-- L1StakeManager (Sepolia): 0x742d35Cc6634C0532925a3b844Bc9e7595f7a1B2
-- CrossChainPaymaster (Jeju): 0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
-
-Economics:
-- Stake: 1 ETH
-- Spread: 0.1-0.3%
-- Protocol: 0.05%
-- XLP share: 95%
-
-Slashing: Not crediting 10%, double-credit 50%, wrong amount 25%
+Earnings: 0.1-0.3% per transfer
+Time: ~30 seconds
+Tokens: ETH, USDC, USDT, WBTC
 ```
 
 </details>

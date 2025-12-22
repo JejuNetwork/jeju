@@ -1,97 +1,87 @@
 {
-  "$schema": "../../packages/config/jeju-manifest.schema.json",
-  "name": "dws",
-  "displayName": "Decentralized Web Services",
+  "name": "@jejunetwork/dws",
   "version": "1.0.0",
-  "type": "core",
-  "description": "Decentralized storage, compute, CDN, Git hosting (JejuGit), and package registry (JejuPkg) with hybrid cloud edge, JNS gateway, and Vercel-style caching.",
-  "commands": {
-    "dev": "bun run dev",
-    "cdn:edge": "bun run cdn:edge",
-    "cdn:coordinator": "bun run cdn:coordinator",
-    "cdn:gateway": "bun run cdn:gateway",
-    "test": "bun run test"
-  },
-  "ports": {
-    "main": 4030,
-    "cdnEdge": 4020,
-    "cdnCoordinator": 4021,
-    "cdnJnsGateway": 4022
-  },
-  "dependencies": ["contracts", "config"],
-  "optional": false,
-  "enabled": true,
-  "autoStart": true,
-  "tags": [
-    "dws",
-    "storage",
-    "compute",
-    "cdn",
-    "git",
-    "pkg",
-    "edge",
-    "jns",
-    "cache",
-    "ipfs",
-    "arweave",
-    "cloud"
-  ],
-  "jns": {
-    "name": "dws.jeju",
-    "description": "Decentralized Web Services",
-    "url": "https://dws.jejunetwork.org"
-  },
-  "healthCheck": {
-    "url": "http://localhost:4030/health",
-    "interval": 30000
-  },
-  "agent": {
-    "enabled": true,
-    "a2aEndpoint": "/a2a",
-    "mcpEndpoint": "/mcp",
-    "tags": ["jeju-app", "storage", "compute", "cdn", "git", "pkg", "edge", "gateway"],
-    "metadata": {
-      "category": "dws",
-      "provider": "jeju-network",
-      "features": ["storage", "compute", "cdn", "git", "pkg", "jns", "edge-routing", "federation"]
+  "description": "Decentralized Web Services - Storage, Compute, CDN, Funding",
+  "type": "service",
+  "deployment": {
+    "testnet": {
+      "network": "base-sepolia",
+      "chainId": 84532,
+      "contracts": {
+        "IdentityRegistry": "${IDENTITY_REGISTRY_ADDRESS}",
+        "DAORegistry": "${DAO_REGISTRY_ADDRESS}",
+        "ContributorRegistry": "${CONTRIBUTOR_REGISTRY_ADDRESS}",
+        "PaymentRequestRegistry": "${PAYMENT_REQUEST_REGISTRY_ADDRESS}",
+        "DeepFundingDistributor": "${DEEP_FUNDING_DISTRIBUTOR_ADDRESS}",
+        "JNSRegistry": "${JNS_REGISTRY_ADDRESS}"
+      },
+      "services": {
+        "dws": {
+          "port": 4030,
+          "replicas": 3,
+          "resources": {
+            "cpu": "2",
+            "memory": "4Gi"
+          }
+        }
+      }
     },
-    "trustModels": ["open", "staked"],
-    "x402Support": true,
-    "multiTokenPayments": true,
-    "jnsName": "dws.jeju"
+    "mainnet": {
+      "network": "base",
+      "chainId": 8453,
+      "contracts": {
+        "IdentityRegistry": "${IDENTITY_REGISTRY_ADDRESS}",
+        "DAORegistry": "${DAO_REGISTRY_ADDRESS}",
+        "ContributorRegistry": "${CONTRIBUTOR_REGISTRY_ADDRESS}",
+        "PaymentRequestRegistry": "${PAYMENT_REQUEST_REGISTRY_ADDRESS}",
+        "DeepFundingDistributor": "${DEEP_FUNDING_DISTRIBUTOR_ADDRESS}",
+        "JNSRegistry": "${JNS_REGISTRY_ADDRESS}"
+      },
+      "services": {
+        "dws": {
+          "port": 4030,
+          "replicas": 5,
+          "resources": {
+            "cpu": "4",
+            "memory": "8Gi"
+          }
+        }
+      }
+    },
+    "localnet": {
+      "network": "anvil",
+      "chainId": 31337,
+      "contracts": {
+        "IdentityRegistry": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
+        "DAORegistry": "0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9",
+        "ContributorRegistry": "0x5FC8d32690cc91D4c39d9d3abcBD16989F875707",
+        "PaymentRequestRegistry": "0x0165878A594ca255338adfa4d48449f69242Eb8F",
+        "DeepFundingDistributor": "0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6",
+        "JNSRegistry": "0x610178dA211FEF7D417bC0e6FeD39F05609AD788"
+      }
+    }
+  },
+  "endpoints": {
+    "storage": "/storage/*",
+    "compute": "/compute/*",
+    "cdn": "/cdn/*",
+    "git": "/git/*",
+    "pkg": "/pkg/*",
+    "ci": "/ci/*",
+    "oauth3": "/oauth3/*",
+    "api": "/api/*",
+    "containers": "/containers/*",
+    "a2a": "/a2a/*",
+    "mcp": "/mcp/*",
+    "funding": "/funding/*",
+    "registry": "/registry/*"
   },
   "decentralization": {
-    "cdn": {
-      "enabled": true,
-      "regions": ["global"],
-      "cacheRules": [
-        { "pattern": "/ipfs/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/ipns/**", "ttl": 300, "staleWhileRevalidate": 3600 },
-        { "pattern": "/ar/**", "ttl": 31536000, "immutable": true },
-        { "pattern": "/api/**", "ttl": 0 },
-        { "pattern": "/app/**", "ttl": 60, "staleWhileRevalidate": 3600 }
-      ],
-      "serviceWorker": true
-    },
-    "frontend": {
-      "ipfs": true,
-      "arweave": true,
-      "jnsName": "dws.jeju",
-      "buildDir": "frontend",
-      "spa": true,
-      "fallbackOrigins": ["https://dws.jejunetwork.org"]
-    },
-    "robustness": {
-      "multiOrigin": true,
-      "offlineSupport": true,
-      "p2pFallback": true,
-      "contentAddressed": true
-    }
-  },
-  "testing": {
-    "unit": {
-      "command": "bun run test",
-      "timeout": 180000
-    }
+    "frontendStorage": "ipfs",
+    "dataStorage": "cql",
+    "nodeDiscovery": "on-chain",
+    "coordination": "p2p",
+    "execution": ["workerd", "containers", "tee"],
+    "payments": "x402"
   }
 }

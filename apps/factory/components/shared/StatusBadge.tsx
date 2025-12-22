@@ -1,7 +1,7 @@
 'use client';
 
-import type { VerificationStatus, PaymentRequestStatus } from '../../../../types/funding';
-import { PAYMENT_STATUS_DISPLAY } from '../../../../types/funding';
+import type { VerificationStatus, PaymentRequestStatus } from '../../types/funding';
+import { PAYMENT_STATUS_DISPLAY } from '../../types/funding';
 
 // ============ Verification Status Badge ============
 
@@ -59,7 +59,7 @@ export function StatusBadge({
 
 // ============ Contributor Type Badge ============
 
-import type { ContributorType } from '../../../../types/funding';
+import type { ContributorType } from '../../types/funding';
 
 const CONTRIBUTOR_TYPE_STYLES: Record<ContributorType, string> = {
   INDIVIDUAL: 'bg-blue-500/20 text-blue-400',
@@ -77,7 +77,7 @@ export function ContributorTypeBadge({ type }: { type: ContributorType }) {
 
 // ============ Registry Type Badge ============
 
-import type { RegistryType } from '../../../../types/funding';
+import type { RegistryType } from '../../types/funding';
 
 const REGISTRY_TYPE_STYLES: Record<RegistryType, string> = {
   npm: 'bg-red-500/20 text-red-400',

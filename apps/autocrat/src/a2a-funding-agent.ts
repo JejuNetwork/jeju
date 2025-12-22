@@ -11,10 +11,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { getDeepFundingService } from './deep-funding-service';
-import { getContributorService } from './contributor-service';
-import { getPaymentRequestService } from './payment-request-service';
-import { getDependencyScanner } from './dependency-scanner';
+import { fundingApi } from './funding-api';
 import type { Address } from 'viem';
 
 // ============ Types ============
@@ -290,52 +287,57 @@ async function handleSkill(
   skillId: string,
   input: Record<string, unknown>
 ): Promise<Record<string, unknown>> {
-  const fundingService = getDeepFundingService();
-  const contributorService = getContributorService();
-  const paymentService = getPaymentRequestService();
-
   switch (skillId) {
     case 'get_funding_pool': {
-      const pool = await fundingService.getDAOPool(input.daoId as string);
-      return pool
-        ? {
-            daoId: pool.daoId,
-            totalAccumulated: pool.totalAccumulated.toString(),
-            contributorPool: pool.contributorPool.toString(),
-            dependencyPool: pool.dependencyPool.toString(),
-            reservePool: pool.reservePool.toString(),
-          }
-        : { error: 'Pool not found' };
+      const result = await fundingApi.getDAOPool(input.daoId as string);
+      if (!result.success || !result.data) {
+        return { error: result.error || 'Pool not found' };
+      }
+      const pool = result.data;
+      return {
+        daoId: pool.daoId,
+        totalAccumulated: pool.totalAccumulated.toString(),
+        contributorPool: pool.contributorPool.toString(),
+        dependencyPool: pool.dependencyPool.toString(),
+        reservePool: pool.reservePool.toString(),
+      };
     }
 
     case 'get_current_epoch': {
-      const epoch = await fundingService.getCurrentEpoch(input.daoId as string);
-      return epoch
-        ? {
-            epochId: epoch.epochId,
-            startTime: epoch.startTime,
-            endTime: epoch.endTime,
-            totalDistributed: epoch.totalDistributed.toString(),
-            finalized: epoch.finalized,
-          }
-        : { error: 'No active epoch' };
+      const result = await fundingApi.getCurrentEpoch(input.daoId as string);
+      if (!result.success || !result.data) {
+        return { error: result.error || 'No active epoch' };
+      }
+      const epoch = result.data;
+      return {
+        epochId: epoch.epochId,
+        startTime: epoch.startTime,
+        endTime: epoch.endTime,
+        totalDistributed: epoch.totalDistributed.toString(),
+        finalized: epoch.finalized,
+      };
     }
 
     case 'scan_dependencies': {
-      const scanner = getDependencyScanner();
-      const result = await scanner.scanRepository(input.owner as string, input.repo as string);
+      const result = await fundingApi.scanRepository(input.owner as string, input.repo as string);
+      if (!result.success || !result.data) {
+        return { error: result.error || 'Scan failed' };
+      }
       return {
-        totalDependencies: result.totalDependencies,
-        directDependencies: result.directDependencies,
-        transitiveDependencies: result.transitiveDependencies,
-        registeredDependencies: result.registeredDependencies,
-        dependencies: result.dependencies.slice(0, 20), // Limit to top 20
+        totalDependencies: result.data.totalDependencies,
+        directDependencies: result.data.directDependencies,
+        transitiveDependencies: result.data.transitiveDependencies,
+        registeredDependencies: result.data.registeredDependencies,
+        dependencies: result.data.dependencies.slice(0, 20), // Limit to top 20
       };
     }
 
     case 'get_contributor_recommendations': {
-      const recs = await fundingService.generateContributorRecommendations(input.daoId as string);
-      return recs.map((r) => ({
+      const result = await fundingApi.generateContributorRecommendations(input.daoId as string);
+      if (!result.success || !result.data) {
+        return { error: result.error || 'Failed to generate recommendations' };
+      }
+      return result.data.map((r) => ({
         contributorId: r.contributorId,
         suggestedWeight: r.suggestedWeight,
         reason: r.reason,
@@ -344,12 +346,15 @@ async function handleSkill(
     }
 
     case 'get_dependency_recommendations': {
-      const recs = await fundingService.generateDependencyRecommendations(
+      const result = await fundingApi.generateDependencyRecommendations(
         input.daoId as string,
         input.owner as string,
         input.repo as string
       );
-      return recs.map((r) => ({
+      if (!result.success || !result.data) {
+        return { error: result.error || 'Failed to generate recommendations' };
+      }
+      return result.data.map((r) => ({
         packageName: r.packageName,
         registryType: r.registryType,
         suggestedWeight: r.suggestedWeight,
@@ -360,19 +365,25 @@ async function handleSkill(
     }
 
     case 'vote_weight': {
-      const hash = await fundingService.voteOnWeight(
+      const result = await fundingApi.voteOnWeight(
         input.daoId as string,
         input.targetId as string,
         input.adjustment as number,
         input.reason as string,
         input.reputation as number
       );
-      return { transactionHash: hash };
+      if (!result.success) {
+        return { error: result.error };
+      }
+      return { transactionHash: result.data };
     }
 
     case 'get_pending_payment_requests': {
-      const requests = await paymentService.getPendingRequests(input.daoId as string);
-      return requests.map((r) => ({
+      const result = await fundingApi.getPendingPaymentRequests(input.daoId as string);
+      if (!result.success || !result.data) {
+        return { error: result.error || 'Failed to get requests' };
+      }
+      return result.data.map((r) => ({
         requestId: r.requestId,
         category: r.category,
         title: r.title,
@@ -383,28 +394,34 @@ async function handleSkill(
     }
 
     case 'review_payment_request': {
-      const hash = await paymentService.councilVote(
+      const result = await fundingApi.councilVote(
         input.requestId as string,
         input.vote as 'APPROVE' | 'REJECT' | 'ABSTAIN',
         input.reason as string
       );
-      return { transactionHash: hash };
+      if (!result.success) {
+        return { error: result.error };
+      }
+      return { transactionHash: result.data };
     }
 
     case 'get_contributor_profile': {
-      const profile = await contributorService.getContributor(input.contributorId as string);
-      const socialLinks = await contributorService.getSocialLinks(input.contributorId as string);
-      const repoClaims = await contributorService.getRepositoryClaims(input.contributorId as string);
-      const depClaims = await contributorService.getDependencyClaims(input.contributorId as string);
-      return { profile, socialLinks, repoClaims, depClaims };
+      const result = await fundingApi.getContributorProfile(input.contributorId as string);
+      if (!result.success || !result.data) {
+        return { error: result.error || 'Contributor not found' };
+      }
+      return result.data;
     }
 
     case 'get_pending_rewards': {
-      const rewards = await fundingService.getPendingContributorRewards(
+      const result = await fundingApi.getPendingContributorRewards(
         input.daoId as string,
         input.contributorId as string
       );
-      return { pendingRewards: rewards.toString() };
+      if (!result.success) {
+        return { error: result.error };
+      }
+      return { pendingRewards: result.data?.toString() || '0' };
     }
 
     default:

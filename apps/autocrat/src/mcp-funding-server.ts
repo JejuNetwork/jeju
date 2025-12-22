@@ -17,10 +17,7 @@ import {
   ListResourcesRequestSchema,
   ReadResourceRequestSchema,
 } from '@modelcontextprotocol/sdk/types.js';
-import { getDeepFundingService } from './deep-funding-service';
-import { getContributorService } from './contributor-service';
-import { getPaymentRequestService } from './payment-request-service';
-import { getDependencyScanner } from './dependency-scanner';
+import { fundingApi } from './funding-api';
 import type { Address } from 'viem';
 
 // ============ Tool Definitions ============
@@ -260,138 +257,126 @@ export class MCPFundingServer {
     name: string,
     args: Record<string, unknown>
   ): Promise<{ content: Array<{ type: string; text: string }> }> {
-    const fundingService = getDeepFundingService();
-    const contributorService = getContributorService();
-    const paymentService = getPaymentRequestService();
-
     switch (name) {
       case 'get_dao_pool': {
-        const pool = await fundingService.getDAOPool(args.daoId as string);
+        const result = await fundingApi.getDAOPool(args.daoId as string);
         return {
-          content: [{ type: 'text', text: JSON.stringify(pool, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
         };
       }
 
       case 'get_current_epoch': {
-        const epoch = await fundingService.getCurrentEpoch(args.daoId as string);
+        const result = await fundingApi.getCurrentEpoch(args.daoId as string);
         return {
-          content: [{ type: 'text', text: JSON.stringify(epoch, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
         };
       }
 
       case 'get_contributor_profile': {
-        let profile = null;
+        let result;
         if (args.contributorId) {
-          profile = await contributorService.getContributor(args.contributorId as string);
+          result = await fundingApi.getContributor(args.contributorId as string);
         } else if (args.wallet) {
-          profile = await contributorService.getContributorByWallet(args.wallet as Address);
+          result = await fundingApi.getContributorByWallet(args.wallet as Address);
+        } else {
+          result = { success: false, error: 'Provide contributorId or wallet' };
         }
         return {
-          content: [
-            {
-              type: 'text',
-              text: profile ? JSON.stringify(profile, null, 2) : 'Contributor not found',
-            },
-          ],
+          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
         };
       }
 
       case 'get_contributor_rewards': {
-        const rewards = await fundingService.getPendingContributorRewards(
+        const result = await fundingApi.getPendingContributorRewards(
           args.daoId as string,
           args.contributorId as string
         );
         return {
-          content: [
-            {
-              type: 'text',
-              text: JSON.stringify({ pendingRewards: rewards.toString() }, null, 2),
-            },
-          ],
+          content: [{ type: 'text', text: JSON.stringify({ pendingRewards: result.data?.toString() }, null, 2) }],
         };
       }
 
       case 'scan_repository_dependencies': {
-        const scanner = getDependencyScanner();
-        const result = await scanner.scanRepository(args.owner as string, args.repo as string);
+        const result = await fundingApi.scanRepository(args.owner as string, args.repo as string);
         return {
-          content: [{ type: 'text', text: JSON.stringify(result, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
         };
       }
 
       case 'get_dependency_recommendations': {
-        const recommendations = await fundingService.generateDependencyRecommendations(
+        const result = await fundingApi.generateDependencyRecommendations(
           args.daoId as string,
           args.owner as string,
           args.repo as string
         );
         return {
-          content: [{ type: 'text', text: JSON.stringify(recommendations, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
         };
       }
 
       case 'get_contributor_recommendations': {
-        const recommendations = await fundingService.generateContributorRecommendations(
-          args.daoId as string
-        );
+        const result = await fundingApi.generateContributorRecommendations(args.daoId as string);
         return {
-          content: [{ type: 'text', text: JSON.stringify(recommendations, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
         };
       }
 
       case 'vote_on_weight': {
-        const hash = await fundingService.voteOnWeight(
+        const result = await fundingApi.voteOnWeight(
           args.daoId as string,
           args.targetId as string,
           args.adjustment as number,
           args.reason as string,
           args.reputation as number
         );
+        if (!result.success) {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: result.error }, null, 2) }] };
+        }
         return {
-          content: [{ type: 'text', text: JSON.stringify({ transactionHash: hash }, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify({ transactionHash: result.data }, null, 2) }],
         };
       }
 
       case 'get_payment_requests': {
-        const requests = await paymentService.getPendingRequests(args.daoId as string);
+        const result = await fundingApi.getPendingPaymentRequests(args.daoId as string);
         return {
-          content: [{ type: 'text', text: JSON.stringify(requests, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
         };
       }
 
       case 'review_payment_request': {
         const action = args.action as string;
-        let hash: string;
-
-        if (action === 'approve' || action === 'reject' || action === 'abstain') {
-          hash = await paymentService.councilVote(
-            args.requestId as string,
-            action.toUpperCase() as 'APPROVE' | 'REJECT' | 'ABSTAIN',
-            args.reason as string
-          );
-        } else {
-          throw new Error(`Unknown action: ${action}`);
+        const voteType = action.toUpperCase() as 'APPROVE' | 'REJECT' | 'ABSTAIN';
+        
+        if (!['APPROVE', 'REJECT', 'ABSTAIN'].includes(voteType)) {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: `Unknown action: ${action}` }, null, 2) }] };
         }
 
+        const result = await fundingApi.councilVote(
+          args.requestId as string,
+          voteType,
+          args.reason as string
+        );
+        
+        if (!result.success) {
+          return { content: [{ type: 'text', text: JSON.stringify({ error: result.error }, null, 2) }] };
+        }
         return {
-          content: [{ type: 'text', text: JSON.stringify({ transactionHash: hash }, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify({ transactionHash: result.data }, null, 2) }],
         };
       }
 
       case 'get_epoch_votes': {
-        const votes = await fundingService.getEpochVotes(
-          args.daoId as string,
-          args.epochId as number
-        );
+        const result = await fundingApi.getEpochVotes(args.daoId as string, args.epochId as number);
         return {
-          content: [{ type: 'text', text: JSON.stringify(votes, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
         };
       }
 
       case 'get_fee_distribution_config': {
-        const config = await fundingService.getDAOConfig(args.daoId as string);
+        const result = await fundingApi.getDAOFundingConfig(args.daoId as string);
         return {
-          content: [{ type: 'text', text: JSON.stringify(config, null, 2) }],
+          content: [{ type: 'text', text: JSON.stringify(result.data ?? result.error, null, 2) }],
         };
       }
 
@@ -403,10 +388,6 @@ export class MCPFundingServer {
   private async handleResourceRead(
     uri: string
   ): Promise<{ contents: Array<{ uri: string; mimeType: string; text: string }> }> {
-    const fundingService = getDeepFundingService();
-    const contributorService = getContributorService();
-    const paymentService = getPaymentRequestService();
-
     // Parse URI
     const parts = uri.replace('funding://', '').split('/');
 
@@ -416,41 +397,41 @@ export class MCPFundingServer {
 
       switch (resource) {
         case 'pool': {
-          const pool = await fundingService.getDAOPool(daoId);
+          const result = await fundingApi.getDAOPool(daoId);
           return {
             contents: [
-              { uri, mimeType: 'application/json', text: JSON.stringify(pool, null, 2) },
+              { uri, mimeType: 'application/json', text: JSON.stringify(result.data ?? result.error, null, 2) },
             ],
           };
         }
 
         case 'epoch': {
-          const epoch = await fundingService.getCurrentEpoch(daoId);
+          const result = await fundingApi.getCurrentEpoch(daoId);
           return {
             contents: [
-              { uri, mimeType: 'application/json', text: JSON.stringify(epoch, null, 2) },
+              { uri, mimeType: 'application/json', text: JSON.stringify(result.data ?? result.error, null, 2) },
             ],
           };
         }
 
         case 'contributors': {
-          const contributors = await contributorService.getAllContributors();
+          const result = await fundingApi.getAllContributors();
           return {
             contents: [
               {
                 uri,
                 mimeType: 'application/json',
-                text: JSON.stringify({ contributors }, null, 2),
+                text: JSON.stringify({ contributors: result.data }, null, 2),
               },
             ],
           };
         }
 
         case 'payment-requests': {
-          const requests = await paymentService.getPendingRequests(daoId);
+          const result = await fundingApi.getPendingPaymentRequests(daoId);
           return {
             contents: [
-              { uri, mimeType: 'application/json', text: JSON.stringify(requests, null, 2) },
+              { uri, mimeType: 'application/json', text: JSON.stringify(result.data ?? result.error, null, 2) },
             ],
           };
         }
@@ -459,17 +440,13 @@ export class MCPFundingServer {
 
     if (parts[0] === 'contributors' && parts.length >= 2) {
       const contributorId = parts[1];
-      const profile = await contributorService.getContributor(contributorId);
-      const socialLinks = await contributorService.getSocialLinks(contributorId);
-      const repoClaims = await contributorService.getRepositoryClaims(contributorId);
-      const depClaims = await contributorService.getDependencyClaims(contributorId);
-
+      const result = await fundingApi.getContributorProfile(contributorId);
       return {
         contents: [
           {
             uri,
             mimeType: 'application/json',
-            text: JSON.stringify({ profile, socialLinks, repoClaims, depClaims }, null, 2),
+            text: JSON.stringify(result.data, null, 2),
           },
         ],
       };

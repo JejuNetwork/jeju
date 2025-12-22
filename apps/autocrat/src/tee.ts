@@ -11,7 +11,7 @@
  */
 
 import { z } from 'zod';
-import { keccak256, stringToHex, type Hex } from 'viem';
+import { keccak256, stringToHex } from 'viem';
 import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config';
 import {

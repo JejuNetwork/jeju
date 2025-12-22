@@ -164,8 +164,8 @@ export class SolverService {
     const destChain = validatedDestChain;
     
     return allSolvers.filter(solver => {
-      const supportsSource = solver.supportedChains.includes(srcChain);
-      const supportsDest = solver.supportedChains.includes(destChain);
+      const supportsSource = (solver.supportedChains as number[]).includes(srcChain);
+      const supportsDest = (solver.supportedChains as number[]).includes(destChain);
       
       const sourceTokens = solver.supportedTokens[validatedSourceChain.toString()] || [];
       

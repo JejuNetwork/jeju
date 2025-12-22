@@ -1,218 +1,124 @@
 # Gasless Transactions
 
-On Jeju, users never need ETH. They pay gas in USDC, JEJU, or any token — or your app pays for them.
+Users can pay gas in any token, or your app can pay for them.
 
 ## How It Works
 
-Jeju uses [ERC-4337](https://eips.ethereum.org/EIPS/eip-4337) with custom paymasters:
+Jeju uses ERC-4337 paymasters:
 
-1. User signs a transaction (no ETH balance needed)
-2. Paymaster checks user has payment token
-3. Bundler submits to chain, paymaster pays ETH for gas
-4. User's payment token is transferred to paymaster
-
-```
-User (no ETH) → Paymaster (pays ETH) → Blockchain
-                    ↑
-              User pays in USDC
-              (or free if sponsored)
-```
+1. User signs a transaction
+2. Paymaster pays the gas in ETH
+3. User pays paymaster in their chosen token (or nothing if sponsored)
 
 ## Two Options
 
 ### Option 1: User Pays in Token
 
-User needs USDC, JEJU, or another registered token. They pay gas from that balance.
+User pays gas in USDC, JEJU, or any registered token instead of ETH:
 
 ```typescript
 import { createJejuClient } from '@jejunetwork/sdk';
-import { parseUnits } from 'viem';
 
-const jeju = await createJejuClient({ 
-  network: 'mainnet', 
-  privateKey: '0x...' 
+const jeju = await createJejuClient({
+  network: 'testnet',
+  privateKey: process.env.PRIVATE_KEY as `0x${string}`,
 });
 
-// Any transaction — gas paid in USDC
 await jeju.payments.payWithToken({
-  to: '0x...',
-  data: '0x...',
-  gasToken: 'USDC', // or 'JEJU', 'WETH', etc.
-});
-
-// Swap with gas in USDC
-await jeju.defi.swap({
-  tokenIn: 'USDC',
-  tokenOut: 'JEJU',
-  amountIn: parseUnits('100', 6),
+  to: contractAddress,
+  data: calldata,
   gasToken: 'USDC',
 });
 ```
 
-**Supported tokens:** USDC, JEJU, WETH, and any token registered via Gateway.
-
 ### Option 2: You Sponsor Gas
 
-Your app pays gas for users. Users don't pay anything.
+Your app pays gas so users transact for free:
 
 ```typescript
 import { parseEther } from 'viem';
 
-// 1. Deploy your paymaster (one time)
+// 1. Deploy a paymaster (one time)
 const paymaster = await jeju.payments.deployPaymaster({
   name: 'My App Paymaster',
 });
 
-console.log('Paymaster:', paymaster.address);
-
-// 2. Fund it with ETH (this pays for user gas)
+// 2. Fund it with ETH
 await jeju.payments.fundPaymaster({
   paymaster: paymaster.address,
-  amount: parseEther('1'), // Sponsors ~10,000 simple transactions
-});
-
-// 3. Your users transact for FREE
-await jeju.payments.sponsoredCall({
-  paymaster: paymaster.address,
-  to: yourContractAddress,
-  data: calldata,
-});
-```
-
-## Cost Breakdown
-
-| Transaction Type | Approximate Gas Cost |
-|------------------|---------------------|
-| Simple transfer | 0.00005 ETH (~$0.10) |
-| ERC-20 transfer | 0.00008 ETH (~$0.15) |
-| Swap | 0.00015 ETH (~$0.30) |
-| Complex DeFi | 0.0003 ETH (~$0.60) |
-
-**1 ETH sponsors ~10,000 simple transactions** or ~3,000 swaps.
-
-## For DApp Developers
-
-### Step 1: Deploy Paymaster
-
-```bash
-# Via CLI
-jeju paymaster deploy --name "My App"
-
-# Or via SDK
-const paymaster = await jeju.payments.deployPaymaster({
-  name: 'My App Paymaster',
-});
-```
-
-### Step 2: Fund It
-
-```typescript
-await jeju.payments.fundPaymaster({
-  paymaster: paymasterAddress,
   amount: parseEther('1'),
 });
-```
 
-### Step 3: (Optional) Whitelist Contracts
-
-Only sponsor gas for specific contracts:
-
-```typescript
-await jeju.payments.whitelistContract({
-  paymaster: paymasterAddress,
-  contract: myContractAddress,
-});
-```
-
-### Step 4: Set Spend Limits
-
-Prevent abuse:
-
-```typescript
-await jeju.payments.setSpendLimit({
-  paymaster: paymasterAddress,
-  perTransaction: parseEther('0.001'), // Max 0.001 ETH per tx
-  daily: parseEther('0.1'), // Max 0.1 ETH per day
-});
-```
-
-### Step 5: Users Transact Free
-
-```typescript
-// In your frontend
+// 3. Sponsor user transactions
 await jeju.payments.sponsoredCall({
-  paymaster: paymasterAddress,
-  to: myContract,
+  paymaster: paymaster.address,
+  to: contractAddress,
   data: calldata,
 });
 ```
 
-## Token Pricing
+## Cost
 
-Paymaster uses Chainlink oracles:
+| Transaction Type | Gas Cost |
+|------------------|----------|
+| Simple transfer | ~0.0001 ETH |
+| Swap | ~0.0002 ETH |
+| Complex contract | ~0.0003-0.001 ETH |
 
-```
-tokenAmount = (gasUsed × gasPrice × tokenPrice) / ethPrice × 1.2
-```
+1 ETH sponsors roughly 10,000 simple transactions.
 
-The 1.2× buffer covers price fluctuations during tx processing.
+## Registered Tokens
 
-## Register a New Token
+These tokens can be used for gas:
 
-Register your token for gas payments via Gateway UI, or:
+| Token | Status |
+|-------|--------|
+| USDC | ✅ |
+| USDT | ✅ |
+| JEJU | ✅ |
+| DAI | ✅ |
 
-```typescript
-await jeju.payments.registerToken({
-  token: myTokenAddress,
-  oracle: chainlinkOracleAddress, // Must be Chainlink-compatible
-  minLiquidity: parseEther('10000'), // Token must have this much liquidity
-});
-```
+Register your token via Gateway → Token Registry.
 
-Requirements:
-- Chainlink-compatible price oracle
-- Minimum liquidity threshold
-- Registration fee (100 JEJU)
+## Paymaster Types
 
-## Smart Contract Integration
+| Type | Description |
+|------|-------------|
+| **TokenPaymaster** | Users pay in registered tokens |
+| **SponsoredPaymaster** | App sponsors all gas |
+| **ConditionalPaymaster** | Sponsor based on conditions |
 
-If you're writing Solidity, users can call your contract normally. The SDK handles paymaster logic:
-
-```solidity
-// Your contract doesn't change
-function doSomething(uint256 amount) external {
-    // Normal logic
-    // User doesn't need ETH — SDK + paymaster handle gas
-}
-```
-
-## Monitoring Your Paymaster
+## Managing Paymasters
 
 ```typescript
 // Check balance
 const balance = await jeju.payments.getPaymasterBalance(paymasterAddress);
-console.log('ETH remaining:', balance);
 
-// Get usage stats
-const stats = await jeju.payments.getPaymasterStats(paymasterAddress);
-console.log('Transactions sponsored:', stats.txCount);
-console.log('ETH spent:', stats.totalSpent);
+// Add more funds
+await jeju.payments.fundPaymaster({
+  paymaster: paymasterAddress,
+  amount: parseEther('0.5'),
+});
+
+// Withdraw funds
+await jeju.payments.withdrawFromPaymaster({
+  paymaster: paymasterAddress,
+  amount: parseEther('0.1'),
+});
 ```
 
-Set up alerts when balance is low:
+## Contracts
 
-```typescript
-if (balance < parseEther('0.1')) {
-  // Send alert, auto-refill, etc.
-}
-```
+| Contract | Address (Testnet) |
+|----------|-------------------|
+| EntryPoint | `0x5FF137D4b0FDCD49DcA30c7CF57E578a026d2789` |
+| TokenPaymaster | `0x...` |
 
 ## Best Practices
 
-1. **Set spend limits** — Prevent single users from draining your paymaster
-2. **Whitelist contracts** — Only sponsor your own contracts
-3. **Monitor balance** — Set up low-balance alerts
-4. **Rate limit** — Use IP or wallet-based rate limiting in your app
+1. **Set spending limits** — Prevent abuse by setting daily limits
+2. **Monitor usage** — Track sponsorship costs
+3. **Use allowlists** — Only sponsor for verified users/contracts
 
 ---
 
@@ -220,37 +126,19 @@ if (balance < parseEther('0.1')) {
 <summary>📋 Copy as Context</summary>
 
 ```
-Jeju Gasless Transactions
+Gasless Transactions
 
-How it works:
-- User signs tx (no ETH needed)
-- Paymaster pays ETH gas
-- User pays in token (or free if sponsored)
+Two options:
+1. User pays in token: jeju.payments.payWithToken({ gasToken: 'USDC' })
+2. You sponsor: jeju.payments.sponsoredCall({ paymaster })
 
-Option 1 — User pays in token:
-await jeju.payments.payWithToken({
-  to, data, gasToken: 'USDC'
-});
+Sponsor setup:
+const paymaster = await jeju.payments.deployPaymaster({ name });
+await jeju.payments.fundPaymaster({ paymaster: paymaster.address, amount: parseEther('1') });
+await jeju.payments.sponsoredCall({ paymaster: paymaster.address, to, data });
 
-Option 2 — You sponsor:
-const paymaster = await jeju.payments.deployPaymaster({ name: 'My App' });
-await jeju.payments.fundPaymaster({ paymaster: address, amount: parseEther('1') });
-await jeju.payments.sponsoredCall({ paymaster: address, to, data });
-
-Costs:
-- Simple transfer: ~0.00005 ETH
-- ERC-20 transfer: ~0.00008 ETH
-- Swap: ~0.00015 ETH
-- 1 ETH sponsors ~10,000 simple txs
-
-Setup for DApps:
-1. Deploy paymaster
-2. Fund with ETH
-3. Optional: whitelist contracts, set spend limits
-4. Users transact free
-
-Supported tokens: USDC, JEJU, WETH, any registered token
-Token pricing: (gas × gasPrice × tokenPrice) / ethPrice × 1.2
+Cost: ~0.0001 ETH per simple tx, 1 ETH sponsors ~10,000 txs
+Supported tokens: USDC, USDT, JEJU, DAI
 ```
 
 </details>

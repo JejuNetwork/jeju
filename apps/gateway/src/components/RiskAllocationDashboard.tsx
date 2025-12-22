@@ -340,11 +340,11 @@ export default function RiskAllocationDashboard() {
   const { riskSleeve } = useEILConfig();
   const [expandedTier, setExpandedTier] = useState<RiskTier | null>(null);
 
-  // Fetch user positions for each tier
+  // Fetch user positions for each tier (getUserPosition returns: deposited, pendingYield, depositDuration)
   const { data: conservativePositionData } = useReadContract({
     address: riskSleeve,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'positions',
+    functionName: 'getUserPosition',
     args: address ? [address, RiskTier.CONSERVATIVE] : undefined,
     query: { enabled: !!address && !!riskSleeve },
   });
@@ -353,7 +353,7 @@ export default function RiskAllocationDashboard() {
   const { data: balancedPositionData } = useReadContract({
     address: riskSleeve,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'positions',
+    functionName: 'getUserPosition',
     args: address ? [address, RiskTier.BALANCED] : undefined,
     query: { enabled: !!address && !!riskSleeve },
   });
@@ -362,39 +362,39 @@ export default function RiskAllocationDashboard() {
   const { data: aggressivePositionData } = useReadContract({
     address: riskSleeve,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'positions',
+    functionName: 'getUserPosition',
     args: address ? [address, RiskTier.AGGRESSIVE] : undefined,
     query: { enabled: !!address && !!riskSleeve },
   });
   const aggressiveDeposit = aggressivePositionData?.[0] ?? 0n;
 
-  // Fetch sleeve stats for each tier
+  // Fetch sleeve stats for each tier (getSleeveStats returns: deposited, utilized, available, utilizationBps, yieldBps)
   const { data: conservativeSleeveData } = useReadContract({
     address: riskSleeve,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'sleeves',
+    functionName: 'getSleeveStats',
     args: [RiskTier.CONSERVATIVE],
     query: { enabled: !!riskSleeve },
   });
-  const conservativeTotal = conservativeSleeveData?.[4] ?? 0n;
+  const conservativeTotal = conservativeSleeveData?.[0] ?? 0n; // deposited is first element
 
   const { data: balancedSleeveData } = useReadContract({
     address: riskSleeve,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'sleeves',
+    functionName: 'getSleeveStats',
     args: [RiskTier.BALANCED],
     query: { enabled: !!riskSleeve },
   });
-  const balancedTotal = balancedSleeveData?.[4] ?? 0n;
+  const balancedTotal = balancedSleeveData?.[0] ?? 0n; // deposited is first element
 
   const { data: aggressiveSleeveData } = useReadContract({
     address: riskSleeve,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'sleeves',
+    functionName: 'getSleeveStats',
     args: [RiskTier.AGGRESSIVE],
     query: { enabled: !!riskSleeve },
   });
-  const aggressiveTotal = aggressiveSleeveData?.[4] ?? 0n;
+  const aggressiveTotal = aggressiveSleeveData?.[0] ?? 0n; // deposited is first element
 
   const deposits: Record<RiskTier, bigint> = {
     [RiskTier.CONSERVATIVE]: conservativeDeposit,

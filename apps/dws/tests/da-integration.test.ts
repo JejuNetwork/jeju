@@ -171,8 +171,10 @@ describe('DA Layer Rollup Integration', () => {
     const { BLS } = await import('../src/da');
     
     const keyPair = BLS.generateKeyPair();
-    expect(keyPair.secretKey).toMatch(/^0x[a-f0-9]+$/);
-    expect(keyPair.publicKey).toMatch(/^0x0[23][a-f0-9]+$/);
+    // Secret key is 32 bytes = 64 hex chars
+    expect(keyPair.secretKey).toMatch(/^0x[a-f0-9]{64}$/i);
+    // Public key is 48 bytes compressed G1 point = 96 hex chars
+    expect(keyPair.publicKey).toMatch(/^0x[a-f0-9]{96}$/i);
   });
 });
 

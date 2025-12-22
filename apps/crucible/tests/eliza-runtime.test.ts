@@ -1,7 +1,7 @@
 /**
  * Crucible Agent Runtime Tests
  * 
- * Tests ElizaOS + @jejunetwork/eliza-plugin integration.
+ * Tests character-based runtime with jeju plugin actions.
  */
 
 import { describe, test, expect } from 'bun:test';
@@ -28,7 +28,7 @@ describe('Crucible Agent Runtime', () => {
       expect(runtime.getAgentId()).toBe('test-pm');
     });
 
-    test('should initialize runtime with ElizaOS and jejuPlugin', async () => {
+    test('should initialize runtime with jejuPlugin actions', async () => {
       const character = getCharacter('community-manager');
       expect(character).toBeDefined();
 
@@ -39,7 +39,7 @@ describe('Crucible Agent Runtime', () => {
 
       await runtime.initialize();
       expect(runtime.isInitialized()).toBe(true);
-      expect(runtime.getElizaRuntime()).toBeDefined();
+      expect(runtime.hasActions()).toBe(true);
     });
   });
 
@@ -174,23 +174,20 @@ describe('Crucible Agent Runtime', () => {
     });
   });
 
-  describe('ElizaOS Integration', () => {
-    test('should expose ElizaOS runtime', async () => {
+  describe('Plugin Integration', () => {
+    test('should load jeju plugin actions', async () => {
       const character = getCharacter('community-manager');
       const runtime = createCrucibleRuntime({
-        agentId: 'elizaos-runtime-test',
+        agentId: 'plugin-test',
         character: character!,
       });
 
       await runtime.initialize();
 
-      const elizaRuntime = runtime.getElizaRuntime();
-      expect(elizaRuntime).toBeDefined();
+      expect(runtime.hasActions()).toBe(true);
+      expect(runtime.getCharacter().name).toBe('Eli5');
       
-      console.log('[Test] ElizaOS runtime:', {
-        agentId: elizaRuntime.agentId,
-        characterName: (elizaRuntime.character as { name?: string }).name,
-      });
+      console.log('[Test] Runtime initialized with actions');
     });
   });
 });

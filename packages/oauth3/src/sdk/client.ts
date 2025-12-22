@@ -749,7 +749,7 @@ export class OAuth3Client {
   private setSession(session: OAuth3Session): void {
     this.session = session;
     
-    if (typeof localStorage !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.setItem === 'function') {
       localStorage.setItem('oauth3_session', JSON.stringify(session));
     }
   }
@@ -758,13 +758,13 @@ export class OAuth3Client {
     this.session = null;
     this.identity = null;
     
-    if (typeof localStorage !== 'undefined') {
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined' && typeof localStorage.removeItem === 'function') {
       localStorage.removeItem('oauth3_session');
     }
   }
 
   private loadSession(): void {
-    if (typeof localStorage === 'undefined') return;
+    if (typeof window === 'undefined' || typeof localStorage === 'undefined' || typeof localStorage.getItem !== 'function') return;
 
     const stored = localStorage.getItem('oauth3_session');
     if (!stored) return;

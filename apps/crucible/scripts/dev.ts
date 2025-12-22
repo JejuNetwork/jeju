@@ -1,7 +1,15 @@
 #!/usr/bin/env bun
 /**
  * Crucible Dev Startup
- * Ensures localnet + contracts + DWS are ready, then starts Crucible server
+ * 
+ * Starts the full decentralized local stack:
+ * 1. Localnet (anvil) - local blockchain
+ * 2. Contracts - deploy Crucible contracts
+ * 3. DWS - decentralized workstation service
+ * 4. Inference Node - local AI inference (registers with DWS)
+ * 5. Crucible - agent orchestration server
+ * 
+ * All inference goes through DWS network - fully decentralized.
  */
 
 import { existsSync } from 'fs';
@@ -9,6 +17,7 @@ import { join } from 'path';
 
 const LOCALNET_PORT = 9545;
 const DWS_PORT = 4030;
+const INFERENCE_PORT = 4031;
 const CRUCIBLE_PORT = parseInt(process.env.PORT ?? '3000');
 
 function findMonorepoRoot(): string {
@@ -139,10 +148,50 @@ async function startDws(rootDir: string): Promise<boolean> {
   return false;
 }
 
+async function checkInferenceNode(): Promise<boolean> {
+  try {
+    const response = await fetch(`http://127.0.0.1:${INFERENCE_PORT}/health`, { signal: AbortSignal.timeout(2000) });
+    return response.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function startInferenceNode(rootDir: string): Promise<boolean> {
+  console.log('🧠 Starting inference node...');
+  
+  const dwsPath = join(rootDir, 'apps', 'dws');
+  Bun.spawn(['bun', 'run', 'src/compute/local-inference-server.ts'], {
+    cwd: dwsPath,
+    stdout: 'pipe',
+    stderr: 'pipe',
+    env: {
+      ...process.env,
+      INFERENCE_PORT: String(INFERENCE_PORT),
+      DWS_URL: `http://127.0.0.1:${DWS_PORT}`,
+      // Pass through any configured API keys
+      GROQ_API_KEY: process.env.GROQ_API_KEY,
+      OPENAI_API_KEY: process.env.OPENAI_API_KEY,
+      ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY,
+      TOGETHER_API_KEY: process.env.TOGETHER_API_KEY,
+      OPENROUTER_API_KEY: process.env.OPENROUTER_API_KEY,
+    },
+  });
+
+  for (let i = 0; i < 30; i++) {
+    if (await checkInferenceNode()) {
+      console.log('✅ Inference node ready (will register with DWS)');
+      return true;
+    }
+    await Bun.sleep(500);
+  }
+  return false;
+}
+
 async function main() {
   const rootDir = findMonorepoRoot();
   
-  console.log('\n=== Crucible Dev ===\n');
+  console.log('\n=== Crucible Dev (Fully Decentralized Stack) ===\n');
 
   // Check/start localnet
   if (!(await checkRpc())) {
@@ -162,23 +211,45 @@ async function main() {
   // Check/start DWS
   if (!(await checkDws())) {
     if (!(await startDws(rootDir))) {
-      console.log('⚠️  DWS not available - some features may not work');
+      console.log('❌ DWS not available - required for decentralized inference');
+      process.exit(1);
     }
   } else {
     console.log('✅ DWS already running');
+  }
+
+  // Check/start Inference Node (for local dev - provides AI inference to DWS)
+  if (!(await checkInferenceNode())) {
+    if (!(await startInferenceNode(rootDir))) {
+      console.log('⚠️  Inference node not available - agent chat will not work');
+      console.log('   Set GROQ_API_KEY, OPENAI_API_KEY, or ANTHROPIC_API_KEY for inference');
+    }
+  } else {
+    console.log('✅ Inference node already running');
   }
 
   // Set environment
   process.env.L2_RPC_URL = `http://127.0.0.1:${LOCALNET_PORT}`;
   process.env.JEJU_RPC_URL = `http://127.0.0.1:${LOCALNET_PORT}`;
   process.env.RPC_URL = `http://127.0.0.1:${LOCALNET_PORT}`;
+  process.env.NETWORK = 'localnet';
   process.env.DWS_URL = `http://127.0.0.1:${DWS_PORT}`;
   process.env.STORAGE_API_URL = `http://127.0.0.1:${DWS_PORT}/storage`;
   process.env.COMPUTE_MARKETPLACE_URL = `http://127.0.0.1:${DWS_PORT}/compute`;
+  process.env.IPFS_GATEWAY = `http://127.0.0.1:${DWS_PORT}/storage`;
+  process.env.INDEXER_GRAPHQL_URL = `http://127.0.0.1:4350/graphql`;
   process.env.PORT = String(CRUCIBLE_PORT);
   process.env.PRIVATE_KEY = process.env.PRIVATE_KEY ?? '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 
-  console.log(`\n🔥 Starting Crucible on port ${CRUCIBLE_PORT}...\n`);
+  console.log(`
+📦 Local Stack:
+   • Localnet:       http://127.0.0.1:${LOCALNET_PORT}
+   • DWS:            http://127.0.0.1:${DWS_PORT}
+   • Inference Node: http://127.0.0.1:${INFERENCE_PORT}
+   • Crucible:       http://127.0.0.1:${CRUCIBLE_PORT}
+
+🔥 Starting Crucible...
+`);
 
   // Import and run the server directly
   await import('../src/server.ts');
