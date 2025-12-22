@@ -497,16 +497,36 @@ export class DependencyScanner {
       try {
         const metadata = await this.fetchPackageMetadata(dep.packageName, dep.registryType);
 
-        // For npm, we can fetch nested dependencies
-        if (dep.registryType === 'npm' && dep.depth < this.config.maxDepth) {
-          const { dependencies } = await this.fetchNpmPackageDeps(dep.packageName);
+        // Fetch nested dependencies based on registry type
+        if (dep.depth < this.config.maxDepth) {
+          let childDeps: string[] = [];
+          
+          switch (dep.registryType) {
+            case 'npm': {
+              const { dependencies } = await this.fetchNpmPackageDeps(dep.packageName);
+              childDeps = Object.keys(dependencies || {});
+              break;
+            }
+            case 'pypi': {
+              childDeps = await this.fetchPyPIPackageDeps(dep.packageName);
+              break;
+            }
+            case 'cargo': {
+              childDeps = await this.fetchCargoPackageDeps(dep.packageName);
+              break;
+            }
+            case 'go': {
+              childDeps = await this.fetchGoPackageDeps(dep.packageName);
+              break;
+            }
+          }
 
-          for (const [name] of Object.entries(dependencies || {})) {
-            const childKey = `npm:${name}`;
+          for (const name of childDeps) {
+            const childKey = `${dep.registryType}:${name}`;
             if (!deps.has(childKey)) {
               deps.set(childKey, {
                 packageName: name,
-                registryType: 'npm',
+                registryType: dep.registryType,
                 rawWeight: 50, // Lower base weight for transitive deps
                 adjustedWeight: 0,
                 depth: dep.depth + 1,
@@ -574,6 +594,100 @@ export class DependencyScanner {
 
     const data = await response.json();
     return { dependencies: data.dependencies || {} };
+  }
+
+  /**
+   * Fetch PyPI package dependencies
+   */
+  private async fetchPyPIPackageDeps(packageName: string): Promise<string[]> {
+    const response = await fetch(`https://pypi.org/pypi/${packageName}/json`);
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    const requires = data.info?.requires_dist || [];
+    
+    // Parse requirement strings like "numpy>=1.0" to just "numpy"
+    return requires.map((req: string) => {
+      const match = req.match(/^([a-zA-Z0-9_-]+)/);
+      return match ? match[1].toLowerCase() : null;
+    }).filter(Boolean) as string[];
+  }
+
+  /**
+   * Fetch Cargo (crates.io) package dependencies
+   */
+  private async fetchCargoPackageDeps(packageName: string): Promise<string[]> {
+    const response = await fetch(`https://crates.io/api/v1/crates/${packageName}`);
+    if (!response.ok) {
+      return [];
+    }
+
+    const data = await response.json();
+    const latestVersion = data.versions?.[0]?.num;
+    if (!latestVersion) return [];
+
+    // Fetch dependencies for the latest version
+    const depsResponse = await fetch(
+      `https://crates.io/api/v1/crates/${packageName}/${latestVersion}/dependencies`
+    );
+    if (!depsResponse.ok) {
+      return [];
+    }
+
+    const depsData = await depsResponse.json();
+    return (depsData.dependencies || [])
+      .filter((d: { kind: string }) => d.kind === 'normal')
+      .map((d: { crate_id: string }) => d.crate_id);
+  }
+
+  /**
+   * Fetch Go module dependencies
+   * Uses proxy.golang.org for module info
+   */
+  private async fetchGoPackageDeps(moduleName: string): Promise<string[]> {
+    // Go modules use @v/list to get versions, then @v/<version>.mod for deps
+    const versionResponse = await fetch(
+      `https://proxy.golang.org/${encodeURIComponent(moduleName)}/@v/list`
+    );
+    if (!versionResponse.ok) {
+      return [];
+    }
+
+    const versions = (await versionResponse.text()).trim().split('\n');
+    const latestVersion = versions[versions.length - 1];
+    if (!latestVersion) return [];
+
+    const modResponse = await fetch(
+      `https://proxy.golang.org/${encodeURIComponent(moduleName)}/@v/${latestVersion}.mod`
+    );
+    if (!modResponse.ok) {
+      return [];
+    }
+
+    const modContent = await modResponse.text();
+    
+    // Parse go.mod require statements
+    const deps: string[] = [];
+    const requireMatch = modContent.match(/require\s*\(([\s\S]*?)\)/);
+    if (requireMatch) {
+      const requires = requireMatch[1].split('\n');
+      for (const line of requires) {
+        const depMatch = line.trim().match(/^([^\s]+)\s+/);
+        if (depMatch) {
+          deps.push(depMatch[1]);
+        }
+      }
+    }
+    
+    // Also check for single-line requires
+    const singleRequires = modContent.matchAll(/^require\s+([^\s]+)\s+/gm);
+    for (const match of singleRequires) {
+      deps.push(match[1]);
+    }
+
+    return deps;
   }
 
   /**

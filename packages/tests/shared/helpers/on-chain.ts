@@ -291,12 +291,16 @@ export function compareSnapshots(
   after: Awaited<ReturnType<typeof createAccountSnapshot>>
 ): { ethChange: bigint; tokenChanges: Map<Address, bigint>; blocksDiff: bigint } {
   const tokenChanges = new Map<Address, bigint>();
+  // Handle tokens in before snapshot
   for (const [addr, bal] of before.tokenBalances) {
-    const afterBal = after.tokenBalances.get(addr);
-    if (afterBal === undefined) {
-      throw new Error(`Token ${addr} was in 'before' snapshot but not in 'after' snapshot`);
-    }
+    const afterBal = after.tokenBalances.get(addr) ?? 0n;
     tokenChanges.set(addr, afterBal - bal);
+  }
+  // Handle tokens only in after snapshot (new tokens acquired)
+  for (const [addr, bal] of after.tokenBalances) {
+    if (!before.tokenBalances.has(addr)) {
+      tokenChanges.set(addr, bal);
+    }
   }
   return {
     ethChange: after.ethBalance - before.ethBalance,

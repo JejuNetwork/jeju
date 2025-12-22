@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '@jejunetwork/tests';
+import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only';
 
 test.describe('Liquidity - Deep Interaction Testing', () => {
   test('should test token A selection and amount input', async ({ page }) => {

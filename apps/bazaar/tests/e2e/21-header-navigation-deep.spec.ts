@@ -3,7 +3,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '@jejunetwork/tests';
+import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only';
 
 test.describe('Header Navigation - Complete Coverage', () => {
   test('should click EVERY navigation link and verify pages load', async ({ page }) => {

@@ -1,22 +1,62 @@
 # Bazaar
 
-Unified DeFi hub with token swaps, liquidity pools, NFT marketplace, launchpad, JNS domains, and prediction markets.
+DEX, NFT marketplace, token launchpad, and prediction markets.
 
-## Overview
+**URL:** https://bazaar.jejunetwork.org
 
-Bazaar is Jeju's all-in-one DeFi application built on Uniswap V4. It provides:
+## Features
 
-- **Token Swap** - Swap any registered token with optimal routing
-- **Liquidity Pools** - Provide liquidity and earn fees
-- **NFT Marketplace** - Buy, sell, and mint NFTs
-- **Launchpad** - Launch tokens with bonding curves or presales
-- **JNS** - Register and manage .jeju domains
-- **OTC Trading** - Peer-to-peer token trades
-- **Prediction Markets** - Create and trade on outcomes
+| Feature | Description |
+|---------|-------------|
+| **DEX** | Uniswap V4 swap interface |
+| **NFTs** | Mint, buy, sell NFTs |
+| **Launchpad** | Launch tokens with bonding curves |
+| **Prediction Markets** | Create and trade on outcomes |
 
-All transactions can be gasless using Jeju's multi-token paymaster.
+## DEX
 
-## Quick Start
+Swap tokens with Uniswap V4:
+
+1. Connect wallet
+2. Select tokens
+3. Enter amount
+4. Click Swap
+
+**Gas:** Pay in USDC, JEJU, or any registered token.
+
+## NFTs
+
+### Mint
+
+1. Go to Bazaar → Create
+2. Upload image/media
+3. Set name, description, royalties
+4. Mint
+
+### Buy/Sell
+
+1. Browse collections
+2. Click NFT
+3. Buy now or place bid
+
+## Launchpad
+
+Launch a token with bonding curve:
+
+1. Go to Bazaar → Launch
+2. Configure token (name, symbol, supply)
+3. Set bonding curve parameters
+4. Deploy
+
+Early buyers pay less. Price increases with supply.
+
+## Prediction Markets
+
+1. Create market with resolution criteria
+2. Users buy outcome shares
+3. Market resolves based on oracle or admin
+
+## Run Locally
 
 ```bash
 cd apps/bazaar
@@ -24,123 +64,26 @@ bun install
 bun run dev
 ```
 
-Bazaar runs on http://localhost:4006
+Runs on http://localhost:4006
 
-## Features
-
-### Token Swap
-
-Swap tokens using Uniswap V4's singleton architecture with hooks for custom logic:
-
-```typescript
-import { createJejuClient } from '@jejunetwork/sdk';
-
-const jeju = await createJejuClient({ network: 'mainnet', privateKey });
-
-await jeju.defi.swap({
-  tokenIn: 'USDC',
-  tokenOut: 'JEJU',
-  amountIn: parseUnits('100', 6),
-  slippage: 0.5, // 0.5%
-});
-```
-
-### Liquidity Pools
-
-Provide liquidity to earn swap fees:
-
-```typescript
-await jeju.defi.addLiquidity({
-  tokenA: 'JEJU',
-  tokenB: 'USDC',
-  amountA: parseEther('1000'),
-  amountB: parseUnits('1000', 6),
-});
-```
-
-### NFT Marketplace
-
-Browse, buy, and sell NFTs with support for:
-- ERC-721 and ERC-1155
-- Royalty enforcement
-- Batch listings
-- Auction and fixed-price sales
-
-### Launchpad
-
-Launch tokens with different mechanisms:
-
-**Bonding Curve** - Continuous price discovery
-```typescript
-await jeju.launchpad.createBondingCurve({
-  name: 'My Token',
-  symbol: 'MTK',
-  initialPrice: parseEther('0.001'),
-  curveType: 'linear',
-});
-```
-
-**Presale** - Fixed-price with vesting
-```typescript
-await jeju.launchpad.createPresale({
-  token: tokenAddress,
-  price: parseUnits('0.1', 6), // 0.1 USDC
-  hardCap: parseUnits('100000', 6),
-  vestingDuration: 30 * 24 * 60 * 60, // 30 days
-});
-```
-
-### JNS (Jeju Name Service)
-
-Register human-readable names:
-
-```typescript
-await jeju.names.register({
-  name: 'alice',
-  duration: 365 * 24 * 60 * 60, // 1 year
-});
-
-const address = await jeju.names.resolve('alice.jeju');
-```
-
-### OTC Trading
-
-Create peer-to-peer trades:
-
-```typescript
-await jeju.otc.createOffer({
-  tokenIn: 'JEJU',
-  tokenOut: 'USDC',
-  amountIn: parseEther('10000'),
-  amountOut: parseUnits('5000', 6),
-  expiry: Date.now() + 24 * 60 * 60 * 1000,
-});
-```
-
-## Environment Variables
+## Environment
 
 ```bash
-NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=your_project_id
-NEXT_PUBLIC_CHAIN_ID=420691
-NEXT_PUBLIC_RPC_URL=https://rpc.jejunetwork.org
-NEXT_PUBLIC_INDEXER_URL=https://indexer.jejunetwork.org/graphql
-NEXT_PUBLIC_POOL_MANAGER=0x...
+NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID=...
+NEXT_PUBLIC_CHAIN_ID=1337
+NEXT_PUBLIC_RPC_URL=http://localhost:9545
+NEXT_PUBLIC_INDEXER_URL=http://localhost:4350/graphql
+NEXT_PUBLIC_POOL_MANAGER=0x5FbDB2315678afecb367f032d93F642f64180aa3
 ```
 
-## Development
+## Test
 
 ```bash
-bun run dev      # Development server
-bun run build    # Production build
-bun run test     # All tests
-bun run test:e2e # E2E tests
+bun run test        # All tests
+bun run test:unit   # Unit tests
+bun run test:e2e    # E2E tests
+bun run test:wallet # Wallet tests
 ```
-
-## Related
-
-- [SDK DeFi Module](/build/sdk/defi) - DeFi SDK integration
-- [DeFi Contracts](/contracts/defi) - Smart contract reference
-- [Gasless Transactions](/learn/gasless) - How paymasters work
 
 ---
 
@@ -148,42 +91,20 @@ bun run test:e2e # E2E tests
 <summary>📋 Copy as Context</summary>
 
 ```
-Bazaar - Unified DeFi Hub
+Bazaar - DeFi + NFT Marketplace
+
+URL: https://bazaar.jejunetwork.org
 
 Features:
-1. Token Swap - Uniswap V4 with optimal routing
-2. Liquidity Pools - Provide LP, earn fees
-3. NFT Marketplace - ERC-721/1155, auctions, fixed-price
-4. Launchpad - Bonding curves, presales
-5. JNS - .jeju domain registration
-6. OTC Trading - Peer-to-peer trades
-7. Prediction Markets - Outcome trading
+- DEX: Uniswap V4 swaps
+- NFTs: Mint, buy, sell
+- Launchpad: Token launches with bonding curves
+- Prediction Markets
 
-All transactions can be gasless via multi-token paymaster.
+Local: cd apps/bazaar && bun run dev
+Port: 4006
 
-SDK Examples:
-
-// Swap
-await jeju.defi.swap({
-  tokenIn: 'USDC', tokenOut: 'JEJU',
-  amountIn: parseUnits('100', 6),
-});
-
-// Add Liquidity
-await jeju.defi.addLiquidity({
-  tokenA: 'JEJU', tokenB: 'USDC',
-  amountA: parseEther('1000'),
-  amountB: parseUnits('1000', 6),
-});
-
-// Register JNS name
-await jeju.names.register({ name: 'alice', duration: 365*24*60*60 });
-
-Setup:
-cd apps/bazaar
-bun install
-bun run dev
-# Runs on http://localhost:4006
+Env: NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID, NEXT_PUBLIC_CHAIN_ID, NEXT_PUBLIC_RPC_URL
 ```
 
 </details>

@@ -1,10 +1,12 @@
 /**
  * Crucible Agent Runtime
  * 
- * Character-based agent runtime using DWS for inference.
+ * Fully decentralized agent runtime using DWS for inference.
  * Integrates jeju plugin actions for network capabilities.
  * 
- * Uses DWS OpenAI-compatible API with character-based system prompts.
+ * All inference goes through DWS compute network - no centralized fallbacks.
+ * For local development, run the DWS inference node:
+ *   cd apps/dws && bun run inference
  */
 
 import { getDWSComputeUrl } from '@jejunetwork/config';
@@ -43,7 +45,7 @@ export interface RuntimeResponse {
 }
 
 // ============================================================================
-// DWS Integration
+// DWS Integration (Decentralized - No Centralized Fallbacks)
 // ============================================================================
 
 function getDWSEndpoint(): string {
@@ -54,6 +56,21 @@ export async function checkDWSHealth(): Promise<boolean> {
   const endpoint = getDWSEndpoint();
   const r = await fetch(`${endpoint}/health`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
   return r?.ok ?? false;
+}
+
+export async function checkDWSInferenceAvailable(): Promise<{ available: boolean; nodes: number; error?: string }> {
+  const endpoint = getDWSEndpoint();
+  const r = await fetch(`${endpoint}/compute/nodes/stats`, { signal: AbortSignal.timeout(2000) }).catch(() => null);
+  if (!r?.ok) {
+    return { available: false, nodes: 0, error: 'DWS not reachable' };
+  }
+  const stats = await r.json() as { inference?: { activeNodes?: number } };
+  const activeNodes = stats.inference?.activeNodes ?? 0;
+  return { 
+    available: activeNodes > 0, 
+    nodes: activeNodes,
+    error: activeNodes === 0 ? 'No inference nodes registered. Run: cd apps/dws && bun run inference' : undefined,
+  };
 }
 
 interface DWSChatMessage {
@@ -73,49 +90,23 @@ interface DWSChatResponse {
     message: { role: string; content: string };
     finish_reason: string;
   }>;
+  node?: string;
+  provider?: string;
+  error?: string;
+  message?: string;
 }
 
 /**
- * Get the best available inference endpoint
- */
-function getInferenceConfig(): { endpoint: string; apiKey?: string; model: string } {
-  // Check for OpenAI API key
-  const openaiKey = process.env.OPENAI_API_KEY;
-  if (openaiKey) {
-    return {
-      endpoint: 'https://api.openai.com/v1/chat/completions',
-      apiKey: openaiKey,
-      model: 'gpt-4o-mini',
-    };
-  }
-
-  // Check for OpenRouter API key
-  const openrouterKey = process.env.OPENROUTER_API_KEY;
-  if (openrouterKey) {
-    return {
-      endpoint: 'https://openrouter.ai/api/v1/chat/completions',
-      apiKey: openrouterKey,
-      model: 'openai/gpt-4o-mini',
-    };
-  }
-
-  // Fall back to DWS
-  return {
-    endpoint: getDWSEndpoint() + '/compute/chat/completions',
-    model: 'llama-3.1-8b-instant',
-  };
-}
-
-/**
- * Call OpenAI-compatible chat completions API
+ * Call DWS compute network for chat completions
+ * Fully decentralized - routes to registered inference nodes
  */
 async function generateResponse(
   systemPrompt: string,
   userMessage: string,
   options: { model?: string; temperature?: number } = {}
 ): Promise<string> {
-  const config = getInferenceConfig();
-  const model = options.model ?? config.model;
+  const endpoint = getDWSEndpoint();
+  const model = options.model ?? 'llama-3.1-8b-instant';
 
   const request: DWSChatRequest = {
     model,
@@ -127,23 +118,26 @@ async function generateResponse(
     max_tokens: 1024,
   };
 
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (config.apiKey) {
-    headers['Authorization'] = `Bearer ${config.apiKey}`;
-  }
-
-  const response = await fetch(config.endpoint, {
+  const response = await fetch(`${endpoint}/compute/chat/completions`, {
     method: 'POST',
-    headers,
+    headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
   });
 
   if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Inference request failed: ${response.status} ${error}`);
+    const data = await response.json().catch(() => ({})) as DWSChatResponse;
+    if (data.error === 'No inference nodes available') {
+      throw new Error(
+        `DWS has no inference nodes available. ` +
+        `For local dev, run: cd apps/dws && bun run inference\n` +
+        `For production, ensure inference nodes are registered with the DWS network.`
+      );
+    }
+    const error = data.error ?? data.message ?? await response.text();
+    throw new Error(`DWS inference failed: ${response.status} ${error}`);
   }
 
-  const data = (await response.json()) as DWSChatResponse;
+  const data = await response.json() as DWSChatResponse;
   return data.choices[0]?.message?.content ?? '';
 }
 
@@ -172,17 +166,19 @@ export class CrucibleAgentRuntime {
 
     this.log.info('Initializing agent runtime', { agentId: this.config.agentId });
 
-    // Check what inference backend is available
-    const config = getInferenceConfig();
-    if (config.apiKey) {
-      this.log.info('Using API-based inference', { endpoint: config.endpoint.split('/')[2] });
+    // Check DWS availability (fully decentralized - no centralized fallbacks)
+    const dwsOk = await checkDWSHealth();
+    if (!dwsOk) {
+      throw new Error(`DWS not available at ${getDWSEndpoint()}. Start DWS: cd apps/dws && bun run dev`);
+    }
+
+    // Check if inference nodes are available
+    const inference = await checkDWSInferenceAvailable();
+    if (!inference.available) {
+      this.log.warn('No inference nodes available', { error: inference.error });
+      // Don't fail initialization - nodes may come online later
     } else {
-      // Check DWS availability
-      const dwsOk = await checkDWSHealth();
-      if (!dwsOk) {
-        throw new Error(`No inference backend available. Set OPENAI_API_KEY or OPENROUTER_API_KEY, or start DWS at ${getDWSEndpoint()}`);
-      }
-      this.log.info('Using DWS inference');
+      this.log.info('DWS inference available', { nodes: inference.nodes });
     }
 
     // Load jeju plugin actions if not already loaded

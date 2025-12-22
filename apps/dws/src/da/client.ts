@@ -346,37 +346,115 @@ export class DAClient {
 
   /**
    * Verify commitment on-chain
+   * Compares blob commitment with on-chain stored commitment
    */
   async verifyCommitmentOnChain(
     blobId: Hex,
     commitment: BlobCommitment,
-    _contractAddress: Address
+    contractAddress: Address
   ): Promise<boolean> {
     if (!this.publicClient) {
       throw new Error('RPC URL required for on-chain verification');
     }
     
     // Read from on-chain blob registry
-    // This would call the DABlobRegistry contract
-    // For now, return true as placeholder
+    const result = await this.publicClient.readContract({
+      address: contractAddress,
+      abi: [{
+        type: 'function',
+        name: 'getBlob',
+        inputs: [{ name: 'blobId', type: 'bytes32' }],
+        outputs: [
+          { name: 'commitment', type: 'bytes32' },
+          { name: 'merkleRoot', type: 'bytes32' },
+          { name: 'totalChunks', type: 'uint256' },
+          { name: 'timestamp', type: 'uint256' },
+          { name: 'submitter', type: 'address' },
+        ],
+        stateMutability: 'view',
+      }],
+      functionName: 'getBlob',
+      args: [blobId],
+    }).catch(() => null);
+    
+    if (!result) return false;
+    
+    const [storedCommitment, storedMerkleRoot, storedTotalChunks] = result as [Hex, Hex, bigint, bigint, Address];
+    
+    // Verify commitment matches
+    if (storedCommitment.toLowerCase() !== commitment.commitment.toLowerCase()) {
+      return false;
+    }
+    
+    // Verify merkle root matches
+    if (storedMerkleRoot.toLowerCase() !== commitment.merkleRoot.toLowerCase()) {
+      return false;
+    }
+    
+    // Verify chunk count matches
+    if (Number(storedTotalChunks) !== commitment.totalChunkCount) {
+      return false;
+    }
+    
     return true;
   }
 
   /**
    * Verify attestation on-chain
+   * Checks attestation against registered operators and their signatures
    */
   async verifyAttestationOnChain(
     attestation: AvailabilityAttestation,
-    _contractAddress: Address
+    contractAddress: Address
   ): Promise<boolean> {
     if (!this.publicClient) {
       throw new Error('RPC URL required for on-chain verification');
     }
     
-    // Verify attestation signatures against on-chain operator registry
-    // This would call the DAAttestationManager contract
-    // For now, return attestation.quorumReached as placeholder
-    return attestation.quorumReached;
+    // First check if quorum was reached
+    if (!attestation.quorumReached) {
+      return false;
+    }
+    
+    // Verify attestation exists on-chain
+    const result = await this.publicClient.readContract({
+      address: contractAddress,
+      abi: [{
+        type: 'function',
+        name: 'getAttestation',
+        inputs: [{ name: 'blobId', type: 'bytes32' }],
+        outputs: [
+          { name: 'commitment', type: 'bytes32' },
+          { name: 'quorumReached', type: 'bool' },
+          { name: 'signerCount', type: 'uint256' },
+          { name: 'timestamp', type: 'uint256' },
+        ],
+        stateMutability: 'view',
+      }],
+      functionName: 'getAttestation',
+      args: [attestation.blobId],
+    }).catch(() => null);
+    
+    if (!result) return false;
+    
+    const [storedCommitment, storedQuorumReached, storedSignerCount] = result as [Hex, boolean, bigint, bigint];
+    
+    // Verify commitment matches
+    if (storedCommitment.toLowerCase() !== attestation.commitment.toLowerCase()) {
+      return false;
+    }
+    
+    // Verify quorum status
+    if (!storedQuorumReached) {
+      return false;
+    }
+    
+    // Verify signer count matches
+    if (Number(storedSignerCount) !== attestation.signatures.length) {
+      return false;
+    }
+    
+    return true;
   }
 
   // ============================================================================

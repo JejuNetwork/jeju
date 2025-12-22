@@ -590,7 +590,7 @@ contract BountyRegistry is ReentrancyGuard, Pausable, Ownable {
 
         // Open case in ModerationMarketplace
         if (address(moderationMarketplace) != address(0)) {
-            bytes32 caseId = moderationMarketplace.openCase(bounty.creator, reason, evidenceHash);
+            bytes32 caseId = moderationMarketplace.openCase(bounty.creator, reason, evidenceHash, "", "DISPUTE");
             bounty.disputeCaseId = caseId;
         }
 

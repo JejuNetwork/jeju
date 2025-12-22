@@ -1,8 +1,8 @@
 # Architecture
 
-Jeju is an OP-Stack L2 on Ethereum with EigenDA for data availability.
+Jeju is an OP-Stack L2 on Ethereum using EigenDA for data availability.
 
-## Stack Layers
+## Stack
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -12,21 +12,21 @@ Jeju is an OP-Stack L2 on Ethereum with EigenDA for data availability.
 │  Smart Contracts                                             │
 │  Tokens · Identity · Paymasters · OIF · EIL · DeFi           │
 ├─────────────────────────────────────────────────────────────┤
-│  Jeju L2 (OP-Stack)                                          │
-│  op-reth + op-node · 200ms Flashblocks · ERC-4337 Bundler    │
+│  L2 (OP-Stack)                                               │
+│  op-reth + op-node · Flashblocks · ERC-4337 Bundler          │
 ├─────────────────────────────────────────────────────────────┤
-│  Data Availability: EigenDA (Ethereum calldata fallback)     │
+│  Data Availability: EigenDA                                  │
 ├─────────────────────────────────────────────────────────────┤
-│  Settlement: Ethereum Mainnet                                │
+│  Settlement: Ethereum                                        │
 └─────────────────────────────────────────────────────────────┘
 ```
 
 ## OP-Stack Components
 
-| Component | Description |
-|-----------|-------------|
-| **op-reth** | Execution client (Rust Ethereum) |
-| **op-node** | Consensus client, derives chain from L1 |
+| Component | What it does |
+|-----------|--------------|
+| **op-reth** | Executes transactions (Rust Ethereum client) |
+| **op-node** | Derives chain state from L1 |
 | **op-batcher** | Batches L2 transactions to L1/EigenDA |
 | **op-proposer** | Posts L2 state roots to L1 |
 | **op-challenger** | Monitors for fraud (future) |
@@ -42,40 +42,17 @@ Jeju is an OP-Stack L2 on Ethereum with EigenDA for data availability.
 
 ## Transaction Flow
 
-1. **User submits** transaction (or UserOperation)
-2. **Sequencer** includes in block (200ms pre-confirmation)
-3. **Block finalized** on L2 (2 seconds)
-4. **Batcher** posts to EigenDA (every minute)
-5. **Proposer** posts state root to L1 (every hour)
-6. **Settlement** finalized on Ethereum (7 day window)
-
-```
-User ──▶ Sequencer ──▶ L2 Block ──▶ Batcher ──▶ EigenDA ──▶ L1 State Root
-         (200ms)       (2s)        (1 min)     (1 min)      (1 hour)
-```
-
-## Flashblocks
-
-Flashblocks provide 200ms pre-confirmation:
-
 1. User submits transaction
-2. Sequencer immediately pre-confirms
-3. Transaction guaranteed in next block
-4. Block finalized at 2s boundary
+2. Sequencer includes it (200ms pre-confirmation)
+3. Block finalized on L2 (2 seconds)
+4. Batcher posts to EigenDA (every minute)
+5. Proposer posts state root to L1 (every hour)
+6. Settlement finalized after challenge period (7 days)
 
-This enables UX comparable to centralized systems.
-
-## Fee Structure
-
-| Fee Type | Amount |
-|----------|--------|
-| L2 Execution | ~0.001 gwei |
-| L1 Data Fee | Variable (EigenDA reduces cost) |
-| Priority Fee | Optional tip to sequencer |
-
-Fees can be paid in:
-- ETH (native)
-- USDC, JEJU, or any registered token (via paymaster)
+```
+User → Sequencer → L2 Block → Batcher → EigenDA → L1 State Root
+       (200ms)     (2s)       (1 min)    (1 min)   (1 hour)
+```
 
 ## Account Abstraction
 
@@ -83,39 +60,30 @@ Jeju has native ERC-4337 support:
 
 | Component | Description |
 |-----------|-------------|
-| **EntryPoint** | Standard ERC-4337 EntryPoint |
-| **Bundler** | Native bundler in op-reth |
-| **Paymasters** | Multi-token and sponsored |
+| **EntryPoint** | Standard ERC-4337 contract |
+| **Bundler** | Built into op-reth |
+| **Paymasters** | Pay gas in any token, or sponsor for users |
 
 Smart accounts enable:
+- Paying gas in USDC, JEJU, or any registered token
+- Apps sponsoring gas for users
+- Batched transactions
 - Social recovery
-- Multi-sig
-- Spending limits
 - Session keys
 
 ## Key Protocols
 
 ### ERC-8004 (Agent Identity)
 
-On-chain registry for applications and AI agents:
-
-- Unique identities with metadata
-- A2A (agent-to-agent) endpoints
+On-chain registry for AI agents:
+- Unique agent identities
+- A2A (agent-to-agent) communication endpoints
 - MCP (Model Context Protocol) endpoints
-- Reputation and validation
+- Reputation tracking
 
-### ERC-4337 (Account Abstraction)
+### ERC-7683 (Cross-Chain Intents)
 
-Smart contract wallets with:
-
-- Gasless transactions (paymasters)
-- Multi-token gas payment
-- Batched transactions
-
-### ERC-7683 (Open Intents Framework)
-
-Cross-chain intent system:
-
+Intent-based cross-chain transactions:
 - User expresses intent on source chain
 - Solvers compete to fulfill
 - Oracle verifies execution
@@ -123,71 +91,42 @@ Cross-chain intent system:
 ### EIL (Ethereum Interop Layer)
 
 Instant cross-chain transfers:
-
-- XLPs front liquidity
-- Users receive instantly
+- Liquidity providers (XLPs) front funds
+- Users receive immediately on destination
 - No bridge wait time
 
 ## Data Availability
 
-### EigenDA
-
-Primary DA layer with:
-
-- Lower costs than calldata
+**EigenDA** is the primary DA layer:
+- Lower cost than posting to Ethereum calldata
 - High throughput
 - Ethereum economic security
 
-### Fallback
+**Fallback:** If EigenDA is unavailable, automatic fallback to Ethereum calldata.
 
-If EigenDA is unavailable:
+## Security
 
-- Automatic fallback to Ethereum calldata
-- Higher cost but always available
-- Transparent to users
-
-## Security Model
-
-| Layer | Security |
-|-------|----------|
-| L2 Execution | Sequencer (currently centralized) |
-| State Transition | Fault proofs (7 day challenge) |
-| Data Availability | EigenDA + Ethereum |
+| Layer | Current Status |
+|-------|----------------|
+| Sequencer | Centralized (roadmap: decentralized) |
+| State Transition | Fault proofs with 7-day challenge |
+| Data Availability | EigenDA + Ethereum fallback |
 | Settlement | Ethereum mainnet |
 
-### Decentralization Roadmap
+## Supported Chains
 
-1. ✅ Launch with centralized sequencer
-2. 🔄 Shared sequencer integration
-3. 🔜 Decentralized sequencer set
-4. 🔜 Permissionless block production
-
-## Interoperability
-
-### Cross-Chain Communication
-
-| Protocol | Purpose |
-|----------|---------|
-| Hyperlane | Message passing, token bridging |
-| EIL | Instant token transfers |
-| OIF | Cross-chain intents |
-| Optimism Portal | Native L1↔L2 messaging |
-
-### Supported Chains
-
-| Chain | Support Level |
-|-------|--------------|
-| Ethereum | Full (settlement) |
+| Chain | Integration |
+|-------|-------------|
+| Ethereum | Settlement + EIL + OIF |
 | Base | OIF + EIL |
 | Arbitrum | Coming soon |
 | Solana | ZK Bridge |
 
 ## Related
 
-- [Quick Start](/getting-started/quick-start) - Get started
-- [Gasless Transactions](/learn/gasless) - How paymasters work
-- [Agent Concepts](/learn/agents) - ERC-8004 and agents
-- [Cross-chain](/integrate/overview) - EIL and OIF
+- [Gasless Transactions](/learn/gasless)
+- [Agent Infrastructure](/learn/agents)
+- [Cross-Chain](/integrate/overview)
 
 ---
 
@@ -198,35 +137,32 @@ If EigenDA is unavailable:
 Jeju Architecture
 
 Stack:
-- Applications: Gateway, Bazaar, Crucible, Factory, DWS, Indexer
-- Smart Contracts: Tokens, Identity, Paymasters, OIF, EIL, DeFi
-- L2: OP-Stack (op-reth + op-node), 200ms Flashblocks
-- DA: EigenDA (Ethereum calldata fallback)
-- Settlement: Ethereum Mainnet
+- Apps: Gateway, Bazaar, Crucible, Factory, DWS, Indexer
+- Contracts: Tokens, Identity, Paymasters, OIF, EIL, DeFi
+- L2: OP-Stack (op-reth + op-node)
+- DA: EigenDA
+- Settlement: Ethereum
 
-OP-Stack Components:
-- op-reth: Execution client
-- op-node: Consensus, derives from L1
+OP-Stack:
+- op-reth: Execution
+- op-node: Consensus
 - op-batcher: Batches to L1/EigenDA
-- op-proposer: Posts state roots
-- op-challenger: Fraud monitoring
+- op-proposer: State roots to L1
 
-Block Times:
-- Flashblock: 200ms pre-confirmation
-- L2 finality: 2 seconds
-- L1 confirmation: ~15 min
-- Challenge period: 7 days
+Block times:
+- Flashblock: 200ms
+- L2 finality: 2s
+- L1: ~15 min
+- Challenge: 7 days
 
-Key Protocols:
+Key protocols:
 - ERC-8004: Agent identity
 - ERC-4337: Account abstraction
 - ERC-7683: Cross-chain intents
 - EIL: Instant bridging
 
 Fee payment: ETH, USDC, JEJU, any registered token
-
-Cross-chain: Hyperlane, EIL, OIF, Optimism Portal
-Supported chains: Ethereum, Base, Arbitrum (soon), Solana (ZK)
+Cross-chain: Ethereum, Base, Arbitrum (soon), Solana (ZK)
 ```
 
 </details>

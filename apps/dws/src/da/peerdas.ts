@@ -14,6 +14,13 @@
 import type { Address, Hex } from 'viem';
 import { keccak256, toBytes, toHex, concatHex } from 'viem';
 import type { Chunk, BlobCommitment, DAOperatorInfo } from './types';
+import { 
+  gfMul, 
+  gfPow, 
+  gfAdd, 
+  gfDiv,
+  gfInv,
+} from './crypto/reed-solomon-2d';
 
 // ============================================================================
 // PeerDAS Constants (EIP-7594 compliant)
@@ -164,15 +171,20 @@ export function extendMatrix(matrix: Uint8Array[][]): Uint8Array[][] {
 
 /**
  * Compute parity for a row at given parity index
+ * Uses proper Galois Field GF(2^8) arithmetic
  */
 function computeRowParity(row: Uint8Array[], parityIndex: number): Uint8Array {
   const parity = new Uint8Array(FIELD_ELEMENT_SIZE);
   
-  // Simple XOR-based parity (production would use proper Reed-Solomon)
+  // Use Reed-Solomon encoding with Vandermonde matrix coefficients
   for (let i = 0; i < row.length; i++) {
-    const coeff = computeParityCoefficient(i, parityIndex);
+    // Coefficient = α^(i * (parityIndex + 1)) in GF(2^8)
+    const coeff = gfPow((i + 1) % 255 || 1, parityIndex + 1);
+    
     for (let j = 0; j < FIELD_ELEMENT_SIZE; j++) {
-      parity[j] ^= (row[i][j] ?? 0) * coeff;
+      const cellByte = row[i]?.[j] ?? 0;
+      // GF multiplication and addition (XOR)
+      parity[j] = gfAdd(parity[j], gfMul(cellByte, coeff));
     }
   }
   
@@ -180,11 +192,21 @@ function computeRowParity(row: Uint8Array[], parityIndex: number): Uint8Array {
 }
 
 /**
- * Compute parity coefficient using Galois field
+ * Compute column parity using proper GF(2^8) arithmetic
  */
-function computeParityCoefficient(dataIndex: number, parityIndex: number): number {
-  // Simplified - production would use proper GF(2^8) arithmetic
-  return ((dataIndex + 1) * (parityIndex + 1)) % 256;
+function computeColumnParity(column: Uint8Array[], parityIndex: number): Uint8Array {
+  const parity = new Uint8Array(FIELD_ELEMENT_SIZE);
+  
+  for (let i = 0; i < column.length; i++) {
+    const coeff = gfPow((i + 1) % 255 || 1, parityIndex + 1);
+    
+    for (let j = 0; j < FIELD_ELEMENT_SIZE; j++) {
+      const cellByte = column[i]?.[j] ?? 0;
+      parity[j] = gfAdd(parity[j], gfMul(cellByte, coeff));
+    }
+  }
+  
+  return parity;
 }
 
 /**
@@ -490,11 +512,40 @@ export class PeerDASBlobManager {
   }
 
   /**
-   * Generate column inclusion proof
+   * Generate column inclusion proof (Merkle path)
+   * Proves column commitment is included in blob commitment
    */
   private generateColumnProof(blob: PeerDASBlob, columnIndex: ColumnIndex): Hex {
-    // Merkle proof of column commitment in blob commitment
-    return keccak256(toBytes(`proof:${blob.commitment}:${columnIndex}`));
+    // Build Merkle proof for column commitment in the blob commitment tree
+    const proofPath: Hex[] = [];
+    let index = columnIndex;
+    let level = blob.columnCommitments;
+    
+    while (level.length > 1) {
+      const siblingIndex = index % 2 === 0 ? index + 1 : index - 1;
+      if (siblingIndex < level.length) {
+        proofPath.push(level[siblingIndex]);
+      } else {
+        proofPath.push(level[index]);
+      }
+      
+      // Move to next level
+      const nextLevel: Hex[] = [];
+      for (let i = 0; i < level.length; i += 2) {
+        const left = level[i];
+        const right = level[i + 1] ?? left;
+        nextLevel.push(keccak256(concatHex([left, right])));
+      }
+      level = nextLevel;
+      index = Math.floor(index / 2);
+    }
+    
+    // Encode proof path as single hex (concatenated hashes)
+    if (proofPath.length === 0) {
+      return blob.columnCommitments[columnIndex];
+    }
+    
+    return keccak256(toBytes(proofPath.join('')));
   }
 
   /**

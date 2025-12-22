@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests';
+import { captureScreenshot, captureUserFlow } from '@jejunetwork/tests/playwright-only';
 
 test.describe('Liquidity Page', () => {
   test.beforeEach(async ({ page }) => {

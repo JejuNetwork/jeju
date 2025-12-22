@@ -14,6 +14,11 @@ export * from './signer/manager';
 export * from './signer/registration';
 export * from './signer/service';
 
+// Direct Casts (encrypted DMs)
+export * from './dc/types';
+export * from './dc/client';
+export * from './dc/api';
+
 // Frames
 export * from './frames/types';
 

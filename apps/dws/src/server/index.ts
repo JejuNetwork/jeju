@@ -38,6 +38,8 @@ import { createPricesRouter, handlePriceWebSocket, getPriceService } from './rou
 import { createDARouter, initializeDA, shutdownDA } from './routes/da';
 import { createModerationRouter } from './routes/moderation';
 import { createEmailRouter } from '../email/routes';
+import { createFundingRouter } from './routes/funding';
+import { createPkgRegistryProxyRouter } from './routes/pkg-registry-proxy';
 import { createBackendManager } from '../storage/backends';
 import { initializeMarketplace } from '../api-marketplace';
 import { initializeContainerSystem } from '../containers';
@@ -275,7 +277,7 @@ app.get('/', (c) => {
     services: [
       'storage', 'compute', 'cdn', 'git', 'pkg', 'ci', 'oauth3', 
       'api-marketplace', 'containers', 's3', 'workers', 'workerd', 
-      'kms', 'vpn', 'scraping', 'rpc', 'edge', 'da'
+      'kms', 'vpn', 'scraping', 'rpc', 'edge', 'da', 'funding', 'registry'
     ],
     endpoints: {
       storage: '/storage/*',
@@ -298,6 +300,8 @@ app.get('/', (c) => {
       rpc: '/rpc/*',
       edge: '/edge/*',
       da: '/da/*',
+      funding: '/funding/*',
+      registry: '/registry/*',
     },
   });
 });
@@ -326,6 +330,10 @@ app.route('/edge', createEdgeRouter());
 app.route('/prices', createPricesRouter());
 app.route('/moderation', createModerationRouter());
 app.route('/email', createEmailRouter());
+
+// Funding and package registry proxy
+app.route('/funding', createFundingRouter());
+app.route('/registry', createPkgRegistryProxyRouter());
 
 // Data Availability Layer
 const daConfig = {

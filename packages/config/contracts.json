@@ -38,6 +38,10 @@
       "predimarket": ""
     },
     
+    "security": {
+      "bountyRegistry": ""
+    },
+    
     "nodeStaking": {
       "manager": "",
       "performanceOracle": ""
@@ -142,6 +146,10 @@
       "predimarket": ""
     },
     
+    "security": {
+      "bountyRegistry": ""
+    },
+    
     "nodeStaking": {
       "manager": "",
       "performanceOracle": ""
@@ -238,6 +246,10 @@
       "reportingSystem": "",
       "reputationLabelManager": "",
       "predimarket": ""
+    },
+    
+    "security": {
+      "bountyRegistry": ""
     },
     
     "nodeStaking": {

@@ -1,49 +1,46 @@
 # Node Operations
 
-Run infrastructure on Jeju and earn rewards.
+Run infrastructure on Jeju.
 
-## What Can You Run?
+## Node Types
 
-| Role | What you do | Stake | Earning |
-|------|-------------|-------|---------|
-| **RPC Node** | Serve RPC requests | 0.5 ETH | ~$50-200/month |
-| **Compute Node** | AI inference | 1 ETH | ~$100-500/month |
-| **Storage Node** | IPFS pinning | 0.5 ETH | ~$50-200/month |
-| **XLP** | Bridge liquidity | 1 ETH + capital | 0.1-0.3% per transfer |
-| **Solver** | Fill intents | 0.5 ETH + capital | Spread |
+| Role | What you do | Stake | Hardware |
+|------|-------------|-------|----------|
+| **RPC Node** | Serve RPC requests | 0.5 ETH | 8 cores, 32GB RAM, 500GB SSD |
+| **Compute Node** | AI inference | 1 ETH | 16 cores, 64GB RAM, GPU 8GB+ |
+| **Storage Node** | IPFS storage | 0.5 ETH | 8 cores, 32GB RAM, 10TB+ |
+| **XLP** | Bridge liquidity | 1 ETH + capital | Any |
+| **Solver** | Fill intents | 0.5 ETH + capital | Any |
 
-*Earnings depend on demand and competition.*
+Earnings depend on network demand and your performance.
 
-## Quickest Start: RPC Node
+## RPC Node
 
-An RPC node serves blockchain requests. Minimal setup.
+Serves blockchain RPC requests.
 
 ### Requirements
 
 - 8+ CPU cores, 32GB RAM, 500GB NVMe
 - Static IP or domain
 - 100Mbps+ internet
-- 0.5 ETH for stake
+- 0.5 ETH stake
 
 ### Setup
 
 ```bash
-# Clone
 git clone https://github.com/elizaos/jeju
 cd jeju
 
-# Configure
 cp .env.rpc.example .env
-nano .env  # Set PRIVATE_KEY, STAKE_AMOUNT=0.5
+# Edit .env: set PRIVATE_KEY
 
-# Run
-docker compose -f docker/rpc-node.yml up -d
+docker compose -f packages/deployment/docker/rpc-node.yml up -d
 
 # Verify
 curl http://localhost:8545/health
 ```
 
-### Register On-Chain
+### Register
 
 ```typescript
 import { createJejuClient } from '@jejunetwork/sdk';
@@ -63,27 +60,25 @@ await jeju.staking.registerNode({
 
 ## Compute Node
 
-Runs AI inference. Requires GPU.
+Runs AI inference jobs.
 
 ### Requirements
 
 - 16+ CPU cores, 64GB RAM
-- NVIDIA GPU (8GB+ VRAM, RTX 3080 or better)
+- NVIDIA GPU (8GB+ VRAM)
 - 1TB NVMe
 - 1 ETH stake
 
 ### Setup
 
 ```bash
-# Ensure NVIDIA drivers installed
+# Check GPU
 nvidia-smi
 
-# Configure
 cp .env.compute.example .env
-nano .env  # Set PRIVATE_KEY, GPU_ENABLED=true
+# Edit .env: set PRIVATE_KEY, GPU_ENABLED=true
 
-# Run
-docker compose -f docker/compute-node.yml up -d
+docker compose -f packages/deployment/docker/compute-node.yml up -d
 ```
 
 ### Register
@@ -99,7 +94,7 @@ await jeju.staking.registerNode({
 
 ## Storage Node
 
-Provides IPFS storage and pinning.
+Provides IPFS storage.
 
 ### Requirements
 
@@ -112,36 +107,40 @@ Provides IPFS storage and pinning.
 
 ```bash
 cp .env.storage.example .env
-docker compose -f docker/storage-node.yml up -d
+docker compose -f packages/deployment/docker/storage-node.yml up -d
 ```
 
 ## XLP (Liquidity Provider)
 
-Provide instant bridging liquidity. Users deposit on Ethereum/Base, you credit them instantly on Jeju, then claim your deposit later.
+Provide bridge liquidity. Users deposit on Ethereum/Base, you credit them on Jeju, then claim your deposit.
 
-**Capital required:** At least 5 ETH worth of liquidity on Jeju.
+**Requirements:**
+- 1 ETH stake
+- Liquidity capital (minimum 5 ETH worth on Jeju)
 
-→ [EIL Integration Guide](/integrate/eil#for-xlps-liquidity-providers)
+→ [EIL Guide](/integrate/eil)
 
 ## Solver
 
-Fill cross-chain intents. Monitor for intents, fill them on Jeju, claim payment from source chain.
+Fill cross-chain intents.
 
-**Capital required:** Depends on intent sizes you want to fill.
+**Requirements:**
+- 0.5 ETH stake
+- Capital to fill intents
 
-→ [OIF Integration Guide](/integrate/oif#for-solvers)
+→ [OIF Guide](/integrate/oif)
 
 ## Staking
 
-### Check Your Stake
+### Check Stake
 
 ```typescript
-const stake = await jeju.staking.getStake(myNodeId);
-console.log('Staked:', stake.amount);
+const stake = await jeju.staking.getStake(nodeId);
+console.log('Amount:', stake.amount);
 console.log('Locked until:', new Date(stake.unlockTime * 1000));
 ```
 
-### Add More Stake
+### Add Stake
 
 ```typescript
 await jeju.staking.addStake({
@@ -165,32 +164,29 @@ await jeju.staking.withdraw({ nodeId: myNodeId });
 
 ## Rewards
 
-### How it Works
-
-1. Users pay fees (RPC requests, inference, storage)
-2. Protocol collects fees
-3. Distributed to nodes based on uptime × volume × quality
-
-### Claim Rewards
+Distributed based on:
+- Uptime
+- Requests served
+- Response quality
 
 ```typescript
-const pending = await jeju.staking.getPendingRewards(myNodeId);
+const pending = await jeju.staking.getPendingRewards(nodeId);
 console.log('Pending:', pending);
 
-await jeju.staking.claimRewards({ nodeId: myNodeId });
+await jeju.staking.claimRewards({ nodeId });
 ```
 
 ## Monitoring
 
 Every node exposes:
 
-| Endpoint | What it shows |
-|----------|---------------|
-| `/health` | Basic health |
+| Endpoint | Purpose |
+|----------|---------|
+| `/health` | Basic health check |
 | `/ready` | Ready to serve |
 | `/metrics` | Prometheus metrics |
 
-### Prometheus Setup
+### Prometheus
 
 ```yaml
 # prometheus.yml
@@ -200,39 +196,21 @@ scrape_configs:
       - targets: ['localhost:9090']
 ```
 
-### Grafana
-
-Import dashboards from `apps/monitoring/grafana/`.
+Import Grafana dashboards from `apps/monitoring/grafana/`.
 
 ## Slashing
 
-Your stake can be slashed for:
-
-| Offense | Slash |
-|---------|-------|
-| Downtime > 24 hours | 10% |
+| Offense | Penalty |
+|---------|---------|
+| Downtime > 24h | 10% |
 | Invalid responses | 25% |
 | Malicious behavior | 100% |
 
 ### Appeal
 
-1. Submit appeal with evidence via Gateway UI
-2. DAO votes (7 days)
-3. If upheld, slash is reversed
-
-## FAQ
-
-**How much can I earn?**
-
-Depends on demand. RPC nodes typically earn $50-200/month. Compute nodes with good GPUs can earn more. XLPs earn 0.1-0.3% per transfer.
-
-**What uptime is required?**
-
-99%+. More than 24 hours downtime = slashing.
-
-**Can I run multiple node types?**
-
-Yes. Each requires separate stake.
+1. Submit appeal via Gateway
+2. DAO vote (7 days)
+3. If upheld, slash reversed
 
 ---
 
@@ -243,34 +221,25 @@ Yes. Each requires separate stake.
 Jeju Node Operations
 
 Node types:
-- RPC Node: 0.5 ETH stake, serve RPC, ~$50-200/mo
-- Compute Node: 1 ETH stake, AI inference, ~$100-500/mo
-- Storage Node: 0.5 ETH stake, IPFS, ~$50-200/mo
-- XLP: 1 ETH stake + capital, bridge liquidity, 0.1-0.3%
-- Solver: 0.5 ETH stake + capital, fill intents
+- RPC: 0.5 ETH stake, 8 cores, 32GB RAM, 500GB
+- Compute: 1 ETH stake, 16 cores, 64GB RAM, GPU
+- Storage: 0.5 ETH stake, 8 cores, 32GB RAM, 10TB
+- XLP: 1 ETH stake + capital
+- Solver: 0.5 ETH stake + capital
 
 Setup:
 git clone https://github.com/elizaos/jeju
-docker compose -f docker/rpc-node.yml up -d
+docker compose -f packages/deployment/docker/rpc-node.yml up -d
 
 Register:
-await jeju.staking.registerNode({
-  type: 'rpc',
-  endpoint: 'https://my-node.example.com',
-  stake: parseEther('0.5'),
-});
+await jeju.staking.registerNode({ type: 'rpc', endpoint, stake: parseEther('0.5') });
 
 Staking:
 await jeju.staking.addStake({ nodeId, amount })
 await jeju.staking.initiateUnbond({ nodeId, amount }) // 7-day unbond
 await jeju.staking.claimRewards({ nodeId })
 
-Hardware:
-- RPC: 8 cores, 32GB RAM, 500GB NVMe
-- Compute: 16 cores, 64GB RAM, GPU 8GB VRAM
-- Storage: 8 cores, 32GB RAM, 10TB storage
-
-Slashing: >24h downtime 10%, invalid responses 25%, malicious 100%
+Slashing: >24h downtime 10%, invalid 25%, malicious 100%
 Endpoints: /health, /ready, /metrics
 ```
 

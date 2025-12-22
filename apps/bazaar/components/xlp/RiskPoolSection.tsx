@@ -42,7 +42,7 @@ const RISK_SLEEVE_ABI = [
     outputs: [],
   },
   {
-    name: 'positions',
+    name: 'getUserPosition',
     type: 'function',
     stateMutability: 'view',
     inputs: [
@@ -50,24 +50,22 @@ const RISK_SLEEVE_ABI = [
       { name: 'tier', type: 'uint8' },
     ],
     outputs: [
-      { name: 'amount', type: 'uint256' },
-      { name: 'tier', type: 'uint8' },
-      { name: 'depositTime', type: 'uint256' },
-      { name: 'accumulatedYield', type: 'uint256' },
+      { name: 'deposited', type: 'uint256' },
+      { name: 'pendingYield', type: 'uint256' },
+      { name: 'depositDuration', type: 'uint256' },
     ],
   },
   {
-    name: 'sleeves',
+    name: 'getSleeveStats',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'tier', type: 'uint8' }],
     outputs: [
-      { name: 'maxUtilizationBps', type: 'uint256' },
-      { name: 'minTokenRiskScore', type: 'uint256' },
-      { name: 'baseYieldBps', type: 'uint256' },
-      { name: 'riskPremiumBps', type: 'uint256' },
-      { name: 'totalDeposited', type: 'uint256' },
-      { name: 'totalUtilized', type: 'uint256' },
+      { name: 'deposited', type: 'uint256' },
+      { name: 'utilized', type: 'uint256' },
+      { name: 'available', type: 'uint256' },
+      { name: 'utilizationBps', type: 'uint256' },
+      { name: 'yieldBps', type: 'uint256' },
     ],
   },
 ] as const
@@ -281,7 +279,7 @@ export default function RiskPoolSection({ riskSleeveAddress }: RiskPoolSectionPr
   const { data: conservativePositionData } = useReadContract({
     address: riskSleeveAddress,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'positions',
+    functionName: 'getUserPosition',
     args: address ? [address, RiskTier.CONSERVATIVE] : undefined,
     query: { enabled: !!address && !!riskSleeveAddress },
   })
@@ -290,7 +288,7 @@ export default function RiskPoolSection({ riskSleeveAddress }: RiskPoolSectionPr
   const { data: balancedPositionData } = useReadContract({
     address: riskSleeveAddress,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'positions',
+    functionName: 'getUserPosition',
     args: address ? [address, RiskTier.BALANCED] : undefined,
     query: { enabled: !!address && !!riskSleeveAddress },
   })
@@ -299,7 +297,7 @@ export default function RiskPoolSection({ riskSleeveAddress }: RiskPoolSectionPr
   const { data: aggressivePositionData } = useReadContract({
     address: riskSleeveAddress,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'positions',
+    functionName: 'getUserPosition',
     args: address ? [address, RiskTier.AGGRESSIVE] : undefined,
     query: { enabled: !!address && !!riskSleeveAddress },
   })
@@ -309,29 +307,29 @@ export default function RiskPoolSection({ riskSleeveAddress }: RiskPoolSectionPr
   const { data: conservativeSleeveData } = useReadContract({
     address: riskSleeveAddress,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'sleeves',
+    functionName: 'getSleeveStats',
     args: [RiskTier.CONSERVATIVE],
     query: { enabled: !!riskSleeveAddress },
   })
-  const conservativeTotal = conservativeSleeveData?.[4] ?? 0n
+  const conservativeTotal = conservativeSleeveData?.[0] ?? 0n // deposited is first element
 
   const { data: balancedSleeveData } = useReadContract({
     address: riskSleeveAddress,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'sleeves',
+    functionName: 'getSleeveStats',
     args: [RiskTier.BALANCED],
     query: { enabled: !!riskSleeveAddress },
   })
-  const balancedTotal = balancedSleeveData?.[4] ?? 0n
+  const balancedTotal = balancedSleeveData?.[0] ?? 0n // deposited is first element
 
   const { data: aggressiveSleeveData } = useReadContract({
     address: riskSleeveAddress,
     abi: RISK_SLEEVE_ABI,
-    functionName: 'sleeves',
+    functionName: 'getSleeveStats',
     args: [RiskTier.AGGRESSIVE],
     query: { enabled: !!riskSleeveAddress },
   })
-  const aggressiveTotal = aggressiveSleeveData?.[4] ?? 0n
+  const aggressiveTotal = aggressiveSleeveData?.[0] ?? 0n // deposited is first element
 
   const deposits: Record<RiskTier, bigint> = {
     [RiskTier.CONSERVATIVE]: conservativeDeposit,

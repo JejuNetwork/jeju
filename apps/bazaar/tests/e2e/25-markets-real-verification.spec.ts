@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '@jejunetwork/tests';
+import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only';
 
 test.describe('Markets - REAL Functionality Verification', () => {
   test('should verify market stats calculate from actual data', async ({ page }) => {

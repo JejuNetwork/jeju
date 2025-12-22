@@ -1,9 +1,8 @@
 import { defineConfig } from 'vitepress';
-import { getNetworkName } from '@jejunetwork/config';
 
 export default defineConfig({
-  title: 'Jeju Network',
-  description: 'The L2 Built for Agents - 200ms blocks, gasless transactions, native agent infrastructure',
+  title: 'Jeju',
+  description: 'OP-Stack L2 for Agents',
   base: '/jeju/',
   ignoreDeadLinks: [
     /^http:\/\/localhost/,
@@ -21,11 +20,6 @@ export default defineConfig({
   head: [
     ['link', { rel: 'icon', href: '/jeju/favicon.ico' }],
     ['meta', { name: 'theme-color', content: '#0EA5E9' }],
-    ['meta', { name: 'og:type', content: 'website' }],
-    ['meta', { name: 'og:locale', content: 'en' }],
-    ['meta', { name: 'og:site_name', content: 'Jeju Network' }],
-    ['meta', { name: 'og:title', content: 'Jeju - The L2 Built for Agents' }],
-    ['meta', { name: 'og:description', content: 'OP-Stack L2 with 200ms blocks, gasless transactions, and native agent infrastructure.' }],
   ],
 
   themeConfig: {
@@ -33,18 +27,10 @@ export default defineConfig({
     siteTitle: 'Jeju',
 
     nav: [
-      { text: 'Get Started', link: '/getting-started/quick-start' },
+      { text: 'Start', link: '/getting-started/quick-start' },
       { text: 'Build', link: '/build/overview' },
-      { text: 'Integrate', link: '/integrate/overview' },
       { text: 'Operate', link: '/operate/overview' },
-      {
-        text: 'Reference',
-        items: [
-          { text: 'Applications', link: '/applications/gateway' },
-          { text: 'Packages', link: '/packages/sdk' },
-          { text: 'Deployment', link: '/deployment/overview' },
-        ],
-      },
+      { text: 'Apps', link: '/applications/overview' },
     ],
 
     sidebar: {
@@ -54,6 +40,7 @@ export default defineConfig({
           items: [
             { text: 'Quick Start', link: '/getting-started/quick-start' },
             { text: 'Networks', link: '/getting-started/networks' },
+            { text: 'Test Accounts', link: '/getting-started/test-accounts' },
           ],
         },
       ],
@@ -71,46 +58,43 @@ export default defineConfig({
 
       '/build/': [
         {
-          text: 'Build on Jeju',
+          text: 'Build',
           items: [
             { text: 'Overview', link: '/build/overview' },
           ],
         },
         {
-          text: 'SDK',
-          collapsed: false,
+          text: 'Packages',
           items: [
-            { text: 'SDK Overview', link: '/packages/sdk' },
+            { text: 'SDK', link: '/packages/sdk' },
+            { text: 'CLI', link: '/packages/cli' },
+            { text: 'OAuth3', link: '/packages/oauth3' },
+            { text: 'Contracts', link: '/packages/contracts' },
           ],
         },
       ],
 
       '/integrate/': [
         {
-          text: 'Cross-Chain Integration',
+          text: 'Cross-Chain',
           items: [
             { text: 'Overview', link: '/integrate/overview' },
-            { text: 'EIL (Instant Bridging)', link: '/integrate/eil' },
+            { text: 'EIL (Bridging)', link: '/integrate/eil' },
             { text: 'OIF (Intents)', link: '/integrate/oif' },
-          ],
-        },
-        {
-          text: 'Become a Provider',
-          items: [
-            { text: 'Become an XLP', link: '/integrate/become-xlp' },
-            { text: 'Become a Solver', link: '/integrate/become-solver' },
           ],
         },
       ],
 
       '/operate/': [
         {
-          text: 'Node Operations',
+          text: 'Operate',
           items: [
             { text: 'Overview', link: '/operate/overview' },
-            { text: 'Run RPC Node', link: '/operate/rpc-node' },
-            { text: 'Run Compute Node', link: '/operate/compute-node' },
-            { text: 'Run Storage Node', link: '/operate/storage-node' },
+            { text: 'RPC Node', link: '/operate/rpc-node' },
+            { text: 'Compute Node', link: '/operate/compute-node' },
+            { text: 'Storage Node', link: '/operate/storage-node' },
+            { text: 'XLP', link: '/operate/xlp' },
+            { text: 'Solver', link: '/operate/solver' },
           ],
         },
       ],
@@ -129,27 +113,32 @@ export default defineConfig({
 
       '/applications/': [
         {
-          text: 'Core Apps',
+          text: 'User Apps',
           items: [
+            { text: 'Overview', link: '/applications/overview' },
             { text: 'Gateway', link: '/applications/gateway' },
             { text: 'Bazaar', link: '/applications/bazaar' },
-            { text: 'Crucible', link: '/applications/crucible' },
-            { text: 'Factory', link: '/applications/factory' },
+          ],
+        },
+        {
+          text: 'Infrastructure',
+          items: [
             { text: 'DWS', link: '/applications/dws' },
+            { text: 'Crucible', link: '/applications/crucible' },
             { text: 'Indexer', link: '/applications/indexer' },
-            { text: 'Autocrat', link: '/applications/autocrat' },
+            { text: 'Factory', link: '/applications/factory' },
           ],
         },
       ],
 
       '/packages/': [
         {
-          text: 'Core Packages',
+          text: 'Packages',
           items: [
             { text: 'SDK', link: '/packages/sdk' },
-            { text: 'Contracts', link: '/packages/contracts' },
             { text: 'CLI', link: '/packages/cli' },
             { text: 'OAuth3', link: '/packages/oauth3' },
+            { text: 'Contracts', link: '/packages/contracts' },
           ],
         },
       ],
@@ -162,22 +151,17 @@ export default defineConfig({
     ],
 
     footer: {
-      message: 'Released under the MIT License.',
-      copyright: 'Copyright © 2025 Jeju Network',
+      message: 'MIT License',
+      copyright: '© 2025 Jeju Network',
     },
 
     search: { provider: 'local' },
 
     editLink: {
       pattern: 'https://github.com/elizaos/jeju/edit/main/apps/documentation/:path',
-      text: 'Edit this page on GitHub',
+      text: 'Edit on GitHub',
     },
 
     outline: { level: [2, 3] },
-
-    lastUpdated: {
-      text: 'Updated at',
-      formatOptions: { dateStyle: 'short' },
-    },
   },
 });

@@ -47,5 +47,11 @@ export * from './sdk';
 // XMTP integration
 export * from './xmtp';
 
+// MLS (Message Layer Security) for group messaging
+export * from './mls';
+
+// TEE-backed key management
+export * from './tee';
+
 // Node-only exports (relay server) available via '@jejunetwork/messaging/node'
 

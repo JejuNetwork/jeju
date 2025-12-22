@@ -301,16 +301,8 @@ describe('BLS12-381 Signatures', () => {
 // ============================================================================
 
 describe('KZG Polynomial Commitments', () => {
-  let initialized = false;
-
   beforeAll(async () => {
-    try {
-      await initializeKZG();
-      initialized = true;
-    } catch (error) {
-      console.log('KZG trusted setup not available - skipping KZG tests');
-      console.log('To run KZG tests, download trusted_setup.txt from Ethereum');
-    }
+    await initializeKZG();
   });
 
   describe('Blob Operations', () => {
@@ -340,7 +332,7 @@ describe('KZG Polynomial Commitments', () => {
   });
 
   describe('Commitment Generation', () => {
-    test.skipIf(!initialized)('should compute commitment for blob', async () => {
+    test('should compute commitment for blob', async () => {
       const data = new TextEncoder().encode('Commitment test data');
       const { blob, commitment } = commitToBlob(data);
       
@@ -348,7 +340,7 @@ describe('KZG Polynomial Commitments', () => {
       expect(blob.length).toBe(BLOB_SIZE);
     });
 
-    test.skipIf(!initialized)('should produce consistent commitments', async () => {
+    test('should produce consistent commitments', async () => {
       const data = new TextEncoder().encode('Consistent data');
       
       const { commitment: c1 } = commitToBlob(data);
@@ -357,7 +349,7 @@ describe('KZG Polynomial Commitments', () => {
       expect(c1).toBe(c2);
     });
 
-    test.skipIf(!initialized)('should produce different commitments for different data', async () => {
+    test('should produce different commitments for different data', async () => {
       const data1 = new TextEncoder().encode('Data 1');
       const data2 = new TextEncoder().encode('Data 2');
       
@@ -369,7 +361,7 @@ describe('KZG Polynomial Commitments', () => {
   });
 
   describe('Proof Verification', () => {
-    test.skipIf(!initialized)('should verify valid blob proof', async () => {
+    test('should verify valid blob proof', async () => {
       const data = new TextEncoder().encode('Proof verification test');
       const { blob, commitment } = commitToBlob(data);
       
@@ -377,19 +369,20 @@ describe('KZG Polynomial Commitments', () => {
       expect(verifyBlobProof(blob, commitment, proof)).toBe(true);
     });
 
-    test.skipIf(!initialized)('should reject invalid proof', async () => {
+    test('should reject invalid proof', async () => {
       const data1 = new TextEncoder().encode('Data 1');
       const data2 = new TextEncoder().encode('Data 2');
       
       const { blob: blob1, commitment: c1 } = commitToBlob(data1);
-      const { blob: blob2, commitment: c2 } = commitToBlob(data2);
+      const { commitment: c2 } = commitToBlob(data2);
       
-      // Use proof from blob1 with blob2
+      // Use proof from blob1 but claim it's for commitment c2
       const proof1 = computeBlobProof(blob1, c1);
-      expect(verifyBlobProof(blob2, c2, proof1)).toBe(false);
+      // Wrong commitment for the blob should fail
+      expect(verifyBlobProof(blob1, c2, proof1)).toBe(false);
     });
 
-    test.skipIf(!initialized)('should batch verify proofs', async () => {
+    test('should batch verify proofs', async () => {
       const blobs = [
         commitToBlob(new TextEncoder().encode('Blob 1')),
         commitToBlob(new TextEncoder().encode('Blob 2')),
@@ -407,14 +400,14 @@ describe('KZG Polynomial Commitments', () => {
   });
 
   describe('Data Verification', () => {
-    test.skipIf(!initialized)('should verify commitment matches data', async () => {
+    test('should verify commitment matches data', async () => {
       const data = new TextEncoder().encode('Verify me');
       const { commitment } = commitToBlob(data);
       
       expect(verifyCommitmentForData(data, commitment)).toBe(true);
     });
 
-    test.skipIf(!initialized)('should reject wrong data for commitment', async () => {
+    test('should reject wrong data for commitment', async () => {
       const data = new TextEncoder().encode('Original data');
       const wrongData = new TextEncoder().encode('Wrong data');
       
@@ -425,7 +418,7 @@ describe('KZG Polynomial Commitments', () => {
   });
 
   describe('Versioned Hash', () => {
-    test.skipIf(!initialized)('should compute versioned hash', async () => {
+    test('should compute versioned hash', async () => {
       const data = new TextEncoder().encode('Hash test');
       const { commitment } = commitToBlob(data);
       

@@ -10,7 +10,7 @@ import type {
   DependencyShare,
   FeeDistributionConfig,
   WeightVote,
-} from '../../../types/funding';
+} from '../types/funding';
 
 // ============ Contract ABI ============
 
@@ -35,19 +35,10 @@ const DEEP_FUNDING_DISTRIBUTOR_ABI = parseAbi([
 
 // ============ Config ============
 
-interface FundingHooksConfig {
-  distributorAddress: Address;
-}
-
-let config: FundingHooksConfig | null = null;
-
-export function configureFundingHooks(cfg: FundingHooksConfig) {
-  config = cfg;
-}
+import { addresses } from '../config/contracts';
 
 function getAddress(): Address {
-  if (!config) throw new Error('FundingHooks not configured. Call configureFundingHooks first.');
-  return config.distributorAddress;
+  return addresses.deepFundingDistributor;
 }
 
 // ============ Read Hooks ============

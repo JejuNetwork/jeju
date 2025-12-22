@@ -87,11 +87,11 @@ describe('Live Agent E2E Tests', () => {
   });
 
   // ============================================================================
-  // ElizaOS Runtime Tests
+  // Runtime Initialization Tests
   // ============================================================================
   
-  describe('ElizaOS Runtime', () => {
-    test('should initialize runtime with jejuPlugin', async () => {
+  describe('Runtime Initialization', () => {
+    test('should initialize runtime with jejuPlugin actions', async () => {
       const character = getCharacter('project-manager');
       const runtime = createCrucibleRuntime({
         agentId: 'init-test',
@@ -100,7 +100,7 @@ describe('Live Agent E2E Tests', () => {
       
       await runtime.initialize();
       expect(runtime.isInitialized()).toBe(true);
-      expect(runtime.getElizaRuntime()).toBeDefined();
+      expect(runtime.hasActions()).toBe(true);
     });
   });
 

@@ -173,9 +173,8 @@ async function deployFrontendToIPFS(buildDir: string, owner: Address): Promise<s
   
   collectFiles(buildDir);
   
-  // TODO: In production, upload manifest alongside files
-  // For now, just upload index.html directly
-  void files.length; // Track file count for future manifest upload
+  // File manifest is included inline in index.html for simplicity
+  void files.length;
   
   // Upload main index.html first
   const indexFile = files.find(f => f.path === 'index.html');

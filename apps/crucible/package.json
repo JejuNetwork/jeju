@@ -8,7 +8,8 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
-    "dev": "bun run src/server.ts",
+    "dev": "bun run scripts/dev.ts",
+    "dev:server": "bun run src/server.ts",
     "dev:test": "PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 bun run src/server.ts",
     "executor": "bun run src/executor/index.ts",
     "bot": "bun run src/bots/api-server.ts",

@@ -460,8 +460,29 @@ export function addTrainingRoutes(app: Hono): void {
       isActive: n.is_active === 1,
     })));
   });
+  
+  // Get node stats (must be before /:address route)
+  app.get('/nodes/stats', async (c) => {
+    const inferenceStats = getNodeStats();
+    const trainingStats = await trainingState.getStats();
+    
+    return c.json({
+      inference: inferenceStats,
+      training: {
+        totalNodes: trainingStats.totalNodes,
+        activeNodes: trainingStats.activeNodes,
+        totalRuns: trainingStats.totalRuns,
+        activeRuns: trainingStats.activeRuns,
+      },
+    });
+  });
+  
+  // List active inference nodes (must be before /:address route)
+  app.get('/nodes/inference', async (c) => {
+    return c.json(getActiveNodes());
+  });
 
-  // Get node info
+  // Get node info (parameterized route must come after specific routes)
   app.get('/nodes/:address', async (c) => {
     const { address } = validateParams(nodeParamsSchema, c);
     const node = await trainingState.getNode(address);
@@ -553,27 +574,6 @@ export function addTrainingRoutes(app: Hono): void {
     return c.json({ success: true });
   });
   
-  // Get node stats
-  app.get('/nodes/stats', async (c) => {
-    const inferenceStats = getNodeStats();
-    const trainingStats = await trainingState.getStats();
-    
-    return c.json({
-      inference: inferenceStats,
-      training: {
-        totalNodes: trainingStats.totalNodes,
-        activeNodes: trainingStats.activeNodes,
-        totalRuns: trainingStats.totalRuns,
-        activeRuns: trainingStats.activeRuns,
-      },
-    });
-  });
-  
-  // List active inference nodes
-  app.get('/nodes/inference', async (c) => {
-    return c.json(getActiveNodes());
-  });
-
   // Training webhook for state updates
   app.post('/training/webhook', async (c) => {
     const body = await validateBody(trainingRunSchema, c);

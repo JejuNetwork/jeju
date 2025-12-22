@@ -2,11 +2,8 @@
  * Crucible API Server
  * REST API for agent management, room coordination, and execution.
  * 
- * Agent Runtime Options:
- * 1. ElizaOS + @jejunetwork/eliza-plugin: Full plugin/action support (60+ actions)
- * 2. DWS-only: Character-template inference (fallback when ElizaOS unavailable)
- * 
- * The runtime auto-detects ElizaOS availability and uses full capabilities when possible.
+ * Fully decentralized - all AI inference goes through DWS compute network.
+ * Uses @jejunetwork/eliza-plugin for 60+ network actions.
  */
 
 import { Hono } from 'hono';

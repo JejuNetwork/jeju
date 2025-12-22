@@ -74,6 +74,13 @@ interface BootstrapResult {
     ledgerManager?: string;
     inferenceServing?: string;
     computeStaking?: string;
+    // Liquidity System
+    riskSleeve?: string;
+    liquidityRouter?: string;
+    multiServiceStakeManager?: string;
+    liquidityVault?: string;
+    // Security
+    securityBountyRegistry?: string;
   };
   pools: {
     'USDC-ETH'?: string;
@@ -211,6 +218,22 @@ class CompleteBootstrapper {
     result.contracts.nodePerformanceOracle = nodeStaking.performanceOracle;
     console.log('');
 
+    // Step 5.9: Deploy Liquidity System
+    console.log('💧 STEP 5.9: Deploying Liquidity System');
+    console.log('-'.repeat(70));
+    const liquidity = await this.deployLiquiditySystem(result.contracts);
+    result.contracts.riskSleeve = liquidity.riskSleeve;
+    result.contracts.liquidityRouter = liquidity.liquidityRouter;
+    result.contracts.multiServiceStakeManager = liquidity.multiServiceStakeManager;
+    result.contracts.liquidityVault = liquidity.liquidityVault;
+    console.log('');
+
+    // Step 5.10: Deploy Security Bounty Registry
+    console.log('🛡️  STEP 5.10: Deploying Security Bounty Registry');
+    console.log('-'.repeat(70));
+    result.contracts.securityBountyRegistry = await this.deploySecurityBountyRegistry(result.contracts);
+    console.log('');
+
     // Step 6: Authorize Services
     console.log('🔐 STEP 6: Authorizing Services');
     console.log('-'.repeat(70));
@@ -241,6 +264,16 @@ class CompleteBootstrapper {
 
     // Save configuration
     this.saveConfiguration(result);
+
+    // Sync to contracts.json config
+    console.log('🔄 Syncing to contracts.json...');
+    console.log('-'.repeat(70));
+    try {
+      execSync('bun run scripts/sync-localnet-config.ts', { stdio: 'inherit' });
+    } catch {
+      console.log('  ⚠️  Config sync skipped (script may not exist)');
+    }
+    console.log('');
 
     // Print summary
     this.printSummary(result);
@@ -546,6 +579,102 @@ class CompleteBootstrapper {
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : String(error);
       console.log('  ⚠️  JEJU token deployment failed');
+      console.log('     Error:', errorMsg);
+      return '0x0000000000000000000000000000000000000000';
+    }
+  }
+
+  private async deployLiquiditySystem(contracts: Partial<BootstrapResult['contracts']>): Promise<{
+    riskSleeve: string;
+    liquidityRouter: string;
+    multiServiceStakeManager: string;
+    liquidityVault: string;
+  }> {
+    try {
+      // Deploy RiskSleeve (rewardToken can be JEJU, owner)
+      const riskSleeve = this.deployContractFromPackages(
+        'src/liquidity/RiskSleeve.sol:RiskSleeve',
+        [contracts.jeju || '0x0000000000000000000000000000000000000000', this.deployerAddress],
+        'RiskSleeve (Risk-Tiered Liquidity)'
+      );
+
+      // Deploy MultiServiceStakeManager (stakingToken, owner)
+      const multiServiceStakeManager = this.deployContractFromPackages(
+        'src/staking/MultiServiceStakeManager.sol:MultiServiceStakeManager',
+        [contracts.jeju || '0x0000000000000000000000000000000000000000', this.deployerAddress],
+        'MultiServiceStakeManager'
+      );
+
+      // Deploy LiquidityVault first (needed for router)
+      const liquidityVault = this.deployContractFromPackages(
+        'src/liquidity/LiquidityVault.sol:LiquidityVault',
+        [contracts.jeju || '0x0000000000000000000000000000000000000000', this.deployerAddress],
+        'LiquidityVault'
+      );
+
+      // Deploy LiquidityRouter (liquidityVault, stakeManager, stakingToken, owner)
+      const liquidityRouter = this.deployContractFromPackages(
+        'src/liquidity/LiquidityRouter.sol:LiquidityRouter',
+        [liquidityVault, multiServiceStakeManager, contracts.jeju || '0x0000000000000000000000000000000000000000', this.deployerAddress],
+        'LiquidityRouter (Single Entry Point)'
+      );
+
+      // Set initial token risk scores (ETH = 90, USDC = 85, JEJU = 70)
+      if (contracts.usdc) {
+        this.sendTx(riskSleeve, 'setTokenRiskScore(address,uint256)', [contracts.usdc, '85'], 'USDC risk score: 85');
+      }
+      if (contracts.jeju) {
+        this.sendTx(riskSleeve, 'setTokenRiskScore(address,uint256)', [contracts.jeju, '70'], 'JEJU risk score: 70');
+      }
+      // Native ETH
+      this.sendTx(riskSleeve, 'setTokenRiskScore(address,uint256)', ['0x0000000000000000000000000000000000000000', '90'], 'ETH risk score: 90');
+
+      console.log('  ✅ Liquidity system deployed');
+      console.log('     ✨ Risk-tiered pools: Conservative (3%), Balanced (10%), Aggressive (20%)');
+      return { riskSleeve, liquidityRouter, multiServiceStakeManager, liquidityVault };
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log('  ⚠️  Liquidity system deployment skipped (contracts may not exist)');
+      console.log('     Error:', errorMsg);
+      return {
+        riskSleeve: '0x0000000000000000000000000000000000000000',
+        liquidityRouter: '0x0000000000000000000000000000000000000000',
+        multiServiceStakeManager: '0x0000000000000000000000000000000000000000',
+        liquidityVault: '0x0000000000000000000000000000000000000000'
+      };
+    }
+  }
+
+  private async deploySecurityBountyRegistry(contracts: Partial<BootstrapResult['contracts']>): Promise<string> {
+    try {
+      // Constructor: (identityRegistry, treasury, ceoAgent, initialOwner)
+      const securityBountyRegistry = this.deployContractFromPackages(
+        'src/security/SecurityBountyRegistry.sol:SecurityBountyRegistry',
+        [
+          contracts.identityRegistry || this.deployerAddress,
+          this.deployerAddress, // treasury
+          this.deployerAddress, // ceoAgent (will be updated to AI CEO later)
+          this.deployerAddress, // initialOwner
+        ],
+        'SecurityBountyRegistry (Bug Bounty)'
+      );
+
+      // Fund the bounty pool with 10 ETH for testing
+      execSync(
+        `cast send ${securityBountyRegistry} "fundBountyPool()" --value 10ether --rpc-url ${this.rpcUrl} --private-key ${this.deployerKey}`,
+        { stdio: 'pipe' }
+      );
+      console.log('     ✨ Funded with 10 ETH for bounty rewards');
+
+      // Set compute oracle to deployer for testing
+      this.sendTx(securityBountyRegistry, 'setComputeOracle(address)', [this.deployerAddress], 'Compute oracle set');
+
+      console.log('  ✅ Security Bounty Registry deployed');
+      console.log('     ✨ Bug bounty program ready for submissions');
+      return securityBountyRegistry;
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.log('  ⚠️  Security Bounty Registry deployment skipped');
       console.log('     Error:', errorMsg);
       return '0x0000000000000000000000000000000000000000';
     }
@@ -868,6 +997,12 @@ VITE_LEDGER_MANAGER_ADDRESS="${result.contracts.ledgerManager || ''}"
 VITE_INFERENCE_SERVING_ADDRESS="${result.contracts.inferenceServing || ''}"
 VITE_COMPUTE_STAKING_ADDRESS="${result.contracts.computeStaking || ''}"
 
+# Liquidity System
+VITE_RISK_SLEEVE_ADDRESS="${result.contracts.riskSleeve || ''}"
+VITE_LIQUIDITY_ROUTER_ADDRESS="${result.contracts.liquidityRouter || ''}"
+VITE_MULTI_SERVICE_STAKE_MANAGER_ADDRESS="${result.contracts.multiServiceStakeManager || ''}"
+VITE_LIQUIDITY_VAULT_ADDRESS="${result.contracts.liquidityVault || ''}"
+
 # Core Infrastructure
 VITE_CREDIT_MANAGER_ADDRESS="${result.contracts.creditManager}"
 VITE_SERVICE_REGISTRY_ADDRESS="${result.contracts.serviceRegistry}"
@@ -930,6 +1065,12 @@ LEDGER_MANAGER_ADDRESS="${result.contracts.ledgerManager || ''}"
 INFERENCE_SERVING_ADDRESS="${result.contracts.inferenceServing || ''}"
 COMPUTE_STAKING_ADDRESS="${result.contracts.computeStaking || ''}"
 
+# Liquidity System
+RISK_SLEEVE_ADDRESS="${result.contracts.riskSleeve || ''}"
+LIQUIDITY_ROUTER_ADDRESS="${result.contracts.liquidityRouter || ''}"
+MULTI_SERVICE_STAKE_MANAGER_ADDRESS="${result.contracts.multiServiceStakeManager || ''}"
+LIQUIDITY_VAULT_ADDRESS="${result.contracts.liquidityVault || ''}"
+
 # x402 Configuration
 X402_NETWORK=jeju-localnet
 X402_FACILITATOR_URL=http://localhost:3402
@@ -970,6 +1111,9 @@ ${result.testWallets.map((w, i) => `TEST_ACCOUNT_${i + 1}_KEY="${w.privateKey}"`
     console.log('   ✅ Account abstraction (gasless transactions)');
     console.log('   ✅ Paymaster system with all tokens registered');
     console.log('   ✅ Compute marketplace (AI inference on-chain settlement)');
+    console.log('   ✅ Risk-tiered liquidity pools (RiskSleeve)');
+    console.log('   ✅ Multi-service staking (Node, XLP, Paymaster, Governance)');
+    console.log('   ✅ Liquidity router for single-deposit UX');
     console.log('   ✅ 8 test wallets funded with all tokens');
     console.log('   ✅ Oracle prices initialized');
     console.log('   ✅ All services authorized');

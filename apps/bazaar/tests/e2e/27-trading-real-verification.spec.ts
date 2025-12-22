@@ -4,7 +4,7 @@
  */
 
 import { test, expect } from '@playwright/test';
-import { assertNoPageErrors } from '@jejunetwork/tests';
+import { assertNoPageErrors } from '@jejunetwork/tests/playwright-only';
 
 test.describe('Trading - REAL Calculation Verification', () => {
   test('should verify YES/NO selection affects buy button text', async ({ page }) => {

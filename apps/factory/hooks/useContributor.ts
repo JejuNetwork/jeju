@@ -12,13 +12,13 @@ import type {
   DAOContribution,
   VerificationStatus,
   SocialPlatform,
-} from '../../../types/funding';
+} from '../types/funding';
 import { 
   parseContributorType, 
   parseVerificationStatus, 
   getContributorTypeIndex,
   SOCIAL_PLATFORMS,
-} from '../../../types/funding';
+} from '../types/funding';
 import { keccak256, toBytes } from 'viem';
 
 // ============ Contract ABI ============
@@ -63,19 +63,10 @@ function parsePlatformFromHash(hash: string): SocialPlatform {
 
 // ============ Config ============
 
-interface ContributorHooksConfig {
-  registryAddress: Address;
-}
-
-let config: ContributorHooksConfig | null = null;
-
-export function configureContributorHooks(cfg: ContributorHooksConfig) {
-  config = cfg;
-}
+import { addresses } from '../config/contracts';
 
 function getAddress(): Address {
-  if (!config) throw new Error('ContributorHooks not configured. Call configureContributorHooks first.');
-  return config.registryAddress;
+  return addresses.contributorRegistry;
 }
 
 // ============ Read Hooks ============

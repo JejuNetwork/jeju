@@ -31,15 +31,16 @@ import requests
 class TrainingConfig:
     # Use TinyLlama-1.1B - fits in 16GB with gradients
     model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-    learning_rate: float = 1e-5
-    training_steps: int = 10
+    learning_rate: float = 5e-6  # Lower LR for stability
+    training_steps: int = 20
     batch_size: int = 1
     max_seq_len: int = 512
     gradient_accumulation_steps: int = 4
+    group_size: int = 8  # More samples per prompt for better advantage estimation
     save_path: str = "./training_checkpoints"
     atropos_url: str = "http://localhost:8000"
     vllm_port: int = 9001
-    vllm_restart_interval: int = 5
+    vllm_restart_interval: int = 10
     use_wandb: bool = False
     wandb_project: str = "jeju-grpo"
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
@@ -179,16 +180,11 @@ def compute_grpo_loss(
     """
     Compute GRPO loss with actual gradient computation.
     
-    Args:
-        model: The language model
-        input_ids: Token IDs [batch_size, seq_len]
-        labels: Labels with -100 for ignored positions [batch_size, seq_len]
-        advantages: Normalized advantage values [batch_size]
-        temperature: Sampling temperature
+    GRPO objective: maximize log_prob for positive advantages, minimize for negative.
+    Loss = -E[advantage * log_prob]
     
-    Returns:
-        loss: Scalar loss tensor
-        metrics: Dict of training metrics
+    For positive advantage (good response): we want high log_prob, so loss goes down
+    For negative advantage (bad response): we want low log_prob, so gradient pushes down
     """
     # Forward pass
     outputs = model(input_ids, use_cache=False)
@@ -197,7 +193,7 @@ def compute_grpo_loss(
     # Apply temperature
     logits = logits / temperature
     
-    # Shift for causal LM
+    # Shift for causal LM (predict next token)
     shift_logits = logits[..., :-1, :].contiguous()
     shift_labels = labels[..., 1:].contiguous()
     
@@ -211,15 +207,25 @@ def compute_grpo_loss(
         index=shift_labels.unsqueeze(-1).clamp(min=0)
     ).squeeze(-1)
     
-    # Mask out padding/ignored tokens
+    # Mask out padding/ignored tokens (labels == -100)
     mask = (shift_labels != -100).float()
     
-    # Average log prob per sequence
-    seq_log_probs = (token_log_probs * mask).sum(dim=-1) / mask.sum(dim=-1).clamp(min=1)
+    # Sum log prob per sequence (more stable than mean for short sequences)
+    seq_log_probs = (token_log_probs * mask).sum(dim=-1)
     
-    # GRPO loss: -E[advantage * log_prob]
-    # We use the policy gradient formulation
-    loss = -(advantages * seq_log_probs).mean()
+    # Normalize by sequence length for comparability
+    seq_lengths = mask.sum(dim=-1).clamp(min=1)
+    normalized_log_probs = seq_log_probs / seq_lengths
+    
+    # GRPO loss: we want to maximize advantage-weighted log probs
+    # Loss = -E[advantage * normalized_log_prob]
+    policy_loss = -(advantages * normalized_log_probs).mean()
+    
+    # Add entropy bonus for exploration (prevents collapse)
+    entropy = -(log_probs.exp() * log_probs).sum(dim=-1).mean()
+    entropy_bonus = 0.01 * entropy
+    
+    loss = policy_loss - entropy_bonus
     
     # Compute metrics
     with torch.no_grad():
@@ -228,9 +234,11 @@ def compute_grpo_loss(
         
         metrics = {
             "loss": loss.item(),
-            "mean_log_prob": seq_log_probs.mean().item(),
-            "pos_log_prob": seq_log_probs[pos_mask].mean().item() if pos_mask.any() else 0.0,
-            "neg_log_prob": seq_log_probs[neg_mask].mean().item() if neg_mask.any() else 0.0,
+            "policy_loss": policy_loss.item(),
+            "entropy": entropy.item(),
+            "mean_log_prob": normalized_log_probs.mean().item(),
+            "pos_log_prob": normalized_log_probs[pos_mask].mean().item() if pos_mask.any() else 0.0,
+            "neg_log_prob": normalized_log_probs[neg_mask].mean().item() if neg_mask.any() else 0.0,
             "mean_advantage": advantages.mean().item(),
             "pos_count": pos_mask.sum().item(),
             "neg_count": neg_mask.sum().item(),
@@ -439,20 +447,39 @@ class GRPOTrainer:
                 tokens_list.append(input_ids)
                 masks_list.append(mask)
             
-            # Score completions (simple heuristic for demo)
+            # Score completions based on quality heuristics
             scores = []
             for c in completions:
                 score = 0.0
                 lower_c = c.lower()
-                if "increase" in lower_c or "raised" in lower_c or "grow" in lower_c:
+                
+                # Reward predictions with clear direction
+                if any(w in lower_c for w in ["increase", "raised", "grow", "higher", "up"]):
                     score += 1.0
-                if "decrease" in lower_c or "reduced" in lower_c or "decline" in lower_c:
+                if any(w in lower_c for w in ["decrease", "reduced", "decline", "lower", "down"]):
+                    score += 0.8
+                if any(w in lower_c for w in ["maintain", "stable", "unchanged", "steady"]):
                     score += 0.5
-                if "maintain" in lower_c or "stable" in lower_c:
+                
+                # Reward specific numbers/percentages
+                import re
+                if re.search(r'\d+%|\d+\.\d+%', c):
+                    score += 0.5
+                
+                # Reward reasonable length (not too short, not rambling)
+                if 50 < len(c) < 300:
                     score += 0.3
-                if len(c) > 100:
-                    score += 0.2
-                scores.append(score if score > 0.5 else -1.0)
+                elif len(c) < 20:
+                    score -= 0.5  # Too short
+                
+                # Penalize repetition
+                words = c.split()
+                if len(words) > 5:
+                    unique_ratio = len(set(words)) / len(words)
+                    if unique_ratio < 0.5:
+                        score -= 0.5  # Too repetitive
+                
+                scores.append(score)
             
             all_data.append({
                 "tokens": tokens_list,
@@ -464,10 +491,15 @@ class GRPOTrainer:
     
     def train(self):
         """Main training loop with real gradient updates."""
-        print(f"[GRPO] Starting training for {self.config.training_steps} steps")
-        print(f"[GRPO] Model: {self.config.model_name}")
-        print(f"[GRPO] Device: {self.device}")
-        print(f"[GRPO] Learning rate: {self.config.learning_rate}")
+        print(f"\n{'='*60}")
+        print(f"[GRPO] REAL Distributed Training")
+        print(f"{'='*60}")
+        print(f"Model: {self.config.model_name}")
+        print(f"Device: {self.device}")
+        print(f"Learning rate: {self.config.learning_rate}")
+        print(f"Training steps: {self.config.training_steps}")
+        print(f"Group size: {self.config.group_size}")
+        print(f"{'='*60}\n")
         
         # Register with Atropos
         self.atropos.register_trainer(self.config)
@@ -478,24 +510,27 @@ class GRPOTrainer:
             "Analyze this financial data:\nQ3 Revenue: $45B (+12%)\nNet Income: $8B\nPredict earnings guidance direction.",
             "Given the following:\nRevenue down 5%\nCustomer churn up 3%\nPredict revenue forecast change.",
             "Market conditions:\nGDP growth 2.8%\nInflation 3.2%\nPredict dividend policy.",
+            "Company update:\nNew product launch successful\nMarket share increased 3%\nPredict stock price movement.",
+            "Economic indicators:\nUnemployment at 4.2%\nConsumer spending up 2%\nPredict sector performance.",
         ]
         
+        loss_history = []
+        
         for step in range(self.config.training_steps):
-            print(f"\n{'='*60}")
-            print(f"[GRPO] Step {step + 1}/{self.config.training_steps}")
-            print(f"{'='*60}")
+            print(f"\n--- Step {step + 1}/{self.config.training_steps} ---")
             
             # Collect rollouts using the training model
-            print("[GRPO] Collecting rollouts...")
             rollouts = self.collect_rollouts(
                 [prompts[step % len(prompts)]],
-                group_size=4,
+                group_size=self.config.group_size,
             )
             
-            # Show sample completion
-            if rollouts and rollouts[0]["tokens"]:
-                sample = self.tokenizer.decode(rollouts[0]["tokens"][0][:50], skip_special_tokens=True)
-                print(f"[GRPO] Sample: {sample[:100]}...")
+            # Show score distribution
+            scores = rollouts[0]["scores"]
+            pos_scores = [s for s in scores if s > 0]
+            neg_scores = [s for s in scores if s <= 0]
+            print(f"[GRPO] Scores: {len(pos_scores)} positive, {len(neg_scores)} negative")
+            print(f"[GRPO] Score range: [{min(scores):.2f}, {max(scores):.2f}]")
             
             # Submit to Atropos for coordination
             for data in rollouts:
@@ -506,13 +541,17 @@ class GRPOTrainer:
                 )
             
             # Train with real gradients
-            print("[GRPO] Training with REAL gradients...")
             metrics = self.train_step(rollouts)
+            loss_history.append(metrics['loss'])
             
-            print(f"[GRPO] Loss: {metrics['loss']:.6f}")
-            print(f"[GRPO] Grad Norm: {metrics['grad_norm']:.6f}")
-            print(f"[GRPO] Pos LogP: {metrics['pos_log_prob']:.6f}")
-            print(f"[GRPO] Neg LogP: {metrics['neg_log_prob']:.6f}")
+            # Show metrics
+            print(f"[GRPO] Loss: {metrics['loss']:.4f} | Policy: {metrics.get('policy_loss', 0):.4f} | Entropy: {metrics.get('entropy', 0):.4f}")
+            print(f"[GRPO] Grad Norm: {metrics['grad_norm']:.2f} | Pos LogP: {metrics['pos_log_prob']:.4f} | Neg LogP: {metrics['neg_log_prob']:.4f}")
+            
+            # Show running average
+            if len(loss_history) >= 5:
+                avg_loss = sum(loss_history[-5:]) / 5
+                print(f"[GRPO] 5-step avg loss: {avg_loss:.4f}")
             
             self.current_step = step + 1
             
@@ -522,7 +561,15 @@ class GRPOTrainer:
         
         # Final save
         final_path = self.save_checkpoint(self.config.training_steps)
-        print(f"\n[GRPO] Training complete. Final model saved to {final_path}")
+        
+        # Summary
+        print(f"\n{'='*60}")
+        print(f"[GRPO] Training Complete")
+        print(f"{'='*60}")
+        print(f"Final loss: {loss_history[-1]:.4f}")
+        print(f"Average loss: {sum(loss_history)/len(loss_history):.4f}")
+        print(f"Model saved to: {final_path}")
+        print(f"{'='*60}")
 
 
 # ============================================================================

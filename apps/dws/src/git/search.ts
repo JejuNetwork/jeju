@@ -95,9 +95,9 @@ export interface UserSearchOptions extends SearchOptions {
 export class SearchManager {
   private repoManager: GitRepoManager;
   private issuesManager: IssuesManager;
-  // @ts-expect-error Reserved for future social search
+  // Reserved for future social search
   private _socialManager: SocialManager;
-  // @ts-expect-error Reserved for future storage search
+  // Reserved for future storage search
   private _backend: BackendManager;
 
   // In-memory index for search (suitable for small deployments)

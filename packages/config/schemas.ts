@@ -103,7 +103,8 @@ export type ContractCategory =
   | 'compute' 
   | 'governance' 
   | 'oif' 
-  | 'eil';
+  | 'eil'
+  | 'security';
 
 /**
  * Extended contract categories that may be used in deployments
@@ -124,6 +125,7 @@ const NetworkContractsSchema = z.object({
   governance: ContractCategorySchema,
   oif: ContractCategorySchema,
   eil: ContractCategorySchema,
+  security: ContractCategorySchema,
 });
 
 const ExternalChainContractsSchema = z.object({
