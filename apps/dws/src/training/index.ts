@@ -22,6 +22,10 @@ export * from './dws-integration';
 export * from './environments/fundamental-prediction';
 export * from './environments/tic-tac-toe';
 
+// Integrations
+export * from './crucible-integration';
+export * from './autocrat-integration';
+
 // Types
 export type {
   ScoredData,

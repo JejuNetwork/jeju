@@ -32,6 +32,7 @@ export * from './vpn';
 
 // Domain-specific
 export * from './events';
+export * from './funding';
 export * from './governance';
 export * from './health';
 export * from './moderation';

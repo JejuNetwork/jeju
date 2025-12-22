@@ -331,8 +331,6 @@ function printReady(rpcUrl: string, services: RunningService[], orchestrator: Se
     logger.table([
       { label: 'CovenantSQL', value: 'http://127.0.0.1:4661', status: 'ok' as const },
       { label: 'IPFS', value: 'http://127.0.0.1:5001', status: 'ok' as const },
-      { label: 'Cache', value: 'http://127.0.0.1:4115', status: 'ok' as const },
-      { label: 'DA Server', value: 'http://127.0.0.1:4010', status: 'ok' as const },
     ]);
   }
 
