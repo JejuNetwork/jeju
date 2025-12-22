@@ -1,8 +1,11 @@
 /**
  * Circuit Breaker
  * Prevents cascade failures by temporarily stopping requests to failing services
+ * 
+ * Uses opossum library for battle-tested circuit breaker implementation
  */
 
+import CircuitBreakerLib from 'opossum';
 import type { CircuitBreakerConfig, CircuitState, CircuitBreakerState } from './types';
 
 export const DEFAULT_CIRCUIT_CONFIG: CircuitBreakerConfig = {
@@ -11,47 +14,97 @@ export const DEFAULT_CIRCUIT_CONFIG: CircuitBreakerConfig = {
   halfOpenRequests: 3,
 };
 
+// Map to track circuit breaker instances per key
+const breakers = new Map<string, CircuitBreakerLib<unknown[], unknown>>();
+const breakerStates = new Map<string, CircuitBreakerState>();
+
 export class CircuitBreaker {
   private config: CircuitBreakerConfig;
-  private states = new Map<string, CircuitBreakerState>();
 
   constructor(config: Partial<CircuitBreakerConfig> = {}) {
     this.config = { ...DEFAULT_CIRCUIT_CONFIG, ...config };
   }
 
-  private getState(key: string): CircuitBreakerState {
-    let state = this.states.get(key);
-    if (!state) {
-      state = {
+  private getBreaker<T>(key: string, fn: () => Promise<T>): CircuitBreakerLib<[], T> {
+    if (!breakers.has(key)) {
+      const breaker = new CircuitBreakerLib(fn, {
+        timeout: 30000,
+        errorThresholdPercentage: (this.config.failureThreshold / 10) * 100,
+        resetTimeout: this.config.resetTimeout,
+        volumeThreshold: this.config.failureThreshold,
+      }) as CircuitBreakerLib<[], T>;
+
+      // Initialize state tracking
+      breakerStates.set(key, {
         state: 'closed',
         failures: 0,
         lastFailure: 0,
         halfOpenAttempts: 0,
-      };
-      this.states.set(key, state);
+      });
+
+      // Set up event listeners to track state
+      breaker.on('open', () => {
+        const state = breakerStates.get(key);
+        if (state) {
+          state.state = 'open';
+          state.lastFailure = Date.now();
+          console.log(`[CircuitBreaker] ${key}: closed -> open`);
+        }
+      });
+
+      breaker.on('halfOpen', () => {
+        const state = breakerStates.get(key);
+        if (state) {
+          state.state = 'half-open';
+          state.halfOpenAttempts = 0;
+          console.log(`[CircuitBreaker] ${key}: open -> half-open`);
+        }
+      });
+
+      breaker.on('close', () => {
+        const state = breakerStates.get(key);
+        if (state) {
+          state.state = 'closed';
+          state.failures = 0;
+          state.halfOpenAttempts = 0;
+          console.log(`[CircuitBreaker] ${key}: half-open -> closed`);
+        }
+      });
+
+      breaker.on('failure', () => {
+        const state = breakerStates.get(key);
+        if (state) {
+          state.failures++;
+          state.lastFailure = Date.now();
+        }
+      });
+
+      breaker.on('success', () => {
+        const state = breakerStates.get(key);
+        if (state) {
+          state.failures = Math.max(0, state.failures - 1);
+        }
+      });
+
+      breakers.set(key, breaker as CircuitBreakerLib<unknown[], unknown>);
     }
-    return state;
+    return breakers.get(key) as CircuitBreakerLib<[], T>;
   }
 
   canExecute(key: string): boolean {
-    const state = this.getState(key);
-    const now = Date.now();
+    const state = breakerStates.get(key);
+    if (!state) return true;
 
     switch (state.state) {
       case 'closed':
         return true;
-
       case 'open':
         // Check if we should transition to half-open
-        if (now - state.lastFailure >= this.config.resetTimeout) {
-          state.state = 'half-open';
-          state.halfOpenAttempts = 0;
+        if (Date.now() - state.lastFailure >= this.config.resetTimeout) {
           return true;
         }
         return false;
-
       case 'half-open':
-        // Allow limited requests in half-open
         return state.halfOpenAttempts < this.config.halfOpenRequests;
     }
   }
@@ -61,64 +114,58 @@ export class CircuitBreaker {
       throw new CircuitOpenError(key);
     }
 
-    const state = this.getState(key);
-    
-    if (state.state === 'half-open') {
+    const state = breakerStates.get(key);
+    if (state?.state === 'half-open') {
       state.halfOpenAttempts++;
     }
 
-    try {
-      const result = await fn();
-      this.recordSuccess(key);
-      return result;
-    } catch (error) {
-      this.recordFailure(key);
-      throw error;
-    }
+    const breaker = this.getBreaker(key, fn);
+    return breaker.fire();
   }
 
   recordSuccess(key: string): void {
-    const state = this.getState(key);
-    
+    const state = breakerStates.get(key);
+    if (!state) return;
+
     if (state.state === 'half-open') {
-      // Success in half-open transitions back to closed
       state.state = 'closed';
       state.failures = 0;
       state.halfOpenAttempts = 0;
-      console.log(`[CircuitBreaker] ${key}: half-open -> closed`);
     } else if (state.state === 'closed') {
-      // Reset failure count on success
       state.failures = Math.max(0, state.failures - 1);
     }
   }
 
   recordFailure(key: string): void {
-    const state = this.getState(key);
+    const state = breakerStates.get(key);
+    if (!state) return;
+
     state.failures++;
     state.lastFailure = Date.now();
 
     if (state.state === 'half-open') {
-      // Failure in half-open goes back to open
       state.state = 'open';
-      console.log(`[CircuitBreaker] ${key}: half-open -> open`);
     } else if (state.state === 'closed' && state.failures >= this.config.failureThreshold) {
-      // Too many failures opens the circuit
       state.state = 'open';
-      console.log(`[CircuitBreaker] ${key}: closed -> open (${state.failures} failures)`);
     }
   }
 
   getCircuitState(key: string): CircuitState {
-    return this.getState(key).state;
+    return breakerStates.get(key)?.state ?? 'closed';
   }
 
   reset(key: string): void {
-    this.states.delete(key);
+    const breaker = breakers.get(key);
+    if (breaker) {
+      breaker.close();
+    }
+    breakers.delete(key);
+    breakerStates.delete(key);
   }
 
   getStats(): Record<string, { state: CircuitState; failures: number }> {
     const stats: Record<string, { state: CircuitState; failures: number }> = {};
-    for (const [key, state] of this.states) {
+    for (const [key, state] of breakerStates) {
       stats[key] = { state: state.state, failures: state.failures };
     }
     return stats;
@@ -131,4 +178,3 @@ export class CircuitOpenError extends Error {
     this.name = 'CircuitOpenError';
   }
 }
-

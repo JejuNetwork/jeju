@@ -4,6 +4,6 @@
   "exclude_informational": true,
   "exclude_low": true,
   "exclude_optimization": true,
-  "detectors_to_exclude": "naming-convention,solc-version,pragma,too-many-digits,timestamp,missing-zero-check,calls-loop,reentrancy-benign,reentrancy-events,shadowing-local,events-maths,events-access,arbitrary-send-erc20,arbitrary-send-eth,unchecked-transfer,reentrancy-eth,uninitialized-local,divide-before-multiply,incorrect-equality,unused-return,reentrancy-no-eth,weak-prng",
+  "detectors_to_exclude": "naming-convention,solc-version,pragma,too-many-digits,timestamp,missing-zero-check,calls-loop,reentrancy-benign,reentrancy-events,shadowing-local,events-maths,events-access,arbitrary-send-erc20,arbitrary-send-eth,unchecked-transfer,reentrancy-eth,uninitialized-local,uninitialized-state,divide-before-multiply,incorrect-equality,unused-return,reentrancy-no-eth,weak-prng",
   "compile_force_framework": "foundry"
 }

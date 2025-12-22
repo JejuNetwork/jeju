@@ -43,7 +43,7 @@ describe('Leaderboard API', () => {
     mockDb.query.mockImplementationOnce(async () => []);
 
     const response = await leaderboardApp.request('/api/leaderboard');
-    const data = await response.json() as { contributors: unknown[] };
+    const data = await response.json() as { contributors: Array<{ username: string; avatar_url: string; total_score: number }> };
 
     expect(response.status).toBe(200);
     expect(data.contributors).toBeDefined();

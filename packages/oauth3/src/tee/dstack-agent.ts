@@ -40,10 +40,6 @@ import {
   HexSchema,
   AddressSchema,
   validateResponse,
-  GoogleUserInfoSchema,
-  GitHubUserSchema,
-  TwitterUserSchema,
-  DiscordUserSchema,
 } from '../validation.js';
 
 const AuthInitSchema = z.object({

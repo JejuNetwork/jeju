@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.24;
+pragma solidity ^0.8.33;
 
 library XPLib {
     function getXPTable() internal pure returns (uint32[99] memory) {

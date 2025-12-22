@@ -14,11 +14,12 @@
  */
 
 import { $ } from 'bun';
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, getContractAddress, type Address, type Chain } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, getContractAddress, type Address, type Chain, type Hex } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { waitForTransactionReceipt, getBalance } from 'viem/actions';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import type { ConstructorArg, RawArtifactJson } from '../shared/contract-types';
 
 const ROOT = join(import.meta.dir, '../..');
 const CONTRACTS_DIR = join(ROOT, 'packages/contracts');
@@ -78,7 +79,7 @@ async function deployContract(
   walletClient: ReturnType<typeof createWalletClient>,
   account: PrivateKeyAccount,
   name: string,
-  args: unknown[] = []
+  args: ConstructorArg[] = []
 ): Promise<Address> {
   const abiPath = join(CONTRACTS_DIR, `out/${name}.sol/${name}.json`);
   
@@ -87,11 +88,11 @@ async function deployContract(
     await $`cd ${CONTRACTS_DIR} && forge build`.quiet();
   }
 
-  const artifact = JSON.parse(readFileSync(abiPath, 'utf-8'));
+  const artifact = JSON.parse(readFileSync(abiPath, 'utf-8')) as RawArtifactJson;
   
   const deployData = encodeDeployData({
     abi: artifact.abi,
-    bytecode: artifact.bytecode.object as `0x${string}`,
+    bytecode: artifact.bytecode.object as Hex,
     args,
   });
 

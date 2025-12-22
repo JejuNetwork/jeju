@@ -7,8 +7,8 @@ import type { Address, Hex } from 'viem';
 export const HexSchema = z.string().regex(/^0x[a-fA-F0-9]*$/) as z.ZodType<Hex>;
 export const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/) as z.ZodType<Address>;
 
-// User Data Types
-export const UserDataTypeRaw = z.enum([
+// User Data Types (internal schema for API responses)
+const UserDataTypeRaw = z.enum([
   'USER_DATA_TYPE_PFP',
   'USER_DATA_TYPE_DISPLAY',
   'USER_DATA_TYPE_BIO',
@@ -17,9 +17,9 @@ export const UserDataTypeRaw = z.enum([
   'USER_DATA_TYPE_LOCATION',
 ]);
 
-export const UserDataTypeSchema = z.enum(['pfp', 'display', 'bio', 'url', 'username', 'location']);
+type UserDataType = 'pfp' | 'display' | 'bio' | 'url' | 'username' | 'location';
 
-export const USER_DATA_TYPE_MAP: Record<z.infer<typeof UserDataTypeRaw>, z.infer<typeof UserDataTypeSchema>> = {
+export const USER_DATA_TYPE_MAP: Record<z.infer<typeof UserDataTypeRaw>, UserDataType> = {
   USER_DATA_TYPE_PFP: 'pfp',
   USER_DATA_TYPE_DISPLAY: 'display',
   USER_DATA_TYPE_BIO: 'bio',
@@ -253,10 +253,6 @@ export const FrameActionPayloadSchema = z.object({
   }),
 });
 
-// Export type helpers
-export type ParsedUserDataMessage = z.infer<typeof UserDataMessageSchema>;
+// Export type helpers (only types used by client or external consumers)
 export type ParsedCastMessage = z.infer<typeof CastMessageSchema>;
-export type ParsedVerificationMessage = z.infer<typeof VerificationMessageSchema>;
-export type ParsedReactionMessage = z.infer<typeof ReactionMessageSchema>;
-export type ParsedLinkMessage = z.infer<typeof LinkMessageSchema>;
 export type FrameActionPayload = z.infer<typeof FrameActionPayloadSchema>;

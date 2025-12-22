@@ -354,7 +354,11 @@ async function verifyQuoteSignature(quote: TEEQuote): Promise<boolean> {
     const signedData = rawBytes.slice(0, signedDataEnd);
     const derSig = ecdsaRawToDer(r, s);
 
-    const isValid = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pubKey, derSig, signedData);
+    const signedDataBuffer = new ArrayBuffer(signedData.byteLength);
+    new Uint8Array(signedDataBuffer).set(signedData);
+    const derSigBuffer = new ArrayBuffer(derSig.byteLength);
+    new Uint8Array(derSigBuffer).set(derSig);
+    const isValid = await crypto.subtle.verify({ name: 'ECDSA', hash: 'SHA-256' }, pubKey, derSigBuffer, signedDataBuffer);
     if (!isValid) console.warn('[PoC] Quote signature verification failed');
     return isValid;
   }
@@ -479,9 +483,11 @@ async function extractPublicKeyFromCert(der: Uint8Array): Promise<CryptoKey | nu
   const spki = extractSPKIFromCert(der);
   if (spki.length < 30) { console.warn('[PoC] SPKI too short'); return null; }
 
+  const spkiBuffer = new ArrayBuffer(spki.byteLength);
+  new Uint8Array(spkiBuffer).set(spki);
   for (const curve of ['P-256', 'P-384'] as const) {
     try {
-      return await crypto.subtle.importKey('spki', spki, { name: 'ECDSA', namedCurve: curve }, true, ['verify']);
+      return await crypto.subtle.importKey('spki', spkiBuffer, { name: 'ECDSA', namedCurve: curve }, true, ['verify']);
     } catch { /* try next */ }
   }
   console.warn('[PoC] Unsupported key algorithm');
@@ -553,7 +559,11 @@ async function verifyX509Signature(certDer: Uint8Array, issuerKey: CryptoKey, al
   const signatureBytes = certDer.slice(signatureStart, signatureStart + sigLen.length - 1);
   const hashAlgo = algorithm.includes('384') ? 'SHA-384' : 'SHA-256';
 
-  return crypto.subtle.verify({ name: 'ECDSA', hash: hashAlgo }, issuerKey, signatureBytes, tbsCertificate);
+  const sigBuffer = new ArrayBuffer(signatureBytes.byteLength);
+  new Uint8Array(sigBuffer).set(signatureBytes);
+  const tbsBuffer = new ArrayBuffer(tbsCertificate.byteLength);
+  new Uint8Array(tbsBuffer).set(tbsCertificate);
+  return crypto.subtle.verify({ name: 'ECDSA', hash: hashAlgo }, issuerKey, sigBuffer, tbsBuffer);
 }
 
 function parseASN1Length(data: Uint8Array, offset: number): { length: number; bytesUsed: number } | null {

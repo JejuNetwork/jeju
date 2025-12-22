@@ -6,6 +6,7 @@ import { type Address, type PublicClient, type WalletClient, parseAbi } from 'vi
 import type {
   ExecutionRequest, ExecutionResult, ExecutionCost, ExecutionMetadata,
   AgentAction, AgentTrigger, CrucibleConfig, RoomMessage, AgentDefinition,
+  ActionParams,
 } from '../types';
 import { CrucibleStorage } from './storage';
 import { CrucibleCompute } from './compute';
@@ -391,7 +392,7 @@ export class ExecutorSDK {
     let match;
     while ((match = regex.exec(response)) !== null) {
       expect(match[1], 'Action type is required');
-      const params: Record<string, unknown> = {};
+      const params: ActionParams = {};
       if (match[2]) {
         for (const pair of match[2].split(',')) {
           const [key, value] = pair.split('=').map(s => s?.trim());

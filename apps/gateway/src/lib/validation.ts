@@ -5,19 +5,81 @@
  */
 
 import { z } from 'zod';
-import { AddressSchema, type Address } from '@jejunetwork/types/contracts';
-import { SupportedChainIdSchema, type SupportedChainId } from '@jejunetwork/types/oif';
+import { AddressSchema, type Address } from '@jejunetwork/types';
+import { SupportedChainIdSchema, type SupportedChainId } from '@jejunetwork/types';
 import {
   expect as baseExpect,
-  expectValid,
+  expectValid as baseExpectValid,
   expectAddress as baseExpectAddress,
   expectChainId as baseExpectChainId,
   HexSchema,
   NonEmptyStringSchema,
   PositiveNumberStringSchema,
   NonNegativeNumberStringSchema,
-} from '@jejunetwork/types/validation';
+} from '@jejunetwork/types';
 import type { Hex } from 'viem';
+
+// ============================================================================
+// JSON-Serializable Value Types (for dynamic API data)
+// ============================================================================
+
+/**
+ * Represents any JSON-serializable primitive value.
+ * Used for API boundaries where values are truly dynamic but must be JSON-safe.
+ */
+export type JsonPrimitive = string | number | boolean | null;
+
+/**
+ * Represents any JSON-serializable value including nested objects/arrays.
+ * More specific than `unknown` - guarantees JSON compatibility.
+ */
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
+/**
+ * Schema for JSON-serializable values.
+ * Use this instead of z.unknown() for API data that must be JSON-compatible.
+ */
+export const JsonPrimitiveSchema: z.ZodType<JsonPrimitive> = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+
+/**
+ * Recursive schema for any JSON-serializable value.
+ * Validates that data can be safely JSON.stringify'd and parsed.
+ */
+export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    JsonPrimitiveSchema,
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ])
+);
+
+/**
+ * Schema for JSON objects (key-value pairs with JSON-serializable values).
+ * Use for API request/response data fields.
+ */
+export const JsonObjectSchema = z.record(z.string(), JsonValueSchema);
+export type JsonObject = z.infer<typeof JsonObjectSchema>;
+
+/**
+ * RPC parameter types - the specific types allowed in JSON-RPC params.
+ * More constrained than JsonValue for RPC-specific validation.
+ */
+export type RpcParamValue = string | number | boolean | null | RpcParamValue[] | { [key: string]: RpcParamValue };
+export const RpcParamValueSchema: z.ZodType<RpcParamValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(RpcParamValueSchema),
+    z.record(z.string(), RpcParamValueSchema),
+  ])
+);
 
 // ============================================================================
 // Common Schemas
@@ -230,7 +292,7 @@ export const RpcRequestSchema = z.object({
   jsonrpc: z.literal('2.0'),
   id: z.union([z.string(), z.number()]),
   method: z.string().min(1),
-  params: z.array(z.unknown()).optional(),
+  params: z.array(RpcParamValueSchema).optional(),
 });
 export type RpcRequest = z.infer<typeof RpcRequestSchema>;
 
@@ -340,6 +402,16 @@ export type LeaderboardQuery = z.infer<typeof LeaderboardQuerySchema>;
 // A2A Request Schemas
 // ============================================================================
 
+/**
+ * A2A message part - the data field contains skill parameters as JSON.
+ */
+export const A2AMessagePartSchema = z.object({
+  kind: z.string(),
+  text: z.string().optional(),
+  data: JsonObjectSchema.optional(),
+});
+export type A2AMessagePart = z.infer<typeof A2AMessagePartSchema>;
+
 export const A2ARequestSchema = z.object({
   jsonrpc: z.literal('2.0'),
   method: z.literal('message/send'),
@@ -347,13 +419,7 @@ export const A2ARequestSchema = z.object({
   params: z.object({
     message: z.object({
       messageId: z.string().min(1),
-      parts: z.array(
-        z.object({
-          kind: z.string(),
-          text: z.string().optional(),
-          data: z.record(z.string(), z.unknown()).optional(),
-        })
-      ),
+      parts: z.array(A2AMessagePartSchema),
     }),
   }),
 });
@@ -370,23 +436,88 @@ export type McpResourceReadRequest = z.infer<typeof McpResourceReadRequestSchema
 
 export const McpToolCallRequestSchema = z.object({
   name: z.string().min(1),
-  arguments: z.record(z.string(), z.unknown()).optional().default({}),
+  arguments: JsonObjectSchema.optional().default({}),
 });
 export type McpToolCallRequest = z.infer<typeof McpToolCallRequestSchema>;
+
+// ============================================================================
+// EIL Config Schemas
+// ============================================================================
+
+/**
+ * Chain status in EIL config
+ */
+export const EILChainStatusSchema = z.enum(['active', 'planned', 'deprecated']);
+export type EILChainStatus = z.infer<typeof EILChainStatusSchema>;
+
+/**
+ * Hub configuration in EIL network config
+ */
+export const EILHubConfigSchema = z.object({
+  chainId: z.number().int().positive(),
+  name: z.string().min(1),
+  rpcUrl: z.string().optional(),
+  l1StakeManager: z.string(),
+  crossChainPaymaster: z.string().optional(),
+  status: EILChainStatusSchema,
+});
+export type EILHubConfig = z.infer<typeof EILHubConfigSchema>;
+
+/**
+ * Individual chain configuration in EIL
+ */
+export const EILChainConfigSchema = z.object({
+  chainId: z.number().int().positive().optional(),
+  name: z.string().min(1),
+  rpcUrl: z.string().optional(),
+  crossChainPaymaster: z.string(),
+  l1StakeManager: z.string().optional(),
+  status: EILChainStatusSchema,
+  type: z.string().optional(),
+  oif: z.record(z.string(), z.string()).optional(),
+  tokens: z.record(z.string(), z.string()).optional(),
+  programs: z.record(z.string(), z.string()).optional(),
+});
+export type EILChainConfig = z.infer<typeof EILChainConfigSchema>;
+
+/**
+ * Network configuration (testnet/mainnet/localnet)
+ */
+export const EILNetworkConfigSchema = z.object({
+  hub: EILHubConfigSchema,
+  chains: z.record(z.string(), EILChainConfigSchema),
+});
+export type EILNetworkConfig = z.infer<typeof EILNetworkConfigSchema>;
+
+/**
+ * Full EIL JSON config schema
+ */
+export const EILJsonConfigSchema = z.object({
+  version: z.string(),
+  lastUpdated: z.string(),
+  description: z.string().optional(),
+  entryPoint: z.string(),
+  l2Messenger: z.string(),
+  supportedTokens: z.array(z.string()),
+  testnet: EILNetworkConfigSchema,
+  mainnet: EILNetworkConfigSchema,
+  localnet: EILNetworkConfigSchema,
+});
+export type EILJsonConfig = z.infer<typeof EILJsonConfigSchema>;
 
 // ============================================================================
 // Validation Utilities (re-exported from @jejunetwork/types/validation)
 // ============================================================================
 
-export { expectValid };
-export const validateOrThrow = expectValid;
+export { baseExpectValid as expectValid };
+export const validateOrThrow = baseExpectValid;
 
 /**
  * Validates data against a Zod schema with an optional context
  * This wrapper maintains the gateway's expected arg order: (value, schema, context)
  */
 export function expect<T>(value: unknown, schema: z.ZodSchema<T>, context?: string): T {
-  return expectValid(schema, value, context);
+  return baseExpectValid(schema, value, context);
 }
 
 export const expectAddress = baseExpectAddress;
@@ -425,10 +556,10 @@ export function formatError(error: unknown): string {
 }
 
 /**
- * Converts a typed object to a generic Record for JSON response data.
+ * Converts a typed object to a JsonObject for JSON response data.
  * This provides type safety while allowing typed API responses to be used
- * as generic response data.
+ * as generic response data at API boundaries.
  */
-export function toResponseData<T extends object>(data: T): Record<string, unknown> {
-  return data as Record<string, unknown>;
+export function toResponseData<T extends object>(data: T): JsonObject {
+  return data as JsonObject;
 }

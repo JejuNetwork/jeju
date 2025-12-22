@@ -3,8 +3,7 @@
  */
 
 import { z } from 'zod';
-import type { Address, Hex } from 'viem';
-import { addressSchema, strictHexSchema, nonEmptyStringSchema, nonNegativeIntSchema } from '../validation';
+import { addressSchema, strictHexSchema, nonEmptyStringSchema } from '../validation';
 
 /**
  * Create repository request schema
@@ -72,9 +71,12 @@ export const issueParamsSchema = z.object({
 export const createPRRequestSchema = z.object({
   title: nonEmptyStringSchema,
   body: z.string().optional(),
-  head: nonEmptyStringSchema,
-  base: nonEmptyStringSchema,
+  sourceBranch: nonEmptyStringSchema,
+  targetBranch: z.string().optional(),
+  sourceRepo: strictHexSchema.optional(),
   draft: z.boolean().default(false),
+  reviewers: z.array(addressSchema).optional(),
+  labels: z.array(z.string()).optional(),
 });
 
 /**
@@ -147,9 +149,9 @@ export const forkParamsSchema = z.object({
 });
 
 /**
- * Search query schema
+ * Git search query schema
  */
-export const searchQuerySchema = z.object({
+export const gitSearchQuerySchema = z.object({
   q: nonEmptyStringSchema,
   type: z.enum(['repositories', 'issues', 'pull_requests']).optional(),
   sort: z.enum(['stars', 'forks', 'updated']).optional(),

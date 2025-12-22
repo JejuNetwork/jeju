@@ -292,7 +292,8 @@ export class ExternalChainMevEngine extends EventEmitter {
    * Evaluate swap for sandwich opportunity
    */
   private async evaluateSandwich(swap: SwapIntent): Promise<void> {
-    const poolState = this.poolStates.get(swap.tokenIn as Address);
+    const poolKey = this.getPoolKey(swap.tokenIn, swap.tokenOut);
+    const poolState = this.poolStates.get(poolKey as Address);
     if (!poolState) return;
     
     // Calculate victim's slippage tolerance
@@ -472,11 +473,12 @@ export class ExternalChainMevEngine extends EventEmitter {
   
   private calculateSlippage(swap: SwapIntent): number {
     // Calculate slippage from amountIn vs amountOutMin using pool state
-    if (!swap.pool || !swap.amountIn || swap.amountIn === 0n) {
+    if (!swap.amountIn || swap.amountIn === 0n) {
       return 100; // Default 1% assumption
     }
 
-    const poolState = this.poolStates.get(swap.pool);
+    const poolKey = this.getPoolKey(swap.tokenIn, swap.tokenOut);
+    const poolState = this.poolStates.get(poolKey as Address);
     if (!poolState) {
       return 100; // Default without pool data
     }
@@ -499,6 +501,13 @@ export class ExternalChainMevEngine extends EventEmitter {
     }
 
     return 100; // Default 1%
+  }
+
+  private getPoolKey(token0: Address, token1: Address): string {
+    const [a, b] = token0.toLowerCase() < token1.toLowerCase()
+      ? [token0, token1]
+      : [token1, token0];
+    return `${a}-${b}`;
   }
 
   private calculateSandwichProfit(
@@ -535,13 +544,14 @@ export class ExternalChainMevEngine extends EventEmitter {
   private async buildSandwichBundle(swap: SwapIntent): Promise<Hex[]> {
     const { encodeFunctionData } = await import('viem');
     
-    if (!swap.pool || !swap.tokenIn || !swap.tokenOut) {
+    if (!swap.tokenIn || !swap.tokenOut) {
       throw new Error('Swap intent missing required fields for sandwich');
     }
 
-    const poolState = this.poolStates.get(swap.pool);
+    const poolKey = this.getPoolKey(swap.tokenIn, swap.tokenOut);
+    const poolState = this.poolStates.get(poolKey as Address);
     if (!poolState) {
-      throw new Error(`No pool state for ${swap.pool}`);
+      throw new Error(`No pool state for ${poolKey}`);
     }
 
     // Calculate optimal frontrun amount (typically 10-30% of victim's trade)
@@ -612,13 +622,14 @@ export class ExternalChainMevEngine extends EventEmitter {
   private async buildBackrunTx(swap: SwapIntent): Promise<Hex> {
     const { encodeFunctionData } = await import('viem');
     
-    if (!swap.pool || !swap.tokenIn || !swap.tokenOut) {
+    if (!swap.tokenIn || !swap.tokenOut) {
       throw new Error('Swap intent missing required fields for backrun');
     }
 
-    const poolState = this.poolStates.get(swap.pool);
+    const poolKey = this.getPoolKey(swap.tokenIn, swap.tokenOut);
+    const poolState = this.poolStates.get(poolKey as Address);
     if (!poolState) {
-      throw new Error(`No pool state for ${swap.pool}`);
+      throw new Error(`No pool state for ${poolKey}`);
     }
 
     // Backrun arbitrage: capture price impact from victim's swap
@@ -737,17 +748,6 @@ export class ExternalChainMevEngine extends EventEmitter {
     const numerator = amountInWithFee * reserveOut;
     const denominator = reserveIn * 10000n + amountInWithFee;
     return numerator / denominator;
-  }
-
-  private estimatePriceImpact(swap: SwapIntent): number {
-    if (!swap.pool) return 0;
-    const poolState = this.poolStates.get(swap.pool);
-    if (!poolState) return 0;
-
-    const amountIn = swap.amountIn || 0n;
-    // Simplified price impact calculation
-    const impactBps = Number((amountIn * 10000n) / poolState.reserve0);
-    return Math.min(impactBps, 500); // Cap at 5%
   }
 
   private getPublicClient(chainId: number) {

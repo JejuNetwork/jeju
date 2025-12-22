@@ -7,7 +7,7 @@
  * - Email (optional) for high-priority events
  */
 
-import { createPublicClient, http, type Address, type Hex, type Log } from 'viem';
+import { createPublicClient, http, type Address, type Hex, type Log, type PublicClient, type Chain, type Transport } from 'viem';
 import { baseSepolia } from 'viem/chains';
 import EventEmitter from 'events';
 
@@ -68,23 +68,11 @@ export interface Subscriber {
   callback: (event: ModerationEvent) => void;
 }
 
-// ============ Event Signatures ============
-
-const EVENT_TOPICS = {
-  NetworkBanApplied: '0x' + Buffer.from('NetworkBanApplied(uint256,string,bytes32,uint256)').toString('hex').slice(0, 64),
-  NetworkBanRemoved: '0x' + Buffer.from('NetworkBanRemoved(uint256,uint256)').toString('hex').slice(0, 64),
-  AddressBanApplied: '0x' + Buffer.from('AddressBanApplied(address,uint8,bytes32,string)').toString('hex').slice(0, 64),
-  CaseCreated: '0x' + Buffer.from('CaseCreated(bytes32,address,address,string,bytes32,uint8)').toString('hex').slice(0, 64),
-  CaseResolved: '0x' + Buffer.from('CaseResolved(bytes32,uint8,uint256,uint256)').toString('hex').slice(0, 64),
-  VoteCast: '0x' + Buffer.from('VoteCast(bytes32,address,uint8,uint256)').toString('hex').slice(0, 64),
-  ReportSubmitted: '0x' + Buffer.from('ReportSubmitted(uint256,uint8,uint8,uint256,bytes32,address)').toString('hex').slice(0, 64),
-} as const;
-
 // ============ Notification Service ============
 
 export class ModerationNotificationService extends EventEmitter {
   private config: Required<NotificationConfig>;
-  private publicClient: ReturnType<typeof createPublicClient>;
+  private publicClient: PublicClient<Transport, Chain>;
   private subscribers: Map<string, Subscriber> = new Map();
   private lastProcessedBlock: bigint = 0n;
   private isRunning: boolean = false;
@@ -106,7 +94,7 @@ export class ModerationNotificationService extends EventEmitter {
     this.publicClient = createPublicClient({
       chain: baseSepolia,
       transport: http(this.config.rpcUrl),
-    });
+    }) as PublicClient<Transport, Chain>;
   }
 
   /**

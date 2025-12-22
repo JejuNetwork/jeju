@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {Ownable2Step, Ownable} from "@openzeppelin/contracts/access/Ownable2Step.sol";
 
@@ -201,15 +201,29 @@ contract ChainlinkGovernance is Ownable2Step {
 
     function emergencyPause() external onlyGuardian {
         paused = true;
-        if (vrfCoordinator != address(0)) vrfCoordinator.call(abi.encodeWithSignature("pause()"));
-        if (automationRegistry != address(0)) automationRegistry.call(abi.encodeWithSignature("pause()"));
+        // Best-effort pause of external contracts - failures don't block emergency pause
+        if (vrfCoordinator != address(0)) {
+            (bool success,) = vrfCoordinator.call(abi.encodeWithSignature("pause()"));
+            success; // Silence unused variable warning - intentionally unchecked
+        }
+        if (automationRegistry != address(0)) {
+            (bool success,) = automationRegistry.call(abi.encodeWithSignature("pause()"));
+            success;
+        }
         emit EmergencyPause(msg.sender);
     }
 
     function emergencyUnpause() external onlyOwner {
         paused = false;
-        if (vrfCoordinator != address(0)) vrfCoordinator.call(abi.encodeWithSignature("unpause()"));
-        if (automationRegistry != address(0)) automationRegistry.call(abi.encodeWithSignature("unpause()"));
+        // Best-effort unpause of external contracts - failures don't block unpause
+        if (vrfCoordinator != address(0)) {
+            (bool success,) = vrfCoordinator.call(abi.encodeWithSignature("unpause()"));
+            success;
+        }
+        if (automationRegistry != address(0)) {
+            (bool success,) = automationRegistry.call(abi.encodeWithSignature("unpause()"));
+            success;
+        }
         emit EmergencyUnpause(msg.sender);
     }
 

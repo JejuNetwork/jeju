@@ -12,13 +12,14 @@
  *   TREASURY_ADDRESS - Address to receive protocol fees (optional, defaults to deployer)
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, getContractAddress, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, encodeDeployData, getContractAddress, type Address, type Abi, type Hex } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { waitForTransactionReceipt, readContract, getBalance } from 'viem/actions';
 import { parseAbi } from 'viem';
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { inferChainFromRpcUrl } from '../shared/chain-utils';
+import type { ConstructorArg, RawArtifactJson } from '../shared/contract-types';
 
 const CONTRACTS_PATH = join(import.meta.dir, '../../packages/contracts');
 
@@ -31,12 +32,12 @@ interface DeployResult {
   chainId: number;
 }
 
-async function loadArtifact(contractName: string): Promise<{ abi: unknown[]; bytecode: `0x${string}` }> {
+async function loadArtifact(contractName: string): Promise<{ abi: Abi; bytecode: Hex }> {
   const artifactPath = join(CONTRACTS_PATH, `out/${contractName}.sol/${contractName}.json`);
-  const artifact = JSON.parse(readFileSync(artifactPath, 'utf-8'));
+  const artifact = JSON.parse(readFileSync(artifactPath, 'utf-8')) as RawArtifactJson;
   return {
     abi: artifact.abi,
-    bytecode: artifact.bytecode.object as `0x${string}`,
+    bytecode: artifact.bytecode.object as Hex,
   };
 }
 
@@ -45,7 +46,7 @@ async function deployContract(
   walletClient: ReturnType<typeof createWalletClient>,
   account: PrivateKeyAccount,
   contractName: string,
-  constructorArgs: unknown[]
+  constructorArgs: ConstructorArg[]
 ): Promise<Address> {
   const artifact = await loadArtifact(contractName);
   

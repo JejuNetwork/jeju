@@ -103,6 +103,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
 
     IIdentityRegistry public identityRegistry;
     address public verifier; // OAuth3 verifier address
+    mapping(address => bool) public authorizedRecorders; // Funding contracts that can record earnings
 
     mapping(bytes32 => Contributor) private _contributors;
     mapping(address => bytes32) private _walletToContributor;
@@ -197,6 +198,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     error InvalidProof();
     error VerificationExpired();
     error AgentAlreadyLinked();
+    error NotAuthorizedRecorder();
 
     // ============ Modifiers ============
 
@@ -210,6 +212,13 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
     modifier onlyVerifier() {
         if (msg.sender != verifier && msg.sender != owner()) {
             revert NotVerifier();
+        }
+        _;
+    }
+
+    modifier onlyAuthorizedRecorder() {
+        if (!authorizedRecorders[msg.sender] && msg.sender != owner()) {
+            revert NotAuthorizedRecorder();
         }
         _;
     }
@@ -552,10 +561,7 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
         bytes32 daoId,
         uint256 amount,
         bool isBounty
-    ) external {
-        // Only authorized callers (funding contracts) should call this
-        // In production, add access control
-
+    ) external onlyAuthorizedRecorder {
         Contributor storage contributor = _contributors[contributorId];
         if (contributor.registeredAt == 0) revert NotRegistered();
 
@@ -661,6 +667,10 @@ contract ContributorRegistry is Ownable, Pausable, ReentrancyGuard {
 
     function setIdentityRegistry(address _identityRegistry) external onlyOwner {
         identityRegistry = IIdentityRegistry(_identityRegistry);
+    }
+
+    function setAuthorizedRecorder(address recorder, bool authorized) external onlyOwner {
+        authorizedRecorders[recorder] = authorized;
     }
 
     function pause() external onlyOwner {

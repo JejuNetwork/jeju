@@ -11,9 +11,44 @@ import { isAddress, type Address } from 'viem';
 
 import { CHAINS, getChain, isChainSupported, getMainnetChains, getTestnetChains } from './config/chains.js';
 import { rateLimiter, getRateLimitStats, RATE_LIMITS } from './middleware/rate-limiter.js';
-import { proxyRequest, proxyBatchRequest, getEndpointHealth, getChainStats } from './proxy/rpc-proxy.js';
+import { proxyRequest, proxyBatchRequest, getEndpointHealth, getChainStats, type JsonRpcRequest } from './proxy/rpc-proxy.js';
 import { createApiKey, getApiKeysForAddress, revokeApiKeyById, getApiKeyStats } from './services/api-keys.js';
 import { generatePaymentRequirement, getPaymentInfo, getCredits, purchaseCredits, processPayment } from './services/x402-payments.js';
+
+// MCP types
+interface ChainInfo {
+  chainId: number;
+  name: string;
+  isTestnet: boolean;
+  endpoint: string;
+}
+
+interface TierInfo {
+  stake: number;
+  limit: number | 'unlimited';
+}
+
+type MCPResourceContents = ChainInfo[] | Record<string, { healthy: boolean; failures: number }> | Record<string, TierInfo>;
+
+interface MCPToolResult {
+  chains?: Array<{ chainId: number; name: string; isTestnet: boolean }>;
+  error?: string;
+  key?: string;
+  id?: string;
+  tier?: string;
+  address?: string;
+  apiKeys?: number;
+  tiers?: typeof RATE_LIMITS;
+  totalRequests?: number;
+  chainId?: number;
+  name?: string;
+  shortName?: string;
+  rpcUrl?: string;
+  fallbackRpcs?: string[];
+  explorerUrl?: string;
+  isTestnet?: boolean;
+  nativeCurrency?: { name: string; symbol: string; decimals: number };
+}
 
 export const rpcApp = new Hono();
 
@@ -120,7 +155,9 @@ rpcApp.post('/v1/rpc/:chainId', async (c) => {
     return c.json({ jsonrpc: '2.0', id: null, error: { code: -32001, message: `Unsupported chain: ${chainId}` } }, 400);
   }
 
-  let body: unknown;
+  // JSON-RPC body can be a single request, batch array, or invalid structure
+  type RpcRequestBody = { jsonrpc: string; id?: number | string; method: string; params?: (string | number | boolean | null | object)[] };
+  let body: RpcRequestBody | RpcRequestBody[] | Record<string, string | number | boolean | null | object> | null = null;
   try {
     body = await c.req.json();
   } catch {
@@ -136,14 +173,14 @@ rpcApp.post('/v1/rpc/:chainId', async (c) => {
     if (body.length > 100) return c.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid request: Batch too large (max 100)' } }, 400);
     
     // Check x402 payment for batch (use first method as reference)
-    const firstMethod = (body[0] as { method?: string })?.method || 'eth_call';
+    const firstMethod = body[0]?.method || 'eth_call';
     const paymentResult = await processPayment(paymentHeader, chainId, firstMethod, userAddress);
     if (!paymentResult.allowed) {
       c.header('X-Payment-Required', 'true');
       return c.json({ jsonrpc: '2.0', id: null, error: { code: 402, message: 'Payment required', data: paymentResult.requirement } }, 402);
     }
     
-    const results = await proxyBatchRequest(chainId, body);
+    const results = await proxyBatchRequest(chainId, body as JsonRpcRequest[]);
     return c.json(results.map(r => r.response));
   }
 
@@ -151,7 +188,7 @@ rpcApp.post('/v1/rpc/:chainId', async (c) => {
     return c.json({ jsonrpc: '2.0', id: null, error: { code: -32600, message: 'Invalid request: Missing method' } }, 400);
   }
 
-  const rpcBody = body as { jsonrpc: string; id: number | string; method: string; params?: unknown[] };
+  const rpcBody = body as JsonRpcRequest;
   
   // Check x402 payment for single request
   const paymentResult = await processPayment(paymentHeader, chainId, rpcBody.method, userAddress);
@@ -338,7 +375,7 @@ rpcApp.post('/mcp/resources/read', async (c) => {
   const { uri } = body;
   if (!uri || typeof uri !== 'string') return c.json({ error: 'Missing or invalid uri' }, 400);
 
-  let contents: unknown;
+  let contents: MCPResourceContents;
   switch (uri) {
     case 'rpc://chains':
       contents = Object.values(CHAINS).map(chain => ({ chainId: chain.chainId, name: chain.name, isTestnet: chain.isTestnet, endpoint: `/v1/rpc/${chain.chainId}` }));
@@ -359,48 +396,55 @@ rpcApp.post('/mcp/resources/read', async (c) => {
 rpcApp.post('/mcp/tools/list', (c) => c.json({ tools: MCP_TOOLS }));
 
 rpcApp.post('/mcp/tools/call', async (c) => {
-  let body: { name: string; arguments: Record<string, unknown> };
+  interface MCPToolCallBody {
+    name: string;
+    arguments: Record<string, string | number | boolean | undefined>;
+  }
+  let body: MCPToolCallBody;
   try { body = await c.req.json(); } catch { return c.json({ error: 'Invalid JSON body' }, 400); }
 
   const { name, arguments: args = {} } = body;
   if (!name || typeof name !== 'string') return c.json({ error: 'Missing or invalid tool name' }, 400);
 
-  let result: unknown;
+  let result: MCPToolResult;
   let isError = false;
 
   switch (name) {
     case 'list_chains': {
-      const testnet = args.testnet as boolean | undefined;
+      const testnet = typeof args.testnet === 'boolean' ? args.testnet : undefined;
       let chains = Object.values(CHAINS);
       if (testnet !== undefined) chains = chains.filter(ch => ch.isTestnet === testnet);
       result = { chains: chains.map(ch => ({ chainId: ch.chainId, name: ch.name, isTestnet: ch.isTestnet })) };
       break;
     }
     case 'get_chain': {
-      const chainId = args.chainId as number;
-      if (typeof chainId !== 'number' || !isChainSupported(chainId)) { result = { error: `Unsupported chain: ${chainId}` }; isError = true; }
-      else result = getChain(chainId);
+      const chainId = typeof args.chainId === 'number' ? args.chainId : Number(args.chainId);
+      if (isNaN(chainId) || !isChainSupported(chainId)) { result = { error: `Unsupported chain: ${chainId}` }; isError = true; }
+      else {
+        const chain = getChain(chainId);
+        result = { chainId: chain.chainId, name: chain.name, shortName: chain.shortName, rpcUrl: chain.rpcUrl, fallbackRpcs: chain.fallbackRpcs, explorerUrl: chain.explorerUrl, isTestnet: chain.isTestnet, nativeCurrency: chain.nativeCurrency };
+      }
       break;
     }
     case 'create_api_key': {
-      const address = args.address as string;
+      const address = typeof args.address === 'string' ? args.address : '';
       if (!address || !isAddress(address)) { result = { error: 'Invalid address' }; isError = true; break; }
       const existingKeys = await getApiKeysForAddress(address as Address);
       if (existingKeys.filter(k => k.isActive).length >= MAX_API_KEYS_PER_ADDRESS) { result = { error: `Maximum API keys reached (${MAX_API_KEYS_PER_ADDRESS})` }; isError = true; break; }
-      const keyName = ((args.name as string) || 'MCP Generated').slice(0, 100);
+      const keyName = (typeof args.name === 'string' ? args.name : 'MCP Generated').slice(0, 100);
       const { key, record } = await createApiKey(address as Address, keyName);
       result = { key, id: record.id, tier: record.tier };
       break;
     }
     case 'check_rate_limit': {
-      const address = args.address as string;
+      const address = typeof args.address === 'string' ? args.address : '';
       if (!address || !isAddress(address)) { result = { error: 'Invalid address' }; isError = true; break; }
       const keys = await getApiKeysForAddress(address as Address);
       result = { address, apiKeys: keys.length, tiers: RATE_LIMITS };
       break;
     }
     case 'get_usage': {
-      const address = args.address as string;
+      const address = typeof args.address === 'string' ? args.address : '';
       if (!address || !isAddress(address)) { result = { error: 'Invalid address' }; isError = true; break; }
       const keys = await getApiKeysForAddress(address as Address);
       result = { address, apiKeys: keys.length, totalRequests: keys.reduce((sum, k) => sum + k.requestCount, 0) };

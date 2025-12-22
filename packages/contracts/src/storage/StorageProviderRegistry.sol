@@ -1,33 +1,37 @@
 // SPDX-License-Identifier: Apache-2.0
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {ProviderRegistryBase} from "../registry/ProviderRegistryBase.sol";
 import {ERC8004ProviderMixin} from "../registry/ERC8004ProviderMixin.sol";
 import {IStorageTypes} from "./IStorageTypes.sol";
+import {PerformanceMetrics} from "../registry/PerformanceMetrics.sol";
 
 /**
  * @title StorageProviderRegistry
  * @notice Registry for decentralized storage providers with ERC-8004 agent integration
  */
 contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
+    using PerformanceMetrics for PerformanceMetrics.Metrics;
+
     mapping(address => Provider) private _providers;
     mapping(address => ProviderCapacity) private _capacities;
     mapping(address => ProviderPricing) private _pricing;
     mapping(address => StorageTier[]) private _supportedTiers;
     mapping(address => uint256) private _replicationFactors;
     mapping(address => string) private _ipfsGateways;
-    mapping(address => uint256) private _healthScores;
-    mapping(address => uint256) private _avgLatencies;
+    mapping(address => PerformanceMetrics.Metrics) public metrics; // Was _healthScores/_avgLatencies
 
     event ProviderRegistered(
         address indexed provider, string name, string endpoint, ProviderType providerType, uint256 agentId
     );
     event StorageProviderUpdated(address indexed provider);
+    event PerformanceReported(address indexed provider, uint256 uptime, uint256 successRate, uint256 latency);
 
 
     error InvalidProviderType();
     error InvalidEndpoint();
     error InvalidName();
+    error InvalidScore();
 
     // ============ Constructor ============
 
@@ -206,6 +210,7 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
     }
 
     function getStorageProviderInfo(address provider) external view returns (IStorageTypes.StorageProviderInfo memory) {
+        PerformanceMetrics.Metrics storage m = metrics[provider];
         return IStorageTypes.StorageProviderInfo({
             provider: _providers[provider],
             capacity: _capacities[provider],
@@ -213,8 +218,8 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
             supportedTiers: _supportedTiers[provider],
             replicationFactor: _replicationFactors[provider],
             ipfsGateway: _ipfsGateways[provider],
-            healthScore: _healthScores[provider],
-            avgLatencyMs: _avgLatencies[provider]
+            healthScore: m.uptimeScore, // Map uptime to health score
+            avgLatencyMs: m.avgLatencyMs
         });
     }
 
@@ -262,13 +267,17 @@ contract StorageProviderRegistry is IStorageTypes, ProviderRegistryBase {
         _providers[provider].verified = true;
     }
 
-    function setHealthScore(address provider, uint256 score) external onlyOwner {
-        if (score > 100) revert InvalidProviderType();
-        _healthScores[provider] = score;
-    }
+    function reportPerformance(address provider, uint256 uptimeScore, uint256 successRate, uint256 avgLatencyMs) external onlyOwner {
+        if (uptimeScore > 10000 || successRate > 10000) revert InvalidScore();
+        
+        PerformanceMetrics.Metrics storage m = metrics[provider];
+        // Use manual update logic or library update
+        m.uptimeScore = uptimeScore;
+        m.successRate = successRate;
+        m.avgLatencyMs = avgLatencyMs;
+        m.lastUpdated = block.timestamp;
 
-    function setAvgLatency(address provider, uint256 latencyMs) external onlyOwner {
-        _avgLatencies[provider] = latencyMs;
+        emit PerformanceReported(provider, uptimeScore, successRate, avgLatencyMs);
     }
 
     function setIpfsGateway(address provider, string calldata gateway) external {

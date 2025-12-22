@@ -81,10 +81,10 @@ describe('LedgerKeyring', () => {
 
     it('should deserialize state', () => {
       const data = {
-        accounts: ['0x1234567890abcdef1234567890abcdef12345678'],
+        accounts: ['0x1234567890abcdef1234567890abcdef12345678' as `0x${string}`],
         accountDetails: {},
         hdPath: "m/44'/60'/0'",
-        hdPathType: 'Legacy',
+        hdPathType: 'Legacy' as const,
       };
       keyring.deserialize(data);
       const addresses = keyring.getAddresses();

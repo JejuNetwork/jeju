@@ -1,66 +1,74 @@
 /**
- * Structured logger for KMS - outputs JSON in production
+ * KMS Logger - Standalone pino logger (avoids circular dep with shared)
  */
+
+import pino from 'pino';
 
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
-interface LogEntry {
-  timestamp: string;
-  level: LogLevel;
-  service: string;
-  message: string;
-  [key: string]: unknown;
+const isProduction = process.env.NODE_ENV === 'production';
+const logLevel = (process.env.LOG_LEVEL?.toLowerCase() as LogLevel) ?? 'info';
+
+const baseLogger = pino({
+  level: logLevel,
+  transport: !isProduction ? {
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: 'SYS:standard',
+      ignore: 'pid,hostname',
+    },
+  } : undefined,
+  formatters: {
+    level: (label) => ({ level: label }),
+  },
+  timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
+});
+
+interface Logger {
+  debug: (message: string, data?: Record<string, unknown>) => void;
+  info: (message: string, data?: Record<string, unknown>) => void;
+  warn: (message: string, data?: Record<string, unknown>) => void;
+  error: (message: string, data?: Record<string, unknown>) => void;
 }
 
-const LOG_LEVEL_PRIORITY: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
+export function createLogger(service: string): Logger {
+  const logger = baseLogger.child({ service });
 
-function getMinLevel(): LogLevel {
-  const env = process.env.LOG_LEVEL?.toLowerCase();
-  return (env === 'debug' || env === 'info' || env === 'warn' || env === 'error') ? env : 'info';
-}
-
-function shouldLog(level: LogLevel): boolean {
-  return LOG_LEVEL_PRIORITY[level] >= LOG_LEVEL_PRIORITY[getMinLevel()];
-}
-
-function formatLog(level: LogLevel, service: string, message: string, data?: Record<string, unknown>): string {
-  const entry: LogEntry = {
-    timestamp: new Date().toISOString(),
-    level,
-    service,
-    message,
-    ...data,
-  };
-  
-  // JSON in production, pretty in development
-  if (process.env.NODE_ENV === 'production') {
-    return JSON.stringify(entry);
-  }
-  
-  const prefix = `[${entry.timestamp}] [${level.toUpperCase()}] [${service}]`;
-  const dataStr = data ? ` ${JSON.stringify(data)}` : '';
-  return `${prefix} ${message}${dataStr}`;
-}
-
-export function createLogger(service: string) {
   return {
     debug: (message: string, data?: Record<string, unknown>) => {
-      if (shouldLog('debug')) console.debug(formatLog('debug', service, message, data));
+      if (data) {
+        logger.debug(data, message);
+      } else {
+        logger.debug(message);
+      }
     },
     info: (message: string, data?: Record<string, unknown>) => {
-      if (shouldLog('info')) console.info(formatLog('info', service, message, data));
+      if (data) {
+        logger.info(data, message);
+      } else {
+        logger.info(message);
+      }
     },
     warn: (message: string, data?: Record<string, unknown>) => {
-      if (shouldLog('warn')) console.warn(formatLog('warn', service, message, data));
+      if (data) {
+        logger.warn(data, message);
+      } else {
+        logger.warn(message);
+      }
     },
     error: (message: string, data?: Record<string, unknown>) => {
-      if (shouldLog('error')) console.error(formatLog('error', service, message, data));
+      if (data) {
+        logger.error(data, message);
+      } else {
+        logger.error(message);
+      }
     },
   };
 }
 
+// Pre-configured loggers for KMS components
 export const kmsLogger = createLogger('kms');
 export const encLogger = createLogger('kms.enc');
 export const teeLogger = createLogger('kms.tee');
 export const mpcLogger = createLogger('kms.mpc');
-

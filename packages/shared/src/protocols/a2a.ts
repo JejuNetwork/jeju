@@ -9,20 +9,21 @@ import { cors } from 'hono/cors';
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config';
 import type { Address } from 'viem';
 import type { A2ASkill } from './server';
+import type { JsonRpcId, ProtocolData } from '../types';
 
 export interface A2AConfig {
   name: string;
   description: string;
   version?: string;
   skills: A2ASkill[];
-  executeSkill: (skillId: string, params: Record<string, unknown>, address: Address) => Promise<A2AResult>;
+  executeSkill: (skillId: string, params: ProtocolData, address: Address) => Promise<A2AResult>;
 }
 
 export type { A2ASkill };
 
 export interface A2AResult {
   message: string;
-  data: Record<string, unknown>;
+  data: ProtocolData;
 }
 
 export interface AgentCard {
@@ -76,10 +77,10 @@ export function createA2AServer(config: A2AConfig): Hono {
       params?: {
         message?: {
           messageId: string;
-          parts: Array<{ kind: string; text?: string; data?: Record<string, unknown> }>;
+          parts: Array<{ kind: string; text?: string; data?: ProtocolData }>;
         };
       };
-      id: unknown;
+      id: JsonRpcId;
     }
 
     const body = await c.req.json() as A2ARequest;

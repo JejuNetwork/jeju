@@ -9,7 +9,7 @@
 
 import type { Token } from '../types';
 import type { PriceDataPoint } from './backtester';
-import { CoinGeckoMarketChartSchema, type CoinGeckoMarketChart } from '../schemas';
+import { CoinGeckoMarketChartSchema } from '../schemas';
 
 export interface PriceCandle {
   timestamp: number;

@@ -11,8 +11,7 @@
  * Content is NEVER stored if flagged as CSAM.
  */
 
-import { createHash } from 'crypto';
-import type { Hex, Address } from 'viem';
+import type { Address, Hex } from 'viem';
 import type {
   EmailEnvelope,
   EmailContent,
@@ -22,10 +21,9 @@ import type {
   ContentFlagType,
   ScreeningAction,
   AccountReview,
-  AccountContentAnalysis,
   ViolationSummary,
-  EmailAttachment,
 } from './types';
+import { contentScreeningTotal, contentScreeningDuration, moderationReviewsTotal, accountBansTotal } from './metrics';
 
 // ============ Configuration ============
 
@@ -88,6 +86,7 @@ export class ContentScreeningPipeline {
     content: EmailContent,
     senderAddress: Address
   ): Promise<ScreeningResult> {
+    const startTime = Date.now();
     const messageId = envelope.id;
     const flags: ContentFlag[] = [];
     let scores: ContentScores = {
@@ -98,7 +97,6 @@ export class ContentScreeningPipeline {
       harassment: 0,
     };
 
-    // Tier 1: Hash-based detection (fast, catches known bad content)
     const hashFlags = await this.checkHashes(content);
     flags.push(...hashFlags);
 
@@ -153,10 +151,13 @@ export class ContentScreeningPipeline {
     const reviewRequired = action === 'review' || 
                           flags.some(f => f.type === 'csam');
 
-    // If multiple CSAM flags detected, trigger account review
     if (this.shouldTriggerAccountReview(senderAddress)) {
       await this.performAccountReview(senderAddress);
     }
+
+    const durationSeconds = (Date.now() - startTime) / 1000;
+    contentScreeningDuration.observe(durationSeconds);
+    contentScreeningTotal.inc({ result: action === 'allow' ? 'passed' : 'failed', action });
 
     return this.createResult(
       messageId,
@@ -212,8 +213,7 @@ export class ContentScreeningPipeline {
       ...(content.attachments?.map(a => a.filename) ?? []),
     ].join('\n');
 
-    // Check if content has attachments that MUST be reviewed
-    const hasAttachments = (content.attachments?.length ?? 0) > 0;
+    // Check if content has media attachments that MUST be reviewed
     const hasMediaAttachments = content.attachments?.some(a => 
       a.mimeType.startsWith('image/') || a.mimeType.startsWith('video/')
     ) ?? false;
@@ -361,7 +361,7 @@ Return ONLY valid JSON: {"spam": 0.0, "scam": 0.0, "csam": 0.0, "malware": 0.0, 
   }
 
   /**
-   * Perform full account review with LLM
+   * Perform full account review with LLM and submit to moderation system
    */
   async performAccountReview(address: Address): Promise<AccountReview> {
     const flags = this.accountFlags.get(address) ?? [];
@@ -421,49 +421,57 @@ Return ONLY valid JSON:
   "confidence": 0.0-1.0
 }`;
 
-    const response = await fetch(this.config.aiModelEndpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-3-5-sonnet-20241022',  // Use best model for critical decisions
-        messages: [
-          { role: 'system', content: 'You are a content moderation expert reviewing account behavior.' },
-          { role: 'user', content: reviewPrompt },
-        ],
-        temperature: 0.2,
-        max_tokens: 500,
-      }),
-    });
-
     let recommendation: 'allow' | 'warn' | 'suspend' | 'ban' = 'allow';
     let confidence = 0.5;
     let assessment = 'Review pending';
     let reasoning = '';
 
-    if (response.ok) {
-      const data = await response.json() as {
-        choices: Array<{ message: { content: string } }>;
-      };
-      
-      const content = data.choices[0]?.message?.content ?? '';
-      const jsonMatch = content.match(/\{[\s\S]*\}/);
-      
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]) as {
-          assessment: string;
-          reasoning: string;
-          recommendation: string;
-          confidence: number;
+    try {
+      const response = await fetch(this.config.aiModelEndpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-3-5-sonnet-20241022',  // Use best model for critical decisions
+          messages: [
+            { role: 'system', content: 'You are a content moderation expert reviewing account behavior.' },
+            { role: 'user', content: reviewPrompt },
+          ],
+          temperature: 0.2,
+          max_tokens: 500,
+        }),
+      });
+
+      if (response.ok) {
+        const data = await response.json() as {
+          choices: Array<{ message: { content: string } }>;
         };
         
-        assessment = parsed.assessment;
-        reasoning = parsed.reasoning;
-        confidence = parsed.confidence;
+        const content = data.choices[0]?.message?.content ?? '';
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
         
-        if (['allow', 'warn', 'suspend', 'ban'].includes(parsed.recommendation)) {
-          recommendation = parsed.recommendation as 'allow' | 'warn' | 'suspend' | 'ban';
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]) as {
+            assessment: string;
+            reasoning: string;
+            recommendation: string;
+            confidence: number;
+          };
+          
+          assessment = parsed.assessment;
+          reasoning = parsed.reasoning;
+          confidence = parsed.confidence;
+          
+          if (['allow', 'warn', 'suspend', 'ban'].includes(parsed.recommendation)) {
+            recommendation = parsed.recommendation as 'allow' | 'warn' | 'suspend' | 'ban';
+          }
         }
       }
+    } catch (e) {
+      console.error('[ContentScreening] Account review AI call failed:', e);
+      // Default to manual review when AI unavailable
+      recommendation = 'warn';
+      assessment = 'AI review unavailable - manual review required';
+      reasoning = 'Automated system could not complete review';
     }
 
     // Override: ANY CSAM violation with high confidence = ban
@@ -480,9 +488,9 @@ Return ONLY valid JSON:
       }
     }
 
-    return {
+    const review: AccountReview = {
       account: address,
-      emailAddress: '', // Would be resolved from registry
+      emailAddress: '',
       reviewReason: 'Automated content screening triggered review',
       contentAnalysis: {
         totalEmails: emailCount,
@@ -496,6 +504,81 @@ Return ONLY valid JSON:
       confidence,
       timestamp: Date.now(),
     };
+
+    moderationReviewsTotal.inc({ recommendation });
+    if (recommendation === 'ban') {
+      accountBansTotal.inc({ reason: 'content_violation' });
+    }
+
+    await this.submitToModerationSystem(review);
+
+    return review;
+  }
+
+  /**
+   * Submit account review to decentralized moderation system via DWS
+   */
+  private async submitToModerationSystem(review: AccountReview): Promise<void> {
+    const moderationEndpoint = process.env.DWS_ENDPOINT 
+      ? `${process.env.DWS_ENDPOINT}/moderation`
+      : 'http://localhost:4000/moderation';
+    
+    try {
+      const response = await fetch(`${moderationEndpoint}/submit-review`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          service: 'email',
+          target: review.account,
+          review: {
+            reason: review.reviewReason,
+            analysis: review.contentAnalysis,
+            recommendation: review.recommendation,
+            confidence: review.confidence,
+            timestamp: review.timestamp,
+          },
+          // If recommendation is ban with high confidence, request automatic action
+          autoAction: review.recommendation === 'ban' && review.confidence > 0.9,
+        }),
+      });
+
+      if (!response.ok) {
+        console.error(`[ContentScreening] Failed to submit to moderation: ${response.status}`);
+        // Queue locally for retry
+        await this.queueModerationReview(review);
+      } else {
+        console.log(`[ContentScreening] Review submitted for ${review.account}: ${review.recommendation}`);
+      }
+    } catch (e) {
+      console.error('[ContentScreening] Moderation submission failed:', e);
+      await this.queueModerationReview(review);
+    }
+  }
+
+  /**
+   * Queue review locally when moderation endpoint is unavailable
+   */
+  private async queueModerationReview(review: AccountReview): Promise<void> {
+    // Store to local queue for later processing
+    const queueFile = process.env.MODERATION_QUEUE_FILE ?? '/tmp/email-moderation-queue.json';
+    
+    try {
+      const fs = await import('fs/promises');
+      let queue: AccountReview[] = [];
+      
+      try {
+        const existing = await fs.readFile(queueFile, 'utf-8');
+        queue = JSON.parse(existing) as AccountReview[];
+      } catch {
+        // File doesn't exist yet
+      }
+      
+      queue.push(review);
+      await fs.writeFile(queueFile, JSON.stringify(queue, null, 2));
+      console.log(`[ContentScreening] Review queued locally: ${queueFile}`);
+    } catch (e) {
+      console.error('[ContentScreening] Failed to queue review:', e);
+    }
   }
 
   /**
@@ -584,20 +667,99 @@ Return ONLY valid JSON:
   // ============ Hash List Management ============
 
   /**
-   * Load CSAM hash list (in production, from NCMEC or PhotoDNA)
+   * Load CSAM hash list (from NCMEC, PhotoDNA, or internal database)
    */
   async loadCsamHashList(url: string): Promise<void> {
-    // In production, this would fetch from a secure source
     console.log(`[ContentScreening] Loading CSAM hash list from ${url}`);
-    // csamHashList would be populated here
+    
+    try {
+      const response = await fetch(url, {
+        headers: {
+          // Add authentication if required by the hash list provider
+          'Authorization': `Bearer ${process.env.HASH_LIST_API_KEY ?? ''}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch CSAM hash list: ${response.status}`);
+      }
+      
+      const data = await response.text();
+      
+      // Parse hash list - supports newline-separated or JSON array format
+      let hashes: string[];
+      try {
+        hashes = JSON.parse(data) as string[];
+      } catch {
+        // Newline-separated format
+        hashes = data.split('\n').map(h => h.trim()).filter(h => h.length > 0);
+      }
+      
+      // Add to set
+      for (const hash of hashes) {
+        csamHashList.add(hash.toLowerCase());
+      }
+      
+      console.log(`[ContentScreening] Loaded ${hashes.length} CSAM hashes`);
+    } catch (e) {
+      console.error('[ContentScreening] Failed to load CSAM hash list:', e);
+      throw e; // Don't silently fail - this is critical
+    }
   }
 
   /**
-   * Load malware hash list (from VirusTotal or similar)
+   * Load malware hash list (from VirusTotal, MalwareBazaar, etc.)
    */
   async loadMalwareHashList(url: string): Promise<void> {
     console.log(`[ContentScreening] Loading malware hash list from ${url}`);
-    // malwareHashList would be populated here
+    
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'Authorization': `Bearer ${process.env.MALWARE_HASH_API_KEY ?? ''}`,
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch malware hash list: ${response.status}`);
+      }
+      
+      const data = await response.text();
+      
+      let hashes: string[];
+      try {
+        hashes = JSON.parse(data) as string[];
+      } catch {
+        hashes = data.split('\n').map(h => h.trim()).filter(h => h.length > 0);
+      }
+      
+      for (const hash of hashes) {
+        malwareHashList.add(hash.toLowerCase());
+      }
+      
+      console.log(`[ContentScreening] Loaded ${hashes.length} malware hashes`);
+    } catch (e) {
+      console.error('[ContentScreening] Failed to load malware hash list:', e);
+      // Malware is less critical than CSAM - log but don't throw
+    }
+  }
+
+  /**
+   * Initialize hash lists from environment-configured URLs
+   */
+  async initializeHashLists(): Promise<void> {
+    const csamUrl = process.env.CSAM_HASH_LIST_URL;
+    const malwareUrl = process.env.MALWARE_HASH_LIST_URL;
+    
+    if (csamUrl) {
+      await this.loadCsamHashList(csamUrl);
+    } else {
+      console.warn('[ContentScreening] CSAM_HASH_LIST_URL not configured - hash detection disabled');
+    }
+    
+    if (malwareUrl) {
+      await this.loadMalwareHashList(malwareUrl);
+    }
   }
 
   /**

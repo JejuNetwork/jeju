@@ -51,6 +51,7 @@
   },
   "dependencies": {
     "@coral-xyz/anchor": "0.30.1",
+    "@jejunetwork/shared": "workspace:*",
     "@noble/curves": "2.0.1",
     "@noble/hashes": "1.7.1",
     "@solana/spl-token": "0.4.13",
@@ -58,7 +59,8 @@
     "commander": "12.1.0",
     "hono": "4.11.1",
     "viem": "2.43.2",
-    "zod": "3.24.4"
+    "zod": "3.24.4",
+    "p-retry": "^7.1.1"
   },
   "devDependencies": {
     "@types/bun": "latest",

@@ -28,19 +28,3 @@ export interface VPNServiceContext {
   contributions: Map<string, ContributionState>;
 }
 
-export interface ProxyRequest {
-  url: string;
-  method: string;
-  headers?: Record<string, string>;
-  body?: string;
-  countryCode?: string;
-}
-
-export interface ProxyResponse {
-  status: number;
-  headers: Record<string, string>;
-  body: string;
-  exitNode: string;
-  latencyMs: number;
-}
-

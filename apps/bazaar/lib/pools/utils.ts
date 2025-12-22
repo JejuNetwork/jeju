@@ -1,5 +1,5 @@
 import { Address, keccak256, encodePacked } from 'viem'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { AddressSchema } from '@jejunetwork/types'
 import { expect, expectTrue, expectPositive } from '@/lib/validation'
 import { PoolKey } from './types'
 

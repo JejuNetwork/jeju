@@ -17,6 +17,7 @@ import {
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
 } from '@solana/spl-token';
+import { hexToBytes as sharedHexToBytes } from '../dex/utils';
 
 export const OIF_PROGRAM_ID = new PublicKey('GYSFWUUKUFAdtv1TgZ3GkGfdCxPNbyRj1jsW8VRK7hBs');
 
@@ -472,21 +473,13 @@ export class OIFClient {
   }
 
   private hexToBytes(hex: string): Uint8Array {
-    const cleaned = hex.startsWith('0x') ? hex.slice(2) : hex;
-    if (!/^[0-9a-fA-F]*$/.test(cleaned)) {
-      throw new Error(`Invalid hex string: ${hex}`);
-    }
-    if (cleaned.length === 0) {
+    if (hex.length === 0 || (hex.startsWith('0x') && hex.length === 2)) {
       throw new Error('Empty hex string');
     }
+    const rawBytes = sharedHexToBytes(hex);
+    // Pad to 32 bytes for Solana compatibility
     const bytes = new Uint8Array(32);
-    const hexBytes = cleaned.match(/.{1,2}/g);
-    if (!hexBytes) {
-      throw new Error(`Failed to parse hex string: ${hex}`);
-    }
-    for (let i = 0; i < Math.min(hexBytes.length, 32); i++) {
-      bytes[i] = parseInt(hexBytes[i], 16);
-    }
+    bytes.set(rawBytes.slice(0, 32));
     return bytes;
   }
 

@@ -14,20 +14,19 @@
  * - Optional Psyche for distributed training
  */
 
-import { createPublicClient, createWalletClient, http, type Address, type Hash, type Hex } from 'viem';
+import { createWalletClient, http, type Address, type Hex } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { foundry } from 'viem/chains';
-import type {
-  ComputeJobResult,
-  EvaluationJobConfig,
-  JudgingJobConfig,
-  RLAIFIteration,
-  RLAIFRun,
-  RLAIFRunConfig,
+import {
   RLRunState,
-  RolloutJobConfig,
-  TrainingJobConfig,
-  TrajectoryManifest,
+  type ComputeJobResult,
+  type EvaluationJobConfig,
+  type JudgingJobConfig,
+  type RLAIFIteration,
+  type RLAIFRun,
+  type RLAIFRunConfig,
+  type RolloutJobConfig,
+  type TrainingJobConfig,
 } from './types';
 import { TrajectoryStore } from './trajectory-store';
 import { RulerScorer } from './ruler-scorer';
@@ -120,7 +119,6 @@ export interface RLAIFCoordinatorConfig {
 }
 
 export class RLAIFCoordinator {
-  private publicClient;
   private walletClient;
   private account;
   private config: RLAIFCoordinatorConfig;
@@ -132,10 +130,6 @@ export class RLAIFCoordinator {
     this.config = config;
     
     const chain = foundry;
-    this.publicClient = createPublicClient({
-      chain,
-      transport: http(config.rpcUrl),
-    });
 
     if (config.privateKey) {
       this.account = privateKeyToAccount(config.privateKey);

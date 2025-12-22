@@ -10,7 +10,7 @@ import { PkgRegistryManager } from '../../pkg/registry-manager';
 import { UpstreamProxy } from '../../pkg/upstream';
 import type { PkgPublishPayload, PkgSearchResult, PackageManifest, CacheConfig, UpstreamRegistryConfig } from '../../pkg/types';
 import { recordPackagePublish, recordPackageDownload } from '../../pkg/leaderboard-integration';
-import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, packageListQuerySchema, packageParamsSchema, packageVersionParamsSchema, publishPackageRequestSchema, installPackageRequestSchema } from '../../shared';
+import { validateHeaders, jejuAddressHeaderSchema } from '../../shared';
 
 interface PkgContext {
   registryManager: PkgRegistryManager;

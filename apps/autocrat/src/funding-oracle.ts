@@ -11,7 +11,7 @@
 import { type Address, formatEther, parseEther } from 'viem';
 import { DAOService, getDAOService } from './dao-service';
 import { checkDWSCompute, dwsGenerate } from './agents/runtime';
-import { parseJson } from './utils';
+import { parseJson } from './shared';
 import type {
   FundingProject,
   FundingEpoch,

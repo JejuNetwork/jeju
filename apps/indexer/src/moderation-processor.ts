@@ -9,7 +9,7 @@
  * - Label proposals
  */
 
-import { type Log, decodeEventLog, type Hex, type Address } from 'viem';
+import { decodeEventLog, type Hex, type Address, hexToBytes } from 'viem';
 import type { Store } from '@subsquid/typeorm-store';
 import {
   ModerationReport,
@@ -19,6 +19,15 @@ import {
   ReportSeverity,
   ReportStatus,
 } from './model';
+
+// Subsquid log type for compatibility
+interface SubsquidLog {
+  address: string;
+  data: string;
+  topics: string[];
+  logIndex: number;
+  transactionHash: string;
+}
 
 // ============ Event Signatures ============
 
@@ -192,7 +201,7 @@ export function initModerationContracts(config: ModerationContracts): void {
 // ============ Event Handlers ============
 
 export async function processNetworkBanApplied(
-  log: Log,
+  log: SubsquidLog,
   store: Store,
   blockNumber: number,
   timestamp: Date,
@@ -200,7 +209,7 @@ export async function processNetworkBanApplied(
 ): Promise<void> {
   const decoded = decodeEventLog({
     abi: BAN_MANAGER_ABI,
-    data: log.data,
+    data: log.data as Hex,
     topics: log.topics as [Hex, ...Hex[]],
   });
 
@@ -222,7 +231,7 @@ export async function processNetworkBanApplied(
   // Create ban event
   const banEvent = new AgentBanEvent();
   banEvent.id = `${txHash}-${log.logIndex}`;
-  banEvent.agent = agent || null;
+  banEvent.agent = agent!;
   banEvent.isBan = true;
   banEvent.banType = 'network';
   banEvent.reason = reason;
@@ -235,7 +244,7 @@ export async function processNetworkBanApplied(
 }
 
 export async function processNetworkBanRemoved(
-  log: Log,
+  log: SubsquidLog,
   store: Store,
   blockNumber: number,
   timestamp: Date,
@@ -243,7 +252,7 @@ export async function processNetworkBanRemoved(
 ): Promise<void> {
   const decoded = decodeEventLog({
     abi: BAN_MANAGER_ABI,
-    data: log.data,
+    data: log.data as Hex,
     topics: log.topics as [Hex, ...Hex[]],
   });
 
@@ -261,7 +270,7 @@ export async function processNetworkBanRemoved(
   // Create unban event
   const banEvent = new AgentBanEvent();
   banEvent.id = `${txHash}-${log.logIndex}`;
-  banEvent.agent = agent || null;
+  banEvent.agent = agent!;
   banEvent.isBan = false;
   banEvent.banType = 'network';
   banEvent.timestamp = timestamp;
@@ -272,7 +281,7 @@ export async function processNetworkBanRemoved(
 }
 
 export async function processAppBanApplied(
-  log: Log,
+  log: SubsquidLog,
   store: Store,
   blockNumber: number,
   timestamp: Date,
@@ -280,7 +289,7 @@ export async function processAppBanApplied(
 ): Promise<void> {
   const decoded = decodeEventLog({
     abi: BAN_MANAGER_ABI,
-    data: log.data,
+    data: log.data as Hex,
     topics: log.topics as [Hex, ...Hex[]],
   });
 
@@ -297,7 +306,7 @@ export async function processAppBanApplied(
 
   const banEvent = new AgentBanEvent();
   banEvent.id = `${txHash}-${log.logIndex}`;
-  banEvent.agent = agent || null;
+  banEvent.agent = agent!;
   banEvent.isBan = true;
   banEvent.banType = 'app';
   banEvent.appId = appId;
@@ -311,21 +320,21 @@ export async function processAppBanApplied(
 }
 
 export async function processReportSubmitted(
-  log: Log,
+  log: SubsquidLog,
   store: Store,
-  blockNumber: number,
+  _blockNumber: number,
   timestamp: Date,
-  txHash: string
+  _txHash: string
 ): Promise<void> {
   const decoded = decodeEventLog({
     abi: REPORTING_SYSTEM_ABI,
-    data: log.data,
+    data: log.data as Hex,
     topics: log.topics as [Hex, ...Hex[]],
   });
 
   if (decoded.eventName !== 'ReportSubmitted') return;
 
-  const { reportId, reportType, severity, targetAgentId, sourceAppId, reporter } = 
+  const { reportId, reportType, severity, targetAgentId, reporter } = 
     decoded.args as {
       reportId: bigint;
       reportType: number;
@@ -339,7 +348,7 @@ export async function processReportSubmitted(
   report.id = reportId.toString();
   report.reportId = reportId;
   report.targetAgentId = targetAgentId;
-  report.reporter = reporter as `0x${string}`;
+  report.reporter = hexToBytes(reporter);
   report.reportType = mapReportType(reportType);
   report.severity = mapSeverity(severity);
   report.status = ReportStatus.PENDING;
@@ -350,7 +359,7 @@ export async function processReportSubmitted(
 }
 
 export async function processReportResolved(
-  log: Log,
+  log: SubsquidLog,
   store: Store,
   _blockNumber: number,
   _timestamp: Date,
@@ -358,7 +367,7 @@ export async function processReportResolved(
 ): Promise<void> {
   const decoded = decodeEventLog({
     abi: REPORTING_SYSTEM_ABI,
-    data: log.data,
+    data: log.data as Hex,
     topics: log.topics as [Hex, ...Hex[]],
   });
 
@@ -411,7 +420,7 @@ function mapReportStatus(status: number): ReportStatus {
 // ============ Main Processor ============
 
 export async function processModerationEvent(
-  log: Log,
+  log: SubsquidLog,
   store: Store,
   blockNumber: number,
   timestamp: Date,

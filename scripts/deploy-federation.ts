@@ -7,6 +7,7 @@
  * - RegistryHub: Meta-registry tracking all registries
  * - RegistrySyncOracle: Event-driven registry sync
  * - SolanaVerifier: Wormhole-based Solana verification
+ * - CrossChainIdentitySync: Hyperlane-based identity sync
  * - FederatedIdentity: Cross-chain identity
  * - FederatedLiquidity: Cross-chain liquidity
  * - FederatedSolver: Cross-chain solver discovery
@@ -15,10 +16,11 @@
  *   bun run scripts/deploy-federation.ts [--network localnet|testnet|mainnet]
  */
 
-import { createPublicClient, createWalletClient, http, formatEther, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, formatEther, parseEther, type Address, type Abi } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import type { ConstructorArg, RawArtifactJson } from './shared/contract-types';
 
 const NETWORK = process.argv.includes('--network') 
   ? process.argv[process.argv.indexOf('--network') + 1] 
@@ -27,29 +29,57 @@ const NETWORK = process.argv.includes('--network')
 const CONTRACTS_DIR = join(import.meta.dir, '../packages/contracts');
 const OUT_DIR = join(CONTRACTS_DIR, 'out');
 const DEPLOYMENTS_DIR = join(import.meta.dir, '../deployments');
+const CONFIG_DIR = join(import.meta.dir, '../config');
+
+// Load cross-chain configuration
+interface CrossChainConfig {
+  wormhole: Record<string, { core: string; chainId: number }>;
+  hyperlane: Record<string, { mailbox: string; domain: number; igp: string }>;
+  solanaPrograms: Record<string, string>;
+  trustedEmitters: Record<string, { agentRegistry: string }>;
+}
+
+function loadCrossChainConfig(): CrossChainConfig {
+  const configPath = join(CONFIG_DIR, 'cross-chain.json');
+  if (!existsSync(configPath)) {
+    throw new Error(`Cross-chain config not found: ${configPath}`);
+  }
+  return JSON.parse(readFileSync(configPath, 'utf-8'));
+}
+
+// Map network names to cross-chain config keys
+const NETWORK_TO_CONFIG: Record<string, string> = {
+  localnet: 'baseSepolia', // Use Base Sepolia config for localnet testing
+  testnet: 'baseSepolia',
+  mainnet: 'base',
+};
 
 interface FederationDeployment {
   networkRegistry: string;
   registryHub: string;
   registrySyncOracle: string;
   solanaVerifier: string;
+  crossChainIdentitySync: string;
   federatedIdentity: string;
   federatedLiquidity: string;
   federatedSolver: string;
   deployedAt: string;
   deployer: string;
   chainId: number;
+  wormholeCore: string;
+  hyperlaneMailbox: string;
+  hyperlaneDomain: number;
 }
 
-function getArtifact(contractName: string): { abi: unknown[]; bytecode: string } {
+function getArtifact(contractName: string): { abi: Abi; bytecode: `0x${string}` } {
   const artifactPath = join(OUT_DIR, `${contractName}.sol`, `${contractName}.json`);
   if (!existsSync(artifactPath)) {
     throw new Error(`Artifact not found: ${artifactPath}. Run 'forge build' first.`);
   }
-  const artifact = JSON.parse(readFileSync(artifactPath, 'utf-8'));
+  const artifact = JSON.parse(readFileSync(artifactPath, 'utf-8')) as RawArtifactJson;
   return {
     abi: artifact.abi,
-    bytecode: artifact.bytecode.object,
+    bytecode: artifact.bytecode.object as `0x${string}`,
   };
 }
 
@@ -57,14 +87,14 @@ async function deployContract(
   walletClient: ReturnType<typeof createWalletClient>,
   publicClient: ReturnType<typeof createPublicClient>,
   contractName: string,
-  args: unknown[] = []
-): Promise<{ address: Address; abi: unknown[] }> {
+  args: ConstructorArg[] = []
+): Promise<{ address: Address; abi: Abi }> {
   const { abi, bytecode } = getArtifact(contractName);
   
   console.log(`  Deploying ${contractName}...`);
   const hash = await walletClient.deployContract({
     abi,
-    bytecode: bytecode as `0x${string}`,
+    bytecode,
     args,
   });
   
@@ -78,11 +108,26 @@ async function deployContract(
 async function main() {
   console.log(`\n🌐 Deploying Federation Contracts (${NETWORK})\n`);
 
+  // Load cross-chain config
+  const crossChainConfig = loadCrossChainConfig();
+  const configKey = NETWORK_TO_CONFIG[NETWORK] || 'baseSepolia';
+  const wormholeConfig = crossChainConfig.wormhole[configKey];
+  const hyperlaneConfig = crossChainConfig.hyperlane[configKey];
+
+  if (!wormholeConfig || !hyperlaneConfig) {
+    throw new Error(`No cross-chain config for network: ${NETWORK} (key: ${configKey})`);
+  }
+
+  console.log(`Using cross-chain config: ${configKey}`);
+  console.log(`  Wormhole Core: ${wormholeConfig.core}`);
+  console.log(`  Hyperlane Mailbox: ${hyperlaneConfig.mailbox}`);
+  console.log(`  Hyperlane Domain: ${hyperlaneConfig.domain}\n`);
+
   // Get RPC URL based on network
   const rpcUrls: Record<string, string> = {
     localnet: 'http://localhost:6546',
-    testnet: process.env.TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
-    mainnet: process.env.MAINNET_RPC_URL || 'https://rpc.jejunetwork.org',
+    testnet: process.env.TESTNET_RPC_URL || 'https://sepolia.base.org',
+    mainnet: process.env.MAINNET_RPC_URL || 'https://mainnet.base.org',
   };
 
   const rpcUrl = rpcUrls[NETWORK];
@@ -94,9 +139,27 @@ async function main() {
   const chainId = await publicClient.getChainId();
   
   // Get deployer wallet
-  const privateKey = process.env.DEPLOYER_PRIVATE_KEY || 
-    '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'; // Default Anvil key
-  const account = privateKeyToAccount(privateKey as `0x${string}`);
+  const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
+  
+  // Only allow Anvil default key for localnet
+  const ANVIL_DEFAULT_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
+  
+  if (!privateKey) {
+    if (NETWORK === 'localnet') {
+      console.log('⚠️  Using Anvil default key for localnet');
+    } else {
+      console.error('❌ DEPLOYER_PRIVATE_KEY environment variable required for non-localnet deployments');
+      console.error('   Set DEPLOYER_PRIVATE_KEY in your environment before deploying to testnet/mainnet');
+      process.exit(1);
+    }
+  }
+  
+  const actualKey = privateKey || (NETWORK === 'localnet' ? ANVIL_DEFAULT_KEY : undefined);
+  if (!actualKey) {
+    throw new Error('No private key available');
+  }
+  
+  const account = privateKeyToAccount(actualKey as `0x${string}`);
   const walletClient = createWalletClient({ account, transport: http(rpcUrl) });
   
   const balance = await publicClient.getBalance({ address: account.address });
@@ -111,43 +174,53 @@ async function main() {
   // 1. NetworkRegistry
   const networkRegistry = await deployContract(walletClient, publicClient, 'NetworkRegistry', [account.address]);
 
-  // 2. RegistryHub
-  const registryHub = await deployContract(walletClient, publicClient, 'RegistryHub', [account.address]);
+  // 2. RegistryHub (with Wormhole address)
+  const registryHub = await deployContract(walletClient, publicClient, 'RegistryHub', [wormholeConfig.core as Address]);
 
   // 3. RegistrySyncOracle
   const registrySyncOracle = await deployContract(walletClient, publicClient, 'RegistrySyncOracle', []);
 
-  // 4. SolanaVerifier
+  // 4. SolanaVerifier (with Wormhole address)
   const solanaVerifier = await deployContract(walletClient, publicClient, 'SolanaVerifier', [
-    account.address, // wormhole relayer (deployer for now)
-    '0x0000000000000000000000000000000000000000000000000000000000000000', // trusted emitter
+    wormholeConfig.core as Address,
+    '0x0000000000000000000000000000000000000000000000000000000000000000' as `0x${string}`, // trusted emitter - set after Solana deployment
   ]);
 
-  // 5. FederatedIdentity
+  // 5. Deploy IdentityRegistry first (needed for CrossChainIdentitySync)
+  const identityRegistry = await deployContract(walletClient, publicClient, 'IdentityRegistry', []);
+
+  // 6. CrossChainIdentitySync (with Hyperlane mailbox)
+  const crossChainIdentitySync = await deployContract(walletClient, publicClient, 'CrossChainIdentitySync', [
+    identityRegistry.address,
+    hyperlaneConfig.mailbox as Address,
+    BigInt(hyperlaneConfig.domain),
+  ]);
+
+  // 7. FederatedIdentity
   const federatedIdentity = await deployContract(walletClient, publicClient, 'FederatedIdentity', [
     BigInt(chainId),
     account.address, // oracle
     account.address, // governance
     networkRegistry.address,
-    '0x0000000000000000000000000000000000000000', // local identity registry
+    identityRegistry.address,
   ]);
 
-  // 6. FederatedLiquidity
+  // 8. FederatedLiquidity
   const federatedLiquidity = await deployContract(walletClient, publicClient, 'FederatedLiquidity', [
     BigInt(chainId),
     account.address, // oracle
     account.address, // governance
     networkRegistry.address,
-    '0x0000000000000000000000000000000000000000', // local vault
+    '0x0000000000000000000000000000000000000000' as Address, // local vault
   ]);
 
-  // 7. FederatedSolver
+  // 9. FederatedSolver
   const federatedSolver = await deployContract(walletClient, publicClient, 'FederatedSolver', [
     BigInt(chainId),
     account.address, // oracle
     account.address, // governance
     networkRegistry.address,
-    '0x0000000000000000000000000000000000000000', // local solver registry
+    '0x0000000000000000000000000000000000000000' as Address, // local solver registry
   ]);
 
   // Save deployment addresses
@@ -156,12 +229,16 @@ async function main() {
     registryHub: registryHub.address,
     registrySyncOracle: registrySyncOracle.address,
     solanaVerifier: solanaVerifier.address,
+    crossChainIdentitySync: crossChainIdentitySync.address,
     federatedIdentity: federatedIdentity.address,
     federatedLiquidity: federatedLiquidity.address,
     federatedSolver: federatedSolver.address,
     deployedAt: new Date().toISOString(),
     deployer: account.address,
     chainId,
+    wormholeCore: wormholeConfig.core,
+    hyperlaneMailbox: hyperlaneConfig.mailbox,
+    hyperlaneDomain: hyperlaneConfig.domain,
   };
 
   // Ensure deployments directory exists
@@ -179,15 +256,20 @@ async function main() {
   }
 
   console.log('\n✅ Federation contracts deployed!\n');
-  console.log('='.repeat(50));
-  console.log('NetworkRegistry:     ', deployment.networkRegistry);
-  console.log('RegistryHub:         ', deployment.registryHub);
-  console.log('RegistrySyncOracle:  ', deployment.registrySyncOracle);
-  console.log('SolanaVerifier:      ', deployment.solanaVerifier);
-  console.log('FederatedIdentity:   ', deployment.federatedIdentity);
-  console.log('FederatedLiquidity:  ', deployment.federatedLiquidity);
-  console.log('FederatedSolver:     ', deployment.federatedSolver);
-  console.log('='.repeat(50));
+  console.log('='.repeat(60));
+  console.log('NetworkRegistry:         ', deployment.networkRegistry);
+  console.log('RegistryHub:             ', deployment.registryHub);
+  console.log('RegistrySyncOracle:      ', deployment.registrySyncOracle);
+  console.log('SolanaVerifier:          ', deployment.solanaVerifier);
+  console.log('CrossChainIdentitySync:  ', deployment.crossChainIdentitySync);
+  console.log('FederatedIdentity:       ', deployment.federatedIdentity);
+  console.log('FederatedLiquidity:      ', deployment.federatedLiquidity);
+  console.log('FederatedSolver:         ', deployment.federatedSolver);
+  console.log('='.repeat(60));
+  console.log('Wormhole Core:           ', deployment.wormholeCore);
+  console.log('Hyperlane Mailbox:       ', deployment.hyperlaneMailbox);
+  console.log('Hyperlane Domain:        ', deployment.hyperlaneDomain);
+  console.log('='.repeat(60));
   console.log(`\nDeployment saved to: deployments/federation-${NETWORK}.json`);
 
   // If localnet, register Jeju as first network

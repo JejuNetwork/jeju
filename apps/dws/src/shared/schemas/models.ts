@@ -3,7 +3,6 @@
  */
 
 import { z } from 'zod';
-import type { Address } from 'viem';
 import { addressSchema, nonEmptyStringSchema, cidSchema, urlSchema } from '../validation';
 
 /**

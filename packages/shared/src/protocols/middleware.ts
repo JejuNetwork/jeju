@@ -202,8 +202,8 @@ export async function getAgentInfo(address: Address): Promise<AgentInfo | null> 
   };
 }
 
-export function erc8004Middleware(options: { requireRegistration?: boolean; requireActive?: boolean } = {}): (c: Context, next: Next) => Promise<Response | void> {
-  return async (c: Context, next: Next): Promise<Response | void> => {
+export function erc8004Middleware(options: { requireRegistration?: boolean; requireActive?: boolean } = {}) {
+  return async (c: Context, next: Next) => {
     const address = c.req.header('x-jeju-address') as Address | undefined;
 
     if (!address) {
@@ -365,8 +365,8 @@ export async function verifyX402Payment(
   return { valid: true, signer };
 }
 
-export function x402Middleware(requiredAmount?: bigint): (c: Context, next: Next) => Promise<Response | void> {
-  return async (c: Context, next: Next): Promise<Response | void> => {
+export function x402Middleware(requiredAmount?: bigint) {
+  return async (c: Context, next: Next) => {
     const paymentHeader = c.req.header('x-payment');
     
     if (!paymentHeader) {

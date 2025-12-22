@@ -17,7 +17,7 @@
 
 import { BaseTFMMStrategy, type StrategyContext, type WeightCalculation, type StrategySignal } from './base-strategy';
 import type { OracleAggregator } from '../../oracles';
-import { WEIGHT_PRECISION } from '../../shared';
+import { WEIGHT_PRECISION } from '../../schemas';
 
 export interface VolatilityConfig {
   lookbackPeriodMs: number;         // Default: 30 days

@@ -8,7 +8,7 @@
 import { getDWSComputeUrl } from '@jejunetwork/config';
 import { keccak256, stringToHex } from 'viem';
 import { checkDWSCompute, dwsGenerate } from './agents/runtime';
-import { parseJson } from './utils';
+import { parseJson } from './shared';
 
 // DWS endpoint is resolved dynamically based on the current network
 function getComputeEndpoint(): string {

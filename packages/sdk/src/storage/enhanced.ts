@@ -11,6 +11,7 @@
 import { parseEther, type Address } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
+import type { JsonValue } from "../shared/types";
 import { getServicesConfig } from "../config";
 import { generateAuthHeaders } from "../shared/api";
 import {
@@ -126,7 +127,7 @@ export interface EnhancedStorageModule {
 
   // Download
   download(cid: string, options?: DownloadOptions): Promise<Uint8Array>;
-  downloadJson<T = unknown>(cid: string, options?: DownloadOptions): Promise<T>;
+  downloadJson<T extends JsonValue = JsonValue>(cid: string, options?: DownloadOptions): Promise<T>;
 
   // Content management
   getContent(cid: string): Promise<ContentInfo | null>;
@@ -206,7 +207,7 @@ export function createEnhancedStorageModule(
     options: EnhancedUploadOptions = {},
   ): Promise<EnhancedUploadResult> {
     const formData = new FormData();
-    const blob = data instanceof Uint8Array ? new Blob([data]) : data;
+    const blob = data instanceof Uint8Array ? new Blob([new Uint8Array(data)]) : data;
     formData.append("file", blob, options.name ?? "file");
 
     // Set options
@@ -290,7 +291,7 @@ export function createEnhancedStorageModule(
     return new Uint8Array(await response.arrayBuffer());
   }
 
-  async function downloadJson<T>(
+  async function downloadJson<T extends JsonValue = JsonValue>(
     cid: string,
     options: DownloadOptions = {},
   ): Promise<T> {

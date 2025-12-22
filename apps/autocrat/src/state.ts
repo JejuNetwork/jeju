@@ -9,6 +9,7 @@ import { getCQL, type CQLClient, type QueryParam } from "@jejunetwork/db";
 import { getCacheClient, type CacheClient } from "@jejunetwork/shared";
 import { getCurrentNetwork } from "@jejunetwork/config";
 import { z } from 'zod';
+import type { StoredObject, AutocratVote } from "./types.js";
 
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? "autocrat";
 
@@ -399,14 +400,6 @@ export const moderationState = {
 };
 
 // Autocrat vote operations (individual council member votes on proposals)
-export interface AutocratVote {
-  role: string;
-  vote: string;
-  reasoning: string;
-  confidence: number;
-  timestamp: number;
-}
-
 export const autocratVoteState = {
   async save(proposalId: string, vote: AutocratVote): Promise<void> {
     const client = await getCQLClient();
@@ -502,17 +495,109 @@ export const proposalIndexState = {
   },
 };
 
+// Schema for CEO Analysis Result
+const CEOAnalysisResultSchema = z.object({
+  approved: z.boolean(),
+  reasoning: z.string(),
+  personaResponse: z.string(),
+  confidence: z.number(),
+  alignment: z.number(),
+  recommendations: z.array(z.string()),
+});
+
+// Schema for TEE Attestation
+const TEEAttestationSchema = z.object({
+  provider: z.enum(['local', 'remote']),
+  quote: z.string().optional(),
+  measurement: z.string().optional(),
+  timestamp: z.number(),
+  verified: z.boolean(),
+});
+
+// Schema for TEE Decision Data
+const TEEDecisionDataSchema = z.object({
+  approved: z.boolean(),
+  publicReasoning: z.string(),
+  confidenceScore: z.number(),
+  alignmentScore: z.number(),
+  recommendations: z.array(z.string()),
+  encryptedHash: z.string(),
+  attestation: TEEAttestationSchema,
+});
+
+// Schema for validating stored objects retrieved from database
+const StoredObjectSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('vote'),
+    proposalId: z.string(),
+    daoId: z.string().optional(),
+    role: z.string(),
+    vote: z.string(),
+    reasoning: z.string(),
+    confidence: z.number(),
+    timestamp: z.number(),
+  }),
+  z.object({
+    type: z.literal('research'),
+    proposalId: z.string(),
+    report: z.string(),
+    model: z.string(),
+    completedAt: z.number(),
+  }),
+  z.object({
+    type: z.literal('commentary'),
+    proposalId: z.string(),
+    content: z.string(),
+    sentiment: z.enum(['positive', 'negative', 'neutral', 'concern']),
+    timestamp: z.number(),
+  }),
+  z.object({
+    type: z.literal('ceo_decision'),
+    proposalId: z.string(),
+    approved: z.boolean(),
+    confidenceScore: z.number(),
+    alignmentScore: z.number(),
+    autocratVotes: z.object({
+      approve: z.number(),
+      reject: z.number(),
+      abstain: z.number(),
+    }),
+    reasoning: z.string(),
+    recommendations: z.array(z.string()),
+    timestamp: z.string(),
+    model: z.string(),
+    teeMode: z.string(),
+  }),
+  z.object({
+    type: z.literal('autocrat_vote_detail'),
+    proposalId: z.string(),
+    daoId: z.string(),
+    agent: z.string(),
+    role: z.string(),
+    vote: z.enum(['APPROVE', 'REJECT', 'ABSTAIN']),
+    reasoning: z.string(),
+    confidence: z.number(),
+  }),
+  z.object({
+    type: z.literal('ceo_decision_detail'),
+    proposalId: z.string(),
+    daoId: z.string(),
+    ceoAnalysis: CEOAnalysisResultSchema,
+    teeDecision: TEEDecisionDataSchema,
+    personaResponse: z.string(),
+    decidedAt: z.number(),
+  }),
+]);
+
 // Generic object storage (replaces local file storage)
 export const storageState = {
-  async store(data: unknown): Promise<string> {
+  async store(data: StoredObject): Promise<string> {
     const content = JSON.stringify(data);
     const { keccak256, stringToHex } = await import('viem');
     const hash = keccak256(stringToHex(content)).slice(2, 50);
     
     const client = await getCQLClient();
-    const objectType = typeof data === 'object' && data !== null && 'type' in data 
-      ? (data as { type: string }).type 
-      : 'unknown';
+    const objectType = data.type;
     
     await client.exec(
       `INSERT INTO storage_objects (hash, content, object_type, created_at)
@@ -528,11 +613,14 @@ export const storageState = {
     return hash;
   },
 
-  async retrieve<T>(hash: string): Promise<T | null> {
+  async retrieve(hash: string): Promise<StoredObject | null> {
     // Check cache first
     const cache = getCache();
     const cached = await cache.get(`storage:${hash}`).catch(() => null);
-    if (cached) return JSON.parse(cached) as T;
+    if (cached) {
+      const parsed: unknown = JSON.parse(cached);
+      return StoredObjectSchema.parse(parsed);
+    }
 
     const client = await getCQLClient();
     const result = await client.query<{ content: string }>(
@@ -544,7 +632,8 @@ export const storageState = {
     if (result.rows[0]) {
       const content = result.rows[0].content;
       await cache.set(`storage:${hash}`, content, 3600);
-      return JSON.parse(content) as T;
+      const parsed: unknown = JSON.parse(content);
+      return StoredObjectSchema.parse(parsed);
     }
     return null;
   },

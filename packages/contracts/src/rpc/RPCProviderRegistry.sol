@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ProviderRegistryBase} from "../registry/ProviderRegistryBase.sol";
 import {ERC8004ProviderMixin} from "../registry/ERC8004ProviderMixin.sol";
 import {ModerationMixin} from "../moderation/ModerationMixin.sol";
+import {PerformanceMetrics} from "../registry/PerformanceMetrics.sol";
 
 /**
  * @title RPCProviderRegistry
@@ -33,6 +34,7 @@ contract RPCProviderRegistry is ProviderRegistryBase {
     using SafeERC20 for IERC20;
     using ERC8004ProviderMixin for ERC8004ProviderMixin.Data;
     using ModerationMixin for ModerationMixin.Data;
+    using PerformanceMetrics for PerformanceMetrics.Metrics;
 
     enum Tier { FREE, BASIC, PRO, UNLIMITED }
 
@@ -71,6 +73,7 @@ contract RPCProviderRegistry is ProviderRegistryBase {
 
     IERC20 public immutable jejuToken;
     mapping(address => RPCProvider) private _providers;
+    mapping(address => PerformanceMetrics.Metrics) public metrics; // New: Performance tracking
     mapping(address => RPCUser) public users;
     mapping(Tier => TierConfig) public tierConfigs;
     mapping(address => bool) public whitelisted;
@@ -94,16 +97,20 @@ contract RPCProviderRegistry is ProviderRegistryBase {
     event PriceOracleUpdated(address indexed oracle);
     event ReputationProviderUpdated(address indexed provider);
     event AgentLinked(address indexed user, uint256 agentId);
+    event PerformanceReported(address indexed provider, uint256 uptime, uint256 successRate, uint256 latency);
 
     error InvalidAmount();
     error InvalidEndpoint();
     error InvalidRegion();
+    error InvalidTreasury();
+    error InsufficientBalance();
     error UserIsFrozen();
     error UserNotFrozen();
     error AlreadyLinked();
     error AgentNotOwned();
     error NotUnbonding();
     error StillUnbonding();
+    error InvalidScore();
 
     constructor(
         address _jejuToken,
@@ -419,6 +426,15 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         treasury = _treasury;
     }
 
+    /// @notice Withdraw accumulated ETH to treasury
+    function withdrawETH() external onlyOwner {
+        if (treasury == address(0)) revert InvalidTreasury();
+        uint256 balance = address(this).balance;
+        if (balance == 0) revert InsufficientBalance();
+        (bool success, ) = treasury.call{value: balance}("");
+        if (!success) revert TransferFailed();
+    }
+
     function setWhitelisted(address account, bool status) external onlyOwner {
         whitelisted[account] = status;
     }
@@ -439,6 +455,18 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         emit RPCProviderUpdated(msg.sender, endpoint);
     }
 
+    function reportPerformance(address provider, uint256 uptimeScore, uint256 successRate, uint256 avgLatencyMs) external onlyOwner {
+        if (uptimeScore > 10000 || successRate > 10000) revert InvalidScore();
+        
+        PerformanceMetrics.Metrics storage m = metrics[provider];
+        m.uptimeScore = uptimeScore;
+        m.successRate = successRate;
+        m.avgLatencyMs = avgLatencyMs;
+        m.lastUpdated = block.timestamp;
+
+        emit PerformanceReported(provider, uptimeScore, successRate, avgLatencyMs);
+    }
+
     function getStats() external view returns (
         uint256 _totalUserStaked,
         uint256 _totalUsers,
@@ -448,6 +476,10 @@ contract RPCProviderRegistry is ProviderRegistryBase {
         uint256 unlimitedTierCount
     ) {
         return (totalUserStaked, totalUsers, tierCounts[Tier.FREE], tierCounts[Tier.BASIC], tierCounts[Tier.PRO], tierCounts[Tier.UNLIMITED]);
+    }
+
+    function getProviderStats(address provider) external view returns (PerformanceMetrics.Metrics memory) {
+        return metrics[provider];
     }
 
     function version() external pure returns (string memory) {

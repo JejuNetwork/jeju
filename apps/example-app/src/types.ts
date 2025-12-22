@@ -43,19 +43,6 @@ export type {
 
 // Additional types not in schemas (or partials/specific usage)
 
-export interface A2ASkill {
-  id: string;
-  name: string;
-  description: string;
-  tags: string[];
-  examples?: string[];
-  x402Price?: {
-    amount: bigint;
-    token: string;
-    description?: string;
-  };
-}
-
 export interface A2AResponse {
   jsonrpc: string;
   id: string | number;
@@ -81,21 +68,10 @@ export interface X402Token {
   minAmount: bigint;
 }
 
-export interface X402Price {
-  amount: bigint;
-  token: string;
-  description?: string;
-}
-
 export interface X402PaymentResult {
   valid: boolean;
   txHash?: Hex;
   error?: string;
-}
-
-export interface CacheEntry<T> {
-  value: T;
-  expiresAt: number;
 }
 
 export interface CronJob {
@@ -116,39 +92,6 @@ export interface DeployResult {
   mcpEndpoint: string;
   databaseId: string;
   triggerId: Hex;
-}
-
-export interface ApiResponse<T> {
-  data: T;
-  meta?: {
-    timestamp: number;
-    requestId: string;
-  };
-}
-
-export interface ApiError {
-  error: string;
-  code: string;
-  details?: string;
-}
-
-export interface TemplateConfig {
-  appName: string;
-  jnsName: string;
-  databaseId: string;
-  description: string;
-  owner: Address;
-  ports: {
-    main: number;
-    frontend: number;
-  };
-  x402: {
-    enabled: boolean;
-    acceptedTokens: X402Token[];
-    paymentAddress: Address;
-    pricePerRequest?: bigint;
-    network: 'base' | 'base-sepolia' | 'jeju' | 'jeju-testnet';
-  };
 }
 
 export type TodoPriority = 'low' | 'medium' | 'high';

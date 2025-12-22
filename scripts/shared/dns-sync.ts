@@ -26,22 +26,71 @@ interface ResourceRecordSet {
   AliasTarget?: { DNSName?: string };
 }
 
-// Dynamic SDK storage - using any to allow dynamic loading
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let Route53ClientClass: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let ChangeResourceRecordSetsCommandClass: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let ListResourceRecordSetsCommandClass: any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-let DNSClass: any;
+// Type definitions for dynamically loaded SDK classes
+interface Route53ClientConstructor {
+  new (config: { region: string }): Route53ClientInstance;
+}
+
+interface Route53ClientInstance {
+  send(command: Route53Command): Promise<Route53Response>;
+}
+
+type Route53Command = object;
+
+interface Route53Response {
+  ResourceRecordSets?: ResourceRecordSet[];
+}
+
+interface ChangeResourceRecordSetsCommandConstructor {
+  new (input: {
+    HostedZoneId: string;
+    ChangeBatch: {
+      Changes: Array<{
+        Action: 'UPSERT' | 'DELETE' | 'CREATE';
+        ResourceRecordSet: {
+          Name: string;
+          Type: string;
+          TTL: number;
+          ResourceRecords: Array<{ Value: string }>;
+        };
+      }>;
+    };
+  }): Route53Command;
+}
+
+interface ListResourceRecordSetsCommandConstructor {
+  new (input: { HostedZoneId: string }): Route53Command;
+}
+
+// GCP Cloud DNS types
+interface CloudDNSConstructor {
+  new (config: { projectId: string }): CloudDNSInstance;
+}
+
+interface CloudDNSInstance {
+  zone(name: string): CloudDNSZone;
+}
+
+interface CloudDNSZone {
+  record(type: 'a' | 'aaaa' | 'cname', config: { name: string; ttl: number; data: string[] }): CloudDNSRecord;
+  addRecords(record: CloudDNSRecord): Promise<void>;
+  replaceRecords(type: 'a' | 'aaaa' | 'cname', record: CloudDNSRecord): Promise<void>;
+}
+
+type CloudDNSRecord = object;
+
+// Dynamic SDK storage with proper types
+let Route53ClientClass: Route53ClientConstructor | null = null;
+let ChangeResourceRecordSetsCommandClass: ChangeResourceRecordSetsCommandConstructor | null = null;
+let ListResourceRecordSetsCommandClass: ListResourceRecordSetsCommandConstructor | null = null;
+let DNSClass: CloudDNSConstructor | null = null;
 
 async function loadAWSSDK(): Promise<boolean> {
   try {
     const aws = await import('@aws-sdk/client-route-53');
-    Route53ClientClass = aws.Route53Client;
-    ChangeResourceRecordSetsCommandClass = aws.ChangeResourceRecordSetsCommand;
-    ListResourceRecordSetsCommandClass = aws.ListResourceRecordSetsCommand;
+    Route53ClientClass = aws.Route53Client as unknown as Route53ClientConstructor;
+    ChangeResourceRecordSetsCommandClass = aws.ChangeResourceRecordSetsCommand as unknown as ChangeResourceRecordSetsCommandConstructor;
+    ListResourceRecordSetsCommandClass = aws.ListResourceRecordSetsCommand as unknown as ListResourceRecordSetsCommandConstructor;
     return true;
   } catch {
     console.warn('[DNSSync] AWS SDK not available - Route53 sync disabled');
@@ -52,7 +101,7 @@ async function loadAWSSDK(): Promise<boolean> {
 async function loadGCPSDK(): Promise<boolean> {
   try {
     const gcp = await import('@google-cloud/dns');
-    DNSClass = gcp.DNS;
+    DNSClass = gcp.DNS as unknown as CloudDNSConstructor;
     return true;
   } catch {
     console.warn('[DNSSync] GCP SDK not available - Cloud DNS sync disabled');
@@ -227,10 +276,8 @@ async function withRetry<T>(
 
 export class DNSSyncService {
   private config: DNSSyncConfig;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private route53Client: any = null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private cloudDnsClient: any = null;
+  private route53Client: Route53ClientInstance | null = null;
+  private cloudDnsClient: CloudDNSInstance | null = null;
   private publicClient: ReturnType<typeof createPublicClient> | null = null;
   private walletClient: ReturnType<typeof createWalletClient> | null = null;
   private endpointRegistryAddress: Address | null = null;
@@ -624,13 +671,17 @@ export class DNSSyncService {
 
           await withRetry(
             async () => {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const hash = await (this.walletClient as any).writeContract({
+              const endpointRegistryAbi = [{ name: 'setEndpoint', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'service', type: 'bytes32' }, { name: 'url', type: 'string' }, { name: 'region', type: 'string' }, { name: 'priority', type: 'uint256' }], outputs: [] }] as const;
+              // writeContract requires chain when not set on client
+              // Viem's strict typing doesn't allow chainless calls, but it works at runtime
+              const writeContractParams = {
                 address: this.endpointRegistryAddress!,
-                abi: [{ name: 'setEndpoint', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'service', type: 'bytes32' }, { name: 'url', type: 'string' }, { name: 'region', type: 'string' }, { name: 'priority', type: 'uint256' }], outputs: [] }] as const,
-                functionName: 'setEndpoint',
-                args: [serviceKey, url, region, BigInt(i)],
-              });
+                abi: endpointRegistryAbi,
+                functionName: 'setEndpoint' as const,
+                args: [serviceKey, url, region, BigInt(i)] as const,
+              };
+              type WriteContractFn = typeof this.walletClient.writeContract;
+              const hash = await (this.walletClient!.writeContract as WriteContractFn)(writeContractParams as unknown as Parameters<WriteContractFn>[0]);
               await this.publicClient!.waitForTransactionReceipt({ hash });
             },
             this.config.retryAttempts,

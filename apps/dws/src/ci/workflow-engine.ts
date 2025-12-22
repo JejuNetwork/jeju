@@ -26,6 +26,9 @@ import type {
   StepRun,
   JejuWorkflowConfig,
   RunStatus,
+  Runner,
+  Artifact,
+  LogEntry,
 } from './types';
 import { BUILTIN_ACTIONS } from './types';
 
@@ -69,7 +72,11 @@ export class WorkflowEngine {
   private workflows: Map<string, Workflow> = new Map(); // workflowId -> Workflow
   private runs: Map<string, WorkflowRun> = new Map(); // runId -> WorkflowRun
   private runQueue: string[] = []; // runIds waiting to execute
+  private runNumbers: Map<string, number> = new Map(); // workflowId -> last run number
   private isProcessing = false;
+  private runners: Map<string, Runner> = new Map(); // runnerId -> Runner
+  private artifacts: Map<string, Artifact[]> = new Map(); // runId -> Artifacts
+  private logSubscribers: Map<string, Array<(entry: LogEntry) => void>> = new Map(); // runId -> callbacks
 
   constructor(
     config: WorkflowEngineConfig,
@@ -98,6 +105,16 @@ export class WorkflowEngine {
         transport: http(config.rpcUrl),
       });
     }
+  }
+
+  /**
+   * Get the next run number for a workflow
+   */
+  private getNextRunNumber(workflowId: Hex): number {
+    const current = this.runNumbers.get(workflowId) || 0;
+    const next = current + 1;
+    this.runNumbers.set(workflowId, next);
+    return next;
   }
 
   /**
@@ -237,6 +254,7 @@ export class WorkflowEngine {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       active: true,
+      source: 'jeju' as const,
     };
   }
 
@@ -249,7 +267,8 @@ export class WorkflowEngine {
     triggeredBy: Address,
     branch: string,
     commitSha: string,
-    _inputs: Record<string, string> = {}
+    inputs: Record<string, string> = {},
+    prNumber?: number
   ): Promise<WorkflowRun> {
     const workflow = this.workflows.get(workflowId);
     if (!workflow) {
@@ -258,10 +277,12 @@ export class WorkflowEngine {
 
     const runId = keccak256(toBytes(`${workflowId}-${Date.now()}-${Math.random()}`));
 
+    const runNumber = this.getNextRunNumber(workflowId);
     const run: WorkflowRun = {
       runId,
       workflowId,
       repoId: workflow.repoId,
+      runNumber,
       triggeredBy,
       triggerType,
       branch,
@@ -278,6 +299,9 @@ export class WorkflowEngine {
           status: 'queued' as RunStatus,
         })),
       })),
+      artifacts: [],
+      inputs,
+      prNumber,
     };
 
     this.runs.set(runId, run);
@@ -308,6 +332,142 @@ export class WorkflowEngine {
    */
   getRepositoryRuns(repoId: Hex): WorkflowRun[] {
     return Array.from(this.runs.values()).filter((run) => run.repoId === repoId);
+  }
+
+  /**
+   * Cancel a workflow run
+   */
+  cancelRun(runId: string): boolean {
+    const run = this.runs.get(runId);
+    if (!run) return false;
+    if (run.status === 'completed' || run.status === 'cancelled' || run.status === 'failed') {
+      return false;
+    }
+    run.status = 'cancelled';
+    run.conclusion = 'cancelled';
+    run.completedAt = Date.now();
+    return true;
+  }
+
+  /**
+   * Get all runners, optionally filtered by labels
+   */
+  getRunners(labels?: string[]): Runner[] {
+    const allRunners = Array.from(this.runners.values());
+    if (!labels || labels.length === 0) {
+      return allRunners;
+    }
+    return allRunners.filter(runner =>
+      labels.every(label => runner.labels.includes(label))
+    );
+  }
+
+  /**
+   * Register a new runner
+   */
+  registerRunner(runner: Omit<Runner, 'status' | 'registeredAt'> & { status?: Runner['status']; registeredAt?: number }): Runner {
+    const fullRunner: Runner = {
+      ...runner,
+      status: runner.status ?? 'idle',
+      registeredAt: runner.registeredAt ?? Date.now(),
+    };
+    this.runners.set(fullRunner.runnerId, fullRunner);
+    return fullRunner;
+  }
+
+  /**
+   * Update runner heartbeat
+   */
+  runnerHeartbeat(runnerId: string): void {
+    const runner = this.runners.get(runnerId);
+    if (runner) {
+      runner.lastHeartbeat = Date.now();
+      if (runner.status === 'offline') {
+        runner.status = 'idle';
+      }
+    }
+  }
+
+  /**
+   * Unregister a runner
+   */
+  unregisterRunner(runnerId: string): boolean {
+    return this.runners.delete(runnerId);
+  }
+
+  /**
+   * Subscribe to logs for a run
+   */
+  subscribeToLogs(runId: string, callback: (entry: LogEntry) => void): () => void {
+    const subscribers = this.logSubscribers.get(runId) ?? [];
+    subscribers.push(callback);
+    this.logSubscribers.set(runId, subscribers);
+    
+    // Return unsubscribe function
+    return () => {
+      const subs = this.logSubscribers.get(runId);
+      if (subs) {
+        const index = subs.indexOf(callback);
+        if (index >= 0) {
+          subs.splice(index, 1);
+        }
+      }
+    };
+  }
+
+  /**
+   * Upload an artifact for a run
+   */
+  async uploadArtifact(
+    runId: string,
+    name: string,
+    content: Buffer,
+    paths: string[],
+    retentionDays: number
+  ): Promise<Artifact> {
+    const artifact: Artifact = {
+      artifactId: crypto.randomUUID(),
+      name,
+      sizeBytes: content.length,
+      cid: keccak256(content).slice(0, 46), // Mock CID from hash
+      createdAt: Date.now(),
+      expiresAt: Date.now() + retentionDays * 24 * 60 * 60 * 1000,
+      paths,
+    };
+
+    const runArtifacts = this.artifacts.get(runId) ?? [];
+    runArtifacts.push(artifact);
+    this.artifacts.set(runId, runArtifacts);
+
+    // Also add to run's artifacts list
+    const run = this.runs.get(runId);
+    if (run) {
+      run.artifacts.push(artifact);
+    }
+
+    return artifact;
+  }
+
+  /**
+   * Get artifacts for a run
+   */
+  getArtifacts(runId: string): Artifact[] {
+    return this.artifacts.get(runId) ?? [];
+  }
+
+  /**
+   * Download an artifact
+   */
+  async downloadArtifact(runId: string, name: string): Promise<Buffer | null> {
+    const artifacts = this.artifacts.get(runId);
+    if (!artifacts) return null;
+    
+    const artifact = artifacts.find(a => a.name === name);
+    if (!artifact) return null;
+
+    // In production, this would fetch from storage backend
+    // For now, return empty buffer as placeholder
+    return Buffer.alloc(0);
   }
 
   /**

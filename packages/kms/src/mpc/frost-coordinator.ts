@@ -33,14 +33,20 @@ interface FROSTCoordinatorInstance {
   sign(messageHash: Hex, participantIndices: number[]): Promise<{ r: Hex; s: Hex; v: number }>;
 }
 
+/** Type guard for FROSTCoordinator constructor from dynamic import */
+function isFROSTCoordinatorType(value: { FROSTCoordinator?: { new (...args: [string, number, number]): object } }): value is { FROSTCoordinator: FROSTCoordinatorType } {
+  return typeof value.FROSTCoordinator === 'function' && value.FROSTCoordinator.length >= 3;
+}
+
 let FROSTCoordinator: FROSTCoordinatorType | null = null;
 
 async function loadFROST(): Promise<void> {
   if (!FROSTCoordinator) {
     const oauth3 = await import('@jejunetwork/oauth3');
-    // Dynamic import requires runtime type assertion - oauth3.FROSTCoordinator implements FROSTCoordinatorType
-    if (!oauth3.FROSTCoordinator) throw new Error('FROSTCoordinator not found in @jejunetwork/oauth3');
-    FROSTCoordinator = oauth3.FROSTCoordinator as unknown as FROSTCoordinatorType;
+    if (!isFROSTCoordinatorType(oauth3)) {
+      throw new Error('FROSTCoordinator not found or invalid in @jejunetwork/oauth3');
+    }
+    FROSTCoordinator = oauth3.FROSTCoordinator;
   }
 }
 

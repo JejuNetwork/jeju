@@ -346,7 +346,8 @@ export function createScrapingRouter(): Hono {
 
   // Run custom function
   router.post('/function', async (c) => {
-    const body = await validateBody(scrapingFunctionRequestSchema, c);
+    // Validate request body for schema compliance
+    await validateBody(scrapingFunctionRequestSchema, c);
 
     // Function execution requires a headless browser
     return c.json({
@@ -390,10 +391,15 @@ async function performScrape(
 
   const html = await response.text();
 
+  const responseHeaders: Record<string, string> = {};
+  response.headers.forEach((value, key) => {
+    responseHeaders[key] = value;
+  });
+
   const result: ScrapingResult = {
     url: request.url,
     statusCode: response.status,
-    headers: Object.fromEntries([...response.headers]),
+    headers: responseHeaders,
     timing: {
       loadTime: Date.now() - startTime,
       domContentLoaded: Date.now() - startTime,

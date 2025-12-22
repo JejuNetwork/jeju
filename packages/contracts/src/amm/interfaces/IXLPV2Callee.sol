@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 /// @title XLP V2 Callee Interface
 /// @notice Interface for flash swap callbacks (Uniswap V2 compatible)

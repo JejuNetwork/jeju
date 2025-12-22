@@ -1,114 +1,17 @@
-interface MetricCounter {
-  labels: Record<string, string>;
-  value: number;
-}
+/**
+ * Prometheus Metrics using prom-client
+ * Replaces custom implementation with battle-tested library
+ */
 
-interface MetricHistogram {
-  labels: Record<string, string>;
-  count: number;
-  sum: number;
-  buckets: Record<number, number>;
-}
+import { Registry, Counter, Histogram, Gauge, collectDefaultMetrics } from 'prom-client';
 
-class MetricsRegistry {
-  private counters = new Map<string, MetricCounter[]>();
-  private histograms = new Map<string, MetricHistogram[]>();
-  private gauges = new Map<string, number>();
+// Create a custom registry
+export const metricsRegistry = new Registry();
 
-  incrementCounter(name: string, labels: Record<string, string> = {}, value = 1): void {
-    const metrics = this.counters.get(name) || [];
-    const existing = metrics.find(m => this.labelsMatch(m.labels, labels));
-    if (existing) {
-      existing.value += value;
-    } else {
-      metrics.push({ labels, value });
-      this.counters.set(name, metrics);
-    }
-  }
+// Collect default Node.js metrics (memory, CPU, event loop, etc.)
+collectDefaultMetrics({ register: metricsRegistry });
 
-  observeHistogram(name: string, labels: Record<string, string>, value: number, buckets: number[] = []): void {
-    const metrics = this.histograms.get(name) || [];
-    let existing = metrics.find(m => this.labelsMatch(m.labels, labels));
-    
-    if (!existing) {
-      existing = { labels, count: 0, sum: 0, buckets: {} };
-      for (const b of buckets) existing.buckets[b] = 0;
-      metrics.push(existing);
-      this.histograms.set(name, metrics);
-    }
-    
-    existing.count++;
-    existing.sum += value;
-    for (const b of Object.keys(existing.buckets).map(Number)) {
-      if (value <= b) existing.buckets[b]++;
-    }
-  }
-
-  setGauge(name: string, value: number): void {
-    this.gauges.set(name, value);
-  }
-
-  getGauge(name: string): number {
-    return this.gauges.get(name) || 0;
-  }
-
-  private labelsMatch(a: Record<string, string>, b: Record<string, string>): boolean {
-    const keysA = Object.keys(a).sort();
-    const keysB = Object.keys(b).sort();
-    if (keysA.length !== keysB.length) return false;
-    return keysA.every((k, i) => k === keysB[i] && a[k] === b[k]);
-  }
-
-  toPrometheusFormat(): string {
-    const lines: string[] = [];
-
-    for (const [name, metrics] of this.counters) {
-      lines.push(`# HELP ${name} counter`);
-      lines.push(`# TYPE ${name} counter`);
-      for (const m of metrics) {
-        const labelStr = Object.entries(m.labels).map(([k, v]) => `${k}="${v}"`).join(',');
-        lines.push(`${name}{${labelStr}} ${m.value}`);
-      }
-    }
-
-    for (const [name, metrics] of this.histograms) {
-      lines.push(`# HELP ${name} histogram`);
-      lines.push(`# TYPE ${name} histogram`);
-      for (const m of metrics) {
-        const labelStr = Object.entries(m.labels).map(([k, v]) => `${k}="${v}"`).join(',');
-        for (const [bucket, count] of Object.entries(m.buckets)) {
-          lines.push(`${name}_bucket{${labelStr},le="${bucket}"} ${count}`);
-        }
-        lines.push(`${name}_bucket{${labelStr},le="+Inf"} ${m.count}`);
-        lines.push(`${name}_sum{${labelStr}} ${m.sum}`);
-        lines.push(`${name}_count{${labelStr}} ${m.count}`);
-      }
-    }
-
-    for (const [name, value] of this.gauges) {
-      lines.push(`# HELP ${name} gauge`);
-      lines.push(`# TYPE ${name} gauge`);
-      lines.push(`${name} ${value}`);
-    }
-
-    return lines.join('\n');
-  }
-
-  getMetrics(): {
-    counters: Record<string, MetricCounter[]>;
-    histograms: Record<string, MetricHistogram[]>;
-    gauges: Record<string, number>;
-  } {
-    return {
-      counters: Object.fromEntries(this.counters),
-      histograms: Object.fromEntries(this.histograms),
-      gauges: Object.fromEntries(this.gauges),
-    };
-  }
-}
-
-const registry = new MetricsRegistry();
-
+// Define metric names
 const METRICS = {
   INTENTS_RECEIVED: 'oif_intents_received_total',
   INTENTS_EVALUATED: 'oif_intents_evaluated_total',
@@ -123,65 +26,146 @@ const METRICS = {
   LIQUIDITY_AVAILABLE: 'oif_liquidity_available_wei',
 } as const;
 
-const DURATION_BUCKETS = [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120];
+// Counters
+const intentsReceivedCounter = new Counter({
+  name: METRICS.INTENTS_RECEIVED,
+  help: 'Total number of intents received',
+  labelNames: ['chain'],
+  registers: [metricsRegistry],
+});
 
+const intentsEvaluatedCounter = new Counter({
+  name: METRICS.INTENTS_EVALUATED,
+  help: 'Total number of intents evaluated',
+  labelNames: ['chain', 'profitable'],
+  registers: [metricsRegistry],
+});
+
+const intentsFilledCounter = new Counter({
+  name: METRICS.INTENTS_FILLED,
+  help: 'Total number of intents filled',
+  labelNames: ['source_chain', 'dest_chain'],
+  registers: [metricsRegistry],
+});
+
+const intentsSkippedCounter = new Counter({
+  name: METRICS.INTENTS_SKIPPED,
+  help: 'Total number of intents skipped',
+  labelNames: ['chain', 'reason'],
+  registers: [metricsRegistry],
+});
+
+const fillGasUsedCounter = new Counter({
+  name: METRICS.FILL_GAS_USED,
+  help: 'Total gas used for fills',
+  labelNames: ['chain'],
+  registers: [metricsRegistry],
+});
+
+const settlementsClaimedCounter = new Counter({
+  name: METRICS.SETTLEMENTS_CLAIMED,
+  help: 'Total number of settlements claimed',
+  labelNames: ['chain'],
+  registers: [metricsRegistry],
+});
+
+const settlementsFailedCounter = new Counter({
+  name: METRICS.SETTLEMENTS_FAILED,
+  help: 'Total number of settlements failed',
+  labelNames: ['chain', 'reason'],
+  registers: [metricsRegistry],
+});
+
+const solverProfitCounter = new Counter({
+  name: METRICS.SOLVER_PROFIT_WEI,
+  help: 'Total solver profit in wei',
+  labelNames: ['chain'],
+  registers: [metricsRegistry],
+});
+
+// Histogram for fill duration
+const fillDurationHistogram = new Histogram({
+  name: METRICS.FILL_DURATION_SECONDS,
+  help: 'Duration of intent fills in seconds',
+  labelNames: ['source_chain', 'dest_chain'],
+  buckets: [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120],
+  registers: [metricsRegistry],
+});
+
+// Gauges
+const settlementsPendingGauge = new Gauge({
+  name: METRICS.SETTLEMENTS_PENDING,
+  help: 'Number of pending settlements',
+  registers: [metricsRegistry],
+});
+
+const liquidityGauges = new Map<number, Gauge<string>>();
+
+function getLiquidityGauge(chainId: number): Gauge<string> {
+  if (!liquidityGauges.has(chainId)) {
+    const gauge = new Gauge({
+      name: `${METRICS.LIQUIDITY_AVAILABLE}_${chainId}`,
+      help: `Available liquidity in wei for chain ${chainId}`,
+      registers: [metricsRegistry],
+    });
+    liquidityGauges.set(chainId, gauge);
+  }
+  return liquidityGauges.get(chainId)!;
+}
+
+// Export metric recording functions
 export function recordIntentReceived(chainId: number): void {
-  registry.incrementCounter(METRICS.INTENTS_RECEIVED, { chain: chainId.toString() });
+  intentsReceivedCounter.inc({ chain: chainId.toString() });
 }
 
 export function recordIntentEvaluated(chainId: number, profitable: boolean): void {
-  registry.incrementCounter(METRICS.INTENTS_EVALUATED, { 
+  intentsEvaluatedCounter.inc({ 
     chain: chainId.toString(), 
     profitable: profitable.toString() 
   });
 }
 
 export function recordIntentFilled(sourceChain: number, destChain: number, durationMs: number, gasUsed: bigint): void {
-  registry.incrementCounter(METRICS.INTENTS_FILLED, { 
+  intentsFilledCounter.inc({ 
     source_chain: sourceChain.toString(),
     dest_chain: destChain.toString()
   });
-  registry.observeHistogram(
-    METRICS.FILL_DURATION_SECONDS, 
+  fillDurationHistogram.observe(
     { source_chain: sourceChain.toString(), dest_chain: destChain.toString() },
-    durationMs / 1000,
-    DURATION_BUCKETS
+    durationMs / 1000
   );
-  registry.incrementCounter(METRICS.FILL_GAS_USED, {
-    chain: destChain.toString()
-  }, Number(gasUsed));
+  fillGasUsedCounter.inc({ chain: destChain.toString() }, Number(gasUsed));
 }
 
 export function recordIntentSkipped(chainId: number, reason: string): void {
-  registry.incrementCounter(METRICS.INTENTS_SKIPPED, { 
+  intentsSkippedCounter.inc({ 
     chain: chainId.toString(),
     reason
   });
 }
 
 export function recordSettlementClaimed(chainId: number, amountWei: bigint): void {
-  registry.incrementCounter(METRICS.SETTLEMENTS_CLAIMED, { chain: chainId.toString() });
-  registry.incrementCounter(METRICS.SOLVER_PROFIT_WEI, { chain: chainId.toString() }, Number(amountWei));
+  settlementsClaimedCounter.inc({ chain: chainId.toString() });
+  solverProfitCounter.inc({ chain: chainId.toString() }, Number(amountWei));
 }
 
 export function recordSettlementFailed(chainId: number, reason: string): void {
-  registry.incrementCounter(METRICS.SETTLEMENTS_FAILED, { chain: chainId.toString(), reason });
+  settlementsFailedCounter.inc({ chain: chainId.toString(), reason });
 }
 
 export function updatePendingSettlements(count: number): void {
-  registry.setGauge(METRICS.SETTLEMENTS_PENDING, count);
+  settlementsPendingGauge.set(count);
 }
 
 export function updateLiquidity(chainId: number, _token: string, amountWei: bigint): void {
-  registry.setGauge(`${METRICS.LIQUIDITY_AVAILABLE}_${chainId}`, Number(amountWei));
+  getLiquidityGauge(chainId).set(Number(amountWei));
 }
 
-export function getPrometheusMetrics(): string {
-  return registry.toPrometheusFormat();
+export async function getPrometheusMetrics(): Promise<string> {
+  return metricsRegistry.metrics();
 }
 
-export function getMetricsJson(): ReturnType<MetricsRegistry['getMetrics']> {
-  return registry.getMetrics();
+export async function getMetricsJson(): Promise<Record<string, unknown>> {
+  const metrics = await metricsRegistry.getMetricsAsJSON();
+  return { metrics };
 }
-
-export const metricsRegistry = registry;

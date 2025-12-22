@@ -5,20 +5,23 @@ skip-lint = false
 [programs.localnet]
 oif_solver = "GYSFWUUKUFAdtv1TgZ3GkGfdCxPNbyRj1jsW8VRK7hBs"
 jeju_launchpad = "6q2T4SEeE2U4XsFNa5piNy6Vzv2qvdZXmAHhQH7BYVJd"
-evm_light_client = "EVMLightCL1111111111111111111111111111111111"
-token_bridge = "TknBridge1111111111111111111111111111111111"
+evm_light_client = "5TMUr2vv5TAUhKo4q8ibfkkw9SeBRzumYaRNo1iWvwsX"
+token_bridge = "36Cx8V6UCkCGuSCjzQuE9oeeqojd9734TKmfnbDGWhCA"
+x402_facilitator = "FEsMtN2PfdzMPYCFLDLth3VxjfrozuzHodV24znt22B7"
 
 [programs.devnet]
 oif_solver = "GYSFWUUKUFAdtv1TgZ3GkGfdCxPNbyRj1jsW8VRK7hBs"
 jeju_launchpad = "6q2T4SEeE2U4XsFNa5piNy6Vzv2qvdZXmAHhQH7BYVJd"
-evm_light_client = "EVMLightCL1111111111111111111111111111111111"
-token_bridge = "TknBridge1111111111111111111111111111111111"
+evm_light_client = "5TMUr2vv5TAUhKo4q8ibfkkw9SeBRzumYaRNo1iWvwsX"
+token_bridge = "36Cx8V6UCkCGuSCjzQuE9oeeqojd9734TKmfnbDGWhCA"
+x402_facilitator = "FEsMtN2PfdzMPYCFLDLth3VxjfrozuzHodV24znt22B7"
 
 [programs.mainnet]
 oif_solver = "GYSFWUUKUFAdtv1TgZ3GkGfdCxPNbyRj1jsW8VRK7hBs"
 jeju_launchpad = "6q2T4SEeE2U4XsFNa5piNy6Vzv2qvdZXmAHhQH7BYVJd"
-evm_light_client = "EVMLightCL1111111111111111111111111111111111"
-token_bridge = "TknBridge1111111111111111111111111111111111"
+evm_light_client = "5TMUr2vv5TAUhKo4q8ibfkkw9SeBRzumYaRNo1iWvwsX"
+token_bridge = "36Cx8V6UCkCGuSCjzQuE9oeeqojd9734TKmfnbDGWhCA"
+x402_facilitator = "FEsMtN2PfdzMPYCFLDLth3VxjfrozuzHodV24znt22B7"
 
 [registry]
 url = "https://api.apr.dev"

@@ -1,13 +1,12 @@
 import type { PublicClient, WalletClient } from 'viem';
 import { isNativeToken } from './contracts';
+import { ZERO_ADDRESS } from '../lib/contracts.js';
 
 interface LiquidityConfig {
   chains: Array<{ chainId: number; name: string }>;
   refreshIntervalMs?: number;
   verbose?: boolean;
 }
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000';
 
 export class LiquidityManager {
   private config: LiquidityConfig;

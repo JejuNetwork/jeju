@@ -14,12 +14,15 @@ export interface LoadTestConfig {
   scenarios?: LoadTestScenario[];
 }
 
+// JSON serializable body type for load test scenarios
+type JsonValue = string | number | boolean | null | JsonValue[] | { [key: string]: JsonValue };
+
 export interface LoadTestScenario {
   name: string;
   weight: number;                    // Probability weight (0-100)
   method: string;
   path: string;
-  body?: unknown;
+  body?: JsonValue;
   headers?: Record<string, string>;
   validate?: (response: Response) => boolean;
 }
@@ -65,9 +68,6 @@ interface RequestResult {
  */
 export async function runLoadTest(config: LoadTestConfig): Promise<LoadTestResult> {
   const results: RequestResult[] = [];
-  const startTime = Date.now();
-  const endTime = startTime + config.duration * 1000;
-  const interval = 1000 / config.rps;
   
   const scenarios = config.scenarios ?? [
     { name: 'default', weight: 100, method: 'GET', path: '/health' }

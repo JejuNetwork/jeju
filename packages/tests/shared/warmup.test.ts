@@ -310,20 +310,20 @@ describe('Warmup - Real World Discovery', () => {
     const apps = discoverAppsForWarmup(workspaceRoot);
 
     // Only test if we're in the actual jeju workspace
-    if (existsSync(join(workspaceRoot, 'apps'))) {
-      expect(apps.length).toBeGreaterThan(0);
+    if (!existsSync(join(workspaceRoot, 'apps'))) {
+      console.log('Skipping: not in jeju workspace');
+      return;
+    }
+    
+    expect(apps.length).toBeGreaterThan(0);
 
-      // Verify structure
-      for (const app of apps) {
-        expect(app.name).toBeTruthy();
-        expect(typeof app.port).toBe('number');
-        expect(app.port).toBeGreaterThan(0);
-        expect(app.routes).toBeInstanceOf(Array);
-        expect(typeof app.isNextJs).toBe('boolean');
-      }
-    } else {
-      // Skip test if not in jeju workspace
-      test.skip('Not in jeju workspace');
+    // Verify structure
+    for (const app of apps) {
+      expect(app.name).toBeTruthy();
+      expect(typeof app.port).toBe('number');
+      expect(app.port).toBeGreaterThan(0);
+      expect(app.routes).toBeInstanceOf(Array);
+      expect(typeof app.isNextJs).toBe('boolean');
     }
   });
 

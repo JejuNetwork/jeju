@@ -1,6 +1,7 @@
 import type { Address } from 'viem';
 import { recoverAddress, hashMessage } from 'viem';
 import { x402State, initializeState } from '../../services/state.js';
+import { ZERO_ADDRESS } from '../../lib/contracts.js';
 
 export type X402Network = 'sepolia' | 'base' | 'base-sepolia' | 'ethereum' | 'jeju' | 'jeju-testnet';
 
@@ -36,8 +37,6 @@ interface X402PaymentProof {
   network: string;
   signature: string;
 }
-
-const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000' as Address;
 const PAYMENT_RECIPIENT = (process.env.RPC_PAYMENT_RECIPIENT || ZERO_ADDRESS) as Address;
 const X402_ENABLED = process.env.X402_ENABLED !== 'false';
 

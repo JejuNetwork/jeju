@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { AddressSchema } from '@jejunetwork/types'
 import {
   BigIntSchema,
   DateSchema,

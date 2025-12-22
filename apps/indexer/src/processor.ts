@@ -114,14 +114,35 @@ export const processor = new EvmBatchProcessor()
             topics: true,          // Indexed event parameters (topic0 = event signature)
             transactionHash: true, // Parent transaction hash
         },
-        /** Trace fields (internal transactions) */
+        /** Trace fields (internal transactions) - uses prefixed field names per trace type */
         trace: {
-            type: true,         // call, create, suicide, reward
-            action: true,       // Call parameters
-            result: true,       // Call results
             error: true,        // Revert reason if failed
             subtraces: true,    // Number of child traces
-            traceAddress: true, // Position in trace tree
+            // Call trace fields (type: 'call') - selector is call + Capitalized(fieldName)
+            callFrom: true,
+            callTo: true,
+            callValue: true,
+            callGas: true,
+            callInput: true,
+            callCallType: true,         // call, delegatecall, staticcall, callcode
+            callResultGasUsed: true,
+            callResultOutput: true,
+            // Create trace fields (type: 'create')
+            createFrom: true,
+            createValue: true,
+            createGas: true,
+            createInit: true,
+            createResultAddress: true,
+            createResultCode: true,
+            createResultGasUsed: true,
+            // Suicide trace fields (type: 'suicide')
+            suicideAddress: true,
+            suicideRefundAddress: true,
+            suicideBalance: true,
+            // Reward trace fields (type: 'reward')
+            rewardAuthor: true,
+            rewardValue: true,
+            rewardRewardType: true,     // Field is rewardType, selector is reward + RewardType
         }
     })
     /**

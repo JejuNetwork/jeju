@@ -2,11 +2,16 @@
  * MCP Server Factory - Model Context Protocol
  * 
  * Creates MCP servers for dApps.
+ * Note: For new implementations, prefer createUnifiedServer from './server'
  */
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import type { Address } from 'viem';
+import type { ProtocolData, ProtocolValue } from '../types';
+import type { MCPResource, MCPTool, MCPPrompt } from './server';
+
+export type { MCPResource, MCPTool, MCPPrompt };
 
 export interface MCPConfig {
   name: string;
@@ -15,32 +20,9 @@ export interface MCPConfig {
   resources: MCPResource[];
   tools: MCPTool[];
   prompts?: MCPPrompt[];
-  readResource: (uri: string, address: Address) => Promise<unknown>;
-  callTool: (name: string, args: Record<string, unknown>, address: Address) => Promise<{ result: unknown; isError: boolean }>;
+  readResource: (uri: string, address: Address) => Promise<ProtocolValue>;
+  callTool: (name: string, args: ProtocolData, address: Address) => Promise<{ result: ProtocolValue; isError: boolean }>;
   getPrompt?: (name: string, args: Record<string, string>, address: Address) => Promise<MCPPromptResult>;
-}
-
-export interface MCPResource {
-  uri: string;
-  name: string;
-  description: string;
-  mimeType?: string;
-}
-
-export interface MCPTool {
-  name: string;
-  description: string;
-  inputSchema: {
-    type: string;
-    properties: Record<string, { type: string; description?: string; enum?: string[] }>;
-    required?: string[];
-  };
-}
-
-export interface MCPPrompt {
-  name: string;
-  description: string;
-  arguments: Array<{ name: string; description: string; required?: boolean }>;
 }
 
 export interface MCPPromptResult {
@@ -98,7 +80,7 @@ export function createMCPServer(config: MCPConfig): Hono {
 
   // Call tool
   app.post('/tools/call', async (c) => {
-    const { name, arguments: args } = await c.req.json() as { name: string; arguments: Record<string, unknown> };
+    const { name, arguments: args } = await c.req.json() as { name: string; arguments: ProtocolData };
     const address = c.req.header('x-jeju-address') as Address;
 
     if (!address) {

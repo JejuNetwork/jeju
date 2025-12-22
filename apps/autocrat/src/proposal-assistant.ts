@@ -13,11 +13,12 @@ import { privateKeyToAccount } from 'viem/accounts';
 import { AutocratBlockchain } from './blockchain';
 import { indexProposal, findSimilarProposals } from './local-services';
 import { checkDWSCompute, dwsGenerate } from './agents/runtime';
-import { parseJson } from './utils';
+import { parseJson, type QualityCriteria } from './shared';
 import { CasualProposalCategory, type CEOPersona, type GovernanceParams } from './types';
 
-// Re-export the enum for convenience
+// Re-export the enum and QualityCriteria for convenience
 export { CasualProposalCategory };
+export type { QualityCriteria };
 
 // ============ Types ============
 
@@ -44,16 +45,6 @@ export interface CasualSubmission {
   stake?: bigint;
   linkedPackageId?: string;
   linkedRepoId?: string;
-}
-
-export interface QualityCriteria {
-  clarity: number;
-  completeness: number;
-  feasibility: number;
-  alignment: number;
-  impact: number;
-  riskAssessment: number;
-  costBenefit: number;
 }
 
 export interface QualityAssessment {

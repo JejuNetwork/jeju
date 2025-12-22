@@ -4,6 +4,20 @@
 
 import { z } from 'zod';
 
+/**
+ * Parse JSON from LLM response that may include markdown code fences
+ */
+export function parseJson<T>(response: string): T | null {
+  const cleaned = response.replace(/```json\s*/gi, '').replace(/```\s*/g, '');
+  const match = cleaned.match(/\{[\s\S]*\}/);
+  if (!match) return null;
+  try {
+    return JSON.parse(match[0]);
+  } catch {
+    return null;
+  }
+}
+
 export const COUNCIL_ABI = [
   'function getProposal(bytes32) view returns (tuple(bytes32, address, uint256, uint8, uint8, uint8, uint256, uint256, uint256, bytes32, address, bytes, uint256, uint256, uint256, uint256, bool, bytes32, bool, bytes32))',
   'function getAutocratVotes(bytes32) view returns (tuple(bytes32, address, uint8, uint8, bytes32, uint256, uint256)[])',

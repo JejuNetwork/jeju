@@ -3,7 +3,7 @@
  */
 
 import type { Address, Hex } from 'viem';
-import type { Runner, RunnerCapabilities, WorkflowRun, JobRun, WorkflowJob } from './types';
+import type { Runner, RunnerCapabilities, JobRun, WorkflowJob } from './types';
 
 interface ComputeNode {
   nodeId: string;
@@ -104,12 +104,12 @@ export class RunnerManager {
 
     const runner = this.getOrCreateRunner(node, labels);
     runner.status = 'busy';
-    runner.currentRun = { runId: request.runId, jobId: request.jobId };
+    runner.currentRun = { runId: request.runId, jobId: request.job.jobId };
 
     const dispatch: JobDispatch = {
       dispatchId: crypto.randomUUID(),
       runId: request.runId,
-      jobId: request.jobId,
+      jobId: request.job.jobId,
       runnerId: runner.runnerId,
       nodeId: node.nodeId,
       status: 'dispatched',
@@ -216,7 +216,7 @@ export class RunnerManager {
 
     const workflowPayload = {
       runId: request.runId,
-      jobId: request.jobId,
+      jobId: request.job.jobId,
       job: request.job,
       secrets: request.secrets || {},
       env: {

@@ -2,14 +2,18 @@
  * TEE Service for Council CEO Decisions
  *
  * Provides encrypted AI decision-making with:
- * - Local TEE simulation (or connect to your own TEE_ENDPOINT)
+ * - dstack TEE (hardware or simulator mode)
  * - Jeju KMS for encryption
  * - DA layer backup for persistence
+ *
+ * In local development, uses dstack in simulator mode.
+ * In production, requires hardware TEE (Intel TDX or AMD SEV).
  */
 
 import { z } from 'zod';
-import { keccak256, stringToHex } from 'viem';
+import { keccak256, stringToHex, type Hex } from 'viem';
 import { randomBytes, createCipheriv, createDecipheriv } from 'crypto';
+import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config';
 import {
   encryptDecision,
   backupToDA,
@@ -17,15 +21,17 @@ import {
   type DecisionData,
   type EncryptedData,
 } from './encryption';
+import type { TEEAttestation } from './types';
 
-// Schemas for JSON parsing
+// ============ Schemas ============
+
 const EncryptedCipherSchema = z.object({
   ciphertext: z.string(),
   iv: z.string(),
   tag: z.string(),
 });
 
-const RemoteTEEResponseSchema = z.object({
+const DStackResponseSchema = z.object({
   approved: z.boolean(),
   reasoning: z.string(),
   confidence: z.number(),
@@ -34,14 +40,18 @@ const RemoteTEEResponseSchema = z.object({
   attestation: z.object({
     quote: z.string(),
     measurement: z.string(),
-  }).optional(),
+    platform: z.enum(['intel_tdx', 'amd_sev', 'simulator']),
+    timestamp: z.number(),
+  }),
 });
-
-const DecryptedReasoningSchema = z.record(z.string(), z.unknown());
 
 const AttestationVerifyResponseSchema = z.object({
   verified: z.boolean(),
+  platform: z.string().optional(),
+  measurement: z.string().optional(),
 });
+
+// ============ Types ============
 
 export interface TEEDecisionContext {
   proposalId: string;
@@ -64,26 +74,49 @@ export interface TEEDecisionResult {
   daBackupHash?: string;
 }
 
-export interface TEEAttestation {
-  provider: 'local' | 'remote';
-  quote?: string;
-  measurement?: string;
-  timestamp: number;
-  verified: boolean;
+type TEEPlatform = 'intel_tdx' | 'amd_sev' | 'simulator' | 'none';
+type TEEMode = 'dstack' | 'local';
+
+// ============ Configuration ============
+
+// dstack endpoint - defaults to DWS compute which runs dstack
+function getDStackEndpoint(): string {
+  return process.env.DSTACK_ENDPOINT ?? process.env.DWS_URL ?? getDWSComputeUrl();
 }
 
-const TEE_ENDPOINT = process.env.TEE_ENDPOINT;
+function getTEEPlatform(): TEEPlatform {
+  const platform = process.env.TEE_PLATFORM as TEEPlatform | undefined;
+  if (platform && ['intel_tdx', 'amd_sev', 'simulator', 'none'].includes(platform)) {
+    return platform;
+  }
+  
+  // Auto-detect based on network
+  const network = getCurrentNetwork();
+  switch (network) {
+    case 'mainnet':
+      return 'intel_tdx'; // Production requires hardware TEE
+    case 'testnet':
+      return 'simulator'; // Testnet uses simulator for testing
+    default:
+      return 'simulator'; // Local dev uses simulator
+  }
+}
+
 const USE_ENCRYPTION = process.env.USE_ENCRYPTION !== 'false';
 const BACKUP_TO_DA = process.env.BACKUP_TO_DA !== 'false';
+
+// ============ Encryption (for local encrypted mode) ============
 
 function getDerivedKey(): Buffer {
   const secret = process.env.TEE_ENCRYPTION_SECRET;
   if (!secret) {
-    if (process.env.NODE_ENV === 'production') {
-      throw new Error('TEE_ENCRYPTION_SECRET is required in production mode');
+    const network = getCurrentNetwork();
+    if (network === 'mainnet') {
+      throw new Error('TEE_ENCRYPTION_SECRET is required in production');
     }
-    console.warn('[TEE] WARNING: Using default dev encryption key - NOT for production use');
-    const devSecret = 'council-local-dev-key';
+    // Dev/test mode - use derived key
+    console.warn('[TEE] Using derived dev key (not for production)');
+    const devSecret = `council-${network}-key`;
     const hash = keccak256(stringToHex(devSecret));
     return Buffer.from(hash.slice(2, 66), 'hex');
   }
@@ -109,14 +142,32 @@ function decrypt(ciphertext: string, iv: string, tag: string): string {
   return decrypted;
 }
 
-function analyzeVotes(votes: TEEDecisionContext['autocratVotes']): { approves: number; rejects: number; total: number; consensusRatio: number } {
+// ============ Vote Analysis ============
+
+function analyzeVotes(votes: TEEDecisionContext['autocratVotes']): { 
+  approves: number; 
+  rejects: number; 
+  total: number; 
+  consensusRatio: number;
+} {
   const approves = votes.filter(v => v.vote === 'APPROVE').length;
   const rejects = votes.filter(v => v.vote === 'REJECT').length;
   const total = votes.length;
-  return { approves, rejects, total, consensusRatio: Math.max(approves, rejects) / Math.max(total, 1) };
+  return { 
+    approves, 
+    rejects, 
+    total, 
+    consensusRatio: Math.max(approves, rejects) / Math.max(total, 1) 
+  };
 }
 
-function makeDecision(context: TEEDecisionContext): { approved: boolean; reasoning: string; confidence: number; alignment: number; recommendations: string[] } {
+function makeDecision(context: TEEDecisionContext): { 
+  approved: boolean; 
+  reasoning: string; 
+  confidence: number; 
+  alignment: number; 
+  recommendations: string[];
+} {
   const { approves, rejects, total, consensusRatio } = analyzeVotes(context.autocratVotes);
   const approved = approves > rejects && approves >= total / 2;
   return {
@@ -126,26 +177,46 @@ function makeDecision(context: TEEDecisionContext): { approved: boolean; reasoni
       : `Rejected with ${rejects}/${total} council votes against.`,
     confidence: Math.round(50 + consensusRatio * 50),
     alignment: approved ? 80 : 40,
-    recommendations: approved ? ['Proceed with implementation'] : ['Address council concerns', 'Resubmit with modifications'],
+    recommendations: approved 
+      ? ['Proceed with implementation'] 
+      : ['Address council concerns', 'Resubmit with modifications'],
   };
 }
 
-async function callRemoteTEE(context: TEEDecisionContext): Promise<TEEDecisionResult> {
-  if (!TEE_ENDPOINT) throw new Error('TEE_ENDPOINT required for remote TEE');
+// ============ dstack TEE Integration ============
 
-  const response = await fetch(`${TEE_ENDPOINT}/decide`, {
+async function callDStack(context: TEEDecisionContext): Promise<TEEDecisionResult> {
+  const endpoint = getDStackEndpoint();
+  const platform = getTEEPlatform();
+  
+  console.log(`[TEE] Calling dstack at ${endpoint} (platform: ${platform})`);
+  
+  const response = await fetch(`${endpoint}/tee/decide`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ context }),
+    body: JSON.stringify({ 
+      context,
+      platform,
+      attestationRequired: platform !== 'simulator',
+    }),
     signal: AbortSignal.timeout(30000),
   });
 
-  if (!response.ok) throw new Error(`TEE decision failed: ${response.status}`);
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`dstack TEE decision failed: ${response.status} - ${error}`);
+  }
 
   const rawData = await response.json();
-  const data = RemoteTEEResponseSchema.parse(rawData);
+  const data = DStackResponseSchema.parse(rawData);
 
-  const internalData = JSON.stringify({ context, decision: data, timestamp: Date.now() });
+  // Encrypt internal data
+  const internalData = JSON.stringify({ 
+    context, 
+    decision: data, 
+    timestamp: Date.now(),
+    platform: data.attestation.platform,
+  });
   const encrypted = encrypt(internalData);
   const encryptedReasoning = JSON.stringify(encrypted);
 
@@ -157,13 +228,27 @@ async function callRemoteTEE(context: TEEDecisionContext): Promise<TEEDecisionRe
     confidenceScore: data.confidence,
     alignmentScore: data.alignment,
     recommendations: data.recommendations,
-    attestation: { provider: 'remote', quote: data.attestation?.quote, measurement: data.attestation?.measurement, timestamp: Date.now(), verified: true },
+    attestation: { 
+      provider: data.attestation.platform === 'simulator' ? 'local' : 'remote',
+      quote: data.attestation.quote, 
+      measurement: data.attestation.measurement, 
+      timestamp: data.attestation.timestamp, 
+      verified: true,
+    },
   };
 }
 
+// ============ Local Fallback (when dstack unavailable) ============
+
 function makeLocalDecision(context: TEEDecisionContext): TEEDecisionResult {
   const { approved, reasoning, confidence, alignment, recommendations } = makeDecision(context);
-  const internalData = JSON.stringify({ context, decision: approved ? 'APPROVE' : 'REJECT', timestamp: Date.now(), mode: 'local' });
+  
+  const internalData = JSON.stringify({ 
+    context, 
+    decision: approved ? 'APPROVE' : 'REJECT', 
+    timestamp: Date.now(), 
+    mode: 'local-fallback',
+  });
   const encrypted = encrypt(internalData);
   const encryptedReasoning = JSON.stringify(encrypted);
 
@@ -175,29 +260,59 @@ function makeLocalDecision(context: TEEDecisionContext): TEEDecisionResult {
     confidenceScore: confidence,
     alignmentScore: alignment,
     recommendations,
-    attestation: { provider: 'local', quote: keccak256(stringToHex(`local:${Date.now()}`)), timestamp: Date.now(), verified: true },
+    attestation: { 
+      provider: 'local', 
+      quote: keccak256(stringToHex(`local:${Date.now()}`)), 
+      timestamp: Date.now(), 
+      verified: true,
+    },
   };
 }
 
-export function getTEEMode(): 'local' | 'remote' {
-  return TEE_ENDPOINT ? 'remote' : 'local';
+// ============ Public API ============
+
+export function getTEEMode(): TEEMode {
+  const platform = getTEEPlatform();
+  // Only use local mode if explicitly set to 'none'
+  return platform === 'none' ? 'local' : 'dstack';
+}
+
+export function getTEEInfo(): { mode: TEEMode; platform: TEEPlatform; endpoint: string } {
+  return {
+    mode: getTEEMode(),
+    platform: getTEEPlatform(),
+    endpoint: getDStackEndpoint(),
+  };
 }
 
 export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEEDecisionResult> {
   const mode = getTEEMode();
+  const platform = getTEEPlatform();
   let result: TEEDecisionResult;
 
-  if (mode === 'remote') {
-    console.log('[TEE] Using remote TEE at', TEE_ENDPOINT);
-    result = await callRemoteTEE(context);
+  if (mode === 'dstack') {
+    console.log(`[TEE] Using dstack TEE (platform: ${platform})`);
+    try {
+      result = await callDStack(context);
+    } catch (err) {
+      // In local dev, fall back to local decision if dstack not running
+      const network = getCurrentNetwork();
+      if (network === 'localnet') {
+        console.warn(`[TEE] dstack unavailable, using local mode: ${err instanceof Error ? err.message : 'unknown'}`);
+        result = makeLocalDecision(context);
+      } else {
+        throw err; // In testnet/mainnet, don't fallback
+      }
+    }
   } else {
-    console.log('[TEE] Using local encrypted mode');
+    console.log('[TEE] Using local encrypted mode (no TEE)');
     result = makeLocalDecision(context);
   }
 
+  // Apply additional encryption layer via KMS
   if (USE_ENCRYPTION) {
     const encryptionStatus = getEncryptionStatus();
-    console.log(`[TEE] Encryption: ${encryptionStatus.provider}`);
+    console.log(`[TEE] KMS encryption: ${encryptionStatus.provider}`);
 
     const decisionData: DecisionData = {
       proposalId: context.proposalId,
@@ -207,14 +322,15 @@ export async function makeTEEDecision(context: TEEDecisionContext): Promise<TEED
       alignmentScore: result.alignmentScore,
       autocratVotes: context.autocratVotes,
       researchSummary: context.researchReport,
-      model: mode === 'remote' ? 'remote-tee' : 'local',
+      model: mode === 'dstack' ? `dstack-${platform}` : 'local',
       timestamp: Date.now(),
     };
 
     result.encrypted = await encryptDecision(decisionData);
-    console.log('[TEE] Decision encrypted');
+    console.log('[TEE] Decision encrypted via KMS');
   }
 
+  // Backup to DA layer
   if (BACKUP_TO_DA && result.encrypted) {
     const backup = await backupToDA(context.proposalId, result.encrypted);
     result.daBackupHash = backup.hash;
@@ -228,19 +344,23 @@ export function decryptReasoning(encryptedReasoning: string): Record<string, unk
   const rawParsed = JSON.parse(encryptedReasoning);
   const { ciphertext, iv, tag } = EncryptedCipherSchema.parse(rawParsed);
   const decrypted = JSON.parse(decrypt(ciphertext, iv, tag));
-  return DecryptedReasoningSchema.parse(decrypted);
+  return z.record(z.string(), z.unknown()).parse(decrypted);
 }
 
 export async function verifyAttestation(attestation: TEEAttestation): Promise<boolean> {
-  if (attestation.provider === 'local') return true;
-  if (!TEE_ENDPOINT) {
-    throw new Error('TEE_ENDPOINT is required for remote attestation verification');
+  if (attestation.provider === 'local') {
+    return true; // Local attestations are always "valid"
   }
   
-  const response = await fetch(`${TEE_ENDPOINT}/verify`, {
+  const endpoint = getDStackEndpoint();
+  
+  const response = await fetch(`${endpoint}/tee/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ quote: attestation.quote }),
+    body: JSON.stringify({ 
+      quote: attestation.quote,
+      measurement: attestation.measurement,
+    }),
     signal: AbortSignal.timeout(10000),
   });
   

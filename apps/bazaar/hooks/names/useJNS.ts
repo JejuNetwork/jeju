@@ -10,7 +10,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi';
 import { type Address, type Hash, formatEther, parseEther, namehash, keccak256, toBytes } from 'viem';
-import { AddressSchema } from '@jejunetwork/types/contracts';
+import { AddressSchema } from '@jejunetwork/types';
 import { expect, expectTrue, expectPositive } from '@/lib/validation';
 import { NonEmptyStringSchema } from '@/schemas/common';
 import { CONTRACTS } from '@/config';

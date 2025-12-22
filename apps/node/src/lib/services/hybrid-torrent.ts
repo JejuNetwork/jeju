@@ -18,7 +18,13 @@ let WebTorrent: WebTorrentConstructor | null = null;
 async function loadWebTorrent(): Promise<WebTorrentConstructor> {
   if (WebTorrent) return WebTorrent;
   const mod = await import('webtorrent');
-  WebTorrent = mod.default as unknown as WebTorrentConstructor;
+  // WebTorrent exports its constructor as default
+  // The module types don't match our interface exactly, cast through unknown for compatibility
+  const WT = mod.default as unknown as WebTorrentConstructor;
+  if (typeof WT !== 'function') {
+    throw new Error('WebTorrent module did not export expected constructor');
+  }
+  WebTorrent = WT;
   return WebTorrent;
 }
 
@@ -262,7 +268,7 @@ function base58Encode(buffer: Buffer): string {
 
 export class HybridTorrentService {
   private config: HybridTorrentConfig;
-  private client: WebTorrentInstance;
+  private client: WebTorrentInstance | null = null;
   private records = new LRUCache<string, TorrentRecord>({
     max: 10000,
     ttl: 24 * 60 * 60 * 1000, // 24 hours
@@ -294,7 +300,6 @@ export class HybridTorrentService {
     });
 
     // WebTorrent client is initialized lazily in start()
-    this.client = null as unknown as WebTorrentInstance;
 
     // Setup on-chain integration
     if (this.config.rpcUrl && this.config.contentRegistryAddress) {
@@ -308,6 +313,14 @@ export class HybridTorrentService {
         this.contentRegistryAddress = this.config.contentRegistryAddress;
       }
     }
+  }
+
+  /** Get the initialized client or throw if not ready */
+  private getClient(): WebTorrentInstance {
+    if (!this.client) {
+      throw new Error('WebTorrent client not initialized. Call start() first.');
+    }
+    return this.client;
   }
 
   private async initClient(): Promise<void> {
@@ -376,9 +389,11 @@ export class HybridTorrentService {
 
     // Destroy WebTorrent client
     if (this.client) {
+      const client = this.client;
       await new Promise<void>((resolve) => {
-        this.client.destroy(() => resolve());
+        client.destroy(() => resolve());
       });
+      this.client = null;
     }
 
     console.log('[HybridTorrent] Stopped');
@@ -391,11 +406,12 @@ export class HybridTorrentService {
         res.end(await metricsRegistry.metrics());
       } else if (req.url === '/health') {
         res.setHeader('Content-Type', 'application/json');
+        const client = this.client;
         res.end(
           JSON.stringify({
             status: this.running ? 'healthy' : 'stopped',
-            torrents: this.client.torrents.length,
-            peers: this.client.torrents.reduce((sum: number, t: WebTorrentTorrent) => sum + t.numPeers, 0),
+            torrents: client?.torrents.length ?? 0,
+            peers: client?.torrents.reduce((sum: number, t: WebTorrentTorrent) => sum + t.numPeers, 0) ?? 0,
           })
         );
       } else {
@@ -416,12 +432,13 @@ export class HybridTorrentService {
   // ============================================================================
 
   async addTorrent(magnetOrInfohash: string, expectedContentHash?: string): Promise<TorrentStats> {
+    const client = this.getClient();
     const magnetUri = magnetOrInfohash.startsWith('magnet:')
       ? magnetOrInfohash
       : `magnet:?xt=urn:btih:${magnetOrInfohash}`;
 
     return new Promise((resolve, reject) => {
-      const torrent = this.client.add(magnetUri, {
+      const torrent = client.add(magnetUri, {
         announce: this.config.trackers,
       });
 
@@ -454,7 +471,7 @@ export class HybridTorrentService {
         });
 
         // Update metrics
-        torrentActiveCount.set(this.client.torrents.length);
+        torrentActiveCount.set(client.torrents.length);
 
         // Track uploads
         torrent.on('upload', (bytes: number) => {
@@ -474,7 +491,7 @@ export class HybridTorrentService {
           const record = this.records.get(infohash);
           if (record) record.peersServed.add(wire.peerId);
           torrentPeersTotal.set(
-            this.client.torrents.reduce((sum: number, t: WebTorrentTorrent) => sum + t.numPeers, 0)
+            client.torrents.reduce((sum: number, t: WebTorrentTorrent) => sum + t.numPeers, 0)
           );
         });
 
@@ -521,13 +538,14 @@ export class HybridTorrentService {
       }
     }
 
+    const client = this.getClient();
     return new Promise((resolve, reject) => {
       // Cast options - WebTorrent types are overly restrictive
       const opts = {
         announce: this.config.trackers,
         name: name ?? `content-${Date.now()}`,
-      } as Parameters<typeof this.client.seed>[1];
-      const torrent = this.client.seed(data, opts);
+      } as Parameters<typeof client.seed>[1];
+      const torrent = client.seed(data, opts);
 
       torrent.on('ready', () => {
         const infohash = torrent.infoHash;
@@ -543,7 +561,7 @@ export class HybridTorrentService {
           verified: true, // We verified before seeding
         });
 
-        torrentActiveCount.set(this.client.torrents.length);
+        torrentActiveCount.set(client.torrents.length);
 
         torrent.on('upload', (bytes: number) => {
           const record = this.records.get(infohash);
@@ -570,10 +588,11 @@ export class HybridTorrentService {
   }
 
   removeTorrent(infohash: string): void {
-    const torrent = this.client.get(infohash);
+    const client = this.getClient();
+    const torrent = client.get(infohash);
     if (torrent) torrent.destroy();
     this.records.delete(infohash);
-    torrentActiveCount.set(this.client.torrents.length);
+    torrentActiveCount.set(client.torrents.length);
 
     if (this.contentRegistryAddress) {
       this.unregisterSeeding(infohash).catch(console.error);
@@ -581,7 +600,8 @@ export class HybridTorrentService {
   }
 
   getTorrentStats(infohash: string): TorrentStats {
-    const torrent = this.client.get(infohash);
+    const client = this.getClient();
+    const torrent = client.get(infohash);
     if (!torrent) throw new Error(`Torrent not found: ${infohash}`);
 
     const record = this.records.get(infohash);
@@ -603,7 +623,8 @@ export class HybridTorrentService {
   }
 
   getAllStats(): TorrentStats[] {
-    return this.client.torrents.map((t) => this.getTorrentStats(t.infoHash));
+    const client = this.getClient();
+    return client.torrents.map((t) => this.getTorrentStats(t.infoHash));
   }
 
   getGlobalStats(): {
@@ -615,13 +636,14 @@ export class HybridTorrentService {
     peers: number;
     uptime: number;
   } {
+    const client = this.getClient();
     let totalDownload = 0;
     let totalUpload = 0;
     let downloadSpeed = 0;
     let uploadSpeed = 0;
     let peers = 0;
 
-    for (const torrent of this.client.torrents) {
+    for (const torrent of client.torrents) {
       totalDownload += torrent.downloaded;
       totalUpload += torrent.uploaded;
       downloadSpeed += torrent.downloadSpeed;
@@ -630,7 +652,7 @@ export class HybridTorrentService {
     }
 
     return {
-      torrentsActive: this.client.torrents.length,
+      torrentsActive: client.torrents.length,
       totalDownload,
       totalUpload,
       downloadSpeed,
@@ -641,7 +663,8 @@ export class HybridTorrentService {
   }
 
   async getContent(infohash: string): Promise<Buffer> {
-    const torrent = this.client.get(infohash);
+    const client = this.getClient();
+    const torrent = client.get(infohash);
     if (!torrent) throw new Error(`Torrent not found: ${infohash}`);
     if (!torrent.done) throw new Error('Torrent download not complete');
 

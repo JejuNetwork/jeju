@@ -1,5 +1,4 @@
 import { Hono } from 'hono';
-import type { InferenceRequest } from '../../types';
 import type { Address } from 'viem';
 import { computeJobState } from '../../state.js';
 import type { JobStatus } from '@jejunetwork/types';
@@ -11,7 +10,7 @@ import {
   updateNodeHeartbeat,
   type InferenceNode 
 } from '../../compute/inference-node';
-import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, createJobRequestSchema, jobParamsSchema, jobListQuerySchema, inferenceRequestSchema, embeddingsRequestSchema, trainingNodeRegistrationSchema, trainingRunsQuerySchema, trainingRunParamsSchema, nodeParamsSchema, trainingRunSchema, z } from '../../shared';
+import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, createJobRequestSchema, jobParamsSchema, jobListQuerySchema, inferenceRequestSchema, embeddingsRequestSchema, trainingNodeRegistrationSchema, trainingRunsQuerySchema, trainingRunParamsSchema, trainingRunSchema, nodeParamsSchema, z } from '../../shared';
 
 interface ComputeJob {
   jobId: string;
@@ -31,7 +30,6 @@ interface ComputeJob {
 // Active jobs tracking (for in-process execution)
 const activeJobs = new Set<string>();
 const MAX_CONCURRENT = 5;
-const DEFAULT_TIMEOUT = 300000;
 
 // State initialization is handled by main server startup
 
@@ -352,7 +350,7 @@ async function processQueue(): Promise<void> {
     env: JSON.parse(next.env),
     workingDir: next.working_dir ?? undefined,
     timeout: next.timeout,
-    status: 'running',
+    status: 'in_progress',
     output: '',
     exitCode: null,
     startedAt: Date.now(),

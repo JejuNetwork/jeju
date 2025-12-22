@@ -5,7 +5,7 @@
  */
 
 import { z } from 'zod';
-import { AddressSchema } from '@jejunetwork/types/contracts';
+import { AddressSchema } from '@jejunetwork/types';
 import { HexStringSchema } from '../../lib/validation';
 
 export const PaymentRequirementsSchema = z.object({

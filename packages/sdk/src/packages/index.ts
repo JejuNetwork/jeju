@@ -10,6 +10,7 @@
 import type { Address, Hex } from "viem";
 import { createPublicClient, createWalletClient, http } from "viem";
 import type { PublicClient, WalletClient } from "viem";
+import type { JsonValue } from "../shared/types";
 
 export interface PackageSDKConfig {
   rpcUrl: string;
@@ -86,6 +87,36 @@ export interface SearchResult {
       maintenance: number;
     };
   };
+}
+
+/**
+ * Package manifest for publishing - extends standard npm package.json fields
+ */
+export interface PackageManifest {
+  name: string;
+  version: string;
+  description?: string;
+  main?: string;
+  types?: string;
+  module?: string;
+  exports?: Record<string, string | Record<string, string>>;
+  bin?: Record<string, string>;
+  scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+  peerDependencies?: Record<string, string>;
+  optionalDependencies?: Record<string, string>;
+  keywords?: string[];
+  author?: string | { name: string; email?: string; url?: string };
+  license?: string;
+  repository?: { type: string; url: string };
+  bugs?: { url: string };
+  homepage?: string;
+  engines?: Record<string, string>;
+  files?: string[];
+  publishConfig?: { access?: string; registry?: string };
+  /** Additional manifest fields */
+  [key: string]: JsonValue | undefined;
 }
 
 const PACKAGE_REGISTRY_ABI = [
@@ -428,15 +459,7 @@ export class JejuPkgSDK {
   // Publishing
 
   async publish(
-    manifest: {
-      name: string;
-      version: string;
-      description?: string;
-      main?: string;
-      dependencies?: Record<string, string>;
-      devDependencies?: Record<string, string>;
-      [key: string]: unknown;
-    },
+    manifest: PackageManifest,
     tarball: Buffer,
     authToken: string,
   ): Promise<{ ok: boolean; id: string; rev: string }> {

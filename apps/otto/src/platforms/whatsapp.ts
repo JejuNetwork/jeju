@@ -6,6 +6,7 @@ import type { PlatformAdapter, MessageHandler, SendMessageOptions, PlatformUserI
 import type { PlatformMessage, MessageEmbed, MessageButton, TwilioWebhookPayload } from '../types';
 import { expectValid, TwilioWebhookPayloadSchema, PlatformMessageSchema } from '../schemas';
 
+/** Minimal interface for Twilio client - only the methods we use */
 interface TwilioClient {
   messages: {
     create: (params: {
@@ -13,6 +14,16 @@ interface TwilioClient {
       to: string;
       body: string;
     }) => Promise<{ sid: string }>;
+  };
+}
+
+/** Create a typed Twilio client from the SDK's return value */
+function createTwilioClient(sdkClient: { messages: TwilioClient['messages'] }): TwilioClient {
+  if (!sdkClient.messages?.create) {
+    throw new Error('Invalid Twilio client: missing messages.create method');
+  }
+  return {
+    messages: sdkClient.messages,
   };
 }
 
@@ -37,7 +48,8 @@ export class WhatsAppAdapter implements PlatformAdapter {
     
     // Dynamic import to avoid requiring twilio when not used
     const twilio = await import('twilio');
-    this.twilioClient = twilio.default(this.accountSid, this.authToken) as unknown as TwilioClient;
+    const sdkClient = twilio.default(this.accountSid, this.authToken);
+    this.twilioClient = createTwilioClient(sdkClient);
     
     this.ready = true;
     console.log('[WhatsApp] Initialized');

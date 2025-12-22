@@ -16,6 +16,8 @@ import type {
 } from './types';
 import { ALL_PROVIDERS, PROVIDERS_BY_ID, getProvider } from './providers';
 import { apiListingState, apiUserAccountState, initializeDWSState } from '../state.js';
+import { expectValid } from '../shared/validation';
+import { UsageLimitsSchema, AccessControlSchema } from '../shared/schemas/api-marketplace';
 
 // Initialize state on module load (skip in test to avoid connection errors)
 if (process.env.NODE_ENV !== 'test') {
@@ -108,6 +110,7 @@ export async function createListing(params: CreateListingParams): Promise<APILis
     createdAt: Date.now(),
     totalRequests: 0n,
     totalRevenue: 0n,
+    riskLevel: 'low',
   };
 }
 
@@ -123,19 +126,24 @@ function rowToListing(row: {
   total_requests: number;
   total_revenue: string;
   created_at: number;
+  risk_level?: string;
 }): APIListing {
+  const limits = expectValid(UsageLimitsSchema, JSON.parse(row.limits), `listing ${row.listing_id} limits`);
+  const accessControl = expectValid(AccessControlSchema, JSON.parse(row.access_control), `listing ${row.listing_id} accessControl`);
+  
   return {
     id: row.listing_id,
     providerId: row.provider_id,
     seller: row.seller as Address,
     keyVaultId: row.key_vault_id,
     pricePerRequest: BigInt(row.price_per_request),
-    limits: JSON.parse(row.limits) as UsageLimits,
-    accessControl: JSON.parse(row.access_control) as AccessControl,
+    limits,
+    accessControl,
     active: row.status === 'active',
     createdAt: row.created_at,
     totalRequests: BigInt(row.total_requests),
     totalRevenue: BigInt(row.total_revenue),
+    riskLevel: (row.risk_level as 'low' | 'medium' | 'high') ?? 'low',
   };
 }
 
@@ -200,26 +208,36 @@ export async function updateListing(
     throw new Error(`Listing not found: ${id}`);
   }
 
-  // Re-save with updates
-  const updatedLimits = updates.limits ? { ...listing.limits, ...updates.limits } : listing.limits;
-  const updatedAccessControl = updates.accessControl ? { ...listing.accessControl, ...updates.accessControl } : listing.accessControl;
+  // Merge and validate updates
+  const updatedLimits = expectValid(
+    UsageLimitsSchema,
+    updates.limits ? { ...listing.limits, ...updates.limits } : listing.limits,
+    `listing ${id} limits update`
+  );
+  const updatedAccessControl = expectValid(
+    AccessControlSchema,
+    updates.accessControl ? { ...listing.accessControl, ...updates.accessControl } : listing.accessControl,
+    `listing ${id} accessControl update`
+  );
+  
   await apiListingState.save({
     listingId: listing.id,
     providerId: listing.providerId,
     seller: listing.seller,
     keyVaultId: listing.keyVaultId,
     pricePerRequest: (updates.pricePerRequest ?? listing.pricePerRequest).toString(),
-    limits: updatedLimits as unknown as Record<string, number>,
-    accessControl: updatedAccessControl as unknown as Record<string, string[]>,
+    limits: updatedLimits,
+    accessControl: updatedAccessControl,
     status: updates.active !== undefined ? (updates.active ? 'active' : 'inactive') : (listing.active ? 'active' : 'inactive'),
   });
 
   return {
     ...listing,
     pricePerRequest: updates.pricePerRequest ?? listing.pricePerRequest,
-    limits: updates.limits ? { ...listing.limits, ...updates.limits } : listing.limits,
-    accessControl: updates.accessControl ? { ...listing.accessControl, ...updates.accessControl } : listing.accessControl,
+    limits: updatedLimits,
+    accessControl: updatedAccessControl,
     active: updates.active ?? listing.active,
+    riskLevel: listing.riskLevel,
   };
 }
 

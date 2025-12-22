@@ -9,8 +9,8 @@ import {
   storageState,
   autocratVoteState,
   proposalIndexState,
-  type AutocratVote,
 } from './state.js';
+import type { AutocratVote, StoredObject } from './types.js';
 import { getDWSComputeUrl, getCurrentNetwork } from '@jejunetwork/config';
 
 // DWS endpoint is automatically resolved from network config, but env var overrides
@@ -21,23 +21,24 @@ function getDWSEndpoint(): string {
 // Bounded in-memory caches for performance (CQL is source of truth)
 const CACHE_MAX = 1000;
 const evict = <K, V>(m: Map<K, V>) => { if (m.size >= CACHE_MAX) { const first = m.keys().next().value; if (first !== undefined) m.delete(first); } };
-const storageCache = new Map<string, unknown>();
+const storageCache = new Map<string, StoredObject>();
 const researchCache = new Map<string, { report: string; model: string; completedAt: number }>();
 
 export async function initStorage(): Promise<void> {
   await initializeState();
 }
 
-export async function store(data: unknown): Promise<string> {
+export async function store(data: StoredObject): Promise<string> {
   const hash = await storageState.store(data);
   evict(storageCache);
   storageCache.set(hash, data);
   return hash;
 }
 
-export async function retrieve<T>(hash: string): Promise<T | null> {
-  if (storageCache.has(hash)) return storageCache.get(hash) as T;
-  const data = await storageState.retrieve<T>(hash);
+export async function retrieve(hash: string): Promise<StoredObject | null> {
+  const cached = storageCache.get(hash);
+  if (cached) return cached;
+  const data = await storageState.retrieve(hash);
   if (data) {
     evict(storageCache);
     storageCache.set(hash, data);

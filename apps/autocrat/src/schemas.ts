@@ -6,12 +6,12 @@
  */
 
 import { z } from 'zod';
-import { AddressSchema } from '@jejunetwork/types/contracts';
+import { AddressSchema } from '@jejunetwork/types';
 import {
   BigIntSchema,
   HexSchema,
   HashSchema,
-} from '@jejunetwork/types/validation';
+} from '@jejunetwork/types';
 
 // Re-export shared schemas and helpers for convenience
 export {
@@ -20,7 +20,7 @@ export {
   expectValid as validateOrThrow,
   expectDefined,
   expectTrue as expect,
-} from '@jejunetwork/types/validation';
+} from '@jejunetwork/types';
 
 // ============ Base Schemas ============
 

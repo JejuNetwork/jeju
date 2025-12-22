@@ -4,9 +4,8 @@
  */
 
 import { Hono } from 'hono';
-import type { Address } from 'viem';
-import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, chainParamsSchema, rpcProviderRegistrationSchema, rpcProviderHeartbeatSchema, rpcProviderParamsSchema, rpcChainsQuerySchema, rpcRequestSchema, rpcBatchRequestSchema, z } from '../../shared';
-import { findBestProvider, getSessionFromApiKey, canMakeRequest, extractApiKey } from '../../shared/utils/rpc';
+import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, chainParamsSchema, rpcProviderRegistrationSchema, rpcProviderHeartbeatSchema, rpcProviderParamsSchema, rpcChainsQuerySchema, rpcRequestSchema, rpcBatchRequestSchema, z } from '../../shared';
+import { findBestProvider, getSessionFromApiKey, canMakeRequest, extractApiKey, type RPCProvider, type RPCSession } from '../../shared/utils/rpc';
 
 interface ChainConfig {
   id: number;
@@ -18,35 +17,6 @@ interface ChainConfig {
   explorerUrl?: string;
   isTestnet: boolean;
   enabled: boolean;
-}
-
-interface RPCProvider {
-  id: string;
-  operator: Address;
-  chainId: number;
-  endpoint: string;
-  wsEndpoint?: string;
-  region: string;
-  tier: 'free' | 'standard' | 'premium';
-  maxRps: number;           // requests per second
-  currentRps: number;
-  latency: number;          // avg ms
-  uptime: number;           // percentage
-  lastSeen: number;
-  status: 'active' | 'degraded' | 'offline';
-}
-
-interface RPCSession {
-  id: string;
-  user: Address;
-  chainId: number;
-  apiKey: string;
-  tier: 'free' | 'standard' | 'premium';
-  requestCount: number;
-  dailyLimit: number;
-  createdAt: number;
-  expiresAt?: number;
-  status: 'active' | 'suspended' | 'expired';
 }
 
 // Supported chains

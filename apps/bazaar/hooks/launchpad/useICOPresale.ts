@@ -1,6 +1,6 @@
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther, formatEther, type Address } from 'viem'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { AddressSchema } from '@jejunetwork/types'
 import { expect } from '@/lib/validation'
 import { ICOPresaleAbi } from '@jejunetwork/contracts'
 

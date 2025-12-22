@@ -39,8 +39,11 @@ const SOLANA_CHAIN_ID = 101n;
 const SOLANA_DEVNET_CHAIN_ID = 102n;
 const MIN_STAKE = BigInt(1e18); // 1 ETH
 
-// 8004-solana program ID
-const AGENT_REGISTRY_PROGRAM_ID = 'HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp';
+// Solana Program IDs (from Anchor.toml)
+const AGENT_REGISTRY_PROGRAM_ID = 'AgentReg1111111111111111111111111111111111';
+const OIF_SOLVER_PROGRAM_ID = 'GYSFWUUKUFAdtv1TgZ3GkGfdCxPNbyRj1jsW8VRK7hBs';
+const TOKEN_BRIDGE_PROGRAM_ID = 'TknBridge1111111111111111111111111111111111';
+const EVM_LIGHT_CLIENT_PROGRAM_ID = 'EVMLightCL1111111111111111111111111111111111';
 
 export interface NetworkRegistryConfig {
   evmRpcUrl: string;
@@ -130,16 +133,16 @@ export class SolanaNetworkRegistry {
     const genesisHash = await this.getSolanaGenesisHash(solanaConfig.rpcUrl);
 
     // Convert Solana program IDs to pseudo-addresses for EVM registry
-    // These aren't real EVM addresses but serve as identifiers
+    // These use first 20 bytes of the program pubkey as EVM-compatible addresses
     const contracts: NetworkContracts = {
       identityRegistry: this.programIdToAddress(solanaConfig.agentRegistryProgramId || AGENT_REGISTRY_PROGRAM_ID),
-      solverRegistry: ZERO_ADDRESS, // Not yet deployed on Solana
-      inputSettler: ZERO_ADDRESS, // Cross-chain settler
-      outputSettler: ZERO_ADDRESS,
-      liquidityVault: ZERO_ADDRESS,
-      governance: ZERO_ADDRESS,
-      oracle: ZERO_ADDRESS,
-      registryHub: ZERO_ADDRESS,
+      solverRegistry: this.programIdToAddress(OIF_SOLVER_PROGRAM_ID),
+      inputSettler: this.programIdToAddress(TOKEN_BRIDGE_PROGRAM_ID), // Token bridge handles cross-chain input
+      outputSettler: this.programIdToAddress(TOKEN_BRIDGE_PROGRAM_ID), // Token bridge handles cross-chain output
+      liquidityVault: ZERO_ADDRESS, // No dedicated vault on Solana yet
+      governance: ZERO_ADDRESS, // No on-chain governance on Solana yet  
+      oracle: this.programIdToAddress(EVM_LIGHT_CLIENT_PROGRAM_ID), // Light client acts as oracle
+      registryHub: this.programIdToAddress(AGENT_REGISTRY_PROGRAM_ID), // Agent registry is the hub
     };
 
     const hash = await this.walletClient.writeContract({
@@ -366,6 +369,7 @@ export async function registerSolanaNetworks(
     explorerUrl: 'https://explorer.solana.com',
     isDevnet: false,
     agentRegistryProgramId: AGENT_REGISTRY_PROGRAM_ID,
+    bridgeProgramId: TOKEN_BRIDGE_PROGRAM_ID,
   };
 
   const mainnetInfo = await registry.getSolanaNetworkInfo(false);
@@ -383,6 +387,7 @@ export async function registerSolanaNetworks(
     explorerUrl: 'https://explorer.solana.com?cluster=devnet',
     isDevnet: true,
     agentRegistryProgramId: AGENT_REGISTRY_PROGRAM_ID,
+    bridgeProgramId: TOKEN_BRIDGE_PROGRAM_ID,
   };
 
   const devnetInfo = await registry.getSolanaNetworkInfo(true);

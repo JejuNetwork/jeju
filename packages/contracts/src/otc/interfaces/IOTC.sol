@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 /// @title IOTC Interface
 /// @notice Interface for the OTC contract's external functions

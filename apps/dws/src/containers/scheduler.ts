@@ -12,7 +12,7 @@ import type {
   ExecutionRequest,
   ContainerImage,
 } from './types';
-import { isAgentPoCVerified, getAgentPoCStatus } from '../poc';
+import { getAgentPoCStatus } from '../poc';
 
 // ============================================================================
 // Node Registry

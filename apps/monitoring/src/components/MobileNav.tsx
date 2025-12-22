@@ -1,13 +1,5 @@
 import { Link, useLocation } from 'react-router-dom'
-import { Activity, AlertTriangle, Target, Zap, Search } from 'lucide-react'
-
-const navItems = [
-  { href: '/', label: 'Dashboard', icon: Activity },
-  { href: '/alerts', label: 'Alerts', icon: AlertTriangle },
-  { href: '/targets', label: 'Targets', icon: Target },
-  { href: '/oif', label: 'OIF', icon: Zap },
-  { href: '/query', label: 'Query', icon: Search },
-]
+import { NAV_ITEMS } from './nav'
 
 export function MobileNav() {
   const location = useLocation()
@@ -26,7 +18,7 @@ export function MobileNav() {
       }}
     >
       <div className="grid grid-cols-5 h-16">
-        {navItems.map((item) => {
+        {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
           

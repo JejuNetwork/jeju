@@ -2,7 +2,7 @@
  * SecretVault - Encrypted secret storage with access control and audit logging
  */
 
-import { keccak256, toBytes, toHex, type Address, type Hex } from 'viem';
+import { keccak256, toBytes, toHex, type Address } from 'viem';
 import { kmsLogger as log } from '../logger.js';
 import {
   generateKeyId,

@@ -145,17 +145,15 @@ export class UniswapXAdapter extends EventEmitter {
   private running = false;
   private processedOrders = new Set<string>();
   private pendingOrders = new Map<string, UniswapXOrder>();
-  private isTestnet: boolean;
 
   constructor(
     clients: Map<number, { public: PublicClient; wallet?: WalletClient }>,
     supportedChains: number[],
-    isTestnet = false
+    _isTestnet = false
   ) {
     super();
     this.clients = clients;
     this.supportedChains = supportedChains;
-    this.isTestnet = isTestnet;
   }
 
   /**

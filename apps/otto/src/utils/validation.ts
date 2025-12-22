@@ -10,7 +10,7 @@ import {
   expectAddress,
   expectHex,
   expectValid,
-} from '@jejunetwork/types/validation';
+} from '@jejunetwork/types';
 import { PlatformSchema } from '../schemas';
 
 // ============================================================================

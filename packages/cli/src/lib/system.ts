@@ -114,52 +114,6 @@ export async function checkBun(): Promise<HealthCheckResult> {
   };
 }
 
-export async function checkNode(): Promise<HealthCheckResult> {
-  const hasNode = await checkCommand('node');
-  if (!hasNode) {
-    return {
-      name: 'Node.js',
-      status: 'warn',
-      message: 'Not installed',
-    };
-  }
-
-  const version = await getCommandVersion('node');
-  const major = parseInt(version?.split('.')[0] || '0');
-  
-  if (major < 18) {
-    return {
-      name: 'Node.js',
-      status: 'warn',
-      message: `${version} (recommend 18+)`,
-    };
-  }
-
-  return {
-    name: 'Node.js',
-    status: 'ok',
-    message: version || 'installed',
-  };
-}
-
-export async function checkGit(): Promise<HealthCheckResult> {
-  const hasGit = await checkCommand('git');
-  if (!hasGit) {
-    return {
-      name: 'Git',
-      status: 'error',
-      message: 'Not installed',
-    };
-  }
-
-  const version = await getCommandVersion('git');
-  return {
-    name: 'Git',
-    status: 'ok',
-    message: version || 'installed',
-  };
-}
-
 export async function checkSocat(): Promise<HealthCheckResult> {
   const hasSocat = await checkCommand('socat');
   if (!hasSocat) {
@@ -201,10 +155,6 @@ export function getKeysDir(): string {
 
 export function getConfigPath(): string {
   return join(getNetworkDir(), 'config.json');
-}
-
-export function jejuDirExists(): boolean {
-  return existsSync(getNetworkDir());
 }
 
 export async function installKurtosis(): Promise<boolean> {

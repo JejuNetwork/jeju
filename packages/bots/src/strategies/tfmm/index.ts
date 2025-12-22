@@ -4,7 +4,7 @@
  * QuantAMM-style dynamic weight strategies for on-chain portfolio management.
  */
 
-export { BaseTFMMStrategy, weightToBps, bpsToWeight } from './base-strategy';
+export { BaseTFMMStrategy } from './base-strategy';
 export type { 
   StrategyContext, 
   PriceHistory, 

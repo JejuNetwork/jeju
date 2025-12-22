@@ -1,15 +1,5 @@
-// Links Farcaster IDs with Jeju Agent IDs
-
 import type { Address, Hex } from 'viem';
 import { FarcasterClient } from '../hub/client';
-
-export interface IdentityLink {
-  fid: number;
-  jejuAddress: Address;
-  linkedAt: number;
-  verificationMethod: 'custody' | 'verified_address' | 'signature';
-  proof?: Hex;
-}
 
 export interface LinkVerificationResult {
   valid: boolean;
@@ -179,4 +169,3 @@ export async function verifyLinkProof(
 
   return { valid: false, error: 'Signature verification failed' };
 }
-

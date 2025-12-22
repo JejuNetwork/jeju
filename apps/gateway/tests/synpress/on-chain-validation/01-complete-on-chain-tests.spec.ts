@@ -23,6 +23,48 @@ import {
 } from '../helpers/blockchain-helpers';
 import { GATEWAY_URL, TEST_WALLET, PROTOCOL_TOKENS, TEST_AMOUNTS } from '../fixtures/test-data';
 
+/** Ethereum RPC call parameters for eth_call */
+interface EthCallParams {
+  to: string;
+  data: string;
+  from?: string;
+}
+
+/** Ethereum get logs filter parameters */
+interface EthGetLogsParams {
+  fromBlock: string;
+  toBlock: string;
+  address: string;
+  topics: string[];
+}
+
+/** Union of all Ethereum JSON-RPC call parameter types */
+type EthRpcParam = EthCallParams | EthGetLogsParams | string | number;
+
+/** JSON-RPC request data structure */
+interface JsonRpcRequestData {
+  jsonrpc: string;
+  method: string;
+  params: EthRpcParam[];
+  id: number;
+}
+
+/** JSON-RPC response structure */
+interface JsonRpcResponse {
+  result: string;
+  error?: {
+    message: string;
+    code?: number;
+  };
+}
+
+/** Page request interface for RPC calls */
+interface RpcPageRequest {
+  request: {
+    post: (url: string, options: { data: JsonRpcRequestData }) => Promise<{ json: () => Promise<JsonRpcResponse> }>;
+  };
+}
+
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;
 
@@ -46,7 +88,7 @@ function encodeBalanceOf(address: string): string {
 /**
  * Make RPC call to localnet
  */
-async function rpcCall(page: { request: { post: (url: string, options: { data: Record<string, unknown> }) => Promise<{ json: () => Promise<{ result: string; error?: { message: string } }> }> } }, method: string, params: unknown[] = []): Promise<string> {
+async function rpcCall(page: RpcPageRequest, method: string, params: EthRpcParam[] = []): Promise<string> {
   const response = await page.request.post('http://127.0.0.1:9545', {
     data: {
       jsonrpc: '2.0',

@@ -5,18 +5,27 @@
 
 import { CHAINS, getChain, isChainSupported } from '../config/chains.js';
 
-interface JsonRpcRequest {
+// JSON-RPC param type - serializable values (limited depth to avoid infinite recursion)
+type JsonRpcParam = string | number | boolean | null | object;
+
+export interface JsonRpcRequest {
   jsonrpc: string;
   id: number | string;
   method: string;
-  params?: unknown[];
+  params?: JsonRpcParam[];
+}
+
+interface JsonRpcError {
+  code: number;
+  message: string;
+  data?: string | number | boolean | null | object;
 }
 
 interface JsonRpcResponse {
   jsonrpc: string;
   id: number | string;
-  result?: unknown;
-  error?: { code: number; message: string; data?: unknown };
+  result?: string | number | boolean | null | object;
+  error?: JsonRpcError;
 }
 
 interface ProxyResult {

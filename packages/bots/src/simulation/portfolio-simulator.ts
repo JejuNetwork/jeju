@@ -12,7 +12,7 @@ import type { Token, OraclePrice } from '../types';
 import { CompositeStrategy } from '../strategies/tfmm/composite-strategy';
 import type { StrategyContext, WeightCalculation } from '../strategies/tfmm/base-strategy';
 import { OracleAggregator } from '../oracles';
-import { WEIGHT_PRECISION, BPS_PRECISION } from '../shared';
+import { WEIGHT_PRECISION, BPS_PRECISION } from '../schemas';
 
 export interface SimulatedPool {
   address: string;

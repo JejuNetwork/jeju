@@ -12,7 +12,7 @@ import { $ } from "bun";
 export const NetworkSchema = z.enum(["localnet", "testnet", "mainnet"]);
 export type NetworkType = z.infer<typeof NetworkSchema>;
 
-export const VALID_NETWORKS = ["localnet", "testnet", "mainnet"] as const;
+const VALID_NETWORKS = ["localnet", "testnet", "mainnet"] as const;
 
 // ============ Environment Validation ============
 

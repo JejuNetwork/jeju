@@ -3,6 +3,21 @@
  * Common hooks, components, APIs, services, protocols and utilities used across all network apps
  */
 
+// Shared Types
+export type {
+  SqlParam,
+  SqlDefaultValue,
+  SqlRow,
+  JsonRpcId,
+  RpcParam,
+  JsonRpcError,
+  JsonRpcRequest,
+  JsonRpcResponse,
+  ProtocolData,
+  ProtocolValue,
+  WebhookBody,
+} from './types';
+
 // Hooks
 export { 
   useBanStatus, 
@@ -10,7 +25,7 @@ export {
   getBanTypeColor,
   BanType,
   type BanStatus,
-  type BanCheckConfig 
+  type BanCheckConfig as HookBanCheckConfig,
 } from './hooks/useBanStatus';
 
 // Components
@@ -39,6 +54,32 @@ export {
   type ModerationStats,
   type TransactionRequest,
 } from './api/moderation';
+
+// Moderation Notifications
+export {
+  ModerationNotificationService,
+  createModerationNotifications,
+  createBanNotification,
+  type ModerationEvent,
+  type EventType,
+  type EventData,
+  type NotificationConfig,
+  type Subscriber,
+} from './notifications/moderation-events';
+
+// Ban Check Middleware
+export {
+  BanChecker,
+  createExpressBanMiddleware,
+  createHonoBanMiddleware,
+  isBanned,
+  getBanStatus,
+  initBanChecker,
+  getDefaultChecker,
+  type BanCheckConfig,
+  type BanStatus as BanCheckStatus,
+  type BanCheckResult,
+} from './middleware/banCheck';
 
 // Health Check Middleware
 export {
@@ -212,6 +253,16 @@ export {
   clearCache,
   type SWRegistrationOptions,
 } from './service-worker';
+
+// Logger
+export {
+  createLogger,
+  getLogger,
+  logger,
+  type Logger,
+  type LogLevel,
+  type LoggerConfig,
+} from './logger';
 
 // Protocol Servers
 export {

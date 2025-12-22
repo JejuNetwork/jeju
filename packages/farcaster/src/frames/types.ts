@@ -2,10 +2,10 @@ import { z } from 'zod';
 import type { Address, Hex } from 'viem';
 import { AddressSchema } from '../hub/schemas';
 
-// Re-export FrameActionPayload from schemas to avoid duplication
 export type { FrameActionPayload } from '../hub/schemas';
+import type { FrameActionPayload } from '../hub/schemas';
 
-// ============ Frame Metadata ============
+export type FrameMessage = FrameActionPayload['untrustedData'];
 
 export interface FrameMetadata {
   version: 'vNext';
@@ -29,25 +29,6 @@ export interface FrameValidationResult {
   error?: string;
 }
 
-export interface FrameMessage {
-  fid: number;
-  url: string;
-  messageHash: Hex;
-  timestamp: number;
-  network: number;
-  buttonIndex: number;
-  inputText?: string;
-  state?: string;
-  transactionId?: Hex;
-  address?: Address;
-  castId?: {
-    fid: number;
-    hash: Hex;
-  };
-}
-
-// ============ Transaction Frames ============
-
 export interface FrameTransactionTarget {
   chainId: string;
   method: 'eth_sendTransaction';
@@ -60,8 +41,6 @@ export interface FrameTransactionParams {
   data?: Hex;
   attribution?: boolean;
 }
-
-// ============ Jeju-Specific Frame State Schemas ============
 
 export const JejuBridgeFrameStateSchema = z.object({
   sourceChain: z.number(),
@@ -87,8 +66,6 @@ export type JejuBridgeFrameState = z.infer<typeof JejuBridgeFrameStateSchema>;
 export type JejuSwapFrameState = z.infer<typeof JejuSwapFrameStateSchema>;
 export type JejuAgentFrameState = z.infer<typeof JejuAgentFrameStateSchema>;
 
-// ============ Frame Response Types ============
-
 export interface FrameResponse {
   html: string;
   metadata: FrameMetadata;
@@ -98,8 +75,6 @@ export interface FrameErrorResponse {
   error: string;
   code?: string;
 }
-
-// ============ Helper Functions ============
 
 export function generateFrameMetaTags(metadata: FrameMetadata): string {
   const tags: string[] = [

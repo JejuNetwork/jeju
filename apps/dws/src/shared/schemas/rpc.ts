@@ -3,8 +3,7 @@
  */
 
 import { z } from 'zod';
-import type { Address } from 'viem';
-import { addressSchema, nonEmptyStringSchema, positiveIntSchema, urlSchema } from '../validation';
+import { nonEmptyStringSchema, positiveIntSchema, urlSchema, JSONValueSchema } from '../validation';
 
 /**
  * RPC provider registration request schema
@@ -54,7 +53,7 @@ export const chainParamsSchema = z.object({
 export const rpcRequestSchema = z.object({
   jsonrpc: z.literal('2.0'),
   method: z.string().min(1),
-  params: z.union([z.array(z.unknown()), z.record(z.string(), z.unknown())]).optional(),
+  params: z.union([z.array(JSONValueSchema), z.record(z.string(), JSONValueSchema)]).optional(),
   id: z.union([z.string(), z.number()]).optional(),
 });
 

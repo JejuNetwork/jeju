@@ -1,7 +1,7 @@
 import { useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
-import { AddressSchema } from '@jejunetwork/types/contracts';
+import { AddressSchema } from '@jejunetwork/types';
 import { NonEmptyStringSchema } from '@/schemas/common';
 import { expect } from '@/lib/validation';
 import { CONTRACTS } from '@/config';

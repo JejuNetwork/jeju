@@ -10,7 +10,7 @@
 import { type Address, type Hex, encodeFunctionData, parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
-import { getServicesConfig } from "../config";
+import { safeGetContract } from "../config";
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
@@ -275,9 +275,19 @@ export function createLiquidityModule(
   wallet: JejuWallet,
   network: NetworkType,
 ): LiquidityModule {
-  // Contract addresses - these would come from config
-  const riskSleeveAddress = "0x0000000000000000000000000000000000000000" as Address; // TODO: Add to deployment
-  const liquidityRouterAddress = "0x0000000000000000000000000000000000000000" as Address; // TODO: Add to deployment
+  // Contract addresses from config - undefined if not deployed
+  const riskSleeveAddress = safeGetContract("liquidity", "riskSleeve", network);
+  const liquidityRouterAddress = safeGetContract("liquidity", "liquidityRouter", network);
+
+  // Helper to require contract before calling
+  const requireRiskSleeve = (): Address => {
+    if (!riskSleeveAddress) throw new Error("RiskSleeve contract not deployed on this network");
+    return riskSleeveAddress;
+  };
+  const requireLiquidityRouter = (): Address => {
+    if (!liquidityRouterAddress) throw new Error("LiquidityRouter contract not deployed on this network");
+    return liquidityRouterAddress;
+  };
 
   return {
     RISK_TIERS: RiskTier,
@@ -294,7 +304,7 @@ export function createLiquidityModule(
       });
 
       return wallet.sendTransaction({
-        to: riskSleeveAddress,
+        to: requireRiskSleeve(),
         data,
         value: amount,
       });
@@ -308,7 +318,7 @@ export function createLiquidityModule(
       });
 
       return wallet.sendTransaction({
-        to: riskSleeveAddress,
+        to: requireRiskSleeve(),
         data,
       });
     },
@@ -321,14 +331,14 @@ export function createLiquidityModule(
       });
 
       return wallet.sendTransaction({
-        to: riskSleeveAddress,
+        to: requireRiskSleeve(),
         data,
       });
     },
 
     async getSleeveStats(tier) {
       const result = await wallet.publicClient.readContract({
-        address: riskSleeveAddress,
+        address: requireRiskSleeve(),
         abi: RISK_SLEEVE_ABI,
         functionName: "getSleeveStats",
         args: [tier],
@@ -345,7 +355,7 @@ export function createLiquidityModule(
 
     async getSleevePosition(tier, address) {
       const result = await wallet.publicClient.readContract({
-        address: riskSleeveAddress,
+        address: requireRiskSleeve(),
         abi: RISK_SLEEVE_ABI,
         functionName: "getUserPosition",
         args: [address ?? wallet.address, tier],
@@ -360,7 +370,7 @@ export function createLiquidityModule(
 
     async getTokenRiskScore(token) {
       const result = await wallet.publicClient.readContract({
-        address: riskSleeveAddress,
+        address: requireRiskSleeve(),
         abi: RISK_SLEEVE_ABI,
         functionName: "tokenRiskScores",
         args: [token],
@@ -381,7 +391,7 @@ export function createLiquidityModule(
       });
 
       return wallet.sendTransaction({
-        to: liquidityRouterAddress,
+        to: requireLiquidityRouter(),
         data,
         value: amount,
       });
@@ -395,7 +405,7 @@ export function createLiquidityModule(
       });
 
       return wallet.sendTransaction({
-        to: liquidityRouterAddress,
+        to: requireLiquidityRouter(),
         data,
       });
     },
@@ -408,7 +418,7 @@ export function createLiquidityModule(
       });
 
       return wallet.sendTransaction({
-        to: liquidityRouterAddress,
+        to: requireLiquidityRouter(),
         data,
       });
     },
@@ -421,14 +431,14 @@ export function createLiquidityModule(
       });
 
       return wallet.sendTransaction({
-        to: liquidityRouterAddress,
+        to: requireLiquidityRouter(),
         data,
       });
     },
 
     async getRouterPosition(address) {
       const result = await wallet.publicClient.readContract({
-        address: liquidityRouterAddress,
+        address: requireLiquidityRouter(),
         abi: LIQUIDITY_ROUTER_ABI,
         functionName: "getPosition",
         args: [address ?? wallet.address],
@@ -452,7 +462,7 @@ export function createLiquidityModule(
 
     async estimateYield(address) {
       const result = await wallet.publicClient.readContract({
-        address: liquidityRouterAddress,
+        address: requireLiquidityRouter(),
         abi: LIQUIDITY_ROUTER_ABI,
         functionName: "estimateYield",
         args: [address ?? wallet.address],
@@ -463,7 +473,7 @@ export function createLiquidityModule(
 
     async getDefaultStrategy() {
       const result = await wallet.publicClient.readContract({
-        address: liquidityRouterAddress,
+        address: requireLiquidityRouter(),
         abi: LIQUIDITY_ROUTER_ABI,
         functionName: "defaultStrategy",
         args: [],

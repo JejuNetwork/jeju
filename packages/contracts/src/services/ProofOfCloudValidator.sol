@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
@@ -336,9 +336,9 @@ contract ProofOfCloudValidator is Ownable, Pausable, ReentrancyGuard {
         if (level == 0 || level > 3) revert InvalidLevel();
         if (!identityRegistry.agentExists(agentId)) revert AgentNotFound();
 
-        // Verify signature
+        // Verify signature (using abi.encode to prevent hash collisions with dynamic types)
         bytes32 messageHash = keccak256(
-            abi.encodePacked(
+            abi.encode(
                 requestHash,
                 agentId,
                 hardwareIdHash,

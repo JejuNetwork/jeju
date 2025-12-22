@@ -10,12 +10,9 @@
 import { Hono } from 'hono';
 import { createHash } from 'crypto';
 import type { Address, Hex } from 'viem';
-import { createPublicClient, createWalletClient, http, keccak256, encodePacked } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
+import { keccak256, encodePacked } from 'viem';
 import type { BackendManager } from '../../storage/backends';
-import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, modelParamsSchema, modelCreateRequestSchema, modelVersionRequestSchema, lfsBatchRequestSchema, modelInferenceRequestSchema } from '../../shared';
-import { z } from 'zod';
+import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, modelParamsSchema, modelCreateRequestSchema, modelVersionRequestSchema, lfsBatchRequestSchema, modelInferenceRequestSchema, z } from '../../shared';
 
 // Query schemas for HuggingFace-compatible API
 const hfModelsQuerySchema = z.object({
@@ -265,7 +262,7 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
   router.get('/api/models/:org/:name/tree/:revision', async (c) => {
     const org = c.req.param('org');
     const name = c.req.param('name');
-    const revision = c.req.param('revision');
+    // revision param available for future version support
     const path = c.req.query('path') || '';
 
     const model = findModelByKey(`${org}/${name}`);
@@ -322,7 +319,8 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
       throw new Error('File not available');
     }
 
-    return new Response(result.content, {
+    const content = Buffer.isBuffer(result.content) ? new Uint8Array(result.content) : result.content;
+    return new Response(content, {
       headers: {
         'Content-Type': 'application/octet-stream',
         'Content-Disposition': `attachment; filename="${filename}"`,
@@ -503,20 +501,21 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
     const formData = await c.req.formData();
     const uploadedFiles: ModelFile[] = [];
 
-    for (const [key, value] of formData.entries()) {
-      if (value instanceof File) {
-        const content = Buffer.from(await value.arrayBuffer());
+    for (const [, value] of formData.entries()) {
+      if (typeof value !== 'string') {
+        const file = value as File;
+        const content = Buffer.from(await file.arrayBuffer());
         const sha256 = createHash('sha256').update(content).digest('hex');
         
-        const result = await backend.upload(content, { filename: value.name });
+        const result = await backend.upload(content, { filename: file.name });
         
         const fileType: ModelFile['type'] = 
-          value.name.includes('weight') || value.name.endsWith('.safetensors') || value.name.endsWith('.bin') ? 'weights' :
-          value.name.includes('config') || value.name.endsWith('.json') ? 'config' :
-          value.name.includes('tokenizer') ? 'tokenizer' : 'other';
+          file.name.includes('weight') || file.name.endsWith('.safetensors') || file.name.endsWith('.bin') ? 'weights' :
+          file.name.includes('config') || file.name.endsWith('.json') ? 'config' :
+          file.name.includes('tokenizer') ? 'tokenizer' : 'other';
 
         uploadedFiles.push({
-          filename: value.name,
+          filename: file.name,
           cid: result.cid,
           size: content.length,
           sha256,
@@ -643,7 +642,8 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
     metricsStore.set(model.modelId, metrics);
 
     const result = await backend.download(file.cid);
-    return new Response(result.content, {
+    const content = Buffer.isBuffer(result.content) ? new Uint8Array(result.content) : result.content;
+    return new Response(content, {
       headers: {
         'Content-Type': 'application/octet-stream',
         'Content-Disposition': `attachment; filename="${filename}"`,

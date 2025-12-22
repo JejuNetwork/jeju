@@ -9,7 +9,7 @@ import {
   HexSchema,
   ChainIdSchema,
   expectValid as sharedExpectValid,
-} from '@jejunetwork/types/validation';
+} from '@jejunetwork/types';
 
 // Re-export shared validation helpers and base schemas
 export { sharedExpectValid as expectValid };
@@ -304,26 +304,26 @@ export const MessageButtonSchema = z.object({
   disabled: z.boolean().optional(),
 });
 
+export const CommandResultDataSchema = z.object({
+  quoteId: z.string().optional(),
+  url: z.string().optional(),
+  txHash: HexSchema.optional(),
+  tokenAddress: AddressSchema.optional(),
+  orderId: z.string().optional(),
+});
+
 export const CommandResultSchema = z.object({
   success: z.boolean(),
   message: z.string(),
   embed: MessageEmbedSchema.optional(),
   buttons: z.array(MessageButtonSchema).optional(),
   error: z.string().optional(),
-  data: z.record(z.string(), z.unknown()).optional(),
+  data: CommandResultDataSchema.optional(),
 });
 
 // ============================================================================
 // Webhook Types
 // ============================================================================
-
-export const WebhookPayloadSchema = z.object({
-  platform: PlatformSchema,
-  type: z.string().min(1),
-  data: z.record(z.string(), z.unknown()),
-  timestamp: z.number().int().nonnegative(),
-  signature: z.string().optional(),
-});
 
 export const DiscordWebhookPayloadSchema = z.object({
   type: z.number().int(),
@@ -441,6 +441,23 @@ export const TwitterWebhookPayloadSchema = z.object({
   })).optional(),
 });
 
+// Union of all platform-specific webhook payloads
+export const WebhookPayloadDataSchema = z.union([
+  DiscordWebhookPayloadSchema,
+  TelegramWebhookPayloadSchema,
+  TwilioWebhookPayloadSchema,
+  FarcasterFramePayloadSchema,
+  TwitterWebhookPayloadSchema,
+]);
+
+export const WebhookPayloadSchema = z.object({
+  platform: PlatformSchema,
+  type: z.string().min(1),
+  data: WebhookPayloadDataSchema,
+  timestamp: z.number().int().nonnegative(),
+  signature: z.string().optional(),
+});
+
 // ============================================================================
 // Config Types
 // ============================================================================
@@ -498,26 +515,95 @@ export const OttoConfigSchema = z.object({
 // State Types
 // ============================================================================
 
+// Pending action data schemas
+export const PendingSwapDataSchema = z.object({
+  quote: SwapQuoteSchema,
+  params: z.object({
+    amount: z.string(),
+    from: z.string(),
+    to: z.string(),
+    chainId: z.number().int(),
+  }),
+});
+
+export const PendingBridgeDataSchema = z.object({
+  quote: BridgeQuoteSchema.optional(),
+  params: z.object({
+    amount: z.string(),
+    token: z.string(),
+    fromChain: z.string(),
+    toChain: z.string(),
+    sourceChainId: z.number().int(),
+    destChainId: z.number().int(),
+  }),
+});
+
+export const PendingSendDataSchema = z.object({
+  recipient: AddressSchema,
+  amount: z.string(),
+  token: z.string(),
+  chainId: z.number().int(),
+});
+
+export const PendingLaunchDataSchema = z.object({
+  name: z.string(),
+  symbol: z.string(),
+  initialSupply: z.string(),
+  initialLiquidity: z.string().optional(),
+  chainId: z.number().int(),
+});
+
+// Awaiting confirmation schema with discriminated union
+export const AwaitingConfirmationSchema = z.discriminatedUnion('type', [
+  z.object({
+    type: z.literal('swap'),
+    data: PendingSwapDataSchema,
+    expiresAt: z.number().int().positive(),
+  }),
+  z.object({
+    type: z.literal('bridge'),
+    data: PendingBridgeDataSchema,
+    expiresAt: z.number().int().positive(),
+  }),
+  z.object({
+    type: z.literal('send'),
+    data: PendingSendDataSchema,
+    expiresAt: z.number().int().positive(),
+  }),
+  z.object({
+    type: z.literal('launch'),
+    data: PendingLaunchDataSchema,
+    expiresAt: z.number().int().positive(),
+  }),
+]);
+
+export const SessionContextSchema = z.object({
+  awaitingConfirmation: AwaitingConfirmationSchema.optional(),
+  recentTokens: z.array(AddressSchema).optional(),
+  conversationHistory: z.array(z.object({
+    role: z.enum(['user', 'assistant']),
+    content: z.string(),
+  })).optional(),
+});
+
 export const UserSessionSchema = z.object({
   sessionId: z.string().min(1),
   userId: z.string().min(1),
   platform: PlatformSchema,
   channelId: z.string().min(1),
-  context: z.object({
-    awaitingConfirmation: z.object({
-      type: z.enum(['swap', 'bridge', 'send', 'launch']),
-      data: z.record(z.string(), z.unknown()),
-      expiresAt: z.number().int().positive(),
-    }).optional(),
-    recentTokens: z.array(AddressSchema).optional(),
-    conversationHistory: z.array(z.object({
-      role: z.enum(['user', 'assistant']),
-      content: z.string(),
-    })).optional(),
-  }),
+  context: SessionContextSchema,
   lastMessage: z.number().int().nonnegative(),
   expiresAt: z.number().int().positive(),
 });
+
+// Pending transaction data schema
+export const PendingTransactionDataSchema = z.union([
+  PendingSwapDataSchema,
+  PendingBridgeDataSchema,
+  PendingSendDataSchema,
+  PendingLaunchDataSchema,
+  z.object({ orderId: z.string() }),
+]);
 
 export const PendingTransactionSchema = z.object({
   txId: z.string().min(1),
@@ -527,7 +613,7 @@ export const PendingTransactionSchema = z.object({
   status: z.enum(['pending', 'submitted', 'confirmed', 'failed']),
   createdAt: z.number().int().nonnegative(),
   updatedAt: z.number().int().nonnegative(),
-  data: z.record(z.string(), z.unknown()),
+  data: PendingTransactionDataSchema,
 });
 
 // ============================================================================

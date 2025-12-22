@@ -54,7 +54,8 @@
   "dependencies": {
     "viem": "2.43.2",
     "zod": "^3.24.4",
-    "@jejunetwork/oauth3": "workspace:*"
+    "@jejunetwork/oauth3": "workspace:*",
+    "pino": "^10.1.0"
   },
   "devDependencies": {
     "@types/bun": "latest",

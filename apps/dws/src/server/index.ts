@@ -36,6 +36,8 @@ import { createRPCRouter } from './routes/rpc';
 import { createEdgeRouter, handleEdgeWebSocket } from './routes/edge';
 import { createPricesRouter, handlePriceWebSocket, getPriceService } from './routes/prices';
 import { createDARouter, initializeDA, shutdownDA } from './routes/da';
+import { createModerationRouter } from './routes/moderation';
+import { createEmailRouter } from '../email/routes';
 import { createBackendManager } from '../storage/backends';
 import { initializeMarketplace } from '../api-marketplace';
 import { initializeContainerSystem } from '../containers';
@@ -300,7 +302,7 @@ app.get('/', (c) => {
   });
 });
 
-app.route('/storage', createStorageRouter(backendManager));
+app.route('/storage', createStorageRouter());
 app.route('/compute', createComputeRouter());
 app.route('/cdn', createCDNRouter());
 app.route('/git', createGitRouter({ repoManager, backend: backendManager }));
@@ -322,6 +324,8 @@ app.route('/scraping', createScrapingRouter());
 app.route('/rpc', createRPCRouter());
 app.route('/edge', createEdgeRouter());
 app.route('/prices', createPricesRouter());
+app.route('/moderation', createModerationRouter());
+app.route('/email', createEmailRouter());
 
 // Data Availability Layer
 const daConfig = {

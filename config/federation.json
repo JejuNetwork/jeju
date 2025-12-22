@@ -1,0 +1,160 @@
+{
+  "version": "1.0.0",
+  "hub": {
+    "description": "L1 hub chain for federation coordination",
+    "networks": {
+      "mainnet": {
+        "chainId": 1,
+        "rpc": "https://eth.llamarpc.com",
+        "explorer": "https://etherscan.io"
+      },
+      "sepolia": {
+        "chainId": 11155111,
+        "rpc": "https://rpc.sepolia.org",
+        "explorer": "https://sepolia.etherscan.io"
+      }
+    },
+    "contracts": {
+      "mainnet": {
+        "networkRegistry": "0x0000000000000000000000000000000000000000",
+        "registryHub": "0x0000000000000000000000000000000000000000",
+        "registrySyncOracle": "0x0000000000000000000000000000000000000000",
+        "solanaVerifier": "0x0000000000000000000000000000000000000000"
+      },
+      "sepolia": {
+        "networkRegistry": "0x0000000000000000000000000000000000000000",
+        "registryHub": "0x0000000000000000000000000000000000000000",
+        "registrySyncOracle": "0x0000000000000000000000000000000000000000",
+        "solanaVerifier": "0x0000000000000000000000000000000000000000"
+      }
+    }
+  },
+  "wormhole": {
+    "description": "Wormhole cross-chain messaging for Solana integration",
+    "mainnet": {
+      "guardianRpc": "https://wormhole-v2-mainnet-api.certus.one",
+      "coreBridge": {
+        "ethereum": "0x98f3c9e6E3fAce36bAAd05FE09d375Ef1464288B",
+        "solana": "worm2ZoG2kUd4vFXhvjh93UUH596ayRfgQ2MgjNMTth"
+      },
+      "relayer": "0x27428DD2d3DD32A4D7f7C497eAaa23130d894911"
+    },
+    "testnet": {
+      "guardianRpc": "https://wormhole-v2-testnet-api.certus.one",
+      "coreBridge": {
+        "ethereum": "0x706abc4E45D419950511e474C7B9Ed348A4a716c",
+        "solana": "3u8hJUVTA4jH1wYAyUur7FFZVQ8H635K3tSHHF4ssjQ5"
+      },
+      "relayer": "0x28D8F1Be96f97C1387e94A53e00eCcFb4E75175a"
+    },
+    "chainIds": {
+      "ethereum": 2,
+      "solana": 1,
+      "base": 30,
+      "optimism": 24,
+      "arbitrum": 23
+    }
+  },
+  "solana": {
+    "description": "Solana SPL/SPL-2022 registry integration",
+    "mainnet": {
+      "rpc": "https://api.mainnet-beta.solana.com",
+      "programs": {
+        "splToken": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "splToken2022": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+        "metaplex": "metaqbxxUerdq28cj1RbAWkYQm3ybzjb6a8bt518x1s"
+      },
+      "registries": {
+        "ai16z": {
+          "description": "ai16z DAO token registry",
+          "program": "ai16Z9Ck6JH9NbcHvJMJQ4uLpXjhC9S9cNvJvJQ4uLp",
+          "type": "SPL_TOKEN_2022"
+        },
+        "daosFun": {
+          "description": "daos.fun token launchpad",
+          "program": "daosfun111111111111111111111111111111111",
+          "type": "SPL_TOKEN_2022"
+        }
+      }
+    },
+    "devnet": {
+      "rpc": "https://api.devnet.solana.com",
+      "programs": {
+        "splToken": "TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA",
+        "splToken2022": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb"
+      }
+    }
+  },
+  "trustTiers": {
+    "unstaked": {
+      "minStake": "0",
+      "capabilities": [
+        "registry_listing",
+        "cross_chain_intents_user_paid"
+      ],
+      "restrictions": [
+        "no_consensus_participation",
+        "no_sequencer_duties",
+        "no_delegated_liquidity"
+      ]
+    },
+    "staked": {
+      "minStake": "1000000000000000000",
+      "capabilities": [
+        "registry_listing",
+        "consensus_participation",
+        "cross_chain_intents",
+        "identity_verification",
+        "solver_network_access",
+        "delegated_liquidity_with_collateral"
+      ],
+      "restrictions": [
+        "no_sequencer_duties"
+      ]
+    },
+    "verified": {
+      "minStake": "10000000000000000000",
+      "capabilities": [
+        "all_staked_capabilities",
+        "sequencer_rotation",
+        "priority_solver_routing",
+        "governance_voting",
+        "full_trust"
+      ],
+      "restrictions": []
+    }
+  },
+  "sync": {
+    "description": "Registry synchronization settings",
+    "defaultInterval": 60,
+    "batchSize": 100,
+    "retryAttempts": 3,
+    "retryDelay": 5000,
+    "eventTypes": [
+      "NetworkRegistered",
+      "RegistryRegistered",
+      "EntryFederated",
+      "AgentFederated",
+      "SolverRegistered"
+    ]
+  },
+  "superchain": {
+    "description": "OP Superchain integration",
+    "registry": "https://github.com/ethereum-optimism/superchain-registry",
+    "requirements": {
+      "opStack": true,
+      "l2ToL2Messenger": true,
+      "sharedSequencer": true,
+      "upgradeTimelock": "7 days",
+      "securityCouncil": "4/7 multisig",
+      "faultProofs": true,
+      "bugBounty": true
+    },
+    "preinstalls": {
+      "L2ToL2CrossDomainMessenger": "0x4200000000000000000000000000000000000023",
+      "L2CrossDomainMessenger": "0x4200000000000000000000000000000000000007",
+      "L2StandardBridge": "0x4200000000000000000000000000000000000010"
+    }
+  }
+}
+

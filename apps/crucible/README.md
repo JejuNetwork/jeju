@@ -4,10 +4,8 @@ Decentralized agent orchestration platform for autonomous AI agents.
 
 ## Overview
 
-Crucible provides agent deployment with two runtime modes:
+Crucible provides agent deployment with **ElizaOS + @jejunetwork/eliza-plugin**, giving agents access to **60+ network actions**:
 
-### Full Mode: ElizaOS + @jejunetwork/eliza-plugin
-When ElizaOS is available, agents get **60+ network actions** including:
 - **Compute**: GPU rental, inference, triggers
 - **Storage**: IPFS upload/download, pinning
 - **DeFi**: Swaps, liquidity, pools
@@ -15,12 +13,6 @@ When ElizaOS is available, agents get **60+ network actions** including:
 - **Cross-chain**: Bridging, intents
 - **A2A Protocol**: Agent-to-agent communication
 - **And more**: Names, containers, launchpad, moderation, bounties
-
-### Fallback Mode: DWS Character Inference
-When ElizaOS is unavailable, agents run with:
-- Character-template prompting
-- DWS (Decentralized Workstation Service) for inference
-- Basic action extraction from LLM output
 
 ## Architecture
 
@@ -34,10 +26,7 @@ When ElizaOS is unavailable, agents run with:
 │                     Agent Runtime                                │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │ ElizaOS AgentRuntime + @jejunetwork/eliza-plugin         │   │
-│  │ (Full plugin/action support when available)              │   │
-│  └──────────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────────┐   │
-│  │ DWS Character Inference (Fallback)                       │   │
+│  │ (60+ network actions)                                     │   │
 │  └──────────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────────┤
 │                     Smart Contracts                              │
@@ -107,7 +96,7 @@ bun run executor
 ### Chat with Agents
 
 ```bash
-# Chat with an agent (uses ElizaOS if available)
+# Chat with an agent
 POST /api/v1/chat/:characterId
 {
   "text": "Hello, agent!",
@@ -115,13 +104,11 @@ POST /api/v1/chat/:characterId
   "roomId": "room-456"
 }
 
-# Response includes runtime info
+# Response
 {
   "text": "...",
-  "action": "SWAP_TOKENS",  # If ElizaOS triggered an action
-  "character": "project-manager",
-  "runtime": "elizaos",     # or "dws-fallback"
-  "capabilities": "full-plugin-support"  # or "character-inference"
+  "action": "SWAP_TOKENS",
+  "character": "project-manager"
 }
 ```
 
@@ -131,10 +118,9 @@ POST /api/v1/chat/:characterId
 # Initialize all character runtimes
 POST /api/v1/chat/init
 
-# Response shows ElizaOS availability
+# Response
 {
   "initialized": 7,
-  "withElizaOS": 7,
   "total": 7,
   "results": { ... }
 }
@@ -207,7 +193,7 @@ POST /api/v1/rooms/:roomId/message
 
 ## Plugin Capabilities
 
-When running with ElizaOS + @jejunetwork/eliza-plugin, agents can:
+Agents have access to all @jejunetwork/eliza-plugin actions:
 
 ### Compute
 - `RENT_GPU` - Rent GPU from compute marketplace
@@ -258,7 +244,6 @@ const runtime = await runtimeManager.createRuntime({
   agentId: 'my-agent',
   character: myCharacter,
   plugins: [myPlugin],
-  useJejuPlugin: true,
 });
 ```
 

@@ -26,12 +26,13 @@ import {
   type Hex,
   type PublicClient,
   type WalletClient,
+  type Chain,
+  type Transport,
   parseUnits,
-  formatUnits,
   encodeFunctionData,
   parseAbi,
 } from 'viem';
-import { privateKeyToAccount, type Account } from 'viem/accounts';
+import { privateKeyToAccount } from 'viem/accounts';
 import { arbitrum, base } from 'viem/chains';
 
 const HYPERLIQUID_API = 'https://api.hyperliquid.xyz';
@@ -132,13 +133,17 @@ interface HyperliquidState {
   };
 }
 
+// Client types for multi-chain support - use base types with Transport/Chain generics
+type ChainPublicClient = PublicClient<Transport, Chain>;
+type ChainWalletClient = WalletClient<Transport, Chain>;
+
 export class FundingArbStrategy extends EventEmitter {
   private evmPrivateKey: Hex;
   private positions: Map<string, FundingPosition> = new Map();
   private fundingRates: Map<string, FundingRate> = new Map();
   private running = false;
   private pollInterval: ReturnType<typeof setInterval> | null = null;
-  private evmClients: Map<number, { public: PublicClient; wallet: WalletClient }> = new Map();
+  private evmClients: Map<number, { public: ChainPublicClient; wallet: ChainWalletClient }> = new Map();
   private assetMeta: Map<string, { szDecimals: number }> = new Map();
 
   constructor(evmPrivateKey: Hex, evmRpcUrls: Record<number, string>) {
@@ -154,19 +159,20 @@ export class FundingArbStrategy extends EventEmitter {
 
       const chain = config.chain === 42161 ? arbitrum : base;
 
+      // Type assertion needed because createPublicClient returns chain-specific types,
+      // but we store clients for multiple chains in the same map
       const publicClient = createPublicClient({
         chain,
         transport: http(rpcUrl),
-      });
+      }) as ChainPublicClient;
 
       const walletClient = createWalletClient({
         account,
         chain,
         transport: http(rpcUrl),
-      });
+      }) as ChainWalletClient;
 
-      // Cast needed due to viem type re-exports in monorepo
-      this.evmClients.set(config.chain, { public: publicClient as PublicClient, wallet: walletClient as unknown as WalletClient });
+      this.evmClients.set(config.chain, { public: publicClient, wallet: walletClient });
     }
   }
 
@@ -730,7 +736,7 @@ export class FundingArbStrategy extends EventEmitter {
 
   // Get expected swap output from Uniswap V3 quoter
   private async getExpectedSwapOutput(
-    clients: { public: PublicClient; wallet: WalletClient },
+    clients: { public: ChainPublicClient; wallet: ChainWalletClient },
     tokenIn: Address,
     tokenOut: Address,
     amountIn: bigint

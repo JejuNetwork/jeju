@@ -294,12 +294,53 @@ export interface MigrationResult {
 // Events
 // ============================================================================
 
+export interface QueryEventDetails {
+  sql: string;
+  params?: QueryParam[];
+  rowCount?: number;
+  executionTime?: number;
+}
+
+export interface ExecEventDetails {
+  sql: string;
+  params?: QueryParam[];
+  rowsAffected?: number;
+  gasUsed?: bigint;
+}
+
+export interface MigrationEventDetails {
+  version: number;
+  name: string;
+  direction: 'up' | 'down';
+}
+
+export interface ACLEventDetails {
+  grantee: Address;
+  table: string;
+  permissions: ACLPermission[];
+  action: 'grant' | 'revoke';
+}
+
+export interface RentalEventDetails {
+  planId: string;
+  rentalId: string;
+  action: 'create' | 'extend' | 'cancel';
+  months?: number;
+}
+
+export type CQLEventDetails =
+  | { type: 'query'; data: QueryEventDetails }
+  | { type: 'exec'; data: ExecEventDetails }
+  | { type: 'migration'; data: MigrationEventDetails }
+  | { type: 'acl'; data: ACLEventDetails }
+  | { type: 'rental'; data: RentalEventDetails };
+
 export interface CQLEvent {
   type: 'query' | 'exec' | 'migration' | 'acl' | 'rental';
   databaseId: string;
   timestamp: number;
   actor?: Address;
-  details: Record<string, unknown>;
+  details: CQLEventDetails;
   txHash?: Hex;
 }
 
