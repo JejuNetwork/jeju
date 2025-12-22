@@ -29,6 +29,7 @@ import type {
   CrossChainArbOpportunity,
 } from '../types';
 import { OracleAggregator, TOKEN_SYMBOLS } from '../oracles';
+import { JupiterQuoteResponseSchema } from '../schemas';
 
 // ============ Chain Configuration ============
 
@@ -705,11 +706,7 @@ export class SolanaArbitrage {
     }
 
     const rawData: unknown = await response.json();
-    // Validate the Jupiter response has required fields
-    if (!rawData || typeof rawData !== 'object' || !('outAmount' in rawData)) {
-      throw new Error('Jupiter API returned invalid response');
-    }
-    const data = rawData as { outAmount: string };
+    const data = JupiterQuoteResponseSchema.parse(rawData);
     return BigInt(data.outAmount);
   }
 

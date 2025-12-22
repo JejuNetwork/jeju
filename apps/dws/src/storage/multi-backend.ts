@@ -8,7 +8,7 @@
  * - Popularity tracking and regional caching
  */
 
-import { keccak256, toBytes } from 'viem';
+import { keccak256 } from 'viem';
 import { createHash } from 'crypto';
 import type {
   StorageBackendType,
@@ -109,7 +109,7 @@ export class MultiBackendManager {
       name: 'local',
       type: 'local',
       async upload(content: Buffer): Promise<{ cid: string; url: string }> {
-        const cid = keccak256(toBytes(content)).slice(2, 50);
+        const cid = keccak256(new Uint8Array(content)).slice(2, 50);
         localStorage.set(cid, content);
         return { cid, url: `/storage/${cid}` };
       },
@@ -136,7 +136,7 @@ export class MultiBackendManager {
         type: 'ipfs',
         async upload(content: Buffer, options?: { filename?: string }): Promise<{ cid: string; url: string }> {
           const formData = new FormData();
-          formData.append('file', new Blob([content]), options?.filename ?? 'file');
+          formData.append('file', new Blob([new Uint8Array(content)]), options?.filename ?? 'file');
           
           const response = await fetch(`${ipfsApiUrl}/api/v0/add`, {
             method: 'POST',
@@ -181,7 +181,7 @@ export class MultiBackendManager {
       name: 'webtorrent',
       type: 'webtorrent',
       upload: async (content: Buffer, options?: { filename?: string }) => {
-        const cid = keccak256(toBytes(content)).slice(2, 50);
+        const cid = keccak256(new Uint8Array(content)).slice(2, 50);
         const torrent = await this.webtorrentBackend.createTorrent(content, {
           name: options?.filename ?? 'file',
           cid,

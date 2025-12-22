@@ -5,10 +5,8 @@
  */
 
 import { z } from 'zod';
-import { getTradingService } from '../services/trading';
-import { getWalletService } from '../services/wallet';
-import { getStateManager, type PendingSwap, type PendingBridge } from '../services/state';
-import { getChainId, DEFAULT_CHAIN_ID } from '../config';
+import { getTradingService, getWalletService, getStateManager, type PendingSwap, type PendingBridge } from '../services';
+import { getChainId, DEFAULT_CHAIN_ID, PENDING_ACTION_TTL } from '../config';
 import type { OttoUser, PlatformMessage, CommandResult } from '../types';
 import {
   expectValid,
@@ -36,14 +34,6 @@ function getAiModel(): string {
   throw new Error('AI_MODEL environment variable is required');
 }
 
-const DWS_URL = getDwsUrl();
-const AI_MODEL = getAiModel();
-const PENDING_ACTION_TTL = 5 * 60 * 1000; // 5 minutes
-
-const tradingService = getTradingService();
-const walletService = getWalletService();
-const stateManager = getStateManager();
-
 // ============================================================================
 // Action Handlers
 // ============================================================================
@@ -63,15 +53,15 @@ async function handleSwap(
   const validatedUser = expectValid(OttoUserSchema, user, 'user');
   const chainId = params.chain ? getChainId(params.chain) ?? validatedUser.settings.defaultChainId : validatedUser.settings.defaultChainId;
   
-  const fromToken = await tradingService.getTokenInfo(params.from, chainId);
-  const toToken = await tradingService.getTokenInfo(params.to, chainId);
+  const fromToken = await getTradingService().getTokenInfo(params.from, chainId);
+  const toToken = await getTradingService().getTokenInfo(params.to, chainId);
 
   if (!fromToken || !toToken) {
     return { success: false, message: `Could not find token info for ${params.from} or ${params.to}` };
   }
 
-  const amount = tradingService.parseAmount(params.amount, fromToken.decimals);
-  const quote = await tradingService.getSwapQuote({
+  const amount = getTradingService().parseAmount(params.amount, fromToken.decimals);
+  const quote = await getTradingService().getSwapQuote({
     userId: validatedUser.id,
     fromToken: fromToken.address,
     toToken: toToken.address,
@@ -90,9 +80,9 @@ async function handleSwap(
     params: { amount: params.amount, from: params.from, to: params.to, chainId },
     expiresAt: Date.now() + PENDING_ACTION_TTL,
   };
-  stateManager.setPendingAction(platform as 'web', channelId, pendingSwap);
+  getStateManager().setPendingAction(platform as 'web', channelId, pendingSwap);
 
-  const toAmount = tradingService.formatAmount(quote.toAmount, toToken.decimals);
+  const toAmount = getTradingService().formatAmount(quote.toAmount, toToken.decimals);
   const result = {
     success: true,
     message: `Swap ${params.amount} ${params.from} → ${toAmount} ${params.to}\nPrice impact: ${quote.priceImpact.toFixed(2)}%\n\nSay "confirm" to execute or "cancel" to abort.`,
@@ -122,15 +112,15 @@ async function handleBridge(
     return { success: false, message: `Unknown chain: ${!sourceChainId ? params.fromChain : params.toChain}` };
   }
 
-  const tokenInfo = await tradingService.getTokenInfo(params.token, sourceChainId);
+  const tokenInfo = await getTradingService().getTokenInfo(params.token, sourceChainId);
   if (!tokenInfo) {
     return { success: false, message: `Could not find token ${params.token}` };
   }
 
-  const amount = tradingService.parseAmount(params.amount, tokenInfo.decimals);
+  const amount = getTradingService().parseAmount(params.amount, tokenInfo.decimals);
 
   // Get bridge quote
-  const quote = await tradingService.getBridgeQuote({
+  const quote = await getTradingService().getBridgeQuote({
     userId: validatedUser.id,
     sourceChainId,
     destChainId,
@@ -153,9 +143,9 @@ async function handleBridge(
     },
     expiresAt: Date.now() + PENDING_ACTION_TTL,
   };
-  stateManager.setPendingAction(platform as 'web', channelId, pendingBridge);
+  getStateManager().setPendingAction(platform as 'web', channelId, pendingBridge);
 
-  const feeInfo = quote ? `\nFee: ${tradingService.formatAmount(quote.fee, tokenInfo.decimals)} ${params.token}` : '';
+  const feeInfo = quote ? `\nFee: ${getTradingService().formatAmount(quote.fee, tokenInfo.decimals)} ${params.token}` : '';
   const timeInfo = quote ? `\nEstimated time: ~${Math.ceil(quote.estimatedTimeSeconds / 60)} min` : '';
 
   const result = {
@@ -172,16 +162,16 @@ async function handleConfirm(
   channelId: string
 ): Promise<CommandResult> {
   const validatedUser = expectValid(OttoUserSchema, user, 'user');
-  const pending = stateManager.getPendingAction(platform as 'web', channelId);
+  const pending = getStateManager().getPendingAction(platform as 'web', channelId);
 
   if (!pending) {
     return { success: false, message: 'Nothing to confirm. Start a swap or bridge first.' };
   }
 
-  stateManager.clearPendingAction(platform as 'web', channelId);
+  getStateManager().clearPendingAction(platform as 'web', channelId);
 
   if (pending.type === 'swap') {
-    const result = await tradingService.executeSwap(validatedUser, {
+    const result = await getTradingService().executeSwap(validatedUser, {
       userId: validatedUser.id,
       fromToken: pending.quote.fromToken.address,
       toToken: pending.quote.toToken.address,
@@ -193,7 +183,7 @@ async function handleConfirm(
       return { success: false, message: `Swap failed: ${result.error ?? 'Unknown error'}` };
     }
 
-    const toAmount = tradingService.formatAmount(result.toAmount, pending.quote.toToken.decimals);
+    const toAmount = getTradingService().formatAmount(result.toAmount, pending.quote.toToken.decimals);
     const confirmResult = {
       success: true,
       message: `Swap executed.\n${pending.params.amount} ${pending.params.from} → ${toAmount} ${pending.params.to}\n\nTx: ${result.txHash}`,
@@ -203,18 +193,18 @@ async function handleConfirm(
   }
 
   if (pending.type === 'bridge') {
-    const tokenInfo = await tradingService.getTokenInfo(pending.params.token, pending.params.sourceChainId);
+    const tokenInfo = await getTradingService().getTokenInfo(pending.params.token, pending.params.sourceChainId);
     if (!tokenInfo) {
       return { success: false, message: 'Token info unavailable' };
     }
 
-    const result = await tradingService.executeBridge(validatedUser, {
+    const result = await getTradingService().executeBridge(validatedUser, {
       userId: validatedUser.id,
       sourceChainId: pending.params.sourceChainId,
       destChainId: pending.params.destChainId,
       sourceToken: tokenInfo.address,
       destToken: tokenInfo.address,
-      amount: tradingService.parseAmount(pending.params.amount, tokenInfo.decimals),
+      amount: getTradingService().parseAmount(pending.params.amount, tokenInfo.decimals),
     });
 
     if (!result.success) {
@@ -233,38 +223,38 @@ async function handleConfirm(
 }
 
 async function handleCancel(platform: string, channelId: string): Promise<CommandResult> {
-  const pending = stateManager.getPendingAction(platform as 'web', channelId);
+  const pending = getStateManager().getPendingAction(platform as 'web', channelId);
 
   if (!pending) {
     return { success: false, message: 'Nothing to cancel.' };
   }
 
-  stateManager.clearPendingAction(platform as 'web', channelId);
+  getStateManager().clearPendingAction(platform as 'web', channelId);
   return { success: true, message: 'Cancelled.' };
 }
 
 async function handleBalance(params: { token?: string }, user: OttoUser): Promise<CommandResult> {
   const validatedUser = expectValid(OttoUserSchema, user, 'user');
-  const balances = await tradingService.getBalances(validatedUser.primaryWallet);
+  const balances = await getTradingService().getBalances(validatedUser.primaryWallet);
 
   if (params.token) {
     const b = balances.find(b => b.token.symbol.toLowerCase() === params.token?.toLowerCase());
     if (!b) return { success: true, message: `No ${params.token} found in wallet` };
     return {
       success: true,
-      message: `${b.token.symbol}: ${tradingService.formatAmount(b.balance, b.token.decimals)}${b.balanceUsd ? ` ($${b.balanceUsd.toFixed(2)})` : ''}`,
+      message: `${b.token.symbol}: ${getTradingService().formatAmount(b.balance, b.token.decimals)}${b.balanceUsd ? ` ($${b.balanceUsd.toFixed(2)})` : ''}`,
     };
   }
 
   const totalUsd = balances.reduce((sum, b) => sum + (b.balanceUsd ?? 0), 0);
   const lines = balances.slice(0, 5).map(b =>
-    `${b.token.symbol}: ${tradingService.formatAmount(b.balance, b.token.decimals)}`
+    `${b.token.symbol}: ${getTradingService().formatAmount(b.balance, b.token.decimals)}`
   );
   return { success: true, message: `Portfolio: $${totalUsd.toFixed(2)}\n\n${lines.join('\n')}` };
 }
 
 async function handlePrice(params: { token: string }): Promise<CommandResult> {
-  const token = await tradingService.getTokenInfo(params.token, DEFAULT_CHAIN_ID);
+  const token = await getTradingService().getTokenInfo(params.token, DEFAULT_CHAIN_ID);
   if (!token?.price) {
     return { success: false, message: `Price not found for ${params.token}` };
   }
@@ -273,7 +263,7 @@ async function handlePrice(params: { token: string }): Promise<CommandResult> {
 }
 
 async function handleConnect(userId: string): Promise<CommandResult> {
-  const url = await walletService.generateConnectUrl('web', userId, userId);
+  const url = await getWalletService().generateConnectUrl('web', userId, userId);
   return { success: true, message: `Connect your wallet:\n\n${url}`, data: { url } };
 }
 
@@ -282,7 +272,6 @@ async function handleLimitOrder(
   user: OttoUser
 ): Promise<CommandResult> {
   // Validate inputs
-  const { validateLimitOrderParams } = await import('../utils/parsing');
   const validation = validateLimitOrderParams(params);
   if (!validation.valid) {
     throw new Error(validation.error ?? 'Limit order requires amount, from token, to token, and price');
@@ -290,24 +279,24 @@ async function handleLimitOrder(
   
   const validatedUser = expectValid(OttoUserSchema, user, 'user');
   const chainId = validatedUser.settings.defaultChainId;
-  const fromToken = await tradingService.getTokenInfo(params.from, chainId);
-  const toToken = await tradingService.getTokenInfo(params.to, chainId);
+  const fromToken = await getTradingService().getTokenInfo(params.from, chainId);
+  const toToken = await getTradingService().getTokenInfo(params.to, chainId);
 
   if (!fromToken || !toToken) {
     return { success: false, message: `Could not find token info for ${params.from} or ${params.to}` };
   }
 
-  const order = await tradingService.createLimitOrder(validatedUser, {
+  const order = await getTradingService().createLimitOrder(validatedUser, {
     userId: validatedUser.id,
     fromToken: fromToken.address,
     toToken: toToken.address,
-    fromAmount: tradingService.parseAmount(params.amount, fromToken.decimals),
+    fromAmount: getTradingService().parseAmount(params.amount, fromToken.decimals),
     targetPrice: params.price,
     chainId,
     expiresIn: 24 * 60 * 60 * 1000, // 24 hours
   });
 
-  stateManager.addLimitOrder(order);
+  getStateManager().addLimitOrder(order);
 
   const result = {
     success: true,
@@ -318,24 +307,24 @@ async function handleLimitOrder(
 }
 
 async function handleOrders(user: OttoUser): Promise<CommandResult> {
-  const orders = stateManager.getUserLimitOrders(user.id);
+  const orders = getStateManager().getUserLimitOrders(user.id);
 
   if (orders.length === 0) {
     return { success: true, message: 'No open limit orders.' };
   }
 
   const lines = orders.map(o =>
-    `${o.orderId.slice(0, 8)}: ${tradingService.formatAmount(o.fromAmount, o.fromToken.decimals)} ${o.fromToken.symbol} @ $${o.targetPrice}`
+    `${o.orderId.slice(0, 8)}: ${getTradingService().formatAmount(o.fromAmount, o.fromToken.decimals)} ${o.fromToken.symbol} @ $${o.targetPrice}`
   );
 
   return { success: true, message: `Open orders:\n\n${lines.join('\n')}` };
 }
 
 async function handleCancelOrder(params: { orderId: string }, user: OttoUser): Promise<CommandResult> {
-  const result = await tradingService.cancelLimitOrder(params.orderId, user.id);
+  const result = await getTradingService().cancelLimitOrder(params.orderId, user.id);
 
   if (!result) {
-    stateManager.updateLimitOrder(params.orderId, { status: 'cancelled' });
+    getStateManager().updateLimitOrder(params.orderId, { status: 'cancelled' });
   }
 
   return result
@@ -407,11 +396,11 @@ async function callAI(userMessage: string, conversationHistory: string[] = []): 
     { role: 'user', content: userMessage },
   ];
 
-  const response = await fetch(`${DWS_URL}/compute/chat/completions`, {
+  const response = await fetch(`${getDwsUrl()}/compute/chat/completions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      model: AI_MODEL,
+      model: getAiModel(),
       messages,
       max_tokens: 500,
       temperature: 0.7,
@@ -478,11 +467,11 @@ export async function processMessage(msg: PlatformMessage): Promise<CommandResul
     return { success: false, message: 'Send me a message.' };
   }
 
-  const user = walletService.getUserByPlatform(validatedMsg.platform, validatedMsg.userId);
-  const history = stateManager.getHistory(validatedMsg.platform, validatedMsg.channelId).flatMap(h => h.content);
+  const user = getWalletService().getUserByPlatform(validatedMsg.platform, validatedMsg.userId);
+  const history = getStateManager().getHistory(validatedMsg.platform, validatedMsg.channelId).flatMap(h => h.content);
 
   // Store user message in history
-  stateManager.addToHistory(validatedMsg.platform, validatedMsg.channelId, 'user', text);
+  getStateManager().addToHistory(validatedMsg.platform, validatedMsg.channelId, 'user', text);
 
   // Call AI
   let aiContent: string;
@@ -506,36 +495,36 @@ export async function processMessage(msg: PlatformMessage): Promise<CommandResul
     // Handle confirm/cancel without wallet
     if (action === 'confirm') {
       if (!user) {
-        const url = await walletService.generateConnectUrl('web', validatedMsg.userId, validatedMsg.userId);
+        const url = await getWalletService().generateConnectUrl('web', validatedMsg.userId, validatedMsg.userId);
         return { success: false, message: `Connect your wallet first:\n\n${url}`, data: { url } };
       }
       const result = await handleConfirm(user, validatedMsg.platform, validatedMsg.channelId);
-      stateManager.addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', result.message);
+      getStateManager().addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', result.message);
       return result;
     }
 
     if (action === 'cancel') {
       const result = await handleCancel(validatedMsg.platform, validatedMsg.channelId);
-      stateManager.addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', result.message);
+      getStateManager().addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', result.message);
       return result;
     }
 
     // Actions that don't require wallet
     if (action === 'connect') {
       const result = await handleConnect(validatedMsg.userId);
-      stateManager.addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', result.message);
+      getStateManager().addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', result.message);
       return result;
     }
 
     if (action === 'price' && parsed.token) {
       const result = await handlePrice({ token: parsed.token });
-      stateManager.addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', result.message);
+      getStateManager().addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', result.message);
       return result;
     }
 
     // Actions that require wallet
     if (!user) {
-      const url = await walletService.generateConnectUrl('web', validatedMsg.userId, validatedMsg.userId);
+      const url = await getWalletService().generateConnectUrl('web', validatedMsg.userId, validatedMsg.userId);
       return { success: false, message: `Connect your wallet first:\n\n${url}`, data: { url } };
     }
 
@@ -605,12 +594,12 @@ export async function processMessage(msg: PlatformMessage): Promise<CommandResul
         result = { success: true, message: aiContent.replace(/\{[\s\S]*\}/, '').trim() || "I'm not sure how to help with that." };
     }
 
-    stateManager.addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', result.message);
+    getStateManager().addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', result.message);
     return result;
   }
 
   // AI returned natural language response
-  stateManager.addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', aiContent);
+  getStateManager().addToHistory(validatedMsg.platform, validatedMsg.channelId, 'assistant', aiContent);
   const naturalResult = { success: true, message: aiContent };
   return expectValid(CommandResultSchema, naturalResult, 'natural language result');
 }
@@ -620,15 +609,15 @@ export async function processMessage(msg: PlatformMessage): Promise<CommandResul
 // ============================================================================
 
 export function startLimitOrderMonitor(): void {
-  stateManager.startLimitOrderMonitor(
+  getStateManager().startLimitOrderMonitor(
     async (token: string, chainId: number) => {
-      return tradingService.getTokenPrice(token, chainId);
+      return getTradingService().getTokenPrice(token, chainId);
     },
     async (order) => {
-      const user = stateManager.getUser(order.userId);
+      const user = getStateManager().getUser(order.userId);
       if (!user) return { success: false };
 
-      const result = await tradingService.executeSwap(user, {
+      const result = await getTradingService().executeSwap(user, {
         userId: user.id,
         fromToken: order.fromToken.address,
         toToken: order.toToken.address,
@@ -642,7 +631,7 @@ export function startLimitOrderMonitor(): void {
 }
 
 export function stopLimitOrderMonitor(): void {
-  stateManager.stopLimitOrderMonitor();
+  getStateManager().stopLimitOrderMonitor();
 }
 
 // Export for tests

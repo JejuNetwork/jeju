@@ -28,9 +28,22 @@ export interface MFAStatus {
   backupCodesRemaining: number;
 }
 
+export interface MFAChallengeMetadata {
+  /** Phone number for SMS challenges */
+  phone?: string;
+  /** Email address for email challenges */
+  email?: string;
+  /** Device name for passkey challenges */
+  deviceName?: string;
+  /** Credential ID for passkey challenges */
+  credentialId?: string;
+  /** Whether backup codes were used */
+  backupCodeUsed?: boolean;
+}
+
 export interface MFAChallenge {
   challengeId: string;
   method: MFAMethod;
   expiresAt: number;
-  metadata?: Record<string, unknown>;
+  metadata?: MFAChallengeMetadata;
 }

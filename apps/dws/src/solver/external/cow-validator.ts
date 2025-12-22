@@ -12,7 +12,7 @@
  */
 
 import { type Address, formatEther } from 'viem';
-import { CowProtocolSolver, type CowAuction, type CowOrder, type CowSolution } from './cow';
+import { CowProtocolSolver, type CowAuction, type CowSolution } from './cow';
 
 // CoW API for historical data
 const COW_API = {
@@ -59,25 +59,8 @@ interface ComparisonResult {
   reasons: string[];
 }
 
-interface TokenPrice {
-  address: Address;
-  decimals: number;
-  priceUsd: number;
-}
-
-interface SettlementResponse {
-  solver: string;
-  txHash: string;
-  trades: Array<{
-    orderUid: string;
-    executedSellAmount: string;
-    executedBuyAmount: string;
-  }>;
-}
-
 export class CowSolverValidator {
   private solver: CowProtocolSolver;
-  private tokenPrices: Map<string, TokenPrice> = new Map();
   
   constructor(solver: CowProtocolSolver) {
     this.solver = solver;
@@ -246,7 +229,7 @@ export class CowSolverValidator {
   private async analyzeSolution(
     auction: CowAuction,
     solution: CowSolution | null,
-    liquidityPools: Map<string, { reserve0: bigint; reserve1: bigint; token0: Address; token1: Address }>
+    _liquidityPools: Map<string, { reserve0: bigint; reserve1: bigint; token0: Address; token1: Address }>
   ): Promise<SolverMetrics> {
     const metrics: SolverMetrics = {
       auctionId: auction.id,
@@ -289,7 +272,6 @@ export class CowSolverValidator {
       metrics.totalSurplusWei += surplusAmount;
 
       // Check if this is a CoW match (internal) or external route
-      const reverseKey = this.getPoolKey(order.buyToken, order.sellToken);
       const hasReverseOrder = auction.orders.some(o => 
         o.sellToken.toLowerCase() === order.buyToken.toLowerCase() &&
         o.buyToken.toLowerCase() === order.sellToken.toLowerCase()
@@ -421,13 +403,6 @@ export class CowSolverValidator {
     }
 
     return { wouldWin, surplusDifference: surplusDiff, fillRateDifference: fillRateDiff, reasons };
-  }
-
-  private getPoolKey(token0: Address, token1: Address): string {
-    const [a, b] = token0.toLowerCase() < token1.toLowerCase()
-      ? [token0, token1]
-      : [token1, token0];
-    return `${a}-${b}`;
   }
 }
 

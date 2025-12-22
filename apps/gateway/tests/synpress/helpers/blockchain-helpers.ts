@@ -7,10 +7,74 @@ import { Page } from '@playwright/test';
 
 const RPC_URL = 'http://127.0.0.1:9545';
 
+/** JSON-RPC primitive value */
+type JsonPrimitive = string | number | boolean | null;
+
+/** JSON-RPC compatible value */
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+
+/** JSON-RPC response structure */
+interface JsonRpcResponse {
+  jsonrpc: '2.0';
+  id: number;
+  result?: JsonValue;
+  error?: { code: number; message: string };
+}
+
+/** Ethereum block structure from eth_getBlockByNumber */
+interface EthBlock {
+  timestamp: string;
+  number: string;
+  hash: string;
+  parentHash: string;
+  nonce: string;
+  sha3Uncles: string;
+  logsBloom: string;
+  transactionsRoot: string;
+  stateRoot: string;
+  receiptsRoot: string;
+  miner: string;
+  difficulty: string;
+  totalDifficulty: string;
+  extraData: string;
+  size: string;
+  gasLimit: string;
+  gasUsed: string;
+  transactions: string[];
+}
+
+/** Transaction receipt structure from eth_getTransactionReceipt */
+interface TransactionReceipt {
+  transactionHash: string;
+  transactionIndex: string;
+  blockHash: string;
+  blockNumber: string;
+  from: string;
+  to: string | null;
+  cumulativeGasUsed: string;
+  gasUsed: string;
+  contractAddress: string | null;
+  logs: Array<{
+    address: string;
+    topics: string[];
+    data: string;
+    blockNumber: string;
+    transactionHash: string;
+    transactionIndex: string;
+    blockHash: string;
+    logIndex: string;
+    removed: boolean;
+  }>;
+  logsBloom: string;
+  status: string;
+  effectiveGasPrice?: string;
+  type?: string;
+}
+
 /**
  * Make RPC call to localnet
  */
-async function rpcCall(page: Page, method: string, params: unknown[] = []): Promise<unknown> {
+async function rpcCall<T = JsonValue>(page: Page, method: string, params: JsonValue[] = []): Promise<T> {
   const response = await page.request.post(RPC_URL, {
     data: {
       jsonrpc: '2.0',
@@ -20,13 +84,13 @@ async function rpcCall(page: Page, method: string, params: unknown[] = []): Prom
     },
   });
   
-  const result = await response.json();
+  const result = await response.json() as JsonRpcResponse;
   
   if (result.error) {
     throw new Error(`RPC error: ${result.error.message}`);
   }
   
-  return result.result;
+  return result.result as T;
 }
 
 /**
@@ -76,9 +140,9 @@ export async function setNextBlockTimestamp(page: Page, timestamp: number): Prom
  * Take EVM snapshot (for reverting state)
  */
 export async function takeSnapshot(page: Page): Promise<string> {
-  const snapshotId = await rpcCall(page, 'evm_snapshot', []);
+  const snapshotId = await rpcCall<string>(page, 'evm_snapshot', []);
   console.log(`📸 Snapshot taken: ${snapshotId}`);
-  return snapshotId as string;
+  return snapshotId;
 }
 
 /**
@@ -93,25 +157,24 @@ export async function revertToSnapshot(page: Page, snapshotId: string): Promise<
  * Get current block number
  */
 export async function getBlockNumber(page: Page): Promise<number> {
-  const blockHex = await rpcCall(page, 'eth_blockNumber', []);
-  return parseInt(blockHex as string, 16);
+  const blockHex = await rpcCall<string>(page, 'eth_blockNumber', []);
+  return parseInt(blockHex, 16);
 }
 
 /**
  * Get current block timestamp
  */
 export async function getBlockTimestamp(page: Page): Promise<number> {
-  const block = await rpcCall(page, 'eth_getBlockByNumber', ['latest', false]);
-  const blockData = block as { timestamp: string };
-  return parseInt(blockData.timestamp, 16);
+  const block = await rpcCall<EthBlock>(page, 'eth_getBlockByNumber', ['latest', false]);
+  return parseInt(block.timestamp, 16);
 }
 
 /**
  * Get account balance
  */
 export async function getBalance(page: Page, address: string): Promise<bigint> {
-  const balanceHex = await rpcCall(page, 'eth_getBalance', [address, 'latest']);
-  return BigInt(balanceHex as string);
+  const balanceHex = await rpcCall<string>(page, 'eth_getBalance', [address, 'latest']);
+  return BigInt(balanceHex);
 }
 
 /**
@@ -125,7 +188,7 @@ export async function getTokenBalance(
   // balanceOf(address) call
   const data = `0x70a08231000000000000000000000000${accountAddress.slice(2)}`;
   
-  const result = await rpcCall(page, 'eth_call', [
+  const result = await rpcCall<string>(page, 'eth_call', [
     {
       to: tokenAddress,
       data,
@@ -133,7 +196,7 @@ export async function getTokenBalance(
     'latest',
   ]);
   
-  return BigInt(result as string);
+  return BigInt(result);
 }
 
 /**
@@ -207,15 +270,15 @@ export async function waitForBlocks(page: Page, blockCount: number): Promise<voi
  * Verify contract deployed at address
  */
 export async function isContractDeployed(page: Page, address: string): Promise<boolean> {
-  const code = await rpcCall(page, 'eth_getCode', [address, 'latest']);
+  const code = await rpcCall<string>(page, 'eth_getCode', [address, 'latest']);
   return code !== '0x' && code !== '0x0';
 }
 
 /**
  * Get transaction receipt
  */
-export async function getTransactionReceipt(page: Page, txHash: string): Promise<unknown> {
-  return await rpcCall(page, 'eth_getTransactionReceipt', [txHash]);
+export async function getTransactionReceipt(page: Page, txHash: string): Promise<TransactionReceipt | null> {
+  return await rpcCall<TransactionReceipt | null>(page, 'eth_getTransactionReceipt', [txHash]);
 }
 
 /**

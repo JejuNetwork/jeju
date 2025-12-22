@@ -2,9 +2,9 @@
  * Bridge module exports
  *
  * Cross-chain token bridging via Hyperlane warp routes.
- * This module handles EVM↔EVM bridging only.
- * 
- * For Solana bridging, use @jejunetwork/zksolbridge package.
+ * For EVM↔EVM bridging, use HyperlaneAdapter.
+ * For Solana bridging, use SolanaAdapter (or @jejunetwork/zksolbridge for ZK proofs).
  */
 
 export * from './hyperlane-adapter';
+export * from './solana-adapter';

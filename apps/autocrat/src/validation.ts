@@ -9,20 +9,25 @@ import { Context } from 'hono';
 import { z } from 'zod';
 import { isHex } from 'viem';
 import {
-  expectValid,
   expectDefined,
+  expectValid,
   expectTrue,
-  expectBigInt as sharedExpectBigInt,
-  expectAddress as sharedExpectAddress,
-} from '@jejunetwork/types/validation';
+  expectAddress as baseExpectAddress,
+  expectBigInt,
+} from '@jejunetwork/types';
 
 // Re-export shared validation helpers for convenience
 export {
+  expect,
+  expectDefined,
   expectValid,
   expectValid as validateOrThrow,
-  expectDefined,
   expectTrue,
-} from '@jejunetwork/types/validation';
+  expectHex,
+  expectBigInt,
+  expectNonEmpty,
+  UrlSchema,
+} from '@jejunetwork/types';
 
 /**
  * Parse and validate JSON body from Hono request
@@ -71,7 +76,7 @@ export function parseAndValidateParam(
  */
 export function parseBigInt(value: string | undefined, context: string): bigint {
   expectDefined(value, `${context}: value is required`);
-  const parsed = sharedExpectBigInt(value, context);
+  const parsed = expectBigInt(value, context);
   expectTrue(parsed >= 0n, `${context}: BigInt must be non-negative`);
   return parsed;
 }
@@ -81,7 +86,7 @@ export function parseBigInt(value: string | undefined, context: string): bigint 
  */
 export function parseAddress(value: string | undefined, context: string): `0x${string}` {
   expectDefined(value, `${context}: address is required`);
-  return sharedExpectAddress(value, context);
+  return baseExpectAddress(value, context);
 }
 
 /**

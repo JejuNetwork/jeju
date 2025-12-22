@@ -14,7 +14,7 @@ import { VolatilityStrategy } from '../strategies/tfmm/volatility-strategy';
 import { CompositeStrategy } from '../strategies/tfmm/composite-strategy';
 import type { BaseTFMMStrategy, StrategyContext } from '../strategies/tfmm/base-strategy';
 import { OracleAggregator } from '../oracles';
-import { WEIGHT_PRECISION } from '../shared';
+import { WEIGHT_PRECISION } from '../schemas';
 
 // ============ Types ============
 

@@ -3,7 +3,7 @@
  */
 
 import { z } from 'zod';
-import { urlSchema, nonEmptyStringSchema } from '../validation';
+import { urlSchema, nonEmptyStringSchema, JSONValueSchema } from '../validation';
 
 /**
  * Scraping request schema
@@ -26,7 +26,7 @@ export const scrapingRequestSchema = z.object({
  */
 export const scrapingFunctionRequestSchema = z.object({
   code: nonEmptyStringSchema,
-  context: z.record(z.string(), z.unknown()).optional(),
+  context: z.record(z.string(), JSONValueSchema).optional(),
 });
 
 /**

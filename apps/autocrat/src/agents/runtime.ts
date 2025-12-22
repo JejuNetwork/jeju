@@ -9,17 +9,24 @@ import { autocratAgentTemplates, ceoAgent, type AutocratAgentTemplate } from './
 import { autocratPlugin } from './autocrat-plugin';
 import { ceoPlugin } from './ceo-plugin';
 import type { CEOPersona, GovernanceParams } from '../types';
+import type { Character, Plugin, IAgentRuntime, UUID } from '@elizaos/core';
 
-// ElizaOS types - loaded dynamically to avoid import errors
-// These use Record types since ElizaOS internals vary by version
-type ElizaCharacter = Record<string, string | string[] | Record<string, string>>;
-type ElizaPlugin = Record<string, string | ((...args: unknown[]) => unknown)>;
-type AgentRuntime = { character: ElizaCharacter; agentId: string; registerPlugin: (p: ElizaPlugin) => Promise<void> };
-type UUID = string;
-// Type aliases for ElizaOS compatibility
-type Character = ElizaCharacter;
-type Plugin = ElizaPlugin;
-let AgentRuntimeClass: (new (opts: { character: ElizaCharacter; agentId: UUID; plugins: ElizaPlugin[] }) => AgentRuntime) | null = null;
+// ElizaOS runtime interface - subset used by autocrat
+interface AutocratAgentRuntime extends Pick<IAgentRuntime, 'character' | 'agentId' | 'registerPlugin'> {
+  character: Character;
+  agentId: UUID;
+  registerPlugin: (plugin: Plugin) => Promise<void>;
+}
+
+// ElizaOS AgentRuntime constructor type - loaded dynamically
+type AgentRuntimeConstructor = new (opts: {
+  character: Character;
+  agentId?: UUID;
+  plugins?: Plugin[];
+}) => AutocratAgentRuntime;
+
+// Dynamically loaded AgentRuntime class
+let AgentRuntimeClass: AgentRuntimeConstructor | null = null;
 
 // ============ Types ============
 
@@ -201,8 +208,8 @@ function buildPersonaDecisionPrompt(persona: CEOPersona, approved: boolean): str
 
 export class AutocratAgentRuntimeManager {
   private static instance: AutocratAgentRuntimeManager;
-  private runtimes = new Map<string, AgentRuntime>();
-  private daoRuntimes = new Map<string, Map<string, AgentRuntime>>();
+  private runtimes = new Map<string, AutocratAgentRuntime>();
+  private daoRuntimes = new Map<string, Map<string, AutocratAgentRuntime>>();
   private ceoPersonas = new Map<string, CEOPersonaConfig>();
   private initialized = false;
   private dwsAvailable: boolean | null = null;
@@ -257,7 +264,7 @@ export class AutocratAgentRuntimeManager {
 
     // Create DAO-specific runtimes if needed
     if (!this.daoRuntimes.has(daoId)) {
-      const daoAgents = new Map<string, AgentRuntime>();
+      const daoAgents = new Map<string, AutocratAgentRuntime>();
 
       // Create council agents for this DAO
       for (const template of autocratAgentTemplates) {
@@ -294,7 +301,7 @@ export class AutocratAgentRuntimeManager {
     }
   }
 
-  getDAORuntime(daoId: string, agentId: string): AgentRuntime | undefined {
+  getDAORuntime(daoId: string, agentId: string): AutocratAgentRuntime | undefined {
     const daoAgents = this.daoRuntimes.get(daoId);
     if (daoAgents) {
       return daoAgents.get(agentId);
@@ -306,26 +313,38 @@ export class AutocratAgentRuntimeManager {
     return this.ceoPersonas.get(daoId);
   }
 
-  private async createRuntime(template: AutocratAgentTemplate): Promise<AgentRuntime> {
+  private async createRuntime(template: AutocratAgentTemplate): Promise<AutocratAgentRuntime> {
     // Dynamically import ElizaOS to avoid load-time errors
     if (!AgentRuntimeClass) {
       const elizaos = await import('@elizaos/core');
-      // Use type assertion to handle ElizaOS version differences
-      AgentRuntimeClass = elizaos.AgentRuntime as unknown as typeof AgentRuntimeClass;
+      AgentRuntimeClass = elizaos.AgentRuntime;
     }
     if (!AgentRuntimeClass) {
       throw new Error('ElizaOS AgentRuntime not available');
     }
-    // Cast template.character through unknown to satisfy ElizaOS dynamic type system
-    const character = { ...template.character } as unknown as Character;
-    // Cast plugins through unknown for ElizaOS Plugin type compatibility
-    const plugins = (template.role === 'CEO' ? [ceoPlugin] : [autocratPlugin]) as unknown as Plugin[];
-    const runtime = new AgentRuntimeClass({ character, agentId: template.id as UUID, plugins });
-    for (const plugin of plugins) await runtime.registerPlugin(plugin);
+    
+    // Template character is already typed as Character from @elizaos/core (see templates.ts)
+    const character: Character = { ...template.character };
+    
+    // Plugins are properly typed - autocratPlugin and ceoPlugin export Plugin types
+    const plugins: Plugin[] = template.role === 'CEO' ? [ceoPlugin] : [autocratPlugin];
+    
+    // Create runtime - ElizaOS generates agentId from character.name via stringToUuid
+    // This ensures the agentId is always a valid UUID format
+    const runtime = new AgentRuntimeClass({
+      character,
+      plugins,
+    });
+    
+    // Register plugins
+    for (const plugin of plugins) {
+      await runtime.registerPlugin(plugin);
+    }
+    
     return runtime;
   }
 
-  getRuntime(id: string): AgentRuntime | undefined {
+  getRuntime(id: string): AutocratAgentRuntime | undefined {
     return this.runtimes.get(id);
   }
 

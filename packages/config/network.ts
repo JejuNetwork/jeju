@@ -416,4 +416,4 @@ export function getDeployerConfig(): { address: string; privateKey: string } {
 // Exports
 // ============================================================================
 
-export type { NetworkType, ChainConfig } from './schemas';
+// Types are exported from ./schemas via index.ts 'export * from ./schemas'

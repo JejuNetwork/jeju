@@ -205,6 +205,6 @@ export type {
   CrossChainArbOpportunity,
   SandwichOpportunity,
   LiquidationOpportunity,
-  ExecutionResult,
+  OpportunityExecutionResult,
   AutocratConfig,
 } from './autocrat-types';

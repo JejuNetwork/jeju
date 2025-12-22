@@ -13,10 +13,60 @@ import { OrgAgent } from './org-agent';
 import { CQLClient } from '@jeju/db';
 import type { OrgTodo, OrgCheckinSchedule, OrgCheckinResponse, OrgTeamMember } from '../types';
 
+/** Database row for todo queries */
+interface TodoDbRow {
+  id: string;
+  org_id: string;
+  title: string;
+  description: string | null;
+  priority: string;
+  status: string;
+  assignee_agent_id: string | null;
+  created_by: string;
+  due_date: number | null;
+  tags: string;
+  created_at: number;
+  updated_at: number;
+}
+
+/** Database row for count queries */
+interface CountDbRow {
+  count: number;
+}
+
+/** Database row for team member queries */
+interface TeamMemberDbRow {
+  agent_id: string;
+  org_id: string;
+  role: string;
+  joined_at: number;
+  last_active_at: number;
+  todos_completed: number;
+  checkins_completed: number;
+  contributions: number;
+}
+
+/** Union of all possible query result row types */
+type QueryRow = TodoDbRow | CountDbRow | TeamMemberDbRow;
+
+/** Query result structure */
+interface QueryResult {
+  rows: QueryRow[];
+}
+
+/** CQL query arguments - typically SQL string and optional params */
+type CqlQueryArgs = [string, ...Array<string | number | boolean | null>];
+
+/** CQL exec arguments - typically SQL string */
+type CqlExecArgs = [string, ...Array<string | number | boolean | null>];
+
+/** Generic mock function arguments */
+type MockFnArgs = CqlQueryArgs | CqlExecArgs;
+
 // Helper type for Jest-like mock methods
 interface MockFn<T> {
-  (...args: unknown[]): Promise<T>;
-  mock: { calls: unknown[][] };
+  (...args: MockFnArgs): Promise<T>;
+  mock: { calls: MockFnArgs[] };
   mockResolvedValueOnce(value: T): MockFn<T>;
   mockRejectedValueOnce(error: Error): MockFn<T>;
   mockResolvedValue(value: T): MockFn<T>;
@@ -27,9 +77,9 @@ interface MockFn<T> {
 function createMockFn<T>(defaultValue: T): MockFn<T> {
   const values: { type: 'resolve' | 'reject'; value: T | Error }[] = [];
   let defaultImpl: (() => T) | null = null;
-  const calls: unknown[][] = [];
+  const calls: MockFnArgs[] = [];
   
-  const fn = ((...args: unknown[]) => {
+  const fn = ((...args: MockFnArgs) => {
     calls.push(args);
     if (values.length > 0) {
       const { type, value } = values.shift()!;
@@ -46,7 +96,8 @@ function createMockFn<T>(defaultValue: T): MockFn<T> {
     return fn;
   };
   fn.mockRejectedValueOnce = (error: Error) => {
-    values.push({ type: 'reject', value: error as unknown as T });
+    // Store error in the reject slot - it will be rejected, not resolved
+    values.push({ type: 'reject', value: error as T });
     return fn;
   };
   fn.mockResolvedValue = (value: T) => {
@@ -67,7 +118,7 @@ function createMockFn<T>(defaultValue: T): MockFn<T> {
 
 // Create typed mocks
 const mockExec = createMockFn<void>(undefined);
-const mockQuery = createMockFn<{ rows: unknown[] }>({ rows: [] });
+const mockQuery = createMockFn<QueryResult>({ rows: [] });
 
 describe('OrgAgent', () => {
   const mockCQLClient = {

@@ -17,6 +17,7 @@ import {
   type DecisionData,
   type EncryptedData,
 } from './encryption';
+import type { TEEAttestation } from './types';
 
 // Schemas for JSON parsing
 const EncryptedCipherSchema = z.object({
@@ -64,13 +65,7 @@ export interface TEEDecisionResult {
   daBackupHash?: string;
 }
 
-export interface TEEAttestation {
-  provider: 'local' | 'remote';
-  quote?: string;
-  measurement?: string;
-  timestamp: number;
-  verified: boolean;
-}
+// TEEAttestation is imported from ./types to ensure type compatibility
 
 const TEE_ENDPOINT = process.env.TEE_ENDPOINT;
 const USE_ENCRYPTION = process.env.USE_ENCRYPTION !== 'false';

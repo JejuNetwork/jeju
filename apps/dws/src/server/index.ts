@@ -16,6 +16,7 @@ import type { Context, Next } from 'hono';
 import type { ServiceHealth } from '../types';
 // Error handler is now using Hono's app.onError
 import { createStorageRouter } from './routes/storage';
+import { createStorageRouterV2 } from './routes/storage-v2';
 import { createComputeRouter } from './routes/compute';
 import { createCDNRouter } from './routes/cdn';
 import { createA2ARouter } from './routes/a2a';
@@ -32,7 +33,9 @@ import { createKMSRouter } from './routes/kms';
 import { createVPNRouter } from './routes/vpn';
 import { createScrapingRouter } from './routes/scraping';
 import { createRPCRouter } from './routes/rpc';
-import { createEdgeRouter, handleEdgeWebSocket } from './routes/edge';
+import { createEdgeRouter } from './routes/edge';
+import { createModerationRouter } from './routes/moderation';
+import { createEmailRouter } from '../email/routes';
 import { createBackendManager } from '../storage/backends';
 import { initializeMarketplace } from '../api-marketplace';
 import { initializeContainerSystem } from '../containers';
@@ -288,6 +291,7 @@ app.get('/', (c) => {
 });
 
 app.route('/storage', createStorageRouter(backendManager));
+app.route('/storage/v2', createStorageRouterV2());
 app.route('/compute', createComputeRouter());
 app.route('/cdn', createCDNRouter());
 app.route('/git', createGitRouter({ repoManager, backend: backendManager }));
@@ -307,6 +311,8 @@ app.route('/vpn', createVPNRouter());
 app.route('/scraping', createScrapingRouter());
 app.route('/rpc', createRPCRouter());
 app.route('/edge', createEdgeRouter());
+app.route('/moderation', createModerationRouter());
+app.route('/email', createEmailRouter());
 
 // Initialize services
 initializeMarketplace();

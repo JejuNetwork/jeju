@@ -368,8 +368,14 @@ async function checkApplicationContracts() {
   const eilFile = join(ROOT, 'packages/contracts/deployments/eil-testnet.json');
   
   if (existsSync(oifFile)) {
-    const oif = JSON.parse(readFileSync(oifFile, 'utf-8'));
-    const deployedChains = Object.values(oif.chains || {}).filter((c: unknown) => (c as {status: string}).status === 'deployed').length;
+    interface OIFChainStatus {
+      status: string;
+    }
+    interface OIFDeployment {
+      chains?: Record<string, OIFChainStatus>;
+    }
+    const oif = JSON.parse(readFileSync(oifFile, 'utf-8')) as OIFDeployment;
+    const deployedChains = Object.values(oif.chains || {}).filter((c) => c.status === 'deployed').length;
     addResult(category, 'OIF Contracts', deployedChains > 0 ? 'pass' : 'warn', `${deployedChains} chains deployed`);
   } else {
     addResult(category, 'OIF Contracts', 'warn', 'Not deployed yet');

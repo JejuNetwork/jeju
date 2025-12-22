@@ -1,6 +1,8 @@
 /**
- * Structured Logger - Provides consistent logging across all SDKs.
+ * Structured Logger using pino - Provides consistent logging across all SDKs.
  */
+
+import pino from 'pino';
 
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error';
 
@@ -19,55 +21,70 @@ export interface Logger {
   error(message: string, data?: Record<string, unknown>): void;
 }
 
-const LOG_LEVELS: Record<LogLevel, number> = { debug: 0, info: 1, warn: 2, error: 3 };
-
 export interface LoggerConfig {
   level?: LogLevel;
   json?: boolean;
   silent?: boolean;
 }
 
-class StructuredLogger implements Logger {
-  private component: string;
-  private level: number;
-  private json: boolean;
+// Determine environment settings
+const isProduction = process.env.NODE_ENV === 'production';
+const defaultLevel = (process.env.LOG_LEVEL as LogLevel) ?? 'info';
+const useJson = process.env.LOG_FORMAT === 'json' || isProduction;
+
+// Create the base pino logger
+const baseLogger = pino({
+  level: defaultLevel,
+  transport: !useJson ? {
+    target: 'pino-pretty',
+    options: {
+      colorize: true,
+      translateTime: 'SYS:standard',
+      ignore: 'pid,hostname',
+    },
+  } : undefined,
+  formatters: {
+    level: (label) => ({ level: label }),
+  },
+  timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
+});
+
+class PinoLogger implements Logger {
+  private logger: pino.Logger;
   private silent: boolean;
 
   constructor(component: string, config: LoggerConfig = {}) {
-    this.component = component;
-    this.level = LOG_LEVELS[config.level ?? (process.env.LOG_LEVEL as LogLevel) ?? 'info'];
-    this.json = config.json ?? process.env.LOG_FORMAT === 'json';
     this.silent = config.silent ?? false;
+    const level = config.level ?? defaultLevel;
+    this.logger = baseLogger.child({ component });
+    if (config.level) {
+      this.logger.level = level;
+    }
   }
 
-  debug(message: string, data?: Record<string, unknown>) { this.log('debug', message, data); }
-  info(message: string, data?: Record<string, unknown>) { this.log('info', message, data); }
-  warn(message: string, data?: Record<string, unknown>) { this.log('warn', message, data); }
-  error(message: string, data?: Record<string, unknown>) { this.log('error', message, data); }
+  debug(message: string, data?: Record<string, unknown>) {
+    if (this.silent) return;
+    data ? this.logger.debug(data, message) : this.logger.debug(message);
+  }
 
-  private log(level: LogLevel, message: string, data?: Record<string, unknown>) {
-    if (this.silent || LOG_LEVELS[level] < this.level) return;
+  info(message: string, data?: Record<string, unknown>) {
+    if (this.silent) return;
+    data ? this.logger.info(data, message) : this.logger.info(message);
+  }
 
-    const entry: LogEntry = {
-      level,
-      component: this.component,
-      message,
-      timestamp: new Date().toISOString(),
-      ...(data && Object.keys(data).length > 0 ? { data } : {}),
-    };
+  warn(message: string, data?: Record<string, unknown>) {
+    if (this.silent) return;
+    data ? this.logger.warn(data, message) : this.logger.warn(message);
+  }
 
-    if (this.json) {
-      console[level === 'debug' ? 'log' : level](JSON.stringify(entry));
-    } else {
-      const prefix = `[${entry.timestamp}] [${level.toUpperCase()}] [${this.component}]`;
-      const suffix = data ? ` ${JSON.stringify(data)}` : '';
-      console[level === 'debug' ? 'log' : level](`${prefix} ${message}${suffix}`);
-    }
+  error(message: string, data?: Record<string, unknown>) {
+    if (this.silent) return;
+    data ? this.logger.error(data, message) : this.logger.error(message);
   }
 }
 
 export function createLogger(component: string, config?: LoggerConfig): Logger {
-  return new StructuredLogger(component, config);
+  return new PinoLogger(component, config);
 }
 
 // Singleton loggers for each component

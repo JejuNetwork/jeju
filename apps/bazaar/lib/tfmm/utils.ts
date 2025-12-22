@@ -3,7 +3,7 @@
  * Shared between API routes and hooks
  */
 
-import { AddressSchema } from '@jejunetwork/types/contracts';
+import { AddressSchema } from '@jejunetwork/types';
 import { expect } from '@/lib/validation';
 import type { TFMMCreatePoolParams, TFMMUpdateStrategyParams, TFMMTriggerRebalanceParams } from '@/schemas/api';
 

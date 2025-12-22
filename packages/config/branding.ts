@@ -429,5 +429,3 @@ function generateAsciiBanner(name: string): string[] {
     '╚' + '═'.repeat(42) + '╝',
   ];
 }
-
-

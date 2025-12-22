@@ -1,6 +1,6 @@
 import { createWalletClient, createPublicClient, http, type WalletClient, type PublicClient, type Account, encodeFunctionData } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
-import type { ChainId, ProfitSource, TreasuryStats, ProfitDeposit, ExecutionResult } from '../autocrat-types';
+import type { ChainId, ProfitSource, TreasuryStats, ProfitDeposit, OpportunityExecutionResult } from '../autocrat-types';
 import { AUTOCRAT_TREASURY_ABI, ERC20_ABI, ZERO_ADDRESS } from '../lib/contracts';
 import { createLogger } from '../../sdk/logger';
 
@@ -154,7 +154,7 @@ export class TreasuryManager {
    * Deposit profit from an execution result
    */
   async depositFromExecution(
-    result: ExecutionResult,
+    result: OpportunityExecutionResult,
     source: ProfitSource
   ): Promise<{ success: boolean; depositTxHash?: string; error?: string }> {
     if (!result.success || !result.actualProfit || !result.txHash) {

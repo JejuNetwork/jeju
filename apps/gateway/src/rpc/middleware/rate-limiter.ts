@@ -1,17 +1,40 @@
 import { Context, Next } from 'hono';
 import { createPublicClient, http, type Address, type Chain } from 'viem';
+import { RateLimiterMemory, RateLimiterRes } from 'rate-limiter-flexible';
+import { LRUCache } from 'lru-cache';
 
 export const RATE_LIMITS = { FREE: 10, BASIC: 100, PRO: 1000, UNLIMITED: 0 } as const;
 export type RateTier = keyof typeof RATE_LIMITS;
 
-interface RateLimitRecord { count: number; resetAt: number; tier: RateTier; }
-const rateLimitStore = new Map<string, RateLimitRecord>();
-const apiKeyCache = new Map<string, { address: Address; tier: RateTier }>();
+// LRU cache for API key lookups (auto-evicts old entries)
+const apiKeyCache = new LRUCache<string, { address: Address; tier: RateTier }>({
+  max: 10000,
+  ttl: 1000 * 60 * 60, // 1 hour TTL
+});
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [key, record] of rateLimitStore) if (now > record.resetAt) rateLimitStore.delete(key);
-}, 60_000);
+// Rate limiters per tier using rate-limiter-flexible
+const rateLimiters = {
+  FREE: new RateLimiterMemory({
+    points: RATE_LIMITS.FREE,
+    duration: 60, // Per minute
+    blockDuration: 0,
+  }),
+  BASIC: new RateLimiterMemory({
+    points: RATE_LIMITS.BASIC,
+    duration: 60,
+    blockDuration: 0,
+  }),
+  PRO: new RateLimiterMemory({
+    points: RATE_LIMITS.PRO,
+    duration: 60,
+    blockDuration: 0,
+  }),
+  UNLIMITED: new RateLimiterMemory({
+    points: Number.MAX_SAFE_INTEGER,
+    duration: 60,
+    blockDuration: 0,
+  }),
+};
 
 const RPC_STAKING_ABI = [
   { name: 'getRateLimit', type: 'function', stateMutability: 'view', inputs: [{ name: 'user', type: 'address' }], outputs: [{ name: '', type: 'uint256' }] },
@@ -58,7 +81,6 @@ export function rateLimiter() {
     if (c.req.path === '/health' || c.req.path === '/') return next();
 
     const { key, address } = getUserKey(c);
-    const now = Date.now();
 
     if (address && WHITELIST.has(address.toLowerCase())) {
       c.set('rateLimit', { tier: 'UNLIMITED', remaining: -1, resetAt: 0 });
@@ -72,32 +94,52 @@ export function rateLimiter() {
     }
 
     const tier = rateLimitToTier(rateLimit);
-    let record = rateLimitStore.get(key);
-    if (!record || now > record.resetAt) {
-      record = { count: 0, resetAt: now + 60_000, tier };
-      rateLimitStore.set(key, record);
-    }
-    record.count++;
-
+    const limiter = rateLimiters[tier];
     const limit = RATE_LIMITS[tier];
-    const remaining = limit === 0 ? -1 : Math.max(0, limit - record.count);
-    c.header('X-RateLimit-Limit', limit === 0 ? 'unlimited' : String(limit));
-    c.header('X-RateLimit-Remaining', remaining === -1 ? 'unlimited' : String(remaining));
-    c.header('X-RateLimit-Reset', String(Math.ceil(record.resetAt / 1000)));
-    c.header('X-RateLimit-Tier', tier);
-    c.set('rateLimit', { tier, remaining, resetAt: record.resetAt });
 
-    if (limit > 0 && record.count > limit) {
-      return c.json({ error: 'Rate limit exceeded', tier, limit, resetAt: record.resetAt, upgrade: 'Stake JEJU to increase limit' }, 429);
+    try {
+      const res: RateLimiterRes = await limiter.consume(key);
+      const remaining = limit === 0 ? -1 : res.remainingPoints;
+      const resetAt = Date.now() + res.msBeforeNext;
+      
+      c.header('X-RateLimit-Limit', limit === 0 ? 'unlimited' : String(limit));
+      c.header('X-RateLimit-Remaining', remaining === -1 ? 'unlimited' : String(remaining));
+      c.header('X-RateLimit-Reset', String(Math.ceil(resetAt / 1000)));
+      c.header('X-RateLimit-Tier', tier);
+      c.set('rateLimit', { tier, remaining, resetAt });
+
+      return next();
+    } catch (rejRes) {
+      const res = rejRes as RateLimiterRes;
+      const resetAt = Date.now() + res.msBeforeNext;
+      
+      c.header('X-RateLimit-Limit', String(limit));
+      c.header('X-RateLimit-Remaining', '0');
+      c.header('X-RateLimit-Reset', String(Math.ceil(resetAt / 1000)));
+      c.header('X-RateLimit-Tier', tier);
+      c.header('Retry-After', String(Math.ceil(res.msBeforeNext / 1000)));
+
+      return c.json({ 
+        error: 'Rate limit exceeded', 
+        tier, 
+        limit, 
+        resetAt, 
+        retryAfter: Math.ceil(res.msBeforeNext / 1000),
+        upgrade: 'Stake JEJU to increase limit' 
+      }, 429);
     }
-    return next();
   };
 }
 
 export const registerApiKey = (key: string, addr: Address, tier: RateTier) => apiKeyCache.set(key, { address: addr, tier });
 export const revokeApiKey = (key: string) => apiKeyCache.delete(key);
+
 export const getRateLimitStats = () => {
-  const byTier: Record<RateTier, number> = { FREE: 0, BASIC: 0, PRO: 0, UNLIMITED: 0 };
-  for (const r of rateLimitStore.values()) byTier[r.tier]++;
-  return { totalTracked: rateLimitStore.size, byTier };
+  return {
+    totalTracked: apiKeyCache.size,
+    cacheStats: {
+      size: apiKeyCache.size,
+      calculatedSize: apiKeyCache.calculatedSize,
+    },
+  };
 };

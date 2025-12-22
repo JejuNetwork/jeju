@@ -1,11 +1,11 @@
 /**
- * Cron Service - Scheduled Tasks Integration
+ * Cron Service - Scheduled Tasks Integration using croner library
  * 
  * Provides decentralized cron triggers via the compute network.
  */
 
+import { Cron } from 'croner';
 import type { Address } from 'viem';
-
 import { z } from 'zod';
 
 const CronConfigSchema = z.object({
@@ -48,10 +48,15 @@ export interface CronJob {
   metadata?: Record<string, unknown>;
 }
 
+interface LocalCronJob extends CronJob {
+  cronInstance?: Cron;
+  timeoutId?: ReturnType<typeof setTimeout>;
+}
+
 class CronServiceImpl implements CronService {
   private endpoint: string;
   private available = true;
-  private localJobs = new Map<string, CronJob>();
+  private localJobs = new Map<string, LocalCronJob>();
 
   constructor(config: CronConfig) {
     const validated = CronConfigSchema.parse(config);
@@ -61,7 +66,7 @@ class CronServiceImpl implements CronService {
   async register(job: CronJobConfig): Promise<CronJob> {
     const id = `cron-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
     
-    const cronJob: CronJob = {
+    const cronJob: LocalCronJob = {
       id,
       name: job.name,
       type: job.type,
@@ -81,15 +86,74 @@ class CronServiceImpl implements CronService {
       });
     }
 
+    // Set up local execution
+    this.setupLocalExecution(cronJob, job);
+    
     // Store locally for fallback
     this.localJobs.set(id, cronJob);
     
-    return cronJob;
+    return this.toPublicJob(cronJob);
+  }
+
+  private setupLocalExecution(cronJob: LocalCronJob, config: CronJobConfig): void {
+    const executeJob = async () => {
+      cronJob.lastRun = Date.now();
+      cronJob.executionCount++;
+      cronJob.nextRun = this.calculateNextRun(config);
+      
+      // Call webhook
+      await fetch(cronJob.webhook, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jobId: cronJob.id, triggeredAt: Date.now() }),
+      }).catch(err => console.error(`[Cron] Webhook failed for ${cronJob.id}:`, err));
+    };
+
+    switch (config.type) {
+      case 'cron':
+        if (config.expression) {
+          cronJob.cronInstance = new Cron(config.expression, executeJob);
+          const nextDate = cronJob.cronInstance.nextRun();
+          cronJob.nextRun = nextDate ? nextDate.getTime() : Date.now() + 60000;
+        }
+        break;
+      
+      case 'once':
+        if (config.triggerTime) {
+          const delay = Math.max(0, config.triggerTime - Date.now());
+          cronJob.timeoutId = setTimeout(executeJob, delay);
+        }
+        break;
+      
+      case 'interval':
+        if (config.intervalMs) {
+          // Use croner with interval-like pattern for better control
+          const runInterval = async () => {
+            await executeJob();
+            if (cronJob.enabled && config.intervalMs) {
+              cronJob.timeoutId = setTimeout(runInterval, config.intervalMs);
+            }
+          };
+          cronJob.timeoutId = setTimeout(runInterval, config.intervalMs);
+        }
+        break;
+    }
   }
 
   async cancel(jobId: string): Promise<boolean> {
     if (this.available) {
-      await this.remoteCancel(jobId);
+      await this.remoteCancel(jobId).catch(() => {});
+    }
+
+    const job = this.localJobs.get(jobId);
+    if (job) {
+      // Stop local execution
+      if (job.cronInstance) {
+        job.cronInstance.stop();
+      }
+      if (job.timeoutId) {
+        clearTimeout(job.timeoutId);
+      }
     }
 
     const had = this.localJobs.has(jobId);
@@ -103,7 +167,7 @@ class CronServiceImpl implements CronService {
       if (jobs) return jobs;
     }
 
-    return Array.from(this.localJobs.values());
+    return Array.from(this.localJobs.values()).map(this.toPublicJob);
   }
 
   async get(jobId: string): Promise<CronJob | null> {
@@ -112,11 +176,12 @@ class CronServiceImpl implements CronService {
       if (job) return job;
     }
 
-    return this.localJobs.get(jobId) ?? null;
+    const local = this.localJobs.get(jobId);
+    return local ? this.toPublicJob(local) : null;
   }
 
   async trigger(jobId: string): Promise<void> {
-    const job = await this.get(jobId);
+    const job = this.localJobs.get(jobId);
     if (!job) throw new Error('Job not found');
 
     // Call webhook
@@ -127,15 +192,8 @@ class CronServiceImpl implements CronService {
     });
 
     // Update job state
-    const localJob = this.localJobs.get(jobId);
-    if (localJob) {
-      localJob.lastRun = Date.now();
-      localJob.executionCount++;
-      localJob.nextRun = this.calculateNextRun({
-        type: localJob.type,
-        expression: localJob.expression,
-      });
-    }
+    job.lastRun = Date.now();
+    job.executionCount++;
   }
 
   async isHealthy(): Promise<boolean> {
@@ -143,6 +201,11 @@ class CronServiceImpl implements CronService {
       this.available = await this.checkHealth();
     }
     return this.available;
+  }
+
+  private toPublicJob(job: LocalCronJob): CronJob {
+    const { cronInstance, timeoutId, ...publicJob } = job;
+    return publicJob;
   }
 
   private calculateNextRun(job: Partial<CronJobConfig>): number {
@@ -154,14 +217,23 @@ class CronServiceImpl implements CronService {
           throw new Error('triggerTime is required for once job type');
         }
         return job.triggerTime;
+      
       case 'interval':
         if (job.intervalMs === undefined) {
           throw new Error('intervalMs is required for interval job type');
         }
         return now + job.intervalMs;
+      
       case 'cron':
-        // Simple next minute calculation (full cron parsing would require a library)
+        if (job.expression) {
+          // Use croner to calculate next run
+          const cron = new Cron(job.expression);
+          const nextDate = cron.nextRun();
+          cron.stop(); // Stop since we just needed the calculation
+          return nextDate ? nextDate.getTime() : now + 60000;
+        }
         return now + 60000;
+      
       default:
         throw new Error(`Unknown job type: ${job.type}`);
     }
@@ -214,8 +286,8 @@ class CronServiceImpl implements CronService {
   private async checkHealth(): Promise<boolean> {
     const response = await fetch(`${this.endpoint}/health`, {
       signal: AbortSignal.timeout(2000),
-    });
-    return response.ok;
+    }).catch(() => null);
+    return response?.ok ?? false;
   }
 }
 

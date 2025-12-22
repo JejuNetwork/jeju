@@ -60,3 +60,6 @@ export {
 
 // API routes
 export { createEmailRouter } from './routes';
+
+// Metrics
+export { getMetrics, getMetricsRegistry } from './metrics';

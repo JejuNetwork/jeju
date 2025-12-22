@@ -10,9 +10,30 @@ import { test, expect } from '@playwright/test'
 import { createServer, type Server } from 'http'
 import { keccak256, stringToBytes } from 'viem'
 
+/** Mock Phala inference request body */
+interface MockInferenceRequest {
+  model: string;
+  messages: Array<{ role: string; content: string }>;
+}
+
+/** Mock DCAP verification request body */
+interface MockVerifyRequest {
+  quote: string;
+}
+
+/** Parsed request body - can be inference or verification request */
+type MockRequestBody = MockInferenceRequest | MockVerifyRequest | null;
+
+/** Structure for recording mock server calls */
+interface MockServerCall {
+  method: string;
+  path: string;
+  body: MockRequestBody;
+}
+
 // Mock Phala Cloud server
 let mockServer: Server | null = null
-let mockCalls: Array<{ method: string; path: string; body: unknown }> = []
+let mockCalls: MockServerCall[] = []
 
 const MOCK_PORT = 19876
 const MOCK_URL = `http://localhost:${MOCK_PORT}`
@@ -40,7 +61,7 @@ function createMockServer(): Promise<Server> {
         mockCalls.push({
           method: req.method ?? 'GET',
           path: req.url ?? '/',
-          body: body ? JSON.parse(body) : null
+          body: body ? (JSON.parse(body) as MockRequestBody) : null
         })
 
         // Mock Phala Cloud inference endpoint

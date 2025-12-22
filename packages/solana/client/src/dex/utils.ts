@@ -242,3 +242,95 @@ export function inferDecimals(humanAmount: number, rawAmount: string): number {
   const ratio = parseFloat(rawAmount) / humanAmount;
   return Math.round(Math.log10(ratio));
 }
+
+// ============================================================================
+// Hex/Bytes Conversion
+// ============================================================================
+
+/**
+ * Convert hex string to Uint8Array
+ */
+export function hexToBytes(hex: string): Uint8Array {
+  const cleaned = hex.startsWith('0x') ? hex.slice(2) : hex;
+  if (!/^[0-9a-fA-F]*$/.test(cleaned)) {
+    throw new Error(`Invalid hex string: ${hex}`);
+  }
+  const bytes = new Uint8Array(cleaned.length / 2);
+  for (let i = 0; i < bytes.length; i++) {
+    bytes[i] = parseInt(cleaned.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+/**
+ * Convert Uint8Array to hex string
+ */
+export function bytesToHex(bytes: Uint8Array): string {
+  return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * Convert EVM address (20 bytes) to Uint8Array
+ */
+export function evmAddressToBytes(address: string): Uint8Array {
+  const cleaned = address.startsWith('0x') ? address.slice(2) : address;
+  if (cleaned.length !== 40) {
+    throw new Error('Invalid EVM address length');
+  }
+  const bytes = new Uint8Array(20);
+  for (let i = 0; i < 20; i++) {
+    bytes[i] = parseInt(cleaned.substr(i * 2, 2), 16);
+  }
+  return bytes;
+}
+
+/**
+ * Convert bytes to EVM address string
+ */
+export function bytesToEvmAddress(bytes: Uint8Array): string {
+  return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ============================================================================
+// Bonding Curve Calculations
+// ============================================================================
+
+export interface BondingCurveReserves {
+  virtualSolReserves: bigint;
+  virtualTokenReserves: bigint;
+}
+
+/**
+ * Calculate tokens out for a given SOL input on a bonding curve
+ * Uses constant product formula: k = x * y
+ */
+export function calculateBondingCurveBuy(
+  reserves: BondingCurveReserves,
+  solAmount: bigint
+): bigint {
+  const k = reserves.virtualSolReserves * reserves.virtualTokenReserves;
+  const newVirtualSol = reserves.virtualSolReserves + solAmount;
+  const newVirtualToken = k / newVirtualSol;
+  return reserves.virtualTokenReserves - newVirtualToken;
+}
+
+/**
+ * Calculate SOL out for a given token input on a bonding curve
+ * Uses constant product formula: k = x * y
+ */
+export function calculateBondingCurveSell(
+  reserves: BondingCurveReserves,
+  tokenAmount: bigint
+): bigint {
+  const k = reserves.virtualSolReserves * reserves.virtualTokenReserves;
+  const newVirtualToken = reserves.virtualTokenReserves + tokenAmount;
+  const newVirtualSol = k / newVirtualToken;
+  return reserves.virtualSolReserves - newVirtualSol;
+}
+
+/**
+ * Get current price from bonding curve reserves (SOL per token)
+ */
+export function getBondingCurvePrice(reserves: BondingCurveReserves): number {
+  return Number(reserves.virtualSolReserves) / Number(reserves.virtualTokenReserves);
+}

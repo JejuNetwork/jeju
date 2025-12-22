@@ -3,8 +3,7 @@
  */
 
 import { z } from 'zod';
-import type { Address, Hex } from 'viem';
-import { addressSchema, strictHexSchema, nonEmptyStringSchema, cidSchema } from '../validation';
+import { addressSchema, nonEmptyStringSchema, cidSchema } from '../validation';
 
 /**
  * Package list query schema

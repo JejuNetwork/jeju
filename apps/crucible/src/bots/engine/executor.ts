@@ -15,7 +15,7 @@ import type {
   ChainConfig,
   ChainId,
   Opportunity,
-  ExecutionResult,
+  OpportunityExecutionResult,
   ArbitrageOpportunity,
   SandwichOpportunity,
   LiquidationOpportunity,
@@ -122,7 +122,7 @@ export class TransactionExecutor {
     }
   }
 
-  async execute(opportunity: Opportunity): Promise<ExecutionResult> {
+  async execute(opportunity: Opportunity): Promise<OpportunityExecutionResult> {
     const startTime = Date.now();
 
     if (this.pendingExecutions.size >= this.config.maxConcurrentExecutions) {
@@ -218,7 +218,7 @@ export class TransactionExecutor {
     walletClient: WalletClient,
     publicClient: PublicClient,
     context: ExecutionContext
-  ): Promise<ExecutionResult> {
+  ): Promise<OpportunityExecutionResult> {
     const { path, inputAmount, expectedOutput: expectedOutputStr } = opportunity;
     const expectedOutput = BigInt(expectedOutputStr);
     
@@ -335,7 +335,7 @@ export class TransactionExecutor {
     walletClient: WalletClient,
     publicClient: PublicClient,
     context: ExecutionContext
-  ): Promise<ExecutionResult> {
+  ): Promise<OpportunityExecutionResult> {
     const { frontrunTx, backrunTx } = opportunity;
 
     const routerAddress = this.getContractAddress(opportunity.chainId, 'xlpRouter');
@@ -394,7 +394,7 @@ export class TransactionExecutor {
     frontrunData: `0x${string}`,
     backrunData: `0x${string}`,
     context: ExecutionContext
-  ): Promise<ExecutionResult> {
+  ): Promise<OpportunityExecutionResult> {
     const inputToken = opportunity.frontrunTx.path[0] as `0x${string}`;
     const outputToken = opportunity.frontrunTx.path[opportunity.frontrunTx.path.length - 1] as `0x${string}`;
     
@@ -490,7 +490,7 @@ export class TransactionExecutor {
     frontrunData: `0x${string}`,
     backrunData: `0x${string}`,
     context: ExecutionContext
-  ): Promise<ExecutionResult> {
+  ): Promise<OpportunityExecutionResult> {
     log.warn('Executing sandwich without Flashbots');
 
     const inputToken = opportunity.frontrunTx.path[0] as `0x${string}`;
@@ -559,7 +559,7 @@ export class TransactionExecutor {
     walletClient: WalletClient,
     publicClient: PublicClient,
     context: ExecutionContext
-  ): Promise<ExecutionResult> {
+  ): Promise<OpportunityExecutionResult> {
     const perpMarketAddress = this.getContractAddress(opportunity.chainId, 'perpetualMarket');
     if (!perpMarketAddress) {
       return this.failResult(opportunity, `No perp market for chain ${opportunity.chainId}`, context.startTime);
@@ -645,7 +645,7 @@ export class TransactionExecutor {
     return nonce;
   }
 
-  private failResult(opportunity: Opportunity, error: string, startTime: number): ExecutionResult {
+  private failResult(opportunity: Opportunity, error: string, startTime: number): OpportunityExecutionResult {
     return { opportunityId: opportunity.id, success: false, error, executedAt: Date.now(), durationMs: Date.now() - startTime };
   }
 }

@@ -75,34 +75,6 @@ const accessControlPolicySchema = z.object({
   operator: z.enum(['and', 'or']),
 });
 
-// Environment schemas with explicit validation
-export const kmsEnvSchema = z.object({
-  KMS_DEBUG: z.string().optional(),
-  KMS_FALLBACK_SECRET: z.string().min(1).optional(),
-  KMS_DEFAULT_PROVIDER: z.enum(['encryption', 'tee', 'mpc']).optional(),
-  KMS_DEFAULT_CHAIN: z.string().min(1).optional(),
-});
-
-export const mpcEnvSchema = z.object({
-  MPC_NETWORK: z.enum(['localnet', 'testnet', 'mainnet']).optional(),
-  MPC_THRESHOLD: z.string().regex(/^\d+$/).optional(),
-  MPC_TOTAL_PARTIES: z.string().regex(/^\d+$/).optional(),
-  MPC_COORDINATOR_ENDPOINT: z.string().url().optional(),
-  MPC_ENCRYPTION_SECRET: z.string().min(1).optional(),
-});
-
-export const teeEnvSchema = z.object({
-  TEE_ENDPOINT: z.string().url().optional(),
-  TEE_ENCRYPTION_SECRET: z.string().min(1).optional(),
-});
-
-export const vaultEnvSchema = z.object({
-  VAULT_ENCRYPTION_SECRET: z.string().min(1).optional(),
-  VAULT_DA_ENDPOINT: z.string().url().optional(),
-  VAULT_AUDIT_LOGGING: z.enum(['true', 'false']).optional(),
-  DA_ENDPOINT: z.string().url().optional(),
-});
-
 // Config schemas
 export const encryptionConfigSchema = z.object({
   debug: z.boolean().optional(),

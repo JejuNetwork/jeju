@@ -354,7 +354,7 @@ describe('Cross-chain Identity', () => {
   let testSession: OAuth3Session;
 
   beforeAll(() => {
-    identityManager = new CrossChainIdentityManager(ChainId.JEJU);
+    identityManager = new CrossChainIdentityManager(ChainId.JEJU_LOCALNET);
 
     const ownerAddress = privateKeyToAccount(generatePrivateKey()).address;
     const identityId = keccak256(toBytes(`identity:${ownerAddress}:${Date.now()}`));
@@ -391,7 +391,7 @@ describe('Cross-chain Identity', () => {
     const chains = identityManager.getSupportedChains();
 
     expect(chains.length).toBeGreaterThan(0);
-    expect(chains.map(c => c.chainId)).toContain(ChainId.JEJU);
+    expect(chains.map(c => c.chainId)).toContain(ChainId.JEJU_LOCALNET);
     expect(chains.map(c => c.chainId)).toContain(ChainId.BASE);
     expect(chains.map(c => c.chainId)).toContain(ChainId.ETHEREUM);
   });
@@ -406,7 +406,7 @@ describe('Cross-chain Identity', () => {
     expect(state.owner).toBe(testIdentity.owner);
     expect(state.chainStates.size).toBe(4);
 
-    const jejuState = state.chainStates.get(ChainId.JEJU);
+    const jejuState = state.chainStates.get(ChainId.JEJU_LOCALNET);
     expect(jejuState?.deployed).toBe(true);
     expect(jejuState?.smartAccount).toBe(testIdentity.smartAccount);
 
@@ -447,12 +447,12 @@ describe('Cross-chain Identity', () => {
 
     const syncIntent = await identityManager.createIdentitySyncIntent(
       testIdentity.identityId,
-      ChainId.JEJU,
+      ChainId.JEJU_LOCALNET,
       ChainId.BASE,
       testSession
     );
 
-    expect(syncIntent.sourceChain).toBe(ChainId.JEJU);
+    expect(syncIntent.sourceChain).toBe(ChainId.JEJU_LOCALNET);
     expect(syncIntent.targetChain).toBe(ChainId.BASE);
     expect(syncIntent.identityId).toBe(testIdentity.identityId);
     expect(syncIntent.proof).toMatch(/^0x[a-fA-F0-9]{64}$/);
@@ -474,7 +474,7 @@ describe('Cross-chain Identity', () => {
       0n
     );
 
-    expect(authIntent.sourceChain).toBe(ChainId.JEJU);
+    expect(authIntent.sourceChain).toBe(ChainId.JEJU_LOCALNET);
     expect(authIntent.targetChain).toBe(ChainId.BASE);
     expect(authIntent.identityId).toBe(testSession.identityId);
 
@@ -555,7 +555,7 @@ describe('Integration: Full OAuth3 Flow', () => {
       credential,
     });
 
-    const crossChainManager = new CrossChainIdentityManager(ChainId.JEJU);
+    const crossChainManager = new CrossChainIdentityManager(ChainId.JEJU_LOCALNET);
     const crossChainState = await crossChainManager.createCrossChainIdentity(
       identity,
       [ChainId.BASE, ChainId.ETHEREUM]

@@ -13,9 +13,10 @@
 
 import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config';
 import type { Provider, IAgentRuntime, Memory, State, ProviderResult } from '@elizaos/core';
+import type { AutocratVote } from '../types';
 
 // ============================================================================
-// Types
+// Types (local-only interfaces not in types.ts)
 // ============================================================================
 
 interface ProposalData {
@@ -29,13 +30,6 @@ interface ProposalData {
   hasResearch: boolean;
   researchHash?: string;
   contentHash: string;
-}
-
-interface AutocratVote {
-  role: string;
-  vote: string;
-  reasoning: string;
-  confidence: number;
 }
 
 interface TreasuryState {

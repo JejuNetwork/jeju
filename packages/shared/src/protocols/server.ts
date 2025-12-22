@@ -21,11 +21,24 @@ import {
   type PaymentRequirement,
 } from './middleware';
 import type { Address } from 'viem';
+import type { ProtocolData, ProtocolValue } from '../types';
+
+// Zod schema for recursive ProtocolValue type
+const ProtocolValueSchema: z.ZodType<ProtocolValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(ProtocolValueSchema),
+    z.record(z.string(), ProtocolValueSchema),
+  ])
+);
 
 const A2AMessagePartSchema = z.object({
   kind: z.string(),
   text: z.string().optional(),
-  data: z.record(z.string(), z.unknown()).optional(),
+  data: z.record(z.string(), ProtocolValueSchema).optional(),
 });
 
 const A2ARequestSchema = z.object({
@@ -37,7 +50,7 @@ const A2ARequestSchema = z.object({
       parts: z.array(A2AMessagePartSchema),
     }).optional(),
   }).optional(),
-  id: z.union([z.number(), z.string()]),
+  id: z.union([z.number(), z.string(), z.null()]),
 });
 
 const MCPResourceReadSchema = z.object({
@@ -46,7 +59,7 @@ const MCPResourceReadSchema = z.object({
 
 const MCPToolCallSchema = z.object({
   name: z.string(),
-  arguments: z.record(z.string(), z.unknown()),
+  arguments: z.record(z.string(), ProtocolValueSchema),
 });
 
 const MCPPromptGetSchema = z.object({
@@ -84,6 +97,8 @@ export interface A2ASkill {
   };
 }
 
+// Note: For AgentCard type, import from './a2a' or use the re-export from protocols/index
+
 export interface MCPResource {
   uri: string;
   name: string;
@@ -120,9 +135,9 @@ export interface UnifiedServerConfig {
   prompts?: MCPPrompt[];
   
   // Handlers
-  executeSkill: (skillId: string, params: Record<string, unknown>, context: SkillContext) => Promise<SkillResult>;
-  readResource?: (uri: string, context: SkillContext) => Promise<unknown>;
-  callTool?: (name: string, args: Record<string, unknown>, context: SkillContext) => Promise<{ result: unknown; isError: boolean }>;
+  executeSkill: (skillId: string, params: ProtocolData, context: SkillContext) => Promise<SkillResult>;
+  readResource?: (uri: string, context: SkillContext) => Promise<ProtocolValue>;
+  callTool?: (name: string, args: ProtocolData, context: SkillContext) => Promise<{ result: ProtocolValue; isError: boolean }>;
   getPrompt?: (name: string, args: Record<string, string>, context: SkillContext) => Promise<MCPPromptResult>;
   
   // REST routes (optional)
@@ -444,7 +459,25 @@ export function createUnifiedServer(config: UnifiedServerConfig): Hono {
 // Agent Card Generator
 // ============================================================================
 
-function createAgentCard(config: UnifiedServerConfig): Record<string, unknown> {
+interface GeneratedAgentCard {
+  protocolVersion: string;
+  name: string;
+  description: string;
+  url: string;
+  preferredTransport: string;
+  provider: { organization: string; url: string };
+  version: string;
+  capabilities: {
+    streaming: boolean;
+    pushNotifications: boolean;
+    stateTransitionHistory: boolean;
+  };
+  defaultInputModes: string[];
+  defaultOutputModes: string[];
+  skills: A2ASkill[];
+}
+
+function createAgentCard(config: UnifiedServerConfig): GeneratedAgentCard {
   const provider = getProviderInfo();
 
   return {

@@ -14,10 +14,10 @@ import type {
   InboundEmailEvent,
   OutboundEmailRequest,
   EmailEnvelope,
-  JejuEmailAddress,
 } from './types';
 import { getEmailRelayService } from './relay';
 import { getContentScreeningPipeline } from './content-screening';
+import { bridgeOperationsTotal } from './metrics';
 
 // ============ Configuration ============
 
@@ -53,20 +53,21 @@ export class Web2Bridge {
   }> {
     console.log(`[Bridge] Processing inbound email: ${event.messageId}`);
 
-    // 1. Validate recipient is a Jeju address
     const recipient = event.to[0];
     if (!recipient?.endsWith(`@${this.config.emailDomain}`)) {
+      bridgeOperationsTotal.inc({ direction: 'inbound', status: 'rejected_domain' });
       return { success: false, error: 'Invalid recipient domain' };
     }
 
-    // 2. Check SES verdicts
     if (event.spamVerdict === 'FAIL') {
       console.log(`[Bridge] Email rejected by SES spam filter: ${event.messageId}`);
+      bridgeOperationsTotal.inc({ direction: 'inbound', status: 'rejected_spam' });
       return { success: false, error: 'Rejected by spam filter' };
     }
 
     if (event.virusVerdict === 'FAIL') {
       console.log(`[Bridge] Email rejected by SES virus filter: ${event.messageId}`);
+      bridgeOperationsTotal.inc({ direction: 'inbound', status: 'rejected_virus' });
       return { success: false, error: 'Rejected by virus filter' };
     }
 
@@ -101,16 +102,16 @@ export class Web2Bridge {
 
     if (!screenResult.passed && screenResult.action === 'reject') {
       console.log(`[Bridge] Email rejected by content filter: ${event.messageId}`);
+      bridgeOperationsTotal.inc({ direction: 'inbound', status: 'rejected_content' });
       return { success: false, error: 'Rejected by content filter' };
     }
 
-    // 6. Forward to relay service
     const relay = getEmailRelayService();
     const result = await relay.receiveInbound(rawEmail, true);
 
-    // 7. Delete from S3 (already processed)
     await this.deleteFromS3(event.s3Bucket, event.s3Key);
 
+    bridgeOperationsTotal.inc({ direction: 'inbound', status: result.success ? 'success' : 'failed' });
     return result;
   }
 
@@ -128,18 +129,14 @@ export class Web2Bridge {
 
     console.log(`[Bridge] Sending outbound email: ${envelope.id}`);
 
-    // 1. Validate sender is from our domain
     if (!envelope.from.full.endsWith(`@${this.config.emailDomain}`)) {
+      bridgeOperationsTotal.inc({ direction: 'outbound', status: 'rejected_domain' });
       return { success: false, error: 'Invalid sender domain' };
     }
 
-    // 2. Build raw email
     const rawEmail = this.buildRawEmail(envelope, decryptedContent);
-
-    // 3. Sign with DKIM
     const signedEmail = await this.signDKIM(rawEmail);
 
-    // 4. Send via SES
     try {
       const sesMessageId = await this.sendViaSES(
         envelope.from.full,
@@ -148,9 +145,11 @@ export class Web2Bridge {
       );
 
       console.log(`[Bridge] Email sent via SES: ${sesMessageId}`);
+      bridgeOperationsTotal.inc({ direction: 'outbound', status: 'success' });
       return { success: true, sesMessageId };
     } catch (error) {
       console.error(`[Bridge] SES send failed:`, error);
+      bridgeOperationsTotal.inc({ direction: 'outbound', status: 'failed' });
       return { success: false, error: String(error) };
     }
   }
@@ -158,12 +157,12 @@ export class Web2Bridge {
   // ============ S3 Operations ============
 
   private async downloadFromS3(bucket: string, key: string): Promise<string> {
-    // In production, use AWS SDK
-    const url = `https://${bucket}.s3.${this.config.sesRegion}.amazonaws.com/${key}`;
+    const host = `${bucket}.s3.${this.config.sesRegion}.amazonaws.com`;
+    const url = `https://${host}/${key}`;
     
-    const response = await fetch(url, {
-      headers: this.getAWSHeaders('GET', bucket, key),
-    });
+    const headers = this.signAWSRequest('GET', host, `/${key}`, '', 's3');
+
+    const response = await fetch(url, { headers });
 
     if (!response.ok) {
       throw new Error(`Failed to download from S3: ${response.status}`);
@@ -173,19 +172,95 @@ export class Web2Bridge {
   }
 
   private async deleteFromS3(bucket: string, key: string): Promise<void> {
-    // In production, use AWS SDK
-    const url = `https://${bucket}.s3.${this.config.sesRegion}.amazonaws.com/${key}`;
+    const host = `${bucket}.s3.${this.config.sesRegion}.amazonaws.com`;
+    const url = `https://${host}/${key}`;
     
+    const headers = this.signAWSRequest('DELETE', host, `/${key}`, '', 's3');
+
     await fetch(url, {
       method: 'DELETE',
-      headers: this.getAWSHeaders('DELETE', bucket, key),
+      headers,
     });
   }
 
-  private getAWSHeaders(method: string, bucket: string, key: string): Record<string, string> {
-    // Simplified - in production, use proper AWS Signature V4
+  /**
+   * Sign AWS request using Signature Version 4
+   * Reference: https://docs.aws.amazon.com/general/latest/gr/sigv4_signing.html
+   */
+  private signAWSRequest(
+    method: string,
+    host: string,
+    path: string,
+    payload: string,
+    service: string
+  ): Record<string, string> {
+    const { createHmac, createHash } = require('crypto') as typeof import('crypto');
+    
+    const accessKeyId = this.config.sesAccessKeyId ?? process.env.AWS_ACCESS_KEY_ID ?? '';
+    const secretAccessKey = this.config.sesSecretAccessKey ?? process.env.AWS_SECRET_ACCESS_KEY ?? '';
+    
+    if (!accessKeyId || !secretAccessKey) {
+      throw new Error('AWS credentials not configured');
+    }
+
+    const region = this.config.sesRegion;
+    const now = new Date();
+    const amzDate = now.toISOString().replace(/[:-]|\.\d{3}/g, '').slice(0, 15) + 'Z';
+    const dateStamp = amzDate.slice(0, 8);
+
+    // Create canonical request
+    const canonicalUri = path || '/';
+    const canonicalQuerystring = '';
+    const payloadHash = createHash('sha256').update(payload).digest('hex');
+    
+    const canonicalHeaders = [
+      `host:${host}`,
+      `x-amz-content-sha256:${payloadHash}`,
+      `x-amz-date:${amzDate}`,
+    ].join('\n') + '\n';
+    
+    const signedHeaders = 'host;x-amz-content-sha256;x-amz-date';
+    
+    const canonicalRequest = [
+      method,
+      canonicalUri,
+      canonicalQuerystring,
+      canonicalHeaders,
+      signedHeaders,
+      payloadHash,
+    ].join('\n');
+
+    // Create string to sign
+    const algorithm = 'AWS4-HMAC-SHA256';
+    const credentialScope = `${dateStamp}/${region}/${service}/aws4_request`;
+    const canonicalRequestHash = createHash('sha256').update(canonicalRequest).digest('hex');
+    
+    const stringToSign = [
+      algorithm,
+      amzDate,
+      credentialScope,
+      canonicalRequestHash,
+    ].join('\n');
+
+    // Calculate signature
+    const getSignatureKey = (key: string, date: string, regionName: string, serviceName: string): Buffer => {
+      const kDate = createHmac('sha256', `AWS4${key}`).update(date).digest();
+      const kRegion = createHmac('sha256', kDate).update(regionName).digest();
+      const kService = createHmac('sha256', kRegion).update(serviceName).digest();
+      return createHmac('sha256', kService).update('aws4_request').digest();
+    };
+
+    const signingKey = getSignatureKey(secretAccessKey, dateStamp, region, service);
+    const signature = createHmac('sha256', signingKey).update(stringToSign).digest('hex');
+
+    // Build authorization header
+    const authorizationHeader = `${algorithm} Credential=${accessKeyId}/${credentialScope}, SignedHeaders=${signedHeaders}, Signature=${signature}`;
+
     return {
-      'x-amz-date': new Date().toISOString().replace(/[:-]|\.\d{3}/g, ''),
+      'Host': host,
+      'X-Amz-Date': amzDate,
+      'X-Amz-Content-SHA256': payloadHash,
+      'Authorization': authorizationHeader,
     };
   }
 
@@ -196,11 +271,12 @@ export class Web2Bridge {
     to: string[],
     rawEmail: string
   ): Promise<string> {
-    // In production, use AWS SDK v3
-    const sesEndpoint = `https://email.${this.config.sesRegion}.amazonaws.com`;
+    const host = `email.${this.config.sesRegion}.amazonaws.com`;
+    const sesEndpoint = `https://${host}`;
     
     const params = new URLSearchParams({
       Action: 'SendRawEmail',
+      Version: '2010-12-01',
       'Source': from,
       'RawMessage.Data': Buffer.from(rawEmail).toString('base64'),
     });
@@ -209,13 +285,14 @@ export class Web2Bridge {
       params.append(`Destinations.member.${i + 1}`, addr);
     });
 
+    const payload = params.toString();
+    const headers = this.signAWSRequest('POST', host, '/', payload, 'ses');
+    headers['Content-Type'] = 'application/x-www-form-urlencoded';
+
     const response = await fetch(sesEndpoint, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        ...this.getSESHeaders(),
-      },
-      body: params.toString(),
+      headers,
+      body: payload,
     });
 
     if (!response.ok) {
@@ -227,13 +304,6 @@ export class Web2Bridge {
     const messageIdMatch = result.match(/<MessageId>([^<]+)<\/MessageId>/);
     
     return messageIdMatch?.[1] ?? '';
-  }
-
-  private getSESHeaders(): Record<string, string> {
-    // Simplified - in production, use proper AWS Signature V4
-    return {
-      'x-amz-date': new Date().toISOString().replace(/[:-]|\.\d{3}/g, ''),
-    };
   }
 
   // ============ Email Building ============
@@ -276,12 +346,155 @@ export class Web2Bridge {
 
   // ============ DKIM Signing ============
 
+  /**
+   * Sign email with DKIM (DomainKeys Identified Mail)
+   * Uses RSA-SHA256 signature algorithm with relaxed/relaxed canonicalization
+   */
   private async signDKIM(rawEmail: string): Promise<string> {
-    // TODO: Implement proper DKIM signing
-    // Would use the config.dkimPrivateKey and config.dkimSelector
+    if (!this.config.dkimPrivateKey || !this.config.dkimSelector) {
+      console.warn('[Web2Bridge] DKIM not configured - sending unsigned');
+      return rawEmail;
+    }
+
+    const { createSign, createHash } = await import('crypto');
+
+    // Parse headers and body
+    const [headerSection, ...bodyParts] = rawEmail.split(/\r?\n\r?\n/);
+    const body = bodyParts.join('\r\n\r\n');
+    const headers = this.parseHeaders(headerSection);
+
+    // Canonicalize body (relaxed canonicalization)
+    const canonicalizedBody = this.canonicalizeBody(body);
     
-    // For now, return unsigned email
-    return rawEmail;
+    // Hash the body
+    const bodyHash = createHash('sha256')
+      .update(canonicalizedBody)
+      .digest('base64');
+
+    // Headers to sign (in order of importance)
+    const headersToSign = ['from', 'to', 'subject', 'date', 'message-id', 'mime-version', 'content-type']
+      .filter(h => headers[h]);
+
+    // Create DKIM-Signature header (without signature value)
+    const timestamp = Math.floor(Date.now() / 1000);
+    const dkimParams = {
+      v: '1',
+      a: 'rsa-sha256',
+      c: 'relaxed/relaxed',
+      d: this.config.emailDomain,
+      s: this.config.dkimSelector,
+      t: timestamp.toString(),
+      bh: bodyHash,
+      h: headersToSign.join(':'),
+      b: '', // Will be filled with signature
+    };
+
+    // Canonicalize headers for signing (relaxed canonicalization)
+    const canonicalizedHeaders = headersToSign
+      .map(h => this.canonicalizeHeader(h, headers[h]))
+      .join('\r\n');
+
+    // Add DKIM-Signature header to be signed (without b= value)
+    const dkimHeaderWithoutSig = `dkim-signature:${Object.entries(dkimParams)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('; ')}`;
+    
+    const dataToSign = canonicalizedHeaders + '\r\n' + dkimHeaderWithoutSig;
+
+    // Sign with RSA-SHA256
+    const sign = createSign('RSA-SHA256');
+    sign.update(dataToSign);
+    
+    // Parse private key (handle both PEM format and raw base64)
+    let privateKey = this.config.dkimPrivateKey;
+    if (!privateKey.includes('-----BEGIN')) {
+      privateKey = `-----BEGIN RSA PRIVATE KEY-----\n${privateKey}\n-----END RSA PRIVATE KEY-----`;
+    }
+    
+    const signature = sign.sign(privateKey, 'base64');
+    dkimParams.b = signature;
+
+    // Build final DKIM-Signature header
+    const dkimSignatureHeader = `DKIM-Signature: ${Object.entries(dkimParams)
+      .map(([k, v]) => `${k}=${v}`)
+      .join('; ')}`;
+
+    // Insert DKIM-Signature as first header
+    return dkimSignatureHeader + '\r\n' + rawEmail;
+  }
+
+  /**
+   * Canonicalize body using relaxed canonicalization (RFC 6376)
+   */
+  private canonicalizeBody(body: string): string {
+    // Reduce all whitespace sequences to single space
+    let canonical = body.replace(/[ \t]+/g, ' ');
+    
+    // Remove trailing whitespace from lines
+    canonical = canonical.split('\r\n')
+      .map(line => line.trimEnd())
+      .join('\r\n');
+    
+    // Remove empty lines at end of body
+    canonical = canonical.replace(/(\r\n)*$/, '');
+    
+    // Ensure body ends with CRLF
+    return canonical + '\r\n';
+  }
+
+  /**
+   * Canonicalize header using relaxed canonicalization (RFC 6376)
+   */
+  private canonicalizeHeader(name: string, value: string): string {
+    // Convert header name to lowercase
+    const canonicalName = name.toLowerCase();
+    
+    // Unfold header value (remove CRLF before whitespace)
+    let canonicalValue = value.replace(/\r?\n[ \t]+/g, ' ');
+    
+    // Reduce whitespace sequences to single space
+    canonicalValue = canonicalValue.replace(/[ \t]+/g, ' ');
+    
+    // Trim leading/trailing whitespace
+    canonicalValue = canonicalValue.trim();
+    
+    return `${canonicalName}:${canonicalValue}`;
+  }
+
+  /**
+   * Parse headers from header section
+   */
+  private parseHeaders(headerSection: string): Record<string, string> {
+    const headers: Record<string, string> = {};
+    const lines = headerSection.split(/\r?\n/);
+    let currentHeader = '';
+    let currentValue = '';
+    
+    for (const line of lines) {
+      if (line.startsWith(' ') || line.startsWith('\t')) {
+        // Continuation of previous header
+        currentValue += ' ' + line.trim();
+      } else {
+        // Save previous header
+        if (currentHeader) {
+          headers[currentHeader.toLowerCase()] = currentValue;
+        }
+        
+        // Parse new header
+        const colonIndex = line.indexOf(':');
+        if (colonIndex > 0) {
+          currentHeader = line.slice(0, colonIndex);
+          currentValue = line.slice(colonIndex + 1).trim();
+        }
+      }
+    }
+    
+    // Save last header
+    if (currentHeader) {
+      headers[currentHeader.toLowerCase()] = currentValue;
+    }
+    
+    return headers;
   }
 
   // ============ Email Parsing ============

@@ -1,6 +1,6 @@
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther, type Address } from 'viem'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { AddressSchema } from '@jejunetwork/types'
 import { expect, expectTrue, expectPositive } from '@/lib/validation'
 import { TokenLaunchpadAbi } from '@jejunetwork/contracts'
 import { getLaunchpadContracts, hasLaunchpad } from '@/config/contracts'

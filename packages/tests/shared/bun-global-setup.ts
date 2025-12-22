@@ -50,7 +50,6 @@ const DWS_URL = process.env.DWS_URL ?? `http://127.0.0.1:${DWS_PORT}`;
 
 async function checkDockerService(port: number, healthPath: string): Promise<boolean> {
   const url = `http://127.0.0.1:${port}${healthPath}`;
-  const method = healthPath.startsWith('/api/v0') ? 'POST' : 'GET';
   return isServiceAvailable(url, 3000);
 }
 

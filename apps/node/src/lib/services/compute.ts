@@ -10,16 +10,16 @@ import { COMPUTE_STAKING_ABI, INFERENCE_SERVING_ABI } from '../abis';
 import { 
   type HardwareInfo as HardwareInfoCamel, 
   type ComputeCapabilities,
+  type ComputeMode,
+  type ComputeType,
   getComputeCapabilities,
   NON_TEE_WARNING,
   convertHardwareToSnakeCase,
   convertHardwareToCamelCase 
 } from '../hardware';
 import type { HardwareInfo } from '../../types';
-// Hardware validation handled in hardware.ts
 
-export type ComputeMode = 'tee' | 'non-tee';
-export type ComputeType = 'cpu' | 'gpu' | 'both';
+export type { ComputeMode, ComputeType };
 
 const ComputeModeSchema = z.enum(['tee', 'non-tee']);
 const ComputeTypeSchema = z.enum(['cpu', 'gpu', 'both']);

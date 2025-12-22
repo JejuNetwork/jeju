@@ -6,6 +6,37 @@
 import { describe, test, expect } from 'bun:test';
 import { EventMonitor, type IntentEvent } from '../../src/solver/monitor';
 
+/** Token transfer entry in an intent order */
+interface TokenTransfer {
+  token: `0x${string}`;
+  amount: bigint;
+  recipient: `0x${string}`;
+  chainId: bigint;
+}
+
+/** Order structure in Open event */
+interface IntentOrder {
+  user?: `0x${string}`;
+  maxSpent?: TokenTransfer[];
+  minReceived?: TokenTransfer[];
+  fillDeadline?: number;
+}
+
+/** Event log structure from viem */
+interface EventLog {
+  args: {
+    orderId?: `0x${string}`;
+    order?: IntentOrder;
+  };
+  blockNumber: bigint;
+  transactionHash: `0x${string}`;
+}
+
+/** Type for accessing private parseEvent method in tests */
+interface MonitorTestAccess {
+  parseEvent: (chainId: number, log: EventLog) => IntentEvent | null;
+}
+
 // Create monitor instance for testing
 const createMonitor = () => new EventMonitor({ chains: [] });
 
@@ -13,10 +44,10 @@ const createMonitor = () => new EventMonitor({ chains: [] });
 function createMockLog(overrides: Partial<{
   orderId: `0x${string}`;
   user: `0x${string}`;
-  maxSpent: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
-  minReceived: Array<{ token: `0x${string}`; amount: bigint; recipient: `0x${string}`; chainId: bigint }>;
+  maxSpent: TokenTransfer[];
+  minReceived: TokenTransfer[];
   fillDeadline: number;
-}> = {}) {
+}> = {}): EventLog {
   const defaultSpent = {
     token: '0x000000000000000000000000a0b86991c6218b36c1d19d4a2e9eb0ce3606eb48' as `0x${string}`,
     amount: 1000000n,
@@ -70,7 +101,7 @@ describe('Event Parsing - Valid Events', () => {
     const log = createMockLog();
     
     // Access private method via prototype for testing
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result).not.toBeNull();
@@ -85,7 +116,7 @@ describe('Event Parsing - Valid Events', () => {
   test('should convert bytes32 tokens to addresses', () => {
     const monitor = createMonitor();
     const log = createMockLog();
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     // Should extract last 20 bytes (40 hex chars) from bytes32
@@ -105,7 +136,7 @@ describe('Event Parsing - Valid Events', () => {
       }],
     });
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result!.inputToken).toBe('0x0000000000000000000000000000000000000000');
@@ -119,7 +150,7 @@ describe('Event Parsing - Invalid Events', () => {
     // @ts-expect-error - testing invalid data
     delete log.args.orderId;
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result).toBeNull();
@@ -131,7 +162,7 @@ describe('Event Parsing - Invalid Events', () => {
     // @ts-expect-error - testing invalid data
     delete log.args.order;
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result).toBeNull();
@@ -141,7 +172,7 @@ describe('Event Parsing - Invalid Events', () => {
     const monitor = createMonitor();
     const log = createMockLog({ maxSpent: [] });
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result).toBeNull();
@@ -151,7 +182,7 @@ describe('Event Parsing - Invalid Events', () => {
     const monitor = createMonitor();
     const log = createMockLog({ minReceived: [] });
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result).toBeNull();
@@ -168,7 +199,7 @@ describe('Event Parsing - Invalid Events', () => {
       }],
     });
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result).toBeNull();
@@ -185,7 +216,7 @@ describe('Event Parsing - Invalid Events', () => {
       }],
     });
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result).toBeNull();
@@ -202,7 +233,7 @@ describe('Event Parsing - Invalid Events', () => {
       }],
     });
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result).toBeNull();
@@ -222,7 +253,7 @@ describe('Event Parsing - Edge Cases', () => {
       }],
     });
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result).not.toBeNull();
@@ -233,9 +264,10 @@ describe('Event Parsing - Edge Cases', () => {
     const monitor = createMonitor();
     const log = createMockLog();
     // Manually remove fillDeadline to test default behavior
-    delete (log.args.order as Record<string, unknown>).fillDeadline;
+    const mutableOrder = log.args.order as { fillDeadline?: number };
+    delete mutableOrder.fillDeadline;
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result).not.toBeNull();
@@ -246,9 +278,10 @@ describe('Event Parsing - Edge Cases', () => {
     const monitor = createMonitor();
     const log = createMockLog();
     // Manually remove user to test default behavior
-    delete (log.args.order as Record<string, unknown>).user;
+    const mutableOrder = log.args.order as { user?: `0x${string}` };
+    delete mutableOrder.user;
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result).not.toBeNull();
@@ -259,7 +292,7 @@ describe('Event Parsing - Edge Cases', () => {
     const monitor = createMonitor();
     const log = createMockLog();
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result!.transactionHash).toBe('0x' + 'dd'.repeat(32));
@@ -276,7 +309,7 @@ describe('Event Parsing - Edge Cases', () => {
       }],
     });
     
-    const parseEvent = (monitor as unknown as { parseEvent: (chainId: number, log: unknown) => IntentEvent | null }).parseEvent.bind(monitor);
+    const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
     const result = parseEvent(11155111, log);
     
     expect(result!.destinationChain).toBe(0);

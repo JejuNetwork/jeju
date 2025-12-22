@@ -7,15 +7,7 @@ import { mapAgentSummary, mapBlockSummary, mapBlockDetail, mapTransactionSummary
 import { mapAccountResponse, mapContractResponse, mapTokenTransferResponse, mapOracleFeedResponse, mapOracleOperatorResponse, mapOracleReportResponse, mapOracleDisputeResponse, mapCrossServiceRequestResponse } from './lib/response-utils';
 import { mapNodeResponse } from './lib/node-utils';
 import { mapContainerListResponse } from './lib/container-utils';
-import { mapComputeProviderToList, mapStorageProviderToList } from './lib/provider-list-utils';
-import {
-  Block, Transaction, Account, Contract, TokenTransfer,
-  RegisteredAgent, NodeStake, ComputeProvider, StorageProvider,
-  TagIndex, ContainerImage, CrossServiceRequest, ComputeRental,
-  StorageDeal, OracleFeed, OracleOperator,
-  OracleReport, OracleDispute, OracleSubscription,
-} from './model';
-import { formatEther } from 'viem';
+import { RegisteredAgent } from './model';
 import {
   validateQuery,
   validateParams,
@@ -48,7 +40,6 @@ import { z } from 'zod';
 import { NotFoundError } from './lib/types';
 import { getMarketplaceStats, getOracleStats, getNetworkStats } from './lib/stats-utils';
 import { getFullStackProviders, getContainerDetail } from './lib/provider-utils';
-import { parseBlockIdentifier, buildBlockWhereClause } from './lib/block-utils';
 import {
   buildContractsQuery,
   buildTokenTransfersQuery,

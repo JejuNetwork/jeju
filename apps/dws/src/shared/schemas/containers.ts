@@ -3,8 +3,7 @@
  */
 
 import { z } from 'zod';
-import type { Address } from 'viem';
-import { addressSchema, nonEmptyStringSchema, positiveIntSchema, nonNegativeIntSchema } from '../validation';
+import { addressSchema, nonEmptyStringSchema, positiveIntSchema } from '../validation';
 
 /**
  * Container execution request schema

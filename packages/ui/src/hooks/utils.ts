@@ -14,7 +14,6 @@ export interface AsyncState {
  */
 export interface UseAsyncStateResult extends AsyncState {
   execute: <T>(operation: () => Promise<T>) => Promise<T>;
-  reset: () => void;
 }
 
 /**
@@ -29,19 +28,22 @@ export function useAsyncState(): UseAsyncStateResult {
     async <T>(operation: () => Promise<T>): Promise<T> => {
       setIsLoading(true);
       setError(null);
-      const result = await operation();
-      setIsLoading(false);
-      return result;
+      return operation()
+        .then((result: T) => {
+          setIsLoading(false);
+          return result;
+        })
+        .catch((err: unknown): never => {
+          const e = err instanceof Error ? err : new Error(String(err));
+          setError(e);
+          setIsLoading(false);
+          throw e;
+        });
     },
     [],
   );
 
-  const reset = useCallback((): void => {
-    setIsLoading(false);
-    setError(null);
-  }, []);
-
-  return { isLoading, error, execute, reset };
+  return { isLoading, error, execute };
 }
 
 /**

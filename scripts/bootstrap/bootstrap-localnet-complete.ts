@@ -496,9 +496,10 @@ class CompleteBootstrapper {
 
       console.log('  ✅ Node staking system deployed');
       return { manager, performanceOracle };
-    } catch (error: unknown) {
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       console.log('  ⚠️  Node staking deployment skipped (contracts may not exist)');
-      console.log('     Error:', error);
+      console.log('     Error:', errorMsg);
       return { manager: '0x0000000000000000000000000000000000000000', performanceOracle: '0x0000000000000000000000000000000000000000' };
     }
   }
@@ -542,9 +543,10 @@ class CompleteBootstrapper {
       console.log('     ✨ Faucet enabled (10,000 JEJU per claim)');
       
       return jeju;
-    } catch (error: unknown) {
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       console.log('  ⚠️  JEJU token deployment failed');
-      console.log('     Error:', error);
+      console.log('     Error:', errorMsg);
       return '0x0000000000000000000000000000000000000000';
     }
   }
@@ -587,9 +589,10 @@ class CompleteBootstrapper {
       console.log('  ✅ Compute marketplace deployed');
       console.log('     ✨ AI inference with on-chain settlement ready!');
       return { computeRegistry, ledgerManager, inferenceServing, computeStaking };
-    } catch (error: unknown) {
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       console.log('  ⚠️  Compute marketplace deployment skipped (contracts may not exist)');
-      console.log('     Error:', error);
+      console.log('     Error:', errorMsg);
       return { 
         computeRegistry: '0x0000000000000000000000000000000000000000', 
         ledgerManager: '0x0000000000000000000000000000000000000000',
@@ -745,9 +748,10 @@ class CompleteBootstrapper {
       console.log(`  💾 Saved to: ${v4DeploymentPath}`);
       
       return result;
-    } catch (error: unknown) {
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
       console.log('  ⚠️  V4 Periphery deployment failed (continuing anyway)');
-      console.log('     Error:', error);
+      console.log('     Error:', errorMsg);
       return {};
     }
   }

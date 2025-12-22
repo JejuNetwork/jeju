@@ -83,7 +83,12 @@
     "wagmi": "2.18.1",
     "ws": "8.18.3",
     "zod": "^4.1.13",
-    "@jejunetwork/oauth3": "workspace:*"
+    "@jejunetwork/oauth3": "workspace:*",
+    "rate-limiter-flexible": "^6.0.0",
+    "lru-cache": "^11.0.0",
+    "opossum": "^9.0.0",
+    "p-retry": "^7.1.1",
+    "prom-client": "^15.1.3"
   },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",

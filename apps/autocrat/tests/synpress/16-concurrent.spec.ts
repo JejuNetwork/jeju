@@ -4,15 +4,57 @@
  * Tests race conditions, parallel execution, and async handling.
  */
 
-import { test, expect } from '@playwright/test';
+import { test, expect, type APIRequestContext } from '@playwright/test';
 
 const AUTOCRAT_URL = 'http://localhost:8010';
 
+/** Vote structure from deliberation results */
+interface DeliberationVote {
+  role: string;
+  vote: string;
+  reasoning: string;
+}
+
+/** A2A part data can contain various skill result fields */
+interface A2APartData {
+  skillId?: string;
+  params?: Record<string, string | number | boolean>;
+  totalProposals?: number;
+  proposalId?: string;
+  content?: string;
+  overallScore?: number;
+  votes?: DeliberationVote[];
+  error?: string;
+}
+
+/** A2A message part structure */
+interface A2AMessagePart {
+  kind: 'data' | 'text' | 'error';
+  data?: A2APartData;
+  text?: string;
+}
+
+/** JSON-RPC A2A response structure */
+interface A2AJsonRpcResponse {
+  jsonrpc: string;
+  id: number | string;
+  result?: {
+    parts: A2AMessagePart[];
+  };
+  error?: {
+    code: number;
+    message: string;
+  };
+}
+
+/** A2A skill parameters - common parameter shapes */
+type A2AParams = Record<string, string | number | boolean>;
+
 const sendA2A = async (
-  request: Parameters<Parameters<typeof test>[1]>[0]['request'],
+  request: APIRequestContext,
   skillId: string,
-  params?: Record<string, unknown>
-) => {
+  params?: A2AParams
+): Promise<A2AJsonRpcResponse> => {
   const response = await request.post(`${AUTOCRAT_URL}/a2a`, {
     data: {
       jsonrpc: '2.0',
@@ -55,8 +97,8 @@ test.describe('Parallel Request Handling', () => {
     // All should return valid data
     for (const result of results) {
       expect(result.result).toBeDefined();
-      const data = result.result.parts.find((p: { kind: string }) => p.kind === 'data')?.data;
-      expect(data.totalProposals).toBeDefined();
+      const dataPart = result.result?.parts.find((p: A2AMessagePart) => p.kind === 'data');
+      expect(dataPart?.data?.totalProposals).toBeDefined();
     }
   });
 
@@ -100,16 +142,17 @@ test.describe('Parallel Request Handling', () => {
     // Each should return a result (either votes if Ollama is up, or error if not)
     for (let i = 0; i < results.length; i++) {
       expect(results[i].result).toBeDefined();
-      const data = results[i].result.parts.find((p: { kind: string }) => p.kind === 'data')?.data;
+      const dataPart = results[i].result?.parts.find((p: A2AMessagePart) => p.kind === 'data');
+      const data = dataPart?.data;
       expect(data).toBeDefined();
       
       // If Ollama is unavailable, we get an error; otherwise we get votes
-      if (data.error) {
+      if (data?.error) {
         expect(data.error).toContain('Ollama');
       } else {
-        expect(data.proposalId).toBe(proposals[i].proposalId);
-        expect(data.votes).toBeDefined();
-        expect(data.votes.length).toBe(5);
+        expect(data?.proposalId).toBe(proposals[i].proposalId);
+        expect(data?.votes).toBeDefined();
+        expect(data?.votes?.length).toBe(5);
       }
     }
   });
@@ -117,7 +160,7 @@ test.describe('Parallel Request Handling', () => {
 
 test.describe('Rapid Sequential Requests', () => {
   test('handles 50 rapid sequential A2A calls', async ({ request }) => {
-    const results: unknown[] = [];
+    const results: A2AJsonRpcResponse[] = [];
     
     for (let i = 0; i < 50; i++) {
       const result = await sendA2A(request, 'get-autocrat-status');
@@ -126,7 +169,7 @@ test.describe('Rapid Sequential Requests', () => {
     
     // All should succeed
     expect(results.length).toBe(50);
-    for (const result of results as Array<{ result: { parts: Array<{ kind: string; data: unknown }> } }>) {
+    for (const result of results) {
       expect(result.result).toBeDefined();
     }
   });
@@ -193,12 +236,13 @@ test.describe('Timeout & Long-Running Operations', () => {
     // Should complete within 2 minutes (LLM can be slow with 5 agent calls)
     expect(duration).toBeLessThan(120000);
     
-    const data = result.result.parts.find((p: { kind: string }) => p.kind === 'data')?.data;
+    const dataPart = result.result?.parts.find((p: A2AMessagePart) => p.kind === 'data');
+    const data = dataPart?.data;
     // Either we get votes (Ollama available) or error (Ollama unavailable)
-    if (data.error) {
+    if (data?.error) {
       expect(data.error).toContain('Ollama');
     } else {
-      expect(data.votes.length).toBe(5);
+      expect(data?.votes?.length).toBe(5);
     }
   });
 
@@ -255,9 +299,10 @@ test.describe('Request Ordering & Consistency', () => {
     
     // Each response should match its request
     for (let i = 0; i < results.length; i++) {
-      const data = results[i].result.parts.find((p: { kind: string }) => p.kind === 'data')?.data;
-      expect(data.proposalId).toBe(requests[i].id);
-      expect(data.content).toBe(`Content for ${requests[i].id}`);
+      const dataPart = results[i].result?.parts.find((p: A2AMessagePart) => p.kind === 'data');
+      const data = dataPart?.data;
+      expect(data?.proposalId).toBe(requests[i].id);
+      expect(data?.content).toBe(`Content for ${requests[i].id}`);
     }
   });
 
@@ -376,8 +421,8 @@ test.describe('Memory & Resource Handling', () => {
     // All should complete successfully
     for (const result of results) {
       expect(result.result).toBeDefined();
-      const data = result.result.parts.find((p: { kind: string }) => p.kind === 'data')?.data;
-      expect(data.overallScore).toBeDefined();
+      const dataPart = result.result?.parts.find((p: A2AMessagePart) => p.kind === 'data');
+      expect(dataPart?.data?.overallScore).toBeDefined();
     }
   });
 });

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 /// @title XLP V2 Pair Interface
 /// @notice Uniswap V2 compatible interface for constant product AMM

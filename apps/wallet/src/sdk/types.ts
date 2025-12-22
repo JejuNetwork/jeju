@@ -1,8 +1,6 @@
 import type { Address, Hex } from 'viem';
 import type { TransactionStatus, IntentStatus, VoucherStatus } from '@jejunetwork/types';
 
-export type NetworkType = 'ethereum' | 'solana';
-
 // Re-export consolidated types
 export { TransactionStatus, IntentStatus, VoucherStatus };
 

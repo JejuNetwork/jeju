@@ -10,7 +10,7 @@
 
 import type { TFMMRiskParameters, OraclePrice, Token } from '../../types';
 import type { OracleAggregator } from '../../oracles';
-import { WEIGHT_PRECISION, BPS_PRECISION } from '../../shared';
+import { WEIGHT_PRECISION, BPS_PRECISION } from '../../schemas';
 
 // ============ Types ============
 
@@ -268,8 +268,4 @@ export abstract class BaseTFMMStrategy {
   }
 }
 
-// ============ Helper Functions ============
-
-// Re-export from shared
-export { weightToBps, bpsToWeight } from '../../shared';
 

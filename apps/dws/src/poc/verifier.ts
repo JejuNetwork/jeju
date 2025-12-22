@@ -90,7 +90,7 @@ export class PoCVerifier {
     const transport = http(config.rpcUrl);
     this.publicClient = createPublicClient({ chain: config.chain, transport });
     this.walletClient = createWalletClient({ chain: config.chain, transport, account: this.account });
-    this.registryClient = config.registryEndpoint ? new PoCRegistryClient(config.registryEndpoint) : null;
+    this.registryClient = config.registryEndpoint ? new PoCRegistryClient({ offChainEndpoints: [config.registryEndpoint] }) : null;
   }
 
   async verifyAttestation(agentId: bigint, quoteHex: Hex, expectedMeasurement?: Hex): Promise<PoCVerificationResult> {
@@ -242,7 +242,7 @@ export class PoCVerifier {
     })));
   }
 
-  private async submitVerificationOnChain(result: PoCVerificationResult, quote: TEEQuote): Promise<Hex> {
+  private async submitVerificationOnChain(result: PoCVerificationResult, _quote: TEEQuote): Promise<Hex> {
     const nonce = await this.publicClient.readContract({
       address: this.config.validatorAddress, abi: POC_VALIDATOR_ABI,
       functionName: 'getNonce', args: [this.account.address],

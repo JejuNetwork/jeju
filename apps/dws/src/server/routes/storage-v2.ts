@@ -10,11 +10,11 @@
  */
 
 import { Hono } from 'hono';
-import { getMultiBackendManager, MultiBackendManager } from '../../storage/multi-backend';
+import { getMultiBackendManager } from '../../storage/multi-backend';
 import type { ContentTier, ContentCategory, StorageBackendType } from '../../storage/types';
-import { validateParams, validateQuery, validateHeaders, validateBody, cidSchema, regionHeaderSchema, z } from '../../shared';
+import { validateParams, validateQuery, validateHeaders, cidSchema, regionHeaderSchema, expectValid, z } from '../../shared';
 import { extractClientRegion } from '../../shared/utils/common';
-import { uploadV2JsonRequestSchema, downloadV2QuerySchema, contentListQuerySchema, popularContentQuerySchema, underseededContentQuerySchema, regionalParamsSchema, torrentParamsSchema, arweaveParamsSchema, contentTierSchema, contentCategorySchema, storageBackendTypeSchema } from '../../shared/schemas/storage';
+import { popularContentQuerySchema, regionalParamsSchema, torrentParamsSchema, contentTierSchema, contentCategorySchema, storageBackendTypeSchema } from '../../shared/schemas/storage';
 
 export function createStorageRouterV2(): Hono {
   const router = new Hono();
@@ -155,7 +155,7 @@ export function createStorageRouterV2(): Hono {
       region,
       preferredBackends: preferredBackend ? [preferredBackend] : undefined,
       decryptionKeyId: decrypt ? decryptionKeyId : undefined,
-    }).catch((e: Error) => {
+    }).catch((_e: Error) => {
       throw new Error('Not found');
     });
 
@@ -357,7 +357,7 @@ export function createStorageRouterV2(): Hono {
     const { 'x-region': xRegion } = validateHeaders(regionHeaderSchema, c);
     const region = xRegion ?? 'unknown';
 
-    const result = await manager.download(cid, { region }).catch((e: Error) => {
+    const result = await manager.download(cid, { region }).catch(() => {
       throw new Error('Not found');
     });
 

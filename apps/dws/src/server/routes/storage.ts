@@ -4,7 +4,7 @@
 
 import { Hono } from 'hono';
 import type { BackendManager } from '../../storage/backends';
-import { validateParams, validateQuery, validateHeaders, expectValid, downloadParamsSchema, existsParamsSchema, ipfsPinRemoveQuerySchema, cidSchema, z } from '../../shared';
+import { validateParams, validateQuery, validateHeaders, downloadParamsSchema, existsParamsSchema, ipfsPinRemoveQuerySchema, z } from '../../shared';
 
 export function createStorageRouter(backendManager: BackendManager): Hono {
   const router = new Hono();

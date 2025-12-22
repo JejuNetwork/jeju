@@ -7,6 +7,7 @@
  * - RegistryHub: Meta-registry tracking all registries
  * - RegistrySyncOracle: Event-driven registry sync
  * - SolanaVerifier: Wormhole-based Solana verification
+ * - CrossChainIdentitySync: Hyperlane-based identity sync
  * - FederatedIdentity: Cross-chain identity
  * - FederatedLiquidity: Cross-chain liquidity
  * - FederatedSolver: Cross-chain solver discovery
@@ -15,10 +16,11 @@
  *   bun run scripts/deploy-federation.ts [--network localnet|testnet|mainnet]
  */
 
-import { createPublicClient, createWalletClient, http, formatEther, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, formatEther, parseEther, type Address, type Abi } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import type { ConstructorArg, RawArtifactJson } from './shared/contract-types';
 
 const NETWORK = process.argv.includes('--network') 
   ? process.argv[process.argv.indexOf('--network') + 1] 
@@ -27,29 +29,57 @@ const NETWORK = process.argv.includes('--network')
 const CONTRACTS_DIR = join(import.meta.dir, '../packages/contracts');
 const OUT_DIR = join(CONTRACTS_DIR, 'out');
 const DEPLOYMENTS_DIR = join(import.meta.dir, '../deployments');
+const CONFIG_DIR = join(import.meta.dir, '../config');
+
+// Load cross-chain configuration
+interface CrossChainConfig {
+  wormhole: Record<string, { core: string; chainId: number }>;
+  hyperlane: Record<string, { mailbox: string; domain: number; igp: string }>;
+  solanaPrograms: Record<string, string>;
+  trustedEmitters: Record<string, { agentRegistry: string }>;
+}
+
+function loadCrossChainConfig(): CrossChainConfig {
+  const configPath = join(CONFIG_DIR, 'cross-chain.json');
+  if (!existsSync(configPath)) {
+    throw new Error(`Cross-chain config not found: ${configPath}`);
+  }
+  return JSON.parse(readFileSync(configPath, 'utf-8'));
+}
+
+// Map network names to cross-chain config keys
+const NETWORK_TO_CONFIG: Record<string, string> = {
+  localnet: 'baseSepolia', // Use Base Sepolia config for localnet testing
+  testnet: 'baseSepolia',
+  mainnet: 'base',
+};
 
 interface FederationDeployment {
   networkRegistry: string;
   registryHub: string;
   registrySyncOracle: string;
   solanaVerifier: string;
+  crossChainIdentitySync: string;
   federatedIdentity: string;
   federatedLiquidity: string;
   federatedSolver: string;
   deployedAt: string;
   deployer: string;
   chainId: number;
+  wormholeCore: string;
+  hyperlaneMailbox: string;
+  hyperlaneDomain: number;
 }
 
-function getArtifact(contractName: string): { abi: unknown[]; bytecode: string } {
+function getArtifact(contractName: string): { abi: Abi; bytecode: `0x${string}` } {
   const artifactPath = join(OUT_DIR, `${contractName}.sol`, `${contractName}.json`);
   if (!existsSync(artifactPath)) {
     throw new Error(`Artifact not found: ${artifactPath}. Run 'forge build' first.`);
   }
-  const artifact = JSON.parse(readFileSync(artifactPath, 'utf-8'));
+  const artifact = JSON.parse(readFileSync(artifactPath, 'utf-8')) as RawArtifactJson;
   return {
     abi: artifact.abi,
-    bytecode: artifact.bytecode.object,
+    bytecode: artifact.bytecode.object as `0x${string}`,
   };
 }
 
@@ -57,14 +87,14 @@ async function deployContract(
   walletClient: ReturnType<typeof createWalletClient>,
   publicClient: ReturnType<typeof createPublicClient>,
   contractName: string,
-  args: unknown[] = []
-): Promise<{ address: Address; abi: unknown[] }> {
+  args: ConstructorArg[] = []
+): Promise<{ address: Address; abi: Abi }> {
   const { abi, bytecode } = getArtifact(contractName);
   
   console.log(`  Deploying ${contractName}...`);
   const hash = await walletClient.deployContract({
     abi,
-    bytecode: bytecode as `0x${string}`,
+    bytecode,
     args,
   });
   

@@ -6,11 +6,12 @@
  * Start anvil first: anvil --port 9545
  */
 
-import { createPublicClient, createWalletClient, http, type Address, parseEther, formatEther, keccak256, toUtf8Bytes, type Chain } from 'viem';
+import { createPublicClient, createWalletClient, http, type Address, parseEther, formatEther, keccak256, toUtf8Bytes, type Chain, type Abi } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { deployContract, waitForTransactionReceipt, getBalance } from 'viem/actions';
 import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import type { ConstructorArg, RawArtifactJson } from '../shared/contract-types';
 
 const OUT = join(import.meta.dir, '../packages/contracts/out');
 const AUTOCRAT_DIR = join(import.meta.dir, '../apps/autocrat');
@@ -23,8 +24,8 @@ const KEYS = [
   '0x47e179ec197488593b187f80a00eb0da91f1b9d0b13f8733639f19c30a34926a', // Security
 ];
 
-function load(name: string) {
-  const art = JSON.parse(readFileSync(join(OUT, `${name}.sol`, `${name}.json`), 'utf-8'));
+function load(name: string): { abi: Abi; bytecode: `0x${string}` } {
+  const art = JSON.parse(readFileSync(join(OUT, `${name}.sol`, `${name}.json`), 'utf-8')) as RawArtifactJson;
   return { abi: art.abi, bytecode: art.bytecode.object as `0x${string}` };
 }
 
@@ -33,8 +34,8 @@ async function deploy(
   account: PrivateKeyAccount,
   client: ReturnType<typeof createPublicClient>,
   name: string,
-  args: unknown[]
-) {
+  args: ConstructorArg[]
+): Promise<{ address: Address; abi: Abi }> {
   const { abi, bytecode } = load(name);
   const hash = await deployContract(walletClient, {
     abi,

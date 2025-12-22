@@ -17,7 +17,7 @@ import type {
 import { getTradingService } from '../services/trading';
 import { getWalletService } from '../services/wallet';
 import { getStateManager } from '../services/state';
-import { getChainId, DEFAULT_CHAIN_ID, getChainName } from '../config';
+import { getChainId, DEFAULT_CHAIN_ID, getChainName, PENDING_ACTION_TTL } from '../config';
 import type { OttoUser, Platform } from '../types';
 import { expectValid, OttoUserSchema } from '../schemas';
 import { parseSwapParams, parseBridgeParams, validateSwapParams } from '../utils/parsing';
@@ -39,16 +39,9 @@ function getPlatform(message: Memory): Platform {
   return 'web';
 }
 
-const tradingService = getTradingService();
-const walletService = getWalletService();
-const stateManager = getStateManager();
-
-const PENDING_ACTION_TTL = 5 * 60 * 1000; // 5 minutes
-
 // ============================================================================
 // Helper Functions
 // ============================================================================
-// Note: parseSwapParams and parseBridgeParams are now imported from utils/parsing
 
 async function getOrCreateUser(_runtime: IAgentRuntime, message: Memory): Promise<OttoUser | null> {
   const userId = getUserId(message);
@@ -57,7 +50,7 @@ async function getOrCreateUser(_runtime: IAgentRuntime, message: Memory): Promis
   }
   
   const platform = getPlatform(message);
-  const user = walletService.getUserByPlatform(platform, userId);
+  const user = getWalletService().getUserByPlatform(platform, userId);
   
   if (!user) {
     return null;
@@ -104,14 +97,14 @@ export const swapAction: Action = {
     if (!user) {
       const userId = getUserId(message);
       const platform = getPlatform(message);
-      const connectUrl = await walletService.generateConnectUrl(platform, userId, userId);
+      const connectUrl = await getWalletService().generateConnectUrl(platform, userId, userId);
       callback?.({ text: `Connect your wallet first:\n${connectUrl}` });
       return;
     }
     
     const chainId = params.chain ? getChainId(params.chain) ?? user.settings.defaultChainId : user.settings.defaultChainId;
-    const fromToken = await tradingService.getTokenInfo(params.from ?? '', chainId);
-    const toToken = await tradingService.getTokenInfo(params.to ?? '', chainId);
+    const fromToken = await getTradingService().getTokenInfo(params.from ?? '', chainId);
+    const toToken = await getTradingService().getTokenInfo(params.to ?? '', chainId);
     
     if (!fromToken || !toToken) {
       callback?.({ text: `Could not find token info for ${params.from} or ${params.to}` });
@@ -120,8 +113,8 @@ export const swapAction: Action = {
     
     callback?.({ text: `Getting quote for ${params.amount} ${params.from} → ${params.to}...` });
     
-    const amount = tradingService.parseAmount(params.amount ?? '0', fromToken.decimals);
-    const quote = await tradingService.getSwapQuote({
+    const amount = getTradingService().parseAmount(params.amount ?? '0', fromToken.decimals);
+    const quote = await getTradingService().getSwapQuote({
       userId: user.id,
       fromToken: fromToken.address,
       toToken: toToken.address,
@@ -134,12 +127,12 @@ export const swapAction: Action = {
       return;
     }
     
-    const toAmount = tradingService.formatAmount(quote.toAmount, toToken.decimals);
+    const toAmount = getTradingService().formatAmount(quote.toAmount, toToken.decimals);
     const priceImpact = (quote.priceImpact * 100).toFixed(2);
     
     const platform = getPlatform(message);
     const channelId = getRoomId(message);
-    stateManager.setPendingAction(platform, channelId, {
+    getStateManager().setPendingAction(platform, channelId, {
       type: 'swap',
       quote,
       params: {
@@ -200,7 +193,7 @@ export const bridgeAction: Action = {
     if (!user) {
       const userId = getUserId(message);
       const platform = getPlatform(message);
-      const connectUrl = await walletService.generateConnectUrl(platform, userId, userId);
+      const connectUrl = await getWalletService().generateConnectUrl(platform, userId, userId);
       callback?.({ text: `Connect your wallet first:\n${connectUrl}` });
       return;
     }
@@ -219,16 +212,16 @@ export const bridgeAction: Action = {
       text: `Getting bridge quote for ${params.amount} ${params.token} from ${params.fromChain} to ${params.toChain}...`,
     });
     
-    const sourceToken = await tradingService.getTokenInfo(params.token, sourceChainId);
-    const destToken = await tradingService.getTokenInfo(params.token, destChainId);
+    const sourceToken = await getTradingService().getTokenInfo(params.token, sourceChainId);
+    const destToken = await getTradingService().getTokenInfo(params.token, destChainId);
     
     if (!sourceToken || !destToken) {
       callback?.({ text: `Could not find token ${params.token} on one of the chains.` });
       return;
     }
     
-    const amount = tradingService.parseAmount(params.amount, sourceToken.decimals);
-    const quote = await tradingService.getBridgeQuote({
+    const amount = getTradingService().parseAmount(params.amount, sourceToken.decimals);
+    const quote = await getTradingService().getBridgeQuote({
       userId: user.id,
       sourceChainId,
       destChainId,
@@ -242,13 +235,13 @@ export const bridgeAction: Action = {
       return;
     }
     
-    const outputAmount = tradingService.formatAmount(quote.outputAmount, destToken.decimals);
-    const fee = tradingService.formatUsd(quote.feeUsd ?? 0);
+    const outputAmount = getTradingService().formatAmount(quote.outputAmount, destToken.decimals);
+    const fee = getTradingService().formatUsd(quote.feeUsd ?? 0);
     const time = Math.ceil(quote.estimatedTimeSeconds / 60);
     
     const platform = getPlatform(message);
     const channelId = getRoomId(message);
-    stateManager.setPendingAction(platform, channelId, {
+    getStateManager().setPendingAction(platform, channelId, {
       type: 'bridge',
       quote,
       params: {
@@ -299,14 +292,14 @@ export const balanceAction: Action = {
     if (!user) {
       const userId = getUserId(message);
       const platform = getPlatform(message);
-      const connectUrl = await walletService.generateConnectUrl(platform, userId, userId);
+      const connectUrl = await getWalletService().generateConnectUrl(platform, userId, userId);
       callback?.({ text: `Connect your wallet first:\n${connectUrl}` });
       return;
     }
     
     callback?.({ text: 'Fetching your balances...' });
     
-    const balances = await tradingService.getBalances(
+    const balances = await getTradingService().getBalances(
       user.smartAccountAddress ?? user.primaryWallet,
       user.settings.defaultChainId
     );
@@ -319,7 +312,7 @@ export const balanceAction: Action = {
     }
     
     const lines = balances.map(b => {
-      const amount = tradingService.formatAmount(b.balance, b.token.decimals);
+      const amount = getTradingService().formatAmount(b.balance, b.token.decimals);
       const usd = b.balanceUsd ? ` ($${b.balanceUsd.toFixed(2)})` : '';
       return `• ${amount} ${b.token.symbol}${usd}`;
     });
@@ -358,7 +351,7 @@ export const priceAction: Action = {
       return;
     }
     
-    const tokenInfo = await tradingService.getTokenInfo(token, DEFAULT_CHAIN_ID);
+    const tokenInfo = await getTradingService().getTokenInfo(token, DEFAULT_CHAIN_ID);
     
     if (!tokenInfo) {
       callback?.({ text: `Could not find token: ${token}` });
@@ -397,7 +390,7 @@ export const connectAction: Action = {
   ) => {
     const userId = getUserId(message);
     const platform = getPlatform(message);
-    const connectUrl = await walletService.generateConnectUrl(platform, userId, userId);
+    const connectUrl = await getWalletService().generateConnectUrl(platform, userId, userId);
     callback?.({ text: `Connect your wallet:\n${connectUrl}` });
   },
   
@@ -431,7 +424,7 @@ export const confirmAction: Action = {
     
     const platform = getPlatform(message);
     const channelId = getRoomId(message);
-    const pending = stateManager.getPendingAction(platform, channelId);
+    const pending = getStateManager().getPendingAction(platform, channelId);
     
     if (!pending) {
       callback?.({ text: 'No pending action to confirm. Start a new swap or bridge.' });
@@ -439,7 +432,7 @@ export const confirmAction: Action = {
     }
     
     if (Date.now() > pending.expiresAt) {
-      stateManager.clearPendingAction(platform, channelId);
+      getStateManager().clearPendingAction(platform, channelId);
       callback?.({ text: 'Quote expired. Please request a new quote.' });
       return;
     }
@@ -448,14 +441,14 @@ export const confirmAction: Action = {
       const swapParams = pending.params;
       callback?.({ text: `Executing swap: ${swapParams.amount} ${swapParams.from} → ${swapParams.to}...` });
       
-      const result = await tradingService.executeSwap(user, {
+      const result = await getTradingService().executeSwap(user, {
         userId: user.id,
         fromToken: pending.quote.fromToken.address,
         toToken: pending.quote.toToken.address,
         amount: pending.quote.fromAmount,
         chainId: swapParams.chainId,
       });
-      stateManager.clearPendingAction(platform, channelId);
+      getStateManager().clearPendingAction(platform, channelId);
       
       if (result.success) {
         callback?.({ text: `Swap complete.\nTx: ${result.txHash}` });
@@ -468,7 +461,7 @@ export const confirmAction: Action = {
         text: `Executing bridge: ${bridgeParams.amount} ${bridgeParams.token} from ${bridgeParams.fromChain} to ${bridgeParams.toChain}...`,
       });
       
-      const result = await tradingService.executeBridge(user, {
+      const result = await getTradingService().executeBridge(user, {
         userId: user.id,
         sourceChainId: bridgeParams.sourceChainId,
         destChainId: bridgeParams.destChainId,
@@ -476,7 +469,7 @@ export const confirmAction: Action = {
         destToken: pending.quote.destToken.address,
         amount: pending.quote.inputAmount,
       });
-      stateManager.clearPendingAction(platform, channelId);
+      getStateManager().clearPendingAction(platform, channelId);
       
       if (result.success) {
         callback?.({ text: `Bridge initiated.\nIntent ID: ${result.intentId}\nSource Tx: ${result.sourceTxHash}` });
@@ -510,7 +503,7 @@ export const cancelAction: Action = {
   ) => {
     const platform = getPlatform(message);
     const channelId = getRoomId(message);
-    stateManager.clearPendingAction(platform, channelId);
+    getStateManager().clearPendingAction(platform, channelId);
     callback?.({ text: 'Cancelled.' });
   },
   
@@ -569,14 +562,14 @@ export const ottoWalletProvider: Provider = {
   get: async (_runtime: IAgentRuntime, message: Memory, _state: State) => {
     const userId = getUserId(message);
     const platform = getPlatform(message);
-    const user = walletService.getUserByPlatform(platform, userId);
+    const user = getWalletService().getUserByPlatform(platform, userId);
     
     if (!user) {
       return { text: 'User not connected. Use "connect wallet" to link your wallet.' };
     }
     
     const channelId = getRoomId(message);
-    const pending = stateManager.getPendingAction(platform, channelId);
+    const pending = getStateManager().getPendingAction(platform, channelId);
     
     return {
       text: `User wallet: ${user.primaryWallet}

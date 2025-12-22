@@ -20,7 +20,7 @@ import { join } from 'path';
 import { logger } from '../lib/logger';
 import { createTestOrchestrator } from '../services/test-orchestrator';
 import { discoverApps } from '../lib/testing';
-import type { TestMode, TestResult, CoverageReport } from '../types/test';
+import type { TestMode, TestResult, CoverageReport } from '../types';
 
 export type { TestMode };
 

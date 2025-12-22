@@ -22,6 +22,7 @@ import {
   http,
   parseAbi,
   formatEther,
+  type Abi,
   type Address,
   type Hash,
   type Chain,
@@ -200,9 +201,9 @@ export async function verifyContractEvent(
 
 export async function verifyContractState<T>(
   contractAddress: Address,
-  abi: readonly unknown[],
+  abi: Abi,
   functionName: string,
-  args: unknown[],
+  args: readonly (string | number | bigint | boolean | Address)[],
   expected: T,
   options: { rpcUrl?: string } = {}
 ): Promise<T> {

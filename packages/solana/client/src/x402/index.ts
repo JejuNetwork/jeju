@@ -13,7 +13,7 @@ import {
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddress, createAssociatedTokenAccountInstruction } from '@solana/spl-token';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils';
 import { z } from 'zod';
-import { expectJson } from '@jejunetwork/types/validation';
+import { expectJson } from '@jejunetwork/types';
 
 export const X402_FACILITATOR_PROGRAM_ID = new PublicKey(
   'x4o2Faci11111111111111111111111111111111111'

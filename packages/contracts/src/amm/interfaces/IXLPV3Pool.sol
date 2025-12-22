@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 /// @title XLP V3 Pool Interface
 /// @notice Uniswap V3 compatible interface for concentrated liquidity AMM

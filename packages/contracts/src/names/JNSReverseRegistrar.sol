@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: CC0-1.0
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import {IJNS, IJNSResolver} from "./IJNS.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";

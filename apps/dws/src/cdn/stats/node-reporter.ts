@@ -7,24 +7,17 @@
  * - Regional coordinator (for routing decisions)
  */
 
-import { createPublicClient, createWalletClient, http, getContract, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http as viemHttp, type Address } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { base } from 'viem/chains';
+
+type ViemPublicClient = ReturnType<typeof createPublicClient>;
+type ViemWalletClient = ReturnType<typeof createWalletClient>;
+import * as http from 'node:http';
 import type { EdgeCache } from '../cache/edge-cache';
 import type { RegionalCacheCoordinator } from '../cache/regional-coordinator';
 import type { CDNRegion } from '@jejunetwork/types';
 import { Registry, Counter, Gauge, Histogram } from 'prom-client';
-import http from 'http';
-
-// ============================================================================
-// Contract ABIs
-// ============================================================================
-
-const CDN_STATS_ABI = [
-  'function reportStats(bytes32 nodeId, uint256 bytesServed, uint256 requestsServed, uint256 cacheHitRate, bytes signature) external',
-  'function getNodeStats(bytes32 nodeId) view returns (uint256 bytesServed, uint256 requestsServed, uint256 cacheHitRate, uint256 lastReport, uint256 pendingRewards)',
-  'function claimRewards() external',
-  'function getRewardRate() view returns (uint256 perGBServed)',
-];
 
 const ORACLE_ENDPOINT = process.env.STATS_ORACLE_URL ?? 'https://oracle.jejunetwork.com/cdn-stats';
 
@@ -166,8 +159,8 @@ export class NodeStatsReporter {
   private coordinator: RegionalCacheCoordinator | null;
   
   // Contract integration
-  private publicClient: ReturnType<typeof createPublicClient> | null = null;
-  private walletClient: ReturnType<typeof createWalletClient> | null = null;
+  private publicClient: ViemPublicClient | null = null;
+  private walletClient: ViemWalletClient | null = null;
   private statsContractAddress: Address | null = null;
   
   // Stats tracking
@@ -189,7 +182,7 @@ export class NodeStatsReporter {
     this.coordinator = coordinator;
     this.config = {
       nodeId: config.nodeId ?? `node-${Math.random().toString(36).slice(2, 10)}`,
-      region: config.region ?? 'us-east',
+      region: config.region ?? 'us-east-1',
       rpcUrl: config.rpcUrl ?? process.env.RPC_URL ?? 'http://localhost:6546',
       privateKey: config.privateKey ?? process.env.NODE_PRIVATE_KEY,
       statsContractAddress: config.statsContractAddress ?? process.env.CDN_STATS_CONTRACT,
@@ -199,12 +192,16 @@ export class NodeStatsReporter {
 
     // Initialize contract if configured
     if (this.config.rpcUrl && this.config.privateKey && this.config.statsContractAddress) {
-      this.publicClient = createPublicClient({ transport: http(this.config.rpcUrl) });
+      this.publicClient = createPublicClient({ 
+        chain: base,
+        transport: viemHttp(this.config.rpcUrl) 
+      }) as ViemPublicClient;
       const account = privateKeyToAccount(this.config.privateKey as `0x${string}`);
       this.walletClient = createWalletClient({ 
-        account, 
-        transport: http(this.config.rpcUrl) 
-      });
+        account,
+        chain: base,
+        transport: viemHttp(this.config.rpcUrl) 
+      }) as ViemWalletClient;
       this.statsContractAddress = this.config.statsContractAddress as Address;
     }
   }
@@ -297,7 +294,7 @@ export class NodeStatsReporter {
   /**
    * Record P2P activity
    */
-  recordP2PActivity(torrents: number, peers: number, bytesShared: number): void {
+  recordP2PActivity(torrents: number, peers: number, _bytesShared: number): void {
     cdnTorrentsSeeding.set({ region: this.config.region }, torrents);
     cdnPeersConnected.set({ region: this.config.region }, peers);
   }
@@ -453,9 +450,25 @@ export class NodeStatsReporter {
     const attestation = await this.getOracleAttestation(report);
 
     // Submit to contract
+    const reportStatsAbi = [{
+      name: 'reportStats',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [
+        { name: 'nodeId', type: 'bytes32' },
+        { name: 'bytesServed', type: 'uint256' },
+        { name: 'requestsServed', type: 'uint256' },
+        { name: 'cacheHitRate', type: 'uint256' },
+        { name: 'signature', type: 'bytes' }
+      ],
+      outputs: []
+    }] as const;
+    
     const hash = await this.walletClient.writeContract({
+      chain: base,
+      account: this.walletClient.account!,
       address: this.statsContractAddress,
-      abi: [{ name: 'reportStats', type: 'function', stateMutability: 'nonpayable', inputs: [{ name: 'nodeId', type: 'bytes32' }, { name: 'bytesServed', type: 'uint256' }, { name: 'requestsServed', type: 'uint256' }, { name: 'cacheHitRate', type: 'uint256' }, { name: 'signature', type: 'bytes' }], outputs: [] }],
+      abi: reportStatsAbi,
       functionName: 'reportStats',
       args: [
         `0x${this.config.nodeId.padStart(64, '0')}` as `0x${string}`,
@@ -526,9 +539,19 @@ export class NodeStatsReporter {
       throw new Error('Stats contract not configured');
     }
 
+    const claimRewardsAbi = [{
+      name: 'claimRewards',
+      type: 'function',
+      stateMutability: 'nonpayable',
+      inputs: [],
+      outputs: []
+    }] as const;
+    
     const hash = await this.walletClient.writeContract({
+      chain: base,
+      account: this.walletClient.account!,
       address: this.statsContractAddress,
-      abi: [{ name: 'claimRewards', type: 'function', stateMutability: 'nonpayable', inputs: [], outputs: [] }],
+      abi: claimRewardsAbi,
       functionName: 'claimRewards',
       args: [],
     });

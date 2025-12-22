@@ -82,10 +82,17 @@ export function createNodeServices(
     ...bridgeConfig,
   };
 
+  // Generate a valid random private key if none provided
+  const getDefaultPrivateKey = (): string => {
+    const bytes = new Uint8Array(32);
+    crypto.getRandomValues(bytes);
+    return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
   const fullEdgeConfig: EdgeCoordinatorConfig = {
     nodeId: edgeConfig?.nodeId ?? crypto.randomUUID(),
     operator: operatorAddress,
-    privateKey: edgeConfig?.privateKey ?? process.env.PRIVATE_KEY ?? '0x' + '00'.repeat(32),
+    privateKey: edgeConfig?.privateKey ?? process.env.PRIVATE_KEY ?? getDefaultPrivateKey(),
     listenPort: edgeConfig?.listenPort ?? 4020,
     gossipInterval: edgeConfig?.gossipInterval ?? 30000,
     gossipFanout: edgeConfig?.gossipFanout ?? 6,

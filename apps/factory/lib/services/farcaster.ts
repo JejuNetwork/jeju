@@ -381,13 +381,35 @@ class MessagingClient {
   subscribeToMessages(onMessage: (msg: DirectMessage) => void): WebSocket {
     const ws = new WebSocket(`${MESSAGING_API.replace('http', 'ws')}/ws/messages`);
     ws.onmessage = (event) => {
-      const msg = JSON.parse(event.data);
+      const msg = parseWebSocketMessage(event.data as string);
       if (msg.type === 'message') {
         onMessage(msg.data);
       }
     };
     return ws;
   }
+}
+
+// WebSocket message schema for validating incoming messages
+const webSocketMessageSchema = z.object({
+  type: z.string(),
+  data: z.object({
+    id: z.string(),
+    from: z.string(),
+    to: z.string(),
+    content: z.string(),
+    encrypted: z.boolean(),
+    timestamp: z.number(),
+    read: z.boolean(),
+    threadId: z.string().optional(),
+  }),
+});
+
+type WebSocketMessage = z.infer<typeof webSocketMessageSchema>;
+
+function parseWebSocketMessage(data: string): WebSocketMessage {
+  const parsed: unknown = JSON.parse(data);
+  return webSocketMessageSchema.parse(parsed);
 }
 
 export const messagingClient = new MessagingClient();

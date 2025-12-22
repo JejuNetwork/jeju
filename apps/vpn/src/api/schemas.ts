@@ -47,7 +47,7 @@ export const VPNConnectionStatusSchema = z.enum([
 
 export const VPNConnectionSchema = z.object({
   connection_id: z.string().min(1),
-  status: z.string(),
+  status: VPNConnectionStatusSchema,
   node: VPNNodeSchema,
   connected_at: z.number().int().positive().nullable(),
   local_ip: z.string().nullable(),

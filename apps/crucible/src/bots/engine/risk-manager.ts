@@ -10,7 +10,7 @@
  * - Circuit breakers
  */
 
-import type { ChainId, ExecutionResult } from '../autocrat-types';
+import type { ChainId, OpportunityExecutionResult } from '../autocrat-types';
 import { createLogger } from '../../sdk/logger';
 
 const log = createLogger('RiskManager');
@@ -216,7 +216,7 @@ export class RiskManager {
   /**
    * Record a trade completing
    */
-  completeTrade(tradeId: string, result: ExecutionResult): void {
+  completeTrade(tradeId: string, result: OpportunityExecutionResult): void {
     const record = this.pendingTrades.get(tradeId);
     if (!record) return;
 

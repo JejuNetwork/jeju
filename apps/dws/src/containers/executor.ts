@@ -16,6 +16,7 @@ import type {
   LayerCache,
   WarmPoolStats,
 } from './types';
+import type { JSONValue } from '../shared/validation';
 import * as cache from './image-cache';
 import * as warmPool from './warm-pool';
 
@@ -271,7 +272,7 @@ interface ContainerRuntime {
   create(instance: ContainerInstance, image: ContainerImage, request: ExecutionRequest): Promise<{ endpoint: string; port: number }>;
   start(instanceId: string): Promise<void>;
   stop(instanceId: string): Promise<void>;
-  exec(instanceId: string, command: string[], env: Record<string, string>, input?: unknown): Promise<{ output: unknown; exitCode: number; logs: string }>;
+  exec(instanceId: string, command: string[], env: Record<string, string>, input?: JSONValue): Promise<{ output: JSONValue; exitCode: number; logs: string }>;
 }
 
 // Container runtime using Docker HTTP API
@@ -407,8 +408,11 @@ const runtime: ContainerRuntime = {
     const inspectExecResponse = await dockerRequest(`/v1.44/exec/${execId}/json`);
     const execInfo = await inspectExecResponse.json() as { ExitCode: number };
 
+    const execOutput: JSONValue = input !== undefined
+      ? { result: 'processed', input }
+      : { result: 'success' };
     return {
-      output: input ? { result: 'processed', input } : { result: 'success' },
+      output: execOutput,
       exitCode: execInfo.ExitCode,
       logs,
     };

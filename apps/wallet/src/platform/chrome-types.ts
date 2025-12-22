@@ -2,7 +2,23 @@
  * Chrome extension API type stubs
  */
 
-// Chrome API Types
+import type { Address, Hex } from 'viem';
+
+// ============================================================================
+// EIP-1193 Compatible Param Type
+// ============================================================================
+
+/** Valid JSON-RPC parameter types (EIP-1193 compatible) */
+export type EIP1193Param = string | number | boolean | null | EIP1193ParamObject | EIP1193Param[];
+
+export interface EIP1193ParamObject {
+  [key: string]: EIP1193Param;
+}
+
+// ============================================================================
+// Chrome Extension Message Types
+// ============================================================================
+
 export interface ChromeMessageSender {
   id?: string;
   url?: string;
@@ -13,18 +29,34 @@ export interface ChromeMessageSender {
 
 export interface ChromeMessage {
   type: string;
-  data?: Record<string, unknown>;
+  data?: Record<string, EIP1193Param>;
   id?: string;
 }
+
+/** Possible responses from extension message handlers */
+export type ChromeMessageResponse = 
+  | string 
+  | string[] 
+  | Address[] 
+  | Hex 
+  | boolean 
+  | null 
+  | { error: string }
+  | { chainId: Hex }
+  | { accounts: Address[] };
 
 export type ChromeMessageCallback = (
   message: ChromeMessage,
   sender: ChromeMessageSender,
-  sendResponse: (response: unknown) => void
+  sendResponse: (response: ChromeMessageResponse) => void
 ) => boolean | void;
 
+// ============================================================================
+// Chrome Storage Types
+// ============================================================================
+
 export interface ChromeStorageResult {
-  [key: string]: unknown;
+  [key: string]: EIP1193Param;
 }
 
 export interface ChromeTabsQueryInfo {
@@ -65,20 +97,20 @@ export const chrome = {
       addListener: (_callback: ChromeMessageCallback) => {},
       removeListener: (_callback: ChromeMessageCallback) => {},
     },
-    sendMessage: async (_message: ChromeMessage): Promise<unknown> => { return undefined; },
+    sendMessage: async (_message: ChromeMessage): Promise<ChromeMessageResponse> => { return null; },
     getURL: (_path: string): string => '',
   },
   storage: {
     local: {
       get: (_key: string | string[] | null, _callback: (result: ChromeStorageResult) => void) => {},
-      set: (_items: Record<string, unknown>, _callback?: () => void) => {},
+      set: (_items: Record<string, EIP1193Param>, _callback?: () => void) => {},
       remove: (_key: string | string[], _callback?: () => void) => {},
       clear: (_callback?: () => void) => {},
     },
   },
   tabs: {
     query: (_queryInfo: ChromeTabsQueryInfo, _callback: (tabs: ChromeTab[]) => void) => {},
-    sendMessage: async (_tabId: number, _message: ChromeMessage): Promise<unknown> => { return undefined; },
+    sendMessage: async (_tabId: number, _message: ChromeMessage): Promise<ChromeMessageResponse> => { return null; },
   },
   windows: {
     create: async (_options: ChromeWindowOptions): Promise<ChromeWindow> => ({ focused: false }),

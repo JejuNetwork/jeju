@@ -257,15 +257,3 @@ export function validatePassword(password: string): { valid: boolean; errors: st
   return { valid: errors.length === 0, errors };
 }
 
-/**
- * Securely clear a string from memory (best effort)
- */
-export function secureClear(str: string): void {
-  // In JavaScript, we can't truly guarantee memory clearing,
-  // but we can overwrite the string content
-  if (typeof str === 'string' && str.length > 0) {
-    // This won't work for immutable strings, but signals intent
-    const arr = str.split('');
-    arr.fill('\0');
-  }
-}

@@ -9,6 +9,10 @@
  */
 
 import { z } from 'zod';
+import {
+  AddressSchema,
+  HashSchema,
+} from '@jejunetwork/types';
 
 // ============================================================================
 // Re-export shared validation from @jejunetwork/types
@@ -26,7 +30,6 @@ export {
   TimestampSchema,
   CidSchema,
   UrlSchema,
-  LimitOffsetPaginationSchema,
   // Validation helpers
   expect,
   expectTrue,
@@ -45,24 +48,21 @@ export {
   expectJson,
 } from '@jejunetwork/types';
 
-import {
-  AddressSchema,
-  HashSchema,
-  LimitOffsetPaginationSchema,
-} from '@jejunetwork/types';
+// ============================================================================
+// Pagination schema (defined locally as not exported from @jejunetwork/types)
+// ============================================================================
+
+export const paginationSchema = z.object({
+  limit: z.coerce.number().int().min(1).max(100).default(50),
+  offset: z.coerce.number().int().min(0).default(0),
+});
 
 // ============================================================================
 // Backwards-compatible aliases for local names
 // ============================================================================
 
-/** @deprecated Use AddressSchema from @jejunetwork/types/validation */
 export const addressSchema = AddressSchema;
-
-/** @deprecated Use HashSchema from @jejunetwork/types/validation */
 export const hashSchema = HashSchema;
-
-/** @deprecated Use LimitOffsetPaginationSchema from @jejunetwork/types/validation */
-export const paginationSchema = LimitOffsetPaginationSchema;
 
 // ============================================================================
 // Indexer-specific Primitives
@@ -285,6 +285,25 @@ export const oracleDisputesQuerySchema = paginationSchema.extend({
 // A2A Request Validation
 // ============================================================================
 
+// A2A message part data can contain JSON-serializable values from external protocols
+// Using primitive types that JSON can represent
+export const JsonPrimitiveSchema = z.union([
+  z.string(),
+  z.number(),
+  z.boolean(),
+  z.null(),
+]);
+export type JsonPrimitive = z.infer<typeof JsonPrimitiveSchema>;
+
+export type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
+export const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    JsonPrimitiveSchema,
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ])
+);
+
 export const a2aRequestSchema = z.object({
   jsonrpc: z.literal('2.0'),
   method: z.literal('message/send'),
@@ -294,7 +313,7 @@ export const a2aRequestSchema = z.object({
       parts: z.array(z.object({
         kind: z.string(),
         text: z.string().optional(),
-        data: z.record(z.string(), z.unknown()).optional(),
+        data: z.record(z.string(), JsonValueSchema).optional(),
       })),
     }),
   }),
@@ -303,7 +322,8 @@ export const a2aRequestSchema = z.object({
 
 export type A2ARequest = z.infer<typeof a2aRequestSchema>;
 
-export const a2aSkillParamsSchema = z.record(z.string(), z.unknown());
+// A2A skill params are JSON-serializable values
+export const a2aSkillParamsSchema = z.record(z.string(), JsonValueSchema);
 
 // Skill-specific schemas
 export const getBlockSkillSchema = z.object({
@@ -385,7 +405,7 @@ export const mcpResourceReadSchema = z.object({
 
 export const mcpToolCallSchema = z.object({
   name: z.string().min(1),
-  arguments: z.record(z.string(), z.unknown()),
+  arguments: z.record(z.string(), JsonValueSchema),
 });
 
 // MCP Prompt argument schemas
@@ -404,7 +424,7 @@ export const explainProposalPromptArgsSchema = z.object({
 
 export const mcpPromptGetSchema = z.object({
   name: z.string().min(1),
-  arguments: z.record(z.string(), z.unknown()),
+  arguments: z.record(z.string(), JsonValueSchema),
 });
 
 // ============================================================================

@@ -92,6 +92,9 @@ export * from "./wallet";
 // Contract utilities
 export * from "./contracts";
 
+// Email client
+export * from "./email";
+
 // Re-export types
 export type {
   ComputeProvider,

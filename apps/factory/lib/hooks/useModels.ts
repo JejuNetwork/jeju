@@ -30,11 +30,10 @@ export function useModels(params?: {
 
     const result = await dwsClient.listModels(params).catch((err: Error) => {
       setError(err);
-      return [];
+      return [] as Model[];
     });
     
-    // Cast to compatible type
-    setModels(result as unknown as Model[]);
+    setModels(result);
     setIsLoading(false);
   }
 

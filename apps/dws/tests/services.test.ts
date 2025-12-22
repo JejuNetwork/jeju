@@ -6,13 +6,90 @@
 import { describe, test, expect } from 'bun:test';
 import { app } from '../src/server';
 
+// Response type definitions for test assertions
+interface ServiceHealthStatus {
+  status: string;
+  healthy: boolean;
+}
+
+interface S3BucketInfo {
+  name: string;
+  creationDate: string;
+}
+
+interface S3ObjectInfo {
+  key: string;
+  size: number;
+  lastModified: string;
+  etag: string;
+}
+
+interface KmsKeyInfo {
+  keyId: string;
+  address: string;
+  threshold: number;
+  totalParties: number;
+  version: number;
+  createdAt: number;
+}
+
+interface VpnRegionInfo {
+  code: string;
+  name: string;
+  country: string;
+  nodeCount: number;
+  avgLatency: number;
+  totalBandwidth: number;
+}
+
+interface VpnNodeInfo {
+  id: string;
+  region: string;
+  country: string;
+  city?: string;
+  type: string;
+  protocol: string;
+  latency: number;
+  uptime: number;
+  status: string;
+}
+
+interface ScrapingNodeInfo {
+  id: string;
+  region: string;
+  browserType: string;
+  maxConcurrent: number;
+  currentSessions: number;
+  status: string;
+  capabilities: string[];
+}
+
+interface RpcChainInfo {
+  chainId: number;
+  name: string;
+  network: string;
+  symbol: string;
+  explorerUrl?: string;
+  isTestnet: boolean;
+  providers: number;
+  avgLatency: number | null;
+}
+
+interface WorkerFunctionInfo {
+  id: string;
+  name: string;
+  runtime: string;
+  status: string;
+  version: number;
+}
+
 describe('DWS Services', () => {
   describe('Health Endpoints', () => {
     test('main health endpoint', async () => {
       const response = await app.request('/health');
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { status: string; services: Record<string, unknown> };
+      const data = await response.json() as { status: string; services: Record<string, ServiceHealthStatus> };
       expect(data.status).toBe('healthy');
       expect(data.services).toBeDefined();
     });
@@ -75,7 +152,7 @@ describe('DWS Services', () => {
       const response = await app.request('/s3');
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { Buckets: unknown[] };
+      const data = await response.json() as { Buckets: S3BucketInfo[] };
       expect(data.Buckets).toBeDefined();
     });
 
@@ -120,7 +197,7 @@ describe('DWS Services', () => {
       const response = await app.request(`/s3/${testBucket}?list-type=2`);
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { Contents: unknown[] };
+      const data = await response.json() as { Contents: S3ObjectInfo[] };
       expect(data.Contents).toBeDefined();
       expect(data.Contents.length).toBeGreaterThan(0);
     });
@@ -168,7 +245,7 @@ describe('DWS Services', () => {
       });
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { keys: unknown[] };
+      const data = await response.json() as { keys: KmsKeyInfo[] };
       expect(data.keys).toBeDefined();
       expect(data.keys.length).toBeGreaterThan(0);
     });
@@ -225,7 +302,7 @@ describe('DWS Services', () => {
       const response = await app.request('/vpn/regions');
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { regions: unknown[] };
+      const data = await response.json() as { regions: VpnRegionInfo[] };
       expect(data.regions).toBeDefined();
       expect(data.regions.length).toBeGreaterThan(0);
     });
@@ -234,7 +311,7 @@ describe('DWS Services', () => {
       const response = await app.request('/vpn/nodes');
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { nodes: unknown[] };
+      const data = await response.json() as { nodes: VpnNodeInfo[] };
       expect(data.nodes).toBeDefined();
     });
   });
@@ -244,7 +321,7 @@ describe('DWS Services', () => {
       const response = await app.request('/scraping/nodes');
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { nodes: unknown[] };
+      const data = await response.json() as { nodes: ScrapingNodeInfo[] };
       expect(data.nodes).toBeDefined();
     });
 
@@ -277,7 +354,7 @@ describe('DWS Services', () => {
       const response = await app.request('/rpc/chains');
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { chains: unknown[] };
+      const data = await response.json() as { chains: RpcChainInfo[] };
       expect(data.chains).toBeDefined();
       expect(data.chains.length).toBeGreaterThan(0);
     });
@@ -321,7 +398,7 @@ describe('DWS Services', () => {
       const response = await app.request('/workers');
       expect(response.ok).toBe(true);
       
-      const data = await response.json() as { functions: unknown[] };
+      const data = await response.json() as { functions: WorkerFunctionInfo[] };
       expect(data.functions).toBeDefined();
     });
   });

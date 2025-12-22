@@ -1,5 +1,5 @@
 /**
- * Moderation Actions - Report, vote, appeal
+ * Moderation Actions - Report agents/content
  */
 
 import {
@@ -10,12 +10,7 @@ import {
   type State,
 } from "@elizaos/core";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
-import {
-  getMessageText,
-  expectResponseData,
-  expectArray,
-  validateServiceExists,
-} from "../validation";
+import { getMessageText, validateServiceExists } from "../validation";
 
 export const reportAgentAction: Action = {
   name: "REPORT_AGENT",
@@ -83,82 +78,6 @@ Your report will be reviewed by moderators.`,
       {
         name: "agent",
         content: { text: "Report submitted successfully. Transaction: 0x..." },
-      },
-    ],
-  ],
-};
-
-export const listModerationCasesAction: Action = {
-  name: "LIST_MODERATION_CASES",
-  description: "List active moderation cases for voting",
-  similes: [
-    "moderation cases",
-    "list cases",
-    "active cases",
-    "pending reports",
-    "moderation queue",
-  ],
-
-  validate: async (runtime: IAgentRuntime): Promise<boolean> =>
-    validateServiceExists(runtime),
-
-  handler: async (
-    runtime: IAgentRuntime,
-    _message: Memory,
-    _state: State | undefined,
-    _options?: Record<string, unknown>,
-    callback?: HandlerCallback,
-  ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const client = service.getClient();
-
-    const response = await client.a2a.callGateway({
-      skillId: "moderation-list-active-cases",
-    });
-
-    const responseData = expectResponseData(
-      response,
-      "Moderation API returned no data",
-    );
-    const cases = expectArray<{
-      caseId: string;
-      reportType: string;
-      votesFor: number;
-      votesAgainst: number;
-    }>(
-      responseData as Record<string, unknown>,
-      "cases",
-      "Moderation API response missing cases array",
-    );
-
-    if (cases.length === 0) {
-      callback?.({ text: "No active moderation cases at this time." });
-      return;
-    }
-
-    const caseList = cases
-      .slice(0, 10)
-      .map(
-        (c) =>
-          `• Case ${c.caseId}: ${c.reportType} (${c.votesFor} for / ${c.votesAgainst} against)`,
-      )
-      .join("\n");
-
-    callback?.({
-      text: `Active moderation cases (${cases.length}):
-${caseList}
-
-Use 'vote on case [id] [for/against]' to participate.`,
-      content: { cases },
-    });
-  },
-
-  examples: [
-    [
-      { name: "user", content: { text: "Show active moderation cases" } },
-      {
-        name: "agent",
-        content: { text: "Active moderation cases (5): • Case 1: spam..." },
       },
     ],
   ],

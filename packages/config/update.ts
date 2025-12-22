@@ -525,5 +525,3 @@ export function printConfigSummary(network: NetworkType): void {
   
   console.log('─'.repeat(60));
 }
-
-

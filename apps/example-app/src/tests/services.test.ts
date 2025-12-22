@@ -115,14 +115,14 @@ describe('Authentication Message', () => {
   });
 
   test('should validate timestamp within window', async () => {
-    const { isValidTimestamp } = await import('../utils');
+    const { isValidTimestamp, TIMESTAMP_WINDOW_MS } = await import('../utils');
 
     const now = Date.now();
     expect(isValidTimestamp(now)).toBe(true);
     expect(isValidTimestamp(now - 1000)).toBe(true); // 1 second ago
     expect(isValidTimestamp(now - 60000)).toBe(true); // 1 minute ago
-    expect(isValidTimestamp(now - 300000)).toBe(true); // 5 minutes ago
-    expect(isValidTimestamp(now - 600000)).toBe(false); // 10 minutes ago - expired
+    expect(isValidTimestamp(now - (TIMESTAMP_WINDOW_MS - 1000))).toBe(true); // Just under window
+    expect(isValidTimestamp(now - (TIMESTAMP_WINDOW_MS + 60000))).toBe(false); // Well past window
     expect(isValidTimestamp(now + 60000)).toBe(false); // Future timestamp
   });
 });

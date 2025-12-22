@@ -1,5 +1,5 @@
-import { createPublicClient, http, type Address, type PublicClient, parseAbiItem } from 'viem'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { createPublicClient, http, type Address, type PublicClient, erc20Abi } from 'viem'
+import { AddressSchema } from '@jejunetwork/types'
 import { expect, expectTrue } from '@/lib/validation'
 import { INDEXER_URL, RPC_URL } from '@/config'
 
@@ -43,13 +43,6 @@ export interface PriceCandle {
   close: number
   volume: bigint
 }
-
-const ERC20_ABI = [
-  parseAbiItem('function name() view returns (string)'),
-  parseAbiItem('function symbol() view returns (string)'),
-  parseAbiItem('function decimals() view returns (uint8)'),
-  parseAbiItem('function totalSupply() view returns (uint256)'),
-] as const
 
 let rpcClient: PublicClient | null = null
 const getRpcClient = (): PublicClient => 
@@ -168,10 +161,10 @@ export async function fetchTokenDetails(address: Address): Promise<Token> {
   expect(client, 'RPC client not initialized');
   
   const [name, symbol, decimals, totalSupply] = await Promise.all([
-    client.readContract({ address: validatedAddress, abi: ERC20_ABI, functionName: 'name' }),
-    client.readContract({ address: validatedAddress, abi: ERC20_ABI, functionName: 'symbol' }),
-    client.readContract({ address: validatedAddress, abi: ERC20_ABI, functionName: 'decimals' }),
-    client.readContract({ address: validatedAddress, abi: ERC20_ABI, functionName: 'totalSupply' }),
+    client.readContract({ address: validatedAddress, abi: erc20Abi, functionName: 'name' }),
+    client.readContract({ address: validatedAddress, abi: erc20Abi, functionName: 'symbol' }),
+    client.readContract({ address: validatedAddress, abi: erc20Abi, functionName: 'decimals' }),
+    client.readContract({ address: validatedAddress, abi: erc20Abi, functionName: 'totalSupply' }),
   ])
   
   expect(name, 'Token name not found');

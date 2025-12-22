@@ -9,8 +9,6 @@ import { z } from 'zod';
 
 // ============ Common Schemas ============
 
-export const AddressSchema = z.string().regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address');
-
 export const HexStringSchema = z.string().regex(/^[a-fA-F0-9]+$/, 'Invalid hex string');
 
 // ============ Serialized Encrypted Message Schema ============
@@ -74,10 +72,6 @@ export const WebSocketSubscribeSchema = z.object({
   address: z.string().min(1, 'address is required'),
 });
 
-export const WebSocketMessageSchema = z.discriminatedUnion('type', [
-  WebSocketSubscribeSchema,
-]);
-
 /** WebSocket subscription message */
 export type WebSocketSubscribe = z.infer<typeof WebSocketSubscribeSchema>;
 
@@ -129,25 +123,3 @@ export const SendMessageRequestSchema = z.object({
 /** Send message request */
 export type SendMessageRequest = z.infer<typeof SendMessageRequestSchema>;
 
-// ============ Helper Functions ============
-
-/**
- * Parse and validate message envelope, throwing on invalid data
- */
-export function parseMessageEnvelope(data: unknown): MessageEnvelope {
-  return MessageEnvelopeSchema.parse(data);
-}
-
-/**
- * Parse and validate node config, throwing on invalid data
- */
-export function parseNodeConfig(data: unknown): NodeConfig {
-  return NodeConfigSchema.parse(data);
-}
-
-/**
- * Parse and validate client config base, throwing on invalid data
- */
-export function parseClientConfigBase(data: unknown): MessagingClientConfigBase {
-  return MessagingClientConfigBaseSchema.parse(data);
-}

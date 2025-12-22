@@ -567,6 +567,205 @@ export interface ExecutionStep {
   executedAt: number | null;
 }
 
+// ============ Stored Object Types ============
+// Used by local-services.ts and state.ts for type-safe storage
+
+export interface VoteStorage {
+  type: 'vote';
+  proposalId: string;
+  daoId?: string;
+  role: string;
+  vote: string;
+  reasoning: string;
+  confidence: number;
+  timestamp: number;
+}
+
+export interface ResearchStorage {
+  type: 'research';
+  proposalId: string;
+  report: string;
+  model: string;
+  completedAt: number;
+}
+
+export interface CommentaryStorage {
+  type: 'commentary';
+  proposalId: string;
+  content: string;
+  sentiment: 'positive' | 'negative' | 'neutral' | 'concern';
+  timestamp: number;
+}
+
+export interface CEODecisionStorage {
+  type: 'ceo_decision';
+  proposalId: string;
+  approved: boolean;
+  confidenceScore: number;
+  alignmentScore: number;
+  autocratVotes: { approve: number; reject: number; abstain: number };
+  reasoning: string;
+  recommendations: string[];
+  timestamp: string;
+  model: string;
+  teeMode: string;
+}
+
+// Detailed vote storage from orchestrator (includes agent info for on-chain)
+export interface AutocratVoteDetailStorage {
+  type: 'autocrat_vote_detail';
+  proposalId: string;
+  daoId: string;
+  agent: string;
+  role: string;
+  vote: 'APPROVE' | 'REJECT' | 'ABSTAIN';
+  reasoning: string;
+  confidence: number;
+}
+
+// TEE Attestation type
+export interface TEEAttestation {
+  provider: 'local' | 'remote';
+  quote?: string;
+  measurement?: string;
+  timestamp: number;
+  verified: boolean;
+}
+
+// TEE Decision storage
+export interface TEEDecisionData {
+  approved: boolean;
+  publicReasoning: string;
+  confidenceScore: number;
+  alignmentScore: number;
+  recommendations: string[];
+  encryptedHash: string;
+  attestation: TEEAttestation;
+}
+
+// CEO analysis from runtime (simpler than full CEODecision)
+export interface CEOAnalysisResult {
+  approved: boolean;
+  reasoning: string;
+  personaResponse: string;
+  confidence: number;
+  alignment: number;
+  recommendations: string[];
+}
+
+// CEO decision detail storage from orchestrator (includes TEE data)
+export interface CEODecisionDetailStorage {
+  type: 'ceo_decision_detail';
+  proposalId: string;
+  daoId: string;
+  ceoAnalysis: CEOAnalysisResult;
+  teeDecision: TEEDecisionData;
+  personaResponse: string;
+  decidedAt: number;
+}
+
+export type StoredObject = 
+  | VoteStorage 
+  | ResearchStorage 
+  | CommentaryStorage 
+  | CEODecisionStorage
+  | AutocratVoteDetailStorage
+  | CEODecisionDetailStorage;
+
+// ============ A2A Skill Parameter Types ============
+
+export interface A2AChatParams {
+  message: string;
+  agent?: 'ceo' | 'treasury' | 'code' | 'community' | 'security';
+}
+
+export interface A2AAssessProposalParams {
+  title: string;
+  summary: string;
+  description: string;
+}
+
+export interface A2ASubmitProposalParams {
+  proposalType: string;
+  qualityScore: number;
+  contentHash: `0x${string}`;
+  targetContract?: Address;
+  callData?: `0x${string}`;
+  value?: string;
+}
+
+export interface A2ABackProposalParams {
+  proposalId: `0x${string}`;
+  stakeAmount?: string;
+  reputationWeight?: number;
+}
+
+export interface A2ASubmitVoteParams {
+  proposalId: `0x${string}`;
+  agentId: string;
+  vote: 'APPROVE' | 'REJECT' | 'ABSTAIN';
+  reasoning?: string;
+  confidence?: number;
+}
+
+export interface A2ADeliberateParams {
+  proposalId: `0x${string}`;
+  title?: string;
+  description?: string;
+  proposalType?: string;
+  submitter?: string;
+}
+
+export interface A2ARequestResearchParams {
+  proposalId: `0x${string}`;
+  description?: string;
+}
+
+export interface A2ACastVetoParams {
+  proposalId: `0x${string}`;
+  category: string;
+  reason: `0x${string}`;
+}
+
+export interface A2AAddCommentaryParams {
+  proposalId: `0x${string}`;
+  content: string;
+  sentiment?: 'positive' | 'negative' | 'neutral' | 'concern';
+}
+
+export interface A2AProposalIdParams {
+  proposalId: `0x${string}`;
+}
+
+export interface A2AListProposalsParams {
+  activeOnly?: boolean;
+}
+
+export type A2ASkillParams =
+  | A2AChatParams
+  | A2AAssessProposalParams
+  | A2ASubmitProposalParams
+  | A2ABackProposalParams
+  | A2ASubmitVoteParams
+  | A2ADeliberateParams
+  | A2ARequestResearchParams
+  | A2ACastVetoParams
+  | A2AAddCommentaryParams
+  | A2AProposalIdParams
+  | A2AListProposalsParams
+  | Record<string, never>; // Empty params for status endpoints
+
+// ============ A2A Skill Result Types ============
+
+export interface SkillResultData {
+  [key: string]: string | number | boolean | null | string[] | SkillResultData | SkillResultData[];
+}
+
+export interface A2ASkillResult {
+  message: string;
+  data: SkillResultData;
+}
+
 // ============ Communication Types ============
 
 export interface A2AMessage {
@@ -575,14 +774,14 @@ export interface A2AMessage {
   to: string;
   daoId: string;
   skillId: string;
-  params: Record<string, unknown>;
+  params: A2ASkillParams;
   timestamp: number;
 }
 
 export interface A2AResponse {
   messageId: string;
   success: boolean;
-  result: unknown;
+  result: A2ASkillResult | null;
   error: string | null;
 }
 
@@ -686,10 +885,80 @@ export interface ModelDelegation {
 
 // ============ Event Types ============
 
+export type AutocratEventType =
+  | 'ProposalSubmitted'
+  | 'ProposalBacked'
+  | 'CouncilVoteCast'
+  | 'CEODecisionMade'
+  | 'VetoCast'
+  | 'ProposalExecuted'
+  | 'CommentAdded'
+  | 'ResearchCompleted';
+
+export interface ProposalSubmittedEventData {
+  proposalId: string;
+  proposer: Address;
+  proposalType: number;
+  qualityScore: number;
+}
+
+export interface ProposalBackedEventData {
+  proposalId: string;
+  backer: Address;
+  stakeAmount: string;
+}
+
+export interface CouncilVoteCastEventData {
+  proposalId: string;
+  councilAgentId: string;
+  vote: number;
+  weight: number;
+}
+
+export interface CEODecisionMadeEventData {
+  proposalId: string;
+  approved: boolean;
+  confidenceScore: number;
+}
+
+export interface VetoCastEventData {
+  proposalId: string;
+  voter: Address;
+  category: number;
+}
+
+export interface ProposalExecutedEventData {
+  proposalId: string;
+  executor: Address;
+  success: boolean;
+}
+
+export interface CommentAddedEventData {
+  proposalId: string;
+  author: Address;
+  sentiment: string;
+}
+
+export interface ResearchCompletedEventData {
+  proposalId: string;
+  researcher: string;
+  recommendation: string;
+}
+
+export type AutocratEventData =
+  | ProposalSubmittedEventData
+  | ProposalBackedEventData
+  | CouncilVoteCastEventData
+  | CEODecisionMadeEventData
+  | VetoCastEventData
+  | ProposalExecutedEventData
+  | CommentAddedEventData
+  | ResearchCompletedEventData;
+
 export interface AutocratEvent {
-  eventType: string;
+  eventType: AutocratEventType;
   daoId: string;
-  data: Record<string, unknown>;
+  data: AutocratEventData;
   timestamp: number;
   blockNumber: number;
   transactionHash: string;

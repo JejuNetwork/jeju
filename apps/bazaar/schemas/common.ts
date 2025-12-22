@@ -4,7 +4,7 @@
  */
 
 import { z } from 'zod'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { AddressSchema } from '@jejunetwork/types'
 import { 
   NonEmptyStringSchema, 
   BigIntSchema,
@@ -14,7 +14,7 @@ import {
   PercentageSchema,
   UrlSchema,
   IsoDateSchema,
-} from '@jejunetwork/types/validation'
+} from '@jejunetwork/types'
 
 // Re-export shared schemas
 export { 
