@@ -6,6 +6,7 @@
 
 import type { AppLoadTestConfig } from '../types'
 export { testServerConfig } from './test-server'
+export { optimizedServerConfig } from './optimized-server'
 
 export const autocratConfig: AppLoadTestConfig = {
   name: 'autocrat',
@@ -618,8 +619,9 @@ export const documentationConfig: AppLoadTestConfig = {
   mainnet: { baseUrl: 'https://docs.jejunetwork.org' },
 }
 
-// Import test server config
+// Import test server configs
 import { testServerConfig } from './test-server'
+import { optimizedServerConfig } from './optimized-server'
 
 // All configs for easy iteration
 export const ALL_CONFIGS: AppLoadTestConfig[] = [
@@ -639,6 +641,7 @@ export const ALL_CONFIGS: AppLoadTestConfig[] = [
   walletConfig,
   documentationConfig,
   testServerConfig,
+  optimizedServerConfig,
 ]
 
 // API-focused configs (apps with meaningful API endpoints)

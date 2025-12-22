@@ -679,13 +679,42 @@ export class AutonomousTick {
           }
         }
       } else {
-        // Log unhandled action - in production would route to SDK
-        log.warn(`No handler for action ${normalizedAction}`, { parameters })
-        result.error = `Action ${normalizedAction} not yet fully implemented`
-        result.success = false
+        // Check if this is a jeju plugin action
+        const availableActions = this.runtime.getAvailableActions()
+        const isPluginAction = availableActions.some(
+          (name) => name.toUpperCase() === normalizedAction
+        )
 
-        if (this.verbose) {
-          console.log(`${COLORS.yellow}   ⚠ No handler for ${normalizedAction}${COLORS.reset}`)
+        if (isPluginAction) {
+          log.info('Routing to jeju plugin action', { action: normalizedAction })
+          
+          // Create a message that triggers the action through normal processing
+          const actionMessage: RuntimeMessage = {
+            id: crypto.randomUUID(),
+            userId: 'autonomous-action',
+            roomId: 'plugin-action',
+            content: {
+              text: `Execute ${normalizedAction} with parameters: ${JSON.stringify(parameters)}`,
+              source: 'autonomous-action',
+            },
+            createdAt: Date.now(),
+          }
+
+          const response = await this.runtime.processMessage(actionMessage)
+          result.result = { response: response.text, action: response.action }
+          result.success = true
+
+          if (this.verbose) {
+            console.log(`${COLORS.green}   ✓ Plugin action executed${COLORS.reset}`)
+          }
+        } else {
+          log.warn(`No handler or plugin action for ${normalizedAction}`, { parameters })
+          result.error = `Action ${normalizedAction} not available`
+          result.success = false
+
+          if (this.verbose) {
+            console.log(`${COLORS.yellow}   ⚠ No handler for ${normalizedAction}${COLORS.reset}`)
+          }
         }
       }
     } catch (e) {

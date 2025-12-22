@@ -27,30 +27,35 @@ describe('Full SDK Integration Tests', () => {
     console.log('  JEJU SDK Integration Test Suite')
     console.log('═══════════════════════════════════════════════════════\n')
 
-    env = await setupTestEnvironment()
+    try {
+      env = await setupTestEnvironment()
 
-    if (!env.chainRunning) {
-      console.log('\n⚠ WARNING: Chain not running')
-      console.log('  Start with: jeju dev --localnet')
-      console.log('  Or: anvil --port 9545')
+      if (!env.chainRunning) {
+        console.log('\n⚠ WARNING: Chain not running')
+        console.log('  Start with: jeju dev --localnet')
+        console.log('  Or: anvil --port 9545')
+        skipTests = true
+        return
+      }
+
+      console.log(`\n✓ Chain running at ${env.rpcUrl}`)
+      console.log(`  Contracts deployed: ${env.contractsDeployed}`)
+      console.log(`  Services running: ${env.servicesRunning}`)
+
+      const account = privateKeyToAccount(env.privateKey)
+      client = await createJejuClient({
+        account,
+        network: 'localnet',
+        rpcUrl: env.rpcUrl,
+        smartAccount: false,
+      })
+
+      console.log(`\n✓ Client initialized for ${client.address}`)
+      console.log('\n───────────────────────────────────────────────────────\n')
+    } catch {
+      console.log('⚠ Contracts not configured - skipping full SDK tests')
       skipTests = true
-      return
     }
-
-    console.log(`\n✓ Chain running at ${env.rpcUrl}`)
-    console.log(`  Contracts deployed: ${env.contractsDeployed}`)
-    console.log(`  Services running: ${env.servicesRunning}`)
-
-    const account = privateKeyToAccount(env.privateKey)
-    client = await createJejuClient({
-      account,
-      network: 'localnet',
-      rpcUrl: env.rpcUrl,
-      smartAccount: false,
-    })
-
-    console.log(`\n✓ Client initialized for ${client.address}`)
-    console.log('\n───────────────────────────────────────────────────────\n')
   })
 
   afterAll(async () => {

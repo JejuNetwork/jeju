@@ -276,7 +276,7 @@ contract FeeConfig is Ownable, Pausable {
         uint16 contributorShareBps,
         uint16 ethLpShareBps,
         uint16 tokenLpShareBps
-    ) external onlyOwner {
+    ) external onlyGovernance {
         if (appShareBps + lpShareBps + contributorShareBps != BPS_DENOMINATOR) {
             revert InvalidFeeSum();
         }
@@ -301,7 +301,7 @@ contract FeeConfig is Ownable, Pausable {
      */
     function setComputeFees(uint16 inferencePlatformFeeBps, uint16 rentalPlatformFeeBps, uint16 triggerPlatformFeeBps)
         external
-        onlyOwner
+        onlyGovernance
     {
         if (inferencePlatformFeeBps > MAX_FEE_BPS) revert FeeTooHigh(inferencePlatformFeeBps, MAX_FEE_BPS);
         if (rentalPlatformFeeBps > MAX_FEE_BPS) revert FeeTooHigh(rentalPlatformFeeBps, MAX_FEE_BPS);
@@ -320,7 +320,7 @@ contract FeeConfig is Ownable, Pausable {
     /**
      * @notice Update storage fees directly
      */
-    function setStorageFees(uint16 uploadFeeBps, uint16 retrievalFeeBps, uint16 pinningFeeBps) external onlyOwner {
+    function setStorageFees(uint16 uploadFeeBps, uint16 retrievalFeeBps, uint16 pinningFeeBps) external onlyGovernance {
         if (uploadFeeBps > MAX_FEE_BPS) revert FeeTooHigh(uploadFeeBps, MAX_FEE_BPS);
         if (retrievalFeeBps > MAX_FEE_BPS) revert FeeTooHigh(retrievalFeeBps, MAX_FEE_BPS);
         if (pinningFeeBps > MAX_FEE_BPS) revert FeeTooHigh(pinningFeeBps, MAX_FEE_BPS);
@@ -337,7 +337,7 @@ contract FeeConfig is Ownable, Pausable {
      */
     function setDeFiFees(uint16 swapProtocolFeeBps, uint16 bridgeFeeBps, uint16 crossChainMarginBps)
         external
-        onlyOwner
+        onlyGovernance
     {
         if (swapProtocolFeeBps > MAX_FEE_BPS) revert FeeTooHigh(swapProtocolFeeBps, MAX_FEE_BPS);
         if (bridgeFeeBps > MAX_FEE_BPS) revert FeeTooHigh(bridgeFeeBps, MAX_FEE_BPS);
@@ -361,7 +361,7 @@ contract FeeConfig is Ownable, Pausable {
         uint16 oracleTreasuryShareBps,
         uint16 rpcPremiumFeeBps,
         uint16 messagingFeeBps
-    ) external onlyOwner {
+    ) external onlyGovernance {
         if (sequencerRevenueShareBps > MAX_FEE_BPS) revert FeeTooHigh(sequencerRevenueShareBps, MAX_FEE_BPS);
         if (oracleTreasuryShareBps > MAX_FEE_BPS) revert FeeTooHigh(oracleTreasuryShareBps, MAX_FEE_BPS);
 
@@ -386,7 +386,7 @@ contract FeeConfig is Ownable, Pausable {
         uint16 launchpadCreatorFeeBps,
         uint16 launchpadCommunityFeeBps,
         uint16 x402ProtocolFeeBps
-    ) external onlyOwner {
+    ) external onlyGovernance {
         if (bazaarPlatformFeeBps > MAX_FEE_BPS) revert FeeTooHigh(bazaarPlatformFeeBps, MAX_FEE_BPS);
         if (launchpadCreatorFeeBps + launchpadCommunityFeeBps != BPS_DENOMINATOR) {
             revert InvalidFeeSum();
@@ -410,7 +410,7 @@ contract FeeConfig is Ownable, Pausable {
      */
     function setNamesFees(uint256 baseRegistrationPrice, uint16 agentDiscountBps, uint16 renewalDiscountBps)
         external
-        onlyOwner
+        onlyGovernance
     {
         if (agentDiscountBps > BPS_DENOMINATOR) revert FeeTooHigh(agentDiscountBps, BPS_DENOMINATOR);
         if (renewalDiscountBps > BPS_DENOMINATOR) revert FeeTooHigh(renewalDiscountBps, BPS_DENOMINATOR);
@@ -442,7 +442,7 @@ contract FeeConfig is Ownable, Pausable {
         uint16 bridgeFeeMaxBps,
         uint16 xlpMinStakeBps,
         uint16 zkProofDiscountBps
-    ) external onlyOwner {
+    ) external onlyGovernance {
         // Fee distribution must sum to 100%
         if (xlpRewardShareBps + protocolShareBps + burnShareBps != BPS_DENOMINATOR) {
             revert InvalidFeeSum();
@@ -487,7 +487,7 @@ contract FeeConfig is Ownable, Pausable {
         uint16 bridgeFeeMaxBps,
         uint16 xlpMinStakeBps,
         uint16 zkProofDiscountBps
-    ) external onlyOwner {
+    ) external onlyGovernance {
         require(token != address(0), "Invalid token");
         if (xlpRewardShareBps + protocolShareBps + burnShareBps != BPS_DENOMINATOR) {
             revert InvalidFeeSum();
@@ -521,7 +521,7 @@ contract FeeConfig is Ownable, Pausable {
      * @notice Remove fee override for a token (reverts to default)
      * @param token Token address
      */
-    function removeTokenOverride(address token) external onlyOwner {
+    function removeTokenOverride(address token) external onlyGovernance {
         require(tokenOverrides[token].hasOverride, "No override exists");
 
         delete tokenOverrides[token];

@@ -3,13 +3,15 @@
  *
  * Provides:
  * - Historical price simulation
- * - Strategy backtesting
+ * - Strategy backtesting with realistic economics
  * - Risk metrics calculation
- * - Performance attribution
+ * - Monte Carlo simulation
+ * - Statistical validation
  * - Stress testing (crashes, depegs)
  * - Flash loan integration testing
  * - MEV competition simulation
  * - Multi-chain opportunity scanning
+ * - Visualization and reporting
  */
 
 // Core simulation
@@ -71,7 +73,57 @@ export {
   type ScannerConfig,
 } from './multi-chain-scanner'
 
-// Full test pipeline
+// Economic modeling
+export {
+  SlippageModel,
+  MarketImpactModel,
+  GasCostModel,
+  BridgeEconomics,
+  MEVRiskModel,
+  TradeEconomicsCalculator,
+  ImpermanentLossCalculator,
+  createEconomicsCalculator,
+  GAS_COSTS,
+  type LiquidityPool,
+  type OrderBookDepth,
+  type SlippageResult,
+  type MarketImpactResult,
+  type GasCostEstimate,
+  type TradeEconomics,
+  type EconomicConfig,
+} from './economics'
+
+// Monte Carlo & Statistical Validation
+export {
+  MonteCarloSimulator,
+  StatisticalValidator,
+  WalkForwardAnalyzer,
+  ValidationSuite,
+  createValidationSuite,
+  type MonteCarloConfig,
+  type MonteCarloResult,
+  type StatisticalTest,
+  type ValidationResult,
+  type WalkForwardResult,
+} from './monte-carlo'
+
+// Visualization
+export {
+  ASCIICharts,
+  TerminalReport,
+  HTMLReportGenerator,
+  type ChartConfig,
+  type ReportConfig,
+} from './visualizer'
+
+// Full validation pipeline
+export {
+  FullValidationRunner,
+  type FullValidationConfig,
+  type FullValidationResult,
+} from './full-validation'
+
+// Legacy test pipeline
 export {
   TestPipeline,
   type TestPipelineConfig,

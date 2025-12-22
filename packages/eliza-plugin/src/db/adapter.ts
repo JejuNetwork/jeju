@@ -168,7 +168,7 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
   private fromJson<T>(value: string | null): T | null {
     if (!value) return null
     try {
-      return JSON.parse(value) as T
+    return JSON.parse(value) as T
     } catch (error) {
       console.error(
         '[ElizaDB] Failed to parse JSON from database:',

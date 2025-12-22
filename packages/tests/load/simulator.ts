@@ -23,6 +23,21 @@ function percentile(arr: number[], p: number): number {
   return sorted[Math.max(0, index)]
 }
 
+// Use reduce instead of spread to avoid stack overflow on large arrays
+function safeMin(arr: number[]): number {
+  if (arr.length === 0) return 0
+  return arr.reduce((min, val) => (val < min ? val : min), arr[0])
+}
+
+function safeMax(arr: number[]): number {
+  if (arr.length === 0) return 0
+  return arr.reduce((max, val) => (val > max ? val : max), arr[0])
+}
+
+function safeSum(arr: number[]): number {
+  return arr.reduce((sum, val) => sum + val, 0)
+}
+
 function selectEndpoint(endpoints: LoadTestEndpoint[]): LoadTestEndpoint {
   const totalWeight = endpoints.reduce((sum, e) => sum + e.weight, 0)
   let random = Math.random() * totalWeight
@@ -199,9 +214,9 @@ export class LoadTestSimulator {
         p50: percentile(latencies, 50),
         p95: percentile(latencies, 95),
         p99: percentile(latencies, 99),
-        min: Math.min(...latencies),
-        max: Math.max(...latencies),
-        avg: latencies.reduce((a, b) => a + b, 0) / latencies.length,
+        min: safeMin(latencies),
+        max: safeMax(latencies),
+        avg: latencies.length > 0 ? safeSum(latencies) / latencies.length : 0,
         errorRate: (results.length - successes) / results.length,
         rps: results.length / durationSeconds,
       })
@@ -295,9 +310,9 @@ export class LoadTestSimulator {
         p50: latencyP50,
         p95: latencyP95,
         p99: latencyP99,
-        min: Math.min(...allLatencies),
-        max: Math.max(...allLatencies),
-        avg: allLatencies.reduce((a, b) => a + b, 0) / allLatencies.length,
+        min: safeMin(allLatencies),
+        max: safeMax(allLatencies),
+        avg: allLatencies.length > 0 ? safeSum(allLatencies) / allLatencies.length : 0,
       },
       endpointStats,
       thresholdsPassed: failures.length === 0,
