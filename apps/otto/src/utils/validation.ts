@@ -22,6 +22,13 @@ export const NonceSchema = z.string().min(1)
 
 export const CrcTokenSchema = z.string().min(1)
 
+// ============================================================================
+// App-Specific Validation Helpers
+// ============================================================================
+
+/**
+ * Validate platform parameter
+ */
 export function validatePlatform(
   platform: string,
 ): 'discord' | 'telegram' | 'whatsapp' | 'farcaster' | 'twitter' | 'web' {
@@ -43,7 +50,7 @@ export function validateCrcToken(crcToken: string): string {
 export function validateQueryParam(
   param: string | undefined,
   name: string,
-  schema: z.ZodSchema<string>,
+  schema: z.ZodType<string>,
 ): string {
   if (!param) {
     throw new Error(`Missing required query parameter: ${name}`)
@@ -54,7 +61,7 @@ export function validateQueryParam(
 export function validateHeader(
   header: string | undefined,
   name: string,
-  schema: z.ZodSchema<string>,
+  schema: z.ZodType<string>,
 ): string {
   if (!header) {
     throw new Error(`Missing required header: ${name}`)

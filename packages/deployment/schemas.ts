@@ -891,7 +891,7 @@ export type IPFSAddResponseLine = z.infer<typeof IPFSAddResponseLineSchema>
  */
 export function expectJson<T>(
   json: string,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context: string,
 ): T {
   let parsed: unknown
@@ -909,7 +909,7 @@ export function expectJson<T>(
  * Validate data against schema, throwing on failure
  */
 export function expectValid<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   value: unknown,
   context: string,
 ): T {

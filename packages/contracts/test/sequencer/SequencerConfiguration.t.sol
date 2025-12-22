@@ -88,7 +88,7 @@ contract SequencerConfigurationTest is Test {
 
         disputeFactory = new DisputeGameFactory(treasury, owner);
 
-        forcedInclusion = new ForcedInclusion(address(0x5678), address(registry), securityCouncil, owner);
+        forcedInclusion = new ForcedInclusion(address(0x5678), address(registry), securityCouncil, owner, true);
 
         vm.stopPrank();
 

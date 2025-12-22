@@ -7,25 +7,46 @@ import { expect, test } from '@playwright/test'
 const AUTOCRAT_URL = 'http://localhost:8010'
 const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546'
 
+/** JSON-serializable primitive */
+type JsonPrimitive = string | number | boolean | null
+
+/** JSON-serializable value */
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
+
+/** JSON object */
+type JsonObject = { [key: string]: JsonValue }
+
 interface A2ADataPart {
   kind: 'data'
-  data: Record<string, unknown>
+  data: JsonObject
 }
 
 interface A2APart {
   kind: string
-  data?: Record<string, unknown>
+  data?: JsonObject
+}
+
+interface A2AJsonRpcRequest {
+  jsonrpc: '2.0'
+  id: number
+  method: string
+  params: {
+    message: {
+      messageId: string
+      parts: Array<{ kind: string; data: JsonObject }>
+    }
+  }
 }
 
 const sendA2A = async (
   request: {
     post: (
       url: string,
-      options: { data: unknown },
+      options: { data: A2AJsonRpcRequest },
     ) => Promise<{ json: () => Promise<{ result?: { parts: A2APart[] } }> }>
   },
   skillId: string,
-  params?: Record<string, unknown>,
+  params?: JsonObject,
 ) => {
   const response = await request.post(`${AUTOCRAT_URL}/a2a`, {
     data: {

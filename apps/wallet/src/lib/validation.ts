@@ -27,7 +27,7 @@ export function expectNonEmpty(value: string, fieldName: string): string {
  */
 export function expectSchema<T>(
   value: unknown,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   fieldName = 'value',
 ): T {
   return expectValid(schema, value, fieldName)
@@ -55,7 +55,7 @@ export function requireDefined<T>(
  */
 export function parseJson<T>(
   json: string,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   fieldName = 'json',
 ): T {
   return typesExpectJson(json, schema, fieldName)

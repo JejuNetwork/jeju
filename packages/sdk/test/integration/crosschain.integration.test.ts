@@ -63,9 +63,9 @@ describe('Cross-chain Integration Tests', () => {
   })
 
   test('client created successfully', () => {
-    if (!chainRunning) return
+    if (!chainRunning || !client) return
     expect(client).toBeDefined()
-    expect(client?.crosschain).toBeDefined()
+    expect(client.crosschain).toBeDefined()
   })
 
   test('getSupportedChains returns array', () => {

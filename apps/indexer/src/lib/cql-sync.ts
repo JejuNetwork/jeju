@@ -1,16 +1,12 @@
 /**
  * CQL Sync Layer
  *
- * STATUS: REFERENCE IMPLEMENTATION - Not wired into app entry point.
- * DEPENDENCY: Requires CovenantSQL service.
- *
  * Syncs indexer data from PostgreSQL to CovenantSQL for decentralized reads.
- * Uses centralized config for CQL endpoint.
+ * Uses the @jejunetwork/db client for CQL operations.
  */
 
-// Stubbed imports - CQL sync is reference implementation only
-// import { CovenantSQLClient, type QueryResult } from '@jejunetwork/db';
-// import { getCQLUrl } from '@jejunetwork/config';
+import { type CQLClient, getCQL } from '@jejunetwork/db'
+import type { DataSource, EntityMetadata } from 'typeorm'
 
 // SQL parameter types - values that can be safely passed to SQL queries
 type SqlPrimitive = string | number | boolean | null | bigint | Date
@@ -34,38 +30,11 @@ interface QueryResult<T = SqlRow> {
   rows: T[]
   rowCount: number
 }
-const getCQLUrl = (): string => process.env.CQL_URL || 'http://localhost:4661'
-
-// Stub CovenantSQLClient - matches @jejunetwork/db interface
-interface _CQLClientConfig {
-  blockProducerEndpoint: string
-  databaseId: string
-}
-
-// Type export to suppress unused warning
-export type { _CQLClientConfig as CQLClientConfig }
-
-class CovenantSQLClient {
-  async query<T = SqlRow>(
-    _sql: string,
-    _params?: SqlParam[],
-    _dbId?: string,
-  ): Promise<QueryResult<T>> {
-    return { rows: [], rowCount: 0 }
-  }
-  async exec(
-    _sql: string,
-    _params?: SqlParam | SqlParam[],
-    _dbId?: string,
-  ): Promise<void> {}
-  async close(): Promise<void> {}
-}
-
-import type { DataSource, EntityMetadata } from 'typeorm'
 
 const CQL_ENABLED = process.env.CQL_SYNC_ENABLED === 'true'
 const CQL_DATABASE_ID = process.env.CQL_DATABASE_ID ?? 'indexer-sync'
-const SYNC_INTERVAL_MS = (() => {
+
+function getSyncIntervalMs(): number {
   const interval = parseInt(process.env.CQL_SYNC_INTERVAL ?? '30000', 10)
   if (Number.isNaN(interval) || interval <= 0) {
     throw new Error(
@@ -73,8 +42,9 @@ const SYNC_INTERVAL_MS = (() => {
     )
   }
   return interval
-})()
-const BATCH_SIZE = (() => {
+}
+
+function getBatchSize(): number {
   const batch = parseInt(process.env.CQL_SYNC_BATCH_SIZE ?? '1000', 10)
   if (Number.isNaN(batch) || batch <= 0) {
     throw new Error(
@@ -82,7 +52,7 @@ const BATCH_SIZE = (() => {
     )
   }
   return batch
-})()
+}
 
 interface SyncState {
   entity: string
@@ -94,17 +64,17 @@ interface SyncState {
 const syncStates: Map<string, SyncState> = new Map()
 
 export class CQLSyncService {
-  private client: CovenantSQLClient
+  private client: CQLClient
   private dataSource: DataSource | null = null
   private syncInterval: ReturnType<typeof setInterval> | null = null
   private running = false
+  private syncIntervalMs: number
+  private batchSize: number
 
   constructor() {
-    // Use centralized config for CQL endpoint
-    this.client = new CovenantSQLClient({
-      blockProducerEndpoint: getCQLUrl(),
-      databaseId: CQL_DATABASE_ID,
-    })
+    this.client = getCQL()
+    this.syncIntervalMs = CQL_ENABLED ? getSyncIntervalMs() : 30000
+    this.batchSize = CQL_ENABLED ? getBatchSize() : 1000
   }
 
   async initialize(dataSource: DataSource): Promise<void> {
@@ -115,6 +85,14 @@ export class CQLSyncService {
     if (!CQL_ENABLED) {
       console.log('[CQLSync] Disabled - set CQL_SYNC_ENABLED=true to enable')
       return
+    }
+
+    // Verify CQL is healthy
+    const healthy = await this.client.isHealthy()
+    if (!healthy) {
+      throw new Error(
+        '[CQLSync] CQL is not healthy. Ensure CovenantSQL is running.',
+      )
     }
 
     this.dataSource = dataSource
@@ -132,7 +110,7 @@ export class CQLSyncService {
     if (!CQL_ENABLED || this.running) return
 
     this.running = true
-    console.log(`[CQLSync] Starting sync every ${SYNC_INTERVAL_MS}ms`)
+    console.log(`[CQLSync] Starting sync every ${this.syncIntervalMs}ms`)
 
     // Initial sync
     await this.sync()
@@ -142,7 +120,7 @@ export class CQLSyncService {
       this.sync().catch((err) => {
         console.error('[CQLSync] Sync error:', err)
       })
-    }, SYNC_INTERVAL_MS)
+    }, this.syncIntervalMs)
   }
 
   async stop(): Promise<void> {
@@ -192,7 +170,7 @@ export class CQLSyncService {
       })
     }
 
-    query.orderBy(`${tableName}.${primaryColumns[0]}`, 'ASC').take(BATCH_SIZE)
+    query.orderBy(`${tableName}.${primaryColumns[0]}`, 'ASC').take(this.batchSize)
 
     const records = await query.getMany()
 
@@ -221,10 +199,21 @@ export class CQLSyncService {
     meta: EntityMetadata,
     record: EntityRecord,
   ): Promise<void> {
-    // SECURITY: Use parameterized queries to prevent SQL injection
+    // Validate table name for SQL safety
+    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
+      throw new Error(`Invalid table name: ${tableName}`)
+    }
+
     const columns = meta.columns.map((c) => c.databaseName)
     const params: SqlParam[] = []
     const placeholders: string[] = []
+
+    // Validate all column names
+    for (const colName of columns) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(colName)) {
+        throw new Error(`Invalid column name: ${colName}`)
+      }
+    }
 
     meta.columns.forEach((c, index) => {
       const value = record[c.propertyName]
@@ -250,6 +239,14 @@ export class CQLSyncService {
     })
 
     const primaryCols = meta.primaryColumns.map((c) => c.databaseName)
+
+    // Validate primary column names
+    for (const colName of primaryCols) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(colName)) {
+        throw new Error(`Invalid primary column name: ${colName}`)
+      }
+    }
+
     const nonPrimaryCols = columns.filter((c) => !primaryCols.includes(c))
     const updateSet = nonPrimaryCols
       .map((c) => {
@@ -257,23 +254,6 @@ export class CQLSyncService {
         return `${c} = $${colIndex + 1}`
       })
       .join(', ')
-
-    // Validate table name contains only valid characters (alphanumeric and underscore)
-    if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(tableName)) {
-      throw new Error(`Invalid table name: ${tableName}`)
-    }
-
-    // Validate all column names to prevent SQL injection
-    for (const colName of columns) {
-      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(colName)) {
-        throw new Error(`Invalid column name: ${colName}`)
-      }
-    }
-    for (const colName of primaryCols) {
-      if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(colName)) {
-        throw new Error(`Invalid primary column name: ${colName}`)
-      }
-    }
 
     const sql = `
       INSERT INTO ${tableName} (${columns.join(', ')})
@@ -287,6 +267,26 @@ export class CQLSyncService {
 
   private async createCQLTables(): Promise<void> {
     if (!this.dataSource) return
+
+    // Create sync states table first
+    await this.client
+      .exec(
+        `
+        CREATE TABLE IF NOT EXISTS _cql_sync_states (
+          entity TEXT PRIMARY KEY,
+          last_synced_id TEXT,
+          last_synced_at INTEGER NOT NULL,
+          total_synced INTEGER NOT NULL
+        )
+      `.trim(),
+        [],
+        CQL_DATABASE_ID,
+      )
+      .catch((err: Error) => {
+        console.warn(
+          `[CQLSync] Sync states table creation warning: ${err.message}`,
+        )
+      })
 
     for (const meta of this.dataSource.entityMetadatas) {
       await this.createCQLTable(meta)
@@ -304,6 +304,7 @@ export class CQLSyncService {
       if (!/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(col.databaseName)) {
         throw new Error(`Invalid column name for CQL: ${col.databaseName}`)
       }
+
       let type = 'TEXT'
       switch (col.type) {
         case 'int':
@@ -349,41 +350,44 @@ export class CQLSyncService {
     await this.client
       .exec(sql, undefined, CQL_DATABASE_ID)
       .catch((err: Error) => {
-        // Table creation is idempotent - log warning but continue
         console.warn(
-          `[CQLSync] Table creation for ${meta.tableName} failed: ${err.message}`,
+          `[CQLSync] Table creation for ${meta.tableName} warning: ${err.message}`,
         )
       })
   }
 
   private async loadSyncStates(): Promise<void> {
     const result = await this.client
-      .query<SyncState>(
-        'SELECT * FROM _cql_sync_states',
-        undefined,
-        CQL_DATABASE_ID,
-      )
+      .query<{
+        entity: string
+        last_synced_id: string | null
+        last_synced_at: number
+        total_synced: number
+      }>('SELECT * FROM _cql_sync_states', undefined, CQL_DATABASE_ID)
       .catch((err: Error) => {
-        // Table may not exist on first run - this is expected
         console.log(
-          `[CQLSync] Loading sync states: ${err.message} (will create table on first sync)`,
+          `[CQLSync] Loading sync states: ${err.message} (will populate on first sync)`,
         )
-        return { rows: [] as SyncState[], rowCount: 0 }
+        return { rows: [], rowCount: 0 }
       })
 
     for (const row of result.rows) {
-      syncStates.set(row.entity, row)
+      syncStates.set(row.entity, {
+        entity: row.entity,
+        lastSyncedId: row.last_synced_id,
+        lastSyncedAt: row.last_synced_at,
+        totalSynced: row.total_synced,
+      })
     }
   }
 
   private async saveSyncState(state: SyncState): Promise<void> {
-    // SECURITY: Use parameterized queries to prevent SQL injection
     const sql = `
       INSERT INTO _cql_sync_states (entity, last_synced_id, last_synced_at, total_synced)
       VALUES ($1, $2, $3, $4)
       ON CONFLICT (entity)
-      DO UPDATE SET last_synced_id = $2, 
-                    last_synced_at = $3, 
+      DO UPDATE SET last_synced_id = $2,
+                    last_synced_at = $3,
                     total_synced = $4
     `.trim()
 
@@ -395,32 +399,29 @@ export class CQLSyncService {
     ]
 
     await this.client.exec(sql, params, CQL_DATABASE_ID).catch((err: Error) => {
-      // Sync state table may not exist on first run - this is expected
       console.log(
         `[CQLSync] Saving sync state for ${state.entity}: ${err.message}`,
       )
     })
   }
 
-  async getCQLReadClient(): Promise<CovenantSQLClient> {
+  async getCQLReadClient(): Promise<CQLClient> {
     return this.client
   }
 
   /**
-   * Query from CQL - INTERNAL USE ONLY
-   * WARNING: This method accepts raw SQL. Never pass user input directly.
-   * Use parameterized queries via the Subsquid TypeORM store for user-facing queries.
+   * Query from CQL - for internal indexer use
    */
   async queryFromCQL<T>(
     sql: string,
     params?: SqlParam[],
   ): Promise<QueryResult<T>> {
-    // Basic SQL injection check - this method should only be used internally
-    // with pre-defined queries, not with user input
+    // Basic SQL injection protection
     if (sql.includes(';') && sql.indexOf(';') !== sql.length - 1) {
       throw new Error('Multiple SQL statements not allowed')
     }
-    return this.client.query<T>(sql, params, CQL_DATABASE_ID)
+    const result = await this.client.query<T>(sql, params, CQL_DATABASE_ID)
+    return { rows: result.rows, rowCount: result.rowCount }
   }
 
   getStats(): {
@@ -455,3 +456,6 @@ export function resetCQLSync(): void {
     cqlSyncService = null
   }
 }
+
+// Re-export config type for external use
+export type { CQLClient as CQLClientConfig }

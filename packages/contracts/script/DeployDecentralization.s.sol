@@ -232,7 +232,8 @@ contract DeployDecentralization is Script {
             batchInbox,
             address(sequencerRegistry),
             deployer, // securityCouncil - update to multisig after deployment
-            deployer
+            deployer,
+            false // skipContractCheck - production deployment
         );
         console.log("ForcedInclusion deployed:", address(forcedInclusion));
         console.log("  - Inclusion window: 50 blocks");

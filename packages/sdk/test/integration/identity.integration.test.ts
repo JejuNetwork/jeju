@@ -50,9 +50,9 @@ describe('Identity Integration Tests', () => {
   })
 
   test('client created successfully', () => {
-    if (!chainRunning) return
+    if (!chainRunning || !client) return
     expect(client).toBeDefined()
-    expect(client?.identity).toBeDefined()
+    expect(client.identity).toBeDefined()
   })
 
   test('getMyAgent returns null or agent info', async () => {

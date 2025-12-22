@@ -51,6 +51,7 @@
     "train:e2e": "bun run src/training/run-e2e-integration.ts",
     "train:distributed": "bun run src/training/benchmark-distributed.ts",
     "train:crosschain": "bun run src/training/cross-chain-test.ts",
+    "train:crosschain:bidirectional": "bun run src/training/cross-chain-bidirectional-test.ts",
     "test:all": "bun test src/tests src/cdn/tests tests/*.test.ts tests/integration/*.test.ts",
     "typecheck": "tsc --noEmit && cd frontend && bun run typecheck",
     "cdn:edge": "bun run src/cdn/edge/index.ts",

@@ -137,6 +137,5 @@ test-ledger/
 # Tauri build artifacts
 **/src-tauri/gen/
 **/src-tauri/target/
-.next/
 .ruff_cache
 training_output

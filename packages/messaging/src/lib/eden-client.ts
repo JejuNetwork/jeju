@@ -1,19 +1,18 @@
 /**
- * Eden Client for Messaging Services
+ * Typed API Client for Messaging Services
  *
- * Type-safe HTTP client using Eden Treaty for internal API calls.
+ * Type-safe HTTP client for internal API calls.
  */
 
-import { treaty } from '@elysiajs/eden'
 import type { z } from 'zod'
 
-/** Request options for Eden client */
+/** Request options for API client */
 export interface EdenRequestOptions {
   headers?: Record<string, string>
   timeout?: number
 }
 
-/** Eden result wrapper */
+/** API result wrapper */
 export interface EdenResult<T> {
   data: T | null
   error: Error | null
@@ -21,24 +20,59 @@ export interface EdenResult<T> {
 }
 
 /**
- * Create an Eden Treaty client for a service endpoint.
- * Uses type assertion since we don't have server types available.
+ * Create an API client with typed methods
  */
 export function createEdenClient(
   baseUrl: string,
   options: EdenRequestOptions = {},
 ) {
-  const { headers = {}, timeout = 30000 } = options
+  const { headers: defaultHeaders = {}, timeout = 30000 } = options
   const normalizedUrl = baseUrl.replace(/\/$/, '')
 
-  const client = treaty(normalizedUrl, {
-    fetch: {
-      headers,
+  async function request<T>(
+    path: string,
+    init: RequestInit,
+    schema?: z.ZodType<T>,
+  ): Promise<T> {
+    const response = await fetch(`${normalizedUrl}${path}`, {
+      ...init,
+      headers: {
+        'Content-Type': 'application/json',
+        ...defaultHeaders,
+        ...(init.headers as Record<string, string>),
+      },
       signal: AbortSignal.timeout(timeout),
-    },
-  })
+    })
 
-  return client
+    if (!response.ok) {
+      const error = await response.text().catch(() => '')
+      throw new Error(`HTTP ${response.status}: ${error || response.statusText}`)
+    }
+
+    const data: unknown = await response.json()
+    if (schema) {
+      return schema.parse(data)
+    }
+    return data as T
+  }
+
+  return {
+    get<T>(path: string, schema?: z.ZodType<T>): Promise<T> {
+      return request(path, { method: 'GET' }, schema)
+    },
+
+    post<T>(
+      path: string,
+      body: Record<string, unknown>,
+      schema?: z.ZodType<T>,
+    ): Promise<T> {
+      return request(path, { method: 'POST', body: JSON.stringify(body) }, schema)
+    },
+
+    checkHealth(): Promise<boolean> {
+      return checkEdenHealth(normalizedUrl)
+    },
+  }
 }
 
 /**
@@ -85,7 +119,7 @@ export async function checkEdenHealth(
  */
 export async function fetchAndValidate<T>(
   url: string,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   options?: RequestInit & { timeout?: number },
 ): Promise<T> {
   const response = await fetch(url, {

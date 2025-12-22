@@ -218,7 +218,7 @@ export const storage = {
   clear: () => getStorage().clear(),
   keys: () => getStorage().keys(),
 
-  async getJSON<T>(key: string, schema: z.ZodSchema<T>): Promise<T | null> {
+  async getJSON<T>(key: string, schema: z.ZodType<T>): Promise<T | null> {
     const value = await getStorage().get(key)
     if (!value) return null
     return expectJson(value, schema, `storage key: ${key}`)

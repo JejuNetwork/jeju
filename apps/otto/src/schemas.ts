@@ -699,7 +699,7 @@ export const AuthMessageResponseSchema = z.object({
  * Still logs errors for debugging
  */
 export function validateOrNull<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   data: unknown,
   context?: string,
 ): T | null {
@@ -724,7 +724,7 @@ export function validateOrNull<T>(
  * Validates array of items, throws if any invalid
  */
 export function expectValidArray<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   items: unknown[],
   context?: string,
 ): T[] {

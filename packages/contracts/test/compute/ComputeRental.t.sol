@@ -344,7 +344,10 @@ contract ComputeRentalTest is Test {
         assertFalse(ur.banned); // Not banned yet (threshold is 3)
     }
 
-    function test_reportAbuse_autoBan() public {
+    function test_reportAbuse_requiresArbitratorBan() public {
+        // SECURITY: Auto-ban removed to prevent colluding providers from banning users
+        // Now requires arbitrator review before ban
+        
         // Create and start 3 rentals, report abuse on each
         for (uint256 i = 0; i < 3; i++) {
             bytes32 rentalId = _createAndStartRental();
@@ -356,7 +359,15 @@ contract ComputeRentalTest is Test {
 
         ComputeRental.UserRecord memory ur = rental.getUserRecord(user);
         assertEq(ur.abuseReports, 3);
-        assertTrue(ur.banned, "User should be auto-banned");
+        // User should NOT be auto-banned anymore - requires arbitrator review
+        assertFalse(ur.banned, "User should not be auto-banned - requires arbitrator review");
+        
+        // Now arbitrator can ban after review
+        vm.prank(owner); // Owner is an arbitrator by default
+        rental.banUserAfterReview(user, "Multiple abuse reports verified");
+        
+        ur = rental.getUserRecord(user);
+        assertTrue(ur.banned, "User should be banned after arbitrator review");
         assertGt(ur.bannedAt, 0);
     }
 

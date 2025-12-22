@@ -65,9 +65,6 @@ class NFTService {
       this.cacheTime.set(cacheKey, Date.now())
 
       return nfts
-    } catch (error) {
-      console.warn('Failed to fetch NFTs from indexer:', error)
-      throw error
     }
   }
 

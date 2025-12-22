@@ -100,15 +100,7 @@ class StateManager {
     const text = file.size > 0 ? readFileSync(path, 'utf-8') : null
     if (!text) return
 
-    let parsed: unknown
-    try {
-      parsed = JSON.parse(text)
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : String(error)
-      console.error('[State] Failed to parse state file:', errorMessage)
-      throw error
-    }
+    const parsed = JSON.parse(text) as unknown
 
     const data = validateOrNull(PersistedStateSchema, parsed, 'persisted state')
     if (!data) {

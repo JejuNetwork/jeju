@@ -196,6 +196,20 @@ export {
   initBanChecker,
   isBanned,
 } from './middleware/banCheck'
+// API Cache Middleware
+export {
+  APICache,
+  type CacheConfig as APICacheConfig,
+  type CacheMiddlewareResult,
+  type CacheResult,
+  type CacheStats as APICacheStats,
+  createCacheMiddleware,
+  createComputeCache,
+  createListCache,
+  createSearchCache,
+  createStatsCache,
+  generateCacheKey,
+} from './middleware/cache'
 // Moderation Notifications
 export {
   createBanNotification,

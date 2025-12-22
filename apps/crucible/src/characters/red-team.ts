@@ -112,8 +112,8 @@ Remember: A good red team makes the blue team better.`,
   },
 
   modelPreferences: {
-    small: 'llama-3.1-8b',
-    large: 'llama-3.1-70b',
+    small: 'llama-3.1-8b-instant',
+    large: 'llama-3.3-70b-versatile',
   },
 
   mcpServers: ['security-tools', 'analysis'],

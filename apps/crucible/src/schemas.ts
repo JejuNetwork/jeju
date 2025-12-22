@@ -437,7 +437,7 @@ export const QuotesParamsSchema = z
  * Use for fail-fast validation of external API responses
  */
 export function parseOrThrow<T>(
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   data: unknown,
   context?: string,
 ): T {
@@ -457,7 +457,7 @@ export function parseOrThrow<T>(
  * Safely parse JSON and validate with schema, returning null on failure
  * Use for external/streaming data that might be malformed
  */
-export function safeParse<T>(schema: z.ZodSchema<T>, data: unknown): T | null {
+export function safeParse<T>(schema: z.ZodType<T>, data: unknown): T | null {
   const result = schema.safeParse(data)
   return result.success ? result.data : null
 }

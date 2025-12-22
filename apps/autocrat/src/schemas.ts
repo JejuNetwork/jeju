@@ -1143,7 +1143,7 @@ export const AgentCardSchema = z.object({
  */
 export async function expectValidResponse<T>(
   response: Response,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context: string,
 ): Promise<T> {
   if (!response.ok) {

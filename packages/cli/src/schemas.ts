@@ -649,7 +649,7 @@ export type RegistryDetails = z.infer<typeof RegistryDetailsSchema>
 
 /**
  * Validate data with a schema, throwing on failure
- * @deprecated Use expectValid from @jejunetwork/types instead
+ * Note: Uses different parameter order than expectValid from @jejunetwork/types
  */
 export function validate<T>(
   data: unknown,

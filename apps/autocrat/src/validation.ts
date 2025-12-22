@@ -46,7 +46,7 @@ export type JsonValue =
  */
 export function validateBody<T>(
   body: JsonValue | Record<string, JsonValue>,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context = 'Request body',
 ): T {
   return expectValid(schema, body, context)
@@ -58,7 +58,7 @@ export function validateBody<T>(
  */
 export function validateQuery<T>(
   query: QueryParams,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context = 'Query parameters',
 ): T {
   return expectValid(schema, query, context)
@@ -71,7 +71,7 @@ export function validateQuery<T>(
 export function validateParam(
   params: PathParams,
   paramName: string,
-  schema: z.ZodSchema<string>,
+  schema: z.ZodType<string>,
   context?: string,
 ): string {
   const param = params[paramName]
@@ -88,7 +88,7 @@ export function validateParam(
  */
 export function validateParams<T>(
   params: PathParams,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context = 'Route parameters',
 ): T {
   return expectValid(schema, params, context)
@@ -293,7 +293,7 @@ export interface ElysiaContext {
  */
 export function parseAndValidateBody<T>(
   c: ElysiaContext,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context = 'Request body',
 ): T {
   return validateBody(c.body, schema, context)
@@ -304,7 +304,7 @@ export function parseAndValidateBody<T>(
  */
 export function parseAndValidateQuery<T>(
   c: ElysiaContext,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
   context = 'Query parameters',
 ): T {
   return validateQuery(c.query, schema, context)
@@ -316,7 +316,7 @@ export function parseAndValidateQuery<T>(
 export function parseAndValidateParam(
   c: ElysiaContext,
   paramName: string,
-  schema: z.ZodSchema<string>,
+  schema: z.ZodType<string>,
   context?: string,
 ): string {
   const param = c.params[paramName]

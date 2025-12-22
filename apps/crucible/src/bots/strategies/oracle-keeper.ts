@@ -397,9 +397,6 @@ export class OracleKeeperStrategy {
         source: 'pyth',
         timestamp: Number(publishTime),
       }
-    } catch (error) {
-      console.error(`Error fetching Pyth price for ${symbol}:`, error)
-      throw error
     }
   }
 
@@ -439,9 +436,6 @@ export class OracleKeeperStrategy {
         source: 'redstone',
         timestamp: Math.floor(priceData.timestamp / 1000),
       }
-    } catch (error) {
-      console.error(`Error fetching Redstone price for ${symbol}:`, error)
-      throw error
     }
   }
 
@@ -669,9 +663,6 @@ export class OracleKeeperStrategy {
         source: 'chainlink',
         timestamp: Number(updatedAt),
       }
-    } catch (error) {
-      console.error(`Error fetching Chainlink price for ${symbol}:`, error)
-      throw error
     }
   }
 

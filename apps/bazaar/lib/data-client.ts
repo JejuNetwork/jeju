@@ -10,9 +10,23 @@ import { z } from 'zod'
 import { INDEXER_URL, RPC_URL } from '../config'
 import { expect, expectTrue } from './validation'
 
+// JSON value type for GraphQL data
+type JsonPrimitive = string | number | boolean | null
+type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue }
+const JsonValueSchema: z.ZodType<JsonValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(JsonValueSchema),
+    z.record(z.string(), JsonValueSchema),
+  ]),
+)
+
 // GraphQL response schema for runtime validation
 const GraphQLResponseSchema = z.object({
-  data: z.unknown().optional(),
+  data: JsonValueSchema.optional(),
   errors: z
     .array(
       z.object({
@@ -125,7 +139,7 @@ export async function checkIndexerHealth(): Promise<boolean> {
 
 async function gql<T>(
   query: string,
-  variables?: Record<string, unknown>,
+  variables?: Record<string, JsonValue>,
 ): Promise<T> {
   const validatedIndexerUrl = expect(INDEXER_URL, 'INDEXER_URL not configured')
   const response = await fetch(validatedIndexerUrl, {

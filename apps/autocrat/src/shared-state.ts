@@ -94,6 +94,37 @@ export const blockchain: AutocratBlockchain = getBlockchain(config)
 
 let _orchestrator: AutocratOrchestrator | null = null
 
+/**
+ * Get shared state for use in routes and services
+ */
+export function getSharedState(): {
+  config: CouncilConfig
+  contracts: {
+    feeConfig: Address
+    treasury: Address
+    council: Address
+    daoRegistry: Address
+  }
+  clients: {
+    publicClient: AutocratBlockchain['client'] | null
+    walletClient: null // Wallet client requires a private key, set up in services that need it
+  }
+} {
+  return {
+    config,
+    contracts: {
+      feeConfig: config.contracts.feeConfig as Address,
+      treasury: config.contracts.treasury as Address,
+      council: config.contracts.council as Address,
+      daoRegistry: config.contracts.daoRegistry as Address,
+    },
+    clients: {
+      publicClient: blockchain.client,
+      walletClient: null,
+    },
+  }
+}
+
 export function setOrchestrator(o: AutocratOrchestrator | null): void {
   _orchestrator = o
 }

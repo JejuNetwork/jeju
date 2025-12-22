@@ -174,7 +174,7 @@ export class ApiError extends Error {
 
 async function handleResponse<T>(
   response: Response,
-  schema?: z.ZodSchema<T>,
+  schema?: z.ZodType<T>,
 ): Promise<T> {
   if (!response.ok) {
     const errorBody = await response.json().catch(() => ({}))

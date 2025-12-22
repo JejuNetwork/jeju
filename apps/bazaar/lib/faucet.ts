@@ -88,7 +88,7 @@ type ParseResult<T> =
  */
 export async function parseJsonResponse<T>(
   response: Response,
-  schema: z.ZodSchema<T>,
+  schema: z.ZodType<T>,
 ): Promise<ParseResult<T>> {
   const result = schema.safeParse(await response.json())
   return result.success

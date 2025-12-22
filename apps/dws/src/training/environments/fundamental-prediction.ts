@@ -8,6 +8,8 @@
  * (earnings, revenue, etc.) based on financial data and news.
  */
 
+import { HfInference } from '@huggingface/inference'
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -234,6 +236,8 @@ export class FundamentalPredictionEnv {
   private iter = 0
   private percentCorrectBuffer: number[] = []
   private magnitudeAccuracyBuffer: number[] = []
+  private _hfReserved: HfInference | null = null
+
   constructor(config: EnvConfig, serverConfigs: APIServerConfig[]) {
     this.config = config
     this.serverConfigs = serverConfigs
@@ -278,6 +282,12 @@ export class FundamentalPredictionEnv {
     console.log(
       `[FundamentalPrediction] Loaded dataset with ${this.train.length} training and ${this.test.length} test examples`,
     )
+
+    // Initialize HF inference client if API key available
+    const hfToken = process.env.HF_TOKEN
+    if (hfToken) {
+      this.hf = new HfInference(hfToken)
+    }
   }
 
   async getNextItem(): Promise<TrainingItem> {

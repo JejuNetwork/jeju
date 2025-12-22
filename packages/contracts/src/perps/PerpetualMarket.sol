@@ -41,11 +41,19 @@ contract PerpetualMarket is IPerpetualMarket, ReentrancyGuard, Ownable {
     uint256 public constant LIQUIDATION_PENALTY_BPS = 50; // 0.5%
     uint256 public constant LIQUIDATOR_REWARD_BPS = 25; // 0.25% to liquidator
     uint256 public constant FUNDING_INTERVAL = 1 hours;
+    uint256 public constant ORACLE_CHANGE_DELAY = 48 hours; // SECURITY: Oracle change timelock
     
     // External contracts
     IMarginManager public immutable marginManager;
     IInsuranceFund public immutable insuranceFund;
     IPriceOracle public priceOracle;
+    
+    // SECURITY: Oracle change timelock
+    address public pendingOracle;
+    uint256 public oracleChangeTime;
+    
+    // SECURITY: Global pause
+    bool public globalPaused;
     
     // Storage
     mapping(bytes32 => MarketConfig) public markets;
@@ -63,6 +71,18 @@ contract PerpetualMarket is IPerpetualMarket, ReentrancyGuard, Ownable {
     // Paused markets
     mapping(bytes32 => bool) public marketPaused;
     
+    // Events for security features
+    event OracleChangeProposed(address indexed currentOracle, address indexed newOracle, uint256 effectiveTime);
+    event OracleChangeExecuted(address indexed oldOracle, address indexed newOracle);
+    event OracleChangeCancelled(address indexed cancelledOracle);
+    event GlobalPaused(address indexed by);
+    event GlobalUnpaused(address indexed by);
+    
+    error OracleChangePending();
+    error NoOracleChangePending();
+    error OracleChangeNotReady();
+    error GloballyPaused();
+    
     constructor(
         address _marginManager,
         address _insuranceFund,
@@ -75,8 +95,14 @@ contract PerpetualMarket is IPerpetualMarket, ReentrancyGuard, Ownable {
     }
     
     modifier marketActive(bytes32 marketId) {
+        require(!globalPaused, "Globally paused");
         require(markets[marketId].isActive, "Market inactive");
         require(!marketPaused[marketId], "Market paused");
+        _;
+    }
+    
+    modifier notGloballyPaused() {
+        if (globalPaused) revert GloballyPaused();
         _;
     }
     
@@ -136,8 +162,58 @@ contract PerpetualMarket is IPerpetualMarket, ReentrancyGuard, Ownable {
         marketPaused[marketId] = false;
     }
     
+    /// @notice Propose a new price oracle - requires 48-hour delay
+    /// @dev SECURITY: Prevents instant oracle manipulation attacks
+    function proposePriceOracle(address _priceOracle) public onlyOwner {
+        require(_priceOracle != address(0), "Invalid oracle");
+        if (pendingOracle != address(0)) revert OracleChangePending();
+        
+        pendingOracle = _priceOracle;
+        oracleChangeTime = block.timestamp + ORACLE_CHANGE_DELAY;
+        
+        emit OracleChangeProposed(address(priceOracle), _priceOracle, oracleChangeTime);
+    }
+    
+    /// @notice Execute oracle change after timelock expires
+    function executePriceOracleChange() external onlyOwner {
+        if (pendingOracle == address(0)) revert NoOracleChangePending();
+        if (block.timestamp < oracleChangeTime) revert OracleChangeNotReady();
+        
+        address oldOracle = address(priceOracle);
+        priceOracle = IPriceOracle(pendingOracle);
+        
+        emit OracleChangeExecuted(oldOracle, pendingOracle);
+        
+        pendingOracle = address(0);
+        oracleChangeTime = 0;
+    }
+    
+    /// @notice Cancel pending oracle change
+    function cancelPriceOracleChange() external onlyOwner {
+        if (pendingOracle == address(0)) revert NoOracleChangePending();
+        
+        emit OracleChangeCancelled(pendingOracle);
+        
+        pendingOracle = address(0);
+        oracleChangeTime = 0;
+    }
+    
+    /// @notice Legacy setPriceOracle - now requires timelock
     function setPriceOracle(address _priceOracle) external onlyOwner {
-        priceOracle = IPriceOracle(_priceOracle);
+        proposePriceOracle(_priceOracle);
+    }
+    
+    /// @notice Emergency global pause - halts all trading
+    /// @dev SECURITY: Can be used during exploits or critical bugs
+    function emergencyPause() external onlyOwner {
+        globalPaused = true;
+        emit GlobalPaused(msg.sender);
+    }
+    
+    /// @notice Unpause global trading
+    function emergencyUnpause() external onlyOwner {
+        globalPaused = false;
+        emit GlobalUnpaused(msg.sender);
     }
     
     function openPosition(

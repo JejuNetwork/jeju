@@ -56,6 +56,17 @@ interface IFeeConfig {
         uint16 renewalDiscountBps;
     }
 
+    struct TokenFees {
+        uint16 xlpRewardShareBps;
+        uint16 protocolShareBps;
+        uint16 burnShareBps;
+        uint16 transferFeeBps;
+        uint16 bridgeFeeMinBps;
+        uint16 bridgeFeeMaxBps;
+        uint16 xlpMinStakeBps;
+        uint16 zkProofDiscountBps;
+    }
+
     // ============ Individual Fee Getters ============
 
     function getAppShare() external view returns (uint16);
@@ -77,6 +88,11 @@ interface IFeeConfig {
     function getInfrastructureFees() external view returns (InfrastructureFees memory);
     function getMarketplaceFees() external view returns (MarketplaceFees memory);
     function getNamesFees() external view returns (NamesFees memory);
+    function getTokenFees() external view returns (TokenFees memory);
+    function getTokenFeesFor(address token) external view returns (TokenFees memory fees, bool hasOverride);
+    function getXlpRewardShare(address token) external view returns (uint16);
+    function getBridgeFeeBounds(address token) external view returns (uint16 minBps, uint16 maxBps);
+    function getZkProofDiscount(address token) external view returns (uint16);
 
     // ============ Governance Functions ============
 
@@ -100,7 +116,24 @@ interface IFeeConfig {
         uint16 x402ProtocolFeeBps
     );
     event NamesFeesUpdated(uint256 baseRegistrationPrice, uint16 agentDiscountBps, uint16 renewalDiscountBps);
+    event TokenFeesUpdated(
+        uint16 xlpRewardShareBps,
+        uint16 protocolShareBps,
+        uint16 burnShareBps,
+        uint16 bridgeFeeMinBps,
+        uint16 bridgeFeeMaxBps
+    );
+    event TokenOverrideSet(
+        address indexed token,
+        uint16 xlpRewardShareBps,
+        uint16 protocolShareBps,
+        uint16 burnShareBps
+    );
+    event TokenOverrideRemoved(address indexed token);
     event FeeChangeProposed(bytes32 indexed changeId, bytes32 feeType, uint256 effectiveAt, address proposedBy);
     event FeeChangeExecuted(bytes32 indexed changeId);
     event FeeChangeCancelled(bytes32 indexed changeId);
+    event CouncilUpdated(address indexed oldCouncil, address indexed newCouncil);
+    event CEOUpdated(address indexed oldCeo, address indexed newCeo);
+    event TreasuryUpdated(address indexed oldTreasury, address indexed newTreasury);
 }

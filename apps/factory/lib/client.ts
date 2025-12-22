@@ -41,19 +41,38 @@ export type EdenResponse<T> = {
 }
 
 /**
+ * Eden error value structure - possible error shapes
+ */
+interface EdenErrorValue {
+  type?: string
+  on?: string
+  summary?: string
+  message?: string
+}
+
+/**
+ * Extract error message from Eden Treaty error value
+ */
+function getErrorMessage(value: unknown): string {
+  if (typeof value === 'string') return value
+  if (value && typeof value === 'object') {
+    const v = value as EdenErrorValue
+    return v.message || v.summary || 'API Error'
+  }
+  return 'API Error'
+}
+
+/**
  * Extract data from Eden response, throwing on error
  *
  * @throws Error if response contains an error or no data
  */
 export function extractData<T>(response: {
   data: T | null
-  error: unknown
+  error: { value: unknown } | null
 }): T {
   if (response.error) {
-    const err = response.error as { message?: string; value?: unknown }
-    throw new Error(
-      err.message || (typeof err.value === 'string' ? err.value : 'API Error'),
-    )
+    throw new Error(getErrorMessage(response.error.value))
   }
   if (response.data === null) {
     throw new Error('No data returned from API')
@@ -66,7 +85,7 @@ export function extractData<T>(response: {
  */
 export function extractDataSafe<T>(response: {
   data: T | null
-  error: unknown
+  error: { value: unknown } | null
 }): T | null {
   if (response.error || response.data === null) {
     return null

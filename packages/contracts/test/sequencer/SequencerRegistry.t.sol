@@ -91,7 +91,8 @@ contract SequencerRegistryTest is Test {
             address(batchInbox),
             address(registry),
             securityCouncil,
-            owner
+            owner,
+            true // Skip contract check in tests
         );
 
         // Set forced inclusion on registry

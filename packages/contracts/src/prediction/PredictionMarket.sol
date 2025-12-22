@@ -7,6 +7,7 @@ import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {JejuMath} from "../libraries/JejuMath.sol";
+import {IFeeConfig} from "../interfaces/IFeeConfig.sol";
 
 interface IPredictionOracle {
     enum ContestState {
@@ -154,10 +155,13 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
     IERC20 public immutable paymentToken; // Default payment token (was elizaOS)
     IPredictionOracle public immutable oracle;
     address public immutable treasury;
+    IFeeConfig public feeConfig;
 
-    uint256 public constant PLATFORM_FEE = 100; // 1% in basis points
+    uint256 public constant DEFAULT_PLATFORM_FEE = 100; // 1% in basis points (fallback)
     uint256 public constant BASIS_POINTS = 10000;
     uint256 public constant DEFAULT_LIQUIDITY = 1000 * 1e18; // Default b parameter
+
+    event FeeConfigUpdated(address indexed oldConfig, address indexed newConfig);
 
     mapping(bytes32 => Market) public markets;
     mapping(bytes32 => mapping(address => Position)) public positions;
@@ -220,6 +224,29 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
         require(token != address(0), "Invalid token address");
         supportedTokens[token] = supported;
         emit TokenSupportUpdated(token, supported);
+    }
+
+    /**
+     * @notice Set the fee configuration contract (governance-controlled)
+     * @param _feeConfig Address of the FeeConfig contract
+     */
+    function setFeeConfig(address _feeConfig) external onlyOwner {
+        address oldConfig = address(feeConfig);
+        feeConfig = IFeeConfig(_feeConfig);
+        emit FeeConfigUpdated(oldConfig, _feeConfig);
+    }
+
+    /**
+     * @notice Get the current platform fee from FeeConfig or fallback to default
+     * @return Platform fee in basis points
+     */
+    function _getPlatformFee() internal view returns (uint256) {
+        if (address(feeConfig) != address(0)) {
+            // Use marketplace fees from central config (bazaar platform fee is for marketplaces)
+            IFeeConfig.MarketplaceFees memory fees = feeConfig.getMarketplaceFees();
+            return fees.bazaarPlatformFeeBps;
+        }
+        return DEFAULT_PLATFORM_FEE;
     }
 
     function elizaOS() external view returns (address) {
@@ -523,7 +550,7 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
 
         // Use market-specific pool instead of entire contract balance
         uint256 marketPool = marketTokenDeposits[sessionId][token];
-        uint256 platformFeeAmount = (marketPool * PLATFORM_FEE) / BASIS_POINTS;
+        uint256 platformFeeAmount = (marketPool * _getPlatformFee()) / BASIS_POINTS;
         uint256 payoutPool = marketPool - platformFeeAmount;
 
         payout = (payoutPool * winningShares) / totalWinningShares;
@@ -556,7 +583,7 @@ contract PredictionMarket is ReentrancyGuard, Pausable, Ownable {
         uint256 totalWinningShares = market.outcome ? market.yesShares : market.noShares;
 
         uint256 marketPool = marketTokenDeposits[sessionId][token];
-        uint256 platformFeeAmount = (marketPool * PLATFORM_FEE) / BASIS_POINTS;
+        uint256 platformFeeAmount = (marketPool * _getPlatformFee()) / BASIS_POINTS;
         uint256 payoutPool = marketPool - platformFeeAmount;
 
         payout = (payoutPool * winningShares) / totalWinningShares;

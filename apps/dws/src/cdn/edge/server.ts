@@ -484,8 +484,7 @@ export class EdgeNodeServer {
       return true
     }
 
-    // Check for _next/static or similar patterns
-    if (path.includes('/_next/static/') || path.includes('/assets/')) {
+    if (path.includes('/assets/')) {
       return true
     }
 

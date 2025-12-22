@@ -173,7 +173,7 @@ export class CQLEdenClient {
 
   private async fetchAndValidate<T>(
     path: string,
-    schema: z.ZodSchema<T>,
+    schema: z.ZodType<T>,
     options?: RequestInit,
   ): Promise<T> {
     const response = await fetch(`${this.endpoint}${path}`, {
