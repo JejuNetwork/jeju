@@ -192,11 +192,19 @@ function getWalletClient() {
     throw new Error('OPERATOR_PRIVATE_KEY required for contract operations');
   }
   const account = privateKeyToAccount(OPERATOR_KEY as Hex);
+  const chain = getChain();
   return createWalletClient({
     account,
-    chain: getChain(),
+    chain,
     transport: http(getRpcUrl()),
   });
+}
+
+function getAccountForContract() {
+  if (!OPERATOR_KEY) {
+    throw new Error('OPERATOR_PRIVATE_KEY required for contract operations');
+  }
+  return privateKeyToAccount(OPERATOR_KEY as Hex);
 }
 
 function getContractAddressOrThrow(): Address {
