@@ -5,6 +5,7 @@
 import { Command } from 'commander';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
+import { execa } from 'execa';
 import { logger } from '../lib/logger';
 import { findMonorepoRoot } from '../lib/system';
 import { discoverCoreApps, discoverVendorApps } from '../../../../scripts/shared/discover-apps';
@@ -219,6 +220,24 @@ validateCommand
     if (hasErrors) {
       process.exit(1);
     }
+  });
+
+validateCommand
+  .command('config')
+  .description('Validate all configuration files')
+  .action(async () => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'scripts/validate-config.ts');
+
+    if (!existsSync(scriptPath)) {
+      logger.error('Config validation script not found');
+      process.exit(1);
+    }
+
+    await execa('bun', ['run', scriptPath], {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
   });
 
 export { validateCommand };

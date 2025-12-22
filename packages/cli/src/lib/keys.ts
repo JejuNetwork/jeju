@@ -199,6 +199,26 @@ export function hasKeys(network: NetworkType): boolean {
          existsSync(join(keysDir, network, 'addresses.json'));
 }
 
+export function loadPrivateKey(name: string): string | null {
+  const keysDir = getKeysDir();
+  
+  // Check for key file in any network directory
+  for (const network of ['localnet', 'testnet', 'mainnet'] as const) {
+    const keyFile = join(keysDir, network, `${name}.json`);
+    if (existsSync(keyFile)) {
+      const data = JSON.parse(readFileSync(keyFile, 'utf-8'));
+      return data.privateKey;
+    }
+  }
+  
+  // Default to first dev key for deployer in localnet context
+  if (name === 'deployer') {
+    return WELL_KNOWN_KEYS.dev[0].privateKey;
+  }
+  
+  return null;
+}
+
 export function showKeyInfo(key: KeyConfig): void {
   logger.keyValue('Name', key.name);
   logger.keyValue('Address', key.address);

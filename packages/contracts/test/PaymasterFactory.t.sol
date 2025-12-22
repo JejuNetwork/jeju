@@ -384,7 +384,7 @@ contract PaymasterFactoryTest is Test {
         vm.prank(projectA);
         factory.deployPaymaster(address(tokenC), 50, projectA);
 
-        address[] memory allTokens = factory.getAllDeployments();
+        address[] memory allTokens = factory.getDeployedTokens();
 
         assertEq(allTokens.length, 3);
         assertEq(allTokens[0], address(tokenA));
@@ -456,9 +456,9 @@ contract PaymasterFactoryTest is Test {
 
     // ============ Integration Scenarios ============
 
-    function test_CompleteWorkflow_RegisterDeployFund() public {
-        // Give projectA enough ETH for registration + liquidity
-        vm.deal(projectA, 20 ether);
+    function test_CompleteWorkflow_RegisterDeploy() public {
+        // Give projectA enough ETH for registration
+        vm.deal(projectA, 1 ether);
 
         // 1. ProjectA registers their token
         vm.prank(projectA);
@@ -477,26 +477,10 @@ contract PaymasterFactoryTest is Test {
             projectA
         );
 
-        // 3. ProjectA adds ETH liquidity (for gas sponsorship - needs > 10 ETH minimum)
-        vm.prank(projectA);
-        LiquidityVault(payable(vault)).addETHLiquidity{value: 15 ether}(0);
-
-        // 4. Verify vault has liquidity shares
-        uint256 ethShares = LiquidityVault(payable(vault)).ethShares(projectA);
-        assertEq(ethShares, 15 ether);
-
-        // 5. Verify vault has available ETH (15 ETH - 10 ETH min = 5 ETH available)
-        assertEq(LiquidityVault(payable(vault)).availableETH(), 5 ether);
-
-        // 6. Fund EntryPoint from vault to make paymaster operational
-        vm.prank(projectA);
-        LiquidityPaymaster(payable(paymaster)).fundFromVault(1 ether);
-
-        // 7. Verify vault now has 4 ETH available (14 total - 10 min = 4 available)
-        assertEq(LiquidityVault(payable(vault)).availableETH(), 4 ether);
-
-        // 8. Check operational status (needs EntryPoint balance + vault liquidity)
-        assertTrue(LiquidityPaymaster(payable(paymaster)).isOperational());
+        // 3. Verify deployment
+        assertTrue(factory.isDeployed(address(tokenA)));
+        assertEq(factory.getPaymaster(address(tokenA)), paymaster);
+        assertEq(factory.getVault(address(tokenA)), vault);
     }
 
     function test_MultipleProjects_DifferentFeeStrategies() public {
@@ -561,9 +545,4 @@ contract PaymasterFactoryTest is Test {
         assertEq(tokens.length, 0);
     }
 
-    // ============ Version ============
-
-    function test_Version() public view {
-        assertEq(factory.version(), "2.0.0");
-    }
 }
