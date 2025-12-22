@@ -7,6 +7,7 @@
  */
 
 import type { Address, Hex } from 'viem'
+import { GPUType } from './compute'
 
 // ============================================================================
 // Provider Types

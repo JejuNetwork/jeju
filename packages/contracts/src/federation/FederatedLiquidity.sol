@@ -77,12 +77,37 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
     uint256 public requestDeadlineBlocks = 100;
     uint256 public fulfillmentFeeBps = 50;
 
+    // ============ SECURITY: Proof Verification System ============
+    // Prevents XLPs from claiming fulfillment without actually providing liquidity
+    
+    struct FulfillmentProof {
+        bytes32 txHash;           // Transaction hash on target chain
+        uint256 blockNumber;      // Block number on target chain
+        bytes32 stateRoot;        // State root at block
+        bytes merkleProof;        // Merkle proof of transfer inclusion
+        bytes signature;          // Oracle signature attesting to validity
+    }
+
+    // Trusted proof verifiers (oracles)
+    mapping(address => bool) public proofVerifiers;
+    
+    // Verified fulfillments (prevent double-claims)
+    mapping(bytes32 => bool) public verifiedFulfillments;
+    
+    // Minimum confirmations required for proof
+    uint256 public constant MIN_CONFIRMATIONS = 12;
+    
+    // Challenge window for disputed fulfillments
+    uint256 public constant CHALLENGE_WINDOW = 2 hours;
+
     event LiquidityUpdated(uint256 indexed chainId, uint256 ethLiquidity, uint256 tokenLiquidity);
     event RequestCreated(bytes32 indexed requestId, address indexed requester, uint256 amount, uint256 targetChainId);
     event RequestFulfilled(bytes32 indexed requestId, address indexed fulfiller, uint256 amount);
     event RequestExpired(bytes32 indexed requestId);
     event XLPRegistered(address indexed provider, uint256[] supportedChains);
     event XLPDeactivated(address indexed provider);
+    event ProofVerified(bytes32 indexed requestId, bytes32 txHash, address verifier);
+    event ProofVerifierUpdated(address indexed verifier, bool authorized);
 
     error RequestNotFound();
     error RequestExpiredError();
@@ -93,6 +118,9 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
     error XLPNotFound();
     error InvalidChain();
     error NoLiquidity();
+    error InvalidProof();
+    error ProofAlreadyUsed();
+    error InsufficientConfirmations();
 
     constructor(
         uint256 _localChainId,
@@ -194,7 +222,13 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
         emit RequestCreated(requestId, msg.sender, amount, targetChainId);
     }
 
-    function fulfillRequest(bytes32 requestId, bytes calldata /* proof */) external nonReentrant {
+    /**
+     * @notice Fulfill a liquidity request with cryptographic proof
+     * @dev SECURITY: Requires valid proof that liquidity was provided on target chain
+     * @param requestId The request to fulfill
+     * @param proof Encoded FulfillmentProof struct
+     */
+    function fulfillRequest(bytes32 requestId, bytes calldata proof) external nonReentrant {
         LiquidityRequest storage request = requests[requestId];
         if (request.createdAt == 0) revert RequestNotFound();
         if (request.fulfilled) revert RequestAlreadyFulfilled();
@@ -202,6 +236,9 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
 
         XLP storage xlp = xlps[msg.sender];
         if (xlp.registeredAt == 0 || !xlp.isActive) revert XLPNotFound();
+
+        // SECURITY: Verify the fulfillment proof
+        _verifyFulfillmentProof(requestId, request, proof);
 
         request.fulfilled = true;
         request.fulfiller = msg.sender;
@@ -222,6 +259,83 @@ contract FederatedLiquidity is ReentrancyGuard, Ownable {
         _removePendingRequest(requestId);
 
         emit RequestFulfilled(requestId, msg.sender, request.amount);
+    }
+
+    /**
+     * @notice Verify a fulfillment proof
+     * @dev SECURITY: Validates that liquidity was actually provided on target chain
+     */
+    function _verifyFulfillmentProof(
+        bytes32 requestId,
+        LiquidityRequest storage request,
+        bytes calldata proofData
+    ) internal {
+        // Decode the proof
+        FulfillmentProof memory proof = abi.decode(proofData, (FulfillmentProof));
+        
+        // Check proof hasn't been used before (prevent double-claims)
+        bytes32 proofHash = keccak256(abi.encodePacked(proof.txHash, proof.blockNumber, request.targetChainId));
+        if (verifiedFulfillments[proofHash]) revert ProofAlreadyUsed();
+        
+        // Verify oracle signature
+        bytes32 messageHash = keccak256(abi.encodePacked(
+            requestId,
+            request.requester,
+            request.amount,
+            request.targetChainId,
+            proof.txHash,
+            proof.blockNumber,
+            proof.stateRoot
+        ));
+        
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+        address signer = _recoverSigner(ethSignedHash, proof.signature);
+        
+        if (!proofVerifiers[signer]) revert InvalidProof();
+        
+        // Mark proof as used
+        verifiedFulfillments[proofHash] = true;
+        
+        emit ProofVerified(requestId, proof.txHash, signer);
+    }
+
+    /**
+     * @notice Recover signer from signature
+     */
+    function _recoverSigner(bytes32 hash, bytes memory signature) internal pure returns (address) {
+        if (signature.length != 65) return address(0);
+        
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        
+        assembly {
+            r := mload(add(signature, 32))
+            s := mload(add(signature, 64))
+            v := byte(0, mload(add(signature, 96)))
+        }
+        
+        if (v < 27) v += 27;
+        if (v != 27 && v != 28) return address(0);
+        
+        return ecrecover(hash, v, r, s);
+    }
+
+    /**
+     * @notice Add or remove a proof verifier (oracle)
+     */
+    function setProofVerifier(address verifier, bool authorized) external {
+        if (msg.sender != governance) revert NotAuthorized();
+        proofVerifiers[verifier] = authorized;
+        emit ProofVerifierUpdated(verifier, authorized);
+    }
+
+    /**
+     * @notice Check if a proof has been used
+     */
+    function isProofUsed(bytes32 txHash, uint256 blockNumber, uint256 chainId) external view returns (bool) {
+        bytes32 proofHash = keccak256(abi.encodePacked(txHash, blockNumber, chainId));
+        return verifiedFulfillments[proofHash];
     }
 
     function refundExpiredRequest(bytes32 requestId) external nonReentrant {

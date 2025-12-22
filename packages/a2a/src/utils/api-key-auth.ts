@@ -9,6 +9,25 @@ import { logger } from './logger'
 export const A2A_API_KEY_HEADER = 'x-a2a-api-key'
 
 /**
+ * Constant-time string comparison to prevent timing attacks.
+ * Returns true if strings are equal, false otherwise.
+ * Takes the same amount of time regardless of where strings differ.
+ */
+function constantTimeEqual(a: string, b: string): boolean {
+  // Always compare same length to prevent timing leak
+  const maxLen = Math.max(a.length, b.length)
+  let result = a.length ^ b.length // Non-zero if lengths differ
+
+  for (let i = 0; i < maxLen; i++) {
+    const charA = i < a.length ? a.charCodeAt(i) : 0
+    const charB = i < b.length ? b.charCodeAt(i) : 0
+    result |= charA ^ charB
+  }
+
+  return result === 0
+}
+
+/**
  * Configuration for API key authentication
  */
 export interface ApiKeyAuthConfig {
@@ -84,17 +103,15 @@ export function validateApiKey(
     }
   }
 
-  // Validate provided API key
-  const providedKey = request.headers.get(headerName)
-  if (providedKey !== requiredApiKey) {
+  // Validate provided API key using constant-time comparison
+  // to prevent timing attacks
+  const providedKey = request.headers.get(headerName) ?? ''
+  if (!constantTimeEqual(providedKey, requiredApiKey)) {
+    // SECURITY: Don't log key prefixes - could help attackers guess keys
     logger.warn(
       'Invalid or missing A2A API key',
       {
-        headerPresent: Boolean(providedKey),
-        providedPrefix: providedKey?.slice(0, 6) || 'empty',
-        expectedPrefix: requiredApiKey?.slice(0, 6) || 'not-set',
-        providedLength: providedKey?.length || 0,
-        expectedLength: requiredApiKey?.length || 0,
+        headerPresent: providedKey.length > 0,
       },
       'A2AAuth',
     )

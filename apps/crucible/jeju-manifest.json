@@ -6,10 +6,10 @@
   "type": "core",
   "description": "Decentralized agent orchestration platform for autonomous AI agents",
   "commands": {
-    "dev": "bun run dev",
-    "build": "bun run build",
-    "start": "bun run start",
-    "test": "bun run test"
+    "dev": "bun run src/server.ts",
+    "build": "tsc",
+    "start": "bun run src/server.ts",
+    "test": "bun test"
   },
   "ports": {
     "api": 4020,
@@ -42,6 +42,19 @@
     "trustModels": ["open", "staked"],
     "x402Support": true,
     "jnsName": "crucible.jeju"
+  },
+  "dws": {
+    "backend": {
+      "enabled": true,
+      "runtime": "bun",
+      "entrypoint": "src/server.ts",
+      "memory": 512,
+      "timeout": 30000,
+      "minInstances": 1,
+      "maxInstances": 10,
+      "teeRequired": false,
+      "regions": ["global"]
+    }
   },
   "decentralization": {
     "cdn": {

@@ -633,9 +633,9 @@ describe('Address Utilities', () => {
       expect(formatted).toBe('0x1234...5678')
     })
 
-    test('uses custom truncation lengths', () => {
+    test('uses custom truncation length', () => {
       const address = '0x1234567890abcdef1234567890abcdef12345678'
-      const formatted = formatAddress(address, 8, 6)
+      const formatted = formatAddress(address, 6)
       expect(formatted).toBe('0x123456...345678')
     })
 

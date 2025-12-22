@@ -179,7 +179,14 @@ export class DatabaseReplicaRouter {
       database: config.database,
       user: config.user,
       password: config.password,
-      ssl: config.ssl ? { rejectUnauthorized: false } : false,
+      // SECURITY: Always verify SSL certificates in production
+      // Only disable in development with explicit DB_SSL_REJECT_UNAUTHORIZED=false
+      ssl: config.ssl
+        ? {
+            rejectUnauthorized:
+              process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+          }
+        : false,
       max: config.maxConnections,
       idleTimeoutMillis: config.idleTimeoutMs,
       connectionTimeoutMillis: config.connectionTimeoutMs,

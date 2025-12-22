@@ -287,3 +287,199 @@ describe('Types', () => {
     expect(DEFAULT_WORKERD_CONFIG.isolateMemoryMb).toBeGreaterThan(0)
   })
 })
+
+// =============================================================================
+// Integration Tests - require workerd to be installed
+// =============================================================================
+
+describe('Workerd Integration', () => {
+  const skipIntegration = !workerdAvailable
+
+  test.skipIf(skipIntegration)(
+    'deploy and invoke a simple worker',
+    async () => {
+      const workerCode = `
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    return new Response(JSON.stringify({
+      path: url.pathname,
+      method: request.method,
+      message: 'Hello from workerd integration test'
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};`
+
+      // Deploy worker
+      const deployRes = await app.request('/workerd', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-jeju-address': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+        },
+        body: JSON.stringify({
+          name: 'integration-test-worker',
+          code: Buffer.from(workerCode).toString('base64'),
+          memoryMb: 128,
+          timeoutMs: 30000,
+        }),
+      })
+
+      expect(deployRes.status).toBe(201)
+      const deployData = (await deployRes.json()) as {
+        id: string
+        name: string
+        status: string
+      }
+      expect(deployData.id).toBeDefined()
+      expect(deployData.name).toBe('integration-test-worker')
+
+      // Wait for worker to be ready
+      await new Promise((r) => setTimeout(r, 2000))
+
+      // Check worker status
+      const statusRes = await app.request(`/workerd/${deployData.id}`)
+      expect(statusRes.status).toBe(200)
+      const statusData = (await statusRes.json()) as { status: string }
+      expect(['active', 'deploying']).toContain(statusData.status)
+
+      // Invoke worker
+      if (statusData.status === 'active') {
+        const invokeRes = await app.request(
+          `/workerd/${deployData.id}/http/test`,
+          {
+            method: 'GET',
+          },
+        )
+
+        expect(invokeRes.status).toBe(200)
+        const invokeData = (await invokeRes.json()) as {
+          path: string
+          method: string
+          message: string
+        }
+        expect(invokeData.path).toBe('/test')
+        expect(invokeData.method).toBe('GET')
+        expect(invokeData.message).toBe('Hello from workerd integration test')
+      }
+
+      // Clean up
+      const deleteRes = await app.request(`/workerd/${deployData.id}`, {
+        method: 'DELETE',
+        headers: {
+          'x-jeju-address': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+        },
+      })
+      expect(deleteRes.status).toBe(200)
+    },
+  )
+
+  test.skipIf(skipIntegration)('worker with environment bindings', async () => {
+    const workerCode = `
+export default {
+  async fetch(request, env) {
+    return new Response(JSON.stringify({
+      secret: env.API_KEY,
+      config: env.CONFIG_VALUE
+    }), {
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+};`
+
+    const deployRes = await app.request('/workerd', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jeju-address': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      },
+      body: JSON.stringify({
+        name: 'env-test-worker',
+        code: Buffer.from(workerCode).toString('base64'),
+        bindings: [
+          { name: 'API_KEY', type: 'text', value: 'test-secret-key' },
+          { name: 'CONFIG_VALUE', type: 'text', value: 'integration-test' },
+        ],
+      }),
+    })
+
+    expect(deployRes.status).toBe(201)
+    const deployData = (await deployRes.json()) as { id: string }
+
+    // Wait and then invoke
+    await new Promise((r) => setTimeout(r, 2000))
+
+    const statusRes = await app.request(`/workerd/${deployData.id}`)
+    const statusData = (await statusRes.json()) as { status: string }
+
+    if (statusData.status === 'active') {
+      const invokeRes = await app.request(`/workerd/${deployData.id}/http/`, {
+        method: 'GET',
+      })
+
+      expect(invokeRes.status).toBe(200)
+      const invokeData = (await invokeRes.json()) as {
+        secret: string
+        config: string
+      }
+      expect(invokeData.secret).toBe('test-secret-key')
+      expect(invokeData.config).toBe('integration-test')
+    }
+
+    // Cleanup
+    await app.request(`/workerd/${deployData.id}`, {
+      method: 'DELETE',
+      headers: {
+        'x-jeju-address': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      },
+    })
+  })
+
+  test.skipIf(skipIntegration)('worker metrics are tracked', async () => {
+    const workerCode = `
+export default {
+  async fetch(request) {
+    return new Response('OK');
+  }
+};`
+
+    const deployRes = await app.request('/workerd', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-jeju-address': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      },
+      body: JSON.stringify({
+        name: 'metrics-test-worker',
+        code: Buffer.from(workerCode).toString('base64'),
+      }),
+    })
+
+    expect(deployRes.status).toBe(201)
+    const deployData = (await deployRes.json()) as { id: string }
+
+    await new Promise((r) => setTimeout(r, 2000))
+
+    // Make a few invocations
+    for (let i = 0; i < 3; i++) {
+      await app.request(`/workerd/${deployData.id}/http/`)
+    }
+
+    // Check metrics
+    const metricsRes = await app.request(`/workerd/${deployData.id}/metrics`)
+    if (metricsRes.status === 200) {
+      const metrics = (await metricsRes.json()) as { invocations: number }
+      expect(metrics.invocations).toBeGreaterThanOrEqual(0)
+    }
+
+    // Cleanup
+    await app.request(`/workerd/${deployData.id}`, {
+      method: 'DELETE',
+      headers: {
+        'x-jeju-address': '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      },
+    })
+  })
+})

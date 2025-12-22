@@ -199,6 +199,40 @@ const API_KEY_REGISTRY: Record<string, ApiKeyConfig> = {
     docsUrl: 'https://docs.1inch.io/docs/aggregation-protocol/introduction',
     fallback: 'Uses on-chain routing only',
   },
+
+  // Data APIs
+  helius: {
+    envName: 'HELIUS_API_KEY',
+    description: 'Helius API key for Solana data',
+    usedFor: ['Solana transactions', 'Token prices', 'MEV analysis'],
+    required: false,
+    docsUrl: 'https://docs.helius.dev/',
+    fallback: 'Solana features limited',
+  },
+  codex: {
+    envName: 'CODEX_API_KEY',
+    description: 'Codex API key for indexed blockchain data',
+    usedFor: ['MEV data', 'Historical transactions', 'Analytics'],
+    required: false,
+    docsUrl: 'https://docs.codex.io/',
+    fallback: 'Uses public data sources',
+  },
+  defillama: {
+    envName: 'DEFILLAMA_API_KEY',
+    description: 'DeFi Llama API key (optional, free tier available)',
+    usedFor: ['Historical prices', 'TVL data', 'Yield farming APYs'],
+    required: false,
+    docsUrl: 'https://defillama.com/docs/api',
+    fallback: 'Uses free tier with rate limits',
+  },
+  coingecko: {
+    envName: 'COINGECKO_API_KEY',
+    description: 'CoinGecko API key for price data',
+    usedFor: ['Historical prices', 'Market data', 'Token info'],
+    required: false,
+    docsUrl: 'https://www.coingecko.com/en/api/documentation',
+    fallback: 'Uses free tier with rate limits',
+  },
 }
 
 // ============================================================================

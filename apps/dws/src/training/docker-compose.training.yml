@@ -32,7 +32,7 @@ services:
       - CUDA_VISIBLE_DEVICES=0
     command: >
       python -m vllm.entrypoints.openai.api_server
-      --model ${MODEL_NAME:-Qwen/Qwen2.5-1.5B-Instruct}
+      --model ${MODEL_NAME:-distilgpt2}
       --port 9001
       --dtype auto
       --gpu-memory-utilization 0.45

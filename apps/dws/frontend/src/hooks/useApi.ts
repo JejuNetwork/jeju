@@ -190,6 +190,20 @@ async function fetchApi<T>(
   return response.json()
 }
 
+// Generic hook for any DWS endpoint
+export function useDWSApi<T>(
+  endpoint: string,
+  options?: { enabled?: boolean; refetchInterval?: number },
+) {
+  const { address } = useAccount()
+  return useQuery({
+    queryKey: ['dws-api', endpoint, address],
+    queryFn: () => fetchApi<T>(endpoint, { address }),
+    enabled: options?.enabled ?? true,
+    refetchInterval: options?.refetchInterval,
+  })
+}
+
 export function useContainers() {
   const { address } = useAccount()
   return useQuery({

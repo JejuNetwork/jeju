@@ -233,7 +233,7 @@ export class TicTacToeEnv {
     }
 
     const trajectory: GameTrajectory = {
-      trajectoryId: `ttt-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      trajectoryId: `ttt-${crypto.randomUUID()}`,
       agentId,
       steps,
       totalReward,

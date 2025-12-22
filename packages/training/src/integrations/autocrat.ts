@@ -66,8 +66,9 @@ export class AutocratTrainingClient {
     modelName: string
     trainingSteps: number
     estimatedCost: bigint
+    submitter?: Address
   }): Promise<TrainingProposal> {
-    const proposalId = `tp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const proposalId = `tp-${crypto.randomUUID()}`
 
     const fullDescription = `
 # Training Proposal: ${proposal.title}
@@ -102,6 +103,11 @@ ${proposal.description}
       },
     )
 
+    const submitterAddress =
+      proposal.submitter ??
+      ((process.env.DEPLOYER_ADDRESS ??
+        '0x0000000000000000000000000000000000000000') as Address)
+
     const result: TrainingProposal = {
       proposalId,
       title: proposal.title,
@@ -110,7 +116,7 @@ ${proposal.description}
       modelName: proposal.modelName,
       estimatedCost: proposal.estimatedCost,
       estimatedDuration: proposal.trainingSteps * 100,
-      submitter: '0x0000000000000000000000000000000000000000' as Address,
+      submitter: submitterAddress,
       status: response.ok ? 'submitted' : 'draft',
     }
 
@@ -121,15 +127,23 @@ ${proposal.description}
     modelName: string
     modelVersion: string
     checkpointPath: string
+    checkpointCid?: string // Pre-uploaded IPFS CID
     trainingMetrics: {
       steps: number
       finalLoss: number
       averageReward: number
     }
+    submitter?: Address
   }): Promise<ModelDeploymentProposal> {
-    const proposalId = `md-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const proposalId = `md-${crypto.randomUUID()}`
 
-    const checkpointCid = `Qm${Math.random().toString(36).slice(2, 48)}`
+    // Use provided CID or require upload first
+    const checkpointCid = deployment.checkpointCid
+    if (!checkpointCid) {
+      throw new Error(
+        'checkpointCid required - upload model to IPFS before submitting deployment proposal',
+      )
+    }
 
     const proposal: ModelDeploymentProposal = {
       proposalId,
@@ -137,19 +151,24 @@ ${proposal.description}
       modelVersion: deployment.modelVersion,
       checkpointCid,
       trainingMetrics: deployment.trainingMetrics,
-      submitter: '0x0000000000000000000000000000000000000000' as Address,
+      submitter:
+        deployment.submitter ??
+        ((process.env.DEPLOYER_ADDRESS ??
+          '0x0000000000000000000000000000000000000000') as Address),
       status: 'pending',
       createdAt: Date.now(),
     }
 
-    await fetch(`${this.autocratApiUrl}/api/v1/proposals/assess`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        daoId: 'jeju',
-        title: `Deploy Model: ${deployment.modelName} v${deployment.modelVersion}`,
-        summary: `Deploy trained model with ${deployment.trainingMetrics.steps} training steps`,
-        description: `
+    const response = await fetch(
+      `${this.autocratApiUrl}/api/v1/proposals/assess`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          daoId: 'jeju',
+          title: `Deploy Model: ${deployment.modelName} v${deployment.modelVersion}`,
+          summary: `Deploy trained model with ${deployment.trainingMetrics.steps} training steps`,
+          description: `
 # Model Deployment Proposal
 
 ## Model Information
@@ -168,9 +187,14 @@ ${proposal.description}
 3. Update agent registry
 4. Monitor performance
 `,
-        proposalType: 0,
-      }),
-    })
+          proposalType: 0,
+        }),
+      },
+    )
+
+    if (!response.ok) {
+      throw new Error(`Failed to submit deployment proposal: ${response.status}`)
+    }
 
     return proposal
   }
@@ -206,19 +230,23 @@ ${proposal.description}
           role: 'trained_model',
           a2aEndpoint: `ipfs://${model.checkpointCid}`,
           mcpEndpoint: '',
+          capabilities: model.capabilities,
         }),
       },
     )
 
-    if (response.ok) {
-      return expectValid(
-        AgentRegistrationResponseSchema,
-        await response.json(),
-        'agent registration response',
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '')
+      throw new Error(
+        `Failed to register trained model: ${response.status} ${errorText}`,
       )
     }
 
-    return { agentId: '' }
+    return expectValid(
+      AgentRegistrationResponseSchema,
+      await response.json(),
+      'agent registration response',
+    )
   }
 }
 

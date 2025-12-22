@@ -295,7 +295,13 @@ export async function selectBestHub(
       if (ready) {
         return hub
       }
-    } catch {}
+    } catch (error) {
+      // Hub unavailable, try next one
+      console.debug(
+        `[HubSubmitter] Hub ${hub.url} unavailable:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      )
+    }
   }
 
   return null
@@ -332,7 +338,13 @@ export class FailoverHubSubmitter {
         this.currentHub = submitter
         this.currentIndex = i
         return submitter
-      } catch {}
+      } catch (error) {
+        // Hub unavailable, try next one
+        console.debug(
+          `[FailoverHubSubmitter] Hub ${hub.url} unavailable:`,
+          error instanceof Error ? error.message : 'Unknown error',
+        )
+      }
     }
 
     throw new Error('No available hubs')

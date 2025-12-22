@@ -166,6 +166,9 @@ export class UnifiedBot extends EventEmitter {
   private trades: TradeResult[] = []
   private totalProfitUsd = 0
 
+  // Engine
+  private riskManager: RiskManager | null = null
+
   constructor(config: UnifiedBotConfig) {
     super()
     this.config = config

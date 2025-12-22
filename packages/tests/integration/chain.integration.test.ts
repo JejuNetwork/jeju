@@ -2,6 +2,7 @@ import { beforeAll, describe, expect, test } from 'bun:test'
 import { $ } from 'bun'
 import { createPublicClient, createWalletClient, http, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { TEST_ACCOUNTS } from '../shared/constants'
 
 // Check if Kurtosis localnet is available
 let kurtosisAvailable = false

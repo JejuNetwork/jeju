@@ -113,6 +113,7 @@ export interface AppTestConfig {
 export interface AppManifest {
   name: string
   displayName?: string
+  slug?: string // Folder name for path lookup
   version: string
   type: 'core' | 'vendor' | 'service'
   description?: string
@@ -128,6 +129,8 @@ export interface AppManifest {
   autoStart?: boolean
   tags?: string[]
   testing?: AppTestConfig
+  // Internal field: populated by discoverApps with actual directory name
+  _folderName?: string
 }
 
 export const WELL_KNOWN_KEYS = {

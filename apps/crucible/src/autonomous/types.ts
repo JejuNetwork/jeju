@@ -5,6 +5,11 @@
 import type { AgentCharacter } from '../types'
 
 /**
+ * Red Team Mode - enables adversarial testing agents
+ */
+export type RedTeamMode = 'off' | 'dev' | 'testnet'
+
+/**
  * Configuration for an autonomous agent
  */
 export interface AutonomousAgentConfig {
@@ -32,11 +37,17 @@ export interface AutonomousAgentConfig {
     a2a: boolean
     /** Can execute cross-chain actions */
     crossChain: boolean
+    /** Can execute security testing actions (red team only) */
+    security: boolean
+    /** Can execute moderation actions (blue team only) */
+    moderation: boolean
   }
   /** System prompt override for autonomous decisions */
   systemPrompt?: string
   /** Goals for goal-oriented planning */
   goals?: AgentGoal[]
+  /** Red team mode - enables adversarial agents */
+  redTeamMode?: RedTeamMode
 }
 
 /**
@@ -70,19 +81,12 @@ export interface AgentTickContext {
 }
 
 /**
- * Available action from jeju plugin
+ * Available action from jeju plugin or custom handlers
  */
 export interface AvailableAction {
   name: string
   description: string
-  category:
-    | 'compute'
-    | 'storage'
-    | 'defi'
-    | 'governance'
-    | 'a2a'
-    | 'crosschain'
-    | 'other'
+  category: string
   parameters?: Record<
     string,
     { type: string; description?: string; required?: boolean }
@@ -123,6 +127,12 @@ export interface NetworkState {
 }
 
 /**
+ * Default small model - Groq's Llama 3.1 8B Instant (fast & cheap)
+ */
+export const DEFAULT_SMALL_MODEL = 'llama-3.1-8b-instant'
+export const DEFAULT_LARGE_MODEL = 'llama-3.3-70b-versatile'
+
+/**
  * Default configuration for autonomous agents
  */
 export const DEFAULT_AUTONOMOUS_CONFIG: Omit<
@@ -130,7 +140,7 @@ export const DEFAULT_AUTONOMOUS_CONFIG: Omit<
   'agentId' | 'character'
 > = {
   autonomousEnabled: true,
-  tickIntervalMs: 60_000, // 1 minute
+  tickIntervalMs: 30_000, // 30 seconds - fast iteration
   maxActionsPerTick: 5,
   capabilities: {
     compute: true,
@@ -139,5 +149,70 @@ export const DEFAULT_AUTONOMOUS_CONFIG: Omit<
     governance: false,
     a2a: true,
     crossChain: false,
+    security: false, // Red team only
+    moderation: false, // Blue team only
   },
+}
+
+/**
+ * Configuration for red team agents
+ */
+export const RED_TEAM_CONFIG: Omit<
+  AutonomousAgentConfig,
+  'agentId' | 'character'
+> = {
+  autonomousEnabled: true,
+  tickIntervalMs: 20_000, // 20 seconds - aggressive testing
+  maxActionsPerTick: 10,
+  capabilities: {
+    compute: true,
+    storage: true,
+    defi: true,
+    governance: true,
+    a2a: true,
+    crossChain: true,
+    security: true,
+    moderation: false,
+  },
+  redTeamMode: 'dev',
+}
+
+/**
+ * Configuration for blue team agents
+ */
+export const BLUE_TEAM_CONFIG: Omit<
+  AutonomousAgentConfig,
+  'agentId' | 'character'
+> = {
+  autonomousEnabled: true,
+  tickIntervalMs: 15_000, // 15 seconds - fast response for moderation
+  maxActionsPerTick: 20,
+  capabilities: {
+    compute: true,
+    storage: true,
+    defi: false, // No DeFi for moderators
+    governance: false,
+    a2a: true,
+    crossChain: false,
+    security: false, // Can't do red team actions
+    moderation: true,
+  },
+}
+
+/**
+ * Get configuration for red team mode
+ */
+export function getRedTeamConfig(
+  network: 'localnet' | 'testnet' | 'mainnet',
+): { enabled: boolean; model: string } {
+  // Red team enabled on all networks except mainnet
+  if (network === 'mainnet') {
+    return { enabled: false, model: DEFAULT_LARGE_MODEL }
+  }
+
+  // Always use small cheap model for dev/testing - Groq llama-3.1-8b-instant
+  return {
+    enabled: true,
+    model: DEFAULT_SMALL_MODEL,
+  }
 }

@@ -1,2 +1,7 @@
 [serve.static]
 plugins = ["bun-plugin-tailwind"]
+
+[test]
+coverage = true
+coverageDir = "./test-results/coverage"
+timeout = 30000

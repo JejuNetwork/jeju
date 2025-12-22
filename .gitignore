@@ -138,3 +138,5 @@ test-ledger/
 # Tauri build artifacts
 **/src-tauri/gen/
 **/src-tauri/target/
+
+training_output

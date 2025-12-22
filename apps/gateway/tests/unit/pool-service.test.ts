@@ -198,22 +198,24 @@ describeOrSkip('PoolService', () => {
   })
 
   describe('getSwapQuote', () => {
-    test('returns null when amountIn is zero', async () => {
-      const result = await poolService?.getSwapQuote(
-        TEST_ADDRESS_1,
-        TEST_ADDRESS_2,
-        '0',
-      )
-      expect(result).toBeNull()
+    test('throws validation error when amountIn is zero', async () => {
+      await expect(
+        poolService?.getSwapQuote(
+          TEST_ADDRESS_1,
+          TEST_ADDRESS_2,
+          '0',
+        )
+      ).rejects.toThrow(/positive number/)
     })
 
-    test('returns null when amountIn is negative string', async () => {
-      const result = await poolService?.getSwapQuote(
-        TEST_ADDRESS_1,
-        TEST_ADDRESS_2,
-        '-1',
-      )
-      expect(result === null || result !== undefined).toBe(true)
+    test('throws validation error when amountIn is negative string', async () => {
+      await expect(
+        poolService?.getSwapQuote(
+          TEST_ADDRESS_1,
+          TEST_ADDRESS_2,
+          '-1',
+        )
+      ).rejects.toThrow(/positive number/)
     })
 
     test('returns null when aggregator is not set', async () => {

@@ -34,7 +34,7 @@
 import { Hono } from 'hono'
 import type { Address } from 'viem'
 import { z } from 'zod'
-import { validateBody, validateParams } from '../shared'
+import { validateBody, validateParams } from '../shared/validation'
 
 // ============================================================================
 // Terraform Provider Protocol Types
@@ -283,7 +283,7 @@ export function createTerraformProviderRouter(): Hono {
   const router = new Hono()
 
   // Provider schema endpoint (for terraform init)
-  router.get('/terraform/v1/schema', (c) => {
+  router.get('/v1/schema', (c) => {
     const schema: TerraformSchema = {
       version: 1,
       provider: DWS_PROVIDER_SCHEMA,
@@ -303,7 +303,7 @@ export function createTerraformProviderRouter(): Hono {
   })
 
   // Configure provider
-  router.post('/terraform/v1/configure', async (c) => {
+  router.post('/v1/configure', async (c) => {
     const config = await validateBody(providerConfigSchema, c)
 
     // Store config in context for subsequent requests
@@ -319,7 +319,7 @@ export function createTerraformProviderRouter(): Hono {
   // Worker Resources
   // ============================================================================
 
-  router.post('/terraform/v1/resources/dws_worker', async (c) => {
+  router.post('/v1/resources/dws_worker', async (c) => {
     const body = await validateBody(workerResourceSchema, c)
     const _owner = c.req.header('x-jeju-address') as Address
 
@@ -343,10 +343,10 @@ export function createTerraformProviderRouter(): Hono {
       status: 'deploying',
       endpoints: [],
       env: body.env ?? {},
-    })
+    }, 201)
   })
 
-  router.get('/terraform/v1/resources/dws_worker/:id', async (c) => {
+  router.get('/v1/resources/dws_worker/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
 
     // Look up worker
@@ -358,7 +358,7 @@ export function createTerraformProviderRouter(): Hono {
     })
   })
 
-  router.put('/terraform/v1/resources/dws_worker/:id', async (c) => {
+  router.put('/v1/resources/dws_worker/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
     const body = await validateBody(workerResourceSchema, c)
 
@@ -370,7 +370,7 @@ export function createTerraformProviderRouter(): Hono {
     })
   })
 
-  router.delete('/terraform/v1/resources/dws_worker/:id', async (c) => {
+  router.delete('/v1/resources/dws_worker/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
 
     // Delete worker
@@ -381,7 +381,7 @@ export function createTerraformProviderRouter(): Hono {
   // Container Resources
   // ============================================================================
 
-  router.post('/terraform/v1/resources/dws_container', async (c) => {
+  router.post('/v1/resources/dws_container', async (c) => {
     const body = await validateBody(containerResourceSchema, c)
 
     const containerId = `tf-container-${Date.now()}`
@@ -391,10 +391,10 @@ export function createTerraformProviderRouter(): Hono {
       ...body,
       status: 'starting',
       endpoint: '',
-    })
+    }, 201)
   })
 
-  router.get('/terraform/v1/resources/dws_container/:id', async (c) => {
+  router.get('/v1/resources/dws_container/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
 
     return c.json({
@@ -404,7 +404,7 @@ export function createTerraformProviderRouter(): Hono {
     })
   })
 
-  router.delete('/terraform/v1/resources/dws_container/:id', async (c) => {
+  router.delete('/v1/resources/dws_container/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
     return c.json({ success: true, id })
   })
@@ -413,7 +413,7 @@ export function createTerraformProviderRouter(): Hono {
   // Storage Resources
   // ============================================================================
 
-  router.post('/terraform/v1/resources/dws_storage', async (c) => {
+  router.post('/v1/resources/dws_storage', async (c) => {
     const body = await validateBody(storageResourceSchema, c)
 
     const storageId = `tf-storage-${Date.now()}`
@@ -426,7 +426,7 @@ export function createTerraformProviderRouter(): Hono {
     })
   })
 
-  router.get('/terraform/v1/resources/dws_storage/:id', async (c) => {
+  router.get('/v1/resources/dws_storage/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
 
     return c.json({
@@ -436,7 +436,7 @@ export function createTerraformProviderRouter(): Hono {
     })
   })
 
-  router.delete('/terraform/v1/resources/dws_storage/:id', async (c) => {
+  router.delete('/v1/resources/dws_storage/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
     return c.json({ success: true, id })
   })
@@ -445,7 +445,7 @@ export function createTerraformProviderRouter(): Hono {
   // Domain Resources
   // ============================================================================
 
-  router.post('/terraform/v1/resources/dws_domain', async (c) => {
+  router.post('/v1/resources/dws_domain', async (c) => {
     const body = await validateBody(domainResourceSchema, c)
 
     const domainId = `tf-domain-${Date.now()}`
@@ -461,7 +461,7 @@ export function createTerraformProviderRouter(): Hono {
     })
   })
 
-  router.get('/terraform/v1/resources/dws_domain/:id', async (c) => {
+  router.get('/v1/resources/dws_domain/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
 
     return c.json({
@@ -470,7 +470,7 @@ export function createTerraformProviderRouter(): Hono {
     })
   })
 
-  router.delete('/terraform/v1/resources/dws_domain/:id', async (c) => {
+  router.delete('/v1/resources/dws_domain/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
     return c.json({ success: true, id })
   })
@@ -479,7 +479,7 @@ export function createTerraformProviderRouter(): Hono {
   // Node Resources
   // ============================================================================
 
-  router.post('/terraform/v1/resources/dws_node', async (c) => {
+  router.post('/v1/resources/dws_node', async (c) => {
     const body = await validateBody(nodeResourceSchema, c)
 
     const nodeId = `tf-node-${Date.now()}`
@@ -492,7 +492,7 @@ export function createTerraformProviderRouter(): Hono {
     })
   })
 
-  router.get('/terraform/v1/resources/dws_node/:id', async (c) => {
+  router.get('/v1/resources/dws_node/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
 
     return c.json({
@@ -502,7 +502,7 @@ export function createTerraformProviderRouter(): Hono {
     })
   })
 
-  router.delete('/terraform/v1/resources/dws_node/:id', async (c) => {
+  router.delete('/v1/resources/dws_node/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
     return c.json({ success: true, id })
   })
@@ -511,7 +511,7 @@ export function createTerraformProviderRouter(): Hono {
   // Data Sources
   // ============================================================================
 
-  router.get('/terraform/v1/data/dws_nodes', async (c) => {
+  router.get('/v1/data/dws_nodes', async (c) => {
     // List available nodes
     return c.json({
       nodes: [

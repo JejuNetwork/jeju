@@ -12,7 +12,6 @@ import {
   keccak256,
   type PublicClient,
   parseAbi,
-  readContract,
   stringToBytes,
   stringToHex,
   zeroAddress,
@@ -20,7 +19,6 @@ import {
 import {
   type PrivateKeyAccount,
   privateKeyToAccount,
-  signMessage,
 } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 
@@ -66,8 +64,7 @@ async function signAttestation(
   )
 
   const account = privateKeyToAccount(assessorKey)
-  const signature = await signMessage({
-    account,
+  const signature = await account.signMessage({
     message: { raw: messageHash },
   })
 
@@ -189,7 +186,7 @@ describe('Attestation End-to-End Tests', () => {
     )
 
     // Should not revert (valid attestation)
-    await readContract(publicClient, {
+    await publicClient.readContract({
       address: qualityOracleAddress,
       abi: QUALITY_ORACLE_ABI,
       functionName: 'verifyScore',
@@ -222,9 +219,9 @@ describe('Attestation End-to-End Tests', () => {
       DEPLOYER_KEY,
       CHAIN_ID,
     )
-    const proposalBond = await readContract(publicClient, {
+    const proposalBond = await publicClient.readContract({
       address: councilAddress,
-      abi: parseAbi(COUNCIL_ABI),
+      abi: COUNCIL_ABI,
       functionName: 'proposalBond',
     })
     console.log(`   Proposal bond: ${proposalBond.toString()} wei`)
@@ -236,7 +233,7 @@ describe('Attestation End-to-End Tests', () => {
     })
     const hash = await userWalletClient.writeContract({
       address: councilAddress,
-      abi: parseAbi(COUNCIL_ABI),
+      abi: COUNCIL_ABI,
       functionName: 'submitProposalWithAttestation',
       args: [
         proposalType,
@@ -292,9 +289,9 @@ describe('Attestation End-to-End Tests', () => {
       CHAIN_ID,
     )
 
-    const proposalBond = await readContract(publicClient, {
+    const proposalBond = await publicClient.readContract({
       address: councilAddress,
-      abi: parseAbi(COUNCIL_ABI),
+      abi: COUNCIL_ABI,
       functionName: 'proposalBond',
     })
     const userWalletClient = createWalletClient({
@@ -306,7 +303,7 @@ describe('Attestation End-to-End Tests', () => {
     await expect(
       userWalletClient.writeContract({
         address: councilAddress,
-        abi: parseAbi(COUNCIL_ABI),
+        abi: COUNCIL_ABI,
         functionName: 'submitProposalWithAttestation',
         args: [
           1,
@@ -345,9 +342,9 @@ describe('Attestation End-to-End Tests', () => {
       CHAIN_ID,
     )
 
-    const proposalBond = await readContract(publicClient, {
+    const proposalBond = await publicClient.readContract({
       address: councilAddress,
-      abi: parseAbi(COUNCIL_ABI),
+      abi: COUNCIL_ABI,
       functionName: 'proposalBond',
     })
     const userWalletClient = createWalletClient({
@@ -359,7 +356,7 @@ describe('Attestation End-to-End Tests', () => {
     await expect(
       userWalletClient.writeContract({
         address: councilAddress,
-        abi: parseAbi(COUNCIL_ABI),
+        abi: COUNCIL_ABI,
         functionName: 'submitProposalWithAttestation',
         args: [
           1,
@@ -398,9 +395,9 @@ describe('Attestation End-to-End Tests', () => {
       CHAIN_ID,
     )
 
-    const proposalBond = await readContract(publicClient, {
+    const proposalBond = await publicClient.readContract({
       address: councilAddress,
-      abi: parseAbi(COUNCIL_ABI),
+      abi: COUNCIL_ABI,
       functionName: 'proposalBond',
     })
     const userWalletClient = createWalletClient({
@@ -412,7 +409,7 @@ describe('Attestation End-to-End Tests', () => {
     await expect(
       userWalletClient.writeContract({
         address: councilAddress,
-        abi: parseAbi(COUNCIL_ABI),
+        abi: COUNCIL_ABI,
         functionName: 'submitProposalWithAttestation',
         args: [
           1,

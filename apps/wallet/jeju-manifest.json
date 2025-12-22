@@ -36,8 +36,8 @@
   },
   "agent": {
     "enabled": true,
-    "a2aEndpoint": "http://localhost:4015/a2a",
-    "mcpEndpoint": "http://localhost:4015/mcp",
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
     "tags": ["jeju-app", "wallet", "cross-chain", "intents", "aa"],
     "metadata": {
       "category": "wallet",
@@ -47,6 +47,19 @@
     "trustModels": ["open"],
     "x402Support": true,
     "jnsName": "wallet.jeju"
+  },
+  "dws": {
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "staticDir": "dist",
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/*.css", "ttl": 86400 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ]
+    }
   },
   "decentralization": {
     "cdn": {

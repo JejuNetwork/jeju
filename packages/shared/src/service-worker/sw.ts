@@ -184,7 +184,13 @@ async function handleIpfsRequest(request: Request): Promise<Response> {
         }
         return response
       }
-    } catch {}
+    } catch (error) {
+      // Gateway unavailable, try next one
+      console.debug(
+        `[SW] IPFS gateway ${gateway} failed:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      )
+    }
   }
 
   return new Response('Content not found', { status: 404 })
@@ -204,7 +210,13 @@ async function handleJnsRequest(request: Request): Promise<Response> {
       if (response.ok) {
         return response
       }
-    } catch {}
+    } catch (error) {
+      // Gateway unavailable, try next one
+      console.debug(
+        `[SW] JNS gateway ${gateway} failed:`,
+        error instanceof Error ? error.message : 'Unknown error',
+      )
+    }
   }
 
   // Try to get from cache as last resort

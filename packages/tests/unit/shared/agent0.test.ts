@@ -13,7 +13,7 @@ import {
   detectNetwork,
   getNetworkConfig,
   loadAppManifest,
-} from './agent0'
+} from '@jejunetwork/deployment/scripts/shared/agent0'
 
 describe('Agent0 SDK Integration', () => {
   describe('getNetworkConfig', () => {
@@ -287,7 +287,7 @@ describe('Agent0 SDK Integration', () => {
 })
 
 describe('Agent0 Manifest Loading - Real Apps', () => {
-  const appsDir = resolve(__dirname, '../../apps')
+  const appsDir = resolve(__dirname, '../../../../apps')
 
   test('should load bazaar manifest with agent config', () => {
     const manifest = loadAppManifest(resolve(appsDir, 'bazaar'))

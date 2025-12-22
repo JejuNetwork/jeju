@@ -15,7 +15,7 @@ import {
   formatPercent,
   formatTimestamp,
   formatUSD,
-} from './format'
+} from '@jejunetwork/shared'
 
 describe('Formatting Utilities', () => {
   describe('formatBytes', () => {

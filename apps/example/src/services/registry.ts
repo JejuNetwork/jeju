@@ -139,7 +139,7 @@ class RegistryServiceImpl implements RegistryService {
         AuthProvider.GITHUB,
         AuthProvider.FARCASTER,
       ],
-      jnsName: 'example-app.oauth3.jeju',
+      jnsName: 'example.oauth3.jeju',
       createdAt: Date.now(),
       active: true,
       metadata: {

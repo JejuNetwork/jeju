@@ -131,7 +131,7 @@ export function getOAuth3Service(): OAuth3Service {
     const network = getNetworkName()
     const chainId =
       network === 'localnet' ? 420691 : network === 'testnet' ? 420690 : 8453
-    const appId = process.env.OAUTH3_APP_ID || 'example-app.oauth3.jeju'
+    const appId = process.env.OAUTH3_APP_ID || 'example.oauth3.jeju'
     const frontendPort = process.env.FRONTEND_PORT || '4501'
     const redirectUri =
       process.env.OAUTH3_REDIRECT_URI ||

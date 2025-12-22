@@ -275,6 +275,8 @@ export function discoverApps(
       const manifest = JSON.parse(
         readFileSync(manifestPath, 'utf-8'),
       ) as AppManifest
+      // Store the actual directory name for path lookups
+      manifest._folderName = entry.name
       apps.push(manifest)
     }
   }

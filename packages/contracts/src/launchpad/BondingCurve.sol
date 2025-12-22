@@ -29,15 +29,39 @@ contract BondingCurve is ReentrancyGuard {
     bool public graduated;
     address public lpPair;
 
+    // ============ SECURITY: Graduation Delay System ============
+    // Prevents sandwich attacks at graduation by introducing a delay period
+    // and locking LP tokens for 30 days
+
+    uint256 public constant GRADUATION_DELAY = 24 hours;
+    uint256 public constant LP_LOCK_PERIOD = 30 days;
+    
+    bool public graduationQueued;
+    uint256 public graduationQueuedAt;
+    uint256 public graduationExecutableAt;
+    
+    // LP token lock tracking
+    uint256 public lpTokensLocked;
+    uint256 public lpUnlockTime;
+    address public lpTokenRecipient; // Who receives LP tokens after lock
+
     event Buy(address indexed buyer, uint256 ethIn, uint256 tokensOut, uint256 newPrice);
     event Sell(address indexed seller, uint256 tokensIn, uint256 ethOut, uint256 newPrice);
     event Graduated(address indexed lpPair, uint256 ethLiquidity, uint256 tokenLiquidity, uint256 lpTokensMinted);
+    event GraduationQueued(uint256 executableAt, uint256 ethCollected, uint256 tokensRemaining);
+    event LPTokensLocked(address indexed recipient, uint256 amount, uint256 unlockTime);
+    event LPTokensClaimed(address indexed recipient, uint256 amount);
 
     error AlreadyGraduated();
     error NotGraduated();
     error InsufficientOutput();
     error InsufficientLiquidity();
     error TransferFailed();
+    error GraduationNotQueued();
+    error GraduationNotReady();
+    error GraduationAlreadyQueued();
+    error LPTokensStillLocked();
+    error NotLPRecipient();
 
     constructor(
         address _token,
@@ -85,7 +109,23 @@ contract BondingCurve is ReentrancyGuard {
         token.safeTransfer(msg.sender, tokensOut);
         emit Buy(msg.sender, msg.value, tokensOut, getCurrentPrice());
 
-        if (realEthReserves >= graduationTarget) _graduate();
+        // SECURITY: Queue graduation instead of immediate execution
+        if (realEthReserves >= graduationTarget && !graduationQueued && !graduated) {
+            _queueGraduation();
+        }
+    }
+
+    /**
+     * @notice Queue graduation for delayed execution
+     * @dev SECURITY: Prevents sandwich attacks by introducing 24hr delay
+     */
+    function _queueGraduation() internal {
+        graduationQueued = true;
+        graduationQueuedAt = block.timestamp;
+        graduationExecutableAt = block.timestamp + GRADUATION_DELAY;
+        lpTokenRecipient = launchpad; // LP tokens go to launchpad/protocol
+        
+        emit GraduationQueued(graduationExecutableAt, realEthReserves, realTokenReserves);
     }
 
     function sell(uint256 tokensIn, uint256 minEthOut) external nonReentrant returns (uint256 ethOut) {
@@ -113,7 +153,16 @@ contract BondingCurve is ReentrancyGuard {
         emit Sell(msg.sender, tokensIn, ethOut, getCurrentPrice());
     }
 
-    function _graduate() internal {
+    /**
+     * @notice Execute graduation after delay period
+     * @dev SECURITY: Can only be called after GRADUATION_DELAY has passed
+     * LP tokens are locked for LP_LOCK_PERIOD to prevent immediate rug
+     */
+    function executeGraduation() external nonReentrant {
+        if (graduated) revert AlreadyGraduated();
+        if (!graduationQueued) revert GraduationNotQueued();
+        if (block.timestamp < graduationExecutableAt) revert GraduationNotReady();
+
         graduated = true;
         uint256 ethForLP = realEthReserves;
         uint256 tokensForLP = realTokenReserves;
@@ -131,14 +180,61 @@ contract BondingCurve is ReentrancyGuard {
         realEthReserves = 0;
         realTokenReserves = 0;
 
+        // SECURITY: Lock LP tokens for 30 days
+        lpTokensLocked = lpTokens;
+        lpUnlockTime = block.timestamp + LP_LOCK_PERIOD;
+
         emit Graduated(lpPair, ethForLP, tokensForLP, lpTokens);
+        emit LPTokensLocked(lpTokenRecipient, lpTokens, lpUnlockTime);
     }
 
+    /**
+     * @notice Claim LP tokens after lock period expires
+     */
+    function claimLPTokens() external nonReentrant {
+        if (!graduated) revert NotGraduated();
+        if (block.timestamp < lpUnlockTime) revert LPTokensStillLocked();
+        if (lpTokensLocked == 0) revert InsufficientLiquidity();
+
+        uint256 amount = lpTokensLocked;
+        lpTokensLocked = 0;
+
+        IERC20(lpPair).safeTransfer(lpTokenRecipient, amount);
+
+        emit LPTokensClaimed(lpTokenRecipient, amount);
+    }
+
+    /**
+     * @notice Legacy graduate function - now queues instead of immediate execution
+     */
     function graduate() external {
         require(msg.sender == launchpad, "Only launchpad");
         require(realEthReserves >= graduationTarget, "Target not reached");
         if (graduated) revert AlreadyGraduated();
-        _graduate();
+        
+        if (!graduationQueued) {
+            _queueGraduation();
+        }
+    }
+
+    /**
+     * @notice Check if graduation can be executed
+     */
+    function canExecuteGraduation() external view returns (bool) {
+        return graduationQueued && !graduated && block.timestamp >= graduationExecutableAt;
+    }
+
+    /**
+     * @notice Get graduation status
+     */
+    function getGraduationStatus() external view returns (
+        bool isQueued,
+        bool isGraduated,
+        uint256 executableAt,
+        uint256 lpLocked,
+        uint256 lpUnlock
+    ) {
+        return (graduationQueued, graduated, graduationExecutableAt, lpTokensLocked, lpUnlockTime);
     }
 
     function getCurrentPrice() public view returns (uint256) {

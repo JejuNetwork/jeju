@@ -52,14 +52,22 @@ contract ChainlinkGovernance is Ownable2Step {
     address[] public guardians;
     mapping(address => bool) public isGuardian;
 
+    // ============ SECURITY: Emergency Pause Auto-Expiry ============
+    // Prevents indefinite lockup if guardians become compromised or unavailable
+    
+    uint256 public constant MAX_PAUSE_DURATION = 7 days;
+    uint256 public pausedAt;
+    uint256 public pauseExpiresAt;
+
     event ProposalCreated(uint256 indexed id, ProposalType proposalType, address target, uint256 eta, string description);
     event ProposalExecuted(uint256 indexed id);
     event ProposalCancelled(uint256 indexed id);
     event ContractUpdated(string name, address oldAddress, address newAddress);
     event ConfigUpdated(GovernanceConfig config);
     event RevenueConfigUpdated(RevenueConfig config);
-    event EmergencyPause(address indexed guardian);
+    event EmergencyPause(address indexed guardian, uint256 expiresAt);
     event EmergencyUnpause(address indexed guardian);
+    event PauseAutoExpired(uint256 timestamp);
 
     error NotAuthorized();
     error ProposalNotFound();
@@ -199,8 +207,16 @@ contract ChainlinkGovernance is Ownable2Step {
         require(success, "Failed");
     }
 
+    /**
+     * @notice Trigger emergency pause with auto-expiry
+     * @dev SECURITY: Pause automatically expires after MAX_PAUSE_DURATION (7 days)
+     * This prevents indefinite lockup if guardians are compromised or unavailable
+     */
     function emergencyPause() external onlyGuardian {
         paused = true;
+        pausedAt = block.timestamp;
+        pauseExpiresAt = block.timestamp + MAX_PAUSE_DURATION;
+        
         // Best-effort pause of external contracts - failures don't block emergency pause
         if (vrfCoordinator != address(0)) {
             (bool success,) = vrfCoordinator.call(abi.encodeWithSignature("pause()"));
@@ -210,11 +226,56 @@ contract ChainlinkGovernance is Ownable2Step {
             (bool success,) = automationRegistry.call(abi.encodeWithSignature("pause()"));
             success;
         }
-        emit EmergencyPause(msg.sender);
+        emit EmergencyPause(msg.sender, pauseExpiresAt);
+    }
+
+    /**
+     * @notice Extend emergency pause (if still within limit)
+     * @dev Can only extend by another MAX_PAUSE_DURATION from current time
+     */
+    function extendEmergencyPause() external onlyGuardian {
+        if (!paused) revert ContractPaused();
+        pauseExpiresAt = block.timestamp + MAX_PAUSE_DURATION;
+        emit EmergencyPause(msg.sender, pauseExpiresAt);
+    }
+
+    /**
+     * @notice Check if pause has auto-expired and unpause if so
+     * @dev Can be called by anyone to trigger auto-expiry
+     */
+    function checkPauseExpiry() external {
+        if (paused && block.timestamp >= pauseExpiresAt) {
+            paused = false;
+            pausedAt = 0;
+            pauseExpiresAt = 0;
+            
+            // Best-effort unpause of external contracts
+            if (vrfCoordinator != address(0)) {
+                (bool success,) = vrfCoordinator.call(abi.encodeWithSignature("unpause()"));
+                success;
+            }
+            if (automationRegistry != address(0)) {
+                (bool success,) = automationRegistry.call(abi.encodeWithSignature("unpause()"));
+                success;
+            }
+            
+            emit PauseAutoExpired(block.timestamp);
+        }
+    }
+
+    /**
+     * @notice Check if the contract is currently paused (considering auto-expiry)
+     */
+    function isPaused() public view returns (bool) {
+        if (!paused) return false;
+        if (block.timestamp >= pauseExpiresAt) return false;
+        return true;
     }
 
     function emergencyUnpause() external onlyOwner {
         paused = false;
+        pausedAt = 0;
+        pauseExpiresAt = 0;
         // Best-effort unpause of external contracts - failures don't block unpause
         if (vrfCoordinator != address(0)) {
             (bool success,) = vrfCoordinator.call(abi.encodeWithSignature("unpause()"));

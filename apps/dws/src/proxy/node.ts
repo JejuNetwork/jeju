@@ -60,8 +60,15 @@ async function registerWithCoordinator(): Promise<void> {
   }
 }
 
+// SECURITY: Configure CORS based on environment
+const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
+const isProduction = process.env.NODE_ENV === 'production'
+
 export const proxyNodeApp = new Elysia({ name: 'proxy-node' })
-  .use(cors({ origin: '*' }))
+  .use(cors({ 
+    origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
+    credentials: true,
+  }))
   .get('/health', () => ({
     status: 'healthy',
     service: 'dws-proxy-node',

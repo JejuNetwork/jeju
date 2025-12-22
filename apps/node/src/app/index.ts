@@ -417,21 +417,29 @@ async function cmdStatus(): Promise<void> {
   // Connection
   let connected = false
   let blockNum = 0
-  const res = await fetch(config.rpcUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      jsonrpc: '2.0',
-      method: 'eth_blockNumber',
-      params: [],
-      id: 1,
-    }),
-  })
-  const json: unknown = await res.json()
-  const parsed = JsonRpcResultResponseSchema.safeParse(json)
-  if (parsed.success && parsed.data.result) {
-    connected = true
-    blockNum = parseInt(parsed.data.result, 16)
+  try {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    const res = await fetch(config.rpcUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        jsonrpc: '2.0',
+        method: 'eth_blockNumber',
+        params: [],
+        id: 1,
+      }),
+      signal: controller.signal,
+    })
+    clearTimeout(timeoutId)
+    const json: unknown = await res.json()
+    const parsed = JsonRpcResultResponseSchema.safeParse(json)
+    if (parsed.success && parsed.data.result) {
+      connected = true
+      blockNum = parseInt(parsed.data.result, 16)
+    }
+  } catch {
+    // RPC connection failed - continue with disconnected status
   }
 
   console.log(`  ${chalk.bold('Network')}`)

@@ -5,8 +5,8 @@
 
 import { describe, expect, it } from 'bun:test'
 import { createPublicClient, formatUnits, http } from 'viem'
-import { inferChainFromRpcUrl } from './chain-utils'
-import { checkRPC, FailoverProvider, getNetworkInfo } from './rpc'
+import { inferChainFromRpcUrl } from '@jejunetwork/deployment/scripts/shared/chain-utils'
+import { checkRPC, FailoverProvider, getNetworkInfo } from '@jejunetwork/deployment/scripts/shared/rpc'
 
 describe('RPC Utilities', () => {
   const LOCALNET_RPC = process.env.RPC_ETH_HTTP || 'http://127.0.0.1:6546'

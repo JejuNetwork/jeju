@@ -29,7 +29,7 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
         name: 'dws-mcp',
         version: '1.0.0',
         description:
-          'Decentralized Web Services - Storage, Compute, CDN, Git, Pkg',
+          'Decentralized Web Services - Storage, Compute, CDN, Git, Pkg, Infrastructure',
       },
     })
   })
@@ -74,6 +74,30 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
           mimeType: 'application/json',
           description: 'Recent workflow runs',
         },
+        {
+          uri: 'dws://workerd/workers',
+          name: 'Workerd Workers',
+          mimeType: 'application/json',
+          description: 'Deployed V8 isolate workers',
+        },
+        {
+          uri: 'dws://k8s/clusters',
+          name: 'Kubernetes Clusters',
+          mimeType: 'application/json',
+          description: 'K3s/K3d managed clusters',
+        },
+        {
+          uri: 'dws://helm/deployments',
+          name: 'Helm Deployments',
+          mimeType: 'application/json',
+          description: 'Helm chart deployments to DWS network',
+        },
+        {
+          uri: 'dws://mesh/services',
+          name: 'Service Mesh',
+          mimeType: 'application/json',
+          description: 'Service mesh status and policies',
+        },
       ],
     })
   })
@@ -111,6 +135,18 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
         break
       case 'dws://ci/runs':
         data = { runs: [], total: 0 } // CI runs need repo context
+        break
+      case 'dws://workerd/workers':
+        data = await fetchResource('/workerd')
+        break
+      case 'dws://k8s/clusters':
+        data = await fetchResource('/k3s/clusters')
+        break
+      case 'dws://helm/deployments':
+        data = await fetchResource('/helm/deployments')
+        break
+      case 'dws://mesh/services':
+        data = await fetchResource('/mesh/health')
         break
       default:
         throw new Error(`Unknown resource: ${body.uri}`)
@@ -213,6 +249,116 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
               systemPrompt: { type: 'string', description: 'System prompt' },
             },
             required: ['prompt'],
+          },
+        },
+        // Infrastructure tools
+        {
+          name: 'dws_deploy_worker',
+          description:
+            'Deploy a V8 isolate worker (Cloudflare Workers compatible)',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Worker name' },
+              code: {
+                type: 'string',
+                description: 'Worker code (base64 encoded)',
+              },
+              entrypoint: {
+                type: 'string',
+                description: 'Entrypoint file (default: worker.js)',
+              },
+              memoryMb: {
+                type: 'number',
+                description: 'Memory limit in MB (default: 128)',
+              },
+              timeoutMs: {
+                type: 'number',
+                description: 'Timeout in ms (default: 30000)',
+              },
+            },
+            required: ['name', 'code'],
+          },
+        },
+        {
+          name: 'dws_invoke_worker',
+          description: 'Invoke a deployed workerd worker',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              workerId: { type: 'string', description: 'Worker ID' },
+              method: {
+                type: 'string',
+                enum: ['GET', 'POST', 'PUT', 'DELETE'],
+                description: 'HTTP method',
+              },
+              path: { type: 'string', description: 'Request path' },
+              body: { type: 'string', description: 'Request body (optional)' },
+            },
+            required: ['workerId'],
+          },
+        },
+        {
+          name: 'dws_list_workers',
+          description: 'List deployed workerd workers',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
+          name: 'dws_create_cluster',
+          description: 'Create a K3s/K3d Kubernetes cluster',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              name: { type: 'string', description: 'Cluster name' },
+              provider: {
+                type: 'string',
+                enum: ['k3d', 'k3s', 'minikube'],
+                description: 'Cluster provider',
+              },
+              nodes: {
+                type: 'number',
+                description: 'Number of nodes (default: 1)',
+              },
+            },
+            required: ['name'],
+          },
+        },
+        {
+          name: 'dws_list_clusters',
+          description: 'List K3s/K3d clusters',
+          inputSchema: {
+            type: 'object',
+            properties: {},
+          },
+        },
+        {
+          name: 'dws_helm_deploy',
+          description: 'Deploy Kubernetes manifests via Helm provider',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              release: { type: 'string', description: 'Release name' },
+              namespace: {
+                type: 'string',
+                description: 'Namespace (default: default)',
+              },
+              manifests: {
+                type: 'string',
+                description: 'JSON array of K8s manifest objects',
+              },
+            },
+            required: ['release', 'manifests'],
+          },
+        },
+        {
+          name: 'dws_helm_list',
+          description: 'List Helm deployments',
+          inputSchema: {
+            type: 'object',
+            properties: {},
           },
         },
       ],
@@ -342,6 +488,120 @@ export function createMCPRouter(ctx: MCPContext = {}): Hono {
           content: [
             { type: 'text', text: result.choices[0]?.message.content || '' },
           ],
+        })
+      }
+
+      // Infrastructure tools
+      case 'dws_deploy_worker': {
+        const response = await fetch(`${baseUrl}/workerd`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-jeju-address': userAddress,
+          },
+          body: JSON.stringify({
+            name: body.arguments.name,
+            code: body.arguments.code,
+            entrypoint: body.arguments.entrypoint || 'worker.js',
+            memoryMb: body.arguments.memoryMb || 128,
+            timeoutMs: body.arguments.timeoutMs || 30000,
+          }),
+        })
+        const result = await response.json()
+        return c.json({
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+        })
+      }
+
+      case 'dws_invoke_worker': {
+        const workerId = body.arguments.workerId as string
+        const method = (body.arguments.method as string) || 'GET'
+        const path = (body.arguments.path as string) || '/'
+        const reqBody = body.arguments.body as string | undefined
+
+        const response = await fetch(
+          `${baseUrl}/workerd/${workerId}/http${path}`,
+          {
+            method,
+            headers: {
+              'Content-Type': 'application/json',
+              'x-jeju-address': userAddress,
+            },
+            body: reqBody,
+          },
+        )
+        const result = await response.text()
+        return c.json({
+          content: [{ type: 'text', text: result }],
+        })
+      }
+
+      case 'dws_list_workers': {
+        const response = await fetch(`${baseUrl}/workerd`, {
+          headers: { 'x-jeju-address': userAddress },
+        })
+        const result = await response.json()
+        return c.json({
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+        })
+      }
+
+      case 'dws_create_cluster': {
+        const response = await fetch(`${baseUrl}/k3s/clusters`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-jeju-address': userAddress,
+          },
+          body: JSON.stringify({
+            name: body.arguments.name,
+            provider: body.arguments.provider || 'k3d',
+            nodes: body.arguments.nodes || 1,
+          }),
+        })
+        const result = await response.json()
+        return c.json({
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+        })
+      }
+
+      case 'dws_list_clusters': {
+        const response = await fetch(`${baseUrl}/k3s/clusters`, {
+          headers: { 'x-jeju-address': userAddress },
+        })
+        const result = await response.json()
+        return c.json({
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+        })
+      }
+
+      case 'dws_helm_deploy': {
+        const manifests = JSON.parse(body.arguments.manifests as string)
+        const response = await fetch(`${baseUrl}/helm/apply`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-jeju-address': userAddress,
+          },
+          body: JSON.stringify({
+            release: body.arguments.release,
+            namespace: body.arguments.namespace || 'default',
+            manifests,
+          }),
+        })
+        const result = await response.json()
+        return c.json({
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+        })
+      }
+
+      case 'dws_helm_list': {
+        const response = await fetch(`${baseUrl}/helm/deployments`, {
+          headers: { 'x-jeju-address': userAddress },
+        })
+        const result = await response.json()
+        return c.json({
+          content: [{ type: 'text', text: JSON.stringify(result) }],
         })
       }
 

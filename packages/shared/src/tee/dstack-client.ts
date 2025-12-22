@@ -13,10 +13,6 @@ import {
   TappdInfoResponseSchema,
   TappdKeyResponseSchema,
   TappdQuoteResponseSchema,
-  type TappdDeriveKeyResponse,
-  type TappdInfoResponse,
-  type TappdKeyResponse,
-  type TappdQuoteResponse,
 } from '../schemas'
 import type {
   AttestationQuote,

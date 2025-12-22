@@ -15,7 +15,7 @@ import {
   PUBLIC_RPCS,
   rpcUrl,
   TESTNET_CHAIN_IDS,
-} from './chains'
+} from '@jejunetwork/deployment/scripts/shared/chains'
 
 describe('PUBLIC_RPCS', () => {
   test('should have core EVM testnet chains', () => {

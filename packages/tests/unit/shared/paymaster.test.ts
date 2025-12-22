@@ -17,7 +17,7 @@ import {
   getApprovalTxData,
   loadPaymasterConfig,
   preparePaymasterData,
-} from './paymaster'
+} from '../../../deployment/scripts/shared/paymaster'
 
 // Test fixtures
 const TEST_PAYMASTER: Address = '0x1234567890123456789012345678901234567890'

@@ -29,14 +29,15 @@ import requests
 
 @dataclass
 class TrainingConfig:
-    # Use TinyLlama-1.1B - fits in 16GB with gradients
-    model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
-    learning_rate: float = 5e-6  # Lower LR for stability
-    training_steps: int = 20
+    # Use distilgpt2 by default - 82M params, very low memory
+    # For 16GB GPU options: distilgpt2, gpt2, gpt2-medium
+    model_name: str = "distilgpt2"
+    learning_rate: float = 5e-5
+    training_steps: int = 10
     batch_size: int = 1
-    max_seq_len: int = 512
-    gradient_accumulation_steps: int = 4
-    group_size: int = 8  # More samples per prompt for better advantage estimation
+    max_seq_len: int = 256  # Reduced for memory
+    gradient_accumulation_steps: int = 2
+    group_size: int = 4
     save_path: str = "./training_checkpoints"
     atropos_url: str = "http://localhost:8000"
     vllm_port: int = 9001
@@ -67,8 +68,8 @@ class VLLMServer:
             "--model", self.model_path,
             "--port", str(self.port),
             "--dtype", "float16",
-            "--gpu-memory-utilization", "0.35",
-            "--max-model-len", "512",
+            "--gpu-memory-utilization", "0.25",  # Lower for 16GB GPU
+            "--max-model-len", "256",
             "--enforce-eager",
         ]
         

@@ -248,7 +248,16 @@ const config = getConfig()
 const blockchain = getBlockchain(config)
 const app = new Hono()
 
-app.use('/*', cors())
+// SECURITY: Configure CORS based on environment
+const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
+const isProduction = process.env.NODE_ENV === 'production'
+
+app.use('/*', cors({
+  origin: isProduction && CORS_ORIGINS?.length 
+    ? CORS_ORIGINS 
+    : '*',
+  credentials: true,
+}))
 
 const a2aServer = createAutocratA2AServer(config, blockchain)
 const mcpServer = createAutocratMCPServer(config, blockchain)

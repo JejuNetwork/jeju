@@ -94,7 +94,11 @@ export const testCommand = new Command('test')
     // Fail fast on invalid app selection (before any setup)
     if (options.targetApp) {
       const apps = discoverApps(rootDir)
-      const exists = apps.some((a) => a.name === options.targetApp)
+      const exists = apps.some(
+        (a) =>
+          (a._folderName ?? a.slug ?? a.name) === options.targetApp ||
+          a.name === options.targetApp,
+      )
       if (!exists) {
         logger.error(`App not found: ${options.targetApp}`)
         process.exit(1)
@@ -263,11 +267,12 @@ testCommand
     logger.subheader('Apps')
     const apps = discoverApps(rootDir)
     for (const app of apps) {
-      const manifest = loadManifest(join(rootDir, 'apps', app.name))
+      const folderName = app._folderName ?? app.slug ?? app.name
+      const manifest = loadManifest(join(rootDir, 'apps', folderName))
       const testing = manifest?.testing as ManifestTesting | undefined
       const hasTests = !!(testing?.unit || testing?.e2e || testing?.integration)
       console.log(
-        `  ${app.name.padEnd(14)} ${hasTests ? '✓' : '○'} ${app.displayName || ''}`,
+        `  ${folderName.padEnd(14)} ${hasTests ? '✓' : '○'} ${app.displayName || ''}`,
       )
     }
 
@@ -313,10 +318,11 @@ testCommand
     const apps = discoverApps(rootDir)
 
     for (const app of apps) {
-      // Use name for file system lookup
+      // Use folder name for file system lookup (falls back to manifest name if not set)
+      const folderName = app._folderName ?? app.slug ?? app.name
       const result = await runAppTests(
         rootDir,
-        app.name,
+        folderName,
         mode,
         options,
         testEnv,
@@ -339,12 +345,149 @@ testCommand
 testCommand
   .command('coverage')
   .description('Generate coverage report')
-  .action(async () => {
+  .option('--json', 'Output JSON only')
+  .option('-o, --output <file>', 'Output file path')
+  .action(async (options) => {
     const rootDir = findMonorepoRoot()
-    logger.header('COVERAGE REPORT')
+
+    if (!options.json) {
+      logger.header('COVERAGE REPORT')
+    }
 
     const coverage = await generateCoverageReport(rootDir, [], true)
-    printCoverageReport(coverage)
+
+    if (options.json) {
+      console.log(JSON.stringify(coverage, null, 2))
+    } else {
+      printCoverageReport(coverage)
+    }
+
+    if (options.output) {
+      mkdirSync(dirname(options.output), { recursive: true })
+      writeFileSync(options.output, JSON.stringify(coverage, null, 2))
+      logger.success(`Coverage written to: ${options.output}`)
+    }
+  })
+
+// ============================================================================
+// SUBAGENT COMMANDS
+// ============================================================================
+
+testCommand
+  .command('analyze')
+  .description('Analyze codebase for test coverage gaps, complex code, and shared utils')
+  .option('-a, --app <app>', 'Analyze specific app')
+  .option('--json', 'Output JSON only')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+
+    if (!options.json) {
+      logger.header('JEJU TEST ANALYZER')
+    }
+
+    try {
+      await execa('bun', ['run', 'packages/tests/subagents/index.ts'], {
+        cwd: rootDir,
+        stdio: options.json ? 'pipe' : 'inherit',
+        env: {
+          ...process.env,
+          TARGET_APP: options.app || '',
+        },
+      })
+    } catch (error) {
+      const err = error as ExecaError
+      if (!options.json) {
+        logger.error(`Analysis failed: ${err.message}`)
+      }
+      process.exit(1)
+    }
+  })
+
+testCommand
+  .command('generate')
+  .description('Generate E2E tests for all pages, flows, and actions')
+  .option('-a, --app <app>', 'Generate tests for specific app')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+    logger.header('JEJU TEST GENERATOR')
+
+    const args = ['run', 'packages/tests/subagents/page-e2e-generator.ts']
+    if (options.app) {
+      args.push('--app', options.app)
+    }
+
+    try {
+      await execa('bun', args, {
+        cwd: rootDir,
+        stdio: 'inherit',
+      })
+    } catch (error) {
+      const err = error as ExecaError
+      logger.error(`Generation failed: ${err.message}`)
+      process.exit(1)
+    }
+  })
+
+testCommand
+  .command('cleanup-mocks')
+  .description('Identify and remove unnecessary mocks, stubs, and abstractions')
+  .option('-a, --app <app>', 'Cleanup specific app')
+  .option('--dry-run', 'Show what would be removed without making changes')
+  .option('--apply', 'Apply the cleanup changes')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+    logger.header('JEJU MOCK CLEANUP')
+
+    const args = ['run', 'packages/tests/subagents/mock-cleanup.ts']
+    if (options.app) {
+      args.push(`--app=${options.app}`)
+    }
+    if (options.dryRun) {
+      args.push('--dry-run')
+    }
+    if (options.apply) {
+      args.push('--apply')
+    }
+
+    try {
+      await execa('bun', args, {
+        cwd: rootDir,
+        stdio: 'inherit',
+      })
+    } catch (error) {
+      const err = error as ExecaError
+      logger.error(`Cleanup failed: ${err.message}`)
+      process.exit(1)
+    }
+  })
+
+testCommand
+  .command('ci-setup')
+  .description('Validate and generate CI configuration for testing')
+  .option('--validate', 'Validate existing CI config')
+  .option('--generate', 'Generate new CI config')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot()
+    logger.header('JEJU CI SETUP')
+
+    const args = ['run', 'packages/tests/subagents/ci-integration.ts']
+    if (options.validate) {
+      args.push('--validate')
+    }
+    if (options.generate) {
+      args.push('--generate')
+    }
+
+    try {
+      await execa('bun', args, {
+        cwd: rootDir,
+        stdio: 'inherit',
+      })
+    } catch (error) {
+      const err = error as ExecaError
+      logger.error(`CI setup failed: ${err.message}`)
+      process.exit(1)
+    }
   })
 
 testCommand
@@ -1313,10 +1456,15 @@ async function setupE2EInfra(
   if (options.app && typeof options.app === 'string') {
     const appName = options.app
     const apps = discoverApps(rootDir)
-    const appManifest = apps.find((a) => a.name === appName)
+    const appManifest = apps.find(
+      (a) =>
+        (a._folderName ?? a.slug ?? a.name) === appName ||
+        a.name === appName,
+    )
 
     if (appManifest) {
-      const appDir = join(rootDir, 'apps', appName)
+      const folderName = appManifest._folderName ?? appManifest.slug ?? appName
+      const appDir = join(rootDir, 'apps', folderName)
       const devCommand = appManifest.commands?.dev
       const mainPort = appManifest.ports?.main
 
@@ -1325,7 +1473,7 @@ async function setupE2EInfra(
         const appRunning = mainPort ? await checkPort(mainPort) : false
 
         if (appRunning) {
-          logger.success(`${appName} already running on port ${mainPort}`)
+          logger.success(`${folderName} already running on port ${mainPort}`)
         } else {
           logger.info(`Starting ${appName}...`)
 
@@ -1417,7 +1565,11 @@ async function setupE2EInfra(
   logger.keyValue('Test Wallet', TEST_WALLET)
   if (options.app && typeof options.app === 'string') {
     const apps = discoverApps(rootDir)
-    const appManifest = apps.find((a) => a.name === options.app)
+    const appManifest = apps.find(
+      (a) =>
+        (a._folderName ?? a.slug ?? a.name) === options.app ||
+        a.name === options.app,
+    )
     if (appManifest?.ports?.main) {
       logger.keyValue('App URL', `http://localhost:${appManifest.ports.main}`)
     }

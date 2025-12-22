@@ -153,8 +153,6 @@ export {
 export {
   bazaarMarketplaceDeployments,
   erc20FactoryDeployments,
-  // Types
-  type GameSystemDeployment,
   gameSystemDeployments,
   getBazaarMarketplace,
   getContractAddresses,

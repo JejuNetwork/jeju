@@ -1,32 +1,82 @@
 {
-  "name": "Jeju VPN",
-  "slug": "vpn",
+  "$schema": "../../packages/config/jeju-manifest.schema.json",
+  "name": "vpn",
+  "displayName": "Jeju VPN",
   "version": "0.1.0",
+  "type": "app",
   "description": "Free, decentralized VPN powered by the community. Unlimited VPN access in exchange for contributing bandwidth to the network.",
-  "category": "infrastructure",
-  "repository": "https://github.com/jejunetwork/jeju",
-  "homepage": "https://vpn.jejunetwork.org",
-  "license": "MIT",
-  "features": [
-    "wireguard",
-    "socks5-proxy",
-    "cdn-serving",
-    "fair-contribution",
-    "earning-mode"
-  ],
-  "platforms": ["desktop", "mobile", "browser"],
-  "dependencies": {
-    "contracts": {
-      "VPNRegistry": "^1.0.0"
-    },
-    "services": {
-      "vpn-coordinator": "^1.0.0",
-      "edge-coordinator": "^1.0.0"
-    }
+  "commands": {
+    "dev": "bun run dev:web",
+    "build": "bun build index.html --outdir=dist --minify",
+    "start": "bun run preview",
+    "test": "bun test src"
   },
   "ports": {
-    "dev": 1421,
+    "main": 1421,
     "wireguard": 51820
+  },
+  "dependencies": ["contracts", "config", "dws"],
+  "optional": false,
+  "enabled": true,
+  "autoStart": false,
+  "tags": ["vpn", "wireguard", "socks5", "privacy", "decentralized", "infrastructure"],
+  "jns": {
+    "name": "vpn.jeju",
+    "description": "Decentralized VPN Network",
+    "url": "https://vpn.jejunetwork.org"
+  },
+  "healthCheck": {
+    "url": "http://localhost:1421/health",
+    "interval": 30000
+  },
+  "agent": {
+    "enabled": true,
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
+    "tags": ["jeju-app", "vpn", "privacy", "infrastructure"],
+    "metadata": {
+      "category": "infrastructure",
+      "provider": "jeju-network",
+      "features": ["wireguard", "socks5-proxy", "cdn-serving", "bandwidth-sharing"]
+    },
+    "trustModels": ["staked"],
+    "x402Support": false,
+    "jnsName": "vpn.jeju"
+  },
+  "decentralization": {
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/api/**", "ttl": 0 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ],
+      "serviceWorker": true
+    },
+    "frontend": {
+      "ipfs": true,
+      "arweave": true,
+      "jnsName": "vpn.jeju",
+      "buildDir": "dist",
+      "spa": true
+    },
+    "robustness": {
+      "multiOrigin": true,
+      "offlineSupport": true,
+      "p2pFallback": true,
+      "contentAddressed": true
+    }
+  },
+  "testing": {
+    "unit": {
+      "command": "bun test src",
+      "timeout": 60000
+    },
+    "e2e": {
+      "command": "playwright test",
+      "timeout": 300000,
+      "requiresChain": false
+    }
   }
 }
-

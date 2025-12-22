@@ -242,7 +242,7 @@ export class DWSTrainingClient {
         throw new Error(`Missing rollout at index ${i}`)
       }
       return {
-        trajectoryId: rollout.trajectoryId,
+        bundleId: rollout.trajectoryId,
         score: r.score,
         reasoning: r.reasoning,
         confidence: r.confidence,

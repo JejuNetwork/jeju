@@ -14,7 +14,7 @@ import {
   sendNotification,
   sendSuccess,
   sendWarning,
-} from './notifications'
+} from '@jejunetwork/deployment/scripts/shared/notifications'
 
 // Type for mock fetch calls
 type MockFetchCall = [url: string, options?: RequestInit]

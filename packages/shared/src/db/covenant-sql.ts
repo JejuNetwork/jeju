@@ -290,7 +290,7 @@ export class CovenantSQLClient extends EventEmitter {
       await this.initialize()
     }
 
-    const txId = `tx-${Date.now()}-${Math.random().toString(36).slice(2)}`
+    const txId = `tx-${crypto.randomUUID()}`
     const queries: string[] = []
 
     await this.query('BEGIN TRANSACTION', [], {

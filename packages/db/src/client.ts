@@ -227,7 +227,7 @@ class CQLConnectionImpl implements CQLConnection {
   }
 
   async beginTransaction(): Promise<CQLTransaction> {
-    const txId = `tx-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const txId = `tx-${crypto.randomUUID()}`
     await this.exec('BEGIN TRANSACTION')
     return new CQLTransactionImpl(txId, this)
   }
@@ -351,7 +351,7 @@ class CQLConnectionPoolImpl implements CQLConnectionPool {
     this.pool = createPool<CQLConnectionImpl>(
       {
         create: async () => {
-          const id = `conn-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+          const id = `conn-${crypto.randomUUID()}`
           return new CQLConnectionImpl(id, dbId, config)
         },
         destroy: async (conn) => {

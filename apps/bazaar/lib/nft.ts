@@ -374,14 +374,5 @@ export function isNFTOwner(nft: NormalizedNFT, address: string): boolean {
   return Number(nft.balance) > 0
 }
 
-/**
- * Format an address for display (truncated)
- */
-export function formatAddress(
-  address: string,
-  startChars: number = 6,
-  endChars: number = 4,
-): string {
-  if (address.length <= startChars + endChars + 2) return address
-  return `${address.slice(0, startChars)}...${address.slice(-endChars)}`
-}
+// Re-export formatAddress from shared package for backwards compatibility
+export { formatAddress } from '@jejunetwork/shared'

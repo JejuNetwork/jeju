@@ -230,9 +230,19 @@ contract TokenLaunchpadTest is Test {
 
         assertFalse(curve.graduated());
 
-        // Buy enough to trigger graduation
+        // Buy enough to trigger graduation queue
         vm.prank(buyer1);
         curve.buy{value: 3.5 ether}(0);
+
+        // Graduation is now queued, not immediate (security fix)
+        assertTrue(curve.graduationQueued());
+        assertFalse(curve.graduated());
+
+        // Warp past the graduation delay (24 hours)
+        vm.warp(block.timestamp + 24 hours + 1);
+
+        // Execute the queued graduation
+        curve.executeGraduation();
 
         assertTrue(curve.graduated());
         assertTrue(curve.lpPair() != address(0));

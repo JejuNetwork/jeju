@@ -108,7 +108,13 @@ async function initializeCEORuntime(): Promise<AgentRuntime> {
 // ============================================================================
 
 const app = new Hono()
-app.use('/*', cors())
+// SECURITY: Configure CORS based on environment
+const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
+const isProduction = process.env.NODE_ENV === 'production'
+app.use('/*', cors({
+  origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
+  credentials: true,
+}))
 
 // Agent Card (A2A Discovery)
 app.get('/.well-known/agent-card.json', (c) =>

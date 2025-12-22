@@ -49,8 +49,8 @@
       "bots": "http://127.0.0.1:4022"
     },
     "cql": {
-      "blockProducer": "http://127.0.0.1:4661",
-      "miner": "http://127.0.0.1:4661"
+      "blockProducer": "http://127.0.0.1:4028",
+      "miner": "http://127.0.0.1:4028"
     },
     "dws": {
       "api": "http://127.0.0.1:4030",

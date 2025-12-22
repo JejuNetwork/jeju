@@ -358,6 +358,13 @@ export {
   isSignificantAmount,
   parseTokenAmount,
 } from './token-utils'
+// Security Middleware
+export {
+  rateLimitMiddleware,
+  type RateLimitConfig,
+  securityMiddleware,
+  type SecurityConfig,
+} from './security-middleware'
 // Shared Types
 export type {
   JsonRpcError,

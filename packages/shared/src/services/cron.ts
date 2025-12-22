@@ -112,7 +112,7 @@ class CronServiceImpl implements CronService {
     // Enforce job limits to prevent memory exhaustion
     this.enforceJobLimits()
 
-    const id = `cron-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const id = `cron-${crypto.randomUUID()}`
 
     const cronJob: LocalCronJob = {
       id,

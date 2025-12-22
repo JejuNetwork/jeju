@@ -13,7 +13,7 @@
 import { Hono } from 'hono'
 import type { Address } from 'viem'
 import { z } from 'zod'
-import { validateBody, validateParams } from '../shared'
+import { validateBody, validateParams } from '../shared/validation'
 
 // ============================================================================
 // Types
@@ -519,12 +519,12 @@ export function createIngressRouter(controller: IngressController): Hono {
   const router = new Hono()
 
   // Health check
-  router.get('/ingress/health', (c) => {
+  router.get('/health', (c) => {
     return c.json({ status: 'healthy', rules: ingressRules.size })
   })
 
   // Create ingress
-  router.post('/ingress', async (c) => {
+  router.post('/rules', async (c) => {
     const body = await validateBody(ingressRuleSchema, c)
     const rule = await controller.createIngress(
       body as Omit<IngressRule, 'id' | 'createdAt' | 'updatedAt' | 'status'>,
@@ -533,13 +533,13 @@ export function createIngressRouter(controller: IngressController): Hono {
   })
 
   // List ingress
-  router.get('/ingress', async (c) => {
+  router.get('/rules', async (c) => {
     const rules = controller.listIngress()
     return c.json({ rules })
   })
 
   // Get ingress
-  router.get('/ingress/:id', async (c) => {
+  router.get('/rules/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
     const rule = controller.getIngress(id)
     if (!rule) {
@@ -549,7 +549,7 @@ export function createIngressRouter(controller: IngressController): Hono {
   })
 
   // Update ingress
-  router.put('/ingress/:id', async (c) => {
+  router.put('/rules/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
     const body = await validateBody(ingressRuleSchema.partial(), c)
     const rule = await controller.updateIngress(id, body)
@@ -557,7 +557,7 @@ export function createIngressRouter(controller: IngressController): Hono {
   })
 
   // Delete ingress
-  router.delete('/ingress/:id', async (c) => {
+  router.delete('/rules/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
     await controller.deleteIngress(id)
     return c.json({ success: true })

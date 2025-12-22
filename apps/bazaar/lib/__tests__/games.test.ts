@@ -222,12 +222,12 @@ describe('formatAddress', () => {
     expect(formatAddress(testAddress)).toBe('0x1234...5678')
   })
 
-  test('uses custom start and end chars', () => {
-    expect(formatAddress(testAddress, 10, 6)).toBe('0x12345678...345678')
+  test('uses custom chars length', () => {
+    expect(formatAddress(testAddress, 6)).toBe('0x123456...345678')
   })
 
   test('returns full address if too short', () => {
-    expect(formatAddress('0x1234', 6, 4)).toBe('0x1234')
+    expect(formatAddress('0x1234', 4)).toBe('0x1234')
   })
 })
 

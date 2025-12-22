@@ -33,8 +33,8 @@
   },
   "agent": {
     "enabled": true,
-    "a2aEndpoint": "http://localhost:4003/a2a",
-    "mcpEndpoint": "http://localhost:4003/mcp",
+    "a2aEndpoint": "/a2a",
+    "mcpEndpoint": "/mcp",
     "tags": ["jeju-app", "protocol", "infrastructure", "nodes", "staking", "intents", "cross-chain", "oif"],
     "metadata": {
       "category": "infrastructure",
@@ -44,6 +44,30 @@
     "trustModels": ["open"],
     "x402Support": true,
     "jnsName": "gateway.jeju"
+  },
+  "dws": {
+    "backend": {
+      "enabled": true,
+      "runtime": "bun",
+      "entrypoint": "src/a2a-server.ts",
+      "memory": 512,
+      "timeout": 30000,
+      "minInstances": 1,
+      "maxInstances": 10,
+      "teeRequired": false,
+      "regions": ["global"]
+    },
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "staticDir": "dist",
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/*.css", "ttl": 86400 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ]
+    }
   },
   "decentralization": {
     "cdn": {

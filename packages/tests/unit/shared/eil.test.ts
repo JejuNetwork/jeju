@@ -19,7 +19,7 @@ import {
   formatTransfer,
   type MultiChainUserOp,
   type TransferRequest,
-} from './eil'
+} from '@jejunetwork/deployment/scripts/shared/eil'
 
 // Test fixtures
 const TEST_CONFIG: EILConfig = {

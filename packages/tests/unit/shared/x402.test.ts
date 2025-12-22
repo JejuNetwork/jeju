@@ -25,7 +25,7 @@ import {
   signPaymentPayload,
   USDC_ADDRESSES,
   verifyPayment,
-} from './x402'
+} from '@jejunetwork/deployment/scripts/shared/x402'
 
 // Test fixtures
 const TEST_RECIPIENT: Address = '0x1234567890123456789012345678901234567890'

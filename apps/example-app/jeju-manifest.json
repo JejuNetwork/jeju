@@ -27,7 +27,7 @@
   "autoStart": false,
   "tags": ["template", "dapp", "full-stack", "decentralized", "a2a", "mcp", "cql", "kms", "jns", "storage", "compute", "cron", "cache", "x402", "oauth3"],
   "jns": {
-    "name": "template.jeju",
+    "name": "example.jeju",
     "description": "Decentralized App Template",
     "url": "https://template.jejunetwork.org"
   },
@@ -48,7 +48,35 @@
     "trustModels": ["open", "staked"],
     "x402Support": true,
     "multiTokenPayments": true,
-    "jnsName": "template.jeju"
+    "jnsName": "example.jeju"
+  },
+  "dws": {
+    "backend": {
+      "enabled": true,
+      "runtime": "bun",
+      "entrypoint": "src/server/index.ts",
+      "memory": 256,
+      "timeout": 30000,
+      "minInstances": 1,
+      "maxInstances": 5,
+      "teeRequired": false,
+      "regions": ["global"]
+    },
+    "cdn": {
+      "enabled": true,
+      "regions": ["global"],
+      "staticDir": "dist/frontend",
+      "cacheRules": [
+        { "pattern": "/assets/**", "ttl": 31536000, "immutable": true },
+        { "pattern": "/*.js", "ttl": 86400 },
+        { "pattern": "/*.css", "ttl": 86400 },
+        { "pattern": "/**/*.html", "ttl": 60, "staleWhileRevalidate": 3600 }
+      ]
+    },
+    "database": {
+      "type": "covenantsql",
+      "name": "example-app-db"
+    }
   },
   "services": {
     "database": {
@@ -105,7 +133,7 @@
     "frontend": {
       "ipfs": true,
       "arweave": true,
-      "jnsName": "template.jeju",
+      "jnsName": "example.jeju",
       "buildDir": "dist",
       "spa": true
     },

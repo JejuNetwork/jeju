@@ -14,6 +14,7 @@ import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { getProviderInfo, getServiceName } from '../chains'
+import { rateLimitMiddleware, securityMiddleware } from '../security-middleware'
 import type { ProtocolData, ProtocolValue } from '../types'
 import {
   type AgentInfo,
@@ -23,6 +24,16 @@ import {
   type SkillResult,
   verifyERC8004Identity,
 } from './middleware'
+
+// Default allowed origins for CORS
+const DEFAULT_ALLOWED_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:4000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:4000',
+  'http://127.0.0.1:5173',
+]
 
 // Zod schema for recursive ProtocolValue type
 const ProtocolValueSchema: z.ZodType<ProtocolValue> = z.lazy(() =>
@@ -158,6 +169,16 @@ export interface UnifiedServerConfig {
 
   // Server mode
   mode?: 'server' | 'serverless' | 'auto'
+
+  // Security configuration
+  security?: {
+    /** Allowed CORS origins (default: localhost only in dev, none in prod) */
+    allowedOrigins?: string[]
+    /** Rate limit config (default: 100 requests per minute) */
+    rateLimit?: { max: number; windowMs: number }
+    /** Disable security headers (not recommended) */
+    disableSecurityHeaders?: boolean
+  }
 }
 
 export interface SkillContext {
@@ -194,10 +215,43 @@ export function createUnifiedServer(config: UnifiedServerConfig) {
     },
   }
 
+  // Determine allowed origins
+  const isProduction = process.env.NODE_ENV === 'production'
+  const allowedOrigins =
+    config.security?.allowedOrigins ??
+    (isProduction ? [] : DEFAULT_ALLOWED_ORIGINS)
+
   const app = new Elysia()
+    // Security middleware (headers, rate limiting)
+    .use(
+      config.security?.disableSecurityHeaders
+        ? new Elysia()
+        : securityMiddleware(),
+    )
+    .use(
+      rateLimitMiddleware({
+        max: config.security?.rateLimit?.max ?? 100,
+        windowMs: config.security?.rateLimit?.windowMs ?? 60000,
+      }),
+    )
     .use(
       cors({
-        origin: '*',
+        origin: (request) => {
+          const origin = request.headers.get('origin')
+          // Allow requests without origin (same-origin/server-to-server)
+          if (!origin) return true
+          // Check against allowed origins
+          if (allowedOrigins.includes(origin)) return true
+          // In development, also allow any localhost
+          if (
+            !isProduction &&
+            (origin.startsWith('http://localhost:') ||
+              origin.startsWith('http://127.0.0.1:'))
+          ) {
+            return true
+          }
+          return false
+        },
         methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
         allowedHeaders: [
           'Content-Type',

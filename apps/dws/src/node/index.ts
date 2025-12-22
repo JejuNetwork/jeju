@@ -24,7 +24,13 @@ function inferChainFromRpcUrl(rpcUrl: string) {
 }
 
 const app = new Hono()
-app.use('/*', cors({ origin: '*' }))
+// SECURITY: Configure CORS based on environment
+const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
+const isProduction = process.env.NODE_ENV === 'production'
+app.use('/*', cors({ 
+  origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
+  credentials: true,
+}))
 
 const privateKey = process.env.PRIVATE_KEY
 const rpcUrl = process.env.RPC_URL || 'http://localhost:6546'

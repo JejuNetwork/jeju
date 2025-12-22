@@ -21,7 +21,7 @@
 import { Hono } from 'hono'
 import type { Address } from 'viem'
 import { z } from 'zod'
-import { validateBody, validateParams } from '../shared'
+import { validateBody, validateParams } from '../shared/validation'
 
 // ============================================================================
 // Kubernetes Manifest Types
@@ -267,15 +267,20 @@ class ManifestParser {
   }
 
   private parseConfigMap(manifest: KubeManifest): DWSConfigMap {
+    // ConfigMaps have data directly, not in spec
+    const manifestData = manifest as unknown as { data?: Record<string, string>; spec?: { data?: Record<string, string> } }
+    const data = manifestData.data ?? manifestData.spec?.data ?? {}
     return {
       id: `cm-${manifest.metadata.name}-${Date.now()}`,
       name: manifest.metadata.name,
-      data: (manifest.spec as { data?: Record<string, string> }).data ?? {},
+      data,
     }
   }
 
   private parseSecret(manifest: KubeManifest): DWSSecret {
-    const data = (manifest.spec as { data?: Record<string, string> }).data ?? {}
+    // Secrets have data directly, not in spec
+    const manifestData = manifest as unknown as { data?: Record<string, string>; spec?: { data?: Record<string, string> } }
+    const data = manifestData.data ?? manifestData.spec?.data ?? {}
     // Decode base64 values
     const decoded: Record<string, string> = {}
     for (const [key, value] of Object.entries(data)) {
@@ -462,7 +467,11 @@ const manifestsSchema = z.object({
         labels: z.record(z.string()).optional(),
         annotations: z.record(z.string()).optional(),
       }),
-      spec: z.record(z.unknown()),
+      // spec is optional - ConfigMaps/Secrets use data, other resources use spec
+      spec: z.record(z.unknown()).optional(),
+      data: z.record(z.string()).optional(),
+      stringData: z.record(z.string()).optional(),
+      type: z.string().optional(),
     }),
   ),
   release: z.string().optional(),
@@ -477,64 +486,12 @@ export function createHelmProviderRouter(): Hono {
   const parser = new ManifestParser()
 
   // Health check
-  router.get('/helm/health', (c) => {
+  router.get('/health', (c) => {
     return c.json({ status: 'healthy', provider: 'dws-helm' })
   })
 
-  // Schema for Helm deployments
-  router.get('/helm/schema', (c) => {
-    return c.json({
-      schema: {
-        manifests: {
-          type: 'array',
-          description: 'Kubernetes manifest objects to deploy',
-          items: {
-            type: 'object',
-            required: ['apiVersion', 'kind', 'metadata'],
-            properties: {
-              apiVersion: { type: 'string' },
-              kind: {
-                type: 'string',
-                enum: [
-                  'Deployment',
-                  'Service',
-                  'ConfigMap',
-                  'Secret',
-                  'Job',
-                  'CronJob',
-                  'StatefulSet',
-                  'DaemonSet',
-                  'Ingress',
-                  'PersistentVolumeClaim',
-                ],
-              },
-              metadata: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  namespace: { type: 'string' },
-                },
-              },
-              spec: { type: 'object' },
-            },
-          },
-        },
-        release: { type: 'string', description: 'Name of the Helm release' },
-        namespace: {
-          type: 'string',
-          description: 'Target Kubernetes namespace',
-          default: 'default',
-        },
-        values: {
-          type: 'object',
-          description: 'Values to pass to Helm templates',
-        },
-      },
-    })
-  })
-
   // Apply Helm release / K8s manifests
-  router.post('/helm/apply', async (c) => {
+  router.post('/apply', async (c) => {
     const body = await validateBody(manifestsSchema, c)
     const _owner = c.req.header('x-jeju-address') as Address
 
@@ -562,7 +519,7 @@ export function createHelmProviderRouter(): Hono {
   })
 
   // Get deployment status
-  router.get('/helm/deployments/:id', async (c) => {
+  router.get('/deployments/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
 
     const deployment = deployments.get(id)
@@ -592,7 +549,7 @@ export function createHelmProviderRouter(): Hono {
   })
 
   // List deployments
-  router.get('/helm/deployments', async (c) => {
+  router.get('/deployments', async (c) => {
     const list = Array.from(deployments.values()).map((d) => ({
       id: d.id,
       name: d.name,
@@ -605,7 +562,7 @@ export function createHelmProviderRouter(): Hono {
   })
 
   // Delete deployment
-  router.delete('/helm/deployments/:id', async (c) => {
+  router.delete('/deployments/:id', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
 
     const deployment = deployments.get(id)
@@ -621,7 +578,7 @@ export function createHelmProviderRouter(): Hono {
   })
 
   // Scale deployment
-  router.post('/helm/deployments/:id/scale', async (c) => {
+  router.post('/deployments/:id/scale', async (c) => {
     const { id } = validateParams(z.object({ id: z.string() }), c)
     const body = await validateBody(
       z.object({

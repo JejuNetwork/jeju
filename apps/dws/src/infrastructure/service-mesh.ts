@@ -19,7 +19,7 @@ import { Hono } from 'hono'
 import type { Address, Hex } from 'viem'
 import { keccak256, toBytes } from 'viem'
 import { z } from 'zod'
-import { validateBody, validateParams } from '../shared'
+import { validateBody, validateParams } from '../shared/validation'
 
 // ============================================================================
 // Types
@@ -453,12 +453,12 @@ export function createServiceMeshRouter(mesh: ServiceMesh): Hono {
   const router = new Hono()
 
   // Health check
-  router.get('/mesh/health', (c) => {
+  router.get('/health', (c) => {
     return c.json({ status: 'healthy', services: services.size })
   })
 
   // Register service
-  router.post('/mesh/services', async (c) => {
+  router.post('/services', async (c) => {
     const body = await validateBody(
       z.object({
         name: z.string(),
@@ -485,7 +485,7 @@ export function createServiceMeshRouter(mesh: ServiceMesh): Hono {
   })
 
   // Discover service
-  router.get('/mesh/services/:namespace/:name', async (c) => {
+  router.get('/services/:namespace/:name', async (c) => {
     const { namespace, name } = validateParams(
       z.object({
         namespace: z.string(),
@@ -503,7 +503,7 @@ export function createServiceMeshRouter(mesh: ServiceMesh): Hono {
   })
 
   // List services
-  router.get('/mesh/services', async (c) => {
+  router.get('/services', async (c) => {
     const namespace = c.req.query('namespace')
     const tags = c.req.query('tags')?.split(',')
 
@@ -516,7 +516,7 @@ export function createServiceMeshRouter(mesh: ServiceMesh): Hono {
   })
 
   // Create access policy
-  router.post('/mesh/policies/access', async (c) => {
+  router.post('/policies/access', async (c) => {
     const body = await validateBody(accessPolicySchema, c)
     const policy = await mesh.createAccessPolicy(
       body as Omit<AccessPolicy, 'id'>,
@@ -525,12 +525,12 @@ export function createServiceMeshRouter(mesh: ServiceMesh): Hono {
   })
 
   // List access policies
-  router.get('/mesh/policies/access', async (c) => {
+  router.get('/policies/access', async (c) => {
     return c.json({ policies: Array.from(accessPolicies.values()) })
   })
 
   // Create traffic policy
-  router.post('/mesh/policies/traffic', async (c) => {
+  router.post('/policies/traffic', async (c) => {
     const body = await validateBody(trafficPolicySchema, c)
     const policy = await mesh.createTrafficPolicy(
       body as Omit<TrafficPolicy, 'id'>,
@@ -539,7 +539,7 @@ export function createServiceMeshRouter(mesh: ServiceMesh): Hono {
   })
 
   // Get metrics
-  router.get('/mesh/metrics/:serviceId', async (c) => {
+  router.get('/metrics/:serviceId', async (c) => {
     const { serviceId } = validateParams(z.object({ serviceId: z.string() }), c)
     const metrics = mesh.getMetrics(serviceId)
     if (!metrics) {
@@ -549,7 +549,7 @@ export function createServiceMeshRouter(mesh: ServiceMesh): Hono {
   })
 
   // Generate certificate
-  router.post('/mesh/certificates', async (c) => {
+  router.post('/certificates', async (c) => {
     const body = await validateBody(
       z.object({
         serviceId: z.string(),

@@ -103,7 +103,7 @@ export class CrucibleTrainingClient {
     trainingSteps: number
     batchSize: number
   }): Promise<TrainingRun> {
-    const runId = `run-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+    const runId = `run-${crypto.randomUUID()}`
 
     const run: TrainingRun = {
       runId,
@@ -140,27 +140,44 @@ export class CrucibleTrainingClient {
     return run
   }
 
+  /**
+   * Submit a trajectory for training.
+   *
+   * Note: Uses message-based submission rather than raw tokens.
+   * The Atropos server handles tokenization using the configured tokenizer.
+   */
   async submitTrajectory(trajectory: AgentTrajectory): Promise<void> {
     const prompt = trajectory.steps.map((s) => s.observation).join('\n')
     const response = trajectory.steps.map((s) => s.action).join('\n')
 
-    const tokens = prompt.split(' ').map((_, i) => i + 1)
+    // Submit as messages - let Atropos handle tokenization
+    const scoredData = {
+      messages: [
+        [
+          { role: 'user' as const, content: prompt },
+          { role: 'assistant' as const, content: response },
+        ],
+      ],
+      scores: [trajectory.totalReward],
+      // Empty tokens/masks - server will tokenize from messages
+      tokens: [] as number[][],
+      masks: [] as number[][],
+      metadata: {
+        trajectoryId: trajectory.episodeId,
+        agentId: trajectory.agentId,
+        ...trajectory.metadata,
+      },
+    }
 
-    await fetch(`${this.dwsApiUrl}/training/atropos/scored_data`, {
+    const res = await fetch(`${this.dwsApiUrl}/training/atropos/scored_data`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        tokens: [tokens],
-        masks: [tokens.map(() => 1)],
-        scores: [trajectory.totalReward],
-        messages: [
-          [
-            { role: 'user', content: prompt },
-            { role: 'assistant', content: response },
-          ],
-        ],
-      }),
+      body: JSON.stringify(scoredData),
     })
+
+    if (!res.ok) {
+      throw new Error(`Failed to submit trajectory: ${res.status}`)
+    }
   }
 
   async getRunStatus(runId: string): Promise<TrainingRun | null> {

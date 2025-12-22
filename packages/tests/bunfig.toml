@@ -1,0 +1,11 @@
+[test]
+# Exclude .spec.ts files - they are Playwright tests, not Bun tests
+# Playwright tests should be run with: bunx playwright test
+root = "."
+coverage = false
+bail = false
+timeout = 60000
+
+# Only match .test.ts files, not .spec.ts files
+preload = ["./shared/bun-global-setup.ts"]
+

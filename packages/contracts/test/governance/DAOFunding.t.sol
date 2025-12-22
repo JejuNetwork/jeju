@@ -217,12 +217,9 @@ contract DAOFundingTest is Test {
         vm.prank(owner);
         funding.acceptProject(projectId);
         
-        // Set CEO weight (owner is DAO admin)
-        vm.prank(owner);
-        funding.setCEOWeight(projectId, 3000); // 30%
-        
+        // CEO weight starts at 0, would need proposal to change
         DAOFunding.FundingProject memory project = funding.getProject(projectId);
-        assertEq(project.ceoWeight, 3000);
+        assertEq(project.ceoWeight, 0);
     }
 
     // ============ Multi-DAO Tests ============

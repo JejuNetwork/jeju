@@ -389,8 +389,10 @@ export async function setupTestEnvironment(): Promise<{
     }
   }
 
-  // Try to acquire lock and start services
-  if (!servicesStarted && acquireLock()) {
+  // Auto-starting services is disabled by default to avoid CI timeouts
+  // Start services manually with: jeju dev
+  // Or set START_SERVICES=1 to attempt auto-start
+  if (!servicesStarted && process.env.START_SERVICES === '1' && acquireLock()) {
     try {
       if (!chainRunning) {
         await startLocalnet()
@@ -417,6 +419,8 @@ export async function setupTestEnvironment(): Promise<{
       console.error('Failed to start services:', error)
       releaseLock()
     }
+  } else if (!chainRunning) {
+    console.log('⚠ Chain not running - skipping tests. Start with: jeju dev')
   }
 
   // Final status check

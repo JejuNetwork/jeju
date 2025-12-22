@@ -39,10 +39,27 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     // =========================================================================
     string public name;
     uint256 public dailyWithdrawalLimit;
-    uint256 public withdrawnToday;
-    uint256 public lastWithdrawalDay;
     mapping(address => uint256) public tokenDeposits;
     uint256 public totalEthDeposits;
+
+    // =========================================================================
+    // SECURITY: Rolling 24-hour withdrawal tracking
+    // =========================================================================
+    // Uses circular buffer to track withdrawals in hourly buckets
+    // Prevents the "midnight reset attack" where attacker withdraws at 23:59 + 00:01
+    
+    uint256 public constant WITHDRAWAL_WINDOW = 24 hours;
+    uint256 public constant BUCKET_DURATION = 1 hours;
+    uint256 public constant NUM_BUCKETS = 24;
+    
+    struct WithdrawalBucket {
+        uint256 amount;
+        uint256 timestamp; // Bucket start timestamp
+    }
+    
+    // Circular buffer of hourly withdrawal buckets
+    WithdrawalBucket[24] public withdrawalBuckets;
+    uint256 public currentBucketIndex;
 
     // =========================================================================
     // Feature Flags
@@ -310,23 +327,91 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
         emit FundsWithdrawn(to, token, amount);
     }
 
+    /**
+     * @notice Enforce rolling 24-hour withdrawal limit
+     * @dev SECURITY: Uses rolling window instead of midnight reset to prevent gaming
+     * 
+     * Attack prevented: Without this, attacker could withdraw limit at 23:59 
+     * then again at 00:01 for 2x the limit. Rolling window ensures 24hr delay.
+     */
     function _enforceWithdrawalLimit(uint256 amount) internal {
-        uint256 currentDay = block.timestamp / 1 days;
-
-        if (currentDay > lastWithdrawalDay) {
-            withdrawnToday = 0;
-            lastWithdrawalDay = currentDay;
+        // Calculate current bucket
+        uint256 currentBucketStart = (block.timestamp / BUCKET_DURATION) * BUCKET_DURATION;
+        uint256 bucketIndex = (currentBucketStart / BUCKET_DURATION) % NUM_BUCKETS;
+        
+        // If bucket is stale (>24h old), reset it
+        if (withdrawalBuckets[bucketIndex].timestamp != currentBucketStart) {
+            withdrawalBuckets[bucketIndex] = WithdrawalBucket({
+                amount: 0,
+                timestamp: currentBucketStart
+            });
         }
-
-        uint256 remaining = dailyWithdrawalLimit > withdrawnToday
-            ? dailyWithdrawalLimit - withdrawnToday
+        
+        // Sum withdrawals from all active buckets (last 24 hours)
+        uint256 rollingTotal = 0;
+        // Safe subtraction - if timestamp < WITHDRAWAL_WINDOW, windowStart is 0
+        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW 
+            ? block.timestamp - WITHDRAWAL_WINDOW 
+            : 0;
+        
+        for (uint256 i = 0; i < NUM_BUCKETS; i++) {
+            WithdrawalBucket storage bucket = withdrawalBuckets[i];
+            // Include bucket if it's within the rolling window
+            // Note: bucket.amount > 0 check handles empty buckets
+            if (bucket.timestamp >= windowStart && bucket.amount > 0) {
+                rollingTotal += bucket.amount;
+            }
+        }
+        
+        // Check if withdrawal would exceed limit
+        uint256 remaining = dailyWithdrawalLimit > rollingTotal
+            ? dailyWithdrawalLimit - rollingTotal
             : 0;
 
         if (amount > remaining) {
             revert ExceedsDailyLimit(dailyWithdrawalLimit, amount, remaining);
         }
 
-        withdrawnToday += amount;
+        // Record withdrawal in current bucket
+        withdrawalBuckets[bucketIndex].amount += amount;
+        currentBucketIndex = bucketIndex;
+    }
+
+    /**
+     * @notice Get remaining withdrawal allowance in rolling window
+     */
+    function getRemainingWithdrawalAllowance() external view returns (uint256 remaining) {
+        uint256 rollingTotal = 0;
+        // Safe subtraction - if timestamp < WITHDRAWAL_WINDOW, windowStart is 0
+        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW 
+            ? block.timestamp - WITHDRAWAL_WINDOW 
+            : 0;
+        
+        for (uint256 i = 0; i < NUM_BUCKETS; i++) {
+            if (withdrawalBuckets[i].timestamp >= windowStart && withdrawalBuckets[i].amount > 0) {
+                rollingTotal += withdrawalBuckets[i].amount;
+            }
+        }
+        
+        remaining = dailyWithdrawalLimit > rollingTotal
+            ? dailyWithdrawalLimit - rollingTotal
+            : 0;
+    }
+
+    /**
+     * @notice Get total withdrawn in rolling 24-hour window
+     */
+    function getWithdrawnInWindow() external view returns (uint256 total) {
+        // Safe subtraction - if timestamp < WITHDRAWAL_WINDOW, windowStart is 0
+        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW 
+            ? block.timestamp - WITHDRAWAL_WINDOW 
+            : 0;
+        
+        for (uint256 i = 0; i < NUM_BUCKETS; i++) {
+            if (withdrawalBuckets[i].timestamp >= windowStart && withdrawalBuckets[i].amount > 0) {
+                total += withdrawalBuckets[i].amount;
+            }
+        }
     }
 
     // =========================================================================
@@ -689,15 +774,25 @@ contract Treasury is AccessControl, ReentrancyGuard, Pausable {
     function getWithdrawalInfo()
         external
         view
-        returns (uint256 limit, uint256 usedToday, uint256 remaining)
+        returns (uint256 limit, uint256 usedInWindow, uint256 remaining)
     {
-        uint256 currentDay = block.timestamp / 1 days;
-        uint256 todayWithdrawn = currentDay > lastWithdrawalDay ? 0 : withdrawnToday;
-        uint256 remainingToday = dailyWithdrawalLimit > todayWithdrawn
-            ? dailyWithdrawalLimit - todayWithdrawn
+        // Safe subtraction - if timestamp < WITHDRAWAL_WINDOW, windowStart is 0
+        uint256 windowStart = block.timestamp > WITHDRAWAL_WINDOW 
+            ? block.timestamp - WITHDRAWAL_WINDOW 
+            : 0;
+        uint256 rollingTotal = 0;
+        
+        for (uint256 i = 0; i < NUM_BUCKETS; i++) {
+            if (withdrawalBuckets[i].timestamp >= windowStart && withdrawalBuckets[i].amount > 0) {
+                rollingTotal += withdrawalBuckets[i].amount;
+            }
+        }
+        
+        uint256 remainingAmount = dailyWithdrawalLimit > rollingTotal
+            ? dailyWithdrawalLimit - rollingTotal
             : 0;
 
-        return (dailyWithdrawalLimit, todayWithdrawn, remainingToday);
+        return (dailyWithdrawalLimit, rollingTotal, remainingAmount);
     }
 
     function isOperator(address account) external view returns (bool) {
