@@ -1,48 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateQuery, errorResponse, expect } from '@/lib/validation';
 import { getModelsQuerySchema, createModelSchema } from '@/lib/validation/schemas';
+import { dwsClient } from '@/lib/services/dws';
 import type { Model } from '@/types';
 
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
-    validateQuery(getModelsQuerySchema, searchParams);
+    const query = validateQuery(getModelsQuerySchema, searchParams);
 
-    // Mock data - in production this would query the ModelRegistry contract
-    const models: Model[] = [
-      {
-        id: 'jeju/llama-3-jeju-ft',
-        name: 'Llama 3 Jeju Fine-tuned',
-        organization: 'jeju',
-        type: 'llm',
-        description: 'Fine-tuned for smart contract development',
-        version: '1.0.0',
-        fileUri: 'ipfs://...',
-        downloads: 15000,
-        stars: 234,
-        size: '4.2GB',
-        license: 'MIT',
-        createdAt: Date.now() - 30 * 24 * 60 * 60 * 1000,
-        updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-        status: 'ready',
-      },
-      {
-        id: 'jeju/code-embed-v1',
-        name: 'Code Embedding v1',
-        organization: 'jeju',
-        type: 'embedding',
-        description: 'Code embedding model for semantic search',
-        version: '1.0.0',
-        fileUri: 'ipfs://...',
-        downloads: 8500,
-        stars: 156,
-        size: '400MB',
-        license: 'Apache-2.0',
-        createdAt: Date.now() - 60 * 24 * 60 * 60 * 1000,
-        updatedAt: Date.now() - 14 * 24 * 60 * 60 * 1000,
-        status: 'ready',
-      },
-    ];
+    // Use DWS client to fetch real models
+    const models = await dwsClient.listModels({
+      type: query.type,
+      organization: query.organization,
+      search: query.q,
+    }).catch(() => []);
 
     return NextResponse.json({ models, total: models.length });
   } catch (error) {
@@ -58,6 +30,7 @@ export async function POST(request: NextRequest) {
     const organization = formData.get('organization');
     const description = formData.get('description');
     const type = formData.get('type');
+    const file = formData.get('file') as File | null;
 
     expect(name, 'Name is required');
     expect(organization, 'Organization is required');
@@ -71,6 +44,19 @@ export async function POST(request: NextRequest) {
       type: String(type),
     });
 
+    if (file) {
+      // Upload model to DWS
+      const model = await dwsClient.uploadModel({
+        name: validated.name,
+        organization: validated.organization,
+        description: validated.description,
+        type: validated.type,
+        file,
+      });
+      return NextResponse.json(model, { status: 201 });
+    }
+
+    // Return processing status if no file (metadata-only upload)
     const model: Model = {
       id: `${validated.organization}/${validated.name}`,
       name: validated.name,
@@ -92,6 +78,3 @@ export async function POST(request: NextRequest) {
     return errorResponse(message, 400);
   }
 }
-
-
-

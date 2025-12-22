@@ -2,11 +2,13 @@
  * Crucible Agent Runtime - REAL ElizaOS Integration
  *
  * This is NOT a mock or larp. This uses the actual ElizaOS AgentRuntime with:
- * - Real PGLite database for memory persistence
+ * - Real CQL (CovenantSQL) database for decentralized memory persistence
  * - Real action/provider/evaluator system
  * - Real state composition
  * - DWS for inference (decentralized)
  * - Jeju plugin for network actions
+ *
+ * NO SQLITE. NO POSTGRES. CQL ONLY.
  */
 
 import {
@@ -21,8 +23,7 @@ import {
   stringToUuid,
   ChannelType,
 } from '@elizaos/core';
-// @ts-expect-error - plugin-sql types not properly exported
-import { plugin as sqlPlugin } from '@elizaos/plugin-sql';
+import { cqlDatabasePlugin } from '@jejunetwork/eliza-plugin';
 import { getDWSComputeUrl } from '@jejunetwork/config';
 import type { AgentCharacter } from '../types';
 import { createLogger, type Logger } from './logger';
@@ -130,7 +131,7 @@ function createDWSModelPlugin(): Plugin {
 /**
  * Convert Crucible character format to ElizaOS Character format
  */
-function toElizaCharacter(char: AgentCharacter, agentId: string, dataDir: string): Character {
+function toElizaCharacter(char: AgentCharacter, agentId: string): Character {
   // Get network settings from environment
   const privateKey = process.env.PRIVATE_KEY ?? process.env.NETWORK_PRIVATE_KEY ?? '';
   const mnemonic = process.env.NETWORK_MNEMONIC ?? '';
@@ -153,8 +154,8 @@ function toElizaCharacter(char: AgentCharacter, agentId: string, dataDir: string
     },
     settings: {
       ...char.settings,
-      // Database settings
-      PGLITE_DATA_DIR: dataDir,
+      // CQL database settings
+      CQL_DATABASE_ID: process.env.CQL_DATABASE_ID ?? 'eliza',
       // DWS settings
       DWS_URL: getDWSEndpoint(),
       DWS_COMPUTE_URL: getDWSEndpoint() + '/compute',
@@ -244,20 +245,17 @@ export class CrucibleAgentRuntime {
       this.log.info('DWS inference available', { nodes: inference.nodes });
     }
 
-    // Set data directory for PGLite
-    const dataDir = this.config.dbPath ?? `.crucible-data/${this.config.agentId}`;
-    process.env.PGLITE_DATA_DIR = dataDir;
-    
     // Get network type for conditional plugin loading
     const network = process.env.NETWORK_TYPE ?? process.env.NETWORK ?? 'localnet';
     
     // Convert character to ElizaOS format (includes settings)
-    const character = toElizaCharacter(this.config.character, this.config.agentId, dataDir);
+    const character = toElizaCharacter(this.config.character, this.config.agentId);
     const agentUUID = stringToUuid(this.config.agentId);
 
-    // Load plugins - sql plugin handles database adapter creation and migrations
+    // Load plugins - CQL plugin handles database adapter creation and migrations
+    // NO SQLITE. NO POSTGRES. CQL ONLY.
     const plugins: Plugin[] = [
-      sqlPlugin,           // SQL plugin for database (MUST BE FIRST)
+      cqlDatabasePlugin,           // CQL plugin for decentralized database (MUST BE FIRST)
       createDWSModelPlugin(), // DWS inference provider
     ];
 

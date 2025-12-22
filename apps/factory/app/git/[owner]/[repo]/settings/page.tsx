@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { useAccount } from 'wagmi';
 import {
   Settings,
   ArrowLeft,
@@ -20,48 +19,86 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
+import { 
+  useRepoSettings, 
+  useUpdateRepoSettings, 
+  useAddCollaborator, 
+  useRemoveCollaborator,
+  useAddWebhook,
+  useDeleteWebhook,
+  useTransferRepo,
+  useDeleteRepo,
+} from '../../../../../hooks';
 
 type SettingsTab = 'general' | 'branches' | 'collaborators' | 'webhooks' | 'danger';
-
-const mockCollaborators = [
-  { id: '1', name: 'alice.eth', avatar: 'https://avatars.githubusercontent.com/u/1?v=4', role: 'admin' },
-  { id: '2', name: 'bob.eth', avatar: 'https://avatars.githubusercontent.com/u/2?v=4', role: 'write' },
-  { id: '3', name: 'charlie.eth', avatar: 'https://avatars.githubusercontent.com/u/3?v=4', role: 'read' },
-];
-
-const mockBranches = [
-  { name: 'main', protected: true, lastCommit: '2 hours ago' },
-  { name: 'develop', protected: false, lastCommit: '1 day ago' },
-  { name: 'feature/auth', protected: false, lastCommit: '3 days ago' },
-];
-
-const mockWebhooks = [
-  { id: '1', url: 'https://ci.jejunetwork.org/hooks/build', events: ['push', 'pull_request'], active: true },
-  { id: '2', url: 'https://discord.com/api/webhooks/...', events: ['release'], active: true },
-];
 
 export default function RepoSettingsPage() {
   const params = useParams();
   const router = useRouter();
-  // Mark as used to suppress linter
-  void router;
-  const { isConnected: _isConnected } = useAccount();
   const owner = params.owner as string;
   const repo = params.repo as string;
 
+  const { settings, isLoading } = useRepoSettings(owner, repo);
+  const updateSettings = useUpdateRepoSettings(owner, repo);
+  const addCollaborator = useAddCollaborator(owner, repo);
+  const removeCollaborator = useRemoveCollaborator(owner, repo);
+  const addWebhook = useAddWebhook(owner, repo);
+  const deleteWebhook = useDeleteWebhook(owner, repo);
+  const transferRepo = useTransferRepo(owner, repo);
+  const deleteRepo = useDeleteRepo(owner, repo);
+
   const [tab, setTab] = useState<SettingsTab>('general');
-  const [repoName, setRepoName] = useState(repo);
-  const [description, setDescription] = useState('A decentralized application for the Jeju Network');
+  const [repoName, setRepoName] = useState('');
+  const [description, setDescription] = useState('');
   const [isPrivate, setIsPrivate] = useState(false);
   const [defaultBranch, setDefaultBranch] = useState('main');
-  const [isSaving, setIsSaving] = useState(false);
   const [deleteConfirm, setDeleteConfirm] = useState('');
   const [newCollaborator, setNewCollaborator] = useState('');
+  const [newCollaboratorRole, setNewCollaboratorRole] = useState<'read' | 'write' | 'admin'>('write');
+  const [newWebhookUrl, setNewWebhookUrl] = useState('');
+  const [newTransferOwner, setNewTransferOwner] = useState('');
+
+  // Initialize form values when settings load
+  useState(() => {
+    if (settings) {
+      setRepoName(settings.name);
+      setDescription(settings.description);
+      setIsPrivate(settings.visibility === 'private');
+      setDefaultBranch(settings.defaultBranch);
+    }
+  });
 
   const handleSave = async () => {
-    setIsSaving(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSaving(false);
+    await updateSettings.mutateAsync({
+      name: repoName,
+      description,
+      visibility: isPrivate ? 'private' : 'public',
+      defaultBranch,
+    });
+  };
+
+  const handleAddCollaborator = async () => {
+    if (!newCollaborator) return;
+    await addCollaborator.mutateAsync({ login: newCollaborator, permission: newCollaboratorRole });
+    setNewCollaborator('');
+  };
+
+  const handleAddWebhook = async () => {
+    if (!newWebhookUrl) return;
+    await addWebhook.mutateAsync({ url: newWebhookUrl, events: ['push', 'pull_request'] });
+    setNewWebhookUrl('');
+  };
+
+  const handleTransfer = async () => {
+    if (!newTransferOwner) return;
+    await transferRepo.mutateAsync(newTransferOwner);
+    router.push(`/git/${newTransferOwner}/${repo}`);
+  };
+
+  const handleDelete = async () => {
+    if (deleteConfirm !== `${owner}/${repo}`) return;
+    await deleteRepo.mutateAsync();
+    router.push('/git');
   };
 
   const tabs = [
@@ -71,6 +108,14 @@ export default function RepoSettingsPage() {
     { id: 'webhooks' as const, label: 'Webhooks', icon: Webhook },
     { id: 'danger' as const, label: 'Danger Zone', icon: AlertTriangle },
   ];
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen p-8 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-accent-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-8">
@@ -122,7 +167,7 @@ export default function RepoSettingsPage() {
                   <label className="block text-sm font-medium text-factory-300 mb-2">Repository name</label>
                   <input
                     type="text"
-                    value={repoName}
+                    value={repoName || settings?.name || ''}
                     onChange={(e) => setRepoName(e.target.value)}
                     className="input"
                   />
@@ -131,7 +176,7 @@ export default function RepoSettingsPage() {
                 <div>
                   <label className="block text-sm font-medium text-factory-300 mb-2">Description</label>
                   <textarea
-                    value={description}
+                    value={description || settings?.description || ''}
                     onChange={(e) => setDescription(e.target.value)}
                     rows={3}
                     className="input resize-none"
@@ -183,7 +228,7 @@ export default function RepoSettingsPage() {
                     onChange={(e) => setDefaultBranch(e.target.value)}
                     className="input"
                   >
-                    {mockBranches.map(b => (
+                    {settings?.branches.map(b => (
                       <option key={b.name} value={b.name}>{b.name}</option>
                     ))}
                   </select>
@@ -192,10 +237,10 @@ export default function RepoSettingsPage() {
                 <div className="pt-4 border-t border-factory-800">
                   <button
                     onClick={handleSave}
-                    disabled={isSaving}
+                    disabled={updateSettings.isPending}
                     className="btn btn-primary"
                   >
-                    {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                    {updateSettings.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Save changes
                   </button>
                 </div>
@@ -213,7 +258,7 @@ export default function RepoSettingsPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {mockBranches.map(branch => (
+                  {settings?.branches.map(branch => (
                     <div key={branch.name} className="flex items-center justify-between p-4 bg-factory-800/50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <GitBranch className="w-4 h-4 text-factory-400" />
@@ -221,13 +266,13 @@ export default function RepoSettingsPage() {
                         {branch.protected && (
                           <span className="badge bg-yellow-500/20 text-yellow-400 text-xs">Protected</span>
                         )}
+                        {branch.default && (
+                          <span className="badge bg-blue-500/20 text-blue-400 text-xs">Default</span>
+                        )}
                       </div>
-                      <div className="flex items-center gap-3">
-                        <span className="text-factory-500 text-sm">{branch.lastCommit}</span>
-                        <button className="text-factory-400 hover:text-factory-200">
-                          <Settings className="w-4 h-4" />
-                        </button>
-                      </div>
+                      <button className="text-factory-400 hover:text-factory-200">
+                        <Settings className="w-4 h-4" />
+                      </button>
                     </div>
                   ))}
                 </div>
@@ -246,29 +291,39 @@ export default function RepoSettingsPage() {
                     placeholder="Add collaborator by address or ENS..."
                     className="input flex-1"
                   />
-                  <button className="btn btn-primary">
-                    <Plus className="w-4 h-4" />
+                  <select
+                    value={newCollaboratorRole}
+                    onChange={(e) => setNewCollaboratorRole(e.target.value as 'read' | 'write' | 'admin')}
+                    className="input w-32"
+                  >
+                    <option value="read">Read</option>
+                    <option value="write">Write</option>
+                    <option value="admin">Admin</option>
+                  </select>
+                  <button 
+                    onClick={handleAddCollaborator}
+                    disabled={addCollaborator.isPending}
+                    className="btn btn-primary"
+                  >
+                    {addCollaborator.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                     Add
                   </button>
                 </div>
 
                 <div className="space-y-3">
-                  {mockCollaborators.map(collab => (
-                    <div key={collab.id} className="flex items-center justify-between p-4 bg-factory-800/50 rounded-lg">
+                  {settings?.collaborators.map(collab => (
+                    <div key={collab.login} className="flex items-center justify-between p-4 bg-factory-800/50 rounded-lg">
                       <div className="flex items-center gap-3">
                         <img src={collab.avatar} alt="" className="w-8 h-8 rounded-full" />
-                        <span className="text-factory-200">{collab.name}</span>
+                        <span className="text-factory-200">{collab.login}</span>
                       </div>
                       <div className="flex items-center gap-3">
-                        <select
-                          defaultValue={collab.role}
-                          className="input text-sm py-1"
+                        <span className="badge bg-factory-700 text-factory-300 capitalize">{collab.permission}</span>
+                        <button 
+                          onClick={() => removeCollaborator.mutate(collab.login)}
+                          disabled={removeCollaborator.isPending}
+                          className="text-red-400 hover:text-red-300 p-1"
                         >
-                          <option value="read">Read</option>
-                          <option value="write">Write</option>
-                          <option value="admin">Admin</option>
-                        </select>
-                        <button className="text-red-400 hover:text-red-300 p-1">
                           <X className="w-4 h-4" />
                         </button>
                       </div>
@@ -282,14 +337,28 @@ export default function RepoSettingsPage() {
               <div className="card p-6 space-y-6">
                 <div className="flex items-center justify-between">
                   <h2 className="text-lg font-semibold text-factory-100">Webhooks</h2>
-                  <button className="btn btn-primary text-sm">
-                    <Plus className="w-4 h-4" />
+                </div>
+
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={newWebhookUrl}
+                    onChange={(e) => setNewWebhookUrl(e.target.value)}
+                    placeholder="https://example.com/webhook"
+                    className="input flex-1"
+                  />
+                  <button 
+                    onClick={handleAddWebhook}
+                    disabled={addWebhook.isPending}
+                    className="btn btn-primary text-sm"
+                  >
+                    {addWebhook.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
                     Add webhook
                   </button>
                 </div>
 
                 <div className="space-y-3">
-                  {mockWebhooks.map(webhook => (
+                  {settings?.webhooks.map(webhook => (
                     <div key={webhook.id} className="p-4 bg-factory-800/50 rounded-lg">
                       <div className="flex items-center justify-between mb-2">
                         <code className="text-factory-200 text-sm">{webhook.url}</code>
@@ -298,8 +367,12 @@ export default function RepoSettingsPage() {
                             'w-2 h-2 rounded-full',
                             webhook.active ? 'bg-green-400' : 'bg-gray-400'
                           )} />
-                          <button className="text-factory-400 hover:text-factory-200">
-                            <Settings className="w-4 h-4" />
+                          <button 
+                            onClick={() => deleteWebhook.mutate(webhook.id)}
+                            disabled={deleteWebhook.isPending}
+                            className="text-red-400 hover:text-red-300"
+                          >
+                            <X className="w-4 h-4" />
                           </button>
                         </div>
                       </div>
@@ -321,19 +394,23 @@ export default function RepoSettingsPage() {
                   <p className="text-factory-400 text-sm mb-4">
                     Transfer this repository to another user or organization.
                   </p>
-                  <button className="btn bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30">
-                    Transfer ownership
-                  </button>
-                </div>
-
-                <div className="card p-6 border-red-500/30">
-                  <h3 className="text-lg font-semibold text-red-400 mb-4">Archive Repository</h3>
-                  <p className="text-factory-400 text-sm mb-4">
-                    Mark this repository as archived and read-only.
-                  </p>
-                  <button className="btn bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30">
-                    Archive this repository
-                  </button>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={newTransferOwner}
+                      onChange={(e) => setNewTransferOwner(e.target.value)}
+                      placeholder="New owner address or ENS"
+                      className="input flex-1"
+                    />
+                    <button 
+                      onClick={handleTransfer}
+                      disabled={transferRepo.isPending || !newTransferOwner}
+                      className="btn bg-red-500/20 text-red-400 border-red-500/30 hover:bg-red-500/30"
+                    >
+                      {transferRepo.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Transfer ownership
+                    </button>
+                  </div>
                 </div>
 
                 <div className="card p-6 border-red-500/30">
@@ -353,10 +430,11 @@ export default function RepoSettingsPage() {
                       className="input"
                     />
                     <button
-                      disabled={deleteConfirm !== `${owner}/${repo}`}
+                      onClick={handleDelete}
+                      disabled={deleteConfirm !== `${owner}/${repo}` || deleteRepo.isPending}
                       className="btn bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      {deleteRepo.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                       Delete this repository
                     </button>
                   </div>
@@ -369,5 +447,3 @@ export default function RepoSettingsPage() {
     </div>
   );
 }
-
-

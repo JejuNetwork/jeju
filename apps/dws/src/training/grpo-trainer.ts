@@ -176,7 +176,7 @@ export class GRPOTrainer {
     console.log(`[GRPO] Atropos: ${this.config.atroposUrl}`);
 
     this.pythonProcess = spawn([
-      'python',
+      'python3',
       scriptPath,
       '--model', this.config.modelName,
       '--steps', String(this.config.trainingSteps),

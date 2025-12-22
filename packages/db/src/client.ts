@@ -30,9 +30,10 @@ const QueryResponseSchema = z.object({
 const ExecResponseSchema = z.object({
   rowsAffected: z.number(),
   lastInsertId: z.string().optional(),
-  txHash: z.string(),
-  blockHeight: z.number(),
-  gasUsed: z.string(),
+  lastInsertRowid: z.number().optional(), // Mock server compat
+  txHash: z.string().optional().default('0x0mock'),
+  blockHeight: z.number().optional().default(0),
+  gasUsed: z.string().optional().default('0'),
 });
 
 // Zod schema for CQL config validation

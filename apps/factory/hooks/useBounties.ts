@@ -109,7 +109,7 @@ export function useBounties(filter?: {
   creator?: Address;
   daoId?: string;
 }) {
-  const bountyRegistryAddress = getContractAddressSafe('daoRegistry'); // TODO: Add bounty registry address
+  const bountyRegistryAddress = getContractAddressSafe('bountyRegistry');
 
   // Try to fetch from contract first
   const { data: bountyIds } = useReadContract({

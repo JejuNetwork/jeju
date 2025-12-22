@@ -26,7 +26,7 @@ describe('DA Layer HTTP API', () => {
 
   // ============ Blob Submission ============
 
-  it.skip('should submit a blob', async () => {
+  it('should submit a blob', async () => {
     // First register an operator so dispersal can work
     const operator = {
       address: TEST_ADDRESS,
@@ -70,7 +70,7 @@ describe('DA Layer HTTP API', () => {
       const error = await response.json() as { error: string; blobId: Hex };
       expect(error.blobId).toMatch(/^0x[a-f0-9]{64}$/);
     }
-  });
+  }, { timeout: 60000 }); // KZG proof generation can take up to 60s
 
   // ============ Operators ============
 

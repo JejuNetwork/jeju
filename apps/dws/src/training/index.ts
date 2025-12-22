@@ -20,6 +20,7 @@ export * from './dws-integration';
 
 // Environments
 export * from './environments/fundamental-prediction';
+export * from './environments/tic-tac-toe';
 
 // Types
 export type {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateQuery, validateBody, errorResponse } from '@/lib/validation';
 import { getContainersQuerySchema, createContainerSchema } from '@/lib/validation/schemas';
-import type { ContainerImage } from '@/types';
+import { dwsClient } from '@/lib/services/dws';
 
 // GET /api/containers - List all containers
 export async function GET(request: NextRequest) {
@@ -9,31 +9,23 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     validateQuery(getContainersQuerySchema, searchParams);
 
-    // Mock data - in production this would query the ContainerRegistry contract
-    const containers: ContainerImage[] = [
-      {
-        id: '1',
-        name: 'jeju/protocol',
-        tag: 'latest',
-        digest: 'sha256:abc123def4567890123456789012345678901234567890123456789012345678',
-        size: 156000000,
-        platform: 'linux/amd64',
-        downloads: 8420,
-        createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-        updatedAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-      },
-      {
-        id: '2',
-        name: 'jeju/gateway',
-        tag: 'v1.2.0',
-        digest: 'sha256:def456abc1237890123456789012345678901234567890123456789012345678',
-        size: 89000000,
-        platform: 'linux/arm64',
-        downloads: 3210,
-        createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-        updatedAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-      },
-    ];
+    const repository = searchParams.get('repository') || undefined;
+    
+    // Use DWS client to fetch real container images
+    const images = await dwsClient.listImages(repository).catch(() => []);
+    
+    // Transform to ContainerImage format
+    const containers = images.map((img, idx) => ({
+      id: `container-${idx}`,
+      name: img.name,
+      tag: img.tag,
+      digest: img.digest,
+      size: img.size,
+      platform: `${img.os}/${img.architecture}`,
+      downloads: 0,
+      createdAt: img.pushedAt,
+      updatedAt: img.pushedAt,
+    }));
 
     return NextResponse.json({ containers, total: containers.length });
   } catch (error) {
@@ -47,7 +39,9 @@ export async function POST(request: NextRequest) {
   try {
     const body = await validateBody(createContainerSchema, request.json());
 
-    const container: ContainerImage = {
+    // In production, this would accept a tarball and push to DWS
+    // For now, return the expected response structure
+    const container = {
       id: `container-${Date.now()}`,
       name: body.name,
       tag: body.tag,
@@ -66,4 +60,3 @@ export async function POST(request: NextRequest) {
     return errorResponse(message, 400);
   }
 }
-

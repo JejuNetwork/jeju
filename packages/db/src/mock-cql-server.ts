@@ -105,7 +105,9 @@ async function handleCQLQuery(c: Context): Promise<Response> {
     return c.json({
       success: true,
       rowsAffected: result.changes,
-      lastInsertRowid: Number(result.lastInsertRowid),
+      lastInsertId: String(result.lastInsertRowid),
+      txHash: `0x${Date.now().toString(16)}mock`,
+      gasUsed: '0',
       executionTime,
       blockHeight: 0,
     });

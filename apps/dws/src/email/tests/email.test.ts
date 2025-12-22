@@ -294,7 +294,7 @@ describe('MailboxStorage', () => {
     expect(exported.emails.length).toBe(1);
   });
 
-  test.skip('deletes all user data', async () => {
+  test('deletes all user data', async () => {
     const owner = '0x1234567890123456789012345678901234567890' as Address;
     await storage.initializeMailbox(owner);
 

@@ -118,15 +118,24 @@ describe('Blob Manager', () => {
   let blobManager: BlobManager;
   const testAddress = '0x1234567890123456789012345678901234567890' as Address;
 
+  // Use smaller config for faster tests
+  const testConfig = {
+    erasure: {
+      dataShards: 4,
+      parityShards: 4,
+      chunkSize: 1024,
+    },
+  };
+
   beforeAll(async () => {
     await initializeCommitmentSystem();
   });
 
   beforeEach(() => {
-    blobManager = new BlobManager();
+    blobManager = new BlobManager(testConfig);
   });
 
-  it.skip('should submit and retrieve blob', async () => {
+  it('should submit and retrieve blob', async () => {
     const data = new TextEncoder().encode('Blob manager test');
     
     const { blob, chunks, commitment, metadata } = await blobManager.submit({
@@ -135,7 +144,7 @@ describe('Blob Manager', () => {
     });
     
     expect(blob.id).toBeDefined();
-    expect(chunks.length).toBe(32); // 16 data + 16 parity by default
+    expect(chunks.length).toBe(8); // 4 data + 4 parity
     expect(commitment.commitment).toBeDefined();
     expect(metadata.status).toBe('pending');
     
@@ -149,7 +158,7 @@ describe('Blob Manager', () => {
     expect(retrieved.verified).toBe(true);
   });
 
-  it.skip('should track blob status', async () => {
+  it('should track blob status', async () => {
     const data = new TextEncoder().encode('Status test');
     
     const { blob } = await blobManager.submit({
@@ -163,7 +172,7 @@ describe('Blob Manager', () => {
     expect(blobManager.getMetadata(blob.id)?.status).toBe('available');
   });
 
-  it.skip('should list blobs by status', async () => {
+  it('should list blobs by status', async () => {
     const data1 = new TextEncoder().encode('Blob 1');
     const data2 = new TextEncoder().encode('Blob 2');
     
@@ -177,7 +186,7 @@ describe('Blob Manager', () => {
     
     expect(pending.length).toBe(1);
     expect(available.length).toBe(1);
-  });
+  }, { timeout: 30000 }); // Extended timeout for KZG operations
 });
 
 describe('Data Availability Sampling', () => {

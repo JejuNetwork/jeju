@@ -27,8 +27,10 @@
   "dependencies": {
     "@elizaos/core": "1.7.0",
     "@jejunetwork/config": "workspace:*",
+    "@jejunetwork/db": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/types": "workspace:*",
+    "uuid": "^10.0.0",
     "viem": "2.43.2"
   },
   "devDependencies": {

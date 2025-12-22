@@ -29,7 +29,6 @@
   },
   "dependencies": {
     "@elizaos/core": "^1.6.6",
-    "@elizaos/plugin-sql": "^1.7.0",
     "@hono/node-server": "^1.19.7",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",

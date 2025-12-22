@@ -34,6 +34,7 @@
     "test:e2e:full": "NETWORK=localnet bun test tests/full-e2e.test.ts",
     "test:synpress": "cd frontend && bunx synpress --headless",
     "train:demo": "bun run src/training/demo-full-system.ts",
+    "train:integrated": "bun run src/training/run-integrated-demo.ts",
     "train:real": "bun run src/training/run-real-training.ts",
     "train:test": "bun test src/training/",
     "train:atropos": "bun run src/training/atropos-server.ts",

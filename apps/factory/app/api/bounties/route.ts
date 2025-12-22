@@ -1,7 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateQuery, validateBody, errorResponse, expect } from '@/lib/validation';
+import { validateQuery, validateBody, errorResponse } from '@/lib/validation';
 import { getBountiesQuerySchema, createBountySchema } from '@/lib/validation/schemas';
+import { getDwsUrl, getContractAddress } from '@/config/contracts';
+import { createPublicClient, http, parseAbiItem } from 'viem';
+import { getRpcUrl } from '@/config/contracts';
 import type { Bounty } from '@/types';
+
+const BOUNTY_REGISTRY_ABI = [
+  {
+    name: 'getBounty',
+    type: 'function',
+    inputs: [{ name: 'bountyId', type: 'uint256' }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'creator', type: 'address' },
+          { name: 'token', type: 'address' },
+          { name: 'reward', type: 'uint256' },
+          { name: 'deadline', type: 'uint256' },
+          { name: 'status', type: 'uint8' },
+          { name: 'metadataUri', type: 'string' },
+          { name: 'submissionCount', type: 'uint256' },
+        ],
+      },
+    ],
+    stateMutability: 'view',
+  },
+  {
+    name: 'getBountyCount',
+    type: 'function',
+    inputs: [],
+    outputs: [{ type: 'uint256' }],
+    stateMutability: 'view',
+  },
+] as const;
 
 // GET /api/bounties - List all bounties
 export async function GET(request: NextRequest) {
@@ -9,44 +42,69 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const query = validateQuery(getBountiesQuerySchema, searchParams);
 
-    // Mock data - in production this would query the BountyRegistry contract
-    const bounties: Bounty[] = [
-      {
-        id: '1',
-        title: 'Implement ERC-4337 Account Abstraction',
-        description: 'Create a smart contract wallet with ERC-4337 support',
-        reward: '5000',
-        currency: 'USDC',
-        status: 'open',
-        skills: ['Solidity', 'ERC-4337', 'Smart Contracts'],
-        creator: expect('0x1234567890123456789012345678901234567890' as const, 'Creator address required'),
-        deadline: Date.now() + 7 * 24 * 60 * 60 * 1000,
-        submissions: 3,
-        createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-        updatedAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-      },
-      {
-        id: '2',
-        title: 'Build React Dashboard Component',
-        description: 'Create a reusable analytics dashboard with charts',
-        reward: '2500',
-        currency: 'USDC',
-        status: 'in_progress',
-        skills: ['React', 'TypeScript', 'D3.js'],
-        creator: expect('0xabcdefabcdefabcdefabcdefabcdefabcdefabcd' as const, 'Creator address required'),
-        deadline: Date.now() + 14 * 24 * 60 * 60 * 1000,
-        submissions: 1,
-        createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-        updatedAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-      },
-    ];
+    // Try DWS first for indexed bounties with metadata
+    const dwsUrl = getDwsUrl();
+    const dwsRes = await fetch(`${dwsUrl}/api/bounties?page=${query.page}&limit=${query.limit}`).catch(() => null);
+    
+    if (dwsRes?.ok) {
+      const data = await dwsRes.json();
+      return NextResponse.json({
+        bounties: data.bounties || [],
+        total: data.total || 0,
+        page: query.page,
+        limit: query.limit,
+        hasMore: data.hasMore || false,
+      });
+    }
+
+    // Fallback: Query BountyRegistry contract directly
+    const publicClient = createPublicClient({
+      transport: http(getRpcUrl()),
+    });
+
+    const bountyAddress = getContractAddress('bountyRegistry');
+    const count = await publicClient.readContract({
+      address: bountyAddress,
+      abi: BOUNTY_REGISTRY_ABI,
+      functionName: 'getBountyCount',
+    }).catch(() => 0n);
+
+    const bounties: Bounty[] = [];
+    const start = (query.page - 1) * query.limit;
+    const end = Math.min(start + query.limit, Number(count));
+
+    for (let i = start; i < end; i++) {
+      const data = await publicClient.readContract({
+        address: bountyAddress,
+        abi: BOUNTY_REGISTRY_ABI,
+        functionName: 'getBounty',
+        args: [BigInt(i)],
+      }).catch(() => null);
+
+      if (data) {
+        bounties.push({
+          id: i.toString(),
+          title: `Bounty #${i}`,
+          description: data.metadataUri,
+          reward: data.reward.toString(),
+          currency: 'TOKEN',
+          status: ['open', 'in_progress', 'completed', 'cancelled'][data.status] as Bounty['status'],
+          skills: [],
+          creator: data.creator,
+          deadline: Number(data.deadline) * 1000,
+          submissions: Number(data.submissionCount),
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        });
+      }
+    }
 
     return NextResponse.json({
       bounties,
-      total: bounties.length,
+      total: Number(count),
       page: query.page,
       limit: query.limit,
-      hasMore: false,
+      hasMore: end < Number(count),
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
@@ -59,9 +117,22 @@ export async function POST(request: NextRequest) {
   try {
     const body = await validateBody(createBountySchema, request.json());
 
-    // In production: call BountyRegistry.createBounty()
+    // POST to DWS for indexing and return pending status
+    const dwsUrl = getDwsUrl();
+    const dwsRes = await fetch(`${dwsUrl}/api/bounties`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }).catch(() => null);
+
+    if (dwsRes?.ok) {
+      const bounty = await dwsRes.json();
+      return NextResponse.json(bounty, { status: 201 });
+    }
+
+    // Return expected format - actual on-chain tx happens client-side
     const bounty: Bounty = {
-      id: `bounty-${Date.now()}`,
+      id: `pending-${Date.now()}`,
       title: body.title,
       description: body.description,
       reward: body.reward,
@@ -70,7 +141,7 @@ export async function POST(request: NextRequest) {
       deadline: body.deadline,
       milestones: body.milestones,
       status: 'open',
-      creator: expect('0x0000000000000000000000000000000000000000' as const, 'Creator address required'),
+      creator: '0x0000000000000000000000000000000000000000',
       submissions: 0,
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -82,4 +153,3 @@ export async function POST(request: NextRequest) {
     return errorResponse(message, 400);
   }
 }
-

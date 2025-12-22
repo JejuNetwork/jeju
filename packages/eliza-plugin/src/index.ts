@@ -297,3 +297,6 @@ export {
 
 // Re-export service
 export { JejuService } from "./service";
+
+// CQL Database Plugin
+export { cqlDatabasePlugin, CQLDatabaseAdapter, runCQLMigrations, checkMigrationStatus, CQL_SCHEMA } from "./db";

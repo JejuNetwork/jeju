@@ -4,7 +4,13 @@ Decentralized agent orchestration platform for autonomous AI agents.
 
 ## Overview
 
-Crucible provides **fully decentralized** agent deployment using the DWS compute network for AI inference. Agents use **@jejunetwork/eliza-plugin** which provides **60+ network actions**:
+Crucible provides **fully decentralized** agent deployment:
+
+- **CQL Database** - CovenantSQL for decentralized memory persistence (NO SQLITE, NO POSTGRES)
+- **DWS Compute** - Decentralized AI inference network
+- **@jejunetwork/eliza-plugin** - 60+ network actions for agents
+
+### Plugin Capabilities
 
 - **Compute**: GPU rental, inference, triggers
 - **Storage**: IPFS upload/download, pinning
@@ -23,21 +29,22 @@ Crucible provides **fully decentralized** agent deployment using the DWS compute
 │   API Server    │    Executor     │      SDK                     │
 │   (Hono)        │    (Daemon)     │   (TypeScript)               │
 ├─────────────────┴─────────────────┴─────────────────────────────┤
-│                     Agent Runtime                                │
+│                     Agent Runtime (ElizaOS)                      │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │ Character-based agents + @jejunetwork/eliza-plugin       │   │
-│  │ (60+ network actions)                                     │   │
+│  │ (60+ network actions + CQL database adapter)             │   │
 │  └──────────────────────────────────────────────────────────┘   │
 ├─────────────────────────────────────────────────────────────────┤
 │                  Decentralized Services                          │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
-│  │ DWS Compute  │  │ IPFS Storage │  │ On-chain Contracts   │   │
-│  │ (Inference)  │  │              │  │                      │   │
+│  │ CovenantSQL  │  │ DWS Compute  │  │ IPFS Storage         │   │
+│  │ (Memory/DB)  │  │ (Inference)  │  │                      │   │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘   │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-All AI inference goes through the decentralized DWS compute network - no centralized API dependencies.
+All AI inference goes through the decentralized DWS compute network.
+All memory persistence uses CovenantSQL - no centralized database dependencies.
 
 ## Local Development
 

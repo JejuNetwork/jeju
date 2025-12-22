@@ -432,6 +432,70 @@ export function createTrainingRoutes(
     return c.json({ port, url: `http://localhost:${port}` });
   });
 
+  // Bridge Merkle root computation
+  app.post('/bridge/merkle/root', async (c) => {
+    const body = await c.req.json() as { 
+      rewards: Array<{ client: string; amount: string }> 
+    };
+
+    const { createCrossChainBridge } = await import('./cross-chain-bridge');
+    const bridge = createCrossChainBridge({
+      solanaRpcUrl: 'http://localhost:8899',
+      evmRpcUrl: 'http://localhost:6546',
+      bridgeContractAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+    });
+
+    const rewards = body.rewards.map(r => ({
+      client: r.client as `0x${string}`,
+      amount: BigInt(r.amount),
+    }));
+
+    const root = bridge.computeRewardsMerkleRoot(rewards);
+    return c.json({ root });
+  });
+
+  // Bridge Merkle proof generation
+  app.post('/bridge/merkle/proof', async (c) => {
+    const body = await c.req.json() as { 
+      rewards: Array<{ client: string; amount: string }>;
+      index: number;
+    };
+
+    const { createCrossChainBridge } = await import('./cross-chain-bridge');
+    const bridge = createCrossChainBridge({
+      solanaRpcUrl: 'http://localhost:8899',
+      evmRpcUrl: 'http://localhost:6546',
+      bridgeContractAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
+    });
+
+    const rewards = body.rewards.map(r => ({
+      client: r.client as `0x${string}`,
+      amount: BigInt(r.amount),
+    }));
+
+    const proof = bridge.generateMerkleProof(rewards, body.index);
+    return c.json({ proof });
+  });
+
+  // Cancel a job
+  app.post('/jobs/:jobId/cancel', (c) => {
+    const jobId = c.req.param('jobId');
+    const job = jobQueue.getJob(jobId);
+
+    if (!job) {
+      return c.json({ error: 'Job not found' }, 404);
+    }
+
+    jobQueue.releaseAllocations(jobId);
+    return c.json({ success: true, jobId });
+  });
+
+  // Get total job count
+  app.get('/jobs/count', (c) => {
+    const jobs = jobQueue.getAllJobs();
+    return c.json({ count: jobs.length });
+  });
+
   return app;
 }
 

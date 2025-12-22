@@ -38,6 +38,22 @@ export interface GitFile {
   type: 'file' | 'dir';
   size?: number;
   sha: string;
+  lastCommitMessage?: string;
+  lastModified?: number;
+}
+
+export interface RepoData {
+  owner: string;
+  name: string;
+  description: string;
+  isPrivate: boolean;
+  stars: number;
+  forks: number;
+  tags: number;
+  branches: string[];
+  files: GitFile[];
+  commits: GitCommit[];
+  readme?: string;
 }
 
 export interface GitCommit {
@@ -78,6 +94,39 @@ async function fetchRepository(owner: string, name: string): Promise<Repository 
   const res = await fetch(`${dwsUrl}/api/git/repos/${owner}/${name}`);
   if (!res.ok) return null;
   return res.json();
+}
+
+async function fetchRepoData(owner: string, name: string): Promise<RepoData | null> {
+  const dwsUrl = getDwsUrl();
+  
+  // Fetch repo details, files, commits, and branches in parallel
+  const [repoRes, filesRes, commitsRes, branchesRes] = await Promise.all([
+    fetch(`${dwsUrl}/api/git/repos/${owner}/${name}`),
+    fetch(`${dwsUrl}/api/git/repos/${owner}/${name}/files`),
+    fetch(`${dwsUrl}/api/git/repos/${owner}/${name}/commits?limit=10`),
+    fetch(`${dwsUrl}/api/git/repos/${owner}/${name}/branches`),
+  ]);
+
+  if (!repoRes.ok) return null;
+
+  const repo = await repoRes.json();
+  const filesData = filesRes.ok ? await filesRes.json() : { files: [] };
+  const commitsData = commitsRes.ok ? await commitsRes.json() : { commits: [] };
+  const branchesData = branchesRes.ok ? await branchesRes.json() : { branches: [] };
+
+  return {
+    owner,
+    name,
+    description: repo.description || '',
+    isPrivate: repo.isPrivate || false,
+    stars: repo.stars || 0,
+    forks: repo.forks || 0,
+    tags: repo.tags || 0,
+    branches: (branchesData.branches || []).map((b: { name: string }) => b.name),
+    files: filesData.files || [],
+    commits: commitsData.commits || [],
+    readme: repo.readme,
+  };
 }
 
 async function fetchRepositoryStats(): Promise<RepositoryStats> {
@@ -167,6 +216,22 @@ export function useRepository(owner: string, name: string) {
 
   return {
     repository,
+    isLoading,
+    error,
+    refetch,
+  };
+}
+
+export function useRepo(owner: string, name: string) {
+  const { data: repo, isLoading, error, refetch } = useQuery({
+    queryKey: ['repo', owner, name],
+    queryFn: () => fetchRepoData(owner, name),
+    enabled: !!owner && !!name,
+    staleTime: 30000,
+  });
+
+  return {
+    repo,
     isLoading,
     error,
     refetch,

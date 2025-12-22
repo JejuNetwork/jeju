@@ -14,6 +14,7 @@ export interface ContractAddresses {
   daoRegistry: Address;
   identityRegistry: Address;
   workAgreementRegistry: Address;
+  bountyRegistry: Address;
 }
 
 // Localnet default addresses (deterministic from anvil)
@@ -24,6 +25,7 @@ const LOCALNET_ADDRESSES: ContractAddresses = {
   daoRegistry: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
   identityRegistry: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
   workAgreementRegistry: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853',
+  bountyRegistry: '0x610178dA211FEF7D417bC0e6FeD39F05609AD788',
 };
 
 // Testnet addresses (Jeju Testnet)
@@ -35,6 +37,7 @@ const TESTNET_ADDRESSES: ContractAddresses = {
   daoRegistry: (process.env.NEXT_PUBLIC_DAO_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
   identityRegistry: (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
   workAgreementRegistry: (process.env.NEXT_PUBLIC_WORK_AGREEMENT_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
+  bountyRegistry: (process.env.NEXT_PUBLIC_BOUNTY_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
 };
 
 // Mainnet addresses (Jeju Mainnet)
@@ -45,6 +48,7 @@ const MAINNET_ADDRESSES: ContractAddresses = {
   daoRegistry: (process.env.NEXT_PUBLIC_DAO_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
   identityRegistry: (process.env.NEXT_PUBLIC_IDENTITY_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
   workAgreementRegistry: (process.env.NEXT_PUBLIC_WORK_AGREEMENT_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
+  bountyRegistry: (process.env.NEXT_PUBLIC_BOUNTY_REGISTRY || '0x0000000000000000000000000000000000000000') as Address,
 };
 
 // Jeju chain IDs - these should be defined in network config

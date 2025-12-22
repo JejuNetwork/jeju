@@ -21,96 +21,14 @@ import {
 import Link from 'next/link';
 import { clsx } from 'clsx';
 import { formatDistanceToNow } from 'date-fns';
-// Remove unused import if possible, but ReactMarkdown is often used in JSX. 
-// If unused, remove it. Assuming it's unused based on logs.
-// Checking logs: 'ReactMarkdown' is declared but its value is never read.
-// So I will remove it.
-
-interface Discussion {
-  id: string;
-  title: string;
-  author: { name: string; avatar: string };
-  createdAt: number;
-  lastReplyAt: number;
-  replyCount: number;
-  upvotes: number;
-  category: 'question' | 'announcement' | 'general' | 'bug' | 'feature';
-  isPinned: boolean;
-  isLocked: boolean;
-  isResolved: boolean;
-  preview: string;
-  tags: string[];
-}
-
-const mockDiscussions: Discussion[] = [
-  {
-    id: '1',
-    title: 'How to fine-tune this model for code review tasks?',
-    author: { name: 'dev.eth', avatar: 'https://avatars.githubusercontent.com/u/5?v=4' },
-    createdAt: Date.now() - 2 * 24 * 60 * 60 * 1000,
-    lastReplyAt: Date.now() - 2 * 60 * 60 * 1000,
-    replyCount: 8,
-    upvotes: 15,
-    category: 'question',
-    isPinned: false,
-    isLocked: false,
-    isResolved: true,
-    preview: 'I want to fine-tune this model specifically for reviewing Solidity code. What dataset and parameters would you recommend?',
-    tags: ['fine-tuning', 'solidity'],
-  },
-  {
-    id: '2',
-    title: 'v1.2.0 Release - Improved code generation quality',
-    author: { name: 'jeju.eth', avatar: 'https://avatars.githubusercontent.com/u/1?v=4' },
-    createdAt: Date.now() - 3 * 24 * 60 * 60 * 1000,
-    lastReplyAt: Date.now() - 1 * 24 * 60 * 60 * 1000,
-    replyCount: 12,
-    upvotes: 42,
-    category: 'announcement',
-    isPinned: true,
-    isLocked: false,
-    isResolved: false,
-    preview: 'We are excited to release v1.2.0 with significant improvements to code generation quality, especially for complex smart contracts.',
-    tags: ['release', 'update'],
-  },
-  {
-    id: '3',
-    title: 'Model outputs incorrect gas estimates',
-    author: { name: 'auditor.eth', avatar: 'https://avatars.githubusercontent.com/u/3?v=4' },
-    createdAt: Date.now() - 5 * 24 * 60 * 60 * 1000,
-    lastReplyAt: Date.now() - 4 * 24 * 60 * 60 * 1000,
-    replyCount: 4,
-    upvotes: 7,
-    category: 'bug',
-    isPinned: false,
-    isLocked: false,
-    isResolved: false,
-    preview: 'When asking the model to estimate gas for complex transactions, it often underestimates by 20-30%. This could cause issues.',
-    tags: ['bug', 'gas-estimation'],
-  },
-  {
-    id: '4',
-    title: 'Feature request: Support for Vyper code generation',
-    author: { name: 'vyper-fan.eth', avatar: 'https://avatars.githubusercontent.com/u/4?v=4' },
-    createdAt: Date.now() - 7 * 24 * 60 * 60 * 1000,
-    lastReplyAt: Date.now() - 6 * 24 * 60 * 60 * 1000,
-    replyCount: 6,
-    upvotes: 23,
-    category: 'feature',
-    isPinned: false,
-    isLocked: false,
-    isResolved: false,
-    preview: 'Would love to see Vyper code generation support. The model currently only handles Solidity well.',
-    tags: ['feature-request', 'vyper'],
-  },
-];
+import { useDiscussions, useCreateDiscussion, type DiscussionCategory } from '../../../../../hooks';
 
 const categoryColors: Record<string, { bg: string; text: string; border: string }> = {
   question: { bg: 'bg-blue-500/20', text: 'text-blue-400', border: 'border-blue-500/30' },
-  announcement: { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' },
+  announcements: { bg: 'bg-purple-500/20', text: 'text-purple-400', border: 'border-purple-500/30' },
   general: { bg: 'bg-gray-500/20', text: 'text-gray-400', border: 'border-gray-500/30' },
-  bug: { bg: 'bg-red-500/20', text: 'text-red-400', border: 'border-red-500/30' },
-  feature: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
+  show: { bg: 'bg-green-500/20', text: 'text-green-400', border: 'border-green-500/30' },
+  ideas: { bg: 'bg-yellow-500/20', text: 'text-yellow-400', border: 'border-yellow-500/30' },
 };
 
 export default function ModelDiscussionsPage() {
@@ -120,16 +38,18 @@ export default function ModelDiscussionsPage() {
   const name = params.name as string;
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<DiscussionCategory | null>(null);
   const [showNewDiscussion, setShowNewDiscussion] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newBody, setNewBody] = useState('');
-  const [newCategory, setNewCategory] = useState<Discussion['category']>('general');
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [newCategory, setNewCategory] = useState<DiscussionCategory>('general');
+  const [newTags, setNewTags] = useState('');
 
-  const filteredDiscussions = mockDiscussions
+  const { discussions, isLoading } = useDiscussions('models', `${org}/${name}`, { category: selectedCategory || undefined });
+  const createDiscussion = useCreateDiscussion('models', `${org}/${name}`);
+
+  const filteredDiscussions = discussions
     .filter(d => !searchQuery || d.title.toLowerCase().includes(searchQuery.toLowerCase()))
-    .filter(d => !selectedCategory || d.category === selectedCategory)
     .sort((a, b) => {
       if (a.isPinned && !b.isPinned) return -1;
       if (!a.isPinned && b.isPinned) return 1;
@@ -140,12 +60,17 @@ export default function ModelDiscussionsPage() {
     e.preventDefault();
     if (!newTitle.trim() || !newBody.trim()) return;
 
-    setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    setIsSubmitting(false);
+    await createDiscussion.mutateAsync({
+      title: newTitle,
+      content: newBody,
+      category: newCategory,
+      tags: newTags.split(',').map(t => t.trim()).filter(Boolean),
+    });
+
     setShowNewDiscussion(false);
     setNewTitle('');
     setNewBody('');
+    setNewTags('');
   };
 
   return (
@@ -183,7 +108,7 @@ export default function ModelDiscussionsPage() {
               <div>
                 <label className="block text-sm font-medium text-factory-300 mb-2">Category</label>
                 <div className="flex gap-2">
-                  {(['question', 'general', 'bug', 'feature'] as const).map(cat => (
+                  {(['questions', 'general', 'ideas', 'show'] as const).map(cat => (
                     <button
                       key={cat}
                       type="button"
@@ -191,7 +116,7 @@ export default function ModelDiscussionsPage() {
                       className={clsx(
                         'px-3 py-1 rounded-full text-sm capitalize',
                         newCategory === cat
-                          ? categoryColors[cat].bg + ' ' + categoryColors[cat].text
+                          ? (categoryColors[cat]?.bg || 'bg-gray-500/20') + ' ' + (categoryColors[cat]?.text || 'text-gray-400')
                           : 'bg-factory-800 text-factory-400 hover:text-factory-200'
                       )}
                     >
@@ -225,6 +150,17 @@ export default function ModelDiscussionsPage() {
                 />
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-factory-300 mb-2">Tags (comma separated)</label>
+                <input
+                  type="text"
+                  value={newTags}
+                  onChange={(e) => setNewTags(e.target.value)}
+                  placeholder="fine-tuning, pytorch, etc."
+                  className="input"
+                />
+              </div>
+
               <div className="flex gap-3">
                 <button
                   type="button"
@@ -235,10 +171,10 @@ export default function ModelDiscussionsPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={!newTitle.trim() || !newBody.trim() || isSubmitting || !isConnected}
+                  disabled={!newTitle.trim() || !newBody.trim() || createDiscussion.isPending || !isConnected}
                   className="btn btn-primary"
                 >
-                  {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                  {createDiscussion.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   Post Discussion
                 </button>
               </div>
@@ -263,14 +199,14 @@ export default function ModelDiscussionsPage() {
               <Filter className="w-4 h-4 text-factory-400" />
               <select
                 value={selectedCategory || ''}
-                onChange={(e) => setSelectedCategory(e.target.value || null)}
+                onChange={(e) => setSelectedCategory((e.target.value || null) as DiscussionCategory | null)}
                 className="input text-sm py-2"
               >
                 <option value="">All categories</option>
-                <option value="question">Questions</option>
-                <option value="announcement">Announcements</option>
-                <option value="bug">Bug Reports</option>
-                <option value="feature">Feature Requests</option>
+                <option value="questions">Questions</option>
+                <option value="announcements">Announcements</option>
+                <option value="ideas">Ideas</option>
+                <option value="show">Show & Tell</option>
                 <option value="general">General</option>
               </select>
             </div>
@@ -278,93 +214,91 @@ export default function ModelDiscussionsPage() {
         </div>
 
         {/* Discussion List */}
-        <div className="space-y-3">
-          {filteredDiscussions.map(discussion => (
-            <Link
-              key={discussion.id}
-              href={`/models/${org}/${name}/discussions/${discussion.id}`}
-              className="card p-4 block hover:border-factory-600 transition-colors"
+        {isLoading ? (
+          <div className="card p-12 text-center">
+            <Loader2 className="w-8 h-8 animate-spin mx-auto text-accent-400" />
+          </div>
+        ) : filteredDiscussions.length === 0 ? (
+          <div className="card p-12 text-center">
+            <MessageSquare className="w-12 h-12 mx-auto mb-4 text-factory-600" />
+            <p className="text-factory-400">No discussions found</p>
+            <button
+              onClick={() => setShowNewDiscussion(true)}
+              className="btn btn-primary mt-4"
             >
-              <div className="flex items-start gap-4">
-                <div className="flex flex-col items-center gap-1 text-center min-w-[50px]">
-                  <button className="p-1 hover:bg-factory-800 rounded">
-                    <ThumbsUp className="w-4 h-4 text-factory-400" />
-                  </button>
-                  <span className="text-factory-200 font-medium">{discussion.upvotes}</span>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    {discussion.isPinned && (
-                      <Pin className="w-4 h-4 text-yellow-400" />
-                    )}
-                    {discussion.isLocked && (
-                      <Lock className="w-4 h-4 text-factory-500" />
-                    )}
-                    <span className={clsx(
-                      'badge text-xs capitalize',
-                      categoryColors[discussion.category].bg,
-                      categoryColors[discussion.category].text,
-                      categoryColors[discussion.category].border
-                    )}>
-                      {discussion.category}
-                    </span>
-                    {discussion.isResolved && (
-                      <span className="badge bg-green-500/20 text-green-400 border-green-500/30 text-xs flex items-center gap-1">
-                        <CheckCircle className="w-3 h-3" />
-                        Resolved
-                      </span>
-                    )}
-                  </div>
-
-                  <h3 className="text-factory-100 font-medium mb-1 truncate">
-                    {discussion.title}
-                  </h3>
-
-                  <p className="text-factory-500 text-sm mb-2 line-clamp-2">
-                    {discussion.preview}
-                  </p>
-
-                  <div className="flex items-center gap-4 text-xs text-factory-500">
-                    <span className="flex items-center gap-1">
-                      <img src={discussion.author.avatar} alt="" className="w-4 h-4 rounded-full" />
-                      {discussion.author.name}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
-                      {formatDistanceToNow(discussion.createdAt, { addSuffix: true })}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <MessageCircle className="w-3 h-3" />
-                      {discussion.replyCount} replies
-                    </span>
-                    {discussion.tags.map(tag => (
-                      <span key={tag} className="badge bg-factory-800 text-factory-400 text-xs">
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </Link>
-          ))}
-
-          {filteredDiscussions.length === 0 && (
-            <div className="card p-12 text-center">
-              <MessageSquare className="w-12 h-12 mx-auto mb-4 text-factory-600" />
-              <p className="text-factory-400">No discussions found</p>
-              <button
-                onClick={() => setShowNewDiscussion(true)}
-                className="btn btn-primary mt-4"
+              Start the first discussion
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredDiscussions.map(discussion => (
+              <Link
+                key={discussion.id}
+                href={`/models/${org}/${name}/discussions/${discussion.id}`}
+                className="card p-4 block hover:border-factory-600 transition-colors"
               >
-                Start the first discussion
-              </button>
-            </div>
-          )}
-        </div>
+                <div className="flex items-start gap-4">
+                  <div className="flex flex-col items-center gap-1 text-center min-w-[50px]">
+                    <button className="p-1 hover:bg-factory-800 rounded">
+                      <ThumbsUp className="w-4 h-4 text-factory-400" />
+                    </button>
+                    <span className="text-factory-200 font-medium">{discussion.likes}</span>
+                  </div>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      {discussion.isPinned && (
+                        <Pin className="w-4 h-4 text-yellow-400" />
+                      )}
+                      {discussion.isLocked && (
+                        <Lock className="w-4 h-4 text-factory-500" />
+                      )}
+                      <span className={clsx(
+                        'badge text-xs capitalize',
+                        categoryColors[discussion.category]?.bg || 'bg-gray-500/20',
+                        categoryColors[discussion.category]?.text || 'text-gray-400',
+                        categoryColors[discussion.category]?.border || 'border-gray-500/30'
+                      )}>
+                        {discussion.category}
+                      </span>
+                    </div>
+
+                    <h3 className="text-factory-100 font-medium mb-1 truncate">
+                      {discussion.title}
+                    </h3>
+
+                    <p className="text-factory-500 text-sm mb-2 line-clamp-2">
+                      {discussion.content.substring(0, 200)}...
+                    </p>
+
+                    <div className="flex items-center gap-4 text-xs text-factory-500">
+                      <span className="flex items-center gap-1">
+                        <div className="w-4 h-4 rounded-full bg-gradient-to-br from-accent-500 to-purple-600 flex items-center justify-center text-[8px] font-bold">
+                          {discussion.author.name[0].toUpperCase()}
+                        </div>
+                        {discussion.author.name}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {formatDistanceToNow(discussion.createdAt, { addSuffix: true })}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MessageCircle className="w-3 h-3" />
+                        {discussion.replies} replies
+                      </span>
+                      {discussion.tags.map(tag => (
+                        <span key={tag} className="badge bg-factory-800 text-factory-400 text-xs">
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
-
-

@@ -19,44 +19,7 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { clsx } from 'clsx';
-
-const branches = ['main', 'develop', 'feature/auth', 'feature/models', 'fix/verification', 'refactor/api'];
-
-interface DiffFile {
-  path: string;
-  additions: number;
-  deletions: number;
-  status: 'modified' | 'added' | 'deleted';
-}
-
-const mockDiff: { files: DiffFile[], stats: { additions: number, deletions: number, files: number, commits: number } } = {
-  files: [
-    {
-      path: 'src/lib/verify.ts',
-      additions: 15,
-      deletions: 3,
-      status: 'modified',
-    },
-    {
-      path: 'src/lib/deploy.ts',
-      additions: 8,
-      deletions: 2,
-      status: 'modified',
-    },
-    {
-      path: 'tests/verify.test.ts',
-      additions: 45,
-      deletions: 0,
-      status: 'added',
-    },
-  ],
-  stats: {
-    additions: 68,
-    deletions: 5,
-    files: 3,
-    commits: 2,
-  },
-};
+import { useRepo, useCreatePullRequest } from '../../../../../../hooks';
 
 export default function NewPullRequestPage() {
   const params = useParams();
@@ -65,25 +28,44 @@ export default function NewPullRequestPage() {
   const owner = params.owner as string;
   const repo = params.repo as string;
 
+  const { repo: repoData, isLoading: repoLoading } = useRepo(owner, repo);
+  const createPR = useCreatePullRequest(owner, repo);
+
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
-  const [sourceBranch, setSourceBranch] = useState('feature/auth');
+  const [sourceBranch, setSourceBranch] = useState('');
   const [targetBranch, setTargetBranch] = useState('main');
   const [isDraft, setIsDraft] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [showSourceDropdown, setShowSourceDropdown] = useState(false);
   const [showTargetDropdown, setShowTargetDropdown] = useState(false);
 
-  const canMerge = sourceBranch !== targetBranch;
+  const branches = repoData?.branches || ['main'];
+  const canMerge = sourceBranch && targetBranch && sourceBranch !== targetBranch;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !canMerge) return;
 
-    setIsSubmitting(true);
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    router.push(`/git/${owner}/${repo}`);
+    const result = await createPR.mutateAsync({
+      title,
+      body,
+      head: sourceBranch,
+      base: targetBranch,
+      draft: isDraft,
+    });
+
+    if (result) {
+      router.push(`/git/${owner}/${repo}/pulls/${result.number}`);
+    }
   };
+
+  if (repoLoading) {
+    return (
+      <div className="min-h-screen p-8 flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-accent-400" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen p-8">
@@ -148,12 +130,12 @@ export default function NewPullRequestPage() {
               >
                 <GitBranch className="w-4 h-4 text-factory-400" />
                 <span className="text-factory-200">compare:</span>
-                <span className="text-factory-100 font-medium">{sourceBranch}</span>
+                <span className="text-factory-100 font-medium">{sourceBranch || 'Select branch'}</span>
                 <ChevronDown className="w-4 h-4 text-factory-400" />
               </button>
               {showSourceDropdown && (
                 <div className="absolute top-full left-0 mt-1 w-48 bg-factory-900 border border-factory-700 rounded-lg shadow-xl z-10">
-                  {branches.map(branch => (
+                  {branches.filter(b => b !== targetBranch).map(branch => (
                     <button
                       key={branch}
                       onClick={() => {
@@ -179,10 +161,15 @@ export default function NewPullRequestPage() {
                 <CheckCircle className="w-4 h-4" />
                 Able to merge
               </span>
-            ) : (
+            ) : sourceBranch === targetBranch ? (
               <span className="flex items-center gap-2 text-red-400 text-sm">
                 <AlertCircle className="w-4 h-4" />
                 Cannot merge same branch
+              </span>
+            ) : (
+              <span className="flex items-center gap-2 text-factory-500 text-sm">
+                <AlertCircle className="w-4 h-4" />
+                Select branches to compare
               </span>
             )}
           </div>
@@ -194,38 +181,18 @@ export default function NewPullRequestPage() {
             <div className="card p-4 mb-6">
               <div className="flex items-center gap-6 text-sm">
                 <span className="text-factory-400">
-                  <strong className="text-factory-100">{mockDiff.stats.commits}</strong> commits
-                </span>
-                <span className="text-factory-400">
-                  <strong className="text-factory-100">{mockDiff.stats.files}</strong> files changed
+                  Comparing changes
                 </span>
                 <span className="text-green-400">
-                  <Plus className="w-4 h-4 inline" /> {mockDiff.stats.additions}
+                  <Plus className="w-4 h-4 inline" /> additions
                 </span>
                 <span className="text-red-400">
-                  <Minus className="w-4 h-4 inline" /> {mockDiff.stats.deletions}
+                  <Minus className="w-4 h-4 inline" /> deletions
                 </span>
               </div>
-
-              {/* File List */}
-              <div className="mt-4 space-y-2">
-                {mockDiff.files.map(file => (
-                  <div key={file.path} className="flex items-center gap-3 p-2 bg-factory-800/50 rounded">
-                    <FileCode className="w-4 h-4 text-factory-400" />
-                    <span className="text-factory-200 text-sm font-mono flex-1">{file.path}</span>
-                    <span className="text-green-400 text-sm">+{file.additions}</span>
-                    <span className="text-red-400 text-sm">-{file.deletions}</span>
-                    <span className={clsx(
-                      'badge text-xs',
-                      file.status === 'added' && 'bg-green-500/20 text-green-400',
-                      file.status === 'modified' && 'bg-yellow-500/20 text-yellow-400',
-                      file.status === 'deleted' && 'bg-red-500/20 text-red-400',
-                    )}>
-                      {file.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <p className="text-factory-500 text-sm mt-2">
+                Files will be shown once you select branches with differences.
+              </p>
             </div>
 
             {/* PR Form */}
@@ -247,7 +214,7 @@ export default function NewPullRequestPage() {
                 <textarea
                   value={body}
                   onChange={(e) => setBody(e.target.value)}
-                  placeholder="Add a description...
+                  placeholder={`Add a description...
 
 ## Summary
 What does this PR do?
@@ -260,7 +227,7 @@ What does this PR do?
 How was this tested?
 
 ## Related Issues
-Closes #"
+Closes #`}
                   rows={12}
                   className="input resize-none font-mono text-sm mb-4"
                 />
@@ -284,10 +251,10 @@ Closes #"
                   </Link>
                   <button
                     type="submit"
-                    disabled={!title.trim() || isSubmitting || !isConnected}
+                    disabled={!title.trim() || createPR.isPending || !isConnected}
                     className="btn btn-primary"
                   >
-                    {isSubmitting ? (
+                    {createPR.isPending ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
                         Creating...
@@ -308,5 +275,3 @@ Closes #"
     </div>
   );
 }
-
-
