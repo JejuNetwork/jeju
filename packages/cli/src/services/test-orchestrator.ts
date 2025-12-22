@@ -2,6 +2,7 @@
  * Test Orchestrator
  * 
  * Coordinates all test infrastructure:
+ * - CQL (always started - it's the core database)
  * - Test locking
  * - Localnet startup/teardown
  * - Docker services
@@ -11,6 +12,7 @@
  */
 
 import { logger } from '../lib/logger';
+import { InfrastructureService } from './infrastructure';
 import { LocalnetOrchestrator } from './localnet-orchestrator';
 import { DockerOrchestrator, type TestProfile } from './docker-orchestrator';
 import { AppOrchestrator } from './app-orchestrator';
@@ -66,6 +68,7 @@ const MODE_NEEDS_APPS: Record<TestMode, boolean> = {
 
 export class TestOrchestrator {
   private options: TestOrchestratorOptions;
+  private infrastructureService: InfrastructureService;
   private lockManager: { releaseLock: () => boolean } | null = null;
   private localnetOrchestrator: LocalnetOrchestrator | null = null;
   private dockerOrchestrator: DockerOrchestrator | null = null;
@@ -74,6 +77,7 @@ export class TestOrchestrator {
 
   constructor(options: TestOrchestratorOptions) {
     this.options = options;
+    this.infrastructureService = new InfrastructureService(options.rootDir);
   }
 
   async setup(): Promise<void> {
@@ -83,6 +87,13 @@ export class TestOrchestrator {
     }
 
     logger.header(`TEST SETUP - ${this.options.mode.toUpperCase()}`);
+
+    // Step 0: ALWAYS start CQL - it's the core database for all apps
+    logger.step('Starting CQL (core database)...');
+    const cqlStarted = await this.infrastructureService.startCQL();
+    if (!cqlStarted) {
+      throw new Error('Failed to start CQL - required for all tests');
+    }
 
     // Step 1: Acquire lock
     if (!this.options.skipLock) {
@@ -204,6 +215,11 @@ export class TestOrchestrator {
       await this.localnetOrchestrator.stop();
     }
 
+    // Stop CQL last
+    if (!this.options.keepServices) {
+      await this.infrastructureService.stopCQL();
+    }
+
     if (this.lockManager) {
       this.lockManager.releaseLock();
     }
@@ -216,7 +232,12 @@ export class TestOrchestrator {
     const env: Record<string, string> = {
       NODE_ENV: 'test',
       CI: process.env.CI || '',
+      // CQL is always available
+      CQL_URL: 'http://127.0.0.1:4661',
     };
+
+    // Add infrastructure env vars (includes CQL_URL)
+    Object.assign(env, this.infrastructureService.getEnvVars());
 
     if (this.localnetOrchestrator) {
       Object.assign(env, this.localnetOrchestrator.getEnvVars());

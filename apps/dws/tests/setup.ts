@@ -10,6 +10,58 @@
  */
 
 import { beforeAll, afterAll } from 'bun:test';
+import { existsSync } from 'fs';
+import { join, dirname } from 'path';
+
+// Load env file from path
+function loadEnvFile(envPath: string, override = false) {
+  if (!existsSync(envPath)) return false;
+  const content = require('fs').readFileSync(envPath, 'utf8');
+  for (const line of content.split('\n')) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('#')) continue;
+    const eqIndex = trimmed.indexOf('=');
+    if (eqIndex > 0) {
+      const key = trimmed.slice(0, eqIndex);
+      let value = trimmed.slice(eqIndex + 1);
+      // Remove quotes if present
+      if ((value.startsWith('"') && value.endsWith('"')) || 
+          (value.startsWith("'") && value.endsWith("'"))) {
+        value = value.slice(1, -1);
+      }
+      // Set env var (override if requested, otherwise only if not set)
+      if (override || !process.env[key]) {
+        process.env[key] = value;
+      }
+    }
+  }
+  return true;
+}
+
+// Load .env files from monorepo root (Bun doesn't auto-walk up directories)
+function loadRootEnv() {
+  let dir = import.meta.dir;
+  for (let i = 0; i < 5; i++) {
+    const envPath = join(dir, '.env');
+    if (existsSync(envPath)) {
+      // Load base .env first
+      loadEnvFile(envPath);
+      // Then load .env.localnet for local development defaults
+      loadEnvFile(join(dir, '.env.localnet'));
+      break;
+    }
+    dir = dirname(dir);
+  }
+}
+loadRootEnv();
+
+// Set defaults for local testing
+if (!process.env.RPC_URL) {
+  process.env.RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545';
+}
+if (!process.env.NETWORK) {
+  process.env.NETWORK = 'localnet';
+}
 
 interface InfraStatus {
   rpc: boolean;

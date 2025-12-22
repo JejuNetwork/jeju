@@ -3,6 +3,7 @@ pragma solidity ^0.8.26;
 
 import "forge-std/Test.sol";
 import {Token} from "../src/tokens/Token.sol";
+import {EIP3009} from "../src/tokens/EIP3009Token.sol";
 
 contract EIP3009TokenTest is Test {
     Token public token;
@@ -154,7 +155,7 @@ contract EIP3009TokenTest is Test {
         bytes memory signature = abi.encodePacked(r, s, v);
         
         vm.prank(relayer);
-        vm.expectRevert(Token.AuthorizationExpired.selector);
+        vm.expectRevert(EIP3009.AuthorizationExpired.selector);
         token.transferWithAuthorization(
             alice,
             bob,
@@ -196,7 +197,7 @@ contract EIP3009TokenTest is Test {
         bytes memory signature = abi.encodePacked(r, s, v);
         
         vm.prank(relayer);
-        vm.expectRevert(Token.AuthorizationNotYetValid.selector);
+        vm.expectRevert(EIP3009.AuthorizationNotYetValid.selector);
         token.transferWithAuthorization(
             alice,
             bob,
@@ -243,7 +244,7 @@ contract EIP3009TokenTest is Test {
         
         // Second use fails
         vm.prank(relayer);
-        vm.expectRevert(Token.AuthorizationAlreadyUsed.selector);
+        vm.expectRevert(EIP3009.AuthorizationAlreadyUsed.selector);
         token.transferWithAuthorization(alice, bob, amount, validAfter, validBefore, nonce, signature);
     }
     
@@ -278,7 +279,7 @@ contract EIP3009TokenTest is Test {
         bytes memory signature = abi.encodePacked(r, s, v);
         
         vm.prank(relayer);
-        vm.expectRevert(Token.InvalidSignature.selector);
+        vm.expectRevert(EIP3009.InvalidSignature.selector);
         token.transferWithAuthorization(alice, bob, amount, validAfter, validBefore, nonce, signature);
     }
     

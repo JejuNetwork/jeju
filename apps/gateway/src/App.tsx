@@ -7,6 +7,7 @@ import { RainbowKitProvider, getDefaultConfig, darkTheme, lightTheme } from '@ra
 import '@rainbow-me/rainbowkit/styles.css';
 import Dashboard from './components/Dashboard';
 import { ThemeProvider, useTheme } from './components/ThemeProvider';
+import { BanCheckWrapper } from './components/BanCheckWrapper';
 import { CHAIN_ID, RPC_URL, WALLETCONNECT_PROJECT_ID, NETWORK } from './config';
 
 // network chain config from centralized config
@@ -50,7 +51,9 @@ function AppContent() {
   const { theme } = useTheme();
   return (
     <RainbowKitProvider theme={theme === 'dark' ? rainbowDark : rainbowLight}>
-      <Dashboard />
+      <BanCheckWrapper>
+        <Dashboard />
+      </BanCheckWrapper>
     </RainbowKitProvider>
   );
 }

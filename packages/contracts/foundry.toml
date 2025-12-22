@@ -1,6 +1,7 @@
 [profile.default]
 src = "src"
 out = "out"
+cache_path = "cache"
 libs = ["lib"]
 solc_version = "0.8.33"
 auto_detect_solc = true
@@ -9,72 +10,10 @@ optimizer_runs = 200
 via_ir = true
 evm_version = "cancun"
 
-# Skip these contracts from compilation - incomplete or have missing dependencies
-skip = [
-    # External integrations not needed for core functionality
-    "src/prediction/JejuMarket.sol",
-    "src/uniswap-v2/**",
-    "src/uniswap-v4/**",
-    "src/mmo/**",
-    "src/games/**",
-    "src/governance/council/**",
-    "src/cdn/**",
-    "src/eil/**",
-    "src/bridge/eil/**",
-    "src/perps/**",
-    "src/marketplace/**",
-    "src/prediction-markets/**",
-    
-    # New contracts causing stack issues - need refactoring
-    "src/models/**",
-    "src/work/**",
-    "src/containers/**",
-    "test/ModelRegistry.t.sol",
-    "test/EIP3009Token.t.sol",
-    
-    # Token.sol has inheritance conflicts between ERC20Permit and EIP3009
-    "src/tokens/Token.sol",
-    
-    # Test files with missing types or broken dependencies
-    "test/messaging/MessageNodeRegistry.t.sol",
-    
-    # Paymaster factory and liquidity paymaster need more work
-    "src/paymaster/**",
-    "src/services/MultiTokenPaymaster.sol",
-    
-    # Deploy scripts for disabled features
-    "deploy/DeployCompute.s.sol",
-    "deploy/DeployUniswapV4Periphery.s.sol",
-    "deploy/Deploy*Cloud*.s.sol",
-    "deploy/DeployPredimarket*.s.sol",
-    "deploy/DeployEIL*.s.sol",
-    "deploy/DeploySponsoredPaymaster.s.sol",
-    "deploy/DeployDAO.s.sol",
-    "deploy/DeployBazaarMarketplace.s.sol",
-    "deploy/DeployOracleNetwork.s.sol",
-    "deploy/DeployPerps.s.sol",
-    "deploy/DeployJejuMarket.s.sol",
-    "deploy/DeployJejuToken.s.sol",
-    "deploy/otc/**",
-    
-    # Tests for incomplete/disabled features
-    "test/PaymasterFactory.t.sol",
-    
-    # Treasury contracts have inheritance issues
-    "src/treasury/ProfitTreasury.sol",
-    "src/treasury/GameTreasury.sol",
-    
-    # EdgeCases.t.sol has outdated API references
-    "test/EdgeCases.t.sol",
-    
-    # Tests with outdated struct unpacking
-    "test/treasury/Treasury.t.sol",
-    "test/Fuzz.t.sol",
-    "test/Integration.t.sol"
-]
+# Skip placeholder - building all files
+skip = []
 
 # Test settings
-# Note: Hyperscape tests require MUD World deployment - run separately with: cd apps/hyperscape && pnpm test
 verbosity = 2
 
 # Lint configuration - suppress known false positives and style notes
@@ -112,28 +51,84 @@ remappings = [
     "@optimism/=lib/optimism/packages/contracts-bedrock/src/",
     "forge-std/=lib/forge-std/src/",
     "@eth-optimism-bedrock/=lib/optimism/packages/contracts-bedrock/src/",
-    "@account-abstraction/contracts/=lib/account-abstraction/contracts/",
     "account-abstraction/=lib/account-abstraction/contracts/",
     "@uniswap/lib/contracts/=lib/solidity-lib/contracts/",
     "@uniswap/v4-core/=lib/v4-core/",
     "@uniswap/v4-periphery/=lib/v4-periphery/",
 ]
 
-# RPC endpoints (override with env vars)
-# Default values from packages/config/testnet.json
-[rpc_endpoints]
-mainnet = "${MAINNET_RPC_URL}"
-sepolia = "https://1rpc.io/sepolia"
-base = "${BASE_RPC_URL}"
-base_sepolia = "https://sepolia.base.org"
-arbitrum_sepolia = "https://sepolia-rollup.arbitrum.io/rpc"
-optimism_sepolia = "https://sepolia.optimism.io"
-jeju_testnet = "https://testnet-rpc.jejunetwork.org"
-local = "http://127.0.0.1:6546"
+# =============================================================================
+# RPC Endpoints - Jeju Infrastructure
+# =============================================================================
+# Override any endpoint with env vars: LOCALNET_RPC_URL, JEJU_TESTNET_RPC_URL, etc.
+# Internal cluster URLs used by default for k8s deployments.
+# See packages/config/chains.json for node configuration details.
 
-# Etherscan API keys
+[rpc_endpoints]
+# -----------------------------------------------------------------------------
+# Local Development (ports from packages/config/chain/localnet.json)
+# -----------------------------------------------------------------------------
+local = "${LOCALNET_RPC_URL-http://127.0.0.1:9545}"
+local_l1 = "${LOCALNET_L1_RPC_URL-http://127.0.0.1:6545}"
+
+# -----------------------------------------------------------------------------
+# Testnet - Jeju L2 (chainId: 420690)
+# -----------------------------------------------------------------------------
+jeju_testnet = "${JEJU_TESTNET_RPC_URL-https://testnet-rpc.jejunetwork.org}"
+jeju_testnet_internal = "${JEJU_TESTNET_INTERNAL_RPC_URL-http://reth-sequencer.execution.svc.cluster.local:8545}"
+
+# -----------------------------------------------------------------------------
+# Testnet - L1 Sepolia (chainId: 11155111)
+# -----------------------------------------------------------------------------
+sepolia = "${SEPOLIA_RPC_URL-https://ethereum-sepolia-rpc.publicnode.com}"
+sepolia_internal = "${SEPOLIA_INTERNAL_RPC_URL-http://geth-l1.l1.svc.cluster.local:8545}"
+
+# -----------------------------------------------------------------------------
+# Testnet - L2 Networks
+# -----------------------------------------------------------------------------
+base_sepolia = "${BASE_SEPOLIA_RPC_URL-http://op-geth-base-sepolia.l2-base.svc.cluster.local:8545}"
+base_sepolia_public = "https://sepolia.base.org"
+optimism_sepolia = "${OPTIMISM_SEPOLIA_RPC_URL-http://op-geth-optimism-sepolia.l2-optimism.svc.cluster.local:8545}"
+optimism_sepolia_public = "https://sepolia.optimism.io"
+arbitrum_sepolia = "${ARBITRUM_SEPOLIA_RPC_URL-http://nitro-arbitrum-sepolia.l2-arbitrum.svc.cluster.local:8547}"
+arbitrum_sepolia_public = "https://sepolia-rollup.arbitrum.io/rpc"
+bsc_testnet = "${BSC_TESTNET_RPC_URL-http://bsc-geth-testnet.l1-bsc.svc.cluster.local:8545}"
+bsc_testnet_public = "https://bsc-testnet-rpc.publicnode.com"
+
+# -----------------------------------------------------------------------------
+# Mainnet - Jeju L2 (chainId: 420691)
+# -----------------------------------------------------------------------------
+jeju = "${JEJU_MAINNET_RPC_URL-https://rpc.jejunetwork.org}"
+
+# -----------------------------------------------------------------------------
+# Mainnet - L1 Ethereum (chainId: 1)
+# -----------------------------------------------------------------------------
+mainnet = "${MAINNET_RPC_URL-http://geth-mainnet.l1.svc.cluster.local:8545}"
+mainnet_public = "${MAINNET_PUBLIC_RPC_URL-https://eth.llamarpc.com}"
+
+# -----------------------------------------------------------------------------
+# Mainnet - L2 Networks
+# -----------------------------------------------------------------------------
+base = "${BASE_RPC_URL-http://op-geth-base.l2-base.svc.cluster.local:8545}"
+base_public = "https://mainnet.base.org"
+optimism = "${OPTIMISM_RPC_URL-http://op-geth-optimism.l2-optimism.svc.cluster.local:8545}"
+optimism_public = "https://mainnet.optimism.io"
+arbitrum = "${ARBITRUM_RPC_URL-http://nitro-arbitrum.l2-arbitrum.svc.cluster.local:8547}"
+arbitrum_public = "https://arb1.arbitrum.io/rpc"
+bsc = "${BSC_RPC_URL-http://bsc-geth.l1-bsc.svc.cluster.local:8545}"
+bsc_public = "https://bsc-rpc.publicnode.com"
+
+# =============================================================================
+# Block Explorer API Keys
+# =============================================================================
 [etherscan]
 mainnet = { key = "${ETHERSCAN_API_KEY}" }
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
 base = { key = "${BASESCAN_API_KEY}", url = "https://api.basescan.org/api" }
 base_sepolia = { key = "${BASESCAN_API_KEY}", url = "https://api-sepolia.basescan.org/api" }
+optimism = { key = "${OPTIMISM_ETHERSCAN_API_KEY}", url = "https://api-optimistic.etherscan.io/api" }
+optimism_sepolia = { key = "${OPTIMISM_ETHERSCAN_API_KEY}", url = "https://api-sepolia-optimistic.etherscan.io/api" }
+arbitrum = { key = "${ARBISCAN_API_KEY}", url = "https://api.arbiscan.io/api" }
+arbitrum_sepolia = { key = "${ARBISCAN_API_KEY}", url = "https://api-sepolia.arbiscan.io/api" }
+bsc = { key = "${BSCSCAN_API_KEY}", url = "https://api.bscscan.com/api" }
+bsc_testnet = { key = "${BSCSCAN_API_KEY}", url = "https://api-testnet.bscscan.com/api" }

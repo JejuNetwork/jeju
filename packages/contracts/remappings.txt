@@ -1,9 +1,0 @@
-@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/
-@openzeppelin/contracts-upgradeable/=lib/openzeppelin-contracts-upgradeable/contracts/
-@optimism/=lib/optimism/packages/contracts-bedrock/src/
-forge-std/=lib/forge-std/src/
-@eth-optimism-bedrock/=lib/optimism/packages/contracts-bedrock/src/
-@account-abstraction/=lib/account-abstraction/
-openzeppelin-contracts/=lib/openzeppelin-contracts/
-
-

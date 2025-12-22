@@ -965,6 +965,88 @@ deployCommand
     process.exit(1);
   });
 
+deployCommand
+  .command('commerce')
+  .description('Deploy Coinbase Commerce contracts (AuthCaptureEscrow)')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet', 'localnet')
+  .action(async (options) => {
+    await runDeployScript('commerce', options.network, options);
+  });
+
+deployCommand
+  .command('moderation')
+  .description('Deploy moderation system (BanManager, ModerationMarketplace)')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet', 'localnet')
+  .action(async (options) => {
+    await runDeployScript('moderation', options.network, options);
+  });
+
+deployCommand
+  .command('x402')
+  .description('Deploy x402 payment protocol to multiple chains')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet', 'localnet')
+  .option('--all', 'Deploy to all configured chains')
+  .action(async (options) => {
+    await runDeployScript('x402-multichain', options.network, options);
+  });
+
+deployCommand
+  .command('chainlink')
+  .description('Deploy Chainlink integration contracts')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet', 'localnet')
+  .action(async (options) => {
+    await runDeployScript('chainlink', options.network, options);
+  });
+
+deployCommand
+  .command('defi')
+  .description('Deploy DeFi protocol contracts')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet', 'localnet')
+  .action(async (options) => {
+    await runDeployScript('defi-protocols', options.network, options);
+  });
+
+deployCommand
+  .command('jns-register')
+  .description('Register JNS names after deployment')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet', 'localnet')
+  .option('--name <name>', 'JNS name to register')
+  .action(async (options) => {
+    await runDeployScript('register-jns', options.network, options);
+  });
+
+deployCommand
+  .command('blocking')
+  .description('Deploy user blocking system')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet', 'localnet')
+  .action(async (options) => {
+    await runDeployScript('blocking-localnet', options.network, options);
+  });
+
+deployCommand
+  .command('security-council')
+  .description('Deploy Security Council multisig')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet', 'localnet')
+  .action(async (options) => {
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'scripts/governance/deploy-security-council.ts');
+    
+    if (!existsSync(scriptPath)) {
+      logger.error('Security council deploy script not found');
+      return;
+    }
+
+    const args: string[] = [];
+    if (options.network && options.network !== 'localnet') {
+      args.push('--network', options.network);
+    }
+
+    await execa('bun', ['run', scriptPath, ...args], {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
+  });
+
 // Helper function to run deploy scripts
 async function runDeployScript(scriptName: string, network: string, options: Record<string, unknown> = {}) {
   const rootDir = findMonorepoRoot();

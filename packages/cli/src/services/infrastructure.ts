@@ -2,14 +2,15 @@
  * Infrastructure Service
  * 
  * Manages all required infrastructure for Jeju development:
- * - Docker (auto-start on macOS/Linux)
- * - Docker Compose services (CQL, IPFS, Cache, DA)
+ * - CQL (CovenantSQL) - runs natively via packages/db
+ * - Docker services (IPFS, Cache, DA)
  * - Localnet (Anvil)
  * 
+ * CQL is ALWAYS started - it's the core database for all apps.
  * NO FALLBACKS - all infrastructure must be running.
  */
 
-import { execa } from 'execa';
+import { execa, type ExecaChildProcess } from 'execa';
 import { existsSync } from 'fs';
 import { join } from 'path';
 import { platform } from 'os';
@@ -25,14 +26,18 @@ export interface ServiceHealth {
 
 export interface InfrastructureStatus {
   docker: boolean;
+  cql: boolean;
   services: ServiceHealth[];
   localnet: boolean;
   allHealthy: boolean;
 }
 
-// Required Docker services for DWS
-const REQUIRED_SERVICES = {
-  cql: { port: 4661, healthPath: '/health', name: 'CovenantSQL', container: 'jeju-cql' },
+// CQL runs natively - not in Docker
+const CQL_PORT = 4661;
+const CQL_DATA_DIR = '.data/cql';
+
+// Docker services (excludes CQL which runs natively)
+const DOCKER_SERVICES = {
   ipfs: { port: 5001, healthPath: '/api/v0/id', name: 'IPFS', container: 'jeju-ipfs' },
   cache: { port: 4115, healthPath: '/health', name: 'Cache Service', container: 'jeju-cache' },
   da: { port: 4010, healthPath: '/health', name: 'DA Server', container: 'jeju-da' },
@@ -40,12 +45,94 @@ const REQUIRED_SERVICES = {
 
 const LOCALNET_PORT = DEFAULT_PORTS.l2Rpc;
 
+// Track CQL process
+let cqlProcess: ExecaChildProcess | null = null;
+
 export class InfrastructureService {
   private rootDir: string;
 
   constructor(rootDir: string) {
     this.rootDir = rootDir;
   }
+
+  // ============================================================================
+  // CQL (CovenantSQL) - Runs natively, not in Docker
+  // ============================================================================
+
+  /**
+   * Check if CQL is running
+   */
+  async isCQLRunning(): Promise<boolean> {
+    try {
+      const response = await fetch(`http://127.0.0.1:${CQL_PORT}/health`, {
+        signal: AbortSignal.timeout(2000),
+      });
+      return response.ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Start CQL server natively
+   */
+  async startCQL(): Promise<boolean> {
+    if (await this.isCQLRunning()) {
+      logger.success('CQL already running');
+      return true;
+    }
+
+    logger.step('Starting CQL (CovenantSQL)...');
+
+    const cqlServerPath = join(this.rootDir, 'packages/db/src/server.ts');
+    if (!existsSync(cqlServerPath)) {
+      logger.error('CQL server not found at packages/db/src/server.ts');
+      return false;
+    }
+
+    // Start CQL server in background
+    cqlProcess = execa('bun', ['run', cqlServerPath], {
+      cwd: this.rootDir,
+      env: {
+        ...process.env,
+        PORT: String(CQL_PORT),
+        CQL_PORT: String(CQL_PORT),
+        CQL_DATA_DIR: join(this.rootDir, CQL_DATA_DIR),
+      },
+      stdio: 'pipe',
+      detached: true,
+    });
+
+    cqlProcess.unref();
+
+    // Wait for CQL to be ready
+    for (let i = 0; i < 30; i++) {
+      await this.sleep(500);
+      if (await this.isCQLRunning()) {
+        logger.success(`CQL running on port ${CQL_PORT}`);
+        return true;
+      }
+    }
+
+    logger.error('CQL failed to start within 15 seconds');
+    return false;
+  }
+
+  /**
+   * Stop CQL server
+   */
+  async stopCQL(): Promise<void> {
+    if (cqlProcess) {
+      cqlProcess.kill('SIGTERM');
+      cqlProcess = null;
+    }
+    // Also kill any orphaned CQL processes
+    await execa('pkill', ['-f', 'packages/db/src/server.ts'], { reject: false });
+  }
+
+  // ============================================================================
+  // Docker
+  // ============================================================================
 
   /**
    * Check if Docker is running
@@ -138,10 +225,10 @@ export class InfrastructureService {
   }
 
   /**
-   * Check health of a specific service
+   * Check health of a specific Docker service
    */
-  async checkServiceHealth(key: keyof typeof REQUIRED_SERVICES): Promise<ServiceHealth> {
-    const config = REQUIRED_SERVICES[key];
+  async checkDockerServiceHealth(key: keyof typeof DOCKER_SERVICES): Promise<ServiceHealth> {
+    const config = DOCKER_SERVICES[key];
     const url = `http://127.0.0.1:${config.port}${config.healthPath}`;
     
     try {
@@ -167,43 +254,57 @@ export class InfrastructureService {
   }
 
   /**
-   * Check all Docker services
+   * Check all Docker services (excludes CQL which runs natively)
    */
-  async checkServices(): Promise<ServiceHealth[]> {
+  async checkDockerServices(): Promise<ServiceHealth[]> {
     const results: ServiceHealth[] = [];
     
-    for (const key of Object.keys(REQUIRED_SERVICES) as (keyof typeof REQUIRED_SERVICES)[]) {
-      results.push(await this.checkServiceHealth(key));
+    for (const key of Object.keys(DOCKER_SERVICES) as (keyof typeof DOCKER_SERVICES)[]) {
+      results.push(await this.checkDockerServiceHealth(key));
     }
     
     return results;
   }
 
   /**
-   * Start Docker Compose services
+   * Get CQL health status
    */
-  async startServices(): Promise<boolean> {
+  async getCQLHealth(): Promise<ServiceHealth> {
+    const healthy = await this.isCQLRunning();
+    return {
+      name: 'CovenantSQL',
+      port: CQL_PORT,
+      healthy,
+      url: `http://127.0.0.1:${CQL_PORT}`,
+    };
+  }
+
+  /**
+   * Start Docker Compose services (excludes CQL which runs natively)
+   */
+  async startDockerServices(): Promise<boolean> {
     logger.step('Starting Docker services...');
     
-    const composePath = join(this.rootDir, 'docker-compose.yml');
+    const composePath = join(this.rootDir, 'packages/deployment/docker/localnet.compose.yaml');
     if (!existsSync(composePath)) {
-      logger.error('docker-compose.yml not found');
+      logger.error('localnet.compose.yaml not found in packages/deployment/docker/');
       return false;
     }
 
     try {
+      // Only start Docker services - CQL is started natively
       await execa('docker', [
-        'compose', 'up', '-d',
-        'cql', 'ipfs', 'cache-service', 'da-server',
+        'compose', '-f', composePath, 'up', '-d',
+        'ipfs', 'cache-service', 'da-server',
       ], {
         cwd: this.rootDir,
         stdio: 'pipe',
       });
 
       // Wait for services to be healthy
-      logger.info('  Waiting for services to be healthy...');
+      logger.info('  Waiting for Docker services to be healthy...');
       for (let attempt = 0; attempt < 60; attempt++) {
-        const services = await this.checkServices();
+        const services = await this.checkDockerServices();
         const allHealthy = services.every(s => s.healthy);
         
         if (allHealthy) {
@@ -221,7 +322,7 @@ export class InfrastructureService {
         }
       }
       
-      logger.error('Services did not become healthy within 60 seconds');
+      logger.error('Docker services did not become healthy within 60 seconds');
       return false;
     } catch (error) {
       logger.error('Failed to start Docker services');
@@ -231,15 +332,21 @@ export class InfrastructureService {
   }
 
   /**
-   * Stop Docker Compose services
+   * Stop all services (CQL + Docker)
    */
   async stopServices(): Promise<void> {
-    logger.step('Stopping Docker services...');
+    logger.step('Stopping all services...');
     
-    await execa('docker', ['compose', 'down'], {
+    // Stop CQL first
+    await this.stopCQL();
+    logger.success('CQL stopped');
+    
+    // Stop Docker services
+    const composePath = join(this.rootDir, 'packages/deployment/docker/localnet.compose.yaml');
+    await execa('docker', ['compose', '-f', composePath, 'down'], {
       cwd: this.rootDir,
       stdio: 'pipe',
-      reject: false, // Don't throw if services weren't running
+      reject: false,
     });
     logger.success('Docker services stopped');
   }
@@ -317,16 +424,23 @@ export class InfrastructureService {
    * Get full infrastructure status
    */
   async getStatus(): Promise<InfrastructureStatus> {
+    const cql = await this.isCQLRunning();
     const docker = await this.isDockerRunning();
-    const services = docker ? await this.checkServices() : [];
+    const dockerServices = docker ? await this.checkDockerServices() : [];
     const localnet = await this.isLocalnetRunning();
     
-    const allHealthy = docker && 
-      services.every(s => s.healthy) && 
+    // All services including CQL
+    const cqlHealth = await this.getCQLHealth();
+    const services = [cqlHealth, ...dockerServices];
+    
+    const allHealthy = cql && 
+      docker && 
+      dockerServices.every(s => s.healthy) && 
       localnet;
 
     return {
       docker,
+      cql,
       services,
       localnet,
       allHealthy,
@@ -340,7 +454,19 @@ export class InfrastructureService {
   async ensureRunning(): Promise<boolean> {
     logger.header('INFRASTRUCTURE');
 
-    // Step 1: Check/start Docker
+    // Step 1: Start CQL first - it's the core database for all apps
+    logger.subheader('CQL (CovenantSQL)');
+    
+    if (!(await this.isCQLRunning())) {
+      const started = await this.startCQL();
+      if (!started) {
+        return false;
+      }
+    } else {
+      logger.success(`CQL running on port ${CQL_PORT}`);
+    }
+
+    // Step 2: Check/start Docker
     logger.subheader('Docker');
     
     if (!(await this.isDockerInstalled())) {
@@ -358,33 +484,33 @@ export class InfrastructureService {
       logger.success('Docker running');
     }
 
-    // Step 2: Check/start Docker services
-    logger.subheader('Services');
+    // Step 3: Check/start Docker services (excludes CQL)
+    logger.subheader('Docker Services');
     
-    let services = await this.checkServices();
-    const unhealthyServices = services.filter(s => !s.healthy);
+    let dockerServices = await this.checkDockerServices();
+    const unhealthyServices = dockerServices.filter(s => !s.healthy);
     
     if (unhealthyServices.length > 0) {
       logger.info(`Starting: ${unhealthyServices.map(s => s.name).join(', ')}`);
-      const started = await this.startServices();
+      const started = await this.startDockerServices();
       if (!started) {
         return false;
       }
-      services = await this.checkServices();
+      dockerServices = await this.checkDockerServices();
     } else {
-      for (const service of services) {
+      for (const service of dockerServices) {
         logger.success(`${service.name} healthy`);
       }
     }
 
-    // Verify all services are healthy
-    const stillUnhealthy = services.filter(s => !s.healthy);
+    // Verify all Docker services are healthy
+    const stillUnhealthy = dockerServices.filter(s => !s.healthy);
     if (stillUnhealthy.length > 0) {
       logger.error(`Services not healthy: ${stillUnhealthy.map(s => s.name).join(', ')}`);
       return false;
     }
 
-    // Step 3: Check/start localnet
+    // Step 4: Check/start localnet
     logger.subheader('Localnet');
     
     if (!(await this.isLocalnetRunning())) {
@@ -408,16 +534,21 @@ export class InfrastructureService {
   printStatus(status: InfrastructureStatus): void {
     logger.subheader('Infrastructure Status');
 
+    // CQL first - it's the core database
+    logger.table([
+      { label: 'CQL (native)', value: status.cql ? `http://127.0.0.1:${CQL_PORT}` : 'stopped', status: status.cql ? 'ok' : 'error' },
+    ]);
+
     logger.table([
       { label: 'Docker', value: status.docker ? 'running' : 'stopped', status: status.docker ? 'ok' : 'error' },
     ]);
 
-    if (status.services.length > 0) {
-      for (const service of status.services) {
-        logger.table([
-          { label: service.name, value: service.healthy ? service.url : 'not running', status: service.healthy ? 'ok' : 'error' },
-        ]);
-      }
+    // Docker services (CQL already shown above)
+    for (const service of status.services) {
+      if (service.name === 'CovenantSQL') continue; // Already shown
+      logger.table([
+        { label: service.name, value: service.healthy ? service.url : 'not running', status: service.healthy ? 'ok' : 'error' },
+      ]);
     }
 
     logger.table([

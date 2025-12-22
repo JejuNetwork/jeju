@@ -10,7 +10,7 @@
 
 import { testWithSynpress } from '@synthetixio/synpress';
 import { metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import basicSetup from '../../wallet-setup/basic.setup';
+import basicSetup from '@jejunetwork/tests/wallet-setup';
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup));
 const { expect } = test;

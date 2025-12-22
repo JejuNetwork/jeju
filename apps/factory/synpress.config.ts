@@ -1,41 +1,17 @@
-import { defineConfig, devices } from '@playwright/test';
+/**
+ * Factory Synpress Configuration
+ * Uses shared config from @jejunetwork/tests
+ */
+import { createSynpressConfig, PASSWORD } from '@jejunetwork/tests';
+import basicSetup from '@jejunetwork/tests/wallet-setup';
 
-export default defineConfig({
+const FACTORY_PORT = parseInt(process.env.PORT || '4009');
+
+export default createSynpressConfig({
+  appName: 'factory',
+  port: FACTORY_PORT,
   testDir: './tests/synpress',
-  fullyParallel: false,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: 1,
-  reporter: [
-    ['list'],
-    ['json', { outputFile: 'test-results-synpress.json' }],
-  ],
   timeout: 120000,
-  expect: {
-    timeout: 30000,
-  },
-  use: {
-    baseURL: 'http://localhost:4009',
-    trace: 'on-first-retry',
-    headless: false,
-    viewport: { width: 1920, height: 1080 },
-    actionTimeout: 30000,
-    navigationTimeout: 30000,
-  },
-  projects: [
-    {
-      name: 'chromium',
-      use: {
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1920, height: 1080 },
-      },
-    },
-  ],
-  webServer: {
-    command: 'bun run dev',
-    url: 'http://localhost:4009',
-    reuseExistingServer: !process.env.CI,
-    timeout: 120000,
-  },
 });
 
+export { basicSetup, PASSWORD };

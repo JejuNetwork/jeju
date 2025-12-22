@@ -35,6 +35,7 @@
     "zustand": "5.0.9"
   },
   "devDependencies": {
+    "@jejunetwork/tests": "workspace:*",
     "@playwright/test": "1.57.0",
     "@tauri-apps/api": "1.6.0",
     "@tauri-apps/cli": "1.6.0",

@@ -7,12 +7,9 @@
   "scripts": {
     "dev": "bun run src/index.ts",
     "dev:ceo": "bun run src/ceo-server.ts",
-    "dev:all": "bun run src/index.ts & bun run src/ceo-server.ts",
     "build": "bun build src/index.ts --outdir dist --target node",
-    "test": "bun test tests/integration/",
-    "test:api": "npx playwright test tests/synpress/",
-    "test:e2e": "npx playwright test app/e2e-tests/",
-    "test:all": "bun test tests/integration/ && npx playwright test tests/synpress/",
+    "test": "bun test tests/",
+    "test:e2e": "npx playwright test --config synpress.config.ts",
     "lint": "eslint src --ext .ts,.tsx",
     "typecheck": "tsc --noEmit"
   },
@@ -31,6 +28,7 @@
     "zod": "^4.1.13"
   },
   "devDependencies": {
+    "@jejunetwork/tests": "workspace:*",
     "@playwright/test": "1.57.0",
     "@synthetixio/synpress": "4.1.1",
     "@types/bun": "latest",

@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import { mock } from 'bun:test';
 
 // Add .loose() method to ZodObject if it doesn't exist
 const ZodObjectProto = Object.getPrototypeOf(z.object({}));
@@ -13,6 +14,22 @@ if (!ZodObjectProto.loose) {
     return this.passthrough();
   };
 }
+
+// Mock @jejunetwork/sdk to avoid build dependency during unit tests
+mock.module('@jejunetwork/sdk', () => ({
+  createJejuClient: async () => ({
+    address: '0x0000000000000000000000000000000000000000',
+    network: 'testnet',
+    chainId: 1,
+    isSmartAccount: false,
+    getBalance: async () => 0n,
+  }),
+}));
+
+// Mock @jejunetwork/config to provide test values
+mock.module('@jejunetwork/config', () => ({
+  getNetworkName: () => 'jeju',
+}));
 
 export {};
 

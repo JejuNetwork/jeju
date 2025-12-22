@@ -14,7 +14,11 @@ import { Command } from 'commander';
 import { createPublicClient, createWalletClient, http, formatEther, parseEther, getContract } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import chalk from 'chalk';
+import { execa } from 'execa';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import { logger } from '../lib/logger';
+import { findMonorepoRoot } from '../lib/system';
 import '@jejunetwork/config';
 
 // Contract ABIs (minimal)
@@ -496,6 +500,36 @@ federationCommand
     console.log();
 
     console.log(chalk.yellow('TODO: Query FederationGovernance for guardian list'));
+  });
+
+// ============================================================================
+// configure-remotes - Configure Hyperlane trusted remotes for cross-chain
+// ============================================================================
+
+federationCommand
+  .command('configure-remotes')
+  .description('Configure Hyperlane trusted remotes for cross-chain identity sync')
+  .option('--network <network>', 'Network: localnet | testnet | mainnet', 'testnet')
+  .action(async (options) => {
+    logger.header('CONFIGURE HYPERLANE REMOTES');
+
+    const rootDir = findMonorepoRoot();
+    const scriptPath = join(rootDir, 'scripts/configure-hyperlane-remotes.ts');
+
+    if (!existsSync(scriptPath)) {
+      logger.error('Configure remotes script not found');
+      process.exit(1);
+    }
+
+    const args: string[] = [];
+    if (options.network) {
+      args.push('--network', options.network);
+    }
+
+    await execa('bun', ['run', scriptPath, ...args], {
+      cwd: rootDir,
+      stdio: 'inherit',
+    });
   });
 
 export default federationCommand;

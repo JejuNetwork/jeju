@@ -3,7 +3,8 @@ pragma solidity ^0.8.26;
 
 import {Test, console} from "forge-std/Test.sol";
 import {MessageNodeRegistry} from "../../src/messaging/MessageNodeRegistry.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {PerformanceMetrics} from "../../src/registry/PerformanceMetrics.sol";
+import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
 
 // Mock ERC20 for testing
 contract MockJEJU is IERC20 {
@@ -285,9 +286,9 @@ contract MessageNodeRegistryTest is Test {
         vm.prank(oracleAddr);
         registry.updatePerformance(nodeId, 9500, 9800, 50);
 
-        MessageNodeRegistry.PerformanceMetrics memory perf = registry.getPerformance(nodeId);
+        PerformanceMetrics.Metrics memory perf = registry.getPerformance(nodeId);
         assertGt(perf.uptimeScore, 9000);
-        assertGt(perf.deliveryRate, 9000);
+        assertGt(perf.successRate, 9000);
         assertEq(perf.avgLatencyMs, 50);
     }
 
@@ -299,10 +300,10 @@ contract MessageNodeRegistryTest is Test {
         vm.prank(oracleAddr);
         registry.updatePerformance(nodeId, 20000, 15000, 50);
 
-        MessageNodeRegistry.PerformanceMetrics memory perf = registry.getPerformance(nodeId);
+        PerformanceMetrics.Metrics memory perf = registry.getPerformance(nodeId);
         // Should be capped and averaged
         assertLe(perf.uptimeScore, 10000);
-        assertLe(perf.deliveryRate, 10000);
+        assertLe(perf.successRate, 10000);
     }
 
     // ============ Slashing Tests ============

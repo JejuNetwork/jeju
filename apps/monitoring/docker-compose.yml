@@ -1,3 +1,11 @@
+# Jeju Network Monitoring Stack
+# 
+# Usage:
+#   docker compose up -d              # Start all services
+#   docker compose --profile dev up   # Start with dev config
+#   docker compose logs -f grafana    # View logs
+#   docker compose down               # Stop all
+
 services:
   prometheus:
     image: prom/prometheus:latest
@@ -12,11 +20,13 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - ./prometheus/alerts:/etc/prometheus/alerts:ro
+      - ./config/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/alerts:/etc/prometheus/alerts:ro
       - prometheus-data:/prometheus
     networks:
       - jeju-monitoring
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
 
   alertmanager:
     image: prom/alertmanager:latest
@@ -28,7 +38,7 @@ services:
     ports:
       - "9093:9093"
     volumes:
-      - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - ./config/alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
       - alertmanager-data:/alertmanager
     networks:
       - jeju-monitoring
@@ -47,15 +57,14 @@ services:
     ports:
       - "${GRAFANA_PORT:-4010}:${GRAFANA_PORT:-4010}"
     volumes:
-      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
-      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./config/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
       - grafana-data:/var/lib/grafana
     depends_on:
       - prometheus
       - alertmanager
     networks:
       - jeju-monitoring
-      - indexer_default
     extra_hosts:
       - "host.docker.internal:host-gateway"
 
@@ -63,11 +72,8 @@ networks:
   jeju-monitoring:
     name: jeju-monitoring
     driver: bridge
-  indexer_default:
-    external: true
 
 volumes:
   prometheus-data:
   grafana-data:
   alertmanager-data:
-

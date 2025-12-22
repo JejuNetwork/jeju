@@ -65,6 +65,7 @@ pub mod jeju_launchpad {
         let token_mint_key = ctx.accounts.token_mint.key();
         let creator_key = ctx.accounts.creator.key();
         let bump = ctx.bumps.bonding_curve;
+        let vault_bump = ctx.bumps.sol_vault;
         let token_program_info = ctx.accounts.token_program.to_account_info();
         let token_mint_info = ctx.accounts.token_mint.to_account_info();
         let curve_token_account_info = ctx.accounts.curve_token_account.to_account_info();
@@ -90,6 +91,7 @@ pub mod jeju_launchpad {
         curve.graduated = false;
         curve.created_at = Clock::get()?.unix_timestamp;
         curve.bump = bump;
+        curve.vault_bump = vault_bump;
 
         // Mint initial supply to curve vault
         let seeds = &[
@@ -133,8 +135,17 @@ pub mod jeju_launchpad {
         sol_amount: u64,
         min_tokens_out: u64,
     ) -> Result<()> {
-        let curve = &mut ctx.accounts.bonding_curve;
-        
+        // Get values before mutable borrow
+        let token_mint = ctx.accounts.bonding_curve.token_mint;
+        let bump = ctx.accounts.bonding_curve.bump;
+        let creator_fee_bps = ctx.accounts.bonding_curve.creator_fee_bps;
+        let platform_fee_bps = ctx.accounts.config.platform_fee_bps;
+        let bonding_curve_info = ctx.accounts.bonding_curve.to_account_info();
+        let token_program_info = ctx.accounts.token_program.to_account_info();
+        let curve_token_account_info = ctx.accounts.curve_token_account.to_account_info();
+        let buyer_token_account_info = ctx.accounts.buyer_token_account.to_account_info();
+
+        let curve = &ctx.accounts.bonding_curve;
         require!(!curve.graduated, LaunchpadError::AlreadyGraduated);
         require!(sol_amount > 0, LaunchpadError::InvalidAmount);
 
@@ -158,13 +169,13 @@ pub mod jeju_launchpad {
 
         // Apply fees
         let platform_fee = sol_amount
-            .checked_mul(ctx.accounts.config.platform_fee_bps as u64)
+            .checked_mul(platform_fee_bps as u64)
             .ok_or(LaunchpadError::MathOverflow)?
             .checked_div(10000)
             .ok_or(LaunchpadError::MathOverflow)?;
 
         let creator_fee = sol_amount
-            .checked_mul(curve.creator_fee_bps as u64)
+            .checked_mul(creator_fee_bps as u64)
             .ok_or(LaunchpadError::MathOverflow)?
             .checked_div(10000)
             .ok_or(LaunchpadError::MathOverflow)?;
@@ -224,34 +235,39 @@ pub mod jeju_launchpad {
         // Transfer tokens to buyer
         let seeds = &[
             BONDING_CURVE_SEED,
-            curve.token_mint.as_ref(),
-            &[curve.bump],
+            token_mint.as_ref(),
+            &[bump],
         ];
         let signer = &[&seeds[..]];
 
         token::transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                token_program_info,
                 Transfer {
-                    from: ctx.accounts.curve_token_account.to_account_info(),
-                    to: ctx.accounts.buyer_token_account.to_account_info(),
-                    authority: ctx.accounts.bonding_curve.to_account_info(),
+                    from: curve_token_account_info,
+                    to: buyer_token_account_info,
+                    authority: bonding_curve_info,
                 },
                 signer,
             ),
             tokens_after_fee,
         )?;
 
-        // Update curve state
+        // Update curve state (mutable borrow now)
+        let curve = &mut ctx.accounts.bonding_curve;
+        let old_real_sol = curve.real_sol_reserves;
+        let old_real_token = curve.real_token_reserves;
+        let old_tokens_sold = curve.tokens_sold;
+
         curve.virtual_sol_reserves = new_virtual_sol;
         curve.virtual_token_reserves = new_virtual_token;
-        curve.real_sol_reserves = curve.real_sol_reserves
+        curve.real_sol_reserves = old_real_sol
             .checked_add(net_sol)
             .ok_or(LaunchpadError::MathOverflow)?;
-        curve.real_token_reserves = curve.real_token_reserves
+        curve.real_token_reserves = old_real_token
             .checked_sub(tokens_after_fee)
             .ok_or(LaunchpadError::MathOverflow)?;
-        curve.tokens_sold = curve.tokens_sold
+        curve.tokens_sold = old_tokens_sold
             .checked_add(tokens_after_fee)
             .ok_or(LaunchpadError::MathOverflow)?;
 
@@ -282,8 +298,13 @@ pub mod jeju_launchpad {
         token_amount: u64,
         min_sol_out: u64,
     ) -> Result<()> {
-        let curve = &mut ctx.accounts.bonding_curve;
+        // Get values before mutable borrow
+        let token_mint = ctx.accounts.bonding_curve.token_mint;
+        let vault_bump = ctx.accounts.bonding_curve.vault_bump;
+        let creator_fee_bps = ctx.accounts.bonding_curve.creator_fee_bps;
+        let platform_fee_bps = ctx.accounts.config.platform_fee_bps;
         
+        let curve = &ctx.accounts.bonding_curve;
         require!(!curve.graduated, LaunchpadError::AlreadyGraduated);
         require!(token_amount > 0, LaunchpadError::InvalidAmount);
 
@@ -307,13 +328,13 @@ pub mod jeju_launchpad {
 
         // Apply fees
         let platform_fee = sol_out
-            .checked_mul(ctx.accounts.config.platform_fee_bps as u64)
+            .checked_mul(platform_fee_bps as u64)
             .ok_or(LaunchpadError::MathOverflow)?
             .checked_div(10000)
             .ok_or(LaunchpadError::MathOverflow)?;
 
         let creator_fee = sol_out
-            .checked_mul(curve.creator_fee_bps as u64)
+            .checked_mul(creator_fee_bps as u64)
             .ok_or(LaunchpadError::MathOverflow)?
             .checked_div(10000)
             .ok_or(LaunchpadError::MathOverflow)?;
@@ -340,8 +361,8 @@ pub mod jeju_launchpad {
         // Transfer SOL to seller
         let vault_seeds = &[
             VAULT_SEED,
-            curve.token_mint.as_ref(),
-            &[ctx.bumps.sol_vault],
+            token_mint.as_ref(),
+            &[vault_bump],
         ];
         let vault_signer = &[&vault_seeds[..]];
 
@@ -357,25 +378,30 @@ pub mod jeju_launchpad {
             net_sol,
         )?;
 
-        // Update curve state
+        // Update curve state (need mutable borrow now)
+        let curve = &mut ctx.accounts.bonding_curve;
+        let old_real_sol = curve.real_sol_reserves;
+        let old_real_token = curve.real_token_reserves;
+        let old_tokens_sold = curve.tokens_sold;
+        
         curve.virtual_sol_reserves = new_virtual_sol;
         curve.virtual_token_reserves = new_virtual_token;
-        curve.real_sol_reserves = curve.real_sol_reserves
+        curve.real_sol_reserves = old_real_sol
             .checked_sub(sol_out)
             .ok_or(LaunchpadError::MathOverflow)?;
-        curve.real_token_reserves = curve.real_token_reserves
+        curve.real_token_reserves = old_real_token
             .checked_add(token_amount)
             .ok_or(LaunchpadError::MathOverflow)?;
-        curve.tokens_sold = curve.tokens_sold
+        curve.tokens_sold = old_tokens_sold
             .checked_sub(token_amount)
             .ok_or(LaunchpadError::MathOverflow)?;
 
         emit!(TokensSold {
-            token_mint: curve.token_mint,
+            token_mint,
             seller: ctx.accounts.seller.key(),
             tokens_sold: token_amount,
             sol_received: net_sol,
-            new_price: calculate_price(curve.virtual_sol_reserves, curve.virtual_token_reserves),
+            new_price: calculate_price(new_virtual_sol, new_virtual_token),
         });
 
         Ok(())
@@ -420,6 +446,7 @@ pub mod jeju_launchpad {
         presale.finalized = false;
         presale.cancelled = false;
         presale.bump = ctx.bumps.presale;
+        presale.vault_bump = ctx.bumps.presale_vault;
 
         emit!(PresaleCreated {
             presale: presale.key(),
@@ -615,18 +642,20 @@ pub mod jeju_launchpad {
         let presale = &ctx.accounts.presale;
         let contribution = &mut ctx.accounts.contribution;
 
-        require!(presale.cancelled || (presale.total_raised < presale.soft_cap && Clock::get()?.unix_timestamp > presale.end_time), 
+        require!(presale.cancelled || (presale.total_raised < presale.soft_cap && Clock::get()?.unix_timestamp > presale.end_time),
             LaunchpadError::RefundsNotEnabled);
         require!(!contribution.claimed, LaunchpadError::AlreadyClaimed);
         require!(contribution.amount > 0, LaunchpadError::NothingToClaim);
 
         let refund_amount = contribution.amount;
+        let token_mint = presale.token_mint;
+        let vault_bump = presale.vault_bump;
 
         // Transfer SOL back
         let seeds = &[
             VAULT_SEED,
-            presale.token_mint.as_ref(),
-            &[ctx.bumps.presale_vault],
+            token_mint.as_ref(),
+            &[vault_bump],
         ];
         let signer = &[&seeds[..]];
 
@@ -698,6 +727,7 @@ pub struct BondingCurve {
     pub graduated: bool,
     pub created_at: i64,
     pub bump: u8,
+    pub vault_bump: u8,
 }
 
 #[account]
@@ -718,6 +748,7 @@ pub struct Presale {
     pub cancelled: bool,
     pub finalized_at: i64,
     pub bump: u8,
+    pub vault_bump: u8,
 }
 
 #[account]
@@ -775,7 +806,7 @@ pub struct CreateBondingCurve<'info> {
     #[account(
         init,
         payer = creator,
-        space = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8 + 2 + 1 + 8 + 1,
+        space = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8 + 2 + 1 + 8 + 1 + 1, // +1 for vault_bump
         seeds = [BONDING_CURVE_SEED, token_mint.key().as_ref()],
         bump
     )]
@@ -788,6 +819,14 @@ pub struct CreateBondingCurve<'info> {
         associated_token::authority = bonding_curve,
     )]
     pub curve_token_account: Account<'info, TokenAccount>,
+
+    /// CHECK: SOL vault PDA - initialized here
+    #[account(
+        mut,
+        seeds = [VAULT_SEED, token_mint.key().as_ref()],
+        bump
+    )]
+    pub sol_vault: SystemAccount<'info>,
 
     pub token_program: Program<'info, Token>,
     pub associated_token_program: Program<'info, AssociatedToken>,
@@ -821,8 +860,7 @@ pub struct BuyTokens<'info> {
     pub curve_token_account: Account<'info, TokenAccount>,
 
     #[account(
-        init_if_needed,
-        payer = buyer,
+        mut,
         associated_token::mint = bonding_curve.token_mint,
         associated_token::authority = buyer,
     )]
@@ -832,7 +870,7 @@ pub struct BuyTokens<'info> {
     #[account(
         mut,
         seeds = [VAULT_SEED, bonding_curve.token_mint.as_ref()],
-        bump
+        bump = bonding_curve.vault_bump
     )]
     pub sol_vault: SystemAccount<'info>,
 
@@ -885,7 +923,7 @@ pub struct SellTokens<'info> {
     #[account(
         mut,
         seeds = [VAULT_SEED, bonding_curve.token_mint.as_ref()],
-        bump
+        bump = bonding_curve.vault_bump
     )]
     pub sol_vault: SystemAccount<'info>,
 
@@ -903,11 +941,19 @@ pub struct CreatePresale<'info> {
     #[account(
         init,
         payer = creator,
-        space = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 8 + 1,
+        space = 8 + 32 + 32 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 8 + 1 + 1 + 8 + 1 + 1, // +1 for vault_bump
         seeds = [PRESALE_SEED, token_mint.key().as_ref()],
         bump
     )]
     pub presale: Account<'info, Presale>,
+
+    /// CHECK: Presale vault PDA - initialized here
+    #[account(
+        mut,
+        seeds = [VAULT_SEED, token_mint.key().as_ref()],
+        bump
+    )]
+    pub presale_vault: SystemAccount<'info>,
 
     pub system_program: Program<'info, System>,
 }
@@ -937,7 +983,7 @@ pub struct Contribute<'info> {
     #[account(
         mut,
         seeds = [VAULT_SEED, presale.token_mint.as_ref()],
-        bump
+        bump = presale.vault_bump
     )]
     pub presale_vault: SystemAccount<'info>,
 
@@ -984,8 +1030,7 @@ pub struct ClaimPresale<'info> {
     pub presale_token_account: Account<'info, TokenAccount>,
 
     #[account(
-        init_if_needed,
-        payer = contributor,
+        mut,
         associated_token::mint = presale.token_mint,
         associated_token::authority = contributor,
     )]
@@ -1032,7 +1077,7 @@ pub struct ClaimRefund<'info> {
     #[account(
         mut,
         seeds = [VAULT_SEED, presale.token_mint.as_ref()],
-        bump
+        bump = presale.vault_bump
     )]
     pub presale_vault: SystemAccount<'info>,
 

@@ -33,6 +33,15 @@ export {
   type LPPosition,
 } from "./hooks/useLiquidityVaultContract";
 
+// Liquidity calculation utilities (pure functions, useful for testing/simulations)
+export {
+  calculateSharePercent,
+  parsePositionFromTuple,
+  parsePositionFromBalance,
+  parseLPPosition,
+  type RawPositionTuple,
+} from "./hooks/liquidity-utils";
+
 export {
   usePaymasterFactory,
   usePaymasterDeployment,

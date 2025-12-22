@@ -1,0 +1,15 @@
+apiVersion: v2
+name: oauth3
+description: OAuth3 TEE Auth Agent - Decentralized authentication with MPC signing
+type: application
+version: 0.1.0
+appVersion: "0.1.0"
+keywords:
+  - oauth
+  - authentication
+  - tee
+  - mpc
+  - web3
+maintainers:
+  - name: Jeju Network
+    url: https://jejunetwork.org

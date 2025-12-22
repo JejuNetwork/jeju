@@ -6,18 +6,11 @@
 import { useCallback } from 'react';
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
 import type { Address } from 'viem';
-import { formatEther, parseEther } from 'viem';
+import { parseEther } from 'viem';
 import { LIQUIDITY_VAULT_ABI } from '../contracts';
+import { parseLPPosition, type LPPosition, type RawPositionTuple } from './liquidity-utils';
 
-export interface LPPosition {
-  ethShares: bigint;
-  ethValue: bigint;
-  tokenShares: bigint;
-  tokenValue: bigint;
-  pendingFees: bigint;
-  lpTokenBalance: string;
-  sharePercent: number;
-}
+export type { LPPosition } from './liquidity-utils';
 
 export function useLiquidityVault(vaultAddress: Address | undefined) {
   const { address: userAddress } = useAccount();
@@ -95,27 +88,11 @@ export function useLiquidityVault(vaultAddress: Address | undefined) {
   }, [vaultAddress, claimWrite]);
 
   // Parse position from tuple or ERC20 balance
-  const position = lpPosition as [bigint, bigint, bigint, bigint, bigint] | undefined;
+  const position = lpPosition as RawPositionTuple | undefined;
   const balance = lpBalance as bigint | undefined;
   const supply = totalSupply as bigint | undefined;
 
-  const parsedPosition: LPPosition | null = position ? {
-    ethShares: position[0],
-    ethValue: position[1],
-    tokenShares: position[2],
-    tokenValue: position[3],
-    pendingFees: position[4],
-    lpTokenBalance: formatEther(position[0]),
-    sharePercent: supply && supply > 0n ? Number((position[0] * 10000n) / supply) / 100 : 0,
-  } : balance && supply ? {
-    ethShares: balance,
-    ethValue: balance,
-    tokenShares: 0n,
-    tokenValue: 0n,
-    pendingFees: 0n,
-    lpTokenBalance: formatEther(balance),
-    sharePercent: supply > 0n ? Number((balance * 10000n) / supply) / 100 : 0,
-  } : null;
+  const parsedPosition = parseLPPosition(position, balance, supply);
 
   return {
     lpPosition: parsedPosition,

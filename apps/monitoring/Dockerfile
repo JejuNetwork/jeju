@@ -41,8 +41,7 @@ COPY --from=builder --chown=monitor:monitor /app/package.json ./
 COPY --from=builder --chown=monitor:monitor /app/node_modules ./node_modules
 
 # Copy Grafana/Prometheus configs
-COPY --from=builder --chown=monitor:monitor /app/grafana ./grafana
-COPY --from=builder --chown=monitor:monitor /app/prometheus ./prometheus
+COPY --from=builder --chown=monitor:monitor /app/config ./config
 
 USER monitor
 

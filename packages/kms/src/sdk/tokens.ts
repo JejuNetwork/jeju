@@ -196,11 +196,16 @@ export async function verifyToken(
   const [headerB64, payloadB64, signatureB64] = parts;
 
   // Decode header and payload - parse failures indicate malformed tokens
-  const headerJson = base64urlDecode(headerB64);
-  const payloadJson = base64urlDecode(payloadB64);
-  
-  const headerParsed: unknown = JSON.parse(headerJson);
-  const payloadParsed: unknown = JSON.parse(payloadJson);
+  let headerParsed: unknown;
+  let payloadParsed: unknown;
+  try {
+    const headerJson = base64urlDecode(headerB64);
+    const payloadJson = base64urlDecode(payloadB64);
+    headerParsed = JSON.parse(headerJson);
+    payloadParsed = JSON.parse(payloadJson);
+  } catch {
+    return { valid: false, error: 'Malformed token: invalid base64url or JSON' };
+  }
   
   // Validate header structure - allow alg variations for wallet-signed tokens
   if (typeof headerParsed !== 'object' || headerParsed === null) {
@@ -286,11 +291,15 @@ export function decodeToken(token: string): TokenClaims | null {
   const parts = token.split('.');
   if (parts.length !== 3) return null;
 
-  const payloadJson = base64urlDecode(parts[1]);
-  const parsed = JSON.parse(payloadJson) as unknown;
-  const result = tokenClaimsSchema.safeParse(parsed);
-  if (!result.success) return null;
-  return result.data;
+  try {
+    const payloadJson = base64urlDecode(parts[1]);
+    const parsed = JSON.parse(payloadJson) as unknown;
+    const result = tokenClaimsSchema.safeParse(parsed);
+    if (!result.success) return null;
+    return result.data;
+  } catch {
+    return null;
+  }
 }
 
 /**

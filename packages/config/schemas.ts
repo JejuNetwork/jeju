@@ -240,10 +240,12 @@ export const EILChainConfigSchema = z.object({
   chainId: z.number(),
   name: z.string(),
   rpcUrl: z.string(),
-  crossChainPaymaster: z.string(),
+  crossChainPaymaster: z.string().optional(),
   l1StakeManager: z.string().optional(),
   status: z.enum(['active', 'planned']),
   tokens: z.record(z.string(), z.string()),
+  type: z.string().optional(),
+  programs: z.record(z.string(), z.string()).optional(),
 });
 export type EILChainConfig = z.infer<typeof EILChainConfigSchema>;
 

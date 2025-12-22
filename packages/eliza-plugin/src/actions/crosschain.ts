@@ -14,7 +14,7 @@ import { JEJU_SERVICE_NAME, type JejuService } from "../service";
 import type { SupportedChain } from "@jejunetwork/sdk";
 import { getMessageText, validateServiceExists } from "../validation";
 
-function parseTransferParams(text: string): {
+export function parseTransferParams(text: string): {
   amount?: bigint;
   from?: SupportedChain;
   to?: SupportedChain;

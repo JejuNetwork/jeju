@@ -296,6 +296,24 @@ releases:
       - ../helm/compute/values.yaml
       - ../helm/compute/values-{{ .Environment.Name }}.yaml
 
+  # ==========================================================================
+  # Authentication & Identity Services
+  # ==========================================================================
+
+  # OAuth3 (TEE Auth Agent with MPC signing)
+  - name: oauth3
+    namespace: auth
+    createNamespace: true
+    chart: ../helm/oauth3
+    installed: {{ ne .Environment.Name "localnet" }}
+    values:
+      - ../helm/oauth3/values.yaml
+      - ../helm/oauth3/values-{{ .Environment.Name }}.yaml
+
+  # ==========================================================================
+  # Monitoring & Alerting
+  # ==========================================================================
+
   # Alertmanager (Alert Routing)
   - name: alertmanager
     namespace: monitoring

@@ -37,5 +37,9 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 test-results/
 playwright-report/
 playwright/.cache/
-synpress-report-gateway/
-synpress-results-gateway.json
+synpress-report*/
+synpress-results*.json
+test-results*.json
+
+# bun.lock (only at monorepo root)
+bun.lock

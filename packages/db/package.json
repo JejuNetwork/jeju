@@ -29,7 +29,6 @@
     "dev": "tsc --watch",
     "server": "bun run src/server.ts",
     "server:dev": "CQL_DEBUG=true bun run src/server.ts",
-    "mock-cql": "bun run src/mock-cql-server.ts",
     "test": "bun test",
     "clean": "rm -rf dist",
     "prepublishOnly": "bun run build"

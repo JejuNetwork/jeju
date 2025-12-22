@@ -13,7 +13,7 @@ import { type Address, parseEther, formatEther } from "viem";
 import { JEJU_SERVICE_NAME, type JejuService } from "../service";
 import { getMessageText, validateServiceExists } from "../validation";
 
-function parseSwapParams(text: string): {
+export function parseSwapParams(text: string): {
   amountIn?: bigint;
   tokenIn?: string;
   tokenOut?: string;

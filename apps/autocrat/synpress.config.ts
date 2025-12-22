@@ -1,43 +1,35 @@
-import { defineConfig, devices } from '@playwright/test';
+/**
+ * Autocrat Synpress Configuration
+ * Uses shared config from @jejunetwork/tests
+ */
+import { createSynpressConfig, createWalletSetup, PASSWORD } from '@jejunetwork/tests';
 
-const BASE_URL = 'http://localhost:8010';
-const CEO_URL = 'http://localhost:8004';
+const AUTOCRAT_PORT = parseInt(process.env.PORT || '8010');
+const CEO_PORT = parseInt(process.env.CEO_PORT || '8004');
 
-export default defineConfig({
+export default createSynpressConfig({
+  appName: 'autocrat',
+  port: AUTOCRAT_PORT,
   testDir: './tests/synpress',
-  fullyParallel: false,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: 1,
-  reporter: 'list',
   timeout: 120000,
-  expect: {
-    timeout: 30000
+  overrides: {
+    // Autocrat needs both API and CEO servers
+    webServer: [
+      {
+        command: 'bun run src/index.ts',
+        url: `http://localhost:${AUTOCRAT_PORT}/health`,
+        reuseExistingServer: true,
+        timeout: 60000,
+      },
+      {
+        command: 'bun run src/ceo-server.ts',
+        url: `http://localhost:${CEO_PORT}/health`,
+        reuseExistingServer: true,
+        timeout: 60000,
+      },
+    ],
   },
-  use: {
-    baseURL: BASE_URL,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-  },
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
-  webServer: [
-    {
-      command: 'bun run src/index.ts',
-      url: BASE_URL,
-      reuseExistingServer: true,
-      timeout: 60000,
-    },
-    {
-      command: 'bun run src/ceo-server.ts',
-      url: CEO_URL,
-      reuseExistingServer: true,
-      timeout: 60000,
-    },
-  ],
 });
+
+export const basicSetup = createWalletSetup();
+export { PASSWORD };

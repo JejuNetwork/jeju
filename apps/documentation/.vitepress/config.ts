@@ -4,9 +4,13 @@ export default defineConfig({
   title: 'Jeju',
   description: 'OP-Stack L2 for Agents',
   base: '/jeju/',
+  srcDir: 'docs',
   ignoreDeadLinks: [
     /^http:\/\/localhost/,
     /\/api\/.*\/README/,
+    /\/build\//,
+    /\/contracts\/governance/,
+    /\/applications\/wallet/,
   ],
 
   vite: {
@@ -158,7 +162,7 @@ export default defineConfig({
     search: { provider: 'local' },
 
     editLink: {
-      pattern: 'https://github.com/elizaos/jeju/edit/main/apps/documentation/:path',
+      pattern: 'https://github.com/elizaos/jeju/edit/main/apps/documentation/docs/:path',
       text: 'Edit on GitHub',
     },
 

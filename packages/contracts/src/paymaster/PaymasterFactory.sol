@@ -1,12 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {Ownable} from "openzeppelin-contracts/contracts/access/Ownable.sol";
 import {TokenRegistry} from "./TokenRegistry.sol";
 import {LiquidityPaymaster} from "./LiquidityPaymaster.sol";
 import {LiquidityVault} from "../liquidity/LiquidityVault.sol";
 import {FeeDistributorV2} from "../distributor/FeeDistributor.sol";
-import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
+import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
 import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
 /**

@@ -15,9 +15,8 @@
   },
   "files": ["dist"],
   "scripts": {
-    "postinstall": "bash scripts/patch-elizaos.sh || true",
-    "build": "bun build.ts",
-    "dev": "bun --watch build.ts",
+    "build": "rm -rf dist && tsc",
+    "dev": "tsc --watch",
     "test": "bun test",
     "test:unit": "bun test test/plugin.test.ts",
     "test:integration": "JEJU_NETWORK=localnet bun test test/integration",

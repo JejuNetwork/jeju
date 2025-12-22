@@ -15,7 +15,7 @@
     "three": "0.180.0",
     "@types/three": "0.180.0",
     "@noble/curves": "1.9.7",
-    "viem": "2.43.2",
+    "viem": "2.43.3",
     "typescript": "5.9.3",
     "@playwright/test": "1.57.0",
     "playwright": "1.57.0",
@@ -46,7 +46,7 @@
     "tmp": ">=0.2.3",
     "undici": ">=6.21.0",
     "esbuild": ">=0.25.0",
-    "mime": "3.0.0",
+    "mime": "4.1.0",
     "morgan": ">=1.10.0",
     "uglify-js": ">=3.19.0",
     "@hapi/hoek": "9.3.0",
@@ -196,7 +196,7 @@
     "sharp": "^0.34.5",
     "siwe": "^3.0.0",
     "tar": "^7.5.1",
-    "viem": "2.43.2",
+    "viem": "2.43.3",
     "yaml": "^2.8.2",
     "zod": "4.2.1"
   },
@@ -230,7 +230,7 @@
   },
   "resolutions": {
     "@noble/curves": "1.9.7",
-    "viem": "2.43.2",
+    "viem": "2.43.3",
     "typescript": "5.9.3",
     "@playwright/test": "1.57.0",
     "playwright": "1.57.0",
@@ -261,8 +261,5 @@
   "engines": {
     "bun": ">=1.0.0"
   },
-  "packageManager": "bun@1.1.24",
-  "patchedDependencies": {
-    "@fastify/static@8.3.0": "patches/@fastify%2Fstatic@8.3.0.patch"
-  }
+  "packageManager": "bun@1.1.24"
 }

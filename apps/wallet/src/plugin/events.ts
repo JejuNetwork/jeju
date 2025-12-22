@@ -5,10 +5,7 @@
  * intent status changes, and security alerts.
  */
 
-import type { 
-  PluginEvents, 
-  EventPayload,
-} from '@elizaos/core';
+import type { EventPayload } from '@elizaos/core';
 
 // Custom event types for wallet
 interface TransactionConfirmedPayload extends EventPayload {
@@ -68,10 +65,13 @@ const handleSignatureRequest = async (payload: SignatureRequestPayload) => {
   // Would route to chat for user review
 };
 
+// Custom event handler type
+type EventHandler = (payload: EventPayload) => Promise<void>;
+
 /**
  * Wallet plugin events
  */
-export const events: PluginEvents = {
+export const events: Record<string, EventHandler[]> = {
   // Transaction events
   TRANSACTION_CONFIRMED: [
     async (payload: EventPayload) => {

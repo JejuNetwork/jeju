@@ -16,7 +16,7 @@ import {
   OIFStatsResponseSchema,
   OIFSolverSchema,
   OIFRouteSchema,
-} from '../types';
+} from '../src/types';
 
 const networkName = getNetworkName();
 

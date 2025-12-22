@@ -12,7 +12,7 @@ import {
   A2AResponseSchema,
   type AgentCard,
   type A2AResponse,
-} from '../types';
+} from '../src/types';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

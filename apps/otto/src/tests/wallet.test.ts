@@ -2,8 +2,13 @@
  * Otto Wallet Service Tests
  */
 
-import { describe, expect, test, beforeEach } from 'bun:test';
+import { describe, expect, test, beforeEach, beforeAll } from 'bun:test';
 import { WalletService } from '../services/wallet';
+
+// Set test environment
+beforeAll(() => {
+  process.env.NODE_ENV = 'development';
+});
 
 describe('WalletService', () => {
   let service: WalletService;

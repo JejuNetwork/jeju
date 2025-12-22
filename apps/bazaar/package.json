@@ -22,8 +22,7 @@
     "test:coverage": "bun test --coverage lib/__tests__/*.test.ts config/__tests__/*.test.ts",
     "test:all": "bun run test:unit && bun run test:e2e",
     "test:jeju": "cd ../.. && bun run jeju:test --app=bazaar",
-    "test:localnet": "bun test tests/integration/",
-    "test:localnet:full": "bun run scripts/run-localnet-simulations.ts"
+    "test:localnet": "bun test tests/integration/"
   },
   "dependencies": {
     "@babylon/shared": "workspace:vendor/babylon/packages/shared",

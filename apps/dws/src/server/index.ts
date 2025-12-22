@@ -59,6 +59,7 @@ import { createAgentRouter, initRegistry, initExecutor } from '../agents';
 import { WorkerdExecutor } from '../workers/workerd/executor';
 import { createK3sRouter, createHelmProviderRouter, createTerraformProviderRouter, setDeploymentContext } from '../infrastructure';
 import trainingRoutes from './routes/training';
+import { banCheckMiddleware } from '../middleware/ban-check';
 
 // Server port - defined early for use in config
 const PORT = parseInt(process.env.DWS_PORT || process.env.PORT || '4030', 10);
@@ -170,6 +171,7 @@ app.onError((error, c) => {
 
 app.use('/*', cors({ origin: '*' }));
 app.use('/*', rateLimiter());
+app.use('/*', banCheckMiddleware()); // Ban check - blocks banned users
 
 const backendManager = createBackendManager();
 

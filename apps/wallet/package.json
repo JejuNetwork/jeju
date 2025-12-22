@@ -92,6 +92,7 @@
     "zustand": "5.0.9"
   },
   "devDependencies": {
+    "@jejunetwork/tests": "workspace:*",
     "@capacitor/android": "^6.1.0",
     "@capacitor/app": "^6.0.0",
     "@capacitor/browser": "^6.0.0",

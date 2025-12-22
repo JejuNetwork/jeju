@@ -3,6 +3,7 @@
 import dynamic from 'next/dynamic';
 import { Navigation } from '@/components/navigation';
 import { MobileNav } from '@/components/mobile-nav';
+import { BanCheckWrapper } from '@/components/BanCheckWrapper';
 
 // Dynamic import providers to avoid SSR issues with WalletConnect
 const Providers = dynamic(
@@ -24,7 +25,9 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
         
         {/* Main Content - full width on mobile, offset on desktop */}
         <main className="flex-1 lg:ml-64 min-h-screen">
-          {children}
+          <BanCheckWrapper>
+            {children}
+          </BanCheckWrapper>
         </main>
       </div>
     </Providers>

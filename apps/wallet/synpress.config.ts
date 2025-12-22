@@ -1,9 +1,11 @@
-import { defineConfig, devices } from '@playwright/test';
+import { createSynpressConfig, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests';
+
+const WALLET_PORT = parseInt(process.env.WALLET_PORT || '4015');
 
 /**
  * Synpress configuration for wallet E2E tests
- * 
- * Includes tests for:
+ *
+ * Tests for:
  * - Wallet connection flows
  * - Transaction signing
  * - Cross-chain transfers (EIL)
@@ -11,43 +13,17 @@ import { defineConfig, devices } from '@playwright/test';
  * - Gas token selection
  * - Account abstraction features
  */
-export default defineConfig({
+export default createSynpressConfig({
+  appName: 'wallet',
+  port: WALLET_PORT,
   testDir: './tests',
-  fullyParallel: false,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: 1,
-  timeout: 120000,
-  expect: {
-    timeout: 30000,
-  },
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: 'playwright-report' }],
-    ['json', { outputFile: 'test-results-synpress.json' }],
-  ],
-  use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:4015',
-    trace: 'retain-on-failure',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-    actionTimeout: 30000,
-    navigationTimeout: 30000,
-  },
-  projects: [
-    {
-      name: 'chromium',
-      use: { 
-        ...devices['Desktop Chrome'],
-        viewport: { width: 1280, height: 720 },
-      },
-    },
-  ],
-  webServer: {
-    command: 'bun run dev',
-    url: process.env.BASE_URL || 'http://localhost:4015',
-    reuseExistingServer: true,
+  overrides: {
     timeout: 120000,
+    expect: {
+      timeout: 30000,
+    },
   },
 });
 
+// Export wallet setup - app-specific setup is in tests/wallet-setup/basic.setup.ts
+export { PASSWORD, SEED_PHRASE };

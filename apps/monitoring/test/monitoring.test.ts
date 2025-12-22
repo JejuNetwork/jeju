@@ -15,7 +15,7 @@ import {
   type GrafanaHealth,
   type PrometheusTargetsResponse,
   type GrafanaDataSource,
-} from '../types';
+} from '../src/types';
 import { z } from 'zod';
 
 const __filename = fileURLToPath(import.meta.url);

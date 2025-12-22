@@ -78,7 +78,7 @@ export class WalletService {
       requestId,
     });
 
-    return `${OAUTH3_API}/connect/wallet?${params}`;
+    return `${getOAuth3Api()}/connect/wallet?${params}`;
   }
 
   async verifyAndConnect(

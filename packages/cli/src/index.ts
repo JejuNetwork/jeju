@@ -47,6 +47,9 @@ import { proxyCommand } from './commands/proxy';
 import { decentralizeCommand } from './commands/decentralize';
 import { deployMipsCommand } from './commands/deploy-mips';
 import { verifyStage2Command } from './commands/verify-stage2';
+import { faucetCommand } from './commands/faucet';
+import { botsCommand } from './commands/bots';
+import { vendorCommand } from './commands/vendor';
 
 const cli = getCliBranding();
 const networkName = getNetworkName();
@@ -113,6 +116,9 @@ program.addCommand(proxyCommand);
 program.addCommand(decentralizeCommand);
 program.addCommand(deployMipsCommand);
 program.addCommand(verifyStage2Command);
+program.addCommand(faucetCommand);
+program.addCommand(botsCommand);
+program.addCommand(vendorCommand);
 
 // Default: show help
 program.action(() => {
@@ -133,7 +139,9 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} keys`) + '             Show keys');
   console.log('  ' + chalk.cyan(`${cliName} fund`) + '             Show balances');
   console.log('  ' + chalk.cyan(`${cliName} fund 0x...`) + '       Fund address');
-  console.log('  ' + chalk.cyan(`${cliName} fund --all`) + '       Fund all dev accounts\n');
+  console.log('  ' + chalk.cyan(`${cliName} fund --all`) + '       Fund all dev accounts');
+  console.log('  ' + chalk.cyan(`${cliName} faucet`) + '           Request testnet funds');
+  console.log('  ' + chalk.cyan(`${cliName} faucet --list`) + '    List available faucets\n');
   
   console.log(chalk.bold('Deploy:\n'));
   console.log('  ' + chalk.cyan(`${cliName} keys genesis`) + '     Generate production keys');
@@ -141,7 +149,14 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} deploy mainnet`) + '   Deploy to mainnet');
   console.log('  ' + chalk.cyan(`${cliName} deploy token`) + '     Deploy token contracts');
   console.log('  ' + chalk.cyan(`${cliName} deploy oif`) + '       Deploy OIF contracts');
-  console.log('  ' + chalk.cyan(`${cliName} deploy jns`) + '       Deploy JNS contracts\n');
+  console.log('  ' + chalk.cyan(`${cliName} deploy jns`) + '       Deploy JNS contracts');
+  console.log('  ' + chalk.cyan(`${cliName} deploy commerce`) + '  Deploy Commerce contracts');
+  console.log('  ' + chalk.cyan(`${cliName} deploy moderation`) + ' Deploy moderation system');
+  console.log('  ' + chalk.cyan(`${cliName} deploy x402`) + '      Deploy x402 payment protocol');
+  console.log('  ' + chalk.cyan(`${cliName} deploy chainlink`) + ' Deploy Chainlink integration');
+  console.log('  ' + chalk.cyan(`${cliName} deploy defi`) + '      Deploy DeFi protocols');
+  console.log('  ' + chalk.cyan(`${cliName} deploy blocking`) + '  Deploy blocking system');
+  console.log('  ' + chalk.cyan(`${cliName} deploy security-council`) + ' Deploy Security Council\n');
   
   console.log(chalk.bold('Utilities:\n'));
   console.log('  ' + chalk.cyan(`${cliName} build`) + '            Build all components');
@@ -196,7 +211,15 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} federation join`) + '    Join the Jeju Federation');
   console.log('  ' + chalk.cyan(`${cliName} federation status`) + '  Check federation membership');
   console.log('  ' + chalk.cyan(`${cliName} federation list`) + '    List all federated networks');
-  console.log('  ' + chalk.cyan(`${cliName} federation add-stake`) + ' Upgrade trust tier\n');
+  console.log('  ' + chalk.cyan(`${cliName} federation add-stake`) + ' Upgrade trust tier');
+  console.log('  ' + chalk.cyan(`${cliName} federation configure-remotes`) + ' Configure Hyperlane remotes\n');
+  
+  console.log(chalk.bold('Vendor Apps:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} vendor init <name>`) + ' Create vendor manifest for external app\n');
+  
+  console.log(chalk.bold('Validation:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} validate manifests`) + ' Validate all jeju-manifest.json files');
+  console.log('  ' + chalk.cyan(`${cliName} validate config`) + '    Validate all configuration files\n');
   
   console.log(chalk.bold('Superchain:\n'));
   console.log('  ' + chalk.cyan(`${cliName} superchain check`) + '   Check Superchain compatibility');
@@ -225,6 +248,14 @@ program.action(() => {
   console.log('  ' + chalk.cyan(`${cliName} compute submit`) + '    Submit compute job');
   console.log('  ' + chalk.cyan(`${cliName} compute jobs`) + '      List compute jobs');
   console.log('  ' + chalk.cyan(`${cliName} compute inference`) + ' Run inference request\n');
+  
+  console.log(chalk.bold('Trading Bots:\n'));
+  console.log('  ' + chalk.cyan(`${cliName} bots start`) + '                    Start trading bot');
+  console.log('  ' + chalk.cyan(`${cliName} bots start --strategy <name>`) + '  Use specific strategy');
+  console.log('  ' + chalk.cyan(`${cliName} bots backtest`) + '                 Run backtest simulation');
+  console.log('  ' + chalk.cyan(`${cliName} bots simulate`) + '                 Run portfolio simulation');
+  console.log('  ' + chalk.cyan(`${cliName} bots prices --tokens ETH,BTC`) + '  Fetch current prices');
+  console.log('  ' + chalk.cyan(`${cliName} bots list`) + '                     List available strategies\n');
   
   console.log(chalk.dim(`Run \`${cliName} <command> --help\` for details.\n`));
 });

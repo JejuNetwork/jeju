@@ -7,6 +7,7 @@ build/
 out/
 .next/
 .turbo/
+*.tsbuildinfo
 
 # Environment (secrets only - never commit)
 .env
@@ -41,6 +42,7 @@ temp/
 
 # Local development data
 .data/
+data/
 
 # Forge/Foundry
 packages/contracts/cache/
@@ -114,11 +116,25 @@ docs/
 
 # Jeju cache and test files
 .jeju/*
-!.jeju/.gitkeepgetgrass/
+!.jeju/.gitkeep
+
+# Root config directory (use packages/config/ instead)
+/config/
+
+# Root cache directory (Forge cache goes in packages/contracts/cache/)
+/cache/
+
+getgrass/
 grass/
+.fork/
 .fork/google-cloud-sdk/
 test-ledger/
-circuits/8004/
+# SP1 circuit build artifacts (actual circuits in packages/bridge/circuits/)
+/circuits/
 
 # CQL local development data
 .cql-data/
+
+# Local vendor directories (not submodules - use git submodule for managed vendors)
+vendor/dstack/
+vendor/eliza-cloud-v2/

@@ -33,6 +33,7 @@ import { getRegistryService } from '../services/registry';
 import { expectValid } from '../utils/validation';
 import { z } from 'zod';
 import type { HealthResponse, ServiceStatus } from '../types';
+import { banCheckMiddleware } from '../middleware/ban-check';
 
 // Validate environment variables
 const envSchema = z.object({
@@ -73,6 +74,9 @@ app.use('/*', async (c, next) => {
   c.header('X-Request-Id', requestId);
   await next();
 });
+
+// Ban check middleware - blocks banned users
+app.use('/*', banCheckMiddleware());
 
 // Health check with service status
 app.get('/health', async (c) => {

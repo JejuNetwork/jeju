@@ -7,7 +7,7 @@ import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import basicSetup from '../wallet-setup/basic.setup';
+import { basicSetup } from '../../synpress.config';
 
 const execAsync = promisify(exec);
 const test = testWithSynpress(metaMaskFixtures(basicSetup));

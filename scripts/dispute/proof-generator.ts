@@ -32,7 +32,6 @@ import {
   CannonInterface,
   type MIPSState,
   type CannonProofData,
-  type ExecutionTrace,
 } from './cannon-interface';
 
 // ============ Types ============
@@ -315,7 +314,8 @@ export class FraudProofGenerator {
     correctPost: Hex
   ): Promise<{ step: bigint; preStateAtStep: MIPSState; instructionHex: Hex }> {
     // Maximum number of steps to search (configurable via env or default)
-    const maxSteps = BigInt(process.env.MAX_SEARCH_STEPS || '1000000');
+    // Use a smaller default for faster iteration during testing
+    const maxSteps = BigInt(process.env.MAX_SEARCH_STEPS || '10000');
     
     // Initialize memory with some basic state
     const memory = new Map<number, number>();

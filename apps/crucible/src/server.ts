@@ -41,6 +41,7 @@ import {
   BotIdParamSchema,
 } from './schemas';
 import { z } from 'zod';
+import { banCheckMiddleware } from './middleware/ban-check';
 
 const log = createLogger('Server');
 
@@ -159,6 +160,7 @@ const app = new Hono();
 // Middleware
 app.use('*', cors());
 app.use('*', logger());
+app.use('*', banCheckMiddleware()); // Ban check - blocks banned users
 app.use('*', async (c, next) => {
   const start = Date.now();
   metrics.requests.total++;

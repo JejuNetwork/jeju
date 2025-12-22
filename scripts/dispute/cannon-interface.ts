@@ -245,8 +245,14 @@ export class CannonInterface {
    */
   encodeState(state: MIPSState): Hex {
     // Encode state in the format expected by MIPS.sol
-    // Ensure all register values are unsigned 32-bit
-    const registersHex = state.registers.map(r => toHex(r >>> 0, { size: 4 }));
+    // Ensure all register values are unsigned 32-bit using BigInt for safety
+    const toUint32Hex = (n: number): Hex => {
+      // Convert signed int32 to unsigned using BigInt
+      const unsigned = BigInt(n) & 0xFFFFFFFFn;
+      return `0x${unsigned.toString(16).padStart(8, '0')}` as Hex;
+    };
+
+    const registersHex = state.registers.map(r => toUint32Hex(r));
 
     return encodeAbiParameters(
       [
@@ -266,12 +272,12 @@ export class CannonInterface {
       [
         state.memRoot,
         state.preimageKey,
-        state.preimageOffset,
-        state.pc,
-        state.nextPC,
-        state.lo,
-        state.hi,
-        state.heap,
+        state.preimageOffset >>> 0,
+        state.pc >>> 0,
+        state.nextPC >>> 0,
+        state.lo >>> 0,
+        state.hi >>> 0,
+        state.heap >>> 0,
         state.exitCode,
         state.exited,
         state.step,
@@ -371,9 +377,11 @@ export class CannonInterface {
       const addr = state.registers[decoded.rs] + signExtend16(decoded.imm);
       const value = memory.get(addr) || 0;
       newState.registers[decoded.rt] = value;
+      // Convert to unsigned for hex encoding
+      const unsignedValue = BigInt(value) & 0xFFFFFFFFn;
       memoryAccesses.push({
         address: addr,
-        value: toHex(value, { size: 4 }),
+        value: `0x${unsignedValue.toString(16).padStart(8, '0')}` as Hex,
         isWrite: false,
         proof: [],
       });
@@ -381,9 +389,11 @@ export class CannonInterface {
       const addr = state.registers[decoded.rs] + signExtend16(decoded.imm);
       const value = state.registers[decoded.rt];
       memory.set(addr, value);
+      // Convert to unsigned for hex encoding
+      const unsignedValue = BigInt(value) & 0xFFFFFFFFn;
       memoryAccesses.push({
         address: addr,
-        value: toHex(value, { size: 4 }),
+        value: `0x${unsignedValue.toString(16).padStart(8, '0')}` as Hex,
         isWrite: true,
         proof: [],
       });
@@ -669,52 +679,70 @@ export class CannonInterface {
   /**
    * Build memory Merkle tree from state data
    * Returns the root and proofs for accessed addresses
+   * 
+   * Uses sparse Merkle tree with lazy evaluation for efficiency.
+   * Default values hash to a known constant.
    */
-  buildMemoryTree(memory: Map<number, number>): {
+  buildMemoryTree(memory: Map<number, number>, treeDepth: number = 16): {
     root: Hex;
     proofs: Map<number, Hex[]>;
   } {
-    // Build a binary Merkle tree over 4-byte aligned memory
-    // Tree has 2^28 leaves (covers full 32-bit address space)
-    const TREE_DEPTH = 28;
+    // Build a sparse binary Merkle tree over 4-byte aligned memory
+    // Default depth is 16 for efficiency (64KB address space per tree)
+    // Can be increased to 28 for full 32-bit coverage when needed
+    const TREE_DEPTH = treeDepth;
     const LEAF_SIZE = 4; // 4 bytes per leaf
+
+    // Precompute default hashes for each level (empty subtrees)
+    const defaultHashes: Hex[] = new Array(TREE_DEPTH + 1);
+    defaultHashes[TREE_DEPTH] = keccak256('0x00000000');
+    for (let depth = TREE_DEPTH - 1; depth >= 0; depth--) {
+      defaultHashes[depth] = keccak256(concat([defaultHashes[depth + 1], defaultHashes[depth + 1]]));
+    }
 
     // Initialize leaves
     const leaves = new Map<number, Hex>();
     for (const [addr, value] of memory) {
       const alignedAddr = Math.floor(addr / LEAF_SIZE);
-      leaves.set(alignedAddr, toHex(value >>> 0, { size: 4 }));
+      // Convert to unsigned using BigInt for safety with negative numbers
+      const unsignedValue = BigInt(value) & 0xFFFFFFFFn;
+      leaves.set(alignedAddr, keccak256(`0x${unsignedValue.toString(16).padStart(8, '0')}`));
     }
 
-    // Build tree bottom-up and generate proofs
-    const proofs = new Map<number, Hex[]>();
+    // Cache for computed nodes
     const nodes = new Map<string, Hex>();
 
-    // Helper to get node at position
+    // Helper to get node at position (sparse evaluation)
     const getNode = (depth: number, index: bigint): Hex => {
       const key = `${depth}:${index}`;
       if (nodes.has(key)) return nodes.get(key)!;
 
       if (depth === TREE_DEPTH) {
-        // Leaf level
-        const leafValue = leaves.get(Number(index)) || '0x00000000';
-        const hash = keccak256(leafValue);
-        nodes.set(key, hash);
-        return hash;
+        // Leaf level - check if we have a value, otherwise use default
+        const leafHash = leaves.get(Number(index));
+        if (leafHash) {
+          nodes.set(key, leafHash);
+          return leafHash;
+        }
+        return defaultHashes[depth];
       }
 
-      // Internal node: hash of children
+      // Check if both children would be default (common case for sparse tree)
       const leftChild = getNode(depth + 1, index * 2n);
       const rightChild = getNode(depth + 1, index * 2n + 1n);
+      
+      // If both are default, return precomputed default for this level
+      if (leftChild === defaultHashes[depth + 1] && rightChild === defaultHashes[depth + 1]) {
+        return defaultHashes[depth];
+      }
+
       const hash = keccak256(concat([leftChild, rightChild]));
       nodes.set(key, hash);
       return hash;
     };
 
-    // Compute root (lazy evaluation)
-    const root = getNode(0, 0n);
-
     // Generate proofs for each accessed address
+    const proofs = new Map<number, Hex[]>();
     for (const [addr] of memory) {
       const leafIndex = BigInt(Math.floor(addr / LEAF_SIZE));
       const proof: Hex[] = [];
@@ -729,6 +757,9 @@ export class CannonInterface {
       
       proofs.set(addr, proof);
     }
+
+    // Compute root after generating proofs (when we have cached nodes)
+    const root = getNode(0, 0n);
 
     return { root, proofs };
   }

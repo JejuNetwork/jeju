@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+
+# Runtime state
+data/
+
+# Test output
+test-results/
+test-results*.json
+playwright-report/
+playwright-report-*/
+.playwright/
+
+# Coverage
+coverage/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Cache
+.cache/
+*.tsbuildinfo
+
+# OS
+.DS_Store
+
+# bun.lock (only at monorepo root)
+bun.lock

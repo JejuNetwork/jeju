@@ -13,7 +13,7 @@ import {
   MCPResourceReadSchema,
   MCPToolCallSchema,
   MCPPromptGetSchema,
-} from '../types';
+} from './types';
 
 // ============================================================================
 // Configuration

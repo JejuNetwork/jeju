@@ -8,8 +8,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const DOCS_ROOT = path.join(__dirname, '..');
-export const EXCLUDED_DIRS = new Set(['node_modules', '.vitepress', 'public', 'api', 'tests', 'server', 'lib']);
+export const DOCS_ROOT = path.join(__dirname, '..', 'docs');
+export const EXCLUDED_DIRS = new Set(['node_modules', '.vitepress', 'public', 'api']);
 const MAX_SEARCH_RESULTS = 20;
 
 export interface SearchResult {

@@ -15,7 +15,7 @@ import {ChainlinkGovernance} from "../src/chainlink/ChainlinkGovernance.sol";
  *   forge script script/DeployChainlink.s.sol --rpc-url $RPC_URL --broadcast
  * 
  * Environment:
- *   DEPLOYER_PRIVATE_KEY - Deployer private key
+ *   PRIVATE_KEY - Deployer private key
  *   LINK_TOKEN - LINK token address (or zero for new deployment)
  *   LINK_ETH_FEED - LINK/ETH price feed address (or zero)
  *   AUTOCRAT_ADDRESS - Autocrat governance contract
@@ -29,7 +29,7 @@ contract DeployChainlink is Script {
     ChainlinkGovernance public chainlinkGovernance;
 
     function run() external {
-        uint256 deployerKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        uint256 deployerKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         address deployer = vm.addr(deployerKey);
         
         address linkToken = vm.envOr("LINK_TOKEN", address(0));
@@ -160,7 +160,7 @@ contract DeployChainlink is Script {
  */
 contract ConfigureChainlinkOracles is Script {
     function run() external {
-        uint256 deployerKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        uint256 deployerKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         
         address chainlinkGovernanceAddr = vm.envAddress("CHAINLINK_GOVERNANCE");
         
@@ -206,7 +206,7 @@ contract ConfigureChainlinkOracles is Script {
  */
 contract CreateVRFSubscription is Script {
     function run() external {
-        uint256 deployerKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        uint256 deployerKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         address vrfCoordinatorAddr = vm.envAddress("VRF_COORDINATOR");
         address consumer = vm.envOr("VRF_CONSUMER", address(0));
         
@@ -242,7 +242,7 @@ contract CreateVRFSubscription is Script {
  */
 contract RegisterAutomationUpkeep is Script {
     function run() external {
-        uint256 deployerKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        uint256 deployerKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         address automationRegistryAddr = vm.envAddress("AUTOMATION_REGISTRY");
         address target = vm.envAddress("UPKEEP_TARGET");
         uint32 gasLimit = uint32(vm.envOr("UPKEEP_GAS_LIMIT", uint256(500000)));

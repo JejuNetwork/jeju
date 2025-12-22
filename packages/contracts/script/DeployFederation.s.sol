@@ -18,7 +18,7 @@ import {FederatedSolver} from "../src/federation/FederatedSolver.sol";
  *   forge script script/DeployFederation.s.sol --rpc-url $RPC_URL --broadcast
  * 
  * Environment:
- *   DEPLOYER_PRIVATE_KEY - Deployer private key
+ *   PRIVATE_KEY - Deployer private key
  *   VERIFICATION_AUTHORITY - Address for network verification (optional)
  *   WORMHOLE_RELAYER - Wormhole relayer address (optional)
  *   WORMHOLE_EMITTER - Trusted Solana emitter (optional)
@@ -34,7 +34,7 @@ contract DeployFederation is Script {
     FederatedSolver public federatedSolver;
 
     function run() external {
-        uint256 deployerKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        uint256 deployerKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         address deployer = vm.addr(deployerKey);
         
         address verificationAuthority = vm.envOr("VERIFICATION_AUTHORITY", deployer);
@@ -114,7 +114,7 @@ contract DeployFederation is Script {
  */
 contract RegisterJejuNetwork is Script {
     function run() external {
-        uint256 deployerKey = vm.envOr("DEPLOYER_PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
+        uint256 deployerKey = vm.envOr("PRIVATE_KEY", uint256(0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80));
         address networkRegistryAddr = vm.envAddress("NETWORK_REGISTRY");
         
         NetworkRegistry registry = NetworkRegistry(payable(networkRegistryAddr));

@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.33;
 
-import {BasePaymaster} from "@account-abstraction/contracts/core/BasePaymaster.sol";
-import {IEntryPoint} from "@account-abstraction/contracts/interfaces/IEntryPoint.sol";
-import {PackedUserOperation} from "@account-abstraction/contracts/interfaces/PackedUserOperation.sol";
-import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {BasePaymaster} from "account-abstraction/core/BasePaymaster.sol";
+import {IEntryPoint} from "account-abstraction/interfaces/IEntryPoint.sol";
+import {PackedUserOperation} from "account-abstraction/interfaces/PackedUserOperation.sol";
+import {IERC20} from "openzeppelin-contracts/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IPriceOracle} from "../interfaces/IPriceOracle.sol";
 import {ModerationMixin} from "../moderation/ModerationMixin.sol";
 
@@ -43,7 +43,7 @@ contract LiquidityPaymaster is BasePaymaster {
         address _oracle,
         uint256 _feeMargin,
         address _owner
-    ) BasePaymaster(_entryPoint, _owner) {
+    ) BasePaymaster(_entryPoint) {
         require(_token != address(0), "Invalid token");
         require(_vault != address(0), "Invalid vault");
         require(_oracle != address(0), "Invalid oracle");
@@ -53,6 +53,10 @@ contract LiquidityPaymaster is BasePaymaster {
         vault = _vault;
         oracle = IPriceOracle(_oracle);
         feeMargin = _feeMargin;
+        
+        if (_owner != msg.sender) {
+            _transferOwnership(_owner);
+        }
     }
 
     function setFeeMargin(uint256 _feeMargin) external onlyOwner {

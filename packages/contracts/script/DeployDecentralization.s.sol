@@ -53,7 +53,7 @@ contract DeployDecentralization is Script {
     address constant BASE_MAINNET_PREIMAGE = 0x9c065e11870B891D214Bc2Da7EF1f9DDFA1BE277;
 
     function run() external {
-        uint256 deployerPrivateKey = vm.envUint("DEPLOYER_PRIVATE_KEY");
+        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerPrivateKey);
 
         // Required addresses (from env or defaults)

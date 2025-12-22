@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
       type: query.type,
       organization: query.organization,
       search: query.q,
-    }).catch(() => []);
+    }).catch(() => [] as Model[]);
 
     return NextResponse.json({ models, total: models.length });
   } catch (error) {
@@ -30,7 +30,8 @@ export async function POST(request: NextRequest) {
     const organization = formData.get('organization');
     const description = formData.get('description');
     const type = formData.get('type');
-    const file = formData.get('file') as File | null;
+    const file = formData.get('model') as Blob | null;
+    const config = formData.get('config') as Blob | null;
 
     expect(name, 'Name is required');
     expect(organization, 'Organization is required');
@@ -44,19 +45,20 @@ export async function POST(request: NextRequest) {
       type: String(type),
     });
 
+    // If file is provided, upload to DWS
     if (file) {
-      // Upload model to DWS
       const model = await dwsClient.uploadModel({
         name: validated.name,
         organization: validated.organization,
         description: validated.description,
         type: validated.type,
         file,
+        config: config || undefined,
       });
       return NextResponse.json(model, { status: 201 });
     }
 
-    // Return processing status if no file (metadata-only upload)
+    // Return placeholder for models without file (metadata only)
     const model: Model = {
       id: `${validated.organization}/${validated.name}`,
       name: validated.name,

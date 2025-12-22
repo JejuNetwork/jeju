@@ -22,7 +22,7 @@ contract DeployDAORegistry is Script {
     FeeConfig public feeConfig;
 
     function run() external {
-        uint256 deployerKey = vm.envUint("DEPLOYER_KEY");
+        uint256 deployerKey = vm.envUint("PRIVATE_KEY");
         address deployer = vm.addr(deployerKey);
 
         console.log("Deployer:", deployer);

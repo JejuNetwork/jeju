@@ -5,7 +5,6 @@ import "forge-std/Test.sol";
 import "../../src/moderation/UserBlockRegistry.sol";
 import "../../src/tokens/Token.sol";
 import "../../src/messaging/MessagingKeyRegistry.sol";
-import "../../src/games/PlayerTradeEscrow.sol";
 import "../../src/registry/IdentityRegistry.sol";
 
 /**
@@ -16,7 +15,6 @@ contract BlockingIntegrationTest is Test {
     UserBlockRegistry public blockRegistry;
     Token public token;
     MessagingKeyRegistry public messagingRegistry;
-    PlayerTradeEscrow public tradeEscrow;
     IdentityRegistry public identityRegistry;
 
     address public alice = address(0xA11CE);
@@ -59,10 +57,6 @@ contract BlockingIntegrationTest is Test {
         // Deploy messaging registry
         messagingRegistry = new MessagingKeyRegistry();
         messagingRegistry.setBlockRegistry(address(blockRegistry));
-
-        // Deploy trade escrow
-        tradeEscrow = new PlayerTradeEscrow(owner);
-        tradeEscrow.setBlockRegistry(address(blockRegistry));
 
         // Give tokens to alice and bob
         token.transfer(alice, 10000e18);
@@ -113,39 +107,6 @@ contract BlockingIntegrationTest is Test {
         vm.prank(bob);
         token.transfer(alice, 100e18);
         assertEq(token.balanceOf(alice), 10100e18);
-    }
-
-    // ============ Trade Escrow Blocking Tests ============
-
-    function test_TradeEscrow_BlockedTradeCreation() public {
-        // Bob blocks Alice
-        vm.prank(bob);
-        blockRegistry.blockAddress(alice);
-
-        // Alice tries to create trade with Bob - should fail
-        vm.prank(alice);
-        vm.expectRevert(PlayerTradeEscrow.UserBlocked.selector);
-        tradeEscrow.createTrade(bob);
-    }
-
-    function test_TradeEscrow_AllowedWhenNotBlocked() public {
-        // Alice can create trade with Bob
-        vm.prank(alice);
-        uint256 tradeId = tradeEscrow.createTrade(bob);
-        
-        assertGt(tradeId, 0);
-    }
-
-    function test_TradeEscrow_IsTradeBlockedCheck() public {
-        // Initially not blocked
-        assertFalse(tradeEscrow.isTradeBlocked(alice, bob));
-
-        // Bob blocks Alice
-        vm.prank(bob);
-        blockRegistry.blockAddress(alice);
-
-        // Now blocked
-        assertTrue(tradeEscrow.isTradeBlocked(alice, bob));
     }
 
     // ============ Agent-Based Blocking Tests ============
@@ -228,4 +189,3 @@ contract BlockingIntegrationTest is Test {
         assertEq(blockRegistry.version(), "1.0.0");
     }
 }
-
