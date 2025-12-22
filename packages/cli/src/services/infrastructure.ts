@@ -37,8 +37,13 @@ const CQL_PORT = 4661;
 const CQL_DATA_DIR = '.data/cql';
 
 // Docker services (excludes CQL which runs natively)
+// Only IPFS is required - cache and da are optional services not yet implemented
 const DOCKER_SERVICES = {
-  ipfs: { port: 5001, healthPath: '/api/v0/id', name: 'IPFS', container: 'jeju-ipfs' },
+  ipfs: { port: 5001, healthPath: '/api/v0/id', name: 'IPFS', container: 'jeju-ipfs', required: true },
+} as const;
+
+// Optional services (not yet implemented)
+const OPTIONAL_DOCKER_SERVICES = {
   cache: { port: 4115, healthPath: '/health', name: 'Cache Service', container: 'jeju-cache' },
   da: { port: 4010, healthPath: '/health', name: 'DA Server', container: 'jeju-da' },
 } as const;
@@ -293,9 +298,10 @@ export class InfrastructureService {
 
     try {
       // Only start Docker services - CQL is started natively
+      // Only start IPFS for now - cache and da services not yet implemented
       await execa('docker', [
         'compose', '-f', composePath, 'up', '-d',
-        'ipfs', 'cache-service', 'da-server',
+        'ipfs',
       ], {
         cwd: this.rootDir,
         stdio: 'pipe',
@@ -563,10 +569,9 @@ export class InfrastructureService {
     return {
       L2_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
       JEJU_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
+      CQL_BLOCK_PRODUCER_ENDPOINT: 'http://127.0.0.1:4661',
       CQL_URL: 'http://127.0.0.1:4661',
       IPFS_API_URL: 'http://127.0.0.1:5001',
-      DA_URL: 'http://127.0.0.1:4010',
-      CACHE_URL: 'http://127.0.0.1:4115',
       CHAIN_ID: '1337',
     };
   }
