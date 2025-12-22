@@ -1,5 +1,5 @@
 /**
- * Ban Check Middleware for Gateway
+ * Ban Check Plugin for Gateway (Elysia)
  * Re-exports from @jejunetwork/shared with gateway-specific configuration
  */
 
@@ -7,9 +7,8 @@ import {
   type BanCheckConfig,
   BanChecker,
   type BanCheckResult,
-  createExpressBanMiddleware,
 } from '@jejunetwork/shared'
-import type { NextFunction, Request, Response } from 'express'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import {
   BAN_MANAGER_ADDRESS,
@@ -23,7 +22,7 @@ const gatewayBanConfig: BanCheckConfig = {
   moderationMarketplaceAddress: MODERATION_MARKETPLACE_ADDRESS,
   rpcUrl: getRpcUrl(84532),
   network: 'testnet',
-  cacheTtlMs: 30000, // 30 seconds
+  cacheTtlMs: 30000,
   failClosed: true,
 }
 
@@ -34,75 +33,92 @@ const checker = new BanChecker(gatewayBanConfig)
 export type { BanCheckConfig, BanCheckResult }
 export { BAN_MANAGER_ADDRESS, MODERATION_MARKETPLACE_ADDRESS }
 
+interface RequestBody {
+  address?: string
+  from?: string
+}
+
 /**
- * Express middleware that blocks banned users
+ * Elysia plugin that blocks banned users
  */
-export function banCheck(options: { skipPaths?: string[] } = {}) {
+export const banCheckPlugin = (options: { skipPaths?: string[] } = {}) => {
   const { skipPaths = ['/health', '/.well-known', '/public'] } = options
-  const middleware = createExpressBanMiddleware(gatewayBanConfig)
 
-  return async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    // Skip certain paths
-    if (skipPaths.some((path) => req.path.startsWith(path))) {
-      return next()
-    }
+  return new Elysia({ name: 'ban-check' })
+    .derive(({ request, headers, body }) => {
+      const url = new URL(request.url)
+      const requestBody = body as RequestBody | null
+      const address = (headers['x-wallet-address'] ||
+        requestBody?.address ||
+        requestBody?.from) as Address | undefined
 
-    return middleware(
-      req as Parameters<typeof middleware>[0],
-      res as Parameters<typeof middleware>[1],
-      next,
-    )
-  }
+      return { path: url.pathname, walletAddress: address }
+    })
+    .onBeforeHandle(async ({ path, walletAddress, set }) => {
+      if (skipPaths.some((p) => path.startsWith(p))) {
+        return
+      }
+
+      if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        return
+      }
+
+      const result = await checker.checkBan(walletAddress)
+
+      if (!result.allowed) {
+        set.status = 403
+        return {
+          error: 'BANNED',
+          message: result.status?.reason || 'User is banned',
+          caseId: result.status?.caseId,
+        }
+      }
+
+      if (result.status?.isOnNotice) {
+        set.headers['X-Moderation-Status'] = 'ON_NOTICE'
+        set.headers['X-Moderation-Case'] = result.status.caseId || 'unknown'
+      }
+    })
 }
 
 /**
  * Strict ban check that blocks on-notice users
  */
-export function strictBanCheck() {
-  return banCheck({})
-}
+export const strictBanCheckPlugin = () => banCheckPlugin({})
 
 /**
  * Lenient ban check that allows on-notice users through (with warning header)
  */
-export function lenientBanCheck() {
-  return async (
-    req: Request,
-    res: Response,
-    next: NextFunction,
-  ): Promise<void> => {
-    const address = (req.headers['x-wallet-address'] ||
-      req.body?.address ||
-      req.body?.from) as Address | undefined
+export const lenientBanCheckPlugin = () => {
+  return new Elysia({ name: 'lenient-ban-check' })
+    .derive(({ headers, body }) => {
+      const requestBody = body as RequestBody | null
+      const address = (headers['x-wallet-address'] ||
+        requestBody?.address ||
+        requestBody?.from) as Address | undefined
+      return { walletAddress: address }
+    })
+    .onBeforeHandle(async ({ walletAddress, set }) => {
+      if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
+        return
+      }
 
-    if (!address || !/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      return next()
-    }
+      const result = await checker.checkBan(walletAddress)
 
-    const result = await checker.checkBan(address)
+      if (!result.allowed && result.status && !result.status.isOnNotice) {
+        set.status = 403
+        return {
+          error: 'BANNED',
+          message: result.status.reason || 'User is banned',
+          caseId: result.status.caseId,
+        }
+      }
 
-    // Only block permanently banned (not on-notice)
-    if (!result.allowed && result.status && !result.status.isOnNotice) {
-      res.status(403).json({
-        error: 'BANNED',
-        message: result.status.reason || 'User is banned',
-        caseId: result.status.caseId,
-      })
-      return
-    }
-
-    // Add header if on notice
-    if (result.status?.isOnNotice) {
-      res.setHeader('X-Moderation-Status', 'ON_NOTICE')
-      res.setHeader('X-Moderation-Case', result.status.caseId || 'unknown')
-    }
-
-    next()
-  }
+      if (result.status?.isOnNotice) {
+        set.headers['X-Moderation-Status'] = 'ON_NOTICE'
+        set.headers['X-Moderation-Case'] = result.status.caseId || 'unknown'
+      }
+    })
 }
 
 /**

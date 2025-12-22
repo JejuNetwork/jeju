@@ -1289,7 +1289,10 @@ export class BugBountyService {
 let instance: BugBountyService | null = null
 
 export function getBugBountyService(): BugBountyService {
-  return (instance ??= new BugBountyService())
+  if (!instance) {
+    instance = new BugBountyService()
+  }
+  return instance
 }
 
 // ============ Initialization ============

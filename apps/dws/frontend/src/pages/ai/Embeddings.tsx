@@ -144,7 +144,7 @@ export default function EmbeddingsPage() {
           <div style={{ display: 'grid', gap: '1rem' }}>
             {results.map((result, i) => (
               <div
-                key={i}
+                key={`${result.input}-${result.model}-${result.tokens}-${i}`}
                 style={{
                   padding: '1rem',
                   background: 'var(--bg-tertiary)',

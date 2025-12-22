@@ -386,9 +386,9 @@ export function MFASetup({
             marginBottom: '24px',
           }}
         >
-          {backupCodes.map((code, i) => (
+          {backupCodes.map((code) => (
             <div
-              key={i}
+              key={`backup-code-${code}`}
               style={{
                 padding: '8px 12px',
                 backgroundColor: '#f3f4f6',

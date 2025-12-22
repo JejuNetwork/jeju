@@ -1,5 +1,6 @@
 /**
- * Node Synpress Configuration - Uses shared Jeju test base
+ * Synpress Configuration for Node App
+ * Configures MetaMask wallet testing with Playwright
  */
 import {
   createSynpressConfig,
@@ -7,7 +8,7 @@ import {
   PASSWORD,
 } from '@jejunetwork/tests'
 
-const NODE_PORT = parseInt(process.env.NODE_PORT || '1420', 10)
+const NODE_PORT = parseInt(process.env.NODE_PORT ?? '1420', 10)
 
 export default createSynpressConfig({
   appName: 'node',

@@ -1,8 +1,3 @@
-/**
- * Otto Parsing Utilities Tests
- * Tests natural language parsing for trading commands
- */
-
 import { describe, expect, test } from 'bun:test'
 import {
   parseBridgeParams,

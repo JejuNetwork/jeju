@@ -114,9 +114,11 @@ describe('Trading Bot Integration', () => {
       const mainnetBots = getDefaultBotsForNetwork('mainnet')
       const allChains = new Set<number>()
 
-      mainnetBots.forEach((bot) => {
-        bot.chains.forEach((chainId) => allChains.add(chainId))
-      })
+      for (const bot of mainnetBots) {
+        for (const chainId of bot.chains) {
+          allChains.add(chainId)
+        }
+      }
 
       // Should cover major chains
       expect(allChains.has(1)).toBe(true) // Ethereum

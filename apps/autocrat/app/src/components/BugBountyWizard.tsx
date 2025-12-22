@@ -1,5 +1,3 @@
-'use client'
-
 import {
   AlertCircle,
   AlertTriangle,
@@ -516,7 +514,10 @@ export function BugBountyWizard({
               </label>
               <div className="space-y-2">
                 {draft.stepsToReproduce.map((step, i) => (
-                  <div key={i} className="flex gap-2">
+                  <div
+                    key={`step-${i}-${step.slice(0, 10)}`}
+                    className="flex gap-2"
+                  >
                     <span className="w-8 h-10 flex items-center justify-center text-sm text-gray-400 bg-gray-700 rounded">
                       {i + 1}
                     </span>
@@ -696,9 +697,9 @@ async function exploit() {
                   <div className="p-4 bg-gray-700/50 rounded-lg">
                     <h3 className="font-medium text-white mb-2">Feedback</h3>
                     <ul className="space-y-1">
-                      {assessment.feedback.map((f, i) => (
+                      {assessment.feedback.map((f) => (
                         <li
-                          key={i}
+                          key={f}
                           className="text-sm text-gray-300 flex items-start gap-2"
                         >
                           <span className="text-gray-500">•</span>

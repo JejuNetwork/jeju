@@ -239,36 +239,39 @@ export function Dashboard() {
           </div>
         ) : (
           <div className="space-y-3">
-            {firingAlerts.slice(0, 5).map((alert, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-4 p-3 rounded-xl"
-                style={{ backgroundColor: 'var(--bg-secondary)' }}
-              >
+            {firingAlerts.slice(0, 5).map((alert) => {
+              const alertKey = `${alert.labels.alertname || 'unknown'}-${alert.labels.instance || ''}-${alert.labels.job || ''}`
+              return (
                 <div
-                  className={`status-dot-lg ${alert.labels.severity === 'critical' ? 'status-offline' : 'status-warning'}`}
-                />
-                <div className="flex-1 min-w-0">
-                  <p
-                    className="font-medium truncate"
-                    style={{ color: 'var(--text-primary)' }}
-                  >
-                    {alert.labels.alertname}
-                  </p>
-                  <p
-                    className="text-xs truncate"
-                    style={{ color: 'var(--text-tertiary)' }}
-                  >
-                    {alert.labels.job}
-                  </p>
-                </div>
-                <span
-                  className={`badge ${alert.labels.severity === 'critical' ? 'badge-error' : 'badge-warning'}`}
+                  key={alertKey}
+                  className="flex items-center gap-4 p-3 rounded-xl"
+                  style={{ backgroundColor: 'var(--bg-secondary)' }}
                 >
-                  {alert.labels.severity ?? 'unknown'}
-                </span>
-              </div>
-            ))}
+                  <div
+                    className={`status-dot-lg ${alert.labels.severity === 'critical' ? 'status-offline' : 'status-warning'}`}
+                  />
+                  <div className="flex-1 min-w-0">
+                    <p
+                      className="font-medium truncate"
+                      style={{ color: 'var(--text-primary)' }}
+                    >
+                      {alert.labels.alertname}
+                    </p>
+                    <p
+                      className="text-xs truncate"
+                      style={{ color: 'var(--text-tertiary)' }}
+                    >
+                      {alert.labels.job}
+                    </p>
+                  </div>
+                  <span
+                    className={`badge ${alert.labels.severity === 'critical' ? 'badge-error' : 'badge-warning'}`}
+                  >
+                    {alert.labels.severity ?? 'unknown'}
+                  </span>
+                </div>
+              )
+            })}
           </div>
         )}
       </div>

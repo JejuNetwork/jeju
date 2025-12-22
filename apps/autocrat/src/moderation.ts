@@ -462,7 +462,12 @@ export class ModerationSystem {
 }
 
 let instance: ModerationSystem | null = null
-export const getModerationSystem = () => (instance ??= new ModerationSystem())
+export const getModerationSystem = () => {
+  if (!instance) {
+    instance = new ModerationSystem()
+  }
+  return instance
+}
 export const initModeration = async () => {
   await getModerationSystem().init()
 }

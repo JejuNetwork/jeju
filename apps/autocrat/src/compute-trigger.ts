@@ -218,5 +218,8 @@ export class ComputeTriggerClient {
 
 let triggerClient: ComputeTriggerClient | null = null
 export function getComputeTriggerClient(): ComputeTriggerClient {
-  return (triggerClient ??= new ComputeTriggerClient())
+  if (!triggerClient) {
+    triggerClient = new ComputeTriggerClient()
+  }
+  return triggerClient
 }

@@ -8,7 +8,9 @@ import { expect, test } from '@playwright/test'
 test.describe('Model Hub', () => {
   test('displays model hub page', async ({ page }) => {
     await page.goto('/models')
-    await expect(page.getByRole('heading', { name: /model hub/i })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: /model hub/i }),
+    ).toBeVisible()
   })
 
   test('shows model stats', async ({ page }) => {
@@ -95,9 +97,7 @@ test.describe('Model Detail', () => {
       page.getByRole('button', { name: /model card/i }),
     ).toBeVisible()
     await expect(page.getByRole('button', { name: /files/i })).toBeVisible()
-    await expect(
-      page.getByRole('button', { name: /inference/i }),
-    ).toBeVisible()
+    await expect(page.getByRole('button', { name: /inference/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /training/i })).toBeVisible()
     await expect(page.getByRole('button', { name: /versions/i })).toBeVisible()
   })
@@ -207,9 +207,7 @@ test.describe('Model Upload', () => {
 
   test('shows upload form fields', async ({ page }) => {
     await page.goto('/models/upload')
-    await expect(
-      page.locator('input, select, textarea').first(),
-    ).toBeVisible()
+    await expect(page.locator('input, select, textarea').first()).toBeVisible()
   })
 })
 

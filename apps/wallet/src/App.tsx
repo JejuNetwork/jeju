@@ -496,9 +496,9 @@ function PortfolioView({
 
                   {agg.chains.length > 1 && (
                     <div className="mt-3 pl-13 space-y-2">
-                      {agg.chains.map((c, i) => (
+                      {agg.chains.map((c) => (
                         <div
-                          key={i}
+                          key={`${agg.symbol}-${c.token.chainId}-${c.token.name}`}
                           className="flex items-center justify-between text-sm py-1"
                         >
                           <span className="text-muted-foreground">

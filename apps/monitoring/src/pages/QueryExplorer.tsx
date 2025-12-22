@@ -110,9 +110,9 @@ export function QueryExplorer() {
 
         {loading ? (
           <div className="space-y-3">
-            {[...Array(3)].map((_, i) => (
-              <div key={i} className="shimmer h-12 rounded-lg" />
-            ))}
+            <div key="skeleton-0" className="shimmer h-12 rounded-lg" />
+            <div key="skeleton-1" className="shimmer h-12 rounded-lg" />
+            <div key="skeleton-2" className="shimmer h-12 rounded-lg" />
           </div>
         ) : error ? (
           <div
@@ -132,9 +132,10 @@ export function QueryExplorer() {
           </div>
         ) : (
           <div className="space-y-3 max-h-[500px] overflow-y-auto">
-            {data.map((result, i) => (
-              <ResultRow key={i} result={result} />
-            ))}
+            {data.map((result) => {
+              const resultKey = `${result.metric.__name__ || 'value'}-${JSON.stringify(result.metric)}-${result.value[0]}`
+              return <ResultRow key={resultKey} result={result} />
+            })}
           </div>
         )}
       </div>

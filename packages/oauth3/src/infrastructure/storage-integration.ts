@@ -378,7 +378,9 @@ export class OAuth3StorageService {
     const index = JSON.parse(new TextDecoder().decode(data)) as {
       sessions: Array<{ sessionId: Hex; cid: string }>
     }
-    index.sessions.forEach((e) => this.sessionCache.set(e.sessionId, e.cid))
+    index.sessions.forEach((e) => {
+      this.sessionCache.set(e.sessionId, e.cid)
+    })
   }
 
   async saveCredentialIndex(): Promise<string> {
@@ -401,9 +403,9 @@ export class OAuth3StorageService {
     const index = JSON.parse(new TextDecoder().decode(data)) as {
       credentials: Array<{ credentialId: string; cid: string }>
     }
-    index.credentials.forEach((e) =>
-      this.credentialCache.set(e.credentialId, e.cid),
-    )
+    index.credentials.forEach((e) => {
+      this.credentialCache.set(e.credentialId, e.cid)
+    })
   }
 
   async isHealthy(): Promise<boolean> {

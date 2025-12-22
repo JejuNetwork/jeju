@@ -37,7 +37,9 @@ export default function CreateTokenPage() {
         description: 'Your token will appear in the tokens list shortly',
         action: {
           label: 'View Tokens',
-          onClick: () => (window.location.href = '/coins'),
+          onClick: () => {
+            window.location.href = '/coins'
+          },
         },
       })
     }
@@ -274,7 +276,7 @@ export default function CreateTokenPage() {
             'Deploy your ERC20 token contract',
             'Your token appears on Bazaar automatically via the indexer',
           ].map((step, i) => (
-            <li key={i} className="flex gap-3">
+            <li key={step} className="flex gap-3">
               <span className="flex-shrink-0 w-6 h-6 rounded-full bg-bazaar-primary text-white flex items-center justify-center text-xs font-bold">
                 {i + 1}
               </span>

@@ -104,6 +104,7 @@ interface PendingRequest {
 class NetworkProvider {
   private events: Map<ProviderEventName, Set<EventCallback>> = new Map()
   private pendingRequests: Map<string, PendingRequest> = new Map()
+  private cleanupIntervalId: ReturnType<typeof setInterval> | null = null
 
   readonly isJeju = true
   readonly isMetaMask = true // For compatibility

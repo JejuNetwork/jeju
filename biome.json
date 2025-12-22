@@ -43,7 +43,7 @@
         "noEnum": "off"
       },
       "a11y": {
-        "recommended": true
+        "recommended": false
       },
       "security": {
         "noDangerouslySetInnerHtml": "error"

@@ -106,7 +106,9 @@ export default function LaunchTokenPage() {
         description: 'Your token is now live and tradeable.',
         action: {
           label: 'View Token',
-          onClick: () => (window.location.href = '/coins'),
+          onClick: () => {
+            window.location.href = '/coins'
+          },
         },
       })
     }

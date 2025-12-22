@@ -828,5 +828,8 @@ Return JSON: {"title":"...","summary":"...","description":"..."}`
 let instance: ProposalAssistant | null = null
 
 export function getProposalAssistant(): ProposalAssistant {
-  return (instance ??= new ProposalAssistant())
+  if (!instance) {
+    instance = new ProposalAssistant()
+  }
+  return instance
 }

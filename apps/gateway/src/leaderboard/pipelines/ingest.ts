@@ -146,9 +146,15 @@ export async function runIngest(options: IngestOptions = {}): Promise<{
     totalIssues += issues.count
     totalCommits += commits.count
 
-    prs.users.forEach((u) => usersSet.add(u))
-    issues.users.forEach((u) => usersSet.add(u))
-    commits.users.forEach((u) => usersSet.add(u))
+    for (const u of prs.users) {
+      usersSet.add(u)
+    }
+    for (const u of issues.users) {
+      usersSet.add(u)
+    }
+    for (const u of commits.users) {
+      usersSet.add(u)
+    }
   }
 
   console.log(

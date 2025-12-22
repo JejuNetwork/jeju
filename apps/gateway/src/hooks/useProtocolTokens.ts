@@ -28,13 +28,17 @@ export function useProtocolTokens() {
 
   const tokensBySymbol = useMemo(() => {
     const map = new Map<string, ProtocolToken>()
-    tokens.forEach((token) => map.set(token.symbol, token))
+    for (const token of tokens) {
+      map.set(token.symbol, token)
+    }
     return map
   }, [tokens])
 
   const tokensByAddress = useMemo(() => {
     const map = new Map<string, ProtocolToken>()
-    tokens.forEach((token) => map.set(token.address.toLowerCase(), token))
+    for (const token of tokens) {
+      map.set(token.address.toLowerCase(), token)
+    }
     return map
   }, [tokens])
 

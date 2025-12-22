@@ -8,9 +8,7 @@ import { expect, test } from '@playwright/test'
 test.describe('Dataset Browser', () => {
   test('displays datasets page', async ({ page }) => {
     await page.goto('/models/datasets')
-    await expect(
-      page.getByRole('heading', { name: /datasets/i }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: /datasets/i })).toBeVisible()
   })
 
   test('shows upload button', async ({ page }) => {

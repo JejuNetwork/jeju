@@ -790,9 +790,9 @@ export class OAuth3Client {
     data: OAuth3EventDataMap[T],
   ): void {
     const event: OAuth3Event<T> = { type, data, timestamp: Date.now() }
-    this.eventHandlers
-      .get(type)
-      ?.forEach((handler) => handler(event as OAuth3Event<OAuth3EventType>))
+    this.eventHandlers.get(type)?.forEach((handler) => {
+      handler(event as OAuth3Event<OAuth3EventType>)
+    })
   }
 
   private setSession(session: OAuth3Session): void {

@@ -280,9 +280,9 @@ export default function PipelinesPage() {
                   Steps
                 </div>
                 <div style={{ display: 'grid', gap: '0.5rem' }}>
-                  {selectedPipelineData.steps.map((step, i) => (
+                  {selectedPipelineData.steps.map((step) => (
                     <div
-                      key={i}
+                      key={step.name}
                       style={{
                         display: 'flex',
                         alignItems: 'center',

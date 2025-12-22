@@ -1,13 +1,10 @@
-'use client'
-
-import Link from 'next/link'
-import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { Link, useLocation } from 'react-router-dom'
 import { useAccount, useDisconnect } from 'wagmi'
 import { AuthButton } from './auth/AuthButton'
 
 export function Header() {
-  const pathname = usePathname()
+  const { pathname } = useLocation()
   const { address, isConnected } = useAccount()
   const { disconnect } = useDisconnect()
   const [showMobileMenu, setShowMobileMenu] = useState(false)
@@ -79,7 +76,7 @@ export function Header() {
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16 md:h-20">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-2 md:gap-3 group">
+            <Link to="/" className="flex items-center gap-2 md:gap-3 group">
               <div className="text-2xl md:text-3xl group-hover:animate-bounce-subtle">
                 🏝️
               </div>
@@ -93,7 +90,7 @@ export function Header() {
               {navItems.map((item) => (
                 <Link
                   key={item.href}
-                  href={item.href}
+                  to={item.href}
                   className={`px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 ${
                     isActive(item.href)
                       ? 'bg-bazaar-primary/10 text-bazaar-primary'
@@ -176,7 +173,7 @@ export function Header() {
                           }}
                         >
                           <Link
-                            href="/portfolio"
+                            to="/portfolio"
                             className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-[var(--bg-secondary)]"
                             onClick={() => setShowPortfolioDropdown(false)}
                           >
@@ -285,7 +282,8 @@ export function Header() {
             {navItems.map((item) => (
               <Link
                 key={item.href}
-                href={item.href}
+                to={item.href}
+                onClick={() => setShowMobileMenu(false)}
                 className={`flex items-center gap-3 px-6 py-4 text-base font-medium transition-colors ${
                   isActive(item.href)
                     ? 'bg-bazaar-primary/10 border-r-4 border-bazaar-primary'
@@ -333,7 +331,7 @@ export function Header() {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Link
-                    href="/portfolio"
+                    to="/portfolio"
                     onClick={() => setShowMobileMenu(false)}
                     className="btn-secondary text-center text-sm py-2.5"
                   >

@@ -88,8 +88,11 @@ function TradesList() {
         Recent Trades
       </h3>
       <div className="space-y-2 text-sm">
-        {trades.map((trade, i) => (
-          <div key={i} className="flex items-center justify-between">
+        {trades.map((trade) => (
+          <div
+            key={`${trade.type}-${trade.amount}-${trade.time}`}
+            className="flex items-center justify-between"
+          >
             <span
               className={
                 trade.type === 'buy' ? 'text-green-400' : 'text-red-400'
@@ -129,7 +132,10 @@ function HoldersList() {
       </h3>
       <div className="space-y-2 text-sm">
         {holders.map((holder, i) => (
-          <div key={i} className="flex items-center justify-between">
+          <div
+            key={holder.address}
+            className="flex items-center justify-between"
+          >
             <div className="flex items-center gap-2">
               <span style={{ color: 'var(--text-tertiary)' }}>{i + 1}</span>
               <span

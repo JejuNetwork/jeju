@@ -159,9 +159,9 @@ export function PoolsView({ address }: PoolsViewProps) {
                       V2 Pools (Constant Product)
                     </h3>
                     <div className="space-y-3">
-                      {v2Positions.map((pos, i) => (
+                      {v2Positions.map((pos) => (
                         <div
-                          key={i}
+                          key={`v2-${pos.pool.address}-${pos.pool.chainId}`}
                           className="bg-card border border-border rounded-xl p-4"
                         >
                           <div className="flex items-center justify-between">

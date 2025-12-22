@@ -673,7 +673,9 @@ export function createModelsRouter(ctx: ModelsContext): Hono {
 
     // Mark previous versions as not latest
     const existingVersions = versionsStore.get(model.modelId) || []
-    existingVersions.forEach((v) => (v.isLatest = false))
+    existingVersions.forEach((v) => {
+      v.isLatest = false
+    })
 
     const version: ModelVersion = {
       versionId,

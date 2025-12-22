@@ -153,8 +153,8 @@ export default function AppDetailModal({
                 Categories
               </h3>
               <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                {app.tags.map((tag: string, idx: number) => (
-                  <span key={idx} className="pill">
+                {app.tags.map((tag: string) => (
+                  <span key={tag} className="pill">
                     {tag}
                   </span>
                 ))}

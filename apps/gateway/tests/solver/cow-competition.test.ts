@@ -269,7 +269,7 @@ describe('Live Auction Validation', () => {
 
         if (metrics.issues.length > 0) {
           console.log('   Issues:')
-          metrics.issues.forEach((i) => console.log(`     - ${i}`))
+          for (const i of metrics.issues) console.log(`     - ${i}`)
         }
 
         // Basic sanity checks

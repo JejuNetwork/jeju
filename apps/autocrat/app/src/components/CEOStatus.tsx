@@ -1,7 +1,5 @@
-'use client'
-
 import { Bot } from 'lucide-react'
-import type { CEOStatus as CEOStatusType } from '@/config/api'
+import type { CEOStatus as CEOStatusType } from '../config/api'
 
 interface CEOStatusProps {
   status: CEOStatusType | null

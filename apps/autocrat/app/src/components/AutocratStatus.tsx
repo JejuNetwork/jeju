@@ -1,7 +1,5 @@
-'use client'
-
 import { Code, Coins, Heart, Shield, Users } from 'lucide-react'
-import type { AutocratStatus as AutocratStatusType } from '@/config/api'
+import type { AutocratStatus as AutocratStatusType } from '../config/api'
 
 const ROLE_ICONS: Record<string, typeof Shield> = {
   Treasury: Coins,

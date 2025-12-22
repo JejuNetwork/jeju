@@ -147,7 +147,7 @@ export default function InferencePage() {
           ) : (
             messages.map((message, i) => (
               <div
-                key={i}
+                key={`${message.role}-${message.content.slice(0, 50)}-${i}`}
                 style={{
                   display: 'flex',
                   justifyContent:

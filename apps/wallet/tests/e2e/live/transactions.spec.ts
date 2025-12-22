@@ -1,8 +1,8 @@
 /**
- * Live E2E Tests - Transactions
+ * Transaction E2E Tests
  *
- * Verifies real transaction signing and sending on the network localnet.
- * Tests actual blockchain state changes.
+ * Verifies real transaction signing and sending on the localnet.
+ * Tests actual blockchain state changes using viem.
  */
 
 import { expect, test } from '@playwright/test'
@@ -10,7 +10,6 @@ import { createPublicClient, createWalletClient, http, parseEther } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { assertInfrastructureRunning, TEST_CONFIG } from '../setup'
 
-// Define network localnet chain
 const jejuLocalnet = {
   id: TEST_CONFIG.chainId,
   name: 'Jeju Localnet',
@@ -18,7 +17,7 @@ const jejuLocalnet = {
   rpcUrls: { default: { http: [TEST_CONFIG.rpcUrl] } },
 }
 
-test.describe('Transactions (Live)', () => {
+test.describe('Transactions', () => {
   test.beforeAll(async () => {
     await assertInfrastructureRunning()
   })
@@ -37,13 +36,10 @@ test.describe('Transactions (Live)', () => {
       transport: http(TEST_CONFIG.rpcUrl),
     })
 
-    // Get recipient (second well-known test account)
     const recipient = '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as const
 
-    // Get balance before
     const balanceBefore = await publicClient.getBalance({ address: recipient })
 
-    // Send 1 ETH
     const hash = await walletClient.sendTransaction({
       to: recipient,
       value: parseEther('1'),
@@ -52,13 +48,11 @@ test.describe('Transactions (Live)', () => {
     expect(hash).toBeTruthy()
     expect(hash.startsWith('0x')).toBe(true)
 
-    // Wait for confirmation
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
 
     expect(receipt.status).toBe('success')
     expect(receipt.transactionHash).toBe(hash)
 
-    // Verify balance changed
     const balanceAfter = await publicClient.getBalance({ address: recipient })
     const diff = balanceAfter - balanceBefore
 
@@ -91,7 +85,7 @@ test.describe('Transactions (Live)', () => {
       transport: http(TEST_CONFIG.rpcUrl),
     })
 
-    const message = 'Hello Network Wallet'
+    const message = 'Hello Jeju Wallet'
     const signature = await walletClient.signMessage({ message })
 
     expect(signature).toBeTruthy()
@@ -113,13 +107,11 @@ test.describe('Transactions (Live)', () => {
       transport: http(TEST_CONFIG.rpcUrl),
     })
 
-    // Send transaction
     const hash = await walletClient.sendTransaction({
       to: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
       value: parseEther('0.01'),
     })
 
-    // Get receipt
     const receipt = await publicClient.waitForTransactionReceipt({ hash })
 
     expect(receipt.blockNumber).toBeGreaterThan(0n)

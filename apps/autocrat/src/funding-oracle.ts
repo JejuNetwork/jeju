@@ -525,5 +525,8 @@ When analyzing funding decisions:
 let instance: FundingOracle | null = null
 
 export function getFundingOracle(): FundingOracle {
-  return (instance ??= new FundingOracle())
+  if (!instance) {
+    instance = new FundingOracle()
+  }
+  return instance
 }

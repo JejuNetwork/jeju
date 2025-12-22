@@ -166,11 +166,15 @@ export function Targets() {
       {/* Targets */}
       {loading ? (
         <div className="space-y-4">
-          {[...Array(3)].map((_, i) => (
-            <div key={i} className="card-static p-4">
-              <div className="shimmer h-20 w-full rounded" />
-            </div>
-          ))}
+          <div key="skeleton-0" className="card-static p-4">
+            <div className="shimmer h-20 w-full rounded" />
+          </div>
+          <div key="skeleton-1" className="card-static p-4">
+            <div className="shimmer h-20 w-full rounded" />
+          </div>
+          <div key="skeleton-2" className="card-static p-4">
+            <div className="shimmer h-20 w-full rounded" />
+          </div>
         </div>
       ) : filteredTargets.length === 0 ? (
         <div className="card-static p-8 text-center">
@@ -213,8 +217,11 @@ export function Targets() {
                 className="divide-y"
                 style={{ borderColor: 'var(--border)' }}
               >
-                {jobTargets.map((target, i) => (
-                  <TargetRow key={i} target={target} />
+                {jobTargets.map((target) => (
+                  <TargetRow
+                    key={`${target.scrapeUrl}-${target.labels.instance || ''}`}
+                    target={target}
+                  />
                 ))}
               </div>
             </div>

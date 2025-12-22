@@ -153,7 +153,9 @@ export class SolverStrategy {
    */
   stop(): void {
     this.running = false
-    this.unwatchers.forEach((unwatch) => unwatch())
+    for (const unwatch of this.unwatchers) {
+      unwatch()
+    }
     this.unwatchers = []
   }
 

@@ -688,7 +688,9 @@ describe('Concurrent Operations', () => {
     const results = await Promise.all(promises)
 
     expect(results.length).toBe(100)
-    results.forEach((r) => expect(r.rowCount).toBe(1))
+    results.forEach((r) => {
+      expect(r.rowCount).toBe(1)
+    })
   })
 
   it('should handle mixed read/write operations', async () => {

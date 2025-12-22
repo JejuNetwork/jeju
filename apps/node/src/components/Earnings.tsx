@@ -258,8 +258,8 @@ export function Earnings() {
           <div className="bg-volcanic-800/50 rounded-lg p-4">
             <p className="text-sm text-volcanic-400 mb-2">Assumptions:</p>
             <ul className="text-xs text-volcanic-500 space-y-1">
-              {projectedEarnings.assumptions.map((assumption, i) => (
-                <li key={i}>• {assumption}</li>
+              {projectedEarnings.assumptions.map((assumption) => (
+                <li key={assumption}>• {assumption}</li>
               ))}
             </ul>
           </div>

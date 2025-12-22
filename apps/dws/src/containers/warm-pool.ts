@@ -458,7 +458,9 @@ export function cleanupPool(imageDigest: string): void {
   }
 
   pool.instances.clear()
-  pool.requestQueue.forEach((r) => r.resolve(null))
+  pool.requestQueue.forEach((r) => {
+    r.resolve(null)
+  })
   pool.requestQueue = []
 }
 

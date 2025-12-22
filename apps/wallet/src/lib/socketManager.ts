@@ -103,11 +103,15 @@ class SocketManager {
 
     // Listen for messages
     this.socket.on('message', (data: MessageData) => {
-      this.messageHandlers.forEach((handler) => handler(data))
+      for (const handler of this.messageHandlers) {
+        handler(data)
+      }
     })
 
     this.socket.on('messageBroadcast', (data: MessageData) => {
-      this.messageHandlers.forEach((handler) => handler(data))
+      for (const handler of this.messageHandlers) {
+        handler(data)
+      }
     })
 
     return this.socket
@@ -202,7 +206,7 @@ class SocketManager {
   }
 
   isConnected(): boolean {
-    return this.socket?.connected
+    return this.socket?.connected ?? false
   }
 
   getCurrentUserId(): string | null {

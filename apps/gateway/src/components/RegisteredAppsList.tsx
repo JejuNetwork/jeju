@@ -510,9 +510,9 @@ export default function RegisteredAppsList({
                       marginBottom: '1rem',
                     }}
                   >
-                    {app.tags.slice(0, 3).map((tag, idx) => (
+                    {app.tags.slice(0, 3).map((tag) => (
                       <span
-                        key={idx}
+                        key={`${app.agentId}-${tag}`}
                         className="pill"
                         style={{
                           fontSize: '0.6875rem',
