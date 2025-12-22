@@ -14,25 +14,6 @@ import {
 import { dwsClient } from '../services/dws'
 import { requireAuth } from '../validation/access-control'
 
-interface _Repository {
-  id: string
-  name: string
-  description?: string
-  owner: string
-  isPrivate: boolean
-  defaultBranch: string
-  stars: number
-  forks: number
-  openIssues: number
-  openPRs: number
-  language?: string
-  cloneUrl: string
-  sshUrl: string
-  createdAt: number
-  updatedAt: number
-  pushedAt?: number
-}
-
 export const gitRoutes = new Elysia({ prefix: '/api/git' })
   .get(
     '/',

@@ -204,9 +204,9 @@ describe('Error Handling', () => {
 })
 
 describe('Configuration', () => {
-  test('uses environment variable for port', async () => {
+  test('uses CORE_PORTS for port configuration', async () => {
     const serverCode = await Bun.file(SERVER_PATH).text()
-    expect(serverCode).toContain('DOCUMENTATION_A2A_PORT')
+    expect(serverCode).toContain('CORE_PORTS.DOCUMENTATION_A2A')
   })
 
   test('has default port', async () => {

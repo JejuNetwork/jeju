@@ -87,7 +87,7 @@ def trajectory_with_exact_calls(exact_llm_calls):
             timestamp=int(datetime.now().timestamp() * 1000) + i * 1000,
             environment_state=EnvironmentState(
                 agent_balance=10000.0 + i * 100,
-                agent_pnl=i * 100.0,
+                agentPnL=i * 100.0,
                 open_positions=1,
             ),
             llm_calls=[llm_call],
@@ -137,7 +137,7 @@ def multi_call_step():
         timestamp=1000000,
         environment_state=EnvironmentState(
             agent_balance=10000.0,
-            agent_pnl=0.0,
+            agentPnL=0.0,
             open_positions=0,
         ),
         llm_calls=[reasoning_call, action_call],
@@ -249,7 +249,7 @@ class TestMessageStructure:
         builder = MultiPromptDatasetBuilder()
         builder.add_trajectory(trajectory_with_exact_calls, trajectory_score=0.8)
 
-        for purpose, dataset in builder.datasets.items():
+        for _purpose, dataset in builder.datasets.items():
             for sample in dataset.samples:
                 messages = sample.to_messages()
 
@@ -263,7 +263,7 @@ class TestMessageStructure:
         builder = MultiPromptDatasetBuilder()
         builder.add_trajectory(trajectory_with_exact_calls, trajectory_score=0.8)
 
-        for purpose, dataset in builder.datasets.items():
+        for _purpose, dataset in builder.datasets.items():
             for sample in dataset.samples:
                 messages = sample.to_messages()
 
@@ -276,7 +276,7 @@ class TestMessageStructure:
         builder = MultiPromptDatasetBuilder()
         builder.add_trajectory(trajectory_with_exact_calls, trajectory_score=0.8)
 
-        for purpose, dataset in builder.datasets.items():
+        for _purpose, dataset in builder.datasets.items():
             for sample in dataset.samples:
                 messages = sample.to_messages()
 
@@ -377,6 +377,7 @@ class TestConverterStructure:
         """Converter should include all LLM calls, not just the first."""
         converter = BabylonToAtroposConverter()
         result = converter.convert_trajectory(trajectory_with_exact_calls)
+        assert result is not None, "Converter returned None for valid trajectory"
 
         # Count assistant messages (each LLM call produces one)
         assistant_count = sum(1 for m in result.messages if m.role == "assistant")
@@ -393,6 +394,7 @@ class TestConverterStructure:
         """Converter messages should match original LLM call content."""
         converter = BabylonToAtroposConverter()
         result = converter.convert_trajectory(trajectory_with_exact_calls)
+        assert result is not None, "Conversion should not return None for valid trajectory"
 
         # Get all assistant messages
         assistant_messages = [m for m in result.messages if m.role == "assistant"]
@@ -410,6 +412,7 @@ class TestConverterStructure:
         """Converter should preserve user prompts exactly."""
         converter = BabylonToAtroposConverter()
         result = converter.convert_trajectory(trajectory_with_exact_calls)
+        assert result is not None, "Conversion should not return None for valid trajectory"
 
         # Get user messages (skip system message at index 0)
         user_messages = [m for m in result.messages if m.role == "user"]
@@ -491,7 +494,7 @@ class TestEdgeCases:
             step_number=0,
             timestamp=1000000,
             environment_state=EnvironmentState(
-                agent_balance=10000.0, agent_pnl=0.0, open_positions=0
+                agent_balance=10000.0, agentPnL=0.0, open_positions=0
             ),
             llm_calls=[llm_call],
             action=Action(action_type="answer", parameters={}, success=True),
@@ -527,7 +530,7 @@ class TestEdgeCases:
             step_number=0,
             timestamp=1000000,
             environment_state=EnvironmentState(
-                agent_balance=10000.0, agent_pnl=0.0, open_positions=0
+                agent_balance=10000.0, agentPnL=0.0, open_positions=0
             ),
             llm_calls=[llm_call],
             action=Action(action_type="ok", parameters={}, success=True),
@@ -560,7 +563,7 @@ class TestEdgeCases:
             step_number=0,
             timestamp=1000000,
             environment_state=EnvironmentState(
-                agent_balance=10000.0, agent_pnl=0.0, open_positions=0
+                agent_balance=10000.0, agentPnL=0.0, open_positions=0
             ),
             llm_calls=[llm_call],
             action=Action(action_type="test", parameters={}, success=True),
@@ -607,6 +610,7 @@ class TestSystemConsistency:
         # Extract with Converter
         converter = BabylonToAtroposConverter()
         result = converter.convert_trajectory(trajectory_with_exact_calls)
+        assert result is not None, "Conversion should not return None for valid trajectory"
 
         converter_responses = set()
         for msg in result.messages:
@@ -634,6 +638,7 @@ class TestSystemConsistency:
         # Extract with Converter
         converter = BabylonToAtroposConverter()
         result = converter.convert_trajectory(trajectory_with_exact_calls)
+        assert result is not None, "Conversion should not return None for valid trajectory"
 
         converter_prompts = set()
         for msg in result.messages:

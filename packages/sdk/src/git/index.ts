@@ -9,7 +9,7 @@
  */
 
 import type { Address, Hex } from 'viem'
-import { createPublicClient, createWalletClient, http } from 'viem'
+import { createWalletClient, http } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
 import {
@@ -305,9 +305,6 @@ export class JejuGitSDK {
 
   constructor(config: GitSDKConfig) {
     this.config = config
-    this.publicClient = createPublicClient({
-      transport: http(config.rpcUrl),
-    })
 
     if (config.privateKey) {
       this.account = privateKeyToAccount(config.privateKey)

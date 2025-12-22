@@ -61,7 +61,7 @@ export interface ContractAddresses {
   priceOracle: `0x${string}` | undefined
   nodeStakingManager: `0x${string}` | undefined
   identityRegistry: `0x${string}` | undefined
-  elizaOS: `0x${string}` | undefined
+  jeju: `0x${string}` | undefined
   entryPoint: `0x${string}` | undefined
   paymaster: `0x${string}` | undefined
   vault: `0x${string}` | undefined
@@ -108,7 +108,7 @@ export async function getContractAddresses(): Promise<ContractAddresses> {
       (await isContractDeployed(client, identityRegistryAddr))
         ? identityRegistryAddr
         : undefined,
-    elizaOS: deployed.elizaOS as `0x${string}` | undefined,
+    jeju: deployed.jeju as `0x${string}` | undefined,
     entryPoint: deployed.entryPoint as `0x${string}` | undefined,
     paymaster: undefined,
     vault: undefined,

@@ -1,17 +1,3 @@
-/**
- * Hybrid Torrent Service - Production Implementation
- *
- * P2P content distribution with:
- * - WebTorrent for browser/WebRTC peers
- * - DHT for TCP peer discovery
- * - Content hash verification
- * - On-chain seeding registration
- * - Oracle-verified bandwidth attestation (no self-signing)
- * - Prometheus metrics
- * - LRU cache with eviction
- * - Graceful shutdown
- */
-
 import type WebTorrentModule from 'webtorrent'
 
 // Use the types from @types/webtorrent

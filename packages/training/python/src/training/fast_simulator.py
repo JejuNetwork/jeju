@@ -432,7 +432,7 @@ class GameState:
         portfolio = self.portfolios.get(agent_id, {})
         return EnvironmentState(
             agent_balance=portfolio.get("balance", 10000.0),
-            agent_pnl=portfolio.get("pnl", 0.0),
+            agentPnL=portfolio.get("pnl", 0.0),
             open_positions=portfolio.get("positions", 0),
             active_markets=len(self.markets) if self.markets else 5,
         )
@@ -553,12 +553,14 @@ class FastSimulator:
         results = {}
         current_time = int(time.time() * 1000)
 
-        for agent_id, tick_data in zip(agent_ids, tick_results, strict=False):
+        for agent_id, tick_result in zip(agent_ids, tick_results, strict=False):
             # Handle exceptions from individual agents
-            if isinstance(tick_data, Exception):
-                logger.error(f"Agent {agent_id} tick failed: {tick_data}")
+            if isinstance(tick_result, BaseException):
+                logger.error(f"Agent {agent_id} tick failed: {tick_result}")
                 continue
 
+            # Type narrowing: tick_result is now AgentTickData
+            tick_data: AgentTickData = tick_result
             tick_data.tick_number = self.current_tick
             tick_data.timestamp = current_time
             results[agent_id] = tick_data
@@ -798,7 +800,7 @@ class FastSimulator:
 
     def _evaluate_against_ground_truth(
         self,
-        agent_id: str,
+        agent_id: str,  # noqa: ARG002 - reserved for per-agent evaluation
         ticks: list[AgentTickData],
     ) -> None:
         """Evaluate agent actions against ground truth"""
@@ -857,12 +859,16 @@ class FastSimulator:
                                 }
                                 for c in s.llm_calls
                             ],
-                            "action": {
-                                "actionType": s.action.action_type,
-                                "parameters": s.action.parameters,
-                                "success": s.action.success,
-                                "reasoning": s.action.reasoning,
-                            },
+                            "action": (
+                                None
+                                if s.action is None
+                                else {
+                                    "actionType": s.action.action_type,
+                                    "parameters": s.action.parameters,
+                                    "success": s.action.success,
+                                    "reasoning": s.action.reasoning,
+                                }
+                            ),
                             "reward": s.reward,
                         }
                         for s in traj.steps

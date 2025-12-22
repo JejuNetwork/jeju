@@ -130,7 +130,30 @@ export class EmailClient {
     }
 
     const rawData: unknown = await response.json()
-    return FolderContentsSchema.parse(rawData) as FolderContents
+    const parsed = FolderContentsSchema.parse(rawData)
+    return {
+      folder,
+      emails: parsed.emails.map((e) => ({
+        id: e.id as Hex,
+        from: e.from,
+        to: [],
+        subject: e.subject,
+        preview: e.preview ?? '',
+        timestamp: e.timestamp,
+        flags: {
+          read: e.read,
+          starred: false,
+          important: false,
+          answered: false,
+          forwarded: false,
+          deleted: false,
+          spam: false,
+        },
+        labels: [],
+      })),
+      total: parsed.total,
+      hasMore: parsed.hasMore,
+    }
   }
 
   /**
@@ -214,7 +237,15 @@ export class EmailClient {
       bodyText: data.content.bodyText,
       bodyHtml: data.content.bodyHtml,
       timestamp: data.envelope.timestamp,
-      flags: data.flags,
+      flags: {
+        read: data.flags.read,
+        starred: data.flags.starred,
+        important: data.flags.important,
+        answered: false,
+        forwarded: false,
+        deleted: false,
+        spam: data.flags.spam,
+      },
       attachments: data.content.attachments,
     }
   }

@@ -321,30 +321,34 @@ export class KeyRegistrySync {
 
   /**
    * Get key bundle from chain
+   * Returns null if no key is registered for the address
    */
   async getOnChainKey(address: Address): Promise<KeyRegistration | null> {
-    try {
-      const [identityKey, preKey, preKeySignature, registeredAt] =
-        await this.publicClient.readContract({
-          address: this.registryAddress,
-          abi: KEY_REGISTRY_ABI,
-          functionName: 'getKeyBundle',
-          args: [address],
-        })
+    const result = await this.publicClient
+      .readContract({
+        address: this.registryAddress,
+        abi: KEY_REGISTRY_ABI,
+        functionName: 'getKeyBundle',
+        args: [address],
+      })
+      .catch(() => null)
 
-      if (!identityKey || identityKey === '0x') {
-        return null
-      }
-
-      return {
-        address,
-        identityKey: identityKey as Hex,
-        preKey: preKey as Hex,
-        preKeySignature: preKeySignature as Hex,
-        registeredAt: Number(registeredAt),
-      }
-    } catch {
+    if (!result) {
       return null
+    }
+
+    const [identityKey, preKey, preKeySignature, registeredAt] = result
+
+    if (!identityKey || identityKey === '0x') {
+      return null
+    }
+
+    return {
+      address,
+      identityKey: identityKey as Hex,
+      preKey: preKey as Hex,
+      preKeySignature: preKeySignature as Hex,
+      registeredAt: Number(registeredAt),
     }
   }
 

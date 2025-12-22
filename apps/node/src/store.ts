@@ -1,6 +1,3 @@
-// Global state management with Zustand
-// Fail-fast validation with expect/throw patterns
-
 import { invoke } from '@tauri-apps/api/core'
 import { create } from 'zustand'
 import type {

@@ -187,7 +187,7 @@ export class WorkerdExecutor {
     const configPath = `${codeDir}/config.capnp`
 
     // Generate workerd config
-    const configContent = generateWorkerConfig(worker, port, this.config)
+    const configContent = generateWorkerConfig(worker, port)
     await Bun.write(configPath, configContent)
 
     // Start workerd process

@@ -12,7 +12,7 @@ import { calculateExpectedShares } from '../../lib/markets/lmsrPricing'
 import type { Market } from '../../types/markets'
 
 const PREDIMARKET_ADDRESS = CONTRACTS.predimarket
-const ELIZAOS_TOKEN_ADDRESS = CONTRACTS.elizaOS
+const JEJU_TOKEN_ADDRESS = CONTRACTS.jeju
 
 const BUY_ABI = [
   {
@@ -72,7 +72,7 @@ export function TradingInterface({ market }: { market: Market }) {
         outcome,
         amountWei,
         minShares,
-        ELIZAOS_TOKEN_ADDRESS,
+        JEJU_TOKEN_ADDRESS,
       ],
     })
   }

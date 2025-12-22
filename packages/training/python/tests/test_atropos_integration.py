@@ -13,19 +13,23 @@ from datetime import datetime
 import pytest
 
 # Check for optional dependencies
+HAS_TORCH = False
+HAS_WANDB = False
 try:
-    import torch  # noqa: F401
+    import torch
 
+    _ = torch.__version__  # Use the import to satisfy linter
     HAS_TORCH = True
 except ImportError:
-    HAS_TORCH = False
+    pass
 
 try:
-    import wandb  # noqa: F401
+    import wandb
 
+    _ = wandb.__version__  # Use the import to satisfy linter
     HAS_WANDB = True
 except ImportError:
-    HAS_WANDB = False
+    pass
 
 requires_torch = pytest.mark.skipif(not HAS_TORCH, reason="torch not installed")
 requires_wandb = pytest.mark.skipif(not HAS_WANDB, reason="wandb not installed")
@@ -174,7 +178,7 @@ class TestConverter:
                 timestamp=1000000 + i * 1000,
                 environment_state=EnvironmentState(
                     agent_balance=10000.0 + i * 100,
-                    agent_pnl=i * 100.0,
+                    agentPnL=i * 100.0,
                     open_positions=i,
                 ),
                 provider_accesses=[],

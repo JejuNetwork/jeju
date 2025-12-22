@@ -206,16 +206,6 @@ export const testCommand = new Command('test')
 
         printSummary(results)
 
-        // Coverage and dead code detection
-        if (options.coverage || options.deadCode || options.ci) {
-          const coverage = await generateCoverageReport(
-            rootDir,
-            results,
-            options.deadCode,
-          )
-          printCoverageReport(coverage)
-        }
-
         const failed = results.filter((r) => !r.passed && !r.skipped).length
         if (failed > 0) {
           await cleanup()

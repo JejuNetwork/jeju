@@ -85,7 +85,13 @@ async def test_database_connection() -> TestResult:
         conn = psycopg2.connect(database_url)
         cur = conn.cursor()
         cur.execute("SELECT COUNT(*) FROM trajectories")
-        count = cur.fetchone()[0]
+        row = cur.fetchone()
+        if row is None:
+            cur.close()
+            conn.close()
+            result.message = "No trajectories found in database"
+            return result
+        count: int = row[0]
         cur.close()
         conn.close()
 
@@ -427,7 +433,7 @@ async def main() -> int:
     passed = 0
     failed = 0
 
-    for name, result in tests:
+    for _name, result in tests:
         status = "✓" if result.passed else "✗"
         print(f"{status} {result.name}")
         print(f"   {result.message}")
@@ -453,7 +459,7 @@ async def main() -> int:
         "Real Trajectory Data",
         "Data Conversion",
     ]
-    required_passed = all(result.passed for name, result in tests if result.name in required_tests)
+    required_passed = all(result.passed for _, result in tests if result.name in required_tests)
 
     if required_passed:
         print()

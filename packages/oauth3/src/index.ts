@@ -255,6 +255,9 @@ export {
   type TransactionOptions,
 } from './sdk/client.js'
 
+// Re-export type guards from viem
+export { isAddress, isHex } from 'viem'
+
 // Validation (Zod schemas and utilities)
 export {
   AddressSchema,
@@ -278,8 +281,6 @@ export {
   // Core schemas
   HexSchema,
   IPFSAddResponseSchema,
-  isAddress,
-  isHex,
   MFAStatusSchema,
   type NeynarCast,
   NeynarCastSchema,

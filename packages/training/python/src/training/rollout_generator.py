@@ -383,9 +383,11 @@ class FastRolloutGenerator:
     def _validate_tick_quality(self, tick_data: AgentTickData) -> bool:
         """Validate that tick data meets quality requirements"""
         # Must have LLM calls if configured
-        if self.config.min_llm_calls_per_tick > 0:
-            if len(tick_data.llm_calls) < self.config.min_llm_calls_per_tick:
-                return False
+        if (
+            self.config.min_llm_calls_per_tick > 0
+            and len(tick_data.llm_calls) < self.config.min_llm_calls_per_tick
+        ):
+            return False
 
         # Must have action if configured
         if self.config.require_action and tick_data.action is None:

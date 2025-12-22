@@ -4,11 +4,13 @@ import {
   CROSS_CHAIN_PAYMASTER_ABI,
   type CrossChainSwapParams,
   L1_STAKE_MANAGER_ABI,
-  type StakeStatus,
   SUPPORTED_CHAINS,
   type SwapStatus,
   type XLPPosition,
 } from '@jejunetwork/deployment/scripts/shared/eil-hooks'
+
+/** Stake status - local type definition */
+type StakeStatus = 'idle' | 'pending' | 'complete' | 'error'
 import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { type Address, parseEther } from 'viem'

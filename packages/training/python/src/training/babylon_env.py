@@ -19,7 +19,10 @@ import json
 import logging
 import os
 import random
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
+
+if TYPE_CHECKING:
+    from .tinker_client import BabylonTinkerClient
 
 import asyncpg
 import openai
@@ -208,7 +211,7 @@ class BabylonRLAIFEnv(BaseEnv):
             # Get trajectories with valid steps from recent windows
             rows = await conn.fetch(
                 """
-                SELECT 
+                SELECT
                     t."trajectoryId",
                     t."agentId",
                     t."windowId",
@@ -220,7 +223,7 @@ class BabylonRLAIFEnv(BaseEnv):
                     u.username as agent_name
                 FROM trajectories t
                 LEFT JOIN "User" u ON t."agentId" = u.id
-                WHERE 
+                WHERE
                     t."createdAt" > NOW() - $1::interval
                     AND t."stepsJson" IS NOT NULL
                     AND t."stepsJson"::text != 'null'
@@ -276,11 +279,14 @@ class BabylonRLAIFEnv(BaseEnv):
             wandb_metrics = {}
 
         # Add judgement samples table if available (only if wandb is active)
-        if len(self.judgement_samples) > 0 and self.config.use_wandb and wandb.run is not None:
-            table = wandb.Table(columns=["trajectory_a", "trajectory_b", "judge_reasoning"])
-            for item in self.judgement_samples[-10:]:  # Keep last 10
-                table.add_data(item[0][:500], item[1][:500], item[2][:500])
-            wandb_metrics["train/judgement_samples"] = table
+        if len(self.judgement_samples) > 0 and self.config.use_wandb:
+            import wandb as _wandb
+
+            if _wandb.run is not None:
+                table = _wandb.Table(columns=["trajectory_a", "trajectory_b", "judge_reasoning"])
+                for item in self.judgement_samples[-10:]:  # Keep last 10
+                    table.add_data(item[0][:500], item[1][:500], item[2][:500])
+                wandb_metrics["train/judgement_samples"] = table
 
         # Add eval metrics
         if len(self.eval_metrics) > 0:
@@ -443,7 +449,7 @@ You receive market updates and must analyze, reason, and then act."""
 
             if llm_calls:
                 # Include ALL LLM calls from this step
-                for call_idx, llm_call in enumerate(llm_calls):
+                for _call_idx, llm_call in enumerate(llm_calls):
                     purpose = llm_call.get("purpose", "action")
 
                     # Build rich user content from the actual prompt
@@ -597,7 +603,7 @@ You receive market updates and must analyze, reason, and then act."""
 
         return scored_group
 
-    async def evaluate(self, *args, **kwargs):
+    async def evaluate(self, *args, **kwargs):  # noqa: ARG002
         """Evaluate current model performance"""
         logger.info("Running evaluation...")
 

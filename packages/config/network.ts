@@ -54,7 +54,6 @@ const DEPLOYMENTS_DIR = join(ROOT, 'packages', 'contracts', 'deployments')
 
 export interface DeployedContracts {
   // Tokens
-  elizaOS?: string
   usdc?: string
   weth?: string
 

@@ -59,7 +59,6 @@ const PERP_MARKET_ABI = parseAbi([
 
 export class LiquidationBot {
   private readonly config: LiquidationBotConfig
-  private readonly oracle: OracleAggregator
   private readonly publicClient: PublicClient
   private readonly walletClient: WalletClient
   private running = false
@@ -70,12 +69,11 @@ export class LiquidationBot {
 
   constructor(
     config: LiquidationBotConfig,
-    oracle: OracleAggregator,
+    _oracle: OracleAggregator,
     publicClient: PublicClient,
     walletClient: WalletClient,
   ) {
     this.config = config
-    this.oracle = oracle
     this.publicClient = publicClient
     this.walletClient = walletClient
   }

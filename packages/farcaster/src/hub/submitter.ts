@@ -284,18 +284,15 @@ export async function selectBestHub(
   hubs: HubEndpoint[],
   timeoutMs: number = 5000,
 ): Promise<HubEndpoint | null> {
-  // Sort by priority
   const sorted = [...hubs].sort((a, b) => a.priority - b.priority)
 
   for (const hub of sorted) {
     const submitter = new HubSubmitter({ hubUrl: hub.url, timeoutMs })
 
-    try {
-      const ready = await submitter.isReady()
-      if (ready) {
-        return hub
-      }
-    } catch {}
+    const ready = await submitter.isReady().catch(() => false)
+    if (ready) {
+      return hub
+    }
   }
 
   return null
@@ -327,12 +324,12 @@ export class FailoverHubSubmitter {
         timeoutMs: this.timeout,
       })
 
-      try {
-        await submitter.getHubInfo()
+      const info = await submitter.getHubInfo().catch(() => null)
+      if (info) {
         this.currentHub = submitter
         this.currentIndex = i
         return submitter
-      } catch {}
+      }
     }
 
     throw new Error('No available hubs')

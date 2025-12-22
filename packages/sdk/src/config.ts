@@ -2,19 +2,17 @@
  * SDK Configuration - SDK-specific contract helpers
  */
 
-import type { ContractCategoryName, ChainConfig } from '@jejunetwork/config'
+import type { ChainConfig, ContractCategoryName } from '@jejunetwork/config'
 import {
   getChainConfig as _getChainConfig,
   getContract,
-  getServicesConfig as _getServicesConfig,
-  type ServicesConfig,
 } from '@jejunetwork/config'
 import type { NetworkType } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
-// Re-export from @jejunetwork/config for SDK consumers
-export { getServicesConfig } from '@jejunetwork/config'
 export type { ServicesConfig } from '@jejunetwork/config'
+// Re-export from @jejunetwork/config for SDK consumers
+export { getContract, getServicesConfig } from '@jejunetwork/config'
 
 /** Get chain configuration for a network */
 export function getChainConfig(network: NetworkType): ChainConfig {

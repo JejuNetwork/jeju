@@ -370,10 +370,6 @@ async function main() {
   console.log('         ElizaOS Runtime')
   console.log('========================================')
   console.log('')
-
-  // Limit order monitor will be started when trading service is ready
-
-  // Start HTTP server
   const port = config.port
 
   console.log(`HTTP server: http://localhost:${port}`)

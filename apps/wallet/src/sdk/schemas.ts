@@ -140,7 +140,7 @@ export const SolanaAccountSchema = z.object({
   isDefault: z.boolean().optional(),
 })
 
-export const UnifiedAccountSchema = z.object({
+export const WalletAccountSchema = z.object({
   id: z.string().min(1),
   label: z.string().min(1),
   evmAccounts: z.array(AccountSchema),
@@ -348,7 +348,7 @@ export const ConnectedSiteSchema = z.object({
 
 export const WalletStateSchema = z.object({
   isUnlocked: z.boolean(),
-  accounts: z.array(UnifiedAccountSchema),
+  accounts: z.array(WalletAccountSchema),
   activeAccountId: z.string().optional(),
   activeChainId: ChainIdSchema.optional(),
   connectedSites: z.array(ConnectedSiteSchema),

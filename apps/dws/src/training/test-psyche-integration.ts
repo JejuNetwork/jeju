@@ -15,13 +15,7 @@ import {
   LAMPORTS_PER_SOL,
   PublicKey,
 } from '@solana/web3.js'
-import {
-  type Address,
-  createPublicClient,
-  createWalletClient,
-  type Hex,
-  http,
-} from 'viem'
+import { type Address, createPublicClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import {
@@ -174,12 +168,6 @@ async function testEvmConnection(): Promise<void> {
 async function testEvmWalletSetup(): Promise<void> {
   const account = privateKeyToAccount(EVM_PRIVATE_KEY)
 
-  const _walletClient = createWalletClient({
-    account,
-    chain: foundry,
-    transport: http(EVM_RPC_URL),
-  })
-
   const publicClient = createPublicClient({
     chain: foundry,
     transport: http(EVM_RPC_URL),
@@ -320,7 +308,7 @@ async function testMerkleProofGeneration(): Promise<void> {
     },
   ]
 
-  const _root = bridge.computeRewardsMerkleRoot(rewards)
+  bridge.computeRewardsMerkleRoot(rewards)
   const proof0 = bridge.generateMerkleProof(rewards, 0)
   const proof1 = bridge.generateMerkleProof(rewards, 1)
 

@@ -127,7 +127,6 @@ export class ServiceMesh {
     }
 
     services.set(id, service)
-    this.selfIdentity = service
 
     // Initialize metrics
     serviceMetrics.set(id, {

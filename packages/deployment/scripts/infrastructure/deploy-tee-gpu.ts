@@ -10,9 +10,8 @@
  */
 
 import { parseArgs } from 'node:util'
-import { createPublicClient, createWalletClient, type Hex, http } from 'viem'
+import type { Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { baseSepolia, localhost } from 'viem/chains'
 import {
   createTEEGPUProvider,
   GPUType,
@@ -107,25 +106,6 @@ async function deploy() {
 
   const account = privateKeyToAccount(privateKey)
   console.log(`Deployer: ${account.address}`)
-
-  // Setup clients
-  const chain = config.network === 'localnet' ? localhost : baseSepolia
-  const rpcUrl =
-    process.env.RPC_URL ??
-    (config.network === 'localnet' ? 'http://localhost:6546' : undefined)
-
-  createPublicClient({
-    chain,
-    transport: http(rpcUrl),
-  })
-
-  createWalletClient({
-    account,
-    chain,
-    transport: http(rpcUrl),
-  })
-
-  console.log(`\nChain: ${chain.name}`)
 
   // Deploy GPU nodes
   const providers: TEEGPUProvider[] = []

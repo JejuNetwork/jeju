@@ -1,11 +1,5 @@
 /**
  * Bots Package CLI
- *
- * Commands:
- * - start: Start bot engine with configured strategies
- * - backtest: Run strategy backtest
- * - simulate: Run portfolio simulation
- * - prices: Fetch current prices
  */
 
 import type { EVMChainId } from '@jejunetwork/types'
@@ -41,10 +35,7 @@ const SimulateArgsSchema = z.object({
 const StartArgsSchema = z.object({
   chainId: EVMChainIdSchema,
   rpcUrl: z.string().url(),
-  // Private key must come from environment variable only - never accept from CLI
-  privateKey: z
-    .string()
-    .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid private key format'),
+  privateKey: z.string().regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid private key format'),
 })
 
 const COMMANDS = ['start', 'backtest', 'simulate', 'prices', 'help'] as const
@@ -88,8 +79,6 @@ async function main(): Promise<void> {
 }
 
 async function runBot(args: string[]): Promise<void> {
-  // Get values from args or environment
-  // SECURITY: Private key MUST come from environment variable only
   const chainIdRaw = args[0] ? Number(args[0]) : 8453
   const rpcUrlRaw = args[1] ?? process.env.RPC_URL
   const privateKeyRaw = process.env.PRIVATE_KEY
@@ -103,7 +92,6 @@ async function runBot(args: string[]): Promise<void> {
     throw new Error('PRIVATE_KEY environment variable is required')
   }
 
-  // Validate with Zod
   const validated = StartArgsSchema.parse({
     chainId: chainIdRaw,
     rpcUrl: rpcUrlRaw,
@@ -130,7 +118,6 @@ async function runBot(args: string[]): Promise<void> {
 
   await engine.start()
 
-  // Keep running
   process.on('SIGINT', async () => {
     console.log('Shutting down...')
     await engine.stop()
@@ -139,7 +126,6 @@ async function runBot(args: string[]): Promise<void> {
 }
 
 async function runBacktest(args: string[]): Promise<void> {
-  // Validate CLI args with Zod
   const validated = BacktestArgsSchema.parse({
     strategy: args[0] ?? 'composite',
     startDate: args[1] ?? '2024-01-01',
@@ -162,12 +148,8 @@ async function runBacktest(args: string[]): Promise<void> {
     { address: '0x', symbol: 'WBTC', decimals: 8, chainId: 8453 },
   ]
 
-  // Fetch historical data
   const dataFetcher = new HistoricalDataFetcher()
-
   console.log('Fetching price data...')
-  // Always use synthetic data for backtesting - CoinGecko has rate limits
-  // Real implementation would use a proper data provider
   const priceData = dataFetcher.generateSyntheticData(
     tokens,
     startDate,
@@ -217,7 +199,6 @@ async function runBacktest(args: string[]): Promise<void> {
 }
 
 async function runSimulation(args: string[]): Promise<void> {
-  // Validate with Zod
   const validated = SimulateArgsSchema.parse({
     blocks: args[0] ?? '1000',
   })
@@ -243,9 +224,7 @@ async function runSimulation(args: string[]): Promise<void> {
 
   const sim = new PortfolioSimulator(tokens, initialBalances, initialWeights)
 
-  // Simulate
   for (let i = 0; i < blocks; i++) {
-    // Random price fluctuations
     const prices = [
       {
         token: 'WETH',
@@ -265,13 +244,11 @@ async function runSimulation(args: string[]): Promise<void> {
 
     sim.advanceBlock(prices)
 
-    // Occasional swaps - only attempt if amount is reasonable
     if (Math.random() < 0.1) {
       const swapAmount = BigInt(Math.floor(Math.random() * 1e18))
       const tokenIn = Math.random() < 0.5 ? 'WETH' : 'USDC'
       const tokenOut = tokenIn === 'WETH' ? 'USDC' : 'WETH'
 
-      // Check if swap is valid before attempting
       const state = sim.getState()
       const tokenIndex = tokenIn === 'WETH' ? 0 : 1
       if (state.balances[tokenIndex] >= swapAmount && swapAmount > 0n) {
@@ -279,7 +256,6 @@ async function runSimulation(args: string[]): Promise<void> {
       }
     }
 
-    // Periodic weight updates
     if (i > 0 && i % 100 === 0) {
       await sim.updateWeights(prices, 50)
     }

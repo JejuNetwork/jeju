@@ -395,27 +395,6 @@ export function createKMSRouter() {
     }
   })
 
-  // Legacy endpoint for backwards compatibility
-  router = router.post('/decrypt-mpc', async ({ set }) => {
-    const mpcEnabled = !!process.env.MPC_COORDINATOR_URL
-
-    if (!mpcEnabled) {
-      set.status = 501
-      return {
-        error: 'MPC decryption not available',
-        message: 'MPC decryption requires MPC_COORDINATOR_URL to be configured',
-        mode: 'development',
-      }
-    }
-
-    // In production with MPC configured, would decrypt using threshold signatures
-    set.status = 501
-    return {
-      error: 'MPC decryption not yet implemented',
-      message: 'Configure MPC provider and implement threshold decryption',
-    }
-  })
-
   // ============================================================================
   // Secret Vault
   // ============================================================================

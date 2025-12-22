@@ -1,10 +1,3 @@
-/**
- * Type definitions for the Decentralized App Template
- *
- * Additional types not in schemas (or partials/specific usage).
- * Schema-derived types should be imported directly from ./schemas.
- */
-
 import type { Address, Hex } from 'viem'
 
 export interface A2AResponse {
@@ -90,7 +83,6 @@ export const MCP_TOOLS = [
   'bulk_complete',
 ] as const
 
-// Default x402 configuration
 export const X402_CONFIG = {
   enabled: true,
   paymentAddress: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address, // Default dev address

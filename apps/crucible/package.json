@@ -25,6 +25,7 @@
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/training": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
     "@jejunetwork/eliza-plugin": "workspace:*",
     "@solana/web3.js": "1.98.4",
     "elysia": "^1.3.4",

@@ -9,6 +9,7 @@ import {
   parseEther,
   type TransactionReceipt,
 } from 'viem'
+import { isRpcAvailable } from '../utils'
 import {
   clearClientCache,
   compareSnapshots,
@@ -24,7 +25,6 @@ import {
   verifyTokenBalanceChanged,
   verifyTransactionMined,
 } from './on-chain'
-import { isRpcAvailable } from '../utils'
 
 // Clear cache between tests
 beforeEach(() => {

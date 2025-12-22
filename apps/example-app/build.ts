@@ -1,7 +1,3 @@
-/**
- * Build Script for Experimental Decentralized Todo App
- */
-
 import { cpSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
 

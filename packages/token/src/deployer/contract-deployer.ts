@@ -108,8 +108,6 @@ export async function deployContract(
     throw new Error('WalletClient must have an account')
   }
 
-  // Constructor args typed as unknown[] because each contract has different args
-  // Type safety is enforced by the ABI during encoding
   const deployData = encodeDeployData({
     abi: artifact.abi,
     bytecode: artifact.bytecode.object,
@@ -183,9 +181,6 @@ export async function deployContractCreate2(
     throw new Error('WalletClient must have an account')
   }
 
-  // Encode the deployment data (bytecode + constructor args)
-  // Constructor args typed as unknown[] because each contract has different args
-  // Type safety is enforced by the ABI during encoding
   const initCode = encodeDeployData({
     abi: artifact.abi,
     bytecode: artifact.bytecode.object,

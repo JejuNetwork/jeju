@@ -1,7 +1,5 @@
 /**
  * Core types for the Jeju Bots package
- *
- * Supports EVM chains (Ethereum, Base, BSC, Arbitrum, Optimism) and Solana
  */
 
 import type {
@@ -15,10 +13,7 @@ import type { Address } from 'viem'
 
 // ============ Chain Types ============
 
-/**
- * Bot-specific chain configuration
- * Extends BaseChainConfig with bot-specific fields
- */
+/** Bot-specific chain configuration */
 export interface ChainConfig extends BaseChainConfig {
   blockTimeMs: number
   nativeCurrency: { symbol: string; decimals: number }
@@ -26,10 +21,7 @@ export interface ChainConfig extends BaseChainConfig {
 
 // ============ Token Types ============
 
-/**
- * Token type for bots package
- * Compatible with SharedToken but allows SolanaNetwork chainId
- */
+/** Token type for bots package, compatible with SharedToken */
 export interface Token {
   address: string
   symbol: string
@@ -39,9 +31,7 @@ export interface Token {
   logoUri?: string
 }
 
-/**
- * Convert bots Token to shared Token type
- */
+/** Convert bots Token to shared Token type */
 export function toSharedToken(token: Token): SharedToken {
   return {
     address: token.address as Address,
@@ -68,7 +58,7 @@ export interface Pool {
   token1: Token
   reserve0?: string
   reserve1?: string
-  fee: number // In basis points (e.g., 30 = 0.3%)
+  fee: number
   lastUpdate?: number
 }
 
@@ -89,9 +79,9 @@ export interface TFMMPool extends Pool {
 }
 
 export interface TFMMGuardRails {
-  minWeight: bigint // Minimum weight per token (e.g., 5% = 5e16)
-  maxWeight: bigint // Maximum weight per token (e.g., 95% = 95e16)
-  maxWeightChangeBps: number // Max change per update in bps
+  minWeight: bigint
+  maxWeight: bigint
+  maxWeightChangeBps: number
   minUpdateIntervalSeconds: number
 }
 
@@ -129,7 +119,7 @@ export interface TFMMStrategyConfig extends StrategyConfig {
   type: 'tfmm-rebalancer'
   updateIntervalSeconds: number
   lookbackPeriodSeconds: number
-  sensitivity: number // 100 = 1x, 200 = 2x
+  sensitivity: number
   ruleType: 'momentum' | 'mean-reversion' | 'volatility' | 'composite'
 }
 
@@ -174,11 +164,11 @@ export interface CrossChainArbOpportunity extends ArbitrageOpportunity {
 
 export interface OraclePrice {
   token: string
-  price: bigint // Price in USD with 8 decimals
+  price: bigint
   decimals: number
   timestamp: number
   source: OracleSource
-  confidence?: number // For Pyth: 0-1 confidence interval
+  confidence?: number
 }
 
 export type OracleSource =
@@ -201,12 +191,12 @@ export interface OracleConfig {
 // ============ Fee Configuration ============
 
 export interface FeeConfig {
-  swapFeeBps: number // Default swap fee (e.g., 30 = 0.3%)
-  protocolFeeBps: number // Protocol share of fees (e.g., 1000 = 10%)
-  xlpFulfillmentFeeBps: number // Cross-chain fulfillment fee
-  oifSolverFeeBps: number // OIF solver margin
+  swapFeeBps: number
+  protocolFeeBps: number
+  xlpFulfillmentFeeBps: number
+  oifSolverFeeBps: number
   treasuryAddress: Address
-  governanceAddress: Address // Can modify fees
+  governanceAddress: Address
 }
 
 // ============ Risk Parameters ============
@@ -217,8 +207,8 @@ export interface RiskParameters {
   maxSlippageBps: number
   maxGasPriceGwei: number
   minLiquidityUsd: number
-  maxExposurePerProtocol: number // Percentage 0-100
-  maxExposurePerChain: number // Percentage 0-100
+  maxExposurePerProtocol: number
+  maxExposurePerChain: number
   stopLossThresholdBps: number
 }
 
@@ -261,9 +251,9 @@ export interface PortfolioSnapshot {
 export interface RiskMetrics {
   meanReturn: number
   stdDev: number
-  var95: number // 95% Value at Risk
-  var99: number // 99% Value at Risk
-  cvar95: number // Conditional VaR (Expected Shortfall)
+  var95: number
+  var99: number
+  cvar95: number
   maxDrawdown: number
   sharpeRatio: number
   sortinoRatio: number

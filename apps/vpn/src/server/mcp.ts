@@ -33,6 +33,7 @@ import {
   getNodesByCountry,
 } from './utils/nodes'
 import { validateProxyUrlWithDNS } from './utils/proxy-validation'
+import { readResponseBody } from './utils/response-reader'
 import {
   createSession,
   deleteSession,
@@ -683,38 +684,8 @@ async function callTool(
         signal: controller.signal,
       }).finally(() => clearTimeout(timeoutId))
 
-      // SECURITY: Read response with size limit
       const MCP_MAX_RESPONSE_SIZE = 10 * 1024 * 1024
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('No response body')
-      }
-
-      const chunks: Uint8Array[] = []
-      let totalSize = 0
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        totalSize += value.length
-        if (totalSize > MCP_MAX_RESPONSE_SIZE) {
-          reader.cancel()
-          throw new Error(
-            `Response too large. Max size: ${MCP_MAX_RESPONSE_SIZE} bytes`,
-          )
-        }
-        chunks.push(value)
-      }
-
-      const responseBody = new TextDecoder().decode(
-        chunks.reduce((acc, chunk) => {
-          const result = new Uint8Array(acc.length + chunk.length)
-          result.set(acc)
-          result.set(chunk, acc.length)
-          return result
-        }, new Uint8Array(0)),
-      )
+      const responseBody = await readResponseBody(response, MCP_MAX_RESPONSE_SIZE)
 
       return {
         result: {

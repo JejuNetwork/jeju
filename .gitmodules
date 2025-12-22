@@ -47,34 +47,14 @@
 	url = https://github.com/OpenZeppelin/openzeppelin-contracts-upgradeable
 
 # Vendor apps (private - will skip for users without access)
-[submodule "vendor/hyperscape"]
-	path = vendor/hyperscape
-	url = git@github.com:elizaos/hyperscape.git
-	ignore = untracked
-
 [submodule "vendor/babylon"]
 	path = vendor/babylon
 	url = git@github.com:elizaos/babylon.git
 	ignore = untracked
 
-[submodule "vendor/cloud"]
-	path = vendor/cloud
-	url = git@github.com:elizaos/cloud.git
-	ignore = untracked
-
-[submodule "vendor/otc-agent"]
-	path = vendor/otc-agent
-	url = git@github.com:elizaos/otc-agent.git
-	ignore = untracked
-
 [submodule "vendor/eliza"]
 	path = vendor/eliza
 	url = git@github.com:elizaos/eliza.git
-	ignore = untracked
-
-[submodule "vendor/otaku"]
-	path = vendor/otaku
-	url = git@github.com:elizaos/otaku.git
 	ignore = untracked
 [submodule "packages/bridge/contracts/lib/forge-std"]
 	path = packages/bridge/contracts/lib/forge-std

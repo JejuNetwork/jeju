@@ -14,7 +14,6 @@ export type Environment = NetworkType
 
 /**
  * Deployment status for containers, workers, and infrastructure
- * Consolidates deployment status definitions across the codebase
  */
 export const DeploymentStatusSchema = z.enum([
   'pending', // Waiting to start
@@ -27,8 +26,7 @@ export const DeploymentStatusSchema = z.enum([
 export type DeploymentStatus = z.infer<typeof DeploymentStatusSchema>
 
 /**
- * Worker status (similar to DeploymentStatus but worker-specific)
- * Consolidates worker status definitions
+ * Worker status
  */
 export const WorkerStatusSchema = z.enum([
   'pending', // Waiting to start

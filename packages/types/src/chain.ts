@@ -25,7 +25,6 @@ export type ChainType = 'evm' | 'solana'
 
 /**
  * Supported EVM chain IDs across the Jeju ecosystem
- * Consolidates all EVM chain definitions into a single source of truth
  */
 export type EVMChainId =
   | 1 // Ethereum Mainnet
@@ -144,7 +143,7 @@ export const OPStackConfigSchema = z.object({
     subSafetyMargin: z.number(),
     pollInterval: z.string(),
     numConfirmations: z.number(),
-    daProvider: z.enum(['eigenda', 'ethereum-blobs', 'calldata']),
+    daProvider: z.enum(['jeju-da', 'ethereum-blobs', 'calldata']),
   }),
   opProposer: z.object({
     image: z.string(),
@@ -180,16 +179,17 @@ export const RethConfigSchema = z.object({
 })
 export type RethConfig = z.infer<typeof RethConfigSchema>
 
-export const EigenDAConfigSchema = z.object({
+export const JejuDAConfigSchema = z.object({
   enabled: z.boolean(),
-  clientImage: z.string(),
-  clientVersion: z.string(),
-  disperserRpc: z.string(),
-  retrieverRpc: z.string(),
-  attestationServiceUrl: z.string(),
+  serverImage: z.string(),
+  serverVersion: z.string(),
+  serverUrl: z.string(),
+  ipfsApiUrl: z.string(),
+  ipfsGatewayUrl: z.string(),
+  peerdasEnabled: z.boolean(),
   minConfirmations: z.number(),
 })
-export type EigenDAConfig = z.infer<typeof EigenDAConfigSchema>
+export type JejuDAConfig = z.infer<typeof JejuDAConfigSchema>
 
 export const FlashblocksConfigSchema = z.object({
   enabled: z.boolean(),

@@ -654,7 +654,6 @@ export function getFrontendContracts(network?: NetworkType) {
   return {
     // Tokens
     jeju: getContract('tokens', 'jeju', net),
-    elizaOS: getContract('tokens', 'elizaOS', net),
     usdc: getContract('tokens', 'usdc', net),
     weth: getConstant('weth'),
 

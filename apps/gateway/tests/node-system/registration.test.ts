@@ -14,7 +14,7 @@ import { describe, expect, test } from 'bun:test'
 // Contract addresses (loaded from env or deployment file)
 const NODE_STAKING_MANAGER = (process.env.VITE_NODE_STAKING_MANAGER_ADDRESS ||
   '0x0000000000000000000000000000000000000000') as `0x${string}`
-const ELIZAOS_TOKEN = (process.env.VITE_ELIZAOS_TOKEN_ADDRESS ||
+const JEJU_TOKEN = (process.env.VITE_JEJU_TOKEN_ADDRESS ||
   '0x0000000000000000000000000000000000000000') as `0x${string}`
 
 describe('Node Registration - On-Chain Validation', () => {
@@ -31,13 +31,13 @@ describe('Node Registration - On-Chain Validation', () => {
     // Validate contract addresses are configured
     const hasNodeManager =
       NODE_STAKING_MANAGER !== '0x0000000000000000000000000000000000000000'
-    const hasElizaOS =
-      ELIZAOS_TOKEN !== '0x0000000000000000000000000000000000000000'
+    const hasJeju =
+      JEJU_TOKEN !== '0x0000000000000000000000000000000000000000'
 
     console.log(
       `   Contract configured: ${hasNodeManager ? '✅' : 'ℹ️  needs .env'}`,
     )
-    console.log(`   Token configured: ${hasElizaOS ? '✅' : 'ℹ️  needs .env'}`)
+    console.log(`   Token configured: ${hasJeju ? '✅' : 'ℹ️  needs .env'}`)
 
     // Test passes - validates requirements
     expect(true).toBe(true)
@@ -48,41 +48,18 @@ describe('Node Registration - On-Chain Validation', () => {
     // Real validation happens in contract (tested above)
 
     console.log('✅ Minimum stake is $1000 USD equivalent')
-    console.log('   For elizaOS at $0.10: Need 10,000 tokens')
-    console.log('   For CLANKER at $26.14: Need ~38 tokens')
-    console.log('   For VIRTUAL at $1.85: Need ~540 tokens')
+    console.log('   For JEJU at $0.05: Need 20,000 tokens')
   })
 })
 
-describe('Node Registration - All Token Combinations', () => {
+describe('Node Registration - Token Combinations', () => {
   const tokenCombinations = [
     {
-      stake: 'elizaOS',
-      reward: 'elizaOS',
+      stake: 'JEJU',
+      reward: 'JEJU',
       desc: 'Same token',
-      stakePrice: 0.1,
-      rewardPrice: 0.1,
-    },
-    {
-      stake: 'elizaOS',
-      reward: 'CLANKER',
-      desc: 'Cross-token: Low to high value',
-      stakePrice: 0.1,
-      rewardPrice: 26.14,
-    },
-    {
-      stake: 'CLANKER',
-      reward: 'elizaOS',
-      desc: 'Cross-token: High to low value',
-      stakePrice: 26.14,
-      rewardPrice: 0.1,
-    },
-    {
-      stake: 'VIRTUAL',
-      reward: 'CLANKERMON',
-      desc: 'Cross-token: Similar values',
-      stakePrice: 1.85,
-      rewardPrice: 0.15,
+      stakePrice: 0.05,
+      rewardPrice: 0.05,
     },
   ]
 
@@ -100,14 +77,7 @@ describe('Node Registration - All Token Combinations', () => {
         `   Stake: ${requiredStakeTokens.toFixed(2)} ${combo.stake} tokens ($${TARGET_STAKE_USD})`,
       )
 
-      // If different tokens, paymaster fees apply to both
-      if (combo.stake !== combo.reward) {
-        console.log(
-          `   Fees: 5% to ${combo.reward} paymaster + 2% to ${combo.stake} paymaster`,
-        )
-      } else {
-        console.log(`   Fees: 5% to ${combo.stake} paymaster only`)
-      }
+      console.log(`   Fees: 5% to ${combo.stake} paymaster only`)
 
       // Validate minimum met
       const stakeUSD = requiredStakeTokens * combo.stakePrice

@@ -89,10 +89,7 @@ test.describe('Gateway Smoke Tests', () => {
     await metamask.connectToDapp()
     await page.waitForTimeout(3000)
 
-    await expect(page.getByText('elizaOS')).toBeVisible()
-    await expect(page.getByText('CLANKER')).toBeVisible()
-    await expect(page.getByText('VIRTUAL')).toBeVisible()
-    await expect(page.getByText('CLANKERMON')).toBeVisible()
+    await expect(page.getByText('JEJU')).toBeVisible()
 
     await page.screenshot({
       path: 'test-results/screenshots/smoke-tokens.png',

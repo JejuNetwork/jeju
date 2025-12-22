@@ -459,31 +459,24 @@ export class DirectCastClient {
    * Fetch encryption key from hub user data
    */
   private async fetchKeyFromHub(fid: number): Promise<Uint8Array | null> {
-    try {
-      const response = await fetch(
-        `${this.config.hubUrl}/v1/userDataByFid?fid=${fid}`,
-      )
-      if (!response.ok) return null
+    const response = await fetch(
+      `${this.config.hubUrl}/v1/userDataByFid?fid=${fid}`,
+    ).catch(() => null)
+    if (!response?.ok) return null
 
-      const rawData: unknown = await response.json()
-      const parseResult = DCUserDataResponseSchema.safeParse(rawData)
-      if (!parseResult.success) return null
+    const rawData: unknown = await response.json().catch(() => null)
+    const parseResult = DCUserDataResponseSchema.safeParse(rawData)
+    if (!parseResult.success) return null
 
-      const data = parseResult.data
+    const keyData = parseResult.data.messages?.find(
+      (m) => m.data?.userDataBody?.type === 100,
+    )
 
-      // Look for DC encryption key in user data (custom type 100)
-      const keyData = data.messages?.find(
-        (m) => m.data?.userDataBody?.type === 100,
-      )
-
-      if (keyData?.data?.userDataBody?.value) {
-        return hexToBytes(keyData.data.userDataBody.value.slice(2))
-      }
-
-      return null
-    } catch {
-      return null
+    if (keyData?.data?.userDataBody?.value) {
+      return hexToBytes(keyData.data.userDataBody.value.slice(2))
     }
+
+    return null
   }
 
   /**
@@ -494,7 +487,6 @@ export class DirectCastClient {
       throw new Error('Encryption keys not initialized')
     }
 
-    // TODO: Submit UserDataAdd message with type 100
     console.log(
       `[DC Client] Publishing encryption key: 0x${bytesToHex(this.encryptionPublicKey)}`,
     )
@@ -555,21 +547,22 @@ export class DirectCastClient {
       return
     }
 
-    // Send via relay API with timeout
-    try {
-      await this.fetchWithTimeout(`${this.config.relayUrl}/api/dc/send`, {
+    const response = await this.fetchWithTimeout(
+      `${this.config.relayUrl}/api/dc/send`,
+      {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(encrypted),
-      })
-    } catch {
-      // Relay unavailable, queue for later
+      },
+    ).catch(() => null)
+
+    if (!response) {
       console.log(`[DC Client] Relay unavailable, message queued`)
     }
   }
 
   /**
-   * Send read receipt via relay
+   * Send read receipt via relay (best-effort, failures ignored)
    */
   private async sendReadReceipt(
     recipientFid: number,
@@ -577,20 +570,16 @@ export class DirectCastClient {
   ): Promise<void> {
     if (!this.config.relayUrl) return
 
-    try {
-      await this.fetchWithTimeout(`${this.config.relayUrl}/api/dc/read`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          senderFid: this.config.fid,
-          recipientFid,
-          conversationId,
-          timestamp: Date.now(),
-        }),
-      })
-    } catch {
-      // Ignore relay errors for receipts
-    }
+    await this.fetchWithTimeout(`${this.config.relayUrl}/api/dc/read`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        senderFid: this.config.fid,
+        recipientFid,
+        conversationId,
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
   }
 
   /**
@@ -630,28 +619,23 @@ export class DirectCastClient {
    * Fetch signer public key from hub for signature verification
    */
   private async fetchSignerKeyFromHub(fid: number): Promise<Uint8Array | null> {
-    try {
-      const response = await fetch(
-        `${this.config.hubUrl}/v1/onChainSignersByFid?fid=${fid}`,
-      )
-      if (!response.ok) return null
+    const response = await fetch(
+      `${this.config.hubUrl}/v1/onChainSignersByFid?fid=${fid}`,
+    ).catch(() => null)
+    if (!response?.ok) return null
 
-      const rawData: unknown = await response.json()
-      const parseResult = DCSignerEventsResponseSchema.safeParse(rawData)
-      if (!parseResult.success) return null
+    const rawData: unknown = await response.json().catch(() => null)
+    const parseResult = DCSignerEventsResponseSchema.safeParse(rawData)
+    if (!parseResult.success) return null
 
-      const data = parseResult.data
-
-      // Get the first active signer key
-      const signerEvent = data.events?.find((e) => e.signerEventBody?.key)
-      if (signerEvent?.signerEventBody?.key) {
-        return hexToBytes(signerEvent.signerEventBody.key.slice(2))
-      }
-
-      return null
-    } catch {
-      return null
+    const signerEvent = parseResult.data.events?.find(
+      (e) => e.signerEventBody?.key,
+    )
+    if (signerEvent?.signerEventBody?.key) {
+      return hexToBytes(signerEvent.signerEventBody.key.slice(2))
     }
+
+    return null
   }
 
   /**
@@ -753,28 +737,26 @@ export class DirectCastClient {
   private async loadConversations(): Promise<void> {
     if (!this.config.persistenceEnabled || !this.config.persistencePath) return
 
-    try {
-      const file = Bun.file(this.config.persistencePath)
-      if (await file.exists()) {
-        const rawData: unknown = await file.json()
-        const parseResult = DCPersistenceDataSchema.safeParse(rawData)
-        if (!parseResult.success) {
-          console.log(`[DC Client] Invalid persistence data, starting fresh`)
-          return
-        }
-
-        const data = parseResult.data
-
-        for (const conv of data.conversations) {
-          this.conversations.set(conv.id, conv as DirectCastConversation)
-        }
-
-        for (const [id, msgs] of Object.entries(data.messages)) {
-          this.messages.set(id, msgs as DirectCast[])
-        }
-      }
-    } catch {
+    const file = Bun.file(this.config.persistencePath)
+    const exists = await file.exists().catch(() => false)
+    if (!exists) {
       console.log(`[DC Client] No previous conversations found`)
+      return
+    }
+
+    const rawData: unknown = await file.json().catch(() => null)
+    const parseResult = DCPersistenceDataSchema.safeParse(rawData)
+    if (!parseResult.success) {
+      console.log(`[DC Client] Invalid persistence data, starting fresh`)
+      return
+    }
+
+    for (const conv of parseResult.data.conversations) {
+      this.conversations.set(conv.id, conv as DirectCastConversation)
+    }
+
+    for (const [id, msgs] of Object.entries(parseResult.data.messages)) {
+      this.messages.set(id, msgs as DirectCast[])
     }
   }
 

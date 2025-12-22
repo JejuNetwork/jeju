@@ -111,9 +111,8 @@ export class OracleKeeperStrategy {
   private running = false
   private chainId: ChainId
 
-  constructor(chainId: ChainId, config: StrategyConfig, privateKey: string) {
+  constructor(chainId: ChainId, _config: StrategyConfig, privateKey: string) {
     this.chainId = chainId
-    this.config = config
     this.account = privateKeyToAccount(privateKey as `0x${string}`)
   }
 

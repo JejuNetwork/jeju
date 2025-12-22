@@ -3,15 +3,6 @@
   "description": "Optional vendor apps that can be cloned into vendor/. Private repos will be skipped for open source users.",
   "apps": [
     {
-      "name": "hyperscape",
-      "url": "git@github.com:elizaos/hyperscape.git",
-      "path": "vendor/hyperscape",
-      "description": "Hyperscape 3D game engine",
-      "private": true,
-      "optional": true,
-      "branch": "jeju"
-    },
-    {
       "name": "babylon",
       "url": "git@github.com:elizaos/babylon.git",
       "path": "vendor/babylon",
@@ -21,37 +12,10 @@
       "branch": "jeju"
     },
     {
-      "name": "cloud",
-      "url": "git@github.com:elizaos/cloud.git",
-      "path": "vendor/cloud",
-      "description": "Cloud platform with agent marketplace",
-      "private": true,
-      "optional": true,
-      "branch": "jeju"
-    },
-    {
-      "name": "otc-agent",
-      "url": "git@github.com:elizaos/otc-agent.git",
-      "path": "vendor/otc-agent",
-      "description": "OTC trading desk agent",
-      "private": true,
-      "optional": true,
-      "branch": "jeju"
-    },
-    {
       "name": "eliza",
       "url": "git@github.com:elizaos/eliza.git",
       "path": "vendor/eliza",
       "description": "ElizaOS agent framework",
-      "private": true,
-      "optional": true,
-      "branch": "jeju"
-    },
-    {
-      "name": "otaku",
-      "url": "git@github.com:elizaos/otaku.git",
-      "path": "vendor/otaku",
-      "description": "Otaku anime/manga integration",
       "private": true,
       "optional": true,
       "branch": "jeju"

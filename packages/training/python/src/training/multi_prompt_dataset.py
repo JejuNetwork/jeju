@@ -479,7 +479,7 @@ class MultiPromptDatasetBuilder:
         step: TrajectoryStep,
         trajectory_score: float,
         led_to_action: bool,
-        call_idx: int,
+        call_idx: int,  # noqa: ARG002 - reserved for position-based weighting
         total_calls: int,
     ) -> float:
         """
@@ -586,7 +586,9 @@ class MultiPromptDatasetBuilder:
         """
         scored_groups = []
 
-        purposes_to_process = [purpose] if purpose else list(self.datasets.keys())
+        purposes_to_process: list[PromptPurpose] = (
+            [purpose] if purpose else list(self.datasets.keys())
+        )
 
         for p in purposes_to_process:
             dataset = self.datasets[p]
@@ -656,7 +658,9 @@ class MultiPromptDatasetBuilder:
             "samples": {},
         }
 
-        purposes_to_save = [purpose] if purpose else list(self.datasets.keys())
+        purposes_to_save: list[PromptPurpose] = (
+            [purpose] if purpose else list(self.datasets.keys())
+        )
 
         for p in purposes_to_save:
             dataset = self.datasets[p]
@@ -719,8 +723,9 @@ def prepare_multi_prompt_training_data(
         f"Extracted {builder.total_samples} samples from {builder.total_trajectories} trajectories"
     )
 
-    result = {}
-    for purpose in ["action", "reasoning", "evaluation", "response"]:
+    result: dict[PromptPurpose, list[AtroposScoredGroup]] = {}
+    purposes: list[PromptPurpose] = ["action", "reasoning", "evaluation", "response"]
+    for purpose in purposes:
         groups = builder.build_training_data(
             purpose=purpose, group_size=group_size, tokenizer=tokenizer
         )

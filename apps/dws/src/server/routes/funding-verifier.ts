@@ -13,7 +13,6 @@ import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
   type Address,
-  createPublicClient,
   createWalletClient,
   type Hex,
   http,
@@ -309,8 +308,6 @@ export function createFundingVerifierRouter() {
       '[FundingVerifier] VERIFIER_PRIVATE_KEY not set - verification disabled',
     )
   }
-
-  const _publicClient = createPublicClient({ transport: http(rpcUrl) })
 
   const getWalletClient = () => {
     if (!verifierKey) throw new Error('Verifier key not configured')

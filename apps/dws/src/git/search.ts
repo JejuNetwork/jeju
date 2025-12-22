@@ -98,6 +98,10 @@ export interface UserSearchOptions extends SearchOptions {
 export class SearchManager {
   private repoManager: GitRepoManager
   private issuesManager: IssuesManager
+  // Reserved for future social graph search integration
+  private socialManager: SocialManager
+  // Reserved for future backend storage search integration
+  private backend: BackendManager
 
   // In-memory index for search (suitable for small deployments)
   // For large-scale deployments, configure MEILISEARCH_URL environment variable
@@ -111,8 +115,8 @@ export class SearchManager {
   constructor(config: SearchManagerConfig) {
     this.repoManager = config.repoManager
     this.issuesManager = config.issuesManager
-    this._socialManager = config.socialManager
-    this._backend = config.backend
+    this.socialManager = config.socialManager
+    this.backend = config.backend
 
     // Initialize Meilisearch if configured
     this.initMeilisearch()
@@ -130,9 +134,15 @@ export class SearchManager {
     }
 
     try {
-      // Static import: meilisearch is a dependency, load it when MEILISEARCH_URL is configured
-      const { MeiliSearch } = await import('meilisearch')
-      this.meilisearchClient = new MeiliSearch({
+      // Dynamic import: meilisearch is an optional dependency
+      // Install with: bun add meilisearch
+      // @ts-expect-error - meilisearch is an optional peer dependency
+      const meilisearchModule = await import('meilisearch')
+      const MeiliSearchClass = meilisearchModule.MeiliSearch as new (config: {
+        host: string
+        apiKey?: string
+      }) => MeilisearchClient
+      this.meilisearchClient = new MeiliSearchClass({
         host: meilisearchUrl,
         apiKey: meilisearchKey,
       })
@@ -152,6 +162,16 @@ export class SearchManager {
    */
   get usingMeilisearch(): boolean {
     return this.meilisearchClient !== null
+  }
+
+  /** Get social manager for future social search features */
+  getSocialManager(): SocialManager {
+    return this.socialManager
+  }
+
+  /** Get backend manager for future storage search features */
+  getBackendManager(): BackendManager {
+    return this.backend
   }
 
   /**

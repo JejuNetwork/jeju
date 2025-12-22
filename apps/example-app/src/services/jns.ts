@@ -1,10 +1,3 @@
-/**
- * JNS Service for dapp naming
- *
- * Registers and manages the todo.jeju domain for the dApp.
- * Links the dApp to its decentralized endpoints.
- */
-
 import type { Address, Hex } from 'viem'
 import type { JNSRecords } from '../schemas'
 import {

@@ -223,9 +223,9 @@ export {
   // Legacy MCP
   createMCPServer,
   createPaymentRequirement,
+  // Protocol Server
+  createServer,
   createServerlessHandler,
-  // Unified Server
-  createUnifiedServer,
   type ERC8004Config,
   erc8004Middleware,
   getAgentInfo,
@@ -243,8 +243,8 @@ export {
   skillError,
   skillRequiresPayment,
   skillSuccess,
+  type ServerConfig,
   startServer,
-  type UnifiedServerConfig,
   verifyX402Payment,
   type X402Config,
   type X402PaymentPayload,

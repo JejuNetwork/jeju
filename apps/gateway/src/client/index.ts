@@ -2,10 +2,6 @@
  * Gateway Client Exports
  *
  * Public API for consuming the Gateway from other packages.
- * Re-exports typed clients and validation schemas for all gateway services.
- *
- * Note: A2A, RPC, and Leaderboard servers use Elysia with Eden Treaty for type safety.
- * X402 server uses Hono with a custom typed fetch client.
  */
 
 import { treaty } from '@elysiajs/eden'

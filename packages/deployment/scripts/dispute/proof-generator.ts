@@ -79,6 +79,8 @@ const PROOF_VERSION = 1
 // ============ Proof Generator ============
 
 export class FraudProofGenerator {
+  private l1PublicClient: ReturnType<typeof createPublicClient>
+  private l2PublicClient: ReturnType<typeof createPublicClient> | null
   private stateFetcher: StateFetcher | null
   private cannonInterface: CannonInterface
 

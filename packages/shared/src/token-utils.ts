@@ -1,6 +1,5 @@
 /**
  * Token Utility Functions
- * Consolidated from gateway and bazaar
  */
 
 import { formatUnits, parseUnits } from 'viem'

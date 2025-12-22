@@ -1,22 +1,3 @@
-/**
- * Bridge Service for Node Operators
- *
- * Enables node operators to:
- * - Run ZKSolBridge relayer
- * - Participate as XLP (Cross-chain Liquidity Provider)
- * - Act as OIF solver
- * - Detect and execute cross-chain arbitrage
- * - Capture MEV on Solana via Jito
- *
- * Revenue streams:
- * - Bridge fees (0.1-0.3% per transfer)
- * - XLP liquidity provision fees
- * - Solver fees for intent fulfillment
- * - Cross-chain arbitrage profits
- * - Solana MEV (Jito bundles)
- * - Hyperliquid orderbook arbitrage
- */
-
 import type { Address, Hex } from 'viem'
 import {
   createPublicClient,
@@ -640,13 +621,12 @@ class BridgeServiceImpl implements BridgeService {
     )
     console.log(`   Expected profit: $${opportunity.netProfitUsd.toFixed(2)}`)
 
-    // Execute the arbitrage based on type
     if (opportunity.type === 'solana_evm') {
       return this.executeSolanaEvmArb(opportunity)
     } else if (opportunity.type === 'hyperliquid') {
       return this.executeHyperliquidArb(opportunity)
     } else {
-      return this.executeCrossDevArb(opportunity)
+      return this.executeCrossDexArb(opportunity)
     }
   }
 
@@ -1014,7 +994,7 @@ class BridgeServiceImpl implements BridgeService {
     return result
   }
 
-  private async executeCrossDevArb(
+  private async executeCrossDexArb(
     opportunity: ArbOpportunity,
   ): Promise<{ success: boolean; txHash?: string; profit?: number }> {
     if (!this.arbExecutor) {

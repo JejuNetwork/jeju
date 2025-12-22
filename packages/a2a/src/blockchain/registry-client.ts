@@ -7,7 +7,6 @@ import { createPublicClient, http, type PublicClient } from 'viem'
 
 import type { AgentProfile, AgentReputation } from '../types/a2a'
 import { AgentCapabilitiesSchema, type JsonValue } from '../types/common'
-import { logger } from '../utils/logger'
 
 /**
  * Minimal ABI for Identity Registry contract
@@ -245,7 +244,6 @@ export class RegistryClient {
       if (!hasMarket) return false
     }
 
-    // Check reputation (already filtered in query if provided)
     if (filters.minReputation) {
       if (profile.reputation.trustScore < filters.minReputation) {
         return false
@@ -266,7 +264,7 @@ export class RegistryClient {
     skills: string[]
     domains: string[]
   } {
-    const parsed = JSON.parse(metadata) as Record<string, unknown>
+    const parsed = JSON.parse(metadata) as Record<string, JsonValue>
     const validation = AgentCapabilitiesSchema.safeParse(parsed)
     return {
       strategies: validation.data?.strategies ?? [],
@@ -306,85 +304,32 @@ export class RegistryClient {
   }
 
   /**
-   * Register agent (interface compatibility)
-   *
-   * NOTE: This client is READ-ONLY. For actual registration, use:
-   * - A write-enabled client with wallet signing
-   * - On-chain registration endpoint with server wallet
-   *
-   * This method exists for interface compatibility only.
+   * Register agent (read-only - throws error)
    */
   async register(
-    agentId: string,
-    data: Record<string, JsonValue>,
+    _agentId: string,
+    _data: Record<string, JsonValue>,
   ): Promise<void> {
-    logger.info(`Register agent ${agentId} (read-only client)`, { data })
     throw new Error(
       'RegistryClient is read-only. Use a write-enabled client for registration',
     )
   }
 
   /**
-   * Unregister agent (interface compatibility)
-   *
-   * NOTE: This client is READ-ONLY. Unregistration requires direct blockchain interaction
-   * with a wallet that owns the agent token.
+   * Unregister agent (read-only - throws error)
    */
-  async unregister(agentId: string): Promise<void> {
-    logger.info(`Unregister agent ${agentId} (read-only client)`)
+  async unregister(_agentId: string): Promise<void> {
     throw new Error(
-      'RegistryClient is read-only. Unregistration requires direct blockchain interaction with agent owner wallet',
+      'RegistryClient is read-only. Use a write-enabled client for unregistration',
     )
   }
 
   /**
-   * Get all agents (interface compatibility)
+   * Transform AgentProfile to registry entry format
    */
-  async getAgents(): Promise<
-    Array<{ agentId: string; [key: string]: JsonValue }>
-  > {
-    const profiles = await this.discoverAgents()
-    return profiles.map((profile) => ({
-      agentId: String(profile.tokenId),
-      tokenId: profile.tokenId,
-      address: profile.address,
-      name: profile.name,
-      endpoint: profile.endpoint,
-      capabilities: {
-        strategies: profile.capabilities.strategies,
-        markets: profile.capabilities.markets,
-        actions: profile.capabilities.actions,
-        version: profile.capabilities.version,
-        skills: profile.capabilities.skills || [],
-        domains: profile.capabilities.domains || [],
-      },
-      reputation: {
-        totalBets: profile.reputation.totalBets,
-        winningBets: profile.reputation.winningBets,
-        accuracyScore: profile.reputation.accuracyScore,
-        trustScore: profile.reputation.trustScore,
-        totalVolume: profile.reputation.totalVolume,
-        profitLoss: profile.reputation.profitLoss,
-        isBanned: profile.reputation.isBanned,
-      },
-      isActive: profile.isActive,
-    }))
-  }
-
-  /**
-   * Get agent by ID (interface compatibility)
-   */
-  async getAgent(
-    agentId: string,
-  ): Promise<{ agentId: string; [key: string]: JsonValue } | null> {
-    const tokenId = Number.parseInt(agentId, 10)
-    if (Number.isNaN(tokenId)) {
-      return null
-    }
-    const profile = await this.getAgentProfile(tokenId)
-    if (!profile) {
-      return null
-    }
+  private toRegistryEntry(
+    profile: AgentProfile,
+  ): { agentId: string; [key: string]: JsonValue } {
     return {
       agentId: String(profile.tokenId),
       tokenId: profile.tokenId,
@@ -410,5 +355,32 @@ export class RegistryClient {
       },
       isActive: profile.isActive,
     }
+  }
+
+  /**
+   * Get all agents
+   */
+  async getAgents(): Promise<
+    Array<{ agentId: string; [key: string]: JsonValue }>
+  > {
+    const profiles = await this.discoverAgents()
+    return profiles.map((profile) => this.toRegistryEntry(profile))
+  }
+
+  /**
+   * Get agent by ID
+   */
+  async getAgent(
+    agentId: string,
+  ): Promise<{ agentId: string; [key: string]: JsonValue } | null> {
+    const tokenId = Number.parseInt(agentId, 10)
+    if (Number.isNaN(tokenId)) {
+      return null
+    }
+    const profile = await this.getAgentProfile(tokenId)
+    if (!profile) {
+      return null
+    }
+    return this.toRegistryEntry(profile)
   }
 }

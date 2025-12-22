@@ -1,19 +1,3 @@
-/**
- * Decentralized App Template - Main Server
- *
- * A production-ready template demonstrating all decentralized services:
- * - REST API for CRUD operations
- * - A2A (Agent-to-Agent) protocol for AI agents
- * - MCP (Model Context Protocol) for tool integrations
- * - x402 payment protocol for monetization
- * - OAuth3 for decentralized authentication
- * - CQL database for persistent storage
- * - Cache layer for performance
- * - KMS for encrypted data
- * - Cron triggers for scheduled tasks
- * - JNS for decentralized naming
- */
-
 import { cors } from '@elysiajs/cors'
 import { getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
@@ -38,14 +22,20 @@ import { createMCPServer } from './mcp'
 import { createRESTRoutes } from './rest'
 import { createX402Routes, getX402Middleware } from './x402'
 
-// Validate environment variables
+// Environment schema with proper defaults
 const envSchema = z.object({
-  PORT: z.string().regex(/^\d+$/).transform(Number).default('4500'),
+  PORT: z
+    .string()
+    .regex(/^\d+$/)
+    .default('4500')
+    .transform(Number),
   APP_NAME: z.string().default('Decentralized App Template'),
   CORS_ORIGINS: z.string().optional(),
 })
 
-const env = expectValid(envSchema, process.env, 'Environment variables')
+type EnvConfig = z.infer<typeof envSchema>
+
+const env: EnvConfig = expectValid(envSchema, process.env, 'Environment variables')
 
 const PORT = env.PORT
 const APP_NAME = env.APP_NAME

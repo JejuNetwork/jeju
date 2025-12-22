@@ -77,7 +77,6 @@ export type ApiError = z.infer<typeof ApiErrorSchema>
 
 /**
  * Generic API response wrapper
- * Consolidates all ApiResponse definitions across the codebase
  *
  * @template T - The data type returned by the API
  */

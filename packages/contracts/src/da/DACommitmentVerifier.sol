@@ -179,7 +179,7 @@ contract DACommitmentVerifier is IDACommitmentVerifier, ReentrancyGuard, Ownable
             return _verifyCalldataCommitment(daCommitment, proof);
         }
 
-        // For EigenDA, verify against blob registry
+        // Verify against blob registry (Jeju DA with PeerDAS)
         return _verifyDACommitment(outputRoot, daCommitment, proof);
     }
 

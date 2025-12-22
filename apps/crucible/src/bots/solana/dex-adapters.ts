@@ -1037,7 +1037,6 @@ export class SolanaDexAggregator {
   private adapters: Map<DexSource, DexAdapter> = new Map()
 
   constructor(connection: Connection) {
-    this.connection = connection
 
     // Initialize all adapters
     this.adapters.set('jupiter', new JupiterAdapter(connection))

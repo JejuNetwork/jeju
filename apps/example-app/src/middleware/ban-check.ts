@@ -1,8 +1,3 @@
-/**
- * Ban Check Middleware for Example App
- * Demonstrates how to use @jejunetwork/shared ban checking
- */
-
 import {
   type BanCheckConfig,
   BanChecker,
@@ -84,8 +79,11 @@ export async function banCheckHandler({ request, set, path }: Context): Promise<
     return {
       error: 'BANNED',
       message: result.status?.reason || 'User is banned from this application',
-      banType: result.status?.banType,
-      caseId: result.status?.caseId,
+      banType:
+        result.status?.banType !== undefined
+          ? String(result.status.banType)
+          : undefined,
+      caseId: result.status?.caseId ?? undefined,
       canAppeal: result.status?.canAppeal,
     }
   }

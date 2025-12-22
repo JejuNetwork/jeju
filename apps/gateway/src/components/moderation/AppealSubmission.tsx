@@ -1,4 +1,3 @@
-
 import { AlertCircle, type LucideProps, Scale, Upload } from 'lucide-react'
 import { type ComponentType, useState } from 'react'
 import { parseEther } from 'viem'

@@ -1,20 +1,20 @@
-import type { JejuClient } from '@jejunetwork/sdk'
-import { toError } from '@jejunetwork/types'
-import { useCallback, useState } from 'react'
+import type { JejuClient } from "@jejunetwork/sdk";
+import { toError } from "@jejunetwork/types";
+import { useCallback, useState } from "react";
 
 /**
  * Async operation state for hooks
  */
 export interface AsyncState {
-  isLoading: boolean
-  error: Error | null
+  isLoading: boolean;
+  error: Error | null;
 }
 
 /**
  * Return type for useAsyncState hook
  */
 export interface UseAsyncStateResult extends AsyncState {
-  execute: <T>(operation: () => Promise<T>) => Promise<T>
+  execute: <T>(operation: () => Promise<T>) => Promise<T>;
 }
 
 /**
@@ -22,29 +22,29 @@ export interface UseAsyncStateResult extends AsyncState {
  * Eliminates repeated isLoading/error state management across hooks.
  */
 export function useAsyncState(): UseAsyncStateResult {
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<Error | null>(null)
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<Error | null>(null);
 
   const execute = useCallback(
     async <T>(operation: () => Promise<T>): Promise<T> => {
-      setIsLoading(true)
-      setError(null)
+      setIsLoading(true);
+      setError(null);
       return operation()
         .then((result: T) => {
-          setIsLoading(false)
-          return result
+          setIsLoading(false);
+          return result;
         })
         .catch((err): never => {
-          const e = toError(err)
-          setError(e)
-          setIsLoading(false)
-          throw e
-        })
+          const e = toError(err);
+          setError(e);
+          setIsLoading(false);
+          throw e;
+        });
     },
     [],
-  )
+  );
 
-  return { isLoading, error, execute }
+  return { isLoading, error, execute };
 }
 
 /**
@@ -53,7 +53,7 @@ export function useAsyncState(): UseAsyncStateResult {
  */
 export function requireClient(client: JejuClient | null): JejuClient {
   if (!client) {
-    throw new Error('Not connected')
+    throw new Error("Not connected");
   }
-  return client
+  return client;
 }

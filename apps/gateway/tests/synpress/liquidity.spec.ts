@@ -90,10 +90,7 @@ test.describe('Liquidity Interface', () => {
 
     await page.locator('.input').first().click()
 
-    await expect(page.getByText('elizaOS')).toBeVisible()
-    await expect(page.getByText('CLANKER')).toBeVisible()
-    await expect(page.getByText('VIRTUAL')).toBeVisible()
-    await expect(page.getByText('CLANKERMON')).toBeVisible()
+    await expect(page.getByText('JEJU')).toBeVisible()
   })
 })
 
@@ -114,7 +111,7 @@ test.describe('Token Selection', () => {
     await connectAndNavigateToLiquidity(page, metamask)
 
     await page.locator('.input').first().click()
-    const tokenToTest = page.getByText('CLANKERMON')
+    const tokenToTest = page.getByText('JEJU')
 
     if (await tokenToTest.isVisible().catch(() => false)) {
       await tokenToTest.click()
@@ -144,7 +141,7 @@ test.describe('Token Selection', () => {
     await connectAndNavigateToLiquidity(page, metamask)
 
     await page.locator('.input').first().click()
-    await page.getByText('elizaOS').click()
+    await page.getByText('JEJU').click()
 
     const amountInput = page.getByPlaceholder('1.0')
     const inputExists = await amountInput.isVisible().catch(() => false)
@@ -176,9 +173,9 @@ test.describe('LP Position Display', () => {
     await connectAndNavigateToLiquidity(page, metamask)
 
     await page.locator('.input').first().click()
-    await page.getByText('elizaOS').click()
+    await page.getByText('JEJU').click()
 
-    const lpCard = page.getByText(/Your elizaOS LP Position/i)
+    const lpCard = page.getByText(/Your JEJU LP Position/i)
     const hasPosition = await lpCard.isVisible().catch(() => false)
 
     if (hasPosition) {
@@ -207,9 +204,9 @@ test.describe('LP Position Display', () => {
     await connectAndNavigateToLiquidity(page, metamask)
 
     await page.locator('.input').first().click()
-    await page.getByText('VIRTUAL').click()
+    await page.getByText('JEJU').click()
 
-    const lpCard = page.getByText(/Your VIRTUAL LP Position/i)
+    const lpCard = page.getByText(/Your JEJU LP Position/i)
     const hasPosition = await lpCard.isVisible().catch(() => false)
 
     if (hasPosition) {

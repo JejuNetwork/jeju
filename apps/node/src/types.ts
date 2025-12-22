@@ -1,5 +1,3 @@
-// Network Node - TypeScript types
-
 export interface HardwareInfo {
   os: string
   os_version: string

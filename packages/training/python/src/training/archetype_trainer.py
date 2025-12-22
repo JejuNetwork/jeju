@@ -115,7 +115,7 @@ class ArchetypeTrainer:
     async def train_archetype(
         self,
         archetype: str,
-        trajectories: list | None = None,
+        trajectories: list | None = None,  # noqa: ARG002 - reserved for custom trajectories
     ) -> ArchetypeTrainingResult:
         """
         Train a single archetype.

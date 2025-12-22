@@ -1,7 +1,6 @@
 /**
  * Formatting Utilities
  *
- * Consolidated formatting functions using battle-tested npm libraries.
  * Import from @jejunetwork/shared for consistent formatting across all apps.
  */
 

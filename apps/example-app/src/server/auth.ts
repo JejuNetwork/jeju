@@ -1,14 +1,3 @@
-/**
- * OAuth3 Authentication Middleware and Routes
- *
- * Provides:
- * - OAuth3 session authentication middleware
- * - Legacy wallet signature fallback
- * - OAuth provider callback routes
- *
- * All routes use zod validation with expect/throw patterns.
- */
-
 import { getNetworkName } from '@jejunetwork/config'
 import { type Context, Elysia } from 'elysia'
 import type { Address } from 'viem'
@@ -16,7 +5,10 @@ import { verifyMessage } from 'viem'
 import {
   authCallbackQuerySchema,
   authProviderSchema,
+  type AuthCallbackQuery,
+  type OAuth3AuthHeaders,
   oauth3AuthHeadersSchema,
+  type WalletAuthHeaders,
   walletAuthHeadersSchema,
 } from '../schemas'
 import { AuthProvider, getOAuth3Service } from '../services/auth'
@@ -41,7 +33,7 @@ export async function oauth3AuthDerive({ request }: Context): Promise<{
 
   // Try OAuth3 session authentication
   if (sessionId) {
-    const validatedHeaders = expectValid(
+    const validatedHeaders: OAuth3AuthHeaders = expectValid(
       oauth3AuthHeadersSchema,
       { 'x-oauth3-session': sessionId },
       'OAuth3 auth headers',
@@ -81,7 +73,7 @@ export async function oauth3AuthDerive({ request }: Context): Promise<{
   const signatureHeader = request.headers.get('x-jeju-signature')
 
   if (addressHeader && timestampHeader && signatureHeader) {
-    const validatedHeaders = expectValid(
+    const validatedHeaders: WalletAuthHeaders = expectValid(
       walletAuthHeadersSchema,
       {
         'x-jeju-address': addressHeader,
@@ -154,7 +146,7 @@ export function requireAuth({
 /**
  * Creates routes for OAuth3 authentication flows.
  */
-export function createAuthRoutes(): Elysia {
+export function createAuthRoutes() {
   const networkName = getNetworkName()
   const isLocalnet = networkName === 'localnet' || networkName === 'Jeju'
 
@@ -167,7 +159,9 @@ export function createAuthRoutes(): Elysia {
         return { error: error.message, code: 'VALIDATION_ERROR' }
       }
 
-      const safeMessage = sanitizeErrorMessage(error, isLocalnet)
+      const errorObj =
+        error instanceof Error ? error : new Error(String(error))
+      const safeMessage = sanitizeErrorMessage(errorObj, isLocalnet)
       set.status = 500
       return { error: safeMessage, code: 'INTERNAL_ERROR' }
     })
@@ -266,7 +260,7 @@ export function createAuthRoutes(): Elysia {
         error: query.error,
       }
 
-      const validatedQuery = expectValid(
+      const validatedQuery: AuthCallbackQuery = expectValid(
         authCallbackQuerySchema,
         queryParams,
         'OAuth callback query',
@@ -386,5 +380,3 @@ export function createAuthRoutes(): Elysia {
     })
 }
 
-// Alias for backward compatibility
-export const createOAuth3CallbackRoutes = createAuthRoutes

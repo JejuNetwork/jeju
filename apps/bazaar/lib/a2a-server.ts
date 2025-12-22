@@ -643,10 +643,7 @@ async function executeSkill(
       return {
         message: 'Trending on Bazaar',
         data: {
-          tokens: [
-            { symbol: 'JEJU', change24h: 15.5 },
-            { symbol: 'CLANKER', change24h: 8.2 },
-          ],
+          tokens: [{ symbol: 'JEJU', change24h: 15.5 }],
           collections: [{ name: 'Jeju Agents', volumeChange: 250 }],
         },
       }

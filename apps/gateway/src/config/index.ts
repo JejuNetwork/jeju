@@ -49,7 +49,6 @@ const ZERO = ZERO_ADDRESS
 export const CONTRACTS = {
   // Tokens
   jeju: (import.meta.env.VITE_JEJU_TOKEN_ADDRESS || ZERO) as Address,
-  elizaOS: (import.meta.env.VITE_ELIZAOS_TOKEN_ADDRESS || ZERO) as Address,
   usdc: (import.meta.env.VITE_USDC_ADDRESS || ZERO) as Address,
   weth: '0x4200000000000000000000000000000000000006' as Address,
 

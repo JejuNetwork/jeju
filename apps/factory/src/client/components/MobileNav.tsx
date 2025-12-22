@@ -61,13 +61,12 @@ const navSections = [
 
 export function MobileNav() {
   const [isOpen, setIsOpen] = useState(false)
-  const location = useLocation()
+  const { pathname } = useLocation()
 
-  // Close menu on route change
-  const _pathname = location.pathname
+  // biome-ignore lint/correctness/useExhaustiveDependencies: close menu on route change
   useEffect(() => {
     setIsOpen(false)
-  }, [])
+  }, [pathname])
 
   // Prevent scroll when menu is open
   useEffect(() => {

@@ -121,7 +121,7 @@ export const listBountiesAction: Action = {
     const sdk = service.getClient()
 
     const content = parseContent(message, bountyContentSchema)
-    const statusMap: Record<string, number> = {
+    const statusMap: Record<string, 0 | 1 | 2 | 3 | 4 | 5> = {
       open: 0,
       in_progress: 1,
       review: 2,

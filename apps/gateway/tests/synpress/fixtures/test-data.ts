@@ -27,36 +27,12 @@ export const TEST_WALLET_2 = {
  * Protocol tokens
  */
 export const PROTOCOL_TOKENS = {
-  ELIZAOS: {
-    symbol: 'elizaOS',
-    name: 'elizaOS Token',
+  JEJU: {
+    symbol: 'JEJU',
+    name: 'Network',
     decimals: 18,
-    priceUSD: 0.1,
+    priceUSD: 0.05,
     bridgeable: false,
-  },
-  CLANKER: {
-    symbol: 'CLANKER',
-    name: 'tokenbot',
-    decimals: 18,
-    priceUSD: 26.14,
-    bridgeable: true,
-    l1Address: '0x1bc0c42215582d5a085795f4badbac3ff36d1bcb',
-  },
-  VIRTUAL: {
-    symbol: 'VIRTUAL',
-    name: 'Virtuals Protocol',
-    decimals: 18,
-    priceUSD: 1.85,
-    bridgeable: true,
-    l1Address: '0x44ff8620b8cA30902395A7bD3F2407e1A091BF73',
-  },
-  CLANKERMON: {
-    symbol: 'CLANKERMON',
-    name: 'Clankermon',
-    decimals: 18,
-    priceUSD: 0.15,
-    bridgeable: true,
-    l1Address: '0x1cDbB57b12f732cFb4DC06f690ACeF476485B2a5',
   },
 } as const
 

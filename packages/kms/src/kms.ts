@@ -82,7 +82,6 @@ export class KMSService {
     if (defaultProvider) await defaultProvider.connect()
 
     this.initialized = true
-    this.initializePromise = null
     log.info('Initialized', { providers: Array.from(this.providers.keys()) })
   }
 

@@ -160,7 +160,6 @@ export function createDecentralizedInfrastructure(
     nodeRegistry,
     backendManager,
     workerdExecutor,
-    networkConfig,
   )
 
   const autoScaler = new WorkerAutoScaler(workerDeployer)
@@ -214,7 +213,7 @@ export async function startDWSNode(
   })
 
   // Set self identity in worker deployer
-  infra.workerDeployer.setSelf(result.agentId, params.endpoint)
+  infra.workerDeployer.setSelf(result.agentId)
 
   // Start auto-scaler
   infra.autoScaler.start()
@@ -284,6 +283,7 @@ export async function deployWorker(
     },
     requirements: {
       teeRequired: params.teeRequired ?? false,
+      gpuRequired: false,
       minNodeReputation: 50,
       minNodeStake: 0n,
     },

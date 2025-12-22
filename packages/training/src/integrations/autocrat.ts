@@ -210,15 +210,15 @@ ${proposal.description}
       },
     )
 
-    if (response.ok) {
-      return expectValid(
-        AgentRegistrationResponseSchema,
-        await response.json(),
-        'agent registration response',
-      )
+    if (!response.ok) {
+      throw new Error(`Failed to register trained model: ${response.statusText}`)
     }
 
-    return { agentId: '' }
+    return expectValid(
+      AgentRegistrationResponseSchema,
+      await response.json(),
+      'agent registration response',
+    )
   }
 }
 

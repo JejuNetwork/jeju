@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 
 from pydantic import BaseModel, field_validator
+from typing_extensions import Self
 
 # Handle optional psycopg2 import for JSON-only workflows.
 try:
@@ -161,7 +162,7 @@ class PostgresTrajectoryReader:
         self.db_url = database_url
         self.conn = None
 
-    async def __aenter__(self):
+    async def __aenter__(self) -> Self:
         """Connect to the database upon entering the async context."""
         # Check to satisfy Pylance's static analysis
         if psycopg2 is None:
@@ -169,7 +170,12 @@ class PostgresTrajectoryReader:
         self.conn = psycopg2.connect(self.db_url)
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: object,
+    ) -> None:
         """Close the database connection upon exiting the context."""
         if self.conn:
             self.conn.close()
@@ -179,7 +185,7 @@ class PostgresTrajectoryReader:
         limit: int = 100,
         only_scored: bool = True,
         lookback_hours: int = 168,
-        min_agents: int = 1,
+        min_agents: int = 1,  # noqa: ARG002 - reserved for future filtering
     ) -> list[str]:
         if not self.conn:
             raise ConnectionError("Database not connected.")
@@ -335,7 +341,7 @@ def get_trajectories_by_window(
     cur = conn.cursor()
     query = """
         SELECT "trajectoryId", "agentId", "windowId", "stepsJson", "metricsJson", "metadataJson",
-               "totalReward", "episodeLength", "finalStatus", "finalPnL", "tradesExecuted", 
+               "totalReward", "episodeLength", "finalStatus", "finalPnL", "tradesExecuted",
                "aiJudgeReward", "archetype"
         FROM trajectories WHERE "windowId" = %s AND "isTrainingData" = true
     """
@@ -394,7 +400,7 @@ def get_all_training_trajectories(
     cur = conn.cursor()
     query = """
         SELECT "trajectoryId", "agentId", "windowId", "stepsJson", "metricsJson", "metadataJson",
-               "totalReward", "episodeLength", "finalStatus", "finalPnL", "tradesExecuted", 
+               "totalReward", "episodeLength", "finalStatus", "finalPnL", "tradesExecuted",
                "aiJudgeReward", "archetype"
         FROM trajectories WHERE "isTrainingData" = true
     """

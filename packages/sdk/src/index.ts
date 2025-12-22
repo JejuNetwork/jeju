@@ -25,8 +25,7 @@
  * ```
  */
 // Configuration and shared types
-export * from './config'
-export * from './shared'
+
 export * from './a2a'
 export * from './agents'
 export * from './amm'
@@ -38,6 +37,7 @@ export type { JejuClient, JejuClientConfig } from './client'
 export { createJejuClient } from './client'
 // Module exports
 export * from './compute'
+export * from './config'
 export * from './containers'
 // Contract utilities
 export * from './contracts'
@@ -75,6 +75,7 @@ export * from './payments'
 export * from './perps'
 export * from './prediction'
 export * from './sequencer'
+export * from './shared'
 export * from './staking'
 export * from './storage'
 export * from './training'

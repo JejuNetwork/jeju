@@ -49,7 +49,19 @@ export function requireDefined<T>(
 
 /**
  * Parse JSON and validate against schema
+ * @param json - JSON string to parse
+ * @param schema - Zod schema to validate against
+ * @param fieldName - Optional field name for error messages
  */
-export function parseJson<T>(json: string, schema: z.ZodSchema<T>): T {
-  return typesExpectJson(json, schema)
+export function parseJson<T>(
+  json: string,
+  schema: z.ZodSchema<T>,
+  fieldName = 'json',
+): T {
+  return typesExpectJson(json, schema, fieldName)
 }
+
+/**
+ * Alias for parseJson for backwards compatibility
+ */
+export const expectJson = parseJson

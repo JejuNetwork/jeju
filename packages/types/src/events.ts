@@ -14,7 +14,6 @@ import type { ErrorDetail } from './api'
 
 /**
  * Generic event handler function type
- * Consolidates all event handler definitions across the codebase
  *
  * @template TEvent - The event type that this handler processes
  */

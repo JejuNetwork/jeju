@@ -5,6 +5,9 @@ import type {
 } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 
+// Re-export types from @jejunetwork/types
+export type { IntentStatus, TransactionStatus, VoucherStatus }
+
 export interface ChainConfig {
   id: number
   name: string
@@ -55,7 +58,7 @@ export interface SolanaAccount {
   isDefault?: boolean
 }
 
-export interface UnifiedAccount {
+export interface WalletAccount {
   id: string
   label: string
   evmAccounts: Account[]
@@ -222,7 +225,7 @@ export interface GasEstimate {
 
 export interface WalletState {
   isUnlocked: boolean
-  accounts: UnifiedAccount[]
+  accounts: WalletAccount[]
   activeAccountId?: string
   activeChainId?: number
   connectedSites: ConnectedSite[]

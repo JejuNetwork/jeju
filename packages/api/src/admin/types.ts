@@ -1,29 +1,16 @@
 /**
  * Admin Types
+ *
+ * Admin-specific configuration types. Core admin types (AdminUser, AdminRole,
+ * AdminValidationResult) are re-exported from auth/types for consistency.
  */
 
 import type { Address } from 'viem'
-import { AdminRole } from '../auth/types.js'
-
-/**
- * Admin user with role information
- */
-export interface AdminUser {
-  address: Address
-  method: string
-  sessionId?: string
-  permissions?: string[]
-  role: AdminRole
-}
-
-/**
- * Admin validation result
- */
-export interface AdminValidationResult {
-  valid: boolean
-  admin?: AdminUser
-  error?: string
-}
+import {
+  AdminRole,
+  type AdminUser,
+  type AdminValidationResult,
+} from '../auth/types.js'
 
 /**
  * Admin configuration
@@ -44,4 +31,4 @@ export const ROLE_HIERARCHY: Record<AdminRole, number> = {
   [AdminRole.MODERATOR]: 1,
 }
 
-export { AdminRole }
+export { AdminRole, type AdminUser, type AdminValidationResult }

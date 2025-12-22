@@ -1,15 +1,3 @@
-/**
- * Todo Service - Main business logic
- *
- * Orchestrates all services:
- * - Database (CQL)
- * - Cache (Compute Redis)
- * - Storage (IPFS)
- * - KMS (Encryption)
- *
- * Uses zod validation and expect/throw patterns throughout.
- */
-
 import type { Address } from 'viem'
 import { getTodoRepository } from '../db/client'
 import type { CreateTodoInput, Todo, UpdateTodoInput } from '../schemas'

@@ -10,9 +10,7 @@ import {
   DWSOpenAICompatSchema,
   EmbeddingResponseSchema,
   expect,
-  InferenceResponseSchema,
   ModelsResponseSchema,
-  safeParse,
 } from '../schemas'
 import type { AgentCharacter, ExecutionOptions } from '../types'
 import { createLogger, type Logger } from './logger'
@@ -232,31 +230,13 @@ export class CrucibleCompute {
 
     const rawResult = await r.json()
 
-    // Handle both OpenAI-compatible format and legacy format
-    let content: string
-    let modelUsed: string
-    let promptTokens: number
-    let completionTokens: number
-    let cost: bigint
-
-    // Try OpenAI-compatible format first
-    const openAIResult = safeParse(DWSOpenAICompatSchema, rawResult)
-    if (openAIResult?.choices?.length) {
-      // OpenAI-compatible format from DWS
-      content = openAIResult.choices[0]?.message?.content ?? ''
-      modelUsed = openAIResult.model ?? model
-      promptTokens = openAIResult.usage?.prompt_tokens ?? 0
-      completionTokens = openAIResult.usage?.completion_tokens ?? 0
-      cost = openAIResult.cost ? BigInt(String(openAIResult.cost)) : 0n
-    } else {
-      // Legacy format
-      const result = InferenceResponseSchema.parse(rawResult)
-      content = result.content
-      modelUsed = result.model
-      promptTokens = result.usage.prompt_tokens
-      completionTokens = result.usage.completion_tokens
-      cost = result.cost
-    }
+    // OpenAI-compatible format from DWS
+    const result = DWSOpenAICompatSchema.parse(rawResult)
+    const content = result.choices[0]?.message?.content ?? ''
+    const modelUsed = result.model ?? model
+    const promptTokens = result.usage?.prompt_tokens ?? 0
+    const completionTokens = result.usage?.completion_tokens ?? 0
+    const cost = result.cost ? BigInt(String(result.cost)) : 0n
 
     return {
       content,

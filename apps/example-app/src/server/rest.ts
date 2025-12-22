@@ -1,10 +1,3 @@
-/**
- * REST API Routes for Todo CRUD operations
- *
- * All routes use zod validation with expect/throw patterns.
- * Invalid data causes immediate errors - no silent failures.
- */
-
 import { getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'

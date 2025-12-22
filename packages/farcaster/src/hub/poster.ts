@@ -373,7 +373,7 @@ export class FarcasterPoster {
   // ============ Batch Operations ============
 
   /**
-   * Like multiple casts
+   * Like multiple casts (continues on individual failures)
    */
   async likeMany(
     targets: ReactionTarget[],
@@ -382,10 +382,12 @@ export class FarcasterPoster {
     let failed = 0
 
     for (const target of targets) {
-      try {
-        await this.like(target)
+      const success = await this.like(target)
+        .then(() => true)
+        .catch(() => false)
+      if (success) {
         succeeded++
-      } catch {
+      } else {
         failed++
       }
     }
@@ -394,7 +396,7 @@ export class FarcasterPoster {
   }
 
   /**
-   * Follow multiple users
+   * Follow multiple users (continues on individual failures)
    */
   async followMany(
     fids: number[],
@@ -403,10 +405,12 @@ export class FarcasterPoster {
     let failed = 0
 
     for (const fid of fids) {
-      try {
-        await this.follow(fid)
+      const success = await this.follow(fid)
+        .then(() => true)
+        .catch(() => false)
+      if (success) {
         succeeded++
-      } catch {
+      } else {
         failed++
       }
     }
