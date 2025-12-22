@@ -1,12 +1,23 @@
 // Funding hooks
 export * from './useFunding';
-export { configureFundingHooks } from './useFunding';
 
 // Contributor hooks
 export * from './useContributor';
-export { configureContributorHooks } from './useContributor';
 
 // Payment request hooks
 export * from './usePaymentRequest';
-export { configurePaymentRequestHooks } from './usePaymentRequest';
 
+// Profile hooks
+export * from './useProfile';
+
+// Bounty hooks
+export * from './useBounties';
+
+// Package hooks
+export * from './usePackages';
+
+// Git hooks
+export * from './useGit';
+
+// Model hooks
+export * from './useModels';

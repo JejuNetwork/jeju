@@ -47,7 +47,16 @@ export enum ReportStatus {
   CANCELLED = 4,
 }
 
-export interface BanRecord {
+// Simple ban record for agent/network bans
+export interface NetworkBanRecord {
+  isBanned: boolean;
+  bannedAt: bigint;
+  reason: string;
+  proposalId: Hex;
+}
+
+// Extended ban record for address bans
+export interface AddressBanRecord {
   isBanned: boolean;
   banType: BanType;
   bannedAt: bigint;
@@ -57,6 +66,9 @@ export interface BanRecord {
   reporter: Address;
   caseId: Hex;
 }
+
+// Alias for backward compatibility
+export type BanRecord = AddressBanRecord;
 
 export interface Report {
   reportId: Hex;
@@ -262,11 +274,11 @@ export interface ModerationModule {
   /** Check if an address is banned */
   isAddressBanned(address: Address): Promise<boolean>;
 
-  /** Get ban record for an agent */
-  getBanRecord(agentId: bigint): Promise<BanRecord | null>;
+  /** Get ban record for an agent (network ban) */
+  getBanRecord(agentId: bigint): Promise<NetworkBanRecord | null>;
 
-  /** Get ban record for an address */
-  getAddressBan(address: Address): Promise<BanRecord | null>;
+  /** Get ban record for an address (extended ban) */
+  getAddressBan(address: Address): Promise<AddressBanRecord | null>;
 
   /** Check if an agent is banned from a specific app */
   isAppBanned(agentId: bigint, appId: Hex): Promise<boolean>;

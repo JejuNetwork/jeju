@@ -24,6 +24,7 @@ import type {
 } from './types';
 import { BlobManager } from './blob';
 import { DASampler } from './sampling';
+import { aggregateSignatures, type BLSSignature } from './crypto/bls';
 
 // ============================================================================
 // Dispersal Configuration
@@ -289,7 +290,7 @@ export class Disperser {
   }
 
   /**
-   * Collect attestations from operators
+   * Collect attestations from operators and aggregate BLS signatures
    */
   private async collectAttestations(
     state: DispersalState,
@@ -317,13 +318,22 @@ export class Disperser {
     ]);
     
     const quorumReached = signatures.length >= requiredSignatures;
+    const timestamp = Date.now();
+    
+    // Aggregate BLS signatures for efficient verification
+    let aggregateSignature: Hex | undefined;
+    if (signatures.length > 0) {
+      const blsSignatures = signatures.map(s => s.signature as BLSSignature);
+      aggregateSignature = aggregateSignatures(blsSignatures);
+    }
     
     return {
       blobId: state.blobId,
       commitment: state.commitment.commitment,
       signatures,
+      aggregateSignature,
       quorumReached,
-      timestamp: Date.now(),
+      timestamp,
     };
   }
 

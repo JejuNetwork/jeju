@@ -214,7 +214,7 @@ export class GRPOTrainer {
     const stdout = process.stdout;
     const stderr = process.stderr;
 
-    if (stdout) {
+    if (stdout && typeof stdout !== 'number') {
       const reader = stdout.getReader();
       const decoder = new TextDecoder();
       
@@ -232,7 +232,7 @@ export class GRPOTrainer {
       })();
     }
 
-    if (stderr) {
+    if (stderr && typeof stderr !== 'number') {
       const reader = stderr.getReader();
       const decoder = new TextDecoder();
       
@@ -360,12 +360,12 @@ export class DistributedGRPOTrainer extends GRPOTrainer {
     }
 
     // Set up metrics callback to report progress
-    this.onTrainingMetrics(async (metrics) => {
-      await this.reportProgress(metrics.step);
+    this.onTrainingMetrics(async () => {
+      await this.reportProgress();
     });
   }
 
-  private async reportProgress(step: number): Promise<void> {
+  private async reportProgress(): Promise<void> {
     if (!this.bridge || !this.runId || !this.psycheClient) {
       return;
     }

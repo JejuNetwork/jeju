@@ -80,6 +80,24 @@ export function getChainId(): number {
   return parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '31337', 10);
 }
 
+/**
+ * Get a specific contract address by name
+ */
+export function getContractAddress(name: keyof ContractAddresses): Address {
+  return getContractAddresses()[name];
+}
+
+/**
+ * Safely get a contract address - returns null if not configured (zero address)
+ */
+export function getContractAddressSafe(name: keyof ContractAddresses): Address | null {
+  const address = getContractAddresses()[name];
+  if (address === '0x0000000000000000000000000000000000000000') {
+    return null;
+  }
+  return address;
+}
+
 // Export individual addresses for convenience
 export const addresses = getContractAddresses();
 export const rpcUrl = getRpcUrl();

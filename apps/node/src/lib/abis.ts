@@ -277,32 +277,55 @@ export const SEQUENCER_REGISTRY_ABI = [
 export const BAN_MANAGER_ABI = [
   {
     type: 'function',
-    name: 'isBanned',
+    name: 'isNetworkBanned',
     inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{ name: 'banned', type: 'bool' }],
+    outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'view',
   },
   {
     type: 'function',
-    name: 'getBanInfo',
+    name: 'getNetworkBan',
     inputs: [{ name: 'agentId', type: 'uint256' }],
     outputs: [
-      { name: 'isBanned', type: 'bool' },
-      { name: 'reason', type: 'string' },
-      { name: 'bannedAt', type: 'uint256' },
-      { name: 'appealDeadline', type: 'uint256' },
+      {
+        type: 'tuple',
+        components: [
+          { name: 'isBanned', type: 'bool' },
+          { name: 'bannedAt', type: 'uint256' },
+          { name: 'reason', type: 'string' },
+          { name: 'proposalId', type: 'bytes32' },
+        ],
+      },
     ],
     stateMutability: 'view',
   },
   {
     type: 'function',
-    name: 'appeal',
-    inputs: [
-      { name: 'agentId', type: 'uint256' },
-      { name: 'reason', type: 'string' },
+    name: 'isAddressBanned',
+    inputs: [{ name: 'target', type: 'address' }],
+    outputs: [{ name: '', type: 'bool' }],
+    stateMutability: 'view',
+  },
+  {
+    type: 'function',
+    name: 'getAddressBan',
+    inputs: [{ name: 'target', type: 'address' }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'isBanned', type: 'bool' },
+          { name: 'banType', type: 'uint8' },
+          { name: 'bannedAt', type: 'uint256' },
+          { name: 'expiresAt', type: 'uint256' },
+          { name: 'reason', type: 'string' },
+          { name: 'proposalId', type: 'bytes32' },
+          { name: 'reporter', type: 'address' },
+          { name: 'caseId', type: 'bytes32' },
+        ],
+      },
     ],
-    outputs: [],
-    stateMutability: 'nonpayable',
+    stateMutability: 'view',
   },
 ] as const;
 
