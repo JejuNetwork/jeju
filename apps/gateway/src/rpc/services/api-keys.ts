@@ -2,41 +2,56 @@
  * API Key Management Service - Decentralized via CovenantSQL
  */
 
-import { randomBytes, createHash } from 'crypto';
-import type { Address } from 'viem';
-import { registerApiKey, revokeApiKey, type RateTier } from '../middleware/rate-limiter.js';
-import { apiKeyState, initializeState } from '../../services/state.js';
+import { createHash, randomBytes } from 'node:crypto'
+import { LRUCache } from 'lru-cache'
+import type { Address } from 'viem'
+import { apiKeyState, initializeState } from '../../services/state.js'
+import {
+  type RateTier,
+  registerApiKey,
+  revokeApiKey,
+} from '../middleware/rate-limiter.js'
 
 export interface ApiKeyRecord {
-  id: string;
-  keyHash: string;
-  address: Address;
-  name: string;
-  tier: RateTier;
-  createdAt: number;
-  lastUsedAt: number;
-  requestCount: number;
-  isActive: boolean;
+  id: string
+  keyHash: string
+  address: Address
+  name: string
+  tier: RateTier
+  createdAt: number
+  lastUsedAt: number
+  requestCount: number
+  isActive: boolean
 }
 
 // Initialize state on module load
-initializeState().catch(console.error);
+initializeState().catch(console.error)
 
-// Local cache for key -> id mapping (for fast validation without async)
-const localKeyCache = new Map<string, string>();
+/**
+ * SECURITY: Use LRU cache to bound memory usage
+ * Prevents memory exhaustion from excessive API key creation
+ */
+const localKeyCache = new LRUCache<string, string>({
+  max: 10000, // Max 10k keys cached
+  ttl: 24 * 60 * 60 * 1000, // 24 hour TTL
+})
 
 function generateKey(): string {
-  return `jrpc_${randomBytes(24).toString('base64url')}`;
+  return `jrpc_${randomBytes(24).toString('base64url')}`
 }
 
 function hashKey(key: string): string {
-  return createHash('sha256').update(key).digest('hex');
+  return createHash('sha256').update(key).digest('hex')
 }
 
-export async function createApiKey(address: Address, name: string, tier: RateTier = 'FREE'): Promise<{ key: string; record: ApiKeyRecord }> {
-  const id = randomBytes(16).toString('hex');
-  const key = generateKey();
-  const keyHash = hashKey(key);
+export async function createApiKey(
+  address: Address,
+  name: string,
+  tier: RateTier = 'FREE',
+): Promise<{ key: string; record: ApiKeyRecord }> {
+  const id = randomBytes(16).toString('hex')
+  const key = generateKey()
+  const keyHash = hashKey(key)
 
   const record: ApiKeyRecord = {
     id,
@@ -48,7 +63,7 @@ export async function createApiKey(address: Address, name: string, tier: RateTie
     lastUsedAt: 0,
     requestCount: 0,
     isActive: true,
-  };
+  }
 
   await apiKeyState.save({
     id,
@@ -57,23 +72,25 @@ export async function createApiKey(address: Address, name: string, tier: RateTie
     name,
     tier,
     createdAt: record.createdAt,
-  });
-  
-  // Cache for fast lookup
-  localKeyCache.set(key, id);
-  registerApiKey(key, address, tier);
+  })
 
-  return { key, record };
+  // Cache for fast lookup
+  localKeyCache.set(key, id)
+  registerApiKey(key, address, tier)
+
+  return { key, record }
 }
 
-export async function validateApiKey(key: string): Promise<ApiKeyRecord | null> {
-  const keyHash = hashKey(key);
-  const row = await apiKeyState.getByHash(keyHash);
-  if (!row || !row.is_active) return null;
-  
+export async function validateApiKey(
+  key: string,
+): Promise<ApiKeyRecord | null> {
+  const keyHash = hashKey(key)
+  const row = await apiKeyState.getByHash(keyHash)
+  if (!row || !row.is_active) return null
+
   // Record usage asynchronously
-  apiKeyState.recordUsage(keyHash).catch(console.error);
-  
+  apiKeyState.recordUsage(keyHash).catch(console.error)
+
   return {
     id: row.id,
     keyHash: row.key_hash,
@@ -84,12 +101,14 @@ export async function validateApiKey(key: string): Promise<ApiKeyRecord | null> 
     lastUsedAt: row.last_used_at,
     requestCount: row.request_count,
     isActive: row.is_active === 1,
-  };
+  }
 }
 
-export async function getApiKeysForAddress(address: Address): Promise<ApiKeyRecord[]> {
-  const rows = await apiKeyState.listByAddress(address);
-  return rows.map(row => ({
+export async function getApiKeysForAddress(
+  address: Address,
+): Promise<ApiKeyRecord[]> {
+  const rows = await apiKeyState.listByAddress(address)
+  return rows.map((row) => ({
     id: row.id,
     keyHash: row.key_hash,
     address: row.address as Address,
@@ -99,12 +118,12 @@ export async function getApiKeysForAddress(address: Address): Promise<ApiKeyReco
     lastUsedAt: row.last_used_at,
     requestCount: row.request_count,
     isActive: row.is_active === 1,
-  }));
+  }))
 }
 
 export async function getApiKeyById(id: string): Promise<ApiKeyRecord | null> {
-  const row = await apiKeyState.getById(id);
-  if (!row) return null;
+  const row = await apiKeyState.getById(id)
+  if (!row) return null
   return {
     id: row.id,
     keyHash: row.key_hash,
@@ -115,34 +134,42 @@ export async function getApiKeyById(id: string): Promise<ApiKeyRecord | null> {
     lastUsedAt: row.last_used_at,
     requestCount: row.request_count,
     isActive: row.is_active === 1,
-  };
+  }
 }
 
-export async function revokeApiKeyById(id: string, address: Address): Promise<boolean> {
-  const record = await getApiKeyById(id);
-  if (!record || record.address.toLowerCase() !== address.toLowerCase()) return false;
-  
-  const success = await apiKeyState.revoke(id);
+export async function revokeApiKeyById(
+  id: string,
+  address: Address,
+): Promise<boolean> {
+  const record = await getApiKeyById(id)
+  if (!record || record.address.toLowerCase() !== address.toLowerCase())
+    return false
+
+  const success = await apiKeyState.revoke(id)
   if (success) {
     // Find and revoke from rate limiter cache
     for (const [key, cachedId] of localKeyCache) {
       if (cachedId === id) {
-        revokeApiKey(key);
-        localKeyCache.delete(key);
-        break;
+        revokeApiKey(key)
+        localKeyCache.delete(key)
+        break
       }
     }
   }
-  return success;
+  return success
 }
 
 // Note: updateApiKeyTier would require adding an update method to apiKeyState
 // For now, users should revoke and create new keys with different tiers
 
-export function getApiKeyStats(): { total: number; active: number; cached: number } {
+export function getApiKeyStats(): {
+  total: number
+  active: number
+  cached: number
+} {
   return {
     total: localKeyCache.size, // Approximate - actual count requires DB query
     active: localKeyCache.size, // Keys in cache are active
     cached: localKeyCache.size,
-  };
+  }
 }

@@ -5,7 +5,7 @@
  * Includes Zod schemas for runtime validation.
  */
 
-import { z } from 'zod';
+import { z } from 'zod'
 
 // ============ Commands Schema ============
 
@@ -14,21 +14,26 @@ export const VendorCommandsSchema = z.object({
   build: z.string().optional(),
   test: z.string().optional(),
   start: z.string().optional(),
-});
-export type VendorCommands = z.infer<typeof VendorCommandsSchema>;
+})
+export type VendorCommands = z.infer<typeof VendorCommandsSchema>
 
 // ============ Health Check Schema ============
 
 export const VendorHealthCheckSchema = z.object({
   url: z.string().url().optional(),
   interval: z.number().int().positive().optional(),
-});
-export type VendorHealthCheck = z.infer<typeof VendorHealthCheckSchema>;
+})
+export type VendorHealthCheck = z.infer<typeof VendorHealthCheckSchema>
 
 // ============ Dependency Types ============
 
-export const MonorepoDependencySchema = z.enum(['contracts', 'config', 'shared', 'scripts']);
-export type MonorepoDependency = z.infer<typeof MonorepoDependencySchema>;
+export const MonorepoDependencySchema = z.enum([
+  'contracts',
+  'config',
+  'shared',
+  'scripts',
+])
+export type MonorepoDependency = z.infer<typeof MonorepoDependencySchema>
 
 // ============ Manifest Schema ============
 
@@ -40,7 +45,9 @@ export const VendorManifestSchema = z.object({
   displayName: z.string().optional(),
 
   /** Semantic version */
-  version: z.string().regex(/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/, 'Version must be semver'),
+  version: z
+    .string()
+    .regex(/^\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?$/, 'Version must be semver'),
 
   /** Brief description */
   description: z.string().optional(),
@@ -65,8 +72,8 @@ export const VendorManifestSchema = z.object({
 
   /** Health check configuration */
   healthCheck: VendorHealthCheckSchema.optional(),
-});
-export type VendorManifest = z.infer<typeof VendorManifestSchema>;
+})
+export type VendorManifest = z.infer<typeof VendorManifestSchema>
 
 // ============ App Schema ============
 
@@ -82,8 +89,8 @@ export const VendorAppSchema = z.object({
 
   /** Whether app files actually exist */
   exists: z.boolean(),
-});
-export type VendorApp = z.infer<typeof VendorAppSchema>;
+})
+export type VendorApp = z.infer<typeof VendorAppSchema>
 
 // ============ Discovery Result Schema ============
 
@@ -99,8 +106,8 @@ export const VendorDiscoveryResultSchema = z.object({
 
   /** Apps that are disabled */
   disabledApps: z.array(VendorAppSchema),
-});
-export type VendorDiscoveryResult = z.infer<typeof VendorDiscoveryResultSchema>;
+})
+export type VendorDiscoveryResult = z.infer<typeof VendorDiscoveryResultSchema>
 
 // ============ Helper Functions ============
 
@@ -108,12 +115,12 @@ export type VendorDiscoveryResult = z.infer<typeof VendorDiscoveryResultSchema>;
  * Validate a vendor manifest
  */
 export function validateManifest(manifest: unknown): VendorManifest {
-  return VendorManifestSchema.parse(manifest);
+  return VendorManifestSchema.parse(manifest)
 }
 
 /**
  * Check if a manifest is valid
  */
 export function isValidManifest(manifest: unknown): manifest is VendorManifest {
-  return VendorManifestSchema.safeParse(manifest).success;
+  return VendorManifestSchema.safeParse(manifest).success
 }

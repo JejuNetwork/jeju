@@ -3,31 +3,31 @@
  * Synchronizes reputation scores between EVM ReputationRegistry and Solana 8004-solana
  */
 
+import { EventEmitter } from 'node:events'
 import {
   Connection,
-  PublicKey,
   Keypair,
+  PublicKey,
+  sendAndConfirmTransaction,
   Transaction,
   TransactionInstruction,
-  sendAndConfirmTransaction,
-} from '@solana/web3.js';
+} from '@solana/web3.js'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  type Address,
-  type Hex,
-  parseAbi,
-  keccak256,
   encodePacked,
+  type Hex,
+  http,
+  keccak256,
+  parseAbi,
   toBytes,
-} from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { mainnet, sepolia } from 'viem/chains';
-import { EventEmitter } from 'events';
-import { createLogger } from '../utils/logger.js';
+} from 'viem'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { mainnet, sepolia } from 'viem/chains'
+import { createLogger } from '../utils/logger.js'
 
-const log = createLogger('reputation-sync');
+const log = createLogger('reputation-sync')
 
 const REPUTATION_REGISTRY_ABI = parseAbi([
   'function getReputation(uint256 agentId) view returns (uint256)',
@@ -37,101 +37,103 @@ const REPUTATION_REGISTRY_ABI = parseAbi([
   'function syncExternalReputation(uint256 agentId, uint256 externalChainId, uint256 externalScore, uint256 externalFeedbackCount, bytes calldata proof) external',
   'event FeedbackSubmitted(uint256 indexed agentId, address indexed from, uint8 score)',
   'event ReputationSynced(uint256 indexed agentId, uint256 indexed sourceChainId, uint256 newScore)',
-]);
+])
 
 const FEDERATED_IDENTITY_ABI = parseAbi([
   'function getFederatedIdByOrigin(uint256 chainId, uint256 agentId) view returns (bytes32)',
   'function updateReputation(bytes32 federatedId, uint256 newScore) external',
-]);
+])
 
-const AGENT_REGISTRY_PROGRAM_ID = new PublicKey('HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp');
-const SOLANA_CHAIN_ID = 101;
-const SOLANA_DEVNET_CHAIN_ID = 102;
+const AGENT_REGISTRY_PROGRAM_ID = new PublicKey(
+  'HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp',
+)
+const SOLANA_CHAIN_ID = 101
+const SOLANA_DEVNET_CHAIN_ID = 102
 
 export interface ReputationSyncConfig {
-  evmRpcUrl: string;
-  evmChainId: number;
-  reputationRegistryAddress: Address;
-  federatedIdentityAddress: Address;
-  privateKey: Hex;
-  solanaRpcUrl: string;
-  solanaKeypair?: Uint8Array;
-  oraclePrivateKey?: Hex;
+  evmRpcUrl: string
+  evmChainId: number
+  reputationRegistryAddress: Address
+  federatedIdentityAddress: Address
+  privateKey: Hex
+  solanaRpcUrl: string
+  solanaKeypair?: Uint8Array
+  oraclePrivateKey?: Hex
 }
 
 export interface EVMReputation {
-  agentId: bigint;
-  score: bigint;
-  totalFeedbacks: bigint;
-  averageScore: bigint;
+  agentId: bigint
+  score: bigint
+  totalFeedbacks: bigint
+  averageScore: bigint
 }
 
 export interface SolanaReputation {
-  agentId: bigint;
-  totalFeedbacks: bigint;
-  totalScoreSum: bigint;
-  averageScore: number;
-  lastUpdated: number;
+  agentId: bigint
+  totalFeedbacks: bigint
+  totalScoreSum: bigint
+  averageScore: number
+  lastUpdated: number
 }
 
 export interface CrossChainReputation {
-  federatedId: Hex;
-  evmAgentId: bigint | null;
-  evmChainId: number | null;
-  evmScore: number | null;
-  evmFeedbackCount: number | null;
-  solanaAgentId: bigint | null;
-  solanaScore: number | null;
-  solanaFeedbackCount: number | null;
-  aggregatedScore: number;
-  totalFeedbacks: number;
+  federatedId: Hex
+  evmAgentId: bigint | null
+  evmChainId: number | null
+  evmScore: number | null
+  evmFeedbackCount: number | null
+  solanaAgentId: bigint | null
+  solanaScore: number | null
+  solanaFeedbackCount: number | null
+  aggregatedScore: number
+  totalFeedbacks: number
 }
 
 export interface ReputationSyncResult {
-  success: boolean;
-  txHash?: Hex | string;
-  sourceChain: number;
-  destChain: number;
-  agentId: bigint;
-  syncedScore: number;
+  success: boolean
+  txHash?: Hex | string
+  sourceChain: number
+  destChain: number
+  agentId: bigint
+  syncedScore: number
 }
 
 export class ReputationSyncService extends EventEmitter {
-  private config: ReputationSyncConfig;
-  private account: PrivateKeyAccount;
-  private oracleAccount: PrivateKeyAccount | null = null;
-  private publicClient: ReturnType<typeof createPublicClient>;
-  private walletClient: ReturnType<typeof createWalletClient>;
-  private solanaConnection: Connection;
-  private solanaKeypair: Keypair | null = null;
-  private syncInterval: ReturnType<typeof setInterval> | null = null;
+  private config: ReputationSyncConfig
+  private account: PrivateKeyAccount
+  private oracleAccount: PrivateKeyAccount | null = null
+  private publicClient: ReturnType<typeof createPublicClient>
+  private walletClient: ReturnType<typeof createWalletClient>
+  private solanaConnection: Connection
+  private solanaKeypair: Keypair | null = null
+  private syncInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(config: ReputationSyncConfig) {
-    super();
-    this.config = config;
-    this.account = privateKeyToAccount(config.privateKey);
+    super()
+    this.config = config
+    this.account = privateKeyToAccount(config.privateKey)
 
     if (config.oraclePrivateKey) {
-      this.oracleAccount = privateKeyToAccount(config.oraclePrivateKey);
+      this.oracleAccount = privateKeyToAccount(config.oraclePrivateKey)
     }
 
-    const chain = config.evmChainId === 1 ? mainnet : sepolia;
+    const chain = config.evmChainId === 1 ? mainnet : sepolia
 
     this.publicClient = createPublicClient({
       chain,
       transport: http(config.evmRpcUrl),
-    });
+    })
 
     this.walletClient = createWalletClient({
       account: this.account,
       chain,
       transport: http(config.evmRpcUrl),
-    });
+    })
 
-    this.solanaConnection = new Connection(config.solanaRpcUrl, 'confirmed');
+    this.solanaConnection = new Connection(config.solanaRpcUrl, 'confirmed')
 
     if (config.solanaKeypair) {
-      this.solanaKeypair = Keypair.fromSecretKey(config.solanaKeypair);
+      this.solanaKeypair = Keypair.fromSecretKey(config.solanaKeypair)
     }
   }
 
@@ -158,45 +160,46 @@ export class ReputationSyncService extends EventEmitter {
         functionName: 'getAverageScore',
         args: [agentId],
       }) as Promise<bigint>,
-    ]);
+    ])
 
-    return { agentId, score, totalFeedbacks, averageScore };
+    return { agentId, score, totalFeedbacks, averageScore }
   }
 
   /**
    * Get Solana reputation for an agent
    */
   async getSolanaReputation(agentId: bigint): Promise<SolanaReputation | null> {
-    const idBuffer = Buffer.alloc(8);
-    idBuffer.writeBigUInt64LE(agentId);
+    const idBuffer = Buffer.alloc(8)
+    idBuffer.writeBigUInt64LE(agentId)
 
     const [reputationPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('agent_reputation'), idBuffer],
-      AGENT_REGISTRY_PROGRAM_ID
-    );
+      AGENT_REGISTRY_PROGRAM_ID,
+    )
 
-    const accountInfo = await this.solanaConnection.getAccountInfo(reputationPda);
-    if (!accountInfo) return null;
+    const accountInfo =
+      await this.solanaConnection.getAccountInfo(reputationPda)
+    if (!accountInfo) return null
 
-    const data = accountInfo.data;
-    let offset = 8; // Skip discriminator
+    const data = accountInfo.data
+    let offset = 8 // Skip discriminator
 
-    const agentIdRead = data.readBigUInt64LE(offset);
-    offset += 8;
+    const agentIdRead = data.readBigUInt64LE(offset)
+    offset += 8
 
     // Skip nextFeedbackIndex (8 bytes)
-    offset += 8;
+    offset += 8
 
-    const totalFeedbacks = data.readBigUInt64LE(offset);
-    offset += 8;
+    const totalFeedbacks = data.readBigUInt64LE(offset)
+    offset += 8
 
-    const totalScoreSum = data.readBigUInt64LE(offset);
-    offset += 8;
+    const totalScoreSum = data.readBigUInt64LE(offset)
+    offset += 8
 
-    const averageScore = data.readUInt8(offset);
-    offset += 1;
+    const averageScore = data.readUInt8(offset)
+    offset += 1
 
-    const lastUpdated = Number(data.readBigInt64LE(offset));
+    const lastUpdated = Number(data.readBigInt64LE(offset))
 
     return {
       agentId: agentIdRead,
@@ -204,7 +207,7 @@ export class ReputationSyncService extends EventEmitter {
       totalScoreSum,
       averageScore,
       lastUpdated,
-    };
+    }
   }
 
   /**
@@ -212,51 +215,56 @@ export class ReputationSyncService extends EventEmitter {
    */
   async getCrossChainReputation(
     evmAgentId?: bigint,
-    solanaAgentId?: bigint
+    solanaAgentId?: bigint,
   ): Promise<CrossChainReputation> {
-    let evmRep: EVMReputation | null = null;
-    let solanaRep: SolanaReputation | null = null;
-    let federatedId: Hex = '0x' as Hex;
+    let evmRep: EVMReputation | null = null
+    let solanaRep: SolanaReputation | null = null
+    let federatedId: Hex = '0x' as Hex
 
     if (evmAgentId !== undefined) {
-      evmRep = await this.getEVMReputation(evmAgentId);
-      federatedId = await this.publicClient.readContract({
+      evmRep = await this.getEVMReputation(evmAgentId)
+      federatedId = (await this.publicClient.readContract({
         address: this.config.federatedIdentityAddress,
         abi: FEDERATED_IDENTITY_ABI,
         functionName: 'getFederatedIdByOrigin',
         args: [BigInt(this.config.evmChainId), evmAgentId],
-      }) as Hex;
+      })) as Hex
     }
 
     if (solanaAgentId !== undefined) {
-      solanaRep = await this.getSolanaReputation(solanaAgentId);
+      solanaRep = await this.getSolanaReputation(solanaAgentId)
       if (!federatedId || federatedId === '0x') {
         // Compute Solana federated ID
-        const isDevnet = this.config.solanaRpcUrl.includes('devnet');
-        const chainId = isDevnet ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID;
-        federatedId = keccak256(encodePacked(['string', 'uint256', 'string', 'uint256'], ['jeju:federated:', BigInt(chainId), ':', solanaAgentId]));
+        const isDevnet = this.config.solanaRpcUrl.includes('devnet')
+        const chainId = isDevnet ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID
+        federatedId = keccak256(
+          encodePacked(
+            ['string', 'uint256', 'string', 'uint256'],
+            ['jeju:federated:', BigInt(chainId), ':', solanaAgentId],
+          ),
+        )
       }
     }
 
     // Calculate weighted average if both exist
-    const evmScore = evmRep ? Number(evmRep.averageScore) : null;
-    const evmCount = evmRep ? Number(evmRep.totalFeedbacks) : 0;
-    const solanaScore = solanaRep ? solanaRep.averageScore : null;
-    const solanaCount = solanaRep ? Number(solanaRep.totalFeedbacks) : 0;
+    const evmScore = evmRep ? Number(evmRep.averageScore) : null
+    const evmCount = evmRep ? Number(evmRep.totalFeedbacks) : 0
+    const solanaScore = solanaRep ? solanaRep.averageScore : null
+    const solanaCount = solanaRep ? Number(solanaRep.totalFeedbacks) : 0
 
-    const totalFeedbacks = evmCount + solanaCount;
-    let aggregatedScore = 0;
+    const totalFeedbacks = evmCount + solanaCount
+    let aggregatedScore = 0
 
     if (totalFeedbacks > 0) {
       if (evmScore !== null && solanaScore !== null) {
         // Weighted average
         aggregatedScore = Math.round(
-          (evmScore * evmCount + solanaScore * solanaCount) / totalFeedbacks
-        );
+          (evmScore * evmCount + solanaScore * solanaCount) / totalFeedbacks,
+        )
       } else if (evmScore !== null) {
-        aggregatedScore = evmScore;
+        aggregatedScore = evmScore
       } else if (solanaScore !== null) {
-        aggregatedScore = solanaScore;
+        aggregatedScore = solanaScore
       }
     }
 
@@ -271,7 +279,7 @@ export class ReputationSyncService extends EventEmitter {
       solanaFeedbackCount: solanaCount || null,
       aggregatedScore,
       totalFeedbacks,
-    };
+    }
   }
 
   /**
@@ -279,27 +287,31 @@ export class ReputationSyncService extends EventEmitter {
    */
   async syncSolanaToEVM(
     solanaAgentId: bigint,
-    evmAgentId: bigint
+    evmAgentId: bigint,
   ): Promise<ReputationSyncResult> {
-    const solanaRep = await this.getSolanaReputation(solanaAgentId);
+    const solanaRep = await this.getSolanaReputation(solanaAgentId)
     if (!solanaRep) {
       return {
         success: false,
-        sourceChain: this.config.solanaRpcUrl.includes('devnet') ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID,
+        sourceChain: this.config.solanaRpcUrl.includes('devnet')
+          ? SOLANA_DEVNET_CHAIN_ID
+          : SOLANA_CHAIN_ID,
         destChain: this.config.evmChainId,
         agentId: solanaAgentId,
         syncedScore: 0,
-      };
+      }
     }
 
     // Generate oracle attestation proof
     const proof = await this.generateSolanaReputationProof(
       solanaAgentId,
       solanaRep.averageScore,
-      Number(solanaRep.totalFeedbacks)
-    );
+      Number(solanaRep.totalFeedbacks),
+    )
 
-    const sourceChainId = this.config.solanaRpcUrl.includes('devnet') ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID;
+    const sourceChainId = this.config.solanaRpcUrl.includes('devnet')
+      ? SOLANA_DEVNET_CHAIN_ID
+      : SOLANA_CHAIN_ID
 
     const hash = await this.walletClient.writeContract({
       address: this.config.reputationRegistryAddress,
@@ -314,14 +326,14 @@ export class ReputationSyncService extends EventEmitter {
       ],
       account: this.account,
       chain: null,
-    });
+    })
 
     this.emit('reputationSynced', {
       sourceChain: sourceChainId,
       destChain: this.config.evmChainId,
       agentId: solanaAgentId,
       score: solanaRep.averageScore,
-    });
+    })
 
     return {
       success: true,
@@ -330,7 +342,7 @@ export class ReputationSyncService extends EventEmitter {
       destChain: this.config.evmChainId,
       agentId: solanaAgentId,
       syncedScore: solanaRep.averageScore,
-    };
+    }
   }
 
   /**
@@ -338,67 +350,75 @@ export class ReputationSyncService extends EventEmitter {
    */
   async syncEVMToSolana(
     evmAgentId: bigint,
-    solanaAgentId: bigint
+    solanaAgentId: bigint,
   ): Promise<ReputationSyncResult> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair not configured');
+      throw new Error('Solana keypair not configured')
     }
 
-    const evmRep = await this.getEVMReputation(evmAgentId);
+    const evmRep = await this.getEVMReputation(evmAgentId)
     if (!evmRep) {
       return {
         success: false,
         sourceChain: this.config.evmChainId,
-        destChain: this.config.solanaRpcUrl.includes('devnet') ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID,
+        destChain: this.config.solanaRpcUrl.includes('devnet')
+          ? SOLANA_DEVNET_CHAIN_ID
+          : SOLANA_CHAIN_ID,
         agentId: evmAgentId,
         syncedScore: 0,
-      };
+      }
     }
 
     // Derive PDAs
-    const idBuffer = Buffer.alloc(8);
-    idBuffer.writeBigUInt64LE(solanaAgentId);
+    const idBuffer = Buffer.alloc(8)
+    idBuffer.writeBigUInt64LE(solanaAgentId)
 
     const [reputationPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('agent_reputation'), idBuffer],
-      AGENT_REGISTRY_PROGRAM_ID
-    );
+      AGENT_REGISTRY_PROGRAM_ID,
+    )
 
     // Build sync instruction
     // This would call a custom instruction in the 8004-solana program
     // For now, we create the instruction structure
-    const syncData = Buffer.alloc(25);
-    syncData.writeUInt8(0x10, 0); // Sync reputation instruction discriminator
-    syncData.writeBigUInt64LE(solanaAgentId, 1);
-    syncData.writeUInt8(Number(evmRep.averageScore), 9);
-    syncData.writeBigUInt64LE(evmRep.totalFeedbacks, 10);
-    syncData.writeUInt32LE(this.config.evmChainId, 18);
+    const syncData = Buffer.alloc(25)
+    syncData.writeUInt8(0x10, 0) // Sync reputation instruction discriminator
+    syncData.writeBigUInt64LE(solanaAgentId, 1)
+    syncData.writeUInt8(Number(evmRep.averageScore), 9)
+    syncData.writeBigUInt64LE(evmRep.totalFeedbacks, 10)
+    syncData.writeUInt32LE(this.config.evmChainId, 18)
     // Leave space for signature verification
 
     const instruction = new TransactionInstruction({
       programId: AGENT_REGISTRY_PROGRAM_ID,
       keys: [
-        { pubkey: this.solanaKeypair.publicKey, isSigner: true, isWritable: true },
+        {
+          pubkey: this.solanaKeypair.publicKey,
+          isSigner: true,
+          isWritable: true,
+        },
         { pubkey: reputationPda, isSigner: false, isWritable: true },
       ],
       data: syncData,
-    });
+    })
 
-    const transaction = new Transaction().add(instruction);
+    const transaction = new Transaction().add(instruction)
     const signature = await sendAndConfirmTransaction(
       this.solanaConnection,
       transaction,
-      [this.solanaKeypair]
-    );
+      [this.solanaKeypair],
+    )
 
-    const destChainId = this.config.solanaRpcUrl.includes('devnet') ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID;
+    const destChainId = this.config.solanaRpcUrl.includes('devnet')
+      ? SOLANA_DEVNET_CHAIN_ID
+      : SOLANA_CHAIN_ID
 
     this.emit('reputationSynced', {
       sourceChain: this.config.evmChainId,
       destChain: destChainId,
       agentId: evmAgentId,
       score: Number(evmRep.averageScore),
-    });
+    })
 
     return {
       success: true,
@@ -407,7 +427,7 @@ export class ReputationSyncService extends EventEmitter {
       destChain: destChainId,
       agentId: evmAgentId,
       syncedScore: Number(evmRep.averageScore),
-    };
+    }
   }
 
   /**
@@ -415,7 +435,7 @@ export class ReputationSyncService extends EventEmitter {
    */
   async updateFederatedReputation(
     federatedId: Hex,
-    newScore: number
+    newScore: number,
   ): Promise<Hex> {
     return await this.walletClient.writeContract({
       address: this.config.federatedIdentityAddress,
@@ -424,20 +444,20 @@ export class ReputationSyncService extends EventEmitter {
       args: [federatedId, BigInt(newScore)],
       account: this.account,
       chain: null,
-    });
+    })
   }
 
   /**
    * Start automatic reputation sync
    */
   startAutoSync(intervalMs: number = 60000): void {
-    if (this.syncInterval) return;
+    if (this.syncInterval) return
 
     this.syncInterval = setInterval(async () => {
-      await this.runSyncCycle();
-    }, intervalMs);
+      await this.runSyncCycle()
+    }, intervalMs)
 
-    log.info('Auto-sync started', { intervalMs });
+    log.info('Auto-sync started', { intervalMs })
   }
 
   /**
@@ -445,9 +465,9 @@ export class ReputationSyncService extends EventEmitter {
    */
   stopAutoSync(): void {
     if (this.syncInterval) {
-      clearInterval(this.syncInterval);
-      this.syncInterval = null;
-      log.info('Auto-sync stopped');
+      clearInterval(this.syncInterval)
+      this.syncInterval = null
+      log.info('Auto-sync stopped')
     }
   }
 
@@ -455,11 +475,11 @@ export class ReputationSyncService extends EventEmitter {
    * Run a single sync cycle for all linked agents
    */
   async runSyncCycle(): Promise<void> {
-    this.emit('syncCycleStarted', { timestamp: Date.now() });
+    this.emit('syncCycleStarted', { timestamp: Date.now() })
 
     // Query recent ReputationSynced and FeedbackSubmitted events to find agents needing sync
-    const block = await this.publicClient.getBlockNumber();
-    const fromBlock = block - 1000n; // Last ~1000 blocks
+    const block = await this.publicClient.getBlockNumber()
+    const fromBlock = block - 1000n // Last ~1000 blocks
 
     const feedbackEvents = await this.publicClient.getLogs({
       address: this.config.reputationRegistryAddress,
@@ -474,71 +494,77 @@ export class ReputationSyncService extends EventEmitter {
       },
       fromBlock,
       toBlock: block,
-    });
+    })
 
     // Get unique agent IDs that received feedback recently
-    const agentIds = new Set<bigint>();
+    const agentIds = new Set<bigint>()
     for (const event of feedbackEvents) {
       if (event.args.agentId !== undefined) {
-        agentIds.add(event.args.agentId);
+        agentIds.add(event.args.agentId)
       }
     }
 
-    log.info('Found agents with recent feedback', { count: agentIds.size });
+    log.info('Found agents with recent feedback', { count: agentIds.size })
 
     // Sync each agent's reputation
-    let synced = 0;
-    let failed = 0;
+    let synced = 0
+    let failed = 0
     for (const agentId of agentIds) {
-      const evmRep = await this.getEVMReputation(agentId);
-      if (!evmRep) continue;
+      const evmRep = await this.getEVMReputation(agentId)
+      if (!evmRep) continue
 
       // Check if this agent has a Solana counterpart
-      const solanaAgentId = await this.findLinkedSolanaAgent(agentId);
-      if (!solanaAgentId) continue;
+      const solanaAgentId = await this.findLinkedSolanaAgent(agentId)
+      if (!solanaAgentId) continue
 
-      const solanaRep = await this.getSolanaReputation(solanaAgentId);
-      if (!solanaRep) continue;
+      const solanaRep = await this.getSolanaReputation(solanaAgentId)
+      if (!solanaRep) continue
 
       // Only sync if there's a significant difference (> 5 points)
-      const evmScore = Number(evmRep.averageScore);
-      const solanaScore = solanaRep.averageScore;
-      const scoreDiff = Math.abs(evmScore - solanaScore);
+      const evmScore = Number(evmRep.averageScore)
+      const solanaScore = solanaRep.averageScore
+      const scoreDiff = Math.abs(evmScore - solanaScore)
       if (scoreDiff > 5) {
         // Sync from higher to lower
         if (evmScore > solanaScore) {
-          const result = await this.syncEVMToSolana(agentId, solanaAgentId);
-          if (result) synced++;
-          else failed++;
+          const result = await this.syncEVMToSolana(agentId, solanaAgentId)
+          if (result) synced++
+          else failed++
         } else {
-          const result = await this.syncSolanaToEVM(solanaAgentId, agentId);
-          if (result) synced++;
-          else failed++;
+          const result = await this.syncSolanaToEVM(solanaAgentId, agentId)
+          if (result) synced++
+          else failed++
         }
       }
     }
 
-    this.emit('syncCycleCompleted', { 
-      timestamp: Date.now(), 
+    this.emit('syncCycleCompleted', {
+      timestamp: Date.now(),
       agentsChecked: agentIds.size,
       synced,
       failed,
-    });
+    })
   }
 
   /**
    * Find linked Solana agent ID for an EVM agent (via federated identity)
    */
-  private async findLinkedSolanaAgent(evmAgentId: bigint): Promise<bigint | null> {
-    const federatedId = await this.publicClient.readContract({
+  private async findLinkedSolanaAgent(
+    evmAgentId: bigint,
+  ): Promise<bigint | null> {
+    const federatedId = (await this.publicClient.readContract({
       address: this.config.federatedIdentityAddress,
       abi: FEDERATED_IDENTITY_ABI,
       functionName: 'getFederatedIdByOrigin',
       args: [BigInt(this.config.evmChainId), evmAgentId],
-    }) as Hex;
+    })) as Hex
 
-    if (!federatedId || federatedId === '0x0000000000000000000000000000000000000000000000000000000000000000') {
-      return null;
+    if (
+      !federatedId ||
+      federatedId ===
+        '0x0000000000000000000000000000000000000000000000000000000000000000'
+    ) {
+      return null
     }
 
     // The federated ID encodes the Solana agent ID - extract it
@@ -546,22 +572,26 @@ export class ReputationSyncService extends EventEmitter {
     // We need to query the FederatedIdentity contract for the Solana link
     const FEDERATED_QUERY_ABI = parseAbi([
       'function getLinkedAgents(bytes32 federatedId) view returns ((uint256 chainId, uint256 agentId, bool isActive)[])',
-    ]);
+    ])
 
-    const linkedAgents = await this.publicClient.readContract({
+    const linkedAgents = (await this.publicClient.readContract({
       address: this.config.federatedIdentityAddress,
       abi: FEDERATED_QUERY_ABI,
       functionName: 'getLinkedAgents',
       args: [federatedId],
-    }) as Array<{ chainId: bigint; agentId: bigint; isActive: boolean }>;
+    })) as Array<{ chainId: bigint; agentId: bigint; isActive: boolean }>
 
     for (const linked of linkedAgents) {
-      if ((linked.chainId === BigInt(SOLANA_CHAIN_ID) || linked.chainId === BigInt(SOLANA_DEVNET_CHAIN_ID)) && linked.isActive) {
-        return linked.agentId;
+      if (
+        (linked.chainId === BigInt(SOLANA_CHAIN_ID) ||
+          linked.chainId === BigInt(SOLANA_DEVNET_CHAIN_ID)) &&
+        linked.isActive
+      ) {
+        return linked.agentId
       }
     }
 
-    return null;
+    return null
   }
 
   // ============ Private Methods ============
@@ -569,32 +599,39 @@ export class ReputationSyncService extends EventEmitter {
   private async generateSolanaReputationProof(
     agentId: bigint,
     score: number,
-    feedbackCount: number
+    feedbackCount: number,
   ): Promise<Hex> {
     if (!this.oracleAccount) {
-      throw new Error('Oracle account not configured');
+      throw new Error('Oracle account not configured')
     }
 
-    const isDevnet = this.config.solanaRpcUrl.includes('devnet');
-    const chainId = isDevnet ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID;
+    const isDevnet = this.config.solanaRpcUrl.includes('devnet')
+    const chainId = isDevnet ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID
 
     const messageHash = keccak256(
       encodePacked(
         ['uint256', 'uint256', 'uint8', 'uint256', 'uint256'],
-        [BigInt(chainId), agentId, score, BigInt(feedbackCount), BigInt(Date.now())]
-      )
-    );
+        [
+          BigInt(chainId),
+          agentId,
+          score,
+          BigInt(feedbackCount),
+          BigInt(Date.now()),
+        ],
+      ),
+    )
 
     const signature = await this.walletClient.signMessage({
       account: this.oracleAccount,
       message: { raw: toBytes(messageHash) },
-    });
+    })
 
-    return signature;
+    return signature
   }
 }
 
-export function createReputationSyncService(config: ReputationSyncConfig): ReputationSyncService {
-  return new ReputationSyncService(config);
+export function createReputationSyncService(
+  config: ReputationSyncConfig,
+): ReputationSyncService {
+  return new ReputationSyncService(config)
 }
-

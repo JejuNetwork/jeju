@@ -1,4 +1,4 @@
-import { defineChain, type Chain } from 'viem'
+import { type Chain, defineChain } from 'viem'
 import { mainnet, sepolia } from 'viem/chains'
 import { NETWORK_NAME } from './index'
 
@@ -27,7 +27,10 @@ export const jejuMainnet = defineChain({
     default: { http: ['https://rpc.jejunetwork.org'] },
   },
   blockExplorers: {
-    default: { name: 'Network Explorer', url: 'https://explorer.jejunetwork.org' },
+    default: {
+      name: 'Network Explorer',
+      url: 'https://explorer.jejunetwork.org',
+    },
   },
 })
 
@@ -39,7 +42,10 @@ export const jejuTestnet = defineChain({
     default: { http: ['https://testnet-rpc.jejunetwork.org'] },
   },
   blockExplorers: {
-    default: { name: 'Network Testnet Explorer', url: 'https://testnet-explorer.jejunetwork.org' },
+    default: {
+      name: 'Network Testnet Explorer',
+      url: 'https://testnet-explorer.jejunetwork.org',
+    },
   },
   testnet: true,
 })
@@ -49,7 +55,9 @@ export const jejuLocalnet = defineChain({
   name: `${networkName} Localnet`,
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: [process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:6546'] },
+    default: {
+      http: [process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:9545'],
+    },
   },
   blockExplorers: {
     default: { name: `${networkName} Explorer`, url: 'http://localhost:4004' },
@@ -71,30 +79,40 @@ export const EVM_RPC_URLS: Record<EvmChainIds, string[]> = {
   [EvmChainIds.EthereumMainnet]: [
     'https://eth.llamarpc.com',
     ...(process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
-      ? [`https://eth-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`]
+      ? [
+          `https://eth-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
+        ]
       : []),
   ],
   [EvmChainIds.EthereumSepolia]: [
     'https://ethereum-sepolia-rpc.publicnode.com',
     ...(process.env.NEXT_PUBLIC_ALCHEMY_API_KEY
-      ? [`https://eth-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`]
+      ? [
+          `https://eth-sepolia.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`,
+        ]
       : []),
   ],
   [EvmChainIds.mainnetChain]: ['https://rpc.jejunetwork.org'],
   [EvmChainIds.testnetChain]: ['https://testnet-rpc.jejunetwork.org'],
-  [EvmChainIds.localnetChain]: [process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:6546'],
+  [EvmChainIds.localnetChain]: [
+    process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:9545',
+  ],
 }
 
 // Solana RPC URLs
 export const SOLANA_RPC_URLS: Record<SolanaNetworkIds, string[]> = {
   [SolanaNetworkIds.Mainnet]: [
     ...(process.env.NEXT_PUBLIC_HELIUS_API_KEY
-      ? [`https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`]
+      ? [
+          `https://mainnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`,
+        ]
       : []),
   ],
   [SolanaNetworkIds.Devnet]: [
     ...(process.env.NEXT_PUBLIC_HELIUS_API_KEY
-      ? [`https://devnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`]
+      ? [
+          `https://devnet.helius-rpc.com/?api-key=${process.env.NEXT_PUBLIC_HELIUS_API_KEY}`,
+        ]
       : []),
   ],
 }
@@ -150,7 +168,9 @@ export function isChainAvailable(chainId: EvmChainIds): boolean {
 
 // Get all available chains
 export function getAvailableChains(): Chain[] {
-  return Object.values(CHAINID_TO_VIEM_CHAIN).filter((chain) => isChainAvailable(chain.id as EvmChainIds))
+  return Object.values(CHAINID_TO_VIEM_CHAIN).filter((chain) =>
+    isChainAvailable(chain.id as EvmChainIds),
+  )
 }
 
 // Detect if running in localnet mode

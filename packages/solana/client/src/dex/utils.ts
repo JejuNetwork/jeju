@@ -4,35 +4,30 @@
  */
 
 import {
-  Connection,
-  PublicKey,
-  VersionedTransaction,
+  type Connection,
+  type PublicKey,
   TransactionMessage,
-} from '@solana/web3.js';
-import type {
-  SwapQuote,
-  SwapTransaction,
-  PoolInfo,
-  DexType,
-} from './types';
+  VersionedTransaction,
+} from '@solana/web3.js'
+import type { DexType, PoolInfo, SwapQuote, SwapTransaction } from './types'
 
 // ============================================================================
 // AMM Swap Calculation
 // ============================================================================
 
 export interface AMMSwapParams {
-  inputAmount: bigint;
-  inputReserve: bigint;
-  outputReserve: bigint;
-  feeBps: number;
-  slippageBps: number;
+  inputAmount: bigint
+  inputReserve: bigint
+  outputReserve: bigint
+  feeBps: number
+  slippageBps: number
 }
 
 export interface AMMSwapResult {
-  outputAmount: bigint;
-  minOutputAmount: bigint;
-  fee: bigint;
-  priceImpactPct: number;
+  outputAmount: bigint
+  minOutputAmount: bigint
+  fee: bigint
+  priceImpactPct: number
 }
 
 /**
@@ -40,40 +35,43 @@ export interface AMMSwapResult {
  * Used by Raydium CPMM, Meteora standard pools, Orca standard pools
  */
 export function calculateAMMSwap(params: AMMSwapParams): AMMSwapResult {
-  const { inputAmount, inputReserve, outputReserve, feeBps, slippageBps } = params;
+  const { inputAmount, inputReserve, outputReserve, feeBps, slippageBps } =
+    params
 
-  const feeMultiplier = 10000n - BigInt(Math.floor(feeBps));
-  const amountInWithFee = inputAmount * feeMultiplier / 10000n;
-  const outputAmount = (amountInWithFee * outputReserve) / (inputReserve + amountInWithFee);
+  const feeMultiplier = 10000n - BigInt(Math.floor(feeBps))
+  const amountInWithFee = (inputAmount * feeMultiplier) / 10000n
+  const outputAmount =
+    (amountInWithFee * outputReserve) / (inputReserve + amountInWithFee)
 
-  const minOutputAmount = outputAmount * (10000n - BigInt(slippageBps)) / 10000n;
+  const minOutputAmount =
+    (outputAmount * (10000n - BigInt(slippageBps))) / 10000n
 
-  const spotPrice = Number(outputReserve) / Number(inputReserve);
-  const execPrice = Number(outputAmount) / Number(inputAmount);
-  const priceImpactPct = Math.abs(1 - execPrice / spotPrice) * 100;
+  const spotPrice = Number(outputReserve) / Number(inputReserve)
+  const execPrice = Number(outputAmount) / Number(inputAmount)
+  const priceImpactPct = Math.abs(1 - execPrice / spotPrice) * 100
 
-  const fee = inputAmount * BigInt(Math.floor(feeBps)) / 10000n;
+  const fee = (inputAmount * BigInt(Math.floor(feeBps))) / 10000n
 
   return {
     outputAmount,
     minOutputAmount,
     fee,
     priceImpactPct,
-  };
+  }
 }
 
 /**
  * Build a swap quote from pool info and AMM calculation result
  */
 export function buildSwapQuote(params: {
-  inputMint: PublicKey;
-  outputMint: PublicKey;
-  inputAmount: bigint;
-  pool: PoolInfo;
-  ammResult: AMMSwapResult;
-  dex: DexType;
+  inputMint: PublicKey
+  outputMint: PublicKey
+  inputAmount: bigint
+  pool: PoolInfo
+  ammResult: AMMSwapResult
+  dex: DexType
 }): SwapQuote {
-  const { inputMint, outputMint, inputAmount, pool, ammResult, dex } = params;
+  const { inputMint, outputMint, inputAmount, pool, ammResult, dex } = params
 
   return {
     inputMint,
@@ -83,16 +81,18 @@ export function buildSwapQuote(params: {
     minOutputAmount: ammResult.minOutputAmount,
     priceImpactPct: ammResult.priceImpactPct,
     fee: ammResult.fee,
-    route: [{
-      dex,
-      poolAddress: pool.address,
-      inputMint,
-      outputMint,
-      inputAmount,
-      outputAmount: ammResult.outputAmount,
-    }],
+    route: [
+      {
+        dex,
+        poolAddress: pool.address,
+        inputMint,
+        outputMint,
+        inputAmount,
+        outputAmount: ammResult.outputAmount,
+      },
+    ],
     dex,
-  };
+  }
 }
 
 // ============================================================================
@@ -105,20 +105,21 @@ export function buildSwapQuote(params: {
  */
 export async function buildPlaceholderTransaction(
   connection: Connection,
-  payer: PublicKey
+  payer: PublicKey,
 ): Promise<SwapTransaction> {
-  const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash();
+  const { blockhash, lastValidBlockHeight } =
+    await connection.getLatestBlockhash()
 
   const messageV0 = new TransactionMessage({
     payerKey: payer,
     recentBlockhash: blockhash,
     instructions: [],
-  }).compileToV0Message();
+  }).compileToV0Message()
 
   return {
     transaction: new VersionedTransaction(messageV0),
     lastValidBlockHeight,
-  };
+  }
 }
 
 // ============================================================================
@@ -126,8 +127,8 @@ export async function buildPlaceholderTransaction(
 // ============================================================================
 
 export interface PoolFilterParams {
-  tokenA?: PublicKey;
-  tokenB?: PublicKey;
+  tokenA?: PublicKey
+  tokenB?: PublicKey
 }
 
 /**
@@ -136,21 +137,21 @@ export interface PoolFilterParams {
 export function poolMatchesFilter(
   mintX: PublicKey,
   mintY: PublicKey,
-  filter: PoolFilterParams
+  filter: PoolFilterParams,
 ): boolean {
-  const { tokenA, tokenB } = filter;
+  const { tokenA, tokenB } = filter
 
   if (tokenA && tokenB) {
-    const hasA = mintX.equals(tokenA) || mintY.equals(tokenA);
-    const hasB = mintX.equals(tokenB) || mintY.equals(tokenB);
-    return hasA && hasB;
+    const hasA = mintX.equals(tokenA) || mintY.equals(tokenA)
+    const hasB = mintX.equals(tokenB) || mintY.equals(tokenB)
+    return hasA && hasB
   }
 
   if (tokenA) {
-    return mintX.equals(tokenA) || mintY.equals(tokenA);
+    return mintX.equals(tokenA) || mintY.equals(tokenA)
   }
 
-  return true;
+  return true
 }
 
 /**
@@ -158,14 +159,14 @@ export function poolMatchesFilter(
  */
 export function getSwapReserves(
   pool: PoolInfo,
-  inputMint: PublicKey
+  inputMint: PublicKey,
 ): { inputReserve: bigint; outputReserve: bigint; isInputA: boolean } {
-  const isInputA = pool.tokenA.mint.equals(inputMint);
+  const isInputA = pool.tokenA.mint.equals(inputMint)
   return {
     inputReserve: isInputA ? pool.reserveA : pool.reserveB,
     outputReserve: isInputA ? pool.reserveB : pool.reserveA,
     isInputA,
-  };
+  }
 }
 
 // ============================================================================
@@ -179,16 +180,16 @@ export function priceToTick(
   price: number,
   decimalsA: number,
   decimalsB: number,
-  tickSpacing?: number
+  tickSpacing?: number,
 ): number {
-  const adjustedPrice = price * Math.pow(10, decimalsB - decimalsA);
-  const tick = Math.floor(Math.log(adjustedPrice) / Math.log(1.0001));
+  const adjustedPrice = price * 10 ** (decimalsB - decimalsA)
+  const tick = Math.floor(Math.log(adjustedPrice) / Math.log(1.0001))
 
   if (tickSpacing) {
-    return Math.floor(tick / tickSpacing) * tickSpacing;
+    return Math.floor(tick / tickSpacing) * tickSpacing
   }
 
-  return tick;
+  return tick
 }
 
 /**
@@ -197,10 +198,10 @@ export function priceToTick(
 export function tickToPrice(
   tick: number,
   decimalsA: number,
-  decimalsB: number
+  decimalsB: number,
 ): number {
-  const rawPrice = Math.pow(1.0001, tick);
-  return rawPrice * Math.pow(10, decimalsA - decimalsB);
+  const rawPrice = 1.0001 ** tick
+  return rawPrice * 10 ** (decimalsA - decimalsB)
 }
 
 /**
@@ -209,25 +210,25 @@ export function tickToPrice(
 export function sqrtPriceX64ToPrice(
   sqrtPriceX64: bigint,
   decimalsA: number,
-  decimalsB: number
+  decimalsB: number,
 ): number {
-  const sqrtPrice = Number(sqrtPriceX64) / (2 ** 64);
-  const price = sqrtPrice * sqrtPrice;
-  return price * Math.pow(10, decimalsA - decimalsB);
+  const sqrtPrice = Number(sqrtPriceX64) / 2 ** 64
+  const price = sqrtPrice * sqrtPrice
+  return price * 10 ** (decimalsA - decimalsB)
 }
 
 /**
  * Convert price to bin ID (Meteora DLMM format)
  */
 export function priceToBinId(price: number, binStep: number): number {
-  return Math.floor(Math.log(price) / Math.log(1 + binStep / 10000));
+  return Math.floor(Math.log(price) / Math.log(1 + binStep / 10000))
 }
 
 /**
  * Convert bin ID to price (Meteora DLMM format)
  */
 export function binIdToPrice(binId: number, binStep: number): number {
-  return Math.pow(1 + binStep / 10000, binId);
+  return (1 + binStep / 10000) ** binId
 }
 
 // ============================================================================
@@ -238,9 +239,9 @@ export function binIdToPrice(binId: number, binStep: number): number {
  * Infer token decimals from raw and human-readable amounts
  */
 export function inferDecimals(humanAmount: number, rawAmount: string): number {
-  if (humanAmount === 0) return 9;
-  const ratio = parseFloat(rawAmount) / humanAmount;
-  return Math.round(Math.log10(ratio));
+  if (humanAmount === 0) return 9
+  const ratio = parseFloat(rawAmount) / humanAmount
+  return Math.round(Math.log10(ratio))
 }
 
 // ============================================================================
@@ -251,44 +252,54 @@ export function inferDecimals(humanAmount: number, rawAmount: string): number {
  * Convert hex string to Uint8Array
  */
 export function hexToBytes(hex: string): Uint8Array {
-  const cleaned = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const cleaned = hex.startsWith('0x') ? hex.slice(2) : hex
   if (!/^[0-9a-fA-F]*$/.test(cleaned)) {
-    throw new Error(`Invalid hex string: ${hex}`);
+    throw new Error(`Invalid hex string: ${hex}`)
   }
-  const bytes = new Uint8Array(cleaned.length / 2);
+  const bytes = new Uint8Array(cleaned.length / 2)
   for (let i = 0; i < bytes.length; i++) {
-    bytes[i] = parseInt(cleaned.substr(i * 2, 2), 16);
+    bytes[i] = parseInt(cleaned.substr(i * 2, 2), 16)
   }
-  return bytes;
+  return bytes
 }
 
 /**
  * Convert Uint8Array to hex string
  */
 export function bytesToHex(bytes: Uint8Array): string {
-  return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  return (
+    '0x' +
+    Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+  )
 }
 
 /**
  * Convert EVM address (20 bytes) to Uint8Array
  */
 export function evmAddressToBytes(address: string): Uint8Array {
-  const cleaned = address.startsWith('0x') ? address.slice(2) : address;
+  const cleaned = address.startsWith('0x') ? address.slice(2) : address
   if (cleaned.length !== 40) {
-    throw new Error('Invalid EVM address length');
+    throw new Error('Invalid EVM address length')
   }
-  const bytes = new Uint8Array(20);
+  const bytes = new Uint8Array(20)
   for (let i = 0; i < 20; i++) {
-    bytes[i] = parseInt(cleaned.substr(i * 2, 2), 16);
+    bytes[i] = parseInt(cleaned.substr(i * 2, 2), 16)
   }
-  return bytes;
+  return bytes
 }
 
 /**
  * Convert bytes to EVM address string
  */
 export function bytesToEvmAddress(bytes: Uint8Array): string {
-  return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  return (
+    '0x' +
+    Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+  )
 }
 
 // ============================================================================
@@ -296,8 +307,8 @@ export function bytesToEvmAddress(bytes: Uint8Array): string {
 // ============================================================================
 
 export interface BondingCurveReserves {
-  virtualSolReserves: bigint;
-  virtualTokenReserves: bigint;
+  virtualSolReserves: bigint
+  virtualTokenReserves: bigint
 }
 
 /**
@@ -306,12 +317,12 @@ export interface BondingCurveReserves {
  */
 export function calculateBondingCurveBuy(
   reserves: BondingCurveReserves,
-  solAmount: bigint
+  solAmount: bigint,
 ): bigint {
-  const k = reserves.virtualSolReserves * reserves.virtualTokenReserves;
-  const newVirtualSol = reserves.virtualSolReserves + solAmount;
-  const newVirtualToken = k / newVirtualSol;
-  return reserves.virtualTokenReserves - newVirtualToken;
+  const k = reserves.virtualSolReserves * reserves.virtualTokenReserves
+  const newVirtualSol = reserves.virtualSolReserves + solAmount
+  const newVirtualToken = k / newVirtualSol
+  return reserves.virtualTokenReserves - newVirtualToken
 }
 
 /**
@@ -320,17 +331,19 @@ export function calculateBondingCurveBuy(
  */
 export function calculateBondingCurveSell(
   reserves: BondingCurveReserves,
-  tokenAmount: bigint
+  tokenAmount: bigint,
 ): bigint {
-  const k = reserves.virtualSolReserves * reserves.virtualTokenReserves;
-  const newVirtualToken = reserves.virtualTokenReserves + tokenAmount;
-  const newVirtualSol = k / newVirtualToken;
-  return reserves.virtualSolReserves - newVirtualSol;
+  const k = reserves.virtualSolReserves * reserves.virtualTokenReserves
+  const newVirtualToken = reserves.virtualTokenReserves + tokenAmount
+  const newVirtualSol = k / newVirtualToken
+  return reserves.virtualSolReserves - newVirtualSol
 }
 
 /**
  * Get current price from bonding curve reserves (SOL per token)
  */
 export function getBondingCurvePrice(reserves: BondingCurveReserves): number {
-  return Number(reserves.virtualSolReserves) / Number(reserves.virtualTokenReserves);
+  return (
+    Number(reserves.virtualSolReserves) / Number(reserves.virtualTokenReserves)
+  )
 }

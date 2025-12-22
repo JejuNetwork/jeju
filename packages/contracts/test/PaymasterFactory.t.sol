@@ -207,9 +207,17 @@ contract PaymasterFactoryTest is Test {
         (address paymaster, address vault, address distributor) =
             factory.deployPaymaster(address(tokenA), 100, projectA);
 
-        // All contracts should be owned by operator, not factory
+        // Vault and distributor use regular Ownable - ownership transfers immediately
         assertEq(LiquidityVault(payable(vault)).owner(), projectA);
         assertEq(FeeDistributor(distributor).owner(), projectA);
+        
+        // Paymaster uses Ownable2Step - need to accept ownership
+        // Factory initiated transfer, projectA is pendingOwner
+        assertEq(LiquidityPaymaster(payable(paymaster)).pendingOwner(), projectA);
+        
+        // Accept ownership
+        vm.prank(projectA);
+        LiquidityPaymaster(payable(paymaster)).acceptOwnership();
         assertEq(LiquidityPaymaster(payable(paymaster)).owner(), projectA);
     }
 
@@ -252,19 +260,19 @@ contract PaymasterFactoryTest is Test {
         registry.registerToken{value: 0.1 ether}(
             address(tokenA),
             address(oracle),
-            100, // min 1%
-            300 // max 3%
+            0, // min 0%
+            1500 // max 15%
         );
 
-        // Try to deploy with fee below min
+        // Try to deploy with fee above 10% limit (1000 bps)
         vm.prank(projectA);
-        vm.expectRevert(abi.encodeWithSelector(PaymasterFactory.InvalidFeeMargin.selector, 50, 100, 300));
-        factory.deployPaymaster(address(tokenA), 50, projectA);
+        vm.expectRevert(abi.encodeWithSelector(PaymasterFactory.InvalidFeeMargin.selector, 1100));
+        factory.deployPaymaster(address(tokenA), 1100, projectA);
 
-        // Try to deploy with fee above max
+        // Valid margin should work (1000 or below)
         vm.prank(projectA);
-        vm.expectRevert(abi.encodeWithSelector(PaymasterFactory.InvalidFeeMargin.selector, 400, 100, 300));
-        factory.deployPaymaster(address(tokenA), 400, projectA);
+        factory.deployPaymaster(address(tokenA), 500, projectA);
+        assertTrue(factory.isDeployed(address(tokenA)));
     }
 
     function test_RevertDeployPaymaster_InvalidOperator() public {

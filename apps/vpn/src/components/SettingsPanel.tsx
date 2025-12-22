@@ -1,44 +1,53 @@
-import { useState, useEffect } from 'react';
-import { invoke } from '../api';
-import { Shield, Globe, Zap, Gauge, Info, ExternalLink, ChevronRight, Power } from 'lucide-react';
-import { z } from 'zod';
+import {
+  ChevronRight,
+  ExternalLink,
+  Gauge,
+  Globe,
+  Info,
+  Power,
+  Shield,
+  Zap,
+} from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { z } from 'zod'
+import { invoke } from '../api'
 
 // Schema for boolean responses
-const BooleanResponseSchema = z.boolean();
+const BooleanResponseSchema = z.boolean()
 
 export function SettingsPanel() {
-  const [killSwitch, setKillSwitch] = useState(true);
-  const [autoConnect, setAutoConnect] = useState(false);
-  const [autoStart, setAutoStart] = useState(false);
-  
+  const [killSwitch, setKillSwitch] = useState(true)
+  const [autoConnect, setAutoConnect] = useState(false)
+  const [autoStart, setAutoStart] = useState(false)
+
   // Fetch initial autostart state
   useEffect(() => {
     invoke('get_autostart_enabled', {}, BooleanResponseSchema)
       .then(setAutoStart)
       .catch((error: Error) => {
-        throw error; // Fail fast
-      });
-  }, []);
-  
-  const [minimizeToTray, setMinimizeToTray] = useState(true);
-  const [adaptiveMode, setAdaptiveMode] = useState(true);
-  const [dwsEnabled, setDwsEnabled] = useState(true);
+        throw error // Fail fast
+      })
+  }, [])
+
+  const [minimizeToTray, setMinimizeToTray] = useState(true)
+  const [adaptiveMode, setAdaptiveMode] = useState(true)
+  const [dwsEnabled, setDwsEnabled] = useState(true)
 
   const updateSetting = async (key: string, value: boolean) => {
-    await invoke('update_settings', { key, value });
-  };
+    await invoke('update_settings', { key, value })
+  }
 
   const toggleAdaptive = async () => {
-    const newValue = !adaptiveMode;
-    setAdaptiveMode(newValue);
-    await invoke('set_adaptive_mode', { enabled: newValue });
-  };
+    const newValue = !adaptiveMode
+    setAdaptiveMode(newValue)
+    await invoke('set_adaptive_mode', { enabled: newValue })
+  }
 
   const toggleDws = async () => {
-    const newValue = !dwsEnabled;
-    setDwsEnabled(newValue);
-    await invoke('set_dws_enabled', { enabled: newValue });
-  };
+    const newValue = !dwsEnabled
+    setDwsEnabled(newValue)
+    await invoke('set_dws_enabled', { enabled: newValue })
+  }
 
   return (
     <div className="p-6 space-y-6">
@@ -62,7 +71,9 @@ export function SettingsPanel() {
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Kill Switch</div>
-              <div className="text-xs text-[#606070]">Block internet if VPN disconnects</div>
+              <div className="text-xs text-[#606070]">
+                Block internet if VPN disconnects
+              </div>
             </div>
             <button
               onClick={() => setKillSwitch(!killSwitch)}
@@ -70,9 +81,11 @@ export function SettingsPanel() {
                 killSwitch ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
-              <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                killSwitch ? 'translate-x-6' : 'translate-x-0.5'
-              }`} />
+              <div
+                className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                  killSwitch ? 'translate-x-6' : 'translate-x-0.5'
+                }`}
+              />
             </button>
           </div>
 
@@ -80,20 +93,24 @@ export function SettingsPanel() {
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Auto Connect</div>
-              <div className="text-xs text-[#606070]">Connect when app starts</div>
+              <div className="text-xs text-[#606070]">
+                Connect when app starts
+              </div>
             </div>
             <button
               onClick={() => {
-                setAutoConnect(!autoConnect);
-                updateSetting('auto_connect', !autoConnect);
+                setAutoConnect(!autoConnect)
+                updateSetting('auto_connect', !autoConnect)
               }}
               className={`w-12 h-6 rounded-full transition-colors ${
                 autoConnect ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
-              <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                autoConnect ? 'translate-x-6' : 'translate-x-0.5'
-              }`} />
+              <div
+                className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                  autoConnect ? 'translate-x-6' : 'translate-x-0.5'
+                }`}
+              />
             </button>
           </div>
         </div>
@@ -110,40 +127,52 @@ export function SettingsPanel() {
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Start on Boot</div>
-              <div className="text-xs text-[#606070]">Launch VPN when system starts</div>
+              <div className="text-xs text-[#606070]">
+                Launch VPN when system starts
+              </div>
             </div>
             <button
               onClick={async () => {
-                const result = await invoke('toggle_autostart', {}, BooleanResponseSchema);
-                setAutoStart(result);
+                const result = await invoke(
+                  'toggle_autostart',
+                  {},
+                  BooleanResponseSchema,
+                )
+                setAutoStart(result)
               }}
               className={`w-12 h-6 rounded-full transition-colors ${
                 autoStart ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
-              <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                autoStart ? 'translate-x-6' : 'translate-x-0.5'
-              }`} />
+              <div
+                className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                  autoStart ? 'translate-x-6' : 'translate-x-0.5'
+                }`}
+              />
             </button>
           </div>
 
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Minimize to Tray</div>
-              <div className="text-xs text-[#606070]">Keep running in system tray</div>
+              <div className="text-xs text-[#606070]">
+                Keep running in system tray
+              </div>
             </div>
             <button
               onClick={() => {
-                setMinimizeToTray(!minimizeToTray);
-                updateSetting('minimize_to_tray', !minimizeToTray);
+                setMinimizeToTray(!minimizeToTray)
+                updateSetting('minimize_to_tray', !minimizeToTray)
               }}
               className={`w-12 h-6 rounded-full transition-colors ${
                 minimizeToTray ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
-              <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                minimizeToTray ? 'translate-x-6' : 'translate-x-0.5'
-              }`} />
+              <div
+                className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                  minimizeToTray ? 'translate-x-6' : 'translate-x-0.5'
+                }`}
+              />
             </button>
           </div>
         </div>
@@ -185,7 +214,9 @@ export function SettingsPanel() {
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Adaptive Bandwidth</div>
-              <div className="text-xs text-[#606070]">Share more when idle (up to 80%)</div>
+              <div className="text-xs text-[#606070]">
+                Share more when idle (up to 80%)
+              </div>
             </div>
             <button
               onClick={toggleAdaptive}
@@ -193,16 +224,20 @@ export function SettingsPanel() {
                 adaptiveMode ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
-              <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                adaptiveMode ? 'translate-x-6' : 'translate-x-0.5'
-              }`} />
+              <div
+                className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                  adaptiveMode ? 'translate-x-6' : 'translate-x-0.5'
+                }`}
+              />
             </button>
           </div>
 
           <div className="flex items-center justify-between">
             <div>
               <div className="font-medium">Edge CDN Caching</div>
-              <div className="text-xs text-[#606070]">Cache and serve DWS content</div>
+              <div className="text-xs text-[#606070]">
+                Cache and serve DWS content
+              </div>
             </div>
             <button
               onClick={toggleDws}
@@ -210,9 +245,11 @@ export function SettingsPanel() {
                 dwsEnabled ? 'bg-[#00ff88]' : 'bg-[#2a2a35]'
               }`}
             >
-              <div className={`w-5 h-5 bg-white rounded-full transition-transform ${
-                dwsEnabled ? 'translate-x-6' : 'translate-x-0.5'
-              }`} />
+              <div
+                className={`w-5 h-5 bg-white rounded-full transition-transform ${
+                  dwsEnabled ? 'translate-x-6' : 'translate-x-0.5'
+                }`}
+              />
             </button>
           </div>
         </div>
@@ -256,9 +293,9 @@ export function SettingsPanel() {
             <span className="text-[#606070]">Network</span>
             <span>Jeju Mainnet</span>
           </div>
-          <a 
-            href="https://jejunetwork.org" 
-            target="_blank" 
+          <a
+            href="https://jejunetwork.org"
+            target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-between text-[#00ff88] hover:underline"
           >
@@ -268,6 +305,5 @@ export function SettingsPanel() {
         </div>
       </div>
     </div>
-  );
+  )
 }
-

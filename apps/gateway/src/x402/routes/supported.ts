@@ -1,23 +1,23 @@
-import { Hono } from 'hono';
-import type { SupportedResponse } from '../lib/types';
-import { config } from '../config';
-import { CHAIN_CONFIGS, ZERO_ADDRESS } from '../lib/chains';
+import { Hono } from 'hono'
+import { config } from '../config'
+import { CHAIN_CONFIGS, ZERO_ADDRESS } from '../lib/chains'
+import type { SupportedResponse } from '../lib/types'
 
-const app = new Hono();
+const app = new Hono()
 
 app.get('/', (c) => {
-  const cfg = config();
-  const networks = Object.keys(CHAIN_CONFIGS);
+  const cfg = config()
+  const networks = Object.keys(CHAIN_CONFIGS)
 
-  const kinds: Array<{ scheme: 'exact' | 'upto'; network: string }> = [];
+  const kinds: Array<{ scheme: 'exact' | 'upto'; network: string }> = []
 
   for (const network of networks) {
-    const chainConfig = CHAIN_CONFIGS[network];
-    const hasFacilitator = chainConfig.facilitator !== ZERO_ADDRESS;
-    const isPrimary = network === cfg.network;
+    const chainConfig = CHAIN_CONFIGS[network]
+    const hasFacilitator = chainConfig.facilitator !== ZERO_ADDRESS
+    const isPrimary = network === cfg.network
 
     if (hasFacilitator || cfg.environment === 'development' || isPrimary) {
-      kinds.push({ scheme: 'exact', network }, { scheme: 'upto', network });
+      kinds.push({ scheme: 'exact', network }, { scheme: 'upto', network })
     }
   }
 
@@ -29,16 +29,16 @@ app.get('/', (c) => {
       version: cfg.serviceVersion,
       url: cfg.serviceUrl,
     },
-  };
+  }
 
-  return c.json(response);
-});
+  return c.json(response)
+})
 
 app.get('/networks', (c) => {
-  const networks = Object.keys(CHAIN_CONFIGS);
+  const networks = Object.keys(CHAIN_CONFIGS)
 
   const details = networks.map((network) => {
-    const chainConfig = CHAIN_CONFIGS[network];
+    const chainConfig = CHAIN_CONFIGS[network]
     return {
       network,
       chainId: chainConfig.chainId,
@@ -46,21 +46,21 @@ app.get('/networks', (c) => {
       usdc: chainConfig.usdc,
       facilitator: chainConfig.facilitator,
       blockExplorer: chainConfig.blockExplorer || null,
-    };
-  });
+    }
+  })
 
-  return c.json({ networks: details });
-});
+  return c.json({ networks: details })
+})
 
 app.get('/tokens/:network', (c) => {
-  const network = c.req.param('network');
-  const chainConfig = CHAIN_CONFIGS[network];
+  const network = c.req.param('network')
+  const chainConfig = CHAIN_CONFIGS[network]
 
   if (!chainConfig) {
-    return c.json({ error: `Unsupported network: ${network}` }, 400);
+    return c.json({ error: `Unsupported network: ${network}` }, 400)
   }
 
-  const tokens = [];
+  const tokens = []
 
   if (chainConfig.usdc !== ZERO_ADDRESS) {
     tokens.push({
@@ -68,7 +68,7 @@ app.get('/tokens/:network', (c) => {
       symbol: 'USDC',
       decimals: 6,
       name: 'USD Coin',
-    });
+    })
   }
 
   tokens.push({
@@ -76,9 +76,9 @@ app.get('/tokens/:network', (c) => {
     symbol: chainConfig.nativeCurrency.symbol,
     decimals: chainConfig.nativeCurrency.decimals,
     name: chainConfig.nativeCurrency.name,
-  });
+  })
 
-  return c.json({ network, tokens });
-});
+  return c.json({ network, tokens })
+})
 
-export default app;
+export default app

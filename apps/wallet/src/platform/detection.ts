@@ -2,105 +2,127 @@
  * Platform Detection
  */
 
-import type { PlatformType, PlatformCategory, PlatformCapabilities, PlatformInfo, BrowserType } from './types';
+import type {
+  BrowserType,
+  PlatformCapabilities,
+  PlatformCategory,
+  PlatformInfo,
+  PlatformType,
+} from './types'
 
-let cachedPlatform: PlatformInfo | null = null;
+let cachedPlatform: PlatformInfo | null = null
 
 /**
  * Detect the current browser type
  */
 export function detectBrowser(): BrowserType {
-  if (typeof navigator === 'undefined') return 'unknown';
-  
-  const ua = navigator.userAgent.toLowerCase();
-  const vendor = navigator.vendor?.toLowerCase() ?? '';
-  
+  if (typeof navigator === 'undefined') return 'unknown'
+
+  const ua = navigator.userAgent.toLowerCase()
+  const vendor = navigator.vendor?.toLowerCase() ?? ''
+
   // Brave has a specific detection method
-  if ((navigator as Navigator & { brave?: { isBrave?: () => Promise<boolean> } }).brave?.isBrave) {
-    return 'brave';
+  if (
+    (navigator as Navigator & { brave?: { isBrave?: () => Promise<boolean> } })
+      .brave?.isBrave
+  ) {
+    return 'brave'
   }
-  
+
   // Check for Edge (Chromium-based)
   if (ua.includes('edg/') || ua.includes('edge/')) {
-    return 'edge';
+    return 'edge'
   }
-  
+
   // Check for Opera
   if (ua.includes('opr/') || ua.includes('opera')) {
-    return 'opera';
+    return 'opera'
   }
-  
+
   // Check for Firefox
   if (ua.includes('firefox')) {
-    return 'firefox';
+    return 'firefox'
   }
-  
+
   // Check for Safari (must be after Chrome check since Safari has chrome in UA)
-  if (ua.includes('safari') && !ua.includes('chrome') && vendor.includes('apple')) {
-    return 'safari';
+  if (
+    ua.includes('safari') &&
+    !ua.includes('chrome') &&
+    vendor.includes('apple')
+  ) {
+    return 'safari'
   }
-  
+
   // Check for Chrome
   if (ua.includes('chrome') && vendor.includes('google')) {
-    return 'chrome';
+    return 'chrome'
   }
-  
-  return 'unknown';
+
+  return 'unknown'
 }
 
 function detectPlatformType(): PlatformType {
-  if (typeof window === 'undefined') return 'web';
+  if (typeof window === 'undefined') return 'web'
 
   // Check Tauri
   if ('__TAURI__' in window) {
-    const userAgent = navigator.userAgent.toLowerCase();
-    if (userAgent.includes('mac')) return 'tauri-macos';
-    if (userAgent.includes('win')) return 'tauri-windows';
-    return 'tauri-linux';
+    const userAgent = navigator.userAgent.toLowerCase()
+    if (userAgent.includes('mac')) return 'tauri-macos'
+    if (userAgent.includes('win')) return 'tauri-windows'
+    return 'tauri-linux'
   }
 
   // Check Capacitor
   if ('Capacitor' in window) {
-    const cap = (window as { Capacitor?: { getPlatform?: () => string } }).Capacitor;
-    const platform = cap?.getPlatform?.();
-    if (platform === 'ios') return 'capacitor-ios';
-    if (platform === 'android') return 'capacitor-android';
+    const cap = (window as { Capacitor?: { getPlatform?: () => string } })
+      .Capacitor
+    const platform = cap?.getPlatform?.()
+    if (platform === 'ios') return 'capacitor-ios'
+    if (platform === 'android') return 'capacitor-android'
   }
 
   // Check browser extensions - need to detect specific browser
-  const browserType = detectBrowser();
-  
+  const browserType = detectBrowser()
+
   // Safari Web Extension
-  if (typeof safari !== 'undefined' && 
-      (safari as { extension?: { dispatchMessage?: unknown } }).extension?.dispatchMessage) {
-    return 'safari-extension';
-  }
-  
-  // Firefox extension
-  if (typeof browser !== 'undefined' && 
-      (browser as { runtime?: { id?: string } }).runtime?.id) {
-    return 'firefox-extension';
-  }
-  
-  // Chrome-based extensions (Chrome, Edge, Brave, Opera)
-  if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
-    if (browserType === 'brave') return 'brave-extension';
-    if (browserType === 'edge') return 'edge-extension';
-    return 'chrome-extension';
+  if (
+    typeof safari !== 'undefined' &&
+    (
+      safari as {
+        extension?: { dispatchMessage?: (...args: string[]) => void }
+      }
+    ).extension?.dispatchMessage
+  ) {
+    return 'safari-extension'
   }
 
-  return 'web';
+  // Firefox extension
+  if (
+    typeof browser !== 'undefined' &&
+    (browser as { runtime?: { id?: string } }).runtime?.id
+  ) {
+    return 'firefox-extension'
+  }
+
+  // Chrome-based extensions (Chrome, Edge, Brave, Opera)
+  if (typeof chrome !== 'undefined' && chrome.runtime?.id) {
+    if (browserType === 'brave') return 'brave-extension'
+    if (browserType === 'edge') return 'edge-extension'
+    return 'chrome-extension'
+  }
+
+  return 'web'
 }
 
 function getPlatformCategory(type: PlatformType): PlatformCategory {
-  if (type.startsWith('tauri-')) return 'desktop';
-  if (type.startsWith('capacitor-')) return 'mobile';
-  if (type.endsWith('-extension')) return 'extension';
-  return 'web';
+  if (type.startsWith('tauri-')) return 'desktop'
+  if (type.startsWith('capacitor-')) return 'mobile'
+  if (type.endsWith('-extension')) return 'extension'
+  return 'web'
 }
 
 function getCapabilities(type: PlatformType): PlatformCapabilities {
-  const category = getPlatformCategory(type);
+  const category = getPlatformCategory(type)
 
   const baseCapabilities: PlatformCapabilities = {
     hasSecureStorage: false,
@@ -113,7 +135,7 @@ function getCapabilities(type: PlatformType): PlatformCapabilities {
     hasShare: true,
     maxStorageSize: 10 * 1024 * 1024,
     supportsBackgroundTasks: false,
-  };
+  }
 
   switch (category) {
     case 'desktop':
@@ -124,7 +146,7 @@ function getCapabilities(type: PlatformType): PlatformCapabilities {
         hasDeepLinks: true,
         maxStorageSize: 'unlimited',
         supportsBackgroundTasks: true,
-      };
+      }
 
     case 'mobile':
       return {
@@ -136,7 +158,7 @@ function getCapabilities(type: PlatformType): PlatformCapabilities {
         hasCamera: true,
         maxStorageSize: 'unlimited',
         supportsBackgroundTasks: type === 'capacitor-ios',
-      };
+      }
 
     case 'extension':
       return {
@@ -145,71 +167,79 @@ function getCapabilities(type: PlatformType): PlatformCapabilities {
         hasDeepLinks: false,
         maxStorageSize: 'unlimited',
         supportsBackgroundTasks: true,
-      };
+      }
 
     default:
       return {
         ...baseCapabilities,
         hasSecureStorage: false,
         hasDeepLinks: true,
-      };
+      }
   }
 }
 
 export function getPlatformInfo(): PlatformInfo {
-  if (cachedPlatform) return cachedPlatform;
+  if (cachedPlatform) return cachedPlatform
 
-  const type = detectPlatformType();
-  const category = getPlatformCategory(type);
-  const capabilities = getCapabilities(type);
+  const type = detectPlatformType()
+  const category = getPlatformCategory(type)
+  const capabilities = getCapabilities(type)
 
   cachedPlatform = {
     type,
     category,
     version: '0.1.0',
     capabilities,
-    osVersion: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
-  };
+    osVersion:
+      typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+  }
 
-  return cachedPlatform;
+  return cachedPlatform
 }
 
 export function isDesktop(): boolean {
-  return getPlatformInfo().category === 'desktop';
+  return getPlatformInfo().category === 'desktop'
 }
 
 export function isMobile(): boolean {
-  return getPlatformInfo().category === 'mobile';
+  return getPlatformInfo().category === 'mobile'
 }
 
 export function isExtension(): boolean {
-  return getPlatformInfo().category === 'extension';
+  return getPlatformInfo().category === 'extension'
 }
 
 export function isWeb(): boolean {
-  return getPlatformInfo().category === 'web';
+  return getPlatformInfo().category === 'web'
 }
 
 export function isIOS(): boolean {
-  return getPlatformInfo().type === 'capacitor-ios';
+  return getPlatformInfo().type === 'capacitor-ios'
 }
 
 export function isAndroid(): boolean {
-  return getPlatformInfo().type === 'capacitor-android';
+  return getPlatformInfo().type === 'capacitor-android'
 }
 
 export function isMacOS(): boolean {
-  return getPlatformInfo().type === 'tauri-macos';
+  return getPlatformInfo().type === 'tauri-macos'
 }
 
 export function hasSecureStorage(): boolean {
-  return getPlatformInfo().capabilities.hasSecureStorage;
+  return getPlatformInfo().capabilities.hasSecureStorage
 }
 
 export function hasBiometrics(): boolean {
-  return getPlatformInfo().capabilities.hasBiometrics;
+  return getPlatformInfo().capabilities.hasBiometrics
 }
 
 export function hasIAP(): boolean {
-  return getPlatformInfo().capabilities.hasIAP;
+  return getPlatformInfo().capabilities.hasIAP
+}
+
+/**
+ * Reset platform cache - useful for testing
+ */
+export function resetPlatformCache(): void {
+  cachedPlatform = null
 }

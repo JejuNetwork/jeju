@@ -6,5 +6,5 @@
  * For Solana bridging, use SolanaAdapter (or @jejunetwork/zksolbridge for ZK proofs).
  */
 
-export * from './hyperlane-adapter';
-export * from './solana-adapter';
+export * from './hyperlane-adapter'
+export * from './solana-adapter'

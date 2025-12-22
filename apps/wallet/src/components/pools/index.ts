@@ -1,2 +1,1 @@
-export { PoolsView, default } from './PoolsView';
-
+export { default, PoolsView } from './PoolsView'

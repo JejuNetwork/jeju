@@ -1,4 +1,3 @@
-export { LoginModal } from './LoginModal';
-export { LinkedAccounts } from './LinkedAccounts';
-export { AuthCallback } from './Callback';
-
+export { AuthCallback } from './Callback'
+export { LinkedAccounts } from './LinkedAccounts'
+export { LoginModal } from './LoginModal'

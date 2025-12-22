@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
  * Leaderboard Pipeline CLI
- * 
+ *
  * Run with: bun run apps/gateway/src/leaderboard/cli.ts <command> [options]
- * 
+ *
  * Commands:
  *   ingest    - Fetch data from GitHub
  *   process   - Calculate contribution scores
@@ -12,81 +12,86 @@
  *   all       - Run full pipeline (ingest -> process -> export)
  */
 
-import { runIngest, runProcess, runExport, runSummarize } from './pipelines/index.js';
+import {
+  runExport,
+  runIngest,
+  runProcess,
+  runSummarize,
+} from './pipelines/index.js'
 
 interface CLIOptions {
-  repository?: string;
-  after?: string;
-  before?: string;
-  days?: number;
-  force?: boolean;
-  verbose?: boolean;
-  type?: 'contributor' | 'repository' | 'overall';
-  interval?: 'day' | 'week' | 'month';
-  uploadToDWS?: boolean;
-  outputDir?: string;
+  repository?: string
+  after?: string
+  before?: string
+  days?: number
+  force?: boolean
+  verbose?: boolean
+  type?: 'contributor' | 'repository' | 'overall'
+  interval?: 'day' | 'week' | 'month'
+  uploadToDWS?: boolean
+  outputDir?: string
 }
 
 function parseArgs(): { command: string; options: CLIOptions } {
-  const args = process.argv.slice(2);
-  const command = args[0] || 'help';
-  const options: CLIOptions = {};
+  const args = process.argv.slice(2)
+  const command = args[0] || 'help'
+  const options: CLIOptions = {}
 
   for (let i = 1; i < args.length; i++) {
-    const arg = args[i];
-    const nextArg = args[i + 1];
+    const arg = args[i]
+    const nextArg = args[i + 1]
 
     switch (arg) {
       case '-r':
       case '--repository':
-        options.repository = nextArg;
-        i++;
-        break;
+        options.repository = nextArg
+        i++
+        break
       case '-a':
       case '--after':
-        options.after = nextArg;
-        i++;
-        break;
+        options.after = nextArg
+        i++
+        break
       case '-b':
       case '--before':
-        options.before = nextArg;
-        i++;
-        break;
+        options.before = nextArg
+        i++
+        break
       case '-d':
       case '--days':
-        options.days = parseInt(nextArg);
-        i++;
-        break;
+        options.days = parseInt(nextArg, 10)
+        i++
+        break
       case '-f':
       case '--force':
-        options.force = true;
-        break;
+        options.force = true
+        break
       case '-v':
       case '--verbose':
-        options.verbose = true;
-        break;
+        options.verbose = true
+        break
       case '-t':
       case '--type':
-        options.type = nextArg as 'contributor' | 'repository' | 'overall';
-        i++;
-        break;
+        options.type = nextArg as 'contributor' | 'repository' | 'overall'
+        i++
+        break
       case '-i':
       case '--interval':
-        options.interval = nextArg as 'day' | 'week' | 'month';
-        i++;
-        break;
+        options.interval = nextArg as 'day' | 'week' | 'month'
+        i++
+        break
       case '--upload':
-        options.uploadToDWS = true;
-        break;
+        options.uploadToDWS = true
+        break
       case '-o':
       case '--output':
-        options.outputDir = nextArg;
-        i++;
-        break;
+        options.outputDir = nextArg
+        i++
+        break
     }
   }
 
-  return { command, options };
+  return { command, options }
 }
 
 function printHelp(): void {
@@ -120,63 +125,62 @@ Examples:
   bun run cli.ts export --upload
   bun run cli.ts summarize --type contributor --interval week
   bun run cli.ts all --days 30
-`);
+`)
 }
 
 async function main(): Promise<void> {
-  const { command, options } = parseArgs();
+  const { command, options } = parseArgs()
 
-  console.log('📊 Leaderboard Pipeline');
-  console.log('========================');
+  console.log('📊 Leaderboard Pipeline')
+  console.log('========================')
 
-  const startTime = Date.now();
+  const startTime = Date.now()
 
   switch (command) {
     case 'ingest':
-      await runIngest(options);
-      break;
+      await runIngest(options)
+      break
 
     case 'process':
-      await runProcess(options);
-      break;
+      await runProcess(options)
+      break
 
     case 'export':
-      await runExport(options);
-      break;
+      await runExport(options)
+      break
 
     case 'summarize':
       if (!options.type) {
-        console.error('Error: --type required for summarize (contributor|repository|overall)');
-        process.exit(1);
+        console.error(
+          'Error: --type required for summarize (contributor|repository|overall)',
+        )
+        process.exit(1)
       }
-      await runSummarize(options as Required<Pick<CLIOptions, 'type'>> & CLIOptions);
-      break;
+      await runSummarize(
+        options as Required<Pick<CLIOptions, 'type'>> & CLIOptions,
+      )
+      break
 
     case 'all':
-      console.log('\n[1/3] Ingesting data...');
-      await runIngest(options);
-      
-      console.log('\n[2/3] Processing scores...');
-      await runProcess(options);
-      
-      console.log('\n[3/3] Exporting stats...');
-      await runExport(options);
-      break;
+      console.log('\n[1/3] Ingesting data...')
+      await runIngest(options)
 
-    case 'help':
+      console.log('\n[2/3] Processing scores...')
+      await runProcess(options)
+
+      console.log('\n[3/3] Exporting stats...')
+      await runExport(options)
+      break
     default:
-      printHelp();
-      process.exit(0);
+      printHelp()
+      process.exit(0)
   }
 
-  const duration = ((Date.now() - startTime) / 1000).toFixed(1);
-  console.log(`\nCompleted in ${duration}s`);
+  const duration = ((Date.now() - startTime) / 1000).toFixed(1)
+  console.log(`\nCompleted in ${duration}s`)
 }
 
 main().catch((err) => {
-  console.error('Pipeline failed:', err);
-  process.exit(1);
-});
-
-
-
+  console.error('Pipeline failed:', err)
+  process.exit(1)
+})

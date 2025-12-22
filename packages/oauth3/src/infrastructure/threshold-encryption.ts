@@ -1,109 +1,112 @@
 /**
  * Threshold Encryption for OAuth3
- * 
+ *
  * Enables multi-node session decryption using threshold cryptography.
  * Sessions are encrypted such that any k-of-n TEE nodes can decrypt.
- * 
+ *
  * Uses FROST threshold signing combined with ECIES for encryption.
- * 
+ *
  * Key Derivation:
  * 1. MPC cluster generates a shared public key
  * 2. Sessions are encrypted to the shared public key
  * 3. Decryption requires threshold of nodes to participate
  */
 
-import { keccak256, toBytes, toHex, type Hex } from 'viem';
+import { type Hex, keccak256, toBytes, toHex } from 'viem'
 
 export interface ThresholdKeyConfig {
   /** Cluster ID for the MPC group */
-  clusterId: string;
+  clusterId: string
   /** Threshold required for decryption (k) */
-  threshold: number;
+  threshold: number
   /** Total number of nodes (n) */
-  totalNodes: number;
+  totalNodes: number
   /** Public key of the threshold group */
-  publicKey: Hex;
+  publicKey: Hex
   /** Endpoint for MPC operations */
-  mpcEndpoint: string;
+  mpcEndpoint: string
 }
 
 export interface EncryptedPayload {
   /** Ephemeral public key for ECIES */
-  ephemeralPubKey: Hex;
+  ephemeralPubKey: Hex
   /** Encrypted data */
-  ciphertext: Hex;
+  ciphertext: Hex
   /** AES nonce */
-  nonce: Hex;
+  nonce: Hex
   /** Authentication tag */
-  tag: Hex;
+  tag: Hex
   /** Cluster ID used for encryption */
-  clusterId: string;
+  clusterId: string
   /** Version of encryption scheme */
-  version: number;
+  version: number
 }
 
 export interface DecryptionShare {
   /** Node ID providing the share */
-  nodeId: string;
+  nodeId: string
   /** Decryption share */
-  share: Hex;
+  share: Hex
   /** Proof of correct share */
-  proof: Hex;
+  proof: Hex
 }
 
 /**
  * Threshold Encryption Service
- * 
+ *
  * Provides encryption that requires k-of-n nodes to decrypt.
  */
 export class ThresholdEncryptionService {
-  private config: ThresholdKeyConfig;
+  private config: ThresholdKeyConfig
 
   constructor(config: ThresholdKeyConfig) {
-    this.config = config;
+    this.config = config
   }
 
   /**
    * Encrypt data using threshold encryption
-   * 
+   *
    * The data is encrypted to the cluster's shared public key.
    * Any threshold of nodes can collaborate to decrypt.
    */
   async encrypt(data: string): Promise<EncryptedPayload> {
-    const dataBytes = new TextEncoder().encode(data);
-    
+    const dataBytes = new TextEncoder().encode(data)
+
     // Generate ephemeral key pair
     const ephemeralKey = await crypto.subtle.generateKey(
       { name: 'ECDH', namedCurve: 'P-256' },
       true,
-      ['deriveBits']
-    );
+      ['deriveBits'],
+    )
 
     // Export ephemeral public key
-    const ephemeralPubKeyRaw = await crypto.subtle.exportKey('raw', ephemeralKey.publicKey);
-    const ephemeralPubKey = toHex(new Uint8Array(ephemeralPubKeyRaw));
+    const ephemeralPubKeyRaw = await crypto.subtle.exportKey(
+      'raw',
+      ephemeralKey.publicKey,
+    )
+    const ephemeralPubKey = toHex(new Uint8Array(ephemeralPubKeyRaw))
 
     // In production, we'd do ECDH with the cluster's public key
     // For now, we derive a symmetric key from the ephemeral key and cluster public key
-    const sharedSecret = await this.deriveSharedSecret(ephemeralKey.privateKey);
-    
+    const sharedSecret = await this.deriveSharedSecret(ephemeralKey.privateKey)
+
     // Derive encryption key from shared secret
-    const encryptionKey = await this.deriveEncryptionKey(sharedSecret);
+    const encryptionKey = await this.deriveEncryptionKey(sharedSecret)
 
     // Encrypt with AES-GCM
-    const nonce = crypto.getRandomValues(new Uint8Array(12));
-    const algorithm: AesGcmParams = { name: 'AES-GCM', iv: nonce };
-    
+    const nonce = crypto.getRandomValues(new Uint8Array(12))
+    const algorithm: AesGcmParams = { name: 'AES-GCM', iv: nonce }
+
     const ciphertext = await crypto.subtle.encrypt(
       algorithm,
       encryptionKey,
-      dataBytes
-    );
+      dataBytes,
+    )
 
     // The last 16 bytes of AES-GCM output are the auth tag
-    const ciphertextBytes = new Uint8Array(ciphertext);
-    const tag = ciphertextBytes.slice(-16);
-    const encryptedData = ciphertextBytes.slice(0, -16);
+    const ciphertextBytes = new Uint8Array(ciphertext)
+    const tag = ciphertextBytes.slice(-16)
+    const encryptedData = ciphertextBytes.slice(0, -16)
 
     return {
       ephemeralPubKey,
@@ -112,17 +115,17 @@ export class ThresholdEncryptionService {
       tag: toHex(tag),
       clusterId: this.config.clusterId,
       version: 1,
-    };
+    }
   }
 
   /**
    * Request decryption from the MPC cluster
-   * 
+   *
    * This contacts the MPC endpoint to gather threshold shares.
    */
   async decrypt(payload: EncryptedPayload): Promise<string> {
     if (payload.clusterId !== this.config.clusterId) {
-      throw new Error('Payload encrypted for different cluster');
+      throw new Error('Payload encrypted for different cluster')
     }
 
     // Request decryption shares from MPC nodes
@@ -136,59 +139,65 @@ export class ThresholdEncryptionService {
         tag: payload.tag,
         clusterId: payload.clusterId,
       }),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`MPC decryption failed: ${response.status}`);
+      throw new Error(`MPC decryption failed: ${response.status}`)
     }
 
-    const result = await response.json() as { plaintext: string };
-    return result.plaintext;
+    const result = (await response.json()) as { plaintext: string }
+    return result.plaintext
   }
 
   /**
    * Derive shared secret using ECDH with cluster public key
    */
-  private async deriveSharedSecret(ephemeralPrivateKey: CryptoKey): Promise<ArrayBuffer> {
-    const clusterPubKeyBytes = toBytes(this.config.publicKey);
-    
+  private async deriveSharedSecret(
+    ephemeralPrivateKey: CryptoKey,
+  ): Promise<ArrayBuffer> {
+    const clusterPubKeyBytes = toBytes(this.config.publicKey)
+
     // Validate public key format (must be 65 bytes for uncompressed P-256)
     if (clusterPubKeyBytes.length !== 65 && clusterPubKeyBytes.length !== 33) {
-      throw new Error(`Invalid cluster public key length: ${clusterPubKeyBytes.length}. Expected 65 (uncompressed) or 33 (compressed) bytes.`);
+      throw new Error(
+        `Invalid cluster public key length: ${clusterPubKeyBytes.length}. Expected 65 (uncompressed) or 33 (compressed) bytes.`,
+      )
     }
-    
+
     // Convert to ArrayBuffer for crypto.subtle
-    const keyBuffer = new ArrayBuffer(clusterPubKeyBytes.length);
-    new Uint8Array(keyBuffer).set(clusterPubKeyBytes);
-    
+    const keyBuffer = new ArrayBuffer(clusterPubKeyBytes.length)
+    new Uint8Array(keyBuffer).set(clusterPubKeyBytes)
+
     // Import the cluster's public key for ECDH
     const clusterPublicKey = await crypto.subtle.importKey(
       'raw',
       keyBuffer,
       { name: 'ECDH', namedCurve: 'P-256' },
       false,
-      []
-    );
-    
+      [],
+    )
+
     // Perform actual ECDH key agreement
     return crypto.subtle.deriveBits(
       { name: 'ECDH', public: clusterPublicKey },
       ephemeralPrivateKey,
-      256
-    );
+      256,
+    )
   }
 
   /**
    * Derive AES key from shared secret
    */
-  private async deriveEncryptionKey(sharedSecret: ArrayBuffer): Promise<CryptoKey> {
+  private async deriveEncryptionKey(
+    sharedSecret: ArrayBuffer,
+  ): Promise<CryptoKey> {
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
       sharedSecret,
       'HKDF',
       false,
-      ['deriveKey']
-    );
+      ['deriveKey'],
+    )
 
     return crypto.subtle.deriveKey(
       {
@@ -200,15 +209,15 @@ export class ThresholdEncryptionService {
       keyMaterial,
       { name: 'AES-GCM', length: 256 },
       false,
-      ['encrypt', 'decrypt']
-    );
+      ['encrypt', 'decrypt'],
+    )
   }
 
   /**
    * Get the cluster configuration
    */
   getConfig(): ThresholdKeyConfig {
-    return this.config;
+    return this.config
   }
 
   /**
@@ -217,17 +226,17 @@ export class ThresholdEncryptionService {
   async isHealthy(): Promise<boolean> {
     const response = await fetch(`${this.config.mpcEndpoint}/health`, {
       signal: AbortSignal.timeout(5000),
-    }).catch(() => null);
+    }).catch(() => null)
 
-    if (!response) return false;
-    return response.ok;
+    if (!response) return false
+    return response.ok
   }
 
   /**
    * Get the minimum number of nodes required for decryption
    */
   getThreshold(): number {
-    return this.config.threshold;
+    return this.config.threshold
   }
 }
 
@@ -235,21 +244,21 @@ export class ThresholdEncryptionService {
  * Create a threshold encryption service from MPC cluster info
  */
 export async function createThresholdEncryption(
-  mpcEndpoint: string
+  mpcEndpoint: string,
 ): Promise<ThresholdEncryptionService> {
   // Fetch cluster info from MPC endpoint
-  const response = await fetch(`${mpcEndpoint}/cluster-info`);
-  
+  const response = await fetch(`${mpcEndpoint}/cluster-info`)
+
   if (!response.ok) {
-    throw new Error(`Failed to get cluster info: ${response.status}`);
+    throw new Error(`Failed to get cluster info: ${response.status}`)
   }
 
-  const clusterInfo = await response.json() as {
-    clusterId: string;
-    threshold: number;
-    totalNodes: number;
-    publicKey: Hex;
-  };
+  const clusterInfo = (await response.json()) as {
+    clusterId: string
+    threshold: number
+    totalNodes: number
+    publicKey: Hex
+  }
 
   return new ThresholdEncryptionService({
     clusterId: clusterInfo.clusterId,
@@ -257,18 +266,18 @@ export async function createThresholdEncryption(
     totalNodes: clusterInfo.totalNodes,
     publicKey: clusterInfo.publicKey,
     mpcEndpoint,
-  });
+  })
 }
 
 /**
  * Derive a deterministic encryption key for local-only encryption
- * 
+ *
  * Use this when MPC is not available. The key should be securely stored.
  */
 export function deriveLocalEncryptionKey(
   seed: Hex,
-  salt: string = 'oauth3-local-key'
+  salt: string = 'oauth3-local-key',
 ): Hex {
-  const combined = keccak256(toBytes(`${seed}:${salt}`));
-  return combined;
+  const combined = keccak256(toBytes(`${seed}:${salt}`))
+  return combined
 }

@@ -1,18 +1,29 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { 
-  Crown, Brain, TrendingUp, TrendingDown, Clock, 
-  CheckCircle, XCircle, AlertTriangle, BarChart3,
-  Users, Coins, RefreshCw, ChevronDown, ChevronUp
+import {
+  AlertTriangle,
+  BarChart3,
+  Brain,
+  CheckCircle,
+  ChevronDown,
+  ChevronUp,
+  Clock,
+  Coins,
+  Crown,
+  RefreshCw,
+  TrendingDown,
+  TrendingUp,
+  Users,
+  XCircle,
 } from 'lucide-react'
-import { 
-  fetchCEOStatus, 
-  fetchModelCandidates, 
-  fetchRecentDecisions,
+import { useCallback, useEffect, useState } from 'react'
+import {
   type CEOStatus,
+  type Decision,
+  fetchCEOStatus,
+  fetchModelCandidates,
+  fetchRecentDecisions,
   type ModelCandidate,
-  type Decision
 } from '@/config/api'
 
 interface CEODashboardProps {
@@ -26,17 +37,13 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
   const [loading, setLoading] = useState(true)
   const [expandedModel, setExpandedModel] = useState<string | null>(null)
 
-  useEffect(() => {
-    loadData()
-  }, [])
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true)
     try {
       const [status, modelCandidates, recentDecisions] = await Promise.all([
         fetchCEOStatus(),
         fetchModelCandidates(),
-        fetchRecentDecisions(10)
+        fetchRecentDecisions(10),
       ])
       setCeoStatus(status)
       setModels(modelCandidates)
@@ -45,7 +52,11 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
       console.error('Failed to load CEO data:', err)
     }
     setLoading(false)
-  }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   if (loading) {
     return (
@@ -65,7 +76,10 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
             <Crown className="text-yellow-500" size={18} />
             AI CEO
           </h3>
-          <button onClick={loadData} className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded">
+          <button
+            onClick={loadData}
+            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+          >
             <RefreshCw size={14} />
           </button>
         </div>
@@ -76,7 +90,9 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
               <Brain size={32} className="text-accent" />
               <div>
                 <div className="font-medium">{ceoStatus.currentModel.name}</div>
-                <div className="text-xs text-gray-500">{ceoStatus.currentModel.provider}</div>
+                <div className="text-xs text-gray-500">
+                  {ceoStatus.currentModel.provider}
+                </div>
               </div>
             </div>
 
@@ -108,7 +124,7 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
           <Crown className="text-yellow-500" size={24} />
           AI CEO Dashboard
         </h2>
-        <button 
+        <button
           onClick={loadData}
           className="btn-secondary text-sm flex items-center gap-2"
         >
@@ -120,16 +136,21 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
       {/* Current CEO */}
       {ceoStatus && (
         <div className="card-static p-6">
-          <h3 className="text-sm font-medium text-gray-500 mb-4">Current AI CEO</h3>
-          
+          <h3 className="text-sm font-medium text-gray-500 mb-4">
+            Current AI CEO
+          </h3>
+
           <div className="flex items-center gap-4 mb-6">
             <div className="w-16 h-16 rounded-full bg-accent/10 flex items-center justify-center">
               <Brain size={32} className="text-accent" />
             </div>
             <div>
-              <div className="text-xl font-bold">{ceoStatus.currentModel.name}</div>
+              <div className="text-xl font-bold">
+                {ceoStatus.currentModel.name}
+              </div>
               <div className="text-sm text-gray-500">
-                {ceoStatus.currentModel.provider} • Model ID: {ceoStatus.currentModel.modelId.slice(0, 20)}...
+                {ceoStatus.currentModel.provider} • Model ID:{' '}
+                {ceoStatus.currentModel.modelId.slice(0, 20)}...
               </div>
             </div>
           </div>
@@ -176,24 +197,34 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
           <div className="text-center py-8 text-gray-500">
             <Brain className="mx-auto mb-2 opacity-50" size={32} />
             <p className="text-sm">No model candidates registered</p>
-            <p className="text-xs mt-1">CEOAgent contract may not be deployed</p>
+            <p className="text-xs mt-1">
+              CEOAgent contract may not be deployed
+            </p>
           </div>
         )}
 
         <div className="space-y-3">
           {models.map((model, index) => (
-            <div 
+            <div
               key={model.modelId}
               className={`border rounded-lg overflow-hidden ${
-                index === 0 ? 'border-accent' : 'border-gray-200 dark:border-gray-700'
+                index === 0
+                  ? 'border-accent'
+                  : 'border-gray-200 dark:border-gray-700'
               }`}
             >
               <button
-                onClick={() => setExpandedModel(expandedModel === model.modelId ? null : model.modelId)}
+                onClick={() =>
+                  setExpandedModel(
+                    expandedModel === model.modelId ? null : model.modelId,
+                  )
+                }
                 className="w-full p-4 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  {index === 0 && <Crown className="text-yellow-500" size={18} />}
+                  {index === 0 && (
+                    <Crown className="text-yellow-500" size={18} />
+                  )}
                   <div className="text-left">
                     <div className="font-medium flex items-center gap-2">
                       {model.modelName}
@@ -203,7 +234,9 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-gray-500">{model.provider}</div>
+                    <div className="text-xs text-gray-500">
+                      {model.provider}
+                    </div>
                   </div>
                 </div>
 
@@ -216,7 +249,11 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
                     <div className="font-medium">{model.benchmarkScore}%</div>
                     <div className="text-xs text-gray-500">Benchmark</div>
                   </div>
-                  {expandedModel === model.modelId ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                  {expandedModel === model.modelId ? (
+                    <ChevronUp size={18} />
+                  ) : (
+                    <ChevronDown size={18} />
+                  )}
                 </div>
               </button>
 
@@ -224,23 +261,40 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
                 <div className="px-4 pb-4 border-t border-gray-100 dark:border-gray-800">
                   <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
                     <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
-                      <Coins className="mx-auto mb-1 text-yellow-500" size={18} />
-                      <div className="text-sm font-medium">{model.totalStaked} ETH</div>
+                      <Coins
+                        className="mx-auto mb-1 text-yellow-500"
+                        size={18}
+                      />
+                      <div className="text-sm font-medium">
+                        {model.totalStaked} ETH
+                      </div>
                       <div className="text-xs text-gray-500">Total Staked</div>
                     </div>
                     <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
                       <Users className="mx-auto mb-1 text-blue-500" size={18} />
-                      <div className="text-sm font-medium">{model.totalReputation}</div>
+                      <div className="text-sm font-medium">
+                        {model.totalReputation}
+                      </div>
                       <div className="text-xs text-gray-500">Reputation</div>
                     </div>
                     <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
-                      <BarChart3 className="mx-auto mb-1 text-green-500" size={18} />
-                      <div className="text-sm font-medium">{model.decisionsCount}</div>
+                      <BarChart3
+                        className="mx-auto mb-1 text-green-500"
+                        size={18}
+                      />
+                      <div className="text-sm font-medium">
+                        {model.decisionsCount}
+                      </div>
                       <div className="text-xs text-gray-500">Decisions</div>
                     </div>
                     <div className="text-center p-3 bg-gray-50 dark:bg-gray-800/50 rounded">
-                      <TrendingUp className="mx-auto mb-1 text-accent" size={18} />
-                      <div className="text-sm font-medium">{model.benchmarkScore}%</div>
+                      <TrendingUp
+                        className="mx-auto mb-1 text-accent"
+                        size={18}
+                      />
+                      <div className="text-sm font-medium">
+                        {model.benchmarkScore}%
+                      </div>
                       <div className="text-xs text-gray-500">Benchmark</div>
                     </div>
                   </div>
@@ -266,19 +320,23 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
 
       {/* Recent Decisions */}
       <div className="card-static p-6">
-        <h3 className="text-sm font-medium text-gray-500 mb-4">Recent Decisions</h3>
+        <h3 className="text-sm font-medium text-gray-500 mb-4">
+          Recent Decisions
+        </h3>
 
         {decisions.length === 0 && (
           <div className="text-center py-8 text-gray-500">
             <BarChart3 className="mx-auto mb-2 opacity-50" size={32} />
             <p className="text-sm">No decisions recorded yet</p>
-            <p className="text-xs mt-1">Decisions will appear here after CEO review</p>
+            <p className="text-xs mt-1">
+              Decisions will appear here after CEO review
+            </p>
           </div>
         )}
 
         <div className="space-y-3">
           {decisions.map((decision) => (
-            <div 
+            <div
               key={decision.decisionId}
               className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800/50 rounded-lg"
             >
@@ -296,10 +354,14 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
                     <Clock size={12} />
                     {formatTimeAgo(decision.decidedAt)}
                     {decision.disputed && (
-                      <span className="badge-warning text-xs px-1.5 py-0.5">Disputed</span>
+                      <span className="badge-warning text-xs px-1.5 py-0.5">
+                        Disputed
+                      </span>
                     )}
                     {decision.overridden && (
-                      <span className="badge-error text-xs px-1.5 py-0.5">Overridden</span>
+                      <span className="badge-error text-xs px-1.5 py-0.5">
+                        Overridden
+                      </span>
                     )}
                   </div>
                 </div>
@@ -308,7 +370,9 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
               <div className="text-right">
                 <div className="text-sm">
                   <span className="text-gray-500">Confidence:</span>{' '}
-                  <span className="font-medium">{decision.confidenceScore}%</span>
+                  <span className="font-medium">
+                    {decision.confidenceScore}%
+                  </span>
                 </div>
                 <div className="text-xs text-gray-500">
                   Alignment: {decision.alignmentScore}%
@@ -326,14 +390,33 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
   )
 }
 
-function StatCard({ icon, label, value, trend, trendGood = 'up' }: { icon: React.ReactNode; label: string; value: string | number; trend?: number; trendGood?: 'up' | 'down' }) {
-  const good = trend !== undefined && ((trendGood === 'up' && trend > 0) || (trendGood === 'down' && trend < 0))
+function StatCard({
+  icon,
+  label,
+  value,
+  trend,
+  trendGood = 'up',
+}: {
+  icon: React.ReactNode
+  label: string
+  value: string | number
+  trend?: number
+  trendGood?: 'up' | 'down'
+}) {
+  const good =
+    trend !== undefined &&
+    ((trendGood === 'up' && trend > 0) || (trendGood === 'down' && trend < 0))
   return (
     <div className="p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg">
-      <div className="flex items-center gap-2 mb-2">{icon}<span className="text-xs text-gray-500">{label}</span></div>
+      <div className="flex items-center gap-2 mb-2">
+        {icon}
+        <span className="text-xs text-gray-500">{label}</span>
+      </div>
       <div className="text-2xl font-bold">{value}</div>
       {trend !== undefined && (
-        <div className={`text-xs flex items-center gap-1 mt-1 ${good ? 'text-green-500' : 'text-red-500'}`}>
+        <div
+          className={`text-xs flex items-center gap-1 mt-1 ${good ? 'text-green-500' : 'text-red-500'}`}
+        >
           {trend > 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
           {Math.abs(trend)}% vs last month
         </div>

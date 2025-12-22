@@ -1,6 +1,11 @@
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi';
-import { formatEther } from 'viem';
-import { useMemo } from 'react';
+import { useMemo } from 'react'
+import { formatEther } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 
 export enum GPUType {
   NONE = 0,
@@ -26,7 +31,7 @@ export const GPU_NAMES: Record<GPUType, string> = {
   [GPUType.APPLE_M1_MAX]: 'Apple M1 Max',
   [GPUType.APPLE_M2_ULTRA]: 'Apple M2 Ultra',
   [GPUType.APPLE_M3_MAX]: 'Apple M3 Max',
-};
+}
 
 export enum RentalStatus {
   PENDING = 0,
@@ -46,54 +51,55 @@ export const STATUS_LABELS: Record<RentalStatus, string> = {
   [RentalStatus.CANCELLED]: 'Cancelled',
   [RentalStatus.EXPIRED]: 'Expired',
   [RentalStatus.DISPUTED]: 'Disputed',
-};
+}
 
 export interface ComputeResources {
-  gpuType: GPUType;
-  gpuCount: number;
-  gpuVram: number;
-  cpuCores: number;
-  memory: number;
-  storage: number;
-  bandwidth: number;
-  teeCapable: boolean;
+  gpuType: GPUType
+  gpuCount: number
+  gpuVram: number
+  cpuCores: number
+  memory: number
+  storage: number
+  bandwidth: number
+  teeCapable: boolean
 }
 
 export interface ResourcePricing {
-  pricePerHour: bigint;
-  pricePerGpuHour: bigint;
-  minimumRentalHours: number;
-  maximumRentalHours: number;
+  pricePerHour: bigint
+  pricePerGpuHour: bigint
+  minimumRentalHours: number
+  maximumRentalHours: number
 }
 
 export interface ProviderResources {
-  resources: ComputeResources;
-  pricing: ResourcePricing;
-  maxConcurrent: number;
-  activeRentals: number;
-  sshEnabled: boolean;
-  dockerEnabled: boolean;
+  resources: ComputeResources
+  pricing: ResourcePricing
+  maxConcurrent: number
+  activeRentals: number
+  sshEnabled: boolean
+  dockerEnabled: boolean
 }
 
 export interface Rental {
-  rentalId: `0x${string}`;
-  user: `0x${string}`;
-  provider: `0x${string}`;
-  status: RentalStatus;
-  startTime: bigint;
-  endTime: bigint;
-  totalCost: bigint;
-  paidAmount: bigint;
-  refundedAmount: bigint;
-  sshPublicKey: string;
-  containerImage: string;
-  startupScript: string;
-  sshHost: string;
-  sshPort: number;
+  rentalId: `0x${string}`
+  user: `0x${string}`
+  provider: `0x${string}`
+  status: RentalStatus
+  startTime: bigint
+  endTime: bigint
+  totalCost: bigint
+  paidAmount: bigint
+  refundedAmount: bigint
+  sshPublicKey: string
+  containerImage: string
+  startupScript: string
+  sshHost: string
+  sshPort: number
 }
 
 // Deployed ComputeRental contract address
-const COMPUTE_RENTAL_ADDRESS = '0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1' as const;
+const COMPUTE_RENTAL_ADDRESS =
+  '0x959922bE3CAee4b8Cd9a407cc3ac1C251C2007B1' as const
 
 const COMPUTE_RENTAL_ABI = [
   // Read functions
@@ -220,10 +226,10 @@ const COMPUTE_RENTAL_ABI = [
     inputs: [{ name: 'rentalId', type: 'bytes32' }],
     outputs: [],
   },
-] as const;
+] as const
 
 export function getComputeRentalAddress(): `0x${string}` {
-  return COMPUTE_RENTAL_ADDRESS;
+  return COMPUTE_RENTAL_ADDRESS
 }
 
 export function useProviderResources(provider: `0x${string}` | undefined) {
@@ -232,12 +238,19 @@ export function useProviderResources(provider: `0x${string}` | undefined) {
     abi: COMPUTE_RENTAL_ABI,
     functionName: 'getProviderResources',
     args: provider ? [provider] : undefined,
-  });
+  })
 
   const resources = useMemo(() => {
-    if (!data) return null;
+    if (!data) return null
 
-    const [res, pricing, maxConcurrent, activeRentals, sshEnabled, dockerEnabled] = data;
+    const [
+      res,
+      pricing,
+      maxConcurrent,
+      activeRentals,
+      sshEnabled,
+      dockerEnabled,
+    ] = data
 
     return {
       resources: {
@@ -260,26 +273,26 @@ export function useProviderResources(provider: `0x${string}` | undefined) {
       activeRentals: Number(activeRentals),
       sshEnabled,
       dockerEnabled,
-    } as ProviderResources;
-  }, [data]);
+    } as ProviderResources
+  }, [data])
 
-  return { resources, refetch, isLoading };
+  return { resources, refetch, isLoading }
 }
 
 export function useUserRentals() {
-  const { address } = useAccount();
+  const { address } = useAccount()
 
   const { data: rentalIds, refetch: refetchIds } = useReadContract({
     address: COMPUTE_RENTAL_ADDRESS,
     abi: COMPUTE_RENTAL_ABI,
     functionName: 'getUserRentals',
     args: address ? [address] : undefined,
-  });
+  })
 
   return {
     rentalIds: (rentalIds || []) as `0x${string}`[],
     refetchIds,
-  };
+  }
 }
 
 export function useRental(rentalId: `0x${string}` | undefined) {
@@ -288,33 +301,41 @@ export function useRental(rentalId: `0x${string}` | undefined) {
     abi: COMPUTE_RENTAL_ABI,
     functionName: 'getRental',
     args: rentalId ? [rentalId] : undefined,
-  });
+  })
 
   return {
     rental: data as Rental | undefined,
     refetch,
     isLoading,
-  };
+  }
 }
 
-export function useRentalCost(provider: `0x${string}` | undefined, durationHours: number) {
+export function useRentalCost(
+  provider: `0x${string}` | undefined,
+  durationHours: number,
+) {
   const { data, isLoading } = useReadContract({
     address: COMPUTE_RENTAL_ADDRESS,
     abi: COMPUTE_RENTAL_ABI,
     functionName: 'calculateRentalCost',
-    args: provider && durationHours > 0 ? [provider, BigInt(durationHours)] : undefined,
-  });
+    args:
+      provider && durationHours > 0
+        ? [provider, BigInt(durationHours)]
+        : undefined,
+  })
 
   return {
     cost: data as bigint | undefined,
     costFormatted: data ? formatEther(data) : '0',
     isLoading,
-  };
+  }
 }
 
 export function useCreateRental() {
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const createRental = (
     provider: `0x${string}`,
@@ -322,49 +343,63 @@ export function useCreateRental() {
     sshPublicKey: string,
     containerImage: string,
     startupScript: string,
-    cost: bigint
+    cost: bigint,
   ) => {
     writeContract({
       address: COMPUTE_RENTAL_ADDRESS,
       abi: COMPUTE_RENTAL_ABI,
       functionName: 'createRental',
-      args: [provider, BigInt(durationHours), sshPublicKey, containerImage, startupScript],
+      args: [
+        provider,
+        BigInt(durationHours),
+        sshPublicKey,
+        containerImage,
+        startupScript,
+      ],
       value: cost,
-    });
-  };
+    })
+  }
 
   return {
     createRental,
     isCreating: isPending || isConfirming,
     isSuccess,
     hash,
-  };
+  }
 }
 
 export function useExtendRental() {
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
-  const extendRental = (rentalId: `0x${string}`, additionalHours: number, cost: bigint) => {
+  const extendRental = (
+    rentalId: `0x${string}`,
+    additionalHours: number,
+    cost: bigint,
+  ) => {
     writeContract({
       address: COMPUTE_RENTAL_ADDRESS,
       abi: COMPUTE_RENTAL_ABI,
       functionName: 'extendRental',
       args: [rentalId, BigInt(additionalHours)],
       value: cost,
-    });
-  };
+    })
+  }
 
   return {
     extendRental,
     isExtending: isPending || isConfirming,
     isSuccess,
-  };
+  }
 }
 
 export function useCancelRental() {
-  const { writeContract, data: hash, isPending } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash });
+  const { writeContract, data: hash, isPending } = useWriteContract()
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const cancelRental = (rentalId: `0x${string}`) => {
     writeContract({
@@ -372,31 +407,30 @@ export function useCancelRental() {
       abi: COMPUTE_RENTAL_ABI,
       functionName: 'cancelRental',
       args: [rentalId],
-    });
-  };
+    })
+  }
 
   return {
     cancelRental,
     isCancelling: isPending || isConfirming,
     isSuccess,
-  };
+  }
 }
 
 export function formatDuration(seconds: number): string {
-  const hours = Math.floor(seconds / 3600);
-  const minutes = Math.floor((seconds % 3600) / 60);
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
 
   if (hours > 24) {
-    const days = Math.floor(hours / 24);
-    const remainingHours = hours % 24;
-    return `${days}d ${remainingHours}h`;
+    const days = Math.floor(hours / 24)
+    const remainingHours = hours % 24
+    return `${days}d ${remainingHours}h`
   }
 
-  return `${hours}h ${minutes}m`;
+  return `${hours}h ${minutes}m`
 }
 
 export function formatHourlyRate(weiPerHour: bigint): string {
-  const ethPerHour = Number(formatEther(weiPerHour));
-  return `${ethPerHour.toFixed(4)} ETH/hr`;
+  const ethPerHour = Number(formatEther(weiPerHour))
+  return `${ethPerHour.toFixed(4)} ETH/hr`
 }
-

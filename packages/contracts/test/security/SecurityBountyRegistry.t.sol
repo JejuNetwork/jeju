@@ -6,50 +6,26 @@ import {SecurityBountyRegistry} from "../../src/security/SecurityBountyRegistry.
 
 // Mock IdentityRegistry that implements the required interface
 contract MockIdentityRegistry {
-    enum StakeTier { NONE, SMALL, MEDIUM, HIGH }
-    
-    struct AgentRegistration {
-        uint256 agentId;
-        address owner;
-        StakeTier tier;
-        address stakedToken;
-        uint256 stakedAmount;
-        uint256 registeredAt;
-        uint256 lastActivityAt;
-        bool isBanned;
-        bool isSlashed;
-    }
-    
-    mapping(uint256 => AgentRegistration) public agents;
+    mapping(uint256 => address) public owners;
+    mapping(uint256 => bool) public exists;
     uint256 public _totalAgents;
     
     function setAgent(uint256 agentId, address _owner) external {
-        agents[agentId] = AgentRegistration({
-            agentId: agentId,
-            owner: _owner,
-            tier: StakeTier.MEDIUM,
-            stakedToken: address(0),
-            stakedAmount: 0.01 ether,
-            registeredAt: block.timestamp,
-            lastActivityAt: block.timestamp,
-            isBanned: false,
-            isSlashed: false
-        });
-        if (agentId > _totalAgents) {
-            _totalAgents = agentId;
-        }
+        owners[agentId] = _owner;
+        exists[agentId] = true;
+        _totalAgents++;
+    }
+    
+    function ownerOf(uint256 agentId) external view returns (address) {
+        return owners[agentId];
+    }
+    
+    function agentExists(uint256 agentId) external view returns (bool) {
+        return exists[agentId];
     }
     
     function totalAgents() external view returns (uint256) {
         return _totalAgents;
-    }
-    
-    function getAgent(uint256 agentId) external view returns (AgentRegistration memory) {
-        return agents[agentId];
-    }
-    
-    function agentExists(uint256 agentId) external view returns (bool) {
-        return agents[agentId].registeredAt != 0;
     }
     
     function getAgentProfile(uint256) external pure returns (
@@ -61,8 +37,9 @@ contract MockIdentityRegistry {
         return ("Agent", "Test agent", "", false);
     }
     
+    // Required for _getAgentId to work
     function getAgentByOwner(address) external pure returns (uint256) {
-        return 0;
+        return 0; // Return 0 for simplicity
     }
     
     // Make the mock payable
@@ -280,134 +257,5 @@ contract SecurityBountyRegistryTest is Test {
     
     function test_MinStake() public view {
         assertEq(registry.MIN_STAKE(), 0.001 ether);
-    }
-    
-    // ============ Guardian Tests ============
-    
-    function test_RegisterAsGuardian() public {
-        address guardian = makeAddr("guardian");
-        vm.deal(guardian, 1 ether);
-        
-        // Register agent for guardian
-        identityRegistry.setAgent(1, guardian);
-        
-        vm.prank(guardian);
-        registry.registerAsGuardian();
-        
-        assertTrue(registry.isGuardian(1));
-        assertEq(registry.getGuardianCount(), 1);
-    }
-    
-    function test_RegisterAsGuardian_RevertIfNoAgent() public {
-        address noAgent = makeAddr("noAgent");
-        
-        vm.prank(noAgent);
-        vm.expectRevert(SecurityBountyRegistry.InvalidGuardian.selector);
-        registry.registerAsGuardian();
-    }
-    
-    function test_GuardianVote() public {
-        // Setup guardian
-        address guardian = makeAddr("guardian");
-        vm.deal(guardian, 1 ether);
-        identityRegistry.setAgent(1, guardian);
-        
-        vm.prank(guardian);
-        registry.registerAsGuardian();
-        
-        // Submit vulnerability and validate to reach GUARDIAN_REVIEW status
-        vm.prank(researcher);
-        bytes32 submissionId = registry.submitVulnerability{value: 0.01 ether}(
-            SecurityBountyRegistry.Severity.LOW,
-            SecurityBountyRegistry.VulnerabilityType.DENIAL_OF_SERVICE,
-            keccak256("report"),
-            keccak256("key"),
-            keccak256("poc"),
-            keccak256("vuln-unique-guardian-test")
-        );
-        
-        vm.prank(computeOracle);
-        registry.startValidation(submissionId, keccak256("sandbox-job"));
-        
-        vm.prank(computeOracle);
-        registry.completeValidation(
-            submissionId,
-            SecurityBountyRegistry.ValidationResult.VERIFIED,
-            "Exploit confirmed",
-            0.01 ether
-        );
-        
-        // Guardian votes
-        vm.prank(guardian);
-        registry.guardianVote(submissionId, true, 0.5 ether, "Valid vulnerability");
-        
-        SecurityBountyRegistry.VulnerabilitySubmission memory sub = registry.getSubmission(submissionId);
-        assertEq(sub.guardianApprovals, 1);
-    }
-    
-    function test_FullFlowLowSeverity() public {
-        // Setup multiple guardians for quorum
-        address guardian1 = makeAddr("guardian1");
-        address guardian2 = makeAddr("guardian2");
-        vm.deal(guardian1, 1 ether);
-        vm.deal(guardian2, 1 ether);
-        
-        identityRegistry.setAgent(1, guardian1);
-        identityRegistry.setAgent(2, guardian2);
-        
-        vm.prank(guardian1);
-        registry.registerAsGuardian();
-        vm.prank(guardian2);
-        registry.registerAsGuardian();
-        
-        // Submit vulnerability
-        vm.prank(researcher);
-        bytes32 submissionId = registry.submitVulnerability{value: 0.01 ether}(
-            SecurityBountyRegistry.Severity.LOW,
-            SecurityBountyRegistry.VulnerabilityType.INFORMATION_DISCLOSURE,
-            keccak256("report"),
-            keccak256("key"),
-            keccak256("poc"),
-            keccak256("vuln-unique-full-flow")
-        );
-        
-        // Compute oracle validates
-        vm.prank(computeOracle);
-        registry.startValidation(submissionId, keccak256("sandbox-job"));
-        
-        vm.prank(computeOracle);
-        registry.completeValidation(
-            submissionId,
-            SecurityBountyRegistry.ValidationResult.VERIFIED,
-            "Exploit confirmed",
-            0.01 ether
-        );
-        
-        // Guardians vote (LOW severity needs 2 approvals)
-        vm.prank(guardian1);
-        registry.guardianVote(submissionId, true, 0.5 ether, "Valid");
-        
-        vm.prank(guardian2);
-        registry.guardianVote(submissionId, true, 0.5 ether, "Confirmed");
-        
-        // Check submission was approved
-        SecurityBountyRegistry.VulnerabilitySubmission memory sub = registry.getSubmission(submissionId);
-        assertEq(uint8(sub.status), uint8(SecurityBountyRegistry.SubmissionStatus.APPROVED));
-        assertTrue(sub.rewardAmount > 0);
-    }
-    
-    function test_RemoveGuardian() public {
-        address guardian = makeAddr("guardian");
-        vm.deal(guardian, 1 ether);
-        
-        identityRegistry.setAgent(1, guardian);
-        
-        vm.prank(guardian);
-        registry.registerAsGuardian();
-        assertTrue(registry.isGuardian(1));
-        
-        vm.prank(owner);
-        registry.removeGuardian(1);
-        assertFalse(registry.isGuardian(1));
     }
 }

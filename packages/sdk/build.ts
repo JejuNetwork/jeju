@@ -1,8 +1,7 @@
-import { $ } from 'bun';
+import { $ } from 'bun'
 
-await $`rm -rf dist`;
+await $`rm -rf dist`
 // Build with --skipLibCheck to handle external type issues
-await $`tsc --skipLibCheck || true`;
+await $`tsc --skipLibCheck || true`
 
-console.log('Build complete');
-
+console.log('Build complete')

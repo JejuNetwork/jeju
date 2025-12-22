@@ -9,25 +9,25 @@ import type {
   IAgentRuntime,
   Memory,
   State,
-} from "@elizaos/core";
-import { parseEther, formatEther, type Address } from "viem";
-import { JejuService, JEJU_SERVICE_NAME } from "../service";
-import { getNetworkName } from "@jejunetwork/config";
+} from '@elizaos/core'
+import { getNetworkName } from '@jejunetwork/config'
+import { type Address, formatEther, parseEther } from 'viem'
+import { JEJU_SERVICE_NAME, type JejuService } from '../service'
 import {
   getMessageText,
   getOptionalMessageText,
   validateServiceExists,
-} from "../validation";
+} from '../validation'
 
-const networkName = getNetworkName();
+const networkName = getNetworkName()
 
 // ============================================================================
 // Get Player Info
 // ============================================================================
 
 export const getPlayerInfoAction: Action = {
-  name: "GET_PLAYER_INFO",
-  similes: ["check player", "player info", "player status", "my game status"],
+  name: 'GET_PLAYER_INFO',
+  similes: ['check player', 'player info', 'player status', 'my game status'],
   description: `Get player information from the game integration contract on ${networkName}`,
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
     validateServiceExists(runtime),
@@ -38,18 +38,18 @@ export const getPlayerInfoAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const sdk = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const sdk = service.getClient()
 
     // Extract player address from message or use agent's own address
-    const text = getOptionalMessageText(message);
-    const addressMatch = text.match(/0x[a-fA-F0-9]{40}/);
+    const text = getOptionalMessageText(message)
+    const addressMatch = text.match(/0x[a-fA-F0-9]{40}/)
     const playerAddress = (
       addressMatch ? addressMatch[0] : sdk.address
-    ) as Address;
+    ) as Address
 
-    const playerInfo = await sdk.games.getPlayerInfo(playerAddress);
-    const isAllowed = await sdk.games.isPlayerAllowed(playerAddress);
+    const playerInfo = await sdk.games.getPlayerInfo(playerAddress)
+    const isAllowed = await sdk.games.isPlayerAllowed(playerAddress)
 
     await callback?.({
       text: `Player Info for ${playerAddress}:
@@ -57,29 +57,29 @@ export const getPlayerInfoAction: Action = {
 - Allowed: ${isAllowed}
 - Gold Balance: ${formatEther(playerInfo.goldBalance)} GOLD
 - Items: ${playerInfo.itemBalances.length} different item types`,
-    });
+    })
   },
   examples: [
     [
       {
-        name: "user",
-        content: { text: "Check my player status" },
+        name: 'user',
+        content: { text: 'Check my player status' },
       },
       {
-        name: "assistant",
-        content: { text: "Getting your player information..." },
+        name: 'assistant',
+        content: { text: 'Getting your player information...' },
       },
     ],
   ] as ActionExample[][],
-};
+}
 
 // ============================================================================
 // Get Gold Balance
 // ============================================================================
 
 export const getGoldBalanceAction: Action = {
-  name: "GET_GOLD_BALANCE",
-  similes: ["gold balance", "check gold", "my gold", "how much gold"],
+  name: 'GET_GOLD_BALANCE',
+  similes: ['gold balance', 'check gold', 'my gold', 'how much gold'],
   description: `Check gold balance in the game on ${networkName}`,
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
     validateServiceExists(runtime),
@@ -90,42 +90,42 @@ export const getGoldBalanceAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const sdk = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const sdk = service.getClient()
 
-    const text = getOptionalMessageText(message); // Address is optional
-    const addressMatch = text.match(/0x[a-fA-F0-9]{40}/);
-    const account = addressMatch ? (addressMatch[0] as Address) : undefined;
+    const text = getOptionalMessageText(message) // Address is optional
+    const addressMatch = text.match(/0x[a-fA-F0-9]{40}/)
+    const account = addressMatch ? (addressMatch[0] as Address) : undefined
 
-    const balance = await sdk.games.getGoldBalance(account);
+    const balance = await sdk.games.getGoldBalance(account)
 
     await callback?.({
       text: `Gold Balance: ${formatEther(balance)} GOLD`,
-    });
+    })
 
-    return;
+    return
   },
   examples: [
     [
       {
-        name: "user",
-        content: { text: "Check my gold balance" },
+        name: 'user',
+        content: { text: 'Check my gold balance' },
       },
       {
-        name: "assistant",
-        content: { text: "Gold Balance: 1000.0 GOLD" },
+        name: 'assistant',
+        content: { text: 'Gold Balance: 1000.0 GOLD' },
       },
     ],
   ] as ActionExample[][],
-};
+}
 
 // ============================================================================
 // Transfer Gold
 // ============================================================================
 
 export const transferGoldAction: Action = {
-  name: "TRANSFER_GOLD",
-  similes: ["send gold", "transfer gold", "give gold"],
+  name: 'TRANSFER_GOLD',
+  similes: ['send gold', 'transfer gold', 'give gold'],
   description: `Transfer gold to another player on ${networkName}`,
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
     validateServiceExists(runtime),
@@ -136,56 +136,56 @@ export const transferGoldAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const sdk = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const sdk = service.getClient()
 
-    const text = getMessageText(message);
+    const text = getMessageText(message)
 
     // Parse: "send 100 gold to 0x..."
-    const addressMatch = text.match(/0x[a-fA-F0-9]{40}/);
-    const amountMatch = text.match(/(\d+(?:\.\d+)?)\s*gold/i);
+    const addressMatch = text.match(/0x[a-fA-F0-9]{40}/)
+    const amountMatch = text.match(/(\d+(?:\.\d+)?)\s*gold/i)
 
     if (!addressMatch || !amountMatch) {
       await callback?.({
         text: "Please specify the recipient address and amount. Example: 'Send 100 gold to 0x1234...'",
-      });
-      return;
+      })
+      return
     }
 
-    const to = addressMatch[0] as Address;
-    const amount = parseEther(amountMatch[1]);
+    const to = addressMatch[0] as Address
+    const amount = parseEther(amountMatch[1])
 
-    const txHash = await sdk.games.transferGold({ to, amount });
+    const txHash = await sdk.games.transferGold({ to, amount })
 
     await callback?.({
       text: `Transferred ${amountMatch[1]} GOLD to ${to}\nTransaction: ${txHash}`,
-    });
+    })
 
-    return;
+    return
   },
   examples: [
     [
       {
-        name: "user",
+        name: 'user',
         content: {
-          text: "Send 100 gold to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+          text: 'Send 100 gold to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
         },
       },
       {
-        name: "assistant",
-        content: { text: "Transferred 100 GOLD. Transaction: 0x..." },
+        name: 'assistant',
+        content: { text: 'Transferred 100 GOLD. Transaction: 0x...' },
       },
     ],
   ] as ActionExample[][],
-};
+}
 
 // ============================================================================
 // Get Item Balance
 // ============================================================================
 
 export const getItemBalanceAction: Action = {
-  name: "GET_ITEM_BALANCE",
-  similes: ["item balance", "check items", "my items", "inventory"],
+  name: 'GET_ITEM_BALANCE',
+  similes: ['item balance', 'check items', 'my items', 'inventory'],
   description: `Check item balance in the game on ${networkName}`,
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
     validateServiceExists(runtime),
@@ -196,62 +196,62 @@ export const getItemBalanceAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const sdk = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const sdk = service.getClient()
 
-    const text = getOptionalMessageText(message); // Item ID is optional, shows all items if not provided
+    const text = getOptionalMessageText(message) // Item ID is optional, shows all items if not provided
 
     // Try to parse item ID
     const itemIdMatch =
-      text.match(/item\s*#?(\d+)/i) ?? text.match(/id\s*(\d+)/i);
+      text.match(/item\s*#?(\d+)/i) ?? text.match(/id\s*(\d+)/i)
 
     if (itemIdMatch) {
-      const itemId = BigInt(itemIdMatch[1]);
-      const balance = await sdk.games.getItemBalance(itemId);
-      const uri = await sdk.games.getItemUri(itemId);
+      const itemId = BigInt(itemIdMatch[1])
+      const balance = await sdk.games.getItemBalance(itemId)
+      const uri = await sdk.games.getItemUri(itemId)
 
       await callback?.({
         text: `Item #${itemId}:
 - Balance: ${balance.toString()}
 - URI: ${uri}`,
-      });
+      })
     } else {
       // Show multiple item balances
-      const commonItems = [1n, 2n, 3n, 4n, 5n];
-      const balances = await sdk.games.getItemBalances(commonItems);
+      const commonItems = [1n, 2n, 3n, 4n, 5n]
+      const balances = await sdk.games.getItemBalances(commonItems)
 
       const itemList = commonItems
         .map((id, i) => `- Item #${id}: ${balances[i].toString()}`)
-        .join("\n");
+        .join('\n')
 
       await callback?.({
         text: `Your Item Inventory:\n${itemList}`,
-      });
+      })
     }
 
-    return;
+    return
   },
   examples: [
     [
       {
-        name: "user",
-        content: { text: "Check my items" },
+        name: 'user',
+        content: { text: 'Check my items' },
       },
       {
-        name: "assistant",
-        content: { text: "Your Item Inventory:\n- Item #1: 5\n- Item #2: 3" },
+        name: 'assistant',
+        content: { text: 'Your Item Inventory:\n- Item #1: 5\n- Item #2: 3' },
       },
     ],
   ] as ActionExample[][],
-};
+}
 
 // ============================================================================
 // Transfer Item
 // ============================================================================
 
 export const transferItemAction: Action = {
-  name: "TRANSFER_ITEM",
-  similes: ["send item", "transfer item", "give item"],
+  name: 'TRANSFER_ITEM',
+  similes: ['send item', 'transfer item', 'give item'],
   description: `Transfer an item to another player on ${networkName}`,
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
     validateServiceExists(runtime),
@@ -262,65 +262,65 @@ export const transferItemAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const sdk = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const sdk = service.getClient()
 
-    const text = getMessageText(message);
+    const text = getMessageText(message)
 
     // Parse: "send 5 of item #1 to 0x..."
-    const addressMatch = text.match(/0x[a-fA-F0-9]{40}/);
-    const itemMatch = text.match(/item\s*#?(\d+)/i);
-    const amountMatch = text.match(/(\d+)\s*(of|x)?/i);
+    const addressMatch = text.match(/0x[a-fA-F0-9]{40}/)
+    const itemMatch = text.match(/item\s*#?(\d+)/i)
+    const amountMatch = text.match(/(\d+)\s*(of|x)?/i)
 
     if (!addressMatch || !itemMatch) {
       await callback?.({
         text: "Please specify the item ID, amount, and recipient. Example: 'Send 5 of item #1 to 0x1234...'",
-      });
-      return;
+      })
+      return
     }
 
     if (!amountMatch) {
       await callback?.({
         text: "Please specify the amount. Example: 'Send 5 of item #1 to 0x1234...'",
-      });
-      return;
+      })
+      return
     }
 
-    const to = addressMatch[0] as Address;
-    const itemId = BigInt(itemMatch[1]);
-    const amount = BigInt(amountMatch[1]);
+    const to = addressMatch[0] as Address
+    const itemId = BigInt(itemMatch[1])
+    const amount = BigInt(amountMatch[1])
 
-    const txHash = await sdk.games.transferItem({ to, itemId, amount });
+    const txHash = await sdk.games.transferItem({ to, itemId, amount })
 
     await callback?.({
       text: `Transferred ${amount} of Item #${itemId} to ${to}\nTransaction: ${txHash}`,
-    });
+    })
 
-    return;
+    return
   },
   examples: [
     [
       {
-        name: "user",
+        name: 'user',
         content: {
-          text: "Send 5 of item #1 to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e",
+          text: 'Send 5 of item #1 to 0x742d35Cc6634C0532925a3b844Bc454e4438f44e',
         },
       },
       {
-        name: "assistant",
-        content: { text: "Transferred 5 of Item #1. Transaction: 0x..." },
+        name: 'assistant',
+        content: { text: 'Transferred 5 of Item #1. Transaction: 0x...' },
       },
     ],
   ] as ActionExample[][],
-};
+}
 
 // ============================================================================
 // Link Agent ID
 // ============================================================================
 
 export const linkAgentAction: Action = {
-  name: "LINK_GAME_AGENT",
-  similes: ["link agent", "connect agent", "register with game"],
+  name: 'LINK_GAME_AGENT',
+  similes: ['link agent', 'connect agent', 'register with game'],
   description: `Link your agent ID to the game integration contract on ${networkName}`,
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
     validateServiceExists(runtime),
@@ -331,51 +331,51 @@ export const linkAgentAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const sdk = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const sdk = service.getClient()
 
-    const text = getMessageText(message);
+    const text = getMessageText(message)
 
     const agentIdMatch =
-      text.match(/agent\s*#?(\d+)/i) ?? text.match(/id\s*(\d+)/i);
+      text.match(/agent\s*#?(\d+)/i) ?? text.match(/id\s*(\d+)/i)
 
     if (!agentIdMatch) {
       await callback?.({
         text: "Please specify the agent ID to link. Example: 'Link agent #123'",
-      });
-      return;
+      })
+      return
     }
 
-    const agentId = BigInt(agentIdMatch[1]);
-    const txHash = await sdk.games.linkAgentId(agentId);
+    const agentId = BigInt(agentIdMatch[1])
+    const txHash = await sdk.games.linkAgentId(agentId)
 
     await callback?.({
       text: `Linked Agent #${agentId} to game contract.\nTransaction: ${txHash}`,
-    });
+    })
 
-    return;
+    return
   },
   examples: [
     [
       {
-        name: "user",
-        content: { text: "Link agent #123 to the game" },
+        name: 'user',
+        content: { text: 'Link agent #123 to the game' },
       },
       {
-        name: "assistant",
-        content: { text: "Linked Agent #123. Transaction: 0x..." },
+        name: 'assistant',
+        content: { text: 'Linked Agent #123. Transaction: 0x...' },
       },
     ],
   ] as ActionExample[][],
-};
+}
 
 // ============================================================================
 // Get Game Stats
 // ============================================================================
 
 export const getGameStatsAction: Action = {
-  name: "GET_GAME_STATS",
-  similes: ["game stats", "game statistics", "game info", "server stats"],
+  name: 'GET_GAME_STATS',
+  similes: ['game stats', 'game statistics', 'game info', 'server stats'],
   description: `Get overall game statistics from ${networkName}`,
   validate: async (runtime: IAgentRuntime): Promise<boolean> =>
     validateServiceExists(runtime),
@@ -386,11 +386,11 @@ export const getGameStatsAction: Action = {
     _options?: Record<string, unknown>,
     callback?: HandlerCallback,
   ): Promise<void> => {
-    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService;
-    const sdk = service.getClient();
+    const service = runtime.getService(JEJU_SERVICE_NAME) as JejuService
+    const sdk = service.getClient()
 
-    const stats = await sdk.games.getGameStats();
-    const contracts = await sdk.games.getContracts();
+    const stats = await sdk.games.getGameStats()
+    const contracts = await sdk.games.getContracts()
 
     await callback?.({
       text: `Game Statistics:
@@ -403,22 +403,22 @@ Game Contracts:
 - GameIntegration: ${contracts.gameIntegration}
 - Gold: ${contracts.gold}
 - Items: ${contracts.items}`,
-    });
+    })
 
-    return;
+    return
   },
   examples: [
     [
       {
-        name: "user",
-        content: { text: "Show me the game stats" },
+        name: 'user',
+        content: { text: 'Show me the game stats' },
       },
       {
-        name: "assistant",
+        name: 'assistant',
         content: {
-          text: "Game Statistics:\n- Total Players: 1000\n- Total Gold Supply: 1000000 GOLD",
+          text: 'Game Statistics:\n- Total Players: 1000\n- Total Gold Supply: 1000000 GOLD',
         },
       },
     ],
   ] as ActionExample[][],
-};
+}

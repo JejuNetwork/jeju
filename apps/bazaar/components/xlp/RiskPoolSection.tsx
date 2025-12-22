@@ -1,13 +1,14 @@
 'use client'
 
+import { Activity, ChevronDown, ChevronUp, Flame, Shield } from 'lucide-react'
 import { useState } from 'react'
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useReadContract } from 'wagmi'
-import { parseEther, formatEther, type Address } from 'viem'
-import { Shield, Activity, Flame, ChevronDown, ChevronUp } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
+import { type Address, formatEther, parseEther } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 
 // Risk tier enum matching the contract
 enum RiskTier {
@@ -119,8 +120,8 @@ interface RiskPoolCardProps {
   onToggle: () => void
 }
 
-function RiskPoolCard({ 
-  config, 
+function RiskPoolCard({
+  config,
   riskSleeveAddress,
   userDeposit,
   totalDeposited,
@@ -129,9 +130,11 @@ function RiskPoolCard({
 }: RiskPoolCardProps) {
   const [depositAmount, setDepositAmount] = useState('')
   const [withdrawAmount, setWithdrawAmount] = useState('')
-  
+
   const { writeContract, data: hash, isPending } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const isLoading = isPending || isConfirming
   const Icon = config.icon
@@ -171,59 +174,78 @@ function RiskPoolCard({
   }
 
   return (
-    <Card className={`border-2 transition-all ${isExpanded ? 'border-primary' : 'border-border'}`}>
-      <CardHeader className="cursor-pointer" onClick={onToggle}>
+    <div
+      className={`rounded-lg border-2 transition-all p-4 ${isExpanded ? 'border-primary' : 'border-border'}`}
+    >
+      <div className="cursor-pointer" onClick={onToggle}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-lg ${config.bgClass}`}>
               <Icon className={`h-5 w-5 ${config.colorClass}`} />
             </div>
             <div>
-              <CardTitle className={`text-lg ${config.colorClass}`}>{config.name}</CardTitle>
-              <p className="text-sm text-muted-foreground">{config.description}</p>
+              <h3 className={`text-lg font-semibold ${config.colorClass}`}>
+                {config.name}
+              </h3>
+              <p className="text-sm text-muted-foreground">
+                {config.description}
+              </p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
               <p className="text-sm text-muted-foreground">Expected APY</p>
-              <p className={`text-xl font-bold ${config.colorClass}`}>{config.expectedApy}</p>
+              <p className={`text-xl font-bold ${config.colorClass}`}>
+                {config.expectedApy}
+              </p>
             </div>
-            {isExpanded ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
+            {isExpanded ? (
+              <ChevronUp className="h-5 w-5" />
+            ) : (
+              <ChevronDown className="h-5 w-5" />
+            )}
           </div>
         </div>
-      </CardHeader>
-      
+      </div>
+
       {isExpanded && (
-        <CardContent className="space-y-4">
+        <div className="mt-4 space-y-4">
           <div className="grid grid-cols-2 gap-4">
-            <Card className="p-4">
+            <div className="rounded-lg border p-4">
               <p className="text-sm text-muted-foreground">Your Deposit</p>
               <p className={`text-xl font-bold ${config.colorClass}`}>
                 {formatEther(userDeposit)} ETH
               </p>
-            </Card>
-            <Card className="p-4">
+            </div>
+            <div className="rounded-lg border p-4">
               <p className="text-sm text-muted-foreground">Total in Pool</p>
               <p className="text-xl font-bold">
                 {formatEther(totalDeposited)} ETH
               </p>
-            </Card>
+            </div>
           </div>
 
           <form onSubmit={handleDeposit} className="space-y-2">
             <label className="text-sm font-medium">Deposit ETH</label>
             <div className="flex gap-2">
-              <Input
+              <input
                 type="number"
                 step="0.01"
                 placeholder="0.0"
                 value={depositAmount}
-                onChange={(e) => setDepositAmount(e.target.value)}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setDepositAmount(e.target.value)
+                }
                 disabled={isLoading}
+                className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
               />
-              <Button type="submit" disabled={isLoading || !depositAmount}>
+              <button
+                type="submit"
+                disabled={isLoading || !depositAmount}
+                className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50"
+              >
                 Deposit
-              </Button>
+              </button>
             </div>
           </form>
 
@@ -232,38 +254,45 @@ function RiskPoolCard({
               <form onSubmit={handleWithdraw} className="space-y-2">
                 <label className="text-sm font-medium">Withdraw ETH</label>
                 <div className="flex gap-2">
-                  <Input
+                  <input
                     type="number"
                     step="0.01"
                     placeholder="0.0"
                     value={withdrawAmount}
-                    onChange={(e) => setWithdrawAmount(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                      setWithdrawAmount(e.target.value)
+                    }
                     disabled={isLoading}
+                    className="flex h-10 w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm"
                   />
-                  <Button type="submit" variant="outline" disabled={isLoading || !withdrawAmount}>
+                  <button
+                    type="submit"
+                    disabled={isLoading || !withdrawAmount}
+                    className="inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium border border-input bg-transparent disabled:opacity-50"
+                  >
                     Withdraw
-                  </Button>
+                  </button>
                 </div>
               </form>
 
-              <Button 
-                className="w-full" 
+              <button
+                className="w-full inline-flex items-center justify-center rounded-md px-4 py-2 text-sm font-medium bg-primary text-primary-foreground disabled:opacity-50"
                 onClick={handleClaimYield}
                 disabled={isLoading}
               >
                 Claim Yield
-              </Button>
+              </button>
             </>
           )}
 
           {isSuccess && (
-            <Badge variant="outline" className="w-full justify-center py-2 text-green-500 border-green-500">
+            <div className="w-full text-center py-2 text-green-500 border border-green-500 rounded-full text-xs font-semibold">
               Transaction successful
-            </Badge>
+            </div>
           )}
-        </CardContent>
+        </div>
       )}
-    </Card>
+    </div>
   )
 }
 
@@ -271,7 +300,9 @@ interface RiskPoolSectionProps {
   riskSleeveAddress?: Address
 }
 
-export default function RiskPoolSection({ riskSleeveAddress }: RiskPoolSectionProps) {
+export default function RiskPoolSection({
+  riskSleeveAddress,
+}: RiskPoolSectionProps) {
   const { isConnected, address } = useAccount()
   const [expandedTier, setExpandedTier] = useState<RiskTier | null>(null)
 
@@ -311,7 +342,7 @@ export default function RiskPoolSection({ riskSleeveAddress }: RiskPoolSectionPr
     args: [RiskTier.CONSERVATIVE],
     query: { enabled: !!riskSleeveAddress },
   })
-  const conservativeTotal = conservativeSleeveData?.[0] ?? 0n // deposited is first element
+  const conservativeTotal = conservativeSleeveData?.[0] ?? 0n
 
   const { data: balancedSleeveData } = useReadContract({
     address: riskSleeveAddress,
@@ -320,7 +351,7 @@ export default function RiskPoolSection({ riskSleeveAddress }: RiskPoolSectionPr
     args: [RiskTier.BALANCED],
     query: { enabled: !!riskSleeveAddress },
   })
-  const balancedTotal = balancedSleeveData?.[0] ?? 0n // deposited is first element
+  const balancedTotal = balancedSleeveData?.[0] ?? 0n
 
   const { data: aggressiveSleeveData } = useReadContract({
     address: riskSleeveAddress,
@@ -329,7 +360,7 @@ export default function RiskPoolSection({ riskSleeveAddress }: RiskPoolSectionPr
     args: [RiskTier.AGGRESSIVE],
     query: { enabled: !!riskSleeveAddress },
   })
-  const aggressiveTotal = aggressiveSleeveData?.[0] ?? 0n // deposited is first element
+  const aggressiveTotal = aggressiveSleeveData?.[0] ?? 0n
 
   const deposits: Record<RiskTier, bigint> = {
     [RiskTier.CONSERVATIVE]: conservativeDeposit,
@@ -343,72 +374,76 @@ export default function RiskPoolSection({ riskSleeveAddress }: RiskPoolSectionPr
     [RiskTier.AGGRESSIVE]: aggressiveTotal,
   }
 
-  const totalUserDeposit = conservativeDeposit + balancedDeposit + aggressiveDeposit
+  const totalUserDeposit =
+    conservativeDeposit + balancedDeposit + aggressiveDeposit
   const totalPoolValue = conservativeTotal + balancedTotal + aggressiveTotal
 
   if (!isConnected) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Risk-Based Liquidity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-muted-foreground">Connect your wallet to manage risk-based liquidity allocations</p>
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border p-6">
+        <h3 className="text-lg font-semibold mb-2">Risk-Based Liquidity</h3>
+        <p className="text-muted-foreground">
+          Connect your wallet to manage risk-based liquidity allocations
+        </p>
+      </div>
     )
   }
 
   if (!riskSleeveAddress) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Risk-Based Liquidity</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <Badge variant="destructive">RiskSleeve contract not configured</Badge>
-        </CardContent>
-      </Card>
+      <div className="rounded-lg border p-6">
+        <h3 className="text-lg font-semibold mb-2">Risk-Based Liquidity</h3>
+        <span className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-semibold bg-destructive text-destructive-foreground">
+          RiskSleeve contract not configured
+        </span>
+      </div>
     )
   }
 
   return (
     <div className="space-y-4">
-      <Card>
-        <CardHeader>
-          <CardTitle>Risk-Based Liquidity Pools</CardTitle>
-          <p className="text-sm text-muted-foreground">
-            Allocate your liquidity across different risk tiers for optimized yields
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-4 mb-6">
-            <Card className="p-4">
-              <p className="text-sm text-muted-foreground">Your Total Deposits</p>
-              <p className="text-2xl font-bold">{formatEther(totalUserDeposit)} ETH</p>
-            </Card>
-            <Card className="p-4">
-              <p className="text-sm text-muted-foreground">Total Pool Value</p>
-              <p className="text-2xl font-bold">{formatEther(totalPoolValue)} ETH</p>
-            </Card>
-          </div>
+      <div className="rounded-lg border p-6">
+        <h3 className="text-lg font-semibold mb-1">
+          Risk-Based Liquidity Pools
+        </h3>
+        <p className="text-sm text-muted-foreground mb-6">
+          Allocate your liquidity across different risk tiers for optimized
+          yields
+        </p>
 
-          <div className="space-y-4">
-            {TIER_CONFIGS.map((config) => (
-              <RiskPoolCard
-                key={config.tier}
-                config={config}
-                riskSleeveAddress={riskSleeveAddress}
-                userDeposit={deposits[config.tier]}
-                totalDeposited={totals[config.tier]}
-                isExpanded={expandedTier === config.tier}
-                onToggle={() => setExpandedTier(expandedTier === config.tier ? null : config.tier)}
-              />
-            ))}
+        <div className="grid grid-cols-2 gap-4 mb-6">
+          <div className="rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground">Your Total Deposits</p>
+            <p className="text-2xl font-bold">
+              {formatEther(totalUserDeposit)} ETH
+            </p>
           </div>
-        </CardContent>
-      </Card>
+          <div className="rounded-lg border p-4">
+            <p className="text-sm text-muted-foreground">Total Pool Value</p>
+            <p className="text-2xl font-bold">
+              {formatEther(totalPoolValue)} ETH
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-4">
+          {TIER_CONFIGS.map((config) => (
+            <RiskPoolCard
+              key={config.tier}
+              config={config}
+              riskSleeveAddress={riskSleeveAddress}
+              userDeposit={deposits[config.tier]}
+              totalDeposited={totals[config.tier]}
+              isExpanded={expandedTier === config.tier}
+              onToggle={() =>
+                setExpandedTier(
+                  expandedTier === config.tier ? null : config.tier,
+                )
+              }
+            />
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
-

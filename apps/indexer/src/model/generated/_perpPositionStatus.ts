@@ -1,5 +1,5 @@
 export enum PerpPositionStatus {
-    OPEN = "OPEN",
-    CLOSED = "CLOSED",
-    LIQUIDATED = "LIQUIDATED",
+  OPEN = 'OPEN',
+  CLOSED = 'CLOSED',
+  LIQUIDATED = 'LIQUIDATED',
 }

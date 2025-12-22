@@ -1,24 +1,25 @@
-import { z } from 'zod';
-import { AddressSchema } from './validation';
+import { z } from 'zod'
+import { AddressSchema } from './validation'
 
-export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet']);
+export const NetworkSchema = z.enum(['localnet', 'testnet', 'mainnet'])
 
 /**
  * Optional address schema - allows empty strings for contracts that haven't been deployed yet
  * Empty string means "not yet deployed/configured"
  */
-const OptionalAddressSchema = z.string().refine(
-  (val) => val === '' || /^0x[a-fA-F0-9]{40}$/.test(val),
-  { message: 'Must be empty or valid Ethereum address' }
-);
-export type NetworkType = z.infer<typeof NetworkSchema>;
+const OptionalAddressSchema = z
+  .string()
+  .refine((val) => val === '' || /^0x[a-fA-F0-9]{40}$/.test(val), {
+    message: 'Must be empty or valid Ethereum address',
+  })
+export type NetworkType = z.infer<typeof NetworkSchema>
 
 // ============ Chain Type Classification ============
 
 /**
  * Chain type classification - distinguishes between EVM and Solana chains
  */
-export type ChainType = 'evm' | 'solana';
+export type ChainType = 'evm' | 'solana'
 
 // ============ EVM Chain IDs ============
 
@@ -27,21 +28,21 @@ export type ChainType = 'evm' | 'solana';
  * Consolidates all EVM chain definitions into a single source of truth
  */
 export type EVMChainId =
-  | 1        // Ethereum Mainnet
-  | 10       // Optimism
-  | 56       // BSC (Binance Smart Chain)
-  | 137      // Polygon
-  | 42161    // Arbitrum One
-  | 43114    // Avalanche
-  | 8453     // Base
-  | 84532    // Base Sepolia (testnet)
+  | 1 // Ethereum Mainnet
+  | 10 // Optimism
+  | 56 // BSC (Binance Smart Chain)
+  | 137 // Polygon
+  | 42161 // Arbitrum One
+  | 43114 // Avalanche
+  | 8453 // Base
+  | 84532 // Base Sepolia (testnet)
   | 11155111 // Sepolia (testnet)
   | 11155420 // Optimism Sepolia (testnet)
-  | 421614   // Arbitrum Sepolia (testnet)
-  | 420690   // Jeju Testnet (L2 on Sepolia)
-  | 420691   // Jeju Mainnet (L2 on Ethereum)
-  | 1337     // Localnet (development)
-  | 31337;   // Local EVM (development)
+  | 421614 // Arbitrum Sepolia (testnet)
+  | 420690 // Jeju Testnet (L2 on Sepolia)
+  | 420691 // Jeju Mainnet (L2 on Ethereum)
+  | 1337 // Localnet (development)
+  | 31337 // Local EVM (development)
 
 // ============ Solana Networks ============
 
@@ -49,13 +50,18 @@ export type EVMChainId =
  * Supported Solana network identifiers
  * Includes both standard and common alias names
  */
-export type SolanaNetwork = 'mainnet-beta' | 'devnet' | 'localnet' | 'solana-mainnet' | 'solana-devnet';
+export type SolanaNetwork =
+  | 'mainnet-beta'
+  | 'devnet'
+  | 'localnet'
+  | 'solana-mainnet'
+  | 'solana-devnet'
 
 const GasTokenSchema = z.object({
   name: z.string(),
   symbol: z.string(),
   decimals: z.number(),
-});
+})
 
 /** OP Stack L2 contract addresses for chain config */
 const ChainL2ContractsSchema = z.object({
@@ -66,7 +72,7 @@ const ChainL2ContractsSchema = z.object({
   GasPriceOracle: AddressSchema,
   L1Block: AddressSchema,
   WETH: AddressSchema,
-});
+})
 
 /** OP Stack L1 contract addresses for chain config - allows empty for undeployed contracts */
 const ChainL1ContractsSchema = z.object({
@@ -75,7 +81,7 @@ const ChainL1ContractsSchema = z.object({
   L1CrossDomainMessenger: OptionalAddressSchema,
   L1StandardBridge: OptionalAddressSchema,
   SystemConfig: OptionalAddressSchema,
-});
+})
 
 // ============ Base Chain Configuration ============
 
@@ -84,16 +90,16 @@ const ChainL1ContractsSchema = z.object({
  * Used as foundation for domain-specific chain configs
  */
 export interface BaseChainConfig {
-  chainId: EVMChainId | SolanaNetwork;
-  chainType: ChainType;
-  name: string;
-  rpcUrl: string;
-  explorerUrl?: string;
+  chainId: EVMChainId | SolanaNetwork
+  chainType: ChainType
+  name: string
+  rpcUrl: string
+  explorerUrl?: string
   nativeCurrency?: {
-    symbol: string;
-    decimals: number;
-    name?: string;
-  };
+    symbol: string
+    decimals: number
+    name?: string
+  }
 }
 
 // ============ OP Stack Chain Configuration ============
@@ -120,9 +126,8 @@ export const ChainConfigSchema = z.object({
     l2: ChainL2ContractsSchema,
     l1: ChainL1ContractsSchema,
   }),
-});
-export type ChainConfig = z.infer<typeof ChainConfigSchema>;
-
+})
+export type ChainConfig = z.infer<typeof ChainConfigSchema>
 
 export const OPStackConfigSchema = z.object({
   opNode: z.object({
@@ -159,8 +164,8 @@ export const OPStackConfigSchema = z.object({
     consensusPort: z.number(),
     healthCheckPort: z.number(),
   }),
-});
-export type OPStackConfig = z.infer<typeof OPStackConfigSchema>;
+})
+export type OPStackConfig = z.infer<typeof OPStackConfigSchema>
 
 export const RethConfigSchema = z.object({
   image: z.string(),
@@ -172,8 +177,8 @@ export const RethConfigSchema = z.object({
   enginePort: z.number(),
   maxPeers: z.number(),
   pruning: z.enum(['full', 'archive']),
-});
-export type RethConfig = z.infer<typeof RethConfigSchema>;
+})
+export type RethConfig = z.infer<typeof RethConfigSchema>
 
 export const EigenDAConfigSchema = z.object({
   enabled: z.boolean(),
@@ -183,8 +188,8 @@ export const EigenDAConfigSchema = z.object({
   retrieverRpc: z.string(),
   attestationServiceUrl: z.string(),
   minConfirmations: z.number(),
-});
-export type EigenDAConfig = z.infer<typeof EigenDAConfigSchema>;
+})
+export type EigenDAConfig = z.infer<typeof EigenDAConfigSchema>
 
 export const FlashblocksConfigSchema = z.object({
   enabled: z.boolean(),
@@ -195,8 +200,8 @@ export const FlashblocksConfigSchema = z.object({
     electionTimeout: z.number(), // milliseconds
   }),
   sequencerFollowers: z.number(),
-});
-export type FlashblocksConfig = z.infer<typeof FlashblocksConfigSchema>;
+})
+export type FlashblocksConfig = z.infer<typeof FlashblocksConfigSchema>
 
 export const GenesisConfigSchema = z.object({
   timestamp: z.number(),
@@ -206,8 +211,8 @@ export const GenesisConfigSchema = z.object({
   baseFeePerGas: z.string(),
   l1BlockHash: z.string().optional(),
   l1BlockNumber: z.number().optional(),
-});
-export type GenesisConfig = z.infer<typeof GenesisConfigSchema>;
+})
+export type GenesisConfig = z.infer<typeof GenesisConfigSchema>
 
 export const RollupConfigSchema = z.object({
   genesis: GenesisConfigSchema,
@@ -220,7 +225,5 @@ export const RollupConfigSchema = z.object({
   batchInboxAddress: z.string(),
   depositContractAddress: z.string(),
   l1SystemConfigAddress: z.string(),
-});
-export type RollupConfig = z.infer<typeof RollupConfigSchema>;
-
-
+})
+export type RollupConfig = z.infer<typeof RollupConfigSchema>

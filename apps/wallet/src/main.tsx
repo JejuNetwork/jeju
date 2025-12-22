@@ -1,23 +1,31 @@
-import React from 'react';
-import ReactDOM from 'react-dom/client';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiProvider, createConfig, http } from 'wagmi';
-import { mainnet, base, arbitrum, optimism, bsc } from 'wagmi/chains';
-import { injected } from 'wagmi/connectors';
-import { getUrls, getLocalnetChain, getTestnetChain } from './config/branding';
-import App from './App';
-import './index.css';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { createConfig, http, WagmiProvider } from 'wagmi'
+import { arbitrum, base, bsc, mainnet, optimism } from 'wagmi/chains'
+import { injected } from 'wagmi/connectors'
+import App from './App'
+import { getLocalnetChain, getTestnetChain, getUrls } from './config/branding'
+import './index.css'
 
 // RPC endpoints from branding config
-const urls = getUrls();
-const NETWORK_RPC = import.meta.env.VITE_NETWORK_RPC_URL || urls.rpc.mainnet;
+const urls = getUrls()
+const NETWORK_RPC = import.meta.env.VITE_NETWORK_RPC_URL || urls.rpc.mainnet
 
 // Chain definitions from shared config
-const networkLocalnet = getLocalnetChain();
-const networkTestnet = getTestnetChain();
+const networkLocalnet = getLocalnetChain()
+const networkTestnet = getTestnetChain()
 
 // Supported chains (popular EVM + network chains)
-const chains = [mainnet, base, arbitrum, optimism, bsc, networkLocalnet, networkTestnet] as const;
+const chains = [
+  mainnet,
+  base,
+  arbitrum,
+  optimism,
+  bsc,
+  networkLocalnet,
+  networkTestnet,
+] as const
 
 // Wagmi config - fully permissionless, no external dependencies
 const config = createConfig({
@@ -38,7 +46,7 @@ const config = createConfig({
     [networkLocalnet.id]: http('http://localhost:6546'),
     [networkTestnet.id]: http(urls.rpc.testnet),
   },
-});
+})
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -48,9 +56,9 @@ const queryClient = new QueryClient({
       retry: 1,
     },
   },
-});
+})
 
-const root = document.getElementById('root');
+const root = document.getElementById('root')
 if (root) {
   ReactDOM.createRoot(root).render(
     <React.StrictMode>
@@ -59,6 +67,6 @@ if (root) {
           <App />
         </QueryClientProvider>
       </WagmiProvider>
-    </React.StrictMode>
-  );
+    </React.StrictMode>,
+  )
 }

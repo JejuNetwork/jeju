@@ -1,8 +1,7 @@
 // Transaction components
-export * from './transaction';
 
 // Approval management
-export * from './approvals';
-
+export * from './approvals'
 // Transaction history
-export * from './history';
+export * from './history'
+export * from './transaction'

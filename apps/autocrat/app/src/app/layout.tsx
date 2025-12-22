@@ -1,16 +1,16 @@
 import type { Metadata, Viewport } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import './globals.css'
-import { Providers } from './providers'
 import { Header } from '@/components/Header'
+import { Providers } from './providers'
 
-const geist = Geist({ 
+const geist = Geist({
   subsets: ['latin'],
   variable: '--font-geist',
   display: 'swap',
 })
 
-const geistMono = Geist_Mono({ 
+const geistMono = Geist_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
   display: 'swap',
@@ -41,6 +41,24 @@ export const viewport: Viewport = {
   ],
 }
 
+// Theme initialization script to prevent flash of wrong theme
+const themeScript = `(function() {
+  try {
+    const savedTheme = localStorage.getItem('autocrat-theme');
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    if (savedTheme ? savedTheme === 'dark' : prefersDark) {
+      document.documentElement.classList.add('dark');
+    }
+  } catch (e) {
+    console.warn('Failed to initialize theme:', e);
+  }
+})();`
+
+function ThemeScript() {
+  // biome-ignore lint/security/noDangerouslySetInnerHtml: Theme initialization requires inline script to prevent flash of wrong theme
+  return <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -49,26 +67,11 @@ export default function RootLayout({
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
-              (function() {
-                try {
-                  const savedTheme = localStorage.getItem('autocrat-theme');
-                  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-                  if (savedTheme ? savedTheme === 'dark' : prefersDark) {
-                    document.documentElement.classList.add('dark');
-                  }
-                } catch (e) {
-                  // Theme initialization failure is non-critical, continue without theme
-                  console.warn('Failed to initialize theme:', e);
-                }
-              })();
-            `,
-          }}
-        />
+        <ThemeScript />
       </head>
-      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}>
+      <body
+        className={`${geist.variable} ${geistMono.variable} font-sans antialiased`}
+      >
         <Providers>
           <div className="min-h-screen min-h-dvh flex flex-col">
             <Header />

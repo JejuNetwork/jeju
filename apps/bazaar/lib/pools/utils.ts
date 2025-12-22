@@ -1,18 +1,23 @@
-import { Address, keccak256, encodePacked } from 'viem'
 import { AddressSchema } from '@jejunetwork/types'
-import { expect, expectTrue, expectPositive } from '@/lib/validation'
-import { PoolKey } from './types'
+import { type Address, encodePacked, keccak256 } from 'viem'
+import { expectPositive, expectTrue } from '@/lib/validation'
+import type { PoolKey } from './types'
 
 export function computePoolId(key: PoolKey): `0x${string}` {
   const encoded = encodePacked(
     ['address', 'address', 'uint24', 'int24', 'address'],
-    [key.currency0, key.currency1, key.fee, key.tickSpacing, key.hooks]
+    [key.currency0, key.currency1, key.fee, key.tickSpacing, key.hooks],
   )
   return keccak256(encoded)
 }
 
-export function sortTokens(tokenA: Address, tokenB: Address): [Address, Address] {
-  return tokenA.toLowerCase() < tokenB.toLowerCase() ? [tokenA, tokenB] : [tokenB, tokenA]
+export function sortTokens(
+  tokenA: Address,
+  tokenB: Address,
+): [Address, Address] {
+  return tokenA.toLowerCase() < tokenB.toLowerCase()
+    ? [tokenA, tokenB]
+    : [tokenB, tokenA]
 }
 
 export function createPoolKey(
@@ -20,7 +25,7 @@ export function createPoolKey(
   tokenB: Address,
   fee: number,
   tickSpacing: number,
-  hooks: Address = '0x0000000000000000000000000000000000000000'
+  hooks: Address = '0x0000000000000000000000000000000000000000',
 ): PoolKey {
   const [currency0, currency1] = sortTokens(tokenA, tokenB)
   return {
@@ -42,12 +47,15 @@ export function getTickSpacing(fee: number): number {
   return 200
 }
 
-export function calculateSqrtPriceX96(amount0: bigint, amount1: bigint): bigint {
+export function calculateSqrtPriceX96(
+  amount0: bigint,
+  amount1: bigint,
+): bigint {
   expectTrue(amount0 !== 0n, 'Amount0 cannot be zero')
-  
+
   // Calculate price = amount1 / amount0
-  const price = (amount1 * (2n ** 192n)) / amount0
-  
+  const price = (amount1 * 2n ** 192n) / amount0
+
   // Take square root using Newton's method
   let z = (price + 1n) / 2n
   let y = price
@@ -55,7 +63,7 @@ export function calculateSqrtPriceX96(amount0: bigint, amount1: bigint): bigint 
     y = z
     z = (price / z + z) / 2n
   }
-  
+
   return y
 }
 
@@ -65,7 +73,10 @@ export function sqrtPriceX96ToPrice(sqrtPriceX96: bigint): number {
   return Number(price) / Number(Q96)
 }
 
-export function formatLiquidity(liquidity: bigint, decimals: number = 18): string {
+export function formatLiquidity(
+  liquidity: bigint,
+  decimals: number = 18,
+): string {
   const value = Number(liquidity) / 10 ** decimals
   if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`
   if (value >= 1000) return `${(value / 1000).toFixed(2)}K`
@@ -86,12 +97,18 @@ export function getZeroAddress(): Address {
 }
 
 export function validatePoolKey(key: PoolKey): void {
-  AddressSchema.parse(key.currency0);
-  AddressSchema.parse(key.currency1);
-  expectTrue(key.currency0 !== key.currency1, 'Tokens must be different');
-  expectTrue(key.currency0.toLowerCase() < key.currency1.toLowerCase(), 'currency0 must be less than currency1');
-  expectTrue(key.fee >= 0 && key.fee <= 1000000, 'Fee must be between 0 and 1000000');
-  expectPositive(key.tickSpacing, 'Tick spacing must be positive');
+  AddressSchema.parse(key.currency0)
+  AddressSchema.parse(key.currency1)
+  expectTrue(key.currency0 !== key.currency1, 'Tokens must be different')
+  expectTrue(
+    key.currency0.toLowerCase() < key.currency1.toLowerCase(),
+    'currency0 must be less than currency1',
+  )
+  expectTrue(
+    key.fee >= 0 && key.fee <= 1000000,
+    'Fee must be between 0 and 1000000',
+  )
+  expectPositive(key.tickSpacing, 'Tick spacing must be positive')
 }
 
 export function priceToTick(price: number): number {
@@ -99,8 +116,5 @@ export function priceToTick(price: number): number {
 }
 
 export function tickToPrice(tick: number): number {
-  return Math.pow(1.0001, tick)
+  return 1.0001 ** tick
 }
-
-
-

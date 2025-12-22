@@ -1,7 +1,7 @@
 'use client'
 
-import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import Link from 'next/link'
 import { CEODashboard } from '@/components/CEODashboard'
 
 export default function CEOPage() {
@@ -9,8 +9,8 @@ export default function CEOPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link 
-          href="/" 
+        <Link
+          href="/"
           className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
         >
           <ArrowLeft size={20} />

@@ -1,6 +1,6 @@
 /**
  * Portfolio Simulator
- * 
+ *
  * Simulates a TFMM portfolio with:
  * - Weight evolution
  * - Swap execution
@@ -8,54 +8,61 @@
  * - Fee accrual
  */
 
-import type { Token, OraclePrice } from '../types';
-import { CompositeStrategy } from '../strategies/tfmm/composite-strategy';
-import type { StrategyContext, WeightCalculation } from '../strategies/tfmm/base-strategy';
-import { OracleAggregator } from '../oracles';
-import { WEIGHT_PRECISION, BPS_PRECISION } from '../schemas';
+import { OracleAggregator } from '../oracles'
+import { BPS_PRECISION, WEIGHT_PRECISION } from '../schemas'
+import type {
+  StrategyContext,
+  WeightCalculation,
+} from '../strategies/tfmm/base-strategy'
+import { CompositeStrategy } from '../strategies/tfmm/composite-strategy'
+import type { OraclePrice, Token } from '../types'
+
+// Maximum history entries to prevent memory leaks
+const MAX_SWAP_HISTORY = 10000
+const MAX_WEIGHT_HISTORY = 10000
 
 export interface SimulatedPool {
-  address: string;
-  tokens: Token[];
-  balances: bigint[];
-  weights: bigint[];
-  targetWeights: bigint[];
-  weightDeltas: bigint[];
-  lastUpdateBlock: number;
-  blocksRemaining: number;
-  swapFeeBps: number;
-  protocolFeeBps: number;
-  totalLpTokens: bigint;
-  accumulatedFees: bigint[];
+  address: string
+  tokens: Token[]
+  balances: bigint[]
+  weights: bigint[]
+  targetWeights: bigint[]
+  weightDeltas: bigint[]
+  lastUpdateBlock: number
+  blocksRemaining: number
+  swapFeeBps: number
+  protocolFeeBps: number
+  totalLpTokens: bigint
+  accumulatedFees: bigint[]
 }
 
 export interface SimulatedSwap {
-  tokenIn: string;
-  tokenOut: string;
-  amountIn: bigint;
-  amountOut: bigint;
-  fee: bigint;
-  slippage: number;
-  block: number;
+  tokenIn: string
+  tokenOut: string
+  amountIn: bigint
+  amountOut: bigint
+  fee: bigint
+  slippage: number
+  block: number
 }
 
 export class PortfolioSimulator {
-  private pool: SimulatedPool;
-  private strategy: CompositeStrategy;
-  private oracle: OracleAggregator;
-  private currentBlock = 0;
-  private swapHistory: SimulatedSwap[] = [];
-  private weightHistory: { block: number; weights: bigint[] }[] = [];
+  private pool: SimulatedPool
+  private strategy: CompositeStrategy
+  private oracle: OracleAggregator
+  private currentBlock = 0
+  private swapHistory: SimulatedSwap[] = []
+  private weightHistory: { block: number; weights: bigint[] }[] = []
 
   constructor(
     tokens: Token[],
     initialBalances: bigint[],
     initialWeights: bigint[],
     swapFeeBps = 30,
-    protocolFeeBps = 1000
+    protocolFeeBps = 1000,
   ) {
     this.pool = {
-      address: '0x' + 'SIMULATED'.padStart(40, '0'),
+      address: `0x${'SIMULATED'.padStart(40, '0')}`,
       tokens,
       balances: [...initialBalances],
       weights: [...initialWeights],
@@ -67,35 +74,35 @@ export class PortfolioSimulator {
       protocolFeeBps,
       totalLpTokens: this.calculateInitialLp(initialBalances, initialWeights),
       accumulatedFees: initialBalances.map(() => 0n),
-    };
+    }
 
-    this.oracle = new OracleAggregator({});
-    this.strategy = new CompositeStrategy(this.oracle);
-    this.weightHistory.push({ block: 0, weights: [...initialWeights] });
+    this.oracle = new OracleAggregator({})
+    this.strategy = new CompositeStrategy(this.oracle)
+    this.weightHistory.push({ block: 0, weights: [...initialWeights] })
   }
 
   /**
    * Advance simulation by one block
    */
   advanceBlock(prices?: OraclePrice[]): void {
-    this.currentBlock++;
+    this.currentBlock++
 
     // Interpolate weights
     if (this.pool.blocksRemaining > 0) {
       for (let i = 0; i < this.pool.weights.length; i++) {
-        this.pool.weights[i] += this.pool.weightDeltas[i];
+        this.pool.weights[i] += this.pool.weightDeltas[i]
       }
-      this.pool.blocksRemaining--;
+      this.pool.blocksRemaining--
 
       if (this.pool.blocksRemaining === 0) {
         // Snap to target weights
-        this.pool.weights = [...this.pool.targetWeights];
+        this.pool.weights = [...this.pool.targetWeights]
       }
     }
 
     // Update price history
     if (prices) {
-      this.strategy.updatePriceHistory(prices);
+      this.strategy.updatePriceHistory(prices)
     }
   }
 
@@ -104,7 +111,7 @@ export class PortfolioSimulator {
    */
   advanceBlocks(count: number, prices?: OraclePrice[]): void {
     for (let i = 0; i < count; i++) {
-      this.advanceBlock(prices);
+      this.advanceBlock(prices)
     }
   }
 
@@ -114,44 +121,49 @@ export class PortfolioSimulator {
   swap(
     tokenInSymbol: string,
     tokenOutSymbol: string,
-    amountIn: bigint
+    amountIn: bigint,
   ): SimulatedSwap {
-    const inIndex = this.pool.tokens.findIndex(t => t.symbol === tokenInSymbol);
-    const outIndex = this.pool.tokens.findIndex(t => t.symbol === tokenOutSymbol);
+    const inIndex = this.pool.tokens.findIndex(
+      (t) => t.symbol === tokenInSymbol,
+    )
+    const outIndex = this.pool.tokens.findIndex(
+      (t) => t.symbol === tokenOutSymbol,
+    )
 
     if (inIndex === -1 || outIndex === -1) {
-      throw new Error('Token not found');
+      throw new Error('Token not found')
     }
 
-    const balanceIn = this.pool.balances[inIndex];
-    const balanceOut = this.pool.balances[outIndex];
-    const weightIn = this.pool.weights[inIndex];
-    const weightOut = this.pool.weights[outIndex];
+    const balanceIn = this.pool.balances[inIndex]
+    const balanceOut = this.pool.balances[outIndex]
+    const weightIn = this.pool.weights[inIndex]
+    const weightOut = this.pool.weights[outIndex]
 
     // Calculate fee
-    const fee = (amountIn * BigInt(this.pool.swapFeeBps)) / BPS_PRECISION;
-    const amountInAfterFee = amountIn - fee;
+    const fee = (amountIn * BigInt(this.pool.swapFeeBps)) / BPS_PRECISION
+    const amountInAfterFee = amountIn - fee
 
     // Calculate output using weighted power function
     // amountOut = balanceOut * (1 - (balanceIn / (balanceIn + amountInAfterFee)) ^ (weightIn / weightOut))
-    const newBalanceIn = balanceIn + amountInAfterFee;
-    const ratio = (balanceIn * WEIGHT_PRECISION) / newBalanceIn;
-    const weightRatio = (weightIn * WEIGHT_PRECISION) / weightOut;
-    const powerResult = this.power(ratio, weightRatio);
-    const amountOut = (balanceOut * (WEIGHT_PRECISION - powerResult)) / WEIGHT_PRECISION;
+    const newBalanceIn = balanceIn + amountInAfterFee
+    const ratio = (balanceIn * WEIGHT_PRECISION) / newBalanceIn
+    const weightRatio = (weightIn * WEIGHT_PRECISION) / weightOut
+    const powerResult = this.power(ratio, weightRatio)
+    const amountOut =
+      (balanceOut * (WEIGHT_PRECISION - powerResult)) / WEIGHT_PRECISION
 
     // Update balances
-    this.pool.balances[inIndex] += amountIn;
-    this.pool.balances[outIndex] -= amountOut;
+    this.pool.balances[inIndex] += amountIn
+    this.pool.balances[outIndex] -= amountOut
 
     // Accumulate protocol fee
-    const protocolFee = (fee * BigInt(this.pool.protocolFeeBps)) / BPS_PRECISION;
-    this.pool.accumulatedFees[inIndex] += protocolFee;
+    const protocolFee = (fee * BigInt(this.pool.protocolFeeBps)) / BPS_PRECISION
+    this.pool.accumulatedFees[inIndex] += protocolFee
 
     // Calculate slippage vs spot price
-    const spotPrice = (balanceOut * weightIn) / (balanceIn * weightOut);
-    const effectivePrice = amountOut / amountInAfterFee;
-    const slippage = Number(spotPrice - effectivePrice) / Number(spotPrice);
+    const spotPrice = (balanceOut * weightIn) / (balanceIn * weightOut)
+    const effectivePrice = amountOut / amountInAfterFee
+    const slippage = Number(spotPrice - effectivePrice) / Number(spotPrice)
 
     const swap: SimulatedSwap = {
       tokenIn: tokenInSymbol,
@@ -161,16 +173,25 @@ export class PortfolioSimulator {
       fee,
       slippage,
       block: this.currentBlock,
-    };
+    }
 
-    this.swapHistory.push(swap);
-    return swap;
+    this.swapHistory.push(swap)
+
+    // Prevent unbounded memory growth
+    if (this.swapHistory.length > MAX_SWAP_HISTORY) {
+      this.swapHistory = this.swapHistory.slice(-MAX_SWAP_HISTORY)
+    }
+
+    return swap
   }
 
   /**
    * Update pool weights using strategy
    */
-  async updateWeights(prices: OraclePrice[], blocksToTarget = 100): Promise<WeightCalculation> {
+  async updateWeights(
+    prices: OraclePrice[],
+    blocksToTarget = 100,
+  ): Promise<WeightCalculation> {
     const ctx: StrategyContext = {
       pool: this.pool.address,
       tokens: this.pool.tokens,
@@ -187,160 +208,171 @@ export class PortfolioSimulator {
       },
       blockNumber: BigInt(this.currentBlock),
       timestamp: Date.now(),
-    };
+    }
 
-    const calculation = await this.strategy.calculateWeights(ctx);
+    const calculation = await this.strategy.calculateWeights(ctx)
 
     // Apply weight update
-    this.applyWeightUpdate(calculation.newWeights, blocksToTarget);
+    this.applyWeightUpdate(calculation.newWeights, blocksToTarget)
 
-    return calculation;
+    return calculation
   }
 
   /**
    * Apply new weight targets
    */
   applyWeightUpdate(newWeights: bigint[], blocksToTarget: number): void {
-    this.pool.targetWeights = [...newWeights];
-    this.pool.blocksRemaining = blocksToTarget;
-    this.pool.lastUpdateBlock = this.currentBlock;
+    this.pool.targetWeights = [...newWeights]
+    this.pool.blocksRemaining = blocksToTarget
+    this.pool.lastUpdateBlock = this.currentBlock
 
     // Calculate deltas
     for (let i = 0; i < newWeights.length; i++) {
-      this.pool.weightDeltas[i] = (newWeights[i] - this.pool.weights[i]) / BigInt(blocksToTarget);
+      this.pool.weightDeltas[i] =
+        (newWeights[i] - this.pool.weights[i]) / BigInt(blocksToTarget)
     }
 
-    this.weightHistory.push({ block: this.currentBlock, weights: [...newWeights] });
+    this.weightHistory.push({
+      block: this.currentBlock,
+      weights: [...newWeights],
+    })
+
+    // Prevent unbounded memory growth
+    if (this.weightHistory.length > MAX_WEIGHT_HISTORY) {
+      this.weightHistory = this.weightHistory.slice(-MAX_WEIGHT_HISTORY)
+    }
   }
 
   /**
    * Add liquidity proportionally
    */
   addLiquidity(amounts: bigint[]): bigint {
-    let minRatio = WEIGHT_PRECISION;
+    let minRatio = WEIGHT_PRECISION
 
     for (let i = 0; i < amounts.length; i++) {
       if (this.pool.balances[i] > 0n && amounts[i] > 0n) {
-        const ratio = (amounts[i] * WEIGHT_PRECISION) / this.pool.balances[i];
-        if (ratio < minRatio) minRatio = ratio;
+        const ratio = (amounts[i] * WEIGHT_PRECISION) / this.pool.balances[i]
+        if (ratio < minRatio) minRatio = ratio
       }
     }
 
     // Add to balances
     for (let i = 0; i < amounts.length; i++) {
-      this.pool.balances[i] += amounts[i];
+      this.pool.balances[i] += amounts[i]
     }
 
     // Mint LP tokens
-    const lpTokens = (this.pool.totalLpTokens * minRatio) / WEIGHT_PRECISION;
-    this.pool.totalLpTokens += lpTokens;
+    const lpTokens = (this.pool.totalLpTokens * minRatio) / WEIGHT_PRECISION
+    this.pool.totalLpTokens += lpTokens
 
-    return lpTokens;
+    return lpTokens
   }
 
   /**
    * Remove liquidity proportionally
    */
   removeLiquidity(lpTokens: bigint): bigint[] {
-    const share = (lpTokens * WEIGHT_PRECISION) / this.pool.totalLpTokens;
-    const amounts: bigint[] = [];
+    const share = (lpTokens * WEIGHT_PRECISION) / this.pool.totalLpTokens
+    const amounts: bigint[] = []
 
     for (let i = 0; i < this.pool.balances.length; i++) {
-      const amount = (this.pool.balances[i] * share) / WEIGHT_PRECISION;
-      this.pool.balances[i] -= amount;
-      amounts.push(amount);
+      const amount = (this.pool.balances[i] * share) / WEIGHT_PRECISION
+      this.pool.balances[i] -= amount
+      amounts.push(amount)
     }
 
-    this.pool.totalLpTokens -= lpTokens;
-    return amounts;
+    this.pool.totalLpTokens -= lpTokens
+    return amounts
   }
 
   /**
    * Get current pool state
    */
   getState(): SimulatedPool {
-    return { ...this.pool };
+    return { ...this.pool }
   }
 
   /**
    * Get current weights (interpolated)
    */
   getCurrentWeights(): bigint[] {
-    return [...this.pool.weights];
+    return [...this.pool.weights]
   }
 
   /**
    * Get swap history
    */
   getSwapHistory(): SimulatedSwap[] {
-    return [...this.swapHistory];
+    return [...this.swapHistory]
   }
 
   /**
    * Get weight history
    */
   getWeightHistory(): { block: number; weights: bigint[] }[] {
-    return [...this.weightHistory];
+    return [...this.weightHistory]
   }
 
   /**
    * Calculate spot price
    */
   getSpotPrice(tokenIn: string, tokenOut: string): bigint {
-    const inIndex = this.pool.tokens.findIndex(t => t.symbol === tokenIn);
-    const outIndex = this.pool.tokens.findIndex(t => t.symbol === tokenOut);
+    const inIndex = this.pool.tokens.findIndex((t) => t.symbol === tokenIn)
+    const outIndex = this.pool.tokens.findIndex((t) => t.symbol === tokenOut)
 
     if (inIndex === -1) {
-      throw new Error(`Token ${tokenIn} not found in pool`);
+      throw new Error(`Token ${tokenIn} not found in pool`)
     }
     if (outIndex === -1) {
-      throw new Error(`Token ${tokenOut} not found in pool`);
+      throw new Error(`Token ${tokenOut} not found in pool`)
     }
 
-    const balanceIn = this.pool.balances[inIndex];
-    const balanceOut = this.pool.balances[outIndex];
-    const weightIn = this.pool.weights[inIndex];
-    const weightOut = this.pool.weights[outIndex];
+    const balanceIn = this.pool.balances[inIndex]
+    const balanceOut = this.pool.balances[outIndex]
+    const weightIn = this.pool.weights[inIndex]
+    const weightOut = this.pool.weights[outIndex]
 
     // price = (balanceOut / weightOut) / (balanceIn / weightIn)
-    return (balanceOut * weightIn * WEIGHT_PRECISION) / (balanceIn * weightOut);
+    return (balanceOut * weightIn * WEIGHT_PRECISION) / (balanceIn * weightOut)
   }
 
   /**
    * Calculate total pool value in terms of first token
    */
   calculateTotalValue(): bigint {
-    let total = 0n;
+    let total = 0n
     for (let i = 0; i < this.pool.balances.length; i++) {
       // Value each token in terms of token 0
       if (i === 0) {
-        total += this.pool.balances[i];
+        total += this.pool.balances[i]
       } else {
-        const price = this.getSpotPrice(this.pool.tokens[i].symbol, this.pool.tokens[0].symbol);
-        total += (this.pool.balances[i] * price) / WEIGHT_PRECISION;
+        const price = this.getSpotPrice(
+          this.pool.tokens[i].symbol,
+          this.pool.tokens[0].symbol,
+        )
+        total += (this.pool.balances[i] * price) / WEIGHT_PRECISION
       }
     }
-    return total;
+    return total
   }
 
   // ============ Private Methods ============
 
   private calculateInitialLp(balances: bigint[], weights: bigint[]): bigint {
     // Geometric mean weighted by weights
-    let product = WEIGHT_PRECISION;
+    let product = WEIGHT_PRECISION
     for (let i = 0; i < balances.length; i++) {
-      product += (balances[i] * weights[i]) / WEIGHT_PRECISION;
+      product += (balances[i] * weights[i]) / WEIGHT_PRECISION
     }
-    return product;
+    return product
   }
 
   private power(base: bigint, exp: bigint): bigint {
     // Approximation for (base/PRECISION)^(exp/PRECISION)
-    if (base >= WEIGHT_PRECISION) return WEIGHT_PRECISION;
+    if (base >= WEIGHT_PRECISION) return WEIGHT_PRECISION
 
-    const x = WEIGHT_PRECISION - base;
+    const x = WEIGHT_PRECISION - base
     // Linear approximation: (1-x)^n ≈ 1 - n*x for small x
-    return WEIGHT_PRECISION - (x * exp) / WEIGHT_PRECISION;
+    return WEIGHT_PRECISION - (x * exp) / WEIGHT_PRECISION
   }
 }
-

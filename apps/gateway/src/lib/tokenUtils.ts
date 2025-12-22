@@ -4,11 +4,10 @@
  */
 
 export {
-  formatTokenAmount,
-  parseTokenAmount,
-  formatTokenUsd as formatUSD,
   calculateUsdValue as calculateUSDValue,
+  formatTokenAmount,
+  formatTokenUsd as formatUSD,
   formatTokenWithSymbol,
   isSignificantAmount,
-} from '@jejunetwork/shared';
-
+  parseTokenAmount,
+} from '@jejunetwork/shared'

@@ -45,4 +45,3 @@ export interface TEEInfo {
   /** Compose hash */
   composeHash: string
 }
-

@@ -5,8 +5,8 @@
  * Includes Zod schemas for runtime validation.
  */
 
-import { z } from 'zod';
-import { AddressSchema, HashSchema } from './validation';
+import { z } from 'zod'
+import { AddressSchema, HashSchema } from './validation'
 
 // ============================================================================
 // Proposal Type Schemas
@@ -23,8 +23,8 @@ export const ProposalTypeSchema = z.enum([
   'PARTNERSHIP',
   'POLICY',
   'EMERGENCY',
-]);
-export type ProposalType = z.infer<typeof ProposalTypeSchema>;
+])
+export type ProposalType = z.infer<typeof ProposalTypeSchema>
 
 /** Numeric enum for contract compatibility */
 export const ProposalTypeValue = {
@@ -38,7 +38,7 @@ export const ProposalTypeValue = {
   PARTNERSHIP: 7,
   POLICY: 8,
   EMERGENCY: 9,
-} as const;
+} as const
 
 export const ProposalStatusSchema = z.enum([
   'SUBMITTED',
@@ -56,8 +56,8 @@ export const ProposalStatusSchema = z.enum([
   'FUTARCHY_REJECTED',
   'DUPLICATE',
   'SPAM',
-]);
-export type ProposalStatus = z.infer<typeof ProposalStatusSchema>;
+])
+export type ProposalStatus = z.infer<typeof ProposalStatusSchema>
 
 /** Numeric enum for contract compatibility */
 export const ProposalStatusValue = {
@@ -76,10 +76,15 @@ export const ProposalStatusValue = {
   FUTARCHY_REJECTED: 12,
   DUPLICATE: 13,
   SPAM: 14,
-} as const;
+} as const
 
-export const CouncilRoleSchema = z.enum(['TREASURY', 'CODE', 'COMMUNITY', 'SECURITY']);
-export type CouncilRole = z.infer<typeof CouncilRoleSchema>;
+export const CouncilRoleSchema = z.enum([
+  'TREASURY',
+  'CODE',
+  'COMMUNITY',
+  'SECURITY',
+])
+export type CouncilRole = z.infer<typeof CouncilRoleSchema>
 
 /** Numeric enum for contract compatibility */
 export const CouncilRoleValue = {
@@ -87,10 +92,15 @@ export const CouncilRoleValue = {
   CODE: 1,
   COMMUNITY: 2,
   SECURITY: 3,
-} as const;
+} as const
 
-export const VoteTypeSchema = z.enum(['APPROVE', 'REJECT', 'ABSTAIN', 'REQUEST_CHANGES']);
-export type VoteType = z.infer<typeof VoteTypeSchema>;
+export const VoteTypeSchema = z.enum([
+  'APPROVE',
+  'REJECT',
+  'ABSTAIN',
+  'REQUEST_CHANGES',
+])
+export type VoteType = z.infer<typeof VoteTypeSchema>
 
 /** Numeric enum for contract compatibility */
 export const VoteTypeValue = {
@@ -98,7 +108,7 @@ export const VoteTypeValue = {
   REJECT: 1,
   ABSTAIN: 2,
   REQUEST_CHANGES: 3,
-} as const;
+} as const
 
 export const VetoCategorySchema = z.enum([
   'ALREADY_DONE',
@@ -108,8 +118,8 @@ export const VetoCategorySchema = z.enum([
   'MISALIGNED',
   'INSUFFICIENT_INFO',
   'OTHER',
-]);
-export type VetoCategory = z.infer<typeof VetoCategorySchema>;
+])
+export type VetoCategory = z.infer<typeof VetoCategorySchema>
 
 /** Numeric enum for contract compatibility */
 export const VetoCategoryValue = {
@@ -120,14 +130,14 @@ export const VetoCategoryValue = {
   MISALIGNED: 4,
   INSUFFICIENT_INFO: 5,
   OTHER: 6,
-} as const;
+} as const
 
 // ============================================================================
 // Agent & Reputation Schemas
 // ============================================================================
 
-export const StakeTierSchema = z.enum(['NONE', 'SMALL', 'MEDIUM', 'HIGH']);
-export type StakeTier = z.infer<typeof StakeTierSchema>;
+export const StakeTierSchema = z.enum(['NONE', 'SMALL', 'MEDIUM', 'HIGH'])
+export type StakeTier = z.infer<typeof StakeTierSchema>
 
 /** Numeric enum for contract compatibility */
 export const StakeTierValue = {
@@ -135,7 +145,7 @@ export const StakeTierValue = {
   SMALL: 1,
   MEDIUM: 2,
   HIGH: 3,
-} as const;
+} as const
 
 export const AgentProfileSchema = z.object({
   agentId: z.string(),
@@ -152,8 +162,8 @@ export const AgentProfileSchema = z.object({
   tags: z.array(z.string()),
   a2aEndpoint: z.string(),
   mcpEndpoint: z.string(),
-});
-export type AgentProfile = z.infer<typeof AgentProfileSchema>;
+})
+export type AgentProfile = z.infer<typeof AgentProfileSchema>
 
 export const ProviderReputationSchema = z.object({
   provider: AddressSchema,
@@ -165,8 +175,8 @@ export const ProviderReputationSchema = z.object({
   operatorCount: z.number(),
   lastUpdated: z.number(),
   weightedScore: z.number(),
-});
-export type ProviderReputation = z.infer<typeof ProviderReputationSchema>;
+})
+export type ProviderReputation = z.infer<typeof ProviderReputationSchema>
 
 // ============================================================================
 // Voting Schemas
@@ -177,22 +187,22 @@ export const VotingPowerSchema = z.object({
   reputationMultiplier: z.number(),
   stakeMultiplier: z.number(),
   effectiveVotes: z.string(),
-});
-export type VotingPower = z.infer<typeof VotingPowerSchema>;
+})
+export type VotingPower = z.infer<typeof VotingPowerSchema>
 
 export const EligibilityResultSchema = z.object({
   eligible: z.boolean(),
   reason: z.string(),
-});
-export type EligibilityResult = z.infer<typeof EligibilityResultSchema>;
+})
+export type EligibilityResult = z.infer<typeof EligibilityResultSchema>
 
 export const EligibilitySchema = z.object({
   agentId: z.string(),
   canSubmitProposal: EligibilityResultSchema,
   canVote: EligibilityResultSchema,
   canConductResearch: EligibilityResultSchema,
-});
-export type Eligibility = z.infer<typeof EligibilitySchema>;
+})
+export type Eligibility = z.infer<typeof EligibilitySchema>
 
 // ============================================================================
 // Proposal Schemas
@@ -219,8 +229,8 @@ export const ProposalSchema = z.object({
   researchHash: z.string(),
   ceoApproved: z.boolean(),
   ceoDecisionHash: z.string(),
-});
-export type Proposal = z.infer<typeof ProposalSchema>;
+})
+export type Proposal = z.infer<typeof ProposalSchema>
 
 export const CouncilVoteSchema = z.object({
   proposalId: z.string(),
@@ -230,8 +240,8 @@ export const CouncilVoteSchema = z.object({
   reasoningHash: z.string(),
   votedAt: z.number(),
   weight: z.number(),
-});
-export type CouncilVote = z.infer<typeof CouncilVoteSchema>;
+})
+export type CouncilVote = z.infer<typeof CouncilVoteSchema>
 
 export const BackerInfoSchema = z.object({
   backer: AddressSchema,
@@ -239,8 +249,8 @@ export const BackerInfoSchema = z.object({
   stakedAmount: z.string(),
   reputationWeight: z.string(),
   backedAt: z.number(),
-});
-export type BackerInfo = z.infer<typeof BackerInfoSchema>;
+})
+export type BackerInfo = z.infer<typeof BackerInfoSchema>
 
 export const VetoVoteSchema = z.object({
   voter: AddressSchema,
@@ -250,8 +260,8 @@ export const VetoVoteSchema = z.object({
   stakedAmount: z.string(),
   reputationWeight: z.string(),
   votedAt: z.number(),
-});
-export type VetoVote = z.infer<typeof VetoVoteSchema>;
+})
+export type VetoVote = z.infer<typeof VetoVoteSchema>
 
 // ============================================================================
 // Delegation Schemas
@@ -269,8 +279,8 @@ export const DelegateSchema = z.object({
   isActive: z.boolean(),
   proposalsVoted: z.number(),
   proposalsCreated: z.number(),
-});
-export type Delegate = z.infer<typeof DelegateSchema>;
+})
+export type Delegate = z.infer<typeof DelegateSchema>
 
 export const VoteDelegationSchema = z.object({
   delegator: AddressSchema,
@@ -278,16 +288,16 @@ export const VoteDelegationSchema = z.object({
   amount: z.string(),
   delegatedAt: z.number(),
   lockedUntil: z.number(),
-});
-export type VoteDelegation = z.infer<typeof VoteDelegationSchema>;
+})
+export type VoteDelegation = z.infer<typeof VoteDelegationSchema>
 
 export const SecurityCouncilMemberSchema = z.object({
   member: AddressSchema,
   agentId: z.string(),
   combinedScore: z.number(),
   electedAt: z.number(),
-});
-export type SecurityCouncilMember = z.infer<typeof SecurityCouncilMemberSchema>;
+})
+export type SecurityCouncilMember = z.infer<typeof SecurityCouncilMemberSchema>
 
 // ============================================================================
 // Moderation Schemas (Governance-specific)
@@ -301,8 +311,8 @@ export const FlagTypeSchema = z.enum([
   'low-quality',
   'misaligned',
   'other',
-]);
-export type FlagType = z.infer<typeof FlagTypeSchema>;
+])
+export type FlagType = z.infer<typeof FlagTypeSchema>
 
 export const ViolationTypeSchema = z.enum([
   'API_ABUSE',
@@ -316,8 +326,8 @@ export const ViolationTypeSchema = z.enum([
   'HARASSMENT',
   'SPAM',
   'TOS_VIOLATION',
-]);
-export type ViolationType = z.infer<typeof ViolationTypeSchema>;
+])
+export type ViolationType = z.infer<typeof ViolationTypeSchema>
 
 /** Numeric enum for contract compatibility */
 export const ViolationTypeValue = {
@@ -332,7 +342,7 @@ export const ViolationTypeValue = {
   HARASSMENT: 8,
   SPAM: 9,
   TOS_VIOLATION: 10,
-} as const;
+} as const
 
 export const ProposalFlagSchema = z.object({
   flagId: z.string(),
@@ -347,8 +357,8 @@ export const ProposalFlagSchema = z.object({
   resolved: z.boolean(),
   upheld: z.boolean(),
   createdAt: z.number(),
-});
-export type ProposalFlag = z.infer<typeof ProposalFlagSchema>;
+})
+export type ProposalFlag = z.infer<typeof ProposalFlagSchema>
 
 export const ModerationScoreSchema = z.object({
   proposalId: z.string(),
@@ -358,8 +368,8 @@ export const ModerationScoreSchema = z.object({
   overallScore: z.number(),
   shouldReject: z.boolean(),
   reasons: z.array(z.string()),
-});
-export type ModerationScore = z.infer<typeof ModerationScoreSchema>;
+})
+export type ModerationScore = z.infer<typeof ModerationScoreSchema>
 
 // ============================================================================
 // API Schemas
@@ -382,8 +392,8 @@ export const CouncilHealthSchema = z.object({
     integration: z.boolean(),
     delegation: z.boolean(),
   }),
-});
-export type CouncilHealth = z.infer<typeof CouncilHealthSchema>;
+})
+export type CouncilHealth = z.infer<typeof CouncilHealthSchema>
 
 export const GovernanceStatsSchema = z.object({
   totalProposals: z.number(),
@@ -395,14 +405,14 @@ export const GovernanceStatsSchema = z.object({
   totalDelegated: z.string(),
   councilAgentsActive: z.number(),
   securityCouncilSize: z.number(),
-});
-export type GovernanceStats = z.infer<typeof GovernanceStatsSchema>;
+})
+export type GovernanceStats = z.infer<typeof GovernanceStatsSchema>
 
 export const QualityCriterionSchema = z.object({
   score: z.number(),
   feedback: z.string(),
-});
-export type QualityCriterion = z.infer<typeof QualityCriterionSchema>;
+})
+export type QualityCriterion = z.infer<typeof QualityCriterionSchema>
 
 export const QualityAssessmentSchema = z.object({
   overallScore: z.number(),
@@ -415,8 +425,8 @@ export const QualityAssessmentSchema = z.object({
   }),
   suggestions: z.array(z.string()),
   contentHash: z.string(),
-});
-export type QualityAssessment = z.infer<typeof QualityAssessmentSchema>;
+})
+export type QualityAssessment = z.infer<typeof QualityAssessmentSchema>
 
 // ============================================================================
 // Event Schemas
@@ -434,8 +444,8 @@ export const GovernanceEventTypeSchema = z.enum([
   'delegation_changed',
   'security_council_updated',
   'ceo_decision',
-]);
-export type GovernanceEventType = z.infer<typeof GovernanceEventTypeSchema>;
+])
+export type GovernanceEventType = z.infer<typeof GovernanceEventTypeSchema>
 
 /**
  * Strongly typed event data schemas for each event type
@@ -445,31 +455,31 @@ export const ProposalSubmittedDataSchema = z.object({
   proposer: AddressSchema,
   proposalType: ProposalTypeSchema,
   contentHash: z.string(),
-});
+})
 
 export const VoteCastDataSchema = z.object({
   proposalId: z.string(),
   voter: AddressSchema,
   vote: VoteTypeSchema,
   weight: z.number(),
-});
+})
 
 export const ProposalDecisionDataSchema = z.object({
   proposalId: z.string(),
   finalStatus: ProposalStatusSchema,
-});
+})
 
 export const DelegationDataSchema = z.object({
   delegator: AddressSchema,
   delegate: AddressSchema,
   amount: z.string(),
-});
+})
 
 export const CEODecisionDataSchema = z.object({
   proposalId: z.string(),
   approved: z.boolean(),
   decisionHash: z.string(),
-});
+})
 
 /**
  * Union of all event data types
@@ -480,8 +490,8 @@ export const GovernanceEventDataSchema = z.union([
   ProposalDecisionDataSchema,
   DelegationDataSchema,
   CEODecisionDataSchema,
-]);
-export type GovernanceEventData = z.infer<typeof GovernanceEventDataSchema>;
+])
+export type GovernanceEventData = z.infer<typeof GovernanceEventDataSchema>
 
 export const GovernanceEventSchema = z.object({
   type: GovernanceEventTypeSchema,
@@ -490,5 +500,5 @@ export const GovernanceEventSchema = z.object({
   transactionHash: HashSchema,
   /** Strongly typed event data based on event type */
   data: GovernanceEventDataSchema,
-});
-export type GovernanceEvent = z.infer<typeof GovernanceEventSchema>;
+})
+export type GovernanceEvent = z.infer<typeof GovernanceEventSchema>

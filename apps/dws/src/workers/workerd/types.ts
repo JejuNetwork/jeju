@@ -3,35 +3,35 @@
  * Cloudflare Workers-compatible V8 isolate runtime
  */
 
-import type { Address } from 'viem';
+import type { Address } from 'viem'
 
 // ============================================================================
 // Workerd Configuration Types
 // ============================================================================
 
-export type WorkerdRuntimeMode = 'single' | 'pool' | 'distributed';
+export type WorkerdRuntimeMode = 'single' | 'pool' | 'distributed'
 
 export interface WorkerdConfig {
   /** Path to workerd binary */
-  binaryPath: string;
+  binaryPath: string
   /** Directory for worker code and configs */
-  workDir: string;
+  workDir: string
   /** Port range for worker instances */
-  portRange: { min: number; max: number };
+  portRange: { min: number; max: number }
   /** Max concurrent isolates per process */
-  maxIsolatesPerProcess: number;
+  maxIsolatesPerProcess: number
   /** Isolate memory limit in MB */
-  isolateMemoryMb: number;
+  isolateMemoryMb: number
   /** Request timeout in ms */
-  requestTimeoutMs: number;
+  requestTimeoutMs: number
   /** Idle timeout before shutdown in ms */
-  idleTimeoutMs: number;
+  idleTimeoutMs: number
   /** Enable CPU time limits */
-  cpuTimeLimitMs: number;
+  cpuTimeLimitMs: number
   /** Enable subrequest limits */
-  subrequestLimit: number;
+  subrequestLimit: number
   /** Runtime mode */
-  mode: WorkerdRuntimeMode;
+  mode: WorkerdRuntimeMode
 }
 
 export const DEFAULT_WORKERD_CONFIG: WorkerdConfig = {
@@ -45,56 +45,66 @@ export const DEFAULT_WORKERD_CONFIG: WorkerdConfig = {
   subrequestLimit: 50,
   idleTimeoutMs: 300000, // 5 minutes
   mode: 'pool',
-};
+}
 
 // ============================================================================
 // Worker Definition Types
 // ============================================================================
 
-export type WorkerdCompatibilityDate = string; // YYYY-MM-DD format
+export type WorkerdCompatibilityDate = string // YYYY-MM-DD format
 
 export interface WorkerdModule {
-  name: string;
-  type: 'esModule' | 'commonJs' | 'text' | 'data' | 'json' | 'wasm';
-  content: string | Buffer;
+  name: string
+  type: 'esModule' | 'commonJs' | 'text' | 'data' | 'json' | 'wasm'
+  content: string | Buffer
 }
 
 export interface WorkerdBinding {
-  name: string;
-  type: 'text' | 'json' | 'data' | 'wasmModule' | 'service' | 'durableObjectNamespace' | 'kvNamespace' | 'r2Bucket' | 'queue' | 'analyticsEngine';
-  value?: string | object | Buffer;
-  service?: string;
-  className?: string;
+  name: string
+  type:
+    | 'text'
+    | 'json'
+    | 'data'
+    | 'wasmModule'
+    | 'service'
+    | 'durableObjectNamespace'
+    | 'kvNamespace'
+    | 'r2Bucket'
+    | 'queue'
+    | 'analyticsEngine'
+  value?: string | object | Buffer
+  service?: string
+  className?: string
 }
 
 export interface WorkerdWorkerDefinition {
-  id: string;
-  name: string;
-  owner: Address;
-  modules: WorkerdModule[];
-  bindings: WorkerdBinding[];
-  compatibilityDate: WorkerdCompatibilityDate;
-  compatibilityFlags?: string[];
+  id: string
+  name: string
+  owner: Address
+  modules: WorkerdModule[]
+  bindings: WorkerdBinding[]
+  compatibilityDate: WorkerdCompatibilityDate
+  compatibilityFlags?: string[]
   /** Main module name (must match a module in modules array) */
-  mainModule: string;
+  mainModule: string
   /** Memory limit in MB */
-  memoryMb: number;
+  memoryMb: number
   /** CPU time limit in ms */
-  cpuTimeMs: number;
+  cpuTimeMs: number
   /** Request timeout in ms */
-  timeoutMs: number;
+  timeoutMs: number
   /** IPFS CID of the code bundle */
-  codeCid: string;
+  codeCid: string
   /** Version number */
-  version: number;
+  version: number
   /** Deployment status */
-  status: 'pending' | 'deploying' | 'active' | 'inactive' | 'error';
+  status: 'pending' | 'deploying' | 'active' | 'inactive' | 'error'
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
   /** Last update timestamp */
-  updatedAt: number;
+  updatedAt: number
   /** Error message if status is 'error' */
-  error?: string;
+  error?: string
 }
 
 // ============================================================================
@@ -102,29 +112,29 @@ export interface WorkerdWorkerDefinition {
 // ============================================================================
 
 export interface WorkerdProcess {
-  id: string;
-  pid: number;
-  port: number;
-  status: 'starting' | 'ready' | 'busy' | 'stopping' | 'stopped' | 'error';
-  workers: Set<string>;
-  startedAt: number;
-  lastRequestAt: number;
-  requestCount: number;
-  errorCount: number;
-  process: { kill: () => void; exited: Promise<number> };
+  id: string
+  pid: number
+  port: number
+  status: 'starting' | 'ready' | 'busy' | 'stopping' | 'stopped' | 'error'
+  workers: Set<string>
+  startedAt: number
+  lastRequestAt: number
+  requestCount: number
+  errorCount: number
+  process: { kill: () => void; exited: Promise<number> }
 }
 
 export interface WorkerdInstance {
-  workerId: string;
-  processId: string;
-  port: number;
-  status: 'starting' | 'ready' | 'busy' | 'error';
-  activeRequests: number;
-  totalRequests: number;
-  startedAt: number;
-  lastUsedAt: number;
-  memoryUsedMb: number;
-  cpuTimeMs: number;
+  workerId: string
+  processId: string
+  port: number
+  status: 'starting' | 'ready' | 'busy' | 'error'
+  activeRequests: number
+  totalRequests: number
+  startedAt: number
+  lastUsedAt: number
+  memoryUsedMb: number
+  cpuTimeMs: number
 }
 
 // ============================================================================
@@ -132,36 +142,36 @@ export interface WorkerdInstance {
 // ============================================================================
 
 export interface WorkerdRequest {
-  method: string;
-  url: string;
-  headers: Record<string, string>;
-  body?: string | Buffer;
+  method: string
+  url: string
+  headers: Record<string, string>
+  body?: string | Buffer
 }
 
 export interface WorkerdResponse {
-  status: number;
-  headers: Record<string, string>;
-  body: string | Buffer;
+  status: number
+  headers: Record<string, string>
+  body: string | Buffer
 }
 
 export interface WorkerdInvocation {
-  id: string;
-  workerId: string;
-  request: WorkerdRequest;
-  response?: WorkerdResponse;
-  startedAt: number;
-  completedAt?: number;
-  durationMs?: number;
-  cpuTimeMs?: number;
-  status: 'pending' | 'running' | 'success' | 'error' | 'timeout';
-  error?: string;
-  logs: WorkerdLogEntry[];
+  id: string
+  workerId: string
+  request: WorkerdRequest
+  response?: WorkerdResponse
+  startedAt: number
+  completedAt?: number
+  durationMs?: number
+  cpuTimeMs?: number
+  status: 'pending' | 'running' | 'success' | 'error' | 'timeout'
+  error?: string
+  logs: WorkerdLogEntry[]
 }
 
 export interface WorkerdLogEntry {
-  level: 'debug' | 'info' | 'warn' | 'error';
-  message: string;
-  timestamp: number;
+  level: 'debug' | 'info' | 'warn' | 'error'
+  message: string
+  timestamp: number
 }
 
 // ============================================================================
@@ -169,30 +179,30 @@ export interface WorkerdLogEntry {
 // ============================================================================
 
 export interface WorkerdMetrics {
-  workerId: string;
-  invocations: number;
-  errors: number;
-  avgDurationMs: number;
-  p50DurationMs: number;
-  p95DurationMs: number;
-  p99DurationMs: number;
-  avgCpuTimeMs: number;
-  coldStarts: number;
-  warmStarts: number;
-  wallTimeMs: number;
-  cpuTimeMs: number;
-  memoryUsedMb: number;
+  workerId: string
+  invocations: number
+  errors: number
+  avgDurationMs: number
+  p50DurationMs: number
+  p95DurationMs: number
+  p99DurationMs: number
+  avgCpuTimeMs: number
+  coldStarts: number
+  warmStarts: number
+  wallTimeMs: number
+  cpuTimeMs: number
+  memoryUsedMb: number
 }
 
 export interface WorkerdPoolMetrics {
-  totalProcesses: number;
-  activeProcesses: number;
-  totalWorkers: number;
-  activeWorkers: number;
-  pendingRequests: number;
-  requestsPerSecond: number;
-  avgLatencyMs: number;
-  errorRate: number;
+  totalProcesses: number
+  activeProcesses: number
+  totalWorkers: number
+  activeWorkers: number
+  pendingRequests: number
+  requestsPerSecond: number
+  avgLatencyMs: number
+  errorRate: number
 }
 
 // ============================================================================
@@ -200,38 +210,53 @@ export interface WorkerdPoolMetrics {
 // ============================================================================
 
 export interface WorkerdCapnpSocket {
-  name: string;
-  address: string;
-  http?: Record<string, never>;
-  https?: { keypair: string };
-  service: string;
+  name: string
+  address: string
+  http?: Record<string, never>
+  https?: { keypair: string }
+  service: string
 }
 
 export interface WorkerdCapnpService {
-  name: string;
-  worker: string;
-  disk?: { path: string; writable: boolean };
-  network?: { allow: string[] };
+  name: string
+  worker: string
+  disk?: { path: string; writable: boolean }
+  network?: { allow: string[] }
 }
 
 export interface WorkerdCapnpWorker {
-  modules: Array<{ name: string; esModule?: string; commonJs?: string; text?: string; data?: string; json?: string; wasm?: string }>;
-  bindings: Array<{ name: string; text?: string; json?: string; data?: string; wasmModule?: string; service?: string }>;
-  compatibilityDate: string;
-  compatibilityFlags?: string[];
+  modules: Array<{
+    name: string
+    esModule?: string
+    commonJs?: string
+    text?: string
+    data?: string
+    json?: string
+    wasm?: string
+  }>
+  bindings: Array<{
+    name: string
+    text?: string
+    json?: string
+    data?: string
+    wasmModule?: string
+    service?: string
+  }>
+  compatibilityDate: string
+  compatibilityFlags?: string[]
 }
 
 export interface WorkerdCapnpConfig {
-  sockets: WorkerdCapnpSocket[];
-  services: WorkerdCapnpService[];
-  workers: Record<string, WorkerdCapnpWorker>;
+  sockets: WorkerdCapnpSocket[]
+  services: WorkerdCapnpService[]
+  workers: Record<string, WorkerdCapnpWorker>
 }
 
 // ============================================================================
 // Events
 // ============================================================================
 
-export type WorkerdEvent = 
+export type WorkerdEvent =
   | { type: 'worker:deployed'; workerId: string; version: number }
   | { type: 'worker:undeployed'; workerId: string }
   | { type: 'worker:error'; workerId: string; error: string }
@@ -239,7 +264,25 @@ export type WorkerdEvent =
   | { type: 'process:stopped'; processId: string; exitCode: number }
   | { type: 'invocation:started'; invocationId: string; workerId: string }
   | { type: 'invocation:completed'; invocationId: string; durationMs: number }
-  | { type: 'invocation:error'; invocationId: string; error: string };
+  | { type: 'invocation:error'; invocationId: string; error: string }
 
-export type WorkerdEventHandler = (event: WorkerdEvent) => void;
+export type WorkerdEventHandler = (event: WorkerdEvent) => void
 
+// ============================================================================
+// Executor Interface
+// ============================================================================
+
+/**
+ * Minimal interface for WorkerdExecutor that tests can mock.
+ * The real WorkerdExecutor class implements this interface.
+ */
+export interface IWorkerdExecutor {
+  initialize(): Promise<void>
+  deployWorker(worker: WorkerdWorkerDefinition): Promise<void>
+  undeployWorker(workerId: string): Promise<void>
+  getWorker(workerId: string): Pick<WorkerdWorkerDefinition, 'status'> | null
+  getInstance(
+    workerId: string,
+  ): (Pick<WorkerdInstance, 'status' | 'port'> & { endpoint: string }) | null
+  invoke(workerId: string, request: WorkerdRequest): Promise<WorkerdResponse>
+}

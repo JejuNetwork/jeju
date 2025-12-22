@@ -26,7 +26,7 @@
       }
     ],
     "security": {
-      "csp": null
+      "csp": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self' https://rpc.jejunetwork.org https://testnet-rpc.jejunetwork.org wss://ws.jejunetwork.org wss://testnet-ws.jejunetwork.org https://api.coingecko.com https://price.jup.ag https://api.1inch.dev"
     },
     "trayIcon": {
       "iconPath": "icons/icon.png",
@@ -73,7 +73,7 @@
           "cmd": "open",
           "args": [
             {
-              "validator": "\\S+"
+              "validator": "^https?://[a-zA-Z0-9][a-zA-Z0-9.-]*\\.[a-zA-Z]{2,}(/[a-zA-Z0-9._~:/?#\\[\\]@!$&'()*+,;=%/-]*)?$"
             }
           ]
         }

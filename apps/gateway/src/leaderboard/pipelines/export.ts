@@ -1,165 +1,177 @@
 /**
  * Stats Export Pipeline
- * 
+ *
  * Exports repository and contributor stats to DWS storage.
  */
 
-import { query, initLeaderboardDB } from '../db.js';
-import { LEADERBOARD_CONFIG } from '../config.js';
-import { createDWSSDK } from '@jejunetwork/dws';
+import { createDWSSDK } from '@jejunetwork/dws'
+import { LEADERBOARD_CONFIG } from '../config.js'
+import { initLeaderboardDB, query } from '../db.js'
 
 export interface ExportOptions {
   /** Specific repository to export */
-  repository?: string;
+  repository?: string
   /** Output directory */
-  outputDir?: string;
+  outputDir?: string
   /** Upload to DWS storage */
-  uploadToDWS?: boolean;
+  uploadToDWS?: boolean
   /** Start date */
-  after?: string;
+  after?: string
   /** End date */
-  before?: string;
+  before?: string
   /** Enable verbose logging */
-  verbose?: boolean;
+  verbose?: boolean
 }
 
 interface RepoStats {
-  repoId: string;
-  owner: string;
-  name: string;
-  period: { start: string; end: string };
-  totalPRs: number;
-  mergedPRs: number;
-  totalIssues: number;
-  closedIssues: number;
-  totalCommits: number;
-  contributors: number;
-  linesAdded: number;
-  linesDeleted: number;
-  topContributors: Array<{ username: string; score: number }>;
+  repoId: string
+  owner: string
+  name: string
+  period: { start: string; end: string }
+  totalPRs: number
+  mergedPRs: number
+  totalIssues: number
+  closedIssues: number
+  totalCommits: number
+  contributors: number
+  linesAdded: number
+  linesDeleted: number
+  topContributors: Array<{ username: string; score: number }>
 }
 
 interface LeaderboardExport {
-  generatedAt: string;
-  period: { start: string; end: string };
-  repositories: RepoStats[];
+  generatedAt: string
+  period: { start: string; end: string }
+  repositories: RepoStats[]
   topContributors: Array<{
-    rank: number;
-    username: string;
-    avatarUrl: string;
-    totalScore: number;
+    rank: number
+    username: string
+    avatarUrl: string
+    totalScore: number
     breakdown: {
-      prScore: number;
-      issueScore: number;
-      reviewScore: number;
-      commitScore: number;
-    };
-  }>;
+      prScore: number
+      issueScore: number
+      reviewScore: number
+      commitScore: number
+    }
+  }>
 }
 
 /**
  * Run the export pipeline
  */
 export async function runExport(options: ExportOptions = {}): Promise<{
-  exported: number;
-  uploadedToDWS: boolean;
-  cid?: string;
+  exported: number
+  uploadedToDWS: boolean
+  cid?: string
 }> {
-  await initLeaderboardDB();
+  await initLeaderboardDB()
 
-  const dateRange = calculateDateRange(options);
-  console.log(`[Export] Generating stats from ${dateRange.after} to ${dateRange.before}`);
+  const dateRange = calculateDateRange(options)
+  console.log(
+    `[Export] Generating stats from ${dateRange.after} to ${dateRange.before}`,
+  )
 
   // Get all repositories or specific one
   const repositories = options.repository
     ? await query<{ repo_id: string; owner: string; name: string }>(
         'SELECT repo_id, owner, name FROM repositories WHERE repo_id = ?',
-        [options.repository]
+        [options.repository],
       )
     : await query<{ repo_id: string; owner: string; name: string }>(
-        'SELECT repo_id, owner, name FROM repositories'
-      );
+        'SELECT repo_id, owner, name FROM repositories',
+      )
 
-  const repoStats: RepoStats[] = [];
+  const repoStats: RepoStats[] = []
 
   for (const repo of repositories) {
     if (options.verbose) {
-      console.log(`[Export] Processing ${repo.repo_id}...`);
+      console.log(`[Export] Processing ${repo.repo_id}...`)
     }
 
-    const stats = await getRepoStats(repo.repo_id, repo.owner, repo.name, dateRange);
-    repoStats.push(stats);
+    const stats = await getRepoStats(
+      repo.repo_id,
+      repo.owner,
+      repo.name,
+      dateRange,
+    )
+    repoStats.push(stats)
   }
 
   // Get top contributors
-  const topContributors = await getTopContributors(dateRange, 100);
+  const topContributors = await getTopContributors(dateRange, 100)
 
   const exportData: LeaderboardExport = {
     generatedAt: new Date().toISOString(),
     period: { start: dateRange.after, end: dateRange.before },
     repositories: repoStats,
     topContributors,
-  };
+  }
 
   // Write to local file
-  const outputDir = options.outputDir || LEADERBOARD_CONFIG.storage.dataDir;
-  const filename = `leaderboard-${dateRange.after}-${dateRange.before}.json`;
-  const filepath = `${outputDir}/${filename}`;
+  const outputDir = options.outputDir || LEADERBOARD_CONFIG.storage.dataDir
+  const filename = `leaderboard-${dateRange.after}-${dateRange.before}.json`
+  const filepath = `${outputDir}/${filename}`
 
-  await Bun.write(filepath, JSON.stringify(exportData, null, 2));
-  console.log(`[Export] Written to ${filepath}`);
+  await Bun.write(filepath, JSON.stringify(exportData, null, 2))
+  console.log(`[Export] Written to ${filepath}`)
 
   // Upload to DWS if requested
-  let cid: string | undefined;
+  let cid: string | undefined
   if (options.uploadToDWS) {
     const dws = createDWSSDK({
       baseUrl: LEADERBOARD_CONFIG.storage.dwsApiUrl,
-    });
+    })
 
-    const blob = new Blob([JSON.stringify(exportData)], { type: 'application/json' });
-    const file = new File([blob], filename, { type: 'application/json' });
-    const result = await dws.uploadFile(file, { filename, permanent: false });
-    cid = result.cid;
-    console.log(`[Export] Uploaded to DWS: ${cid}`);
+    const blob = new Blob([JSON.stringify(exportData)], {
+      type: 'application/json',
+    })
+    const file = new File([blob], filename, { type: 'application/json' })
+    const result = await dws.uploadFile(file, { filename, permanent: false })
+    cid = result.cid
+    console.log(`[Export] Uploaded to DWS: ${cid}`)
   }
 
-  console.log(`[Export] Completed: ${repoStats.length} repositories`);
+  console.log(`[Export] Completed: ${repoStats.length} repositories`)
 
   return {
     exported: repoStats.length,
     uploadedToDWS: Boolean(cid),
     cid,
-  };
+  }
 }
 
-function calculateDateRange(options: ExportOptions): { after: string; before: string } {
+function calculateDateRange(options: ExportOptions): {
+  after: string
+  before: string
+} {
   if (options.after && options.before) {
-    return { after: options.after, before: options.before };
+    return { after: options.after, before: options.before }
   }
 
   // Default: last 30 days
-  const before = new Date();
-  const after = new Date();
-  after.setDate(after.getDate() - 30);
-  
+  const before = new Date()
+  const after = new Date()
+  after.setDate(after.getDate() - 30)
+
   return {
     after: options.after || after.toISOString().split('T')[0],
     before: options.before || before.toISOString().split('T')[0],
-  };
+  }
 }
 
 async function getRepoStats(
   repoId: string,
   owner: string,
   name: string,
-  dateRange: { after: string; before: string }
+  dateRange: { after: string; before: string },
 ): Promise<RepoStats> {
   // PR stats
   const prStats = await query<{
-    total: number;
-    merged: number;
-    additions: number;
-    deletions: number;
+    total: number
+    merged: number
+    additions: number
+    deletions: number
   }>(
     `SELECT 
       COUNT(*) as total,
@@ -168,8 +180,8 @@ async function getRepoStats(
       SUM(deletions) as deletions
      FROM raw_pull_requests
      WHERE repository = ? AND DATE(created_at) >= ? AND DATE(created_at) <= ?`,
-    [repoId, dateRange.after, dateRange.before]
-  );
+    [repoId, dateRange.after, dateRange.before],
+  )
 
   // Issue stats
   const issueStats = await query<{ total: number; closed: number }>(
@@ -178,15 +190,15 @@ async function getRepoStats(
       SUM(CASE WHEN state = 'CLOSED' THEN 1 ELSE 0 END) as closed
      FROM raw_issues
      WHERE repository = ? AND DATE(created_at) >= ? AND DATE(created_at) <= ?`,
-    [repoId, dateRange.after, dateRange.before]
-  );
+    [repoId, dateRange.after, dateRange.before],
+  )
 
   // Commit stats
   const commitStats = await query<{ total: number }>(
     `SELECT COUNT(*) as total FROM raw_commits
      WHERE repository = ? AND DATE(committed_date) >= ? AND DATE(committed_date) <= ?`,
-    [repoId, dateRange.after, dateRange.before]
-  );
+    [repoId, dateRange.after, dateRange.before],
+  )
 
   // Unique contributors
   const contributorCount = await query<{ count: number }>(
@@ -197,10 +209,18 @@ async function getRepoStats(
       UNION ALL
       SELECT author FROM raw_commits WHERE repository = ? AND DATE(committed_date) >= ? AND DATE(committed_date) <= ? AND author IS NOT NULL
     )`,
-    [repoId, dateRange.after, dateRange.before,
-     repoId, dateRange.after, dateRange.before,
-     repoId, dateRange.after, dateRange.before]
-  );
+    [
+      repoId,
+      dateRange.after,
+      dateRange.before,
+      repoId,
+      dateRange.after,
+      dateRange.before,
+      repoId,
+      dateRange.after,
+      dateRange.before,
+    ],
+  )
 
   // Top contributors for this repo
   const topContribs = await query<{ username: string; total_score: number }>(
@@ -210,8 +230,8 @@ async function getRepoStats(
      GROUP BY username
      ORDER BY total_score DESC
      LIMIT 10`,
-    [dateRange.after, dateRange.before]
-  );
+    [dateRange.after, dateRange.before],
+  )
 
   return {
     repoId,
@@ -226,33 +246,38 @@ async function getRepoStats(
     contributors: contributorCount[0]?.count || 0,
     linesAdded: prStats[0]?.additions || 0,
     linesDeleted: prStats[0]?.deletions || 0,
-    topContributors: topContribs.map(c => ({ username: c.username, score: Math.round(c.total_score) })),
-  };
+    topContributors: topContribs.map((c) => ({
+      username: c.username,
+      score: Math.round(c.total_score),
+    })),
+  }
 }
 
 async function getTopContributors(
   dateRange: { after: string; before: string },
-  limit: number
-): Promise<Array<{
-  rank: number;
-  username: string;
-  avatarUrl: string;
-  totalScore: number;
-  breakdown: {
-    prScore: number;
-    issueScore: number;
-    reviewScore: number;
-    commitScore: number;
-  };
-}>> {
+  limit: number,
+): Promise<
+  Array<{
+    rank: number
+    username: string
+    avatarUrl: string
+    totalScore: number
+    breakdown: {
+      prScore: number
+      issueScore: number
+      reviewScore: number
+      commitScore: number
+    }
+  }>
+> {
   const contributors = await query<{
-    username: string;
-    avatar_url: string;
-    total_score: number;
-    pr_score: number;
-    issue_score: number;
-    review_score: number;
-    commit_score: number;
+    username: string
+    avatar_url: string
+    total_score: number
+    pr_score: number
+    issue_score: number
+    review_score: number
+    commit_score: number
   }>(
     `SELECT 
       u.username,
@@ -270,8 +295,8 @@ async function getTopContributors(
      HAVING total_score > 0
      ORDER BY total_score DESC
      LIMIT ?`,
-    [dateRange.after, dateRange.before, limit]
-  );
+    [dateRange.after, dateRange.before, limit],
+  )
 
   return contributors.map((c, i) => ({
     rank: i + 1,
@@ -284,8 +309,5 @@ async function getTopContributors(
       reviewScore: Math.round(c.review_score),
       commitScore: Math.round(c.commit_score),
     },
-  }));
+  }))
 }
-
-
-

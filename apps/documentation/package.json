@@ -1,15 +1,13 @@
 {
   "name": "@jejunetwork/documentation",
   "version": "1.0.0",
-  "description": "Network documentation site powered by VitePress",
+  "description": "Network documentation site powered by Vocs",
   "type": "module",
   "scripts": {
-    "dev": "vitepress dev --port ${DOCUMENTATION_PORT:-4004}",
+    "dev": "vocs dev --port ${DOCUMENTATION_PORT:-4004}",
     "a2a": "bun run server/a2a-server.ts",
-    "build": "vitepress build",
-    "build:full": "bun run docs:generate && vitepress build",
-    "docs:generate": "cd ../.. && NODE_OPTIONS='--max-old-space-size=8192' typedoc",
-    "preview": "vitepress preview --port ${DOCUMENTATION_PORT:-4004}",
+    "build": "vocs build",
+    "preview": "vocs preview --port ${DOCUMENTATION_PORT:-4004}",
     "test": "bun run test:unit",
     "test:full": "bun run test:e2e && bun run test:unit",
     "test:unit": "bun test tests/unit/",
@@ -18,12 +16,13 @@
   },
   "dependencies": {
     "@jejunetwork/config": "workspace:*",
-    "@shikijs/engine-javascript": "3.20.0",
-    "@shikijs/transformers": "3.20.0",
     "cors": "2.8.5",
-    "emoji-regex-xs": "2.0.1",
     "express": "5.0.1",
-    "regex": "6.1.0",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3",
+    "remark-stringify": "11.0.0",
+    "unified": "11.0.5",
+    "vocs": "1.4.0",
     "zod": "3.24.4"
   },
   "devDependencies": {
@@ -31,8 +30,7 @@
     "@playwright/test": "1.57.0",
     "@types/cors": "2.8.17",
     "@types/express": "5.0.3",
-    "typedoc": "0.28.14",
-    "typedoc-plugin-markdown": "4.9.0",
-    "vitepress": "1.6.3"
+    "@types/react": "18.3.23",
+    "@types/react-dom": "18.3.7"
   }
 }

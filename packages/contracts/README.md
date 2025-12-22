@@ -90,7 +90,7 @@ anvil
 bun run scripts/deploy-jeju-token.ts --network localnet
 
 # Deploy full system
-forge script script/DeployLocalnet.s.sol --rpc-url http://localhost:6546 --broadcast
+forge script script/DeployLocalnet.s.sol --rpc-url http://localhost:9545 --broadcast
 ```
 
 ### Testnet

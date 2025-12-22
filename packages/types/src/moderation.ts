@@ -3,19 +3,24 @@
  * Shared types for ban checking and moderation across all network apps
  */
 
-import { z } from 'zod';
-import { AddressSchema } from './validation';
+import { z } from 'zod'
+import {
+  AddressSchema,
+  MAX_ARRAY_LENGTH,
+  MAX_SHORT_STRING_LENGTH,
+  MAX_STRING_LENGTH,
+} from './validation'
 
 // ============ Enums ============
 
 export enum BanType {
   NONE = 0,
-  ON_NOTICE = 1,    // Immediate flag, pending market
-  CHALLENGED = 2,   // Target staked, market active
-  PERMANENT = 3     // Market resolved, ban confirmed
+  ON_NOTICE = 1, // Immediate flag, pending market
+  CHALLENGED = 2, // Target staked, market active
+  PERMANENT = 3, // Market resolved, ban confirmed
 }
 
-export const BanTypeSchema = z.nativeEnum(BanType);
+export const BanTypeSchema = z.nativeEnum(BanType)
 
 export enum BanStatus {
   NONE = 'NONE',
@@ -23,35 +28,35 @@ export enum BanStatus {
   CHALLENGED = 'CHALLENGED',
   BANNED = 'BANNED',
   CLEARED = 'CLEARED',
-  APPEALING = 'APPEALING'
+  APPEALING = 'APPEALING',
 }
 
-export const BanStatusSchema = z.nativeEnum(BanStatus);
+export const BanStatusSchema = z.nativeEnum(BanStatus)
 
 export enum MarketOutcome {
   PENDING = 'PENDING',
   BAN_UPHELD = 'BAN_UPHELD',
-  BAN_REJECTED = 'BAN_REJECTED'
+  BAN_REJECTED = 'BAN_REJECTED',
 }
 
-export const MarketOutcomeSchema = z.nativeEnum(MarketOutcome);
+export const MarketOutcomeSchema = z.nativeEnum(MarketOutcome)
 
 export enum VotePosition {
   YES = 0,
-  NO = 1
+  NO = 1,
 }
 
-export const VotePositionSchema = z.nativeEnum(VotePosition);
+export const VotePositionSchema = z.nativeEnum(VotePosition)
 
 export enum ReputationTier {
-  UNTRUSTED = 0,    // 0-1000 score: Can't report alone
-  LOW = 1,          // 1001-3000: Needs 3 users for quorum
-  MEDIUM = 2,       // 3001-6000: Needs 2 users for quorum  
-  HIGH = 3,         // 6001-8000: Can report alone, normal stake
-  TRUSTED = 4       // 8001-10000: Can report alone, reduced stake
+  UNTRUSTED = 0, // 0-1000 score: Can't report alone
+  LOW = 1, // 1001-3000: Needs 3 users for quorum
+  MEDIUM = 2, // 3001-6000: Needs 2 users for quorum
+  HIGH = 3, // 6001-8000: Can report alone, normal stake
+  TRUSTED = 4, // 8001-10000: Can report alone, reduced stake
 }
 
-export const ReputationTierSchema = z.nativeEnum(ReputationTier);
+export const ReputationTierSchema = z.nativeEnum(ReputationTier)
 
 // ============ Interfaces ============
 
@@ -60,12 +65,12 @@ export const BanRecordSchema = z.object({
   banType: BanTypeSchema,
   bannedAt: z.number(),
   expiresAt: z.number(),
-  reason: z.string(),
-  proposalId: z.string(),
+  reason: z.string().max(MAX_STRING_LENGTH),
+  proposalId: z.string().max(MAX_SHORT_STRING_LENGTH),
   reporter: AddressSchema,
-  caseId: z.string(),
-});
-export type BanRecord = z.infer<typeof BanRecordSchema>;
+  caseId: z.string().max(MAX_SHORT_STRING_LENGTH),
+})
+export type BanRecord = z.infer<typeof BanRecordSchema>
 
 export const StakeInfoSchema = z.object({
   amount: z.bigint(),
@@ -73,8 +78,8 @@ export const StakeInfoSchema = z.object({
   stakedBlock: z.number(),
   lastActivityBlock: z.number(),
   isStaked: z.boolean(),
-});
-export type StakeInfo = z.infer<typeof StakeInfoSchema>;
+})
+export type StakeInfo = z.infer<typeof StakeInfoSchema>
 
 export const BanCaseSchema = z.object({
   caseId: z.string(),
@@ -93,8 +98,8 @@ export const BanCaseSchema = z.object({
   resolved: z.boolean(),
   outcome: MarketOutcomeSchema,
   appealCount: z.number(),
-});
-export type BanCase = z.infer<typeof BanCaseSchema>;
+})
+export type BanCase = z.infer<typeof BanCaseSchema>
 
 export const VoteSchema = z.object({
   position: VotePositionSchema,
@@ -102,8 +107,8 @@ export const VoteSchema = z.object({
   stakedAt: z.number(),
   hasVoted: z.boolean(),
   hasClaimed: z.boolean(),
-});
-export type Vote = z.infer<typeof VoteSchema>;
+})
+export type Vote = z.infer<typeof VoteSchema>
 
 export const BanCheckResultSchema = z.object({
   allowed: z.boolean(),
@@ -113,8 +118,8 @@ export const BanCheckResultSchema = z.object({
   caseId: z.string().optional(),
   reporter: AddressSchema.optional(),
   canAppeal: z.boolean().optional(),
-});
-export type BanCheckResult = z.infer<typeof BanCheckResultSchema>;
+})
+export type BanCheckResult = z.infer<typeof BanCheckResultSchema>
 
 export const ModerationMarketStatsSchema = z.object({
   totalCases: z.number(),
@@ -123,8 +128,8 @@ export const ModerationMarketStatsSchema = z.object({
   totalStaked: z.bigint(),
   totalSlashed: z.bigint(),
   averageVotingPeriod: z.number(),
-});
-export type ModerationMarketStats = z.infer<typeof ModerationMarketStatsSchema>;
+})
+export type ModerationMarketStats = z.infer<typeof ModerationMarketStatsSchema>
 
 export const ModeratorReputationSchema = z.object({
   successfulBans: z.number(),
@@ -136,24 +141,26 @@ export const ModeratorReputationSchema = z.object({
   reportCooldownUntil: z.number(),
   tier: ReputationTierSchema,
   netPnL: z.bigint(),
-});
-export type ModeratorReputation = z.infer<typeof ModeratorReputationSchema>;
+})
+export type ModeratorReputation = z.infer<typeof ModeratorReputationSchema>
 
 export const ReportEvidenceSchema = z.object({
-  evidenceHashes: z.array(z.string()),
-  notes: z.array(z.string()),
-  category: z.string(),
+  evidenceHashes: z
+    .array(z.string().max(MAX_SHORT_STRING_LENGTH))
+    .max(MAX_ARRAY_LENGTH),
+  notes: z.array(z.string().max(MAX_STRING_LENGTH)).max(MAX_ARRAY_LENGTH),
+  category: z.string().max(MAX_SHORT_STRING_LENGTH),
   timestamp: z.number(),
-});
-export type ReportEvidence = z.infer<typeof ReportEvidenceSchema>;
+})
+export type ReportEvidence = z.infer<typeof ReportEvidenceSchema>
 
 export const QuorumStatusSchema = z.object({
   reached: z.boolean(),
   currentCount: z.number(),
   requiredCount: z.number(),
-  reporters: z.array(AddressSchema),
-});
-export type QuorumStatus = z.infer<typeof QuorumStatusSchema>;
+  reporters: z.array(AddressSchema).max(MAX_ARRAY_LENGTH),
+})
+export type QuorumStatus = z.infer<typeof QuorumStatusSchema>
 
 // ============ Contract ABIs ============
 
@@ -163,21 +170,21 @@ export const BAN_MANAGER_ABI = [
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'target', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }]
+    outputs: [{ name: '', type: 'bool' }],
   },
   {
     name: 'isOnNotice',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'target', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }]
+    outputs: [{ name: '', type: 'bool' }],
   },
   {
     name: 'isPermanentlyBanned',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'target', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }]
+    outputs: [{ name: '', type: 'bool' }],
   },
   {
     name: 'isAddressAccessAllowed',
@@ -185,9 +192,9 @@ export const BAN_MANAGER_ABI = [
     stateMutability: 'view',
     inputs: [
       { name: 'target', type: 'address' },
-      { name: 'appId', type: 'bytes32' }
+      { name: 'appId', type: 'bytes32' },
     ],
-    outputs: [{ name: '', type: 'bool' }]
+    outputs: [{ name: '', type: 'bool' }],
   },
   {
     name: 'getAddressBan',
@@ -205,17 +212,17 @@ export const BAN_MANAGER_ABI = [
           { name: 'reason', type: 'string' },
           { name: 'proposalId', type: 'bytes32' },
           { name: 'reporter', type: 'address' },
-          { name: 'caseId', type: 'bytes32' }
-        ]
-      }
-    ]
+          { name: 'caseId', type: 'bytes32' },
+        ],
+      },
+    ],
   },
   {
     name: 'isNetworkBanned',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{ name: '', type: 'bool' }]
+    outputs: [{ name: '', type: 'bool' }],
   },
   {
     name: 'isAccessAllowed',
@@ -223,82 +230,11 @@ export const BAN_MANAGER_ABI = [
     stateMutability: 'view',
     inputs: [
       { name: 'agentId', type: 'uint256' },
-      { name: 'appId', type: 'bytes32' }
+      { name: 'appId', type: 'bytes32' },
     ],
-    outputs: [{ name: '', type: 'bool' }]
+    outputs: [{ name: '', type: 'bool' }],
   },
-  {
-    name: 'getNetworkBan',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [
-      {
-        type: 'tuple',
-        components: [
-          { name: 'isBanned', type: 'bool' },
-          { name: 'bannedAt', type: 'uint256' },
-          { name: 'reason', type: 'string' },
-          { name: 'proposalId', type: 'bytes32' }
-        ]
-      }
-    ]
-  },
-  {
-    name: 'isAppBanned',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'agentId', type: 'uint256' },
-      { name: 'appId', type: 'bytes32' }
-    ],
-    outputs: [{ name: '', type: 'bool' }]
-  },
-  {
-    name: 'getAppBan',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'agentId', type: 'uint256' },
-      { name: 'appId', type: 'bytes32' }
-    ],
-    outputs: [
-      {
-        type: 'tuple',
-        components: [
-          { name: 'isBanned', type: 'bool' },
-          { name: 'bannedAt', type: 'uint256' },
-          { name: 'reason', type: 'string' },
-          { name: 'proposalId', type: 'bytes32' }
-        ]
-      }
-    ]
-  },
-  {
-    name: 'getAppBans',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'agentId', type: 'uint256' }],
-    outputs: [{ name: '', type: 'bytes32[]' }]
-  },
-  {
-    name: 'getBanReason',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [
-      { name: 'agentId', type: 'uint256' },
-      { name: 'appId', type: 'bytes32' }
-    ],
-    outputs: [{ name: '', type: 'string' }]
-  },
-  {
-    name: 'isAddressBannedActive',
-    type: 'function',
-    stateMutability: 'view',
-    inputs: [{ name: 'target', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }]
-  }
-] as const;
+] as const
 
 export const MODERATION_MARKETPLACE_ABI = [
   {
@@ -306,14 +242,14 @@ export const MODERATION_MARKETPLACE_ABI = [
     type: 'function',
     stateMutability: 'payable',
     inputs: [],
-    outputs: []
+    outputs: [],
   },
   {
     name: 'unstake',
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [{ name: 'amount', type: 'uint256' }],
-    outputs: []
+    outputs: [],
   },
   {
     name: 'openCase',
@@ -322,16 +258,16 @@ export const MODERATION_MARKETPLACE_ABI = [
     inputs: [
       { name: 'target', type: 'address' },
       { name: 'reason', type: 'string' },
-      { name: 'evidenceHash', type: 'bytes32' }
+      { name: 'evidenceHash', type: 'bytes32' },
     ],
-    outputs: [{ name: 'caseId', type: 'bytes32' }]
+    outputs: [{ name: 'caseId', type: 'bytes32' }],
   },
   {
     name: 'challengeCase',
     type: 'function',
     stateMutability: 'payable',
     inputs: [{ name: 'caseId', type: 'bytes32' }],
-    outputs: []
+    outputs: [],
   },
   {
     name: 'vote',
@@ -339,23 +275,23 @@ export const MODERATION_MARKETPLACE_ABI = [
     stateMutability: 'nonpayable',
     inputs: [
       { name: 'caseId', type: 'bytes32' },
-      { name: 'position', type: 'uint8' }
+      { name: 'position', type: 'uint8' },
     ],
-    outputs: []
+    outputs: [],
   },
   {
     name: 'resolveCase',
     type: 'function',
     stateMutability: 'nonpayable',
     inputs: [{ name: 'caseId', type: 'bytes32' }],
-    outputs: []
+    outputs: [],
   },
   {
     name: 'requestReReview',
     type: 'function',
     stateMutability: 'payable',
     inputs: [{ name: 'caseId', type: 'bytes32' }],
-    outputs: []
+    outputs: [],
   },
   {
     name: 'getCase',
@@ -381,10 +317,10 @@ export const MODERATION_MARKETPLACE_ABI = [
           { name: 'totalPot', type: 'uint256' },
           { name: 'resolved', type: 'bool' },
           { name: 'outcome', type: 'uint8' },
-          { name: 'appealCount', type: 'uint256' }
-        ]
-      }
-    ]
+          { name: 'appealCount', type: 'uint256' },
+        ],
+      },
+    ],
   },
   {
     name: 'getStake',
@@ -399,52 +335,52 @@ export const MODERATION_MARKETPLACE_ABI = [
           { name: 'stakedAt', type: 'uint256' },
           { name: 'stakedBlock', type: 'uint256' },
           { name: 'lastActivityBlock', type: 'uint256' },
-          { name: 'isStaked', type: 'bool' }
-        ]
-      }
-    ]
+          { name: 'isStaked', type: 'bool' },
+        ],
+      },
+    ],
   },
   {
     name: 'canReport',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'user', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }]
+    outputs: [{ name: '', type: 'bool' }],
   },
   {
     name: 'isBanned',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'user', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }]
+    outputs: [{ name: '', type: 'bool' }],
   },
   {
     name: 'isStakeValidForVoting',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'user', type: 'address' }],
-    outputs: [{ name: '', type: 'bool' }]
+    outputs: [{ name: '', type: 'bool' }],
   },
   {
     name: 'getAllCaseIds',
     type: 'function',
     stateMutability: 'view',
     inputs: [],
-    outputs: [{ name: '', type: 'bytes32[]' }]
+    outputs: [{ name: '', type: 'bytes32[]' }],
   },
   {
     name: 'minReporterStake',
     type: 'function',
     stateMutability: 'view',
     inputs: [],
-    outputs: [{ name: '', type: 'uint256' }]
+    outputs: [{ name: '', type: 'uint256' }],
   },
   {
     name: 'minChallengeStake',
     type: 'function',
     stateMutability: 'view',
     inputs: [],
-    outputs: [{ name: '', type: 'uint256' }]
+    outputs: [{ name: '', type: 'uint256' }],
   },
   {
     name: 'getModeratorReputation',
@@ -461,31 +397,31 @@ export const MODERATION_MARKETPLACE_ABI = [
           { name: 'totalSlashedOthers', type: 'uint256' },
           { name: 'reputationScore', type: 'uint256' },
           { name: 'lastReportTimestamp', type: 'uint256' },
-          { name: 'reportCooldownUntil', type: 'uint256' }
-        ]
-      }
-    ]
+          { name: 'reportCooldownUntil', type: 'uint256' },
+        ],
+      },
+    ],
   },
   {
     name: 'getReputationTier',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'user', type: 'address' }],
-    outputs: [{ name: '', type: 'uint8' }]
+    outputs: [{ name: '', type: 'uint8' }],
   },
   {
     name: 'getRequiredStakeForReporter',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'reporter', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }]
+    outputs: [{ name: '', type: 'uint256' }],
   },
   {
     name: 'getQuorumRequired',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'reporter', type: 'address' }],
-    outputs: [{ name: '', type: 'uint256' }]
+    outputs: [{ name: '', type: 'uint256' }],
   },
   {
     name: 'checkQuorumStatus',
@@ -495,15 +431,15 @@ export const MODERATION_MARKETPLACE_ABI = [
     outputs: [
       { name: 'reached', type: 'bool' },
       { name: 'currentCount', type: 'uint256' },
-      { name: 'requiredCount', type: 'uint256' }
-    ]
+      { name: 'requiredCount', type: 'uint256' },
+    ],
   },
   {
     name: 'getModeratorPnL',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'moderator', type: 'address' }],
-    outputs: [{ name: '', type: 'int256' }]
+    outputs: [{ name: '', type: 'int256' }],
   },
   {
     name: 'getCaseEvidence',
@@ -517,10 +453,10 @@ export const MODERATION_MARKETPLACE_ABI = [
           { name: 'evidenceHashes', type: 'bytes32[]' },
           { name: 'notes', type: 'string[]' },
           { name: 'category', type: 'string' },
-          { name: 'timestamp', type: 'uint256' }
-        ]
-      }
-    ]
+          { name: 'timestamp', type: 'uint256' },
+        ],
+      },
+    ],
   },
   {
     name: 'addEvidence',
@@ -529,11 +465,11 @@ export const MODERATION_MARKETPLACE_ABI = [
     inputs: [
       { name: 'caseId', type: 'bytes32' },
       { name: 'evidenceHash', type: 'bytes32' },
-      { name: 'note', type: 'string' }
+      { name: 'note', type: 'string' },
     ],
-    outputs: []
-  }
-] as const;
+    outputs: [],
+  },
+] as const
 
 // ============ Helper Functions ============
 
@@ -542,13 +478,13 @@ export const MODERATION_MARKETPLACE_ABI = [
  */
 export function appNameToId(appName: string): `0x${string}` {
   // Convert string to hex without Buffer (browser compatible)
-  let hex = '';
+  let hex = ''
   for (let i = 0; i < appName.length; i++) {
-    hex += appName.charCodeAt(i).toString(16).padStart(2, '0');
+    hex += appName.charCodeAt(i).toString(16).padStart(2, '0')
   }
   // Pad to 64 chars (32 bytes)
-  hex = hex.padEnd(64, '0');
-  return `0x${hex}` as `0x${string}`;
+  hex = hex.padEnd(64, '0')
+  return `0x${hex}` as `0x${string}`
 }
 
 /**
@@ -556,15 +492,21 @@ export function appNameToId(appName: string): `0x${string}` {
  */
 export function getBanStatusLabel(status: BanStatus): string {
   switch (status) {
-    case BanStatus.NONE: return 'Not Banned';
-    case BanStatus.ON_NOTICE: return 'On Notice';
-    case BanStatus.CHALLENGED: return 'Challenged';
-    case BanStatus.BANNED: return 'Banned';
-    case BanStatus.CLEARED: return 'Cleared';
-    case BanStatus.APPEALING: return 'Appealing';
+    case BanStatus.NONE:
+      return 'Not Banned'
+    case BanStatus.ON_NOTICE:
+      return 'On Notice'
+    case BanStatus.CHALLENGED:
+      return 'Challenged'
+    case BanStatus.BANNED:
+      return 'Banned'
+    case BanStatus.CLEARED:
+      return 'Cleared'
+    case BanStatus.APPEALING:
+      return 'Appealing'
   }
-  const _exhaustiveCheck: never = status;
-  throw new Error(`Unhandled BanStatus: ${_exhaustiveCheck}`);
+  const _exhaustiveCheck: never = status
+  throw new Error(`Unhandled BanStatus: ${_exhaustiveCheck}`)
 }
 
 /**
@@ -572,50 +514,72 @@ export function getBanStatusLabel(status: BanStatus): string {
  */
 export function getBanTypeLabel(banType: BanType): string {
   switch (banType) {
-    case BanType.NONE: return 'None';
-    case BanType.ON_NOTICE: return 'On Notice';
-    case BanType.CHALLENGED: return 'Challenged';
-    case BanType.PERMANENT: return 'Permanent';
+    case BanType.NONE:
+      return 'None'
+    case BanType.ON_NOTICE:
+      return 'On Notice'
+    case BanType.CHALLENGED:
+      return 'Challenged'
+    case BanType.PERMANENT:
+      return 'Permanent'
   }
-  const _exhaustiveCheck: never = banType;
-  throw new Error(`Unhandled BanType: ${_exhaustiveCheck}`);
+  const _exhaustiveCheck: never = banType
+  throw new Error(`Unhandled BanType: ${_exhaustiveCheck}`)
 }
 
 /**
  * Calculate vote percentages
  */
-export function calculateVotePercentages(yesVotes: bigint, noVotes: bigint): { yes: number; no: number } {
-  const total = yesVotes + noVotes;
-  if (total === BigInt(0)) return { yes: 50, no: 50 };
-  
-  const yesPercent = Number((yesVotes * BigInt(10000)) / total) / 100;
-  return { yes: yesPercent, no: 100 - yesPercent };
+export function calculateVotePercentages(
+  yesVotes: bigint,
+  noVotes: bigint,
+): { yes: number; no: number } {
+  const total = yesVotes + noVotes
+  if (total === BigInt(0)) return { yes: 50, no: 50 }
+
+  const yesPercent = Number((yesVotes * BigInt(10000)) / total) / 100
+  return { yes: yesPercent, no: 100 - yesPercent }
 }
 
 /**
  * Format stake for display
+ * Uses BigInt arithmetic to preserve precision for large values
  */
 export function formatStake(stake: bigint): string {
-  const eth = Number(stake) / 1e18;
-  if (eth < 0.001) return '<0.001 ETH';
-  return `${eth.toFixed(3)} ETH`;
+  const decimals = 18n
+  const divisor = 10n ** decimals
+  const wholePart = stake / divisor
+  const fracPart = stake % divisor
+
+  // For very small amounts
+  if (wholePart === 0n && fracPart < 10n ** 15n) {
+    return '<0.001 ETH'
+  }
+
+  // Format with 3 decimal places using BigInt math
+  const fracScaled = (fracPart * 1000n) / divisor
+  return `${wholePart}.${fracScaled.toString().padStart(3, '0')} ETH`
 }
 
 /**
  * Calculate time remaining for voting
  */
-export function getTimeRemaining(marketOpenUntil: number): { hours: number; minutes: number; expired: boolean } {
-  const now = Date.now() / 1000;
-  const remaining = marketOpenUntil - now;
-  
+export function getTimeRemaining(marketOpenUntil: number): {
+  hours: number
+  minutes: number
+  expired: boolean
+} {
+  const now = Date.now() / 1000
+  const remaining = marketOpenUntil - now
+
   if (remaining <= 0) {
-    return { hours: 0, minutes: 0, expired: true };
+    return { hours: 0, minutes: 0, expired: true }
   }
-  
-  const hours = Math.floor(remaining / 3600);
-  const minutes = Math.floor((remaining % 3600) / 60);
-  
-  return { hours, minutes, expired: false };
+
+  const hours = Math.floor(remaining / 3600)
+  const minutes = Math.floor((remaining % 3600) / 60)
+
+  return { hours, minutes, expired: false }
 }
 
 /**
@@ -623,25 +587,30 @@ export function getTimeRemaining(marketOpenUntil: number): { hours: number; minu
  */
 export function getReputationTierLabel(tier: ReputationTier): string {
   switch (tier) {
-    case ReputationTier.UNTRUSTED: return 'Untrusted';
-    case ReputationTier.LOW: return 'Low';
-    case ReputationTier.MEDIUM: return 'Medium';
-    case ReputationTier.HIGH: return 'High';
-    case ReputationTier.TRUSTED: return 'Trusted';
+    case ReputationTier.UNTRUSTED:
+      return 'Untrusted'
+    case ReputationTier.LOW:
+      return 'Low'
+    case ReputationTier.MEDIUM:
+      return 'Medium'
+    case ReputationTier.HIGH:
+      return 'High'
+    case ReputationTier.TRUSTED:
+      return 'Trusted'
   }
-  const _exhaustiveCheck: never = tier;
-  throw new Error(`Unhandled ReputationTier: ${_exhaustiveCheck}`);
+  const _exhaustiveCheck: never = tier
+  throw new Error(`Unhandled ReputationTier: ${_exhaustiveCheck}`)
 }
 
 /**
  * Get reputation tier from score
  */
 export function getReputationTierFromScore(score: number): ReputationTier {
-  if (score <= 1000) return ReputationTier.UNTRUSTED;
-  if (score <= 3000) return ReputationTier.LOW;
-  if (score <= 6000) return ReputationTier.MEDIUM;
-  if (score <= 8000) return ReputationTier.HIGH;
-  return ReputationTier.TRUSTED;
+  if (score <= 1000) return ReputationTier.UNTRUSTED
+  if (score <= 3000) return ReputationTier.LOW
+  if (score <= 6000) return ReputationTier.MEDIUM
+  if (score <= 8000) return ReputationTier.HIGH
+  return ReputationTier.TRUSTED
 }
 
 /**
@@ -649,31 +618,45 @@ export function getReputationTierFromScore(score: number): ReputationTier {
  */
 export function getQuorumForTier(tier: ReputationTier): number {
   switch (tier) {
-    case ReputationTier.UNTRUSTED: return Infinity;
-    case ReputationTier.LOW: return 3;
-    case ReputationTier.MEDIUM: return 2;
-    case ReputationTier.HIGH: return 1;
-    case ReputationTier.TRUSTED: return 1;
+    case ReputationTier.UNTRUSTED:
+      return Infinity
+    case ReputationTier.LOW:
+      return 3
+    case ReputationTier.MEDIUM:
+      return 2
+    case ReputationTier.HIGH:
+      return 1
+    case ReputationTier.TRUSTED:
+      return 1
   }
-  const _exhaustiveCheck: never = tier;
-  throw new Error(`Unhandled ReputationTier: ${_exhaustiveCheck}`);
+  const _exhaustiveCheck: never = tier
+  throw new Error(`Unhandled ReputationTier: ${_exhaustiveCheck}`)
 }
 
 /**
  * Format P&L for display
+ * Uses BigInt arithmetic to preserve precision for large values
  */
 export function formatPnL(pnl: bigint): string {
-  const eth = Number(pnl) / 1e18;
-  const sign = eth >= 0 ? '+' : '';
-  return `${sign}${eth.toFixed(4)} ETH`;
+  const decimals = 18n
+  const divisor = 10n ** decimals
+  const isNegative = pnl < 0n
+  const absPnl = isNegative ? -pnl : pnl
+
+  const wholePart = absPnl / divisor
+  const fracPart = absPnl % divisor
+
+  // Format with 4 decimal places using BigInt math
+  const fracScaled = (fracPart * 10000n) / divisor
+  const sign = isNegative ? '-' : '+'
+  return `${sign}${wholePart}.${fracScaled.toString().padStart(4, '0')} ETH`
 }
 
 /**
  * Calculate win rate percentage
  */
 export function calculateWinRate(wins: number, losses: number): number {
-  const total = wins + losses;
-  if (total === 0) return 50;
-  return Math.round((wins / total) * 100);
+  const total = wins + losses
+  if (total === 0) return 50
+  return Math.round((wins / total) * 100)
 }
-

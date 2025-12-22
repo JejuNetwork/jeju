@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react'
+import { Menu, Moon, Sun, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Sun, Moon, Menu, X } from 'lucide-react'
 import { NAV_ITEMS } from './nav'
 
 export function Header() {
@@ -12,7 +12,9 @@ export function Header() {
   useEffect(() => {
     setMounted(true)
     const savedTheme = localStorage.getItem('jeju-monitoring-theme')
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+    const prefersDark = window.matchMedia(
+      '(prefers-color-scheme: dark)',
+    ).matches
     const shouldBeDark = savedTheme ? savedTheme === 'dark' : prefersDark
     setIsDark(shouldBeDark)
     document.documentElement.classList.toggle('dark', shouldBeDark)
@@ -32,18 +34,20 @@ export function Header() {
 
   useEffect(() => {
     setShowMobileMenu(false)
-  }, [location.pathname])
+  }, [])
 
   useEffect(() => {
     document.body.style.overflow = showMobileMenu ? 'hidden' : ''
-    return () => { document.body.style.overflow = '' }
+    return () => {
+      document.body.style.overflow = ''
+    }
   }, [showMobileMenu])
 
   if (!mounted) return null
 
   return (
     <>
-      <header 
+      <header
         className="fixed top-0 left-0 right-0 z-50 border-b safe-top"
         style={{
           backgroundColor: 'var(--surface)',
@@ -65,9 +69,13 @@ export function Header() {
                     key={item.href}
                     to={item.href}
                     className="flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium"
-                    style={{ 
-                      color: isActive(item.href) ? 'var(--color-primary)' : 'var(--text-secondary)',
-                      backgroundColor: isActive(item.href) ? 'rgba(255, 107, 53, 0.1)' : 'transparent',
+                    style={{
+                      color: isActive(item.href)
+                        ? 'var(--color-primary)'
+                        : 'var(--text-secondary)',
+                      backgroundColor: isActive(item.href)
+                        ? 'rgba(255, 107, 53, 0.1)'
+                        : 'transparent',
                     }}
                   >
                     <Icon className="w-4 h-4" />
@@ -83,7 +91,17 @@ export function Header() {
                 className="p-2 rounded-xl"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
               >
-                {isDark ? <Sun className="w-5 h-5" style={{ color: 'var(--color-warning)' }} /> : <Moon className="w-5 h-5" style={{ color: 'var(--color-purple)' }} />}
+                {isDark ? (
+                  <Sun
+                    className="w-5 h-5"
+                    style={{ color: 'var(--color-warning)' }}
+                  />
+                ) : (
+                  <Moon
+                    className="w-5 h-5"
+                    style={{ color: 'var(--color-purple)' }}
+                  />
+                )}
               </button>
 
               <button
@@ -91,14 +109,18 @@ export function Header() {
                 className="lg:hidden p-2 rounded-xl"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
               >
-                {showMobileMenu ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+                {showMobileMenu ? (
+                  <X className="w-5 h-5" />
+                ) : (
+                  <Menu className="w-5 h-5" />
+                )}
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      <div 
+      <div
         className={`fixed inset-0 z-40 lg:hidden transition-opacity duration-300 ${
           showMobileMenu ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
@@ -113,9 +135,16 @@ export function Header() {
         style={{ backgroundColor: 'var(--surface)' }}
       >
         <div className="flex flex-col h-full safe-top safe-bottom">
-          <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: 'var(--border)' }}>
+          <div
+            className="flex items-center justify-between p-4 border-b"
+            style={{ borderColor: 'var(--border)' }}
+          >
             <span className="font-bold text-gradient">Menu</span>
-            <button onClick={() => setShowMobileMenu(false)} className="p-2 rounded-xl" style={{ backgroundColor: 'var(--bg-secondary)' }}>
+            <button
+              onClick={() => setShowMobileMenu(false)}
+              className="p-2 rounded-xl"
+              style={{ backgroundColor: 'var(--bg-secondary)' }}
+            >
               <X className="w-5 h-5" />
             </button>
           </div>
@@ -128,9 +157,13 @@ export function Header() {
                   key={item.href}
                   to={item.href}
                   className="flex items-center gap-3 px-6 py-4 font-medium"
-                  style={{ 
-                    color: isActive(item.href) ? 'var(--color-primary)' : 'var(--text-primary)',
-                    backgroundColor: isActive(item.href) ? 'rgba(255, 107, 53, 0.1)' : 'transparent',
+                  style={{
+                    color: isActive(item.href)
+                      ? 'var(--color-primary)'
+                      : 'var(--text-primary)',
+                    backgroundColor: isActive(item.href)
+                      ? 'rgba(255, 107, 53, 0.1)'
+                      : 'transparent',
                   }}
                 >
                   <Icon className="w-5 h-5" />

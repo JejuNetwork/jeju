@@ -2,5 +2,4 @@
  * DWS Testing Utilities
  */
 
-export * from './load-test';
-
+export * from './load-test'

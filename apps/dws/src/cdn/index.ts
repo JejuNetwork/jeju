@@ -1,16 +1,16 @@
 /**
  * Jeju CDN - Decentralized Content Delivery Network
- * 
+ *
  * A permissionless CDN that supports:
  * - Deployed infrastructure (CloudFront, Cloudflare via terraform/vendor)
  * - Decentralized edge nodes run by operators
  * - JNS gateway (like eth.link for ENS)
- * 
+ *
  * Architecture:
  * - apps/dws/src/cdn: Core edge node and gateway code (no vendor-specific code)
  * - packages/deployment/terraform: CloudFront, WAF, etc. infrastructure
  * - vendor/cloud: Cloud integration pass-through to AWS services
- * 
+ *
  * Features:
  * - Vercel-style TTL defaults and cache rules
  * - Geo-based routing to edge nodes
@@ -20,14 +20,12 @@
  * - Integration with ERC-8004 identity
  */
 
-// Types
-export * from './types';
-
 // Cache
-export * from './cache';
-
+export * from './cache'
 // Providers (interface only - implementations are deployed infrastructure)
-export * from './providers';
+export * from './providers'
+// Types
+export * from './types'
 
 // Routing
 // Note: Routing coordinator has external dependencies
@@ -38,15 +36,14 @@ export * from './providers';
 // export * from './gateway';
 
 // SDK
-export * from './sdk';
+export * from './sdk'
 
-// Edge Node Entry Points - has external dependencies on scripts/shared
+// Edge Node Entry Points - has external dependencies on packages/deployment/scripts/shared
 // export { EdgeNodeServer } from './edge/server';
 // export { startEdgeNode } from './edge';
 
-// Coordinator Entry Point - has external dependencies on scripts/shared
+// Coordinator Entry Point - has external dependencies on packages/deployment/scripts/shared
 // export { CDNCoordinator, startCoordinator } from './routing/coordinator';
 
-// JNS Gateway Entry Point - has external dependencies on scripts/shared
+// JNS Gateway Entry Point - has external dependencies on packages/deployment/scripts/shared
 // export { JNSGateway, startJNSGateway } from './gateway/jns-gateway';
-

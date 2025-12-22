@@ -1,8 +1,7 @@
-'use client';
+'use client'
 
-import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { ConnectButton } from '@rainbow-me/rainbowkit'
 
 export function WalletButton() {
-  return <ConnectButton />;
+  return <ConnectButton />
 }
-

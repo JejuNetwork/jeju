@@ -3,366 +3,347 @@
  * Common hooks, components, APIs, services, protocols and utilities used across all network apps
  */
 
-// Shared Types
-export type {
-  SqlParam,
-  SqlDefaultValue,
-  SqlRow,
-  JsonRpcId,
-  RpcParam,
-  JsonRpcError,
-  JsonRpcRequest,
-  JsonRpcResponse,
-  ProtocolData,
-  ProtocolValue,
-  WebhookBody,
-} from './types';
-
-// Hooks
-export { 
-  useBanStatus, 
-  getBanTypeLabel, 
-  getBanTypeColor,
-  BanType,
-  type BanStatus,
-  type BanCheckConfig as HookBanCheckConfig,
-} from './hooks/useBanStatus';
-
-// Components
-export { 
-  BanBanner, 
-  BanIndicator, 
-  BanOverlay 
-} from './components/BanBanner';
-
 // Moderation API
 export {
-  ModerationAPI,
-  createModerationAPI,
-  BAN_TYPES,
-  CASE_STATUS,
-  REPUTATION_TIERS,
-  REPORT_TYPES,
-  SEVERITY_LEVELS,
-  LABELS,
-  type ModerationConfig,
-  type BanStatus as ModerationBanStatus,
-  type ModeratorProfile,
-  type ModerationCase,
-  type Report,
   type AgentLabels,
+  BAN_TYPES,
+  type BanStatus as ModerationBanStatus,
+  CASE_STATUS,
+  createModerationAPI,
+  LABELS,
+  ModerationAPI,
+  type ModerationCase,
+  type ModerationConfig,
   type ModerationStats,
+  type ModeratorProfile,
+  REPORT_TYPES,
+  REPUTATION_TIERS,
+  type Report,
+  SEVERITY_LEVELS,
   type TransactionRequest,
-} from './api/moderation';
-
-// Moderation Notifications
-export {
-  ModerationNotificationService,
-  createModerationNotifications,
-  createBanNotification,
-  type ModerationEvent,
-  type EventType,
-  type EventData,
-  type NotificationConfig,
-  type Subscriber,
-} from './notifications/moderation-events';
-
-// Ban Check Middleware
-export {
-  BanChecker,
-  createExpressBanMiddleware,
-  createHonoBanMiddleware,
-  isBanned,
-  getBanStatus,
-  initBanChecker,
-  getDefaultChecker,
-  type BanCheckConfig,
-  type BanStatus as BanCheckStatus,
-  type BanCheckResult,
-} from './middleware/banCheck';
-
-// Health Check Middleware
-export {
-  healthMiddleware,
-  healthChecks,
-} from './health-middleware';
-
+} from './api/moderation'
 // Branding
 export {
-  getBrandingCssVars,
   applyBrandingToDocument,
-} from './branding';
-
-// Chains
-export {
-  getLocalnetChain,
-  getTestnetChain,
-  getMainnetChain,
-  getNetworkChains,
-  getChain,
-  getProviderInfo,
-  getServiceName,
-  createAgentCard,
-} from './chains';
-
-// Federation
-export {
-  FederationClient,
-  createFederationClient,
-  FederationDiscovery,
-  createFederationDiscovery,
-  NETWORK_REGISTRY_ABI,
-  FEDERATED_IDENTITY_ABI,
-  FEDERATED_SOLVER_ABI,
-  FEDERATED_LIQUIDITY_ABI,
-  type FederationConfig,
-  type DiscoveryConfig,
-  type NetworkInfo,
-  type NetworkContracts,
-  type FederatedAgent,
-  type FederatedSolver,
-  type NetworkLiquidity,
-  type TrustRelation,
-  type RouteInfo,
-  type IdentityVerification,
-  type XLP,
-  type LiquidityRequest,
-  type CrossNetworkAttestation,
-} from './federation';
-
-// Decentralized Services
-export {
-  // Database
-  createDatabaseService,
-  resetDatabaseService,
-  type DatabaseConfig,
-  type DatabaseService,
-  type QueryParam,
-  type QueryResult,
-  type ExecResult,
-  type TransactionClient,
-  // Cache
-  createCacheService,
-  resetCacheService,
-  cacheKeys,
-  type CacheConfig,
-  type CacheService,
-  // Storage
-  createStorageService,
-  resetStorageService,
-  type StorageConfig,
-  type StorageService,
-  type StorageTier,
-  type UploadOptions,
-  type UploadResult,
-  type PinOptions,
-  // KMS
-  createKMSService,
-  resetKMSService,
-  type KMSConfig,
-  type KMSServiceClient,
-  type EncryptionPolicy,
-  // Cron
-  createCronService,
-  resetCronService,
-  type CronConfig,
-  type CronService,
-  type CronJob,
-  type CronJobConfig,
-  // JNS
-  createJNSService,
-  resetJNSService,
-  setupDAppJNS,
-  type JNSConfig,
-  type JNSService,
-  type JNSRecords,
-  // Deploy
-  deployApp,
-  generateMigrationSQL,
-  type DeployConfig,
-  type DeployResult,
-  type MigrationConfig,
-  // Types
-  type ServiceHealth,
-  type AppManifest,
-  type DatabaseServiceConfig,
-  type CacheServiceConfig,
-  type StorageServiceConfig,
-  type SecretsServiceConfig,
-  type TriggersServiceConfig,
-  type AuthHeaders,
-} from './services';
-
+  getBrandingCssVars,
+} from './branding'
 // Cache Client
 export {
-  getCacheClient,
-  resetCacheClients,
-  getCacheRentalClient,
-  resetCacheRentalClient,
   type CacheClient,
   type CacheClientConfig,
-  type CacheStats,
   type CacheInstance,
-} from './cache';
-
-// Database (CovenantSQL)
+  type CacheStats,
+  getCacheClient,
+  getCacheRentalClient,
+  resetCacheClients,
+  resetCacheRentalClient,
+} from './cache'
+// Chains
 export {
-  CovenantSQLClient,
-  createCovenantSQLClient,
-  getCovenantSQLClient,
-  resetCovenantSQLClient,
-  MigrationManager,
-  createTableMigration,
-  migrateData,
-  type CovenantSQLConfig,
-  type ConsistencyLevel,
-  type QueryOptions,
-  type QueryResult as CovenantQueryResult,
-  type TransactionContext,
-  type TableSchema,
-  type ColumnDefinition,
-  type IndexDefinition,
-  type Migration,
-  type MigrationRecord,
-  type MigrationResult,
-} from './db';
-
+  createAgentCard,
+  getChain,
+  getLocalnetChain,
+  getMainnetChain,
+  getNetworkChains,
+  getProviderInfo,
+  getServiceName,
+  getTestnetChain,
+} from './chains'
+// Components
+export {
+  BanBanner,
+  BanIndicator,
+  BanOverlay,
+} from './components/BanBanner'
 // Crypto (HSM)
 export {
-  HSMClient,
+  type EncryptionResult,
   getHSMClient,
-  resetHSMClient,
-  type HSMProvider,
+  HSMClient,
   type HSMConfig,
   type HSMCredentials,
   type HSMKey,
+  type HSMProvider,
   type KeyAttributes,
+  resetHSMClient,
   type SignatureRequest,
   type SignatureResult,
-  type EncryptionResult,
-} from './crypto';
-
-// Service Worker
+} from './crypto'
+// Database (CovenantSQL)
 export {
-  registerServiceWorker,
-  unregisterServiceWorker,
-  checkForUpdates,
-  sendMessageToSW,
-  skipWaiting,
-  cacheUrls,
-  clearCache,
-  type SWRegistrationOptions,
-} from './service-worker';
-
-// Logger
+  type ColumnDefinition,
+  type ConsistencyLevel,
+  CovenantSQLClient,
+  type CovenantSQLConfig,
+  createCovenantSQLClient,
+  createTableMigration,
+  getCovenantSQLClient,
+  type IndexDefinition,
+  type Migration,
+  MigrationManager,
+  type MigrationRecord,
+  type MigrationResult,
+  migrateData,
+  type QueryOptions,
+  type QueryResult as CovenantQueryResult,
+  resetCovenantSQLClient,
+  type TableSchema,
+  type TransactionContext,
+} from './db'
+// Federation
 export {
-  createLogger,
-  getLogger,
-  logger,
-  type Logger,
-  type LogLevel,
-  type LoggerConfig,
-} from './logger';
-
+  type CrossNetworkAttestation,
+  createFederationClient,
+  createFederationDiscovery,
+  type DiscoveryConfig,
+  FEDERATED_IDENTITY_ABI,
+  FEDERATED_LIQUIDITY_ABI,
+  FEDERATED_SOLVER_ABI,
+  type FederatedAgent,
+  type FederatedSolver,
+  FederationClient,
+  type FederationConfig,
+  FederationDiscovery,
+  type IdentityVerification,
+  type LiquidityRequest,
+  NETWORK_REGISTRY_ABI,
+  type NetworkContracts,
+  type NetworkInfo,
+  type NetworkLiquidity,
+  type RouteInfo,
+  type TrustRelation,
+  type XLP,
+} from './federation'
 // Formatting Utilities
 export {
-  // Bytes
-  formatBytes,
-  formatBytesBinary,
-  // Duration
-  formatMs,
-  formatDuration,
-  formatDurationVerbose,
-  // Time ago
-  formatTimeAgo,
-  formatTimestamp,
-  // Numbers
-  formatNumber,
-  formatUsd,
-  formatPercent,
-  // Addresses
-  formatAddress,
-  shortenAddress,
-  // ETH
-  formatEth,
-  formatGas,
-  formatGasPrice,
-  // IDs
-  generateId,
-  generatePrefixedId,
+  chunk,
   // CSS
   classNames,
   cn,
   // Utilities
   delay,
-  chunk,
-} from './format';
-
-// Token Utilities
+  // Addresses
+  formatAddress,
+  // Bytes
+  formatBytes,
+  formatBytesBinary,
+  formatDuration,
+  formatDurationVerbose,
+  // ETH
+  formatEth,
+  formatGas,
+  formatGasPrice,
+  // Duration
+  formatMs,
+  // Numbers
+  formatNumber,
+  formatPercent,
+  // Time ago
+  formatTimeAgo,
+  formatTimestamp,
+  formatUsd,
+  // IDs
+  generateId,
+  generatePrefixedId,
+  shortenAddress,
+} from './format'
+// Health Check Middleware
 export {
-  formatTokenAmount,
-  parseTokenAmount,
-  formatTokenUsd,
-  calculateUsdValue,
-  formatTokenWithSymbol,
-  isSignificantAmount,
-} from './token-utils';
-
+  healthChecks,
+  healthMiddleware,
+} from './health-middleware'
+// Hooks
+export {
+  type BanCheckConfig as HookBanCheckConfig,
+  type BanStatus,
+  BanType,
+  getBanTypeColor,
+  getBanTypeLabel,
+  useBanStatus,
+} from './hooks/useBanStatus'
 // IPFS Client
 export {
-  createIPFSClient,
-  getIPFSUrl,
   cidToBytes32,
-  uploadToIPFS,
-  uploadJSONToIPFS,
+  createIPFSClient,
+  fileExistsOnIPFS,
+  getIPFSUrl,
+  type IPFSClient,
+  type IPFSConfig,
+  type IPFSUploadResult,
   retrieveFromIPFS,
   retrieveJSONFromIPFS,
-  fileExistsOnIPFS,
-  type IPFSConfig,
-  type IPFSClient,
-  type IPFSUploadResult,
-} from './ipfs-client';
-
+  uploadJSONToIPFS,
+  uploadToIPFS,
+} from './ipfs-client'
+// Logger
+export {
+  createLogger,
+  getLogger,
+  type Logger,
+  type LoggerConfig,
+  type LogLevel,
+  logger,
+} from './logger'
+// Ban Check Middleware
+export {
+  type BanCheckConfig,
+  BanChecker,
+  type BanCheckResult,
+  type BanStatus as BanCheckStatus,
+  createExpressBanMiddleware,
+  createHonoBanMiddleware,
+  getBanStatus,
+  getDefaultChecker,
+  initBanChecker,
+  isBanned,
+} from './middleware/banCheck'
+// Moderation Notifications
+export {
+  createBanNotification,
+  createModerationNotifications,
+  type EventData,
+  type EventType,
+  type ModerationEvent,
+  ModerationNotificationService,
+  type NotificationConfig,
+  type Subscriber,
+} from './notifications/moderation-events'
 // Protocol Servers
 export {
-  // Unified Server
-  createUnifiedServer,
-  startServer,
-  createServerlessHandler,
-  skillSuccess,
-  skillError,
-  skillRequiresPayment,
-  type UnifiedServerConfig,
-  type A2ASkill,
-  type MCPResource,
-  type MCPTool,
-  type MCPPrompt,
-  type SkillContext,
-  type SkillResult,
-  type PaymentRequirement,
-  type ServerInstance,
-  // Legacy A2A
-  createA2AServer,
   type A2AConfig,
   type A2AResult,
+  type A2ASkill,
   type AgentCard,
-  // Legacy MCP
-  createMCPServer,
-  type MCPConfig,
-  type MCPPromptResult,
+  type AgentInfo,
   // Middleware
   configureERC8004,
-  configureX402,
   configureProtocolMiddleware,
-  erc8004Middleware,
-  x402Middleware,
-  getAgentInfo,
+  configureX402,
+  // Legacy A2A
+  createA2AServer,
+  // Legacy MCP
+  createMCPServer,
   createPaymentRequirement,
-  verifyX402Payment,
-  parseX402Header,
+  createServerlessHandler,
+  // Unified Server
+  createUnifiedServer,
   type ERC8004Config,
-  type X402Config,
+  erc8004Middleware,
+  getAgentInfo,
+  type MCPConfig,
+  type MCPPrompt,
+  type MCPPromptResult,
+  type MCPResource,
+  type MCPTool,
+  type PaymentRequirement,
   type ProtocolMiddlewareConfig,
-  type AgentInfo,
+  parseX402Header,
+  type ServerInstance,
+  type SkillContext,
+  type SkillResult,
+  skillError,
+  skillRequiresPayment,
+  skillSuccess,
+  startServer,
+  type UnifiedServerConfig,
+  verifyX402Payment,
+  type X402Config,
   type X402PaymentPayload,
-} from './protocols';
+  x402Middleware,
+} from './protocols'
+// Service Worker
+export {
+  cacheUrls,
+  checkForUpdates,
+  clearCache,
+  registerServiceWorker,
+  type SWRegistrationOptions,
+  sendMessageToSW,
+  skipWaiting,
+  unregisterServiceWorker,
+} from './service-worker'
+// Decentralized Services
+export {
+  type AppManifest,
+  type AuthHeaders,
+  type CacheConfig,
+  type CacheService,
+  type CacheServiceConfig,
+  type CronConfig,
+  type CronJob,
+  type CronJobConfig,
+  type CronService,
+  cacheKeys,
+  // Cache
+  createCacheService,
+  // Cron
+  createCronService,
+  // Database
+  createDatabaseService,
+  // JNS
+  createJNSService,
+  // KMS
+  createKMSService,
+  // Storage
+  createStorageService,
+  type DatabaseConfig,
+  type DatabaseService,
+  type DatabaseServiceConfig,
+  type DeployConfig,
+  type DeployResult,
+  // Deploy
+  deployApp,
+  type EncryptionPolicy,
+  type ExecResult,
+  generateMigrationSQL,
+  type JNSConfig,
+  type JNSRecords,
+  type JNSService,
+  type KMSConfig,
+  type KMSServiceClient,
+  type MigrationConfig,
+  type PinOptions,
+  type QueryParam,
+  type QueryResult,
+  resetCacheService,
+  resetCronService,
+  resetDatabaseService,
+  resetJNSService,
+  resetKMSService,
+  resetStorageService,
+  type SecretsServiceConfig,
+  // Types
+  type ServiceHealth,
+  type StorageConfig,
+  type StorageService,
+  type StorageServiceConfig,
+  type StorageTier,
+  setupDAppJNS,
+  type TransactionClient,
+  type TriggersServiceConfig,
+  type UploadOptions,
+  type UploadResult,
+} from './services'
+// Token Utilities
+export {
+  calculateUsdValue,
+  formatTokenAmount,
+  formatTokenUsd,
+  formatTokenWithSymbol,
+  isSignificantAmount,
+  parseTokenAmount,
+} from './token-utils'
+// Shared Types
+export type {
+  JsonRpcError,
+  JsonRpcId,
+  JsonRpcRequest,
+  JsonRpcResponse,
+  ProtocolData,
+  ProtocolValue,
+  RpcParam,
+  SqlDefaultValue,
+  SqlParam,
+  SqlRow,
+  WebhookBody,
+} from './types'

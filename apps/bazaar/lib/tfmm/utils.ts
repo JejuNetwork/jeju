@@ -3,41 +3,45 @@
  * Shared between API routes and hooks
  */
 
-import { AddressSchema } from '@jejunetwork/types';
-import { expect } from '@/lib/validation';
-import type { TFMMCreatePoolParams, TFMMUpdateStrategyParams, TFMMTriggerRebalanceParams } from '@/schemas/api';
+import { AddressSchema } from '@jejunetwork/types'
+import { expect } from '@/lib/validation'
+import type {
+  TFMMCreatePoolParams,
+  TFMMTriggerRebalanceParams,
+  TFMMUpdateStrategyParams,
+} from '@/schemas/api'
 
 export interface TFMMPool {
-  address: string;
-  name: string;
-  strategy: string;
-  tokens: string[];
-  weights: number[];
-  targetWeights: number[];
-  tvl: string;
-  apy: string;
-  volume24h: string;
+  address: string
+  name: string
+  strategy: string
+  tokens: string[]
+  weights: number[]
+  targetWeights: number[]
+  tvl: string
+  apy: string
+  volume24h: string
 }
 
 export interface TFMMStrategy {
-  type: string;
-  name: string;
-  description: string;
-  params: Record<string, number>;
+  type: string
+  name: string
+  description: string
+  params: Record<string, number>
   performance: {
-    return30d: number;
-    sharpe: number;
-    maxDrawdown: number;
-    winRate: number;
-  };
+    return30d: number
+    sharpe: number
+    maxDrawdown: number
+    winRate: number
+  }
 }
 
 export interface OracleStatus {
-  pythAvailable: boolean;
-  chainlinkAvailable: boolean;
-  twapAvailable: boolean;
-  currentSource: string;
-  lastUpdate: number;
+  pythAvailable: boolean
+  chainlinkAvailable: boolean
+  twapAvailable: boolean
+  currentSource: string
+  lastUpdate: number
 }
 
 // Mock data - in production, this would come from contracts/indexer
@@ -75,7 +79,7 @@ const MOCK_POOLS: TFMMPool[] = [
     apy: '15.8%',
     volume24h: '$210K',
   },
-];
+]
 
 const STRATEGIES: TFMMStrategy[] = [
   {
@@ -143,98 +147,140 @@ const STRATEGIES: TFMMStrategy[] = [
       winRate: 60,
     },
   },
-];
+]
 
 const ORACLE_STATUS: Record<string, OracleStatus> = {
-  ETH: { pythAvailable: true, chainlinkAvailable: true, twapAvailable: true, currentSource: 'pyth', lastUpdate: Date.now() - 5000 },
-  BTC: { pythAvailable: true, chainlinkAvailable: true, twapAvailable: false, currentSource: 'pyth', lastUpdate: Date.now() - 3000 },
-  USDC: { pythAvailable: true, chainlinkAvailable: true, twapAvailable: true, currentSource: 'chainlink', lastUpdate: Date.now() - 10000 },
-  SOL: { pythAvailable: true, chainlinkAvailable: false, twapAvailable: true, currentSource: 'pyth', lastUpdate: Date.now() - 8000 },
-  ARB: { pythAvailable: true, chainlinkAvailable: false, twapAvailable: true, currentSource: 'twap', lastUpdate: Date.now() - 60000 },
-};
+  ETH: {
+    pythAvailable: true,
+    chainlinkAvailable: true,
+    twapAvailable: true,
+    currentSource: 'pyth',
+    lastUpdate: Date.now() - 5000,
+  },
+  BTC: {
+    pythAvailable: true,
+    chainlinkAvailable: true,
+    twapAvailable: false,
+    currentSource: 'pyth',
+    lastUpdate: Date.now() - 3000,
+  },
+  USDC: {
+    pythAvailable: true,
+    chainlinkAvailable: true,
+    twapAvailable: true,
+    currentSource: 'chainlink',
+    lastUpdate: Date.now() - 10000,
+  },
+  SOL: {
+    pythAvailable: true,
+    chainlinkAvailable: false,
+    twapAvailable: true,
+    currentSource: 'pyth',
+    lastUpdate: Date.now() - 8000,
+  },
+  ARB: {
+    pythAvailable: true,
+    chainlinkAvailable: false,
+    twapAvailable: true,
+    currentSource: 'twap',
+    lastUpdate: Date.now() - 60000,
+  },
+}
 
 /**
  * Get all TFMM pools
  */
 export function getAllTFMMPools(): TFMMPool[] {
-  return MOCK_POOLS;
+  return MOCK_POOLS
 }
 
 /**
  * Get a specific pool by address
  */
 export function getTFMMPool(poolAddress: string): TFMMPool | null {
-  const validatedAddress = AddressSchema.parse(poolAddress);
-  const pool = MOCK_POOLS.find(p => p.address.toLowerCase() === validatedAddress.toLowerCase());
-  return pool || null;
+  const validatedAddress = AddressSchema.parse(poolAddress)
+  const pool = MOCK_POOLS.find(
+    (p) => p.address.toLowerCase() === validatedAddress.toLowerCase(),
+  )
+  return pool || null
 }
 
 /**
  * Get all available strategies
  */
 export function getTFMMStrategies(): TFMMStrategy[] {
-  return STRATEGIES;
+  return STRATEGIES
 }
 
 /**
  * Get oracle status for all tokens
  */
 export function getOracleStatus(): Record<string, OracleStatus> {
-  return ORACLE_STATUS;
+  return ORACLE_STATUS
 }
 
 /**
  * Create a new TFMM pool
  * In production, this would deploy a contract
  */
-export async function createTFMMPool(params: TFMMCreatePoolParams): Promise<{ poolAddress: string; message: string }> {
-  params.tokens.forEach(token => AddressSchema.parse(token));
-  expect(params.tokens.length >= 2, 'At least 2 tokens required');
-  
+export async function createTFMMPool(
+  params: TFMMCreatePoolParams,
+): Promise<{ poolAddress: string; message: string }> {
+  params.tokens.forEach((token) => AddressSchema.parse(token))
+  expect(params.tokens.length >= 2, 'At least 2 tokens required')
+
   // In production, deploy contract here
-  const poolAddress = '0x' + Math.random().toString(16).slice(2, 42);
-  
+  const poolAddress = `0x${Math.random().toString(16).slice(2, 42)}`
+
   return {
     poolAddress,
     message: 'Pool creation initiated',
-  };
+  }
 }
 
 /**
  * Update pool strategy
  */
-export async function updatePoolStrategy(params: TFMMUpdateStrategyParams): Promise<{ message: string; effectiveAt: number }> {
-  AddressSchema.parse(params.poolAddress);
-  
+export async function updatePoolStrategy(
+  params: TFMMUpdateStrategyParams,
+): Promise<{ message: string; effectiveAt: number }> {
+  AddressSchema.parse(params.poolAddress)
+
   // In production, schedule strategy update
   return {
     message: 'Strategy update scheduled',
     effectiveAt: Date.now() + 3600000, // 1 hour delay
-  };
+  }
 }
 
 /**
  * Trigger pool rebalance
  */
-export async function triggerPoolRebalance(params: TFMMTriggerRebalanceParams): Promise<{ message: string; txHash: string }> {
-  AddressSchema.parse(params.poolAddress);
-  
+export async function triggerPoolRebalance(
+  params: TFMMTriggerRebalanceParams,
+): Promise<{ message: string; txHash: string }> {
+  AddressSchema.parse(params.poolAddress)
+
   // In production, execute rebalance transaction
-  const txHash = '0x' + Math.random().toString(16).slice(2, 66);
-  
+  const txHash = `0x${Math.random().toString(16).slice(2, 66)}`
+
   return {
     message: 'Rebalance triggered',
     txHash,
-  };
+  }
 }
 
 /**
  * Calculate aggregate stats for all pools
  */
-export function getTFMMStats(): { totalTvl: string; totalVolume24h: string; poolCount: number } {
+export function getTFMMStats(): {
+  totalTvl: string
+  totalVolume24h: string
+  poolCount: number
+} {
   return {
     totalTvl: '$4.18M',
     totalVolume24h: '$1.55M',
     poolCount: MOCK_POOLS.length,
-  };
+  }
 }

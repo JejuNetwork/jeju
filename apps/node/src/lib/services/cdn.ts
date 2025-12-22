@@ -1,22 +1,22 @@
 /**
  * CDN Service - Edge node integration for the desktop app
- * 
+ *
  * Allows node operators to run CDN edge nodes from the desktop app,
  * serving cached content and earning from the CDN marketplace.
  */
 
-import { z } from 'zod';
-import { type Address } from 'viem';
-import { type NodeClient, getChain } from '../contracts';
-import { CDN_REGISTRY_ABI } from '../abis';
-import type { CDNRegion } from '@jejunetwork/types';
+import type { CDNRegion } from '@jejunetwork/types'
+import type { Address } from 'viem'
+import { z } from 'zod'
+import { CDN_REGISTRY_ABI } from '../abis'
+import { getChain, type NodeClient } from '../contracts'
 
 // ============================================================================
 // Types & Validation
 // ============================================================================
 
 // Use the actual CDNRegion type from @jejunetwork/types
-const CDNRegionSchema = z.string(); // Will validate against actual CDNRegion values
+const CDNRegionSchema = z.string() // Will validate against actual CDNRegion values
 
 const CDNServiceConfigSchema = z.object({
   endpoint: z.string().url(),
@@ -24,14 +24,14 @@ const CDNServiceConfigSchema = z.object({
   maxCacheSizeMB: z.number().int().positive(),
   stakeAmount: z.bigint(),
   supportedOrigins: z.array(z.string().url()),
-});
+})
 
 export interface CDNServiceConfig {
-  endpoint: string;
-  region: CDNRegion;
-  maxCacheSizeMB: number;
-  stakeAmount: bigint;
-  supportedOrigins: string[];
+  endpoint: string
+  region: CDNRegion
+  maxCacheSizeMB: number
+  stakeAmount: bigint
+  supportedOrigins: string[]
 }
 
 const CDNNodeMetricsSchema = z.object({
@@ -42,68 +42,77 @@ const CDNNodeMetricsSchema = z.object({
   activeConnections: z.number().int().nonnegative(),
   cacheEntries: z.number().int().nonnegative(),
   cacheSizeBytes: z.number().int().nonnegative(),
-});
+})
 
 export interface CDNNodeMetrics {
-  requestsTotal: number;
-  bytesServed: number;
-  cacheHitRate: number;
-  avgLatencyMs: number;
-  activeConnections: number;
-  cacheEntries: number;
-  cacheSizeBytes: number;
+  requestsTotal: number
+  bytesServed: number
+  cacheHitRate: number
+  avgLatencyMs: number
+  activeConnections: number
+  cacheEntries: number
+  cacheSizeBytes: number
 }
 
 const CDNServiceStateSchema = z.object({
   isRegistered: z.boolean(),
-  nodeId: z.string().regex(/^0x[a-fA-F0-9]{40}$/).transform((val) => val as `0x${string}`),
+  nodeId: z
+    .string()
+    .regex(/^0x[a-fA-F0-9]{40}$/)
+    .transform((val) => val as `0x${string}`),
   endpoint: z.string().url(),
   region: CDNRegionSchema.transform((val) => val as CDNRegion),
   stake: z.bigint(),
-  status: z.enum(['healthy', 'degraded', 'unhealthy', 'maintenance', 'offline']),
+  status: z.enum([
+    'healthy',
+    'degraded',
+    'unhealthy',
+    'maintenance',
+    'offline',
+  ]),
   metrics: CDNNodeMetricsSchema,
-});
+})
 
 export interface CDNServiceState {
-  isRegistered: boolean;
-  nodeId: `0x${string}`;
-  endpoint: string;
-  region: CDNRegion;
-  stake: bigint;
-  status: 'healthy' | 'degraded' | 'unhealthy' | 'maintenance' | 'offline';
-  metrics: CDNNodeMetrics;
+  isRegistered: boolean
+  nodeId: `0x${string}`
+  endpoint: string
+  region: CDNRegion
+  stake: bigint
+  status: 'healthy' | 'degraded' | 'unhealthy' | 'maintenance' | 'offline'
+  metrics: CDNNodeMetrics
 }
 
 const CDNEarningsSchema = z.object({
   pending: z.bigint(),
   total: z.bigint(),
   lastSettlement: z.number().int().positive(),
-});
+})
 
 export interface CDNEarnings {
-  pending: bigint;
-  total: bigint;
-  lastSettlement: number;
+  pending: bigint
+  total: bigint
+  lastSettlement: number
 }
 
 export function validateCDNServiceConfig(data: unknown): CDNServiceConfig {
-  const parsed = CDNServiceConfigSchema.parse(data);
+  const parsed = CDNServiceConfigSchema.parse(data)
   return {
     ...parsed,
     region: parsed.region as CDNRegion,
-  };
+  }
 }
 
 export function validateCDNServiceState(data: unknown): CDNServiceState {
-  return CDNServiceStateSchema.parse(data);
+  return CDNServiceStateSchema.parse(data)
 }
 
 export function validateCDNNodeMetrics(data: unknown): CDNNodeMetrics {
-  return CDNNodeMetricsSchema.parse(data);
+  return CDNNodeMetricsSchema.parse(data)
 }
 
 export function validateCDNEarnings(data: unknown): CDNEarnings {
-  return CDNEarningsSchema.parse(data);
+  return CDNEarningsSchema.parse(data)
 }
 
 // ============================================================================
@@ -111,11 +120,11 @@ export function validateCDNEarnings(data: unknown): CDNEarnings {
 // ============================================================================
 
 export class CDNService {
-  private client: NodeClient;
-  private edgeNodeProcess: ChildProcess | null = null;
+  private client: NodeClient
+  private edgeNodeProcess: ChildProcess | null = null
 
   constructor(client: NodeClient) {
-    this.client = client;
+    this.client = client
   }
 
   /**
@@ -123,29 +132,29 @@ export class CDNService {
    */
   async getState(address: Address): Promise<CDNServiceState | null> {
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      throw new Error(`Invalid address: ${address}`);
+      throw new Error(`Invalid address: ${address}`)
     }
-    
+
     // Get operator's nodes
-    const nodeIds = await this.client.publicClient.readContract({
+    const nodeIds = (await this.client.publicClient.readContract({
       address: this.client.addresses.cdnRegistry,
       abi: CDN_REGISTRY_ABI,
       functionName: 'getOperatorNodes',
       args: [address],
-    }) as readonly `0x${string}`[];
+    })) as readonly `0x${string}`[]
 
     if (nodeIds.length === 0) {
-      return null;
+      return null
     }
 
     // Get first node's details
-    const nodeId = nodeIds[0];
+    const nodeId = nodeIds[0]
     const nodeResult = await this.client.publicClient.readContract({
       address: this.client.addresses.cdnRegistry,
       abi: CDN_REGISTRY_ABI,
       functionName: 'getEdgeNode',
       args: [nodeId],
-    });
+    })
     const node = {
       nodeId: nodeResult[0] as `0x${string}`,
       operator: nodeResult[1] as Address,
@@ -157,14 +166,14 @@ export class CDNService {
       registeredAt: nodeResult[7] as bigint,
       lastSeen: nodeResult[8] as bigint,
       agentId: nodeResult[9] as bigint,
-    };
+    }
 
     const metricsResult = await this.client.publicClient.readContract({
       address: this.client.addresses.cdnRegistry,
       abi: CDN_REGISTRY_ABI,
       functionName: 'getNodeMetrics',
       args: [nodeId],
-    });
+    })
     const metrics = {
       currentLoad: metricsResult[0] as bigint,
       bandwidthUsage: metricsResult[1] as bigint,
@@ -177,18 +186,34 @@ export class CDNService {
       cacheHitRate: metricsResult[8] as bigint,
       avgResponseTime: metricsResult[9] as bigint,
       lastUpdated: metricsResult[10] as bigint,
-    };
+    }
 
     const regionMap: CDNRegion[] = [
-      'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2',
-      'eu-west-1', 'eu-west-2', 'eu-central-1',
-      'ap-northeast-1', 'ap-northeast-2', 'ap-southeast-1', 'ap-southeast-2',
-      'ap-south-1', 'sa-east-1', 'af-south-1', 'me-south-1', 'global',
-    ];
+      'us-east-1',
+      'us-east-2',
+      'us-west-1',
+      'us-west-2',
+      'eu-west-1',
+      'eu-west-2',
+      'eu-central-1',
+      'ap-northeast-1',
+      'ap-northeast-2',
+      'ap-southeast-1',
+      'ap-southeast-2',
+      'ap-south-1',
+      'sa-east-1',
+      'af-south-1',
+      'me-south-1',
+      'global',
+    ]
 
     const statusMap: CDNServiceState['status'][] = [
-      'healthy', 'degraded', 'unhealthy', 'maintenance', 'offline',
-    ];
+      'healthy',
+      'degraded',
+      'unhealthy',
+      'maintenance',
+      'offline',
+    ]
 
     const rawState = {
       isRegistered: true,
@@ -206,22 +231,22 @@ export class CDNService {
         cacheEntries: Number(metrics.cacheEntries),
         cacheSizeBytes: Number(metrics.cacheSize),
       },
-    };
-    
-    return validateCDNServiceState(rawState);
+    }
+
+    return validateCDNServiceState(rawState)
   }
 
   /**
    * Register as CDN edge node
    */
   async register(config: CDNServiceConfig): Promise<string> {
-    const validatedConfig = validateCDNServiceConfig(config);
-    
+    const validatedConfig = validateCDNServiceConfig(config)
+
     if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
-    const regionIndex = this.getRegionIndex(validatedConfig.region);
+    const regionIndex = this.getRegionIndex(validatedConfig.region)
 
     const hash = await this.client.walletClient.writeContract({
       chain: getChain(this.client.chainId),
@@ -231,25 +256,28 @@ export class CDNService {
       functionName: 'registerEdgeNode',
       args: [validatedConfig.endpoint, regionIndex, 0], // 0 = decentralized type
       value: validatedConfig.stakeAmount,
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   /**
    * Start the edge node process
    */
-  async startEdgeNode(nodeId: string, config: {
-    port: number;
-    maxCacheSizeMB: number;
-    origins: Array<{ name: string; type: string; endpoint: string }>;
-  }): Promise<void> {
+  async startEdgeNode(
+    nodeId: string,
+    config: {
+      port: number
+      maxCacheSizeMB: number
+      origins: Array<{ name: string; type: string; endpoint: string }>
+    },
+  ): Promise<void> {
     if (this.edgeNodeProcess) {
-      console.warn('[CDN] Edge node already running');
-      return;
+      console.warn('[CDN] Edge node already running')
+      return
     }
 
-    const privateKey = await this.getPrivateKey();
+    const privateKey = await this.getPrivateKey()
 
     // Start edge node as subprocess
     this.edgeNodeProcess = Bun.spawn({
@@ -262,12 +290,12 @@ export class CDNService {
         PRIVATE_KEY: privateKey,
         CDN_REGISTRY_ADDRESS: this.client.addresses.cdnRegistry,
         CDN_BILLING_ADDRESS: this.client.addresses.cdnBilling,
-        RPC_URL: process.env.RPC_URL ?? 'http://localhost:6546',
+        RPC_URL: process.env.RPC_URL ?? 'http://localhost:9545',
       },
       stdio: ['inherit', 'inherit', 'inherit'],
-    });
+    })
 
-    console.log(`[CDN] Started edge node on port ${config.port}`);
+    console.log(`[CDN] Started edge node on port ${config.port}`)
   }
 
   /**
@@ -275,9 +303,9 @@ export class CDNService {
    */
   async stopEdgeNode(): Promise<void> {
     if (this.edgeNodeProcess) {
-      this.edgeNodeProcess.kill();
-      this.edgeNodeProcess = null;
-      console.log('[CDN] Stopped edge node');
+      this.edgeNodeProcess.kill()
+      this.edgeNodeProcess = null
+      console.log('[CDN] Stopped edge node')
     }
   }
 
@@ -285,74 +313,76 @@ export class CDNService {
    * Check if edge node is running
    */
   isRunning(): boolean {
-    return this.edgeNodeProcess !== null;
+    return this.edgeNodeProcess !== null
   }
 
   /**
    * Get earnings with last settlement time
    */
   async getEarnings(address: Address): Promise<CDNEarnings> {
-    const [pending, settled] = await this.client.publicClient.readContract({
+    const [pending, settled] = (await this.client.publicClient.readContract({
       address: this.client.addresses.cdnBilling,
       abi: [
         'function getProviderEarnings(address) view returns (uint256, uint256)',
       ],
       functionName: 'getProviderEarnings',
       args: [address],
-    }) as [bigint, bigint];
+    })) as [bigint, bigint]
 
     // Get billing records to find the most recent settlement
-    const lastSettlement = await this.getLastSettlementTime(address);
+    const lastSettlement = await this.getLastSettlementTime(address)
 
     return {
       pending,
       total: settled,
       lastSettlement,
-    };
+    }
   }
 
   /**
    * Get the timestamp of the provider's last settlement
    * Queries billing records and finds the most recent one
    */
-  private async getLastSettlementTime(providerAddress: Address): Promise<number> {
+  private async getLastSettlementTime(
+    providerAddress: Address,
+  ): Promise<number> {
     // Get provider's billing record IDs
-    const billingRecordIds = await this.client.publicClient.readContract({
+    const billingRecordIds = (await this.client.publicClient.readContract({
       address: this.client.addresses.cdnBilling,
       abi: [
         'function getProviderBillingRecords(address) view returns (bytes32[])',
       ],
       functionName: 'getProviderBillingRecords',
       args: [providerAddress],
-    }) as `0x${string}`[];
+    })) as `0x${string}`[]
 
     if (billingRecordIds.length === 0) {
-      return 0; // No settlements yet
+      return 0 // No settlements yet
     }
 
     // Get the most recent billing record (last in array is most recent)
-    const latestRecordId = billingRecordIds[billingRecordIds.length - 1];
-    
-    const record = await this.client.publicClient.readContract({
+    const latestRecordId = billingRecordIds[billingRecordIds.length - 1]
+
+    const record = (await this.client.publicClient.readContract({
       address: this.client.addresses.cdnBilling,
       abi: [
         'function getBillingRecord(bytes32) view returns ((bytes32 id, address user, address provider, uint256 amount, uint256 timestamp, uint8 status, uint256 periodStart, uint256 periodEnd))',
       ],
       functionName: 'getBillingRecord',
       args: [latestRecordId],
-    }) as {
-      id: `0x${string}`;
-      user: Address;
-      provider: Address;
-      amount: bigint;
-      timestamp: bigint;
-      status: number;
-      periodStart: bigint;
-      periodEnd: bigint;
-    };
+    })) as {
+      id: `0x${string}`
+      user: Address
+      provider: Address
+      amount: bigint
+      timestamp: bigint
+      status: number
+      periodStart: bigint
+      periodEnd: bigint
+    }
 
     // Return timestamp in milliseconds
-    return Number(record.timestamp) * 1000;
+    return Number(record.timestamp) * 1000
   }
 
   /**
@@ -360,7 +390,7 @@ export class CDNService {
    */
   async withdrawEarnings(): Promise<string> {
     if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
     const hash = await this.client.walletClient.writeContract({
@@ -370,9 +400,9 @@ export class CDNService {
       abi: ['function providerWithdraw() external'],
       functionName: 'providerWithdraw',
       args: [],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   /**
@@ -380,7 +410,7 @@ export class CDNService {
    */
   async addStake(nodeId: `0x${string}`, amount: bigint): Promise<string> {
     if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
     const hash = await this.client.walletClient.writeContract({
@@ -391,17 +421,20 @@ export class CDNService {
       functionName: 'addNodeStake',
       args: [nodeId],
       value: amount,
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   /**
    * Update node status
    */
-  async updateStatus(nodeId: `0x${string}`, status: CDNServiceState['status']): Promise<string> {
+  async updateStatus(
+    nodeId: `0x${string}`,
+    status: CDNServiceState['status'],
+  ): Promise<string> {
     if (!this.client.walletClient?.account) {
-      throw new Error('Wallet not connected');
+      throw new Error('Wallet not connected')
     }
 
     const statusMap: Record<CDNServiceState['status'], number> = {
@@ -410,7 +443,7 @@ export class CDNService {
       unhealthy: 2,
       maintenance: 3,
       offline: 4,
-    };
+    }
 
     const hash = await this.client.walletClient.writeContract({
       chain: getChain(this.client.chainId),
@@ -419,9 +452,9 @@ export class CDNService {
       abi: CDN_REGISTRY_ABI,
       functionName: 'updateNodeStatus',
       args: [nodeId, statusMap[status]],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   // ============================================================================
@@ -430,22 +463,34 @@ export class CDNService {
 
   private getRegionIndex(region: CDNRegion): number {
     const regions: CDNRegion[] = [
-      'us-east-1', 'us-east-2', 'us-west-1', 'us-west-2',
-      'eu-west-1', 'eu-west-2', 'eu-central-1',
-      'ap-northeast-1', 'ap-northeast-2', 'ap-southeast-1', 'ap-southeast-2',
-      'ap-south-1', 'sa-east-1', 'af-south-1', 'me-south-1', 'global',
-    ];
-    return regions.indexOf(region);
+      'us-east-1',
+      'us-east-2',
+      'us-west-1',
+      'us-west-2',
+      'eu-west-1',
+      'eu-west-2',
+      'eu-central-1',
+      'ap-northeast-1',
+      'ap-northeast-2',
+      'ap-southeast-1',
+      'ap-southeast-2',
+      'ap-south-1',
+      'sa-east-1',
+      'af-south-1',
+      'me-south-1',
+      'global',
+    ]
+    return regions.indexOf(region)
   }
 
   private async getPrivateKey(): Promise<string> {
     // In Tauri, this would come from secure storage
     // For now, use environment variable
-    const key = process.env.PRIVATE_KEY;
+    const key = process.env.PRIVATE_KEY
     if (!key) {
-      throw new Error('Private key not available');
+      throw new Error('Private key not available')
     }
-    return key;
+    return key
   }
 }
 
@@ -454,7 +499,7 @@ export class CDNService {
 // ============================================================================
 
 interface ChildProcess {
-  kill(): void;
+  kill(): void
 }
 
 // ============================================================================
@@ -462,6 +507,5 @@ interface ChildProcess {
 // ============================================================================
 
 export function createCDNService(client: NodeClient): CDNService {
-  return new CDNService(client);
+  return new CDNService(client)
 }
-

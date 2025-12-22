@@ -1,6 +1,6 @@
-import { createSynpressConfig, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests';
+import { createSynpressConfig, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests'
 
-const WALLET_PORT = parseInt(process.env.WALLET_PORT || '4015');
+const WALLET_PORT = parseInt(process.env.WALLET_PORT || '4015', 10)
 
 /**
  * Synpress configuration for wallet E2E tests
@@ -23,7 +23,7 @@ export default createSynpressConfig({
       timeout: 30000,
     },
   },
-});
+})
 
 // Export wallet setup - app-specific setup is in tests/wallet-setup/basic.setup.ts
-export { PASSWORD, SEED_PHRASE };
+export { PASSWORD, SEED_PHRASE }

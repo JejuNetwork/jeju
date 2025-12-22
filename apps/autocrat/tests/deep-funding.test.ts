@@ -3,47 +3,48 @@
  * @description E2E tests for deep funding system
  */
 
-import { describe, test, expect, beforeAll, afterAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, parseEther, formatEther } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { foundry } from 'viem/chains';
+import { describe, expect, test } from 'bun:test'
+import { createPublicClient, createWalletClient, http, parseEther } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { foundry } from 'viem/chains'
 
 // ============ Test Configuration ============
 
-const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546';
+const TEST_PRIVATE_KEY =
+  '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
+const RPC_URL = process.env.RPC_URL || 'http://localhost:8545'
 
 // Mock addresses (would be deployed contracts in real tests)
-const MOCK_ADDRESSES = {
+const _MOCK_ADDRESSES = {
   contributorRegistry: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
   paymentRequestRegistry: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
   workAgreementRegistry: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
   deepFundingDistributor: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
   daoRegistry: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
-};
+}
 
 // ============ Test Data ============
 
-const TEST_DAO_ID = '0x' + 'a'.repeat(64);
-const TEST_CONTRIBUTOR_ID = '0x' + 'b'.repeat(64);
+const TEST_DAO_ID = `0x${'a'.repeat(64)}`
+const TEST_CONTRIBUTOR_ID = `0x${'b'.repeat(64)}`
 
 // ============ Utility Functions ============
 
-function createTestClients() {
-  const account = privateKeyToAccount(TEST_PRIVATE_KEY);
+function _createTestClients() {
+  const account = privateKeyToAccount(TEST_PRIVATE_KEY)
 
   const publicClient = createPublicClient({
     chain: foundry,
     transport: http(RPC_URL),
-  });
+  })
 
   const walletClient = createWalletClient({
     account,
     chain: foundry,
     transport: http(RPC_URL),
-  });
+  })
 
-  return { publicClient, walletClient, account };
+  return { publicClient, walletClient, account }
 }
 
 // ============ Unit Tests ============
@@ -58,7 +59,7 @@ describe('Deep Funding System', () => {
         jejuBps: 500,
         burnBps: 0,
         reserveBps: 500,
-      };
+      }
 
       const total =
         config.treasuryBps +
@@ -66,10 +67,10 @@ describe('Deep Funding System', () => {
         config.dependencyPoolBps +
         config.jejuBps +
         config.burnBps +
-        config.reserveBps;
+        config.reserveBps
 
-      expect(total).toBe(10000);
-    });
+      expect(total).toBe(10000)
+    })
 
     test('contributor and dependency pools are majority of fees', () => {
       const config = {
@@ -79,173 +80,193 @@ describe('Deep Funding System', () => {
         jejuBps: 500,
         burnBps: 0,
         reserveBps: 500,
-      };
+      }
 
-      const contributorShare = config.contributorPoolBps + config.dependencyPoolBps;
-      expect(contributorShare).toBeGreaterThan(5000);
-    });
+      const contributorShare =
+        config.contributorPoolBps + config.dependencyPoolBps
+      expect(contributorShare).toBeGreaterThan(5000)
+    })
 
     test('jeju network receives portion of all fees', () => {
       const config = {
         jejuBps: 500,
-      };
-
-      expect(config.jejuBps).toBeGreaterThan(0);
-      expect(config.jejuBps).toBeLessThanOrEqual(1000); // Max 10%
-    });
-  });
-
-  describe('Depth Decay Calculation', () => {
-    const DEPTH_DECAY_BPS = 2000; // 20%
-    const MAX_BPS = 10000;
-
-    function applyDepthDecay(weight: number, depth: number): number {
-      if (depth === 0) return weight;
-
-      let decayFactor = MAX_BPS;
-      for (let i = 0; i < depth; i++) {
-        decayFactor = Math.floor((decayFactor * (MAX_BPS - DEPTH_DECAY_BPS)) / MAX_BPS);
       }
 
-      return Math.floor((weight * decayFactor) / MAX_BPS);
+      expect(config.jejuBps).toBeGreaterThan(0)
+      expect(config.jejuBps).toBeLessThanOrEqual(1000) // Max 10%
+    })
+  })
+
+  describe('Depth Decay Calculation', () => {
+    const DEPTH_DECAY_BPS = 2000 // 20%
+    const MAX_BPS = 10000
+
+    function applyDepthDecay(weight: number, depth: number): number {
+      if (depth === 0) return weight
+
+      let decayFactor = MAX_BPS
+      for (let i = 0; i < depth; i++) {
+        decayFactor = Math.floor(
+          (decayFactor * (MAX_BPS - DEPTH_DECAY_BPS)) / MAX_BPS,
+        )
+      }
+
+      return Math.floor((weight * decayFactor) / MAX_BPS)
     }
 
     test('depth 0 has no decay', () => {
-      expect(applyDepthDecay(1000, 0)).toBe(1000);
-    });
+      expect(applyDepthDecay(1000, 0)).toBe(1000)
+    })
 
     test('depth 1 applies 20% decay', () => {
-      expect(applyDepthDecay(1000, 1)).toBe(800);
-    });
+      expect(applyDepthDecay(1000, 1)).toBe(800)
+    })
 
     test('depth 2 applies compounded decay', () => {
-      expect(applyDepthDecay(1000, 2)).toBe(640);
-    });
+      expect(applyDepthDecay(1000, 2)).toBe(640)
+    })
 
     test('depth 3 applies compounded decay', () => {
-      expect(applyDepthDecay(1000, 3)).toBe(512);
-    });
+      expect(applyDepthDecay(1000, 3)).toBe(512)
+    })
 
     test('deep dependencies get progressively less', () => {
-      const weights = [0, 1, 2, 3, 4, 5].map(d => applyDepthDecay(1000, d));
+      const weights = [0, 1, 2, 3, 4, 5].map((d) => applyDepthDecay(1000, d))
       for (let i = 1; i < weights.length; i++) {
-        expect(weights[i]).toBeLessThan(weights[i - 1]);
+        expect(weights[i]).toBeLessThan(weights[i - 1])
       }
-    });
-  });
+    })
+  })
 
   describe('Supermajority Calculation', () => {
-    const SUPERMAJORITY_BPS = 6700; // 67%
+    const SUPERMAJORITY_BPS = 6700 // 67%
 
     function hasSupermajority(approve: number, reject: number): boolean {
-      const total = approve + reject;
-      if (total === 0) return false;
-      return (approve * 10000) / total > SUPERMAJORITY_BPS;
+      const total = approve + reject
+      if (total === 0) return false
+      return (approve * 10000) / total > SUPERMAJORITY_BPS
     }
 
     test('3 approve, 0 reject = supermajority', () => {
-      expect(hasSupermajority(3, 0)).toBe(true);
-    });
+      expect(hasSupermajority(3, 0)).toBe(true)
+    })
 
     test('3 approve, 1 reject = supermajority (75%)', () => {
-      expect(hasSupermajority(3, 1)).toBe(true);
-    });
+      expect(hasSupermajority(3, 1)).toBe(true)
+    })
 
     test('2 approve, 1 reject = no supermajority (66%)', () => {
-      expect(hasSupermajority(2, 1)).toBe(false);
-    });
+      expect(hasSupermajority(2, 1)).toBe(false)
+    })
 
     test('5 approve, 2 reject = supermajority (71%)', () => {
-      expect(hasSupermajority(5, 2)).toBe(true);
-    });
+      expect(hasSupermajority(5, 2)).toBe(true)
+    })
 
     test('empty votes = no supermajority', () => {
-      expect(hasSupermajority(0, 0)).toBe(false);
-    });
-  });
+      expect(hasSupermajority(0, 0)).toBe(false)
+    })
+  })
 
   describe('Weight Normalization', () => {
-    const MAX_BPS = 10000;
+    const MAX_BPS = 10000
 
     function normalizeWeights(weights: number[]): number[] {
-      const total = weights.reduce((sum, w) => sum + w, 0);
-      if (total === 0) return weights.map(() => 0);
-      return weights.map(w => Math.floor((w * MAX_BPS) / total));
+      const total = weights.reduce((sum, w) => sum + w, 0)
+      if (total === 0) return weights.map(() => 0)
+      return weights.map((w) => Math.floor((w * MAX_BPS) / total))
     }
 
     test('normalizes to sum close to MAX_BPS', () => {
-      const weights = [100, 200, 300];
-      const normalized = normalizeWeights(weights);
-      const sum = normalized.reduce((a, b) => a + b, 0);
-      expect(sum).toBeLessThanOrEqual(MAX_BPS);
-      expect(sum).toBeGreaterThan(MAX_BPS - 10); // Allow small rounding
-    });
+      const weights = [100, 200, 300]
+      const normalized = normalizeWeights(weights)
+      const sum = normalized.reduce((a, b) => a + b, 0)
+      expect(sum).toBeLessThanOrEqual(MAX_BPS)
+      expect(sum).toBeGreaterThan(MAX_BPS - 10) // Allow small rounding
+    })
 
     test('preserves relative proportions', () => {
-      const weights = [100, 200, 400];
-      const normalized = normalizeWeights(weights);
+      const weights = [100, 200, 400]
+      const normalized = normalizeWeights(weights)
       // 100:200:400 = 1:2:4, normalized roughly 1428:2857:5714
-      expect(normalized[1]).toBeCloseTo(normalized[0] * 2, -1);
-      expect(normalized[2]).toBeCloseTo(normalized[0] * 4, -1);
-    });
+      expect(normalized[1]).toBeCloseTo(normalized[0] * 2, -1)
+      expect(normalized[2]).toBeCloseTo(normalized[0] * 4, -1)
+    })
 
     test('handles empty weights', () => {
-      const weights: number[] = [];
-      const normalized = normalizeWeights(weights);
-      expect(normalized).toEqual([]);
-    });
+      const weights: number[] = []
+      const normalized = normalizeWeights(weights)
+      expect(normalized).toEqual([])
+    })
 
     test('handles single weight', () => {
-      const weights = [500];
-      const normalized = normalizeWeights(weights);
-      expect(normalized[0]).toBe(MAX_BPS);
-    });
-  });
+      const weights = [500]
+      const normalized = normalizeWeights(weights)
+      expect(normalized[0]).toBe(MAX_BPS)
+    })
+  })
 
   describe('Deliberation Influence', () => {
-    const MAX_DELIBERATION_INFLUENCE_BPS = 1000; // 10%
+    const MAX_DELIBERATION_INFLUENCE_BPS = 1000 // 10%
 
     function applyDeliberation(
       baseWeight: number,
-      votes: Array<{ adjustment: number; reputation: number }>
+      votes: Array<{ adjustment: number; reputation: number }>,
     ): number {
-      let totalAdjustment = 0;
+      let totalAdjustment = 0
       for (const vote of votes) {
-        totalAdjustment += Math.floor((vote.adjustment * vote.reputation) / 100);
+        totalAdjustment += Math.floor((vote.adjustment * vote.reputation) / 100)
       }
 
-      const maxAdjustment = Math.floor((baseWeight * MAX_DELIBERATION_INFLUENCE_BPS) / 10000);
-      const cappedAdjustment = Math.max(-maxAdjustment, Math.min(maxAdjustment, totalAdjustment));
+      const maxAdjustment = Math.floor(
+        (baseWeight * MAX_DELIBERATION_INFLUENCE_BPS) / 10000,
+      )
+      const cappedAdjustment = Math.max(
+        -maxAdjustment,
+        Math.min(maxAdjustment, totalAdjustment),
+      )
 
-      return baseWeight + cappedAdjustment;
+      return baseWeight + cappedAdjustment
     }
 
     test('positive votes increase weight', () => {
-      const result = applyDeliberation(1000, [{ adjustment: 100, reputation: 80 }]);
-      expect(result).toBeGreaterThan(1000);
-    });
+      const result = applyDeliberation(1000, [
+        { adjustment: 100, reputation: 80 },
+      ])
+      expect(result).toBeGreaterThan(1000)
+    })
 
     test('negative votes decrease weight', () => {
-      const result = applyDeliberation(1000, [{ adjustment: -100, reputation: 80 }]);
-      expect(result).toBeLessThan(1000);
-    });
+      const result = applyDeliberation(1000, [
+        { adjustment: -100, reputation: 80 },
+      ])
+      expect(result).toBeLessThan(1000)
+    })
 
     test('adjustment is capped at 10%', () => {
-      const result = applyDeliberation(1000, [{ adjustment: 5000, reputation: 100 }]);
-      expect(result).toBeLessThanOrEqual(1100); // Max 10% increase
-    });
+      const result = applyDeliberation(1000, [
+        { adjustment: 5000, reputation: 100 },
+      ])
+      expect(result).toBeLessThanOrEqual(1100) // Max 10% increase
+    })
 
     test('negative adjustment is capped', () => {
-      const result = applyDeliberation(1000, [{ adjustment: -5000, reputation: 100 }]);
-      expect(result).toBeGreaterThanOrEqual(900); // Max 10% decrease
-    });
+      const result = applyDeliberation(1000, [
+        { adjustment: -5000, reputation: 100 },
+      ])
+      expect(result).toBeGreaterThanOrEqual(900) // Max 10% decrease
+    })
 
     test('low reputation has less influence', () => {
-      const highRep = applyDeliberation(1000, [{ adjustment: 100, reputation: 100 }]);
-      const lowRep = applyDeliberation(1000, [{ adjustment: 100, reputation: 10 }]);
-      expect(highRep).toBeGreaterThan(lowRep);
-    });
-  });
+      const highRep = applyDeliberation(1000, [
+        { adjustment: 100, reputation: 100 },
+      ])
+      const lowRep = applyDeliberation(1000, [
+        { adjustment: 100, reputation: 10 },
+      ])
+      expect(highRep).toBeGreaterThan(lowRep)
+    })
+  })
 
   describe('Payment Request Categories', () => {
     const CATEGORIES = [
@@ -260,65 +281,65 @@ describe('Deep Funding System', () => {
       'EVENTS',
       'INFRASTRUCTURE',
       'OTHER',
-    ];
+    ]
 
     test('all categories are defined', () => {
-      expect(CATEGORIES).toHaveLength(11);
-    });
+      expect(CATEGORIES).toHaveLength(11)
+    })
 
     test('categories include non-technical work', () => {
-      expect(CATEGORIES).toContain('MARKETING');
-      expect(CATEGORIES).toContain('COMMUNITY_MANAGEMENT');
-      expect(CATEGORIES).toContain('OPERATIONS');
-      expect(CATEGORIES).toContain('SUPPORT');
-    });
+      expect(CATEGORIES).toContain('MARKETING')
+      expect(CATEGORIES).toContain('COMMUNITY_MANAGEMENT')
+      expect(CATEGORIES).toContain('OPERATIONS')
+      expect(CATEGORIES).toContain('SUPPORT')
+    })
 
     test('OTHER category exists as fallback', () => {
-      expect(CATEGORIES).toContain('OTHER');
-    });
-  });
+      expect(CATEGORIES).toContain('OTHER')
+    })
+  })
 
   describe('Retroactive Funding', () => {
-    const RETROACTIVE_MAX_AGE = 90 * 24 * 60 * 60 * 1000; // 90 days
+    const RETROACTIVE_MAX_AGE = 90 * 24 * 60 * 60 * 1000 // 90 days
 
     function isRetroactiveEligible(workEndDate: number): boolean {
-      return Date.now() - workEndDate <= RETROACTIVE_MAX_AGE;
+      return Date.now() - workEndDate <= RETROACTIVE_MAX_AGE
     }
 
     test('recent work is eligible', () => {
-      const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-      expect(isRetroactiveEligible(oneWeekAgo)).toBe(true);
-    });
+      const oneWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+      expect(isRetroactiveEligible(oneWeekAgo)).toBe(true)
+    })
 
     test('work at 89 days is eligible', () => {
-      const almostMaxAge = Date.now() - 89 * 24 * 60 * 60 * 1000;
-      expect(isRetroactiveEligible(almostMaxAge)).toBe(true);
-    });
+      const almostMaxAge = Date.now() - 89 * 24 * 60 * 60 * 1000
+      expect(isRetroactiveEligible(almostMaxAge)).toBe(true)
+    })
 
     test('work older than 90 days is not eligible', () => {
-      const tooOld = Date.now() - 91 * 24 * 60 * 60 * 1000;
-      expect(isRetroactiveEligible(tooOld)).toBe(false);
-    });
-  });
+      const tooOld = Date.now() - 91 * 24 * 60 * 60 * 1000
+      expect(isRetroactiveEligible(tooOld)).toBe(false)
+    })
+  })
 
   describe('Dispute Timeline', () => {
-    const COUNCIL_REVIEW_PERIOD = 7 * 24 * 60 * 60 * 1000; // 7 days
-    const DISPUTE_PERIOD = 3 * 24 * 60 * 60 * 1000; // 3 days
+    const COUNCIL_REVIEW_PERIOD = 7 * 24 * 60 * 60 * 1000 // 7 days
+    const DISPUTE_PERIOD = 3 * 24 * 60 * 60 * 1000 // 3 days
 
     test('council has 7 days to review', () => {
-      expect(COUNCIL_REVIEW_PERIOD).toBe(7 * 24 * 60 * 60 * 1000);
-    });
+      expect(COUNCIL_REVIEW_PERIOD).toBe(7 * 24 * 60 * 60 * 1000)
+    })
 
     test('dispute can be filed within 3 days of rejection', () => {
-      expect(DISPUTE_PERIOD).toBe(3 * 24 * 60 * 60 * 1000);
-    });
+      expect(DISPUTE_PERIOD).toBe(3 * 24 * 60 * 60 * 1000)
+    })
 
     test('total dispute resolution timeline', () => {
-      const totalTime = COUNCIL_REVIEW_PERIOD + DISPUTE_PERIOD;
-      expect(totalTime).toBe(10 * 24 * 60 * 60 * 1000); // 10 days max
-    });
-  });
-});
+      const totalTime = COUNCIL_REVIEW_PERIOD + DISPUTE_PERIOD
+      expect(totalTime).toBe(10 * 24 * 60 * 60 * 1000) // 10 days max
+    })
+  })
+})
 
 // ============ Integration Tests ============
 
@@ -329,43 +350,43 @@ describe('Deep Funding Integration', () => {
       const registration = {
         contributorType: 0, // INDIVIDUAL
         profileUri: 'ipfs://QmTest',
-      };
+      }
 
-      expect(registration.contributorType).toBe(0);
-      expect(registration.profileUri).toStartWith('ipfs://');
-    });
+      expect(registration.contributorType).toBe(0)
+      expect(registration.profileUri).toStartWith('ipfs://')
+    })
 
     test('can register as organization', async () => {
       const registration = {
         contributorType: 1, // ORGANIZATION
         profileUri: 'ipfs://QmOrg',
-      };
+      }
 
-      expect(registration.contributorType).toBe(1);
-    });
+      expect(registration.contributorType).toBe(1)
+    })
 
     test('can register as project', async () => {
       const registration = {
         contributorType: 2, // PROJECT
         profileUri: 'ipfs://QmProject',
-      };
+      }
 
-      expect(registration.contributorType).toBe(2);
-    });
-  });
+      expect(registration.contributorType).toBe(2)
+    })
+  })
 
   describe('GitHub Verification Flow', () => {
     test('generates valid OAuth URL', () => {
-      const clientId = 'test-client-id';
-      const redirectUri = 'https://app.jeju.network/oauth/callback';
-      const state = crypto.randomUUID();
+      const clientId = 'test-client-id'
+      const redirectUri = 'https://app.jeju.network/oauth/callback'
+      const state = crypto.randomUUID()
 
-      const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=read:user,repo`;
+      const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${state}&scope=read:user,repo`
 
-      expect(authUrl).toContain('github.com/login/oauth/authorize');
-      expect(authUrl).toContain('client_id=' + clientId);
-      expect(authUrl).toContain('state=' + state);
-    });
+      expect(authUrl).toContain('github.com/login/oauth/authorize')
+      expect(authUrl).toContain(`client_id=${clientId}`)
+      expect(authUrl).toContain(`state=${state}`)
+    })
 
     test('creates proof hash from verification data', async () => {
       const proofData = JSON.stringify({
@@ -373,17 +394,20 @@ describe('Deep Funding Integration', () => {
         userId: '12345',
         username: 'testuser',
         verifiedAt: Date.now(),
-      });
+      })
 
-      const encoder = new TextEncoder();
-      const hashBuffer = await crypto.subtle.digest('SHA-256', encoder.encode(proofData));
-      const hashArray = Array.from(new Uint8Array(hashBuffer));
-      const proofHash = '0x' + hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+      const encoder = new TextEncoder()
+      const hashBuffer = await crypto.subtle.digest(
+        'SHA-256',
+        encoder.encode(proofData),
+      )
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      const proofHash = `0x${hashArray.map((b) => b.toString(16).padStart(2, '0')).join('')}`
 
-      expect(proofHash).toStartWith('0x');
-      expect(proofHash).toHaveLength(66); // 0x + 64 hex chars
-    });
-  });
+      expect(proofHash).toStartWith('0x')
+      expect(proofHash).toHaveLength(66) // 0x + 64 hex chars
+    })
+  })
 
   describe('Payment Request Flow', () => {
     test('submits payment request', async () => {
@@ -398,42 +422,42 @@ describe('Deep Funding Integration', () => {
         isRetroactive: false,
         workStartDate: Date.now(),
         workEndDate: Date.now() + 30 * 24 * 60 * 60 * 1000,
-      };
+      }
 
-      expect(request.requestedAmount).toBe(parseEther('10'));
-      expect(request.isRetroactive).toBe(false);
-    });
+      expect(request.requestedAmount).toBe(parseEther('10'))
+      expect(request.isRetroactive).toBe(false)
+    })
 
     test('council votes on request', async () => {
       const votes = [
         { voter: '0x1', vote: 0, reason: 'Good work' }, // APPROVE
         { voter: '0x2', vote: 0, reason: 'Agreed' }, // APPROVE
         { voter: '0x3', vote: 2, reason: 'Neutral' }, // ABSTAIN
-      ];
+      ]
 
-      const approves = votes.filter(v => v.vote === 0).length;
-      const rejects = votes.filter(v => v.vote === 1).length;
+      const approves = votes.filter((v) => v.vote === 0).length
+      const rejects = votes.filter((v) => v.vote === 1).length
 
-      expect(approves).toBe(2);
-      expect(rejects).toBe(0);
-    });
-  });
+      expect(approves).toBe(2)
+      expect(rejects).toBe(0)
+    })
+  })
 
   describe('Epoch Management', () => {
     test('creates new epoch with correct duration', () => {
-      const EPOCH_DURATION = 30 * 24 * 60 * 60 * 1000; // 30 days
-      const startTime = Date.now();
-      const endTime = startTime + EPOCH_DURATION;
+      const EPOCH_DURATION = 30 * 24 * 60 * 60 * 1000 // 30 days
+      const startTime = Date.now()
+      const endTime = startTime + EPOCH_DURATION
 
       const epoch = {
         epochId: 1,
         startTime,
         endTime,
         finalized: false,
-      };
+      }
 
-      expect(epoch.endTime - epoch.startTime).toBe(EPOCH_DURATION);
-    });
+      expect(epoch.endTime - epoch.startTime).toBe(EPOCH_DURATION)
+    })
 
     test('epoch can be finalized after end time', () => {
       const epoch = {
@@ -441,13 +465,13 @@ describe('Deep Funding Integration', () => {
         startTime: Date.now() - 31 * 24 * 60 * 60 * 1000,
         endTime: Date.now() - 1 * 24 * 60 * 60 * 1000,
         finalized: false,
-      };
+      }
 
-      const canFinalize = Date.now() > epoch.endTime;
-      expect(canFinalize).toBe(true);
-    });
-  });
-});
+      const canFinalize = Date.now() > epoch.endTime
+      expect(canFinalize).toBe(true)
+    })
+  })
+})
 
 // ============ Service Tests ============
 
@@ -462,16 +486,18 @@ describe('Dependency Scanner', () => {
         devDependencies: {
           typescript: '^5.0.0',
         },
-      };
+      }
 
-      const deps = Object.entries(packageJson.dependencies || {}).map(([name, version]) => ({
-        name,
-        version,
-      }));
+      const deps = Object.entries(packageJson.dependencies || {}).map(
+        ([name, version]) => ({
+          name,
+          version,
+        }),
+      )
 
-      expect(deps).toHaveLength(2);
-      expect(deps[0].name).toBe('viem');
-    });
+      expect(deps).toHaveLength(2)
+      expect(deps[0].name).toBe('viem')
+    })
 
     test('parses requirements.txt', () => {
       const content = `
@@ -479,62 +505,62 @@ describe('Dependency Scanner', () => {
 requests>=2.28.0
 flask==2.0.0
 numpy
-      `;
+      `
 
-      const lines = content.split('\n');
+      const lines = content.split('\n')
       const deps = lines
-        .map(l => l.trim())
-        .filter(l => l && !l.startsWith('#') && !l.startsWith('-'))
-        .map(l => {
-          const match = l.match(/^([a-zA-Z0-9_-]+)/);
-          return match ? { name: match[1] } : null;
+        .map((l) => l.trim())
+        .filter((l) => l && !l.startsWith('#') && !l.startsWith('-'))
+        .map((l) => {
+          const match = l.match(/^([a-zA-Z0-9_-]+)/)
+          return match ? { name: match[1] } : null
         })
-        .filter(Boolean);
+        .filter(Boolean)
 
-      expect(deps).toHaveLength(3);
-    });
+      expect(deps).toHaveLength(3)
+    })
 
     test('parses Cargo.toml dependencies', () => {
       const content = `
 [dependencies]
 serde = "1.0"
 tokio = { version = "1.0", features = ["full"] }
-      `;
+      `
 
-      const depsMatch = content.match(/\[dependencies\]([\s\S]*?)(?=\[|$)/);
-      expect(depsMatch).toBeTruthy();
-    });
-  });
+      const depsMatch = content.match(/\[dependencies\]([\s\S]*?)(?=\[|$)/)
+      expect(depsMatch).toBeTruthy()
+    })
+  })
 
   describe('Transitive Resolution', () => {
     test('respects max depth', () => {
-      const MAX_DEPTH = 3;
-      const depths = [0, 1, 2, 3, 4, 5];
-      const withinLimit = depths.filter(d => d <= MAX_DEPTH);
-      expect(withinLimit).toEqual([0, 1, 2, 3]);
-    });
+      const MAX_DEPTH = 3
+      const depths = [0, 1, 2, 3, 4, 5]
+      const withinLimit = depths.filter((d) => d <= MAX_DEPTH)
+      expect(withinLimit).toEqual([0, 1, 2, 3])
+    })
 
     test('tracks usage count across packages', () => {
-      const usageCounts = new Map<string, number>();
+      const usageCounts = new Map<string, number>()
 
       // Simulate scanning multiple packages
       const packages = [
         { deps: ['viem', 'ethers'] },
         { deps: ['viem', 'wagmi'] },
         { deps: ['viem', 'abitype'] },
-      ];
+      ]
 
       for (const pkg of packages) {
         for (const dep of pkg.deps) {
-          usageCounts.set(dep, (usageCounts.get(dep) || 0) + 1);
+          usageCounts.set(dep, (usageCounts.get(dep) || 0) + 1)
         }
       }
 
-      expect(usageCounts.get('viem')).toBe(3);
-      expect(usageCounts.get('ethers')).toBe(1);
-    });
-  });
-});
+      expect(usageCounts.get('viem')).toBe(3)
+      expect(usageCounts.get('ethers')).toBe(1)
+    })
+  })
+})
 
 // ============ A2A/MCP Tests ============
 
@@ -552,10 +578,10 @@ describe('A2A/MCP Integration', () => {
         'review_payment_request',
         'get_contributor_profile',
         'get_pending_rewards',
-      ];
+      ]
 
-      expect(skills).toHaveLength(10);
-    });
+      expect(skills).toHaveLength(10)
+    })
 
     test('skill input schemas are valid', () => {
       const skill = {
@@ -567,12 +593,12 @@ describe('A2A/MCP Integration', () => {
           },
           required: ['daoId'],
         },
-      };
+      }
 
-      expect(skill.inputSchema.type).toBe('object');
-      expect(skill.inputSchema.required).toContain('daoId');
-    });
-  });
+      expect(skill.inputSchema.type).toBe('object')
+      expect(skill.inputSchema.required).toContain('daoId')
+    })
+  })
 
   describe('MCP Resources', () => {
     test('defines funding resources', () => {
@@ -582,11 +608,10 @@ describe('A2A/MCP Integration', () => {
         'funding://daos/{daoId}/contributors',
         'funding://daos/{daoId}/dependencies',
         'funding://contributors/{contributorId}',
-      ];
+      ]
 
-      expect(resources).toHaveLength(5);
-      expect(resources[0]).toContain('funding://');
-    });
-  });
-});
-
+      expect(resources).toHaveLength(5)
+      expect(resources[0]).toContain('funding://')
+    })
+  })
+})

@@ -1,8 +1,8 @@
 /**
  * Base Playwright Configuration for All Network Apps
- * 
+ *
  * Apps should extend this config for consistency.
- * 
+ *
  * Usage in app:
  * ```typescript
  * import { createAppConfig } from '@jejunetwork/tests';
@@ -10,26 +10,30 @@
  * ```
  */
 
-import { defineConfig, devices, type PlaywrightTestConfig } from '@playwright/test';
+import {
+  defineConfig,
+  devices,
+  type PlaywrightTestConfig,
+} from '@playwright/test'
 
 // Import from canonical source
-import { getTestEnv } from './utils';
+import { getTestEnv } from './utils'
 
 // Re-export for backwards compatibility
-export { getTestEnv };
+export { getTestEnv }
 
 export interface AppConfigOptions {
-  name: string;
-  port: number;
-  testDir?: string;
-  timeout?: number;
-  retries?: number;
-  workers?: number;
-  baseURL?: string;
+  name: string
+  port: number
+  testDir?: string
+  timeout?: number
+  retries?: number
+  workers?: number
+  baseURL?: string
   webServer?: {
-    command: string;
-    timeout?: number;
-  };
+    command: string
+    timeout?: number
+  }
 }
 
 const DEFAULT_TIMEOUTS = {
@@ -37,9 +41,11 @@ const DEFAULT_TIMEOUTS = {
   expect: 30000,
   action: 30000,
   navigation: 30000,
-} as const;
+} as const
 
-export function createAppConfig(options: AppConfigOptions): PlaywrightTestConfig {
+export function createAppConfig(
+  options: AppConfigOptions,
+): PlaywrightTestConfig {
   const {
     name,
     port,
@@ -49,7 +55,7 @@ export function createAppConfig(options: AppConfigOptions): PlaywrightTestConfig
     workers = process.env.CI ? 1 : undefined,
     baseURL = `http://localhost:${port}`,
     webServer,
-  } = options;
+  } = options
 
   return defineConfig({
     testDir,
@@ -96,10 +102,10 @@ export function createAppConfig(options: AppConfigOptions): PlaywrightTestConfig
           timeout: webServer.timeout ?? 120000,
         }
       : undefined,
-  });
+  })
 }
 
-export default createAppConfig;
+export default createAppConfig
 
 // Alias for backwards compatibility
-export const createPlaywrightConfig = createAppConfig;
+export const createPlaywrightConfig = createAppConfig

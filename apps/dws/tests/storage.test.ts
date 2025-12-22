@@ -1,357 +1,660 @@
 /**
- * Storage Backend Integration Tests
- * 
- * Run with: bun test tests/storage.test.ts
- * Or via: bun run test:integration
+ * Storage Service Tests
+ *
+ * Comprehensive tests for DWS storage:
+ * - BackendManager operations
+ * - HTTP API endpoints
+ * - S3 compatibility
+ * - IPFS compatibility
+ * - Content integrity
+ * - Concurrent operations
  */
 
-import { describe, test, expect, beforeEach, setDefaultTimeout } from 'bun:test';
-import { createBackendManager, type BackendManager } from '../src/storage/backends';
-import { app } from '../src/server';
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  setDefaultTimeout,
+  test,
+} from 'bun:test'
+import { app } from '../src/server'
+import {
+  type BackendManager,
+  createBackendManager,
+} from '../src/storage/backends'
+import { resetMultiBackendManager } from '../src/storage/multi-backend'
 
-setDefaultTimeout(10000);
+setDefaultTimeout(10000)
 
-// Only skip if explicitly requested, not by default in CI
-const SKIP = process.env.SKIP_INTEGRATION === 'true';
+const SKIP = process.env.SKIP_INTEGRATION === 'true'
 
-describe.skipIf(SKIP)('Storage Backends', () => {
-  let backend: BackendManager;
+// =============================================================================
+// Helper Functions
+// =============================================================================
+
+function createTestBuffer(size: number, fill = 0): Buffer {
+  return Buffer.alloc(size, fill)
+}
+
+async function uploadFile(
+  content: Buffer,
+  options: {
+    filename?: string
+    tier?: string
+    category?: string
+  } = {},
+) {
+  const formData = new FormData()
+  formData.append('file', new Blob([content]), options.filename ?? 'test.bin')
+  if (options.tier) formData.append('tier', options.tier)
+  if (options.category) formData.append('category', options.category)
+
+  return app.request('/storage/upload', {
+    method: 'POST',
+    body: formData,
+  })
+}
+
+// =============================================================================
+// Backend Manager Tests
+// =============================================================================
+
+describe.skipIf(SKIP)('BackendManager', () => {
+  let backend: BackendManager
 
   beforeEach(() => {
-    backend = createBackendManager();
-  });
+    backend = createBackendManager()
+  })
 
-  describe('Local Backend', () => {
+  describe('Basic Operations', () => {
+    test('should list available backends', () => {
+      const backends = backend.listBackends()
+      expect(backends).toContain('local')
+      expect(backends.length).toBeGreaterThanOrEqual(1)
+    })
+
     test('should upload and download content', async () => {
-      const content = Buffer.from('test content');
-      const result = await backend.upload(content, { preferredBackend: 'local' });
+      const content = createTestBuffer(1024, 0x42)
+      const result = await backend.upload(content, {
+        preferredBackend: 'local',
+      })
 
-      expect(result.cid).toBeDefined();
-      expect(result.backend).toBe('local');
-      expect(result.url).toContain(result.cid);
+      expect(result.cid).toBeDefined()
+      expect(result.backend).toBe('local')
+      expect(result.url).toContain(result.cid)
 
-      const downloaded = await backend.download(result.cid);
-      expect(downloaded.content.toString()).toBe('test content');
-      expect(downloaded.backend).toBe('local');
-    });
+      const downloaded = await backend.download(result.cid)
+      expect(downloaded.content.equals(content)).toBe(true)
+      expect(downloaded.backend).toBe('local')
+    })
 
-    test('should generate deterministic CIDs for same content', async () => {
-      const content = Buffer.from('deterministic test');
-      const result1 = await backend.upload(content, { preferredBackend: 'local' });
-      const result2 = await backend.upload(content, { preferredBackend: 'local' });
+    test('should check content existence', async () => {
+      const content = createTestBuffer(256)
+      const result = await backend.upload(content, {
+        preferredBackend: 'local',
+      })
 
-      expect(result1.cid).toBe(result2.cid);
-    });
+      expect(await backend.exists(result.cid)).toBe(true)
+      expect(await backend.exists('nonexistent-cid-123456789')).toBe(false)
+    })
 
-    test('should generate different CIDs for different content', async () => {
-      const result1 = await backend.upload(Buffer.from('content A'), { preferredBackend: 'local' });
-      const result2 = await backend.upload(Buffer.from('content B'), { preferredBackend: 'local' });
+    test('should throw for non-existent content', async () => {
+      await expect(backend.download('nonexistent-cid-12345')).rejects.toThrow()
+    })
+  })
 
-      expect(result1.cid).not.toBe(result2.cid);
-    });
+  describe('CID Determinism', () => {
+    test('same content produces same CID', async () => {
+      const content = createTestBuffer(100, 0x42)
+      const result1 = await backend.upload(content, {
+        preferredBackend: 'local',
+      })
+      const result2 = await backend.upload(content, {
+        preferredBackend: 'local',
+      })
+      expect(result1.cid).toBe(result2.cid)
+    })
 
-    test('should handle empty content', async () => {
-      const result = await backend.upload(Buffer.alloc(0), { preferredBackend: 'local' });
-
-      expect(result.cid).toBeDefined();
-
-      const downloaded = await backend.download(result.cid);
-      expect(downloaded.content.length).toBe(0);
-    });
-
-    test('should handle large content', async () => {
-      const largeContent = Buffer.alloc(10 * 1024 * 1024, 'x'); // 10MB
-      const result = await backend.upload(largeContent, { preferredBackend: 'local' });
-
-      expect(result.cid).toBeDefined();
-
-      const downloaded = await backend.download(result.cid);
-      expect(downloaded.content.length).toBe(largeContent.length);
-      expect(downloaded.content.equals(largeContent)).toBe(true);
-    });
-
-    test('should handle binary content with null bytes', async () => {
-      const binaryContent = Buffer.from([0x00, 0xff, 0x00, 0xfe, 0x01, 0x02]);
-      const result = await backend.upload(binaryContent, { preferredBackend: 'local' });
-
-      const downloaded = await backend.download(result.cid);
-      expect(downloaded.content.equals(binaryContent)).toBe(true);
-    });
-
-    test('should throw for non-existent CID', async () => {
-      await expect(backend.download('nonexistent-cid-12345')).rejects.toThrow();
-    });
-
-    test('exists() should return true for uploaded content', async () => {
-      const result = await backend.upload(Buffer.from('exists test'), { preferredBackend: 'local' });
-
-      expect(await backend.exists(result.cid)).toBe(true);
-    });
-
-    test('exists() should return false for non-existent content', async () => {
-      expect(await backend.exists('nonexistent-cid-67890')).toBe(false);
-    });
-  });
+    test('different content produces different CID', async () => {
+      const result1 = await backend.upload(createTestBuffer(100, 0x11), {
+        preferredBackend: 'local',
+      })
+      const result2 = await backend.upload(createTestBuffer(100, 0x22), {
+        preferredBackend: 'local',
+      })
+      expect(result1.cid).not.toBe(result2.cid)
+    })
+  })
 
   describe('Batch Operations', () => {
-    test('uploadBatch should upload multiple files', async () => {
+    test('uploadBatch handles multiple files', async () => {
       const items = [
-        { content: Buffer.from('file 1'), options: { preferredBackend: 'local' } },
-        { content: Buffer.from('file 2'), options: { preferredBackend: 'local' } },
-        { content: Buffer.from('file 3'), options: { preferredBackend: 'local' } },
-      ];
+        {
+          content: createTestBuffer(100),
+          options: { preferredBackend: 'local' },
+        },
+        {
+          content: createTestBuffer(200),
+          options: { preferredBackend: 'local' },
+        },
+        {
+          content: createTestBuffer(300),
+          options: { preferredBackend: 'local' },
+        },
+      ]
 
-      const results = await backend.uploadBatch(items);
+      const results = await backend.uploadBatch(items)
 
-      expect(results).toHaveLength(3);
-      expect(new Set(results.map((r) => r.cid)).size).toBe(3); // All unique CIDs
-    });
+      expect(results).toHaveLength(3)
+      expect(new Set(results.map((r) => r.cid)).size).toBe(3)
+    })
 
-    test('downloadBatch should download multiple files', async () => {
-      const item1 = await backend.upload(Buffer.from('batch item 1'), { preferredBackend: 'local' });
-      const item2 = await backend.upload(Buffer.from('batch item 2'), { preferredBackend: 'local' });
-
-      const results = await backend.downloadBatch([item1.cid, item2.cid]);
-
-      expect(results.size).toBe(2);
-      expect(results.get(item1.cid)?.toString()).toBe('batch item 1');
-      expect(results.get(item2.cid)?.toString()).toBe('batch item 2');
-    });
-
-    test('downloadBatch should skip non-existent CIDs gracefully', async () => {
-      const item1 = await backend.upload(Buffer.from('exists'), { preferredBackend: 'local' });
-
-      const results = await backend.downloadBatch([item1.cid, 'nonexistent-cid']);
-
-      expect(results.size).toBe(1);
-      expect(results.has(item1.cid)).toBe(true);
-      expect(results.has('nonexistent-cid')).toBe(false);
-    });
-  });
-
-  describe('Concurrent Operations', () => {
-    test('should handle concurrent uploads', async () => {
-      const uploads = Array.from({ length: 50 }, (_, i) =>
-        backend.upload(Buffer.from(`concurrent content ${i}`), { preferredBackend: 'local' })
-      );
-
-      const results = await Promise.all(uploads);
-
-      expect(results).toHaveLength(50);
-      const uniqueCids = new Set(results.map((r) => r.cid));
-      expect(uniqueCids.size).toBe(50);
-    });
-
-    test('should handle concurrent downloads of same CID', async () => {
-      const content = Buffer.from('shared content for concurrent download');
-      const result = await backend.upload(content, { preferredBackend: 'local' });
-
-      const downloads = Array.from({ length: 20 }, () => backend.download(result.cid));
-
-      const results = await Promise.all(downloads);
-
-      results.forEach((r) => {
-        expect(r.content.toString()).toBe('shared content for concurrent download');
-      });
-    });
-
-    test('should handle mixed concurrent operations', async () => {
-      const operations: Promise<unknown>[] = [];
-
-      // Mix uploads and downloads
-      for (let i = 0; i < 30; i++) {
-        if (i % 3 === 0) {
-          operations.push(backend.upload(Buffer.from(`mixed op ${i}`), { preferredBackend: 'local' }));
-        } else {
-          // Upload then immediately download
-          operations.push(
-            backend.upload(Buffer.from(`mixed download ${i}`), { preferredBackend: 'local' }).then((r) => backend.download(r.cid))
-          );
-        }
+    test('downloadBatch handles multiple CIDs', async () => {
+      const cids: string[] = []
+      for (let i = 0; i < 3; i++) {
+        const result = await backend.upload(createTestBuffer(100, i), {
+          preferredBackend: 'local',
+        })
+        cids.push(result.cid)
       }
 
-      const results = await Promise.all(operations);
-      expect(results).toHaveLength(30);
-    });
-  });
+      const results = await backend.downloadBatch(cids)
+
+      expect(results.size).toBe(3)
+      for (const cid of cids) {
+        expect(results.has(cid)).toBe(true)
+      }
+    })
+
+    test('downloadBatch skips non-existent CIDs', async () => {
+      const result = await backend.upload(createTestBuffer(100), {
+        preferredBackend: 'local',
+      })
+
+      const results = await backend.downloadBatch([
+        result.cid,
+        'nonexistent-cid',
+      ])
+
+      expect(results.size).toBe(1)
+      expect(results.has(result.cid)).toBe(true)
+    })
+  })
+
+  describe('Content Integrity', () => {
+    test('preserves binary content exactly', async () => {
+      const content = Buffer.alloc(256)
+      for (let i = 0; i < 256; i++) content[i] = i
+
+      const result = await backend.upload(content, {
+        preferredBackend: 'local',
+      })
+      const downloaded = await backend.download(result.cid)
+      expect(downloaded.content.equals(content)).toBe(true)
+    })
+
+    test('handles empty content', async () => {
+      const result = await backend.upload(Buffer.alloc(0), {
+        preferredBackend: 'local',
+      })
+      expect(result.cid).toBeDefined()
+
+      const downloaded = await backend.download(result.cid)
+      expect(downloaded.content.length).toBe(0)
+    })
+
+    test('handles large content (10MB)', async () => {
+      const content = createTestBuffer(10 * 1024 * 1024)
+      const result = await backend.upload(content, {
+        preferredBackend: 'local',
+      })
+
+      const downloaded = await backend.download(result.cid)
+      expect(downloaded.content.length).toBe(content.length)
+      expect(downloaded.content.equals(content)).toBe(true)
+    })
+
+    test('handles null bytes', async () => {
+      const content = Buffer.from([0x00, 0xff, 0x00, 0xfe, 0x00, 0x00])
+      const result = await backend.upload(content, {
+        preferredBackend: 'local',
+      })
+
+      const downloaded = await backend.download(result.cid)
+      expect(downloaded.content.equals(content)).toBe(true)
+    })
+
+    test('handles special characters', async () => {
+      const content = Buffer.from('Special chars: 日本語 🎉 émojis\n\t\r')
+      const result = await backend.upload(content, {
+        preferredBackend: 'local',
+      })
+
+      const downloaded = await backend.download(result.cid)
+      expect(downloaded.content.equals(content)).toBe(true)
+    })
+  })
+
+  describe('Concurrent Operations', () => {
+    test('handles concurrent uploads', async () => {
+      const uploads = Array.from({ length: 50 }, (_, i) =>
+        backend.upload(createTestBuffer(100, i), { preferredBackend: 'local' }),
+      )
+
+      const results = await Promise.all(uploads)
+
+      expect(results).toHaveLength(50)
+      expect(new Set(results.map((r) => r.cid)).size).toBe(50)
+    })
+
+    test('handles concurrent downloads', async () => {
+      const result = await backend.upload(createTestBuffer(100), {
+        preferredBackend: 'local',
+      })
+
+      const downloads = Array.from({ length: 20 }, () =>
+        backend.download(result.cid),
+      )
+
+      const results = await Promise.all(downloads)
+      results.forEach((r) => expect(r.content.length).toBe(100))
+    })
+  })
 
   describe('Health Check', () => {
-    test('healthCheck should return status for all backends', async () => {
-      const health = await backend.healthCheck();
+    test('returns status for all backends', async () => {
+      const health = await backend.healthCheck()
+      expect(health).toHaveProperty('local')
+      expect(health.local).toBe(true)
+    })
+  })
+})
 
-      expect(health).toHaveProperty('local');
-      expect(health.local).toBe(true);
-    });
-
-    test('listBackends should return available backends', () => {
-      const backends = backend.listBackends();
-
-      expect(backends).toContain('local');
-      expect(backends.length).toBeGreaterThanOrEqual(1);
-    });
-  });
-});
+// =============================================================================
+// HTTP API Tests
+// =============================================================================
 
 describe.skipIf(SKIP)('Storage HTTP API', () => {
-  describe('Health Endpoint', () => {
-    test('GET /storage/health should return healthy', async () => {
-      const res = await app.request('/storage/health');
-      expect(res.status).toBe(200);
+  afterAll(() => {
+    resetMultiBackendManager()
+  })
 
-      const body = await res.json();
-      expect(body.status).toBe('healthy');
-      expect(body.backends).toContain('local');
-    });
-  });
+  describe('Health', () => {
+    test('GET /storage/health returns healthy', async () => {
+      const res = await app.request('/storage/health')
+      expect(res.status).toBe(200)
 
-  describe('Upload Endpoint', () => {
-    test('POST /storage/upload should accept file and return CID', async () => {
-      const formData = new FormData();
-      formData.append('file', new Blob(['test file content']), 'test.txt');
+      const body = (await res.json()) as { status: string; backends: string[] }
+      expect(body.status).toBe('healthy')
+      expect(body.backends).toContain('local')
+    })
+  })
 
+  describe('Upload', () => {
+    test('POST /storage/upload accepts file and returns CID', async () => {
+      const content = Buffer.from('test file content')
+      const res = await uploadFile(content, { filename: 'test.txt' })
+
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as { cid: string; size: number }
+      expect(body.cid).toBeDefined()
+      expect(body.size).toBe(content.length)
+    })
+
+    test('POST /storage/upload without file returns 400', async () => {
       const res = await app.request('/storage/upload', {
         method: 'POST',
-        body: formData,
-      });
+        body: new FormData(),
+      })
+      expect(res.status).toBe(400)
+    })
 
-      expect(res.status).toBe(200);
+    test('POST /storage/upload handles binary files', async () => {
+      const binaryData = Buffer.from([
+        0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
+      ])
+      const res = await uploadFile(binaryData, { filename: 'test.png' })
 
-      const body = await res.json();
-      expect(body.cid).toBeDefined();
-      expect(body.size).toBe(17); // 'test file content'.length
-    });
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { cid: string; size: number }
+      expect(body.cid).toBeDefined()
+      expect(body.size).toBe(8)
+    })
 
-    test('POST /storage/upload without file should return 400', async () => {
-      const formData = new FormData();
+    test('POST /storage/upload with tier', async () => {
+      const res = await uploadFile(Buffer.from('tiered content'), {
+        filename: 'test.txt',
+        tier: 'popular',
+        category: 'data',
+      })
 
-      const res = await app.request('/storage/upload', {
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { cid: string; tier: string }
+      expect(body.tier).toBe('popular')
+    })
+
+    test('POST /storage/upload/json uploads JSON data', async () => {
+      const res = await app.request('/storage/upload/json', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          data: { name: 'test', value: 123 },
+          tier: 'popular',
+          name: 'test-data.json',
+        }),
+      })
+
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { cid: string }
+      expect(body.cid).toBeDefined()
+    })
+  })
+
+  describe('Download', () => {
+    let uploadedCid: string
+
+    beforeAll(async () => {
+      const res = await uploadFile(Buffer.from('download test content'), {
+        filename: 'download-test.bin',
+      })
+      const body = (await res.json()) as { cid: string }
+      uploadedCid = body.cid
+    })
+
+    test('GET /storage/download/:cid returns content', async () => {
+      const res = await app.request(`/storage/download/${uploadedCid}`)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('Content-Type')).toBe('application/octet-stream')
+
+      const content = await res.text()
+      expect(content).toBe('download test content')
+    })
+
+    test('GET /storage/download/:cid returns 404 for non-existent', async () => {
+      const res = await app.request('/storage/download/nonexistent-cid-xyz')
+      expect(res.status).toBe(404)
+    })
+  })
+
+  describe('Exists', () => {
+    let uploadedCid: string
+
+    beforeAll(async () => {
+      const res = await uploadFile(Buffer.from('exists check'), {
+        filename: 'exists-test.txt',
+      })
+      const body = (await res.json()) as { cid: string }
+      uploadedCid = body.cid
+    })
+
+    test('GET /storage/exists/:cid returns true for existing', async () => {
+      const res = await app.request(`/storage/exists/${uploadedCid}`)
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as { exists: boolean; cid: string }
+      expect(body.exists).toBe(true)
+      expect(body.cid).toBe(uploadedCid)
+    })
+
+    test('GET /storage/exists/:cid returns false for non-existent', async () => {
+      const res = await app.request('/storage/exists/nonexistent-cid-abc')
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as { exists: boolean }
+      expect(body.exists).toBe(false)
+    })
+  })
+
+  describe('Content Management', () => {
+    let testCid: string
+
+    beforeAll(async () => {
+      const res = await uploadFile(Buffer.from('management test'), {
+        filename: 'manage-test.bin',
+        tier: 'popular',
+        category: 'data',
+      })
+      const body = (await res.json()) as { cid: string }
+      testCid = body.cid
+    })
+
+    test('GET /storage/content/:cid returns metadata', async () => {
+      const res = await app.request(`/storage/content/${testCid}`)
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as {
+        cid: string
+        tier: string
+        category: string
+      }
+      expect(body.cid).toBe(testCid)
+      expect(body.tier).toBe('popular')
+      expect(body.category).toBe('data')
+    })
+
+    test('GET /storage/content lists content', async () => {
+      const res = await app.request('/storage/content')
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as {
+        items: Array<{ cid: string }>
+        total: number
+      }
+      expect(body.items).toBeInstanceOf(Array)
+      expect(body.total).toBeGreaterThan(0)
+    })
+
+    test('GET /storage/content?tier=popular filters by tier', async () => {
+      const res = await app.request('/storage/content?tier=popular')
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as { items: Array<{ tier: string }> }
+      for (const item of body.items) {
+        expect(item.tier).toBe('popular')
+      }
+    })
+  })
+
+  describe('Popularity', () => {
+    beforeAll(async () => {
+      // Upload and access content multiple times
+      for (let i = 0; i < 3; i++) {
+        const res = await uploadFile(Buffer.from(`popularity test ${i}`), {
+          tier: 'popular',
+        })
+        const body = (await res.json()) as { cid: string }
+
+        for (let j = 0; j < 5; j++) {
+          await app.request(`/storage/download/${body.cid}`)
+        }
+      }
+    })
+
+    test('GET /storage/popular returns popular content', async () => {
+      const res = await app.request('/storage/popular')
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as {
+        items: Array<{ cid: string; score: number }>
+      }
+      expect(body.items).toBeInstanceOf(Array)
+    })
+
+    test('GET /storage/popular?limit=5 respects limit', async () => {
+      const res = await app.request('/storage/popular?limit=5')
+      expect(res.status).toBe(200)
+
+      const body = (await res.json()) as { items: Array<{ cid: string }> }
+      expect(body.items.length).toBeLessThanOrEqual(5)
+    })
+  })
+
+  describe('IPFS Compatibility', () => {
+    test('POST /storage/api/v0/add works like IPFS', async () => {
+      const formData = new FormData()
+      formData.append(
+        'file',
+        new Blob([Buffer.from('ipfs compatible')]),
+        'test.txt',
+      )
+
+      const res = await app.request('/storage/api/v0/add', {
         method: 'POST',
         body: formData,
-      });
+      })
 
-      expect(res.status).toBe(400);
-    });
+      expect(res.status).toBe(200)
 
-    test('POST /storage/upload should handle binary files', async () => {
-      const binaryData = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]); // PNG header
-      const formData = new FormData();
-      formData.append('file', new Blob([binaryData]), 'test.png');
+      const body = (await res.json()) as {
+        Hash: string
+        Size: string
+        Name: string
+      }
+      expect(body.Hash).toBeDefined()
+      expect(body.Size).toBe('15')
+    })
 
-      const res = await app.request('/storage/upload', {
+    test('GET /storage/ipfs/:cid serves content', async () => {
+      const formData = new FormData()
+      formData.append(
+        'file',
+        new Blob([Buffer.from('ipfs gateway test')]),
+        'test.txt',
+      )
+
+      const uploadRes = await app.request('/storage/api/v0/add', {
         method: 'POST',
         body: formData,
-      });
+      })
 
-      expect(res.status).toBe(200);
+      const { Hash } = (await uploadRes.json()) as { Hash: string }
 
-      const body = await res.json();
-      expect(body.cid).toBeDefined();
-      expect(body.size).toBe(8);
-    });
-  });
+      const res = await app.request(`/storage/ipfs/${Hash}`)
+      expect(res.status).toBe(200)
+      expect(res.headers.get('X-Ipfs-Path')).toBe(`/ipfs/${Hash}`)
+    })
+  })
+})
 
-  describe('Download Endpoint', () => {
-    test('GET /storage/download/:cid should return uploaded content', async () => {
-      // First upload
-      const formData = new FormData();
-      formData.append('file', new Blob(['download test content']), 'test.txt');
+// =============================================================================
+// S3 Compatibility Tests
+// =============================================================================
 
-      const uploadRes = await app.request('/storage/upload', {
-        method: 'POST',
-        body: formData,
-      });
+describe.skipIf(SKIP)('S3 Compatibility', () => {
+  const testBucket = `test-bucket-${Date.now()}`
+  const testKey = 'test-object.txt'
+  const testContent = 'Hello, DWS S3!'
 
-      const { cid } = await uploadRes.json();
+  test('list buckets', async () => {
+    const res = await app.request('/s3')
+    expect(res.status).toBe(200)
 
-      // Then download
-      const downloadRes = await app.request(`/storage/download/${cid}`);
+    const body = (await res.json()) as { Buckets: Array<{ Name: string }> }
+    expect(body.Buckets).toBeDefined()
+  })
 
-      expect(downloadRes.status).toBe(200);
-      // Content type may vary depending on backend
-      expect(downloadRes.headers.get('Content-Type')).toBeDefined();
+  test('create bucket', async () => {
+    const res = await app.request(`/s3/${testBucket}`, {
+      method: 'PUT',
+      headers: {
+        'x-jeju-address': '0x1234567890123456789012345678901234567890',
+      },
+    })
+    expect(res.status).toBe(200)
+  })
 
-      const content = await downloadRes.text();
-      // WebTorrent simulation may return placeholder content
-      expect(content.length).toBeGreaterThan(0);
-    });
+  test('put object', async () => {
+    const res = await app.request(`/s3/${testBucket}/${testKey}`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'text/plain',
+        'x-jeju-address': '0x1234567890123456789012345678901234567890',
+      },
+      body: testContent,
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('ETag')).toBeTruthy()
+  })
 
-    test('GET /storage/download/:cid for non-existent CID should return 404', async () => {
-      const res = await app.request('/storage/download/nonexistent-cid-xyz');
+  test('get object', async () => {
+    const res = await app.request(`/s3/${testBucket}/${testKey}`)
+    expect(res.status).toBe(200)
+    expect(await res.text()).toBe(testContent)
+  })
 
-      expect(res.status).toBe(404);
-    });
-  });
+  test('head object', async () => {
+    const res = await app.request(`/s3/${testBucket}/${testKey}`, {
+      method: 'HEAD',
+    })
+    expect(res.status).toBe(200)
+    expect(res.headers.get('Content-Length')).toBe(String(testContent.length))
+  })
 
-  describe('Exists Endpoint', () => {
-    test('GET /storage/exists/:cid should return exists=true for existing content', async () => {
-      // Upload first
-      const formData = new FormData();
-      formData.append('file', new Blob(['exists check']), 'test.txt');
+  test('list objects', async () => {
+    const res = await app.request(`/s3/${testBucket}?list-type=2`)
+    expect(res.status).toBe(200)
 
-      const uploadRes = await app.request('/storage/upload', {
-        method: 'POST',
-        body: formData,
-      });
+    const body = (await res.json()) as { Contents: Array<{ Key: string }> }
+    expect(body.Contents).toBeDefined()
+    expect(body.Contents.length).toBeGreaterThan(0)
+  })
 
-      const { cid } = await uploadRes.json();
+  test('delete object', async () => {
+    const res = await app.request(`/s3/${testBucket}/${testKey}`, {
+      method: 'DELETE',
+    })
+    expect(res.status).toBe(204)
+  })
 
-      // Check exists
-      const existsRes = await app.request(`/storage/exists/${cid}`);
+  test('delete bucket', async () => {
+    const res = await app.request(`/s3/${testBucket}`, {
+      method: 'DELETE',
+    })
+    expect(res.status).toBe(204)
+  })
+})
 
-      expect(existsRes.status).toBe(200);
-      const body = await existsRes.json();
-      expect(body.exists).toBe(true);
-      expect(body.cid).toBe(cid);
-    });
+// =============================================================================
+// Edge Cases
+// =============================================================================
 
-    test('GET /storage/exists/:cid should return exists=false for non-existent content', async () => {
-      const res = await app.request('/storage/exists/nonexistent-cid-abc');
-
-      expect(res.status).toBe(200);
-      const body = await res.json();
-      expect(body.exists).toBe(false);
-    });
-  });
-});
-
-describe.skipIf(SKIP)('Storage Edge Cases', () => {
-  let backend: BackendManager;
+describe.skipIf(SKIP)('Edge Cases', () => {
+  let backend: BackendManager
 
   beforeEach(() => {
-    backend = createBackendManager();
-  });
+    backend = createBackendManager()
+  })
 
-  test('should handle content with special characters', async () => {
-    const content = Buffer.from('Special chars: 日本語 🎉 émojis\n\t\r');
-    const result = await backend.upload(content, { preferredBackend: 'local' });
+  test('handles content that looks like a CID', async () => {
+    const content = Buffer.from(
+      'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG',
+    )
+    const result = await backend.upload(content, { preferredBackend: 'local' })
 
-    const downloaded = await backend.download(result.cid);
-    expect(downloaded.content.equals(content)).toBe(true);
-  });
+    const downloaded = await backend.download(result.cid)
+    expect(downloaded.content.toString()).toBe(
+      'QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG',
+    )
+  })
 
-  test('should handle content that looks like a CID', async () => {
-    const content = Buffer.from('QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG');
-    const result = await backend.upload(content, { preferredBackend: 'local' });
+  test('handles exactly 1 byte content', async () => {
+    const result = await backend.upload(Buffer.from([0x42]), {
+      preferredBackend: 'local',
+    })
 
-    const downloaded = await backend.download(result.cid);
-    expect(downloaded.content.toString()).toBe('QmYwAPJzv5CZsnA625s3Xf2nemtYgPpHdWEz79ojWnPbdG');
-  });
+    const downloaded = await backend.download(result.cid)
+    expect(downloaded.content.length).toBe(1)
+    expect(downloaded.content[0]).toBe(0x42)
+  })
 
-  test('should handle exactly 1 byte content', async () => {
-    const result = await backend.upload(Buffer.from([0x42]), { preferredBackend: 'local' });
-
-    const downloaded = await backend.download(result.cid);
-    expect(downloaded.content.length).toBe(1);
-    expect(downloaded.content[0]).toBe(0x42);
-  });
-
-  test('should handle filename with special characters in options', async () => {
+  test('handles filename with special characters', async () => {
     const result = await backend.upload(Buffer.from('test'), {
       preferredBackend: 'local',
       filename: 'file with spaces & special (chars).txt',
-    });
-
-    expect(result.cid).toBeDefined();
-  });
-});
-
+    })
+    expect(result.cid).toBeDefined()
+  })
+})

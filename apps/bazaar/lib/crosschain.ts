@@ -3,66 +3,66 @@
  * Enables Bazaar users to swap tokens across chains using intents
  */
 
-import type { Address } from 'viem';
-import { expect, expectTrue } from '@/lib/validation';
+import type { Address } from 'viem'
+import { expect, expectTrue } from '@/lib/validation'
 
 // ============ Types ============
 
 export interface CrossChainQuote {
-  quoteId: string;
-  sourceChainId: number;
-  destinationChainId: number;
-  sourceToken: Address;
-  destinationToken: Address;
-  inputAmount: string;
-  outputAmount: string;
-  fee: string;
-  feePercent: number; // basis points
-  estimatedTimeSeconds: number;
-  solver: Address;
-  solverReputation: number;
-  validUntil: number;
+  quoteId: string
+  sourceChainId: number
+  destinationChainId: number
+  sourceToken: Address
+  destinationToken: Address
+  inputAmount: string
+  outputAmount: string
+  fee: string
+  feePercent: number // basis points
+  estimatedTimeSeconds: number
+  solver: Address
+  solverReputation: number
+  validUntil: number
 }
 
 export interface CrossChainRoute {
-  routeId: string;
-  sourceChainId: number;
-  destinationChainId: number;
-  oracle: 'hyperlane' | 'superchain' | 'optimism-native';
-  isActive: boolean;
-  avgFeePercent: number;
-  avgTimeSeconds: number;
-  successRate: number;
-  totalVolume: string;
+  routeId: string
+  sourceChainId: number
+  destinationChainId: number
+  oracle: 'hyperlane' | 'superchain' | 'optimism-native'
+  isActive: boolean
+  avgFeePercent: number
+  avgTimeSeconds: number
+  successRate: number
+  totalVolume: string
 }
 
 export interface CreateIntentParams {
-  sourceChainId: number;
-  destinationChainId: number;
-  sourceToken: Address;
-  destinationToken: Address;
-  amount: string;
-  recipient?: Address;
-  maxFee?: string;
-  slippageBps?: number;
+  sourceChainId: number
+  destinationChainId: number
+  sourceToken: Address
+  destinationToken: Address
+  amount: string
+  recipient?: Address
+  maxFee?: string
+  slippageBps?: number
 }
 
 export interface IntentResult {
-  intentId: string;
-  status: 'open' | 'pending' | 'filled' | 'expired' | 'cancelled';
-  inputAmount: string;
-  outputAmount: string;
-  fee: string;
-  solver?: Address;
-  sourceTxHash?: string;
-  destinationTxHash?: string;
+  intentId: string
+  status: 'open' | 'pending' | 'filled' | 'expired' | 'cancelled'
+  inputAmount: string
+  outputAmount: string
+  fee: string
+  solver?: Address
+  sourceTxHash?: string
+  destinationTxHash?: string
 }
 
-import { OIF_AGGREGATOR_URL } from '../config';
+import { OIF_AGGREGATOR_URL } from '../config'
 
 // ============ Constants ============
 
-const AGGREGATOR_URL = OIF_AGGREGATOR_URL;
+const AGGREGATOR_URL = OIF_AGGREGATOR_URL
 
 export const SUPPORTED_CHAINS = [
   { chainId: 1, name: 'Ethereum' },
@@ -71,12 +71,12 @@ export const SUPPORTED_CHAINS = [
   { chainId: 420691, name: 'Network' },
   { chainId: 101, name: 'Solana', isSolana: true },
   { chainId: 102, name: 'Solana Devnet', isSolana: true },
-] as const;
+] as const
 
-export const SOLANA_CHAINS = [101, 102] as const;
+export const SOLANA_CHAINS = [101, 102] as const
 
 export function isSolanaChain(chainId: number): boolean {
-  return SOLANA_CHAINS.includes(chainId as 101 | 102);
+  return SOLANA_CHAINS.includes(chainId as 101 | 102)
 }
 
 // Common tokens across chains
@@ -99,15 +99,20 @@ export const CROSS_CHAIN_TOKENS: Record<number, Record<string, Address>> = {
   420691: {
     ETH: '0x0000000000000000000000000000000000000000',
   },
-};
+}
 
 // ============ API Functions ============
 
 /**
  * Get quotes from OIF aggregator for a cross-chain swap
  */
-export async function getCrossChainQuotes(params: CreateIntentParams): Promise<CrossChainQuote[]> {
-  const validatedAggregatorUrl = expect(AGGREGATOR_URL, 'OIF aggregator URL not configured');
+export async function getCrossChainQuotes(
+  params: CreateIntentParams,
+): Promise<CrossChainQuote[]> {
+  const validatedAggregatorUrl = expect(
+    AGGREGATOR_URL,
+    'OIF aggregator URL not configured',
+  )
   const response = await fetch(`${validatedAggregatorUrl}/api/intents/quote`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -118,75 +123,104 @@ export async function getCrossChainQuotes(params: CreateIntentParams): Promise<C
       destinationToken: params.destinationToken,
       amount: params.amount,
     }),
-  });
+  })
 
-  expectTrue(response.ok, 'Failed to fetch quotes');
+  expectTrue(response.ok, 'Failed to fetch quotes')
 
-  return response.json();
+  return response.json()
 }
 
 /**
  * Get best quote for a cross-chain swap
  */
-export async function getBestQuote(params: CreateIntentParams): Promise<CrossChainQuote | null> {
-  const quotes = await getCrossChainQuotes(params);
-  
-  if (quotes.length === 0) return null;
+export async function getBestQuote(
+  params: CreateIntentParams,
+): Promise<CrossChainQuote | null> {
+  const quotes = await getCrossChainQuotes(params)
+
+  if (quotes.length === 0) return null
 
   // Sort by output amount (highest first), then by time (fastest first)
   quotes.sort((a, b) => {
-    const outputDiff = BigInt(b.outputAmount) - BigInt(a.outputAmount);
-    if (outputDiff !== 0n) return Number(outputDiff);
-    return a.estimatedTimeSeconds - b.estimatedTimeSeconds;
-  });
+    const outputDiff = BigInt(b.outputAmount) - BigInt(a.outputAmount)
+    if (outputDiff !== 0n) return Number(outputDiff)
+    return a.estimatedTimeSeconds - b.estimatedTimeSeconds
+  })
 
-  return quotes[0];
+  return quotes[0]
 }
 
 /**
  * Get available routes between chains
  */
-export async function getRoutes(sourceChainId?: number, destChainId?: number): Promise<CrossChainRoute[]> {
-  const params = new URLSearchParams();
-  if (sourceChainId) params.set('sourceChain', sourceChainId.toString());
-  if (destChainId) params.set('destinationChain', destChainId.toString());
-  params.set('active', 'true');
+export async function getRoutes(
+  sourceChainId?: number,
+  destChainId?: number,
+): Promise<CrossChainRoute[]> {
+  const validatedAggregatorUrl = expect(
+    AGGREGATOR_URL,
+    'OIF aggregator URL not configured',
+  )
 
-  const response = await fetch(`${AGGREGATOR_URL}/api/routes?${params}`);
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch routes');
-  }
+  const params = new URLSearchParams()
+  if (sourceChainId) params.set('sourceChain', sourceChainId.toString())
+  if (destChainId) params.set('destinationChain', destChainId.toString())
+  params.set('active', 'true')
 
-  return response.json();
+  const response = await fetch(`${validatedAggregatorUrl}/api/routes?${params}`)
+
+  expectTrue(response.ok, 'Failed to fetch routes')
+
+  return response.json()
 }
 
 /**
  * Check if a route exists between two chains
  */
-export async function hasRoute(sourceChainId: number, destChainId: number): Promise<boolean> {
-  const routes = await getRoutes(sourceChainId, destChainId);
-  return routes.length > 0;
+export async function hasRoute(
+  sourceChainId: number,
+  destChainId: number,
+): Promise<boolean> {
+  const routes = await getRoutes(sourceChainId, destChainId)
+  return routes.length > 0
 }
 
 /**
  * Get intent status
  */
 export async function getIntentStatus(intentId: string): Promise<IntentResult> {
-  const response = await fetch(`${AGGREGATOR_URL}/api/intents/${intentId}`);
-  
-  if (!response.ok) {
-    throw new Error('Failed to fetch intent status');
-  }
+  const validatedAggregatorUrl = expect(
+    AGGREGATOR_URL,
+    'OIF aggregator URL not configured',
+  )
+  expect(intentId, 'Intent ID is required')
 
-  return response.json();
+  const response = await fetch(
+    `${validatedAggregatorUrl}/api/intents/${encodeURIComponent(intentId)}`,
+  )
+
+  expectTrue(response.ok, 'Failed to fetch intent status')
+
+  return response.json()
 }
 
 /**
  * Create a cross-chain swap intent via A2A
  */
-export async function createIntent(params: CreateIntentParams): Promise<{ intentId: string }> {
-  const response = await fetch(`${AGGREGATOR_URL}/api/intents`, {
+export async function createIntent(
+  params: CreateIntentParams,
+): Promise<{ intentId: string }> {
+  const validatedAggregatorUrl = expect(
+    AGGREGATOR_URL,
+    'OIF aggregator URL not configured',
+  )
+  expect(params.sourceChainId, 'Source chain ID is required')
+  expect(params.destinationChainId, 'Destination chain ID is required')
+  expect(params.sourceToken, 'Source token is required')
+  expect(params.destinationToken, 'Destination token is required')
+  expect(params.amount, 'Amount is required')
+
+  const response = await fetch(`${validatedAggregatorUrl}/api/intents`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -198,13 +232,11 @@ export async function createIntent(params: CreateIntentParams): Promise<{ intent
       recipient: params.recipient,
       maxFee: params.maxFee,
     }),
-  });
+  })
 
-  if (!response.ok) {
-    throw new Error('Failed to create intent');
-  }
+  expectTrue(response.ok, 'Failed to create intent')
 
-  return response.json();
+  return response.json()
 }
 
 // ============ Utility Functions ============
@@ -213,43 +245,55 @@ export async function createIntent(params: CreateIntentParams): Promise<{ intent
  * Get chain info by ID
  */
 export function getChainInfo(chainId: number) {
-  return SUPPORTED_CHAINS.find(c => c.chainId === chainId);
+  return SUPPORTED_CHAINS.find((c) => c.chainId === chainId)
 }
 
 /**
  * Get token address on a specific chain
  */
-export function getTokenAddress(chainId: number, symbol: string): Address | undefined {
-  return CROSS_CHAIN_TOKENS[chainId]?.[symbol];
+export function getTokenAddress(
+  chainId: number,
+  symbol: string,
+): Address | undefined {
+  return CROSS_CHAIN_TOKENS[chainId]?.[symbol]
 }
 
 /**
  * Check if token is supported on chain
  */
-export function isTokenSupported(chainId: number, tokenAddress: Address): boolean {
-  const tokens = CROSS_CHAIN_TOKENS[chainId];
-  if (!tokens) return false;
-  return Object.values(tokens).includes(tokenAddress);
+export function isTokenSupported(
+  chainId: number,
+  tokenAddress: Address,
+): boolean {
+  const tokens = CROSS_CHAIN_TOKENS[chainId]
+  if (!tokens) return false
+  return Object.values(tokens).includes(tokenAddress)
 }
 
 /**
  * Format amount for display
  */
-export function formatCrossChainAmount(amount: string, decimals: number = 18): string {
-  const value = parseFloat(amount) / Math.pow(10, decimals);
-  if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`;
-  if (value >= 1000) return `${(value / 1000).toFixed(2)}K`;
-  if (value >= 1) return value.toFixed(4);
-  return value.toFixed(6);
+export function formatCrossChainAmount(
+  amount: string,
+  decimals: number = 18,
+): string {
+  const value = parseFloat(amount) / 10 ** decimals
+  if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`
+  if (value >= 1000) return `${(value / 1000).toFixed(2)}K`
+  if (value >= 1) return value.toFixed(4)
+  return value.toFixed(6)
 }
 
 /**
  * Calculate minimum output with slippage
  */
-export function calculateMinOutput(outputAmount: string, slippageBps: number): string {
-  const output = BigInt(outputAmount);
-  const slippageMultiplier = 10000n - BigInt(slippageBps);
-  return ((output * slippageMultiplier) / 10000n).toString();
+export function calculateMinOutput(
+  outputAmount: string,
+  slippageBps: number,
+): string {
+  const output = BigInt(outputAmount)
+  const slippageMultiplier = 10000n - BigInt(slippageBps)
+  return ((output * slippageMultiplier) / 10000n).toString()
 }
 
 /**
@@ -257,5 +301,5 @@ export function calculateMinOutput(outputAmount: string, slippageBps: number): s
  */
 export function estimateIntentGas(): bigint {
   // Approximate gas for InputSettler.open()
-  return 150000n;
+  return 150000n
 }

@@ -2,15 +2,9 @@
  * NFT-related Zod schemas
  */
 
-import { z } from 'zod'
 import { AddressSchema } from '@jejunetwork/types'
-import {
-  BigIntSchema,
-  DateSchema,
-  NonEmptyStringSchema,
-  URLSchema,
-  NonNegativeNumberSchema,
-} from './common'
+import { z } from 'zod'
+import { BigIntSchema, NonEmptyStringSchema, URLSchema } from './common'
 
 export const SolanaCreatorSchema = z.object({
   address: z.string(),
@@ -25,10 +19,12 @@ export const SolanaNFTSchema = z.object({
   uri: URLSchema,
   sellerFeeBasisPoints: z.number().int().min(0).max(10000),
   creators: z.array(SolanaCreatorSchema),
-  collection: z.object({
-    verified: z.boolean(),
-    key: z.string(),
-  }).optional(),
+  collection: z
+    .object({
+      verified: z.boolean(),
+      key: z.string(),
+    })
+    .optional(),
 })
 
 export type SolanaNFT = z.infer<typeof SolanaNFTSchema>
@@ -46,17 +42,27 @@ export const NFTMetadataJsonSchema = z.object({
   animation_url: URLSchema.optional(),
   external_url: URLSchema.optional(),
   attributes: z.array(NFTMetadataAttributeSchema).optional(),
-  properties: z.object({
-    files: z.array(z.object({
-      uri: URLSchema,
-      type: z.string(),
-    })).optional(),
-    category: z.string().optional(),
-    creators: z.array(z.object({
-      address: z.string(),
-      share: z.number().int().min(0).max(100),
-    })).optional(),
-  }).optional(),
+  properties: z
+    .object({
+      files: z
+        .array(
+          z.object({
+            uri: URLSchema,
+            type: z.string(),
+          }),
+        )
+        .optional(),
+      category: z.string().optional(),
+      creators: z
+        .array(
+          z.object({
+            address: z.string(),
+            share: z.number().int().min(0).max(100),
+          }),
+        )
+        .optional(),
+    })
+    .optional(),
 })
 
 export type NFTMetadataJson = z.infer<typeof NFTMetadataJsonSchema>
@@ -64,13 +70,17 @@ export type NFTMetadataJson = z.infer<typeof NFTMetadataJsonSchema>
 export const NFTTokenSchema = z.object({
   id: NonEmptyStringSchema,
   tokenId: z.string(),
-  owner: z.object({
-    address: AddressSchema,
-  }).optional(),
-  contract: z.object({
-    address: AddressSchema,
-    name: NonEmptyStringSchema,
-  }).optional(),
+  owner: z
+    .object({
+      address: AddressSchema,
+    })
+    .optional(),
+  contract: z
+    .object({
+      address: AddressSchema,
+      name: NonEmptyStringSchema,
+    })
+    .optional(),
   metadata: z.string().optional(),
 })
 

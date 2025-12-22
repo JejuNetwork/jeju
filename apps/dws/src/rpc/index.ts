@@ -3,26 +3,50 @@
  * Multi-chain RPC proxy with stake-based rate limiting
  */
 
-export { rpcApp, startRpcServer } from './server.js';
-export { CHAINS, getChain, isChainSupported, getMainnetChains, getTestnetChains, type ChainConfig } from './config/chains.js';
-export { rateLimiter, RATE_LIMITS, getRateLimitStats, type RateTier } from './middleware/rate-limiter.js';
-export { proxyRequest, proxyBatchRequest, getEndpointHealth, getChainStats } from './proxy/rpc-proxy.js';
-export { createApiKey, validateApiKey, getApiKeysForAddress, revokeApiKeyById, getApiKeyStats, type ApiKeyRecord } from './services/api-keys.js';
 export {
-  isX402Enabled,
-  generatePaymentRequirement,
-  getPaymentInfo,
-  getCredits,
+  CHAINS,
+  type ChainConfig,
+  getChain,
+  getMainnetChains,
+  getTestnetChains,
+  isChainSupported,
+} from './config/chains.js'
+export {
+  getRateLimitStats,
+  RATE_LIMITS,
+  type RateTier,
+  rateLimiter,
+} from './middleware/rate-limiter.js'
+export {
+  getChainStats,
+  getEndpointHealth,
+  proxyBatchRequest,
+  proxyRequest,
+} from './proxy/rpc-proxy.js'
+export { rpcApp, startRpcServer } from './server.js'
+export {
+  type ApiKeyRecord,
+  createApiKey,
+  getApiKeyStats,
+  getApiKeysForAddress,
+  revokeApiKeyById,
+  validateApiKey,
+} from './services/api-keys.js'
+export {
   addCredits,
-  purchaseCredits,
-  processPayment,
-  getMethodPrice,
-  verifyX402Payment,
-  parseX402Header,
   deductCredits,
+  generatePaymentRequirement,
+  getCredits,
+  getMethodPrice,
+  getPaymentInfo,
+  isX402Enabled,
+  parseX402Header,
+  processPayment,
+  purchaseCredits,
   RPC_PRICING,
-  type X402PaymentRequirement,
-  type X402PaymentOption,
-  type X402PaymentHeader,
+  verifyX402Payment,
   type X402Network,
-} from './services/x402-payments.js';
+  type X402PaymentHeader,
+  type X402PaymentOption,
+  type X402PaymentRequirement,
+} from './services/x402-payments.js'

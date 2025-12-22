@@ -8,329 +8,346 @@
  * - V4 contracts deployed
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, createWalletClient, http, formatEther, type PublicClient, type WalletClient } from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { rawDeployments } from '@jejunetwork/contracts';
-import { getLocalnetRpcUrl } from '../../scripts/shared/get-localnet-rpc';
+import { beforeAll, describe, expect, test } from 'bun:test'
+import { rawDeployments } from '@jejunetwork/contracts'
+import {
+  createPublicClient,
+  createWalletClient,
+  formatEther,
+  http,
+  type PublicClient,
+  type WalletClient,
+} from 'viem'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { getLocalnetRpcUrl } from '../../packages/deployment/scripts/shared/get-localnet-rpc'
+import { TEST_ACCOUNTS } from '../shared/utils'
 
-const PRIVATE_KEY = process.env.PRIVATE_KEY || "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
+// Use shared test accounts (Anvil defaults) - fallback to env var for CI
+const PRIVATE_KEY = process.env.PRIVATE_KEY || TEST_ACCOUNTS.deployer.privateKey
 
 interface V4Deployment {
-    poolManager: string;
-    weth: string;
-    deployer: string;
-    chainId: number;
-    network: string;
-    timestamp: number;
-    deployedAt: string;
+  poolManager: string
+  weth: string
+  deployer: string
+  chainId: number
+  network: string
+  timestamp: number
+  deployedAt: string
 }
 
 interface TokenDeployment {
-    address: string;
-    name: string;
-    symbol: string;
-    totalSupply: string;
-    decimals: number;
-    deployer: string;
-    chainId: number;
+  address: string
+  name: string
+  symbol: string
+  totalSupply: string
+  decimals: number
+  deployer: string
+  chainId: number
 }
 
 describe('Uniswap V4 Integration Tests', () => {
-    let rpcUrl: string;
-    let publicClient: PublicClient;
-    let _walletClient: WalletClient;
-    let account: PrivateKeyAccount;
-    let v4Deployment: V4Deployment;
-    let tokenDeployment: TokenDeployment;
+  let rpcUrl: string
+  let publicClient: PublicClient
+  let _walletClient: WalletClient
+  let account: PrivateKeyAccount
+  let v4Deployment: V4Deployment
+  let tokenDeployment: TokenDeployment
 
-    beforeAll(async () => {
-        // Get RPC URL
-        rpcUrl = getLocalnetRpcUrl();
-        console.log(`📡 Using RPC: ${rpcUrl}`);
+  beforeAll(async () => {
+    // Get RPC URL
+    rpcUrl = getLocalnetRpcUrl()
+    console.log(`📡 Using RPC: ${rpcUrl}`)
 
-        // Create clients
-        account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`);
+    // Create clients
+    account = privateKeyToAccount(PRIVATE_KEY as `0x${string}`)
 
-        publicClient = createPublicClient({
-            transport: http(rpcUrl),
-        });
+    publicClient = createPublicClient({
+      transport: http(rpcUrl),
+    })
 
-        _walletClient = createWalletClient({
-            account,
-            transport: http(rpcUrl),
-        });
+    _walletClient = createWalletClient({
+      account,
+      transport: http(rpcUrl),
+    })
 
-        // Load deployments from @jejunetwork/contracts
-        v4Deployment = rawDeployments.uniswapV4_1337 as V4Deployment;
-        tokenDeployment = rawDeployments.elizaToken1337 as TokenDeployment;
-        
-        if (!v4Deployment?.poolManager) {
-            throw new Error('V4 deployment not found. Run: bun run scripts/deploy-uniswap-v4.ts');
-        }
+    // Load deployments from @jejunetwork/contracts
+    v4Deployment = rawDeployments.uniswapV4_1337 as V4Deployment
+    tokenDeployment = rawDeployments.elizaToken1337 as TokenDeployment
 
-        if (!tokenDeployment?.address && !tokenDeployment?.token) {
-            throw new Error('Token deployment not found. Run: bun run scripts/deploy-eliza-token.ts');
-        }
+    if (!v4Deployment?.poolManager) {
+      throw new Error(
+        'V4 deployment not found. Run: bun run scripts/deploy-uniswap-v4.ts',
+      )
+    }
 
-        console.log(`✅ PoolManager: ${v4Deployment.poolManager}`);
-        console.log(`✅ elizaOS Token: ${tokenDeployment.address}`);
-    });
+    if (!tokenDeployment?.address && !tokenDeployment?.token) {
+      throw new Error(
+        'Token deployment not found. Run: bun run scripts/deploy-eliza-token.ts',
+      )
+    }
 
-    describe('Deployment Verification', () => {
-        test('should have valid deployment file', () => {
-            expect(v4Deployment).toBeDefined();
-            expect(v4Deployment.poolManager).toMatch(/^0x[a-fA-F0-9]{40}$/);
-            expect(v4Deployment.weth).toBe('0x4200000000000000000000000000000000000006');
-            expect(v4Deployment.chainId).toBe(1337);
-            expect(v4Deployment.network).toBe('localnet');
-        });
+    console.log(`✅ PoolManager: ${v4Deployment.poolManager}`)
+    console.log(`✅ elizaOS Token: ${tokenDeployment.address}`)
+  })
 
-        test('should have PoolManager deployed with bytecode', async () => {
-            const code = await publicClient.getBytecode({
-                address: v4Deployment.poolManager as `0x${string}`,
-            });
+  describe('Deployment Verification', () => {
+    test('should have valid deployment file', () => {
+      expect(v4Deployment).toBeDefined()
+      expect(v4Deployment.poolManager).toMatch(/^0x[a-fA-F0-9]{40}$/)
+      expect(v4Deployment.weth).toBe(
+        '0x4200000000000000000000000000000000000006',
+      )
+      expect(v4Deployment.chainId).toBe(1337)
+      expect(v4Deployment.network).toBe('localnet')
+    })
 
-            expect(code).toBeDefined();
-            expect(code).not.toBe('0x');
-            expect(code!.length).toBeGreaterThan(100);
+    test('should have PoolManager deployed with bytecode', async () => {
+      const code = await publicClient.getBytecode({
+        address: v4Deployment.poolManager as `0x${string}`,
+      })
 
-            console.log(`   Bytecode size: ${code!.length} bytes`);
-        });
+      expect(code).toBeDefined()
+      expect(code).not.toBe('0x')
+      expect(code!.length).toBeGreaterThan(100)
 
-        test('should have elizaOS token deployed', async () => {
-            const code = await publicClient.getBytecode({
-                address: tokenDeployment.address as `0x${string}`,
-            });
+      console.log(`   Bytecode size: ${code!.length} bytes`)
+    })
 
-            expect(code).toBeDefined();
-            expect(code).not.toBe('0x');
-        });
+    test('should have elizaOS token deployed', async () => {
+      const code = await publicClient.getBytecode({
+        address: tokenDeployment.address as `0x${string}`,
+      })
 
-        test('should have correct deployment metadata', () => {
-            expect(v4Deployment.features).toBeDefined();
-            expect(v4Deployment.features.singleton).toBe(true);
-            expect(v4Deployment.features.hooks).toBe(true);
-            expect(v4Deployment.features.flashAccounting).toBe(true);
-            expect(v4Deployment.features.nativeETH).toBe(true);
-        });
-    });
+      expect(code).toBeDefined()
+      expect(code).not.toBe('0x')
+    })
 
-    describe('PoolManager Contract Functions', () => {
-        const POOL_MANAGER_ABI = [
-            {
-                name: 'owner',
-                type: 'function',
-                stateMutability: 'view',
-                inputs: [],
-                outputs: [{ type: 'address' }],
-            },
-            {
-                name: 'MAX_TICK_SPACING',
-                type: 'function',
-                stateMutability: 'view',
-                inputs: [],
-                outputs: [{ type: 'int24' }],
-            },
-            {
-                name: 'MIN_TICK_SPACING',
-                type: 'function',
-                stateMutability: 'view',
-                inputs: [],
-                outputs: [{ type: 'int24' }],
-            },
-        ];
+    test('should have correct deployment metadata', () => {
+      expect(v4Deployment.features).toBeDefined()
+      expect(v4Deployment.features.singleton).toBe(true)
+      expect(v4Deployment.features.hooks).toBe(true)
+      expect(v4Deployment.features.flashAccounting).toBe(true)
+      expect(v4Deployment.features.nativeETH).toBe(true)
+    })
+  })
 
-        test('should return owner address', async () => {
-            const owner = await publicClient.readContract({
-                address: v4Deployment.poolManager as `0x${string}`,
-                abi: POOL_MANAGER_ABI,
-                functionName: 'owner',
-            });
+  describe('PoolManager Contract Functions', () => {
+    const POOL_MANAGER_ABI = [
+      {
+        name: 'owner',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'address' }],
+      },
+      {
+        name: 'MAX_TICK_SPACING',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'int24' }],
+      },
+      {
+        name: 'MIN_TICK_SPACING',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'int24' }],
+      },
+    ]
 
-            expect(owner).toMatch(/^0x[a-fA-F0-9]{40}$/);
-            expect(owner).toBe(v4Deployment.deployer);
+    test('should return owner address', async () => {
+      const owner = await publicClient.readContract({
+        address: v4Deployment.poolManager as `0x${string}`,
+        abi: POOL_MANAGER_ABI,
+        functionName: 'owner',
+      })
 
-            console.log(`   Owner: ${owner}`);
-        });
+      expect(owner).toMatch(/^0x[a-fA-F0-9]{40}$/)
+      expect(owner).toBe(v4Deployment.deployer)
 
-        test('should return MAX_TICK_SPACING', async () => {
-            const maxTickSpacing = await publicClient.readContract({
-                address: v4Deployment.poolManager as `0x${string}`,
-                abi: POOL_MANAGER_ABI,
-                functionName: 'MAX_TICK_SPACING',
-            });
+      console.log(`   Owner: ${owner}`)
+    })
 
-            expect(maxTickSpacing).toBeDefined();
-            expect(Number(maxTickSpacing)).toBeGreaterThan(0);
+    test('should return MAX_TICK_SPACING', async () => {
+      const maxTickSpacing = await publicClient.readContract({
+        address: v4Deployment.poolManager as `0x${string}`,
+        abi: POOL_MANAGER_ABI,
+        functionName: 'MAX_TICK_SPACING',
+      })
 
-            console.log(`   MAX_TICK_SPACING: ${maxTickSpacing}`);
-        });
+      expect(maxTickSpacing).toBeDefined()
+      expect(Number(maxTickSpacing)).toBeGreaterThan(0)
 
-        test('should return MIN_TICK_SPACING', async () => {
-            const minTickSpacing = await publicClient.readContract({
-                address: v4Deployment.poolManager as `0x${string}`,
-                abi: POOL_MANAGER_ABI,
-                functionName: 'MIN_TICK_SPACING',
-            });
+      console.log(`   MAX_TICK_SPACING: ${maxTickSpacing}`)
+    })
 
-            expect(minTickSpacing).toBeDefined();
-            expect(Number(minTickSpacing)).toBeGreaterThan(0);
+    test('should return MIN_TICK_SPACING', async () => {
+      const minTickSpacing = await publicClient.readContract({
+        address: v4Deployment.poolManager as `0x${string}`,
+        abi: POOL_MANAGER_ABI,
+        functionName: 'MIN_TICK_SPACING',
+      })
 
-            console.log(`   MIN_TICK_SPACING: ${minTickSpacing}`);
-        });
-    });
+      expect(minTickSpacing).toBeDefined()
+      expect(Number(minTickSpacing)).toBeGreaterThan(0)
 
-    describe('elizaOS Token Functions', () => {
-        const ERC20_ABI = [
-            {
-                name: 'name',
-                type: 'function',
-                stateMutability: 'view',
-                inputs: [],
-                outputs: [{ type: 'string' }],
-            },
-            {
-                name: 'symbol',
-                type: 'function',
-                stateMutability: 'view',
-                inputs: [],
-                outputs: [{ type: 'string' }],
-            },
-            {
-                name: 'decimals',
-                type: 'function',
-                stateMutability: 'view',
-                inputs: [],
-                outputs: [{ type: 'uint8' }],
-            },
-            {
-                name: 'totalSupply',
-                type: 'function',
-                stateMutability: 'view',
-                inputs: [],
-                outputs: [{ type: 'uint256' }],
-            },
-            {
-                name: 'balanceOf',
-                type: 'function',
-                stateMutability: 'view',
-                inputs: [{ name: 'account', type: 'address' }],
-                outputs: [{ type: 'uint256' }],
-            },
-        ];
+      console.log(`   MIN_TICK_SPACING: ${minTickSpacing}`)
+    })
+  })
 
-        test('should have correct token name', async () => {
-            const name = await publicClient.readContract({
-                address: tokenDeployment.address as `0x${string}`,
-                abi: ERC20_ABI,
-                functionName: 'name',
-            });
+  describe('elizaOS Token Functions', () => {
+    const ERC20_ABI = [
+      {
+        name: 'name',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'string' }],
+      },
+      {
+        name: 'symbol',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'string' }],
+      },
+      {
+        name: 'decimals',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'uint8' }],
+      },
+      {
+        name: 'totalSupply',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [],
+        outputs: [{ type: 'uint256' }],
+      },
+      {
+        name: 'balanceOf',
+        type: 'function',
+        stateMutability: 'view',
+        inputs: [{ name: 'account', type: 'address' }],
+        outputs: [{ type: 'uint256' }],
+      },
+    ]
 
-            expect(name).toBe('elizaOS Token');
-        });
+    test('should have correct token name', async () => {
+      const name = await publicClient.readContract({
+        address: tokenDeployment.address as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'name',
+      })
 
-        test('should have correct token symbol', async () => {
-            const symbol = await publicClient.readContract({
-                address: tokenDeployment.address as `0x${string}`,
-                abi: ERC20_ABI,
-                functionName: 'symbol',
-            });
+      expect(name).toBe('elizaOS Token')
+    })
 
-            expect(symbol).toBe('elizaOS');
-        });
+    test('should have correct token symbol', async () => {
+      const symbol = await publicClient.readContract({
+        address: tokenDeployment.address as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'symbol',
+      })
 
-        test('should have 18 decimals', async () => {
-            const decimals = await publicClient.readContract({
-                address: tokenDeployment.address as `0x${string}`,
-                abi: ERC20_ABI,
-                functionName: 'decimals',
-            });
+      expect(symbol).toBe('elizaOS')
+    })
 
-            expect(decimals).toBe(18);
-        });
+    test('should have 18 decimals', async () => {
+      const decimals = await publicClient.readContract({
+        address: tokenDeployment.address as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'decimals',
+      })
 
-        test('should have initial supply', async () => {
-            const totalSupply = await publicClient.readContract({
-                address: tokenDeployment.address as `0x${string}`,
-                abi: ERC20_ABI,
-                functionName: 'totalSupply',
-            });
+      expect(decimals).toBe(18)
+    })
 
-            expect(totalSupply).toBeDefined();
-            expect(totalSupply).toBeGreaterThan(0n);
+    test('should have initial supply', async () => {
+      const totalSupply = await publicClient.readContract({
+        address: tokenDeployment.address as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'totalSupply',
+      })
 
-            const supplyInTokens = formatEther(totalSupply as bigint);
-            console.log(`   Total Supply: ${supplyInTokens} elizaOS`);
-        });
+      expect(totalSupply).toBeDefined()
+      expect(totalSupply).toBeGreaterThan(0n)
 
-        test('deployer should have initial balance', async () => {
-            const balance = await publicClient.readContract({
-                address: tokenDeployment.address as `0x${string}`,
-                abi: ERC20_ABI,
-                functionName: 'balanceOf',
-                args: [v4Deployment.deployer],
-            });
+      const supplyInTokens = formatEther(totalSupply as bigint)
+      console.log(`   Total Supply: ${supplyInTokens} elizaOS`)
+    })
 
-            expect(balance).toBeDefined();
-            expect(balance).toBeGreaterThan(0n);
+    test('deployer should have initial balance', async () => {
+      const balance = await publicClient.readContract({
+        address: tokenDeployment.address as `0x${string}`,
+        abi: ERC20_ABI,
+        functionName: 'balanceOf',
+        args: [v4Deployment.deployer],
+      })
 
-            const balanceInTokens = formatEther(balance as bigint);
-            console.log(`   Deployer Balance: ${balanceInTokens} elizaOS`);
-        });
-    });
+      expect(balance).toBeDefined()
+      expect(balance).toBeGreaterThan(0n)
 
-    describe('Network Health', () => {
-        test('should be connected to correct chain', async () => {
-            const chainId = await publicClient.getChainId();
-            expect(chainId).toBe(1337);
-        });
+      const balanceInTokens = formatEther(balance as bigint)
+      console.log(`   Deployer Balance: ${balanceInTokens} elizaOS`)
+    })
+  })
 
-        test('should have active block production', async () => {
-            const blockNumber1 = await publicClient.getBlockNumber();
+  describe('Network Health', () => {
+    test('should be connected to correct chain', async () => {
+      const chainId = await publicClient.getChainId()
+      expect(chainId).toBe(1337)
+    })
 
-            // Wait 2 seconds
-            await new Promise(resolve => setTimeout(resolve, 2000));
+    test('should have active block production', async () => {
+      const blockNumber1 = await publicClient.getBlockNumber()
 
-            const blockNumber2 = await publicClient.getBlockNumber();
+      // Wait 2 seconds
+      await new Promise((resolve) => setTimeout(resolve, 2000))
 
-            expect(blockNumber2).toBeGreaterThanOrEqual(blockNumber1);
-            console.log(`   Block: ${blockNumber1} → ${blockNumber2}`);
-        });
+      const blockNumber2 = await publicClient.getBlockNumber()
 
-        test('deployer should have ETH balance', async () => {
-            const balance = await publicClient.getBalance({
-                address: v4Deployment.deployer as `0x${string}`,
-            });
+      expect(blockNumber2).toBeGreaterThanOrEqual(blockNumber1)
+      console.log(`   Block: ${blockNumber1} → ${blockNumber2}`)
+    })
 
-            expect(balance).toBeGreaterThan(0n);
+    test('deployer should have ETH balance', async () => {
+      const balance = await publicClient.getBalance({
+        address: v4Deployment.deployer as `0x${string}`,
+      })
 
-            const balanceInEth = formatEther(balance);
-            console.log(`   Deployer ETH: ${balanceInEth} ETH`);
-        });
-    });
+      expect(balance).toBeGreaterThan(0n)
 
-    describe('Gas Benchmarks', () => {
-        test('should measure gas for view function calls', async () => {
-            const startTime = Date.now();
+      const balanceInEth = formatEther(balance)
+      console.log(`   Deployer ETH: ${balanceInEth} ETH`)
+    })
+  })
 
-            await publicClient.readContract({
-                address: v4Deployment.poolManager as `0x${string}`,
-                abi: [{
-                    name: 'owner',
-                    type: 'function',
-                    stateMutability: 'view',
-                    inputs: [],
-                    outputs: [{ type: 'address' }],
-                }],
-                functionName: 'owner',
-            });
+  describe('Gas Benchmarks', () => {
+    test('should measure gas for view function calls', async () => {
+      const startTime = Date.now()
 
-            const endTime = Date.now();
-            const duration = endTime - startTime;
+      await publicClient.readContract({
+        address: v4Deployment.poolManager as `0x${string}`,
+        abi: [
+          {
+            name: 'owner',
+            type: 'function',
+            stateMutability: 'view',
+            inputs: [],
+            outputs: [{ type: 'address' }],
+          },
+        ],
+        functionName: 'owner',
+      })
 
-            expect(duration).toBeLessThan(1000); // Should be fast
-            console.log(`   View call latency: ${duration}ms`);
-        });
-    });
-});
+      const endTime = Date.now()
+      const duration = endTime - startTime
+
+      expect(duration).toBeLessThan(1000) // Should be fast
+      console.log(`   View call latency: ${duration}ms`)
+    })
+  })
+})

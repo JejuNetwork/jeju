@@ -1,14 +1,14 @@
 /**
  * Mempool Streaming & Monitoring
- * 
+ *
  * Real-time monitoring of pending transactions to:
  * 1. Detect sandwich opportunities (non-Jeju users)
  * 2. Protect Jeju transactions from MEV
  * 3. Frontrun profitable DEX swaps
  */
 
-import { type Address, type Hash, type Hex } from 'viem';
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events'
+import type { Address, Hash, Hex } from 'viem'
 
 // Mempool data providers
 export const MEMPOOL_PROVIDERS = {
@@ -23,7 +23,7 @@ export const MEMPOOL_PROVIDERS = {
   chainbound: {
     mainnet: 'wss://fiber.chainbound.io/api/v1',
   },
-};
+}
 
 // Common DEX router addresses
 export const DEX_ROUTERS: Record<number, Address[]> = {
@@ -45,7 +45,7 @@ export const DEX_ROUTERS: Record<number, Address[]> = {
     '0x2626664c2603336E57B271c5C0b26F421741e481', // Uniswap V3 SwapRouter02
     '0x4752ba5DBc23f44D87826276BF6Fd6b1C372aD24', // Aerodrome
   ],
-};
+}
 
 // Swap function selectors
 export const SWAP_SELECTORS = {
@@ -56,69 +56,69 @@ export const SWAP_SELECTORS = {
   swapTokensForExactETH: '0x4a25d94a',
   swapExactTokensForETH: '0x18cbafe5',
   swapETHForExactTokens: '0xfb3bdb41',
-  
+
   // Uniswap V3
   exactInputSingle: '0x414bf389',
   exactInput: '0xc04b8d59',
   exactOutputSingle: '0xdb3e2198',
   exactOutput: '0xf28c0498',
-  
+
   // Universal Router
   execute: '0x3593564c',
-  
+
   // 1inch
   swap: '0x12aa3caf',
   uniswapV3Swap: '0xe449022e',
-};
+}
 
 export interface PendingTx {
-  hash: Hash;
-  from: Address;
-  to: Address;
-  data: Hex;
-  value: bigint;
-  gasPrice?: bigint;
-  maxFeePerGas?: bigint;
-  maxPriorityFeePerGas?: bigint;
-  nonce: number;
-  chainId: number;
-  receivedAt: number;
+  hash: Hash
+  from: Address
+  to: Address
+  data: Hex
+  value: bigint
+  gasPrice?: bigint
+  maxFeePerGas?: bigint
+  maxPriorityFeePerGas?: bigint
+  nonce: number
+  chainId: number
+  receivedAt: number
 }
 
 export interface SwapIntent {
-  tx: PendingTx;
-  chainId: number;
-  router: Address;
-  selector: string;
-  tokenIn: Address;
-  tokenOut: Address;
-  amountIn: bigint;
-  amountOutMin: bigint;
-  deadline: number;
-  path: Address[];
+  tx: PendingTx
+  chainId: number
+  router: Address
+  selector: string
+  tokenIn: Address
+  tokenOut: Address
+  amountIn: bigint
+  amountOutMin: bigint
+  deadline: number
+  path: Address[]
 }
 
 export interface MempoolConfig {
-  chains: number[];
-  alchemyApiKey?: string;
-  bloxrouteAuthHeader?: string;
-  chainboundApiKey?: string;
-  minSwapValueUsd?: number;
-  filterJejuTxs?: boolean;
+  chains: number[]
+  alchemyApiKey?: string
+  bloxrouteAuthHeader?: string
+  chainboundApiKey?: string
+  minSwapValueUsd?: number
+  filterJejuTxs?: boolean
 }
 
 export class MempoolMonitor extends EventEmitter {
-  private config: Required<MempoolConfig>;
-  private subscriptions: Map<number, WebSocket> = new Map();
-  private pendingTxs: Map<Hash, PendingTx> = new Map();
-  private processedHashes: Set<Hash> = new Set();
-  private running = false;
+  private config: Required<MempoolConfig>
+  private subscriptions: Map<number, WebSocket> = new Map()
+  private pendingTxs: Map<Hash, PendingTx> = new Map()
+  private processedHashes: Set<Hash> = new Set()
+  private running = false
 
   // Jeju contract addresses (to filter out)
-  private jejuContracts: Set<string> = new Set();
+  private jejuContracts: Set<string> = new Set()
 
   constructor(config: MempoolConfig) {
-    super();
+    super()
     this.config = {
       alchemyApiKey: '',
       bloxrouteAuthHeader: '',
@@ -126,7 +126,7 @@ export class MempoolMonitor extends EventEmitter {
       minSwapValueUsd: 1000,
       filterJejuTxs: true,
       ...config,
-    };
+    }
   }
 
   /**
@@ -134,7 +134,7 @@ export class MempoolMonitor extends EventEmitter {
    */
   addJejuContracts(addresses: Address[]): void {
     for (const addr of addresses) {
-      this.jejuContracts.add(addr.toLowerCase());
+      this.jejuContracts.add(addr.toLowerCase())
     }
   }
 
@@ -142,32 +142,32 @@ export class MempoolMonitor extends EventEmitter {
    * Start monitoring mempool
    */
   async start(): Promise<void> {
-    if (this.running) return;
-    this.running = true;
+    if (this.running) return
+    this.running = true
 
-    console.log('Starting mempool monitor...');
+    console.log('Starting mempool monitor...')
 
     for (const chainId of this.config.chains) {
-      await this.subscribeToChain(chainId);
+      await this.subscribeToChain(chainId)
     }
 
     // Cleanup old pending txs periodically
-    setInterval(() => this.cleanupOldTxs(), 60000);
+    setInterval(() => this.cleanupOldTxs(), 60000)
   }
 
   /**
    * Stop monitoring
    */
   stop(): void {
-    this.running = false;
-    
+    this.running = false
+
     for (const [chainId, ws] of this.subscriptions) {
-      ws.close();
-      console.log(`   Closed mempool subscription for chain ${chainId}`);
+      ws.close()
+      console.log(`   Closed mempool subscription for chain ${chainId}`)
     }
-    
-    this.subscriptions.clear();
-    this.pendingTxs.clear();
+
+    this.subscriptions.clear()
+    this.pendingTxs.clear()
   }
 
   /**
@@ -176,84 +176,92 @@ export class MempoolMonitor extends EventEmitter {
   private async subscribeToChain(chainId: number): Promise<void> {
     // Use Alchemy for mainnet and L2s
     if (this.config.alchemyApiKey && chainId === 1) {
-      const wsUrl = `${MEMPOOL_PROVIDERS.alchemy.mainnet}${this.config.alchemyApiKey}`;
-      
-      const ws = new WebSocket(wsUrl);
-      
+      const wsUrl = `${MEMPOOL_PROVIDERS.alchemy.mainnet}${this.config.alchemyApiKey}`
+
+      const ws = new WebSocket(wsUrl)
+
       ws.onopen = () => {
-        console.log(`   Connected to Alchemy mempool (chain ${chainId})`);
-        
+        console.log(`   Connected to Alchemy mempool (chain ${chainId})`)
+
         // Subscribe to pending transactions
-        ws.send(JSON.stringify({
-          jsonrpc: '2.0',
-          id: 1,
-          method: 'eth_subscribe',
-          params: ['alchemy_pendingTransactions', {
-            toAddress: DEX_ROUTERS[chainId] || [],
-            hashesOnly: false,
-          }],
-        }));
-      };
+        ws.send(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 1,
+            method: 'eth_subscribe',
+            params: [
+              'alchemy_pendingTransactions',
+              {
+                toAddress: DEX_ROUTERS[chainId] || [],
+                hashesOnly: false,
+              },
+            ],
+          }),
+        )
+      }
 
       ws.onmessage = (event) => {
-        this.handlePendingTx(chainId, JSON.parse(event.data as string));
-      };
+        this.handlePendingTx(chainId, JSON.parse(event.data as string))
+      }
 
       ws.onerror = (error) => {
-        console.error(`Mempool WS error (chain ${chainId}):`, error);
-      };
+        console.error(`Mempool WS error (chain ${chainId}):`, error)
+      }
 
       ws.onclose = () => {
-        console.log(`   Mempool connection closed (chain ${chainId})`);
+        console.log(`   Mempool connection closed (chain ${chainId})`)
         // Reconnect after delay
         if (this.running) {
-          setTimeout(() => this.subscribeToChain(chainId), 5000);
+          setTimeout(() => this.subscribeToChain(chainId), 5000)
         }
-      };
+      }
 
-      this.subscriptions.set(chainId, ws);
+      this.subscriptions.set(chainId, ws)
     }
   }
 
   /**
    * Handle incoming pending transaction
    */
-  private handlePendingTx(chainId: number, message: { 
-    params?: { 
-      result?: { 
-        hash: string; 
-        from: string; 
-        to: string; 
-        input: string;
-        value: string;
-        gasPrice?: string;
-        maxFeePerGas?: string;
-        maxPriorityFeePerGas?: string;
-        nonce: string;
-      } 
-    } 
-  }): void {
-    const tx = message.params?.result;
-    if (!tx) return;
+  private handlePendingTx(
+    chainId: number,
+    message: {
+      params?: {
+        result?: {
+          hash: string
+          from: string
+          to: string
+          input: string
+          value: string
+          gasPrice?: string
+          maxFeePerGas?: string
+          maxPriorityFeePerGas?: string
+          nonce: string
+        }
+      }
+    },
+  ): void {
+    const tx = message.params?.result
+    if (!tx) return
 
     // Skip if already processed
-    if (this.processedHashes.has(tx.hash as Hash)) return;
-    this.processedHashes.add(tx.hash as Hash);
+    if (this.processedHashes.has(tx.hash as Hash)) return
+    this.processedHashes.add(tx.hash as Hash)
 
     // Filter out Jeju transactions
     if (this.config.filterJejuTxs) {
       if (this.jejuContracts.has(tx.to?.toLowerCase() || '')) {
-        return;
+        return
       }
       if (this.jejuContracts.has(tx.from?.toLowerCase() || '')) {
-        return;
+        return
       }
     }
 
     // Parse as swap if it's to a known DEX router
-    const routers = DEX_ROUTERS[chainId] || [];
-    if (!routers.some(r => r.toLowerCase() === tx.to?.toLowerCase())) {
-      return;
+    const routers = DEX_ROUTERS[chainId] || []
+    if (!routers.some((r) => r.toLowerCase() === tx.to?.toLowerCase())) {
+      return
     }
 
     const pendingTx: PendingTx = {
@@ -264,18 +272,20 @@ export class MempoolMonitor extends EventEmitter {
       value: BigInt(tx.value || '0'),
       gasPrice: tx.gasPrice ? BigInt(tx.gasPrice) : undefined,
       maxFeePerGas: tx.maxFeePerGas ? BigInt(tx.maxFeePerGas) : undefined,
-      maxPriorityFeePerGas: tx.maxPriorityFeePerGas ? BigInt(tx.maxPriorityFeePerGas) : undefined,
+      maxPriorityFeePerGas: tx.maxPriorityFeePerGas
+        ? BigInt(tx.maxPriorityFeePerGas)
+        : undefined,
       nonce: parseInt(tx.nonce, 16),
       chainId,
       receivedAt: Date.now(),
-    };
+    }
 
-    this.pendingTxs.set(pendingTx.hash, pendingTx);
+    this.pendingTxs.set(pendingTx.hash, pendingTx)
 
     // Parse swap and emit if valid
-    const swapIntent = this.parseSwapIntent(pendingTx);
+    const swapIntent = this.parseSwapIntent(pendingTx)
     if (swapIntent) {
-      this.emit('swap', swapIntent);
+      this.emit('swap', swapIntent)
     }
   }
 
@@ -283,23 +293,23 @@ export class MempoolMonitor extends EventEmitter {
    * Parse a pending transaction as a swap intent
    */
   private parseSwapIntent(tx: PendingTx): SwapIntent | null {
-    const selector = tx.data.slice(0, 10);
-    
+    const selector = tx.data.slice(0, 10)
+
     // Check if it's a known swap selector
-    const isSwap = Object.values(SWAP_SELECTORS).includes(selector);
-    if (!isSwap) return null;
+    const isSwap = Object.values(SWAP_SELECTORS).includes(selector)
+    if (!isSwap) return null
 
     // Decode based on selector
     // This is simplified - real implementation would use proper ABI decoding
     try {
       // For Uniswap V2 swapExactTokensForTokens
       if (selector === SWAP_SELECTORS.swapExactTokensForTokens) {
-        const amountIn = BigInt(`0x${tx.data.slice(10, 74)}`);
-        const amountOutMin = BigInt(`0x${tx.data.slice(74, 138)}`);
-        
+        const amountIn = BigInt(`0x${tx.data.slice(10, 74)}`)
+        const amountOutMin = BigInt(`0x${tx.data.slice(74, 138)}`)
+
         // Path offset at position 3 (bytes 138-202)
         // Path length and addresses would need proper decoding
-        
+
         return {
           tx,
           chainId: tx.chainId,
@@ -311,17 +321,17 @@ export class MempoolMonitor extends EventEmitter {
           amountOutMin,
           deadline: 0,
           path: [],
-        };
+        }
       }
 
       // For Uniswap V3 exactInputSingle
       if (selector === SWAP_SELECTORS.exactInputSingle) {
         // Struct: tokenIn, tokenOut, fee, recipient, deadline, amountIn, amountOutMinimum, sqrtPriceLimitX96
-        const tokenIn = `0x${tx.data.slice(34, 74)}` as Address;
-        const tokenOut = `0x${tx.data.slice(98, 138)}` as Address;
-        const amountIn = BigInt(`0x${tx.data.slice(202, 266)}`);
-        const amountOutMin = BigInt(`0x${tx.data.slice(266, 330)}`);
-        
+        const tokenIn = `0x${tx.data.slice(34, 74)}` as Address
+        const tokenOut = `0x${tx.data.slice(98, 138)}` as Address
+        const amountIn = BigInt(`0x${tx.data.slice(202, 266)}`)
+        const amountOutMin = BigInt(`0x${tx.data.slice(266, 330)}`)
+
         return {
           tx,
           chainId: tx.chainId,
@@ -333,34 +343,33 @@ export class MempoolMonitor extends EventEmitter {
           amountOutMin,
           deadline: 0,
           path: [tokenIn, tokenOut],
-        };
+        }
       }
-
     } catch {
       // Failed to parse, skip
-      return null;
+      return null
     }
 
-    return null;
+    return null
   }
 
   /**
    * Cleanup old pending transactions
    */
   private cleanupOldTxs(): void {
-    const now = Date.now();
-    const maxAge = 60000; // 1 minute
+    const now = Date.now()
+    const maxAge = 60000 // 1 minute
 
     for (const [hash, tx] of this.pendingTxs) {
       if (now - tx.receivedAt > maxAge) {
-        this.pendingTxs.delete(hash);
+        this.pendingTxs.delete(hash)
       }
     }
 
     // Also cleanup processed hashes (keep last 10k)
     if (this.processedHashes.size > 10000) {
-      const hashes = Array.from(this.processedHashes);
-      this.processedHashes = new Set(hashes.slice(-5000));
+      const hashes = Array.from(this.processedHashes)
+      this.processedHashes = new Set(hashes.slice(-5000))
     }
   }
 
@@ -368,36 +377,35 @@ export class MempoolMonitor extends EventEmitter {
    * Get pending transaction by hash
    */
   getPendingTx(hash: Hash): PendingTx | undefined {
-    return this.pendingTxs.get(hash);
+    return this.pendingTxs.get(hash)
   }
 
   /**
    * Get all pending swap transactions
    */
   getPendingSwaps(): SwapIntent[] {
-    const swaps: SwapIntent[] = [];
-    
+    const swaps: SwapIntent[] = []
+
     for (const tx of this.pendingTxs.values()) {
-      const swap = this.parseSwapIntent(tx);
-      if (swap) swaps.push(swap);
+      const swap = this.parseSwapIntent(tx)
+      if (swap) swaps.push(swap)
     }
 
-    return swaps;
+    return swaps
   }
 
   /**
    * Get stats
    */
   getStats(): {
-    pendingTxs: number;
-    processedHashes: number;
-    activeSubscriptions: number;
+    pendingTxs: number
+    processedHashes: number
+    activeSubscriptions: number
   } {
     return {
       pendingTxs: this.pendingTxs.size,
       processedHashes: this.processedHashes.size,
       activeSubscriptions: this.subscriptions.size,
-    };
+    }
   }
 }
-

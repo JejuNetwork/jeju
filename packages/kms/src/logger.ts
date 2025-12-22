@@ -2,73 +2,89 @@
  * KMS Logger - Standalone pino logger (avoids circular dep with shared)
  */
 
-import pino from 'pino';
+import pino from 'pino'
 
-type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
-const isProduction = process.env.NODE_ENV === 'production';
-const logLevel = (process.env.LOG_LEVEL?.toLowerCase() as LogLevel) ?? 'info';
+/** Primitive types that can be logged */
+type LogPrimitive = string | number | boolean | null | undefined | bigint
+
+/** Value types that can be logged - primitives, arrays, or nested objects */
+type LogValue =
+  | LogPrimitive
+  | LogPrimitive[]
+  | string[]
+  | number[]
+  | Record<string, LogPrimitive>
+
+/** Structured log data - strongly typed instead of Record<string, unknown> */
+export type LogData = Record<string, LogValue>
+
+const isProduction = process.env.NODE_ENV === 'production'
+const logLevel = (process.env.LOG_LEVEL?.toLowerCase() as LogLevel) ?? 'info'
 
 const baseLogger = pino({
   level: logLevel,
-  transport: !isProduction ? {
-    target: 'pino-pretty',
-    options: {
-      colorize: true,
-      translateTime: 'SYS:standard',
-      ignore: 'pid,hostname',
-    },
-  } : undefined,
+  transport: !isProduction
+    ? {
+        target: 'pino-pretty',
+        options: {
+          colorize: true,
+          translateTime: 'SYS:standard',
+          ignore: 'pid,hostname',
+        },
+      }
+    : undefined,
   formatters: {
     level: (label) => ({ level: label }),
   },
   timestamp: () => `,"timestamp":"${new Date().toISOString()}"`,
-});
+})
 
 interface Logger {
-  debug: (message: string, data?: Record<string, unknown>) => void;
-  info: (message: string, data?: Record<string, unknown>) => void;
-  warn: (message: string, data?: Record<string, unknown>) => void;
-  error: (message: string, data?: Record<string, unknown>) => void;
+  debug: (message: string, data?: LogData) => void
+  info: (message: string, data?: LogData) => void
+  warn: (message: string, data?: LogData) => void
+  error: (message: string, data?: LogData) => void
 }
 
 export function createLogger(service: string): Logger {
-  const logger = baseLogger.child({ service });
+  const logger = baseLogger.child({ service })
 
   return {
-    debug: (message: string, data?: Record<string, unknown>) => {
+    debug: (message: string, data?: LogData) => {
       if (data) {
-        logger.debug(data, message);
+        logger.debug(data, message)
       } else {
-        logger.debug(message);
+        logger.debug(message)
       }
     },
-    info: (message: string, data?: Record<string, unknown>) => {
+    info: (message: string, data?: LogData) => {
       if (data) {
-        logger.info(data, message);
+        logger.info(data, message)
       } else {
-        logger.info(message);
+        logger.info(message)
       }
     },
-    warn: (message: string, data?: Record<string, unknown>) => {
+    warn: (message: string, data?: LogData) => {
       if (data) {
-        logger.warn(data, message);
+        logger.warn(data, message)
       } else {
-        logger.warn(message);
+        logger.warn(message)
       }
     },
-    error: (message: string, data?: Record<string, unknown>) => {
+    error: (message: string, data?: LogData) => {
       if (data) {
-        logger.error(data, message);
+        logger.error(data, message)
       } else {
-        logger.error(message);
+        logger.error(message)
       }
     },
-  };
+  }
 }
 
 // Pre-configured loggers for KMS components
-export const kmsLogger = createLogger('kms');
-export const encLogger = createLogger('kms.enc');
-export const teeLogger = createLogger('kms.tee');
-export const mpcLogger = createLogger('kms.mpc');
+export const kmsLogger = createLogger('kms')
+export const encLogger = createLogger('kms.enc')
+export const teeLogger = createLogger('kms.tee')
+export const mpcLogger = createLogger('kms.mpc')

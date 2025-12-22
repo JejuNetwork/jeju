@@ -28,8 +28,10 @@ config:
   l2oo:
     # L2OutputOracle address - set to zero if not deployed yet
     address: "0x0000000000000000000000000000000000000000"
-  # Test account private key
-  privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  # SECURITY: Private key must be injected from Vault or --set at deploy time
+  # NEVER commit real private keys to version control
+  # Deploy with: --set config.privateKey=$PROPOSER_PRIVATE_KEY
+  privateKey: ""
   pollInterval: "12s"
   numConfirmations: 3
   networkTimeout: "30s"

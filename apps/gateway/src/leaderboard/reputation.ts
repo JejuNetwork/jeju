@@ -1,54 +1,56 @@
 /**
  * Reputation Calculation Service
- * 
+ *
  * Calculates GitHub reputation scores from contribution data.
  */
 
-import { keccak256, encodePacked, type Hex } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { query, exec } from './db.js';
-import { LEADERBOARD_CONFIG } from './config.js';
+import { encodePacked, type Hex, keccak256 } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { LEADERBOARD_CONFIG } from './config.js'
+import { exec, query } from './db.js'
 
 export interface ReputationData {
-  totalScore: number;
-  normalizedScore: number;
-  prScore: number;
-  issueScore: number;
-  reviewScore: number;
-  commitScore: number;
-  mergedPrCount: number;
-  totalPrCount: number;
-  totalCommits: number;
+  totalScore: number
+  normalizedScore: number
+  prScore: number
+  issueScore: number
+  reviewScore: number
+  commitScore: number
+  mergedPrCount: number
+  totalPrCount: number
+  totalCommits: number
 }
 
 export interface AttestationData {
-  hash: Hex | null;
-  signature: Hex | null;
-  normalizedScore: number;
-  timestamp: number;
-  agentId: number;
+  hash: Hex | null
+  signature: Hex | null
+  normalizedScore: number
+  timestamp: number
+  agentId: number
   onChainParams: {
-    agentId: number;
-    score: number;
-    totalScore: number;
-    mergedPrs: number;
-    totalCommits: number;
-    timestamp: number;
-    signature: Hex | null;
-  } | null;
+    agentId: number
+    score: number
+    totalScore: number
+    mergedPrs: number
+    totalCommits: number
+    timestamp: number
+    signature: Hex | null
+  } | null
 }
 
 /**
  * Calculate user reputation from contribution data
  */
-export async function calculateUserReputation(username: string): Promise<ReputationData> {
+export async function calculateUserReputation(
+  username: string,
+): Promise<ReputationData> {
   // Get aggregated scores from daily scores
   const scoreResult = await query<{
-    total_score: number;
-    pr_score: number;
-    issue_score: number;
-    review_score: number;
-    comment_score: number;
+    total_score: number
+    pr_score: number
+    issue_score: number
+    review_score: number
+    comment_score: number
   }>(
     `SELECT 
       COALESCE(SUM(score), 0) as total_score,
@@ -57,8 +59,8 @@ export async function calculateUserReputation(username: string): Promise<Reputat
       COALESCE(SUM(review_score), 0) as review_score,
       COALESCE(SUM(comment_score), 0) as comment_score
     FROM user_daily_scores WHERE username = ?`,
-    [username]
-  );
+    [username],
+  )
 
   // Get PR counts
   const prCountResult = await query<{ total_prs: number; merged_prs: number }>(
@@ -66,43 +68,52 @@ export async function calculateUserReputation(username: string): Promise<Reputat
       COUNT(*) as total_prs,
       SUM(CASE WHEN merged = 1 THEN 1 ELSE 0 END) as merged_prs
     FROM raw_pull_requests WHERE author = ?`,
-    [username]
-  );
+    [username],
+  )
 
   // Get commit count
   const commitCountResult = await query<{ total_commits: number }>(
     'SELECT COUNT(*) as total_commits FROM raw_commits WHERE author = ?',
-    [username]
-  );
+    [username],
+  )
 
-  const scores = scoreResult[0] || { total_score: 0, pr_score: 0, issue_score: 0, review_score: 0, comment_score: 0 };
-  const prCounts = prCountResult[0] || { total_prs: 0, merged_prs: 0 };
-  const commitCounts = commitCountResult[0] || { total_commits: 0 };
+  const scores = scoreResult[0] || {
+    total_score: 0,
+    pr_score: 0,
+    issue_score: 0,
+    review_score: 0,
+    comment_score: 0,
+  }
+  const prCounts = prCountResult[0] || { total_prs: 0, merged_prs: 0 }
+  const commitCounts = commitCountResult[0] || { total_commits: 0 }
 
-  const totalScore = Number(scores.total_score) || 0;
-  const prScore = Number(scores.pr_score) || 0;
-  const issueScore = Number(scores.issue_score) || 0;
-  const reviewScore = Number(scores.review_score) || 0;
-  const commitScore = Number(scores.comment_score) || 0;
-  const mergedPrCount = Number(prCounts.merged_prs) || 0;
-  const totalPrCount = Number(prCounts.total_prs) || 0;
-  const totalCommits = Number(commitCounts.total_commits) || 0;
+  const totalScore = Number(scores.total_score) || 0
+  const prScore = Number(scores.pr_score) || 0
+  const issueScore = Number(scores.issue_score) || 0
+  const reviewScore = Number(scores.review_score) || 0
+  const commitScore = Number(scores.comment_score) || 0
+  const mergedPrCount = Number(prCounts.merged_prs) || 0
+  const totalPrCount = Number(prCounts.total_prs) || 0
+  const totalCommits = Number(commitCounts.total_commits) || 0
 
   // Normalize score to 0-100 for ERC-8004 compatibility
   // Use logarithmic scaling to handle large score ranges
-  let normalizedScore: number;
+  let normalizedScore: number
   if (totalScore <= 0) {
-    normalizedScore = 0;
+    normalizedScore = 0
   } else if (totalScore < 100) {
-    normalizedScore = Math.floor((totalScore / 100) * 10);
+    normalizedScore = Math.floor((totalScore / 100) * 10)
   } else if (totalScore < 1000) {
-    normalizedScore = 10 + Math.floor(((totalScore - 100) / 900) * 20);
+    normalizedScore = 10 + Math.floor(((totalScore - 100) / 900) * 20)
   } else if (totalScore < 10000) {
-    normalizedScore = 30 + Math.floor(((totalScore - 1000) / 9000) * 30);
+    normalizedScore = 30 + Math.floor(((totalScore - 1000) / 9000) * 30)
   } else if (totalScore < 50000) {
-    normalizedScore = 60 + Math.floor(((totalScore - 10000) / 40000) * 20);
+    normalizedScore = 60 + Math.floor(((totalScore - 10000) / 40000) * 20)
   } else {
-    normalizedScore = Math.min(100, 80 + Math.floor(Math.log10(totalScore / 50000) * 20));
+    normalizedScore = Math.min(
+      100,
+      80 + Math.floor(Math.log10(totalScore / 50000) * 20),
+    )
   }
 
   return {
@@ -115,7 +126,7 @@ export async function calculateUserReputation(username: string): Promise<Reputat
     mergedPrCount,
     totalPrCount,
     totalCommits,
-  };
+  }
 }
 
 /**
@@ -125,9 +136,9 @@ export async function createAttestation(
   walletAddress: string,
   agentId: number,
   reputation: ReputationData,
-  timestamp: number
+  timestamp: number,
 ): Promise<AttestationData> {
-  const { oracle, contracts, chain } = LEADERBOARD_CONFIG;
+  const { oracle, contracts, chain } = LEADERBOARD_CONFIG
 
   if (!oracle.isEnabled || !oracle.privateKey) {
     return {
@@ -137,14 +148,24 @@ export async function createAttestation(
       timestamp,
       agentId,
       onChainParams: null,
-    };
+    }
   }
 
   // Create attestation hash matching contract format:
   // keccak256(abi.encodePacked(wallet, agentId, score, totalScore, mergedPrs, totalCommits, timestamp, chainid, address(this)))
   const attestationHash = keccak256(
     encodePacked(
-      ['address', 'uint256', 'uint8', 'uint256', 'uint256', 'uint256', 'uint256', 'uint256', 'address'],
+      [
+        'address',
+        'uint256',
+        'uint8',
+        'uint256',
+        'uint256',
+        'uint256',
+        'uint256',
+        'uint256',
+        'address',
+      ],
       [
         walletAddress.toLowerCase() as `0x${string}`,
         BigInt(agentId),
@@ -155,15 +176,15 @@ export async function createAttestation(
         BigInt(timestamp),
         BigInt(chain.chainId),
         contracts.githubReputationProvider as `0x${string}`,
-      ]
-    )
-  );
+      ],
+    ),
+  )
 
   // Sign the attestation
-  const account = privateKeyToAccount(oracle.privateKey);
+  const account = privateKeyToAccount(oracle.privateKey)
   const signature = await account.signMessage({
     message: { raw: attestationHash },
-  });
+  })
 
   return {
     hash: attestationHash,
@@ -180,7 +201,7 @@ export async function createAttestation(
       timestamp,
       signature: signature as Hex,
     },
-  };
+  }
 }
 
 /**
@@ -192,16 +213,16 @@ export async function storeAttestation(
   chainId: string,
   reputation: ReputationData,
   attestation: AttestationData,
-  agentId: number | null
+  agentId: number | null,
 ): Promise<void> {
-  const now = new Date().toISOString();
+  const now = new Date().toISOString()
 
   // Check for existing attestation
   const existing = await query<{ id: number }>(
     `SELECT id FROM reputation_attestations 
      WHERE user_id = ? AND wallet_address = ? AND chain_id = ?`,
-    [username, walletAddress.toLowerCase(), chainId]
-  );
+    [username, walletAddress.toLowerCase(), chainId],
+  )
 
   if (existing.length > 0) {
     await exec(
@@ -212,15 +233,24 @@ export async function storeAttestation(
         score_calculated_at = ?, attested_at = ?, updated_at = ?
       WHERE id = ?`,
       [
-        reputation.totalScore, reputation.prScore, reputation.issueScore,
-        reputation.reviewScore, reputation.commitScore,
-        reputation.mergedPrCount, reputation.totalPrCount, reputation.totalCommits,
+        reputation.totalScore,
+        reputation.prScore,
+        reputation.issueScore,
+        reputation.reviewScore,
+        reputation.commitScore,
+        reputation.mergedPrCount,
+        reputation.totalPrCount,
+        reputation.totalCommits,
         reputation.normalizedScore,
-        attestation.hash, attestation.signature, agentId,
-        now, attestation.signature ? now : null, now,
+        attestation.hash,
+        attestation.signature,
+        agentId,
+        now,
+        attestation.signature ? now : null,
+        now,
         existing[0].id,
-      ]
-    );
+      ],
+    )
   } else {
     await exec(
       `INSERT INTO reputation_attestations (
@@ -231,15 +261,27 @@ export async function storeAttestation(
         score_calculated_at, attested_at, created_at, updated_at
       ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [
-        username, walletAddress.toLowerCase(), chainId,
-        reputation.totalScore, reputation.prScore, reputation.issueScore,
-        reputation.reviewScore, reputation.commitScore,
-        reputation.mergedPrCount, reputation.totalPrCount, reputation.totalCommits,
+        username,
+        walletAddress.toLowerCase(),
+        chainId,
+        reputation.totalScore,
+        reputation.prScore,
+        reputation.issueScore,
+        reputation.reviewScore,
+        reputation.commitScore,
+        reputation.mergedPrCount,
+        reputation.totalPrCount,
+        reputation.totalCommits,
         reputation.normalizedScore,
-        attestation.hash, attestation.signature, agentId,
-        now, attestation.signature ? now : null, now, now,
-      ]
-    );
+        attestation.hash,
+        attestation.signature,
+        agentId,
+        now,
+        attestation.signature ? now : null,
+        now,
+        now,
+      ],
+    )
   }
 }
 
@@ -249,35 +291,35 @@ export async function storeAttestation(
 export async function getAttestation(
   username: string,
   walletAddress: string,
-  chainId: string
+  chainId: string,
 ): Promise<{
-  hash: string | null;
-  signature: string | null;
-  normalizedScore: number;
-  calculatedAt: string;
-  attestedAt: string | null;
-  agentId: number | null;
-  txHash: string | null;
+  hash: string | null
+  signature: string | null
+  normalizedScore: number
+  calculatedAt: string
+  attestedAt: string | null
+  agentId: number | null
+  txHash: string | null
 } | null> {
   const result = await query<{
-    attestation_hash: string | null;
-    oracle_signature: string | null;
-    normalized_score: number;
-    score_calculated_at: string;
-    attested_at: string | null;
-    agent_id: number | null;
-    tx_hash: string | null;
+    attestation_hash: string | null
+    oracle_signature: string | null
+    normalized_score: number
+    score_calculated_at: string
+    attested_at: string | null
+    agent_id: number | null
+    tx_hash: string | null
   }>(
     `SELECT attestation_hash, oracle_signature, normalized_score, 
             score_calculated_at, attested_at, agent_id, tx_hash
      FROM reputation_attestations
      WHERE user_id = ? AND wallet_address = ? AND chain_id = ?`,
-    [username, walletAddress.toLowerCase(), chainId]
-  );
+    [username, walletAddress.toLowerCase(), chainId],
+  )
 
-  if (result.length === 0) return null;
+  if (result.length === 0) return null
 
-  const row = result[0];
+  const row = result[0]
   return {
     hash: row.attestation_hash,
     signature: row.oracle_signature,
@@ -286,7 +328,7 @@ export async function getAttestation(
     attestedAt: row.attested_at,
     agentId: row.agent_id,
     txHash: row.tx_hash,
-  };
+  }
 }
 
 /**
@@ -296,31 +338,33 @@ export async function confirmAttestation(
   attestationHash: string,
   walletAddress: string,
   chainId: string,
-  txHash: string
+  txHash: string,
 ): Promise<boolean> {
-  const now = new Date().toISOString();
+  const now = new Date().toISOString()
   const result = await exec(
     `UPDATE reputation_attestations 
      SET tx_hash = ?, submitted_on_chain_at = ?, updated_at = ?
      WHERE attestation_hash = ? AND wallet_address = ? AND chain_id = ?`,
-    [txHash, now, now, attestationHash, walletAddress.toLowerCase(), chainId]
-  );
-  return result.rowsAffected > 0;
+    [txHash, now, now, attestationHash, walletAddress.toLowerCase(), chainId],
+  )
+  return result.rowsAffected > 0
 }
 
 /**
  * Get top contributors
  */
-export async function getTopContributors(limit: number = 10): Promise<Array<{
-  rank: number;
-  username: string;
-  avatarUrl: string;
-  score: number;
-}>> {
+export async function getTopContributors(limit: number = 10): Promise<
+  Array<{
+    rank: number
+    username: string
+    avatarUrl: string
+    score: number
+  }>
+> {
   const result = await query<{
-    username: string;
-    avatar_url: string;
-    total_score: number;
+    username: string
+    avatar_url: string
+    total_score: number
   }>(
     `SELECT u.username, u.avatar_url, COALESCE(SUM(s.score), 0) as total_score
      FROM users u
@@ -329,16 +373,13 @@ export async function getTopContributors(limit: number = 10): Promise<Array<{
      GROUP BY u.username
      ORDER BY total_score DESC
      LIMIT ?`,
-    [limit]
-  );
+    [limit],
+  )
 
   return result.map((row, index) => ({
     rank: index + 1,
     username: row.username,
     avatarUrl: row.avatar_url,
     score: Math.round(row.total_score),
-  }));
+  }))
 }
-
-
-

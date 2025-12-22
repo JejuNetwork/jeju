@@ -1,91 +1,91 @@
-import { formatEther } from 'viem';
-import { DataSource } from 'typeorm';
+import type { DataSource } from 'typeorm'
+import { formatEther } from 'viem'
+import { z } from 'zod'
+import { addressSchema, validateOrThrow } from './lib/validation'
 import {
   ComputeProvider,
-  StorageProvider,
   ComputeRental,
-  StorageDeal,
-  RegisteredAgent,
-  IPFSFile,
   FileCategory,
-} from './model';
-import { addressSchema, validateOrThrow } from './lib/validation';
-import { z } from 'zod';
+  IPFSFile,
+  RegisteredAgent,
+  StorageDeal,
+  StorageProvider,
+} from './model'
 
 export interface ProviderResult {
-  address: string;
-  name: string;
-  endpoint: string;
-  agentId: number | null;
-  type: 'compute' | 'storage';
-  isActive: boolean;
-  stake: string;
-  registeredAt: string;
+  address: string
+  name: string
+  endpoint: string
+  agentId: number | null
+  type: 'compute' | 'storage'
+  isActive: boolean
+  stake: string
+  registeredAt: string
   // Compute-specific
-  gpuType?: string;
-  gpuCount?: number;
-  pricePerHour?: string;
-  teeCapable?: boolean;
+  gpuType?: string
+  gpuCount?: number
+  pricePerHour?: string
+  teeCapable?: boolean
   // Storage-specific
-  providerType?: string;
-  totalCapacityGB?: number;
-  pricePerGBMonth?: string;
-  supportedTiers?: string[];
+  providerType?: string
+  totalCapacityGB?: number
+  pricePerGBMonth?: string
+  supportedTiers?: string[]
 }
 
 export interface ContainerSearchResult {
-  cid: string;
-  name: string;
-  sizeBytes: string;
-  uploadedAt: string;
-  storageProvider: string;
-  tier: string;
-  compatibleComputeProviders: number;
+  cid: string
+  name: string
+  sizeBytes: string
+  uploadedAt: string
+  storageProvider: string
+  tier: string
+  compatibleComputeProviders: number
 }
 
 export interface MarketplaceStats {
   compute: {
-    totalProviders: number;
-    activeProviders: number;
-    agentLinkedProviders: number;
-    totalRentals: number;
-    activeRentals: number;
-    totalStakedETH: string;
-    totalEarningsETH: string;
-    avgPricePerHourETH: string;
-  };
+    totalProviders: number
+    activeProviders: number
+    agentLinkedProviders: number
+    totalRentals: number
+    activeRentals: number
+    totalStakedETH: string
+    totalEarningsETH: string
+    avgPricePerHourETH: string
+  }
   storage: {
-    totalProviders: number;
-    activeProviders: number;
-    agentLinkedProviders: number;
-    totalDeals: number;
-    activeDeals: number;
-    totalCapacityTB: number;
-    usedCapacityTB: number;
-    totalStakedETH: string;
-    avgPricePerGBMonthETH: string;
-  };
+    totalProviders: number
+    activeProviders: number
+    agentLinkedProviders: number
+    totalDeals: number
+    activeDeals: number
+    totalCapacityTB: number
+    usedCapacityTB: number
+    totalStakedETH: string
+    avgPricePerGBMonthETH: string
+  }
   crossService: {
-    totalContainerImages: number;
-    fullStackAgents: number;
-    crossServiceRequests: number;
-  };
+    totalContainerImages: number
+    fullStackAgents: number
+    crossServiceRequests: number
+  }
   erc8004: {
-    totalRegisteredAgents: number;
-    computeAgents: number;
-    storageAgents: number;
-    fullStackAgents: number;
-    bannedAgents: number;
-  };
-  lastUpdated: string;
+    totalRegisteredAgents: number
+    computeAgents: number
+    storageAgents: number
+    fullStackAgents: number
+    bannedAgents: number
+  }
+  lastUpdated: string
 }
 
 export interface ProviderSearchOptions {
-  type?: 'compute' | 'storage';
-  agentLinkedOnly?: boolean;
-  activeOnly?: boolean;
-  limit?: number;
-  offset?: number;
+  type?: 'compute' | 'storage'
+  agentLinkedOnly?: boolean
+  activeOnly?: boolean
+  limit?: number
+  offset?: number
 }
 
 const providerSearchOptionsSchema = z.object({
@@ -94,46 +94,52 @@ const providerSearchOptionsSchema = z.object({
   activeOnly: z.boolean().optional(),
   limit: z.number().int().min(1).max(100).optional(),
   offset: z.number().int().min(0).optional(),
-});
+})
 
 // Helper to convert Uint8Array to hex string
 function bytesToHex(bytes: Uint8Array | null | undefined): string {
-  if (!bytes) return '';
-  return '0x' + Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+  if (!bytes) return ''
+  return (
+    '0x' +
+    Array.from(bytes)
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('')
+  )
 }
 
 export async function searchProviders(
   dataSource: DataSource,
-  options: ProviderSearchOptions = {}
+  options: ProviderSearchOptions = {},
 ): Promise<ProviderResult[]> {
   if (!dataSource) {
-    throw new Error('DataSource is required');
+    throw new Error('DataSource is required')
   }
-  
-  const validated = providerSearchOptionsSchema.parse(options);
+
+  const validated = providerSearchOptionsSchema.parse(options)
   const {
     type,
     agentLinkedOnly = false,
     activeOnly = true,
     limit = 50,
     offset = 0,
-  } = validated;
+  } = validated
 
-  const results: ProviderResult[] = [];
+  const results: ProviderResult[] = []
 
   // Query compute providers
   if (!type || type === 'compute') {
-    const computeRepo = dataSource.getRepository(ComputeProvider);
-    let query = computeRepo.createQueryBuilder('p');
-    
-    if (activeOnly) query = query.where('p.isActive = :active', { active: true });
-    if (agentLinkedOnly) query = query.andWhere('p.agentId > 0');
-    
+    const computeRepo = dataSource.getRepository(ComputeProvider)
+    let query = computeRepo.createQueryBuilder('p')
+
+    if (activeOnly)
+      query = query.where('p.isActive = :active', { active: true })
+    if (agentLinkedOnly) query = query.andWhere('p.agentId > 0')
+
     const computeProviders = await query
       .orderBy('p.totalEarnings', 'DESC')
       .take(limit)
       .skip(offset)
-      .getMany();
+      .getMany()
 
     for (const p of computeProviders) {
       results.push({
@@ -146,23 +152,24 @@ export async function searchProviders(
         stake: formatEther(p.stakeAmount || 0n),
         registeredAt: p.registeredAt.toISOString(),
         teeCapable: false,
-      });
+      })
     }
   }
 
   // Query storage providers
   if (!type || type === 'storage') {
-    const storageRepo = dataSource.getRepository(StorageProvider);
-    let query = storageRepo.createQueryBuilder('p');
-    
-    if (activeOnly) query = query.where('p.isActive = :active', { active: true });
-    if (agentLinkedOnly) query = query.andWhere('p.agentId > 0');
-    
+    const storageRepo = dataSource.getRepository(StorageProvider)
+    let query = storageRepo.createQueryBuilder('p')
+
+    if (activeOnly)
+      query = query.where('p.isActive = :active', { active: true })
+    if (agentLinkedOnly) query = query.andWhere('p.agentId > 0')
+
     const storageProviders = await query
       .orderBy('p.totalEarnings', 'DESC')
       .take(limit)
       .skip(offset)
-      .getMany();
+      .getMany()
 
     for (const p of storageProviders) {
       results.push({
@@ -178,14 +185,14 @@ export async function searchProviders(
         totalCapacityGB: Number(p.totalCapacityGB || 0n),
         pricePerGBMonth: formatEther(p.pricePerGBMonth || 0n),
         supportedTiers: p.supportedTiers || [],
-      });
+      })
     }
   }
 
   // Sort by stake descending
-  results.sort((a, b) => parseFloat(b.stake) - parseFloat(a.stake));
+  results.sort((a, b) => parseFloat(b.stake) - parseFloat(a.stake))
 
-  return results.slice(0, limit);
+  return results.slice(0, limit)
 }
 
 /**
@@ -193,39 +200,43 @@ export async function searchProviders(
  */
 export async function getProviderByAddress(
   dataSource: DataSource,
-  address: string
+  address: string,
 ): Promise<{
-  address: string;
-  compute?: Record<string, unknown>;
-  storage?: Record<string, unknown>;
-  isFullStack: boolean;
-  agentId?: number;
+  address: string
+  compute?: Record<string, unknown>
+  storage?: Record<string, unknown>
+  isFullStack: boolean
+  agentId?: number
 } | null> {
   if (!dataSource) {
-    throw new Error('DataSource is required');
+    throw new Error('DataSource is required')
   }
   if (!address || typeof address !== 'string') {
-    throw new Error('address is required and must be a string');
+    throw new Error('address is required and must be a string')
   }
-  
-  validateOrThrow(addressSchema, address, 'getProviderByAddress address');
-  const normalizedAddress = address.toLowerCase();
 
-  const computeRepo = dataSource.getRepository(ComputeProvider);
-  const storageRepo = dataSource.getRepository(StorageProvider);
+  validateOrThrow(addressSchema, address, 'getProviderByAddress address')
+  const normalizedAddress = address.toLowerCase()
 
-  const computeProvider = await computeRepo.findOne({ where: { address: normalizedAddress } });
-  const storageProvider = await storageRepo.findOne({ where: { address: normalizedAddress } });
+  const computeRepo = dataSource.getRepository(ComputeProvider)
+  const storageRepo = dataSource.getRepository(StorageProvider)
 
-  if (!computeProvider && !storageProvider) return null;
+  const computeProvider = await computeRepo.findOne({
+    where: { address: normalizedAddress },
+  })
+  const storageProvider = await storageRepo.findOne({
+    where: { address: normalizedAddress },
+  })
+
+  if (!computeProvider && !storageProvider) return null
 
   const result: {
-    address: string;
-    compute?: Record<string, unknown>;
-    storage?: Record<string, unknown>;
-    isFullStack: boolean;
-    agentId?: number;
-  } = { address: normalizedAddress, isFullStack: false };
+    address: string
+    compute?: Record<string, unknown>
+    storage?: Record<string, unknown>
+    isFullStack: boolean
+    agentId?: number
+  } = { address: normalizedAddress, isFullStack: false }
 
   if (computeProvider) {
     result.compute = {
@@ -237,7 +248,7 @@ export async function getProviderByAddress(
       totalRentals: computeProvider.totalRentals,
       totalEarnings: formatEther(computeProvider.totalEarnings || 0n),
       registeredAt: computeProvider.registeredAt.toISOString(),
-    };
+    }
   }
 
   if (storageProvider) {
@@ -254,17 +265,20 @@ export async function getProviderByAddress(
       totalDeals: storageProvider.totalDeals,
       totalEarnings: formatEther(storageProvider.totalEarnings || 0n),
       registeredAt: storageProvider.registeredAt.toISOString(),
-    };
+    }
   }
 
   // Check if full-stack (both services with same agent)
-  if (computeProvider?.agentId && storageProvider?.agentId && 
-      computeProvider.agentId === storageProvider.agentId) {
-    result.isFullStack = true;
-    result.agentId = computeProvider.agentId;
+  if (
+    computeProvider?.agentId &&
+    storageProvider?.agentId &&
+    computeProvider.agentId === storageProvider.agentId
+  ) {
+    result.isFullStack = true
+    result.agentId = computeProvider.agentId
   }
 
-  return result;
+  return result
 }
 
 /**
@@ -272,35 +286,50 @@ export async function getProviderByAddress(
  */
 export async function getProvidersByAgentId(
   dataSource: DataSource,
-  agentId: number
+  agentId: number,
 ): Promise<{
-  agentId: number;
-  compute: Array<{ address: string; name: string; endpoint: string; isActive: boolean }>;
-  storage: Array<{ address: string; name: string; endpoint: string; providerType: string; isActive: boolean }>;
-  isFullStack: boolean;
+  agentId: number
+  compute: Array<{
+    address: string
+    name: string
+    endpoint: string
+    isActive: boolean
+  }>
+  storage: Array<{
+    address: string
+    name: string
+    endpoint: string
+    providerType: string
+    isActive: boolean
+  }>
+  isFullStack: boolean
 }> {
   if (!dataSource) {
-    throw new Error('DataSource is required');
+    throw new Error('DataSource is required')
   }
-  if (typeof agentId !== 'number' || agentId <= 0 || !Number.isInteger(agentId)) {
-    throw new Error(`Invalid agentId: ${agentId}. Must be a positive integer.`);
+  if (
+    typeof agentId !== 'number' ||
+    agentId <= 0 ||
+    !Number.isInteger(agentId)
+  ) {
+    throw new Error(`Invalid agentId: ${agentId}. Must be a positive integer.`)
   }
-  
-  const computeRepo = dataSource.getRepository(ComputeProvider);
-  const storageRepo = dataSource.getRepository(StorageProvider);
 
-  const computeProviders = await computeRepo.find({ where: { agentId } });
-  const storageProviders = await storageRepo.find({ where: { agentId } });
+  const computeRepo = dataSource.getRepository(ComputeProvider)
+  const storageRepo = dataSource.getRepository(StorageProvider)
+
+  const computeProviders = await computeRepo.find({ where: { agentId } })
+  const storageProviders = await storageRepo.find({ where: { agentId } })
 
   return {
     agentId,
-    compute: computeProviders.map(p => ({
+    compute: computeProviders.map((p) => ({
       address: p.address,
       name: p.name || 'Compute Provider',
       endpoint: p.endpoint,
       isActive: p.isActive,
     })),
-    storage: storageProviders.map(p => ({
+    storage: storageProviders.map((p) => ({
       address: p.address,
       name: p.name,
       endpoint: p.endpoint,
@@ -308,7 +337,7 @@ export async function getProvidersByAgentId(
       isActive: p.isActive,
     })),
     isFullStack: computeProviders.length > 0 && storageProviders.length > 0,
-  };
+  }
 }
 
 /**
@@ -318,32 +347,38 @@ const containerSearchOptionsSchema = z.object({
   category: z.nativeEnum(FileCategory).optional(),
   limit: z.number().int().min(1).max(100).optional(),
   offset: z.number().int().min(0).optional(),
-});
+})
 
 export async function searchContainers(
   dataSource: DataSource,
-  options: { category?: FileCategory; limit?: number; offset?: number } = {}
+  options: { category?: FileCategory; limit?: number; offset?: number } = {},
 ): Promise<ContainerSearchResult[]> {
   if (!dataSource) {
-    throw new Error('DataSource is required');
+    throw new Error('DataSource is required')
   }
-  
-  const validated = containerSearchOptionsSchema.parse(options);
-  const { category = FileCategory.GAME_ASSET, limit = 50, offset = 0 } = validated;
 
-  const fileRepo = dataSource.getRepository(IPFSFile);
+  const validated = containerSearchOptionsSchema.parse(options)
+  const {
+    category = FileCategory.GAME_ASSET,
+    limit = 50,
+    offset = 0,
+  } = validated
+
+  const fileRepo = dataSource.getRepository(IPFSFile)
   const files = await fileRepo.find({
     where: { category, isPinned: true },
     order: { createdAt: 'DESC' },
     take: limit,
     skip: offset,
-  });
+  })
 
   // Get compute provider count
-  const computeRepo = dataSource.getRepository(ComputeProvider);
-  const activeComputeCount = await computeRepo.count({ where: { isActive: true } });
+  const computeRepo = dataSource.getRepository(ComputeProvider)
+  const activeComputeCount = await computeRepo.count({
+    where: { isActive: true },
+  })
 
-  return files.map(f => ({
+  return files.map((f) => ({
     cid: f.cid,
     name: f.filename || f.cid.slice(0, 12),
     sizeBytes: f.sizeBytes.toString(),
@@ -351,7 +386,7 @@ export async function searchContainers(
     storageProvider: bytesToHex(f.relatedContract) || 'unknown',
     tier: 'warm',
     compatibleComputeProviders: activeComputeCount,
-  }));
+  }))
 }
 
 /**
@@ -360,60 +395,66 @@ export async function searchContainers(
 const findComputeOptionsSchema = z.object({
   minGpuVram: z.number().int().min(0).optional(),
   requireTee: z.boolean().optional(),
-});
+})
 
 export async function findComputeForContainer(
   dataSource: DataSource,
   cid: string,
-  _options: { minGpuVram?: number; requireTee?: boolean } = {}
+  _options: { minGpuVram?: number; requireTee?: boolean } = {},
 ): Promise<{
-  container: { cid: string; sizeBytes: string; storageProvider: string } | null;
+  container: { cid: string; sizeBytes: string; storageProvider: string } | null
   compatibleProviders: Array<{
-    address: string;
-    name: string;
-    endpoint: string;
-    agentId: number | null;
-    score: number;
-    totalRentals: number;
-  }>;
+    address: string
+    name: string
+    endpoint: string
+    agentId: number | null
+    score: number
+    totalRentals: number
+  }>
 }> {
   if (!dataSource) {
-    throw new Error('DataSource is required');
+    throw new Error('DataSource is required')
   }
   if (!cid || typeof cid !== 'string' || cid.length === 0) {
-    throw new Error('cid is required and must be a non-empty string');
+    throw new Error('cid is required and must be a non-empty string')
   }
-  
-  validateOrThrow(findComputeOptionsSchema, _options, 'findComputeForContainer options');
-  
-  const fileRepo = dataSource.getRepository(IPFSFile);
-  const file = await fileRepo.findOne({ where: { cid } });
+
+  validateOrThrow(
+    findComputeOptionsSchema,
+    _options,
+    'findComputeForContainer options',
+  )
+
+  const fileRepo = dataSource.getRepository(IPFSFile)
+  const file = await fileRepo.findOne({ where: { cid } })
 
   if (!file) {
-    return { container: null, compatibleProviders: [] };
+    return { container: null, compatibleProviders: [] }
   }
 
-  const computeRepo = dataSource.getRepository(ComputeProvider);
+  const computeRepo = dataSource.getRepository(ComputeProvider)
   const providers = await computeRepo.find({
     where: { isActive: true },
     order: { totalEarnings: 'DESC' },
     take: 20,
-  });
+  })
 
   // Score and rank providers
-  const scoredProviders = providers.map(p => {
-    let score = 50; // Base score
-    if (p.agentId && p.agentId > 0) score += 30; // ERC-8004 bonus
-    score += Math.min(20, p.totalRentals); // Experience bonus
-    return {
-      address: p.address,
-      name: p.name || 'Compute Provider',
-      endpoint: p.endpoint,
-      agentId: p.agentId || null,
-      score,
-      totalRentals: p.totalRentals,
-    };
-  }).sort((a, b) => b.score - a.score);
+  const scoredProviders = providers
+    .map((p) => {
+      let score = 50 // Base score
+      if (p.agentId && p.agentId > 0) score += 30 // ERC-8004 bonus
+      score += Math.min(20, p.totalRentals) // Experience bonus
+      return {
+        address: p.address,
+        name: p.name || 'Compute Provider',
+        endpoint: p.endpoint,
+        agentId: p.agentId || null,
+        score,
+        totalRentals: p.totalRentals,
+      }
+    })
+    .sort((a, b) => b.score - a.score)
 
   return {
     container: {
@@ -422,55 +463,84 @@ export async function findComputeForContainer(
       storageProvider: bytesToHex(file.relatedContract) || 'unknown',
     },
     compatibleProviders: scoredProviders,
-  };
+  }
 }
 
 /**
  * Get marketplace statistics
  */
-export async function getMarketplaceStats(dataSource: DataSource): Promise<MarketplaceStats> {
+export async function getMarketplaceStats(
+  dataSource: DataSource,
+): Promise<MarketplaceStats> {
   if (!dataSource) {
-    throw new Error('DataSource is required');
+    throw new Error('DataSource is required')
   }
-  
-  const computeRepo = dataSource.getRepository(ComputeProvider);
-  const storageRepo = dataSource.getRepository(StorageProvider);
-  const rentalRepo = dataSource.getRepository(ComputeRental);
-  const dealRepo = dataSource.getRepository(StorageDeal);
-  const agentRepo = dataSource.getRepository(RegisteredAgent);
-  const fileRepo = dataSource.getRepository(IPFSFile);
+
+  const computeRepo = dataSource.getRepository(ComputeProvider)
+  const storageRepo = dataSource.getRepository(StorageProvider)
+  const rentalRepo = dataSource.getRepository(ComputeRental)
+  const dealRepo = dataSource.getRepository(StorageDeal)
+  const agentRepo = dataSource.getRepository(RegisteredAgent)
+  const fileRepo = dataSource.getRepository(IPFSFile)
 
   // Compute stats
-  const computeProviders = await computeRepo.find();
-  const activeCompute = computeProviders.filter(p => p.isActive);
-  const agentLinkedCompute = computeProviders.filter(p => p.agentId && p.agentId > 0);
-  const totalComputeStake = computeProviders.reduce((sum, p) => sum + (p.stakeAmount || 0n), 0n);
-  const totalComputeEarnings = computeProviders.reduce((sum, p) => sum + (p.totalEarnings || 0n), 0n);
+  const computeProviders = await computeRepo.find()
+  const activeCompute = computeProviders.filter((p) => p.isActive)
+  const agentLinkedCompute = computeProviders.filter(
+    (p) => p.agentId && p.agentId > 0,
+  )
+  const totalComputeStake = computeProviders.reduce(
+    (sum, p) => sum + (p.stakeAmount || 0n),
+    0n,
+  )
+  const totalComputeEarnings = computeProviders.reduce(
+    (sum, p) => sum + (p.totalEarnings || 0n),
+    0n,
+  )
 
-  const totalRentals = await rentalRepo.count();
-  const activeRentals = await rentalRepo.count({ where: { status: 'ACTIVE' as never } });
+  const totalRentals = await rentalRepo.count()
+  const activeRentals = await rentalRepo.count({
+    where: { status: 'ACTIVE' as never },
+  })
 
   // Storage stats
-  const storageProviders = await storageRepo.find();
-  const activeStorage = storageProviders.filter(p => p.isActive);
-  const agentLinkedStorage = storageProviders.filter(p => p.agentId && p.agentId > 0);
-  const totalStorageStake = storageProviders.reduce((sum, p) => sum + (p.stakeAmount || 0n), 0n);
-  const totalCapacity = storageProviders.reduce((sum, p) => sum + Number(p.totalCapacityGB || 0n), 0);
-  const usedCapacity = storageProviders.reduce((sum, p) => sum + Number(p.usedCapacityGB || 0n), 0);
+  const storageProviders = await storageRepo.find()
+  const activeStorage = storageProviders.filter((p) => p.isActive)
+  const agentLinkedStorage = storageProviders.filter(
+    (p) => p.agentId && p.agentId > 0,
+  )
+  const totalStorageStake = storageProviders.reduce(
+    (sum, p) => sum + (p.stakeAmount || 0n),
+    0n,
+  )
+  const totalCapacity = storageProviders.reduce(
+    (sum, p) => sum + Number(p.totalCapacityGB || 0n),
+    0,
+  )
+  const usedCapacity = storageProviders.reduce(
+    (sum, p) => sum + Number(p.usedCapacityGB || 0n),
+    0,
+  )
 
-  const totalDeals = await dealRepo.count();
-  const activeDeals = await dealRepo.count({ where: { status: 'ACTIVE' as never } });
+  const totalDeals = await dealRepo.count()
+  const activeDeals = await dealRepo.count({
+    where: { status: 'ACTIVE' as never },
+  })
 
   // Agent stats
-  const totalAgents = await agentRepo.count({ where: { active: true } });
-  const bannedAgents = await agentRepo.count({ where: { isBanned: true } });
+  const totalAgents = await agentRepo.count({ where: { active: true } })
+  const bannedAgents = await agentRepo.count({ where: { isBanned: true } })
 
   // Cross-service stats
-  const containerFiles = await fileRepo.count({ where: { category: FileCategory.GAME_ASSET } });
+  const containerFiles = await fileRepo.count({
+    where: { category: FileCategory.GAME_ASSET },
+  })
 
   // Find full-stack agents
-  const computeAgentIds = new Set(agentLinkedCompute.map(p => p.agentId));
-  const fullStackCount = agentLinkedStorage.filter(p => p.agentId && computeAgentIds.has(p.agentId)).length;
+  const computeAgentIds = new Set(agentLinkedCompute.map((p) => p.agentId))
+  const fullStackCount = agentLinkedStorage.filter(
+    (p) => p.agentId && computeAgentIds.has(p.agentId),
+  ).length
 
   return {
     compute: {
@@ -507,5 +577,5 @@ export async function getMarketplaceStats(dataSource: DataSource): Promise<Marke
       bannedAgents,
     },
     lastUpdated: new Date().toISOString(),
-  };
+  }
 }

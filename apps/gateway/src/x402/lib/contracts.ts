@@ -97,7 +97,7 @@ export const X402_FACILITATOR_ABI = [
       { name: 'timestamp', type: 'uint256', indexed: false },
     ],
   },
-] as const;
+] as const
 
 export const ERC20_ABI = [
   {
@@ -137,9 +137,12 @@ export const ERC20_ABI = [
     outputs: [{ name: '', type: 'bool' }],
     stateMutability: 'nonpayable',
   },
-] as const;
+] as const
 
-export const EIP712_DOMAIN = { name: 'x402 Payment Protocol', version: '1' } as const;
+export const EIP712_DOMAIN = {
+  name: 'x402 Payment Protocol',
+  version: '1',
+} as const
 
 export const EIP712_TYPES = {
   Payment: [
@@ -152,4 +155,4 @@ export const EIP712_TYPES = {
     { name: 'nonce', type: 'string' },
     { name: 'timestamp', type: 'uint256' },
   ],
-} as const;
+} as const

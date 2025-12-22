@@ -57,8 +57,10 @@ services:
   # Testnet Deployment (Real TEE via dstack)
   # ============================================
   oauth3-agent-1:
-    image: ghcr.io/dstack-tee/dstack-runner:latest
+    image: ghcr.io/dstack-tee/dstack-runner:v0.3.5
     profiles: [testnet]
+    # SECURITY: privileged mode required for TDX TEE hardware access
+    # TEE attestation requires direct hardware access to /dev/tdx-guest
     privileged: true
     devices:
       - /dev/tdx-guest:/dev/tdx-guest
@@ -104,8 +106,9 @@ services:
           memory: 4G
 
   oauth3-agent-2:
-    image: ghcr.io/dstack-tee/dstack-runner:latest
+    image: ghcr.io/dstack-tee/dstack-runner:v0.3.5
     profiles: [testnet]
+    # SECURITY: privileged mode required for TDX TEE hardware access
     privileged: true
     devices:
       - /dev/tdx-guest:/dev/tdx-guest
@@ -149,8 +152,9 @@ services:
           memory: 4G
 
   oauth3-agent-3:
-    image: ghcr.io/dstack-tee/dstack-runner:latest
+    image: ghcr.io/dstack-tee/dstack-runner:v0.3.5
     profiles: [testnet]
+    # SECURITY: privileged mode required for TDX TEE hardware access
     privileged: true
     devices:
       - /dev/tdx-guest:/dev/tdx-guest
@@ -195,7 +199,7 @@ services:
 
   # Load balancer for testnet agents
   oauth3-lb:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     profiles: [testnet]
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro

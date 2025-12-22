@@ -1,235 +1,234 @@
 /**
  * TEE Key Management Types
- * 
+ *
  * Type definitions for TEE-backed XMTP key management.
  */
 
-import type { Address, Hex } from 'viem';
+import type { Address, Hex } from 'viem'
 
 // ============ Configuration Types ============
 
 export interface TEEKeyConfig {
   /** KMS service endpoint */
-  kmsEndpoint: string;
+  kmsEndpoint: string
   /** TEE enclave ID */
-  enclaveId: string;
+  enclaveId: string
   /** Require attestation for operations */
-  attestationRequired: boolean;
+  attestationRequired: boolean
   /** Network for on-chain operations */
-  network?: 'mainnet' | 'testnet';
+  network?: 'mainnet' | 'testnet'
 }
 
 // ============ Key Types ============
 
 export interface TEEIdentityKey {
   /** Unique key ID */
-  keyId: string;
+  keyId: string
   /** Associated address */
-  address: Address;
+  address: Address
   /** Public key (Ed25519) */
-  publicKey: Hex;
+  publicKey: Hex
   /** TEE attestation */
-  attestation?: TEEAttestation;
+  attestation?: TEEAttestation
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
   /** Last used timestamp */
-  lastUsedAt?: number;
+  lastUsedAt?: number
 }
 
 export interface TEEPreKey {
   /** Pre-key ID */
-  keyId: string;
+  keyId: string
   /** Parent identity key ID */
-  identityKeyId: string;
+  identityKeyId: string
   /** Public key (X25519) */
-  publicKey: Hex;
+  publicKey: Hex
   /** Signature from identity key */
-  signature: Hex;
+  signature: Hex
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
   /** Expiration timestamp */
-  expiresAt?: number;
+  expiresAt?: number
 }
 
 export interface TEEInstallationKey {
   /** Installation key ID */
-  keyId: string;
+  keyId: string
   /** Parent identity key ID */
-  identityKeyId: string;
+  identityKeyId: string
   /** Device/installation ID */
-  deviceId: string;
+  deviceId: string
   /** Public key */
-  publicKey: Hex;
+  publicKey: Hex
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
 }
 
 // ============ Attestation Types ============
 
 export interface TEEAttestation {
   /** Attestation version */
-  version: number;
+  version: number
   /** Enclave ID */
-  enclaveId: string;
+  enclaveId: string
   /** Enclave measurement hash */
-  measurement: Hex;
+  measurement: Hex
   /** Platform configuration register values */
-  pcrs: Record<number, Hex>;
+  pcrs: Record<number, Hex>
   /** Nonce used in attestation */
-  nonce: Hex;
+  nonce: Hex
   /** Attestation timestamp */
-  timestamp: number;
+  timestamp: number
   /** Attestation signature */
-  signature: Hex;
+  signature: Hex
   /** Certificate chain */
-  certificateChain?: string[];
+  certificateChain?: string[]
 }
 
 export interface AttestationVerificationResult {
   /** Verification passed */
-  valid: boolean;
+  valid: boolean
   /** Enclave ID matches */
-  enclaveIdMatch: boolean;
+  enclaveIdMatch: boolean
   /** Measurement matches expected */
-  measurementMatch: boolean;
+  measurementMatch: boolean
   /** Signature valid */
-  signatureValid: boolean;
+  signatureValid: boolean
   /** Certificate chain valid */
-  chainValid: boolean;
+  chainValid: boolean
   /** Errors encountered */
-  errors: string[];
+  errors: string[]
 }
 
 // ============ Operation Types ============
 
 export interface SignRequest {
   /** Key ID to sign with */
-  keyId: string;
+  keyId: string
   /** Message to sign */
-  message: Uint8Array;
+  message: Uint8Array
   /** Hash algorithm */
-  hashAlgorithm?: 'sha256' | 'sha512' | 'none';
+  hashAlgorithm?: 'sha256' | 'sha512' | 'none'
 }
 
 export interface SignResult {
   /** Signature */
-  signature: Hex;
+  signature: Hex
   /** Key ID used */
-  keyId: string;
+  keyId: string
   /** Timestamp */
-  timestamp: number;
+  timestamp: number
 }
 
 export interface ECDHRequest {
   /** Private key ID */
-  keyId: string;
+  keyId: string
   /** Their public key */
-  publicKey: Hex;
+  publicKey: Hex
 }
 
 export interface EncryptedBackup {
   /** Encrypted key data */
-  ciphertext: Hex;
+  ciphertext: Hex
   /** Encryption metadata */
   metadata: {
-    keyId: string;
-    algorithm: string;
+    keyId: string
+    algorithm: string
     kdfParams: {
-      salt: Hex;
-      iterations: number;
-    };
-  };
+      salt: Hex
+      iterations: number
+    }
+  }
   /** Creation timestamp */
-  createdAt: number;
+  createdAt: number
 }
 
 // ============ KMS Types ============
 
-export type KeyType = 'ed25519' | 'x25519' | 'secp256k1';
+export type KeyType = 'ed25519' | 'x25519' | 'secp256k1'
 
 export interface GenerateKeyRequest {
   /** Key ID (unique identifier) */
-  keyId: string;
+  keyId: string
   /** Key type */
-  type: KeyType;
+  type: KeyType
   /** Key policy */
-  policy?: KeyPolicy;
+  policy?: KeyPolicy
 }
 
 export interface KeyPolicy {
   /** Owner address */
-  owner?: Address;
+  owner?: Address
   /** Allowed operations */
-  operations?: Array<'sign' | 'derive' | 'encrypt' | 'decrypt'>;
+  operations?: Array<'sign' | 'derive' | 'encrypt' | 'decrypt'>
   /** Require attestation */
-  attestation?: boolean;
+  attestation?: boolean
   /** Parent key for derivation */
-  parentKey?: string;
+  parentKey?: string
   /** Expiration timestamp */
-  expiresAt?: number;
+  expiresAt?: number
 }
 
 export interface GenerateKeyResult {
   /** Key ID */
-  keyId: string;
+  keyId: string
   /** Public key */
-  publicKey: Hex;
+  publicKey: Hex
   /** Key type */
-  type: KeyType;
+  type: KeyType
   /** Attestation if requested */
-  attestation?: TEEAttestation;
+  attestation?: TEEAttestation
 }
 
 export interface ImportKeyRequest {
   /** New key ID */
-  keyId: string;
+  keyId: string
   /** Encrypted key data */
-  encryptedKey: string;
+  encryptedKey: string
   /** Decryption password */
-  password: string;
+  password: string
 }
 
 export interface ExportKeyRequest {
   /** Key ID to export */
-  keyId: string;
+  keyId: string
   /** Export format */
-  format: 'encrypted';
+  format: 'encrypted'
   /** Encryption password */
-  password: string;
+  password: string
 }
 
 export interface DeriveKeyRequest {
   /** Parent key ID */
-  parentKeyId: string;
+  parentKeyId: string
   /** New key ID */
-  keyId: string;
+  keyId: string
   /** Derivation info */
-  info: string;
+  info: string
 }
 
 // ============ Registry Types ============
 
 export interface KeyRegistration {
   /** Address owning the key */
-  address: Address;
+  address: Address
   /** Identity public key */
-  identityKey: Hex;
+  identityKey: Hex
   /** Pre-key public key */
-  preKey: Hex;
+  preKey: Hex
   /** Pre-key signature */
-  preKeySignature: Hex;
+  preKeySignature: Hex
   /** TEE attestation proof */
-  attestationProof?: Hex;
+  attestationProof?: Hex
   /** Registration block */
-  registeredAt: number;
+  registeredAt: number
 }
 
 export interface RegistrationResult {
   /** Transaction hash */
-  txHash: Hex;
+  txHash: Hex
   /** Registration confirmed */
-  confirmed: boolean;
+  confirmed: boolean
   /** Block number */
-  blockNumber?: number;
+  blockNumber?: number
 }
-

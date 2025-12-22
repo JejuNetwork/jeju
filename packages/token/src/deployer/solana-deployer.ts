@@ -8,7 +8,7 @@ import {
   createMint,
   createMintToInstruction,
   getAssociatedTokenAddress,
-} from '@solana/spl-token';
+} from '@solana/spl-token'
 import {
   Connection,
   Keypair,
@@ -16,22 +16,22 @@ import {
   sendAndConfirmTransaction,
   Transaction,
   type TransactionInstruction,
-} from '@solana/web3.js';
-import type { ChainConfig, ChainDeployment, DeploymentConfig } from '../types';
+} from '@solana/web3.js'
+import type { ChainConfig, ChainDeployment, DeploymentConfig } from '../types'
 
 export interface SolanaDeploymentConfig {
-  connection: Connection;
-  payer: Keypair;
-  mintAuthority: Keypair;
-  freezeAuthority?: Keypair;
-  decimals?: number;
+  connection: Connection
+  payer: Keypair
+  mintAuthority: Keypair
+  freezeAuthority?: Keypair
+  decimals?: number
 }
 
 export interface SolanaDeploymentResult {
-  mint: PublicKey;
-  mintAuthority: PublicKey;
-  warpRouteProgram?: PublicKey;
-  txSignatures: string[];
+  mint: PublicKey
+  mintAuthority: PublicKey
+  warpRouteProgram?: PublicKey
+  txSignatures: string[]
 }
 
 /**
@@ -39,11 +39,11 @@ export interface SolanaDeploymentResult {
  */
 export async function deploySolanaToken(
   config: SolanaDeploymentConfig,
-  tokenConfig: DeploymentConfig['token']
+  tokenConfig: DeploymentConfig['token'],
 ): Promise<SolanaDeploymentResult> {
-  const { connection, payer, mintAuthority, freezeAuthority } = config;
-  const decimals = config.decimals ?? tokenConfig.decimals;
-  const txSignatures: string[] = [];
+  const { connection, payer, mintAuthority, freezeAuthority } = config
+  const decimals = config.decimals ?? tokenConfig.decimals
+  const txSignatures: string[] = []
 
   // Create the mint account
   const mint = await createMint(
@@ -51,11 +51,11 @@ export async function deploySolanaToken(
     payer,
     mintAuthority.publicKey,
     freezeAuthority?.publicKey ?? null,
-    decimals
-  );
+    decimals,
+  )
 
-  console.log(`Token mint created: ${mint.toBase58()}`);
-  txSignatures.push('mint-creation');
+  console.log(`Token mint created: ${mint.toBase58()}`)
+  txSignatures.push('mint-creation')
 
   // If this is the home chain (has initial supply), mint tokens
   // For synthetic chains, no initial minting - warp route will handle it
@@ -64,7 +64,7 @@ export async function deploySolanaToken(
     mint,
     mintAuthority: mintAuthority.publicKey,
     txSignatures,
-  };
+  }
 }
 
 /**
@@ -76,47 +76,47 @@ export async function mintInitialSupply(
   mint: PublicKey,
   mintAuthority: Keypair,
   recipient: PublicKey,
-  amount: bigint
+  amount: bigint,
 ): Promise<string> {
   // Get or create associated token account
-  const ata = await getAssociatedTokenAddress(mint, recipient);
+  const ata = await getAssociatedTokenAddress(mint, recipient)
 
-  const instructions: TransactionInstruction[] = [];
+  const instructions: TransactionInstruction[] = []
 
   // Check if ATA exists
-  const ataInfo = await connection.getAccountInfo(ata);
+  const ataInfo = await connection.getAccountInfo(ata)
   if (!ataInfo) {
     instructions.push(
       createAssociatedTokenAccountInstruction(
         payer.publicKey,
         ata,
         recipient,
-        mint
-      )
-    );
+        mint,
+      ),
+    )
   }
 
   // Mint tokens
   instructions.push(
-    createMintToInstruction(mint, ata, mintAuthority.publicKey, amount)
-  );
+    createMintToInstruction(mint, ata, mintAuthority.publicKey, amount),
+  )
 
-  const tx = new Transaction().add(...instructions);
+  const tx = new Transaction().add(...instructions)
   const signature = await sendAndConfirmTransaction(connection, tx, [
     payer,
     mintAuthority,
-  ]);
+  ])
 
   console.log(
-    `Minted ${amount} tokens to ${recipient.toBase58()}: ${signature}`
-  );
-  return signature;
+    `Minted ${amount} tokens to ${recipient.toBase58()}: ${signature}`,
+  )
+  return signature
 }
 
 /**
  * Deploy Solana chain - creates SPL token
  * Hyperlane warp route uses the mailbox program from chain config
- * 
+ *
  * Solana architecture notes:
  * - Vesting on Solana requires a separate Anchor program (not SPL token feature)
  *   Use @jejunetwork/solana vesting program for cross-chain vesting
@@ -126,17 +126,19 @@ export async function mintInitialSupply(
 export async function deploySolanaChain(
   chain: ChainConfig,
   deploymentConfig: DeploymentConfig,
-  payer: Keypair
+  payer: Keypair,
 ): Promise<ChainDeployment> {
   if (!chain.rpcUrl) {
-    throw new Error(`rpcUrl is required for Solana chain deployment: ${chain.name}`);
+    throw new Error(
+      `rpcUrl is required for Solana chain deployment: ${chain.name}`,
+    )
   }
-  const connection = new Connection(chain.rpcUrl, 'confirmed');
+  const connection = new Connection(chain.rpcUrl, 'confirmed')
 
-  const txSignatures: string[] = [];
+  const txSignatures: string[] = []
 
   // Generate a new keypair for mint authority (or use provided)
-  const mintAuthority = Keypair.generate();
+  const mintAuthority = Keypair.generate()
 
   // Deploy the token
   const result = await deploySolanaToken(
@@ -146,18 +148,18 @@ export async function deploySolanaChain(
       mintAuthority,
       decimals: deploymentConfig.token.decimals,
     },
-    deploymentConfig.token
-  );
+    deploymentConfig.token,
+  )
 
-  txSignatures.push(...result.txSignatures);
+  txSignatures.push(...result.txSignatures)
 
   // Hyperlane warp route program ID from chain config
-  const warpRouteProgram = new PublicKey(chain.hyperlaneMailbox);
+  const warpRouteProgram = new PublicKey(chain.hyperlaneMailbox)
 
-  console.log(`Solana token deployed:`);
-  console.log(`  Mint: ${result.mint.toBase58()}`);
-  console.log(`  Mint Authority: ${result.mintAuthority.toBase58()}`);
-  console.log(`  Warp Route Program: ${warpRouteProgram.toBase58()}`);
+  console.log(`Solana token deployed:`)
+  console.log(`  Mint: ${result.mint.toBase58()}`)
+  console.log(`  Mint Authority: ${result.mintAuthority.toBase58()}`)
+  console.log(`  Warp Route Program: ${warpRouteProgram.toBase58()}`)
 
   // Solana uses different programs for vesting/fees:
   // - Vesting: Requires separate Anchor program deployment
@@ -172,7 +174,7 @@ export async function deploySolanaChain(
     ism: warpRouteProgram.toBase58(),
     deploymentTxHashes: txSignatures as `0x${string}`[],
     deployedAtBlock: 0n,
-  };
+  }
 }
 
 /**
@@ -180,20 +182,20 @@ export async function deploySolanaChain(
  */
 export function deriveWarpRoutePDAs(
   programId: PublicKey,
-  mint: PublicKey
+  mint: PublicKey,
 ): {
-  warpRouteAccount: PublicKey;
-  tokenAccount: PublicKey;
+  warpRouteAccount: PublicKey
+  tokenAccount: PublicKey
 } {
   const [warpRouteAccount] = PublicKey.findProgramAddressSync(
     [Buffer.from('warp_route'), mint.toBuffer()],
-    programId
-  );
+    programId,
+  )
 
   const [tokenAccount] = PublicKey.findProgramAddressSync(
     [Buffer.from('token_account'), mint.toBuffer()],
-    programId
-  );
+    programId,
+  )
 
-  return { warpRouteAccount, tokenAccount };
+  return { warpRouteAccount, tokenAccount }
 }

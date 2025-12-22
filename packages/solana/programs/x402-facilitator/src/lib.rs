@@ -61,6 +61,8 @@ pub mod x402_facilitator {
         require!(amount > 0, ErrorCode::InvalidAmount);
 
         let clock = Clock::get()?;
+        // SECURITY: Prevent future timestamps that could keep payments valid indefinitely
+        require!(timestamp <= clock.unix_timestamp, ErrorCode::FutureTimestamp);
         require!(clock.unix_timestamp <= timestamp + MAX_PAYMENT_AGE, ErrorCode::PaymentExpired);
         require!(!ctx.accounts.nonce_account.used, ErrorCode::NonceAlreadyUsed);
 
@@ -214,13 +216,25 @@ pub struct Settle<'info> {
     pub mint: AccountInfo<'info>,
     /// CHECK: Payer who signed the authorization (verified via Ed25519 instruction)
     pub payer: AccountInfo<'info>,
-    #[account(mut)]
+    #[account(
+        mut,
+        token::mint = mint,
+        token::authority = payer
+    )]
     pub payer_token_account: Account<'info, TokenAccount>,
     /// CHECK: Recipient
     pub recipient: AccountInfo<'info>,
-    #[account(mut)]
+    #[account(
+        mut,
+        token::mint = mint,
+        token::authority = recipient
+    )]
     pub recipient_token_account: Account<'info, TokenAccount>,
-    #[account(mut, constraint = fee_token_account.owner == state.fee_recipient @ ErrorCode::InvalidFeeAccount)]
+    #[account(
+        mut,
+        token::mint = mint,
+        constraint = fee_token_account.owner == state.fee_recipient @ ErrorCode::InvalidFeeAccount
+    )]
     pub fee_token_account: Account<'info, TokenAccount>,
     #[account(mut)]
     pub submitter: Signer<'info>,
@@ -322,6 +336,10 @@ pub enum ErrorCode {
     FeeTooHigh,
     #[msg("Invalid fee account")]
     InvalidFeeAccount,
+    #[msg("Timestamp cannot be in the future")]
+    FutureTimestamp,
+    #[msg("Math overflow")]
+    MathOverflow,
 }
 
 // Helpers

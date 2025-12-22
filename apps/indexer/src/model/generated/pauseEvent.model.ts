@@ -1,43 +1,52 @@
-import {Entity as Entity_, Column as Column_, PrimaryColumn as PrimaryColumn_, ManyToOne as ManyToOne_, Index as Index_, StringColumn as StringColumn_, BooleanColumn as BooleanColumn_, DateTimeColumn as DateTimeColumn_, IntColumn as IntColumn_} from "@subsquid/typeorm-store"
-import {ProtectedContract} from "./protectedContract.model"
-import {Account} from "./account.model"
+import {
+  BooleanColumn as BooleanColumn_,
+  DateTimeColumn as DateTimeColumn_,
+  Entity as Entity_,
+  Index as Index_,
+  IntColumn as IntColumn_,
+  ManyToOne as ManyToOne_,
+  PrimaryColumn as PrimaryColumn_,
+  StringColumn as StringColumn_,
+} from '@subsquid/typeorm-store'
+import { Account } from './account.model'
+import { ProtectedContract } from './protectedContract.model'
 
 @Entity_()
 export class PauseEvent {
-    constructor(props?: Partial<PauseEvent>) {
-        Object.assign(this, props)
-    }
+  constructor(props?: Partial<PauseEvent>) {
+    Object.assign(this, props)
+  }
 
-    @PrimaryColumn_()
-    id!: string
+  @PrimaryColumn_()
+  id!: string
 
-    @Index_()
-    @ManyToOne_(() => ProtectedContract, {nullable: true})
-    target!: ProtectedContract
+  @Index_()
+  @ManyToOne_(() => ProtectedContract, { nullable: true })
+  target!: ProtectedContract
 
-    @Index_()
-    @ManyToOne_(() => Account, {nullable: true})
-    pauser!: Account | undefined | null
+  @Index_()
+  @ManyToOne_(() => Account, { nullable: true })
+  pauser!: Account | undefined | null
 
-    @StringColumn_({nullable: false})
-    reason!: string
+  @StringColumn_({ nullable: false })
+  reason!: string
 
-    @BooleanColumn_({nullable: false})
-    isGlobal!: boolean
+  @BooleanColumn_({ nullable: false })
+  isGlobal!: boolean
 
-    @BooleanColumn_({nullable: false})
-    wasEmergency!: boolean
+  @BooleanColumn_({ nullable: false })
+  wasEmergency!: boolean
 
-    @Index_()
-    @DateTimeColumn_({nullable: false})
-    pausedAt!: Date
+  @Index_()
+  @DateTimeColumn_({ nullable: false })
+  pausedAt!: Date
 
-    @DateTimeColumn_({nullable: true})
-    unpausedAt!: Date | undefined | null
+  @DateTimeColumn_({ nullable: true })
+  unpausedAt!: Date | undefined | null
 
-    @IntColumn_({nullable: false})
-    blockNumber!: number
+  @IntColumn_({ nullable: false })
+  blockNumber!: number
 
-    @StringColumn_({nullable: false})
-    transactionHash!: string
+  @StringColumn_({ nullable: false })
+  transactionHash!: string
 }

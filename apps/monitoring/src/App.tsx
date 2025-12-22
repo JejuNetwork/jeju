@@ -1,18 +1,18 @@
-import { Routes, Route } from 'react-router-dom'
+import { Route, Routes } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { Header } from './components/Header'
 import { MobileNav } from './components/MobileNav'
-import { Dashboard } from './pages/Dashboard'
 import { Alerts } from './pages/Alerts'
-import { Targets } from './pages/Targets'
+import { Dashboard } from './pages/Dashboard'
 import { OIFStats } from './pages/OIFStats'
 import { QueryExplorer } from './pages/QueryExplorer'
+import { Targets } from './pages/Targets'
 
 export default function App() {
   return (
     <div className="min-h-screen">
       <Header />
-      
+
       <main className="container-app pt-20 md:pt-24 pb-24 md:pb-12">
         <Routes>
           <Route path="/" element={<Dashboard />} />
@@ -22,10 +22,10 @@ export default function App() {
           <Route path="/query" element={<QueryExplorer />} />
         </Routes>
       </main>
-      
+
       <MobileNav />
-      
-      <Toaster 
+
+      <Toaster
         position="bottom-right"
         toastOptions={{
           style: {
@@ -38,4 +38,3 @@ export default function App() {
     </div>
   )
 }
-

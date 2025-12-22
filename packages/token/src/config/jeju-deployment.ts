@@ -6,58 +6,58 @@
  * as the home chain, with synthetic copies on other EVM chains and Solana.
  */
 
-import type { ChainConfig } from '../types';
+import type { ChainConfig } from '../types'
 import {
-  ethereumMainnet,
-  sepolia,
-  base,
-  baseSepolia,
   arbitrum,
   arbitrumSepolia,
+  base,
+  baseSepolia,
+  ethereumMainnet,
+  jejuTestnet,
   optimism,
   polygon,
-  solanaMainnet,
+  sepolia,
   solanaDevnet,
-  jejuTestnet,
-} from './chains';
+  solanaMainnet,
+} from './chains'
 
 // =============================================================================
 // TOKEN CONSTANTS
 // =============================================================================
 
-export const JEJU_TOKEN_NAME = 'Jeju';
-export const JEJU_TOKEN_SYMBOL = 'JEJU';
-export const JEJU_TOKEN_DECIMALS = 18;
-export const JEJU_MAX_SUPPLY = 10_000_000_000n; // 10 billion max
-export const JEJU_INITIAL_SUPPLY = 1_000_000_000n; // 1 billion initial
-export const JEJU_MAX_SUPPLY_WEI = JEJU_MAX_SUPPLY * 10n ** 18n;
-export const JEJU_INITIAL_SUPPLY_WEI = JEJU_INITIAL_SUPPLY * 10n ** 18n;
+export const JEJU_TOKEN_NAME = 'Jeju'
+export const JEJU_TOKEN_SYMBOL = 'JEJU'
+export const JEJU_TOKEN_DECIMALS = 18
+export const JEJU_MAX_SUPPLY = 10_000_000_000n // 10 billion max
+export const JEJU_INITIAL_SUPPLY = 1_000_000_000n // 1 billion initial
+export const JEJU_MAX_SUPPLY_WEI = JEJU_MAX_SUPPLY * 10n ** 18n
+export const JEJU_INITIAL_SUPPLY_WEI = JEJU_INITIAL_SUPPLY * 10n ** 18n
 
 // Faucet configuration (testnet only)
-export const JEJU_FAUCET_AMOUNT = 100n * 10n ** 18n; // 100 JEJU per drip
-export const JEJU_FAUCET_COOLDOWN = 24 * 60 * 60; // 24 hours
+export const JEJU_FAUCET_AMOUNT = 100n * 10n ** 18n // 100 JEJU per drip
+export const JEJU_FAUCET_COOLDOWN = 24 * 60 * 60 // 24 hours
 
 // =============================================================================
 // DEPLOYMENT ADDRESSES
 // =============================================================================
 
 export interface JEJUDeploymentAddresses {
-  token: string;
-  banManager: string;
-  feeConfig: string;
-  xlpRewardPool: string;
-  hyperlaneMailbox: string;
-  hyperlaneIgp: string;
-  warpRouter?: string;
+  token: string
+  banManager: string
+  feeConfig: string
+  xlpRewardPool: string
+  hyperlaneMailbox: string
+  hyperlaneIgp: string
+  warpRouter?: string
 }
 
 export interface JEJUDeployment {
-  chainId: number | string;
-  chainName: string;
-  isHomeChain: boolean;
-  addresses: JEJUDeploymentAddresses | null;
-  deployedAt?: number;
-  deployTxHash?: string;
+  chainId: number | string
+  chainName: string
+  isHomeChain: boolean
+  addresses: JEJUDeploymentAddresses | null
+  deployedAt?: number
+  deployTxHash?: string
 }
 
 // =============================================================================
@@ -69,7 +69,7 @@ export const JEJU_LOCALNET_CONFIG = {
     chainId: 1337,
     chainType: 'evm' as const,
     name: 'Anvil Localnet',
-    rpcUrl: 'http://localhost:6546',
+    rpcUrl: 'http://localhost:9545',
     blockExplorerUrl: '',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     hyperlaneMailbox: '',
@@ -88,7 +88,7 @@ export const JEJU_LOCALNET_CONFIG = {
     hyperlaneMailbox: '0x0000000000000000000000000000000000000000',
     hyperlaneIgp: '0x0000000000000000000000000000000000000000',
   },
-};
+}
 
 // =============================================================================
 // TESTNET CONFIGURATION
@@ -114,7 +114,7 @@ export const JEJU_TESTNET_CONFIG = {
     liquidityWallet: '', // Set before deployment
     devFundWallet: '', // Set before deployment
   },
-};
+}
 
 // =============================================================================
 // MAINNET CONFIGURATION
@@ -135,7 +135,14 @@ export const JEJU_MAINNET_CONFIG = {
     isHomeChain: true,
     avgBlockTime: 2,
   },
-  syntheticChains: [ethereumMainnet, base, arbitrum, optimism, polygon, solanaMainnet],
+  syntheticChains: [
+    ethereumMainnet,
+    base,
+    arbitrum,
+    optimism,
+    polygon,
+    solanaMainnet,
+  ],
 
   // Fee configuration (mainnet)
   fees: {
@@ -153,29 +160,33 @@ export const JEJU_MAINNET_CONFIG = {
     liquidityWallet: '', // Set before deployment
     devFundWallet: '', // Set before deployment
   },
-};
+}
 
 // =============================================================================
 // DEPLOYMENT STATE TRACKING
 // =============================================================================
 
-export const JEJU_LOCALNET_DEPLOYMENTS: Map<number | string, JEJUDeployment> = new Map();
-export const JEJU_TESTNET_DEPLOYMENTS: Map<number | string, JEJUDeployment> = new Map();
-export const JEJU_MAINNET_DEPLOYMENTS: Map<number | string, JEJUDeployment> = new Map();
+export const JEJU_LOCALNET_DEPLOYMENTS: Map<number | string, JEJUDeployment> =
+  new Map()
+export const JEJU_TESTNET_DEPLOYMENTS: Map<number | string, JEJUDeployment> =
+  new Map()
+export const JEJU_MAINNET_DEPLOYMENTS: Map<number | string, JEJUDeployment> =
+  new Map()
 
 /**
  * Get deployment for a specific chain
  */
 export function getJEJUDeployment(
   chainId: number | string,
-  network: 'localnet' | 'testnet' | 'mainnet'
+  network: 'localnet' | 'testnet' | 'mainnet',
 ): JEJUDeployment | undefined {
-  const deployments = network === 'mainnet'
-    ? JEJU_MAINNET_DEPLOYMENTS
-    : network === 'testnet'
-    ? JEJU_TESTNET_DEPLOYMENTS
-    : JEJU_LOCALNET_DEPLOYMENTS;
-  return deployments.get(chainId);
+  const deployments =
+    network === 'mainnet'
+      ? JEJU_MAINNET_DEPLOYMENTS
+      : network === 'testnet'
+        ? JEJU_TESTNET_DEPLOYMENTS
+        : JEJU_LOCALNET_DEPLOYMENTS
+  return deployments.get(chainId)
 }
 
 /**
@@ -183,49 +194,52 @@ export function getJEJUDeployment(
  */
 export function isJEJUDeployed(
   chainId: number | string,
-  network: 'localnet' | 'testnet' | 'mainnet'
+  network: 'localnet' | 'testnet' | 'mainnet',
 ): boolean {
-  const deployment = getJEJUDeployment(chainId, network);
-  return deployment?.addresses !== null;
+  const deployment = getJEJUDeployment(chainId, network)
+  return deployment?.addresses !== null
 }
 
 /**
  * Get all deployed chain IDs
  */
 export function getJEJUDeployedChains(
-  network: 'localnet' | 'testnet' | 'mainnet'
+  network: 'localnet' | 'testnet' | 'mainnet',
 ): (number | string)[] {
-  const deployments = network === 'mainnet'
-    ? JEJU_MAINNET_DEPLOYMENTS
-    : network === 'testnet'
-    ? JEJU_TESTNET_DEPLOYMENTS
-    : JEJU_LOCALNET_DEPLOYMENTS;
+  const deployments =
+    network === 'mainnet'
+      ? JEJU_MAINNET_DEPLOYMENTS
+      : network === 'testnet'
+        ? JEJU_TESTNET_DEPLOYMENTS
+        : JEJU_LOCALNET_DEPLOYMENTS
   return Array.from(deployments.entries())
     .filter(([, d]) => d.addresses !== null)
-    .map(([chainId]) => chainId);
+    .map(([chainId]) => chainId)
 }
 
 // =============================================================================
 // DEPLOYMENT HELPERS
 // =============================================================================
 
-export function getJEJUDeploymentConfig(network: 'localnet' | 'testnet' | 'mainnet') {
-  if (network === 'mainnet') return JEJU_MAINNET_CONFIG;
-  if (network === 'testnet') return JEJU_TESTNET_CONFIG;
-  return JEJU_LOCALNET_CONFIG;
+export function getJEJUDeploymentConfig(
+  network: 'localnet' | 'testnet' | 'mainnet',
+) {
+  if (network === 'mainnet') return JEJU_MAINNET_CONFIG
+  if (network === 'testnet') return JEJU_TESTNET_CONFIG
+  return JEJU_LOCALNET_CONFIG
 }
 
 export function getJEJUChainConfig(
   chainId: number | string,
-  network: 'localnet' | 'testnet' | 'mainnet'
+  network: 'localnet' | 'testnet' | 'mainnet',
 ): ChainConfig | undefined {
-  const config = getJEJUDeploymentConfig(network);
+  const config = getJEJUDeploymentConfig(network)
 
   if (config.homeChain.chainId === chainId) {
-    return config.homeChain as ChainConfig;
+    return config.homeChain as ChainConfig
   }
 
-  return config.syntheticChains.find((c) => c.chainId === chainId);
+  return config.syntheticChains.find((c) => c.chainId === chainId)
 }
 
 // =============================================================================
@@ -240,10 +254,11 @@ export const JEJU_TOKEN_METADATA = {
   initialSupply: JEJU_INITIAL_SUPPLY_WEI,
 
   // Description
-  description: 'The native token of the Jeju Network - an EVM chain for agents and humans.',
+  description:
+    'The native token of the Jeju Network - an EVM chain for agents and humans.',
 
   // Social links
   website: 'https://jejunetwork.org',
   docs: 'https://docs.jejunetwork.org',
   github: 'https://github.com/jeju-network',
-};
+}

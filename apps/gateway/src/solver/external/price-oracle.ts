@@ -1,21 +1,42 @@
 /**
  * On-Chain Price Oracle Integration
- * 
+ *
  * Permissionless price feeds from Chainlink.
  * All reads are on-chain calls - no API keys required.
  */
 
-import { type PublicClient, type Address } from 'viem';
+import type { Address, PublicClient } from 'viem'
 
 // Chainlink Price Feed addresses on Ethereum mainnet
-export const CHAINLINK_FEEDS: Record<string, { address: Address; decimals: number }> = {
-  'ETH/USD': { address: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419', decimals: 8 },
-  'BTC/USD': { address: '0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c', decimals: 8 },
-  'USDC/USD': { address: '0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6', decimals: 8 },
-  'USDT/USD': { address: '0x3E7d1eAB13ad0104d2750B8863b489D65364e32D', decimals: 8 },
-  'DAI/USD': { address: '0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9', decimals: 8 },
-  'LINK/USD': { address: '0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c', decimals: 8 },
-};
+export const CHAINLINK_FEEDS: Record<
+  string,
+  { address: Address; decimals: number }
+> = {
+  'ETH/USD': {
+    address: '0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419',
+    decimals: 8,
+  },
+  'BTC/USD': {
+    address: '0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c',
+    decimals: 8,
+  },
+  'USDC/USD': {
+    address: '0x8fFfFfd4AfB6115b954Bd326cbe7B4BA576818f6',
+    decimals: 8,
+  },
+  'USDT/USD': {
+    address: '0x3E7d1eAB13ad0104d2750B8863b489D65364e32D',
+    decimals: 8,
+  },
+  'DAI/USD': {
+    address: '0xAed0c38402a5d19df6E4c03F4E2DceD6e29c1ee9',
+    decimals: 8,
+  },
+  'LINK/USD': {
+    address: '0x2c1d072e956AFFC0D435Cb7AC38EF18d24d9127c',
+    decimals: 8,
+  },
+}
 
 // Token addresses to their USD feed key
 export const TOKEN_TO_FEED: Record<string, string> = {
@@ -26,7 +47,7 @@ export const TOKEN_TO_FEED: Record<string, string> = {
   '0xdac17f958d2ee523a2206206994597c13d831ec7': 'USDT/USD', // USDT
   '0x6b175474e89094c44da98b954eedeac495271d0f': 'DAI/USD', // DAI
   '0x514910771af9ca656af840dff83e8264ecf986ca': 'LINK/USD', // LINK
-};
+}
 
 // Chainlink Aggregator ABI (minimal)
 const AGGREGATOR_ABI = [
@@ -43,62 +64,62 @@ const AGGREGATOR_ABI = [
     ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 export interface PriceData {
-  price: number;
-  decimals: number;
-  timestamp: number;
-  source: 'chainlink' | 'cached';
-  stale: boolean;
+  price: number
+  decimals: number
+  timestamp: number
+  source: 'chainlink' | 'cached'
+  stale: boolean
 }
 
 export interface TokenPrice {
-  token: Address;
-  priceUsd: number;
-  decimals: number;
-  timestamp: number;
+  token: Address
+  priceUsd: number
+  decimals: number
+  timestamp: number
 }
 
 export class PriceOracle {
-  private client: PublicClient;
-  private cache = new Map<string, { price: PriceData; expiry: number }>();
-  private readonly CACHE_TTL = 60_000; // 1 minute cache
-  private readonly STALE_THRESHOLD = 3600; // 1 hour = stale
+  private client: PublicClient
+  private cache = new Map<string, { price: PriceData; expiry: number }>()
+  private readonly CACHE_TTL = 60_000 // 1 minute cache
+  private readonly STALE_THRESHOLD = 3600 // 1 hour = stale
 
   constructor(client: PublicClient) {
-    this.client = client;
+    this.client = client
   }
 
   /**
    * Get USD price for a token
    */
   async getPrice(token: Address): Promise<PriceData | null> {
-    const tokenLower = token.toLowerCase();
-    
+    const tokenLower = token.toLowerCase()
+
     // Check cache first
-    const cached = this.cache.get(tokenLower);
+    const cached = this.cache.get(tokenLower)
     if (cached && Date.now() < cached.expiry) {
-      return { ...cached.price, source: 'cached' };
+      return { ...cached.price, source: 'cached' }
     }
 
     // Find Chainlink feed
-    const feedKey = TOKEN_TO_FEED[tokenLower];
-    if (!feedKey) return null;
+    const feedKey = TOKEN_TO_FEED[tokenLower]
+    if (!feedKey) return null
 
-    const feed = CHAINLINK_FEEDS[feedKey];
-    if (!feed) return null;
+    const feed = CHAINLINK_FEEDS[feedKey]
+    if (!feed) return null
 
     const result = await this.client.readContract({
       address: feed.address,
       abi: AGGREGATOR_ABI,
       functionName: 'latestRoundData',
-    });
+    })
 
-    const [, answer, , updatedAt] = result;
-    const price = Number(answer) / (10 ** feed.decimals);
-    const timestamp = Number(updatedAt);
-    const stale = Date.now() / 1000 - timestamp > this.STALE_THRESHOLD;
+    const [, answer, , updatedAt] = result
+    const price = Number(answer) / 10 ** feed.decimals
+    const timestamp = Number(updatedAt)
+    const stale = Date.now() / 1000 - timestamp > this.STALE_THRESHOLD
 
     const priceData: PriceData = {
       price,
@@ -106,52 +127,55 @@ export class PriceOracle {
       timestamp,
       source: 'chainlink',
       stale,
-    };
+    }
 
     // Cache it
     this.cache.set(tokenLower, {
       price: priceData,
       expiry: Date.now() + this.CACHE_TTL,
-    });
+    })
 
-    return priceData;
+    return priceData
   }
 
   /**
    * Get prices for multiple tokens in parallel
    */
   async getPrices(tokens: Address[]): Promise<Map<string, TokenPrice>> {
-    const results = new Map<string, TokenPrice>();
-    
+    const results = new Map<string, TokenPrice>()
+
     const pricePromises = tokens.map(async (token) => {
-      const price = await this.getPrice(token);
+      const price = await this.getPrice(token)
       if (price) {
         results.set(token.toLowerCase(), {
           token,
           priceUsd: price.price,
           decimals: price.decimals,
           timestamp: price.timestamp,
-        });
+        })
       }
-    });
+    })
 
-    await Promise.all(pricePromises);
-    return results;
+    await Promise.all(pricePromises)
+    return results
   }
 
   /**
    * Get the relative price between two tokens
    */
-  async getRelativePrice(tokenA: Address, tokenB: Address): Promise<number | null> {
+  async getRelativePrice(
+    tokenA: Address,
+    tokenB: Address,
+  ): Promise<number | null> {
     const [priceA, priceB] = await Promise.all([
       this.getPrice(tokenA),
       this.getPrice(tokenB),
-    ]);
+    ])
 
-    if (!priceA || !priceB) return null;
-    if (priceB.price === 0) return null;
+    if (!priceA || !priceB) return null
+    if (priceB.price === 0) return null
 
-    return priceA.price / priceB.price;
+    return priceA.price / priceB.price
   }
 
   /**
@@ -162,22 +186,22 @@ export class PriceOracle {
     buyToken: Address,
     sellAmount: bigint,
     sellDecimals: number,
-    buyDecimals: number
+    buyDecimals: number,
   ): Promise<bigint | null> {
-    const relativePrice = await this.getRelativePrice(sellToken, buyToken);
-    if (!relativePrice) return null;
+    const relativePrice = await this.getRelativePrice(sellToken, buyToken)
+    if (!relativePrice) return null
 
-    const sellAmountFloat = Number(sellAmount) / (10 ** sellDecimals);
-    const buyAmountFloat = sellAmountFloat * relativePrice;
-    
-    return BigInt(Math.floor(buyAmountFloat * (10 ** buyDecimals)));
+    const sellAmountFloat = Number(sellAmount) / 10 ** sellDecimals
+    const buyAmountFloat = sellAmountFloat * relativePrice
+
+    return BigInt(Math.floor(buyAmountFloat * 10 ** buyDecimals))
   }
 
   /**
    * Clear the price cache
    */
   clearCache(): void {
-    this.cache.clear();
+    this.cache.clear()
   }
 
   /**
@@ -187,9 +211,6 @@ export class PriceOracle {
     return {
       size: this.cache.size,
       entries: Array.from(this.cache.keys()),
-    };
+    }
   }
 }
-
-
-

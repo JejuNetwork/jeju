@@ -1,22 +1,22 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { useReadContract } from 'wagmi';
-import { Shield, AlertTriangle } from 'lucide-react';
-import { MODERATION_CONTRACTS } from '../../config/contracts';
-import { ZERO_BYTES32 } from '../../lib/contracts';
+import { AlertTriangle, Shield } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { useReadContract } from 'wagmi'
+import { MODERATION_CONTRACTS } from '../../config/contracts'
+import { ZERO_BYTES32 } from '../../lib/contracts'
 
 interface ReputationViewerProps {
-  agentId: bigint;
+  agentId: bigint
 }
 
 interface ReputationData {
-  stakeTier: number;
-  stakeAmount: bigint;
-  networkBanned: boolean;
-  appBans: string[];
-  labels: string[];
-  banReason?: string;
+  stakeTier: number
+  stakeAmount: bigint
+  networkBanned: boolean
+  appBans: string[]
+  labels: string[]
+  banReason?: string
 }
 
 const IDENTITY_REGISTRY_ABI = [
@@ -42,7 +42,7 @@ const IDENTITY_REGISTRY_ABI = [
       },
     ],
   },
-] as const;
+] as const
 
 const BAN_MANAGER_ABI = [
   {
@@ -69,7 +69,7 @@ const BAN_MANAGER_ABI = [
     ],
     outputs: [{ name: 'reason', type: 'string' }],
   },
-] as const;
+] as const
 
 const LABEL_MANAGER_ABI = [
   {
@@ -79,43 +79,43 @@ const LABEL_MANAGER_ABI = [
     inputs: [{ name: 'agentId', type: 'uint256' }],
     outputs: [{ name: '', type: 'uint8[]' }],
   },
-] as const;
+] as const
 
 export default function ReputationViewer({ agentId }: ReputationViewerProps) {
-  const [reputation, setReputation] = useState<ReputationData | null>(null);
-  
+  const [reputation, setReputation] = useState<ReputationData | null>(null)
+
   // Query agent data from IdentityRegistry
   const { data: agentData, isLoading: loadingAgent } = useReadContract({
     address: MODERATION_CONTRACTS.IdentityRegistry as `0x${string}`,
     abi: IDENTITY_REGISTRY_ABI,
     functionName: 'getAgent',
     args: [agentId],
-  });
-  
+  })
+
   // Query ban status
   const { data: isNetworkBanned, isLoading: loadingBan } = useReadContract({
     address: MODERATION_CONTRACTS.BanManager as `0x${string}`,
     abi: BAN_MANAGER_ABI,
     functionName: 'isNetworkBanned',
     args: [agentId],
-  });
-  
+  })
+
   // Query app bans
   const { data: appBans, isLoading: loadingAppBans } = useReadContract({
     address: MODERATION_CONTRACTS.BanManager as `0x${string}`,
     abi: BAN_MANAGER_ABI,
     functionName: 'getAppBans',
     args: [agentId],
-  });
-  
+  })
+
   // Query labels
   const { data: labelIds, isLoading: loadingLabels } = useReadContract({
     address: MODERATION_CONTRACTS.ReputationLabelManager as `0x${string}`,
     abi: LABEL_MANAGER_ABI,
     functionName: 'getLabels',
     args: [agentId],
-  });
-  
+  })
+
   // Query ban reason if banned
   const { data: banReason } = useReadContract({
     address: MODERATION_CONTRACTS.BanManager as `0x${string}`,
@@ -123,14 +123,14 @@ export default function ReputationViewer({ agentId }: ReputationViewerProps) {
     functionName: 'getBanReason',
     args: [agentId, ZERO_BYTES32],
     query: { enabled: !!isNetworkBanned },
-  });
-  
+  })
+
   // Build reputation data
   useEffect(() => {
     if (agentData && typeof isNetworkBanned === 'boolean') {
-      const labels = (labelIds || []).map(id => getLabelName(Number(id)));
-      const appBanNames = (appBans || []).map(bytes32ToAppName);
-      
+      const labels = (labelIds || []).map((id) => getLabelName(Number(id)))
+      const appBanNames = (appBans || []).map(bytes32ToAppName)
+
       setReputation({
         stakeTier: agentData.tier,
         stakeAmount: agentData.stakedAmount,
@@ -138,20 +138,20 @@ export default function ReputationViewer({ agentId }: ReputationViewerProps) {
         appBans: appBanNames,
         labels,
         banReason: banReason as string | undefined,
-      });
+      })
     }
-  }, [agentData, isNetworkBanned, appBans, labelIds, banReason]);
-  
-  const loading = loadingAgent || loadingBan || loadingAppBans || loadingLabels;
-  
+  }, [agentData, isNetworkBanned, appBans, labelIds, banReason])
+
+  const loading = loadingAgent || loadingBan || loadingAppBans || loadingLabels
+
   if (loading) {
-    return <div className="animate-pulse">Loading reputation...</div>;
+    return <div className="animate-pulse">Loading reputation...</div>
   }
-  
+
   if (!reputation) {
-    return <div>No reputation data</div>;
+    return <div>No reputation data</div>
   }
-  
+
   return (
     <div className="space-y-4">
       {/* Stake Tier */}
@@ -167,7 +167,7 @@ export default function ReputationViewer({ agentId }: ReputationViewerProps) {
           {Number(reputation.stakeAmount) / 1e18} ETH staked
         </div>
       </div>
-      
+
       {/* Network Ban */}
       {reputation.networkBanned && (
         <div className="card bg-red-50 border-red-300">
@@ -180,28 +180,36 @@ export default function ReputationViewer({ agentId }: ReputationViewerProps) {
           </p>
         </div>
       )}
-      
+
       {/* App Bans */}
       {reputation.appBans.length > 0 && (
         <div className="card">
-          <h3 className="font-semibold mb-2">App Bans ({reputation.appBans.length})</h3>
+          <h3 className="font-semibold mb-2">
+            App Bans ({reputation.appBans.length})
+          </h3>
           <div className="flex flex-wrap gap-2">
-            {reputation.appBans.map(app => (
-              <span key={app} className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-sm">
+            {reputation.appBans.map((app) => (
+              <span
+                key={app}
+                className="px-2 py-1 bg-orange-100 text-orange-700 rounded text-sm"
+              >
                 {app}
               </span>
             ))}
           </div>
         </div>
       )}
-      
+
       {/* Labels */}
       {reputation.labels.length > 0 && (
         <div className="card">
           <h3 className="font-semibold mb-2">Labels</h3>
           <div className="flex flex-wrap gap-2">
-            {reputation.labels.map(label => (
-              <span key={label} className={`px-2 py-1 rounded text-sm ${getLabelColor(label)}`}>
+            {reputation.labels.map((label) => (
+              <span
+                key={label}
+                className={`px-2 py-1 rounded text-sm ${getLabelColor(label)}`}
+              >
                 {label}
               </span>
             ))}
@@ -209,33 +217,31 @@ export default function ReputationViewer({ agentId }: ReputationViewerProps) {
         </div>
       )}
     </div>
-  );
+  )
 }
 
 function getTierName(tier: number): string {
-  return ['None', 'Small', 'Medium', 'High'][tier] || 'Unknown';
+  return ['None', 'Small', 'Medium', 'High'][tier] || 'Unknown'
 }
 
 function getLabelColor(label: string): string {
-  if (label === 'HACKER') return 'bg-red-600 text-white';
-  if (label === 'SCAMMER') return 'bg-orange-600 text-white';
-  if (label === 'TRUSTED') return 'bg-green-600 text-white';
-  if (label === 'SPAM_BOT') return 'bg-yellow-600 text-white';
-  return 'bg-gray-600 text-white';
+  if (label === 'HACKER') return 'bg-red-600 text-white'
+  if (label === 'SCAMMER') return 'bg-orange-600 text-white'
+  if (label === 'TRUSTED') return 'bg-green-600 text-white'
+  if (label === 'SPAM_BOT') return 'bg-yellow-600 text-white'
+  return 'bg-gray-600 text-white'
 }
 
 function getLabelName(labelId: number): string {
-  const labels = ['NONE', 'HACKER', 'SCAMMER', 'SPAM_BOT', 'TRUSTED'];
-  return labels[labelId] || 'UNKNOWN';
+  const labels = ['NONE', 'HACKER', 'SCAMMER', 'SPAM_BOT', 'TRUSTED']
+  return labels[labelId] || 'UNKNOWN'
 }
 
 function bytes32ToAppName(bytes32: string): string {
   // Convert bytes32 back to app name
   // Simplified - in production would have mapping
-  if (bytes32.includes('hyperscape')) return 'Hyperscape';
-  if (bytes32.includes('bazaar')) return 'Bazaar';
-  if (bytes32.includes('gateway')) return 'Gateway';
-  return bytes32.substring(0, 10) + '...';
+  if (bytes32.includes('hyperscape')) return 'Hyperscape'
+  if (bytes32.includes('bazaar')) return 'Bazaar'
+  if (bytes32.includes('gateway')) return 'Gateway'
+  return `${bytes32.substring(0, 10)}...`
 }
-
-

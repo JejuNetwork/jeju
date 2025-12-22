@@ -3,29 +3,31 @@
  * Shared business logic for container-related operations
  */
 
-import { ContainerImage } from '../model';
+import type { ContainerImage } from '../model'
 
 export interface ContainerListResponse {
-  cid: string;
-  name: string;
-  tag: string;
-  sizeBytes: string;
-  uploadedAt: string;
-  uploadedBy: string | null;
-  storageProvider: string | null;
-  tier: string;
-  architecture: string;
-  gpuRequired: boolean;
-  minGpuVram: number | null | undefined;
-  teeRequired: boolean;
-  verified: boolean;
-  pullCount: number;
-  lastPulledAt: string | null;
+  cid: string
+  name: string
+  tag: string
+  sizeBytes: string
+  uploadedAt: string
+  uploadedBy: string | null
+  storageProvider: string | null
+  tier: string
+  architecture: string
+  gpuRequired: boolean
+  minGpuVram: number | null | undefined
+  teeRequired: boolean
+  verified: boolean
+  pullCount: number
+  lastPulledAt: string | null
 }
 
-export function mapContainerListResponse(container: ContainerImage): ContainerListResponse {
+export function mapContainerListResponse(
+  container: ContainerImage,
+): ContainerListResponse {
   if (!container) {
-    throw new Error('ContainerImage is required');
+    throw new Error('ContainerImage is required')
   }
   return {
     cid: container.cid,
@@ -43,5 +45,5 @@ export function mapContainerListResponse(container: ContainerImage): ContainerLi
     verified: container.verified,
     pullCount: container.pullCount,
     lastPulledAt: container.lastPulledAt?.toISOString() || null,
-  };
+  }
 }

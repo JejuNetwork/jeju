@@ -3,31 +3,76 @@
  * Wallet settings and security options
  */
 
-import { useState, useCallback } from 'react';
-import { Shield, Bell, Globe, Key, ChevronRight, Check, Usb, Loader2, AlertCircle, Link2 } from 'lucide-react';
-import { SUPPORTED_CHAINS, type SupportedChainId } from '../../services/rpc';
-import { swapService } from '../../services/swap';
-import { hardwareWalletService, type HardwareDevice, type HardwareWalletType } from '../../services/hardware';
-import { LinkedAccounts } from '../auth';
+import {
+  AlertCircle,
+  Bell,
+  Check,
+  ChevronRight,
+  Globe,
+  Key,
+  Link2,
+  Loader2,
+  Shield,
+  Usb,
+} from 'lucide-react'
+import { useCallback, useState } from 'react'
+import {
+  type HardwareDevice,
+  type HardwareWalletType,
+  hardwareWalletService,
+} from '../../services/hardware'
+import { SUPPORTED_CHAINS, type SupportedChainId } from '../../services/rpc'
+import { swapService } from '../../services/swap'
+import { LinkedAccounts } from '../auth'
 
 interface SettingSection {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ElementType;
+  id: string
+  title: string
+  description: string
+  icon: React.ElementType
 }
 
 const SECTIONS: SettingSection[] = [
-  { id: 'accounts', title: 'Linked Accounts', description: 'Social login & recovery options', icon: Link2 },
-  { id: 'security', title: 'Security', description: 'Transaction protection and approvals', icon: Shield },
-  { id: 'hardware', title: 'Hardware Wallet', description: 'Connect Ledger or Trezor', icon: Usb },
-  { id: 'notifications', title: 'Notifications', description: 'Alerts and updates', icon: Bell },
-  { id: 'networks', title: 'Networks', description: 'Supported chains', icon: Globe },
-  { id: 'advanced', title: 'Advanced', description: 'Slippage, MEV protection', icon: Key },
-];
+  {
+    id: 'accounts',
+    title: 'Linked Accounts',
+    description: 'Social login & recovery options',
+    icon: Link2,
+  },
+  {
+    id: 'security',
+    title: 'Security',
+    description: 'Transaction protection and approvals',
+    icon: Shield,
+  },
+  {
+    id: 'hardware',
+    title: 'Hardware Wallet',
+    description: 'Connect Ledger or Trezor',
+    icon: Usb,
+  },
+  {
+    id: 'notifications',
+    title: 'Notifications',
+    description: 'Alerts and updates',
+    icon: Bell,
+  },
+  {
+    id: 'networks',
+    title: 'Networks',
+    description: 'Supported chains',
+    icon: Globe,
+  },
+  {
+    id: 'advanced',
+    title: 'Advanced',
+    description: 'Slippage, MEV protection',
+    icon: Key,
+  },
+]
 
 export function SettingsView() {
-  const [activeSection, setActiveSection] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<string | null>(null)
   const [settings, setSettings] = useState({
     transactionSimulation: true,
     approvalWarnings: true,
@@ -36,69 +81,77 @@ export function SettingsView() {
     priceAlerts: false,
     slippage: swapService.getSlippage(),
     mevProtection: swapService.getMevProtection(),
-    enabledChains: Object.keys(SUPPORTED_CHAINS).map(Number) as SupportedChainId[],
-  });
+    enabledChains: Object.keys(SUPPORTED_CHAINS).map(
+      Number,
+    ) as SupportedChainId[],
+  })
 
   // Hardware wallet state
-  const [hwDevice, setHwDevice] = useState<HardwareDevice | null>(null);
-  const [hwConnecting, setHwConnecting] = useState(false);
-  const [hwError, setHwError] = useState<string | null>(null);
+  const [hwDevice, setHwDevice] = useState<HardwareDevice | null>(null)
+  const [hwConnecting, setHwConnecting] = useState(false)
+  const [hwError, setHwError] = useState<string | null>(null)
 
-  const updateSetting = <K extends keyof typeof settings>(key: K, value: typeof settings[K]) => {
-    setSettings(prev => ({ ...prev, [key]: value }));
-    
-    if (key === 'slippage') swapService.setSlippage(value as number);
-    if (key === 'mevProtection') swapService.setMevProtection(value as boolean);
-  };
+  const updateSetting = <K extends keyof typeof settings>(
+    key: K,
+    value: (typeof settings)[K],
+  ) => {
+    setSettings((prev) => ({ ...prev, [key]: value }))
 
-  const connectHardwareWallet = useCallback(async (type: HardwareWalletType) => {
-    setHwConnecting(true);
-    setHwError(null);
-    
-    try {
-      let device: HardwareDevice;
-      if (type === 'ledger') {
-        device = await hardwareWalletService.connectLedger();
-      } else {
-        device = await hardwareWalletService.connectTrezor();
+    if (key === 'slippage') swapService.setSlippage(value as number)
+    if (key === 'mevProtection') swapService.setMevProtection(value as boolean)
+  }
+
+  const connectHardwareWallet = useCallback(
+    async (type: HardwareWalletType) => {
+      setHwConnecting(true)
+      setHwError(null)
+
+      try {
+        let device: HardwareDevice
+        if (type === 'ledger') {
+          device = await hardwareWalletService.connectLedger()
+        } else {
+          device = await hardwareWalletService.connectTrezor()
+        }
+        setHwDevice(device)
+      } catch (error) {
+        setHwError((error as Error).message)
+      } finally {
+        setHwConnecting(false)
       }
-      setHwDevice(device);
-    } catch (error) {
-      setHwError((error as Error).message);
-    } finally {
-      setHwConnecting(false);
-    }
-  }, []);
+    },
+    [],
+  )
 
   const disconnectHardwareWallet = useCallback(async () => {
-    await hardwareWalletService.disconnect();
-    setHwDevice(null);
-  }, []);
+    await hardwareWalletService.disconnect()
+    setHwDevice(null)
+  }, [])
 
   const renderSection = () => {
     switch (activeSection) {
       case 'accounts':
-        return <LinkedAccounts />;
+        return <LinkedAccounts />
 
       case 'security':
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-semibold">Security Settings</h3>
-            
+
             <SettingToggle
               title="Transaction Simulation"
               description="Simulate transactions before signing to detect potential issues"
               enabled={settings.transactionSimulation}
               onChange={(v) => updateSetting('transactionSimulation', v)}
             />
-            
+
             <SettingToggle
               title="Approval Warnings"
               description="Warn before granting unlimited token approvals"
               enabled={settings.approvalWarnings}
               onChange={(v) => updateSetting('approvalWarnings', v)}
             />
-            
+
             <SettingToggle
               title="Scam Protection"
               description="Check addresses against known scam database"
@@ -106,20 +159,23 @@ export function SettingsView() {
               onChange={(v) => updateSetting('scamProtection', v)}
             />
           </div>
-        );
+        )
 
       case 'hardware':
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-semibold">Hardware Wallet</h3>
             <p className="text-sm text-muted-foreground">
-              Connect a hardware wallet for maximum security. Your keys never leave the device.
+              Connect a hardware wallet for maximum security. Your keys never
+              leave the device.
             </p>
 
             {!hardwareWalletService.isSupported() && (
               <div className="flex items-center gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl text-yellow-500">
                 <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                <span className="text-sm">WebHID is not supported in this browser. Try Chrome or Edge.</span>
+                <span className="text-sm">
+                  WebHID is not supported in this browser. Try Chrome or Edge.
+                </span>
               </div>
             )}
 
@@ -132,8 +188,12 @@ export function SettingsView() {
                         <Usb className="w-5 h-5 text-emerald-500" />
                       </div>
                       <div>
-                        <div className="font-medium text-emerald-500">{hwDevice.model}</div>
-                        <div className="text-xs text-emerald-500/70">Connected</div>
+                        <div className="font-medium text-emerald-500">
+                          {hwDevice.model}
+                        </div>
+                        <div className="text-xs text-emerald-500/70">
+                          Connected
+                        </div>
                       </div>
                     </div>
                     <button
@@ -144,16 +204,19 @@ export function SettingsView() {
                     </button>
                   </div>
                 </div>
-                
+
                 <p className="text-sm text-muted-foreground">
-                  Your hardware wallet is ready to sign transactions. Select it as the signer when performing actions.
+                  Your hardware wallet is ready to sign transactions. Select it
+                  as the signer when performing actions.
                 </p>
               </div>
             ) : (
               <div className="space-y-3">
                 <button
                   onClick={() => connectHardwareWallet('ledger')}
-                  disabled={hwConnecting || !hardwareWalletService.isSupported()}
+                  disabled={
+                    hwConnecting || !hardwareWalletService.isSupported()
+                  }
                   className="w-full flex items-center justify-between p-4 bg-card border border-border rounded-xl hover:border-primary/50 transition-colors disabled:opacity-50"
                 >
                   <div className="flex items-center gap-3">
@@ -162,7 +225,9 @@ export function SettingsView() {
                     </div>
                     <div className="text-left">
                       <div className="font-medium">Ledger</div>
-                      <div className="text-xs text-muted-foreground">Connect via USB</div>
+                      <div className="text-xs text-muted-foreground">
+                        Connect via USB
+                      </div>
                     </div>
                   </div>
                   {hwConnecting ? (
@@ -183,7 +248,9 @@ export function SettingsView() {
                     </div>
                     <div className="text-left">
                       <div className="font-medium">Trezor</div>
-                      <div className="text-xs text-muted-foreground">Connect via USB</div>
+                      <div className="text-xs text-muted-foreground">
+                        Connect via USB
+                      </div>
                     </div>
                   </div>
                   {hwConnecting ? (
@@ -202,20 +269,20 @@ export function SettingsView() {
               </div>
             )}
           </div>
-        );
+        )
 
       case 'notifications':
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-semibold">Notifications</h3>
-            
+
             <SettingToggle
               title="Transaction Notifications"
               description="Get notified when transactions complete or fail"
               enabled={settings.txNotifications}
               onChange={(v) => updateSetting('txNotifications', v)}
             />
-            
+
             <SettingToggle
               title="Price Alerts"
               description="Get notified of significant price movements"
@@ -223,7 +290,7 @@ export function SettingsView() {
               onChange={(v) => updateSetting('priceAlerts', v)}
             />
           </div>
-        );
+        )
 
       case 'networks':
         return (
@@ -232,12 +299,17 @@ export function SettingsView() {
             <p className="text-sm text-muted-foreground">
               All chains are shown in a unified view. No chain switching needed.
             </p>
-            
+
             <div className="space-y-3">
-              {(Object.entries(SUPPORTED_CHAINS) as [string, typeof SUPPORTED_CHAINS[SupportedChainId]][]).map(([id, chain]) => {
-                const chainId = Number(id) as SupportedChainId;
-                const isEnabled = settings.enabledChains.includes(chainId);
-                
+              {(
+                Object.entries(SUPPORTED_CHAINS) as [
+                  string,
+                  (typeof SUPPORTED_CHAINS)[SupportedChainId],
+                ][]
+              ).map(([id, chain]) => {
+                const chainId = Number(id) as SupportedChainId
+                const isEnabled = settings.enabledChains.includes(chainId)
+
                 return (
                   <div
                     key={chainId}
@@ -251,27 +323,33 @@ export function SettingsView() {
                       </div>
                       <div>
                         <div className="font-medium">{chain.name}</div>
-                        <div className="text-xs text-muted-foreground">Chain ID: {chainId}</div>
+                        <div className="text-xs text-muted-foreground">
+                          Chain ID: {chainId}
+                        </div>
                       </div>
                     </div>
-                    <div className={`w-5 h-5 rounded-full flex items-center justify-center ${isEnabled ? 'bg-emerald-500' : 'bg-secondary'}`}>
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center ${isEnabled ? 'bg-emerald-500' : 'bg-secondary'}`}
+                    >
                       {isEnabled && <Check className="w-3 h-3 text-white" />}
                     </div>
                   </div>
-                );
+                )
               })}
             </div>
           </div>
-        );
+        )
 
       case 'advanced':
         return (
           <div className="space-y-6">
             <h3 className="text-lg font-semibold">Advanced Settings</h3>
-            
+
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-2">Default Slippage</label>
+                <label className="block text-sm font-medium mb-2">
+                  Default Slippage
+                </label>
                 <div className="flex gap-2">
                   {[0.1, 0.5, 1.0, 3.0].map((val) => (
                     <button
@@ -288,10 +366,11 @@ export function SettingsView() {
                   ))}
                 </div>
                 <p className="text-xs text-muted-foreground mt-2">
-                  Higher slippage = more likely to succeed, but potentially worse price
+                  Higher slippage = more likely to succeed, but potentially
+                  worse price
                 </p>
               </div>
-              
+
               <SettingToggle
                 title="MEV Protection"
                 description="Send swaps through the network's private mempool to prevent front-running"
@@ -300,12 +379,12 @@ export function SettingsView() {
               />
             </div>
           </div>
-        );
+        )
 
       default:
-        return null;
+        return null
     }
-  };
+  }
 
   if (activeSection) {
     return (
@@ -319,7 +398,7 @@ export function SettingsView() {
         </button>
         {renderSection()}
       </div>
-    );
+    )
   }
 
   return (
@@ -331,7 +410,7 @@ export function SettingsView() {
 
       <div className="space-y-3">
         {SECTIONS.map((section) => {
-          const Icon = section.icon;
+          const Icon = section.icon
           return (
             <button
               key={section.id}
@@ -344,12 +423,14 @@ export function SettingsView() {
                 </div>
                 <div className="text-left">
                   <div className="font-medium">{section.title}</div>
-                  <div className="text-sm text-muted-foreground">{section.description}</div>
+                  <div className="text-sm text-muted-foreground">
+                    {section.description}
+                  </div>
                 </div>
               </div>
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </button>
-          );
+          )
         })}
       </div>
 
@@ -360,7 +441,7 @@ export function SettingsView() {
         </div>
       </div>
     </div>
-  );
+  )
 }
 
 function SettingToggle({
@@ -369,10 +450,10 @@ function SettingToggle({
   enabled,
   onChange,
 }: {
-  title: string;
-  description: string;
-  enabled: boolean;
-  onChange: (value: boolean) => void;
+  title: string
+  description: string
+  enabled: boolean
+  onChange: (value: boolean) => void
 }) {
   return (
     <div className="flex items-center justify-between p-4 bg-card border border-border rounded-xl">
@@ -393,7 +474,7 @@ function SettingToggle({
         />
       </button>
     </div>
-  );
+  )
 }
 
-export default SettingsView;
+export default SettingsView

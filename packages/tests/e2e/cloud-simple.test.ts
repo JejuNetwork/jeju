@@ -2,287 +2,340 @@
 /**
  * Simplified Cloud Integration E2E Tests
  * Tests actual deployed contracts on localnet
- * 
+ *
  * NOTE: These tests require contracts to be deployed first.
- * Run `forge script script/DeployCloudIntegration.s.sol --rpc-url http://localhost:6546 --broadcast`
+ * Run `forge script script/DeployCloudIntegration.s.sol --rpc-url http://localhost:9545 --broadcast`
  */
 
-import { describe, test, expect, beforeAll } from 'bun:test';
-import { createPublicClient, http, parseAbi, readContract, getBytecode, isAddress, formatEther, formatUnits, type Address } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { inferChainFromRpcUrl } from '../../../scripts/shared/chain-utils';
-import { existsSync, readFileSync } from 'fs';
-import { resolve } from 'path';
+import { beforeAll, describe, expect, test } from 'bun:test'
+import { existsSync, readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
+import {
+  type Address,
+  createPublicClient,
+  formatEther,
+  formatUnits,
+  http,
+  isAddress,
+  parseAbi,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { inferChainFromRpcUrl } from '../../../packages/deployment/scripts/shared/chain-utils'
 
 // Load addresses dynamically from deployment files
 function loadDeployedAddresses(): Record<string, string> {
-  const deploymentsDir = resolve(__dirname, '../../../packages/contracts/deployments');
-  const addresses: Record<string, string> = {};
-  
+  const deploymentsDir = resolve(
+    __dirname,
+    '../../../packages/contracts/deployments',
+  )
+  const addresses: Record<string, string> = {}
+
   // Try identity-system deployment
-  const identityPath = resolve(deploymentsDir, 'identity-system-1337.json');
+  const identityPath = resolve(deploymentsDir, 'identity-system-1337.json')
   if (existsSync(identityPath)) {
-    const data = JSON.parse(readFileSync(identityPath, 'utf-8')) as Record<string, string>;
-    if (data.IdentityRegistry) addresses.identityRegistry = data.IdentityRegistry;
-    if (data.ReputationRegistry) addresses.reputationRegistry = data.ReputationRegistry;
-    if (data.ValidationRegistry) addresses.validationRegistry = data.ValidationRegistry;
+    const data = JSON.parse(readFileSync(identityPath, 'utf-8')) as Record<
+      string,
+      string
+    >
+    if (data.IdentityRegistry)
+      addresses.identityRegistry = data.IdentityRegistry
+    if (data.ReputationRegistry)
+      addresses.reputationRegistry = data.ReputationRegistry
+    if (data.ValidationRegistry)
+      addresses.validationRegistry = data.ValidationRegistry
   }
-  
+
   // Try localnet-addresses.json for cloud contracts
-  const localnetPath = resolve(deploymentsDir, 'localnet-addresses.json');
+  const localnetPath = resolve(deploymentsDir, 'localnet-addresses.json')
   if (existsSync(localnetPath)) {
-    const data = JSON.parse(readFileSync(localnetPath, 'utf-8')) as Record<string, string>;
-    Object.assign(addresses, data);
+    const data = JSON.parse(readFileSync(localnetPath, 'utf-8')) as Record<
+      string,
+      string
+    >
+    Object.assign(addresses, data)
   }
-  
+
   // Try cloud-integration deployment if it exists
-  const cloudPath = resolve(deploymentsDir, 'cloud-integration-1337.json');
+  const cloudPath = resolve(deploymentsDir, 'cloud-integration-1337.json')
   if (existsSync(cloudPath)) {
-    const data = JSON.parse(readFileSync(cloudPath, 'utf-8')) as Record<string, string>;
-    Object.assign(addresses, data);
+    const data = JSON.parse(readFileSync(cloudPath, 'utf-8')) as Record<
+      string,
+      string
+    >
+    Object.assign(addresses, data)
   }
-  
-  return addresses;
+
+  return addresses
 }
 
-let ADDRESSES: Record<string, string> = {};
-let publicClient: ReturnType<typeof createPublicClient>;
-let deployer: ReturnType<typeof privateKeyToAccount>;
+let ADDRESSES: Record<string, string> = {}
+let publicClient: ReturnType<typeof createPublicClient>
+let deployer: ReturnType<typeof privateKeyToAccount>
 
-let localnetAvailable = false;
+let localnetAvailable = false
 
 beforeAll(async () => {
-  ADDRESSES = loadDeployedAddresses();
-  const chain = inferChainFromRpcUrl('http://localhost:6546');
-  deployer = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`);
-  publicClient = createPublicClient({ chain, transport: http('http://localhost:6546') });
-  
+  ADDRESSES = loadDeployedAddresses()
+  const rpcUrl = process.env.L2_RPC_URL ?? JEJU_RPC_URL
+  const chain = inferChainFromRpcUrl(rpcUrl)
+  deployer = privateKeyToAccount(TEST_ACCOUNTS.deployer.privateKey)
+  publicClient = createPublicClient({ chain, transport: http(rpcUrl) })
+
   if (Object.keys(ADDRESSES).length === 0) {
-    console.warn('⚠️ No deployment addresses found. Tests may be skipped.');
+    console.warn('⚠️ No deployment addresses found. Tests may be skipped.')
   }
-  
+
   // Check if localnet is actually running
   try {
-    await publicClient.getBlockNumber();
-    localnetAvailable = true;
+    await publicClient.getBlockNumber()
+    localnetAvailable = true
   } catch {
-    console.warn('⚠️ Localnet not available at http://localhost:6546. Tests will be skipped.');
-    localnetAvailable = false;
+    console.warn(
+      '⚠️ Localnet not available at http://localhost:9545. Tests will be skipped.',
+    )
+    localnetAvailable = false
   }
-});
+})
 
 describe('Cloud Contracts Deployment', () => {
   test('deployment addresses are loaded', () => {
     // This is a basic sanity check to ensure we have some addresses
-    console.log('Loaded addresses:', Object.keys(ADDRESSES).join(', ') || 'none');
-    expect(Object.keys(ADDRESSES).length).toBeGreaterThan(0);
-  });
-  
+    console.log(
+      'Loaded addresses:',
+      Object.keys(ADDRESSES).join(', ') || 'none',
+    )
+    expect(Object.keys(ADDRESSES).length).toBeGreaterThan(0)
+  })
+
   test('all deployed contracts have code', async () => {
     // Skip if localnet not available
     if (!localnetAvailable) {
-      console.log('⏭️ Skipping: Localnet not running');
-      return;
+      console.log('⏭️ Skipping: Localnet not running')
+      return
     }
-    
+
     // Skip if no addresses loaded
     if (Object.keys(ADDRESSES).length === 0) {
-      console.log('⏭️ Skipping: No deployment addresses found');
-      return;
+      console.log('⏭️ Skipping: No deployment addresses found')
+      return
     }
-    
-    let deployedCount = 0;
+
+    let deployedCount = 0
     for (const [name, address] of Object.entries(ADDRESSES)) {
       if (!isAddress(address)) {
-        console.log(`⏭️ Skipping ${name}: invalid address format`);
-        continue;
+        console.log(`⏭️ Skipping ${name}: invalid address format`)
+        continue
       }
-      const code = await getBytecode(publicClient, { address: address as Address });
+      const code = await getBytecode(publicClient, {
+        address: address as Address,
+      })
       if (code === '0x') {
-        console.log(`⚠️ ${name}: no code at ${address} (not deployed)`);
+        console.log(`⚠️ ${name}: no code at ${address} (not deployed)`)
       } else {
-        console.log(`✓ ${name}: ${address}`);
-        deployedCount++;
+        console.log(`✓ ${name}: ${address}`)
+        deployedCount++
       }
     }
     // At least some contracts should be deployed if we're running this test
-    console.log(`${deployedCount}/${Object.keys(ADDRESSES).length} contracts deployed`);
-  });
-  
+    console.log(
+      `${deployedCount}/${Object.keys(ADDRESSES).length} contracts deployed`,
+    )
+  })
+
   test('identity registry is functional', async () => {
     if (!localnetAvailable) {
-      console.log('⏭️ Skipping: Localnet not running');
-      return;
+      console.log('⏭️ Skipping: Localnet not running')
+      return
     }
-    
+
     if (!ADDRESSES.identityRegistry && !ADDRESSES.IdentityRegistry) {
-      console.log('⏭️ Skipping: IdentityRegistry address not found');
-      return;
+      console.log('⏭️ Skipping: IdentityRegistry address not found')
+      return
     }
-    
-    const registryAddr = ADDRESSES.identityRegistry || ADDRESSES.IdentityRegistry;
-    
+
+    const registryAddr =
+      ADDRESSES.identityRegistry || ADDRESSES.IdentityRegistry
+
     // Check if contract is deployed
-    const code = await getBytecode(publicClient, { address: registryAddr as Address });
+    const code = await publicClient.getBytecode({
+      address: registryAddr as Address,
+    })
     if (code === undefined || code === '0x') {
-      console.log('⏭️ Skipping: IdentityRegistry not deployed');
-      return;
+      console.log('⏭️ Skipping: IdentityRegistry not deployed')
+      return
     }
-    
-    const totalAgents = await readContract(publicClient, {
+
+    const totalAgents = await publicClient.readContract({
       address: registryAddr as Address,
       abi: parseAbi(['function totalAgents() external view returns (uint256)']),
       functionName: 'totalAgents',
-    });
-    console.log(`✓ IdentityRegistry has ${totalAgents} registered agents`);
-    expect(totalAgents).toBeGreaterThanOrEqual(0n);
-  });
-  
+    })
+    console.log(`✓ IdentityRegistry has ${totalAgents} registered agents`)
+    expect(totalAgents).toBeGreaterThanOrEqual(0n)
+  })
+
   test('service registry is functional', async () => {
     if (!localnetAvailable) {
-      console.log('⏭️ Skipping: Localnet not running');
-      return;
+      console.log('⏭️ Skipping: Localnet not running')
+      return
     }
-    
+
     if (!ADDRESSES.serviceRegistry && !ADDRESSES.ServiceRegistry) {
-      console.log('⏭️ Skipping: ServiceRegistry address not found');
-      return;
+      console.log('⏭️ Skipping: ServiceRegistry address not found')
+      return
     }
-    
-    const registryAddr = ADDRESSES.serviceRegistry || ADDRESSES.ServiceRegistry;
-    
+
+    const registryAddr = ADDRESSES.serviceRegistry || ADDRESSES.ServiceRegistry
+
     // Check if contract is deployed
-    const code = await getBytecode(publicClient, { address: registryAddr as Address });
-    if (code === undefined || code === '0x') {
-      console.log('⏭️ Skipping: ServiceRegistry not deployed');
-      return;
-    }
-    
-    const services = await readContract(publicClient, {
+    const code = await publicClient.getBytecode({
       address: registryAddr as Address,
-      abi: parseAbi(['function getAllServiceNames() external view returns (string[] memory)']),
+    })
+    if (code === undefined || code === '0x') {
+      console.log('⏭️ Skipping: ServiceRegistry not deployed')
+      return
+    }
+
+    const services = await publicClient.readContract({
+      address: registryAddr as Address,
+      abi: parseAbi([
+        'function getAllServiceNames() external view returns (string[] memory)',
+      ]),
       functionName: 'getAllServiceNames',
-    });
-    console.log(`✓ ServiceRegistry has ${services.length} registered services`);
-    expect(services).toBeDefined();
-  });
-  
+    })
+    console.log(`✓ ServiceRegistry has ${services.length} registered services`)
+    expect(services).toBeDefined()
+  })
+
   test('cloud reputation provider is functional', async () => {
     if (!localnetAvailable) {
-      console.log('⏭️ Skipping: Localnet not running');
-      return;
+      console.log('⏭️ Skipping: Localnet not running')
+      return
     }
-    
-    if (!ADDRESSES.cloudReputationProvider && !ADDRESSES.CloudReputationProvider) {
-      console.log('⏭️ Skipping: CloudReputationProvider address not found');
-      return;
+
+    if (
+      !ADDRESSES.cloudReputationProvider &&
+      !ADDRESSES.CloudReputationProvider
+    ) {
+      console.log('⏭️ Skipping: CloudReputationProvider address not found')
+      return
     }
-    
-    const providerAddr = ADDRESSES.cloudReputationProvider || ADDRESSES.CloudReputationProvider;
-    
+
+    const providerAddr =
+      ADDRESSES.cloudReputationProvider || ADDRESSES.CloudReputationProvider
+
     // Check if contract is deployed
-    const code = await getBytecode(publicClient, { address: providerAddr as Address });
+    const code = await getBytecode(publicClient, {
+      address: providerAddr as Address,
+    })
     if (code === undefined || code === '0x') {
-      console.log('⏭️ Skipping: CloudReputationProvider not deployed');
-      return;
+      console.log('⏭️ Skipping: CloudReputationProvider not deployed')
+      return
     }
-    
-    const owner = await readContract(publicClient, {
+
+    const owner = await publicClient.readContract({
       address: providerAddr as Address,
       abi: parseAbi(['function owner() external view returns (address)']),
       functionName: 'owner',
-    });
-    console.log(`✓ CloudReputationProvider owner: ${owner}`);
-    expect(owner).toBeDefined();
-    expect(isAddress(owner)).toBe(true);
-  });
-});
+    })
+    console.log(`✓ CloudReputationProvider owner: ${owner}`)
+    expect(owner).toBeDefined()
+    expect(isAddress(owner)).toBe(true)
+  })
+})
 
 describe('Cloud Service Costs', () => {
   test('can query service costs', async () => {
     if (!localnetAvailable) {
-      console.log('⏭️ Skipping: Localnet not running');
-      return;
+      console.log('⏭️ Skipping: Localnet not running')
+      return
     }
-    
+
     if (!ADDRESSES.serviceRegistry && !ADDRESSES.ServiceRegistry) {
-      console.log('⏭️ Skipping: ServiceRegistry address not found');
-      return;
+      console.log('⏭️ Skipping: ServiceRegistry address not found')
+      return
     }
-    
-    const registryAddr = ADDRESSES.serviceRegistry || ADDRESSES.ServiceRegistry;
-    
+
+    const registryAddr = ADDRESSES.serviceRegistry || ADDRESSES.ServiceRegistry
+
     // Check if contract is deployed
-    const code = await getBytecode(publicClient, { address: registryAddr as Address });
+    const code = await publicClient.getBytecode({
+      address: registryAddr as Address,
+    })
     if (code === undefined || code === '0x') {
-      console.log('⏭️ Skipping: ServiceRegistry not deployed');
-      return;
+      console.log('⏭️ Skipping: ServiceRegistry not deployed')
+      return
     }
-    
+
     const registryAbi = parseAbi([
       'function getServiceCost(string,address) external view returns (uint256)',
       'function getAllServiceNames() external view returns (string[] memory)',
-    ]);
-    
+    ])
+
     // First check if service exists
-    const services = await readContract(publicClient, {
+    const services = (await readContract(publicClient, {
       address: registryAddr as Address,
       abi: registryAbi,
       functionName: 'getAllServiceNames',
-    }) as string[];
+    })) as string[]
     if (services.length === 0) {
-      console.log('⏭️ Skipping: No services registered');
-      return;
+      console.log('⏭️ Skipping: No services registered')
+      return
     }
-    
-    const cost = await readContract(publicClient, {
+
+    const cost = await publicClient.readContract({
       address: registryAddr as Address,
       abi: registryAbi,
       functionName: 'getServiceCost',
       args: [services[0], deployer.address],
-    });
-    
-    console.log(`✓ ${services[0]} cost: ${formatEther(cost)} tokens`);
-    expect(cost).toBeGreaterThanOrEqual(0n);
-  });
-});
+    })
+
+    console.log(`✓ ${services[0]} cost: ${formatEther(cost)} tokens`)
+    expect(cost).toBeGreaterThanOrEqual(0n)
+  })
+})
 
 describe('Cloud Credit System', () => {
   test('can check user balances', async () => {
     if (!localnetAvailable) {
-      console.log('⏭️ Skipping: Localnet not running');
-      return;
+      console.log('⏭️ Skipping: Localnet not running')
+      return
     }
-    
+
     if (!ADDRESSES.creditManager && !ADDRESSES.CreditManager) {
-      console.log('⏭️ Skipping: CreditManager address not found');
-      return;
+      console.log('⏭️ Skipping: CreditManager address not found')
+      return
     }
-    
-    const creditAddr = ADDRESSES.creditManager || ADDRESSES.CreditManager;
-    const usdcAddr = ADDRESSES.usdc || ADDRESSES.USDC;
-    
+
+    const creditAddr = ADDRESSES.creditManager || ADDRESSES.CreditManager
+    const usdcAddr = ADDRESSES.usdc || ADDRESSES.USDC
+
     if (!usdcAddr) {
-      console.log('⏭️ Skipping: USDC address not found');
-      return;
+      console.log('⏭️ Skipping: USDC address not found')
+      return
     }
-    
+
     // Check if contract is deployed
-    const code = await getBytecode(publicClient, { address: creditAddr as Address });
-    if (code === undefined || code === '0x') {
-      console.log('⏭️ Skipping: CreditManager not deployed');
-      return;
-    }
-    
-    const balance = await readContract(publicClient, {
+    const code = await publicClient.getBytecode({
       address: creditAddr as Address,
-      abi: parseAbi(['function getBalance(address,address) external view returns (uint256)']),
+    })
+    if (code === undefined || code === '0x') {
+      console.log('⏭️ Skipping: CreditManager not deployed')
+      return
+    }
+
+    const balance = await publicClient.readContract({
+      address: creditAddr as Address,
+      abi: parseAbi([
+        'function getBalance(address,address) external view returns (uint256)',
+      ]),
       functionName: 'getBalance',
       args: [deployer.address, usdcAddr as Address],
-    });
-    
-    console.log(`✓ User USDC balance in credit manager: ${formatUnits(balance, 6)} USDC`);
-    expect(balance).toBeGreaterThanOrEqual(0n);
-  });
-});
+    })
 
+    console.log(
+      `✓ User USDC balance in credit manager: ${formatUnits(balance, 6)} USDC`,
+    )
+    expect(balance).toBeGreaterThanOrEqual(0n)
+  })
+})

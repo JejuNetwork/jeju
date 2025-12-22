@@ -2,34 +2,37 @@
  * Facilitator Library Exports
  */
 
-// Types
-export type {
-  PaymentRequirements,
-  PaymentPayload,
-  VerifyRequest,
-  VerifyResponse,
-  SettleRequest,
-  SettleResponse,
-  SupportedResponse,
-  StatsResponse,
-  HealthResponse,
-  DecodedPayment,
-  VerificationResult,
-  SettlementResult,
-  ChainConfig,
-  TokenConfig,
-} from './types';
-
 // Chains
 export {
-  ZERO_ADDRESS,
   CHAIN_CONFIGS,
   CHAIN_ID_TO_NETWORK,
   getChainConfig,
-  getPrimaryNetwork,
   getPrimaryChainConfig,
+  getPrimaryNetwork,
   getTokenConfig,
-} from './chains';
-
+  ZERO_ADDRESS,
+} from './chains'
 // Contracts
-export { X402_FACILITATOR_ABI, ERC20_ABI, EIP712_DOMAIN, EIP712_TYPES } from './contracts';
+export {
+  EIP712_DOMAIN,
+  EIP712_TYPES,
+  ERC20_ABI,
+  X402_FACILITATOR_ABI,
+} from './contracts'
+// Types
+export type {
+  ChainConfig,
+  DecodedPayment,
+  HealthResponse,
+  PaymentPayload,
+  PaymentRequirements,
+  SettlementResult,
+  SettleRequest,
+  SettleResponse,
+  StatsResponse,
+  SupportedResponse,
+  TokenConfig,
+  VerificationResult,
+  VerifyRequest,
+  VerifyResponse,
+} from './types'

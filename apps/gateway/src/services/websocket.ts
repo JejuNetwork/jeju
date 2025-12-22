@@ -1,139 +1,280 @@
-import { WebSocketServer, WebSocket, type RawData } from 'ws';
-import { createServer } from 'http';
-import type { Intent } from '@jejunetwork/types';
+import { createServer, type IncomingMessage } from 'node:http'
+import type { Intent } from '@jejunetwork/types'
+import { type RawData, WebSocket, WebSocketServer } from 'ws'
+import { z } from 'zod'
+import type { JsonObject } from '../lib/validation.js'
 
 interface WebSocketClient {
-  ws: WebSocket;
-  subscriptions: Set<string>;
-  chainFilters: Set<number>;
+  ws: WebSocket
+  subscriptions: Set<string>
+  chainFilters: Set<number>
 }
 
 interface IntentUpdate {
-  type: 'intent_created' | 'intent_claimed' | 'intent_filled' | 'intent_expired' | 'intent_settled';
-  intent: Intent;
-  timestamp: number;
+  type:
+    | 'intent_created'
+    | 'intent_claimed'
+    | 'intent_filled'
+    | 'intent_expired'
+    | 'intent_settled'
+  intent: Intent
+  timestamp: number
 }
 
 interface SolverUpdate {
-  type: 'solver_registered' | 'solver_slashed' | 'solver_fill';
-  solver: string;
-  data: Record<string, unknown>;
-  timestamp: number;
+  type: 'solver_registered' | 'solver_slashed' | 'solver_fill'
+  solver: string
+  data: JsonObject
+  timestamp: number
 }
 
-type WSMessage = 
-  | { action: 'subscribe'; channel: string; chainId?: number }
-  | { action: 'unsubscribe'; channel: string }
-  | { action: 'ping' };
+// SECURITY: Strict schema validation for WebSocket messages
+const WSMessageSchema = z.discriminatedUnion('action', [
+  z.object({
+    action: z.literal('subscribe'),
+    channel: z.string().min(1).max(50),
+    chainId: z.number().int().positive().optional(),
+  }),
+  z.object({
+    action: z.literal('unsubscribe'),
+    channel: z.string().min(1).max(50),
+  }),
+  z.object({ action: z.literal('ping') }),
+])
+
+type WSMessage = z.infer<typeof WSMessageSchema>
+
+// SECURITY: Connection and message limits
+const MAX_CONNECTIONS = 1000
+const MAX_MESSAGE_SIZE = 4096 // 4KB max message size
+const VALID_CHANNELS = new Set(['intents', 'solvers', 'stats'])
+
+// SECURITY: Allowed origins (configure via env in production)
+const ALLOWED_ORIGINS =
+  process.env.WS_ALLOWED_ORIGINS?.split(',').filter(Boolean) || []
+const isProduction = process.env.NODE_ENV === 'production'
+
+function isOriginAllowed(origin: string | undefined): boolean {
+  if (!isProduction || ALLOWED_ORIGINS.length === 0) return true
+  if (!origin) return false
+  return ALLOWED_ORIGINS.some(
+    (allowed) => origin === allowed || origin.endsWith(`.${allowed}`),
+  )
+}
 
 export class IntentWebSocketServer {
-  private wss: WebSocketServer;
-  private clients: Map<WebSocket, WebSocketClient> = new Map();
-  private heartbeatInterval: ReturnType<typeof setInterval>;
+  private wss: WebSocketServer
+  private clients: Map<WebSocket, WebSocketClient> = new Map()
+  private heartbeatInterval: ReturnType<typeof setInterval>
 
   constructor(port: number = 4012) {
-    const server = createServer();
-    this.wss = new WebSocketServer({ server });
-    this.wss.on('connection', (ws) => this.handleConnection(ws));
+    const server = createServer()
+    this.wss = new WebSocketServer({
+      server,
+      // SECURITY: Limit max payload size
+      maxPayload: MAX_MESSAGE_SIZE,
+      // SECURITY: Verify client callback for origin validation
+      verifyClient: (info: {
+        origin: string
+        secure: boolean
+        req: IncomingMessage
+      }) => {
+        // SECURITY: Enforce connection limit
+        if (this.clients.size >= MAX_CONNECTIONS) {
+          console.warn(
+            '[WebSocket] Connection rejected: max connections reached',
+          )
+          return false
+        }
+        // SECURITY: Validate origin in production
+        if (!isOriginAllowed(info.origin)) {
+          console.warn(
+            `[WebSocket] Connection rejected: invalid origin ${info.origin}`,
+          )
+          return false
+        }
+        return true
+      },
+    })
+    this.wss.on('connection', (ws, req) => this.handleConnection(ws, req))
 
     server.listen(port, () => {
-      console.log(`📡 WebSocket server running on ws://localhost:${port}`);
-    });
+      console.log(`📡 WebSocket server running on ws://localhost:${port}`)
+      if (isProduction && ALLOWED_ORIGINS.length > 0) {
+        console.log(`   Origin whitelist: ${ALLOWED_ORIGINS.join(', ')}`)
+      }
+    })
 
     this.heartbeatInterval = setInterval(() => {
       this.wss.clients.forEach((ws) => {
-        if (ws.readyState === WebSocket.OPEN) ws.ping();
-      });
-    }, 30000);
+        if (ws.readyState === WebSocket.OPEN) ws.ping()
+      })
+    }, 30000)
   }
 
-  private handleConnection(ws: WebSocket): void {
-    const client: WebSocketClient = { ws, subscriptions: new Set(), chainFilters: new Set() };
-    this.clients.set(ws, client);
+  private handleConnection(ws: WebSocket, _req: IncomingMessage): void {
+    const client: WebSocketClient = {
+      ws,
+      subscriptions: new Set(),
+      chainFilters: new Set(),
+    }
+    this.clients.set(ws, client)
 
     ws.on('message', (data: RawData) => {
-      this.handleMessage(client, JSON.parse(data.toString()) as WSMessage);
-    });
+      // SECURITY: Check message size (redundant with maxPayload but explicit)
+      const dataStr = data.toString()
+      if (dataStr.length > MAX_MESSAGE_SIZE) {
+        ws.send(JSON.stringify({ type: 'error', message: 'Message too large' }))
+        return
+      }
 
-    ws.on('close', () => this.clients.delete(ws));
-    ws.on('error', (error: Error) => console.error('WebSocket error:', error.message));
+      // SECURITY: Safe JSON parsing with try-catch
+      let parsed: unknown
+      try {
+        parsed = JSON.parse(dataStr)
+      } catch {
+        ws.send(JSON.stringify({ type: 'error', message: 'Invalid JSON' }))
+        return
+      }
 
-    ws.send(JSON.stringify({ type: 'connected', channels: ['intents', 'solvers', 'stats'], timestamp: Date.now() }));
+      // SECURITY: Validate message schema
+      const result = WSMessageSchema.safeParse(parsed)
+      if (!result.success) {
+        ws.send(
+          JSON.stringify({ type: 'error', message: 'Invalid message format' }),
+        )
+        return
+      }
+
+      this.handleMessage(client, result.data)
+    })
+
+    ws.on('close', () => this.clients.delete(ws))
+    ws.on('error', (error: Error) =>
+      console.error('WebSocket error:', error.message),
+    )
+
+    ws.send(
+      JSON.stringify({
+        type: 'connected',
+        channels: Array.from(VALID_CHANNELS),
+        timestamp: Date.now(),
+      }),
+    )
   }
 
   private handleMessage(client: WebSocketClient, message: WSMessage): void {
     switch (message.action) {
       case 'subscribe':
-        client.subscriptions.add(message.channel);
-        if (message.chainId) client.chainFilters.add(message.chainId);
-        client.ws.send(JSON.stringify({ type: 'subscribed', channel: message.channel, chainId: message.chainId }));
-        break;
+        // SECURITY: Validate channel name
+        if (!VALID_CHANNELS.has(message.channel)) {
+          client.ws.send(
+            JSON.stringify({ type: 'error', message: 'Invalid channel' }),
+          )
+          return
+        }
+        // SECURITY: Limit subscriptions per client
+        if (client.subscriptions.size >= 10) {
+          client.ws.send(
+            JSON.stringify({
+              type: 'error',
+              message: 'Too many subscriptions',
+            }),
+          )
+          return
+        }
+        client.subscriptions.add(message.channel)
+        if (message.chainId) client.chainFilters.add(message.chainId)
+        client.ws.send(
+          JSON.stringify({
+            type: 'subscribed',
+            channel: message.channel,
+            chainId: message.chainId,
+          }),
+        )
+        break
       case 'unsubscribe':
-        client.subscriptions.delete(message.channel);
-        client.ws.send(JSON.stringify({ type: 'unsubscribed', channel: message.channel }));
-        break;
+        client.subscriptions.delete(message.channel)
+        client.ws.send(
+          JSON.stringify({ type: 'unsubscribed', channel: message.channel }),
+        )
+        break
       case 'ping':
-        client.ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }));
-        break;
+        client.ws.send(JSON.stringify({ type: 'pong', timestamp: Date.now() }))
+        break
     }
   }
 
   broadcastIntent(update: IntentUpdate): void {
-    const message = JSON.stringify(update);
+    const message = JSON.stringify(update)
     this.clients.forEach((client) => {
-      if (!client.subscriptions.has('intents')) return;
+      if (!client.subscriptions.has('intents')) return
       if (client.chainFilters.size > 0) {
-        const intentChain = update.intent.sourceChainId;
-        const destChain = update.intent.outputs[0]?.chainId;
-        if (!client.chainFilters.has(intentChain) && (!destChain || !client.chainFilters.has(destChain))) return;
+        const intentChain = update.intent.sourceChainId
+        const destChain = update.intent.outputs[0]?.chainId
+        if (
+          !client.chainFilters.has(intentChain) &&
+          (!destChain || !client.chainFilters.has(destChain))
+        )
+          return
       }
-      if (client.ws.readyState === WebSocket.OPEN) client.ws.send(message);
-    });
+      if (client.ws.readyState === WebSocket.OPEN) client.ws.send(message)
+    })
   }
 
   broadcastSolver(update: SolverUpdate): void {
-    const message = JSON.stringify(update);
+    const message = JSON.stringify(update)
     this.clients.forEach((client) => {
-      if (client.subscriptions.has('solvers') && client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(message);
+      if (
+        client.subscriptions.has('solvers') &&
+        client.ws.readyState === WebSocket.OPEN
+      ) {
+        client.ws.send(message)
       }
-    });
+    })
   }
 
-  broadcastStats(stats: Record<string, unknown>): void {
-    const message = JSON.stringify({ type: 'stats_update', stats, timestamp: Date.now() });
+  broadcastStats(stats: JsonObject): void {
+    const message = JSON.stringify({
+      type: 'stats_update',
+      stats,
+      timestamp: Date.now(),
+    })
     this.clients.forEach((client) => {
-      if (client.subscriptions.has('stats') && client.ws.readyState === WebSocket.OPEN) {
-        client.ws.send(message);
+      if (
+        client.subscriptions.has('stats') &&
+        client.ws.readyState === WebSocket.OPEN
+      ) {
+        client.ws.send(message)
       }
-    });
+    })
   }
 
   getClientCount(): number {
-    return this.clients.size;
+    return this.clients.size
   }
 
   close(): void {
-    clearInterval(this.heartbeatInterval);
-    this.wss.close();
+    clearInterval(this.heartbeatInterval)
+    this.wss.close()
   }
 }
 
-let wsServer: IntentWebSocketServer | null = null;
+let wsServer: IntentWebSocketServer | null = null
 
 export function getWebSocketServer(port?: number): IntentWebSocketServer {
-  if (!wsServer) wsServer = new IntentWebSocketServer(port);
-  return wsServer;
+  if (!wsServer) wsServer = new IntentWebSocketServer(port)
+  return wsServer
 }
 
 export function broadcastIntentUpdate(update: IntentUpdate): void {
-  wsServer?.broadcastIntent(update);
+  wsServer?.broadcastIntent(update)
 }
 
 export function broadcastSolverUpdate(update: SolverUpdate): void {
-  wsServer?.broadcastSolver(update);
+  wsServer?.broadcastSolver(update)
 }
 
-export function broadcastStatsUpdate(stats: Record<string, unknown>): void {
-  wsServer?.broadcastStats(stats);
+export function broadcastStatsUpdate(stats: JsonObject): void {
+  wsServer?.broadcastStats(stats)
 }

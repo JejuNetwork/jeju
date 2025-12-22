@@ -3,25 +3,28 @@
  * Shared authentication business logic
  */
 
-import type { Address, Hex } from 'viem';
-import { verifyMessage } from 'viem';
-import { getWalletService } from '../services/wallet';
-import { getStateManager } from '../services/state';
-import { expectValid, AuthVerifyRequestSchema } from '../schemas';
-import { validateNonce } from '../utils/validation';
+import type { Address, Hex } from 'viem'
+import { verifyMessage } from 'viem'
+import { AuthVerifyRequestSchema, expectValid } from '../schemas'
+import { getStateManager } from '../services/state'
+import { getWalletService } from '../services/wallet'
+import { validateNonce } from '../utils/validation'
 
 /**
  * Generate authentication message for wallet signing
  */
-export function generateAuthMessage(address: Address): { message: string; nonce: string } {
+export function generateAuthMessage(address: Address): {
+  message: string
+  nonce: string
+} {
   if (!address) {
-    throw new Error('Address is required for auth message');
+    throw new Error('Address is required for auth message')
   }
-  
-  const nonce = crypto.randomUUID();
-  const message = `Sign in to Otto\nAddress: ${address}\nNonce: ${nonce}`;
-  
-  return { message, nonce };
+
+  const nonce = crypto.randomUUID()
+  const message = `Sign in to Otto\nAddress: ${address}\nNonce: ${nonce}`
+
+  return { message, nonce }
 }
 
 /**
@@ -32,45 +35,49 @@ export async function verifyAndConnectWallet(
   message: string,
   signature: Hex,
   sessionId: string,
-  platform: 'web' = 'web'
+  platform: 'web' = 'web',
 ): Promise<{ success: boolean; error?: string }> {
-  const walletService = getWalletService();
-  const stateManager = getStateManager();
-  
+  const walletService = getWalletService()
+  const stateManager = getStateManager()
+
   // Validate inputs
-  const validated = expectValid(AuthVerifyRequestSchema, {
-    address,
-    message,
-    signature,
-    sessionId,
-  }, 'auth verify request');
+  const validated = expectValid(
+    AuthVerifyRequestSchema,
+    {
+      address,
+      message,
+      signature,
+      sessionId,
+    },
+    'auth verify request',
+  )
 
   // Verify signature
   const valid = await verifyMessage({
     address: validated.address,
     message: validated.message,
     signature: validated.signature,
-  });
+  })
 
   if (!valid) {
-    return { success: false, error: 'Invalid signature' };
+    return { success: false, error: 'Invalid signature' }
   }
 
   // Extract nonce from message
-  const nonceMatch = validated.message.match(/Nonce: ([a-zA-Z0-9-]+)/);
+  const nonceMatch = validated.message.match(/Nonce: ([a-zA-Z0-9-]+)/)
   if (!nonceMatch || !nonceMatch[1]) {
-    throw new Error('Nonce not found in message');
+    throw new Error('Nonce not found in message')
   }
-  
-  const nonce = validateNonce(nonceMatch[1]);
+
+  const nonce = validateNonce(nonceMatch[1])
 
   // Update session
-  const session = stateManager.getSession(validated.sessionId);
+  const session = stateManager.getSession(validated.sessionId)
   if (session) {
     stateManager.updateSession(validated.sessionId, {
       userId: validated.address,
       walletAddress: validated.address,
-    });
+    })
   }
 
   // Connect wallet
@@ -80,8 +87,8 @@ export async function verifyAndConnectWallet(
     validated.address,
     validated.address,
     validated.signature,
-    nonce
-  );
+    nonce,
+  )
 
-  return { success: true };
+  return { success: true }
 }

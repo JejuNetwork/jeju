@@ -1,27 +1,34 @@
-import { useState, type ComponentType } from 'react';
-import { RefreshCw, TrendingUp, AlertTriangle, CheckCircle, Clock, type LucideProps } from 'lucide-react';
-import { useFeedDetails } from '../../hooks/useOracleNetwork';
 import {
-  formatPrice,
+  AlertTriangle,
+  CheckCircle,
+  Clock,
+  type LucideProps,
+  RefreshCw,
+  TrendingUp,
+} from 'lucide-react'
+import { type ComponentType, useState } from 'react'
+import { useFeedDetails } from '../../hooks/useOracleNetwork'
+import {
+  FEED_CATEGORY_LABELS,
+  type FeedCategory,
   formatConfidence,
+  formatPrice,
   formatTimeAgo,
   isPriceStale,
-  FEED_CATEGORY_LABELS,
-  FeedCategory,
-} from '../../lib/oracleNetwork';
+} from '../../lib/oracleNetwork'
 
-const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>;
-const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>;
-const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>;
-const ClockIcon = Clock as ComponentType<LucideProps>;
-const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>;
+const TrendingUpIcon = TrendingUp as ComponentType<LucideProps>
+const CheckCircleIcon = CheckCircle as ComponentType<LucideProps>
+const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>
+const ClockIcon = Clock as ComponentType<LucideProps>
+const RefreshCwIcon = RefreshCw as ComponentType<LucideProps>
 
 interface FeedsViewProps {
-  feedIds: `0x${string}`[];
+  feedIds: `0x${string}`[]
 }
 
 export function FeedsView({ feedIds }: FeedsViewProps) {
-  const [selectedFeed, setSelectedFeed] = useState<`0x${string}` | null>(null);
+  const [selectedFeed, setSelectedFeed] = useState<`0x${string}` | null>(null)
 
   if (feedIds.length === 0) {
     return (
@@ -32,7 +39,7 @@ export function FeedsView({ feedIds }: FeedsViewProps) {
           Oracle feeds will appear here once they are created and activated.
         </p>
       </div>
-    );
+    )
   }
 
   return (
@@ -44,27 +51,33 @@ export function FeedsView({ feedIds }: FeedsViewProps) {
             key={feedId}
             feedId={feedId}
             isSelected={selectedFeed === feedId}
-            onSelect={() => setSelectedFeed(selectedFeed === feedId ? null : feedId)}
+            onSelect={() =>
+              setSelectedFeed(selectedFeed === feedId ? null : feedId)
+            }
           />
         ))}
       </div>
 
       {/* Selected Feed Details */}
       {selectedFeed && (
-        <FeedDetailsPanel feedId={selectedFeed} onClose={() => setSelectedFeed(null)} />
+        <FeedDetailsPanel
+          feedId={selectedFeed}
+          onClose={() => setSelectedFeed(null)}
+        />
       )}
     </div>
-  );
+  )
 }
 
 interface FeedCardProps {
-  feedId: `0x${string}`;
-  isSelected: boolean;
-  onSelect: () => void;
+  feedId: `0x${string}`
+  isSelected: boolean
+  onSelect: () => void
 }
 
 function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
-  const { feedSpec, price, confidence, timestamp, isValid, refetch } = useFeedDetails(feedId);
+  const { feedSpec, price, confidence, timestamp, isValid, refetch } =
+    useFeedDetails(feedId)
 
   if (!feedSpec) {
     return (
@@ -72,16 +85,21 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
         <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-24 mb-2" />
         <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-32" />
       </div>
-    );
+    )
   }
 
-  const stale = timestamp ? isPriceStale(timestamp, feedSpec.heartbeatSeconds) : true;
-  const categoryLabel = FEED_CATEGORY_LABELS[feedSpec.category as FeedCategory] ?? 'Unknown';
+  const stale = timestamp
+    ? isPriceStale(timestamp, feedSpec.heartbeatSeconds)
+    : true
+  const categoryLabel =
+    FEED_CATEGORY_LABELS[feedSpec.category as FeedCategory] ?? 'Unknown'
 
   return (
     <div
       className={`card p-4 cursor-pointer transition-all ${
-        isSelected ? 'ring-2 ring-purple-500' : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+        isSelected
+          ? 'ring-2 ring-purple-500'
+          : 'hover:bg-gray-50 dark:hover:bg-gray-800'
       }`}
       onClick={onSelect}
     >
@@ -96,7 +114,8 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
               </span>
             </div>
             <div className="text-xs text-gray-500">
-              {feedSpec.minOracles} oracles • {feedSpec.quorumThreshold} threshold
+              {feedSpec.minOracles} oracles • {feedSpec.quorumThreshold}{' '}
+              threshold
             </div>
           </div>
         </div>
@@ -133,26 +152,27 @@ function FeedCard({ feedId, isSelected, onSelect }: FeedCardProps) {
         <button
           className="ml-4 p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
           onClick={(e) => {
-            e.stopPropagation();
-            refetch();
+            e.stopPropagation()
+            refetch()
           }}
         >
           <RefreshCwIcon size={16} />
         </button>
       </div>
     </div>
-  );
+  )
 }
 
 interface FeedDetailsPanelProps {
-  feedId: `0x${string}`;
-  onClose: () => void;
+  feedId: `0x${string}`
+  onClose: () => void
 }
 
 function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
-  const { feedSpec, consensusPrice, currentRound, refetch } = useFeedDetails(feedId);
+  const { feedSpec, consensusPrice, currentRound, refetch } =
+    useFeedDetails(feedId)
 
-  if (!feedSpec) return null;
+  if (!feedSpec) return null
 
   return (
     <div className="card p-6 mt-4 border-2 border-purple-200 dark:border-purple-800">
@@ -169,7 +189,9 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <div>
           <div className="text-xs text-gray-500 mb-1">Feed ID</div>
-          <div className="font-mono text-sm truncate">{feedId.slice(0, 10)}...{feedId.slice(-8)}</div>
+          <div className="font-mono text-sm truncate">
+            {feedId.slice(0, 10)}...{feedId.slice(-8)}
+          </div>
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Current Round</div>
@@ -177,7 +199,9 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Oracle Count</div>
-          <div className="font-mono">{consensusPrice?.oracleCount?.toString() ?? '0'}</div>
+          <div className="font-mono">
+            {consensusPrice?.oracleCount?.toString() ?? '0'}
+          </div>
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Heartbeat</div>
@@ -192,7 +216,9 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
         </div>
         <div>
           <div className="text-xs text-gray-500 mb-1">Quote Token</div>
-          <div className="font-mono text-sm truncate">{feedSpec.quoteToken}</div>
+          <div className="font-mono text-sm truncate">
+            {feedSpec.quoteToken}
+          </div>
         </div>
       </div>
 
@@ -214,7 +240,9 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
       {consensusPrice?.reportHash && (
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
           <div className="text-xs text-gray-500 mb-1">Last Report Hash</div>
-          <div className="font-mono text-sm truncate">{consensusPrice.reportHash}</div>
+          <div className="font-mono text-sm truncate">
+            {consensusPrice.reportHash}
+          </div>
         </div>
       )}
 
@@ -228,7 +256,7 @@ function FeedDetailsPanel({ feedId, onClose }: FeedDetailsPanelProps) {
         </button>
       </div>
     </div>
-  );
+  )
 }
 
-export default FeedsView;
+export default FeedsView

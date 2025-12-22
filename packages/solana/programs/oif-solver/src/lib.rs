@@ -54,19 +54,21 @@ pub mod oif_solver {
     }
 
     /// Register a solver
+    /// stake_amount is passed as an instruction parameter for validation
     pub fn register_solver(
         ctx: Context<RegisterSolver>,
         supported_chains: Vec<u32>,
+        stake_amount: u64,
     ) -> Result<()> {
         require!(
-            ctx.accounts.stake_amount.lamports() >= ctx.accounts.config.min_solver_stake,
+            stake_amount >= ctx.accounts.config.min_solver_stake,
             OIFError::InsufficientStake
         );
         require!(supported_chains.len() <= 20, OIFError::TooManyChains);
 
         let solver = &mut ctx.accounts.solver;
         solver.owner = ctx.accounts.owner.key();
-        solver.stake = ctx.accounts.stake_amount.lamports();
+        solver.stake = stake_amount;
         solver.supported_chains = supported_chains;
         solver.intents_filled = 0;
         solver.total_volume = 0;
@@ -75,7 +77,7 @@ pub mod oif_solver {
         solver.registered_at = Clock::get()?.unix_timestamp;
         solver.bump = ctx.bumps.solver;
 
-        // Transfer stake
+        // Transfer stake from owner to vault
         anchor_lang::system_program::transfer(
             CpiContext::new(
                 ctx.accounts.system_program.to_account_info(),
@@ -84,7 +86,7 @@ pub mod oif_solver {
                     to: ctx.accounts.stake_vault.to_account_info(),
                 },
             ),
-            ctx.accounts.stake_amount.lamports(),
+            stake_amount,
         )?;
 
         emit!(SolverRegistered {
@@ -176,13 +178,25 @@ pub mod oif_solver {
     }
 
     /// Fill an intent (solver executes the cross-chain swap)
+    /// 
+    /// SECURITY NOTE: destination_tx_hash is currently accepted without verification.
+    /// In production, this should be verified via a light client or oracle system
+    /// to ensure the solver actually executed the swap on the destination chain.
+    /// Without verification, a malicious solver could claim fills without delivery.
+    /// 
+    /// Consider integrating with:
+    /// - EVM Light Client for cross-chain proof verification
+    /// - Oracle-based attestation for destination chain transactions
+    /// - A challenge/dispute period before releasing funds
     pub fn fill_intent(
         ctx: Context<FillIntent>,
         fill_amount: u64,
         destination_tx_hash: [u8; 32], // Proof of destination chain execution
     ) -> Result<()> {
         let clock = Clock::get()?;
-        let intent = &mut ctx.accounts.intent;
+        
+        // Get immutable references first for validation
+        let intent = &ctx.accounts.intent;
 
         require!(intent.status == IntentStatus::Open, OIFError::IntentNotOpen);
         require!(clock.unix_timestamp < intent.expiry, OIFError::IntentExpired);
@@ -217,21 +231,33 @@ pub mod oif_solver {
 
         let solver_receives = actual_fill.checked_sub(fee).ok_or(OIFError::MathOverflow)?;
 
+        // Get account infos and keys before mutable borrow
+        let intent_id = intent.intent_id;
+        let intent_bump = intent.bump;
+        let intent_source_amount = intent.source_amount;
+        let intent_key = ctx.accounts.intent.key();
+        let solver_key = ctx.accounts.solver.key();
+        let intent_account_info = ctx.accounts.intent.to_account_info();
+        let token_program_info = ctx.accounts.token_program.to_account_info();
+        let escrow_account_info = ctx.accounts.escrow_token_account.to_account_info();
+        let solver_token_info = ctx.accounts.solver_token_account.to_account_info();
+        let fee_account_info = ctx.accounts.fee_account.to_account_info();
+
         // Transfer tokens from escrow to solver
         let intent_seeds = &[
             INTENT_SEED,
-            intent.intent_id.as_ref(),
-            &[intent.bump],
+            intent_id.as_ref(),
+            &[intent_bump],
         ];
         let signer = &[&intent_seeds[..]];
 
         token::transfer(
             CpiContext::new_with_signer(
-                ctx.accounts.token_program.to_account_info(),
+                token_program_info.clone(),
                 Transfer {
-                    from: ctx.accounts.escrow_token_account.to_account_info(),
-                    to: ctx.accounts.solver_token_account.to_account_info(),
-                    authority: ctx.accounts.intent.to_account_info(),
+                    from: escrow_account_info.clone(),
+                    to: solver_token_info,
+                    authority: intent_account_info.clone(),
                 },
                 signer,
             ),
@@ -242,11 +268,11 @@ pub mod oif_solver {
         if fee > 0 {
             token::transfer(
                 CpiContext::new_with_signer(
-                    ctx.accounts.token_program.to_account_info(),
+                    token_program_info,
                     Transfer {
-                        from: ctx.accounts.escrow_token_account.to_account_info(),
-                        to: ctx.accounts.fee_account.to_account_info(),
-                        authority: ctx.accounts.intent.to_account_info(),
+                        from: escrow_account_info,
+                        to: fee_account_info,
+                        authority: intent_account_info,
                     },
                     signer,
                 ),
@@ -254,11 +280,12 @@ pub mod oif_solver {
             )?;
         }
 
-        // Update intent
+        // Now do mutable updates
+        let intent = &mut ctx.accounts.intent;
         intent.amount_filled = intent.amount_filled.checked_add(actual_fill)
             .ok_or(OIFError::MathOverflow)?;
         
-        if intent.amount_filled >= intent.source_amount {
+        if intent.amount_filled >= intent_source_amount {
             intent.status = IntentStatus::Filled;
             intent.filled_at = clock.unix_timestamp;
         }
@@ -276,12 +303,14 @@ pub mod oif_solver {
         config.total_volume = config.total_volume.checked_add(actual_fill as u128)
             .ok_or(OIFError::MathOverflow)?;
 
+        let final_remaining = intent_source_amount.saturating_sub(intent.amount_filled);
+
         emit!(IntentFilled {
-            intent: intent.key(),
-            solver: solver.key(),
+            intent: intent_key,
+            solver: solver_key,
             fill_amount: actual_fill,
             destination_tx_hash,
-            remaining: intent.source_amount.saturating_sub(intent.amount_filled),
+            remaining: final_remaining,
         });
 
         Ok(())
@@ -569,10 +598,6 @@ pub struct RegisterSolver<'info> {
     )]
     pub solver: Account<'info, Solver>,
 
-    /// CHECK: Stake amount account
-    #[account(mut)]
-    pub stake_amount: SystemAccount<'info>,
-
     /// CHECK: Stake vault PDA
     #[account(
         mut,
@@ -661,20 +686,24 @@ pub struct FillIntent<'info> {
     )]
     pub escrow_token_account: Account<'info, TokenAccount>,
 
+    /// SECURITY: Removed init_if_needed to prevent front-running attacks
+    /// Solver must create their token account before calling fill_intent
     #[account(
-        init_if_needed,
-        payer = solver_owner,
+        mut,
         associated_token::mint = intent.source_token,
         associated_token::authority = solver_owner,
     )]
     pub solver_token_account: Account<'info, TokenAccount>,
 
-    /// CHECK: Fee recipient from config
-    #[account(mut)]
-    pub fee_account: AccountInfo<'info>,
+    /// Fee recipient token account - must be owned by config authority
+    #[account(
+        mut,
+        token::mint = intent.source_token,
+        token::authority = config.authority
+    )]
+    pub fee_account: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 
@@ -730,16 +759,16 @@ pub struct ExpireIntent<'info> {
     #[account(mut, address = intent.creator)]
     pub creator: AccountInfo<'info>,
 
+    /// SECURITY: Use `mut` constraint instead of `init_if_needed` to prevent front-running attacks.
+    /// The token account must already exist (was created when intent was created).
     #[account(
-        init_if_needed,
-        payer = caller,
+        mut,
         associated_token::mint = intent.source_token,
         associated_token::authority = creator,
     )]
     pub creator_token_account: Account<'info, TokenAccount>,
 
     pub token_program: Program<'info, Token>,
-    pub associated_token_program: Program<'info, AssociatedToken>,
     pub system_program: Program<'info, System>,
 }
 

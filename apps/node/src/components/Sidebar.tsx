@@ -1,20 +1,20 @@
-import { 
-  LayoutDashboard, 
-  Server, 
-  Bot, 
-  TrendingUp, 
-  Coins, 
-  Settings, 
+import { getNetworkName } from '@jejunetwork/config'
+import clsx from 'clsx'
+import {
+  Bot,
+  Coins,
+  LayoutDashboard,
+  Server,
+  Settings,
+  Shield,
+  TrendingUp,
   Wallet,
   Zap,
-  Shield
-} from 'lucide-react';
-import { useAppStore } from '../store';
-import type { ViewType } from '../types';
-import clsx from 'clsx';
-import { getNetworkName } from '@jejunetwork/config';
+} from 'lucide-react'
+import { useAppStore } from '../store'
+import type { ViewType } from '../types'
 
-const networkName = getNetworkName();
+const networkName = getNetworkName()
 
 const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: <LayoutDashboard size={20} /> },
@@ -24,13 +24,14 @@ const navItems: { id: ViewType; label: string; icon: React.ReactNode }[] = [
   { id: 'staking', label: 'Staking', icon: <Coins size={20} /> },
   { id: 'wallet', label: 'Wallet', icon: <Wallet size={20} /> },
   { id: 'settings', label: 'Settings', icon: <Settings size={20} /> },
-];
+]
 
 export function Sidebar() {
-  const { currentView, setCurrentView, services, hardware, wallet } = useAppStore();
-  
-  const runningServices = services.filter(s => s.status.running).length;
-  const hasTee = hardware?.tee.attestation_available;
+  const { currentView, setCurrentView, services, hardware, wallet } =
+    useAppStore()
+
+  const runningServices = services.filter((s) => s.status.running).length
+  const hasTee = hardware?.tee.attestation_available
 
   return (
     <aside className="w-64 bg-volcanic-900/50 border-r border-volcanic-800 flex flex-col">
@@ -41,7 +42,9 @@ export function Sidebar() {
             <Zap size={24} className="text-white" />
           </div>
           <div>
-            <h1 className="font-bold text-lg gradient-text">{networkName} Node</h1>
+            <h1 className="font-bold text-lg gradient-text">
+              {networkName} Node
+            </h1>
             <p className="text-xs text-volcanic-500">v0.1.0</p>
           </div>
         </div>
@@ -65,7 +68,7 @@ export function Sidebar() {
             )}
           </div>
         </div>
-        
+
         {hasTee && (
           <div className="flex items-center gap-2 mt-2 text-xs text-volcanic-400">
             <Shield size={14} className="text-jeju-500" />
@@ -84,7 +87,7 @@ export function Sidebar() {
               'w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200',
               currentView === item.id
                 ? 'bg-jeju-600/20 text-jeju-400 border border-jeju-500/30'
-                : 'text-volcanic-400 hover:text-volcanic-200 hover:bg-volcanic-800/50'
+                : 'text-volcanic-400 hover:text-volcanic-200 hover:bg-volcanic-800/50',
             )}
           >
             {item.icon}
@@ -96,7 +99,10 @@ export function Sidebar() {
       {/* Wallet Status */}
       <div className="p-4 border-t border-volcanic-800">
         {wallet ? (
-          <div className="card-hover p-3 cursor-pointer" onClick={() => setCurrentView('wallet')}>
+          <div
+            className="card-hover p-3 cursor-pointer"
+            onClick={() => setCurrentView('wallet')}
+          >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-full bg-jeju-600/20 flex items-center justify-center">
                 <Wallet size={16} className="text-jeju-400" />
@@ -105,7 +111,9 @@ export function Sidebar() {
                 <p className="text-sm font-medium truncate">
                   {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
                 </p>
-                <p className="text-xs text-volcanic-500 capitalize">{wallet.wallet_type}</p>
+                <p className="text-xs text-volcanic-500 capitalize">
+                  {wallet.wallet_type}
+                </p>
               </div>
             </div>
           </div>
@@ -119,6 +127,5 @@ export function Sidebar() {
         )}
       </div>
     </aside>
-  );
+  )
 }
-

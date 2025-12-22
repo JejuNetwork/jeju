@@ -48,5 +48,8 @@ config:
   systemConfigAddr: "0x586b880fB2f6831F1a1AD1E6754861008264816c"
 
 # Secrets - must be hex-encoded 32 bytes for JWT
+# SECURITY: JWT secret must be injected at deploy time
+# Generate with: openssl rand -hex 32
+# Deploy with: --set secrets.jwtSecret=$JWT_SECRET
 secrets:
-  jwtSecret: "a5f4967ffe019fb71673f9a5154412081357e9c4e0191d5560728ed777b8ddb0"
+  jwtSecret: ""

@@ -48,7 +48,7 @@ services:
     container_name: jeju-grafana
     restart: unless-stopped
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?GRAFANA_ADMIN_PASSWORD is required}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_HTTP_PORT=${GRAFANA_PORT:-4010}
       - GF_DASHBOARDS_VERSIONS_TO_KEEP=5

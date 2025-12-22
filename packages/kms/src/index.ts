@@ -5,7 +5,7 @@
  * - MPC: Threshold key sharing (Shamir's Secret Sharing)
  * - TEE: Hardware enclaves (set TEE_ENDPOINT for production)
  * - Encryption: AES-256-GCM with policy-based access
- * 
+ *
  * Self-hosted - no external APIs or fees.
  *
  * @example
@@ -24,142 +24,135 @@
  * ```
  */
 
+// Crypto utilities
+export {
+  type AESGCMPayload,
+  aesGcmDecrypt,
+  aesGcmEncrypt,
+  constantTimeCompare,
+  decryptFromPayload,
+  deriveEncryptionKey,
+  deriveKeyForEncryption,
+  deriveKeyFromSecret,
+  encryptToPayload,
+  generateKeyId,
+  parseCiphertextPayload,
+  sealWithMasterKey,
+  unsealWithMasterKey,
+} from './crypto.js'
 // Core service
-export { KMSService, getKMS, resetKMS } from './kms.js';
-
+export { getKMS, KMSService, resetKMS } from './kms.js'
+// Logger
+export { createLogger, kmsLogger } from './logger.js'
+// MPC Coordinator
+export {
+  DEFAULT_MPC_CONFIG,
+  getMPCConfig,
+  getMPCCoordinator,
+  type KeyRotationParams,
+  type KeyRotationResult,
+  type KeyVersion,
+  MPCCoordinator,
+  type MPCCoordinatorConfig,
+  type MPCKeyGenParams,
+  type MPCKeyGenResult,
+  type MPCParty,
+  type MPCSignatureResult,
+  type MPCSignRequest,
+  type MPCSignSession,
+  resetMPCCoordinator,
+} from './mpc/index.js'
 // Providers
 export {
   EncryptionProvider,
   getEncryptionProvider,
-  resetEncryptionProvider,
-  TEEProvider,
-  getTEEProvider,
-  resetTEEProvider,
-  MPCProvider,
   getMPCProvider,
+  getTEEProvider,
+  MPCProvider,
+  resetEncryptionProvider,
   resetMPCProvider,
-} from './providers/index.js';
-
-// MPC Coordinator
+  resetTEEProvider,
+  TEEProvider,
+} from './providers/index.js'
+// Validation schemas
 export {
-  MPCCoordinator,
-  getMPCCoordinator,
-  resetMPCCoordinator,
-  type MPCParty,
-  type MPCKeyGenParams,
-  type MPCKeyGenResult,
-  type MPCSignRequest,
-  type MPCSignSession,
-  type MPCSignatureResult,
-  type KeyRotationParams,
-  type KeyRotationResult,
-  type KeyVersion,
-  type MPCCoordinatorConfig,
-  DEFAULT_MPC_CONFIG,
-  getMPCConfig,
-} from './mpc/index.js';
-
-// SecretVault
-export {
-  SecretVault,
-  getSecretVault,
-  resetSecretVault,
-  type Secret,
-  type SecretVersion,
-  type SecretPolicy,
-  type SecretAccessLog,
-  type VaultConfig,
-} from './vault/index.js';
-
+  ciphertextPayloadSchema,
+  encryptionConfigSchema,
+  encryptRequestSchema,
+  generateKeyOptionsSchema,
+  kmsConfigSchema,
+  mpcConfigSchema,
+  mpcCoordinatorConfigSchema,
+  mpcKeyGenParamsSchema,
+  mpcPartySchema,
+  mpcSignRequestSchema,
+  parseEnvInt,
+  secretPolicySchema,
+  signRequestSchema,
+  teeConfigSchema,
+  thresholdSignRequestSchema,
+  tokenClaimsSchema,
+  tokenHeaderSchema,
+  tokenOptionsSchema,
+  validateOrThrow,
+  vaultConfigSchema,
+  verifyTokenOptionsSchema,
+} from './schemas.js'
+// SDK utilities
+export * from './sdk/index.js'
 // Types
 export {
-  // Enums
-  KMSProviderType,
-  ConditionOperator,
-  // Type aliases
-  type KeyType,
-  type KeyCurve,
-  // Provider types
-  type KMSProvider,
-  type KMSConfig,
-  type EncryptionConfig,
-  type TEEConfig,
-  type MPCConfig,
   // Access control
   type AccessCondition,
   type AccessControlPolicy,
-  type ContractCondition,
-  type TimestampCondition,
-  type BalanceCondition,
-  type StakeCondition,
-  type RoleCondition,
   type AgentCondition,
-  // Keys
-  type KeyMetadata,
-  type GeneratedKey,
-  // Encryption
-  type EncryptedPayload,
-  type EncryptRequest,
-  type DecryptRequest,
-  // Signing
-  type SignRequest,
-  type SignedMessage,
-  type ThresholdSignRequest,
-  type ThresholdSignature,
   // Auth
   type AuthSignature,
-  type SessionKey,
+  type BalanceCondition,
+  ConditionOperator,
+  type ContractCondition,
+  type DecryptRequest,
+  // Encryption
+  type EncryptedPayload,
+  type EncryptionConfig,
+  type EncryptRequest,
+  type GeneratedKey,
+  type KeyCurve,
+  // Keys
+  type KeyMetadata,
+  // Type aliases
+  type KeyType,
+  type KMSConfig,
+  // Provider types
+  type KMSProvider,
+  // Enums
+  KMSProviderType,
+  type MPCConfig,
   // MPC
   type MPCKeyShare,
   type MPCSigningSession,
+  type RoleCondition,
+  type SessionKey,
+  type SignedMessage,
+  // Signing
+  type SignRequest,
+  type StakeCondition,
   // TEE
   type TEEAttestation,
+  type TEEConfig,
   type TEEKeyInfo,
-} from './types.js';
-
-// Logger
-export { createLogger, kmsLogger } from './logger.js';
-
-// Crypto utilities
+  type ThresholdSignature,
+  type ThresholdSignRequest,
+  type TimestampCondition,
+} from './types.js'
+// SecretVault
 export {
-  aesGcmEncrypt,
-  aesGcmDecrypt,
-  sealWithMasterKey,
-  unsealWithMasterKey,
-  deriveEncryptionKey,
-  encryptToPayload,
-  decryptFromPayload,
-  parseCiphertextPayload,
-  generateKeyId,
-  deriveKeyFromSecret,
-  deriveKeyForEncryption,
-  type AESGCMPayload,
-} from './crypto.js';
-
-// Validation schemas
-export {
-  kmsConfigSchema,
-  mpcConfigSchema,
-  teeConfigSchema,
-  encryptionConfigSchema,
-  generateKeyOptionsSchema,
-  encryptRequestSchema,
-  signRequestSchema,
-  thresholdSignRequestSchema,
-  tokenHeaderSchema,
-  tokenClaimsSchema,
-  tokenOptionsSchema,
-  verifyTokenOptionsSchema,
-  secretPolicySchema,
-  vaultConfigSchema,
-  mpcPartySchema,
-  mpcKeyGenParamsSchema,
-  mpcSignRequestSchema,
-  mpcCoordinatorConfigSchema,
-  ciphertextPayloadSchema,
-  validateOrThrow,
-  parseEnvInt,
-} from './schemas.js';
-
-// SDK utilities
-export * from './sdk/index.js';
+  getSecretVault,
+  resetSecretVault,
+  type Secret,
+  type SecretAccessLog,
+  type SecretPolicy,
+  SecretVault,
+  type SecretVersion,
+  type VaultConfig,
+} from './vault/index.js'

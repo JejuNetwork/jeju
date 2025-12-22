@@ -10,7 +10,7 @@ export function MobileNav() {
   }
 
   return (
-    <nav 
+    <nav
       className="fixed bottom-0 left-0 right-0 z-50 lg:hidden border-t safe-bottom"
       style={{
         backgroundColor: 'var(--surface)',
@@ -21,7 +21,7 @@ export function MobileNav() {
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon
           const active = isActive(item.href)
-          
+
           return (
             <Link
               key={item.href}
@@ -31,10 +31,12 @@ export function MobileNav() {
                 color: active ? 'var(--color-primary)' : 'var(--text-tertiary)',
               }}
             >
-              <div 
+              <div
                 className={`p-1.5 rounded-xl transition-all ${active ? 'scale-110' : ''}`}
                 style={{
-                  backgroundColor: active ? 'rgba(255, 107, 53, 0.15)' : 'transparent',
+                  backgroundColor: active
+                    ? 'rgba(255, 107, 53, 0.15)'
+                    : 'transparent',
                 }}
               >
                 <Icon className="w-5 h-5" />
@@ -47,4 +49,3 @@ export function MobileNav() {
     </nav>
   )
 }
-

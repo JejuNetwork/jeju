@@ -4,93 +4,100 @@
  */
 
 import {
+  type Account,
+  type Address,
+  type Chain,
   createPublicClient,
   createWalletClient,
-  http,
-  type Address,
-  type PublicClient,
-  type WalletClient,
   type Hash,
-} from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { base, baseSepolia, localhost } from 'viem/chains';
+  type HttpTransport,
+  http,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { base, baseSepolia, localhost } from 'viem/chains'
+import { expect, expectDefined } from './schemas'
 import type {
+  CEOPersona,
+  CouncilMemberConfig,
+  DAOStatus,
+  FundingConfig,
+  GovernanceParams,
+} from './types'
+
+// Re-export types for convenience
+export type {
   CEOPersona,
   GovernanceParams,
   CouncilMemberConfig,
   FundingConfig,
   DAOStatus,
-} from './types';
-import { expect, expectDefined } from './schemas';
-
-// Re-export types for convenience
-export type { CEOPersona, GovernanceParams, CouncilMemberConfig, FundingConfig, DAOStatus };
+}
 
 // Internal types
 export interface DAO {
-  daoId: string;
-  name: string;
-  displayName: string;
-  description: string;
-  treasury: Address;
-  council: Address;
-  ceoAgent: Address;
-  feeConfig: Address;
-  ceoModelId: string;
-  manifestCid: string;
-  status: DAOStatus;
-  createdAt: number;
-  updatedAt: number;
-  creator: Address;
+  daoId: string
+  name: string
+  displayName: string
+  description: string
+  treasury: Address
+  council: Address
+  ceoAgent: Address
+  feeConfig: Address
+  ceoModelId: string
+  manifestCid: string
+  status: DAOStatus
+  createdAt: number
+  updatedAt: number
+  creator: Address
 }
 
 export interface DAOFull {
-  dao: DAO;
-  ceoPersona: CEOPersona;
-  params: GovernanceParams;
-  councilMembers: CouncilMemberConfig[];
-  linkedPackages: string[];
-  linkedRepos: string[];
+  dao: DAO
+  ceoPersona: CEOPersona
+  params: GovernanceParams
+  councilMembers: CouncilMemberConfig[]
+  linkedPackages: string[]
+  linkedRepos: string[]
 }
 
 export interface FundingProject {
-  projectId: string;
-  daoId: string;
-  projectType: 'package' | 'repo';
-  registryId: string;
-  name: string;
-  description: string;
-  primaryRecipient: Address;
-  additionalRecipients: Address[];
-  recipientShares: number[];
-  ceoWeight: number;
-  communityStake: bigint;
-  totalFunded: bigint;
-  status: number;
-  createdAt: number;
-  lastFundedAt: number;
-  proposer: Address;
+  projectId: string
+  daoId: string
+  projectType: 'package' | 'repo'
+  registryId: string
+  name: string
+  description: string
+  primaryRecipient: Address
+  additionalRecipients: Address[]
+  recipientShares: number[]
+  ceoWeight: number
+  communityStake: bigint
+  totalFunded: bigint
+  status: number
+  createdAt: number
+  lastFundedAt: number
+  proposer: Address
 }
 
 export interface FundingEpoch {
-  epochId: number;
-  daoId: string;
-  startTime: number;
-  endTime: number;
-  totalBudget: bigint;
-  matchingPool: bigint;
-  distributed: bigint;
-  finalized: boolean;
+  epochId: number
+  daoId: string
+  startTime: number
+  endTime: number
+  totalBudget: bigint
+  matchingPool: bigint
+  distributed: bigint
+  finalized: boolean
 }
 
 export interface FundingAllocation {
-  projectId: string;
-  projectName: string;
-  ceoWeight: number;
-  communityStake: bigint;
-  stakerCount: number;
-  allocation: bigint;
-  allocationPercentage: number;
+  projectId: string
+  projectName: string
+  ceoWeight: number
+  communityStake: bigint
+  stakerCount: number
+  allocation: bigint
+  allocationPercentage: number
 }
 
 // ============ ABIs ============
@@ -552,7 +559,7 @@ const DAORegistryABI = [
       { name: 'newModel', type: 'bytes32', indexed: false },
     ],
   },
-] as const;
+] as const
 
 const DAOFundingABI = [
   {
@@ -784,185 +791,201 @@ const DAOFundingABI = [
     ],
     stateMutability: 'view',
   },
-] as const;
+] as const
 
 // ============ Types ============
 
 export interface DAOServiceConfig {
-  rpcUrl: string;
-  chainId: number;
-  daoRegistryAddress: Address;
-  daoFundingAddress: Address;
-  privateKey?: string;
+  rpcUrl: string
+  chainId: number
+  daoRegistryAddress: Address
+  daoFundingAddress: Address
+  privateKey?: string
 }
 
 interface RawDAOResult {
-  daoId: `0x${string}`;
-  name: string;
-  displayName: string;
-  description: string;
-  treasury: Address;
-  council: Address;
-  ceoAgent: Address;
-  feeConfig: Address;
-  ceoModelId: `0x${string}`;
-  manifestCid: string;
-  status: number;
-  createdAt: bigint;
-  updatedAt: bigint;
-  creator: Address;
+  daoId: `0x${string}`
+  name: string
+  displayName: string
+  description: string
+  treasury: Address
+  council: Address
+  ceoAgent: Address
+  feeConfig: Address
+  ceoModelId: `0x${string}`
+  manifestCid: string
+  status: number
+  createdAt: bigint
+  updatedAt: bigint
+  creator: Address
 }
 
 interface RawPersonaResult {
-  name: string;
-  pfpCid: string;
-  description: string;
-  personality: string;
-  traits: readonly string[];
+  name: string
+  pfpCid: string
+  description: string
+  personality: string
+  traits: readonly string[]
 }
 
 interface RawParamsResult {
-  minQualityScore: bigint;
-  councilVotingPeriod: bigint;
-  gracePeriod: bigint;
-  minProposalStake: bigint;
-  quorumBps: bigint;
+  minQualityScore: bigint
+  councilVotingPeriod: bigint
+  gracePeriod: bigint
+  minProposalStake: bigint
+  quorumBps: bigint
 }
 
 interface RawMemberResult {
-  member: Address;
-  agentId: bigint;
-  role: string;
-  weight: bigint;
-  addedAt: bigint;
-  isActive: boolean;
+  member: Address
+  agentId: bigint
+  role: string
+  weight: bigint
+  addedAt: bigint
+  isActive: boolean
 }
 
 interface RawDAOFullResult {
-  dao: RawDAOResult;
-  ceoPersona: RawPersonaResult;
-  params: RawParamsResult;
-  councilMembers: readonly RawMemberResult[];
-  linkedPackages: readonly `0x${string}`[];
-  linkedRepos: readonly `0x${string}`[];
+  dao: RawDAOResult
+  ceoPersona: RawPersonaResult
+  params: RawParamsResult
+  councilMembers: readonly RawMemberResult[]
+  linkedPackages: readonly `0x${string}`[]
+  linkedRepos: readonly `0x${string}`[]
 }
 
 interface RawProjectResult {
-  projectId: `0x${string}`;
-  daoId: `0x${string}`;
-  projectType: number;
-  registryId: `0x${string}`;
-  name: string;
-  description: string;
-  primaryRecipient: Address;
-  additionalRecipients: readonly Address[];
-  recipientShares: readonly bigint[];
-  ceoWeight: bigint;
-  communityStake: bigint;
-  totalFunded: bigint;
-  status: number;
-  createdAt: bigint;
-  lastFundedAt: bigint;
-  proposer: Address;
+  projectId: `0x${string}`
+  daoId: `0x${string}`
+  projectType: number
+  registryId: `0x${string}`
+  name: string
+  description: string
+  primaryRecipient: Address
+  additionalRecipients: readonly Address[]
+  recipientShares: readonly bigint[]
+  ceoWeight: bigint
+  communityStake: bigint
+  totalFunded: bigint
+  status: number
+  createdAt: bigint
+  lastFundedAt: bigint
+  proposer: Address
 }
 
 interface RawEpochResult {
-  epochId: bigint;
-  daoId: `0x${string}`;
-  startTime: bigint;
-  endTime: bigint;
-  totalBudget: bigint;
-  matchingPool: bigint;
-  distributed: bigint;
-  finalized: boolean;
+  epochId: bigint
+  daoId: `0x${string}`
+  startTime: bigint
+  endTime: bigint
+  totalBudget: bigint
+  matchingPool: bigint
+  distributed: bigint
+  finalized: boolean
 }
 
 interface RawFundingConfigResult {
-  minStake: bigint;
-  maxStake: bigint;
-  epochDuration: bigint;
-  cooldownPeriod: bigint;
-  matchingMultiplier: bigint;
-  quadraticEnabled: boolean;
-  ceoWeightCap: bigint;
+  minStake: bigint
+  maxStake: bigint
+  epochDuration: bigint
+  cooldownPeriod: bigint
+  matchingMultiplier: bigint
+  quadraticEnabled: boolean
+  ceoWeightCap: bigint
 }
 
 // ============ DAO Service Class ============
 
+// Define client types using ReturnType to avoid monorepo type resolution issues
+type ViemPublicClient = ReturnType<
+  typeof createPublicClient<HttpTransport, Chain>
+>
+type ViemWalletClient = ReturnType<
+  typeof createWalletClient<HttpTransport, Chain, Account>
+>
+
 export class DAOService {
-  private publicClient: PublicClient;
-  private walletClient: WalletClient | null = null;
-  private config: DAOServiceConfig;
-  private daoCache: Map<string, DAOFull> = new Map();
+  private publicClient: ViemPublicClient
+  private walletClient: ViemWalletClient | null = null
+  private chain: Chain
+  private config: DAOServiceConfig
+  private daoCache: Map<string, DAOFull> = new Map()
 
   constructor(config: DAOServiceConfig) {
-    this.config = config;
+    this.config = config
+    this.chain = this.getChain(config.chainId)
 
-    const chain = this.getChain(config.chainId);
-
-    // @ts-expect-error viem version mismatch in monorepo
     this.publicClient = createPublicClient({
-      chain,
+      chain: this.chain,
       transport: http(config.rpcUrl),
-    });
+    })
 
     if (config.privateKey) {
-      const account = privateKeyToAccount(config.privateKey as `0x${string}`);
+      const account = privateKeyToAccount(config.privateKey as `0x${string}`)
       this.walletClient = createWalletClient({
         account,
-        chain,
+        chain: this.chain,
         transport: http(config.rpcUrl),
-      });
+      })
     }
   }
 
   private getChain(chainId: number) {
     switch (chainId) {
       case 8453:
-        return base;
+        return base
       case 84532:
-        return baseSepolia;
+        return baseSepolia
       case 31337:
-        return localhost;
+        return localhost
       default:
-        return localhost;
+        return localhost
     }
   }
 
   // ============ DAO Read Operations ============
 
   async getDAO(daoId: string): Promise<DAO> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getDAO',
       args: [daoId as `0x${string}`],
-    })) as RawDAOResult;
+    })) as RawDAOResult
 
-    return this.parseDAO(result);
+    return this.parseDAO(result)
   }
 
   async getDAOByName(name: string): Promise<DAO> {
-    expectDefined(name, 'DAO name is required');
-    expect(name.length > 0 && name.length <= 100, `DAO name must be 1-100 characters, got ${name.length}`);
+    expectDefined(name, 'DAO name is required')
+    expect(
+      name.length > 0 && name.length <= 100,
+      `DAO name must be 1-100 characters, got ${name.length}`,
+    )
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getDAOByName',
       args: [name],
-    })) as RawDAOResult;
+    })) as RawDAOResult
 
-    return this.parseDAO(result);
+    return this.parseDAO(result)
   }
 
   async getDAOFull(daoId: string): Promise<DAOFull> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
-    const cached = this.daoCache.get(daoId);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
+    const cached = this.daoCache.get(daoId)
     if (cached) {
-      return cached;
+      return cached
     }
 
     const result = (await this.publicClient.readContract({
@@ -970,23 +993,26 @@ export class DAOService {
       abi: DAORegistryABI,
       functionName: 'getDAOFull',
       args: [daoId as `0x${string}`],
-    })) as RawDAOFullResult;
+    })) as RawDAOFullResult
 
-    const daoFull = this.parseDAOFull(result);
-    this.daoCache.set(daoId, daoFull);
+    const daoFull = this.parseDAOFull(result)
+    this.daoCache.set(daoId, daoFull)
 
-    return daoFull;
+    return daoFull
   }
 
   async getCEOPersona(daoId: string): Promise<CEOPersona> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getCEOPersona',
       args: [daoId as `0x${string}`],
-    })) as RawPersonaResult;
+    })) as RawPersonaResult
 
     return {
       name: result.name,
@@ -997,18 +1023,21 @@ export class DAOService {
       voiceStyle: '',
       communicationTone: 'professional',
       specialties: [],
-    };
+    }
   }
 
   async getGovernanceParams(daoId: string): Promise<GovernanceParams> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getGovernanceParams',
       args: [daoId as `0x${string}`],
-    })) as RawParamsResult;
+    })) as RawParamsResult
 
     return {
       minQualityScore: Number(result.minQualityScore),
@@ -1016,18 +1045,21 @@ export class DAOService {
       gracePeriod: Number(result.gracePeriod),
       minProposalStake: result.minProposalStake,
       quorumBps: Number(result.quorumBps),
-    };
+    }
   }
 
   async getCouncilMembers(daoId: string): Promise<CouncilMemberConfig[]> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getCouncilMembers',
       args: [daoId as `0x${string}`],
-    })) as readonly RawMemberResult[];
+    })) as readonly RawMemberResult[]
 
     return result.map((m) => ({
       member: m.member,
@@ -1036,33 +1068,39 @@ export class DAOService {
       weight: Number(m.weight),
       addedAt: Number(m.addedAt),
       isActive: m.isActive,
-    }));
+    }))
   }
 
   async getLinkedPackages(daoId: string): Promise<string[]> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getLinkedPackages',
       args: [daoId as `0x${string}`],
-    })) as readonly `0x${string}`[];
+    })) as readonly `0x${string}`[]
 
-    return [...result];
+    return [...result]
   }
 
   async getLinkedRepos(daoId: string): Promise<string[]> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
     const result = (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getLinkedRepos',
       args: [daoId as `0x${string}`],
-    })) as readonly `0x${string}`[];
+    })) as readonly `0x${string}`[]
 
-    return [...result];
+    return [...result]
   }
 
   async getAllDAOs(): Promise<string[]> {
@@ -1070,9 +1108,9 @@ export class DAOService {
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getAllDAOs',
-    })) as readonly `0x${string}`[];
+    })) as readonly `0x${string}`[]
 
-    return [...result];
+    return [...result]
   }
 
   async getActiveDAOs(): Promise<string[]> {
@@ -1080,20 +1118,23 @@ export class DAOService {
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getActiveDAOs',
-    })) as readonly `0x${string}`[];
+    })) as readonly `0x${string}`[]
 
-    return [...result];
+    return [...result]
   }
 
   async daoExists(daoId: string): Promise<boolean> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
     return (await this.publicClient.readContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'daoExists',
       args: [daoId as `0x${string}`],
-    })) as boolean;
+    })) as boolean
   }
 
   async getDAOCount(): Promise<number> {
@@ -1101,9 +1142,9 @@ export class DAOService {
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'getDAOCount',
-    })) as bigint;
+    })) as bigint
 
-    return Number(result);
+    return Number(result)
   }
 
   async isDAOAdmin(daoId: string, admin: Address): Promise<boolean> {
@@ -1112,7 +1153,7 @@ export class DAOService {
       abi: DAORegistryABI,
       functionName: 'isDAOAdmin',
       args: [daoId as `0x${string}`, admin],
-    })) as boolean;
+    })) as boolean
   }
 
   async isCouncilMember(daoId: string, member: Address): Promise<boolean> {
@@ -1121,25 +1162,24 @@ export class DAOService {
       abi: DAORegistryABI,
       functionName: 'isCouncilMember',
       args: [daoId as `0x${string}`, member],
-    })) as boolean;
+    })) as boolean
   }
 
   // ============ DAO Write Operations ============
 
   async createDAO(params: {
-    name: string;
-    displayName: string;
-    description: string;
-    treasury: Address;
-    manifestCid: string;
-    ceoPersona: CEOPersona;
-    governanceParams: GovernanceParams;
+    name: string
+    displayName: string
+    description: string
+    treasury: Address
+    manifestCid: string
+    ceoPersona: CEOPersona
+    governanceParams: GovernanceParams
   }): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1159,23 +1199,24 @@ export class DAOService {
         },
         {
           minQualityScore: BigInt(params.governanceParams.minQualityScore),
-          councilVotingPeriod: BigInt(params.governanceParams.councilVotingPeriod),
+          councilVotingPeriod: BigInt(
+            params.governanceParams.councilVotingPeriod,
+          ),
           gracePeriod: BigInt(params.governanceParams.gracePeriod),
           minProposalStake: params.governanceParams.minProposalStake,
           quorumBps: BigInt(params.governanceParams.quorumBps),
         },
       ],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   async setCEOPersona(daoId: string, persona: CEOPersona): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1190,35 +1231,36 @@ export class DAOService {
           traits: persona.traits,
         },
       ],
-    });
+    })
 
-    this.daoCache.delete(daoId);
-    return hash;
+    this.daoCache.delete(daoId)
+    return hash
   }
 
   async setCEOModel(daoId: string, modelId: string): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'setCEOModel',
       args: [daoId as `0x${string}`, modelId as `0x${string}`],
-    });
+    })
 
-    this.daoCache.delete(daoId);
-    return hash;
+    this.daoCache.delete(daoId)
+    return hash
   }
 
-  async setGovernanceParams(daoId: string, params: GovernanceParams): Promise<Hash> {
+  async setGovernanceParams(
+    daoId: string,
+    params: GovernanceParams,
+  ): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1233,10 +1275,10 @@ export class DAOService {
           quorumBps: BigInt(params.quorumBps),
         },
       ],
-    });
+    })
 
-    this.daoCache.delete(daoId);
-    return hash;
+    this.daoCache.delete(daoId)
+    return hash
   }
 
   async addCouncilMember(
@@ -1244,171 +1286,161 @@ export class DAOService {
     member: Address,
     agentId: bigint,
     role: string,
-    weight: number
+    weight: number,
   ): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'addCouncilMember',
       args: [daoId as `0x${string}`, member, agentId, role, BigInt(weight)],
-    });
+    })
 
-    this.daoCache.delete(daoId);
-    return hash;
+    this.daoCache.delete(daoId)
+    return hash
   }
 
   async removeCouncilMember(daoId: string, member: Address): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'removeCouncilMember',
       args: [daoId as `0x${string}`, member],
-    });
+    })
 
-    this.daoCache.delete(daoId);
-    return hash;
+    this.daoCache.delete(daoId)
+    return hash
   }
 
   async linkPackage(daoId: string, packageId: string): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'linkPackage',
       args: [daoId as `0x${string}`, packageId as `0x${string}`],
-    });
+    })
 
-    this.daoCache.delete(daoId);
-    return hash;
+    this.daoCache.delete(daoId)
+    return hash
   }
 
   async unlinkPackage(daoId: string, packageId: string): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'unlinkPackage',
       args: [daoId as `0x${string}`, packageId as `0x${string}`],
-    });
+    })
 
-    this.daoCache.delete(daoId);
-    return hash;
+    this.daoCache.delete(daoId)
+    return hash
   }
 
   async linkRepo(daoId: string, repoId: string): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'linkRepo',
       args: [daoId as `0x${string}`, repoId as `0x${string}`],
-    });
+    })
 
-    this.daoCache.delete(daoId);
-    return hash;
+    this.daoCache.delete(daoId)
+    return hash
   }
 
   async unlinkRepo(daoId: string, repoId: string): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'unlinkRepo',
       args: [daoId as `0x${string}`, repoId as `0x${string}`],
-    });
+    })
 
-    this.daoCache.delete(daoId);
-    return hash;
+    this.daoCache.delete(daoId)
+    return hash
   }
 
   async setDAOContracts(
     daoId: string,
-    contracts: { council?: Address; ceoAgent?: Address; feeConfig?: Address }
+    contracts: { council?: Address; ceoAgent?: Address; feeConfig?: Address },
   ): Promise<Hash[]> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    const hashes: Hash[] = [];
+    const hashes: Hash[] = []
 
     if (contracts.council) {
-      // @ts-expect-error viem version type mismatch in monorepo
-    const hash = await this.walletClient.writeContract({
+      const hash = await this.walletClient.writeContract({
         address: this.config.daoRegistryAddress,
         abi: DAORegistryABI,
         functionName: 'setDAOCouncilContract',
         args: [daoId as `0x${string}`, contracts.council],
-      });
-      hashes.push(hash);
+      })
+      hashes.push(hash)
     }
 
     if (contracts.ceoAgent) {
-      // @ts-expect-error viem version type mismatch in monorepo
-    const hash = await this.walletClient.writeContract({
+      const hash = await this.walletClient.writeContract({
         address: this.config.daoRegistryAddress,
         abi: DAORegistryABI,
         functionName: 'setDAOCEOAgent',
         args: [daoId as `0x${string}`, contracts.ceoAgent],
-      });
-      hashes.push(hash);
+      })
+      hashes.push(hash)
     }
 
     if (contracts.feeConfig) {
-      // @ts-expect-error viem version type mismatch in monorepo
-    const hash = await this.walletClient.writeContract({
+      const hash = await this.walletClient.writeContract({
         address: this.config.daoRegistryAddress,
         abi: DAORegistryABI,
         functionName: 'setDAOFeeConfig',
         args: [daoId as `0x${string}`, contracts.feeConfig],
-      });
-      hashes.push(hash);
+      })
+      hashes.push(hash)
     }
 
-    this.daoCache.delete(daoId);
-    return hashes;
+    this.daoCache.delete(daoId)
+    return hashes
   }
 
   async setDAOStatus(daoId: string, status: DAOStatus): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
       functionName: 'setDAOStatus',
       args: [daoId as `0x${string}`, status],
-    });
+    })
 
-    this.daoCache.delete(daoId);
-    return hash;
+    this.daoCache.delete(daoId)
+    return hash
   }
 
   // ============ Funding Read Operations ============
@@ -1419,46 +1451,55 @@ export class DAOService {
       abi: DAOFundingABI,
       functionName: 'getProject',
       args: [projectId as `0x${string}`],
-    })) as RawProjectResult;
+    })) as RawProjectResult
 
-    return this.parseFundingProject(result);
+    return this.parseFundingProject(result)
   }
 
   async getDAOProjects(daoId: string): Promise<string[]> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
     const result = (await this.publicClient.readContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
       functionName: 'getDAOProjects',
       args: [daoId as `0x${string}`],
-    })) as readonly `0x${string}`[];
+    })) as readonly `0x${string}`[]
 
-    return [...result];
+    return [...result]
   }
 
   async getActiveProjects(daoId: string): Promise<FundingProject[]> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
     const result = (await this.publicClient.readContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
       functionName: 'getActiveProjects',
       args: [daoId as `0x${string}`],
-    })) as readonly RawProjectResult[];
+    })) as readonly RawProjectResult[]
 
-    return result.map((p) => this.parseFundingProject(p));
+    return result.map((p) => this.parseFundingProject(p))
   }
 
   async getCurrentEpoch(daoId: string): Promise<FundingEpoch> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
     const result = (await this.publicClient.readContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
       functionName: 'getCurrentEpoch',
       args: [daoId as `0x${string}`],
-    })) as RawEpochResult;
+    })) as RawEpochResult
 
     return {
       epochId: Number(result.epochId),
@@ -1469,7 +1510,7 @@ export class DAOService {
       matchingPool: result.matchingPool,
       distributed: result.distributed,
       finalized: result.finalized,
-    };
+    }
   }
 
   async calculateAllocation(projectId: string): Promise<bigint> {
@@ -1478,21 +1519,24 @@ export class DAOService {
       abi: DAOFundingABI,
       functionName: 'calculateAllocation',
       args: [projectId as `0x${string}`],
-    })) as bigint;
+    })) as bigint
   }
 
-  async getProjectEpochStake(projectId: string, epochId: number): Promise<{ totalStake: bigint; numStakers: number }> {
+  async getProjectEpochStake(
+    projectId: string,
+    epochId: number,
+  ): Promise<{ totalStake: bigint; numStakers: number }> {
     const result = (await this.publicClient.readContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
       functionName: 'getProjectEpochStake',
       args: [projectId as `0x${string}`, BigInt(epochId)],
-    })) as [bigint, bigint];
+    })) as [bigint, bigint]
 
     return {
       totalStake: result[0],
       numStakers: Number(result[1]),
-    };
+    }
   }
 
   async getFundingConfig(daoId: string): Promise<FundingConfig> {
@@ -1501,7 +1545,7 @@ export class DAOService {
       abi: DAOFundingABI,
       functionName: 'getDAOConfig',
       args: [daoId as `0x${string}`],
-    })) as RawFundingConfigResult;
+    })) as RawFundingConfigResult
 
     return {
       minStake: result.minStake,
@@ -1511,28 +1555,27 @@ export class DAOService {
       matchingMultiplier: Number(result.matchingMultiplier),
       quadraticEnabled: result.quadraticEnabled,
       ceoWeightCap: Number(result.ceoWeightCap),
-    };
+    }
   }
 
   // ============ Funding Write Operations ============
 
   async proposeProject(params: {
-    daoId: string;
-    projectType: 'package' | 'repo';
-    registryId: string;
-    name: string;
-    description: string;
-    primaryRecipient: Address;
-    additionalRecipients: Address[];
-    recipientShares: number[];
+    daoId: string
+    projectType: 'package' | 'repo'
+    registryId: string
+    name: string
+    description: string
+    primaryRecipient: Address
+    additionalRecipients: Address[]
+    recipientShares: number[]
   }): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    const projectType = params.projectType === 'package' ? 0 : 1;
+    const projectType = params.projectType === 'package' ? 0 : 1
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1547,118 +1590,123 @@ export class DAOService {
         params.additionalRecipients,
         params.recipientShares.map((s) => BigInt(s)),
       ],
-    });
+    })
 
-    return hash;
+    return hash
   }
 
   async acceptProject(projectId: string): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
       functionName: 'acceptProject',
       args: [projectId as `0x${string}`],
-    });
+    })
   }
 
   async rejectProject(projectId: string, reason: string): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
       functionName: 'rejectProject',
       args: [projectId as `0x${string}`, reason],
-    });
+    })
   }
 
   async setCEOWeight(projectId: string, weight: number): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
       functionName: 'setCEOWeight',
       args: [projectId as `0x${string}`, BigInt(weight)],
-    });
+    })
   }
 
   async stake(projectId: string, amount: bigint): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
       functionName: 'stake',
       args: [projectId as `0x${string}`, amount],
       value: amount,
-    });
+    })
   }
 
   async unstake(projectId: string, epochId: number): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
       functionName: 'unstake',
       args: [projectId as `0x${string}`, BigInt(epochId)],
-    });
+    })
   }
 
-  async createEpoch(daoId: string, budget: bigint, matchingPool: bigint): Promise<Hash> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
-    expect(budget > 0n, `Budget must be positive, got ${budget.toString()}`);
-    expect(matchingPool >= 0n, `Matching pool must be non-negative, got ${matchingPool.toString()}`);
-    expect(this.walletClient !== null && this.walletClient !== undefined, 'Wallet client not initialized');
+  async createEpoch(
+    daoId: string,
+    budget: bigint,
+    matchingPool: bigint,
+  ): Promise<Hash> {
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
+    expect(budget > 0n, `Budget must be positive, got ${budget.toString()}`)
+    expect(
+      matchingPool >= 0n,
+      `Matching pool must be non-negative, got ${matchingPool.toString()}`,
+    )
+    expect(
+      this.walletClient !== null && this.walletClient !== undefined,
+      'Wallet client not initialized',
+    )
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
       functionName: 'createEpoch',
       args: [daoId as `0x${string}`, budget, matchingPool],
-    });
+    })
   }
 
   async finalizeEpoch(daoId: string): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
       functionName: 'finalizeEpoch',
       args: [daoId as `0x${string}`],
-    });
+    })
   }
 
   async setFundingConfig(daoId: string, config: FundingConfig): Promise<Hash> {
     if (!this.walletClient) {
-      throw new Error('Wallet client not initialized');
+      throw new Error('Wallet client not initialized')
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1675,23 +1723,29 @@ export class DAOService {
           ceoWeightCap: BigInt(config.ceoWeightCap),
         },
       ],
-    });
+    })
   }
 
   // ============ Utility Methods ============
 
   async getFundingAllocations(daoId: string): Promise<FundingAllocation[]> {
-    expectDefined(daoId, 'DAO ID is required');
-    expect(daoId.length > 0 && daoId.length <= 100, `DAO ID must be 1-100 characters, got ${daoId.length}`);
-    const projects = await this.getActiveProjects(daoId);
-    const epoch = await this.getCurrentEpoch(daoId);
+    expectDefined(daoId, 'DAO ID is required')
+    expect(
+      daoId.length > 0 && daoId.length <= 100,
+      `DAO ID must be 1-100 characters, got ${daoId.length}`,
+    )
+    const projects = await this.getActiveProjects(daoId)
+    const epoch = await this.getCurrentEpoch(daoId)
 
-    const allocations: FundingAllocation[] = [];
-    let totalAllocation = BigInt(0);
+    const allocations: FundingAllocation[] = []
+    let totalAllocation = BigInt(0)
 
     for (const project of projects) {
-      const allocation = await this.calculateAllocation(project.projectId);
-      const stake = await this.getProjectEpochStake(project.projectId, epoch.epochId);
+      const allocation = await this.calculateAllocation(project.projectId)
+      const stake = await this.getProjectEpochStake(
+        project.projectId,
+        epoch.epochId,
+      )
 
       allocations.push({
         projectId: project.projectId,
@@ -1701,23 +1755,24 @@ export class DAOService {
         stakerCount: stake.numStakers,
         allocation,
         allocationPercentage: 0,
-      });
+      })
 
-      totalAllocation += allocation;
+      totalAllocation += allocation
     }
 
     // Calculate percentages
     for (const alloc of allocations) {
       if (totalAllocation > 0) {
-        alloc.allocationPercentage = Number((alloc.allocation * BigInt(10000)) / totalAllocation) / 100;
+        alloc.allocationPercentage =
+          Number((alloc.allocation * BigInt(10000)) / totalAllocation) / 100
       }
     }
 
-    return allocations.sort((a, b) => Number(b.allocation - a.allocation));
+    return allocations.sort((a, b) => Number(b.allocation - a.allocation))
   }
 
   clearCache(): void {
-    this.daoCache.clear();
+    this.daoCache.clear()
   }
 
   // ============ Parse Functions ============
@@ -1738,7 +1793,7 @@ export class DAOService {
       createdAt: Number(raw.createdAt),
       updatedAt: Number(raw.updatedAt),
       creator: raw.creator,
-    };
+    }
   }
 
   private parseDAOFull(raw: RawDAOFullResult): DAOFull {
@@ -1771,7 +1826,7 @@ export class DAOService {
       })),
       linkedPackages: [...raw.linkedPackages],
       linkedRepos: [...raw.linkedRepos],
-    };
+    }
   }
 
   private parseFundingProject(raw: RawProjectResult): FundingProject {
@@ -1792,23 +1847,22 @@ export class DAOService {
       createdAt: Number(raw.createdAt),
       lastFundedAt: Number(raw.lastFundedAt),
       proposer: raw.proposer,
-    };
+    }
   }
 }
 
 // ============ Export Singleton Creator ============
 
-let daoServiceInstance: DAOService | null = null;
+let daoServiceInstance: DAOService | null = null
 
 export function createDAOService(config: DAOServiceConfig): DAOService {
-  daoServiceInstance = new DAOService(config);
-  return daoServiceInstance;
+  daoServiceInstance = new DAOService(config)
+  return daoServiceInstance
 }
 
 export function getDAOService(): DAOService {
   if (!daoServiceInstance) {
-    throw new Error('DAOService not initialized. Call createDAOService first.');
+    throw new Error('DAOService not initialized. Call createDAOService first.')
   }
-  return daoServiceInstance;
+  return daoServiceInstance
 }
-

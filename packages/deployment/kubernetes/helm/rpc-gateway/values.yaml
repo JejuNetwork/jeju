@@ -20,19 +20,20 @@ podAnnotations:
   prometheus.io/port: "9113"
 
 podSecurityContext:
-  fsGroup: 0
-  runAsUser: 0
-  runAsNonRoot: false
+  fsGroup: 101  # nginx group
+  runAsUser: 101  # nginx user
+  runAsNonRoot: true
 
 securityContext:
   capabilities:
     drop:
     - ALL
-    add:
-    - NET_BIND_SERVICE
-  readOnlyRootFilesystem: false
-  runAsNonRoot: false
-  runAsUser: 0
+    # NET_BIND_SERVICE not needed - nginx listens on port 80/8546 which are > 1024
+    # The service exposes these ports, not privileged ports
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  runAsUser: 101
+  allowPrivilegeEscalation: false
 
 service:
   type: ClusterIP

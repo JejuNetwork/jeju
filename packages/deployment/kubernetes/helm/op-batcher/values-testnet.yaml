@@ -25,5 +25,7 @@ config:
     rpcUrl: "http://op-node.op-stack.svc.cluster.local:9545"
   dataAvailability:
     type: "calldata"
-  # Test account private key (Anvil default account 0)
-  privateKey: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+  # SECURITY: Private key must be injected from Vault or --set at deploy time
+  # NEVER commit real private keys to version control
+  # Deploy with: --set config.privateKey=$BATCHER_PRIVATE_KEY
+  privateKey: ""

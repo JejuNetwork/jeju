@@ -3,10 +3,8 @@
  */
 
 export {
-  ResilientRPCClient,
-  getResilientRPCClient,
   createResilientRPCClient,
+  getResilientRPCClient,
+  ResilientRPCClient,
   type RPCEndpoint,
 } from './resilient-client'
-
-

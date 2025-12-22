@@ -16,49 +16,56 @@
  * ```
  */
 
-import type { CQLClient } from '../client.js';
-import type { ExecResult, QueryResult } from '../types.js';
+import type { CQLClient } from '../client.js'
+import type { ExecResult, QueryResult } from '../types.js'
+import { validateSQLIdentifier, validateSQLIdentifiers } from '../utils.js'
 
 // ============================================================================
 // Types
 // ============================================================================
 
 interface DrizzleCQLConfig {
-  logger?: boolean | DrizzleLogger;
+  logger?: boolean | DrizzleLogger
 }
 
 interface DrizzleLogger {
-  logQuery(query: string, params: SQLValue[]): void;
+  logQuery(query: string, params: SQLValue[]): void
 }
 
-type SQLValue = string | number | boolean | null | bigint | Uint8Array;
+type SQLValue = string | number | boolean | null | bigint | Uint8Array
 
 interface PreparedQuery<T> {
-  execute(): Promise<T[]>;
-  values: SQLValue[];
+  execute(): Promise<T[]>
+  values: SQLValue[]
 }
 
 interface DrizzleCQL {
-  select: <T extends Record<string, unknown>>() => SelectBuilder<T>;
-  insert: <T extends Record<string, unknown>>(table: TableRef<T>) => InsertBuilder<T>;
-  update: <T extends Record<string, unknown>>(table: TableRef<T>) => UpdateBuilder<T>;
-  delete: <T extends Record<string, unknown>>(table: TableRef<T>) => DeleteBuilder<T>;
-  execute: <T>(sql: SQL) => Promise<QueryResult<T>>;
-  run: (sql: SQL) => Promise<ExecResult>;
-  transaction: <T>(fn: (tx: DrizzleCQL) => Promise<T>) => Promise<T>;
+  select: <T extends Record<string, unknown>>() => SelectBuilder<T>
+  insert: <T extends Record<string, unknown>>(
+    table: TableRef<T>,
+  ) => InsertBuilder<T>
+  update: <T extends Record<string, unknown>>(
+    table: TableRef<T>,
+  ) => UpdateBuilder<T>
+  delete: <T extends Record<string, unknown>>(
+    table: TableRef<T>,
+  ) => DeleteBuilder<T>
+  execute: <T>(sql: SQL) => Promise<QueryResult<T>>
+  run: (sql: SQL) => Promise<ExecResult>
+  transaction: <T>(fn: (tx: DrizzleCQL) => Promise<T>) => Promise<T>
 }
 
 interface TableRef<_T = unknown> {
-  _: { name: string; columns: Record<string, ColumnRef> };
+  _: { name: string; columns: Record<string, ColumnRef> }
 }
 
 interface ColumnRef {
-  name: string;
-  dataType: string;
+  name: string
+  dataType: string
 }
 
 interface SQL {
-  toQuery(): { sql: string; params: SQLValue[] };
+  toQuery(): { sql: string; params: SQLValue[] }
 }
 
 // ============================================================================
@@ -66,212 +73,229 @@ interface SQL {
 // ============================================================================
 
 class SelectBuilder<T extends Record<string, unknown>> {
-  private client: CQLClient;
-  private databaseId: string;
-  private tableName: string | null = null;
-  private columns: string[] = ['*'];
-  private whereClause: string | null = null;
-  private whereParams: SQLValue[] = [];
-  private orderByClause: string | null = null;
-  private limitValue: number | null = null;
-  private offsetValue: number | null = null;
+  private client: CQLClient
+  private databaseId: string
+  private tableName: string | null = null
+  private columns: string[] = ['*']
+  private whereClause: string | null = null
+  private whereParams: SQLValue[] = []
+  private orderByClause: string | null = null
+  private limitValue: number | null = null
+  private offsetValue: number | null = null
 
   constructor(client: CQLClient, databaseId: string) {
-    this.client = client;
-    this.databaseId = databaseId;
+    this.client = client
+    this.databaseId = databaseId
   }
 
   from(table: TableRef<T> | string): this {
-    this.tableName = typeof table === 'string' ? table : table._.name;
-    return this;
+    const rawName = typeof table === 'string' ? table : table._.name
+    // Validate table name to prevent SQL injection
+    this.tableName = validateSQLIdentifier(rawName, 'table')
+    return this
   }
 
   where(condition: SQL | string, ...params: SQLValue[]): this {
     if (typeof condition === 'string') {
-      this.whereClause = condition;
-      this.whereParams = params;
+      this.whereClause = condition
+      this.whereParams = params
     } else {
-      const q = condition.toQuery();
-      this.whereClause = q.sql;
-      this.whereParams = q.params;
+      const q = condition.toQuery()
+      this.whereClause = q.sql
+      this.whereParams = q.params
     }
-    return this;
+    return this
   }
 
   orderBy(column: string, direction: 'asc' | 'desc' = 'asc'): this {
-    this.orderByClause = `${column} ${direction.toUpperCase()}`;
-    return this;
+    // Validate column name to prevent SQL injection
+    const safeColumn = validateSQLIdentifier(column, 'column')
+    this.orderByClause = `${safeColumn} ${direction.toUpperCase()}`
+    return this
   }
 
   limit(count: number): this {
-    this.limitValue = count;
-    return this;
+    this.limitValue = count
+    return this
   }
 
   offset(count: number): this {
-    this.offsetValue = count;
-    return this;
+    this.offsetValue = count
+    return this
   }
 
   async execute(): Promise<T[]> {
     if (!this.tableName) {
-      throw new Error('Table not specified. Call .from() first.');
+      throw new Error('Table not specified. Call .from() first.')
     }
 
-    let sql = `SELECT ${this.columns.join(', ')} FROM ${this.tableName}`;
+    let sql = `SELECT ${this.columns.join(', ')} FROM ${this.tableName}`
 
     if (this.whereClause) {
-      sql += ` WHERE ${this.whereClause}`;
+      sql += ` WHERE ${this.whereClause}`
     }
     if (this.orderByClause) {
-      sql += ` ORDER BY ${this.orderByClause}`;
+      sql += ` ORDER BY ${this.orderByClause}`
     }
     if (this.limitValue !== null) {
-      sql += ` LIMIT ${this.limitValue}`;
+      sql += ` LIMIT ${this.limitValue}`
     }
     if (this.offsetValue !== null) {
-      sql += ` OFFSET ${this.offsetValue}`;
+      sql += ` OFFSET ${this.offsetValue}`
     }
 
-    const result = await this.client.query<T>(sql, this.whereParams, this.databaseId);
-    return result.rows;
+    const result = await this.client.query<T>(
+      sql,
+      this.whereParams,
+      this.databaseId,
+    )
+    return result.rows
   }
 
   prepare(): PreparedQuery<T> {
     return {
       execute: () => this.execute(),
       values: this.whereParams,
-    };
+    }
   }
 }
 
 class InsertBuilder<T extends Record<string, unknown>> {
-  private client: CQLClient;
-  private databaseId: string;
-  private tableName: string;
-  private data: Partial<T>[] = [];
+  private client: CQLClient
+  private databaseId: string
+  private tableName: string
+  private data: Partial<T>[] = []
 
   constructor(client: CQLClient, databaseId: string, table: TableRef<T>) {
-    this.client = client;
-    this.databaseId = databaseId;
-    this.tableName = table._.name;
+    this.client = client
+    this.databaseId = databaseId
+    // Validate table name to prevent SQL injection
+    this.tableName = validateSQLIdentifier(table._.name, 'table')
   }
 
   values(...rows: Partial<T>[]): this {
-    this.data.push(...rows);
-    return this;
+    this.data.push(...rows)
+    return this
   }
 
   async execute(): Promise<ExecResult> {
     if (this.data.length === 0) {
-      throw new Error('No values to insert');
+      throw new Error('No values to insert')
     }
 
-    const columns = Object.keys(this.data[0]);
-    const placeholders = columns.map(() => '?').join(', ');
-    const allParams: SQLValue[] = [];
+    const columns = Object.keys(this.data[0])
+    // Validate column names to prevent SQL injection
+    const safeColumns = validateSQLIdentifiers(columns, 'column')
+    const placeholders = safeColumns.map(() => '?').join(', ')
+    const allParams: SQLValue[] = []
 
     const valuesClauses = this.data.map((row) => {
       columns.forEach((col) => {
-        const val = row[col as keyof T];
-        allParams.push(val as SQLValue);
-      });
-      return `(${placeholders})`;
-    });
+        const val = row[col as keyof T]
+        allParams.push(val as SQLValue)
+      })
+      return `(${placeholders})`
+    })
 
-    const sql = `INSERT INTO ${this.tableName} (${columns.join(', ')}) VALUES ${valuesClauses.join(', ')}`;
+    const sql = `INSERT INTO ${this.tableName} (${safeColumns.join(', ')}) VALUES ${valuesClauses.join(', ')}`
 
-    return this.client.exec(sql, allParams, this.databaseId);
+    return this.client.exec(sql, allParams, this.databaseId)
   }
 
   returning(): this {
     // CQL doesn't support RETURNING, but we keep API compatibility
-    return this;
+    return this
   }
 }
 
 class UpdateBuilder<T extends Record<string, unknown>> {
-  private client: CQLClient;
-  private databaseId: string;
-  private tableName: string;
-  private setData: Partial<T> = {} as Partial<T>;
-  private whereClause: string | null = null;
-  private whereParams: SQLValue[] = [];
+  private client: CQLClient
+  private databaseId: string
+  private tableName: string
+  private setData: Partial<T> = {} as Partial<T>
+  private whereClause: string | null = null
+  private whereParams: SQLValue[] = []
 
   constructor(client: CQLClient, databaseId: string, table: TableRef<T>) {
-    this.client = client;
-    this.databaseId = databaseId;
-    this.tableName = table._.name;
+    this.client = client
+    this.databaseId = databaseId
+    // Validate table name to prevent SQL injection
+    this.tableName = validateSQLIdentifier(table._.name, 'table')
   }
 
   set(data: Partial<T>): this {
-    this.setData = data;
-    return this;
+    this.setData = data
+    return this
   }
 
   where(condition: SQL | string, ...params: SQLValue[]): this {
     if (typeof condition === 'string') {
-      this.whereClause = condition;
-      this.whereParams = params;
+      this.whereClause = condition
+      this.whereParams = params
     } else {
-      const q = condition.toQuery();
-      this.whereClause = q.sql;
-      this.whereParams = q.params;
+      const q = condition.toQuery()
+      this.whereClause = q.sql
+      this.whereParams = q.params
     }
-    return this;
+    return this
   }
 
   async execute(): Promise<ExecResult> {
-    const columns = Object.keys(this.setData);
+    const columns = Object.keys(this.setData)
     if (columns.length === 0) {
-      throw new Error('No values to update');
+      throw new Error('No values to update')
     }
 
-    const setClause = columns.map((col) => `${col} = ?`).join(', ');
-    const params: SQLValue[] = columns.map((col) => this.setData[col as keyof T] as SQLValue);
-    params.push(...this.whereParams);
+    // Validate column names to prevent SQL injection
+    const safeColumns = validateSQLIdentifiers(columns, 'column')
+    const setClause = safeColumns.map((col) => `${col} = ?`).join(', ')
+    const params: SQLValue[] = columns.map(
+      (col) => this.setData[col as keyof T] as SQLValue,
+    )
+    params.push(...this.whereParams)
 
-    let sql = `UPDATE ${this.tableName} SET ${setClause}`;
+    let sql = `UPDATE ${this.tableName} SET ${setClause}`
     if (this.whereClause) {
-      sql += ` WHERE ${this.whereClause}`;
+      sql += ` WHERE ${this.whereClause}`
     }
 
-    return this.client.exec(sql, params, this.databaseId);
+    return this.client.exec(sql, params, this.databaseId)
   }
 }
 
 class DeleteBuilder<T extends Record<string, unknown>> {
-  private client: CQLClient;
-  private databaseId: string;
-  private tableName: string;
-  private whereClause: string | null = null;
-  private whereParams: SQLValue[] = [];
+  private client: CQLClient
+  private databaseId: string
+  private tableName: string
+  private whereClause: string | null = null
+  private whereParams: SQLValue[] = []
 
   constructor(client: CQLClient, databaseId: string, table: TableRef<T>) {
-    this.client = client;
-    this.databaseId = databaseId;
-    this.tableName = table._.name;
+    this.client = client
+    this.databaseId = databaseId
+    // Validate table name to prevent SQL injection
+    this.tableName = validateSQLIdentifier(table._.name, 'table')
   }
 
   where(condition: SQL | string, ...params: SQLValue[]): this {
     if (typeof condition === 'string') {
-      this.whereClause = condition;
-      this.whereParams = params;
+      this.whereClause = condition
+      this.whereParams = params
     } else {
-      const q = condition.toQuery();
-      this.whereClause = q.sql;
-      this.whereParams = q.params;
+      const q = condition.toQuery()
+      this.whereClause = q.sql
+      this.whereParams = q.params
     }
-    return this;
+    return this
   }
 
   async execute(): Promise<ExecResult> {
-    let sql = `DELETE FROM ${this.tableName}`;
+    let sql = `DELETE FROM ${this.tableName}`
     if (this.whereClause) {
-      sql += ` WHERE ${this.whereClause}`;
+      sql += ` WHERE ${this.whereClause}`
     }
 
-    return this.client.exec(sql, this.whereParams, this.databaseId);
+    return this.client.exec(sql, this.whereParams, this.databaseId)
   }
 }
 
@@ -286,74 +310,85 @@ function createDrizzleCQL(
 ): DrizzleCQL {
   function logQuery(query: string, params: SQLValue[]): void {
     if (config?.logger === true) {
-      console.log('[CQL Drizzle]', query, params);
+      // Log query structure without exposing potentially sensitive parameter values
+      // Extract just the SQL statement type (SELECT, INSERT, UPDATE, DELETE)
+      const statementType =
+        query.trim().split(/\s+/)[0]?.toUpperCase() ?? 'QUERY'
+      console.log(`[CQL Drizzle] ${statementType} (params: ${params.length})`)
     } else if (typeof config?.logger === 'object') {
-      config.logger.logQuery(query, params);
+      // Custom loggers receive full data - they're responsible for their own filtering
+      config.logger.logQuery(query, params)
     }
   }
 
   const db: DrizzleCQL = {
     select<T extends Record<string, unknown>>(): SelectBuilder<T> {
-      return new SelectBuilder<T>(client, databaseId);
+      return new SelectBuilder<T>(client, databaseId)
     },
 
-    insert<T extends Record<string, unknown>>(table: TableRef<T>): InsertBuilder<T> {
-      return new InsertBuilder<T>(client, databaseId, table);
+    insert<T extends Record<string, unknown>>(
+      table: TableRef<T>,
+    ): InsertBuilder<T> {
+      return new InsertBuilder<T>(client, databaseId, table)
     },
 
-    update<T extends Record<string, unknown>>(table: TableRef<T>): UpdateBuilder<T> {
-      return new UpdateBuilder<T>(client, databaseId, table);
+    update<T extends Record<string, unknown>>(
+      table: TableRef<T>,
+    ): UpdateBuilder<T> {
+      return new UpdateBuilder<T>(client, databaseId, table)
     },
 
-    delete<T extends Record<string, unknown>>(table: TableRef<T>): DeleteBuilder<T> {
-      return new DeleteBuilder<T>(client, databaseId, table);
+    delete<T extends Record<string, unknown>>(
+      table: TableRef<T>,
+    ): DeleteBuilder<T> {
+      return new DeleteBuilder<T>(client, databaseId, table)
     },
 
     async execute<T>(sql: SQL): Promise<QueryResult<T>> {
-      const q = sql.toQuery();
-      logQuery(q.sql, q.params);
-      return client.query<T>(q.sql, q.params, databaseId);
+      const q = sql.toQuery()
+      logQuery(q.sql, q.params)
+      return client.query<T>(q.sql, q.params, databaseId)
     },
 
     async run(sql: SQL): Promise<ExecResult> {
-      const q = sql.toQuery();
-      logQuery(q.sql, q.params);
-      return client.exec(q.sql, q.params, databaseId);
+      const q = sql.toQuery()
+      logQuery(q.sql, q.params)
+      return client.exec(q.sql, q.params, databaseId)
     },
 
     async transaction<T>(fn: (tx: DrizzleCQL) => Promise<T>): Promise<T> {
-      const conn = await client.connect(databaseId);
-      const tx = await conn.beginTransaction();
+      const conn = await client.connect(databaseId)
+      const tx = await conn.beginTransaction()
 
       try {
         // Create a transaction-scoped DB wrapper
         const txDb: DrizzleCQL = {
           ...db,
           async execute<U>(sql: SQL): Promise<QueryResult<U>> {
-            const q = sql.toQuery();
-            logQuery(q.sql, q.params);
-            return tx.query<U>(q.sql, q.params);
+            const q = sql.toQuery()
+            logQuery(q.sql, q.params)
+            return tx.query<U>(q.sql, q.params)
           },
           async run(sql: SQL): Promise<ExecResult> {
-            const q = sql.toQuery();
-            logQuery(q.sql, q.params);
-            return tx.exec(q.sql, q.params);
+            const q = sql.toQuery()
+            logQuery(q.sql, q.params)
+            return tx.exec(q.sql, q.params)
           },
-        };
+        }
 
-        const result = await fn(txDb);
-        await tx.commit();
-        return result;
+        const result = await fn(txDb)
+        await tx.commit()
+        return result
       } catch (error) {
-        await tx.rollback();
-        throw error;
+        await tx.rollback()
+        throw error
       } finally {
-        client.getPool(databaseId).release(conn);
+        client.getPool(databaseId).release(conn)
       }
     },
-  };
+  }
 
-  return db;
+  return db
 }
 
 // ============================================================================
@@ -363,26 +398,25 @@ function createDrizzleCQL(
 export function sql(strings: TemplateStringsArray, ...values: SQLValue[]): SQL {
   return {
     toQuery() {
-      let sqlStr = '';
-      const params: SQLValue[] = [];
+      let sqlStr = ''
+      const params: SQLValue[] = []
 
       strings.forEach((str, i) => {
-        sqlStr += str;
+        sqlStr += str
         if (i < values.length) {
-          sqlStr += '?';
-          params.push(values[i]);
+          sqlStr += '?'
+          params.push(values[i])
         }
-      });
+      })
 
-      return { sql: sqlStr, params };
+      return { sql: sqlStr, params }
     },
-  };
+  }
 }
 
 // ============================================================================
 // Exports
 // ============================================================================
 
-export { createDrizzleCQL as drizzle };
-export type { DrizzleCQL, DrizzleCQLConfig, TableRef, SQL, PreparedQuery };
-
+export { createDrizzleCQL as drizzle }
+export type { DrizzleCQL, DrizzleCQLConfig, TableRef, SQL, PreparedQuery }

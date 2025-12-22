@@ -1,20 +1,25 @@
-import type { NextRequest } from 'next/server';
-import { NextResponse } from 'next/server';
-import type { A2ARequest as A2ARequestType } from '@/schemas/api';
-import { expect } from '@/lib/validation';
-import { NETWORK_NAME } from '@/config';
+import type { NextRequest } from 'next/server'
+import { NextResponse } from 'next/server'
+import { NETWORK_NAME } from '@/config'
+import { expect } from '@/lib/validation'
+import type { A2ARequest as A2ARequestType } from '@/schemas/api'
 
 // Client-safe A2A helpers (avoiding @jejunetwork/shared which uses fs)
-function getServiceName(service: string): string {
-  return `${NETWORK_NAME} ${service}`;
+function _getServiceName(service: string): string {
+  return `${NETWORK_NAME} ${service}`
 }
 
 function createAgentCard(options: {
-  name: string;
-  description: string;
-  url?: string;
-  version?: string;
-  skills?: Array<{ id: string; name: string; description: string; tags?: string[] }>;
+  name: string
+  description: string
+  url?: string
+  version?: string
+  skills?: Array<{
+    id: string
+    name: string
+    description: string
+    tags?: string[]
+  }>
 }) {
   return {
     protocolVersion: '0.3.0',
@@ -35,79 +40,263 @@ function createAgentCard(options: {
     defaultInputModes: ['text'],
     defaultOutputModes: ['text'],
     skills: options.skills || [],
-  };
+  }
 }
 
 // Using A2ARequestType from schemas instead of local interface
 
 interface SkillResult {
-  message: string;
-  data: Record<string, unknown>;
+  message: string
+  data: Record<string, unknown>
 }
 
 const BAZAAR_SKILLS = [
-    // Token Launch Skills
-    { id: 'list-launches', name: 'List Token Launches', description: 'Get all active and upcoming token launches', tags: ['query', 'launches'] },
-    { id: 'get-launch', name: 'Get Launch Details', description: 'Get details of a specific token launch', tags: ['query', 'launch'] },
-    { id: 'get-launch-stats', name: 'Get Launch Statistics', description: 'Get participation statistics for a launch', tags: ['query', 'stats'] },
-    { id: 'prepare-participate', name: 'Prepare Participation', description: 'Prepare transaction for participating in a launch', tags: ['action', 'participate'] },
-    { id: 'check-eligibility', name: 'Check Eligibility', description: 'Check if an address is eligible to participate', tags: ['query', 'eligibility'] },
-    
-    // ICO Skills
-    { id: 'get-ico-tiers', name: 'Get ICO Tiers', description: 'Get available ICO participation tiers', tags: ['query', 'ico'] },
-    { id: 'get-ico-allocation', name: 'Get ICO Allocation', description: 'Get allocation for an address in an ICO', tags: ['query', 'allocation'] },
-    { id: 'prepare-ico-commit', name: 'Prepare ICO Commit', description: 'Prepare transaction to commit to an ICO tier', tags: ['action', 'ico'] },
-    { id: 'prepare-ico-claim', name: 'Prepare ICO Claim', description: 'Prepare transaction to claim ICO tokens', tags: ['action', 'claim'] },
-    
-    // NFT Marketplace Skills
-    { id: 'list-collections', name: 'List NFT Collections', description: 'Get all NFT collections on the marketplace', tags: ['query', 'nft'] },
-    { id: 'get-collection', name: 'Get Collection Details', description: 'Get details of an NFT collection', tags: ['query', 'collection'] },
-    { id: 'list-nfts', name: 'List NFTs', description: 'List NFTs in a collection or by owner', tags: ['query', 'nft'] },
-    { id: 'get-nft', name: 'Get NFT Details', description: 'Get details of a specific NFT', tags: ['query', 'nft'] },
-    { id: 'prepare-list-nft', name: 'Prepare NFT Listing', description: 'Prepare transaction to list an NFT for sale', tags: ['action', 'list'] },
-    { id: 'prepare-buy-nft', name: 'Prepare NFT Purchase', description: 'Prepare transaction to buy an NFT', tags: ['action', 'buy'] },
-    
-    // Token Swap Skills
-    { id: 'get-swap-quote', name: 'Get Swap Quote', description: 'Get quote for token swap', tags: ['query', 'swap'] },
-    { id: 'prepare-swap', name: 'Prepare Swap', description: 'Prepare transaction for token swap', tags: ['action', 'swap'] },
-    
-    // Portfolio Skills
-    { id: 'get-portfolio', name: 'Get Portfolio', description: 'Get portfolio holdings for an address', tags: ['query', 'portfolio'] },
-    { id: 'get-activity', name: 'Get Activity', description: 'Get transaction activity for an address', tags: ['query', 'activity'] },
-    
-    // Analytics Skills
-    { id: 'get-market-stats', name: 'Get Market Stats', description: 'Get overall marketplace statistics', tags: ['query', 'stats'] },
-    { id: 'get-trending', name: 'Get Trending', description: 'Get trending tokens and collections', tags: ['query', 'trending'] },
-    
-    // TFMM / Smart Pool Skills
-    { id: 'list-tfmm-pools', name: 'List Smart Pools', description: 'Get all TFMM auto-rebalancing pools', tags: ['query', 'tfmm', 'pools'] },
-    { id: 'get-tfmm-pool', name: 'Get Smart Pool Details', description: 'Get details of a specific TFMM pool', tags: ['query', 'tfmm'] },
-    { id: 'get-tfmm-strategies', name: 'Get TFMM Strategies', description: 'Get available rebalancing strategies', tags: ['query', 'tfmm', 'strategies'] },
-    { id: 'get-tfmm-oracles', name: 'Get Oracle Status', description: 'Get status of price oracles (Pyth, Chainlink, TWAP)', tags: ['query', 'tfmm', 'oracles'] },
-    { id: 'prepare-tfmm-deposit', name: 'Prepare Smart Pool Deposit', description: 'Prepare transaction to deposit into a TFMM pool', tags: ['action', 'tfmm', 'deposit'] },
-    { id: 'prepare-tfmm-withdraw', name: 'Prepare Smart Pool Withdraw', description: 'Prepare transaction to withdraw from a TFMM pool', tags: ['action', 'tfmm', 'withdraw'] },
-    { id: 'get-tfmm-performance', name: 'Get Pool Performance', description: 'Get historical performance metrics for a TFMM pool', tags: ['query', 'tfmm', 'performance'] },
-    
-    // Perpetuals Skills
-    { id: 'list-perp-markets', name: 'List Perp Markets', description: 'Get all perpetual futures markets', tags: ['query', 'perps'] },
-    { id: 'get-perp-market', name: 'Get Perp Market', description: 'Get details of a perpetual market', tags: ['query', 'perps'] },
-    { id: 'get-perp-position', name: 'Get Position', description: 'Get details of a perpetual position', tags: ['query', 'perps', 'position'] },
-    { id: 'prepare-perp-open', name: 'Prepare Open Position', description: 'Prepare transaction to open a perpetual position', tags: ['action', 'perps'] },
-    { id: 'prepare-perp-close', name: 'Prepare Close Position', description: 'Prepare transaction to close a perpetual position', tags: ['action', 'perps'] },
-    { id: 'get-perp-funding', name: 'Get Funding Rate', description: 'Get current funding rate for a market', tags: ['query', 'perps', 'funding'] },
-    
-    // Charts & Analytics
-    { id: 'get-token-chart', name: 'Get Token Chart', description: 'Get price chart data for a token', tags: ['query', 'charts'] },
-    { id: 'get-top-tokens', name: 'Get Top Tokens', description: 'Get top tokens by volume or market cap', tags: ['query', 'analytics'] },
-];
+  // Token Launch Skills
+  {
+    id: 'list-launches',
+    name: 'List Token Launches',
+    description: 'Get all active and upcoming token launches',
+    tags: ['query', 'launches'],
+  },
+  {
+    id: 'get-launch',
+    name: 'Get Launch Details',
+    description: 'Get details of a specific token launch',
+    tags: ['query', 'launch'],
+  },
+  {
+    id: 'get-launch-stats',
+    name: 'Get Launch Statistics',
+    description: 'Get participation statistics for a launch',
+    tags: ['query', 'stats'],
+  },
+  {
+    id: 'prepare-participate',
+    name: 'Prepare Participation',
+    description: 'Prepare transaction for participating in a launch',
+    tags: ['action', 'participate'],
+  },
+  {
+    id: 'check-eligibility',
+    name: 'Check Eligibility',
+    description: 'Check if an address is eligible to participate',
+    tags: ['query', 'eligibility'],
+  },
+
+  // ICO Skills
+  {
+    id: 'get-ico-tiers',
+    name: 'Get ICO Tiers',
+    description: 'Get available ICO participation tiers',
+    tags: ['query', 'ico'],
+  },
+  {
+    id: 'get-ico-allocation',
+    name: 'Get ICO Allocation',
+    description: 'Get allocation for an address in an ICO',
+    tags: ['query', 'allocation'],
+  },
+  {
+    id: 'prepare-ico-commit',
+    name: 'Prepare ICO Commit',
+    description: 'Prepare transaction to commit to an ICO tier',
+    tags: ['action', 'ico'],
+  },
+  {
+    id: 'prepare-ico-claim',
+    name: 'Prepare ICO Claim',
+    description: 'Prepare transaction to claim ICO tokens',
+    tags: ['action', 'claim'],
+  },
+
+  // NFT Marketplace Skills
+  {
+    id: 'list-collections',
+    name: 'List NFT Collections',
+    description: 'Get all NFT collections on the marketplace',
+    tags: ['query', 'nft'],
+  },
+  {
+    id: 'get-collection',
+    name: 'Get Collection Details',
+    description: 'Get details of an NFT collection',
+    tags: ['query', 'collection'],
+  },
+  {
+    id: 'list-nfts',
+    name: 'List NFTs',
+    description: 'List NFTs in a collection or by owner',
+    tags: ['query', 'nft'],
+  },
+  {
+    id: 'get-nft',
+    name: 'Get NFT Details',
+    description: 'Get details of a specific NFT',
+    tags: ['query', 'nft'],
+  },
+  {
+    id: 'prepare-list-nft',
+    name: 'Prepare NFT Listing',
+    description: 'Prepare transaction to list an NFT for sale',
+    tags: ['action', 'list'],
+  },
+  {
+    id: 'prepare-buy-nft',
+    name: 'Prepare NFT Purchase',
+    description: 'Prepare transaction to buy an NFT',
+    tags: ['action', 'buy'],
+  },
+
+  // Token Swap Skills
+  {
+    id: 'get-swap-quote',
+    name: 'Get Swap Quote',
+    description: 'Get quote for token swap',
+    tags: ['query', 'swap'],
+  },
+  {
+    id: 'prepare-swap',
+    name: 'Prepare Swap',
+    description: 'Prepare transaction for token swap',
+    tags: ['action', 'swap'],
+  },
+
+  // Portfolio Skills
+  {
+    id: 'get-portfolio',
+    name: 'Get Portfolio',
+    description: 'Get portfolio holdings for an address',
+    tags: ['query', 'portfolio'],
+  },
+  {
+    id: 'get-activity',
+    name: 'Get Activity',
+    description: 'Get transaction activity for an address',
+    tags: ['query', 'activity'],
+  },
+
+  // Analytics Skills
+  {
+    id: 'get-market-stats',
+    name: 'Get Market Stats',
+    description: 'Get overall marketplace statistics',
+    tags: ['query', 'stats'],
+  },
+  {
+    id: 'get-trending',
+    name: 'Get Trending',
+    description: 'Get trending tokens and collections',
+    tags: ['query', 'trending'],
+  },
+
+  // TFMM / Smart Pool Skills
+  {
+    id: 'list-tfmm-pools',
+    name: 'List Smart Pools',
+    description: 'Get all TFMM auto-rebalancing pools',
+    tags: ['query', 'tfmm', 'pools'],
+  },
+  {
+    id: 'get-tfmm-pool',
+    name: 'Get Smart Pool Details',
+    description: 'Get details of a specific TFMM pool',
+    tags: ['query', 'tfmm'],
+  },
+  {
+    id: 'get-tfmm-strategies',
+    name: 'Get TFMM Strategies',
+    description: 'Get available rebalancing strategies',
+    tags: ['query', 'tfmm', 'strategies'],
+  },
+  {
+    id: 'get-tfmm-oracles',
+    name: 'Get Oracle Status',
+    description: 'Get status of price oracles (Pyth, Chainlink, TWAP)',
+    tags: ['query', 'tfmm', 'oracles'],
+  },
+  {
+    id: 'prepare-tfmm-deposit',
+    name: 'Prepare Smart Pool Deposit',
+    description: 'Prepare transaction to deposit into a TFMM pool',
+    tags: ['action', 'tfmm', 'deposit'],
+  },
+  {
+    id: 'prepare-tfmm-withdraw',
+    name: 'Prepare Smart Pool Withdraw',
+    description: 'Prepare transaction to withdraw from a TFMM pool',
+    tags: ['action', 'tfmm', 'withdraw'],
+  },
+  {
+    id: 'get-tfmm-performance',
+    name: 'Get Pool Performance',
+    description: 'Get historical performance metrics for a TFMM pool',
+    tags: ['query', 'tfmm', 'performance'],
+  },
+
+  // Perpetuals Skills
+  {
+    id: 'list-perp-markets',
+    name: 'List Perp Markets',
+    description: 'Get all perpetual futures markets',
+    tags: ['query', 'perps'],
+  },
+  {
+    id: 'get-perp-market',
+    name: 'Get Perp Market',
+    description: 'Get details of a perpetual market',
+    tags: ['query', 'perps'],
+  },
+  {
+    id: 'get-perp-position',
+    name: 'Get Position',
+    description: 'Get details of a perpetual position',
+    tags: ['query', 'perps', 'position'],
+  },
+  {
+    id: 'prepare-perp-open',
+    name: 'Prepare Open Position',
+    description: 'Prepare transaction to open a perpetual position',
+    tags: ['action', 'perps'],
+  },
+  {
+    id: 'prepare-perp-close',
+    name: 'Prepare Close Position',
+    description: 'Prepare transaction to close a perpetual position',
+    tags: ['action', 'perps'],
+  },
+  {
+    id: 'get-perp-funding',
+    name: 'Get Funding Rate',
+    description: 'Get current funding rate for a market',
+    tags: ['query', 'perps', 'funding'],
+  },
+
+  // Charts & Analytics
+  {
+    id: 'get-token-chart',
+    name: 'Get Token Chart',
+    description: 'Get price chart data for a token',
+    tags: ['query', 'charts'],
+  },
+  {
+    id: 'get-top-tokens',
+    name: 'Get Top Tokens',
+    description: 'Get top tokens by volume or market cap',
+    tags: ['query', 'analytics'],
+  },
+]
 
 export const BAZAAR_AGENT_CARD = createAgentCard({
   name: 'Bazaar',
-  description: 'Decentralized marketplace for token launches, ICOs, and NFT trading',
+  description:
+    'Decentralized marketplace for token launches, ICOs, and NFT trading',
   skills: BAZAAR_SKILLS,
-});
+})
 
-async function executeSkill(skillId: string, params: Record<string, unknown>): Promise<SkillResult> {
+async function executeSkill(
+  skillId: string,
+  params: Record<string, unknown>,
+): Promise<SkillResult> {
   switch (skillId) {
     // Token Launch Skills
     case 'list-launches': {
@@ -123,15 +312,20 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
               raised: '2500000',
               target: '5000000',
               participants: 1250,
-              endsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+              endsAt: new Date(
+                Date.now() + 7 * 24 * 60 * 60 * 1000,
+              ).toISOString(),
             },
           ],
         },
-      };
+      }
     }
 
     case 'get-launch': {
-      const launchId = expect(params.launchId as string | undefined, 'Launch ID required');
+      const launchId = expect(
+        params.launchId as string | undefined,
+        'Launch ID required',
+      )
       return {
         message: `Launch details for ${launchId}`,
         data: {
@@ -147,11 +341,11 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           vestingPeriod: '12 months',
           cliffPeriod: '3 months',
         },
-      };
+      }
     }
 
     case 'get-launch-stats': {
-      const launchId = params.launchId as string;
+      const launchId = params.launchId as string
       return {
         message: `Statistics for launch ${launchId}`,
         data: {
@@ -162,14 +356,18 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           timeRemaining: 604800,
           percentComplete: 50,
         },
-      };
+      }
     }
 
     case 'prepare-participate': {
-      const { launchId, amount, address } = params as { launchId: string; amount: string; address: string };
-      expect(launchId, 'launchId is required');
-      expect(amount, 'amount is required');
-      expect(address, 'address is required');
+      const { launchId, amount, address } = params as {
+        launchId: string
+        amount: string
+        address: string
+      }
+      expect(launchId, 'launchId is required')
+      expect(amount, 'amount is required')
+      expect(address, 'address is required')
       return {
         message: `Prepare participation in ${launchId}`,
         data: {
@@ -183,11 +381,11 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           approvalToken: process.env.NEXT_PUBLIC_USDC_ADDRESS,
           approvalAmount: amount,
         },
-      };
+      }
     }
 
     case 'check-eligibility': {
-      const address = params.address as string;
+      const address = params.address as string
       return {
         message: `Eligibility for ${address}`,
         data: {
@@ -197,7 +395,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           kycRequired: false,
           reasons: [],
         },
-      };
+      }
     }
 
     // ICO Skills
@@ -206,17 +404,41 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
         message: 'Available ICO tiers',
         data: {
           tiers: [
-            { name: 'Community', minCommit: '10', maxCommit: '1000', discount: 0, vestingMonths: 12 },
-            { name: 'Supporter', minCommit: '1000', maxCommit: '5000', discount: 5, vestingMonths: 12 },
-            { name: 'Backer', minCommit: '5000', maxCommit: '25000', discount: 10, vestingMonths: 12 },
-            { name: 'Builder', minCommit: '25000', maxCommit: '100000', discount: 15, vestingMonths: 12 },
+            {
+              name: 'Community',
+              minCommit: '10',
+              maxCommit: '1000',
+              discount: 0,
+              vestingMonths: 12,
+            },
+            {
+              name: 'Supporter',
+              minCommit: '1000',
+              maxCommit: '5000',
+              discount: 5,
+              vestingMonths: 12,
+            },
+            {
+              name: 'Backer',
+              minCommit: '5000',
+              maxCommit: '25000',
+              discount: 10,
+              vestingMonths: 12,
+            },
+            {
+              name: 'Builder',
+              minCommit: '25000',
+              maxCommit: '100000',
+              discount: 15,
+              vestingMonths: 12,
+            },
           ],
         },
-      };
+      }
     }
 
     case 'get-ico-allocation': {
-      const address = params.address as string;
+      const address = params.address as string
       return {
         message: `Allocation for ${address}`,
         data: {
@@ -227,7 +449,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           claimed: '0',
           nextVestingDate: null,
         },
-      };
+      }
     }
 
     // NFT Skills
@@ -236,15 +458,25 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
         message: 'NFT collections on Bazaar',
         data: {
           collections: [
-            { id: 'jeju-genesis', name: 'Jeju Genesis', items: 10000, floorPrice: '0.1' },
-            { id: 'jeju-agents', name: 'Jeju Agents', items: 5000, floorPrice: '0.5' },
+            {
+              id: 'jeju-genesis',
+              name: 'Jeju Genesis',
+              items: 10000,
+              floorPrice: '0.1',
+            },
+            {
+              id: 'jeju-agents',
+              name: 'Jeju Agents',
+              items: 5000,
+              floorPrice: '0.5',
+            },
           ],
         },
-      };
+      }
     }
 
     case 'get-collection': {
-      const collectionId = params.collectionId as string;
+      const collectionId = params.collectionId as string
       return {
         message: `Collection ${collectionId} details`,
         data: {
@@ -257,26 +489,46 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           volume24h: '150',
           volumeTotal: '5000',
         },
-      };
+      }
     }
 
     case 'list-nfts': {
-      const { collectionId, owner, limit } = params as { collectionId?: string; owner?: string; limit?: number };
+      const {
+        collectionId: _collectionId,
+        owner: _owner,
+        limit: _limit,
+      } = params as {
+        collectionId?: string
+        owner?: string
+        limit?: number
+      }
       return {
         message: 'NFT listings',
         data: {
           nfts: [
-            { id: '1', name: 'Genesis #1', price: '0.15', owner: '0x...', listed: true },
-            { id: '2', name: 'Genesis #2', price: '0.12', owner: '0x...', listed: true },
+            {
+              id: '1',
+              name: 'Genesis #1',
+              price: '0.15',
+              owner: '0x...',
+              listed: true,
+            },
+            {
+              id: '2',
+              name: 'Genesis #2',
+              price: '0.12',
+              owner: '0x...',
+              listed: true,
+            },
           ],
           total: 500,
           hasMore: true,
         },
-      };
+      }
     }
 
     case 'prepare-buy-nft': {
-      const { nftId, price } = params as { nftId: string; price: string };
+      const { nftId, price } = params as { nftId: string; price: string }
       return {
         message: `Prepare purchase of NFT ${nftId}`,
         data: {
@@ -287,12 +539,16 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             value: price,
           },
         },
-      };
+      }
     }
 
     // Swap Skills
     case 'get-swap-quote': {
-      const { tokenIn, tokenOut, amountIn } = params as { tokenIn: string; tokenOut: string; amountIn: string };
+      const { tokenIn, tokenOut, amountIn } = params as {
+        tokenIn: string
+        tokenOut: string
+        amountIn: string
+      }
       return {
         message: `Swap quote: ${amountIn} ${tokenIn} to ${tokenOut}`,
         data: {
@@ -302,11 +558,21 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           route: ['JEJU', 'WETH', tokenOut],
           estimatedGas: '150000',
         },
-      };
+      }
     }
 
     case 'prepare-swap': {
-      const { tokenIn, tokenOut, amountIn, slippage } = params as { tokenIn: string; tokenOut: string; amountIn: string; slippage?: number };
+      const {
+        tokenIn,
+        tokenOut: _tokenOut,
+        amountIn,
+        slippage: _slippage,
+      } = params as {
+        tokenIn: string
+        tokenOut: string
+        amountIn: string
+        slippage?: number
+      }
       return {
         message: 'Prepare swap transaction',
         data: {
@@ -318,12 +584,12 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           },
           approvalRequired: tokenIn !== 'ETH',
         },
-      };
+      }
     }
 
     // Portfolio Skills
     case 'get-portfolio': {
-      const address = params.address as string;
+      const address = params.address as string
       return {
         message: `Portfolio for ${address}`,
         data: {
@@ -331,25 +597,34 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             { symbol: 'JEJU', balance: '10000', value: '500' },
             { symbol: 'ETH', balance: '2.5', value: '5000' },
           ],
-          nfts: [
-            { collection: 'Genesis', count: 3, floorValue: '0.3' },
-          ],
+          nfts: [{ collection: 'Genesis', count: 3, floorValue: '0.3' }],
           totalValue: '5500',
         },
-      };
+      }
     }
 
     case 'get-activity': {
-      const address = params.address as string;
+      const address = params.address as string
       return {
         message: `Activity for ${address}`,
         data: {
           transactions: [
-            { type: 'swap', token: 'JEJU', amount: '1000', timestamp: new Date().toISOString() },
-            { type: 'buy_nft', collection: 'Genesis', id: '42', price: '0.1', timestamp: new Date().toISOString() },
+            {
+              type: 'swap',
+              token: 'JEJU',
+              amount: '1000',
+              timestamp: new Date().toISOString(),
+            },
+            {
+              type: 'buy_nft',
+              collection: 'Genesis',
+              id: '42',
+              price: '0.1',
+              timestamp: new Date().toISOString(),
+            },
           ],
         },
-      };
+      }
     }
 
     // Analytics Skills
@@ -363,7 +638,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           launches: { active: 3, completed: 15, upcoming: 5 },
           nftVolume24h: '150000',
         },
-      };
+      }
     }
 
     case 'get-trending': {
@@ -374,11 +649,9 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             { symbol: 'JEJU', change24h: 15.5 },
             { symbol: 'CLANKER', change24h: 8.2 },
           ],
-          collections: [
-            { name: 'Jeju Agents', volumeChange: 250 },
-          ],
+          collections: [{ name: 'Jeju Agents', volumeChange: 250 }],
         },
-      };
+      }
     }
 
     // TFMM / Smart Pool Skills
@@ -409,11 +682,11 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           totalTvl: '4180000',
           totalPools: 3,
         },
-      };
+      }
     }
 
     case 'get-tfmm-pool': {
-      const poolAddress = params.poolAddress as string;
+      const poolAddress = params.poolAddress as string
       return {
         message: `Smart Pool details for ${poolAddress}`,
         data: {
@@ -434,7 +707,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             maxDrawdown: -12.3,
           },
         },
-      };
+      }
     }
 
     case 'get-tfmm-strategies': {
@@ -445,24 +718,27 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             {
               type: 'momentum',
               name: 'Momentum',
-              description: 'Allocates more to assets with positive price momentum',
+              description:
+                'Allocates more to assets with positive price momentum',
               performance: { return30d: 8.5, sharpe: 1.8 },
             },
             {
               type: 'mean_reversion',
               name: 'Mean Reversion',
-              description: 'Rebalances when assets deviate from historical averages',
+              description:
+                'Rebalances when assets deviate from historical averages',
               performance: { return30d: 5.2, sharpe: 2.1 },
             },
             {
               type: 'trend_following',
               name: 'Trend Following',
-              description: 'Follows medium-term price trends using moving averages',
+              description:
+                'Follows medium-term price trends using moving averages',
               performance: { return30d: 12.1, sharpe: 1.5 },
             },
           ],
         },
-      };
+      }
     }
 
     case 'get-tfmm-oracles': {
@@ -471,16 +747,34 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
         data: {
           priority: ['pyth', 'chainlink', 'twap'],
           tokens: {
-            ETH: { source: 'pyth', price: '3450.00', lastUpdate: Date.now() - 5000, healthy: true },
-            BTC: { source: 'pyth', price: '97500.00', lastUpdate: Date.now() - 3000, healthy: true },
-            USDC: { source: 'chainlink', price: '1.00', lastUpdate: Date.now() - 10000, healthy: true },
+            ETH: {
+              source: 'pyth',
+              price: '3450.00',
+              lastUpdate: Date.now() - 5000,
+              healthy: true,
+            },
+            BTC: {
+              source: 'pyth',
+              price: '97500.00',
+              lastUpdate: Date.now() - 3000,
+              healthy: true,
+            },
+            USDC: {
+              source: 'chainlink',
+              price: '1.00',
+              lastUpdate: Date.now() - 10000,
+              healthy: true,
+            },
           },
         },
-      };
+      }
     }
 
     case 'prepare-tfmm-deposit': {
-      const { poolAddress, amounts } = params as { poolAddress: string; amounts: Record<string, string> };
+      const { poolAddress, amounts: _amounts } = params as {
+        poolAddress: string
+        amounts: Record<string, string>
+      }
       return {
         message: `Prepare deposit to Smart Pool ${poolAddress}`,
         data: {
@@ -493,11 +787,14 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           approvalRequired: true,
           estimatedShares: '1000.00',
         },
-      };
+      }
     }
 
     case 'prepare-tfmm-withdraw': {
-      const { poolAddress, shares } = params as { poolAddress: string; shares: string };
+      const { poolAddress, shares: _shares } = params as {
+        poolAddress: string
+        shares: string
+      }
       return {
         message: `Prepare withdrawal from Smart Pool ${poolAddress}`,
         data: {
@@ -509,11 +806,11 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           },
           estimatedAmounts: { ETH: '0.5', BTC: '0.008' },
         },
-      };
+      }
     }
 
     case 'get-tfmm-performance': {
-      const poolAddress = params.poolAddress as string;
+      const poolAddress = params.poolAddress as string
       return {
         message: `Performance metrics for ${poolAddress}`,
         data: {
@@ -535,7 +832,7 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             lastRebalance: Date.now() - 86400000,
           },
         },
-      };
+      }
     }
 
     // Perpetuals Skills
@@ -562,11 +859,11 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             },
           ],
         },
-      };
+      }
     }
 
     case 'get-perp-market': {
-      const marketId = params.marketId as string;
+      const marketId = params.marketId as string
       return {
         message: `Market details for ${marketId}`,
         data: {
@@ -581,11 +878,14 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           takerFee: 0.0005,
           makerFee: 0.0002,
         },
-      };
+      }
     }
 
     case 'get-perp-position': {
-      const { positionId, address } = params as { positionId?: string; address?: string };
+      const { positionId, address: _address } = params as {
+        positionId?: string
+        address?: string
+      }
       return {
         message: 'Position details',
         data: {
@@ -600,11 +900,23 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           unrealizedPnl: '500.00',
           liquidationPrice: '94520.00',
         },
-      };
+      }
     }
 
     case 'prepare-perp-open': {
-      const { marketId, side, size, leverage, margin } = params as { marketId: string; side: string; size: string; leverage: number; margin: string };
+      const {
+        marketId,
+        side,
+        size: _size,
+        leverage: _leverage,
+        margin: _margin,
+      } = params as {
+        marketId: string
+        side: string
+        size: string
+        leverage: number
+        margin: string
+      }
       return {
         message: `Prepare ${side} position on ${marketId}`,
         data: {
@@ -618,11 +930,11 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           estimatedEntry: '97500.00',
           estimatedLiquidation: side === 'long' ? '95000.00' : '100000.00',
         },
-      };
+      }
     }
 
     case 'prepare-perp-close': {
-      const positionId = params.positionId as string;
+      const positionId = params.positionId as string
       return {
         message: `Prepare close position ${positionId}`,
         data: {
@@ -635,11 +947,11 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
           estimatedPnl: '500.00',
           estimatedFee: '24.38',
         },
-      };
+      }
     }
 
     case 'get-perp-funding': {
-      const marketId = params.marketId as string;
+      const marketId = params.marketId as string
       return {
         message: `Funding rate for ${marketId}`,
         data: {
@@ -653,66 +965,110 @@ async function executeSkill(skillId: string, params: Record<string, unknown>): P
             { time: Date.now() - 10800000, rate: 0.007 },
           ],
         },
-      };
+      }
     }
 
     // Charts & Analytics
     case 'get-token-chart': {
-      const { tokenAddress, interval } = params as { tokenAddress: string; interval: string };
+      const { tokenAddress, interval } = params as {
+        tokenAddress: string
+        interval: string
+      }
       return {
         message: `Chart data for ${tokenAddress}`,
         data: {
           token: tokenAddress,
           interval: interval || '1h',
           candles: [
-            { time: Date.now() - 3600000, open: 100, high: 105, low: 98, close: 103, volume: '50000' },
-            { time: Date.now() - 7200000, open: 98, high: 102, low: 96, close: 100, volume: '45000' },
+            {
+              time: Date.now() - 3600000,
+              open: 100,
+              high: 105,
+              low: 98,
+              close: 103,
+              volume: '50000',
+            },
+            {
+              time: Date.now() - 7200000,
+              open: 98,
+              high: 102,
+              low: 96,
+              close: 100,
+              volume: '45000',
+            },
           ],
           currentPrice: 103,
           change24h: 5.2,
         },
-      };
+      }
     }
 
     case 'get-top-tokens': {
-      const { sortBy, limit } = params as { sortBy?: string; limit?: number };
+      const { sortBy: _sortBy, limit: _limit } = params as {
+        sortBy?: string
+        limit?: number
+      }
       return {
         message: 'Top tokens',
         data: {
           tokens: [
-            { symbol: 'ETH', price: '3450.00', volume24h: '5000000000', change24h: 2.5 },
-            { symbol: 'BTC', price: '97500.00', volume24h: '15000000000', change24h: 1.8 },
-            { symbol: 'JEJU', price: '0.05', volume24h: '2500000', change24h: 15.5 },
+            {
+              symbol: 'ETH',
+              price: '3450.00',
+              volume24h: '5000000000',
+              change24h: 2.5,
+            },
+            {
+              symbol: 'BTC',
+              price: '97500.00',
+              volume24h: '15000000000',
+              change24h: 1.8,
+            },
+            {
+              symbol: 'JEJU',
+              price: '0.05',
+              volume24h: '2500000',
+              change24h: 15.5,
+            },
           ],
           sortedBy: sortBy || 'volume',
         },
-      };
+      }
     }
 
     default:
       return {
         message: 'Unknown skill',
-        data: { error: 'Skill not found', availableSkills: BAZAAR_AGENT_CARD.skills.map(s => s.id) },
-      };
+        data: {
+          error: 'Skill not found',
+          availableSkills: BAZAAR_AGENT_CARD.skills.map((s) => s.id),
+        },
+      }
   }
 }
 
-export async function handleA2ARequest(request: NextRequest, validatedBody: A2ARequestType): Promise<NextResponse> {
+export async function handleA2ARequest(
+  _request: NextRequest,
+  validatedBody: A2ARequestType,
+): Promise<NextResponse> {
   if (validatedBody.method !== 'message/send') {
-    throw new Error(`Method not found: ${validatedBody.method}`);
+    throw new Error(`Method not found: ${validatedBody.method}`)
   }
 
-  const message = expect(validatedBody.params?.message, 'Message is required');
-  const parts = expect(message.parts, 'Message parts are required');
+  const message = expect(validatedBody.params?.message, 'Message is required')
+  const parts = expect(message.parts, 'Message parts are required')
 
   const dataPart = expect(
     parts.find((p) => p.kind === 'data'),
-    'Data part is required'
-  );
-  const dataPartData = expect(dataPart.data, 'Data part data is required');
+    'Data part is required',
+  )
+  const dataPartData = expect(dataPart.data, 'Data part data is required')
 
-  const skillId = expect(dataPartData.skillId as string | undefined, 'skillId is required');
-  const result = await executeSkill(skillId, dataPartData);
+  const skillId = expect(
+    dataPartData.skillId as string | undefined,
+    'skillId is required',
+  )
+  const result = await executeSkill(skillId, dataPartData)
 
   return NextResponse.json({
     jsonrpc: '2.0',
@@ -726,11 +1082,9 @@ export async function handleA2ARequest(request: NextRequest, validatedBody: A2AR
       messageId: message.messageId,
       kind: 'message',
     },
-  });
+  })
 }
 
 export function handleAgentCard(): NextResponse {
-  return NextResponse.json(BAZAAR_AGENT_CARD);
+  return NextResponse.json(BAZAAR_AGENT_CARD)
 }
-
-

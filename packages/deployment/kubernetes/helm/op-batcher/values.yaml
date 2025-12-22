@@ -20,15 +20,18 @@ podAnnotations:
 podSecurityContext:
   fsGroup: 1000
   runAsUser: 1000
-  # runAsNonRoot: true
+  runAsNonRoot: true
+  seccompProfile:
+    type: RuntimeDefault
 
 securityContext:
   capabilities:
     drop:
     - ALL
   readOnlyRootFilesystem: true
-  # runAsNonRoot: true
+  runAsNonRoot: true
   runAsUser: 1000
+  allowPrivilegeEscalation: false
 
 service:
   type: ClusterIP
@@ -51,6 +54,10 @@ nodeSelector: {}
 tolerations: []
 
 affinity: {}
+
+# Network Policy for restricting network access
+networkPolicy:
+  enabled: true
 
 config:
   l1:

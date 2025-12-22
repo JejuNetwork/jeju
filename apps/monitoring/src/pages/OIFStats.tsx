@@ -1,8 +1,17 @@
+import {
+  ArrowRight,
+  CheckCircle,
+  Clock,
+  RefreshCw,
+  Route,
+  TrendingUp,
+  Users,
+  Zap,
+} from 'lucide-react'
 import { useState } from 'react'
-import { Zap, Users, Route, TrendingUp, RefreshCw, ArrowRight, CheckCircle, Clock } from 'lucide-react'
-import { useOIFStats } from '../hooks/useMonitoring'
-import { StatCard } from '../components/StatCard'
 import { HealthRing } from '../components/HealthRing'
+import { StatCard } from '../components/StatCard'
+import { useOIFStats } from '../hooks/useMonitoring'
 
 type Tab = 'overview' | 'solvers' | 'routes'
 
@@ -10,17 +19,27 @@ export function OIFStats() {
   const { stats, solvers, routes, loading, error, refetch } = useOIFStats()
   const [activeTab, setActiveTab] = useState<Tab>('overview')
 
+  // Safely format large token amounts using BigInt to avoid precision loss
   const formatVolume = (amount: string | undefined) => {
     if (!amount) return '-'
-    const value = parseFloat(amount) / 1e18
+    // Use BigInt division for precision with large token amounts
+    const bigValue = BigInt(amount)
+    const divisor = BigInt(1e18)
+    const wholePart = bigValue / divisor
+    const remainder = bigValue % divisor
+
+    // Convert to number only after scaling down (safe after division by 1e18)
+    const value = Number(wholePart) + Number(remainder) / 1e18
+
     if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`
     if (value >= 1000) return `${(value / 1000).toFixed(2)}K`
     return value.toFixed(4)
   }
 
-  const avgSuccessRate = solvers.length > 0
-    ? solvers.reduce((sum, s) => sum + s.successRate, 0) / solvers.length
-    : 0
+  const avgSuccessRate =
+    solvers.length > 0
+      ? solvers.reduce((sum, s) => sum + s.successRate, 0) / solvers.length
+      : 0
 
   const tabs = [
     { id: 'overview' as const, label: 'Overview', icon: Zap },
@@ -44,7 +63,7 @@ export function OIFStats() {
       </div>
 
       {/* Tabs */}
-      <div 
+      <div
         className="flex p-1 rounded-xl"
         style={{ backgroundColor: 'var(--bg-secondary)' }}
       >
@@ -58,7 +77,8 @@ export function OIFStats() {
                 activeTab === tab.id ? 'text-white' : ''
               }`}
               style={{
-                backgroundColor: activeTab === tab.id ? 'var(--color-primary)' : 'transparent',
+                backgroundColor:
+                  activeTab === tab.id ? 'var(--color-primary)' : 'transparent',
                 color: activeTab === tab.id ? 'white' : 'var(--text-secondary)',
               }}
             >
@@ -71,7 +91,10 @@ export function OIFStats() {
 
       {/* Error */}
       {error && (
-        <div className="card-static p-4 text-center" style={{ borderColor: 'var(--color-warning)' }}>
+        <div
+          className="card-static p-4 text-center"
+          style={{ borderColor: 'var(--color-warning)' }}
+        >
           <p style={{ color: 'var(--color-warning)' }}>OIF unavailable</p>
         </div>
       )}
@@ -96,7 +119,11 @@ export function OIFStats() {
             />
             <StatCard
               label="Volume"
-              value={stats?.totalVolumeUsd ? `$${formatVolume(stats.totalVolumeUsd)}` : '-'}
+              value={
+                stats?.totalVolumeUsd
+                  ? `$${formatVolume(stats.totalVolumeUsd)}`
+                  : '-'
+              }
               icon={<TrendingUp className="w-6 h-6" />}
               status="success"
               loading={loading}
@@ -118,27 +145,64 @@ export function OIFStats() {
                 strokeWidth={10}
                 label="Success Rate"
               />
-              
+
               <div className="flex-1 w-full grid grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                  <div className="text-2xl font-bold" style={{ color: 'var(--color-success)' }}>
-                    {solvers.filter(s => s.successRate >= 95).length}
+                <div
+                  className="p-4 rounded-xl text-center"
+                  style={{ backgroundColor: 'var(--bg-secondary)' }}
+                >
+                  <div
+                    className="text-2xl font-bold"
+                    style={{ color: 'var(--color-success)' }}
+                  >
+                    {solvers.filter((s) => s.successRate >= 95).length}
                   </div>
-                  <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Healthy</div>
+                  <div
+                    className="text-xs"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Healthy
+                  </div>
                 </div>
-                
-                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                  <div className="text-2xl font-bold" style={{ color: 'var(--color-warning)' }}>
-                    {solvers.filter(s => s.successRate >= 80 && s.successRate < 95).length}
+
+                <div
+                  className="p-4 rounded-xl text-center"
+                  style={{ backgroundColor: 'var(--bg-secondary)' }}
+                >
+                  <div
+                    className="text-2xl font-bold"
+                    style={{ color: 'var(--color-warning)' }}
+                  >
+                    {
+                      solvers.filter(
+                        (s) => s.successRate >= 80 && s.successRate < 95,
+                      ).length
+                    }
                   </div>
-                  <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Degraded</div>
+                  <div
+                    className="text-xs"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Degraded
+                  </div>
                 </div>
-                
-                <div className="p-4 rounded-xl text-center" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-                  <div className="text-2xl font-bold" style={{ color: 'var(--color-error)' }}>
-                    {solvers.filter(s => s.successRate < 80).length}
+
+                <div
+                  className="p-4 rounded-xl text-center"
+                  style={{ backgroundColor: 'var(--bg-secondary)' }}
+                >
+                  <div
+                    className="text-2xl font-bold"
+                    style={{ color: 'var(--color-error)' }}
+                  >
+                    {solvers.filter((s) => s.successRate < 80).length}
                   </div>
-                  <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Unhealthy</div>
+                  <div
+                    className="text-xs"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
+                    Unhealthy
+                  </div>
                 </div>
               </div>
             </div>
@@ -162,9 +226,7 @@ export function OIFStats() {
               <p style={{ color: 'var(--text-tertiary)' }}>No solvers</p>
             </div>
           ) : (
-            solvers.map((solver, i) => (
-              <SolverCard key={i} solver={solver} />
-            ))
+            solvers.map((solver, i) => <SolverCard key={i} solver={solver} />)
           )}
         </div>
       )}
@@ -185,9 +247,7 @@ export function OIFStats() {
               <p style={{ color: 'var(--text-tertiary)' }}>No routes</p>
             </div>
           ) : (
-            routes.map((route, i) => (
-              <RouteCard key={i} route={route} />
-            ))
+            routes.map((route, i) => <RouteCard key={i} route={route} />)
           )}
         </div>
       )}
@@ -216,20 +276,31 @@ function SolverCard({ solver }: { solver: Solver }) {
           <h3 className="font-bold" style={{ color: 'var(--text-primary)' }}>
             {solver.name || 'Unnamed'}
           </h3>
-          <p className="text-xs font-mono truncate" style={{ color: 'var(--text-tertiary)' }}>
+          <p
+            className="text-xs font-mono truncate"
+            style={{ color: 'var(--text-tertiary)' }}
+          >
             {solver.address}
           </p>
         </div>
-        
+
         <div className="flex items-center gap-4 text-sm">
           <div className="text-right">
-            <div className="font-bold" style={{ color: getHealthColor() }}>{solver.successRate.toFixed(1)}%</div>
-            <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Success</div>
+            <div className="font-bold" style={{ color: getHealthColor() }}>
+              {solver.successRate.toFixed(1)}%
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Success
+            </div>
           </div>
-          
+
           <div className="text-right">
-            <div className="font-bold" style={{ color: 'var(--color-purple)' }}>{solver.reputation}</div>
-            <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Rep</div>
+            <div className="font-bold" style={{ color: 'var(--color-purple)' }}>
+              {solver.reputation}
+            </div>
+            <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>
+              Rep
+            </div>
           </div>
         </div>
       </div>
@@ -247,7 +318,12 @@ interface RouteInfo {
 
 function RouteCard({ route }: { route: RouteInfo }) {
   const chains: Record<number, string> = {
-    1: 'Ethereum', 8453: 'Base', 42161: 'Arbitrum', 10: 'Optimism', 137: 'Polygon', 1337: 'Network',
+    1: 'Ethereum',
+    8453: 'Base',
+    42161: 'Arbitrum',
+    10: 'Optimism',
+    137: 'Polygon',
+    1337: 'Network',
   }
   const getChain = (id: number) => chains[id] || `${id}`
 
@@ -255,20 +331,48 @@ function RouteCard({ route }: { route: RouteInfo }) {
     <div className="card-static p-4">
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-2 flex-1">
-          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{getChain(route.source)}</span>
-          <ArrowRight className="w-4 h-4" style={{ color: 'var(--color-primary)' }} />
-          <span className="font-medium" style={{ color: 'var(--text-primary)' }}>{getChain(route.destination)}</span>
+          <span
+            className="font-medium"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {getChain(route.source)}
+          </span>
+          <ArrowRight
+            className="w-4 h-4"
+            style={{ color: 'var(--color-primary)' }}
+          />
+          <span
+            className="font-medium"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            {getChain(route.destination)}
+          </span>
         </div>
-        
+
         <div className="flex items-center gap-4 text-sm">
           <div className="flex items-center gap-1">
-            <CheckCircle className="w-4 h-4" style={{ color: route.successRate >= 95 ? 'var(--color-success)' : 'var(--color-warning)' }} />
-            <span style={{ color: 'var(--text-primary)' }}>{route.successRate.toFixed(1)}%</span>
+            <CheckCircle
+              className="w-4 h-4"
+              style={{
+                color:
+                  route.successRate >= 95
+                    ? 'var(--color-success)'
+                    : 'var(--color-warning)',
+              }}
+            />
+            <span style={{ color: 'var(--text-primary)' }}>
+              {route.successRate.toFixed(1)}%
+            </span>
           </div>
-          
+
           <div className="flex items-center gap-1">
-            <Clock className="w-4 h-4" style={{ color: 'var(--text-tertiary)' }} />
-            <span style={{ color: 'var(--text-primary)' }}>{route.avgTime.toFixed(1)}s</span>
+            <Clock
+              className="w-4 h-4"
+              style={{ color: 'var(--text-tertiary)' }}
+            />
+            <span style={{ color: 'var(--text-primary)' }}>
+              {route.avgTime.toFixed(1)}s
+            </span>
           </div>
         </div>
       </div>

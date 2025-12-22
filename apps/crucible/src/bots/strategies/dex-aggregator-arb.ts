@@ -12,23 +12,27 @@
  * - Only pay gas + flash loan fee (0.09%)
  */
 
-import { EventEmitter } from 'events';
+import { EventEmitter } from 'node:events'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  type Address,
-  type Hex,
-  type PublicClient,
-  type WalletClient,
   encodeFunctionData,
+  type Hex,
+  http,
+  type PublicClient,
   parseAbi,
-  formatUnits,
   parseUnits,
-} from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { mainnet, arbitrum, optimism, base } from 'viem/chains';
-import { OneInchQuoteResponseSchema, ParaswapQuoteResponseSchema, parseOrThrow, expect } from '../../schemas';
+  type WalletClient,
+} from 'viem'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { arbitrum, base, mainnet, optimism } from 'viem/chains'
+import {
+  expect,
+  OneInchQuoteResponseSchema,
+  ParaswapQuoteResponseSchema,
+  parseOrThrow,
+} from '../../schemas'
 
 // ============ Configuration ============
 
@@ -37,7 +41,7 @@ const CHAIN_CONFIGS = {
   42161: { chain: arbitrum, name: 'Arbitrum' },
   10: { chain: optimism, name: 'Optimism' },
   8453: { chain: base, name: 'Base' },
-} as const;
+} as const
 
 // DEX Aggregator APIs
 const AGGREGATORS = {
@@ -61,7 +65,7 @@ const AGGREGATORS = {
     quoteUrl: 'https://api.cow.fi/mainnet/api/v1',
     requiresApiKey: false,
   },
-} as const;
+} as const
 
 // Uniswap V3 quoter addresses
 const UNISWAP_QUOTER: Record<number, Address> = {
@@ -69,15 +73,15 @@ const UNISWAP_QUOTER: Record<number, Address> = {
   42161: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e',
   10: '0x61fFE014bA17989E743c5F6cB21bF9697530B21e',
   8453: '0x3d4e44Eb1374240CE5F1B871ab261CD16335B76a',
-};
+}
 
-// Aave V3 pool addresses (for flash loans)
-const AAVE_POOL: Record<number, Address> = {
+// Aave V3 pool addresses (for flash loans) - reserved for future use
+const _AAVE_POOL: Record<number, Address> = {
   1: '0x87870Bca3F3fD6335C3F4ce8392D69350B4fA4E2',
   42161: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
   10: '0x794a61358D6845594F94dc1DB02A252b5b4814aD',
   8453: '0xA238Dd80C259a72e81d7e4664a9801593F98d1c5',
-};
+}
 
 // Common token pairs to monitor
 const TOKEN_PAIRS: Array<{ tokenA: string; tokenB: string }> = [
@@ -89,10 +93,13 @@ const TOKEN_PAIRS: Array<{ tokenA: string; tokenB: string }> = [
   { tokenA: 'UNI', tokenB: 'WETH' },
   { tokenA: 'ARB', tokenB: 'WETH' },
   { tokenA: 'OP', tokenB: 'WETH' },
-];
+]
 
 // Token addresses and decimals by chain
-const TOKEN_CONFIG: Record<string, { decimals: number; addresses: Record<number, Address> }> = {
+const TOKEN_CONFIG: Record<
+  string,
+  { decimals: number; addresses: Record<number, Address> }
+> = {
   WETH: {
     decimals: 18,
     addresses: {
@@ -160,76 +167,77 @@ const TOKEN_CONFIG: Record<string, { decimals: number; addresses: Record<number,
       10: '0x4200000000000000000000000000000000000042',
     },
   },
-};
+}
 
 // Helper to get token address
 function getTokenAddress(symbol: string, chainId: number): Address | undefined {
-  return TOKEN_CONFIG[symbol]?.addresses[chainId];
+  return TOKEN_CONFIG[symbol]?.addresses[chainId]
 }
 
 // Helper to get token decimals
 function getTokenDecimals(symbol: string): number {
-  return TOKEN_CONFIG[symbol]?.decimals ?? 18;
+  return TOKEN_CONFIG[symbol]?.decimals ?? 18
 }
 
 // Minimum profit thresholds
-const MIN_PROFIT_BPS = 20; // 0.2% minimum
-const MIN_PROFIT_USD = 5; // $5 minimum
+const MIN_PROFIT_BPS = 20 // 0.2% minimum
+const MIN_PROFIT_USD = 5 // $5 minimum
 
 // ============ Types ============
 
 interface AggregatorQuote {
-  aggregator: string;
-  inputToken: Address;
-  outputToken: Address;
-  inputAmount: bigint;
-  outputAmount: bigint;
-  priceImpactBps: number;
-  gasEstimate: bigint;
-  txData?: Hex;
+  aggregator: string
+  inputToken: Address
+  outputToken: Address
+  inputAmount: bigint
+  outputAmount: bigint
+  priceImpactBps: number
+  gasEstimate: bigint
+  txData?: Hex
 }
 
 interface DexArbOpportunity {
-  id: string;
-  chainId: number;
-  tokenA: string;
-  tokenB: string;
-  buyFrom: string;
-  sellTo: string;
-  buyQuote: AggregatorQuote;
-  sellQuote: AggregatorQuote;
-  profitBps: number;
-  profitUsd: number;
-  gasEstimate: bigint;
-  netProfitUsd: number;
-  expiresAt: number;
+  id: string
+  chainId: number
+  tokenA: string
+  tokenB: string
+  buyFrom: string
+  sellTo: string
+  buyQuote: AggregatorQuote
+  sellQuote: AggregatorQuote
+  profitBps: number
+  profitUsd: number
+  gasEstimate: bigint
+  netProfitUsd: number
+  expiresAt: number
 }
 
 interface StrategyStats {
-  opportunitiesDetected: number;
-  tradesExecuted: number;
-  totalProfitUsd: number;
-  avgProfitBps: number;
-  successRate: number;
+  opportunitiesDetected: number
+  tradesExecuted: number
+  totalProfitUsd: number
+  avgProfitBps: number
+  successRate: number
 }
 
 export class DexAggregatorArbStrategy extends EventEmitter {
   private config: {
-    privateKey: Hex;
-    rpcUrls: Record<number, string>;
-    oneInchApiKey?: string;
-    zeroXApiKey?: string;
-    minProfitBps: number;
-    minProfitUsd: number;
-    tradeSize: bigint;
-  };
+    privateKey: Hex
+    rpcUrls: Record<number, string>
+    oneInchApiKey?: string
+    zeroXApiKey?: string
+    minProfitBps: number
+    minProfitUsd: number
+    tradeSize: bigint
+  }
 
-  private account: PrivateKeyAccount;
-  private clients: Map<number, { public: PublicClient; wallet: WalletClient }> = new Map();
+  private account: PrivateKeyAccount
+  private clients: Map<number, { public: PublicClient; wallet: WalletClient }> =
+    new Map()
 
-  private opportunities: Map<string, DexArbOpportunity> = new Map();
-  private running = false;
-  private pollInterval: ReturnType<typeof setInterval> | null = null;
+  private opportunities: Map<string, DexArbOpportunity> = new Map()
+  private running = false
+  private pollInterval: ReturnType<typeof setInterval> | null = null
 
   private stats: StrategyStats = {
     opportunitiesDetected: 0,
@@ -237,18 +245,18 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     totalProfitUsd: 0,
     avgProfitBps: 0,
     successRate: 0,
-  };
+  }
 
   constructor(config: {
-    privateKey: Hex;
-    rpcUrls: Record<number, string>;
-    oneInchApiKey?: string;
-    zeroXApiKey?: string;
-    minProfitBps?: number;
-    minProfitUsd?: number;
-    tradeSize?: bigint;
+    privateKey: Hex
+    rpcUrls: Record<number, string>
+    oneInchApiKey?: string
+    zeroXApiKey?: string
+    minProfitBps?: number
+    minProfitUsd?: number
+    tradeSize?: bigint
   }) {
-    super();
+    super()
     this.config = {
       privateKey: config.privateKey,
       rpcUrls: config.rpcUrls,
@@ -257,82 +265,93 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       minProfitBps: config.minProfitBps ?? MIN_PROFIT_BPS,
       minProfitUsd: config.minProfitUsd ?? MIN_PROFIT_USD,
       tradeSize: config.tradeSize ?? parseUnits('10000', 6), // $10k default
-    };
+    }
 
-    this.account = privateKeyToAccount(config.privateKey);
+    this.account = privateKeyToAccount(config.privateKey)
 
     // Initialize clients
     for (const [chainIdStr, rpcUrl] of Object.entries(config.rpcUrls)) {
-      const chainId = Number(chainIdStr);
-      const chainConfig = expect(CHAIN_CONFIGS[chainId as keyof typeof CHAIN_CONFIGS], `Invalid chain ID: ${chainId}`);
-      if (!chainConfig) continue;
+      const chainId = Number(chainIdStr)
+      const chainConfig = expect(
+        CHAIN_CONFIGS[chainId as keyof typeof CHAIN_CONFIGS],
+        `Invalid chain ID: ${chainId}`,
+      )
+      if (!chainConfig) continue
 
       const publicClient = createPublicClient({
         chain: chainConfig.chain,
         transport: http(rpcUrl),
-      });
+      })
 
       const walletClient = createWalletClient({
         account: this.account,
         chain: chainConfig.chain,
         transport: http(rpcUrl),
-      });
+      })
 
       this.clients.set(chainId, {
         public: publicClient as PublicClient,
         wallet: walletClient as WalletClient,
-      });
+      })
     }
   }
 
   async initialize(): Promise<void> {
-    console.log('🔄 Initializing DEX Aggregator Arbitrage Strategy...');
-    console.log(`   Wallet: ${this.account.address}`);
-    console.log(`   Chains: ${Array.from(this.clients.keys()).join(', ')}`);
-    console.log(`   Token pairs: ${TOKEN_PAIRS.length}`);
-    console.log(`   Min profit: ${this.config.minProfitBps} bps ($${this.config.minProfitUsd})`);
+    console.log('🔄 Initializing DEX Aggregator Arbitrage Strategy...')
+    console.log(`   Wallet: ${this.account.address}`)
+    console.log(`   Chains: ${Array.from(this.clients.keys()).join(', ')}`)
+    console.log(`   Token pairs: ${TOKEN_PAIRS.length}`)
+    console.log(
+      `   Min profit: ${this.config.minProfitBps} bps ($${this.config.minProfitUsd})`,
+    )
   }
 
   start(): void {
-    if (this.running) return;
-    this.running = true;
+    if (this.running) return
+    this.running = true
 
-    console.log('   Starting DEX aggregator monitoring...');
+    console.log('   Starting DEX aggregator monitoring...')
 
     // Poll for opportunities every 10 seconds
-    this.pollInterval = setInterval(() => this.scanForOpportunities(), 10000);
+    this.pollInterval = setInterval(() => this.scanForOpportunities(), 10000)
 
     // Initial scan
-    this.scanForOpportunities();
+    this.scanForOpportunities()
   }
 
   stop(): void {
-    this.running = false;
+    this.running = false
     if (this.pollInterval) {
-      clearInterval(this.pollInterval);
-      this.pollInterval = null;
+      clearInterval(this.pollInterval)
+      this.pollInterval = null
     }
   }
 
   getOpportunities(): DexArbOpportunity[] {
     return Array.from(this.opportunities.values())
-      .filter(o => o.expiresAt > Date.now())
-      .sort((a, b) => b.netProfitUsd - a.netProfitUsd);
+      .filter((o) => o.expiresAt > Date.now())
+      .sort((a, b) => b.netProfitUsd - a.netProfitUsd)
   }
 
   getStats(): StrategyStats {
-    return { ...this.stats };
+    return { ...this.stats }
   }
 
   private async scanForOpportunities(): Promise<void> {
     for (const chainId of this.clients.keys()) {
       for (const pair of TOKEN_PAIRS) {
-        const tokenA = getTokenAddress(pair.tokenA, chainId);
-        const tokenB = getTokenAddress(pair.tokenB, chainId);
+        const tokenA = getTokenAddress(pair.tokenA, chainId)
+        const tokenB = getTokenAddress(pair.tokenB, chainId)
 
-        if (!tokenA || !tokenB) continue;
+        if (!tokenA || !tokenB) continue
 
-        await this.checkPairForArbitrage(chainId, pair.tokenA, pair.tokenB, tokenA, tokenB);
+        await this.checkPairForArbitrage(
+          chainId,
+          pair.tokenA,
+          pair.tokenB,
+          tokenA,
+          tokenB,
+        )
       }
     }
   }
@@ -342,41 +361,59 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     symbolA: string,
     symbolB: string,
     tokenA: Address,
-    tokenB: Address
+    tokenB: Address,
   ): Promise<void> {
-    const amount = this.config.tradeSize;
+    const amount = this.config.tradeSize
 
     // Get quotes from all aggregators for A -> B
-    const forwardQuotes = await this.getAllQuotes(chainId, tokenA, tokenB, amount);
+    const forwardQuotes = await this.getAllQuotes(
+      chainId,
+      tokenA,
+      tokenB,
+      amount,
+    )
 
     // Get quotes from all aggregators for B -> A
     // Use best forward output as input for reverse
-    const bestForward = forwardQuotes.sort((a, b) => Number(b.outputAmount - a.outputAmount))[0];
-    if (!bestForward) return;
+    const bestForward = forwardQuotes.sort((a, b) =>
+      Number(b.outputAmount - a.outputAmount),
+    )[0]
+    if (!bestForward) return
 
-    const reverseQuotes = await this.getAllQuotes(chainId, tokenB, tokenA, bestForward.outputAmount);
+    const reverseQuotes = await this.getAllQuotes(
+      chainId,
+      tokenB,
+      tokenA,
+      bestForward.outputAmount,
+    )
 
     // Find best arbitrage path
-    const bestReverse = reverseQuotes.sort((a, b) => Number(b.outputAmount - a.outputAmount))[0];
-    if (!bestReverse) return;
+    const bestReverse = reverseQuotes.sort((a, b) =>
+      Number(b.outputAmount - a.outputAmount),
+    )[0]
+    if (!bestReverse) return
 
     // Calculate profit in tokenA terms
-    const profit = bestReverse.outputAmount - amount;
-    const profitBps = Number(profit * 10000n / amount);
+    const profit = bestReverse.outputAmount - amount
+    const profitBps = Number((profit * 10000n) / amount)
 
     // Estimate gas cost in USD
-    const gasPrice = await this.clients.get(chainId)?.public.getGasPrice() || 0n;
-    const totalGas = bestForward.gasEstimate + bestReverse.gasEstimate;
-    const gasCostWei = gasPrice * totalGas;
-    const ethPriceUsd = await this.getEthPriceUsd(chainId);
-    const gasCostUsd = Number(gasCostWei) / 1e18 * ethPriceUsd;
+    const gasPrice =
+      (await this.clients.get(chainId)?.public.getGasPrice()) || 0n
+    const totalGas = bestForward.gasEstimate + bestReverse.gasEstimate
+    const gasCostWei = gasPrice * totalGas
+    const ethPriceUsd = await this.getEthPriceUsd(chainId)
+    const gasCostUsd = (Number(gasCostWei) / 1e18) * ethPriceUsd
 
     // Calculate net profit in USD using correct decimals for tokenA
-    const tokenADecimals = getTokenDecimals(symbolA);
-    const profitUsd = this.tokenAmountToUsd(profit, symbolA, tokenADecimals);
-    const netProfitUsd = profitUsd - gasCostUsd;
+    const tokenADecimals = getTokenDecimals(symbolA)
+    const profitUsd = this.tokenAmountToUsd(profit, symbolA, tokenADecimals)
+    const netProfitUsd = profitUsd - gasCostUsd
 
-    if (profitBps >= this.config.minProfitBps && netProfitUsd >= this.config.minProfitUsd) {
+    if (
+      profitBps >= this.config.minProfitBps &&
+      netProfitUsd >= this.config.minProfitUsd
+    ) {
       const opportunity: DexArbOpportunity = {
         id: `dex-arb-${chainId}-${symbolA}-${symbolB}-${Date.now()}`,
         chainId,
@@ -391,18 +428,18 @@ export class DexAggregatorArbStrategy extends EventEmitter {
         gasEstimate: totalGas,
         netProfitUsd,
         expiresAt: Date.now() + 30000, // 30 second expiry
-      };
+      }
 
-      this.opportunities.set(opportunity.id, opportunity);
-      this.stats.opportunitiesDetected++;
+      this.opportunities.set(opportunity.id, opportunity)
+      this.stats.opportunitiesDetected++
 
       console.log(
         `🔄 DEX arb: ${symbolA}/${symbolB} on chain ${chainId} | ` +
-        `${bestForward.aggregator} → ${bestReverse.aggregator} | ` +
-        `+${profitBps}bps ($${netProfitUsd.toFixed(2)})`
-      );
+          `${bestForward.aggregator} → ${bestReverse.aggregator} | ` +
+          `+${profitBps}bps ($${netProfitUsd.toFixed(2)})`,
+      )
 
-      this.emit('opportunity', opportunity);
+      this.emit('opportunity', opportunity)
     }
   }
 
@@ -410,38 +447,56 @@ export class DexAggregatorArbStrategy extends EventEmitter {
     chainId: number,
     inputToken: Address,
     outputToken: Address,
-    amount: bigint
+    amount: bigint,
   ): Promise<AggregatorQuote[]> {
-    const quotes: AggregatorQuote[] = [];
+    const quotes: AggregatorQuote[] = []
 
     // Get Uniswap direct quote
-    const uniQuote = await this.getUniswapQuote(chainId, inputToken, outputToken, amount);
-    if (uniQuote) quotes.push(uniQuote);
+    const uniQuote = await this.getUniswapQuote(
+      chainId,
+      inputToken,
+      outputToken,
+      amount,
+    )
+    if (uniQuote) quotes.push(uniQuote)
 
     // Get 1inch quote
     if (this.config.oneInchApiKey) {
-      const oneInchQuote = await this.get1inchQuote(chainId, inputToken, outputToken, amount);
-      if (oneInchQuote) quotes.push(oneInchQuote);
+      const oneInchQuote = await this.get1inchQuote(
+        chainId,
+        inputToken,
+        outputToken,
+        amount,
+      )
+      if (oneInchQuote) quotes.push(oneInchQuote)
     }
 
     // Get Paraswap quote
-    const paraQuote = await this.getParaswapQuote(chainId, inputToken, outputToken, amount);
-    if (paraQuote) quotes.push(paraQuote);
+    const paraQuote = await this.getParaswapQuote(
+      chainId,
+      inputToken,
+      outputToken,
+      amount,
+    )
+    if (paraQuote) quotes.push(paraQuote)
 
-    return quotes;
+    return quotes
   }
 
   // Fetch ETH price from Chainlink or use cached value
-  private ethPriceCache: { price: number; timestamp: number } = { price: 2000, timestamp: 0 };
+  private ethPriceCache: { price: number; timestamp: number } = {
+    price: 2000,
+    timestamp: 0,
+  }
 
   private async getEthPriceUsd(chainId: number): Promise<number> {
     // Cache ETH price for 60 seconds
     if (Date.now() - this.ethPriceCache.timestamp < 60000) {
-      return this.ethPriceCache.price;
+      return this.ethPriceCache.price
     }
 
-    const clients = this.clients.get(chainId);
-    if (!clients) return this.ethPriceCache.price;
+    const clients = this.clients.get(chainId)
+    if (!clients) return this.ethPriceCache.price
 
     // Chainlink ETH/USD price feed addresses
     const chainlinkEthUsd: Record<number, Address> = {
@@ -449,40 +504,44 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       42161: '0x639Fe6ab55C921f74e7fac1ee960C0B6293ba612',
       10: '0x13e3Ee699D1909E989722E753853AE30b17e08c5',
       8453: '0x71041dddad3595F9CEd3DcCFBe3D1F4b0a16Bb70',
-    };
+    }
 
-    const feedAddress = chainlinkEthUsd[chainId];
-    if (!feedAddress) return this.ethPriceCache.price;
+    const feedAddress = chainlinkEthUsd[chainId]
+    if (!feedAddress) return this.ethPriceCache.price
 
     const CHAINLINK_ABI = parseAbi([
       'function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)',
-    ]);
+    ])
 
     const result = await clients.public.readContract({
       address: feedAddress,
       abi: CHAINLINK_ABI,
       functionName: 'latestRoundData',
-    });
+    })
 
     // Chainlink returns price with 8 decimals
-    const price = Number(result[1]) / 1e8;
-    this.ethPriceCache = { price, timestamp: Date.now() };
+    const price = Number(result[1]) / 1e8
+    this.ethPriceCache = { price, timestamp: Date.now() }
 
-    return price;
+    return price
   }
 
   // Convert token amount to USD
-  private tokenAmountToUsd(amount: bigint, symbol: string, decimals: number): number {
-    const normalized = Number(amount) / Math.pow(10, decimals);
+  private tokenAmountToUsd(
+    amount: bigint,
+    symbol: string,
+    decimals: number,
+  ): number {
+    const normalized = Number(amount) / 10 ** decimals
 
     // For stablecoins, 1:1 with USD
     if (symbol === 'USDC' || symbol === 'USDT' || symbol === 'DAI') {
-      return normalized;
+      return normalized
     }
 
     // For ETH/WETH, use cached price
     if (symbol === 'WETH') {
-      return normalized * this.ethPriceCache.price;
+      return normalized * this.ethPriceCache.price
     }
 
     // For other tokens, use rough estimates (would fetch from oracle in production)
@@ -492,54 +551,57 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       UNI: 8,
       ARB: 1.5,
       OP: 2,
-    };
+    }
 
-    return normalized * (tokenPrices[symbol] ?? 1);
+    return normalized * (tokenPrices[symbol] ?? 1)
   }
 
   private async getUniswapQuote(
     chainId: number,
     inputToken: Address,
     outputToken: Address,
-    amount: bigint
+    amount: bigint,
   ): Promise<AggregatorQuote | null> {
-    const clients = this.clients.get(chainId);
+    const clients = this.clients.get(chainId)
     if (!clients) {
-      console.warn(`[DEX Arb] No client for chain ${chainId}`);
-      return null;
+      console.warn(`[DEX Arb] No client for chain ${chainId}`)
+      return null
     }
 
-    const quoterAddress = UNISWAP_QUOTER[chainId];
+    const quoterAddress = UNISWAP_QUOTER[chainId]
     if (!quoterAddress) {
-      console.warn(`[DEX Arb] No Uniswap quoter for chain ${chainId}`);
-      return null;
+      console.warn(`[DEX Arb] No Uniswap quoter for chain ${chainId}`)
+      return null
     }
 
     const QUOTER_ABI = parseAbi([
       'function quoteExactInputSingle((address tokenIn, address tokenOut, uint256 amountIn, uint24 fee, uint160 sqrtPriceLimitX96)) external returns (uint256 amountOut, uint160 sqrtPriceX96After, uint32 initializedTicksCrossed, uint256 gasEstimate)',
-    ]);
+    ])
 
     const result = await clients.public.simulateContract({
       address: quoterAddress,
       abi: QUOTER_ABI,
       functionName: 'quoteExactInputSingle',
-      args: [{
-        tokenIn: inputToken,
-        tokenOut: outputToken,
-        amountIn: amount,
-        fee: 3000, // 0.3% pool
-        sqrtPriceLimitX96: 0n,
-      }],
-    });
+      args: [
+        {
+          tokenIn: inputToken,
+          tokenOut: outputToken,
+          amountIn: amount,
+          fee: 3000, // 0.3% pool
+          sqrtPriceLimitX96: 0n,
+        },
+      ],
+    })
 
     // Calculate price impact from sqrtPrice change
     // priceImpactBps = ((newPrice - oldPrice) / oldPrice) * 10000
     // For simplicity, estimate based on ticks crossed (each tick ~1bp)
-    const ticksCrossed = result.result[2];
-    const priceImpactBps = Math.min(Number(ticksCrossed) * 1, 300); // Cap at 3%
+    const ticksCrossed = result.result[2]
+    const priceImpactBps = Math.min(Number(ticksCrossed) * 1, 300) // Cap at 3%
 
     // Use actual gas estimate from quoter, with a buffer
-    const gasEstimate = result.result[3] > 0n ? result.result[3] * 12n / 10n : 180000n;
+    const gasEstimate =
+      result.result[3] > 0n ? (result.result[3] * 12n) / 10n : 180000n
 
     return {
       aggregator: 'uniswap',
@@ -549,34 +611,40 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       outputAmount: result.result[0],
       priceImpactBps,
       gasEstimate,
-    };
+    }
   }
 
   private async get1inchQuote(
     chainId: number,
     inputToken: Address,
     outputToken: Address,
-    amount: bigint
+    amount: bigint,
   ): Promise<AggregatorQuote | null> {
-    const url = `${AGGREGATORS.oneinch.quoteUrl}/${chainId}/quote?src=${inputToken}&dst=${outputToken}&amount=${amount}`;
+    const url = `${AGGREGATORS.oneinch.quoteUrl}/${chainId}/quote?src=${inputToken}&dst=${outputToken}&amount=${amount}`
 
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${this.config.oneInchApiKey}`,
         Accept: 'application/json',
       },
-    });
+    })
 
     if (!response.ok) {
-      console.warn(`[DEX Arb] 1inch quote failed: ${response.status} ${response.statusText}`);
-      return null;
+      console.warn(
+        `[DEX Arb] 1inch quote failed: ${response.status} ${response.statusText}`,
+      )
+      return null
     }
 
-    const rawData = await response.json();
-    const data = parseOrThrow(OneInchQuoteResponseSchema, rawData, '1inch quote response');
+    const rawData = await response.json()
+    const data = parseOrThrow(
+      OneInchQuoteResponseSchema,
+      rawData,
+      '1inch quote response',
+    )
 
     // Use estimatedGas if available, otherwise gas field
-    const gasEstimate = BigInt(data.estimatedGas ?? data.gas ?? 200000);
+    const gasEstimate = BigInt(data.estimatedGas ?? data.gas ?? 200000)
 
     return {
       aggregator: '1inch',
@@ -586,30 +654,36 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       outputAmount: BigInt(data.dstAmount),
       priceImpactBps: 0, // 1inch doesn't return this directly
       gasEstimate,
-    };
+    }
   }
 
   private async getParaswapQuote(
     chainId: number,
     inputToken: Address,
     outputToken: Address,
-    amount: bigint
+    amount: bigint,
   ): Promise<AggregatorQuote | null> {
-    const url = `${AGGREGATORS.paraswap.quoteUrl}/prices?srcToken=${inputToken}&destToken=${outputToken}&amount=${amount}&network=${chainId}&side=SELL`;
+    const url = `${AGGREGATORS.paraswap.quoteUrl}/prices?srcToken=${inputToken}&destToken=${outputToken}&amount=${amount}&network=${chainId}&side=SELL`
 
-    const response = await fetch(url);
+    const response = await fetch(url)
 
     if (!response.ok) {
-      console.warn(`[DEX Arb] Paraswap quote failed: ${response.status} ${response.statusText}`);
-      return null;
+      console.warn(
+        `[DEX Arb] Paraswap quote failed: ${response.status} ${response.statusText}`,
+      )
+      return null
     }
 
-    const rawData = await response.json();
-    const data = parseOrThrow(ParaswapQuoteResponseSchema, rawData, 'Paraswap quote response');
+    const rawData = await response.json()
+    const data = parseOrThrow(
+      ParaswapQuoteResponseSchema,
+      rawData,
+      'Paraswap quote response',
+    )
 
     if (data.error || !data.priceRoute) {
-      console.warn(`[DEX Arb] Paraswap error: ${data.error ?? 'no priceRoute'}`);
-      return null;
+      console.warn(`[DEX Arb] Paraswap error: ${data.error ?? 'no priceRoute'}`)
+      return null
     }
 
     return {
@@ -620,102 +694,122 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       outputAmount: BigInt(data.priceRoute.destAmount),
       priceImpactBps: 0, // Would calculate from srcUSD/destUSD if needed
       gasEstimate: BigInt(data.priceRoute.gasCost),
-    };
+    }
   }
 
   async executeArbitrage(opportunity: DexArbOpportunity): Promise<{
-    success: boolean;
-    txHash?: string;
-    profit?: number;
-    error?: string;
+    success: boolean
+    txHash?: string
+    profit?: number
+    error?: string
   }> {
-    const clients = this.clients.get(opportunity.chainId);
+    const clients = this.clients.get(opportunity.chainId)
     if (!clients) {
-      return { success: false, error: 'Chain not configured' };
+      return { success: false, error: 'Chain not configured' }
     }
 
-    console.log(`🔄 Executing DEX arb: ${opportunity.id}`);
+    console.log(`🔄 Executing DEX arb: ${opportunity.id}`)
 
-    const tokenA = getTokenAddress(opportunity.tokenA, opportunity.chainId);
-    const tokenB = getTokenAddress(opportunity.tokenB, opportunity.chainId);
+    const tokenA = getTokenAddress(opportunity.tokenA, opportunity.chainId)
+    const tokenB = getTokenAddress(opportunity.tokenB, opportunity.chainId)
 
     if (!tokenA || !tokenB) {
-      return { success: false, error: `Tokens not found on chain ${opportunity.chainId}` };
+      return {
+        success: false,
+        error: `Tokens not found on chain ${opportunity.chainId}`,
+      }
     }
 
-    console.log(`   Buy on ${opportunity.buyFrom}: ${opportunity.tokenA} → ${opportunity.tokenB}`);
-    console.log(`   Sell on ${opportunity.sellTo}: ${opportunity.tokenB} → ${opportunity.tokenA}`);
-    console.log(`   Expected profit: $${opportunity.netProfitUsd.toFixed(2)}`);
+    console.log(
+      `   Buy on ${opportunity.buyFrom}: ${opportunity.tokenA} → ${opportunity.tokenB}`,
+    )
+    console.log(
+      `   Sell on ${opportunity.sellTo}: ${opportunity.tokenB} → ${opportunity.tokenA}`,
+    )
+    console.log(`   Expected profit: $${opportunity.netProfitUsd.toFixed(2)}`)
 
     // Execute sequential swaps (capital required)
     // For atomic flash loan execution, deploy the FlashLoanArbitrageur contract
 
-    const buyRouter = this.getRouterAddress(opportunity.buyFrom, opportunity.chainId);
-    const sellRouter = this.getRouterAddress(opportunity.sellTo, opportunity.chainId);
+    const buyRouter = this.getRouterAddress(
+      opportunity.buyFrom,
+      opportunity.chainId,
+    )
+    const sellRouter = this.getRouterAddress(
+      opportunity.sellTo,
+      opportunity.chainId,
+    )
 
     const ERC20_ABI = parseAbi([
       'function approve(address spender, uint256 amount) returns (bool)',
       'function balanceOf(address owner) view returns (uint256)',
-    ]);
+    ])
 
     const SWAP_ROUTER_ABI = parseAbi([
       'function exactInputSingle((address tokenIn, address tokenOut, uint24 fee, address recipient, uint256 amountIn, uint256 amountOutMinimum, uint160 sqrtPriceLimitX96)) external payable returns (uint256 amountOut)',
-    ]);
+    ])
 
     // Step 1: Approve tokenA for buy router
     const approveData1 = encodeFunctionData({
       abi: ERC20_ABI,
       functionName: 'approve',
       args: [buyRouter, opportunity.buyQuote.inputAmount],
-    });
+    })
 
     const approveHash1 = await clients.wallet.sendTransaction({
       account: this.account,
       chain: null,
       to: tokenA,
       data: approveData1,
-    });
-    await clients.public.waitForTransactionReceipt({ hash: approveHash1 });
+    })
+    await clients.public.waitForTransactionReceipt({ hash: approveHash1 })
 
     // Step 2: Execute buy swap (tokenA -> tokenB)
-    let buyHash: Hex;
+    let buyHash: Hex
     if (opportunity.buyQuote.txData) {
       // Use pre-built tx data from aggregator
-      const txData = expect(opportunity.buyQuote.txData, 'Tx data missing for buy quote') as Hex;
+      const txData = expect(
+        opportunity.buyQuote.txData,
+        'Tx data missing for buy quote',
+      ) as Hex
       buyHash = await clients.wallet.sendTransaction({
         account: this.account,
         chain: null,
         to: buyRouter,
         data: txData,
-      });
+      })
     } else {
       // Build Uniswap V3 swap
       const buyData = encodeFunctionData({
         abi: SWAP_ROUTER_ABI,
         functionName: 'exactInputSingle',
-        args: [{
-          tokenIn: tokenA,
-          tokenOut: tokenB,
-          fee: 3000,
-          recipient: this.account.address,
-          amountIn: opportunity.buyQuote.inputAmount,
-          amountOutMinimum: (opportunity.buyQuote.outputAmount * 99n) / 100n, // 1% slippage
-          sqrtPriceLimitX96: 0n,
-        }],
-      });
+        args: [
+          {
+            tokenIn: tokenA,
+            tokenOut: tokenB,
+            fee: 3000,
+            recipient: this.account.address,
+            amountIn: opportunity.buyQuote.inputAmount,
+            amountOutMinimum: (opportunity.buyQuote.outputAmount * 99n) / 100n, // 1% slippage
+            sqrtPriceLimitX96: 0n,
+          },
+        ],
+      })
       buyHash = await clients.wallet.sendTransaction({
         account: this.account,
         chain: null,
         to: buyRouter,
         data: buyData,
-      });
+      })
     }
 
-    const buyReceipt = await clients.public.waitForTransactionReceipt({ hash: buyHash });
+    const buyReceipt = await clients.public.waitForTransactionReceipt({
+      hash: buyHash,
+    })
     if (buyReceipt.status === 'reverted') {
-      return { success: false, error: 'Buy swap reverted', txHash: buyHash };
+      return { success: false, error: 'Buy swap reverted', txHash: buyHash }
     }
-    console.log(`   ✓ Buy swap: ${buyHash}`);
+    console.log(`   ✓ Buy swap: ${buyHash}`)
 
     // Step 3: Get actual tokenB balance received
     const tokenBBalance = await clients.public.readContract({
@@ -723,71 +817,80 @@ export class DexAggregatorArbStrategy extends EventEmitter {
       abi: ERC20_ABI,
       functionName: 'balanceOf',
       args: [this.account.address],
-    });
+    })
 
     // Step 4: Approve tokenB for sell router
     const approveData2 = encodeFunctionData({
       abi: ERC20_ABI,
       functionName: 'approve',
       args: [sellRouter, tokenBBalance],
-    });
+    })
 
     const approveHash2 = await clients.wallet.sendTransaction({
       account: this.account,
       chain: null,
       to: tokenB,
       data: approveData2,
-    });
-    await clients.public.waitForTransactionReceipt({ hash: approveHash2 });
+    })
+    await clients.public.waitForTransactionReceipt({ hash: approveHash2 })
 
     // Step 5: Execute sell swap (tokenB -> tokenA)
-    let sellHash: Hex;
+    let sellHash: Hex
     if (opportunity.sellQuote.txData) {
-      const txData = expect(opportunity.sellQuote.txData, 'Tx data missing for sell quote') as Hex;
+      const txData = expect(
+        opportunity.sellQuote.txData,
+        'Tx data missing for sell quote',
+      ) as Hex
       sellHash = await clients.wallet.sendTransaction({
         account: this.account,
         chain: null,
         to: sellRouter,
         data: txData,
-      });
+      })
     } else {
       const sellData = encodeFunctionData({
         abi: SWAP_ROUTER_ABI,
         functionName: 'exactInputSingle',
-        args: [{
-          tokenIn: tokenB,
-          tokenOut: tokenA,
-          fee: 3000,
-          recipient: this.account.address,
-          amountIn: tokenBBalance,
-          amountOutMinimum: opportunity.buyQuote.inputAmount, // At least break even
-          sqrtPriceLimitX96: 0n,
-        }],
-      });
+        args: [
+          {
+            tokenIn: tokenB,
+            tokenOut: tokenA,
+            fee: 3000,
+            recipient: this.account.address,
+            amountIn: tokenBBalance,
+            amountOutMinimum: opportunity.buyQuote.inputAmount, // At least break even
+            sqrtPriceLimitX96: 0n,
+          },
+        ],
+      })
       sellHash = await clients.wallet.sendTransaction({
         account: this.account,
         chain: null,
         to: sellRouter,
         data: sellData,
-      });
+      })
     }
 
-    const sellReceipt = await clients.public.waitForTransactionReceipt({ hash: sellHash });
+    const sellReceipt = await clients.public.waitForTransactionReceipt({
+      hash: sellHash,
+    })
     if (sellReceipt.status === 'reverted') {
-      return { success: false, error: 'Sell swap reverted', txHash: sellHash };
+      return { success: false, error: 'Sell swap reverted', txHash: sellHash }
     }
-    console.log(`   ✓ Sell swap: ${sellHash}`);
+    console.log(`   ✓ Sell swap: ${sellHash}`)
 
-    this.stats.tradesExecuted++;
-    this.stats.totalProfitUsd += opportunity.netProfitUsd;
+    this.stats.tradesExecuted++
+    this.stats.totalProfitUsd += opportunity.netProfitUsd
 
-    console.log(`   ✓ Arbitrage complete. Profit: ~$${opportunity.netProfitUsd.toFixed(2)}`);
+    console.log(
+      `   ✓ Arbitrage complete. Profit: ~$${opportunity.netProfitUsd.toFixed(2)}`,
+    )
 
     return {
       success: true,
       txHash: sellHash,
       profit: opportunity.netProfitUsd,
-    };
+    }
   }
 
   private getRouterAddress(aggregator: string, chainId: number): Address {
@@ -810,20 +913,19 @@ export class DexAggregatorArbStrategy extends EventEmitter {
         10: '0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57',
         8453: '0xDEF171Fe48CF0115B1d80b88dc8eAB59176FEe57',
       },
-    };
+    }
 
-    return routers[aggregator]?.[chainId] || UNISWAP_QUOTER[chainId];
+    return routers[aggregator]?.[chainId] || UNISWAP_QUOTER[chainId]
   }
 }
 
 export function createDexAggregatorArbStrategy(config: {
-  privateKey: Hex;
-  rpcUrls: Record<number, string>;
-  oneInchApiKey?: string;
-  zeroXApiKey?: string;
-  minProfitBps?: number;
-  minProfitUsd?: number;
+  privateKey: Hex
+  rpcUrls: Record<number, string>
+  oneInchApiKey?: string
+  zeroXApiKey?: string
+  minProfitBps?: number
+  minProfitUsd?: number
 }): DexAggregatorArbStrategy {
-  return new DexAggregatorArbStrategy(config);
+  return new DexAggregatorArbStrategy(config)
 }
-

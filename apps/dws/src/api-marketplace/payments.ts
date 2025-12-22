@@ -4,9 +4,9 @@
  * x402 payment verification and account management
  */
 
-import type { Address } from 'viem';
-import type { PaymentProof, DepositRequest, WithdrawRequest } from './types';
-import { deposit, withdraw, getOrCreateAccount, getAccount } from './registry';
+import type { Address } from 'viem'
+import { deposit, getAccount, getOrCreateAccount, withdraw } from './registry'
+import type { DepositRequest, PaymentProof, WithdrawRequest } from './types'
 
 // ============================================================================
 // Payment Configuration
@@ -14,26 +14,26 @@ import { deposit, withdraw, getOrCreateAccount, getAccount } from './registry';
 
 export interface PaymentConfig {
   /** Payment recipient address */
-  paymentRecipient: Address;
+  paymentRecipient: Address
   /** Network ID for payment verification */
-  networkId: number;
+  networkId: number
   /** Token address for payments (native token = 0x0) */
-  assetAddress: Address;
+  assetAddress: Address
 }
 
 const DEFAULT_CONFIG: PaymentConfig = {
   paymentRecipient: '0x0000000000000000000000000000000000000001' as Address,
   networkId: 420690, // Jeju testnet
   assetAddress: '0x0000000000000000000000000000000000000000' as Address, // Native token
-};
+}
 
-let config = DEFAULT_CONFIG;
+let config = DEFAULT_CONFIG
 
 /**
  * Configure payment settings
  */
 export function configurePayments(newConfig: Partial<PaymentConfig>): void {
-  config = { ...config, ...newConfig };
+  config = { ...config, ...newConfig }
 }
 
 // ============================================================================
@@ -46,11 +46,11 @@ export function configurePayments(newConfig: Partial<PaymentConfig>): void {
 export function create402Response(
   amount: bigint,
   resource: string,
-  description: string
+  description: string,
 ): {
-  status: number;
-  headers: Record<string, string>;
-  body: Record<string, unknown>;
+  status: number
+  headers: Record<string, string>
+  body: Record<string, unknown>
 } {
   return {
     status: 402,
@@ -73,28 +73,30 @@ export function create402Response(
         },
       ],
     },
-  };
+  }
 }
 
 /**
  * Parse x402 payment proof from headers
  */
-export function parsePaymentProof(headers: Record<string, string>): PaymentProof | null {
-  const proofHeader = headers['x-payment-proof'] || headers['X-Payment-Proof'];
-  if (!proofHeader) return null;
+export function parsePaymentProof(
+  headers: Record<string, string>,
+): PaymentProof | null {
+  const proofHeader = headers['x-payment-proof'] || headers['X-Payment-Proof']
+  if (!proofHeader) return null
 
   // Format: txHash:amount:payer:timestamp
-  const parts = proofHeader.split(':');
-  if (parts.length < 4) return null;
+  const parts = proofHeader.split(':')
+  if (parts.length < 4) return null
 
-  const [txHash, amountStr, payer, timestampStr] = parts;
+  const [txHash, amountStr, payer, timestampStr] = parts
 
   return {
     txHash,
     amount: BigInt(amountStr || '0'),
     payer: payer as Address,
-    timestamp: parseInt(timestampStr || '0'),
-  };
+    timestamp: parseInt(timestampStr || '0', 10),
+  }
 }
 
 /**
@@ -103,21 +105,24 @@ export function parsePaymentProof(headers: Record<string, string>): PaymentProof
  */
 export async function verifyPaymentProof(
   proof: PaymentProof,
-  expectedAmount: bigint
+  expectedAmount: bigint,
 ): Promise<{ valid: boolean; error?: string }> {
   // Basic validation
   if (!proof.txHash || proof.txHash.length !== 66) {
-    return { valid: false, error: 'Invalid transaction hash' };
+    return { valid: false, error: 'Invalid transaction hash' }
   }
 
   if (proof.amount < expectedAmount) {
-    return { valid: false, error: `Insufficient amount: got ${proof.amount}, need ${expectedAmount}` };
+    return {
+      valid: false,
+      error: `Insufficient amount: got ${proof.amount}, need ${expectedAmount}`,
+    }
   }
 
   // Check timestamp (must be recent - within 5 minutes)
-  const fiveMinutesAgo = Date.now() - 300000;
+  const fiveMinutesAgo = Date.now() - 300000
   if (proof.timestamp < fiveMinutesAgo) {
-    return { valid: false, error: 'Payment proof expired' };
+    return { valid: false, error: 'Payment proof expired' }
   }
 
   // In production: verify on-chain that:
@@ -125,7 +130,7 @@ export async function verifyPaymentProof(
   // 2. Amount and recipient match
   // 3. Transaction hasn't been used before (prevent replay)
 
-  return { valid: true };
+  return { valid: true }
 }
 
 // ============================================================================
@@ -137,25 +142,25 @@ export async function verifyPaymentProof(
  */
 export async function processDeposit(
   request: DepositRequest,
-  proof?: PaymentProof
+  proof?: PaymentProof,
 ): Promise<{ success: boolean; newBalance: bigint; error?: string }> {
   // If proof provided, verify it
   if (proof) {
-    const verification = await verifyPaymentProof(proof, request.amount);
+    const verification = await verifyPaymentProof(proof, request.amount)
     if (!verification.valid) {
-      return { success: false, newBalance: 0n, error: verification.error };
+      return { success: false, newBalance: 0n, error: verification.error }
     }
 
     // Verify payer matches
     if (proof.payer.toLowerCase() !== request.payer.toLowerCase()) {
-      return { success: false, newBalance: 0n, error: 'Payer mismatch' };
+      return { success: false, newBalance: 0n, error: 'Payer mismatch' }
     }
   }
 
   // Credit account
-  const account = await deposit(request.payer, request.amount);
+  const account = await deposit(request.payer, request.amount)
 
-  return { success: true, newBalance: account.balance };
+  return { success: true, newBalance: account.balance }
 }
 
 /**
@@ -163,19 +168,19 @@ export async function processDeposit(
  */
 export async function processWithdraw(
   request: WithdrawRequest,
-  requester: Address
+  requester: Address,
 ): Promise<{ success: boolean; remainingBalance: bigint; error?: string }> {
   // Only owner can withdraw
   if (requester.toLowerCase() !== request.recipient.toLowerCase()) {
-    return { success: false, remainingBalance: 0n, error: 'Unauthorized' };
+    return { success: false, remainingBalance: 0n, error: 'Unauthorized' }
   }
 
   try {
-    const account = await withdraw(request.recipient, request.amount);
-    return { success: true, remainingBalance: account.balance };
+    const account = await withdraw(request.recipient, request.amount)
+    return { success: true, remainingBalance: account.balance }
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Withdrawal failed';
-    return { success: false, remainingBalance: 0n, error: message };
+    const message = error instanceof Error ? error.message : 'Withdrawal failed'
+    return { success: false, remainingBalance: 0n, error: message }
   }
 }
 
@@ -183,44 +188,44 @@ export async function processWithdraw(
  * Get account balance
  */
 export async function getBalance(address: Address): Promise<bigint> {
-  const account = await getAccount(address);
-  return account?.balance ?? 0n;
+  const account = await getAccount(address)
+  return account?.balance ?? 0n
 }
 
 /**
  * Get full account info
  */
 export async function getAccountInfo(address: Address): Promise<{
-  balance: bigint;
-  totalSpent: bigint;
-  totalRequests: bigint;
+  balance: bigint
+  totalSpent: bigint
+  totalRequests: bigint
 }> {
-  const account = await getOrCreateAccount(address);
+  const account = await getOrCreateAccount(address)
   return {
     balance: account.balance,
     totalSpent: account.totalSpent,
     totalRequests: account.totalRequests,
-  };
+  }
 }
 
 // ============================================================================
 // Minimum Deposit
 // ============================================================================
 
-const MINIMUM_DEPOSIT = 1000000000000000n; // 0.001 ETH
+const MINIMUM_DEPOSIT = 1000000000000000n // 0.001 ETH
 
 /**
  * Check if deposit meets minimum
  */
 export function meetsMinimumDeposit(amount: bigint): boolean {
-  return amount >= MINIMUM_DEPOSIT;
+  return amount >= MINIMUM_DEPOSIT
 }
 
 /**
  * Get minimum deposit amount
  */
 export function getMinimumDeposit(): bigint {
-  return MINIMUM_DEPOSIT;
+  return MINIMUM_DEPOSIT
 }
 
 // ============================================================================
@@ -232,9 +237,9 @@ export function getMinimumDeposit(): bigint {
  */
 export function estimateCost(
   pricePerRequest: bigint,
-  requestCount: number
+  requestCount: number,
 ): bigint {
-  return pricePerRequest * BigInt(requestCount);
+  return pricePerRequest * BigInt(requestCount)
 }
 
 /**
@@ -242,10 +247,10 @@ export function estimateCost(
  */
 export function calculateAffordableRequests(
   balance: bigint,
-  pricePerRequest: bigint
+  pricePerRequest: bigint,
 ): bigint {
-  if (pricePerRequest === 0n) return BigInt(Number.MAX_SAFE_INTEGER);
-  return balance / pricePerRequest;
+  if (pricePerRequest === 0n) return BigInt(Number.MAX_SAFE_INTEGER)
+  return balance / pricePerRequest
 }
 
 // ============================================================================
@@ -253,30 +258,30 @@ export function calculateAffordableRequests(
 // ============================================================================
 
 interface RevenueShare {
-  seller: bigint;
-  platform: bigint;
-  total: bigint;
+  seller: bigint
+  platform: bigint
+  total: bigint
 }
 
-const PLATFORM_FEE_BPS = 500n; // 5%
+const PLATFORM_FEE_BPS = 500n // 5%
 
 /**
  * Calculate revenue distribution for a payment
  */
 export function calculateRevenueShare(amount: bigint): RevenueShare {
-  const platformFee = (amount * PLATFORM_FEE_BPS) / 10000n;
-  const sellerShare = amount - platformFee;
+  const platformFee = (amount * PLATFORM_FEE_BPS) / 10000n
+  const sellerShare = amount - platformFee
 
   return {
     seller: sellerShare,
     platform: platformFee,
     total: amount,
-  };
+  }
 }
 
 /**
  * Get platform fee in basis points
  */
 export function getPlatformFeeBps(): bigint {
-  return PLATFORM_FEE_BPS;
+  return PLATFORM_FEE_BPS
 }

@@ -1,5 +1,5 @@
 export enum TransactionStatus {
-    SUCCESS = "SUCCESS",
-    FAILURE = "FAILURE",
-    PENDING = "PENDING",
+  SUCCESS = 'SUCCESS',
+  FAILURE = 'FAILURE',
+  PENDING = 'PENDING',
 }

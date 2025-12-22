@@ -1,23 +1,29 @@
 /**
  * Zod Schemas for Plugin Types
- * 
+ *
  * Comprehensive validation schemas for all wallet plugin types.
  */
 
-import { z } from 'zod';
+import { z } from 'zod'
 import {
   AddressSchema,
-  HexSchema,
-  ChainIdSchema,
   BigIntSchema,
+  ChainIdSchema,
+  HexSchema,
   TimestampSchema,
-} from '../lib/validation';
+} from '../lib/validation'
 
 // ============================================================================
 // Wallet Account Schemas
 // ============================================================================
 
-export const WalletAccountTypeSchema = z.enum(['hd', 'private-key', 'smart-account', 'hardware', 'watch']);
+export const WalletAccountTypeSchema = z.enum([
+  'hd',
+  'private-key',
+  'smart-account',
+  'hardware',
+  'watch',
+])
 
 export const WalletAccountSchema = z.object({
   address: AddressSchema,
@@ -26,20 +32,20 @@ export const WalletAccountSchema = z.object({
   hdPath: z.string().optional(),
   createdAt: TimestampSchema,
   isActive: z.boolean().optional(),
-});
+})
 
 export const GasPreferencesSchema = z.object({
   autoGasAbstraction: z.boolean(),
   preferredGasToken: AddressSchema.optional(),
   priorityFeeMultiplier: z.number().positive(),
-});
+})
 
 export const SecuritySettingsSchema = z.object({
   requireConfirmation: z.boolean(),
   simulateBeforeSign: z.boolean(),
   whitelistedAddresses: z.array(AddressSchema),
   blockedAddresses: z.array(AddressSchema),
-});
+})
 
 export const WalletStateSchema = z.object({
   isLocked: z.boolean(),
@@ -52,13 +58,13 @@ export const WalletStateSchema = z.object({
   gasPreferences: GasPreferencesSchema,
   securitySettings: SecuritySettingsSchema,
   viewMode: z.enum(['simple', 'advanced']),
-});
+})
 
 export const WalletServiceConfigSchema = z.object({
   defaultChainId: ChainIdSchema,
   useNetworkInfrastructure: z.boolean(),
   jejuRpcUrl: z.string().url().optional(),
-});
+})
 
 // ============================================================================
 // Token & Balance Schemas
@@ -73,14 +79,14 @@ export const PluginTokenSchema = z.object({
   isNative: z.boolean().optional(),
   logoUri: z.string().url().optional(),
   priceUsd: z.number().nonnegative().optional(),
-});
+})
 
 export const PluginTokenBalanceSchema = z.object({
   token: PluginTokenSchema,
   balance: BigIntSchema,
   balanceFormatted: z.string(),
   valueUsd: z.number().nonnegative().optional(),
-});
+})
 
 export const NFTSchema = z.object({
   chainId: ChainIdSchema,
@@ -91,19 +97,23 @@ export const NFTSchema = z.object({
   imageUrl: z.string().url().optional(),
   collectionName: z.string().optional(),
   standard: z.enum(['ERC721', 'ERC1155']),
-});
+})
 
 export const PortfolioSummarySchema = z.object({
   totalValueUsd: z.number().nonnegative(),
   balancesByChain: z.map(ChainIdSchema, z.array(PluginTokenBalanceSchema)),
   topTokens: z.array(PluginTokenBalanceSchema),
-});
+})
 
 // ============================================================================
 // Transaction Schemas
 // ============================================================================
 
-export const PluginTransactionStatusSchema = z.enum(['pending', 'confirmed', 'failed']);
+export const PluginTransactionStatusSchema = z.enum([
+  'pending',
+  'confirmed',
+  'failed',
+])
 
 export const PluginTransactionSchema = z.object({
   hash: HexSchema,
@@ -118,35 +128,43 @@ export const PluginTransactionSchema = z.object({
   status: PluginTransactionStatusSchema,
   timestamp: TimestampSchema.optional(),
   blockNumber: z.number().int().nonnegative().optional(),
-});
+})
 
 export const SimulationResultSchema = z.object({
   success: z.boolean(),
   gasUsed: BigIntSchema,
   returnData: HexSchema.optional(),
   error: z.string().optional(),
-  balanceChanges: z.array(z.object({
-    token: AddressSchema,
-    amount: BigIntSchema,
-    direction: z.enum(['in', 'out']),
-  })),
-  approvalChanges: z.array(z.object({
-    token: AddressSchema,
-    spender: AddressSchema,
-    amount: BigIntSchema,
-  })),
-  nftTransfers: z.array(z.object({
-    contract: AddressSchema,
-    tokenId: z.string().min(1),
-    from: AddressSchema,
-    to: AddressSchema,
-  })),
-  logs: z.array(z.object({
-    address: AddressSchema,
-    topics: z.array(HexSchema),
-    data: HexSchema,
-  })),
-});
+  balanceChanges: z.array(
+    z.object({
+      token: AddressSchema,
+      amount: BigIntSchema,
+      direction: z.enum(['in', 'out']),
+    }),
+  ),
+  approvalChanges: z.array(
+    z.object({
+      token: AddressSchema,
+      spender: AddressSchema,
+      amount: BigIntSchema,
+    }),
+  ),
+  nftTransfers: z.array(
+    z.object({
+      contract: AddressSchema,
+      tokenId: z.string().min(1),
+      from: AddressSchema,
+      to: AddressSchema,
+    }),
+  ),
+  logs: z.array(
+    z.object({
+      address: AddressSchema,
+      topics: z.array(HexSchema),
+      data: HexSchema,
+    }),
+  ),
+})
 
 // ============================================================================
 // Account Abstraction Schemas
@@ -164,7 +182,7 @@ export const PluginUserOperationSchema = z.object({
   maxPriorityFeePerGas: BigIntSchema,
   paymasterAndData: HexSchema,
   signature: HexSchema,
-});
+})
 
 export const SmartAccountInfoSchema = z.object({
   address: AddressSchema,
@@ -173,33 +191,39 @@ export const SmartAccountInfoSchema = z.object({
   implementation: AddressSchema,
   nonce: BigIntSchema,
   entryPoint: AddressSchema,
-});
+})
 
 export const SessionKeyPermissionSchema = z.object({
   target: AddressSchema,
   selector: HexSchema.optional(),
   maxValue: BigIntSchema.optional(),
-});
+})
 
 export const SessionKeySchema = z.object({
   publicKey: AddressSchema,
   validUntil: TimestampSchema,
   validAfter: TimestampSchema,
   permissions: z.array(SessionKeyPermissionSchema),
-});
+})
 
 export const AAServiceConfigSchema = z.object({
   entryPointAddress: AddressSchema,
   accountFactoryAddress: AddressSchema,
   bundlerUrl: z.string().url(),
   supportedChains: z.array(ChainIdSchema),
-});
+})
 
 // ============================================================================
 // EIL Schemas
 // ============================================================================
 
-export const PluginVoucherStatusSchema = z.enum(['pending', 'voucher-issued', 'fulfilled', 'expired', 'cancelled']);
+export const PluginVoucherStatusSchema = z.enum([
+  'pending',
+  'voucher-issued',
+  'fulfilled',
+  'expired',
+  'cancelled',
+])
 
 export const PluginVoucherRequestSchema = z.object({
   id: HexSchema,
@@ -213,7 +237,7 @@ export const PluginVoucherRequestSchema = z.object({
   deadline: TimestampSchema,
   nonce: BigIntSchema,
   status: PluginVoucherStatusSchema,
-});
+})
 
 export const PluginVoucherSchema = z.object({
   id: HexSchema,
@@ -223,18 +247,25 @@ export const PluginVoucherSchema = z.object({
   issuedAt: TimestampSchema,
   expiresAt: TimestampSchema,
   fulfilled: z.boolean(),
-});
+})
 
 export const EILServiceConfigSchema = z.object({
   crossChainPaymasterAddress: AddressSchema,
   supportedChains: z.array(ChainIdSchema),
-});
+})
 
 // ============================================================================
 // OIF Schemas
 // ============================================================================
 
-export const PluginIntentStatusSchema = z.enum(['pending', 'open', 'filled', 'settled', 'cancelled', 'expired']);
+export const PluginIntentStatusSchema = z.enum([
+  'pending',
+  'open',
+  'filled',
+  'settled',
+  'cancelled',
+  'expired',
+])
 
 export const PluginIntentSchema = z.object({
   id: HexSchema,
@@ -251,7 +282,7 @@ export const PluginIntentSchema = z.object({
   createdAt: TimestampSchema,
   filledAt: TimestampSchema.optional(),
   settledAt: TimestampSchema.optional(),
-});
+})
 
 export const IntentOrderSchema = z.object({
   user: AddressSchema,
@@ -261,19 +292,19 @@ export const IntentOrderSchema = z.object({
   fillDeadline: TimestampSchema,
   orderDataType: HexSchema,
   orderData: HexSchema,
-});
+})
 
 export const OIFServiceConfigSchema = z.object({
   inputSettlerAddress: AddressSchema,
   outputSettlerAddresses: z.map(ChainIdSchema, AddressSchema),
   supportedChains: z.array(ChainIdSchema),
-});
+})
 
 // ============================================================================
 // Gas Schemas
 // ============================================================================
 
-export const GasSpeedSchema = z.enum(['slow', 'standard', 'fast']);
+export const GasSpeedSchema = z.enum(['slow', 'standard', 'fast'])
 
 export const PluginGasEstimateSchema = z.object({
   gasPrice: BigIntSchema,
@@ -286,7 +317,7 @@ export const PluginGasEstimateSchema = z.object({
   }),
   speed: GasSpeedSchema,
   chainId: ChainIdSchema,
-});
+})
 
 export const PluginGasOptionSchema = z.object({
   type: z.enum(['native', 'token']),
@@ -296,32 +327,40 @@ export const PluginGasOptionSchema = z.object({
   gasPrice: BigIntSchema,
   speed: GasSpeedSchema,
   estimatedTime: z.number().int().nonnegative(),
-});
+})
 
 export const GasServiceConfigSchema = z.object({
   defaultGasMultiplier: z.number().positive(),
   maxGasPrice: BigIntSchema,
-  supportedGasTokens: z.array(z.object({
-    address: AddressSchema,
-    symbol: z.string().min(1),
-    decimals: z.number().int().min(0).max(255),
-  })),
-});
+  supportedGasTokens: z.array(
+    z.object({
+      address: AddressSchema,
+      symbol: z.string().min(1),
+      decimals: z.number().int().min(0).max(255),
+    }),
+  ),
+})
 
 // ============================================================================
 // Security Schemas
 // ============================================================================
 
-export const RiskLevelSchema = z.enum(['low', 'medium', 'high', 'critical']);
+export const RiskLevelSchema = z.enum(['low', 'medium', 'high', 'critical'])
 
-export const TransactionRiskTypeSchema = z.enum(['approval', 'value', 'simulation', 'contract', 'phishing']);
+export const TransactionRiskTypeSchema = z.enum([
+  'approval',
+  'value',
+  'simulation',
+  'contract',
+  'phishing',
+])
 
 export const TransactionRiskSchema = z.object({
   type: TransactionRiskTypeSchema,
   severity: RiskLevelSchema,
   description: z.string().min(1),
   recommendation: z.string().optional(),
-});
+})
 
 export const SecurityAnalysisSchema = z.object({
   riskLevel: RiskLevelSchema,
@@ -334,9 +373,14 @@ export const SecurityAnalysisSchema = z.object({
   }),
   isKnownContract: z.boolean(),
   summary: z.string().min(1),
-});
+})
 
-export const SignatureRiskTypeSchema = z.enum(['permit', 'unlimited', 'suspicious', 'phishing']);
+export const SignatureRiskTypeSchema = z.enum([
+  'permit',
+  'unlimited',
+  'suspicious',
+  'phishing',
+])
 
 export const SignatureRiskDetailsSchema = z.object({
   spender: AddressSchema.optional(),
@@ -345,14 +389,14 @@ export const SignatureRiskDetailsSchema = z.object({
   permitType: z.enum(['ERC20Permit', 'Permit2', 'DAIPermit']).optional(),
   domain: z.string().optional(),
   targetContract: AddressSchema.optional(),
-});
+})
 
 export const SignatureRiskSchema = z.object({
   type: SignatureRiskTypeSchema,
   severity: RiskLevelSchema,
   description: z.string().min(1),
   details: SignatureRiskDetailsSchema.optional(),
-});
+})
 
 // ============================================================================
 // Service-Specific Schemas
@@ -369,7 +413,7 @@ export const ContactSchema = z.object({
   isFavorite: z.boolean(),
   transactionCount: z.number().int().nonnegative(),
   lastUsed: TimestampSchema.optional(),
-});
+})
 
 export const CustomRPCSchema = z.object({
   id: z.string().min(1),
@@ -381,7 +425,7 @@ export const CustomRPCSchema = z.object({
   latency: z.number().nonnegative().optional(),
   lastChecked: TimestampSchema.optional(),
   addedAt: TimestampSchema,
-});
+})
 
 export const CustomChainSchema = z.object({
   id: ChainIdSchema,
@@ -396,21 +440,21 @@ export const CustomChainSchema = z.object({
   iconUrl: z.string().url().optional(),
   isTestnet: z.boolean(),
   addedAt: TimestampSchema,
-});
+})
 
 export const BackupStateSchema = z.object({
   hasBackedUp: z.boolean(),
   backupVerifiedAt: TimestampSchema.nullable(),
   lastReminded: TimestampSchema.nullable(),
   reminderDismissed: z.boolean(),
-});
+})
 
 export const LockConfigSchema = z.object({
   type: z.enum(['password', 'pin', 'biometric']),
   autoLockTimeout: z.number().int().nonnegative(),
   maxFailedAttempts: z.number().int().positive(),
   lockoutDuration: z.number().int().positive(),
-});
+})
 
 export const LockStateSchema = z.object({
   isLocked: z.boolean(),
@@ -419,7 +463,7 @@ export const LockStateSchema = z.object({
   autoLockTimeout: z.number().int().nonnegative(),
   failedAttempts: z.number().int().nonnegative(),
   lockedUntil: TimestampSchema.nullable(),
-});
+})
 
 export const EdgeConfigSchema = z.object({
   enabled: z.boolean(),
@@ -433,8 +477,10 @@ export const EdgeConfigSchema = z.object({
   autoStart: z.boolean(),
   earnWhileIdle: z.boolean(),
   preferredRegion: z.string(),
-});
+})
 
-export const CoordinatorMessageSchema = z.object({
-  type: z.string().min(1),
-}).passthrough(); // Allow other properties for now as they vary by type
+export const CoordinatorMessageSchema = z
+  .object({
+    type: z.string().min(1),
+  })
+  .passthrough() // Allow other properties for now as they vary by type

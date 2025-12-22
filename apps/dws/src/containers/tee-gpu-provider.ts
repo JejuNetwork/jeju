@@ -11,10 +11,14 @@
  * 4. Results are signed by the enclave for verification
  */
 
-import type { Address, Hex } from 'viem';
-import { keccak256, toBytes } from 'viem';
-import type { ComputeNode, ContainerResources } from './types';
-import { registerNode, updateNodeResources, updateNodeStatus } from './scheduler';
+import type { Address, Hex } from 'viem'
+import { keccak256, toBytes } from 'viem'
+import {
+  registerNode,
+  updateNodeResources,
+  updateNodeStatus,
+} from './scheduler'
+import type { ComputeNode, ContainerResources } from './types'
 
 // ============================================================================
 // Types
@@ -37,100 +41,102 @@ export enum TEEProvider {
 }
 
 export interface GPUCapabilities {
-  gpuType: GPUType;
-  gpuCount: number;
-  vramGb: number;
-  cudaVersion: string;
-  tensorCoreSupport: boolean;
-  fp8Support: boolean;
-  nvlinkSupport: boolean;
+  gpuType: GPUType
+  gpuCount: number
+  vramGb: number
+  cudaVersion: string
+  tensorCoreSupport: boolean
+  fp8Support: boolean
+  nvlinkSupport: boolean
 }
 
 export interface TEEAttestation {
-  quote: Hex;
-  mrEnclave: Hex;
-  mrSigner: Hex;
-  reportData: Hex;
-  timestamp: number;
-  provider: TEEProvider;
+  quote: Hex
+  mrEnclave: Hex
+  mrSigner: Hex
+  reportData: Hex
+  timestamp: number
+  provider: TEEProvider
 }
 
 export interface TEEGPUNodeConfig {
-  nodeId: string;
-  address: Address;
-  endpoint: string;
-  region: string;
-  zone: string;
-  gpu: GPUCapabilities;
-  teeProvider: TEEProvider;
-  teeEndpoint?: string;
-  teeApiKey?: string;
+  nodeId: string
+  address: Address
+  endpoint: string
+  region: string
+  zone: string
+  gpu: GPUCapabilities
+  teeProvider: TEEProvider
+  teeEndpoint?: string
+  teeApiKey?: string
 }
 
 export interface TEEGPUNode extends ComputeNode {
-  gpu: GPUCapabilities;
-  teeProvider: TEEProvider;
-  teeEndpoint: string;
-  attestation?: TEEAttestation;
-  lastAttestationAt?: number;
+  gpu: GPUCapabilities
+  teeProvider: TEEProvider
+  teeEndpoint: string
+  attestation?: TEEAttestation
+  lastAttestationAt?: number
 }
 
 export interface GPUJobRequest {
-  jobId: string;
-  imageRef: string;
-  command: string[];
-  env: Record<string, string>;
-  resources: ContainerResources & { gpuType: GPUType; gpuCount: number };
+  jobId: string
+  imageRef: string
+  command: string[]
+  env: Record<string, string>
+  resources: ContainerResources & { gpuType: GPUType; gpuCount: number }
   input: {
-    trajectoryManifestCID: string;
-    rewardsManifestCID: string;
-    policyModelCID: string;
-    referenceModelCID?: string;
-    rlConfig: Record<string, number>;
-  };
-  attestationRequired: boolean;
+    trajectoryManifestCID: string
+    rewardsManifestCID: string
+    policyModelCID: string
+    referenceModelCID?: string
+    rlConfig: Record<string, number>
+  }
+  attestationRequired: boolean
 }
 
 export interface GPUJobResult {
-  jobId: string;
-  status: 'completed' | 'failed';
-  outputCID?: string;
-  attestation?: TEEAttestation;
+  jobId: string
+  status: 'completed' | 'failed'
+  outputCID?: string
+  attestation?: TEEAttestation
   metrics?: {
-    trainingLoss: number;
-    evalScore?: number;
-    gpuUtilization: number;
-    vramUsedGb: number;
-    durationSeconds: number;
-  };
-  error?: string;
+    trainingLoss: number
+    evalScore?: number
+    gpuUtilization: number
+    vramUsedGb: number
+    durationSeconds: number
+  }
+  error?: string
 }
 
 // ============================================================================
 // TEE GPU Provider
 // ============================================================================
 
-const teeGpuNodes = new Map<string, TEEGPUNode>();
-const pendingJobs = new Map<string, GPUJobRequest>();
-const completedJobs = new Map<string, GPUJobResult>();
+const teeGpuNodes = new Map<string, TEEGPUNode>()
+const pendingJobs = new Map<string, GPUJobRequest>()
+const completedJobs = new Map<string, GPUJobResult>()
 
 export class TEEGPUProvider {
-  private config: TEEGPUNodeConfig;
-  private initialized = false;
-  private attestationInterval?: ReturnType<typeof setInterval>;
+  private config: TEEGPUNodeConfig
+  private initialized = false
+  private attestationInterval?: ReturnType<typeof setInterval>
 
   constructor(config: TEEGPUNodeConfig) {
-    this.config = config;
+    this.config = config
   }
 
   /**
    * Initialize the TEE GPU provider
    */
   async initialize(): Promise<TEEAttestation> {
-    console.log(`[TEE-GPU] Initializing ${this.config.gpu.gpuType} node ${this.config.nodeId}`);
+    console.log(
+      `[TEE-GPU] Initializing ${this.config.gpu.gpuType} node ${this.config.nodeId}`,
+    )
 
     // Generate initial attestation
-    const attestation = await this.generateAttestation();
+    const attestation = await this.generateAttestation()
 
     // Register as compute node
     const node: TEEGPUNode = {
@@ -167,20 +173,22 @@ export class TEEGPUProvider {
       teeEndpoint: this.config.teeEndpoint ?? this.config.endpoint,
       attestation,
       lastAttestationAt: Date.now(),
-    };
+    }
 
-    teeGpuNodes.set(this.config.nodeId, node);
-    registerNode(node);
+    teeGpuNodes.set(this.config.nodeId, node)
+    registerNode(node)
 
     // Start periodic attestation refresh
     this.attestationInterval = setInterval(async () => {
-      await this.refreshAttestation();
-    }, 300000); // Every 5 minutes
+      await this.refreshAttestation()
+    }, 300000) // Every 5 minutes
 
-    this.initialized = true;
-    console.log(`[TEE-GPU] Node ${this.config.nodeId} initialized with ${this.config.gpu.gpuCount}x ${this.config.gpu.gpuType}`);
+    this.initialized = true
+    console.log(
+      `[TEE-GPU] Node ${this.config.nodeId} initialized with ${this.config.gpu.gpuCount}x ${this.config.gpu.gpuType}`,
+    )
 
-    return attestation;
+    return attestation
   }
 
   /**
@@ -188,93 +196,104 @@ export class TEEGPUProvider {
    */
   async submitJob(request: GPUJobRequest): Promise<string> {
     if (!this.initialized) {
-      throw new Error('TEE GPU provider not initialized');
+      throw new Error('TEE GPU provider not initialized')
     }
 
-    console.log(`[TEE-GPU] Submitting job ${request.jobId}`);
-    pendingJobs.set(request.jobId, request);
+    console.log(`[TEE-GPU] Submitting job ${request.jobId}`)
+    pendingJobs.set(request.jobId, request)
 
     // Execute job asynchronously
     this.executeJob(request).catch((err) => {
-      console.error(`[TEE-GPU] Job ${request.jobId} failed:`, err);
+      console.error(`[TEE-GPU] Job ${request.jobId} failed:`, err)
       completedJobs.set(request.jobId, {
         jobId: request.jobId,
         status: 'failed',
         error: err instanceof Error ? err.message : String(err),
-      });
-    });
+      })
+    })
 
-    return request.jobId;
+    return request.jobId
   }
 
   /**
    * Get job status
    */
-  getJobStatus(jobId: string): { status: 'pending' | 'running' | 'completed' | 'failed'; result?: GPUJobResult } {
-    const completed = completedJobs.get(jobId);
+  getJobStatus(jobId: string): {
+    status: 'pending' | 'running' | 'completed' | 'failed'
+    result?: GPUJobResult
+  } {
+    const completed = completedJobs.get(jobId)
     if (completed) {
-      return { status: completed.status, result: completed };
+      return { status: completed.status, result: completed }
     }
 
-    const pending = pendingJobs.get(jobId);
+    const pending = pendingJobs.get(jobId)
     if (pending) {
-      return { status: 'pending' };
+      return { status: 'pending' }
     }
 
-    return { status: 'failed', result: { jobId, status: 'failed', error: 'Job not found' } };
+    return {
+      status: 'failed',
+      result: { jobId, status: 'failed', error: 'Job not found' },
+    }
   }
 
   /**
    * Execute GPU job in TEE
    */
   private async executeJob(request: GPUJobRequest): Promise<void> {
-    pendingJobs.delete(request.jobId);
+    pendingJobs.delete(request.jobId)
 
-    const startTime = Date.now();
+    const startTime = Date.now()
 
     // Allocate resources
-    const node = teeGpuNodes.get(this.config.nodeId);
+    const node = teeGpuNodes.get(this.config.nodeId)
     if (!node) {
-      throw new Error('Node not found');
+      throw new Error('Node not found')
     }
 
-    node.resources.availableCpu -= request.resources.cpuCores;
-    node.resources.availableMemoryMb -= request.resources.memoryMb;
+    node.resources.availableCpu -= request.resources.cpuCores
+    node.resources.availableMemoryMb -= request.resources.memoryMb
     updateNodeResources(this.config.nodeId, {
       cpu: node.resources.availableCpu,
       memoryMb: node.resources.availableMemoryMb,
       storageMb: node.resources.availableStorageMb,
-    });
+    })
 
     try {
       // Execute in TEE
-      const result = await this.executeInTEE(request);
+      const result = await this.executeInTEE(request)
 
       // Generate attestation for result
       const attestation = request.attestationRequired
-        ? await this.generateResultAttestation(request.jobId, result.outputCID ?? '')
-        : undefined;
+        ? await this.generateResultAttestation(
+            request.jobId,
+            result.outputCID ?? '',
+          )
+        : undefined
 
       completedJobs.set(request.jobId, {
         ...result,
         attestation,
-        metrics: result.metrics ? {
-          trainingLoss: result.metrics.trainingLoss,
-          evalScore: result.metrics.evalScore,
-          gpuUtilization: result.metrics.gpuUtilization,
-          vramUsedGb: result.metrics.vramUsedGb,
-          durationSeconds: (Date.now() - startTime) / 1000,
-        } : undefined,
-      });
+        metrics: result.metrics
+          ? {
+              trainingLoss: result.metrics.trainingLoss,
+              evalScore: result.metrics.evalScore,
+              gpuUtilization: result.metrics.gpuUtilization,
+              vramUsedGb: result.metrics.vramUsedGb,
+              durationSeconds: (Date.now() - startTime) / 1000,
+            }
+          : undefined,
+      })
     } finally {
       // Release resources
-      node.resources.availableCpu += request.resources.cpuCores;
-      node.resources.availableMemoryMb += request.resources.memoryMb;
+      node.resources.availableCpu += request.resources.cpuCores
+      node.resources.availableMemoryMb += request.resources.memoryMb
       updateNodeResources(this.config.nodeId, {
         cpu: node.resources.availableCpu,
         memoryMb: node.resources.availableMemoryMb,
         storageMb: node.resources.availableStorageMb,
-      });
+      })
     }
   }
 
@@ -282,12 +301,12 @@ export class TEEGPUProvider {
    * Execute job in TEE environment
    */
   private async executeInTEE(request: GPUJobRequest): Promise<GPUJobResult> {
-    const teeEndpoint = this.config.teeEndpoint ?? this.config.endpoint;
+    const teeEndpoint = this.config.teeEndpoint ?? this.config.endpoint
 
     if (this.config.teeProvider === TEEProvider.LOCAL) {
       // Local development mode - simulate TEE execution
-      console.log(`[TEE-GPU] Simulating TEE execution for job ${request.jobId}`);
-      await new Promise((resolve) => setTimeout(resolve, 100)); // Fast for testing
+      console.log(`[TEE-GPU] Simulating TEE execution for job ${request.jobId}`)
+      await new Promise((resolve) => setTimeout(resolve, 100)) // Fast for testing
 
       return {
         jobId: request.jobId,
@@ -300,13 +319,15 @@ export class TEEGPUProvider {
           vramUsedGb: 70,
           durationSeconds: 0.1,
         },
-      };
+      }
     }
 
     // Real TEE execution via Phala
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    }
     if (this.config.teeApiKey) {
-      headers['X-API-Key'] = this.config.teeApiKey;
+      headers['X-API-Key'] = this.config.teeApiKey
     }
 
     const response = await fetch(`${teeEndpoint}/gpu/execute`, {
@@ -321,13 +342,15 @@ export class TEEGPUProvider {
         gpuCount: request.resources.gpuCount,
         input: request.input,
       }),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`TEE execution failed: ${response.status} ${await response.text()}`);
+      throw new Error(
+        `TEE execution failed: ${response.status} ${await response.text()}`,
+      )
     }
 
-    return response.json() as Promise<GPUJobResult>;
+    return response.json() as Promise<GPUJobResult>
   }
 
   /**
@@ -336,23 +359,25 @@ export class TEEGPUProvider {
   private async generateAttestation(): Promise<TEEAttestation> {
     if (this.config.teeProvider === TEEProvider.LOCAL) {
       // Mock attestation for local development
-      const timestamp = Date.now();
-      const mrEnclave = keccak256(toBytes(`${this.config.nodeId}:${timestamp}`));
+      const timestamp = Date.now()
+      const mrEnclave = keccak256(toBytes(`${this.config.nodeId}:${timestamp}`))
 
       return {
         quote: `0x${'00'.repeat(256)}` as Hex,
         mrEnclave,
         mrSigner: keccak256(toBytes(this.config.address)),
-        reportData: keccak256(toBytes(`${mrEnclave}:${this.config.gpu.gpuType}`)),
+        reportData: keccak256(
+          toBytes(`${mrEnclave}:${this.config.gpu.gpuType}`),
+        ),
         timestamp,
         provider: TEEProvider.LOCAL,
-      };
+      }
     }
 
-    const teeEndpoint = this.config.teeEndpoint ?? this.config.endpoint;
-    const headers: Record<string, string> = {};
+    const teeEndpoint = this.config.teeEndpoint ?? this.config.endpoint
+    const headers: Record<string, string> = {}
     if (this.config.teeApiKey) {
-      headers['X-API-Key'] = this.config.teeApiKey;
+      headers['X-API-Key'] = this.config.teeApiKey
     }
 
     const response = await fetch(`${teeEndpoint}/attestation/generate`, {
@@ -363,19 +388,19 @@ export class TEEGPUProvider {
         gpuType: this.config.gpu.gpuType,
         gpuCount: this.config.gpu.gpuCount,
       }),
-    });
+    })
 
     if (!response.ok) {
-      throw new Error(`Failed to generate attestation: ${response.status}`);
+      throw new Error(`Failed to generate attestation: ${response.status}`)
     }
 
     const data = (await response.json()) as {
-      quote: string;
-      mr_enclave: string;
-      mr_signer: string;
-      report_data: string;
-      timestamp: number;
-    };
+      quote: string
+      mr_enclave: string
+      mr_signer: string
+      report_data: string
+      timestamp: number
+    }
 
     return {
       quote: data.quote as Hex,
@@ -384,20 +409,23 @@ export class TEEGPUProvider {
       reportData: data.report_data as Hex,
       timestamp: data.timestamp,
       provider: this.config.teeProvider,
-    };
+    }
   }
 
   /**
    * Generate attestation for job result
    */
-  private async generateResultAttestation(jobId: string, outputCID: string): Promise<TEEAttestation> {
-    const baseAttestation = await this.generateAttestation();
-    const resultHash = keccak256(toBytes(`${jobId}:${outputCID}`));
+  private async generateResultAttestation(
+    jobId: string,
+    outputCID: string,
+  ): Promise<TEEAttestation> {
+    const baseAttestation = await this.generateAttestation()
+    const resultHash = keccak256(toBytes(`${jobId}:${outputCID}`))
 
     return {
       ...baseAttestation,
       reportData: resultHash,
-    };
+    }
   }
 
   /**
@@ -405,15 +433,15 @@ export class TEEGPUProvider {
    */
   private async refreshAttestation(): Promise<void> {
     try {
-      const attestation = await this.generateAttestation();
-      const node = teeGpuNodes.get(this.config.nodeId);
+      const attestation = await this.generateAttestation()
+      const node = teeGpuNodes.get(this.config.nodeId)
       if (node) {
-        node.attestation = attestation;
-        node.lastAttestationAt = Date.now();
+        node.attestation = attestation
+        node.lastAttestationAt = Date.now()
       }
-      console.log(`[TEE-GPU] Attestation refreshed for ${this.config.nodeId}`);
+      console.log(`[TEE-GPU] Attestation refreshed for ${this.config.nodeId}`)
     } catch (error) {
-      console.error(`[TEE-GPU] Failed to refresh attestation:`, error);
+      console.error(`[TEE-GPU] Failed to refresh attestation:`, error)
     }
   }
 
@@ -422,12 +450,12 @@ export class TEEGPUProvider {
    */
   async shutdown(): Promise<void> {
     if (this.attestationInterval) {
-      clearInterval(this.attestationInterval);
+      clearInterval(this.attestationInterval)
     }
-    updateNodeStatus(this.config.nodeId, 'offline');
-    teeGpuNodes.delete(this.config.nodeId);
-    this.initialized = false;
-    console.log(`[TEE-GPU] Node ${this.config.nodeId} shutdown`);
+    updateNodeStatus(this.config.nodeId, 'offline')
+    teeGpuNodes.delete(this.config.nodeId)
+    this.initialized = false
+    console.log(`[TEE-GPU] Node ${this.config.nodeId} shutdown`)
   }
 }
 
@@ -485,27 +513,29 @@ export const GPU_SPECS: Record<GPUType, Omit<GPUCapabilities, 'gpuCount'>> = {
     fp8Support: false,
     nvlinkSupport: false,
   },
-};
+}
 
 export interface CreateTEEGPUProviderConfig {
-  gpuType: GPUType;
-  nodeId?: string;
-  address: Address;
-  endpoint: string;
-  region?: string;
-  zone?: string;
-  teeProvider?: TEEProvider;
-  teeEndpoint?: string;
-  teeApiKey?: string;
-  gpuCount?: number;
+  gpuType: GPUType
+  nodeId?: string
+  address: Address
+  endpoint: string
+  region?: string
+  zone?: string
+  teeProvider?: TEEProvider
+  teeEndpoint?: string
+  teeApiKey?: string
+  gpuCount?: number
 }
 
 /**
  * Create a TEE GPU provider for training
  */
-export function createTEEGPUProvider(config: CreateTEEGPUProviderConfig): TEEGPUProvider {
-  const gpuSpec = GPU_SPECS[config.gpuType];
-  const gpuName = config.gpuType.replace('nvidia-', '');
+export function createTEEGPUProvider(
+  config: CreateTEEGPUProviderConfig,
+): TEEGPUProvider {
+  const gpuSpec = GPU_SPECS[config.gpuType]
+  const gpuName = config.gpuType.replace('nvidia-', '')
 
   return new TEEGPUProvider({
     nodeId: config.nodeId ?? `${gpuName}-${Date.now()}`,
@@ -520,7 +550,7 @@ export function createTEEGPUProvider(config: CreateTEEGPUProviderConfig): TEEGPU
     teeProvider: config.teeProvider ?? TEEProvider.PHALA,
     teeEndpoint: config.teeEndpoint ?? process.env.PHALA_ENDPOINT,
     teeApiKey: config.teeApiKey ?? process.env.PHALA_API_KEY,
-  });
+  })
 }
 
 // ============================================================================
@@ -528,18 +558,17 @@ export function createTEEGPUProvider(config: CreateTEEGPUProviderConfig): TEEGPU
 // ============================================================================
 
 export function getTEEGPUNodes(): TEEGPUNode[] {
-  return [...teeGpuNodes.values()];
+  return [...teeGpuNodes.values()]
 }
 
 export function getTEEGPUNode(nodeId: string): TEEGPUNode | undefined {
-  return teeGpuNodes.get(nodeId);
+  return teeGpuNodes.get(nodeId)
 }
 
 export function getAvailableGPUNodes(gpuType?: GPUType): TEEGPUNode[] {
   return [...teeGpuNodes.values()].filter((node) => {
-    if (node.status !== 'online') return false;
-    if (gpuType && node.gpu.gpuType !== gpuType) return false;
-    return true;
-  });
+    if (node.status !== 'online') return false
+    if (gpuType && node.gpu.gpuType !== gpuType) return false
+    return true
+  })
 }
-

@@ -3,104 +3,106 @@
  * Synchronizes ban status and moderation actions between EVM and Solana
  */
 
+import { EventEmitter } from 'node:events'
 import {
   Connection,
-  PublicKey,
   Keypair,
+  PublicKey,
+  sendAndConfirmTransaction,
   Transaction,
   TransactionInstruction,
-  sendAndConfirmTransaction,
-} from '@solana/web3.js';
+} from '@solana/web3.js'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  type Address,
-  type Hex,
-  parseAbi,
-  keccak256,
   encodePacked,
+  type Hex,
+  http,
+  keccak256,
+  parseAbi,
   toBytes,
-} from 'viem';
-import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { mainnet, sepolia } from 'viem/chains';
-import { EventEmitter } from 'events';
-import { createLogger } from '../utils/logger.js';
+} from 'viem'
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { mainnet, sepolia } from 'viem/chains'
+import { createLogger } from '../utils/logger.js'
 
-const log = createLogger('moderation-sync');
+const log = createLogger('moderation-sync')
 
 const BAN_MANAGER_ABI = parseAbi([
-  'function isNetworkBanned(uint256 agentId) view returns (bool)',
-  'function getNetworkBan(uint256 agentId) view returns (bool isBanned, uint256 bannedAt, string reason, bytes32 proposalId)',
-  'function getBanReason(uint256 agentId, bytes32 appId) view returns (string)',
-  'function banFromNetwork(uint256 agentId, string calldata reason, bytes32 proposalId) external',
-  'function unbanFromNetwork(uint256 agentId) external',
-  'event NetworkBanApplied(uint256 indexed agentId, string reason, bytes32 indexed proposalId, uint256 timestamp)',
-  'event NetworkBanRemoved(uint256 indexed agentId, uint256 timestamp)',
-]);
+  'function isBanned(uint256 agentId) view returns (bool)',
+  'function getBanReason(uint256 agentId) view returns (string)',
+  'function getBanExpiry(uint256 agentId) view returns (uint256)',
+  'function banAgent(uint256 agentId, string reason, uint256 duration) external',
+  'function unbanAgent(uint256 agentId) external',
+  'function syncExternalBan(uint256 agentId, uint256 sourceChainId, string reason, uint256 expiry, bytes proof) external',
+  'event AgentBanned(uint256 indexed agentId, string reason, uint256 expiry)',
+  'event AgentUnbanned(uint256 indexed agentId)',
+  'event BanSynced(uint256 indexed agentId, uint256 indexed sourceChainId)',
+])
 
 const REPORTING_SYSTEM_ABI = parseAbi([
   'function getReportCount(uint256 agentId) view returns (uint256)',
   'function getReports(uint256 agentId) view returns (tuple(uint256 reportId, address reporter, uint256 agentId, uint8 category, string reason, uint256 timestamp, uint8 status)[])',
   'function submitReport(uint256 agentId, uint8 category, string reason) external',
   'event ReportSubmitted(uint256 indexed reportId, uint256 indexed agentId, address indexed reporter)',
-]);
+])
 
 const FEDERATED_IDENTITY_ABI = parseAbi([
   'function deactivateAgent(bytes32 federatedId) external',
   'function getFederatedIdByOrigin(uint256 chainId, uint256 agentId) view returns (bytes32)',
-]);
+])
 
-const SOLANA_CHAIN_ID = 101;
-const SOLANA_DEVNET_CHAIN_ID = 102;
+const SOLANA_CHAIN_ID = 101
+const SOLANA_DEVNET_CHAIN_ID = 102
 
 export interface ModerationSyncConfig {
-  evmRpcUrl: string;
-  evmChainId: number;
-  banManagerAddress: Address;
-  reportingSystemAddress: Address;
-  federatedIdentityAddress: Address;
-  privateKey: Hex;
-  solanaRpcUrl: string;
-  solanaKeypair?: Uint8Array;
-  oraclePrivateKey?: Hex;
+  evmRpcUrl: string
+  evmChainId: number
+  banManagerAddress: Address
+  reportingSystemAddress: Address
+  federatedIdentityAddress: Address
+  privateKey: Hex
+  solanaRpcUrl: string
+  solanaKeypair?: Uint8Array
+  oraclePrivateKey?: Hex
 }
 
 export interface BanStatus {
-  isBanned: boolean;
-  reason: string;
-  expiry: bigint;
+  isBanned: boolean
+  reason: string
+  expiry: bigint
 }
 
 export interface Report {
-  reportId: bigint;
-  reporter: Address;
-  agentId: bigint;
-  category: number;
-  reason: string;
-  timestamp: bigint;
-  status: number;
+  reportId: bigint
+  reporter: Address
+  agentId: bigint
+  category: number
+  reason: string
+  timestamp: bigint
+  status: number
 }
 
 export interface CrossChainBanStatus {
-  federatedId: Hex;
-  evmAgentId: bigint | null;
-  evmBanned: boolean;
-  evmBanReason: string | null;
-  evmBanExpiry: bigint | null;
-  solanaAgentId: bigint | null;
-  solanaBanned: boolean;
-  solanaBanReason: string | null;
-  effectiveBan: boolean;
+  federatedId: Hex
+  evmAgentId: bigint | null
+  evmBanned: boolean
+  evmBanReason: string | null
+  evmBanExpiry: bigint | null
+  solanaAgentId: bigint | null
+  solanaBanned: boolean
+  solanaBanReason: string | null
+  effectiveBan: boolean
 }
 
 export interface ModerationSyncResult {
-  success: boolean;
-  txHash?: Hex | string;
-  sourceChain: number;
-  destChain: number;
-  agentId: bigint;
-  action: 'ban' | 'unban' | 'report';
+  success: boolean
+  txHash?: Hex | string
+  sourceChain: number
+  destChain: number
+  agentId: bigint
+  action: 'ban' | 'unban' | 'report'
 }
 
 export enum ReportCategory {
@@ -120,41 +122,41 @@ export enum ReportStatus {
 }
 
 export class ModerationSyncService extends EventEmitter {
-  private config: ModerationSyncConfig;
-  private account: PrivateKeyAccount;
-  private oracleAccount: PrivateKeyAccount | null = null;
-  private publicClient: ReturnType<typeof createPublicClient>;
-  private walletClient: ReturnType<typeof createWalletClient>;
-  private solanaConnection: Connection;
-  private solanaKeypair: Keypair | null = null;
-  private syncInterval: ReturnType<typeof setInterval> | null = null;
+  private config: ModerationSyncConfig
+  private account: PrivateKeyAccount
+  private oracleAccount: PrivateKeyAccount | null = null
+  private publicClient: ReturnType<typeof createPublicClient>
+  private walletClient: ReturnType<typeof createWalletClient>
+  private solanaConnection: Connection
+  private solanaKeypair: Keypair | null = null
+  private syncInterval: ReturnType<typeof setInterval> | null = null
 
   constructor(config: ModerationSyncConfig) {
-    super();
-    this.config = config;
-    this.account = privateKeyToAccount(config.privateKey);
+    super()
+    this.config = config
+    this.account = privateKeyToAccount(config.privateKey)
 
     if (config.oraclePrivateKey) {
-      this.oracleAccount = privateKeyToAccount(config.oraclePrivateKey);
+      this.oracleAccount = privateKeyToAccount(config.oraclePrivateKey)
     }
 
-    const chain = config.evmChainId === 1 ? mainnet : sepolia;
+    const chain = config.evmChainId === 1 ? mainnet : sepolia
 
     this.publicClient = createPublicClient({
       chain,
       transport: http(config.evmRpcUrl),
-    });
+    })
 
     this.walletClient = createWalletClient({
       account: this.account,
       chain,
       transport: http(config.evmRpcUrl),
-    });
+    })
 
-    this.solanaConnection = new Connection(config.solanaRpcUrl, 'confirmed');
+    this.solanaConnection = new Connection(config.solanaRpcUrl, 'confirmed')
 
     if (config.solanaKeypair) {
-      this.solanaKeypair = Keypair.fromSecretKey(config.solanaKeypair);
+      this.solanaKeypair = Keypair.fromSecretKey(config.solanaKeypair)
     }
   }
 
@@ -162,16 +164,28 @@ export class ModerationSyncService extends EventEmitter {
    * Get ban status on EVM
    */
   async getEVMBanStatus(agentId: bigint): Promise<BanStatus> {
-    const result = await this.publicClient.readContract({
-      address: this.config.banManagerAddress,
-      abi: BAN_MANAGER_ABI,
-      functionName: 'getNetworkBan',
-      args: [agentId],
-    }) as [boolean, bigint, string, `0x${string}`];
+    const [isBanned, reason, expiry] = await Promise.all([
+      this.publicClient.readContract({
+        address: this.config.banManagerAddress,
+        abi: BAN_MANAGER_ABI,
+        functionName: 'isBanned',
+        args: [agentId],
+      }) as Promise<boolean>,
+      this.publicClient.readContract({
+        address: this.config.banManagerAddress,
+        abi: BAN_MANAGER_ABI,
+        functionName: 'getBanReason',
+        args: [agentId],
+      }) as Promise<string>,
+      this.publicClient.readContract({
+        address: this.config.banManagerAddress,
+        abi: BAN_MANAGER_ABI,
+        functionName: 'getBanExpiry',
+        args: [agentId],
+      }) as Promise<bigint>,
+    ])
 
-    const [isBanned, bannedAt, reason] = result;
-    // BanManager doesn't have expiry for network bans, use 0 to indicate no expiry
-    return { isBanned, reason, expiry: 0n };
+    return { isBanned, reason, expiry }
   }
 
   /**
@@ -180,39 +194,39 @@ export class ModerationSyncService extends EventEmitter {
   async getSolanaBanStatus(agentId: bigint): Promise<BanStatus> {
     // On Solana, ban status would be stored in agent metadata
     // Check for "banned" metadata key
-    const idBuffer = Buffer.alloc(8);
-    idBuffer.writeBigUInt64LE(agentId);
+    const idBuffer = Buffer.alloc(8)
+    idBuffer.writeBigUInt64LE(agentId)
 
     // Compute key hash for "banned" metadata
-    const keyHash = Buffer.alloc(8);
-    const fullHash = keccak256(toBytes('banned'));
-    Buffer.from(fullHash.slice(2, 18), 'hex').copy(keyHash);
+    const keyHash = Buffer.alloc(8)
+    const fullHash = keccak256(toBytes('banned'))
+    Buffer.from(fullHash.slice(2, 18), 'hex').copy(keyHash)
 
     const [metadataPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('agent_meta'), idBuffer, keyHash],
-      new PublicKey('HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp')
-    );
+      new PublicKey('HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp'),
+    )
 
-    const accountInfo = await this.solanaConnection.getAccountInfo(metadataPda);
+    const accountInfo = await this.solanaConnection.getAccountInfo(metadataPda)
     if (!accountInfo) {
-      return { isBanned: false, reason: '', expiry: 0n };
+      return { isBanned: false, reason: '', expiry: 0n }
     }
 
     // Parse metadata value (JSON encoded ban info)
-    const data = accountInfo.data;
-    let offset = 8 + 8 + 4 + 32; // Skip discriminator, agent_id, key length, key
+    const data = accountInfo.data
+    let offset = 8 + 8 + 4 + 32 // Skip discriminator, agent_id, key length, key
 
-    const valueLen = data.readUInt32LE(offset);
-    offset += 4;
-    const valueBytes = data.slice(offset, offset + valueLen);
+    const valueLen = data.readUInt32LE(offset)
+    offset += 4
+    const valueBytes = data.slice(offset, offset + valueLen)
 
-    const banInfo = JSON.parse(valueBytes.toString('utf8'));
+    const banInfo = JSON.parse(valueBytes.toString('utf8'))
 
     return {
       isBanned: banInfo.banned === true,
       reason: banInfo.reason || '',
       expiry: BigInt(banInfo.expiry || 0),
-    };
+    }
   }
 
   /**
@@ -220,33 +234,39 @@ export class ModerationSyncService extends EventEmitter {
    */
   async getCrossChainBanStatus(
     evmAgentId?: bigint,
-    solanaAgentId?: bigint
+    solanaAgentId?: bigint,
   ): Promise<CrossChainBanStatus> {
-    let evmBan: BanStatus | null = null;
-    let solanaBan: BanStatus | null = null;
-    let federatedId: Hex = '0x' as Hex;
+    let evmBan: BanStatus | null = null
+    let solanaBan: BanStatus | null = null
+    let federatedId: Hex = '0x' as Hex
 
     if (evmAgentId !== undefined) {
-      evmBan = await this.getEVMBanStatus(evmAgentId);
-      federatedId = await this.publicClient.readContract({
+      evmBan = await this.getEVMBanStatus(evmAgentId)
+      federatedId = (await this.publicClient.readContract({
         address: this.config.federatedIdentityAddress,
         abi: FEDERATED_IDENTITY_ABI,
         functionName: 'getFederatedIdByOrigin',
         args: [BigInt(this.config.evmChainId), evmAgentId],
-      }) as Hex;
+      })) as Hex
     }
 
     if (solanaAgentId !== undefined) {
-      solanaBan = await this.getSolanaBanStatus(solanaAgentId);
+      solanaBan = await this.getSolanaBanStatus(solanaAgentId)
       if (!federatedId || federatedId === '0x') {
-        const isDevnet = this.config.solanaRpcUrl.includes('devnet');
-        const chainId = isDevnet ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID;
-        federatedId = keccak256(encodePacked(['string', 'uint256', 'string', 'uint256'], ['jeju:federated:', BigInt(chainId), ':', solanaAgentId]));
+        const isDevnet = this.config.solanaRpcUrl.includes('devnet')
+        const chainId = isDevnet ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID
+        federatedId = keccak256(
+          encodePacked(
+            ['string', 'uint256', 'string', 'uint256'],
+            ['jeju:federated:', BigInt(chainId), ':', solanaAgentId],
+          ),
+        )
       }
     }
 
     // Effective ban: banned on ANY chain
-    const effectiveBan = (evmBan?.isBanned ?? false) || (solanaBan?.isBanned ?? false);
+    const effectiveBan =
+      (evmBan?.isBanned ?? false) || (solanaBan?.isBanned ?? false)
 
     return {
       federatedId,
@@ -258,7 +278,7 @@ export class ModerationSyncService extends EventEmitter {
       solanaBanned: solanaBan?.isBanned ?? false,
       solanaBanReason: solanaBan?.reason || null,
       effectiveBan,
-    };
+    }
   }
 
   /**
@@ -266,44 +286,52 @@ export class ModerationSyncService extends EventEmitter {
    */
   async syncSolanaBanToEVM(
     solanaAgentId: bigint,
-    evmAgentId: bigint
+    evmAgentId: bigint,
   ): Promise<ModerationSyncResult> {
-    const solanaBan = await this.getSolanaBanStatus(solanaAgentId);
+    const solanaBan = await this.getSolanaBanStatus(solanaAgentId)
     if (!solanaBan.isBanned) {
       return {
         success: false,
-        sourceChain: this.config.solanaRpcUrl.includes('devnet') ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID,
+        sourceChain: this.config.solanaRpcUrl.includes('devnet')
+          ? SOLANA_DEVNET_CHAIN_ID
+          : SOLANA_CHAIN_ID,
         destChain: this.config.evmChainId,
         agentId: solanaAgentId,
         action: 'ban',
-      };
+      }
     }
 
-    const sourceChainId = this.config.solanaRpcUrl.includes('devnet') ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID;
+    const proof = await this.generateBanProof(
+      solanaAgentId,
+      solanaBan.reason,
+      solanaBan.expiry,
+    )
 
-    // Use banFromNetwork to apply the cross-chain ban
-    // The proposalId is derived from the source chain + agent ID for traceability
-    const proposalId = keccak256(encodePacked(['uint256', 'uint256'], [BigInt(sourceChainId), solanaAgentId]));
-    
+    const sourceChainId = this.config.solanaRpcUrl.includes('devnet')
+      ? SOLANA_DEVNET_CHAIN_ID
+      : SOLANA_CHAIN_ID
+
     const hash = await this.walletClient.writeContract({
       address: this.config.banManagerAddress,
       abi: BAN_MANAGER_ABI,
-      functionName: 'banFromNetwork',
+      functionName: 'syncExternalBan',
       args: [
         evmAgentId,
-        `Cross-chain ban from Solana: ${solanaBan.reason}`,
-        proposalId,
+        BigInt(sourceChainId),
+        solanaBan.reason,
+        solanaBan.expiry,
+        proof,
       ],
       account: this.account,
       chain: null,
-    });
+    })
 
     this.emit('banSynced', {
       sourceChain: sourceChainId,
       destChain: this.config.evmChainId,
       agentId: solanaAgentId,
       reason: solanaBan.reason,
-    });
+    })
 
     return {
       success: true,
@@ -312,7 +340,7 @@ export class ModerationSyncService extends EventEmitter {
       destChain: this.config.evmChainId,
       agentId: solanaAgentId,
       action: 'ban',
-    };
+    }
   }
 
   /**
@@ -320,41 +348,43 @@ export class ModerationSyncService extends EventEmitter {
    */
   async syncEVMBanToSolana(
     evmAgentId: bigint,
-    solanaAgentId: bigint
+    solanaAgentId: bigint,
   ): Promise<ModerationSyncResult> {
     if (!this.solanaKeypair) {
-      throw new Error('Solana keypair not configured');
+      throw new Error('Solana keypair not configured')
     }
 
-    const evmBan = await this.getEVMBanStatus(evmAgentId);
+    const evmBan = await this.getEVMBanStatus(evmAgentId)
     if (!evmBan.isBanned) {
       return {
         success: false,
         sourceChain: this.config.evmChainId,
-        destChain: this.config.solanaRpcUrl.includes('devnet') ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID,
+        destChain: this.config.solanaRpcUrl.includes('devnet')
+          ? SOLANA_DEVNET_CHAIN_ID
+          : SOLANA_CHAIN_ID,
         agentId: evmAgentId,
         action: 'ban',
-      };
+      }
     }
 
     // Set ban metadata on Solana agent
-    const idBuffer = Buffer.alloc(8);
-    idBuffer.writeBigUInt64LE(solanaAgentId);
+    const idBuffer = Buffer.alloc(8)
+    idBuffer.writeBigUInt64LE(solanaAgentId)
 
     // Compute key hash for "banned"
-    const keyHash = Buffer.alloc(8);
-    const fullHash = keccak256(toBytes('banned'));
-    Buffer.from(fullHash.slice(2, 18), 'hex').copy(keyHash);
+    const keyHash = Buffer.alloc(8)
+    const fullHash = keccak256(toBytes('banned'))
+    Buffer.from(fullHash.slice(2, 18), 'hex').copy(keyHash)
 
     const [metadataPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('agent_meta'), idBuffer, keyHash],
-      new PublicKey('HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp')
-    );
+      new PublicKey('HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp'),
+    )
 
     const [agentPda] = PublicKey.findProgramAddressSync(
       [Buffer.from('agent'), idBuffer],
-      new PublicKey('HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp')
-    );
+      new PublicKey('HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp'),
+    )
 
     // Build set_metadata_pda instruction
     const banValue = JSON.stringify({
@@ -362,56 +392,68 @@ export class ModerationSyncService extends EventEmitter {
       reason: evmBan.reason,
       expiry: evmBan.expiry.toString(),
       sourceChain: this.config.evmChainId,
-    });
+    })
 
-    const key = 'banned';
-    const instructionData = Buffer.alloc(1 + 8 + 4 + key.length + 4 + banValue.length + 1);
-    let offset = 0;
+    const key = 'banned'
+    const instructionData = Buffer.alloc(
+      1 + 8 + 4 + key.length + 4 + banValue.length + 1,
+    )
+    let offset = 0
 
-    instructionData.writeUInt8(0x03, offset); // set_metadata_pda discriminator
-    offset += 1;
+    instructionData.writeUInt8(0x03, offset) // set_metadata_pda discriminator
+    offset += 1
 
-    keyHash.copy(instructionData, offset);
-    offset += 8;
+    keyHash.copy(instructionData, offset)
+    offset += 8
 
-    instructionData.writeUInt32LE(key.length, offset);
-    offset += 4;
-    instructionData.write(key, offset);
-    offset += key.length;
+    instructionData.writeUInt32LE(key.length, offset)
+    offset += 4
+    instructionData.write(key, offset)
+    offset += key.length
 
-    instructionData.writeUInt32LE(banValue.length, offset);
-    offset += 4;
-    instructionData.write(banValue, offset);
-    offset += banValue.length;
+    instructionData.writeUInt32LE(banValue.length, offset)
+    offset += 4
+    instructionData.write(banValue, offset)
+    offset += banValue.length
 
-    instructionData.writeUInt8(0, offset); // immutable = false
+    instructionData.writeUInt8(0, offset) // immutable = false
 
     const instruction = new TransactionInstruction({
       programId: new PublicKey('HvF3JqhahcX7JfhbDRYYCJ7S3f6nJdrqu5yi9shyTREp'),
       keys: [
-        { pubkey: this.solanaKeypair.publicKey, isSigner: true, isWritable: true },
+        {
+          pubkey: this.solanaKeypair.publicKey,
+          isSigner: true,
+          isWritable: true,
+        },
         { pubkey: agentPda, isSigner: false, isWritable: false },
         { pubkey: metadataPda, isSigner: false, isWritable: true },
-        { pubkey: new PublicKey('11111111111111111111111111111111'), isSigner: false, isWritable: false },
+        {
+          pubkey: new PublicKey('11111111111111111111111111111111'),
+          isSigner: false,
+          isWritable: false,
+        },
       ],
       data: instructionData,
-    });
+    })
 
-    const transaction = new Transaction().add(instruction);
+    const transaction = new Transaction().add(instruction)
     const signature = await sendAndConfirmTransaction(
       this.solanaConnection,
       transaction,
-      [this.solanaKeypair]
-    );
+      [this.solanaKeypair],
+    )
 
-    const destChainId = this.config.solanaRpcUrl.includes('devnet') ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID;
+    const destChainId = this.config.solanaRpcUrl.includes('devnet')
+      ? SOLANA_DEVNET_CHAIN_ID
+      : SOLANA_CHAIN_ID
 
     this.emit('banSynced', {
       sourceChain: this.config.evmChainId,
       destChain: destChainId,
       agentId: evmAgentId,
       reason: evmBan.reason,
-    });
+    })
 
     return {
       success: true,
@@ -420,7 +462,7 @@ export class ModerationSyncService extends EventEmitter {
       destChain: destChainId,
       agentId: evmAgentId,
       action: 'ban',
-    };
+    }
   }
 
   /**
@@ -434,21 +476,21 @@ export class ModerationSyncService extends EventEmitter {
       args: [federatedId],
       account: this.account,
       chain: null,
-    });
+    })
   }
 
   /**
    * Get reports for an agent on EVM
    */
   async getEVMReports(agentId: bigint): Promise<Report[]> {
-    const reports = await this.publicClient.readContract({
+    const reports = (await this.publicClient.readContract({
       address: this.config.reportingSystemAddress,
       abi: REPORTING_SYSTEM_ABI,
       functionName: 'getReports',
       args: [agentId],
-    }) as [bigint, Address, bigint, number, string, bigint, number][];
+    })) as [bigint, Address, bigint, number, string, bigint, number][]
 
-    return reports.map(r => ({
+    return reports.map((r) => ({
       reportId: r[0],
       reporter: r[1],
       agentId: r[2],
@@ -456,7 +498,7 @@ export class ModerationSyncService extends EventEmitter {
       reason: r[4],
       timestamp: r[5],
       status: r[6],
-    }));
+    }))
   }
 
   /**
@@ -465,7 +507,7 @@ export class ModerationSyncService extends EventEmitter {
   async submitCrossChainReport(
     agentId: bigint,
     category: ReportCategory,
-    reason: string
+    reason: string,
   ): Promise<Hex> {
     return await this.walletClient.writeContract({
       address: this.config.reportingSystemAddress,
@@ -474,20 +516,20 @@ export class ModerationSyncService extends EventEmitter {
       args: [agentId, category, reason],
       account: this.account,
       chain: null,
-    });
+    })
   }
 
   /**
    * Start automatic moderation sync
    */
   startAutoSync(intervalMs: number = 60000): void {
-    if (this.syncInterval) return;
+    if (this.syncInterval) return
 
     this.syncInterval = setInterval(async () => {
-      await this.runSyncCycle();
-    }, intervalMs);
+      await this.runSyncCycle()
+    }, intervalMs)
 
-    log.info('Auto-sync started', { intervalMs });
+    log.info('Auto-sync started', { intervalMs })
   }
 
   /**
@@ -495,9 +537,9 @@ export class ModerationSyncService extends EventEmitter {
    */
   stopAutoSync(): void {
     if (this.syncInterval) {
-      clearInterval(this.syncInterval);
-      this.syncInterval = null;
-      log.info('Auto-sync stopped');
+      clearInterval(this.syncInterval)
+      this.syncInterval = null
+      log.info('Auto-sync stopped')
     }
   }
 
@@ -505,9 +547,9 @@ export class ModerationSyncService extends EventEmitter {
    * Run sync cycle
    */
   async runSyncCycle(): Promise<void> {
-    this.emit('syncCycleStarted', { timestamp: Date.now() });
+    this.emit('syncCycleStarted', { timestamp: Date.now() })
     // Would iterate over federated identities and check for ban status changes
-    this.emit('syncCycleCompleted', { timestamp: Date.now() });
+    this.emit('syncCycleCompleted', { timestamp: Date.now() })
   }
 
   // ============ Private Methods ============
@@ -515,32 +557,33 @@ export class ModerationSyncService extends EventEmitter {
   private async generateBanProof(
     agentId: bigint,
     reason: string,
-    expiry: bigint
+    expiry: bigint,
   ): Promise<Hex> {
     if (!this.oracleAccount) {
-      throw new Error('Oracle account not configured');
+      throw new Error('Oracle account not configured')
     }
 
-    const isDevnet = this.config.solanaRpcUrl.includes('devnet');
-    const chainId = isDevnet ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID;
+    const isDevnet = this.config.solanaRpcUrl.includes('devnet')
+    const chainId = isDevnet ? SOLANA_DEVNET_CHAIN_ID : SOLANA_CHAIN_ID
 
     const messageHash = keccak256(
       encodePacked(
         ['uint256', 'uint256', 'string', 'uint256', 'uint256'],
-        [BigInt(chainId), agentId, reason, expiry, BigInt(Date.now())]
-      )
-    );
+        [BigInt(chainId), agentId, reason, expiry, BigInt(Date.now())],
+      ),
+    )
 
     const signature = await this.walletClient.signMessage({
       account: this.oracleAccount,
       message: { raw: toBytes(messageHash) },
-    });
+    })
 
-    return signature;
+    return signature
   }
 }
 
-export function createModerationSyncService(config: ModerationSyncConfig): ModerationSyncService {
-  return new ModerationSyncService(config);
+export function createModerationSyncService(
+  config: ModerationSyncConfig,
+): ModerationSyncService {
+  return new ModerationSyncService(config)
 }
-

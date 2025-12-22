@@ -48,8 +48,10 @@
     "frames"
   ],
   "dependencies": {
+    "@noble/ciphers": "^1.2.1",
     "@noble/curves": "^1.8.1",
     "@noble/hashes": "^1.7.1",
+    "hono": "4.11.1",
     "viem": "2.43.2",
     "zod": "^3.24.3"
   },

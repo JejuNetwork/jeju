@@ -4,20 +4,19 @@
  */
 
 import {
-  useTokenRegistry as useTokenRegistryBase,
-  useTokenConfig as useTokenConfigBase,
-  type TokenInfo,
   type TokenConfig,
-} from '@jejunetwork/ui';
-import { CONTRACTS } from '../config';
+  type TokenInfo,
+  useTokenConfig as useTokenConfigBase,
+  useTokenRegistry as useTokenRegistryBase,
+} from '@jejunetwork/ui'
+import { CONTRACTS } from '../config'
 
-export type { TokenInfo, TokenConfig };
+export type { TokenInfo, TokenConfig }
 
 export function useTokenRegistry() {
-  return useTokenRegistryBase(CONTRACTS.tokenRegistry);
+  return useTokenRegistryBase(CONTRACTS.tokenRegistry)
 }
 
 export function useTokenConfig(tokenAddress: `0x${string}` | undefined) {
-  return useTokenConfigBase(CONTRACTS.tokenRegistry, tokenAddress);
+  return useTokenConfigBase(CONTRACTS.tokenRegistry, tokenAddress)
 }
-

@@ -2,8 +2,8 @@
  * Edge coordination service schemas
  */
 
-import { z } from 'zod';
-import { addressSchema, nonEmptyStringSchema, cidSchema } from '../validation';
+import { z } from 'zod'
+import { addressSchema, cidSchema, nonEmptyStringSchema } from '../validation'
 
 /**
  * Edge node registration request schema
@@ -23,7 +23,7 @@ export const edgeNodeRegistrationSchema = z.object({
     maxBandwidthMbps: z.number().int().nonnegative(),
   }),
   region: z.string().optional(),
-});
+})
 
 /**
  * Edge cache request schema
@@ -33,14 +33,14 @@ export const edgeCacheRequestSchema = z.object({
   priority: z.enum(['high', 'normal', 'low']).default('normal'),
   regions: z.array(z.string()).optional(),
   minReplicas: z.number().int().positive().optional(),
-});
+})
 
 /**
  * Edge node params schema
  */
 export const edgeNodeParamsSchema = z.object({
   nodeId: z.string().uuid(),
-});
+})
 
 /**
  * Edge nodes query schema
@@ -49,11 +49,11 @@ export const edgeNodesQuerySchema = z.object({
   region: z.string().optional(),
   type: z.enum(['wallet-edge', 'full-node', 'cdn-node']).optional(),
   status: z.enum(['online', 'offline', 'busy']).default('online'),
-});
+})
 
 /**
  * Edge route params schema
  */
 export const edgeRouteParamsSchema = z.object({
   cid: cidSchema,
-});
+})

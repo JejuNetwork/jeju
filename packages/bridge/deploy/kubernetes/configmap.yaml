@@ -27,42 +27,49 @@ data:
   proof-timeout-ms: "300000"
 
 ---
-# Secret template (create with actual values)
-# kubectl create secret generic zksolbridge-secrets \
-#   --from-literal=evm-rpc-url='https://...' \
-#   --from-literal=solana-rpc-url='https://...' \
-#   --from-literal=private-key='0x...' \
-#   --from-literal=succinct-api-key='...'
+# =============================================================================
+# SECRETS CONFIGURATION - DO NOT COMMIT ACTUAL VALUES
+# =============================================================================
+# 
+# SECURITY WARNING: This file is a TEMPLATE only.
+# Do NOT store actual secrets in this file or commit them to git.
+#
+# Create secrets using kubectl (preferred) or a secrets manager:
+#
+# Option 1: kubectl create secret (manual)
+#   kubectl create secret generic zksolbridge-secrets \
+#     --namespace=jeju \
+#     --from-literal=evm-rpc-url='https://your-rpc-endpoint.com' \
+#     --from-literal=solana-rpc-url='https://your-solana-rpc.com' \
+#     --from-literal=private-key='0x...' \
+#     --from-literal=succinct-api-key='...'
+#
+# Option 2: External Secrets Operator (recommended for production)
+#   Use AWS Secrets Manager, GCP Secret Manager, or HashiCorp Vault
+#   with the External Secrets Operator to sync secrets to Kubernetes.
+#
+# Option 3: Sealed Secrets (for GitOps)
+#   Use Bitnami Sealed Secrets to encrypt secrets for safe git storage.
+#
+# Create Solana keypair secret:
+#   kubectl create secret generic zksolbridge-solana-keypair \
+#     --namespace=jeju \
+#     --from-file=keypair.json=/path/to/your/keypair.json
+#
+# =============================================================================
 
-apiVersion: v1
-kind: Secret
-metadata:
-  name: zksolbridge-secrets
-  namespace: jeju
-  labels:
-    app: zksolbridge
-type: Opaque
-stringData:
-  # PLACEHOLDER - Replace with actual values
-  evm-rpc-url: "https://mainnet.base.org"
-  solana-rpc-url: "https://api.mainnet-beta.solana.com"
-  private-key: ""
-  succinct-api-key: ""
+# NOTE: The actual Secret resources should be created via kubectl or a secrets
+# manager, NOT by applying this file. The template below is for documentation only.
 
----
-# Solana keypair secret
-# kubectl create secret generic zksolbridge-solana-keypair \
-#   --from-file=keypair.json=/path/to/keypair.json
-
-apiVersion: v1
-kind: Secret
-metadata:
-  name: zksolbridge-solana-keypair
-  namespace: jeju
-  labels:
-    app: zksolbridge
-type: Opaque
-data:
-  # Base64-encoded keypair.json content
-  keypair.json: ""
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: zksolbridge-secrets
+#   namespace: jeju
+# type: Opaque
+# stringData:
+#   evm-rpc-url: "<YOUR_RPC_URL>"
+#   solana-rpc-url: "<YOUR_SOLANA_RPC>"
+#   private-key: "<YOUR_PRIVATE_KEY>"  # NEVER commit this
+#   succinct-api-key: "<YOUR_API_KEY>"
 

@@ -97,9 +97,20 @@ variable "ssh_key_name" {
 }
 
 variable "allowed_cidr_blocks" {
-  description = "CIDR blocks allowed to access the bridge API"
+  description = "CIDR blocks allowed to access the bridge API. SECURITY: Do not use 0.0.0.0/0 in production."
   type        = list(string)
-  default     = ["0.0.0.0/0"]
+  # SECURITY: No default - must be explicitly configured to prevent accidental open access
+  # For production, specify your organization's IP ranges or VPN CIDR blocks
+  
+  validation {
+    condition     = length(var.allowed_cidr_blocks) > 0
+    error_message = "allowed_cidr_blocks must contain at least one CIDR block."
+  }
+  
+  validation {
+    condition     = !contains(var.allowed_cidr_blocks, "0.0.0.0/0") || var.environment == "dev"
+    error_message = "0.0.0.0/0 is only allowed in dev environment. Use specific CIDR blocks for staging/prod."
+  }
 }
 
 # =============================================================================
@@ -201,12 +212,17 @@ resource "aws_security_group" "enclave" {
   description = "Security group for EVMSOL Bridge Nitro Enclave"
   vpc_id      = var.vpc_id != "" ? var.vpc_id : aws_vpc.main[0].id
 
-  # SSH access (for debugging - remove in prod)
-  ingress {
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = var.allowed_cidr_blocks
+  # SSH access - SECURITY: Only enabled in dev environment
+  # For staging/prod, use AWS Systems Manager Session Manager instead
+  dynamic "ingress" {
+    for_each = var.environment == "dev" ? [1] : []
+    content {
+      from_port   = 22
+      to_port     = 22
+      protocol    = "tcp"
+      cidr_blocks = var.allowed_cidr_blocks
+      description = "SSH access (dev only)"
+    }
   }
 
   # Bridge API

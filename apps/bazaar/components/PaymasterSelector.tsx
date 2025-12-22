@@ -1,14 +1,14 @@
-'use client';
+'use client'
 
-import { useState, useEffect } from 'react';
-import { ChevronDown, Check, Loader2 } from 'lucide-react';
-import { getPaymasterOptions, type PaymasterOption } from '@/lib/paymaster';
+import { Check, ChevronDown, Loader2 } from 'lucide-react'
+import { useCallback, useEffect, useState } from 'react'
+import { getPaymasterOptions, type PaymasterOption } from '@/lib/paymaster'
 
 interface PaymasterSelectorProps {
-  estimatedGas: bigint;
-  gasPrice: bigint;
-  onSelect: (paymaster: PaymasterOption | null) => void;
-  className?: string;
+  estimatedGas: bigint
+  gasPrice: bigint
+  onSelect: (paymaster: PaymasterOption | null) => void
+  className?: string
 }
 
 export default function PaymasterSelector({
@@ -17,38 +17,38 @@ export default function PaymasterSelector({
   onSelect,
   className = '',
 }: PaymasterSelectorProps) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [selected, setSelected] = useState<PaymasterOption | null>(null);
-  const [options, setOptions] = useState<PaymasterOption[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [isOpen, setIsOpen] = useState(false)
+  const [selected, setSelected] = useState<PaymasterOption | null>(null)
+  const [options, setOptions] = useState<PaymasterOption[]>([])
+  const [loading, setLoading] = useState(true)
+
+  const loadPaymasters = useCallback(async () => {
+    setLoading(true)
+    const paymasterOptions = await getPaymasterOptions(estimatedGas, gasPrice)
+    setOptions(paymasterOptions)
+
+    const recommended = paymasterOptions.find((opt) => opt.isRecommended)
+    if (recommended) {
+      setSelected(recommended)
+      onSelect(recommended)
+    }
+    setLoading(false)
+  }, [estimatedGas, gasPrice, onSelect])
 
   useEffect(() => {
-    loadPaymasters();
-  }, [estimatedGas, gasPrice]);
-
-  async function loadPaymasters() {
-    setLoading(true);
-    const paymasterOptions = await getPaymasterOptions(estimatedGas, gasPrice);
-    setOptions(paymasterOptions);
-    
-    const recommended = paymasterOptions.find(opt => opt.isRecommended);
-    if (recommended) {
-      setSelected(recommended);
-      onSelect(recommended);
-    }
-    setLoading(false);
-  }
+    loadPaymasters()
+  }, [loadPaymasters])
 
   function handleSelect(option: PaymasterOption) {
-    setSelected(option);
-    onSelect(option);
-    setIsOpen(false);
+    setSelected(option)
+    onSelect(option)
+    setIsOpen(false)
   }
 
   function handleUseETH() {
-    setSelected(null);
-    onSelect(null);
-    setIsOpen(false);
+    setSelected(null)
+    onSelect(null)
+    setIsOpen(false)
   }
 
   if (loading) {
@@ -59,7 +59,7 @@ export default function PaymasterSelector({
           <span className="text-sm">Loading payment options...</span>
         </div>
       </div>
-    );
+    )
   }
 
   return (
@@ -79,8 +79,12 @@ export default function PaymasterSelector({
                 {selected.paymaster.tokenSymbol.slice(0, 2)}
               </div>
               <div className="text-left">
-                <div className="font-medium text-gray-900">{selected.paymaster.tokenSymbol}</div>
-                <div className="text-xs text-gray-500">{selected.estimatedCostFormatted}</div>
+                <div className="font-medium text-gray-900">
+                  {selected.paymaster.tokenSymbol}
+                </div>
+                <div className="text-xs text-gray-500">
+                  {selected.estimatedCostFormatted}
+                </div>
               </div>
             </>
           ) : (
@@ -119,12 +123,12 @@ export default function PaymasterSelector({
                 </div>
                 <div className="text-left">
                   <div className="font-medium text-gray-900">Ethereum</div>
-                  <div className="text-xs text-gray-500">Standard gas payment</div>
+                  <div className="text-xs text-gray-500">
+                    Standard gas payment
+                  </div>
                 </div>
               </div>
-              {!selected && (
-                <Check size={20} className="text-green-500" />
-              )}
+              {!selected && <Check size={20} className="text-green-500" />}
             </button>
 
             {/* Divider */}
@@ -134,7 +138,7 @@ export default function PaymasterSelector({
 
             {/* Paymaster Options */}
             {options.map((option) => {
-              const isJeju = option.paymaster.tokenSymbol === 'JEJU';
+              const isJeju = option.paymaster.tokenSymbol === 'JEJU'
               return (
                 <button
                   key={option.paymaster.address}
@@ -142,12 +146,16 @@ export default function PaymasterSelector({
                   className={`w-full px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between group ${isJeju ? 'bg-purple-50' : ''}`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${isJeju ? 'bg-gradient-to-br from-purple-500 to-pink-500' : 'bg-gradient-to-br from-blue-400 to-purple-500'}`}>
+                    <div
+                      className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm ${isJeju ? 'bg-gradient-to-br from-purple-500 to-pink-500' : 'bg-gradient-to-br from-blue-400 to-purple-500'}`}
+                    >
                       {option.paymaster.tokenSymbol.slice(0, 2)}
                     </div>
                     <div className="text-left">
                       <div className="flex items-center gap-2">
-                        <span className="font-medium text-gray-900">{option.paymaster.tokenSymbol}</span>
+                        <span className="font-medium text-gray-900">
+                          {option.paymaster.tokenSymbol}
+                        </span>
                         {isJeju && (
                           <span className="px-1.5 py-0.5 bg-purple-100 text-purple-700 text-xs rounded font-medium">
                             ⭐ Preferred
@@ -159,21 +167,23 @@ export default function PaymasterSelector({
                           </span>
                         )}
                       </div>
-                      <div className="text-xs text-gray-500">{option.estimatedCostFormatted}</div>
-                      <div className="text-xs text-gray-400 mt-0.5">{option.paymaster.stakedEth.toString()} ETH staked</div>
+                      <div className="text-xs text-gray-500">
+                        {option.estimatedCostFormatted}
+                      </div>
+                      <div className="text-xs text-gray-400 mt-0.5">
+                        {option.paymaster.stakedEth.toString()} ETH staked
+                      </div>
                     </div>
                   </div>
                   {selected?.paymaster.address === option.paymaster.address && (
                     <Check size={20} className="text-green-500" />
                   )}
                 </button>
-              );
+              )
             })}
-
           </div>
         </>
       )}
     </div>
-  );
+  )
 }
-

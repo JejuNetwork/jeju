@@ -20,8 +20,20 @@ spec:
     spec:
       {{- include "compute.imagePullSecrets" . | nindent 6 }}
       serviceAccountName: {{ include "compute.serviceAccountName" . }}
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: worker-runtime
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
           image: "{{ .Values.global.imageRegistry }}{{ .Values.workerRuntime.image.repository }}:{{ .Values.workerRuntime.image.tag }}"
           imagePullPolicy: {{ .Values.workerRuntime.image.pullPolicy }}
           ports:

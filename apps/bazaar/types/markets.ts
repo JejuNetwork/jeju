@@ -4,12 +4,9 @@
  */
 export type {
   Market,
-  Position,
-  Trade,
-  PricePoint,
   MarketStats,
+  Position,
+  PricePoint,
+  Trade,
   UserStats,
 } from '@/schemas/markets'
-
-
-

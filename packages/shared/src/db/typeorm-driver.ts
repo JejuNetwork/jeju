@@ -1,45 +1,49 @@
 /**
  * TypeORM Driver for CovenantSQL
- * 
+ *
  * Provides TypeORM compatibility for the indexer and other apps
  * that use TypeORM for ORM operations.
  */
 
-import type { CovenantSQLClient, ConsistencyLevel, QueryResult } from './covenant-sql';
-import type { SqlParam, SqlDefaultValue } from '../types';
+import type { SqlDefaultValue, SqlParam } from '../types'
+import type {
+  ConsistencyLevel,
+  CovenantSQLClient,
+  QueryResult,
+} from './covenant-sql'
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface TypeORMDriverConfig {
-  client: CovenantSQLClient;
-  defaultConsistency: ConsistencyLevel;
-  logging: boolean;
+  client: CovenantSQLClient
+  defaultConsistency: ConsistencyLevel
+  logging: boolean
 }
 
 export interface EntityMetadata {
-  tableName: string;
-  columns: Map<string, ColumnMetadata>;
-  primaryKeys: string[];
-  relations: Map<string, RelationMetadata>;
+  tableName: string
+  columns: Map<string, ColumnMetadata>
+  primaryKeys: string[]
+  relations: Map<string, RelationMetadata>
 }
 
 export interface ColumnMetadata {
-  name: string;
-  propertyName: string;
-  type: string;
-  nullable: boolean;
-  primary: boolean;
-  unique: boolean;
-  default?: SqlDefaultValue;
+  name: string
+  propertyName: string
+  type: string
+  nullable: boolean
+  primary: boolean
+  unique: boolean
+  default?: SqlDefaultValue
 }
 
 export interface RelationMetadata {
-  propertyName: string;
-  target: string;
-  type: 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many';
-  joinColumn?: string;
+  propertyName: string
+  target: string
+  type: 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many'
+  joinColumn?: string
 }
 
 // ============================================================================
@@ -47,179 +51,185 @@ export interface RelationMetadata {
 // ============================================================================
 
 export class CovenantQueryBuilder<T = Record<string, SqlParam>> {
-  private client: CovenantSQLClient;
-  private tableName: string;
-  private selectCols: string[] = ['*'];
-  private whereClauses: string[] = [];
-  private whereParams: SqlParam[] = [];
-  private orderByClauses: string[] = [];
-  private limitValue?: number;
-  private offsetValue?: number;
-  private joinClauses: string[] = [];
-  private groupByClauses: string[] = [];
-  private havingClauses: string[] = [];
-  private consistency: ConsistencyLevel = 'eventual';
+  private client: CovenantSQLClient
+  private tableName: string
+  private selectCols: string[] = ['*']
+  private whereClauses: string[] = []
+  private whereParams: SqlParam[] = []
+  private orderByClauses: string[] = []
+  private limitValue?: number
+  private offsetValue?: number
+  private joinClauses: string[] = []
+  private groupByClauses: string[] = []
+  private havingClauses: string[] = []
+  private consistency: ConsistencyLevel = 'eventual'
 
   constructor(client: CovenantSQLClient, tableName: string) {
-    this.client = client;
-    this.tableName = tableName;
+    this.client = client
+    this.tableName = tableName
   }
 
   select(columns: string | string[]): this {
-    this.selectCols = Array.isArray(columns) ? columns : [columns];
-    return this;
+    this.selectCols = Array.isArray(columns) ? columns : [columns]
+    return this
   }
 
   where(condition: string, params?: SqlParam[]): this {
-    this.whereClauses.push(condition);
+    this.whereClauses.push(condition)
     if (params) {
-      this.whereParams.push(...params);
+      this.whereParams.push(...params)
     }
-    return this;
+    return this
   }
 
   andWhere(condition: string, params?: SqlParam[]): this {
-    return this.where(condition, params);
+    return this.where(condition, params)
   }
 
   orWhere(condition: string, params?: SqlParam[]): this {
     if (this.whereClauses.length > 0) {
-      const lastClause = this.whereClauses.pop();
-      this.whereClauses.push(`(${lastClause}) OR (${condition})`);
+      const lastClause = this.whereClauses.pop()
+      this.whereClauses.push(`(${lastClause}) OR (${condition})`)
     } else {
-      this.whereClauses.push(condition);
+      this.whereClauses.push(condition)
     }
     if (params) {
-      this.whereParams.push(...params);
+      this.whereParams.push(...params)
     }
-    return this;
+    return this
   }
 
   orderBy(column: string, order: 'ASC' | 'DESC' = 'ASC'): this {
-    this.orderByClauses.push(`${column} ${order}`);
-    return this;
+    this.orderByClauses.push(`${column} ${order}`)
+    return this
   }
 
   addOrderBy(column: string, order: 'ASC' | 'DESC' = 'ASC'): this {
-    return this.orderBy(column, order);
+    return this.orderBy(column, order)
   }
 
   limit(count: number): this {
-    this.limitValue = count;
-    return this;
+    this.limitValue = count
+    return this
   }
 
   offset(count: number): this {
-    this.offsetValue = count;
-    return this;
+    this.offsetValue = count
+    return this
   }
 
   skip(count: number): this {
-    return this.offset(count);
+    return this.offset(count)
   }
 
   take(count: number): this {
-    return this.limit(count);
+    return this.limit(count)
   }
 
   leftJoin(table: string, alias: string, condition: string): this {
-    this.joinClauses.push(`LEFT JOIN ${table} ${alias} ON ${condition}`);
-    return this;
+    this.joinClauses.push(`LEFT JOIN ${table} ${alias} ON ${condition}`)
+    return this
   }
 
   innerJoin(table: string, alias: string, condition: string): this {
-    this.joinClauses.push(`INNER JOIN ${table} ${alias} ON ${condition}`);
-    return this;
+    this.joinClauses.push(`INNER JOIN ${table} ${alias} ON ${condition}`)
+    return this
   }
 
   groupBy(column: string): this {
-    this.groupByClauses.push(column);
-    return this;
+    this.groupByClauses.push(column)
+    return this
   }
 
   having(condition: string, params?: SqlParam[]): this {
-    this.havingClauses.push(condition);
+    this.havingClauses.push(condition)
     if (params) {
-      this.whereParams.push(...params);
+      this.whereParams.push(...params)
     }
-    return this;
+    return this
   }
 
   withConsistency(level: ConsistencyLevel): this {
-    this.consistency = level;
-    return this;
+    this.consistency = level
+    return this
   }
 
   private buildQuery(): { sql: string; params: SqlParam[] } {
-    let sql = `SELECT ${this.selectCols.join(', ')} FROM ${this.tableName}`;
+    let sql = `SELECT ${this.selectCols.join(', ')} FROM ${this.tableName}`
 
     if (this.joinClauses.length > 0) {
-      sql += ' ' + this.joinClauses.join(' ');
+      sql += ` ${this.joinClauses.join(' ')}`
     }
 
     if (this.whereClauses.length > 0) {
-      sql += ` WHERE ${this.whereClauses.join(' AND ')}`;
+      sql += ` WHERE ${this.whereClauses.join(' AND ')}`
     }
 
     if (this.groupByClauses.length > 0) {
-      sql += ` GROUP BY ${this.groupByClauses.join(', ')}`;
+      sql += ` GROUP BY ${this.groupByClauses.join(', ')}`
     }
 
     if (this.havingClauses.length > 0) {
-      sql += ` HAVING ${this.havingClauses.join(' AND ')}`;
+      sql += ` HAVING ${this.havingClauses.join(' AND ')}`
     }
 
     if (this.orderByClauses.length > 0) {
-      sql += ` ORDER BY ${this.orderByClauses.join(', ')}`;
+      sql += ` ORDER BY ${this.orderByClauses.join(', ')}`
     }
 
     if (this.limitValue !== undefined) {
-      sql += ` LIMIT ${this.limitValue}`;
+      sql += ` LIMIT ${this.limitValue}`
     }
 
     if (this.offsetValue !== undefined) {
-      sql += ` OFFSET ${this.offsetValue}`;
+      sql += ` OFFSET ${this.offsetValue}`
     }
 
-    return { sql, params: this.whereParams };
+    return { sql, params: this.whereParams }
   }
 
   async getMany(): Promise<T[]> {
-    const { sql, params } = this.buildQuery();
-    const result = await this.client.query<T>(sql, params, { consistency: this.consistency });
-    return result.rows;
+    const { sql, params } = this.buildQuery()
+    const result = await this.client.query<T>(sql, params, {
+      consistency: this.consistency,
+    })
+    return result.rows
   }
 
   async getOne(): Promise<T | null> {
-    this.limitValue = 1;
-    const results = await this.getMany();
-    return results[0] ?? null;
+    this.limitValue = 1
+    const results = await this.getMany()
+    return results[0] ?? null
   }
 
   async getCount(): Promise<number> {
-    const originalSelect = this.selectCols;
-    this.selectCols = ['COUNT(*) as count'];
-    const { sql, params } = this.buildQuery();
-    this.selectCols = originalSelect;
+    const originalSelect = this.selectCols
+    this.selectCols = ['COUNT(*) as count']
+    const { sql, params } = this.buildQuery()
+    this.selectCols = originalSelect
 
-    const result = await this.client.query<{ count: number }>(sql, params, { consistency: this.consistency });
-    return result.rows[0]?.count ?? 0;
+    const result = await this.client.query<{ count: number }>(sql, params, {
+      consistency: this.consistency,
+    })
+    return result.rows[0]?.count ?? 0
   }
 
   async getRawMany<R = Record<string, SqlParam>>(): Promise<R[]> {
-    const { sql, params } = this.buildQuery();
-    const result = await this.client.query<R>(sql, params, { consistency: this.consistency });
-    return result.rows;
+    const { sql, params } = this.buildQuery()
+    const result = await this.client.query<R>(sql, params, {
+      consistency: this.consistency,
+    })
+    return result.rows
   }
 
   async getRawOne<R = Record<string, SqlParam>>(): Promise<R | null> {
-    this.limitValue = 1;
-    const results = await this.getRawMany<R>();
-    return results[0] ?? null;
+    this.limitValue = 1
+    const results = await this.getRawMany<R>()
+    return results[0] ?? null
   }
 
   getSql(): string {
-    return this.buildQuery().sql;
+    return this.buildQuery().sql
   }
 }
 
@@ -228,166 +238,188 @@ export class CovenantQueryBuilder<T = Record<string, SqlParam>> {
 // ============================================================================
 
 export class CovenantRepository<T extends Record<string, SqlParam>> {
-  private client: CovenantSQLClient;
-  private tableName: string;
-  private metadata: EntityMetadata;
+  private client: CovenantSQLClient
+  private tableName: string
+  private metadata: EntityMetadata
 
-  constructor(client: CovenantSQLClient, tableName: string, metadata?: EntityMetadata) {
-    this.client = client;
-    this.tableName = tableName;
+  constructor(
+    client: CovenantSQLClient,
+    tableName: string,
+    metadata?: EntityMetadata,
+  ) {
+    this.client = client
+    this.tableName = tableName
     this.metadata = metadata ?? {
       tableName,
       columns: new Map(),
       primaryKeys: ['id'],
       relations: new Map(),
-    };
+    }
   }
 
   createQueryBuilder(alias?: string): CovenantQueryBuilder<T> {
-    const qb = new CovenantQueryBuilder<T>(this.client, this.tableName);
+    const qb = new CovenantQueryBuilder<T>(this.client, this.tableName)
     if (alias) {
       // Alias is handled in the builder
     }
-    return qb;
+    return qb
   }
 
-  async find(options: {
-    where?: Partial<T>;
-    order?: Record<string, 'ASC' | 'DESC'>;
-    take?: number;
-    skip?: number;
-  } = {}): Promise<T[]> {
-    const qb = this.createQueryBuilder();
+  async find(
+    options: {
+      where?: Partial<T>
+      order?: Record<string, 'ASC' | 'DESC'>
+      take?: number
+      skip?: number
+    } = {},
+  ): Promise<T[]> {
+    const qb = this.createQueryBuilder()
 
     if (options.where) {
-      const entries = Object.entries(options.where);
+      const entries = Object.entries(options.where)
       entries.forEach(([key, value], i) => {
-        qb.where(`${key} = $${i + 1}`, [value]);
-      });
+        qb.where(`${key} = $${i + 1}`, [value])
+      })
     }
 
     if (options.order) {
       Object.entries(options.order).forEach(([key, dir]) => {
-        qb.orderBy(key, dir);
-      });
+        qb.orderBy(key, dir)
+      })
     }
 
-    if (options.take) qb.take(options.take);
-    if (options.skip) qb.skip(options.skip);
+    if (options.take) qb.take(options.take)
+    if (options.skip) qb.skip(options.skip)
 
-    return qb.getMany();
+    return qb.getMany()
   }
 
   async findOne(options: { where: Partial<T> }): Promise<T | null> {
-    const results = await this.find({ ...options, take: 1 });
-    return results[0] ?? null;
+    const results = await this.find({ ...options, take: 1 })
+    return results[0] ?? null
   }
 
   async findOneBy(where: Partial<T>): Promise<T | null> {
-    return this.findOne({ where });
+    return this.findOne({ where })
   }
 
   async findBy(where: Partial<T>): Promise<T[]> {
-    return this.find({ where });
+    return this.find({ where })
   }
 
   async findById(id: string | number): Promise<T | null> {
-    const pk = this.metadata.primaryKeys[0] ?? 'id';
-    return this.findOne({ where: { [pk]: id } as Partial<T> });
+    const pk = this.metadata.primaryKeys[0] ?? 'id'
+    return this.findOne({ where: { [pk]: id } as Partial<T> })
   }
 
   async count(where?: Partial<T>): Promise<number> {
-    const qb = this.createQueryBuilder();
-    
+    const qb = this.createQueryBuilder()
+
     if (where) {
-      const entries = Object.entries(where);
+      const entries = Object.entries(where)
       entries.forEach(([key, value], i) => {
-        qb.where(`${key} = $${i + 1}`, [value]);
-      });
+        qb.where(`${key} = $${i + 1}`, [value])
+      })
     }
 
-    return qb.getCount();
+    return qb.getCount()
   }
 
   async save(entity: T | T[]): Promise<T | T[]> {
-    const entities = Array.isArray(entity) ? entity : [entity];
-    
-    for (const e of entities) {
-      const pk = this.metadata.primaryKeys[0] ?? 'id';
-      const id = e[pk];
+    const entities = Array.isArray(entity) ? entity : [entity]
 
-      if (id && await this.findById(id as string | number)) {
+    for (const e of entities) {
+      const pk = this.metadata.primaryKeys[0] ?? 'id'
+      const id = e[pk]
+
+      if (id && (await this.findById(id as string | number))) {
         // Update existing
-        const { [pk]: _, ...data } = e;
+        const { [pk]: _, ...data } = e
         await this.client.update(
           this.tableName,
           data as Partial<T>,
           `${pk} = $${Object.keys(data).length + 1}`,
-          [id as SqlParam]
-        );
+          [id as SqlParam],
+        )
       } else {
         // Insert new
-        await this.client.insert(this.tableName, e);
+        await this.client.insert(this.tableName, e)
       }
     }
 
-    return entity;
+    return entity
   }
 
   async insert(entity: T | T[]): Promise<QueryResult<T>> {
-    return this.client.insert(this.tableName, entity);
+    return this.client.insert(this.tableName, entity)
   }
 
   async update(
     criteria: Partial<T>,
-    partialEntity: Partial<T>
+    partialEntity: Partial<T>,
   ): Promise<QueryResult<T>> {
-    const whereEntries = Object.entries(criteria);
+    const whereEntries = Object.entries(criteria)
     const whereCondition = whereEntries
-      .map(([key], i) => `${key} = $${Object.keys(partialEntity).length + i + 1}`)
-      .join(' AND ');
-    const whereParams: SqlParam[] = whereEntries.map(([, value]) => value as SqlParam);
+      .map(
+        ([key], i) => `${key} = $${Object.keys(partialEntity).length + i + 1}`,
+      )
+      .join(' AND ')
+    const whereParams: SqlParam[] = whereEntries.map(
+      ([, value]) => value as SqlParam,
+    )
 
     return this.client.update(
       this.tableName,
       partialEntity,
       whereCondition,
-      whereParams
-    );
+      whereParams,
+    )
   }
 
   async delete(criteria: Partial<T>): Promise<QueryResult> {
-    const entries = Object.entries(criteria);
-    const whereCondition = entries.map(([key], i) => `${key} = $${i + 1}`).join(' AND ');
-    const whereParams: SqlParam[] = entries.map(([, value]) => value as SqlParam);
+    const entries = Object.entries(criteria)
+    const whereCondition = entries
+      .map(([key], i) => `${key} = $${i + 1}`)
+      .join(' AND ')
+    const whereParams: SqlParam[] = entries.map(
+      ([, value]) => value as SqlParam,
+    )
 
-    return this.client.delete(this.tableName, whereCondition, whereParams);
+    return this.client.delete(this.tableName, whereCondition, whereParams)
   }
 
+  /**
+   * Soft delete by setting deleted_at timestamp.
+   * Requires entity to have a deleted_at column (see SoftDeletable interface).
+   */
   async softDelete(criteria: Partial<T>): Promise<QueryResult<T>> {
-    // Soft delete by setting deleted_at timestamp
-    const updateData = { deleted_at: new Date().toISOString() } as unknown as Partial<T>;
-    return this.update(criteria, updateData);
+    const softDeleteData: Record<string, SqlParam> = {
+      deleted_at: new Date().toISOString(),
+    }
+    return this.update(criteria, softDeleteData as Partial<T>)
   }
 
+  /**
+   * Restore by clearing deleted_at.
+   * Requires entity to have a deleted_at column (see SoftDeletable interface).
+   */
   async restore(criteria: Partial<T>): Promise<QueryResult<T>> {
-    // Restore by clearing deleted_at
-    const updateData = { deleted_at: null } as unknown as Partial<T>;
-    return this.update(criteria, updateData);
+    const restoreData: Record<string, SqlParam> = { deleted_at: null }
+    return this.update(criteria, restoreData as Partial<T>)
   }
 
   async exists(where: Partial<T>): Promise<boolean> {
-    const count = await this.count(where);
-    return count > 0;
+    const count = await this.count(where)
+    return count > 0
   }
 
   async clear(): Promise<void> {
-    await this.client.query(`DELETE FROM ${this.tableName}`);
+    await this.client.query(`DELETE FROM ${this.tableName}`)
   }
 
   async query(sql: string, params?: SqlParam[]): Promise<T[]> {
-    const result = await this.client.query<T>(sql, params);
-    return result.rows;
+    const result = await this.client.query<T>(sql, params)
+    return result.rows
   }
 }
 
@@ -396,49 +428,61 @@ export class CovenantRepository<T extends Record<string, SqlParam>> {
 // ============================================================================
 
 export class CovenantEntityManager {
-  private client: CovenantSQLClient;
-  private repositories: Map<string, CovenantRepository<Record<string, SqlParam>>> = new Map();
+  private client: CovenantSQLClient
+  private repositories: Map<
+    string,
+    CovenantRepository<Record<string, SqlParam>>
+  > = new Map()
 
   constructor(client: CovenantSQLClient) {
-    this.client = client;
+    this.client = client
   }
 
   getRepository<T extends Record<string, SqlParam>>(
-    entityOrTableName: string | { name: string }
+    entityOrTableName: string | { name: string },
   ): CovenantRepository<T> {
-    const tableName = typeof entityOrTableName === 'string' 
-      ? entityOrTableName 
-      : entityOrTableName.name;
+    const tableName =
+      typeof entityOrTableName === 'string'
+        ? entityOrTableName
+        : entityOrTableName.name
 
     if (!this.repositories.has(tableName)) {
-      this.repositories.set(tableName, new CovenantRepository(this.client, tableName));
+      this.repositories.set(
+        tableName,
+        new CovenantRepository(this.client, tableName),
+      )
     }
 
-    return this.repositories.get(tableName) as CovenantRepository<T>;
+    return this.repositories.get(tableName) as CovenantRepository<T>
   }
 
   async transaction<R>(
-    runInTransaction: (manager: CovenantEntityManager) => Promise<R>
+    runInTransaction: (manager: CovenantEntityManager) => Promise<R>,
   ): Promise<R> {
-    const tx = await this.client.beginTransaction('strong');
-    
+    const tx = await this.client.beginTransaction('strong')
+
     try {
-      const result = await runInTransaction(this);
-      await tx.commit();
-      return result;
+      const result = await runInTransaction(this)
+      await tx.commit()
+      return result
     } catch (error) {
-      await tx.rollback();
-      throw error;
+      await tx.rollback()
+      throw error
     }
   }
 
-  async query<T = Record<string, SqlParam>>(sql: string, params?: SqlParam[]): Promise<T[]> {
-    const result = await this.client.query<T>(sql, params);
-    return result.rows;
+  async query<T = Record<string, SqlParam>>(
+    sql: string,
+    params?: SqlParam[],
+  ): Promise<T[]> {
+    const result = await this.client.query<T>(sql, params)
+    return result.rows
   }
 
-  createQueryBuilder<T = Record<string, SqlParam>>(tableName: string): CovenantQueryBuilder<T> {
-    return new CovenantQueryBuilder<T>(this.client, tableName);
+  createQueryBuilder<T = Record<string, SqlParam>>(
+    tableName: string,
+  ): CovenantQueryBuilder<T> {
+    return new CovenantQueryBuilder<T>(this.client, tableName)
   }
 }
 
@@ -447,58 +491,61 @@ export class CovenantEntityManager {
 // ============================================================================
 
 export interface CovenantDataSourceOptions {
-  client: CovenantSQLClient;
-  entities?: Array<{ name: string }>;
-  synchronize?: boolean;
-  logging?: boolean;
+  client: CovenantSQLClient
+  entities?: Array<{ name: string }>
+  synchronize?: boolean
+  logging?: boolean
 }
 
 export class CovenantDataSource {
-  private client: CovenantSQLClient;
-  private manager: CovenantEntityManager;
-  private _isInitialized = false;
+  private client: CovenantSQLClient
+  private manager: CovenantEntityManager
+  private _isInitialized = false
 
   constructor(options: CovenantDataSourceOptions) {
-    this.client = options.client;
-    this.manager = new CovenantEntityManager(this.client);
+    this.client = options.client
+    this.manager = new CovenantEntityManager(this.client)
   }
 
   get isInitialized(): boolean {
-    return this._isInitialized;
+    return this._isInitialized
   }
 
   async initialize(): Promise<this> {
-    if (this._isInitialized) return this;
+    if (this._isInitialized) return this
 
-    await this.client.initialize();
-    this._isInitialized = true;
+    await this.client.initialize()
+    this._isInitialized = true
 
-    return this;
+    return this
   }
 
   async destroy(): Promise<void> {
-    await this.client.close();
-    this._isInitialized = false;
+    await this.client.close()
+    this._isInitialized = false
   }
 
   getRepository<T extends Record<string, SqlParam>>(
-    entityOrTableName: string | { name: string }
+    entityOrTableName: string | { name: string },
   ): CovenantRepository<T> {
-    return this.manager.getRepository<T>(entityOrTableName);
+    return this.manager.getRepository<T>(entityOrTableName)
   }
 
   createQueryRunner(): CovenantQueryRunner {
-    return new CovenantQueryRunner(this.client);
+    return new CovenantQueryRunner(this.client)
   }
 
-  async query<T = Record<string, SqlParam>>(sql: string, params?: SqlParam[]): Promise<T[]> {
-    return this.manager.query<T>(sql, params);
+  async query<T = Record<string, SqlParam>>(
+    sql: string,
+    params?: SqlParam[],
+  ): Promise<T[]> {
+    return this.manager.query<T>(sql, params)
   }
 
   async transaction<R>(
-    runInTransaction: (manager: CovenantEntityManager) => Promise<R>
+    runInTransaction: (manager: CovenantEntityManager) => Promise<R>,
   ): Promise<R> {
-    return this.manager.transaction(runInTransaction);
+    return this.manager.transaction(runInTransaction)
   }
 }
 
@@ -507,15 +554,15 @@ export class CovenantDataSource {
 // ============================================================================
 
 export class CovenantQueryRunner {
-  private client: CovenantSQLClient;
-  private inTransaction = false;
+  private client: CovenantSQLClient
+  private inTransaction = false
 
   constructor(client: CovenantSQLClient) {
-    this.client = client;
+    this.client = client
   }
 
   async connect(): Promise<void> {
-    await this.client.initialize();
+    await this.client.initialize()
   }
 
   async release(): Promise<void> {
@@ -523,27 +570,30 @@ export class CovenantQueryRunner {
   }
 
   async startTransaction(): Promise<void> {
-    await this.client.query('BEGIN TRANSACTION');
-    this.inTransaction = true;
+    await this.client.query('BEGIN TRANSACTION')
+    this.inTransaction = true
   }
 
   async commitTransaction(): Promise<void> {
-    await this.client.query('COMMIT');
-    this.inTransaction = false;
+    await this.client.query('COMMIT')
+    this.inTransaction = false
   }
 
   async rollbackTransaction(): Promise<void> {
-    await this.client.query('ROLLBACK');
-    this.inTransaction = false;
+    await this.client.query('ROLLBACK')
+    this.inTransaction = false
   }
 
-  async query<T = Record<string, SqlParam>>(sql: string, params?: SqlParam[]): Promise<T[]> {
-    const result = await this.client.query<T>(sql, params);
-    return result.rows;
+  async query<T = Record<string, SqlParam>>(
+    sql: string,
+    params?: SqlParam[],
+  ): Promise<T[]> {
+    const result = await this.client.query<T>(sql, params)
+    return result.rows
   }
 
   get isTransactionActive(): boolean {
-    return this.inTransaction;
+    return this.inTransaction
   }
 }
 
@@ -556,12 +606,10 @@ export class CovenantQueryRunner {
  */
 export function createCovenantDataSource(
   client: CovenantSQLClient,
-  options: Partial<CovenantDataSourceOptions> = {}
+  options: Partial<CovenantDataSourceOptions> = {},
 ): CovenantDataSource {
   return new CovenantDataSource({
     client,
     ...options,
-  });
+  })
 }
-
-

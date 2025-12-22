@@ -1,11 +1,11 @@
 /**
  * Indexer Initialization
- * 
+ *
  * Loads network configuration and registers known contracts at startup.
  */
 
-import { loadNetworkConfig, getContractAddressSet } from './network-config';
-import { registerContract, ContractInfo } from './contract-events';
+import { type ContractInfo, registerContract } from './contract-events'
+import { getContractAddressSet, loadNetworkConfig } from './network-config'
 
 // Contract type mappings
 const CONTRACT_TYPES: Record<string, ContractInfo['type']> = {
@@ -83,58 +83,63 @@ const CONTRACT_TYPES: Record<string, ContractInfo['type']> = {
 
   // OTC
   otc: 'defi',
-};
+}
 
-let initialized = false;
+let initialized = false
 
 /**
  * Initialize the indexer with network configuration
  * Registers all known contract addresses for identification
  */
 export function initializeIndexer(): void {
-  if (initialized) return;
+  if (initialized) return
 
-  const config = loadNetworkConfig();
-  console.log(`Initializing indexer for network: ${config.network} (chainId: ${config.chainId})`);
-  console.log(`RPC endpoint: ${config.rpcUrl}`);
+  const config = loadNetworkConfig()
+  console.log(
+    `Initializing indexer for network: ${config.network} (chainId: ${config.chainId})`,
+  )
+  console.log(`RPC endpoint: ${config.rpcUrl}`)
 
   // Register all known contracts
-  let registeredCount = 0;
+  let registeredCount = 0
   for (const [name, address] of Object.entries(config.contracts)) {
     if (address && typeof address === 'string') {
-      const contractType = CONTRACT_TYPES[name];
+      const contractType = CONTRACT_TYPES[name]
       if (!contractType) {
-        console.warn(`Unknown contract type for '${name}' - add it to CONTRACT_TYPES mapping`);
-        continue; // Skip unknown contracts rather than silently defaulting
+        console.warn(
+          `Unknown contract type for '${name}' - add it to CONTRACT_TYPES mapping`,
+        )
+        continue // Skip unknown contracts rather than silently defaulting
       }
       registerContract({
         address,
         name,
         type: contractType,
         events: [], // Events are determined by event signatures
-      });
-      registeredCount++;
+      })
+      registeredCount++
     }
   }
 
-  console.log(`Registered ${registeredCount} known contracts`);
+  console.log(`Registered ${registeredCount} known contracts`)
 
   // Log contract address set for debugging
-  const addressSet = getContractAddressSet(config);
+  const addressSet = getContractAddressSet(config)
   if (addressSet.size > 0) {
-    console.log(`Known contract addresses: ${Array.from(addressSet).slice(0, 5).join(', ')}${addressSet.size > 5 ? '...' : ''}`);
+    console.log(
+      `Known contract addresses: ${Array.from(addressSet).slice(0, 5).join(', ')}${addressSet.size > 5 ? '...' : ''}`,
+    )
   }
 
-  initialized = true;
+  initialized = true
 }
 
 /**
  * Get initialization status
  */
 export function isInitialized(): boolean {
-  return initialized;
+  return initialized
 }
 
 // Auto-initialize on import
-initializeIndexer();
-
+initializeIndexer()

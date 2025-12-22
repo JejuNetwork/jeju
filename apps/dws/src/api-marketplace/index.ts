@@ -4,144 +4,136 @@
  * Decentralized API key marketplace with TEE-backed secure key vault
  */
 
-// Types
-export * from './types';
-
-// Providers
-export {
-  ALL_PROVIDERS,
-  PROVIDERS_BY_ID,
-  PROVIDERS_BY_CATEGORY,
-  getProvider,
-  getProvidersByCategory,
-  getConfiguredProviders,
-  isProviderConfigured,
-} from './providers';
-
-// Registry
-export {
-  createListing,
-  getListing,
-  getAllListings,
-  getListingsByProvider,
-  getListingsBySeller,
-  getActiveListings,
-  updateListing,
-  recordRequest,
-  getOrCreateAccount,
-  getAccount,
-  deposit,
-  withdraw,
-  chargeUser,
-  canAfford,
-  updateProviderHealth,
-  getProviderHealth,
-  getAllProviderHealth,
-  getMarketplaceStats,
-  getAllProviders,
-  getProviderById,
-  findCheapestListing,
-  initializeSystemListings,
-  type CreateListingParams,
-} from './registry';
-
-// Key Vault
-export {
-  storeKey,
-  getKeyMetadata,
-  deleteKey,
-  getKeysByOwner,
-  decryptKeyForRequest,
-  loadSystemKeys,
-  hasSystemKey,
-  getAccessLog,
-  getAccessLogByRequester,
-  verifyAttestation,
-  rotateKey,
-  getVaultStats,
-  type VaultStats,
-} from './key-vault';
-
-// Sanitizer
-export {
-  DEFAULT_KEY_PATTERNS,
-  STRIP_HEADERS,
-  REDACT_PATHS,
-  createSanitizationConfig,
-  sanitizeString,
-  sanitizeObject,
-  sanitizeHeaders,
-  sanitizeResponse,
-  mightContainKey,
-  extractPotentialKeys,
-  checkForLeaks,
-} from './sanitizer';
-
 // Access Control
 export {
+  type AccessCheckResult,
+  AccessControlBuilder,
+  accessControl,
+  checkAccess,
+  checkRateLimit,
+  getRateLimitUsage,
+  incrementRateLimit,
   isDomainAllowed,
   isEndpointAllowed,
   isMethodAllowed,
-  checkRateLimit,
-  incrementRateLimit,
-  getRateLimitUsage,
-  checkAccess,
-  accessControl,
-  AccessControlBuilder,
-  type AccessCheckResult,
-} from './access-control';
-
-// Proxy Router
-export {
-  proxyRequest,
-  checkProviderHealth,
-  proxyStreamingRequest,
-  type ProxyOptions,
-} from './proxy-router';
-
-// Payments
-export {
-  configurePayments,
-  create402Response,
-  parsePaymentProof,
-  verifyPaymentProof,
-  processDeposit,
-  processWithdraw,
-  getBalance,
-  getAccountInfo,
-  meetsMinimumDeposit,
-  getMinimumDeposit,
-  estimateCost,
-  calculateAffordableRequests,
-  calculateRevenueShare,
-  getPlatformFeeBps,
-  type PaymentConfig,
-} from './payments';
-
+} from './access-control'
 // Container Deployment
 export {
-  createDeployment,
-  getDeployment,
-  listDeployments,
-  updateDeployment,
-  deploy,
-  stopDeployment,
-  deleteDeployment,
-  listToMarketplace,
-  unlistFromMarketplace,
+  type APIDeployment,
   addKMSKey,
   addSecretRef,
-  recordRequest as recordDeploymentRequest,
+  type ContainerSpec,
+  createDeployment,
+  DEPLOYMENT_TEMPLATES,
+  type DeploymentStatus,
+  type DeploymentType,
+  deleteDeployment,
+  deploy,
+  getDeployment,
   getLogs as getDeploymentLogs,
   getMarketplaceDeploymentStats,
   getTemplates,
-  DEPLOYMENT_TEMPLATES,
-  type APIDeployment,
-  type ContainerSpec,
+  listDeployments,
+  listToMarketplace,
+  recordRequest as recordDeploymentRequest,
+  stopDeployment,
+  unlistFromMarketplace,
+  updateDeployment,
   type WorkerSpec,
-  type DeploymentType,
-  type DeploymentStatus,
-} from './container-deployment';
+} from './container-deployment'
+// Key Vault
+export {
+  decryptKeyForRequest,
+  deleteKey,
+  getAccessLog,
+  getAccessLogByRequester,
+  getKeyMetadata,
+  getKeysByOwner,
+  getVaultStats,
+  hasSystemKey,
+  loadSystemKeys,
+  rotateKey,
+  storeKey,
+  type VaultStats,
+  verifyAttestation,
+} from './key-vault'
+// Payments
+export {
+  calculateAffordableRequests,
+  calculateRevenueShare,
+  configurePayments,
+  create402Response,
+  estimateCost,
+  getAccountInfo,
+  getBalance,
+  getMinimumDeposit,
+  getPlatformFeeBps,
+  meetsMinimumDeposit,
+  type PaymentConfig,
+  parsePaymentProof,
+  processDeposit,
+  processWithdraw,
+  verifyPaymentProof,
+} from './payments'
+// Providers
+export {
+  ALL_PROVIDERS,
+  getConfiguredProviders,
+  getProvider,
+  getProvidersByCategory,
+  isProviderConfigured,
+  PROVIDERS_BY_CATEGORY,
+  PROVIDERS_BY_ID,
+} from './providers'
+// Proxy Router
+export {
+  checkProviderHealth,
+  type ProxyOptions,
+  proxyRequest,
+  proxyStreamingRequest,
+} from './proxy-router'
+// Registry
+export {
+  type CreateListingParams,
+  canAfford,
+  chargeUser,
+  createListing,
+  deposit,
+  findCheapestListing,
+  getAccount,
+  getActiveListings,
+  getAllListings,
+  getAllProviderHealth,
+  getAllProviders,
+  getListing,
+  getListingsByProvider,
+  getListingsBySeller,
+  getMarketplaceStats,
+  getOrCreateAccount,
+  getProviderById,
+  getProviderHealth,
+  initializeSystemListings,
+  recordRequest,
+  updateListing,
+  updateProviderHealth,
+  withdraw,
+} from './registry'
+// Sanitizer
+export {
+  checkForLeaks,
+  createSanitizationConfig,
+  DEFAULT_KEY_PATTERNS,
+  extractPotentialKeys,
+  mightContainKey,
+  REDACT_PATHS,
+  STRIP_HEADERS,
+  sanitizeHeaders,
+  sanitizeObject,
+  sanitizeResponse,
+  sanitizeString,
+} from './sanitizer'
+// Types
+export * from './types'
 
 // ============================================================================
 // Initialize
@@ -153,16 +145,16 @@ export {
  */
 export async function initializeMarketplace(): Promise<void> {
   // Initialize state first (ensures CQL is ready)
-  const { initializeDWSState } = await import('../state.js');
-  await initializeDWSState();
-  
+  const { initializeDWSState } = await import('../state.js')
+  await initializeDWSState()
+
   // Load system keys from environment
-  const { loadSystemKeys } = require('./key-vault');
-  loadSystemKeys();
+  const keyVault = await import('./key-vault.js')
+  keyVault.loadSystemKeys()
 
   // Create system listings for configured providers
-  const { initializeSystemListings } = require('./registry');
-  await initializeSystemListings();
+  const registry = await import('./registry.js')
+  await registry.initializeSystemListings()
 
-  console.log('[API Marketplace] Initialized');
+  console.log('[API Marketplace] Initialized')
 }

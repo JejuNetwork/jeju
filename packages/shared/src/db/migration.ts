@@ -1,6 +1,6 @@
 /**
  * CovenantSQL Migration System
- * 
+ *
  * Handles schema migrations for decentralized database:
  * - Version tracking
  * - Up/down migrations
@@ -8,33 +8,37 @@
  * - Data migration helpers
  */
 
-import type { CovenantSQLClient, TableSchema, ConsistencyLevel } from './covenant-sql';
-import type { SqlDefaultValue, SqlParam } from '../types';
+import type { SqlDefaultValue, SqlParam } from '../types'
+import type {
+  ConsistencyLevel,
+  CovenantSQLClient,
+  TableSchema,
+} from './covenant-sql'
 
 // ============================================================================
 // Types
 // ============================================================================
 
 export interface Migration {
-  version: number;
-  name: string;
-  up: (client: CovenantSQLClient) => Promise<void>;
-  down: (client: CovenantSQLClient) => Promise<void>;
+  version: number
+  name: string
+  up: (client: CovenantSQLClient) => Promise<void>
+  down: (client: CovenantSQLClient) => Promise<void>
 }
 
 export interface MigrationRecord {
-  version: number;
-  name: string;
-  applied_at: string;
-  checksum: string;
+  version: number
+  name: string
+  applied_at: string
+  checksum: string
 }
 
 export interface MigrationResult {
-  version: number;
-  name: string;
-  success: boolean;
-  duration: number;
-  error?: string;
+  version: number
+  name: string
+  success: boolean
+  duration: number
+  error?: string
 }
 
 // ============================================================================
@@ -42,19 +46,19 @@ export interface MigrationResult {
 // ============================================================================
 
 export class MigrationManager {
-  private client: CovenantSQLClient;
-  private migrations: Migration[] = [];
-  private tableName = '_migrations';
+  private client: CovenantSQLClient
+  private migrations: Migration[] = []
+  private tableName = '_migrations'
 
   constructor(client: CovenantSQLClient) {
-    this.client = client;
+    this.client = client
   }
 
   /**
    * Register migrations
    */
   register(migrations: Migration[]): void {
-    this.migrations = migrations.sort((a, b) => a.version - b.version);
+    this.migrations = migrations.sort((a, b) => a.version - b.version)
   }
 
   /**
@@ -70,9 +74,9 @@ export class MigrationManager {
         { name: 'checksum', type: 'TEXT', nullable: false },
       ],
       primaryKey: ['version'],
-    };
+    }
 
-    await this.client.createTable(schema);
+    await this.client.createTable(schema)
   }
 
   /**
@@ -82,17 +86,17 @@ export class MigrationManager {
     const result = await this.client.query<{ version: number }>(
       `SELECT MAX(version) as version FROM ${this.tableName}`,
       [],
-      { consistency: 'strong' }
-    );
-    return result.rows[0]?.version ?? 0;
+      { consistency: 'strong' },
+    )
+    return result.rows[0]?.version ?? 0
   }
 
   /**
    * Get pending migrations
    */
   async getPending(): Promise<Migration[]> {
-    const currentVersion = await this.getCurrentVersion();
-    return this.migrations.filter(m => m.version > currentVersion);
+    const currentVersion = await this.getCurrentVersion()
+    return this.migrations.filter((m) => m.version > currentVersion)
   }
 
   /**
@@ -102,72 +106,72 @@ export class MigrationManager {
     return this.client.select<MigrationRecord>(this.tableName, {
       orderBy: 'version DESC',
       consistency: 'strong',
-    });
+    })
   }
 
   /**
    * Run all pending migrations
    */
   async up(): Promise<MigrationResult[]> {
-    await this.initialize();
-    const pending = await this.getPending();
-    const results: MigrationResult[] = [];
+    await this.initialize()
+    const pending = await this.getPending()
+    const results: MigrationResult[] = []
 
     for (const migration of pending) {
-      const result = await this.runMigration(migration, 'up');
-      results.push(result);
+      const result = await this.runMigration(migration, 'up')
+      results.push(result)
 
       if (!result.success) {
-        break; // Stop on first failure
+        break // Stop on first failure
       }
     }
 
-    return results;
+    return results
   }
 
   /**
    * Rollback last migration
    */
   async down(): Promise<MigrationResult | null> {
-    const applied = await this.getApplied();
+    const applied = await this.getApplied()
     if (applied.length === 0) {
-      return null;
+      return null
     }
 
-    const lastVersion = applied[0].version;
-    const migration = this.migrations.find(m => m.version === lastVersion);
+    const lastVersion = applied[0].version
+    const migration = this.migrations.find((m) => m.version === lastVersion)
     if (!migration) {
-      throw new Error(`Migration version ${lastVersion} not found`);
+      throw new Error(`Migration version ${lastVersion} not found`)
     }
 
-    return this.runMigration(migration, 'down');
+    return this.runMigration(migration, 'down')
   }
 
   /**
    * Rollback to specific version
    */
   async rollbackTo(targetVersion: number): Promise<MigrationResult[]> {
-    const results: MigrationResult[] = [];
-    const currentVersion = await this.getCurrentVersion();
+    const results: MigrationResult[] = []
+    const currentVersion = await this.getCurrentVersion()
 
     if (targetVersion >= currentVersion) {
-      return results;
+      return results
     }
 
     const toRollback = this.migrations
-      .filter(m => m.version > targetVersion && m.version <= currentVersion)
-      .sort((a, b) => b.version - a.version);
+      .filter((m) => m.version > targetVersion && m.version <= currentVersion)
+      .sort((a, b) => b.version - a.version)
 
     for (const migration of toRollback) {
-      const result = await this.runMigration(migration, 'down');
-      results.push(result);
+      const result = await this.runMigration(migration, 'down')
+      results.push(result)
 
       if (!result.success) {
-        break;
+        break
       }
     }
 
-    return results;
+    return results
   }
 
   /**
@@ -175,39 +179,37 @@ export class MigrationManager {
    */
   private async runMigration(
     migration: Migration,
-    direction: 'up' | 'down'
+    direction: 'up' | 'down',
   ): Promise<MigrationResult> {
-    const startTime = Date.now();
-    const tx = await this.client.beginTransaction('strong');
+    const startTime = Date.now()
+    const tx = await this.client.beginTransaction('strong')
 
     try {
       if (direction === 'up') {
-        await migration.up(this.client);
+        await migration.up(this.client)
         await this.client.insert(this.tableName, {
           version: migration.version,
           name: migration.name,
           applied_at: new Date().toISOString(),
           checksum: this.computeChecksum(migration),
-        });
+        })
       } else {
-        await migration.down(this.client);
-        await this.client.delete(
-          this.tableName,
-          'version = $1',
-          [migration.version]
-        );
+        await migration.down(this.client)
+        await this.client.delete(this.tableName, 'version = $1', [
+          migration.version,
+        ])
       }
 
-      await tx.commit();
+      await tx.commit()
 
       return {
         version: migration.version,
         name: migration.name,
         success: true,
         duration: Date.now() - startTime,
-      };
+      }
     } catch (error) {
-      await tx.rollback();
+      await tx.rollback()
 
       return {
         version: migration.version,
@@ -215,20 +217,20 @@ export class MigrationManager {
         success: false,
         duration: Date.now() - startTime,
         error: error instanceof Error ? error.message : 'Unknown error',
-      };
+      }
     }
   }
 
   private computeChecksum(migration: Migration): string {
-    const content = `${migration.version}:${migration.name}:${migration.up.toString()}:${migration.down.toString()}`;
+    const content = `${migration.version}:${migration.name}:${migration.up.toString()}:${migration.down.toString()}`
     // Simple hash for checksum
-    let hash = 0;
+    let hash = 0
     for (let i = 0; i < content.length; i++) {
-      const char = content.charCodeAt(i);
-      hash = ((hash << 5) - hash) + char;
-      hash = hash & hash;
+      const char = content.charCodeAt(i)
+      hash = (hash << 5) - hash + char
+      hash = hash & hash
     }
-    return hash.toString(16);
+    return hash.toString(16)
   }
 }
 
@@ -243,9 +245,9 @@ export function createMigration(
   version: number,
   name: string,
   up: (client: CovenantSQLClient) => Promise<void>,
-  down: (client: CovenantSQLClient) => Promise<void>
+  down: (client: CovenantSQLClient) => Promise<void>,
 ): Migration {
-  return { version, name, up, down };
+  return { version, name, up, down }
 }
 
 /**
@@ -254,18 +256,18 @@ export function createMigration(
 export function createTableMigration(
   version: number,
   name: string,
-  schema: TableSchema
+  schema: TableSchema,
 ): Migration {
   return {
     version,
     name,
     up: async (client) => {
-      await client.createTable(schema);
+      await client.createTable(schema)
     },
     down: async (client) => {
-      await client.dropTable(schema.name);
+      await client.dropTable(schema.name)
     },
-  };
+  }
 }
 
 /**
@@ -277,21 +279,24 @@ export function addColumnMigration(
   table: string,
   column: string,
   type: string,
-  options: { nullable?: boolean; default?: SqlDefaultValue } = {}
+  options: { nullable?: boolean; default?: SqlDefaultValue } = {},
 ): Migration {
-  const nullable = options.nullable ? '' : ' NOT NULL';
-  const defaultVal = options.default !== undefined ? ` DEFAULT ${options.default}` : '';
+  const nullable = options.nullable ? '' : ' NOT NULL'
+  const defaultVal =
+    options.default !== undefined ? ` DEFAULT ${options.default}` : ''
 
   return {
     version,
     name,
     up: async (client) => {
-      await client.query(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}${nullable}${defaultVal}`);
+      await client.query(
+        `ALTER TABLE ${table} ADD COLUMN ${column} ${type}${nullable}${defaultVal}`,
+      )
     },
     down: async (client) => {
-      await client.query(`ALTER TABLE ${table} DROP COLUMN ${column}`);
+      await client.query(`ALTER TABLE ${table} DROP COLUMN ${column}`)
     },
-  };
+  }
 }
 
 /**
@@ -303,20 +308,22 @@ export function createIndexMigration(
   table: string,
   indexName: string,
   columns: string[],
-  unique = false
+  unique = false,
 ): Migration {
-  const uniqueStr = unique ? 'UNIQUE ' : '';
+  const uniqueStr = unique ? 'UNIQUE ' : ''
 
   return {
     version,
     name,
     up: async (client) => {
-      await client.query(`CREATE ${uniqueStr}INDEX ${indexName} ON ${table} (${columns.join(', ')})`);
+      await client.query(
+        `CREATE ${uniqueStr}INDEX ${indexName} ON ${table} (${columns.join(', ')})`,
+      )
     },
     down: async (client) => {
-      await client.query(`DROP INDEX ${indexName}`);
+      await client.query(`DROP INDEX ${indexName}`)
     },
-  };
+  }
 }
 
 /**
@@ -328,15 +335,15 @@ export async function migrateData<T extends Record<string, SqlParam>>(
   targetTable: string,
   transform: (row: T) => Record<string, SqlParam>,
   options: {
-    batchSize?: number;
-    where?: string;
-    whereParams?: SqlParam[];
-    consistency?: ConsistencyLevel;
-  } = {}
+    batchSize?: number
+    where?: string
+    whereParams?: SqlParam[]
+    consistency?: ConsistencyLevel
+  } = {},
 ): Promise<{ migrated: number }> {
-  const batchSize = options.batchSize ?? 1000;
-  let offset = 0;
-  let migrated = 0;
+  const batchSize = options.batchSize ?? 1000
+  let offset = 0
+  let migrated = 0
 
   while (true) {
     const rows = await client.select<T>(sourceTable, {
@@ -345,21 +352,19 @@ export async function migrateData<T extends Record<string, SqlParam>>(
       limit: batchSize,
       offset,
       consistency: options.consistency ?? 'eventual',
-    });
+    })
 
-    if (rows.length === 0) break;
+    if (rows.length === 0) break
 
-    const transformed = rows.map(row => transform(row));
+    const transformed = rows.map((row) => transform(row))
 
     if (transformed.length > 0) {
-      await client.insert(targetTable, transformed, { consistency: 'strong' });
-      migrated += transformed.length;
+      await client.insert(targetTable, transformed, { consistency: 'strong' })
+      migrated += transformed.length
     }
 
-    offset += batchSize;
+    offset += batchSize
   }
 
-  return { migrated };
+  return { migrated }
 }
-
-

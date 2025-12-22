@@ -1,61 +1,61 @@
 /**
  * External Protocol Aggregator
- * 
+ *
  * Aggregates all external protocol integrations into a single
  * unified interface for the solver.
- * 
+ *
  * Monitors:
  * - Across Protocol deposits
  * - UniswapX orders
  * - CoW Protocol auctions
- * 
+ *
  * All integrations are fully permissionless - no API keys required.
  */
 
-import { type PublicClient, type WalletClient, type Address } from 'viem';
-import { EventEmitter } from 'events';
-import { AcrossAdapter, type AcrossDeposit } from './across';
-import { UniswapXAdapter, type UniswapXOrder } from './uniswapx';
-import { CowProtocolSolver, type CowAuction, type CowOrder } from './cow';
+import { EventEmitter } from 'node:events'
+import type { Address, PublicClient, WalletClient } from 'viem'
+import { AcrossAdapter, type AcrossDeposit } from './across'
+import { type CowAuction, type CowOrder, CowProtocolSolver } from './cow'
+import { UniswapXAdapter, type UniswapXOrder } from './uniswapx'
 
-export type ExternalOpportunityType = 'across' | 'uniswapx' | 'cow';
+export type ExternalOpportunityType = 'across' | 'uniswapx' | 'cow'
 
 export interface ExternalOpportunity {
-  id: string;
-  type: ExternalOpportunityType;
-  chainId: number;
-  destinationChainId?: number;
-  inputToken: Address;
-  outputToken: Address;
-  inputAmount: bigint;
-  outputAmount: bigint;
-  expectedProfitBps: number;
-  deadline: number;
-  data: AcrossDeposit | UniswapXOrder | CowOrder;
+  id: string
+  type: ExternalOpportunityType
+  chainId: number
+  destinationChainId?: number
+  inputToken: Address
+  outputToken: Address
+  inputAmount: bigint
+  outputAmount: bigint
+  expectedProfitBps: number
+  deadline: number
+  data: AcrossDeposit | UniswapXOrder | CowOrder
 }
 
 export interface AggregatorConfig {
-  chains: Array<{ chainId: number; name: string; rpcUrl: string }>;
-  enableAcross?: boolean;
-  enableUniswapX?: boolean;
-  enableCow?: boolean;
-  minProfitBps?: number;
-  isTestnet?: boolean;
+  chains: Array<{ chainId: number; name: string; rpcUrl: string }>
+  enableAcross?: boolean
+  enableUniswapX?: boolean
+  enableCow?: boolean
+  minProfitBps?: number
+  isTestnet?: boolean
 }
 
 export class ExternalProtocolAggregator extends EventEmitter {
-  private config: AggregatorConfig;
-  private clients: Map<number, { public: PublicClient; wallet?: WalletClient }>;
-  
+  private config: AggregatorConfig
+  private clients: Map<number, { public: PublicClient; wallet?: WalletClient }>
+
   // Protocol adapters
-  private across: AcrossAdapter | null = null;
-  private uniswapx: UniswapXAdapter | null = null;
-  private cow: CowProtocolSolver | null = null;
+  private across: AcrossAdapter | null = null
+  private uniswapx: UniswapXAdapter | null = null
+  private cow: CowProtocolSolver | null = null
 
   // Opportunity tracking
-  private opportunities = new Map<string, ExternalOpportunity>();
-  private processedIds = new Set<string>();
-  private running = false;
+  private opportunities = new Map<string, ExternalOpportunity>()
+  private processedIds = new Set<string>()
+  private running = false
 
   // Metrics
   private metrics = {
@@ -65,99 +65,114 @@ export class ExternalProtocolAggregator extends EventEmitter {
     opportunitiesFound: 0,
     opportunitiesFilled: 0,
     totalProfitWei: BigInt(0),
-  };
+  }
 
   constructor(
     config: AggregatorConfig,
-    clients: Map<number, { public: PublicClient; wallet?: WalletClient }>
+    clients: Map<number, { public: PublicClient; wallet?: WalletClient }>,
   ) {
-    super();
-    this.config = config;
-    this.clients = clients;
+    super()
+    this.config = config
+    this.clients = clients
   }
 
   async start(): Promise<void> {
-    if (this.running) return;
-    this.running = true;
-    console.log('\n🌐 Starting External Protocol Aggregator...');
+    if (this.running) return
+    this.running = true
+    console.log('\n🌐 Starting External Protocol Aggregator...')
 
-    const chainIds = this.config.chains.map(c => c.chainId);
+    const chainIds = this.config.chains.map((c) => c.chainId)
 
     // Initialize enabled adapters
     if (this.config.enableAcross !== false) {
-      this.across = new AcrossAdapter(this.clients, chainIds, this.config.isTestnet);
-      this.across.on('deposit', (d: AcrossDeposit) => this.handleAcrossDeposit(d));
-      await this.across.start();
+      this.across = new AcrossAdapter(
+        this.clients,
+        chainIds,
+        this.config.isTestnet,
+      )
+      this.across.on('deposit', (d: AcrossDeposit) =>
+        this.handleAcrossDeposit(d),
+      )
+      await this.across.start()
     }
 
     if (this.config.enableUniswapX !== false) {
-      this.uniswapx = new UniswapXAdapter(this.clients, chainIds, this.config.isTestnet);
-      this.uniswapx.on('order', (o: UniswapXOrder) => this.handleUniswapXOrder(o));
-      await this.uniswapx.start();
+      this.uniswapx = new UniswapXAdapter(
+        this.clients,
+        chainIds,
+        this.config.isTestnet,
+      )
+      this.uniswapx.on('order', (o: UniswapXOrder) =>
+        this.handleUniswapXOrder(o),
+      )
+      await this.uniswapx.start()
     }
 
     if (this.config.enableCow !== false) {
-      this.cow = new CowProtocolSolver(this.clients, chainIds);
-      this.cow.on('auction', (a: CowAuction) => this.handleCowAuction(a));
-      await this.cow.start();
+      this.cow = new CowProtocolSolver(this.clients, chainIds)
+      this.cow.on('auction', (a: CowAuction) => this.handleCowAuction(a))
+      await this.cow.start()
     }
 
-    console.log('   ✅ External protocol aggregator running\n');
+    console.log('   ✅ External protocol aggregator running\n')
   }
 
   async stop(): Promise<void> {
-    this.running = false;
-    this.across?.stop();
-    this.uniswapx?.stop();
-    this.cow?.stop();
-    console.log('   🛑 External protocol aggregator stopped');
+    this.running = false
+    this.across?.stop()
+    this.uniswapx?.stop()
+    this.cow?.stop()
+    console.log('   🛑 External protocol aggregator stopped')
   }
 
   /**
    * Get all current opportunities sorted by profit
    */
   getOpportunities(minProfitBps?: number): ExternalOpportunity[] {
-    const now = Math.floor(Date.now() / 1000);
-    const minProfit = minProfitBps ?? this.config.minProfitBps ?? 5;
+    const now = Math.floor(Date.now() / 1000)
+    const minProfit = minProfitBps ?? this.config.minProfitBps ?? 5
 
     // Filter expired and unprofitable
-    const valid: ExternalOpportunity[] = [];
-    const entries = Array.from(this.opportunities.entries());
+    const valid: ExternalOpportunity[] = []
+    const entries = Array.from(this.opportunities.entries())
     for (const [id, opp] of entries) {
       if (opp.deadline < now) {
-        this.opportunities.delete(id);
-        continue;
+        this.opportunities.delete(id)
+        continue
       }
       if (opp.expectedProfitBps >= minProfit) {
-        valid.push(opp);
+        valid.push(opp)
       }
     }
 
     // Sort by profit descending
-    return valid.sort((a, b) => b.expectedProfitBps - a.expectedProfitBps);
+    return valid.sort((a, b) => b.expectedProfitBps - a.expectedProfitBps)
   }
 
   /**
    * Fill an opportunity
    */
-  async fill(opportunity: ExternalOpportunity): Promise<{ success: boolean; txHash?: string; error?: string }> {
-    this.opportunities.delete(opportunity.id);
+  async fill(
+    opportunity: ExternalOpportunity,
+  ): Promise<{ success: boolean; txHash?: string; error?: string }> {
+    this.opportunities.delete(opportunity.id)
 
     switch (opportunity.type) {
       case 'across':
-        if (!this.across) return { success: false, error: 'Across not enabled' };
-        return this.across.fill(opportunity.data as AcrossDeposit);
+        if (!this.across) return { success: false, error: 'Across not enabled' }
+        return this.across.fill(opportunity.data as AcrossDeposit)
 
       case 'uniswapx':
-        if (!this.uniswapx) return { success: false, error: 'UniswapX not enabled' };
-        return this.uniswapx.fill(opportunity.data as UniswapXOrder);
+        if (!this.uniswapx)
+          return { success: false, error: 'UniswapX not enabled' }
+        return this.uniswapx.fill(opportunity.data as UniswapXOrder)
 
       case 'cow':
         // CoW orders are filled via batch solutions, not individual fills
-        return { success: false, error: 'CoW orders filled via auctions' };
+        return { success: false, error: 'CoW orders filled via auctions' }
 
       default:
-        return { success: false, error: 'Unknown opportunity type' };
+        return { success: false, error: 'Unknown opportunity type' }
     }
   }
 
@@ -168,25 +183,29 @@ export class ExternalProtocolAggregator extends EventEmitter {
     return {
       ...this.metrics,
       activeOpportunities: this.opportunities.size,
-    };
+    }
   }
 
   // === Protocol-specific handlers ===
 
   private handleAcrossDeposit(deposit: AcrossDeposit): void {
-    this.metrics.acrossDeposits++;
+    this.metrics.acrossDeposits++
 
     // Get gas price for profitability check
-    const client = this.clients.get(deposit.destinationChainId);
-    if (!client) return;
+    const client = this.clients.get(deposit.destinationChainId)
+    if (!client) return
 
-    client.public.getGasPrice().then(gasPrice => {
-      const evaluation = this.across?.evaluateProfitability(deposit, gasPrice, 3000);
-      if (!evaluation?.profitable) return;
+    client.public.getGasPrice().then((gasPrice) => {
+      const evaluation = this.across?.evaluateProfitability(
+        deposit,
+        gasPrice,
+        3000,
+      )
+      if (!evaluation?.profitable) return
 
-      const id = `across-${deposit.depositId}-${deposit.originChainId}`;
-      if (this.processedIds.has(id)) return;
-      this.processedIds.add(id);
+      const id = `across-${deposit.depositId}-${deposit.originChainId}`
+      if (this.processedIds.has(id)) return
+      this.processedIds.add(id)
 
       const opportunity: ExternalOpportunity = {
         id,
@@ -200,65 +219,72 @@ export class ExternalProtocolAggregator extends EventEmitter {
         expectedProfitBps: evaluation.expectedProfitBps,
         deadline: deposit.fillDeadline,
         data: deposit,
-      };
+      }
 
-      this.opportunities.set(id, opportunity);
-      this.metrics.opportunitiesFound++;
-      this.emit('opportunity', opportunity);
-    });
+      this.opportunities.set(id, opportunity)
+      this.metrics.opportunitiesFound++
+      this.emit('opportunity', opportunity)
+    })
   }
 
   private handleUniswapXOrder(order: UniswapXOrder): void {
-    this.metrics.uniswapxOrders++;
+    this.metrics.uniswapxOrders++
 
-    const client = this.clients.get(order.chainId);
-    if (!client) return;
+    const client = this.clients.get(order.chainId)
+    if (!client) return
 
-    client.public.getGasPrice().then(gasPrice => {
-      const evaluation = this.uniswapx?.evaluateProfitability(order, gasPrice, 3000);
-      if (!evaluation?.profitable) return;
+    client.public.getGasPrice().then((gasPrice) => {
+      const evaluation = this.uniswapx?.evaluateProfitability(
+        order,
+        gasPrice,
+        3000,
+      )
+      if (!evaluation?.profitable) return
 
-      const id = `uniswapx-${order.orderHash}`;
-      if (this.processedIds.has(id)) return;
-      this.processedIds.add(id);
+      const id = `uniswapx-${order.orderHash}`
+      if (this.processedIds.has(id)) return
+      this.processedIds.add(id)
 
-      const totalOutput = order.outputs.reduce((sum, o) => sum + o.amount, 0n);
-      
+      const totalOutput = order.outputs.reduce((sum, o) => sum + o.amount, 0n)
+
       const opportunity: ExternalOpportunity = {
         id,
         type: 'uniswapx',
         chainId: order.chainId,
         inputToken: order.input.token,
-        outputToken: order.outputs[0]?.token || '0x0000000000000000000000000000000000000000',
+        outputToken:
+          order.outputs[0]?.token ||
+          '0x0000000000000000000000000000000000000000',
         inputAmount: order.input.amount,
         outputAmount: totalOutput,
         expectedProfitBps: evaluation.expectedProfitBps,
         deadline: order.deadline,
         data: order,
-      };
+      }
 
-      this.opportunities.set(id, opportunity);
-      this.metrics.opportunitiesFound++;
-      this.emit('opportunity', opportunity);
-    });
+      this.opportunities.set(id, opportunity)
+      this.metrics.opportunitiesFound++
+      this.emit('opportunity', opportunity)
+    })
   }
 
   private handleCowAuction(auction: CowAuction): void {
-    this.metrics.cowAuctions++;
+    this.metrics.cowAuctions++
 
     // For CoW, we emit individual orders as opportunities
     for (const order of auction.orders) {
-      const id = `cow-${order.uid}`;
-      if (this.processedIds.has(id)) return;
-      this.processedIds.add(id);
+      const id = `cow-${order.uid}`
+      if (this.processedIds.has(id)) return
+      this.processedIds.add(id)
 
       // Simple profit estimate
-      const surplus = order.sellAmount - order.buyAmount - order.feeAmount;
-      const profitBps = surplus > BigInt(0)
-        ? Number((surplus * BigInt(10000)) / order.buyAmount)
-        : 0;
+      const surplus = order.sellAmount - order.buyAmount - order.feeAmount
+      const profitBps =
+        surplus > BigInt(0)
+          ? Number((surplus * BigInt(10000)) / order.buyAmount)
+          : 0
 
-      if (profitBps < (this.config.minProfitBps ?? 5)) continue;
+      if (profitBps < (this.config.minProfitBps ?? 5)) continue
 
       const opportunity: ExternalOpportunity = {
         id,
@@ -271,11 +297,11 @@ export class ExternalProtocolAggregator extends EventEmitter {
         expectedProfitBps: profitBps,
         deadline: order.validTo,
         data: order,
-      };
+      }
 
-      this.opportunities.set(id, opportunity);
-      this.metrics.opportunitiesFound++;
-      this.emit('opportunity', opportunity);
+      this.opportunities.set(id, opportunity)
+      this.metrics.opportunitiesFound++
+      this.emit('opportunity', opportunity)
     }
   }
 
@@ -284,8 +310,8 @@ export class ExternalProtocolAggregator extends EventEmitter {
    */
   cleanup(): void {
     if (this.processedIds.size > 10000) {
-      const arr = Array.from(this.processedIds);
-      this.processedIds = new Set(arr.slice(-5000));
+      const arr = Array.from(this.processedIds)
+      this.processedIds = new Set(arr.slice(-5000))
     }
   }
 }

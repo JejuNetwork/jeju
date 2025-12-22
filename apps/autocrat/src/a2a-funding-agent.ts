@@ -9,50 +9,160 @@
  * - Deliberation voting
  */
 
-import { Hono } from 'hono';
-import { cors } from 'hono/cors';
-import { fundingApi } from './funding-api';
-import type { Address } from 'viem';
+import { Hono } from 'hono'
+import { cors } from 'hono/cors'
+import type {
+  DependencyClaim,
+  RepositoryClaim,
+  ContributorProfile as ServiceContributorProfile,
+  SocialLink,
+} from './contributor-service'
+import type { DependencyWeight } from './dependency-scanner'
+import { fundingApi } from './funding-api'
 
 // ============ Types ============
 
 interface A2AAgentCard {
-  name: string;
-  description: string;
-  version: string;
-  skills: A2ASkill[];
+  name: string
+  description: string
+  version: string
+  skills: A2ASkill[]
   authentication?: {
-    type: string;
-    instructions?: string;
-  };
+    type: string
+    instructions?: string
+  }
 }
 
 interface A2ASkill {
-  id: string;
-  name: string;
-  description: string;
-  inputSchema: Record<string, unknown>;
-  outputSchema: Record<string, unknown>;
+  id: string
+  name: string
+  description: string
+  inputSchema: JSONSchemaObject
+  outputSchema: JSONSchemaObject | JSONSchemaArray
+}
+
+interface JSONSchemaObject {
+  type: 'object'
+  properties: Record<string, JSONSchemaProperty>
+  required?: string[]
+}
+
+interface JSONSchemaArray {
+  type: 'array'
+  items: JSONSchemaObject
+}
+
+interface JSONSchemaProperty {
+  type: string
+  description?: string
+  enum?: string[]
 }
 
 interface A2ATaskRequest {
-  taskId: string;
-  skillId: string;
-  input: Record<string, unknown>;
+  taskId: string
+  skillId: string
+  input: Record<string, string | number | boolean>
 }
 
+// Skill response types
+interface FundingPoolResponse {
+  daoId: string
+  totalAccumulated: string
+  contributorPool: string
+  dependencyPool: string
+  reservePool: string
+}
+
+interface EpochResponse {
+  epochId: number
+  startTime: number
+  endTime: number
+  totalDistributed: string
+  finalized: boolean
+}
+
+interface ScanDependenciesResponse {
+  totalDependencies: number
+  directDependencies: number
+  transitiveDependencies: number
+  registeredDependencies: number
+  dependencies: DependencyWeight[]
+}
+
+interface ContributorRecommendation {
+  contributorId: string
+  suggestedWeight: number
+  reason: string
+  contributions: {
+    bounties: number
+    paymentRequests: number
+    repos: number
+    deps: number
+  }
+}
+
+interface DependencyRecommendation {
+  packageName: string
+  registryType: string
+  suggestedWeight: number
+  depth: number
+  usageCount: number
+  isRegistered: boolean
+}
+
+interface PaymentRequest {
+  requestId: string
+  category: string
+  title: string
+  requestedAmount: string
+  status: string
+  isRetroactive: boolean
+}
+
+interface TransactionResponse {
+  transactionHash: string | undefined
+}
+
+interface ContributorProfileResponse {
+  profile: ServiceContributorProfile | null
+  socialLinks: SocialLink[]
+  repoClaims: RepositoryClaim[]
+  depClaims: DependencyClaim[]
+}
+
+interface PendingRewardsResponse {
+  pendingRewards: string
+}
+
+interface ErrorResponse {
+  error: string
+}
+
+type SkillOutput =
+  | FundingPoolResponse
+  | EpochResponse
+  | ScanDependenciesResponse
+  | ContributorRecommendation[]
+  | DependencyRecommendation[]
+  | PaymentRequest[]
+  | TransactionResponse
+  | ContributorProfileResponse
+  | PendingRewardsResponse
+  | ErrorResponse
+
 interface A2ATaskResponse {
-  taskId: string;
-  status: 'completed' | 'failed' | 'pending';
-  output?: Record<string, unknown>;
-  error?: string;
+  taskId: string
+  status: 'completed' | 'failed' | 'pending'
+  output?: SkillOutput
+  error?: string
 }
 
 // ============ Agent Card ============
 
 const AGENT_CARD: A2AAgentCard = {
   name: 'Jeju Deep Funding Agent',
-  description: 'Agent for managing deep funding distribution across DAOs, contributors, and dependencies',
+  description:
+    'Agent for managing deep funding distribution across DAOs, contributors, and dependencies',
   version: '1.0.0',
   skills: [
     {
@@ -102,7 +212,8 @@ const AGENT_CARD: A2AAgentCard = {
     {
       id: 'scan_dependencies',
       name: 'Scan Repository Dependencies',
-      description: 'Scan a GitHub repository for dependencies and calculate funding weights',
+      description:
+        'Scan a GitHub repository for dependencies and calculate funding weights',
       inputSchema: {
         type: 'object',
         properties: {
@@ -125,7 +236,8 @@ const AGENT_CARD: A2AAgentCard = {
     {
       id: 'get_contributor_recommendations',
       name: 'Get Contributor Recommendations',
-      description: 'Get funding weight recommendations for contributors based on activity',
+      description:
+        'Get funding weight recommendations for contributors based on activity',
       inputSchema: {
         type: 'object',
         properties: {
@@ -148,7 +260,8 @@ const AGENT_CARD: A2AAgentCard = {
     {
       id: 'get_dependency_recommendations',
       name: 'Get Dependency Recommendations',
-      description: 'Get funding weight recommendations for dependencies from repo scan',
+      description:
+        'Get funding weight recommendations for dependencies from repo scan',
       inputSchema: {
         type: 'object',
         properties: {
@@ -279,49 +392,52 @@ const AGENT_CARD: A2AAgentCard = {
       },
     },
   ],
-};
+}
 
 // ============ Skill Handlers ============
 
 async function handleSkill(
   skillId: string,
-  input: Record<string, unknown>
-): Promise<Record<string, unknown>> {
+  input: Record<string, string | number | boolean>,
+): Promise<SkillOutput> {
   switch (skillId) {
     case 'get_funding_pool': {
-      const result = await fundingApi.getDAOPool(input.daoId as string);
+      const result = await fundingApi.getDAOPool(input.daoId as string)
       if (!result.success || !result.data) {
-        return { error: result.error || 'Pool not found' };
+        return { error: result.error || 'Pool not found' }
       }
-      const pool = result.data;
+      const pool = result.data
       return {
         daoId: pool.daoId,
         totalAccumulated: pool.totalAccumulated.toString(),
         contributorPool: pool.contributorPool.toString(),
         dependencyPool: pool.dependencyPool.toString(),
         reservePool: pool.reservePool.toString(),
-      };
+      }
     }
 
     case 'get_current_epoch': {
-      const result = await fundingApi.getCurrentEpoch(input.daoId as string);
+      const result = await fundingApi.getCurrentEpoch(input.daoId as string)
       if (!result.success || !result.data) {
-        return { error: result.error || 'No active epoch' };
+        return { error: result.error || 'No active epoch' }
       }
-      const epoch = result.data;
+      const epoch = result.data
       return {
         epochId: epoch.epochId,
         startTime: epoch.startTime,
         endTime: epoch.endTime,
         totalDistributed: epoch.totalDistributed.toString(),
         finalized: epoch.finalized,
-      };
+      }
     }
 
     case 'scan_dependencies': {
-      const result = await fundingApi.scanRepository(input.owner as string, input.repo as string);
+      const result = await fundingApi.scanRepository(
+        input.owner as string,
+        input.repo as string,
+      )
       if (!result.success || !result.data) {
-        return { error: result.error || 'Scan failed' };
+        return { error: result.error || 'Scan failed' }
       }
       return {
         totalDependencies: result.data.totalDependencies,
@@ -329,30 +445,32 @@ async function handleSkill(
         transitiveDependencies: result.data.transitiveDependencies,
         registeredDependencies: result.data.registeredDependencies,
         dependencies: result.data.dependencies.slice(0, 20), // Limit to top 20
-      };
+      }
     }
 
     case 'get_contributor_recommendations': {
-      const result = await fundingApi.generateContributorRecommendations(input.daoId as string);
+      const result = await fundingApi.generateContributorRecommendations(
+        input.daoId as string,
+      )
       if (!result.success || !result.data) {
-        return { error: result.error || 'Failed to generate recommendations' };
+        return { error: result.error || 'Failed to generate recommendations' }
       }
       return result.data.map((r) => ({
         contributorId: r.contributorId,
         suggestedWeight: r.suggestedWeight,
         reason: r.reason,
         contributions: r.contributions,
-      }));
+      }))
     }
 
     case 'get_dependency_recommendations': {
       const result = await fundingApi.generateDependencyRecommendations(
         input.daoId as string,
         input.owner as string,
-        input.repo as string
-      );
+        input.repo as string,
+      )
       if (!result.success || !result.data) {
-        return { error: result.error || 'Failed to generate recommendations' };
+        return { error: result.error || 'Failed to generate recommendations' }
       }
       return result.data.map((r) => ({
         packageName: r.packageName,
@@ -361,7 +479,7 @@ async function handleSkill(
         depth: r.depth,
         usageCount: r.usageCount,
         isRegistered: r.isRegistered,
-      }));
+      }))
     }
 
     case 'vote_weight': {
@@ -370,18 +488,20 @@ async function handleSkill(
         input.targetId as string,
         input.adjustment as number,
         input.reason as string,
-        input.reputation as number
-      );
+        input.reputation as number,
+      )
       if (!result.success) {
-        return { error: result.error };
+        return { error: result.error || 'Vote failed' }
       }
-      return { transactionHash: result.data };
+      return { transactionHash: result.data }
     }
 
     case 'get_pending_payment_requests': {
-      const result = await fundingApi.getPendingPaymentRequests(input.daoId as string);
+      const result = await fundingApi.getPendingPaymentRequests(
+        input.daoId as string,
+      )
       if (!result.success || !result.data) {
-        return { error: result.error || 'Failed to get requests' };
+        return { error: result.error || 'Failed to get requests' }
       }
       return result.data.map((r) => ({
         requestId: r.requestId,
@@ -390,96 +510,101 @@ async function handleSkill(
         requestedAmount: r.requestedAmount.toString(),
         status: r.status,
         isRetroactive: r.isRetroactive,
-      }));
+      }))
     }
 
     case 'review_payment_request': {
       const result = await fundingApi.councilVote(
         input.requestId as string,
         input.vote as 'APPROVE' | 'REJECT' | 'ABSTAIN',
-        input.reason as string
-      );
+        input.reason as string,
+      )
       if (!result.success) {
-        return { error: result.error };
+        return { error: result.error || 'Review failed' }
       }
-      return { transactionHash: result.data };
+      return { transactionHash: result.data }
     }
 
     case 'get_contributor_profile': {
-      const result = await fundingApi.getContributorProfile(input.contributorId as string);
+      const result = await fundingApi.getContributorProfile(
+        input.contributorId as string,
+      )
       if (!result.success || !result.data) {
-        return { error: result.error || 'Contributor not found' };
+        return { error: result.error || 'Contributor not found' }
       }
-      return result.data;
+      return result.data
     }
 
     case 'get_pending_rewards': {
       const result = await fundingApi.getPendingContributorRewards(
         input.daoId as string,
-        input.contributorId as string
-      );
+        input.contributorId as string,
+      )
       if (!result.success) {
-        return { error: result.error };
+        return { error: result.error || 'Failed to get pending rewards' }
       }
-      return { pendingRewards: result.data?.toString() || '0' };
+      return { pendingRewards: result.data?.toString() || '0' }
     }
 
     default:
-      throw new Error(`Unknown skill: ${skillId}`);
+      throw new Error(`Unknown skill: ${skillId}`)
   }
 }
 
 // ============ HTTP Server ============
 
 export function createA2AFundingServer(): Hono {
-  const app = new Hono();
+  const app = new Hono()
 
-  app.use('*', cors());
+  app.use('*', cors())
 
   // A2A Agent Card endpoint
   app.get('/.well-known/agent.json', (c) => {
-    return c.json(AGENT_CARD);
-  });
+    return c.json(AGENT_CARD)
+  })
 
   // A2A Tasks endpoint
   app.post('/tasks', async (c) => {
-    const request = await c.req.json<A2ATaskRequest>();
+    const request = await c.req.json<A2ATaskRequest>()
 
     const response: A2ATaskResponse = {
       taskId: request.taskId,
       status: 'pending',
-    };
-
-    try {
-      const output = await handleSkill(request.skillId, request.input);
-      response.status = 'completed';
-      response.output = output;
-    } catch (error) {
-      response.status = 'failed';
-      response.error = error instanceof Error ? error.message : 'Unknown error';
     }
 
-    return c.json(response);
-  });
+    try {
+      const output = await handleSkill(request.skillId, request.input)
+      response.status = 'completed'
+      response.output = output
+    } catch (error) {
+      response.status = 'failed'
+      response.error = error instanceof Error ? error.message : 'Unknown error'
+    }
+
+    return c.json(response)
+  })
 
   // Health check
   app.get('/health', (c) => {
-    return c.json({ status: 'healthy', agent: 'jeju-deep-funding', version: '1.0.0' });
-  });
+    return c.json({
+      status: 'healthy',
+      agent: 'jeju-deep-funding',
+      version: '1.0.0',
+    })
+  })
 
-  return app;
+  return app
 }
 
 // Start server if run directly
 if (import.meta.main) {
-  const app = createA2AFundingServer();
-  const port = parseInt(process.env.A2A_PORT || '3100');
+  const app = createA2AFundingServer()
+  const port = parseInt(process.env.A2A_PORT || '3100', 10)
 
-  console.log(`A2A Funding Agent starting on port ${port}`);
+  console.log(`A2A Funding Agent starting on port ${port}`)
 
   Bun.serve({
     fetch: app.fetch,
     port,
-  });
+  })
 }
-

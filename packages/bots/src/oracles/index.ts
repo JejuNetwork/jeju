@@ -1,5 +1,11 @@
-import { createPublicClient, http, type PublicClient, type Address, parseAbi } from 'viem';
-import type { EVMChainId, OraclePrice } from '../types';
+import {
+  type Address,
+  createPublicClient,
+  http,
+  type PublicClient,
+  parseAbi,
+} from 'viem'
+import type { EVMChainId, OraclePrice } from '../types'
 
 const PYTH_ABI = parseAbi([
   'function getPriceUnsafe(bytes32 id) view returns ((int64 price, uint64 conf, int32 expo, uint256 publishTime))',
@@ -7,34 +13,45 @@ const PYTH_ABI = parseAbi([
   'function getEmaPrice(bytes32 id) view returns ((int64 price, uint64 conf, int32 expo, uint256 publishTime))',
   'function updatePriceFeeds(bytes[] calldata updateData) payable',
   'function getUpdateFee(bytes[] calldata updateData) view returns (uint256)',
-]);
+])
 
 const CHAINLINK_ABI = parseAbi([
   'function latestRoundData() view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)',
   'function decimals() view returns (uint8)',
   'function description() view returns (string)',
-]);
+])
 
 const UNISWAP_V3_POOL_ABI = parseAbi([
   'function observe(uint32[] calldata secondsAgos) view returns (int56[] tickCumulatives, uint160[] secondsPerLiquidityCumulativeX128s)',
   'function slot0() view returns (uint160 sqrtPriceX96, int24 tick, uint16 observationIndex, uint16 observationCardinality, uint16 observationCardinalityNext, uint8 feeProtocol, bool unlocked)',
   'function token0() view returns (address)',
   'function token1() view returns (address)',
-]);
+])
 
 const PYTH_PRICE_IDS: Record<string, `0x${string}`> = {
-  'ETH/USD': '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
-  'BTC/USD': '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
-  'USDC/USD': '0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
-  'USDT/USD': '0x2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b',
-  'SOL/USD': '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d',
-  'BNB/USD': '0x2f95862b045670cd22bee3114c39763a4a08beeb663b145d283c31d7d1101c4f',
-  'ARB/USD': '0x3fa4252848f9f0a1480be62745a4629d9eb1322aebab8a791e344b3b9c1adcf5',
-  'OP/USD': '0x385f64d993f7b77d8182ed5003d97c60aa3361f3cecfe711544d2d59165e9bdf',
-  'MATIC/USD': '0x5de33440a4e71f4f0c6e5e2b7c0b0a3c6c8d5f0e1d2c3b4a5f6e7d8c9b0a1f2e3',
-  'AVAX/USD': '0x93da3352f9f1d105fdfe4971cfa80e9dd777bfc5d0f683ebb6e1294b92137bb7',
-  'LINK/USD': '0x8ac0c70fff57e9aefdf5edf44b51d62c2d433653cbb2cf5cc06bb115af04d221',
-};
+  'ETH/USD':
+    '0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace',
+  'BTC/USD':
+    '0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43',
+  'USDC/USD':
+    '0xeaa020c61cc479712813461ce153894a96a6c00b21ed0cfc2798d1f9a9e9c94a',
+  'USDT/USD':
+    '0x2b89b9dc8fdf9f34709a5b106b472f0f39bb6ca9ce04b0fd7f2e971688e2e53b',
+  'SOL/USD':
+    '0xef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d',
+  'BNB/USD':
+    '0x2f95862b045670cd22bee3114c39763a4a08beeb663b145d283c31d7d1101c4f',
+  'ARB/USD':
+    '0x3fa4252848f9f0a1480be62745a4629d9eb1322aebab8a791e344b3b9c1adcf5',
+  'OP/USD':
+    '0x385f64d993f7b77d8182ed5003d97c60aa3361f3cecfe711544d2d59165e9bdf',
+  'MATIC/USD':
+    '0x5de33440a4e71f4f0c6e5e2b7c0b0a3c6c8d5f0e1d2c3b4a5f6e7d8c9b0a1f2e3',
+  'AVAX/USD':
+    '0x93da3352f9f1d105fdfe4971cfa80e9dd777bfc5d0f683ebb6e1294b92137bb7',
+  'LINK/USD':
+    '0x8ac0c70fff57e9aefdf5edf44b51d62c2d433653cbb2cf5cc06bb115af04d221',
+}
 
 const CHAINLINK_FEEDS: Partial<Record<EVMChainId, Record<string, Address>>> = {
   1: {
@@ -72,7 +89,7 @@ const CHAINLINK_FEEDS: Partial<Record<EVMChainId, Record<string, Address>>> = {
   420690: {},
   420691: {},
   1337: {},
-};
+}
 
 const PYTH_ADDRESSES: Partial<Record<EVMChainId, Address>> = {
   1: '0x4305FB66699C3B2702D4d05CF36551390A4c69C6',
@@ -80,94 +97,138 @@ const PYTH_ADDRESSES: Partial<Record<EVMChainId, Address>> = {
   42161: '0xff1a0f4744e8582DF1aE09D5611b887B6a12925C',
   10: '0xff1a0f4744e8582DF1aE09D5611b887B6a12925C',
   56: '0x4D7E825f80bDf85e913E0DD2A2D54927e9dE1594',
-};
+}
 
 export class OracleAggregator {
-  private clients: Map<EVMChainId, PublicClient> = new Map();
-  private priceCache: Map<string, OraclePrice> = new Map();
-  private cacheTtlMs = 10000; // 10 second cache
+  private clients: Map<EVMChainId, PublicClient> = new Map()
+  private priceCache: Map<string, OraclePrice> = new Map()
+  private cacheTtlMs = 10000 // 10 second cache
 
   constructor(rpcUrls: Partial<Record<EVMChainId, string>>) {
     for (const [chainIdStr, rpcUrl] of Object.entries(rpcUrls)) {
-      const chainId = Number(chainIdStr) as EVMChainId;
-      this.clients.set(chainId, createPublicClient({ transport: http(rpcUrl) }));
+      const chainId = Number(chainIdStr) as EVMChainId
+      this.clients.set(chainId, createPublicClient({ transport: http(rpcUrl) }))
     }
   }
 
   async getPrice(
     token: string,
     chainId: EVMChainId,
-    maxStalenessSeconds = 60
+    maxStalenessSeconds = 60,
   ): Promise<OraclePrice> {
-    const cacheKey = `${chainId}-${token}`;
-    const cached = this.priceCache.get(cacheKey);
-    
+    const cacheKey = `${chainId}-${token}`
+    const cached = this.priceCache.get(cacheKey)
+
     if (cached && Date.now() - cached.timestamp < this.cacheTtlMs) {
-      return cached;
+      return cached
     }
 
     // Try Pyth first (permissionless, real-time)
-    const pythPrice = await this.getPythPrice(token, chainId, maxStalenessSeconds);
+    const pythPrice = await this.getPythPrice(
+      token,
+      chainId,
+      maxStalenessSeconds,
+    )
     if (pythPrice) {
-      this.priceCache.set(cacheKey, pythPrice);
-      return pythPrice;
+      this.priceCache.set(cacheKey, pythPrice)
+      return pythPrice
     }
 
     // Fallback to Chainlink
-    const chainlinkPrice = await this.getChainlinkPrice(token, chainId, maxStalenessSeconds);
+    const chainlinkPrice = await this.getChainlinkPrice(
+      token,
+      chainId,
+      maxStalenessSeconds,
+    )
     if (chainlinkPrice) {
-      this.priceCache.set(cacheKey, chainlinkPrice);
-      return chainlinkPrice;
+      this.priceCache.set(cacheKey, chainlinkPrice)
+      return chainlinkPrice
     }
 
-    throw new Error(`No price available for ${token} on chain ${chainId}`);
+    throw new Error(`No price available for ${token} on chain ${chainId}`)
   }
 
   async getPrices(
     tokens: string[],
     chainId: EVMChainId,
-    maxStalenessSeconds = 60
+    maxStalenessSeconds = 60,
   ): Promise<Map<string, OraclePrice>> {
-    const prices = new Map<string, OraclePrice>();
-    
+    const prices = new Map<string, OraclePrice>()
+
     await Promise.all(
       tokens.map(async (token) => {
-        const price = await this.getPrice(token, chainId, maxStalenessSeconds);
-        prices.set(token, price);
-      })
-    );
+        const price = await this.getPrice(token, chainId, maxStalenessSeconds)
+        prices.set(token, price)
+      }),
+    )
 
-    return prices;
+    return prices
   }
+
+  // Maximum acceptable confidence interval as a ratio of price (5% = 0.05)
+  private readonly MAX_CONFIDENCE_RATIO = 0.05
 
   private async getPythPrice(
     token: string,
     chainId: EVMChainId,
-    maxStalenessSeconds: number
+    maxStalenessSeconds: number,
   ): Promise<OraclePrice | null> {
-    const pythAddress = PYTH_ADDRESSES[chainId];
-    if (!pythAddress) return null;
+    const pythAddress = PYTH_ADDRESSES[chainId]
+    if (!pythAddress) return null
 
-    const pairKey = this.tokenToPair(token);
-    const priceId = PYTH_PRICE_IDS[pairKey];
-    if (!priceId) return null;
+    const pairKey = this.tokenToPair(token)
+    const priceId = PYTH_PRICE_IDS[pairKey]
+    if (!priceId) return null
 
-    const client = this.clients.get(chainId);
-    if (!client) return null;
+    const client = this.clients.get(chainId)
+    if (!client) return null
 
-    const result = await client.readContract({
+    const result = (await client.readContract({
       address: pythAddress,
       abi: PYTH_ABI,
       functionName: 'getPriceNoOlderThan',
       args: [priceId, BigInt(maxStalenessSeconds)],
-    }) as { price: bigint; conf: bigint; expo: number; publishTime: bigint };
+    })) as { price: bigint; conf: bigint; expo: number; publishTime: bigint }
+
+    // Validate price is positive
+    if (result.price <= 0n) {
+      console.warn(
+        `Pyth returned non-positive price for ${token}: ${result.price}`,
+      )
+      return null
+    }
+
+    // Calculate confidence ratio and validate it's acceptable
+    // Confidence interval should be a small fraction of the price
+    const confidenceRatio = Number(result.conf) / Number(result.price)
+    if (confidenceRatio > this.MAX_CONFIDENCE_RATIO) {
+      console.warn(
+        `Pyth price confidence too low for ${token}: ${(confidenceRatio * 100).toFixed(2)}% interval (max ${this.MAX_CONFIDENCE_RATIO * 100}%)`,
+      )
+      return null
+    }
 
     // Convert Pyth price to standard format (8 decimals)
-    const exponent = result.expo;
-    const rawPrice = result.price;
-    const targetDecimals = 8;
-    const pricePrecision = 10 ** (targetDecimals + exponent);
-    const normalizedPrice = (rawPrice * BigInt(pricePrecision));
+    const exponent = result.expo
+    const rawPrice = result.price
+    const targetDecimals = 8
+
+    // Handle negative exponents properly
+    let normalizedPrice: bigint
+    if (exponent >= 0) {
+      // Price needs to be scaled up
+      normalizedPrice = rawPrice * BigInt(10 ** (targetDecimals + exponent))
+    } else {
+      // Price needs to be scaled - handle negative exponent
+      const scaleDown = -exponent
+      if (scaleDown > targetDecimals) {
+        // Need to divide
+        normalizedPrice = rawPrice / BigInt(10 ** (scaleDown - targetDecimals))
+      } else {
+        // Need to multiply
+        normalizedPrice = rawPrice * BigInt(10 ** (targetDecimals - scaleDown))
+      }
+    }
 
     return {
       token,
@@ -175,24 +236,24 @@ export class OracleAggregator {
       decimals: targetDecimals,
       timestamp: Number(result.publishTime) * 1000,
       source: 'pyth',
-      confidence: Number(result.conf) / Number(rawPrice),
-    };
+      confidence: confidenceRatio,
+    }
   }
 
   private async getChainlinkPrice(
     token: string,
     chainId: EVMChainId,
-    maxStalenessSeconds: number
+    maxStalenessSeconds: number,
   ): Promise<OraclePrice | null> {
-    const feeds = CHAINLINK_FEEDS[chainId];
-    if (!feeds || Object.keys(feeds).length === 0) return null;
+    const feeds = CHAINLINK_FEEDS[chainId]
+    if (!feeds || Object.keys(feeds).length === 0) return null
 
-    const pairKey = this.tokenToPair(token);
-    const feedAddress = feeds[pairKey];
-    if (!feedAddress) return null;
+    const pairKey = this.tokenToPair(token)
+    const feedAddress = feeds[pairKey]
+    if (!feedAddress) return null
 
-    const client = this.clients.get(chainId);
-    if (!client) return null;
+    const client = this.clients.get(chainId)
+    if (!client) return null
 
     const [roundData, decimals] = await Promise.all([
       client.readContract({
@@ -205,22 +266,22 @@ export class OracleAggregator {
         abi: CHAINLINK_ABI,
         functionName: 'decimals',
       }) as Promise<number>,
-    ]);
+    ])
 
-    const [, answer, , updatedAt] = roundData;
-    const staleness = Math.floor(Date.now() / 1000) - Number(updatedAt);
+    const [, answer, , updatedAt] = roundData
+    const staleness = Math.floor(Date.now() / 1000) - Number(updatedAt)
 
     if (staleness > maxStalenessSeconds) {
-      return null;
+      return null
     }
 
     // Normalize to 8 decimals
-    const targetDecimals = 8;
-    let normalizedPrice: bigint;
+    const targetDecimals = 8
+    let normalizedPrice: bigint
     if (decimals > targetDecimals) {
-      normalizedPrice = answer / BigInt(10 ** (decimals - targetDecimals));
+      normalizedPrice = answer / BigInt(10 ** (decimals - targetDecimals))
     } else {
-      normalizedPrice = answer * BigInt(10 ** (targetDecimals - decimals));
+      normalizedPrice = answer * BigInt(10 ** (targetDecimals - decimals))
     }
 
     return {
@@ -229,99 +290,117 @@ export class OracleAggregator {
       decimals: targetDecimals,
       timestamp: Number(updatedAt) * 1000,
       source: 'chainlink',
-    };
+    }
   }
 
   async getUniswapTWAP(
     poolAddress: Address,
     chainId: EVMChainId,
-    twapPeriodSeconds: number
+    twapPeriodSeconds: number,
   ): Promise<{ tick: number; price: bigint }> {
-    const client = this.clients.get(chainId);
-    if (!client) throw new Error(`No client for chain ${chainId}`);
+    const client = this.clients.get(chainId)
+    if (!client) throw new Error(`No client for chain ${chainId}`)
 
-    const secondsAgos = [twapPeriodSeconds, 0];
-    
-    const [tickCumulatives] = await client.readContract({
+    const secondsAgos = [twapPeriodSeconds, 0]
+
+    const [tickCumulatives] = (await client.readContract({
       address: poolAddress,
       abi: UNISWAP_V3_POOL_ABI,
       functionName: 'observe',
-      args: [secondsAgos.map(s => s)],
-    }) as [bigint[], bigint[]];
+      args: [secondsAgos.map((s) => s)],
+    })) as [bigint[], bigint[]]
 
-    const tickDiff = Number(tickCumulatives[1] - tickCumulatives[0]);
-    const twapTick = Math.floor(tickDiff / twapPeriodSeconds);
-    
+    const tickDiff = Number(tickCumulatives[1] - tickCumulatives[0])
+    const twapTick = Math.floor(tickDiff / twapPeriodSeconds)
+
     // Convert tick to price
-    const price = this.tickToPrice(twapTick);
+    const price = this.tickToPrice(twapTick)
 
-    return { tick: twapTick, price };
+    return { tick: twapTick, price }
   }
 
   private tickToPrice(tick: number): bigint {
     // price = 1.0001 ^ tick
-    const price = Math.pow(1.0001, tick);
-    return BigInt(Math.floor(price * 1e18));
+    // Clamp tick to prevent overflow (-887272 to 887272 is valid range for Uniswap V3)
+    const MAX_TICK = 887272
+    const clampedTick = Math.max(-MAX_TICK, Math.min(MAX_TICK, tick))
+
+    const price = 1.0001 ** clampedTick
+
+    // Guard against Infinity or NaN
+    if (!Number.isFinite(price) || price <= 0) {
+      throw new Error(
+        `Invalid TWAP price calculation: tick ${tick} resulted in ${price}`,
+      )
+    }
+
+    // Cap to prevent BigInt overflow (max safe price ~10^37)
+    const maxPrice = 1e37
+    const safePrice = Math.min(price, maxPrice)
+
+    return BigInt(Math.floor(safePrice * 1e18))
   }
 
   private tokenToPair(token: string): string {
-    const symbol = token.toUpperCase();
-    if (symbol === 'WETH' || symbol === 'ETH') return 'ETH/USD';
-    if (symbol === 'WBTC' || symbol === 'BTC') return 'BTC/USD';
-    return `${symbol}/USD`;
+    const symbol = token.toUpperCase()
+    if (symbol === 'WETH' || symbol === 'ETH') return 'ETH/USD'
+    if (symbol === 'WBTC' || symbol === 'BTC') return 'BTC/USD'
+    return `${symbol}/USD`
   }
 
   isStale(price: OraclePrice, maxAgeMs: number): boolean {
     // With zero maxAge, any price is considered stale (no caching allowed)
-    if (maxAgeMs === 0) return true;
-    return Date.now() - price.timestamp > maxAgeMs;
+    if (maxAgeMs === 0) return true
+    return Date.now() - price.timestamp > maxAgeMs
   }
 
   calculateDeviation(price1: bigint, price2: bigint): number {
-    const diff = price1 > price2 ? price1 - price2 : price2 - price1;
-    const avg = (price1 + price2) / 2n;
-    return Number((diff * 10000n) / avg); // Returns basis points
+    const diff = price1 > price2 ? price1 - price2 : price2 - price1
+    const avg = (price1 + price2) / 2n
+    return Number((diff * 10000n) / avg) // Returns basis points
   }
 
   async validatePrice(
     token: string,
     chainId: EVMChainId,
-    maxDeviationBps: number
+    maxDeviationBps: number,
   ): Promise<{ valid: boolean; price: OraclePrice; deviation?: number }> {
-    const pythPrice = await this.getPythPrice(token, chainId, 120);
-    const chainlinkPrice = await this.getChainlinkPrice(token, chainId, 120);
+    const pythPrice = await this.getPythPrice(token, chainId, 120)
+    const chainlinkPrice = await this.getChainlinkPrice(token, chainId, 120)
 
     if (!pythPrice && !chainlinkPrice) {
-      throw new Error(`No price sources available for ${token}`);
+      throw new Error(`No price sources available for ${token}`)
     }
 
     if (!pythPrice && chainlinkPrice) {
       // Only Chainlink available
-      return { valid: true, price: chainlinkPrice };
+      return { valid: true, price: chainlinkPrice }
     }
-    
+
     if (pythPrice && !chainlinkPrice) {
       // Only Pyth available
-      return { valid: true, price: pythPrice };
+      return { valid: true, price: pythPrice }
     }
-    
+
     // Both prices are available (exhaustive check guarantees this)
     // TypeScript can't infer this, so we explicitly narrow
-    const pyth = pythPrice as OraclePrice;
-    const chainlink = chainlinkPrice as OraclePrice;
+    const pyth = pythPrice as OraclePrice
+    const chainlink = chainlinkPrice as OraclePrice
 
-    const deviation = this.calculateDeviation(pyth.price, chainlink.price);
-    
+    const deviation = this.calculateDeviation(pyth.price, chainlink.price)
+
     // Use Pyth as primary, validate against Chainlink
     return {
       valid: deviation <= maxDeviationBps,
       price: pyth,
       deviation,
-    };
+    }
   }
 }
 
-export const TOKEN_SYMBOLS: Partial<Record<EVMChainId, Record<string, string>>> = {
+export const TOKEN_SYMBOLS: Partial<
+  Record<EVMChainId, Record<string, string>>
+> = {
   1: {
     '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2': 'WETH',
     '0x2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599': 'WBTC',
@@ -360,20 +439,19 @@ export const TOKEN_SYMBOLS: Partial<Record<EVMChainId, Record<string, string>>> 
   420690: {},
   420691: {},
   1337: {},
-};
-
-export function getTokenSymbol(address: string, chainId: EVMChainId): string {
-  const normalized = address.toLowerCase();
-  const chainTokens = TOKEN_SYMBOLS[chainId];
-  
-  if (!chainTokens) {
-    return 'UNKNOWN';
-  }
-  
-  for (const [addr, symbol] of Object.entries(chainTokens)) {
-    if (addr.toLowerCase() === normalized) return symbol;
-  }
-  
-  return 'UNKNOWN';
 }
 
+export function getTokenSymbol(address: string, chainId: EVMChainId): string {
+  const normalized = address.toLowerCase()
+  const chainTokens = TOKEN_SYMBOLS[chainId]
+
+  if (!chainTokens) {
+    return 'UNKNOWN'
+  }
+
+  for (const [addr, symbol] of Object.entries(chainTokens)) {
+    if (addr.toLowerCase() === normalized) return symbol
+  }
+
+  return 'UNKNOWN'
+}

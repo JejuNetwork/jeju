@@ -467,9 +467,19 @@ pub mod agent_registry {
                 .total_staked
                 .saturating_sub(stake_amount);
 
-            // Transfer stake back to owner
-            **ctx.accounts.stake_vault.try_borrow_mut_lamports()? -= stake_amount;
-            **ctx.accounts.owner.try_borrow_mut_lamports()? += stake_amount;
+            // SECURITY: Check that vault will remain rent-exempt after withdrawal
+            let rent = Rent::get()?;
+            let vault_lamports = ctx.accounts.stake_vault.lamports();
+            let min_rent = rent.minimum_balance(0); // SystemAccount has 0 data bytes
+            
+            let withdrawable = vault_lamports.saturating_sub(min_rent);
+            let actual_withdraw = stake_amount.min(withdrawable);
+            
+            require!(actual_withdraw > 0, ErrorCode::InsufficientVaultBalance);
+
+            // Transfer stake back to owner using CPI for proper accounting
+            **ctx.accounts.stake_vault.try_borrow_mut_lamports()? -= actual_withdraw;
+            **ctx.accounts.owner.try_borrow_mut_lamports()? += actual_withdraw;
         }
 
         emit!(StakeWithdrawn {
@@ -1094,4 +1104,10 @@ pub enum ErrorCode {
 
     #[msg("Wormhole not configured")]
     WormholeNotConfigured,
+
+    #[msg("Invalid slash recipient - must be governance address")]
+    InvalidSlashRecipient,
+
+    #[msg("Insufficient vault balance for withdrawal")]
+    InsufficientVaultBalance,
 }

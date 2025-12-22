@@ -4,40 +4,40 @@
  * End-to-end tests for the Reinforcement Learning from AI Feedback system.
  */
 
-import { describe, test, expect, beforeAll, mock } from 'bun:test';
+import { beforeAll, describe, expect, mock, test } from 'bun:test'
+import { RulerScorer } from '../src/rlaif/ruler-scorer'
+import { TrajectoryStore } from '../src/rlaif/trajectory-store'
 import type {
+  JudgeRubric,
+  JudgeScore,
   RLAIFRunConfig,
   RLAlgorithm,
   Trajectory,
-  JudgeRubric,
-  JudgeScore,
-} from '../src/rlaif/types';
-import { TrajectoryStore } from '../src/rlaif/trajectory-store';
-import { RulerScorer } from '../src/rlaif/ruler-scorer';
+} from '../src/rlaif/types'
 
 // Mock fetch for storage tests
-const mockStorageResponses = new Map<string, unknown>();
-const originalFetch = globalThis.fetch;
+const mockStorageResponses = new Map<string, unknown>()
+const originalFetch = globalThis.fetch
 
 beforeAll(() => {
   globalThis.fetch = mock(async (url: string, options?: RequestInit) => {
-    const urlStr = url.toString();
+    const urlStr = url.toString()
 
     if (urlStr.includes('/upload')) {
-      const body = options?.body;
-      const content = typeof body === 'string' ? body : '';
-      const cid = `mock-cid-${Math.random().toString(36).slice(2, 10)}`;
-      mockStorageResponses.set(cid, JSON.parse(content));
-      return new Response(JSON.stringify({ cid }), { status: 200 });
+      const body = options?.body
+      const content = typeof body === 'string' ? body : ''
+      const cid = `mock-cid-${Math.random().toString(36).slice(2, 10)}`
+      mockStorageResponses.set(cid, JSON.parse(content))
+      return new Response(JSON.stringify({ cid }), { status: 200 })
     }
 
     if (urlStr.includes('/get/')) {
-      const cid = urlStr.split('/get/')[1];
-      const data = mockStorageResponses.get(cid ?? '');
+      const cid = urlStr.split('/get/')[1]
+      const data = mockStorageResponses.get(cid ?? '')
       if (data) {
-        return new Response(JSON.stringify(data), { status: 200 });
+        return new Response(JSON.stringify(data), { status: 200 })
       }
-      return new Response('Not found', { status: 404 });
+      return new Response('Not found', { status: 404 })
     }
 
     if (urlStr.includes('/judge')) {
@@ -45,23 +45,31 @@ beforeAll(() => {
         JSON.stringify({
           content: JSON.stringify({
             scores: [
-              { trajectory_id: 'trajectory-1', explanation: 'Good', score: 0.8 },
-              { trajectory_id: 'trajectory-2', explanation: 'Average', score: 0.5 },
+              {
+                trajectory_id: 'trajectory-1',
+                explanation: 'Good',
+                score: 0.8,
+              },
+              {
+                trajectory_id: 'trajectory-2',
+                explanation: 'Average',
+                score: 0.5,
+              },
             ],
           }),
         }),
-        { status: 200 }
-      );
+        { status: 200 },
+      )
     }
 
-    return originalFetch(url, options);
-  });
-});
+    return originalFetch(url, options)
+  })
+})
 
 describe('TrajectoryStore', () => {
   const store = new TrajectoryStore({
     storageApiUrl: 'http://localhost:4011',
-  });
+  })
 
   test('should store and load trajectory', async () => {
     const trajectory: Trajectory = {
@@ -93,16 +101,16 @@ describe('TrajectoryStore', () => {
         endTime: Date.now() + 1000,
         episodeLength: 2,
       },
-    };
+    }
 
-    const cid = await store.storeTrajectory(trajectory);
-    expect(cid).toMatch(/^mock-cid-/);
+    const cid = await store.storeTrajectory(trajectory)
+    expect(cid).toMatch(/^mock-cid-/)
 
-    const loaded = await store.loadTrajectory(cid);
-    expect(loaded.id).toBe(trajectory.id);
-    expect(loaded.totalReward).toBe(1.5);
-    expect(loaded.steps.length).toBe(2);
-  });
+    const loaded = await store.loadTrajectory(cid)
+    expect(loaded.id).toBe(trajectory.id)
+    expect(loaded.totalReward).toBe(1.5)
+    expect(loaded.steps.length).toBe(2)
+  })
 
   test('should store multiple trajectories and create manifest', async () => {
     const trajectories: Trajectory[] = [
@@ -111,7 +119,16 @@ describe('TrajectoryStore', () => {
         environmentId: 'test-env',
         agentId: 'agent-1',
         policyModelCID: 'model-cid',
-        steps: [{ stepNumber: 0, timestamp: Date.now(), observation: {}, action: { type: 'a', parameters: {} }, reward: 1, done: true }],
+        steps: [
+          {
+            stepNumber: 0,
+            timestamp: Date.now(),
+            observation: {},
+            action: { type: 'a', parameters: {} },
+            reward: 1,
+            done: true,
+          },
+        ],
         totalReward: 1,
         metadata: { startTime: 0, endTime: 1, episodeLength: 1 },
       },
@@ -120,39 +137,60 @@ describe('TrajectoryStore', () => {
         environmentId: 'test-env',
         agentId: 'agent-2',
         policyModelCID: 'model-cid',
-        steps: [{ stepNumber: 0, timestamp: Date.now(), observation: {}, action: { type: 'b', parameters: {} }, reward: 2, done: true }],
+        steps: [
+          {
+            stepNumber: 0,
+            timestamp: Date.now(),
+            observation: {},
+            action: { type: 'b', parameters: {} },
+            reward: 2,
+            done: true,
+          },
+        ],
         totalReward: 2,
         metadata: { startTime: 0, endTime: 1, episodeLength: 1 },
       },
-    ];
+    ]
 
-    const manifest = await store.storeTrajectories(trajectories);
+    const manifest = await store.storeTrajectories(trajectories)
 
-    expect(manifest.cid).toMatch(/^mock-cid-/);
-    expect(manifest.totalCount).toBe(2);
-    expect(manifest.trajectoryCIDs.length).toBe(2);
-    expect(manifest.merkleRoot).toMatch(/^0x/);
-  });
+    expect(manifest.cid).toMatch(/^mock-cid-/)
+    expect(manifest.totalCount).toBe(2)
+    expect(manifest.trajectoryCIDs.length).toBe(2)
+    expect(manifest.merkleRoot).toMatch(/^0x/)
+  })
 
   test('should store and load rewards', async () => {
     const scores: JudgeScore[] = [
-      { trajectoryId: 't1', score: 0.8, reasoning: 'Good', rubricId: 'default', judgedAt: Date.now() },
-      { trajectoryId: 't2', score: 0.5, reasoning: 'Average', rubricId: 'default', judgedAt: Date.now() },
-    ];
+      {
+        trajectoryId: 't1',
+        score: 0.8,
+        reasoning: 'Good',
+        rubricId: 'default',
+        judgedAt: Date.now(),
+      },
+      {
+        trajectoryId: 't2',
+        score: 0.5,
+        reasoning: 'Average',
+        rubricId: 'default',
+        judgedAt: Date.now(),
+      },
+    ]
 
-    const cid = await store.storeRewards(scores);
-    expect(cid).toMatch(/^mock-cid-/);
+    const cid = await store.storeRewards(scores)
+    expect(cid).toMatch(/^mock-cid-/)
 
-    const loaded = await store.loadRewards(cid);
-    expect(loaded.length).toBe(2);
-    expect(loaded[0]?.score).toBe(0.8);
-  });
-});
+    const loaded = await store.loadRewards(cid)
+    expect(loaded.length).toBe(2)
+    expect(loaded[0]?.score).toBe(0.8)
+  })
+})
 
 describe('RulerScorer', () => {
   const scorer = new RulerScorer({
     computeApiUrl: 'http://localhost:4010',
-  });
+  })
 
   test('should score trajectories', async () => {
     const trajectories: Trajectory[] = [
@@ -162,7 +200,14 @@ describe('RulerScorer', () => {
         agentId: 'agent-1',
         policyModelCID: 'model',
         steps: [
-          { stepNumber: 0, timestamp: Date.now(), observation: {}, action: { type: 'buy', parameters: {} }, reward: 10, done: true },
+          {
+            stepNumber: 0,
+            timestamp: Date.now(),
+            observation: {},
+            action: { type: 'buy', parameters: {} },
+            reward: 10,
+            done: true,
+          },
         ],
         totalReward: 10,
         metadata: { startTime: 0, endTime: 1, episodeLength: 1, finalPnL: 100 },
@@ -173,12 +218,19 @@ describe('RulerScorer', () => {
         agentId: 'agent-2',
         policyModelCID: 'model',
         steps: [
-          { stepNumber: 0, timestamp: Date.now(), observation: {}, action: { type: 'sell', parameters: {} }, reward: 5, done: true },
+          {
+            stepNumber: 0,
+            timestamp: Date.now(),
+            observation: {},
+            action: { type: 'sell', parameters: {} },
+            reward: 5,
+            done: true,
+          },
         ],
         totalReward: 5,
         metadata: { startTime: 0, endTime: 1, episodeLength: 1, finalPnL: 50 },
       },
-    ];
+    ]
 
     const rubric: JudgeRubric = {
       id: 'test-rubric',
@@ -186,15 +238,15 @@ describe('RulerScorer', () => {
       description: 'Test evaluation',
       criteria: 'Higher reward is better',
       priorityMetrics: ['totalReward'],
-    };
+    }
 
-    const scores = await scorer.scoreTrajectories(trajectories, rubric);
+    const scores = await scorer.scoreTrajectories(trajectories, rubric)
 
-    expect(scores.length).toBe(2);
-    expect(scores[0]?.score).toBeGreaterThan(0);
-    expect(scores[0]?.score).toBeLessThanOrEqual(1);
-    expect(scores[0]?.rubricId).toBe('test-rubric');
-  });
+    expect(scores.length).toBe(2)
+    expect(scores[0]?.score).toBeGreaterThan(0)
+    expect(scores[0]?.score).toBeLessThanOrEqual(1)
+    expect(scores[0]?.rubricId).toBe('test-rubric')
+  })
 
   test('should return empty for insufficient trajectories', async () => {
     const trajectories: Trajectory[] = [
@@ -207,7 +259,7 @@ describe('RulerScorer', () => {
         totalReward: 0,
         metadata: { startTime: 0, endTime: 0, episodeLength: 0 },
       },
-    ];
+    ]
 
     const rubric: JudgeRubric = {
       id: 'test',
@@ -215,12 +267,12 @@ describe('RulerScorer', () => {
       description: '',
       criteria: '',
       priorityMetrics: [],
-    };
+    }
 
-    const scores = await scorer.scoreTrajectories(trajectories, rubric);
-    expect(scores.length).toBe(0);
-  });
-});
+    const scores = await scorer.scoreTrajectories(trajectories, rubric)
+    expect(scores.length).toBe(0)
+  })
+})
 
 describe('RLAIF Config', () => {
   test('should create valid run config', () => {
@@ -265,15 +317,15 @@ describe('RLAIF Config', () => {
       },
       targetIterations: 10,
       minTrajectoriesPerIteration: 20,
-    };
+    }
 
-    expect(config.runId).toBe('test-run');
-    expect(config.rl.algorithm).toBe('grpo');
-    expect(config.targetIterations).toBe(10);
-  });
+    expect(config.runId).toBe('test-run')
+    expect(config.rl.algorithm).toBe('grpo')
+    expect(config.targetIterations).toBe(10)
+  })
 
   test('should support all RL algorithms', () => {
-    const algorithms: RLAlgorithm[] = ['grpo', 'ppo', 'dpo', 'reinforce'];
+    const algorithms: RLAlgorithm[] = ['grpo', 'ppo', 'dpo', 'reinforce']
 
     for (const algo of algorithms) {
       const config: Partial<RLAIFRunConfig> = {
@@ -291,11 +343,11 @@ describe('RLAIF Config', () => {
           epochs: 1,
           clipRange: 0.2,
         },
-      };
-      expect(config.rl?.algorithm).toBe(algo);
+      }
+      expect(config.rl?.algorithm).toBe(algo)
     }
-  });
-});
+  })
+})
 
 describe('Trajectory Format', () => {
   test('should support LLM calls in steps', () => {
@@ -338,19 +390,21 @@ describe('Trajectory Format', () => {
         archetype: 'trader',
         finalPnL: 100,
       },
-    };
+    }
 
-    expect(trajectory.steps[0]?.llmCalls?.length).toBe(1);
-    expect(trajectory.steps[0]?.llmCalls?.[0]?.purpose).toBe('reasoning');
-    expect(trajectory.metadata.archetype).toBe('trader');
-    expect(trajectory.metadata.finalPnL).toBe(100);
-  });
-});
+    expect(trajectory.steps[0]?.llmCalls?.length).toBe(1)
+    expect(trajectory.steps[0]?.llmCalls?.[0]?.purpose).toBe('reasoning')
+    expect(trajectory.metadata.archetype).toBe('trader')
+    expect(trajectory.metadata.finalPnL).toBe(100)
+  })
+})
 
 describe('Integration', () => {
   test('should flow from trajectories to scores to training data', async () => {
-    const store = new TrajectoryStore({ storageApiUrl: 'http://localhost:4011' });
-    const scorer = new RulerScorer({ computeApiUrl: 'http://localhost:4010' });
+    const store = new TrajectoryStore({
+      storageApiUrl: 'http://localhost:4011',
+    })
+    const scorer = new RulerScorer({ computeApiUrl: 'http://localhost:4010' })
 
     // Create trajectories
     const trajectories: Trajectory[] = [
@@ -359,7 +413,16 @@ describe('Integration', () => {
         environmentId: 'test',
         agentId: 'a1',
         policyModelCID: 'model',
-        steps: [{ stepNumber: 0, timestamp: Date.now(), observation: {}, action: { type: 'a', parameters: {} }, reward: 1, done: true }],
+        steps: [
+          {
+            stepNumber: 0,
+            timestamp: Date.now(),
+            observation: {},
+            action: { type: 'a', parameters: {} },
+            reward: 1,
+            done: true,
+          },
+        ],
         totalReward: 1,
         metadata: { startTime: 0, endTime: 1, episodeLength: 1 },
       },
@@ -368,15 +431,24 @@ describe('Integration', () => {
         environmentId: 'test',
         agentId: 'a2',
         policyModelCID: 'model',
-        steps: [{ stepNumber: 0, timestamp: Date.now(), observation: {}, action: { type: 'b', parameters: {} }, reward: 2, done: true }],
+        steps: [
+          {
+            stepNumber: 0,
+            timestamp: Date.now(),
+            observation: {},
+            action: { type: 'b', parameters: {} },
+            reward: 2,
+            done: true,
+          },
+        ],
         totalReward: 2,
         metadata: { startTime: 0, endTime: 1, episodeLength: 1 },
       },
-    ];
+    ]
 
     // Store trajectories
-    const manifest = await store.storeTrajectories(trajectories);
-    expect(manifest.totalCount).toBe(2);
+    const manifest = await store.storeTrajectories(trajectories)
+    expect(manifest.totalCount).toBe(2)
 
     // Score trajectories
     const scores = await scorer.scoreTrajectories(trajectories, {
@@ -385,16 +457,15 @@ describe('Integration', () => {
       description: '',
       criteria: '',
       priorityMetrics: [],
-    });
-    expect(scores.length).toBe(2);
+    })
+    expect(scores.length).toBe(2)
 
     // Store rewards
-    const rewardsCid = await store.storeRewards(scores);
-    expect(rewardsCid).toMatch(/^mock-cid-/);
+    const rewardsCid = await store.storeRewards(scores)
+    expect(rewardsCid).toMatch(/^mock-cid-/)
 
     // Load rewards
-    const loadedScores = await store.loadRewards(rewardsCid);
-    expect(loadedScores.length).toBe(2);
-  });
-});
-
+    const loadedScores = await store.loadRewards(rewardsCid)
+    expect(loadedScores.length).toBe(2)
+  })
+})

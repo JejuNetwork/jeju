@@ -21,29 +21,40 @@ async function callA2A<T>(request: A2ARequest): Promise<A2AResponse<T>> {
       params: {
         message: {
           messageId: `web-${Date.now()}`,
-          parts: [{ kind: 'data', data: { skillId: request.skillId, params: request.params || {} } }]
-        }
-      }
-    })
+          parts: [
+            {
+              kind: 'data',
+              data: { skillId: request.skillId, params: request.params || {} },
+            },
+          ],
+        },
+      },
+    }),
   })
 
   if (!response.ok) {
-    throw new Error(`A2A request failed: ${response.status} ${response.statusText}`)
+    throw new Error(
+      `A2A request failed: ${response.status} ${response.statusText}`,
+    )
   }
 
   const json = await response.json()
-  
+
   // Check for JSON-RPC error
   if (json.error) {
     throw new Error(json.error.message || 'A2A error')
   }
 
-  const dataPart = json.result?.parts?.find((p: { kind: string }) => p.kind === 'data')
-  const textPart = json.result?.parts?.find((p: { kind: string }) => p.kind === 'text')
+  const dataPart = json.result?.parts?.find(
+    (p: { kind: string }) => p.kind === 'data',
+  )
+  const textPart = json.result?.parts?.find(
+    (p: { kind: string }) => p.kind === 'text',
+  )
 
   return {
     message: textPart?.text || '',
-    data: (dataPart?.data || {}) as T
+    data: (dataPart?.data || {}) as T,
   }
 }
 
@@ -131,13 +142,21 @@ export async function fetchHealth() {
   return response.json()
 }
 
-export async function fetchProposals(activeOnly = false): Promise<ProposalList> {
-  const result = await callA2A<ProposalList>({ skillId: 'list-proposals', params: { activeOnly } })
+export async function fetchProposals(
+  activeOnly = false,
+): Promise<ProposalList> {
+  const result = await callA2A<ProposalList>({
+    skillId: 'list-proposals',
+    params: { activeOnly },
+  })
   return result.data
 }
 
 export async function fetchProposal(proposalId: string): Promise<Proposal> {
-  const result = await callA2A<Proposal>({ skillId: 'get-proposal', params: { proposalId } })
+  const result = await callA2A<Proposal>({
+    skillId: 'get-proposal',
+    params: { proposalId },
+  })
   return result.data
 }
 
@@ -176,19 +195,25 @@ export async function fetchModelCandidates(): Promise<ModelCandidate[]> {
 }
 
 export async function fetchRecentDecisions(limit = 10): Promise<Decision[]> {
-  const response = await fetch(`${API_BASE}/api/v1/ceo/decisions?limit=${limit}`)
+  const response = await fetch(
+    `${API_BASE}/api/v1/ceo/decisions?limit=${limit}`,
+  )
   if (!response.ok) return []
   const data = await response.json()
   return data.decisions ?? []
 }
 
 export async function fetchGovernanceStats(): Promise<GovernanceStats> {
-  const result = await callA2A<GovernanceStats>({ skillId: 'get-governance-stats' })
+  const result = await callA2A<GovernanceStats>({
+    skillId: 'get-governance-stats',
+  })
   return result.data
 }
 
 export async function fetchAutocratStatus(): Promise<AutocratStatus> {
-  const result = await callA2A<AutocratStatus>({ skillId: 'get-autocrat-status' })
+  const result = await callA2A<AutocratStatus>({
+    skillId: 'get-autocrat-status',
+  })
   return result.data
 }
 
@@ -198,7 +223,10 @@ export async function assessProposal(params: {
   description: string
   proposalType: string
 }): Promise<QualityAssessment> {
-  const result = await callA2A<QualityAssessment>({ skillId: 'assess-proposal', params })
+  const result = await callA2A<QualityAssessment>({
+    skillId: 'assess-proposal',
+    params,
+  })
   return result.data
 }
 
@@ -260,53 +288,68 @@ export interface GeneratedProposal {
   tags: string[]
 }
 
-export async function assessProposalFull(draft: ProposalDraft): Promise<FullQualityAssessment> {
+export async function assessProposalFull(
+  draft: ProposalDraft,
+): Promise<FullQualityAssessment> {
   const response = await fetch(`${API_BASE}/api/v1/proposals/assess`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(draft)
+    body: JSON.stringify(draft),
   })
   if (!response.ok) throw new Error('Assessment failed')
   return response.json()
 }
 
-export async function checkDuplicates(draft: ProposalDraft): Promise<SimilarProposal[]> {
-  const response = await fetch(`${API_BASE}/api/v1/proposals/check-duplicates`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(draft)
-  })
+export async function checkDuplicates(
+  draft: ProposalDraft,
+): Promise<SimilarProposal[]> {
+  const response = await fetch(
+    `${API_BASE}/api/v1/proposals/check-duplicates`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(draft),
+    },
+  )
   if (!response.ok) throw new Error('Duplicate check failed')
   const data = await response.json()
   return data.duplicates
 }
 
-export async function improveProposal(draft: ProposalDraft, criterion: string): Promise<string> {
+export async function improveProposal(
+  draft: ProposalDraft,
+  criterion: string,
+): Promise<string> {
   const response = await fetch(`${API_BASE}/api/v1/proposals/improve`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ draft, criterion })
+    body: JSON.stringify({ draft, criterion }),
   })
   if (!response.ok) throw new Error('Improvement failed')
   const data: ImprovementResult = await response.json()
   return data.improved
 }
 
-export async function generateProposal(idea: string, proposalType: number): Promise<GeneratedProposal> {
+export async function generateProposal(
+  idea: string,
+  proposalType: number,
+): Promise<GeneratedProposal> {
   const response = await fetch(`${API_BASE}/api/v1/proposals/generate`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ idea, proposalType })
+    body: JSON.stringify({ idea, proposalType }),
   })
   if (!response.ok) throw new Error('Generation failed')
   return response.json()
 }
 
-export async function quickScore(draft: ProposalDraft): Promise<QuickScoreResult> {
+export async function quickScore(
+  draft: ProposalDraft,
+): Promise<QuickScoreResult> {
   const response = await fetch(`${API_BASE}/api/v1/proposals/quick-score`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(draft)
+    body: JSON.stringify(draft),
   })
   if (!response.ok) throw new Error('Quick score failed')
   return response.json()
@@ -354,21 +397,25 @@ export interface QuickScreenResult {
   greenFlags: string[]
 }
 
-export async function conductResearch(request: ResearchRequest): Promise<ResearchReport> {
+export async function conductResearch(
+  request: ResearchRequest,
+): Promise<ResearchReport> {
   const response = await fetch(`${API_BASE}/api/v1/research/conduct`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request)
+    body: JSON.stringify(request),
   })
   if (!response.ok) throw new Error('Research failed')
   return response.json()
 }
 
-export async function quickScreenResearch(request: ResearchRequest): Promise<QuickScreenResult> {
+export async function quickScreenResearch(
+  request: ResearchRequest,
+): Promise<QuickScreenResult> {
   const response = await fetch(`${API_BASE}/api/v1/research/quick-screen`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(request)
+    body: JSON.stringify(request),
   })
   if (!response.ok) throw new Error('Quick screen failed')
   return response.json()
@@ -378,7 +425,7 @@ export async function factCheck(claim: string, context: string) {
   const response = await fetch(`${API_BASE}/api/v1/research/fact-check`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ claim, context })
+    body: JSON.stringify({ claim, context }),
   })
   if (!response.ok) throw new Error('Fact check failed')
   return response.json()
@@ -401,11 +448,15 @@ export async function fetchOrchestratorStatus(): Promise<OrchestratorStatus> {
 }
 
 export async function startOrchestrator() {
-  const response = await fetch(`${API_BASE}/api/v1/orchestrator/start`, { method: 'POST' })
+  const response = await fetch(`${API_BASE}/api/v1/orchestrator/start`, {
+    method: 'POST',
+  })
   return response.json()
 }
 
 export async function stopOrchestrator() {
-  const response = await fetch(`${API_BASE}/api/v1/orchestrator/stop`, { method: 'POST' })
+  const response = await fetch(`${API_BASE}/api/v1/orchestrator/stop`, {
+    method: 'POST',
+  })
   return response.json()
 }

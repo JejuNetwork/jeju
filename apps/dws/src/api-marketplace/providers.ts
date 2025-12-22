@@ -4,7 +4,7 @@
  * All supported providers with their auth patterns and default pricing
  */
 
-import type { APIProvider, ProviderCategory } from './types';
+import type { APIProvider, ProviderCategory } from './types'
 
 // ============================================================================
 // AI/Inference Providers
@@ -19,11 +19,18 @@ const inferenceProviders: APIProvider[] = [
     authType: 'bearer',
     authConfig: { headerName: 'Authorization', prefix: 'Bearer ' },
     schemaType: 'openapi',
-    schemaUrl: 'https://raw.githubusercontent.com/openai/openai-openapi/master/openapi.yaml',
+    schemaUrl:
+      'https://raw.githubusercontent.com/openai/openai-openapi/master/openapi.yaml',
     categories: ['inference'],
     envVar: 'OPENAI_API_KEY',
     defaultPricePerRequest: 100000000000000n, // 0.0001 ETH
-    knownEndpoints: ['/chat/completions', '/completions', '/embeddings', '/images/generations', '/audio/transcriptions'],
+    knownEndpoints: [
+      '/chat/completions',
+      '/completions',
+      '/embeddings',
+      '/images/generations',
+      '/audio/transcriptions',
+    ],
     supportsStreaming: true,
   },
   {
@@ -65,7 +72,10 @@ const inferenceProviders: APIProvider[] = [
     categories: ['inference'],
     envVar: 'GOOGLE_AI_API_KEY',
     defaultPricePerRequest: 50000000000000n, // 0.00005 ETH
-    knownEndpoints: ['/models/gemini-pro:generateContent', '/models/gemini-pro-vision:generateContent'],
+    knownEndpoints: [
+      '/models/gemini-pro:generateContent',
+      '/models/gemini-pro-vision:generateContent',
+    ],
     supportsStreaming: true,
   },
   {
@@ -149,7 +159,12 @@ const inferenceProviders: APIProvider[] = [
     categories: ['inference'],
     envVar: 'TOGETHER_API_KEY',
     defaultPricePerRequest: 30000000000000n,
-    knownEndpoints: ['/chat/completions', '/completions', '/embeddings', '/images/generations'],
+    knownEndpoints: [
+      '/chat/completions',
+      '/completions',
+      '/embeddings',
+      '/images/generations',
+    ],
     supportsStreaming: true,
   },
   {
@@ -208,7 +223,7 @@ const inferenceProviders: APIProvider[] = [
     knownEndpoints: ['/chat/completions', '/j2-ultra/complete'],
     supportsStreaming: false,
   },
-];
+]
 
 // ============================================================================
 // Cloud Provider AI Services (AWS, GCP, Azure)
@@ -288,7 +303,7 @@ const cloudProviders: APIProvider[] = [
     knownEndpoints: ['/chat/completions'],
     supportsStreaming: true,
   },
-];
+]
 
 // ============================================================================
 // Blockchain/RPC Providers
@@ -334,10 +349,14 @@ const blockchainProviders: APIProvider[] = [
     categories: ['blockchain', 'data'],
     envVar: 'ETHERSCAN_API_KEY',
     defaultPricePerRequest: 500000000000n,
-    knownEndpoints: ['?module=account', '?module=contract', '?module=transaction'],
+    knownEndpoints: [
+      '?module=account',
+      '?module=contract',
+      '?module=transaction',
+    ],
     supportsStreaming: false,
   },
-];
+]
 
 // ============================================================================
 // Data/Analytics Providers
@@ -355,7 +374,12 @@ const dataProviders: APIProvider[] = [
     categories: ['data', 'blockchain'],
     envVar: 'BIRDEYE_API_KEY',
     defaultPricePerRequest: 5000000000000n,
-    knownEndpoints: ['/defi/price', '/defi/tokenlist', '/defi/history_price', '/trader/gainers-losers'],
+    knownEndpoints: [
+      '/defi/price',
+      '/defi/tokenlist',
+      '/defi/history_price',
+      '/trader/gainers-losers',
+    ],
     supportsStreaming: false,
   },
   {
@@ -372,7 +396,7 @@ const dataProviders: APIProvider[] = [
     knownEndpoints: ['/simple/price', '/coins/markets', '/coins/list'],
     supportsStreaming: false,
   },
-];
+]
 
 // ============================================================================
 // Search/Scraping Providers
@@ -407,7 +431,7 @@ const searchProviders: APIProvider[] = [
     knownEndpoints: ['/scrape', '/crawl', '/map'],
     supportsStreaming: false,
   },
-];
+]
 
 // ============================================================================
 // Media Generation Providers
@@ -425,7 +449,11 @@ const mediaProviders: APIProvider[] = [
     categories: ['media', 'inference'],
     envVar: 'FAL_API_KEY',
     defaultPricePerRequest: 50000000000000n,
-    knownEndpoints: ['/fal-ai/flux/dev', '/fal-ai/flux-pro', '/fal-ai/stable-diffusion-v3-medium'],
+    knownEndpoints: [
+      '/fal-ai/flux/dev',
+      '/fal-ai/flux-pro',
+      '/fal-ai/stable-diffusion-v3-medium',
+    ],
     supportsStreaming: false,
   },
   {
@@ -456,7 +484,7 @@ const mediaProviders: APIProvider[] = [
     knownEndpoints: ['/text-to-speech', '/voices', '/voice-generation'],
     supportsStreaming: true,
   },
-];
+]
 
 // ============================================================================
 // All Providers
@@ -469,18 +497,18 @@ export const ALL_PROVIDERS: APIProvider[] = [
   ...dataProviders,
   ...searchProviders,
   ...mediaProviders,
-];
+]
 
 export const PROVIDERS_BY_ID = new Map<string, APIProvider>(
-  ALL_PROVIDERS.map((p) => [p.id, p])
-);
+  ALL_PROVIDERS.map((p) => [p.id, p]),
+)
 
-export const PROVIDERS_BY_CATEGORY = new Map<ProviderCategory, APIProvider[]>();
+export const PROVIDERS_BY_CATEGORY = new Map<ProviderCategory, APIProvider[]>()
 for (const provider of ALL_PROVIDERS) {
   for (const category of provider.categories) {
-    const existing = PROVIDERS_BY_CATEGORY.get(category) || [];
-    existing.push(provider);
-    PROVIDERS_BY_CATEGORY.set(category, existing);
+    const existing = PROVIDERS_BY_CATEGORY.get(category) || []
+    existing.push(provider)
+    PROVIDERS_BY_CATEGORY.set(category, existing)
   }
 }
 
@@ -488,27 +516,29 @@ for (const provider of ALL_PROVIDERS) {
  * Get provider by ID
  */
 export function getProvider(id: string): APIProvider | undefined {
-  return PROVIDERS_BY_ID.get(id);
+  return PROVIDERS_BY_ID.get(id)
 }
 
 /**
  * Get providers by category
  */
-export function getProvidersByCategory(category: ProviderCategory): APIProvider[] {
-  return PROVIDERS_BY_CATEGORY.get(category) || [];
+export function getProvidersByCategory(
+  category: ProviderCategory,
+): APIProvider[] {
+  return PROVIDERS_BY_CATEGORY.get(category) || []
 }
 
 /**
  * Get all configured providers (those with env vars set)
  */
 export function getConfiguredProviders(): APIProvider[] {
-  return ALL_PROVIDERS.filter((p) => process.env[p.envVar]);
+  return ALL_PROVIDERS.filter((p) => process.env[p.envVar])
 }
 
 /**
  * Check if a provider is configured
  */
 export function isProviderConfigured(id: string): boolean {
-  const provider = PROVIDERS_BY_ID.get(id);
-  return provider ? !!process.env[provider.envVar] : false;
+  const provider = PROVIDERS_BY_ID.get(id)
+  return provider ? !!process.env[provider.envVar] : false
 }

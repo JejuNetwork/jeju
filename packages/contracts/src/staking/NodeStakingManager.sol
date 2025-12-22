@@ -270,11 +270,17 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             emit PaymasterFeeDistributed(stakingPaymaster, stakingPaymasterFee, "staking");
         }
 
-        (bool success1,) = payable(rewardPaymaster).call{value: _convertUSDToETH(rewardPaymasterFee)}("");
+        // Validate paymaster addresses before transfer
+        if (rewardPaymaster == address(0)) revert InvalidAddress();
+        
+        uint256 rewardFeeETH = _convertUSDToETH(rewardPaymasterFee);
+        (bool success1,) = payable(rewardPaymaster).call{value: rewardFeeETH}("");
         if (!success1) revert TransferFailed();
 
         if (stakingPaymasterFee > 0) {
-            (bool success2,) = payable(stakingPaymaster).call{value: _convertUSDToETH(stakingPaymasterFee)}("");
+            if (stakingPaymaster == address(0)) revert InvalidAddress();
+            uint256 stakeFeeETH = _convertUSDToETH(stakingPaymasterFee);
+            (bool success2,) = payable(stakingPaymaster).call{value: stakeFeeETH}("");
             if (!success2) revert TransferFailed();
         }
 
@@ -347,11 +353,21 @@ contract NodeStakingManager is INodeStakingManager, Ownable, Pausable, Reentranc
             emit RewardsClaimed(nodeId, msg.sender, rewardToken, rewardAmount, _convertUSDToETH(rewardFee + stakeFee));
         }
 
-        if (rewardPaymasterAddr != address(0)) {
-            (bool success1,) = payable(rewardPaymasterAddr).call{value: _convertUSDToETH(rewardFee)}("");
-            if (stakeFee > 0 && success1 && stakingPaymasterAddr != address(0)) {
-                (bool success2,) = payable(stakingPaymasterAddr).call{value: _convertUSDToETH(stakeFee)}("");
-                success2; // Best-effort transfer to staking paymaster
+        // Transfer paymaster fees - these are optional and best-effort
+        // We don't revert on failure to ensure node deregistration completes
+        if (rewardPaymasterAddr != address(0) && rewardFee > 0) {
+            uint256 rewardFeeETH = _convertUSDToETH(rewardFee);
+            if (address(this).balance >= rewardFeeETH) {
+                (bool success1,) = payable(rewardPaymasterAddr).call{value: rewardFeeETH}("");
+                // Continue even if this fails - deregistration should not be blocked
+                if (success1 && stakeFee > 0 && stakingPaymasterAddr != address(0)) {
+                    uint256 stakeFeeETH = _convertUSDToETH(stakeFee);
+                    if (address(this).balance >= stakeFeeETH) {
+                        // Best-effort transfer to staking paymaster - ignore return value intentionally
+                        (bool success2,) = payable(stakingPaymasterAddr).call{value: stakeFeeETH}("");
+                        success2; // Silence unused variable warning - intentionally ignoring result
+                    }
+                }
             }
         }
 

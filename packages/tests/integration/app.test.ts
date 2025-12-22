@@ -1,6 +1,6 @@
 /**
  * Decentralized App Deployment Integration Tests
- * 
+ *
  * Tests the complete flow of deploying a decentralized app:
  * 1. Upload to IPFS
  * 2. Register JNS name
@@ -9,53 +9,62 @@
  * 5. Verify serving via gateway
  */
 
-import { describe, test, expect } from 'bun:test';
-import { createPublicClient, createWalletClient, http, type Address, type Hex, namehash, parseEther } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
-import { localhost } from 'viem/chains';
-import { L1_LOCALNET, APP_PORTS, TEST_WALLETS } from '../shared/constants';
+import { describe, expect, test } from 'bun:test'
+import {
+  type Address,
+  createPublicClient,
+  createWalletClient,
+  type Hex,
+  http,
+  namehash,
+  parseEther,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { localhost } from 'viem/chains'
+import { APP_PORTS, L1_LOCALNET, TEST_WALLETS } from '../shared/constants'
 
-const HOST = process.env.HOST || '127.0.0.1';
+const HOST = process.env.HOST || '127.0.0.1'
 
 // Test configuration
-const RPC_URL = process.env.RPC_URL ?? L1_LOCALNET.rpcUrl;
-const IPFS_API_URL = process.env.IPFS_API_URL ?? `http://${HOST}:5001`;
-const JNS_GATEWAY_URL = process.env.JNS_GATEWAY_URL ?? `http://${HOST}:${APP_PORTS.predimarket}`;
+const RPC_URL = process.env.RPC_URL ?? L1_LOCALNET.rpcUrl
+const IPFS_API_URL = process.env.IPFS_API_URL ?? `http://${HOST}:5001`
+const JNS_GATEWAY_URL =
+  process.env.JNS_GATEWAY_URL ?? `http://${HOST}:${APP_PORTS.predimarket}`
 
 // Contract addresses (from deployment)
-const JNS_REGISTRAR = (process.env.JNS_REGISTRAR ?? '0x0') as Address;
-const JNS_RESOLVER = (process.env.JNS_RESOLVER ?? '0x0') as Address;
-const KEEPALIVE_REGISTRY = (process.env.KEEPALIVE_REGISTRY ?? '0x0') as Address;
+const JNS_REGISTRAR = (process.env.JNS_REGISTRAR ?? '0x0') as Address
+const JNS_RESOLVER = (process.env.JNS_RESOLVER ?? '0x0') as Address
+const KEEPALIVE_REGISTRY = (process.env.KEEPALIVE_REGISTRY ?? '0x0') as Address
 
 // Test wallet
-const TEST_PRIVATE_KEY = TEST_WALLETS.deployer.privateKey as Hex;
-const account = privateKeyToAccount(TEST_PRIVATE_KEY);
+const TEST_PRIVATE_KEY = TEST_WALLETS.deployer.privateKey as Hex
+const account = privateKeyToAccount(TEST_PRIVATE_KEY)
 
 const chain = {
   ...localhost,
   id: 1337,
-};
+}
 
 const publicClient = createPublicClient({
   chain,
   transport: http(RPC_URL),
-});
+})
 
 const walletClient = createWalletClient({
   account,
   chain,
   transport: http(RPC_URL),
-});
+})
 
 // Skip tests if contracts not deployed
-const skipIfNoContracts = JNS_REGISTRAR === '0x0';
+const skipIfNoContracts = JNS_REGISTRAR === '0x0'
 
 describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
-  const testAppName = `testapp${Date.now()}`;
-  const testJnsName = `${testAppName}.jeju`;
-  let ipfsCid: string;
-  let jnsNode: Hex;
-  let keepaliveId: Hex;
+  const testAppName = `testapp${Date.now()}`
+  const testJnsName = `${testAppName}.jeju`
+  let ipfsCid: string
+  let jnsNode: Hex
+  let keepaliveId: Hex
 
   describe('IPFS Upload', () => {
     test('should upload content to IPFS', async () => {
@@ -64,44 +73,53 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
 <html>
 <head><title>${testAppName}</title></head>
 <body><h1>Hello from ${testAppName}</h1></body>
-</html>`;
+</html>`
 
-      const formData = new FormData();
-      formData.append('file', new Blob([htmlContent], { type: 'text/html' }), 'index.html');
+      const formData = new FormData()
+      formData.append(
+        'file',
+        new Blob([htmlContent], { type: 'text/html' }),
+        'index.html',
+      )
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5000);
-      
-      let response: Response;
+      const controller = new AbortController()
+      const timeoutId = setTimeout(() => controller.abort(), 5000)
+
+      let response: Response
       try {
         response = await fetch(`${IPFS_API_URL}/api/v0/add`, {
           method: 'POST',
           body: formData,
           signal: controller.signal,
-        });
+        })
       } catch (e) {
-        clearTimeout(timeoutId);
+        clearTimeout(timeoutId)
         // Connection refused or timeout - IPFS not available
-        if (e instanceof Error && (e.name === 'AbortError' || e.message.includes('ECONNREFUSED'))) {
-          console.log('IPFS not available - skipping upload test');
-          ipfsCid = 'QmTest123'; // Mock CID for subsequent tests
-          return;
+        if (
+          e instanceof Error &&
+          (e.name === 'AbortError' || e.message.includes('ECONNREFUSED'))
+        ) {
+          console.log('IPFS not available - skipping upload test')
+          ipfsCid = 'QmTest123' // Mock CID for subsequent tests
+          return
         }
-        throw e;
+        throw e
       }
-      clearTimeout(timeoutId);
+      clearTimeout(timeoutId)
 
       if (!response.ok) {
-        throw new Error(`IPFS upload failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `IPFS upload failed: ${response.status} ${response.statusText}`,
+        )
       }
 
-      const result = await response.json();
-      ipfsCid = result.Hash;
+      const result = await response.json()
+      ipfsCid = result.Hash
 
-      expect(ipfsCid).toMatch(/^Qm[a-zA-Z0-9]{44}$/);
-      console.log(`✅ Uploaded to IPFS: ${ipfsCid}`);
-    });
-  });
+      expect(ipfsCid).toMatch(/^Qm[a-zA-Z0-9]{44}$/)
+      console.log(`✅ Uploaded to IPFS: ${ipfsCid}`)
+    })
+  })
 
   describe('JNS Registration', () => {
     test('should check name availability', async () => {
@@ -113,18 +131,18 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
           inputs: [{ name: 'name', type: 'string' }],
           outputs: [{ type: 'bool' }],
         },
-      ] as const;
+      ] as const
 
       const available = await publicClient.readContract({
         address: JNS_REGISTRAR,
         abi: JNS_REGISTRAR_ABI,
         functionName: 'available',
         args: [testAppName],
-      });
+      })
 
-      expect(available).toBe(true);
-      console.log(`✅ Name ${testAppName} is available`);
-    });
+      expect(available).toBe(true)
+      console.log(`✅ Name ${testAppName} is available`)
+    })
 
     test('should register JNS name', async () => {
       const JNS_REGISTRAR_ABI = [
@@ -149,16 +167,16 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
           ],
           outputs: [{ type: 'uint256' }],
         },
-      ] as const;
+      ] as const
 
-      const duration = 365n * 24n * 60n * 60n; // 1 year
+      const duration = 365n * 24n * 60n * 60n // 1 year
 
       const price = await publicClient.readContract({
         address: JNS_REGISTRAR,
         abi: JNS_REGISTRAR_ABI,
         functionName: 'rentPrice',
         args: [testAppName, duration],
-      });
+      })
 
       const { request } = await publicClient.simulateContract({
         address: JNS_REGISTRAR,
@@ -167,15 +185,15 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
         args: [testAppName, account.address, duration],
         value: price,
         account,
-      });
+      })
 
-      const hash = await walletClient.writeContract(request);
-      await publicClient.waitForTransactionReceipt({ hash });
+      const hash = await walletClient.writeContract(request)
+      await publicClient.waitForTransactionReceipt({ hash })
 
-      jnsNode = namehash(testJnsName) as Hex;
-      expect(jnsNode).toMatch(/^0x[a-f0-9]{64}$/);
-      console.log(`✅ Registered JNS name: ${testJnsName}`);
-    });
+      jnsNode = namehash(testJnsName) as Hex
+      expect(jnsNode).toMatch(/^0x[a-f0-9]{64}$/)
+      console.log(`✅ Registered JNS name: ${testJnsName}`)
+    })
 
     test('should set contenthash', async () => {
       const JNS_RESOLVER_ABI = [
@@ -189,11 +207,12 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
           ],
           outputs: [],
         },
-      ] as const;
+      ] as const
 
       // Encode IPFS CID as contenthash
       // Format: 0xe3 (ipfs) + 0x01 (protobuf) + 0x01 (version) + 0x70 (dag-pb) + multihash
-      const contenthash = '0xe3010170122029f2d17be6139079dc48696d1f582a8530eb9805b561eda517e22a892c7e3f1f' as Hex;
+      const contenthash =
+        '0xe3010170122029f2d17be6139079dc48696d1f582a8530eb9805b561eda517e22a892c7e3f1f' as Hex
 
       const { request } = await publicClient.simulateContract({
         address: JNS_RESOLVER,
@@ -201,14 +220,14 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
         functionName: 'setContenthash',
         args: [jnsNode, contenthash],
         account,
-      });
+      })
 
-      const hash = await walletClient.writeContract(request);
-      await publicClient.waitForTransactionReceipt({ hash });
+      const hash = await walletClient.writeContract(request)
+      await publicClient.waitForTransactionReceipt({ hash })
 
-      console.log(`✅ Set contenthash for ${testJnsName}`);
-    });
-  });
+      console.log(`✅ Set contenthash for ${testJnsName}`)
+    })
+  })
 
   describe('Keepalive Configuration', () => {
     test('should register keepalive', async () => {
@@ -228,7 +247,7 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
           ],
           outputs: [{ type: 'bytes32' }],
         },
-      ] as const;
+      ] as const
 
       const { request } = await publicClient.simulateContract({
         address: KEEPALIVE_REGISTRY,
@@ -244,22 +263,22 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
           true, // Auto-fund enabled
         ],
         account,
-      });
+      })
 
-      const hash = await walletClient.writeContract(request);
-      const receipt = await publicClient.waitForTransactionReceipt({ hash });
+      const hash = await walletClient.writeContract(request)
+      const receipt = await publicClient.waitForTransactionReceipt({ hash })
 
-      const log = receipt.logs[0];
+      const log = receipt.logs[0]
       if (!log) {
-        throw new Error('No logs emitted from registerKeepalive transaction');
+        throw new Error('No logs emitted from registerKeepalive transaction')
       }
-      const topic = log.topics[1];
+      const topic = log.topics[1]
       if (!topic) {
-        throw new Error('Missing keepaliveId topic in log');
+        throw new Error('Missing keepaliveId topic in log')
       }
-      keepaliveId = topic as Hex;
-      console.log(`✅ Registered keepalive: ${keepaliveId.slice(0, 10)}...`);
-    });
+      keepaliveId = topic as Hex
+      console.log(`✅ Registered keepalive: ${keepaliveId.slice(0, 10)}...`)
+    })
 
     test('should add IPFS resource to keepalive', async () => {
       const KEEPALIVE_ABI = [
@@ -277,7 +296,7 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
           ],
           outputs: [],
         },
-      ] as const;
+      ] as const
 
       const { request } = await publicClient.simulateContract({
         address: KEEPALIVE_REGISTRY,
@@ -292,126 +311,160 @@ describe.skipIf(skipIfNoContracts)('Decentralized App Deployment', () => {
           true,
         ],
         account,
-      });
+      })
 
-      const hash = await walletClient.writeContract(request);
-      await publicClient.waitForTransactionReceipt({ hash });
+      const hash = await walletClient.writeContract(request)
+      await publicClient.waitForTransactionReceipt({ hash })
 
-      console.log(`✅ Added IPFS resource to keepalive`);
-    });
-  });
+      console.log(`✅ Added IPFS resource to keepalive`)
+    })
+  })
 
   describe('Gateway Serving', () => {
     test('should resolve JNS via gateway API', async () => {
-      let response: Response;
+      let response: Response
       try {
-        response = await fetch(`${JNS_GATEWAY_URL}/api/resolve/${testJnsName}`, {
-          signal: AbortSignal.timeout(5000),
-        });
+        response = await fetch(
+          `${JNS_GATEWAY_URL}/api/resolve/${testJnsName}`,
+          {
+            signal: AbortSignal.timeout(5000),
+          },
+        )
       } catch (e) {
-        if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError' || e.message.includes('ECONNREFUSED'))) {
-          console.log('Gateway not available - skipping resolve test');
-          return;
+        if (
+          e instanceof Error &&
+          (e.name === 'AbortError' ||
+            e.name === 'TimeoutError' ||
+            e.message.includes('ECONNREFUSED'))
+        ) {
+          console.log('Gateway not available - skipping resolve test')
+          return
         }
-        throw e;
+        throw e
       }
 
       if (!response.ok) {
-        throw new Error(`Gateway returned ${response.status}: ${response.statusText}`);
+        throw new Error(
+          `Gateway returned ${response.status}: ${response.statusText}`,
+        )
       }
 
-      const data = await response.json();
-      expect(data.name).toBe(testJnsName);
-      console.log(`✅ JNS resolution working via gateway`);
-    });
+      const data = await response.json()
+      expect(data.name).toBe(testJnsName)
+      console.log(`✅ JNS resolution working via gateway`)
+    })
 
     test('should check keepalive status via gateway', async () => {
-      let response: Response;
+      let response: Response
       try {
-        response = await fetch(`${JNS_GATEWAY_URL}/api/keepalive/status/${testJnsName}`, {
-          signal: AbortSignal.timeout(5000),
-        });
+        response = await fetch(
+          `${JNS_GATEWAY_URL}/api/keepalive/status/${testJnsName}`,
+          {
+            signal: AbortSignal.timeout(5000),
+          },
+        )
       } catch (e) {
-        if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError' || e.message.includes('ECONNREFUSED'))) {
-          console.log('Gateway not available - skipping keepalive status test');
-          return;
+        if (
+          e instanceof Error &&
+          (e.name === 'AbortError' ||
+            e.name === 'TimeoutError' ||
+            e.message.includes('ECONNREFUSED'))
+        ) {
+          console.log('Gateway not available - skipping keepalive status test')
+          return
         }
-        throw e;
+        throw e
       }
 
       if (!response.ok) {
-        throw new Error(`Gateway returned ${response.status}: ${response.statusText}`);
+        throw new Error(
+          `Gateway returned ${response.status}: ${response.statusText}`,
+        )
       }
 
-      const data = await response.json();
-      expect(data.name).toBe(testJnsName);
-      expect(typeof data.funded).toBe('boolean');
-      console.log(`✅ Keepalive status check working`);
-    });
-  });
-});
+      const data = await response.json()
+      expect(data.name).toBe(testJnsName)
+      expect(typeof data.funded).toBe('boolean')
+      console.log(`✅ Keepalive status check working`)
+    })
+  })
+})
 
 describe('Health Check Standard', () => {
   test('should implement standard health endpoints', async () => {
-    const endpoints = ['/health'];
-    let anyEndpointAvailable = false;
+    const endpoints = ['/health']
+    let anyEndpointAvailable = false
 
     for (const endpoint of endpoints) {
-      let response: Response;
+      let response: Response
       try {
-        response = await fetch(`${JNS_GATEWAY_URL}${endpoint}`, { signal: AbortSignal.timeout(2000) });
+        response = await fetch(`${JNS_GATEWAY_URL}${endpoint}`, {
+          signal: AbortSignal.timeout(2000),
+        })
       } catch (e) {
-        if (e instanceof Error && (e.name === 'AbortError' || e.name === 'TimeoutError' || e.message.includes('ECONNREFUSED'))) {
-          console.log(`Gateway endpoint ${endpoint} not available - skipping`);
-          continue;
+        if (
+          e instanceof Error &&
+          (e.name === 'AbortError' ||
+            e.name === 'TimeoutError' ||
+            e.message.includes('ECONNREFUSED'))
+        ) {
+          console.log(`Gateway endpoint ${endpoint} not available - skipping`)
+          continue
         }
-        throw e;
+        throw e
       }
 
       if (!response.ok) {
-        console.log(`Gateway endpoint ${endpoint} returned ${response.status} - skipping`);
-        continue;
+        console.log(
+          `Gateway endpoint ${endpoint} returned ${response.status} - skipping`,
+        )
+        continue
       }
 
-      anyEndpointAvailable = true;
-      const data = await response.json();
-      expect(data.status).toBeDefined();
-      console.log(`✅ ${endpoint} returns valid response`);
+      anyEndpointAvailable = true
+      const data = await response.json()
+      expect(data.status).toBeDefined()
+      console.log(`✅ ${endpoint} returns valid response`)
     }
 
     if (!anyEndpointAvailable) {
-      console.log('⏭️  No gateway endpoints available - skipping');
+      console.log('⏭️  No gateway endpoints available - skipping')
     }
-  });
-});
+  })
+})
 
 describe('ENS Mirror', () => {
-  test.skipIf(!process.env.ETH_RPC_URL)('should resolve ENS via Ethereum', async () => {
-    const ethClient = createPublicClient({
-      chain: { ...localhost, id: 1 },
-      transport: http(process.env.ETH_RPC_URL),
-    });
+  test.skipIf(!process.env.ETH_RPC_URL)(
+    'should resolve ENS via Ethereum',
+    async () => {
+      const ethClient = createPublicClient({
+        chain: { ...localhost, id: 1 },
+        transport: http(process.env.ETH_RPC_URL),
+      })
 
-    const ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e' as const;
-    const ENS_ABI = [
-      {
-        name: 'resolver',
-        type: 'function',
-        stateMutability: 'view',
-        inputs: [{ name: 'node', type: 'bytes32' }],
-        outputs: [{ type: 'address' }],
-      },
-    ] as const;
+      const ENS_REGISTRY = '0x00000000000C2E074eC69A0dFb2997BA6C7d2e1e' as const
+      const ENS_ABI = [
+        {
+          name: 'resolver',
+          type: 'function',
+          stateMutability: 'view',
+          inputs: [{ name: 'node', type: 'bytes32' }],
+          outputs: [{ type: 'address' }],
+        },
+      ] as const
 
-    const node = namehash('vitalik.eth') as Hex;
-    const resolver = await ethClient.readContract({
-      address: ENS_REGISTRY,
-      abi: ENS_ABI,
-      functionName: 'resolver',
-      args: [node],
-    });
+      const node = namehash('vitalik.eth') as Hex
+      const resolver = await ethClient.readContract({
+        address: ENS_REGISTRY,
+        abi: ENS_ABI,
+        functionName: 'resolver',
+        args: [node],
+      })
 
-    expect(resolver).not.toBe('0x0000000000000000000000000000000000000000');
-    console.log(`✅ ENS resolution working: vitalik.eth resolver = ${resolver.slice(0, 10)}...`);
-  });
-});
+      expect(resolver).not.toBe('0x0000000000000000000000000000000000000000')
+      console.log(
+        `✅ ENS resolution working: vitalik.eth resolver = ${resolver.slice(0, 10)}...`,
+      )
+    },
+  )
+})

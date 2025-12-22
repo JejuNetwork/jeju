@@ -2,10 +2,14 @@
  * Autocrat Synpress Configuration
  * Uses shared config from @jejunetwork/tests
  */
-import { createSynpressConfig, createWalletSetup, PASSWORD } from '@jejunetwork/tests';
+import {
+  createSynpressConfig,
+  createWalletSetup,
+  PASSWORD,
+} from '@jejunetwork/tests'
 
-const AUTOCRAT_PORT = parseInt(process.env.PORT || '8010');
-const CEO_PORT = parseInt(process.env.CEO_PORT || '8004');
+const AUTOCRAT_PORT = parseInt(process.env.PORT || '8010', 10)
+const CEO_PORT = parseInt(process.env.CEO_PORT || '8004', 10)
 
 export default createSynpressConfig({
   appName: 'autocrat',
@@ -29,7 +33,7 @@ export default createSynpressConfig({
       },
     ],
   },
-});
+})
 
-export const basicSetup = createWalletSetup();
-export { PASSWORD };
+export const basicSetup = createWalletSetup()
+export { PASSWORD }

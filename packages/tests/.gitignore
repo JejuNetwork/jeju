@@ -1,0 +1,20 @@
+# Test Results (should never be committed - contains machine-specific paths)
+test-results/
+*-results.json
+smoke-results.json
+wallet-smoke-results.json
+playwright-report/
+
+# Synpress Browser Cache (contains browser fingerprints and session data)
+.cache-synpress/
+
+# Wallet Setup Cache (may contain browser extension state)
+.wallet-setup-dist/
+
+# Playwright artifacts
+*.trace.zip
+*.png
+*.webm
+
+# Node modules
+node_modules/

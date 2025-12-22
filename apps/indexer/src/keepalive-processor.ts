@@ -1,33 +1,47 @@
-import { keccak256, stringToHex, parseAbi, decodeEventLog, formatEther } from 'viem';
-import { Store } from '@subsquid/typeorm-store';
-import { ProcessorContext } from './processor';
+import type { Store } from '@subsquid/typeorm-store'
 import {
-  Keepalive,
-  KeepaliveResource,
-  KeepaliveHealthCheck,
-  KeepaliveAutoFund,
-  KeepaliveStatus,
-  KeepaliveResourceType,
+  decodeEventLog,
+  formatEther,
+  keccak256,
+  parseAbi,
+  stringToHex,
+} from 'viem'
+import { createAccountFactory } from './lib/entities'
+import {
   ENSMirror,
   ENSMirrorSync,
+  Keepalive,
+  KeepaliveAutoFund,
+  KeepaliveHealthCheck,
+  KeepaliveResource,
+  KeepaliveResourceType,
   KeepaliveStats,
-} from './model';
-import { createAccountFactory, BlockHeader, LogData } from './lib/entities';
+  KeepaliveStatus,
+} from './model'
+import type { ProcessorContext } from './processor'
 
 const EVENTS = {
-  KEEPALIVE_REGISTERED: keccak256(stringToHex('KeepaliveRegistered(bytes32,address,bytes32,uint256)')),
+  KEEPALIVE_REGISTERED: keccak256(
+    stringToHex('KeepaliveRegistered(bytes32,address,bytes32,uint256)'),
+  ),
   KEEPALIVE_UPDATED: keccak256(stringToHex('KeepaliveUpdated(bytes32)')),
   RESOURCE_ADDED: keccak256(stringToHex('ResourceAdded(bytes32,uint8,string)')),
   RESOURCE_REMOVED: keccak256(stringToHex('ResourceRemoved(bytes32,uint256)')),
-  HEALTH_CHECKED: keccak256(stringToHex('HealthChecked(bytes32,uint8,uint256,uint8,uint8)')),
+  HEALTH_CHECKED: keccak256(
+    stringToHex('HealthChecked(bytes32,uint8,uint256,uint8,uint8)'),
+  ),
   AUTO_FUNDED: keccak256(stringToHex('AutoFunded(bytes32,uint256,address)')),
   STATUS_CHANGED: keccak256(stringToHex('StatusChanged(bytes32,uint8,uint8)')),
-  MIRROR_REGISTERED: keccak256(stringToHex('MirrorRegistered(bytes32,bytes32,bytes32,address)')),
-  MIRROR_SYNCED: keccak256(stringToHex('MirrorSynced(bytes32,bytes32,uint256)')),
+  MIRROR_REGISTERED: keccak256(
+    stringToHex('MirrorRegistered(bytes32,bytes32,bytes32,address)'),
+  ),
+  MIRROR_SYNCED: keccak256(
+    stringToHex('MirrorSynced(bytes32,bytes32,uint256)'),
+  ),
   SYNC_FAILED: keccak256(stringToHex('SyncFailed(bytes32,string)')),
-} as const;
+} as const
 
-const KEEPALIVE_EVENT_SET = new Set(Object.values(EVENTS));
+const KEEPALIVE_EVENT_SET = new Set(Object.values(EVENTS))
 
 const ABI = {
   keepalive: parseAbi([
@@ -44,10 +58,10 @@ const ABI = {
     'event MirrorSynced(bytes32 indexed mirrorId, bytes32 indexed ensNode, uint256 blockNumber)',
     'event SyncFailed(bytes32 indexed mirrorId, string reason)',
   ]),
-};
+}
 
 export function isKeepaliveEvent(topic0: string): boolean {
-  return KEEPALIVE_EVENT_SET.has(topic0 as `0x${string}`);
+  return KEEPALIVE_EVENT_SET.has(topic0 as `0x${string}`)
 }
 
 const STATUS_MAP: Record<number, KeepaliveStatus> = {
@@ -56,7 +70,7 @@ const STATUS_MAP: Record<number, KeepaliveStatus> = {
   2: KeepaliveStatus.DEGRADED,
   3: KeepaliveStatus.UNHEALTHY,
   4: KeepaliveStatus.UNFUNDED,
-};
+}
 
 const RESOURCE_TYPE_MAP: Record<number, KeepaliveResourceType> = {
   0: KeepaliveResourceType.IPFS_CONTENT,
@@ -65,50 +79,61 @@ const RESOURCE_TYPE_MAP: Record<number, KeepaliveResourceType> = {
   3: KeepaliveResourceType.STORAGE,
   4: KeepaliveResourceType.AGENT,
   5: KeepaliveResourceType.CUSTOM,
-};
+}
 
-export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Promise<void> {
-  const keepalives = new Map<string, Keepalive>();
-  const resources = new Map<string, KeepaliveResource>();
-  const healthChecks: KeepaliveHealthCheck[] = [];
-  const autoFunds: KeepaliveAutoFund[] = [];
-  const mirrors = new Map<string, ENSMirror>();
-  const mirrorSyncs: ENSMirrorSync[] = [];
-  const accountFactory = createAccountFactory();
+export async function processKeepaliveEvents(
+  ctx: ProcessorContext<Store>,
+): Promise<void> {
+  const keepalives = new Map<string, Keepalive>()
+  const resources = new Map<string, KeepaliveResource>()
+  const healthChecks: KeepaliveHealthCheck[] = []
+  const autoFunds: KeepaliveAutoFund[] = []
+  const mirrors = new Map<string, ENSMirror>()
+  const mirrorSyncs: ENSMirrorSync[] = []
+  const accountFactory = createAccountFactory()
 
   // Load existing keepalives
-  const existingKeepalives = await ctx.store.find(Keepalive);
-  for (const k of existingKeepalives) keepalives.set(k.id, k);
+  const existingKeepalives = await ctx.store.find(Keepalive)
+  for (const k of existingKeepalives) keepalives.set(k.id, k)
 
   // Load existing mirrors
-  const existingMirrors = await ctx.store.find(ENSMirror);
-  for (const m of existingMirrors) mirrors.set(m.id, m);
+  const existingMirrors = await ctx.store.find(ENSMirror)
+  for (const m of existingMirrors) mirrors.set(m.id, m)
 
   for (const block of ctx.blocks) {
-    const header = block.header as unknown as BlockHeader;
-    const blockTimestamp = new Date(header.timestamp);
+    const header = block.header
+    const blockTimestamp = new Date(header.timestamp)
 
-    for (const rawLog of block.logs) {
-      const log = rawLog as unknown as LogData;
-      const eventSig = log.topics[0];
-      const txHash = log.transaction?.hash ?? '';
+    for (const log of block.logs) {
+      const eventSig = log.topics[0]
+      const txHash = log.transaction?.hash ?? ''
 
-      if (!isKeepaliveEvent(eventSig)) continue;
+      if (!isKeepaliveEvent(eventSig)) continue
 
       switch (eventSig) {
         case EVENTS.KEEPALIVE_REGISTERED: {
-          const { args } = decodeEventLog({
+          const decoded = decodeEventLog({
             abi: ABI.keepalive,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          }) as unknown as { args: readonly [string, string, string, bigint] };
+          })
+          const {
+            keepaliveId,
+            owner: ownerAddr,
+            jnsNode,
+            agentId,
+          } = decoded.args as {
+            keepaliveId: string
+            owner: string
+            jnsNode: string
+            agentId: bigint
+          }
 
-          const keepaliveId = args[0];
-          const ownerAddr = args[1];
-          const jnsNode = args[2];
-          const agentId = args[3];
-
-          const owner = accountFactory.getOrCreate(ownerAddr, header.height, blockTimestamp);
+          const owner = accountFactory.getOrCreate(
+            ownerAddr,
+            header.height,
+            blockTimestamp,
+          )
 
           const keepalive = new Keepalive({
             id: keepaliveId,
@@ -125,72 +150,94 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
             createdAt: blockTimestamp,
             totalAutoFunded: 0n,
             healthCheckCount: 0,
-          });
+          })
 
-          keepalives.set(keepaliveId, keepalive);
-          ctx.log.info(`Keepalive registered: ${keepaliveId.slice(0, 10)}... by ${ownerAddr}`);
-          break;
+          keepalives.set(keepaliveId, keepalive)
+          ctx.log.info(
+            `Keepalive registered: ${keepaliveId.slice(0, 10)}... by ${ownerAddr}`,
+          )
+          break
         }
 
         case EVENTS.RESOURCE_ADDED: {
-          const { args } = decodeEventLog({
+          const decoded = decodeEventLog({
             abi: ABI.keepalive,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          }) as unknown as { args: readonly [string, number, string] };
+          })
+          const {
+            keepaliveId,
+            resourceType: resourceTypeRaw,
+            identifier,
+          } = decoded.args as {
+            keepaliveId: string
+            resourceType: number
+            identifier: string
+          }
+          const resourceType = Number(resourceTypeRaw)
 
-          const keepaliveId = args[0];
-          const resourceType = Number(args[1]);
-          const identifier = args[2];
-
-          const keepalive = keepalives.get(keepaliveId);
+          const keepalive = keepalives.get(keepaliveId)
           if (!keepalive) {
-            ctx.log.warn(`Resource added to unknown keepalive: ${keepaliveId}`);
-            break;
+            ctx.log.warn(`Resource added to unknown keepalive: ${keepaliveId}`)
+            break
           }
 
           // Count existing resources for this keepalive
-          let resourceIndex = 0;
+          let resourceIndex = 0
           for (const r of resources.values()) {
-            if (r.keepalive.id === keepaliveId) resourceIndex++;
+            if (r.keepalive.id === keepaliveId) resourceIndex++
           }
 
           const resource = new KeepaliveResource({
             id: `${keepaliveId}-${resourceIndex}`,
             keepalive,
-            resourceType: RESOURCE_TYPE_MAP[resourceType] ?? KeepaliveResourceType.CUSTOM,
+            resourceType:
+              RESOURCE_TYPE_MAP[resourceType] ?? KeepaliveResourceType.CUSTOM,
             identifier,
             minBalance: 0n,
             required: true,
             addedAt: blockTimestamp,
-          });
+          })
 
-          resources.set(resource.id, resource);
-          ctx.log.info(`Resource added: ${keepaliveId.slice(0, 10)}... type=${resourceType}`);
-          break;
+          resources.set(resource.id, resource)
+          ctx.log.info(
+            `Resource added: ${keepaliveId.slice(0, 10)}... type=${resourceType}`,
+          )
+          break
         }
 
         case EVENTS.HEALTH_CHECKED: {
-          const { args } = decodeEventLog({
+          const decoded = decodeEventLog({
             abi: ABI.keepalive,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          }) as unknown as { args: readonly [string, number, bigint, number, number] };
+          })
+          const {
+            keepaliveId,
+            status: statusRaw,
+            balance,
+            healthyResources: healthyRaw,
+            totalResources: totalRaw,
+          } = decoded.args as {
+            keepaliveId: string
+            status: number
+            balance: bigint
+            healthyResources: number
+            totalResources: number
+          }
+          const status = Number(statusRaw)
+          const healthyResources = Number(healthyRaw)
+          const totalResources = Number(totalRaw)
 
-          const keepaliveId = args[0];
-          const status = Number(args[1]);
-          const balance = args[2];
-          const healthyResources = Number(args[3]);
-          const totalResources = Number(args[4]);
-
-          const keepalive = keepalives.get(keepaliveId);
+          const keepalive = keepalives.get(keepaliveId)
           if (keepalive) {
-            keepalive.status = STATUS_MAP[status] ?? KeepaliveStatus.UNKNOWN;
-            keepalive.lastCheckAt = blockTimestamp;
-            keepalive.healthCheckCount += 1;
+            keepalive.status = STATUS_MAP[status] ?? KeepaliveStatus.UNKNOWN
+            keepalive.lastCheckAt = blockTimestamp
+            keepalive.healthCheckCount += 1
 
-            if (status === 1) { // HEALTHY
-              keepalive.lastHealthy = blockTimestamp;
+            if (status === 1) {
+              // HEALTHY
+              keepalive.lastHealthy = blockTimestamp
             }
           }
 
@@ -205,48 +252,52 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
             timestamp: blockTimestamp,
             blockNumber: header.height,
             txHash,
-          });
+          })
 
-          healthChecks.push(healthCheck);
+          healthChecks.push(healthCheck)
 
           ctx.log.info(
             `Health check: ${keepaliveId.slice(0, 10)}... status=${status} ` +
-            `balance=${formatEther(balance)} ETH resources=${healthyResources}/${totalResources}`
-          );
-          break;
+              `balance=${formatEther(balance)} ETH resources=${healthyResources}/${totalResources}`,
+          )
+          break
         }
 
         case EVENTS.STATUS_CHANGED: {
-          const { args } = decodeEventLog({
+          const decoded = decodeEventLog({
             abi: ABI.keepalive,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          }) as unknown as { args: readonly [string, number, number] };
-
-          const keepaliveId = args[0];
-          const newStatus = Number(args[2]);
-
-          const keepalive = keepalives.get(keepaliveId);
-          if (keepalive) {
-            keepalive.status = STATUS_MAP[newStatus] ?? KeepaliveStatus.UNKNOWN;
+          })
+          const { keepaliveId, newStatus: newStatusRaw } = decoded.args as {
+            keepaliveId: string
+            oldStatus: number
+            newStatus: number
           }
-          break;
+          const newStatus = Number(newStatusRaw)
+
+          const keepalive = keepalives.get(keepaliveId)
+          if (keepalive) {
+            keepalive.status = STATUS_MAP[newStatus] ?? KeepaliveStatus.UNKNOWN
+          }
+          break
         }
 
         case EVENTS.AUTO_FUNDED: {
-          const { args } = decodeEventLog({
+          const decoded = decodeEventLog({
             abi: ABI.keepalive,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          }) as unknown as { args: readonly [string, bigint, string] };
+          })
+          const { keepaliveId, amount, vault } = decoded.args as {
+            keepaliveId: string
+            amount: bigint
+            vault: string
+          }
 
-          const keepaliveId = args[0];
-          const amount = args[1];
-          const vault = args[2];
-
-          const keepalive = keepalives.get(keepaliveId);
+          const keepalive = keepalives.get(keepaliveId)
           if (keepalive && amount > 0n) {
-            keepalive.totalAutoFunded += amount;
+            keepalive.totalAutoFunded += amount
           }
 
           const autoFund = new KeepaliveAutoFund({
@@ -258,29 +309,39 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
             timestamp: blockTimestamp,
             blockNumber: header.height,
             txHash,
-          });
+          })
 
-          autoFunds.push(autoFund);
+          autoFunds.push(autoFund)
 
           ctx.log.info(
-            `Auto-funded: ${keepaliveId.slice(0, 10)}... amount=${formatEther(amount)} ETH`
-          );
-          break;
+            `Auto-funded: ${keepaliveId.slice(0, 10)}... amount=${formatEther(amount)} ETH`,
+          )
+          break
         }
 
         case EVENTS.MIRROR_REGISTERED: {
-          const { args } = decodeEventLog({
+          const decoded = decodeEventLog({
             abi: ABI.mirror,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          }) as unknown as { args: readonly [string, string, string, string] };
+          })
+          const {
+            mirrorId,
+            ensNode,
+            jnsNode,
+            owner: ownerAddr,
+          } = decoded.args as {
+            mirrorId: string
+            ensNode: string
+            jnsNode: string
+            owner: string
+          }
 
-          const mirrorId = args[0];
-          const ensNode = args[1];
-          const jnsNode = args[2];
-          const ownerAddr = args[3];
-
-          const owner = accountFactory.getOrCreate(ownerAddr, header.height, blockTimestamp);
+          const owner = accountFactory.getOrCreate(
+            ownerAddr,
+            header.height,
+            blockTimestamp,
+          )
 
           const mirror = new ENSMirror({
             id: mirrorId,
@@ -294,28 +355,32 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
             active: true,
             createdAt: blockTimestamp,
             syncCount: 0,
-          });
+          })
 
-          mirrors.set(mirrorId, mirror);
-          ctx.log.info(`ENS Mirror registered: ${mirrorId.slice(0, 10)}... ENS=${ensNode.slice(0, 10)}`);
-          break;
+          mirrors.set(mirrorId, mirror)
+          ctx.log.info(
+            `ENS Mirror registered: ${mirrorId.slice(0, 10)}... ENS=${ensNode.slice(0, 10)}`,
+          )
+          break
         }
 
         case EVENTS.MIRROR_SYNCED: {
-          const { args } = decodeEventLog({
+          const decoded = decodeEventLog({
             abi: ABI.mirror,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          }) as unknown as { args: readonly [string, string, bigint] };
+          })
+          const { mirrorId, blockNumber: ethBlockNumber } = decoded.args as {
+            mirrorId: string
+            ensNode: string
+            blockNumber: bigint
+          }
 
-          const mirrorId = args[0];
-          const ethBlockNumber = args[2];
-
-          const mirror = mirrors.get(mirrorId);
+          const mirror = mirrors.get(mirrorId)
           if (mirror) {
-            mirror.lastSyncAt = blockTimestamp;
-            mirror.syncCount += 1;
-            mirror.lastEthBlock = ethBlockNumber;
+            mirror.lastSyncAt = blockTimestamp
+            mirror.syncCount += 1
+            mirror.lastEthBlock = ethBlockNumber
           }
 
           const sync = new ENSMirrorSync({
@@ -326,24 +391,27 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
             timestamp: blockTimestamp,
             blockNumber: header.height,
             txHash,
-          });
+          })
 
-          mirrorSyncs.push(sync);
-          ctx.log.info(`ENS Mirror synced: ${mirrorId.slice(0, 10)}... ETH block ${ethBlockNumber}`);
-          break;
+          mirrorSyncs.push(sync)
+          ctx.log.info(
+            `ENS Mirror synced: ${mirrorId.slice(0, 10)}... ETH block ${ethBlockNumber}`,
+          )
+          break
         }
 
         case EVENTS.SYNC_FAILED: {
-          const { args } = decodeEventLog({
+          const decoded = decodeEventLog({
             abi: ABI.mirror,
             topics: log.topics as [`0x${string}`, ...`0x${string}`[]],
             data: log.data as `0x${string}`,
-          }) as unknown as { args: readonly [string, string] };
+          })
+          const { mirrorId, reason } = decoded.args as {
+            mirrorId: string
+            reason: string
+          }
 
-          const mirrorId = args[0];
-          const reason = args[1];
-
-          const mirror = mirrors.get(mirrorId);
+          const mirror = mirrors.get(mirrorId)
 
           const sync = new ENSMirrorSync({
             id: `${txHash}-${log.logIndex}`,
@@ -354,74 +422,86 @@ export async function processKeepaliveEvents(ctx: ProcessorContext<Store>): Prom
             timestamp: blockTimestamp,
             blockNumber: header.height,
             txHash,
-          });
+          })
 
-          mirrorSyncs.push(sync);
-          ctx.log.warn(`ENS Mirror sync failed: ${mirrorId.slice(0, 10)}... reason=${reason}`);
-          break;
+          mirrorSyncs.push(sync)
+          ctx.log.warn(
+            `ENS Mirror sync failed: ${mirrorId.slice(0, 10)}... reason=${reason}`,
+          )
+          break
         }
       }
     }
   }
 
   // Save all entities
-  await ctx.store.save(accountFactory.getAll());
-  await ctx.store.save([...keepalives.values()]);
-  await ctx.store.save([...resources.values()]);
-  await ctx.store.save(healthChecks);
-  await ctx.store.save(autoFunds);
-  await ctx.store.save([...mirrors.values()]);
-  await ctx.store.save(mirrorSyncs);
+  await ctx.store.save(accountFactory.getAll())
+  await ctx.store.save([...keepalives.values()])
+  await ctx.store.save([...resources.values()])
+  await ctx.store.save(healthChecks)
+  await ctx.store.save(autoFunds)
+  await ctx.store.save([...mirrors.values()])
+  await ctx.store.save(mirrorSyncs)
 
   // Update stats
-  await updateKeepaliveStats(ctx, [...keepalives.values()], [...mirrors.values()]);
+  await updateKeepaliveStats(
+    ctx,
+    [...keepalives.values()],
+    [...mirrors.values()],
+  )
 }
 
 async function updateKeepaliveStats(
   ctx: ProcessorContext<Store>,
   keepalives: Keepalive[],
-  mirrors: ENSMirror[]
+  mirrors: ENSMirror[],
 ): Promise<void> {
-  const stats = await ctx.store.get(KeepaliveStats, 'global') ?? new KeepaliveStats({
-    id: 'global',
-    totalKeepalives: 0,
-    activeKeepalives: 0,
-    healthyCount: 0,
-    degradedCount: 0,
-    unhealthyCount: 0,
-    unfundedCount: 0,
-    totalFundedValue: 0n,
-    totalAutoFunded: 0n,
-    totalHealthChecks: 0,
-    mirrorCount: 0,
-    syncedMirrors: 0,
-    lastUpdated: new Date(),
-  });
+  const stats =
+    (await ctx.store.get(KeepaliveStats, 'global')) ??
+    new KeepaliveStats({
+      id: 'global',
+      totalKeepalives: 0,
+      activeKeepalives: 0,
+      healthyCount: 0,
+      degradedCount: 0,
+      unhealthyCount: 0,
+      unfundedCount: 0,
+      totalFundedValue: 0n,
+      totalAutoFunded: 0n,
+      totalHealthChecks: 0,
+      mirrorCount: 0,
+      syncedMirrors: 0,
+      lastUpdated: new Date(),
+    })
 
-  let healthy = 0, degraded = 0, unhealthy = 0, unfunded = 0, active = 0;
-  let totalAutoFunded = 0n;
+  let healthy = 0,
+    degraded = 0,
+    unhealthy = 0,
+    unfunded = 0,
+    active = 0
+  let totalAutoFunded = 0n
 
   for (const k of keepalives) {
-    if (k.active) active++;
-    if (k.status === KeepaliveStatus.HEALTHY) healthy++;
-    else if (k.status === KeepaliveStatus.DEGRADED) degraded++;
-    else if (k.status === KeepaliveStatus.UNHEALTHY) unhealthy++;
-    else if (k.status === KeepaliveStatus.UNFUNDED) unfunded++;
-    totalAutoFunded += k.totalAutoFunded;
+    if (k.active) active++
+    if (k.status === KeepaliveStatus.HEALTHY) healthy++
+    else if (k.status === KeepaliveStatus.DEGRADED) degraded++
+    else if (k.status === KeepaliveStatus.UNHEALTHY) unhealthy++
+    else if (k.status === KeepaliveStatus.UNFUNDED) unfunded++
+    totalAutoFunded += k.totalAutoFunded
   }
 
-  const syncedMirrors = mirrors.filter(m => m.lastSyncAt !== undefined).length;
+  const syncedMirrors = mirrors.filter((m) => m.lastSyncAt !== undefined).length
 
-  stats.totalKeepalives = keepalives.length;
-  stats.activeKeepalives = active;
-  stats.healthyCount = healthy;
-  stats.degradedCount = degraded;
-  stats.unhealthyCount = unhealthy;
-  stats.unfundedCount = unfunded;
-  stats.totalAutoFunded = totalAutoFunded;
-  stats.mirrorCount = mirrors.length;
-  stats.syncedMirrors = syncedMirrors;
-  stats.lastUpdated = new Date();
+  stats.totalKeepalives = keepalives.length
+  stats.activeKeepalives = active
+  stats.healthyCount = healthy
+  stats.degradedCount = degraded
+  stats.unhealthyCount = unhealthy
+  stats.unfundedCount = unfunded
+  stats.totalAutoFunded = totalAutoFunded
+  stats.mirrorCount = mirrors.length
+  stats.syncedMirrors = syncedMirrors
+  stats.lastUpdated = new Date()
 
-  await ctx.store.save(stats);
+  await ctx.store.save(stats)
 }

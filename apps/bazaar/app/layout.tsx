@@ -1,24 +1,24 @@
 import type { Metadata, Viewport } from 'next'
-import { Outfit, Space_Grotesk, JetBrains_Mono } from 'next/font/google'
+import { JetBrains_Mono, Outfit, Space_Grotesk } from 'next/font/google'
 import './globals.css'
-import { Providers } from './providers'
-import { Header } from '@/components/Header'
-import { BanCheckWrapper } from '@/components/BanCheckWrapper'
 import { Toaster } from 'sonner'
+import { BanCheckWrapper } from '@/components/BanCheckWrapper'
+import { Header } from '@/components/Header'
+import { Providers } from './providers'
 
-const outfit = Outfit({ 
+const outfit = Outfit({
   subsets: ['latin'],
   variable: '--font-outfit',
   display: 'swap',
 })
 
-const spaceGrotesk = Space_Grotesk({ 
+const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
   variable: '--font-display',
   display: 'swap',
 })
 
-const jetbrainsMono = JetBrains_Mono({ 
+const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
   variable: '--font-mono',
   display: 'swap',
@@ -26,8 +26,17 @@ const jetbrainsMono = JetBrains_Mono({
 
 export const metadata: Metadata = {
   title: 'Bazaar - Agent Marketplace on the network',
-  description: 'The fun, light-hearted marketplace for tokens, NFTs, prediction markets, and more. Trade, swap, and discover on the network.',
-  keywords: ['DeFi', 'NFT', 'marketplace', 'tokens', 'prediction markets', 'Network', 'crypto'],
+  description:
+    'The fun, light-hearted marketplace for tokens, NFTs, prediction markets, and more. Trade, swap, and discover on the network.',
+  keywords: [
+    'DeFi',
+    'NFT',
+    'marketplace',
+    'tokens',
+    'prediction markets',
+    'Network',
+    'crypto',
+  ],
   authors: [{ name: 'the network' }],
 }
 
@@ -50,6 +59,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <head>
         <script
+          // biome-ignore lint/security/noDangerouslySetInnerHtml: Theme init to prevent flash
           dangerouslySetInnerHTML={{
             __html: `
               (function() {
@@ -66,16 +76,16 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`${outfit.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans antialiased`}>
+      <body
+        className={`${outfit.variable} ${spaceGrotesk.variable} ${jetbrainsMono.variable} font-sans antialiased`}
+      >
         <Providers>
           <div className="min-h-screen">
             <Header />
             <main className="container mx-auto px-4 pt-24 md:pt-28 pb-12">
-              <BanCheckWrapper>
-                {children}
-              </BanCheckWrapper>
+              <BanCheckWrapper>{children}</BanCheckWrapper>
             </main>
-            <footer 
+            <footer
               className="border-t py-8 mt-16"
               style={{ borderColor: 'var(--border)' }}
             >
@@ -85,13 +95,16 @@ export default function RootLayout({
                     <span className="text-2xl">🏝️</span>
                     <span className="font-bold text-gradient">Bazaar</span>
                   </div>
-                  <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+                  <p
+                    className="text-sm"
+                    style={{ color: 'var(--text-tertiary)' }}
+                  >
                     Powered by the network
                   </p>
                 </div>
               </div>
             </footer>
-            <Toaster 
+            <Toaster
               position="bottom-right"
               toastOptions={{
                 style: {

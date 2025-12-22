@@ -1,11 +1,11 @@
 /**
  * Playwright E2E Config
- * 
+ *
  * Full end-to-end tests with infrastructure setup.
  * Runs localnet, DWS backend, and frontend.
  */
 
-import { defineConfig, devices } from '@playwright/test';
+import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests/e2e',
@@ -18,17 +18,17 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 1,
   workers: 1, // Single worker for e2e
   reporter: process.env.CI ? 'github' : [['html', { open: 'never' }], ['list']],
-  
+
   globalSetup: './tests/e2e/global-setup.ts',
   globalTeardown: './tests/e2e/global-teardown.ts',
-  
+
   use: {
     baseURL: process.env.BASE_URL || 'http://127.0.0.1:4033',
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  
+
   projects: [
     {
       name: 'e2e-chromium',
@@ -42,5 +42,4 @@ export default defineConfig({
       testMatch: /wallet-integration\.spec\.ts/,
     },
   ],
-});
-
+})

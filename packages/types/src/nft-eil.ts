@@ -11,15 +11,15 @@
  * @see INFTEIL.sol for contract interfaces
  */
 
-import { z } from 'zod';
-import { AddressSchema } from './validation';
-import { SupportedChainIdSchema } from './eil';
-export { SupportedChainIdSchema };
+import { z } from 'zod'
+import { SupportedChainIdSchema } from './eil'
+import { AddressSchema } from './validation'
+export { SupportedChainIdSchema }
 
 // ============ Asset Types ============
 
-export const NFTAssetTypeSchema = z.enum(['ERC721', 'ERC1155']);
-export type NFTAssetType = z.infer<typeof NFTAssetTypeSchema>;
+export const NFTAssetTypeSchema = z.enum(['ERC721', 'ERC1155'])
+export type NFTAssetType = z.infer<typeof NFTAssetTypeSchema>
 
 // ============ NFT Voucher Request ============
 
@@ -30,8 +30,8 @@ export const NFTVoucherStatusSchema = z.enum([
   'expired', // No XLP responded in time
   'failed', // XLP failed to fulfill
   'refunded', // User refunded after expiry
-]);
-export type NFTVoucherStatus = z.infer<typeof NFTVoucherStatusSchema>;
+])
+export type NFTVoucherStatus = z.infer<typeof NFTVoucherStatusSchema>
 
 export const NFTVoucherRequestSchema = z.object({
   requestId: z.string(), // bytes32
@@ -56,8 +56,8 @@ export const NFTVoucherRequestSchema = z.object({
   bidCount: z.number().optional(),
   winningXLP: AddressSchema.optional(),
   winningFee: z.string().optional(),
-});
-export type NFTVoucherRequest = z.infer<typeof NFTVoucherRequestSchema>;
+})
+export type NFTVoucherRequest = z.infer<typeof NFTVoucherRequestSchema>
 
 // ============ NFT Voucher ============
 
@@ -82,8 +82,8 @@ export const NFTVoucherSchema = z.object({
   // Transactions
   sourceClaimTx: z.string().optional(),
   destinationFulfillTx: z.string().optional(),
-});
-export type NFTVoucher = z.infer<typeof NFTVoucherSchema>;
+})
+export type NFTVoucher = z.infer<typeof NFTVoucherSchema>
 
 // ============ Wrapped NFT Info ============
 
@@ -102,8 +102,8 @@ export const WrappedNFTInfoSchema = z.object({
   description: z.string().optional(),
   image: z.string().optional(),
   attributes: z.array(z.record(z.string(), z.string())).optional(),
-});
-export type WrappedNFTInfo = z.infer<typeof WrappedNFTInfoSchema>;
+})
+export type WrappedNFTInfo = z.infer<typeof WrappedNFTInfoSchema>
 
 // ============ Provenance Entry ============
 
@@ -115,9 +115,11 @@ export const ProvenanceEntrySchema = z.object({
   txHash: z.string(),
   owner: AddressSchema,
   // Event type
-  eventType: z.enum(['mint', 'transfer', 'bridge_out', 'bridge_in', 'wrap', 'unwrap']).optional(),
-});
-export type ProvenanceEntry = z.infer<typeof ProvenanceEntrySchema>;
+  eventType: z
+    .enum(['mint', 'transfer', 'bridge_out', 'bridge_in', 'wrap', 'unwrap'])
+    .optional(),
+})
+export type ProvenanceEntry = z.infer<typeof ProvenanceEntrySchema>
 
 // ============ Cross-Chain NFT Transfer ============
 
@@ -150,8 +152,8 @@ export const CrossChainNFTTransferSchema = z.object({
   // Intent specific
   orderId: z.string().optional(),
   solver: AddressSchema.optional(),
-});
-export type CrossChainNFTTransfer = z.infer<typeof CrossChainNFTTransferSchema>;
+})
+export type CrossChainNFTTransfer = z.infer<typeof CrossChainNFTTransferSchema>
 
 // ============ NFT Collection Info ============
 
@@ -172,8 +174,8 @@ export const NFTCollectionInfoSchema = z.object({
   totalSupply: z.string().optional(),
   totalBridgedOut: z.number().optional(),
   totalBridgedIn: z.number().optional(),
-});
-export type NFTCollectionInfo = z.infer<typeof NFTCollectionInfoSchema>;
+})
+export type NFTCollectionInfo = z.infer<typeof NFTCollectionInfoSchema>
 
 // ============ XLP NFT Liquidity ============
 
@@ -186,15 +188,15 @@ export const XLPNFTLiquiditySchema = z.object({
       sourceCollection: AddressSchema,
       wrappedCollection: AddressSchema,
       deployedAt: z.number(),
-    })
+    }),
   ),
   // Stats
   totalNFTsBridged: z.number(),
   totalFeesEarned: z.string(),
   successRate: z.number(),
   avgResponseTimeMs: z.number(),
-});
-export type XLPNFTLiquidity = z.infer<typeof XLPNFTLiquiditySchema>;
+})
+export type XLPNFTLiquidity = z.infer<typeof XLPNFTLiquiditySchema>
 
 // ============ NFT Bridge Quote ============
 
@@ -219,8 +221,8 @@ export const NFTBridgeQuoteSchema = z.object({
   route: z.enum(['hyperlane', 'xlp', 'intent']),
   xlp: AddressSchema.optional(),
   solver: AddressSchema.optional(),
-});
-export type NFTBridgeQuote = z.infer<typeof NFTBridgeQuoteSchema>;
+})
+export type NFTBridgeQuote = z.infer<typeof NFTBridgeQuoteSchema>
 
 // ============ NFT Intent Order ============
 
@@ -246,8 +248,8 @@ export const NFTIntentOrderSchema = z.object({
   openTx: z.string().optional(),
   fillTx: z.string().optional(),
   settleTx: z.string().optional(),
-});
-export type NFTIntentOrder = z.infer<typeof NFTIntentOrderSchema>;
+})
+export type NFTIntentOrder = z.infer<typeof NFTIntentOrderSchema>
 
 // ============ Event Types ============
 
@@ -272,8 +274,8 @@ export const NFTEILEventTypeSchema = z.enum([
   'NFTOrderClaimed',
   'NFTOrderSettled',
   'NFTOrderRefunded',
-]);
-export type NFTEILEventType = z.infer<typeof NFTEILEventTypeSchema>;
+])
+export type NFTEILEventType = z.infer<typeof NFTEILEventTypeSchema>
 
 /**
  * Strongly typed event data for NFT EIL events
@@ -288,7 +290,7 @@ export const NFTVoucherEventDataSchema = z.object({
   user: AddressSchema.optional(),
   recipient: AddressSchema.optional(),
   fee: z.string().optional(),
-});
+})
 
 export const NFTBridgeEventDataSchema = z.object({
   transferId: z.string().optional(),
@@ -298,7 +300,7 @@ export const NFTBridgeEventDataSchema = z.object({
   destinationChainId: SupportedChainIdSchema.optional(),
   sender: AddressSchema.optional(),
   recipient: AddressSchema.optional(),
-});
+})
 
 export const NFTOrderEventDataSchema = z.object({
   orderId: z.string().optional(),
@@ -306,7 +308,7 @@ export const NFTOrderEventDataSchema = z.object({
   solver: AddressSchema.optional(),
   collection: AddressSchema.optional(),
   tokenId: z.string().optional(),
-});
+})
 
 /**
  * Union of all NFT EIL event data types
@@ -315,8 +317,8 @@ export const NFTEILEventDataSchema = z.union([
   NFTVoucherEventDataSchema,
   NFTBridgeEventDataSchema,
   NFTOrderEventDataSchema,
-]);
-export type NFTEILEventData = z.infer<typeof NFTEILEventDataSchema>;
+])
+export type NFTEILEventData = z.infer<typeof NFTEILEventDataSchema>
 
 export const NFTEILEventSchema = z.object({
   id: z.string(),
@@ -328,8 +330,8 @@ export const NFTEILEventSchema = z.object({
   timestamp: z.number(),
   /** Strongly typed event data */
   data: NFTEILEventDataSchema,
-});
-export type NFTEILEvent = z.infer<typeof NFTEILEventSchema>;
+})
+export type NFTEILEvent = z.infer<typeof NFTEILEventSchema>
 
 // ============ Configuration ============
 
@@ -349,8 +351,8 @@ export const NFTEILConfigSchema = z.object({
   // Fees
   minFee: z.string(),
   maxFee: z.string(),
-});
-export type NFTEILConfig = z.infer<typeof NFTEILConfigSchema>;
+})
+export type NFTEILConfig = z.infer<typeof NFTEILConfigSchema>
 
 // ============ Analytics ============
 
@@ -373,13 +375,13 @@ export const NFTEILStatsSchema = z.object({
   last24hTransfers: z.number(),
   last24hFees: z.string(),
   lastUpdated: z.number(),
-});
-export type NFTEILStats = z.infer<typeof NFTEILStatsSchema>;
+})
+export type NFTEILStats = z.infer<typeof NFTEILStatsSchema>
 
 // ============ SDK Types ============
 
-export const NFTBridgeModeSchema = z.enum(['hyperlane', 'xlp', 'intent']);
-export type NFTBridgeMode = z.infer<typeof NFTBridgeModeSchema>;
+export const NFTBridgeModeSchema = z.enum(['hyperlane', 'xlp', 'intent'])
+export type NFTBridgeMode = z.infer<typeof NFTBridgeModeSchema>
 
 export const CrossChainNFTParamsSchema = z.object({
   assetType: NFTAssetTypeSchema,
@@ -390,8 +392,8 @@ export const CrossChainNFTParamsSchema = z.object({
   recipient: AddressSchema.optional(),
   mode: NFTBridgeModeSchema,
   maxFee: z.bigint().optional(),
-});
-export type CrossChainNFTParams = z.infer<typeof CrossChainNFTParamsSchema>;
+})
+export type CrossChainNFTParams = z.infer<typeof CrossChainNFTParamsSchema>
 
 export const NFTBridgeResultSchema = z.object({
   txHash: z.string(),
@@ -399,8 +401,8 @@ export const NFTBridgeResultSchema = z.object({
   messageId: z.string().optional(),
   orderId: z.string().optional(),
   estimatedArrival: z.number(),
-});
-export type NFTBridgeResult = z.infer<typeof NFTBridgeResultSchema>;
+})
+export type NFTBridgeResult = z.infer<typeof NFTBridgeResultSchema>
 
 export const WrappedNFTDetailsSchema = z.object({
   isWrapped: z.boolean(),
@@ -409,5 +411,5 @@ export const WrappedNFTDetailsSchema = z.object({
   originalTokenId: z.bigint().optional(),
   tokenURI: z.string().optional(),
   provenance: z.array(ProvenanceEntrySchema),
-});
-export type WrappedNFTDetails = z.infer<typeof WrappedNFTDetailsSchema>;
+})
+export type WrappedNFTDetails = z.infer<typeof WrappedNFTDetailsSchema>

@@ -1,16 +1,23 @@
 /**
  * Tests for useGameItems hooks
- * 
+ *
  * Tests:
  * - Hook exports and types
  * - Web2 fallback behavior
  * - Rarity info helper
  */
 
-import { describe, test, expect } from 'bun:test'
-import { getRarityInfo } from '../useGameItems'
+import { describe, expect, test } from 'bun:test'
+import {
+  GoldAbi,
+  gameSystemDeployments,
+  getGameGold,
+  getGameIntegration,
+  getGameItems,
+  ItemsAbi,
+} from '@jejunetwork/contracts'
 import * as useGameItemsModule from '../useGameItems'
-import { ItemsAbi, GoldAbi, gameSystemDeployments, getGameItems, getGameGold, getGameIntegration } from '@jejunetwork/contracts'
+import { getRarityInfo } from '../useGameItems'
 
 describe('useGameItems Hooks', () => {
   describe('exports', () => {
@@ -116,7 +123,7 @@ describe('useGameItems Hooks', () => {
         originalMinter: '0x1234567890123456789012345678901234567890',
         mintedAt: 1234567890,
       }
-      
+
       expect(item.id).toBe('1')
       expect(item.tokenId).toBe('100')
       expect(item.name).toBe('Test Sword')
@@ -135,10 +142,9 @@ describe('useGameItems Hooks', () => {
 
 describe('Contract ABI Integration', () => {
   test('ItemsAbi from @jejunetwork/contracts has required functions', () => {
-    
     const functions = (ItemsAbi as readonly { type: string; name?: string }[])
-      .filter(item => item.type === 'function')
-      .map(item => item.name)
+      .filter((item) => item.type === 'function')
+      .map((item) => item.name)
 
     // Core ERC-1155
     expect(functions).toContain('balanceOf')
@@ -146,7 +152,7 @@ describe('Contract ABI Integration', () => {
     expect(functions).toContain('setApprovalForAll')
     expect(functions).toContain('isApprovedForAll')
     expect(functions).toContain('safeTransferFrom')
-    
+
     // Items.sol specific
     expect(functions).toContain('mintItem')
     expect(functions).toContain('burn')
@@ -156,10 +162,9 @@ describe('Contract ABI Integration', () => {
   })
 
   test('ItemsAbi has required events', () => {
-    
     const events = (ItemsAbi as readonly { type: string; name?: string }[])
-      .filter(item => item.type === 'event')
-      .map(item => item.name)
+      .filter((item) => item.type === 'event')
+      .map((item) => item.name)
 
     expect(events).toContain('ItemMinted')
     expect(events).toContain('ItemBurned')
@@ -170,27 +175,25 @@ describe('Contract ABI Integration', () => {
   })
 
   test('GoldAbi from @jejunetwork/contracts has required functions', () => {
-    
     const functions = (GoldAbi as readonly { type: string; name?: string }[])
-      .filter(item => item.type === 'function')
-      .map(item => item.name)
+      .filter((item) => item.type === 'function')
+      .map((item) => item.name)
 
     // ERC-20
     expect(functions).toContain('balanceOf')
     expect(functions).toContain('transfer')
     expect(functions).toContain('approve')
     expect(functions).toContain('transferFrom')
-    
+
     // Gold.sol specific
     expect(functions).toContain('claimGold')
     expect(functions).toContain('burn')
   })
 
   test('GoldAbi has required events', () => {
-    
     const events = (GoldAbi as readonly { type: string; name?: string }[])
-      .filter(item => item.type === 'event')
-      .map(item => item.name)
+      .filter((item) => item.type === 'event')
+      .map((item) => item.name)
 
     expect(events).toContain('GoldClaimed')
     expect(events).toContain('GoldBurned')
@@ -200,13 +203,11 @@ describe('Contract ABI Integration', () => {
 
 describe('Deployment Configuration', () => {
   test('gameSystemDeployments exports correctly', () => {
-    
     expect(gameSystemDeployments).toBeDefined()
     expect(typeof gameSystemDeployments).toBe('object')
   })
 
   test('getGameItems helper works', () => {
-    
     expect(typeof getGameItems).toBe('function')
     // Returns undefined if not deployed (which is fine for test)
     const result = getGameItems(1337)
@@ -214,14 +215,12 @@ describe('Deployment Configuration', () => {
   })
 
   test('getGameGold helper works', () => {
-    
     expect(typeof getGameGold).toBe('function')
     const result = getGameGold(1337)
     expect(result === undefined || typeof result === 'string').toBe(true)
   })
 
   test('getGameIntegration helper works', () => {
-    
     expect(typeof getGameIntegration).toBe('function')
     const result = getGameIntegration(1337)
     expect(result === undefined || typeof result === 'string').toBe(true)

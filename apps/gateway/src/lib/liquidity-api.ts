@@ -2,10 +2,10 @@
  * Liquidity API - Contract interactions for RiskSleeve and LiquidityRouter
  */
 
-import { createPublicClient, http, type Address, formatEther } from 'viem';
-import { base, baseSepolia } from 'viem/chains';
-import contractsConfig from '@jejunetwork/config/contracts';
-import { NETWORK, JEJU_CHAIN_ID } from '../config/networks';
+import contractsConfig from '@jejunetwork/config/contracts'
+import { type Address, createPublicClient, formatEther, http } from 'viem'
+import { base, baseSepolia } from 'viem/chains'
+import { NETWORK } from '../config/networks'
 
 // Risk tier enum matching the contract
 export enum RiskTier {
@@ -14,24 +14,32 @@ export enum RiskTier {
   AGGRESSIVE = 2,
 }
 
-export const RISK_TIER_NAMES = ['Conservative', 'Balanced', 'Aggressive'] as const;
-export const RISK_TIER_APY_BPS = [300, 1000, 2000] as const; // 3%, 10%, 20%
+export const RISK_TIER_NAMES = [
+  'Conservative',
+  'Balanced',
+  'Aggressive',
+] as const
+export const RISK_TIER_APY_BPS = [300, 1000, 2000] as const // 3%, 10%, 20%
 
 // Contracts config type
 interface ContractsNetworkConfig {
   liquidity?: {
-    riskSleeve?: string;
-    liquidityRouter?: string;
-    multiServiceStakeManager?: string;
-  };
+    riskSleeve?: string
+    liquidityRouter?: string
+    multiServiceStakeManager?: string
+  }
 }
 
 // Get liquidity contract addresses
 function getLiquidityContracts(): ContractsNetworkConfig['liquidity'] {
-  const config = contractsConfig as { localnet?: ContractsNetworkConfig; testnet?: ContractsNetworkConfig; mainnet?: ContractsNetworkConfig };
-  if (NETWORK === 'testnet') return config.testnet?.liquidity;
-  if (NETWORK === 'mainnet') return config.mainnet?.liquidity;
-  return config.localnet?.liquidity;
+  const config = contractsConfig as {
+    localnet?: ContractsNetworkConfig
+    testnet?: ContractsNetworkConfig
+    mainnet?: ContractsNetworkConfig
+  }
+  if (NETWORK === 'testnet') return config.testnet?.liquidity
+  if (NETWORK === 'mainnet') return config.mainnet?.liquidity
+  return config.localnet?.liquidity
 }
 
 // ABI fragments
@@ -70,7 +78,7 @@ const RISK_SLEEVE_ABI = [
     inputs: [],
     outputs: [{ type: 'uint256' }],
   },
-] as const;
+] as const
 
 const LIQUIDITY_ROUTER_ABI = [
   {
@@ -123,89 +131,91 @@ const LIQUIDITY_ROUTER_ABI = [
       },
     ],
   },
-] as const;
+] as const
 
 // Create viem client
-const chain = NETWORK === 'testnet' ? baseSepolia : base;
+const chain = NETWORK === 'testnet' ? baseSepolia : base
 const client = createPublicClient({
   chain,
   transport: http(),
-});
+})
 
 export interface SleeveStats {
-  tier: number;
-  tierName: string;
-  deposited: string;
-  utilized: string;
-  available: string;
-  utilizationBps: number;
-  yieldBps: number;
+  tier: number
+  tierName: string
+  deposited: string
+  utilized: string
+  available: string
+  utilizationBps: number
+  yieldBps: number
 }
 
 export interface SleevePosition {
-  address: string;
-  tier: number;
-  tierName: string;
-  deposited: string;
-  pendingYield: string;
-  depositDuration: number;
+  address: string
+  tier: number
+  tierName: string
+  deposited: string
+  pendingYield: string
+  depositDuration: number
 }
 
 export interface RouterPosition {
-  address: string;
-  ethVaultShares: string;
-  tokenVaultShares: string;
-  stakedAmount: string;
-  pendingRewards: string;
+  address: string
+  ethVaultShares: string
+  tokenVaultShares: string
+  stakedAmount: string
+  pendingRewards: string
   strategy: {
-    ethVaultBps: number;
-    tokenVaultBps: number;
-    nodeStakeBps: number;
-    xlpStakeBps: number;
-    paymasterStakeBps: number;
-    governanceStakeBps: number;
-  };
+    ethVaultBps: number
+    tokenVaultBps: number
+    nodeStakeBps: number
+    xlpStakeBps: number
+    paymasterStakeBps: number
+    governanceStakeBps: number
+  }
 }
 
 export interface AllocationStrategy {
-  ethVaultBps: number;
-  tokenVaultBps: number;
-  nodeStakeBps: number;
-  xlpStakeBps: number;
-  paymasterStakeBps: number;
-  governanceStakeBps: number;
+  ethVaultBps: number
+  tokenVaultBps: number
+  nodeStakeBps: number
+  xlpStakeBps: number
+  paymasterStakeBps: number
+  governanceStakeBps: number
 }
 
 // Check if contracts are deployed
 export function isRiskSleeveDeployed(): boolean {
-  const contracts = getLiquidityContracts();
-  return !!contracts?.riskSleeve && contracts.riskSleeve.length > 0;
+  const contracts = getLiquidityContracts()
+  return !!contracts?.riskSleeve && contracts.riskSleeve.length > 0
 }
 
 export function isLiquidityRouterDeployed(): boolean {
-  const contracts = getLiquidityContracts();
-  return !!contracts?.liquidityRouter && contracts.liquidityRouter.length > 0;
+  const contracts = getLiquidityContracts()
+  return !!contracts?.liquidityRouter && contracts.liquidityRouter.length > 0
 }
 
 export function getRiskSleeveAddress(): Address | undefined {
-  const contracts = getLiquidityContracts();
-  return contracts?.riskSleeve && contracts.riskSleeve.length > 0 
-    ? contracts.riskSleeve as Address 
-    : undefined;
+  const contracts = getLiquidityContracts()
+  return contracts?.riskSleeve && contracts.riskSleeve.length > 0
+    ? (contracts.riskSleeve as Address)
+    : undefined
 }
 
 export function getLiquidityRouterAddress(): Address | undefined {
-  const contracts = getLiquidityContracts();
-  return contracts?.liquidityRouter && contracts.liquidityRouter.length > 0 
-    ? contracts.liquidityRouter as Address 
-    : undefined;
+  const contracts = getLiquidityContracts()
+  return contracts?.liquidityRouter && contracts.liquidityRouter.length > 0
+    ? (contracts.liquidityRouter as Address)
+    : undefined
 }
 
 // Get sleeve stats from contract
-export async function getSleeveStats(tier: RiskTier): Promise<SleeveStats | { status: 'not_deployed' }> {
-  const address = getRiskSleeveAddress();
+export async function getSleeveStats(
+  tier: RiskTier,
+): Promise<SleeveStats | { status: 'not_deployed' }> {
+  const address = getRiskSleeveAddress()
   if (!address) {
-    return { status: 'not_deployed' };
+    return { status: 'not_deployed' }
   }
 
   const result = await client.readContract({
@@ -213,7 +223,7 @@ export async function getSleeveStats(tier: RiskTier): Promise<SleeveStats | { st
     abi: RISK_SLEEVE_ABI,
     functionName: 'getSleeveStats',
     args: [tier],
-  });
+  })
 
   return {
     tier,
@@ -223,14 +233,17 @@ export async function getSleeveStats(tier: RiskTier): Promise<SleeveStats | { st
     available: formatEther(result[2]),
     utilizationBps: Number(result[3]),
     yieldBps: Number(result[4]),
-  };
+  }
 }
 
 // Get user sleeve position
-export async function getSleevePosition(user: Address, tier: RiskTier): Promise<SleevePosition | { status: 'not_deployed' }> {
-  const address = getRiskSleeveAddress();
+export async function getSleevePosition(
+  user: Address,
+  tier: RiskTier,
+): Promise<SleevePosition | { status: 'not_deployed' }> {
+  const address = getRiskSleeveAddress()
   if (!address) {
-    return { status: 'not_deployed' };
+    return { status: 'not_deployed' }
   }
 
   const result = await client.readContract({
@@ -238,7 +251,7 @@ export async function getSleevePosition(user: Address, tier: RiskTier): Promise<
     abi: RISK_SLEEVE_ABI,
     functionName: 'getUserPosition',
     args: [user, tier],
-  });
+  })
 
   return {
     address: user,
@@ -247,14 +260,16 @@ export async function getSleevePosition(user: Address, tier: RiskTier): Promise<
     deposited: formatEther(result[0]),
     pendingYield: formatEther(result[1]),
     depositDuration: Number(result[2]),
-  };
+  }
 }
 
 // Get router position
-export async function getRouterPosition(user: Address): Promise<RouterPosition | { status: 'not_deployed' }> {
-  const address = getLiquidityRouterAddress();
+export async function getRouterPosition(
+  user: Address,
+): Promise<RouterPosition | { status: 'not_deployed' }> {
+  const address = getLiquidityRouterAddress()
   if (!address) {
-    return { status: 'not_deployed' };
+    return { status: 'not_deployed' }
   }
 
   const result = await client.readContract({
@@ -262,7 +277,7 @@ export async function getRouterPosition(user: Address): Promise<RouterPosition |
     abi: LIQUIDITY_ROUTER_ABI,
     functionName: 'getPosition',
     args: [user],
-  });
+  })
 
   return {
     address: user,
@@ -278,14 +293,18 @@ export async function getRouterPosition(user: Address): Promise<RouterPosition |
       paymasterStakeBps: Number(result[4].paymasterStakeBps),
       governanceStakeBps: Number(result[4].governanceStakeBps),
     },
-  };
+  }
 }
 
 // Get estimated yield
-export async function estimateYield(user: Address): Promise<{ yieldBps: number; yieldPercent: number } | { status: 'not_deployed' }> {
-  const address = getLiquidityRouterAddress();
+export async function estimateYield(
+  user: Address,
+): Promise<
+  { yieldBps: number; yieldPercent: number } | { status: 'not_deployed' }
+> {
+  const address = getLiquidityRouterAddress()
   if (!address) {
-    return { status: 'not_deployed' };
+    return { status: 'not_deployed' }
   }
 
   const result = await client.readContract({
@@ -293,26 +312,28 @@ export async function estimateYield(user: Address): Promise<{ yieldBps: number; 
     abi: LIQUIDITY_ROUTER_ABI,
     functionName: 'estimateYield',
     args: [user],
-  });
+  })
 
   return {
     yieldBps: Number(result),
     yieldPercent: Number(result) / 100,
-  };
+  }
 }
 
 // Get default allocation strategy
-export async function getDefaultStrategy(): Promise<AllocationStrategy | { status: 'not_deployed' }> {
-  const address = getLiquidityRouterAddress();
+export async function getDefaultStrategy(): Promise<
+  AllocationStrategy | { status: 'not_deployed' }
+> {
+  const address = getLiquidityRouterAddress()
   if (!address) {
-    return { status: 'not_deployed' };
+    return { status: 'not_deployed' }
   }
 
   const result = await client.readContract({
     address,
     abi: LIQUIDITY_ROUTER_ABI,
     functionName: 'defaultStrategy',
-  });
+  })
 
   return {
     ethVaultBps: Number(result.ethVaultBps),
@@ -321,17 +342,34 @@ export async function getDefaultStrategy(): Promise<AllocationStrategy | { statu
     xlpStakeBps: Number(result.xlpStakeBps),
     paymasterStakeBps: Number(result.paymasterStakeBps),
     governanceStakeBps: Number(result.governanceStakeBps),
-  };
+  }
 }
 
 // Get all risk tiers info
 export function getRiskTiers() {
   return {
     tiers: [
-      { id: RiskTier.CONSERVATIVE, name: 'Conservative', description: 'Low risk, stable yields', expectedApyBps: 300, minDeposit: '0.01 ETH' },
-      { id: RiskTier.BALANCED, name: 'Balanced', description: 'Moderate risk with competitive returns', expectedApyBps: 1000, minDeposit: '0.01 ETH' },
-      { id: RiskTier.AGGRESSIVE, name: 'Aggressive', description: 'Higher risk, higher potential returns', expectedApyBps: 2000, minDeposit: '0.01 ETH' },
+      {
+        id: RiskTier.CONSERVATIVE,
+        name: 'Conservative',
+        description: 'Low risk, stable yields',
+        expectedApyBps: 300,
+        minDeposit: '0.01 ETH',
+      },
+      {
+        id: RiskTier.BALANCED,
+        name: 'Balanced',
+        description: 'Moderate risk with competitive returns',
+        expectedApyBps: 1000,
+        minDeposit: '0.01 ETH',
+      },
+      {
+        id: RiskTier.AGGRESSIVE,
+        name: 'Aggressive',
+        description: 'Higher risk, higher potential returns',
+        expectedApyBps: 2000,
+        minDeposit: '0.01 ETH',
+      },
     ],
-  };
+  }
 }
-

@@ -16,8 +16,7 @@
  * - Babylon game environments
  */
 
-export * from './types';
-export * from './coordinator';
-export * from './trajectory-store';
-export * from './ruler-scorer';
-
+export * from './coordinator'
+export * from './ruler-scorer'
+export * from './trajectory-store'
+export * from './types'

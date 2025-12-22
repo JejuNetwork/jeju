@@ -1,8 +1,13 @@
 'use client'
 
-import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi'
-import { type Address } from 'viem'
 import { useCallback } from 'react'
+import type { Address } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
 
 // TFMM Fee Controller ABI
 const FEE_CONTROLLER_ABI = [
@@ -105,7 +110,10 @@ export function useTFMMGovernance(feeControllerAddress: Address | null) {
   }
 }
 
-export function usePoolFees(feeControllerAddress: Address | null, poolAddress: Address | null) {
+export function usePoolFees(
+  feeControllerAddress: Address | null,
+  poolAddress: Address | null,
+) {
   const { data, isLoading, refetch } = useReadContract({
     address: feeControllerAddress ?? undefined,
     abi: FEE_CONTROLLER_ABI,
@@ -134,7 +142,9 @@ export function usePoolFees(feeControllerAddress: Address | null, poolAddress: A
 
 export function useSetSwapFee(feeControllerAddress: Address | null) {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const setSwapFee = useCallback(
     async (poolAddress: Address, newFee: bigint) => {
@@ -147,7 +157,7 @@ export function useSetSwapFee(feeControllerAddress: Address | null) {
         args: [poolAddress, newFee],
       })
     },
-    [feeControllerAddress, writeContract]
+    [feeControllerAddress, writeContract],
   )
 
   return {
@@ -161,10 +171,16 @@ export function useSetSwapFee(feeControllerAddress: Address | null) {
 
 export function useSetGuardRails(feeControllerAddress: Address | null) {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const setGuardRails = useCallback(
-    async (poolAddress: Address, maxWeightChangeBps: bigint, minUpdateInterval: bigint) => {
+    async (
+      poolAddress: Address,
+      maxWeightChangeBps: bigint,
+      minUpdateInterval: bigint,
+    ) => {
       if (!feeControllerAddress) return
 
       writeContract({
@@ -174,7 +190,7 @@ export function useSetGuardRails(feeControllerAddress: Address | null) {
         args: [poolAddress, maxWeightChangeBps, minUpdateInterval],
       })
     },
-    [feeControllerAddress, writeContract]
+    [feeControllerAddress, writeContract],
   )
 
   return {
@@ -188,7 +204,9 @@ export function useSetGuardRails(feeControllerAddress: Address | null) {
 
 export function usePausePool(feeControllerAddress: Address | null) {
   const { writeContract, data: hash, isPending, error } = useWriteContract()
-  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({ hash })
+  const { isLoading: isConfirming, isSuccess } = useWaitForTransactionReceipt({
+    hash,
+  })
 
   const pause = useCallback(
     async (poolAddress: Address) => {
@@ -201,7 +219,7 @@ export function usePausePool(feeControllerAddress: Address | null) {
         args: [poolAddress],
       })
     },
-    [feeControllerAddress, writeContract]
+    [feeControllerAddress, writeContract],
   )
 
   const unpause = useCallback(
@@ -215,7 +233,7 @@ export function usePausePool(feeControllerAddress: Address | null) {
         args: [poolAddress],
       })
     },
-    [feeControllerAddress, writeContract]
+    [feeControllerAddress, writeContract],
   )
 
   return {
@@ -238,4 +256,3 @@ export function formatInterval(seconds: number): string {
   if (seconds >= 60) return `${Math.floor(seconds / 60)} minutes`
   return `${seconds} seconds`
 }
-
