@@ -19,7 +19,10 @@ import {
 // Initialize training service
 const trainingService = createDWSTrainingService()
 
-export const trainingRoutes = new Elysia({ name: 'training', prefix: '/training' })
+export const trainingRoutes = new Elysia({
+  name: 'training',
+  prefix: '/training',
+})
   // ============================================================================
   // Training Jobs API
   // ============================================================================
@@ -48,7 +51,9 @@ export const trainingRoutes = new Elysia({ name: 'training', prefix: '/training'
         datasetCid: t.String(),
         outputDir: t.Optional(t.String()),
         hyperparameters: t.Optional(t.Record(t.String(), t.Unknown())),
-        priority: t.Optional(t.Union([t.Literal('low'), t.Literal('normal'), t.Literal('high')])),
+        priority: t.Optional(
+          t.Union([t.Literal('low'), t.Literal('normal'), t.Literal('high')]),
+        ),
         nodeCount: t.Optional(t.Number()),
         gpuType: t.Optional(t.String()),
         memoryGb: t.Optional(t.Number()),
@@ -86,7 +91,9 @@ export const trainingRoutes = new Elysia({ name: 'training', prefix: '/training'
   .get(
     '/jobs/:jobId/allocations',
     ({ params }) => {
-      const allocations = trainingService.getJobQueue().getAllocations(params.jobId)
+      const allocations = trainingService
+        .getJobQueue()
+        .getAllocations(params.jobId)
       return { allocations }
     },
     {
@@ -195,7 +202,9 @@ export const trainingRoutes = new Elysia({ name: 'training', prefix: '/training'
       const psycheClient = createPsycheClient({
         solanaRpcUrl: process.env.SOLANA_RPC_URL ?? 'http://localhost:8899',
         llmJudgeUrl:
-          body.llmJudgeUrl ?? process.env.LLM_JUDGE_URL ?? 'http://localhost:9001',
+          body.llmJudgeUrl ??
+          process.env.LLM_JUDGE_URL ??
+          'http://localhost:9001',
         llmJudgeModel:
           body.llmJudgeModel ?? process.env.LLM_JUDGE_MODEL ?? 'default',
       })
@@ -205,11 +214,13 @@ export const trainingRoutes = new Elysia({ name: 'training', prefix: '/training'
     },
     {
       body: t.Object({
-        bundles: t.Array(t.Object({
-          id: t.String(),
-          prompt: t.String(),
-          responses: t.Array(t.String()),
-        })),
+        bundles: t.Array(
+          t.Object({
+            id: t.String(),
+            prompt: t.String(),
+            responses: t.Array(t.String()),
+          }),
+        ),
         llmJudgeUrl: t.Optional(t.String()),
         llmJudgeModel: t.Optional(t.String()),
       }),
@@ -357,10 +368,12 @@ export const trainingRoutes = new Elysia({ name: 'training', prefix: '/training'
     },
     {
       body: t.Object({
-        rewards: t.Array(t.Object({
-          client: t.String(),
-          amount: t.String(),
-        })),
+        rewards: t.Array(
+          t.Object({
+            client: t.String(),
+            amount: t.String(),
+          }),
+        ),
       }),
     },
   )
@@ -386,10 +399,12 @@ export const trainingRoutes = new Elysia({ name: 'training', prefix: '/training'
     },
     {
       body: t.Object({
-        rewards: t.Array(t.Object({
-          client: t.String(),
-          amount: t.String(),
-        })),
+        rewards: t.Array(
+          t.Object({
+            client: t.String(),
+            amount: t.String(),
+          }),
+        ),
         index: t.Number(),
       }),
     },

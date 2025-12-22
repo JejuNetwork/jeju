@@ -142,7 +142,12 @@ async function processSettlement(
 
   return {
     status: 200,
-    response: buildSettleSuccessResponse(network, payment, settlementResult, feeBps),
+    response: buildSettleSuccessResponse(
+      network,
+      payment,
+      settlementResult,
+      feeBps,
+    ),
   }
 }
 
@@ -150,7 +155,7 @@ const settleRoutes = new Elysia()
   .post('/settle', async ({ body, set }) => {
     const cfg = config()
     const requestBody = body as Record<string, unknown> | null
-    
+
     if (!requestBody) {
       set.status = 400
       return buildSettleErrorResponse(cfg.network, 'Invalid JSON request body')
@@ -199,7 +204,10 @@ const settleRoutes = new Elysia()
     const authParams = handleResult.body.authParams
     if (!authParams || typeof authParams !== 'object') {
       set.status = 400
-      return buildSettleErrorResponse(cfg.network, 'Missing authParams for EIP-3009')
+      return buildSettleErrorResponse(
+        cfg.network,
+        'Missing authParams for EIP-3009',
+      )
     }
 
     const auth: {

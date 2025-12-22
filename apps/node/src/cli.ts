@@ -9,11 +9,11 @@
  *   node-cli --help
  */
 
+import { spawn } from 'node:child_process'
 import { getCliBranding, getNetworkName } from '@jejunetwork/config'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { z } from 'zod'
-import { spawn } from 'node:child_process'
 import { createNodeClient } from './lib/contracts'
 import {
   detectHardware,

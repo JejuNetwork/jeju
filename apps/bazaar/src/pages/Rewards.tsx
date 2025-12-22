@@ -4,11 +4,11 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { Award, Copy, Check, Users, TrendingUp } from 'lucide-react'
+import { Award, Check, Copy, TrendingUp, Users } from 'lucide-react'
 import { useState } from 'react'
 import { useAccount } from 'wagmi'
-import { LoadingSpinner } from '../../components/LoadingSpinner'
 import { AuthButton } from '../../components/auth/AuthButton'
+import { LoadingSpinner } from '../../components/LoadingSpinner'
 
 interface ReferralStats {
   totalReferrals: number
@@ -41,8 +41,14 @@ export default function RewardsPage() {
   if (!isConnected) {
     return (
       <div className="max-w-2xl mx-auto text-center py-20">
-        <Award className="mx-auto mb-4 h-16 w-16" style={{ color: 'var(--text-tertiary)' }} />
-        <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+        <Award
+          className="mx-auto mb-4 h-16 w-16"
+          style={{ color: 'var(--text-tertiary)' }}
+        />
+        <h1
+          className="text-2xl font-bold mb-4"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Rewards
         </h1>
         <p className="mb-8" style={{ color: 'var(--text-secondary)' }}>
@@ -63,7 +69,10 @@ export default function RewardsPage() {
 
   return (
     <div className="max-w-2xl mx-auto">
-      <h1 className="text-3xl font-bold mb-2" style={{ color: 'var(--text-primary)' }}>
+      <h1
+        className="text-3xl font-bold mb-2"
+        style={{ color: 'var(--text-primary)' }}
+      >
         Rewards
       </h1>
       <p className="mb-8" style={{ color: 'var(--text-secondary)' }}>
@@ -73,27 +82,46 @@ export default function RewardsPage() {
       <div className="grid grid-cols-2 gap-4 mb-8">
         <div className="card p-6">
           <div className="flex items-center gap-2 mb-2">
-            <TrendingUp className="h-5 w-5" style={{ color: 'var(--bazaar-primary)' }} />
-            <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Total Earned</span>
+            <TrendingUp
+              className="h-5 w-5"
+              style={{ color: 'var(--bazaar-primary)' }}
+            />
+            <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              Total Earned
+            </span>
           </div>
-          <div className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          <div
+            className="text-3xl font-bold"
+            style={{ color: 'var(--text-primary)' }}
+          >
             {stats?.totalPointsEarned?.toLocaleString() || 0}
           </div>
         </div>
 
         <div className="card p-6">
           <div className="flex items-center gap-2 mb-2">
-            <Users className="h-5 w-5" style={{ color: 'var(--bazaar-primary)' }} />
-            <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>Referrals</span>
+            <Users
+              className="h-5 w-5"
+              style={{ color: 'var(--bazaar-primary)' }}
+            />
+            <span className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              Referrals
+            </span>
           </div>
-          <div className="text-3xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          <div
+            className="text-3xl font-bold"
+            style={{ color: 'var(--text-primary)' }}
+          >
             {stats?.totalReferrals || 0}
           </div>
         </div>
       </div>
 
       <div className="card p-6">
-        <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+        <h2
+          className="text-lg font-bold mb-4"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Your Referral Link
         </h2>
         <p className="text-sm mb-4" style={{ color: 'var(--text-secondary)' }}>
@@ -102,12 +130,19 @@ export default function RewardsPage() {
 
         <div className="flex gap-2">
           <input
+            id="referral-link"
+            aria-label="Your referral link"
             type="text"
             readOnly
-            value={stats?.referralCode ? `${window.location.origin}/?ref=${stats.referralCode}` : 'Loading...'}
+            value={
+              stats?.referralCode
+                ? `${window.location.origin}/?ref=${stats.referralCode}`
+                : 'Loading...'
+            }
             className="input flex-1"
           />
           <button
+            type="button"
             onClick={handleCopyUrl}
             disabled={!stats?.referralCode}
             className="btn-primary px-4 flex items-center gap-2"

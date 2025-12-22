@@ -6,11 +6,11 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { ABIFunctionSchema, ABISchema } from '../../schemas/api'
-import { getRarityInfo } from '../games'
 import { GoldAbi, ItemsAbi } from '@jejunetwork/contracts'
+import { ABIFunctionSchema, ABISchema } from '../../schemas/api'
 import NFTMarketplaceAbi from '../abis/NFTMarketplace.json'
 import SimpleERC20FactoryAbi from '../abis/SimpleERC20Factory.json'
+import { getRarityInfo } from '../games'
 
 describe('Game Items', () => {
   describe('getRarityInfo', () => {
@@ -195,7 +195,9 @@ describe('Game Items', () => {
 
   describe('NFT Marketplace Integration', () => {
     test('NFTMarketplace ABI should have listing functions', () => {
-      const abi = (NFTMarketplaceAbi as { default?: unknown[] }).default ?? NFTMarketplaceAbi
+      const abi =
+        (NFTMarketplaceAbi as { default?: unknown[] }).default ??
+        NFTMarketplaceAbi
       const functionNames = (abi as Array<{ type: string; name: string }>)
         .filter((item) => item.type === 'function')
         .map((item) => item.name)
@@ -220,7 +222,9 @@ describe('Game Items', () => {
 
   describe('ERC20 Factory Integration', () => {
     test('SimpleERC20Factory ABI should have token creation', () => {
-      const abi = (SimpleERC20FactoryAbi as { default?: unknown[] }).default ?? SimpleERC20FactoryAbi
+      const abi =
+        (SimpleERC20FactoryAbi as { default?: unknown[] }).default ??
+        SimpleERC20FactoryAbi
       const functionNames = (abi as Array<{ type: string; name: string }>)
         .filter((item) => item.type === 'function')
         .map((item) => item.name)
@@ -232,7 +236,9 @@ describe('Game Items', () => {
     })
 
     test('createToken should have correct parameters', () => {
-      const abi = (SimpleERC20FactoryAbi as { default?: unknown[] }).default ?? SimpleERC20FactoryAbi
+      const abi =
+        (SimpleERC20FactoryAbi as { default?: unknown[] }).default ??
+        SimpleERC20FactoryAbi
       const parsed = ABISchema.safeParse(abi)
       expect(parsed.success).toBe(true)
       if (!parsed.success) return

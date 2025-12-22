@@ -1,13 +1,3 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
-import { type Address, parseEther } from 'viem'
-import {
-  useAccount,
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi'
-import { NETWORK } from '../config'
-import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import {
   APP_TOKEN_PREFERENCE_ABI,
   type AppPreference,
@@ -19,6 +9,16 @@ import {
   type SwapStatus,
   type XLPPosition,
 } from '@jejunetwork/deployment/scripts/shared/eil-hooks'
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { type Address, parseEther } from 'viem'
+import {
+  useAccount,
+  useReadContract,
+  useWaitForTransactionReceipt,
+  useWriteContract,
+} from 'wagmi'
+import { NETWORK } from '../config'
 
 // ABI-inferred tuple types for getXLPStake return value
 // Returns: (stakedAmount, unbondingAmount, unbondingStartTime, slashedAmount, isActive, registeredAt)

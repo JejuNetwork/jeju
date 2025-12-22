@@ -77,7 +77,6 @@ export type SwapStatus =
   | 'complete'
   | 'error'
 
-
 // ============ Supported Chains ============
 
 export const SUPPORTED_CHAINS: ChainInfo[] = [

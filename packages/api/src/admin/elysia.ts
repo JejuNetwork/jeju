@@ -4,10 +4,10 @@
  * Provides Elysia plugins for admin access control.
  */
 
-import { Elysia, type Context } from 'elysia'
+import { type Context, Elysia } from 'elysia'
 import { AuthError, AuthErrorCode, type AuthUser } from '../auth/types.js'
 import { requireAdmin, requireRole, validateAdmin } from './core.js'
-import { AdminRole, type AdminConfig, type AdminUser } from './types.js'
+import type { AdminConfig, AdminRole, AdminUser } from './types.js'
 
 // ============ Types ============
 
@@ -39,7 +39,10 @@ export function adminPlugin(config: AdminPluginConfig) {
         return { isAdmin: false }
       }
 
-      const result = validateAdmin({ address: address as `0x${string}`, method: 'oauth3' }, config)
+      const result = validateAdmin(
+        { address: address as `0x${string}`, method: 'oauth3' },
+        config,
+      )
 
       if (result.valid && result.admin) {
         return {
@@ -74,9 +77,11 @@ export function adminPlugin(config: AdminPluginConfig) {
  * Create a require-admin middleware for specific routes
  */
 export function requireAdminMiddleware(config: AdminConfig) {
-  return async ({ address, set }: Context & { address?: string }): Promise<
-    | { error: string; code: string }
-    | undefined
+  return async ({
+    address,
+    set,
+  }: Context & { address?: string }): Promise<
+    { error: string; code: string } | undefined
   > => {
     if (!address) {
       set.status = 401
@@ -107,9 +112,11 @@ export function requireAdminMiddleware(config: AdminConfig) {
  * Create a role-specific middleware
  */
 export function requireRoleMiddleware(config: AdminConfig, role: AdminRole) {
-  return async ({ address, set }: Context & { address?: string }): Promise<
-    | { error: string; code: string }
-    | undefined
+  return async ({
+    address,
+    set,
+  }: Context & { address?: string }): Promise<
+    { error: string; code: string } | undefined
   > => {
     if (!address) {
       set.status = 401
@@ -144,7 +151,9 @@ export function withAdmin<T>(
   handler: (ctx: Context & { admin: AdminUser }) => T | Promise<T>,
   config: AdminConfig,
 ) {
-  return async (ctx: Context & { address?: string; authUser?: AuthUser }): Promise<T> => {
+  return async (
+    ctx: Context & { address?: string; authUser?: AuthUser },
+  ): Promise<T> => {
     if (!ctx.address || !ctx.authUser) {
       throw new AuthError(
         'Authentication required',
@@ -166,7 +175,9 @@ export function withRole<T>(
   config: AdminConfig,
   role: AdminRole,
 ) {
-  return async (ctx: Context & { address?: string; authUser?: AuthUser }): Promise<T> => {
+  return async (
+    ctx: Context & { address?: string; authUser?: AuthUser },
+  ): Promise<T> => {
     if (!ctx.address || !ctx.authUser) {
       throw new AuthError(
         'Authentication required',

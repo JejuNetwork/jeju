@@ -1,3 +1,4 @@
+import type { EVMChainId } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -6,7 +7,6 @@ import {
   parseAbi,
 } from 'viem'
 import { expectEVMChainId } from '../schemas'
-import type { EVMChainId } from '@jejunetwork/types'
 import type { OraclePrice } from '../types'
 
 const PYTH_ABI = parseAbi([

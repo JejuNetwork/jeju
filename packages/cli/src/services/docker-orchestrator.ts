@@ -13,8 +13,8 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { execa } from 'execa'
 import { CORE_PORTS } from '@jejunetwork/config/ports'
+import { execa } from 'execa'
 import { logger } from '../lib/logger'
 
 export type TestProfile = 'chain' | 'services' | 'apps' | 'full' | 'solana'

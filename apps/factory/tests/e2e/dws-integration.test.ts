@@ -8,8 +8,8 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { z } from 'zod'
 import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
+import { z } from 'zod'
 
 const FACTORY_API_URL = process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
 const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
@@ -108,10 +108,6 @@ const OpenAPIResponseSchema = z.object({
   info: z.object({ title: z.string() }),
   paths: z.record(z.string(), z.unknown()),
 })
-
-type HealthResponse = z.infer<typeof HealthResponseSchema>
-type BountyResponse = z.infer<typeof BountyResponseSchema>
-type A2AResponse = z.infer<typeof A2AResponseSchema>
 
 /** Safely parse JSON response and validate against schema */
 async function expectResponse<T>(

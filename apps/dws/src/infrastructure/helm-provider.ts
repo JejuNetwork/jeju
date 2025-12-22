@@ -18,10 +18,10 @@
  * - Networking is abstracted via DWS routing
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
-import { expectValid } from '@jejunetwork/types'
 
 // ============================================================================
 // Kubernetes Manifest Types
@@ -475,177 +475,181 @@ const deployments = new Map<string, DWSDeployment>()
 export function createHelmProviderRouter() {
   const parser = new ManifestParser()
 
-  return new Elysia({ prefix: '/helm' })
-    // Health check
-    .get('/health', () => ({ status: 'healthy', provider: 'dws-helm' }))
+  return (
+    new Elysia({ prefix: '/helm' })
+      // Health check
+      .get('/health', () => ({ status: 'healthy', provider: 'dws-helm' }))
 
-    // Schema for Helm deployments
-    .get('/schema', () => ({
-      schema: {
-        manifests: {
-          type: 'array',
-          description: 'Kubernetes manifest objects to deploy',
-          items: {
-            type: 'object',
-            required: ['apiVersion', 'kind', 'metadata'],
-            properties: {
-              apiVersion: { type: 'string' },
-              kind: {
-                type: 'string',
-                enum: [
-                  'Deployment',
-                  'Service',
-                  'ConfigMap',
-                  'Secret',
-                  'Job',
-                  'CronJob',
-                  'StatefulSet',
-                  'DaemonSet',
-                  'Ingress',
-                  'PersistentVolumeClaim',
-                ],
-              },
-              metadata: {
-                type: 'object',
-                properties: {
-                  name: { type: 'string' },
-                  namespace: { type: 'string' },
+      // Schema for Helm deployments
+      .get('/schema', () => ({
+        schema: {
+          manifests: {
+            type: 'array',
+            description: 'Kubernetes manifest objects to deploy',
+            items: {
+              type: 'object',
+              required: ['apiVersion', 'kind', 'metadata'],
+              properties: {
+                apiVersion: { type: 'string' },
+                kind: {
+                  type: 'string',
+                  enum: [
+                    'Deployment',
+                    'Service',
+                    'ConfigMap',
+                    'Secret',
+                    'Job',
+                    'CronJob',
+                    'StatefulSet',
+                    'DaemonSet',
+                    'Ingress',
+                    'PersistentVolumeClaim',
+                  ],
                 },
+                metadata: {
+                  type: 'object',
+                  properties: {
+                    name: { type: 'string' },
+                    namespace: { type: 'string' },
+                  },
+                },
+                spec: { type: 'object' },
               },
-              spec: { type: 'object' },
             },
           },
+          release: { type: 'string', description: 'Name of the Helm release' },
+          namespace: {
+            type: 'string',
+            description: 'Target Kubernetes namespace',
+            default: 'default',
+          },
+          values: {
+            type: 'object',
+            description: 'Values to pass to Helm templates',
+          },
         },
-        release: { type: 'string', description: 'Name of the Helm release' },
-        namespace: {
-          type: 'string',
-          description: 'Target Kubernetes namespace',
-          default: 'default',
-        },
-        values: {
-          type: 'object',
-          description: 'Values to pass to Helm templates',
-        },
-      },
-    }))
-
-    // Apply Helm release / K8s manifests
-    .post('/apply', ({ body, request }) => {
-      const validated = expectValid(manifestsSchema, body, 'Helm apply body')
-      const _owner = request.headers.get('x-jeju-address') as Address
-
-      const deployment = parser.parseManifests(
-        validated.manifests as KubeManifest[],
-      )
-      deployment.name = validated.release ?? deployment.name
-      deployment.namespace = validated.namespace ?? deployment.namespace
-      deployment.status = 'deploying'
-
-      deployments.set(deployment.id, deployment)
-
-      // Start async deployment
-      deployToNetwork(deployment).catch((err) => {
-        console.error(`[Helm] Deployment ${deployment.id} failed:`, err)
-        deployment.status = 'failed'
-      })
-
-      return {
-        id: deployment.id,
-        name: deployment.name,
-        namespace: deployment.namespace,
-        workers: deployment.workers.length,
-        services: deployment.services.length,
-        status: deployment.status,
-      }
-    })
-
-    // Get deployment status
-    .get('/deployments/:id', ({ params, set }) => {
-      const deployment = deployments.get(params.id)
-      if (!deployment) {
-        set.status = 404
-        return { error: 'Deployment not found' }
-      }
-
-      return {
-        id: deployment.id,
-        name: deployment.name,
-        namespace: deployment.namespace,
-        workers: deployment.workers.map((w) => ({
-          id: w.id,
-          name: w.name,
-          replicas: w.replicas,
-          image: w.image,
-        })),
-        services: deployment.services.map((s) => ({
-          id: s.id,
-          name: s.name,
-          type: s.type,
-          ports: s.ports,
-        })),
-        status: deployment.status,
-        createdAt: deployment.createdAt,
-      }
-    })
-
-    // List deployments
-    .get('/deployments', () => {
-      const list = Array.from(deployments.values()).map((d) => ({
-        id: d.id,
-        name: d.name,
-        namespace: d.namespace,
-        status: d.status,
-        createdAt: d.createdAt,
       }))
 
-      return { deployments: list }
-    })
+      // Apply Helm release / K8s manifests
+      .post('/apply', ({ body, request }) => {
+        const validated = expectValid(manifestsSchema, body, 'Helm apply body')
+        const _owner = request.headers.get('x-jeju-address') as Address
 
-    // Delete deployment
-    .delete('/deployments/:id', async ({ params, set }) => {
-      const deployment = deployments.get(params.id)
-      if (!deployment) {
-        set.status = 404
-        return { error: 'Deployment not found' }
-      }
+        const deployment = parser.parseManifests(
+          validated.manifests as KubeManifest[],
+        )
+        deployment.name = validated.release ?? deployment.name
+        deployment.namespace = validated.namespace ?? deployment.namespace
+        deployment.status = 'deploying'
 
-      await cleanupDeployment(deployment)
-      deployments.delete(params.id)
+        deployments.set(deployment.id, deployment)
 
-      return { success: true, id: params.id }
-    })
+        // Start async deployment
+        deployToNetwork(deployment).catch((err) => {
+          console.error(`[Helm] Deployment ${deployment.id} failed:`, err)
+          deployment.status = 'failed'
+        })
 
-    // Scale deployment
-    .post('/deployments/:id/scale', ({ params, body, set }) => {
-      const scaleBody = expectValid(
-        z.object({
-          worker: z.string(),
-          replicas: z.number().min(0).max(100),
-        }),
-        body,
-        'Scale body',
-      )
+        return {
+          id: deployment.id,
+          name: deployment.name,
+          namespace: deployment.namespace,
+          workers: deployment.workers.length,
+          services: deployment.services.length,
+          status: deployment.status,
+        }
+      })
 
-      const deployment = deployments.get(params.id)
-      if (!deployment) {
-        set.status = 404
-        return { error: 'Deployment not found' }
-      }
+      // Get deployment status
+      .get('/deployments/:id', ({ params, set }) => {
+        const deployment = deployments.get(params.id)
+        if (!deployment) {
+          set.status = 404
+          return { error: 'Deployment not found' }
+        }
 
-      const worker = deployment.workers.find((w) => w.name === scaleBody.worker)
-      if (!worker) {
-        set.status = 404
-        return { error: 'Worker not found' }
-      }
+        return {
+          id: deployment.id,
+          name: deployment.name,
+          namespace: deployment.namespace,
+          workers: deployment.workers.map((w) => ({
+            id: w.id,
+            name: w.name,
+            replicas: w.replicas,
+            image: w.image,
+          })),
+          services: deployment.services.map((s) => ({
+            id: s.id,
+            name: s.name,
+            type: s.type,
+            ports: s.ports,
+          })),
+          status: deployment.status,
+          createdAt: deployment.createdAt,
+        }
+      })
 
-      worker.replicas = scaleBody.replicas
+      // List deployments
+      .get('/deployments', () => {
+        const list = Array.from(deployments.values()).map((d) => ({
+          id: d.id,
+          name: d.name,
+          namespace: d.namespace,
+          status: d.status,
+          createdAt: d.createdAt,
+        }))
 
-      return {
-        success: true,
-        worker: worker.name,
-        replicas: scaleBody.replicas,
-      }
-    })
+        return { deployments: list }
+      })
+
+      // Delete deployment
+      .delete('/deployments/:id', async ({ params, set }) => {
+        const deployment = deployments.get(params.id)
+        if (!deployment) {
+          set.status = 404
+          return { error: 'Deployment not found' }
+        }
+
+        await cleanupDeployment(deployment)
+        deployments.delete(params.id)
+
+        return { success: true, id: params.id }
+      })
+
+      // Scale deployment
+      .post('/deployments/:id/scale', ({ params, body, set }) => {
+        const scaleBody = expectValid(
+          z.object({
+            worker: z.string(),
+            replicas: z.number().min(0).max(100),
+          }),
+          body,
+          'Scale body',
+        )
+
+        const deployment = deployments.get(params.id)
+        if (!deployment) {
+          set.status = 404
+          return { error: 'Deployment not found' }
+        }
+
+        const worker = deployment.workers.find(
+          (w) => w.name === scaleBody.worker,
+        )
+        if (!worker) {
+          set.status = 404
+          return { error: 'Worker not found' }
+        }
+
+        worker.replicas = scaleBody.replicas
+
+        return {
+          success: true,
+          worker: worker.name,
+          replicas: scaleBody.replicas,
+        }
+      })
+  )
 }
 
 // ============================================================================

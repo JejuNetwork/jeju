@@ -1,3 +1,4 @@
+import { IERC20_ABI, ZERO_ADDRESS } from '@jejunetwork/ui'
 import {
   type Address,
   createPublicClient,
@@ -13,7 +14,6 @@ import {
 } from '../config/contracts.js'
 import { getChainName, getRpcUrl, JEJU_CHAIN_ID } from '../config/networks.js'
 import { jejuTestnet } from '../lib/chains.js'
-import { IERC20_ABI, ZERO_ADDRESS } from '@jejunetwork/ui'
 import { expectAddress } from '../lib/validation.js'
 import { faucetState, initializeState } from './state.js'
 

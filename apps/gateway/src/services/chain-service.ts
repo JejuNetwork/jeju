@@ -1,3 +1,4 @@
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import {
   type Abi,
   type Address,
@@ -12,7 +13,6 @@ import {
 } from '../config/contracts.js'
 import { getRpcUrl, JEJU_CHAIN_ID } from '../config/networks.js'
 import { getChain } from '../lib/chains.js'
-import { ZERO_ADDRESS } from '@jejunetwork/ui'
 
 // ABIs for reading contract state and watching events
 const INPUT_SETTLER_ABI = [

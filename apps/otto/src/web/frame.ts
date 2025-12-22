@@ -3,9 +3,9 @@
  * Minimal interactive Frame for trading
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { getConfig } from '../config'
-import { expectValid } from '@jejunetwork/types'
 import { FarcasterFramePayloadSchema } from '../schemas'
 
 const BASE_URL = getConfig().baseUrl

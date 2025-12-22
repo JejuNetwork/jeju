@@ -16,8 +16,8 @@
  *   INFERENCE_PORT (default 4031)
  */
 
-import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 
 const app = new Elysia()
 app.use(cors({ origin: '*' }))

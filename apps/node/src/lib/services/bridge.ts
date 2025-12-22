@@ -376,7 +376,6 @@ class BridgeServiceImpl implements BridgeService {
 
     console.log(`[Bridge] Depositing ${amount} of ${token} to chain ${chainId}`)
 
-
     const account = privateKeyToAccount(this.config.privateKey)
     const publicClient = createPublicClient({ transport: http(rpcUrl) })
     const walletClient = createWalletClient({
@@ -729,7 +728,11 @@ class BridgeServiceImpl implements BridgeService {
 
     const json: unknown = await response.json()
     const parsed = JitoTipFloorResponseSchema.safeParse(json)
-    return BigInt(parsed.success ? (parsed.data.result?.tip_floor_lamports ?? 10000) : 10000)
+    return BigInt(
+      parsed.success
+        ? (parsed.data.result?.tip_floor_lamports ?? 10000)
+        : 10000,
+    )
   }
 
   // ============ Event Methods ============

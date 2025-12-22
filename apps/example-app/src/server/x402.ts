@@ -7,12 +7,12 @@
  * All validation uses zod with expect/throw patterns.
  */
 
-import { Elysia, type Context } from 'elysia'
+import { type Context, Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { createPublicClient, http, parseAbi, verifyMessage } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
-import { x402PaymentHeaderSchema, x402VerifySchema } from '../schemas'
 import type { X402Config, X402PaymentHeader } from '../schemas'
+import { x402PaymentHeaderSchema, x402VerifySchema } from '../schemas'
 import type { X402PaymentResult, X402Token } from '../types'
 import {
   expectValid,
@@ -77,10 +77,9 @@ export interface X402Middleware {
   config: X402Config
   requirePayment: (
     price?: keyof typeof PRICES,
-  ) => (ctx: Context) => Promise<
-    | { error: string; details?: string }
-    | undefined
-  >
+  ) => (
+    ctx: Context,
+  ) => Promise<{ error: string; details?: string } | undefined>
   verifyPayment: (header: string) => Promise<X402PaymentResult>
   getPaymentInfo: () => {
     address: Address
@@ -111,10 +110,9 @@ class X402MiddlewareImpl implements X402Middleware {
   }
 
   requirePayment(price: keyof typeof PRICES = 'basic') {
-    return async (ctx: Context): Promise<
-      | { error: string; details?: string }
-      | undefined
-    > => {
+    return async (
+      ctx: Context,
+    ): Promise<{ error: string; details?: string } | undefined> => {
       // Skip payment check if disabled
       if (!this.config.enabled) {
         return undefined

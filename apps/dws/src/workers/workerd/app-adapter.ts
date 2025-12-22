@@ -318,13 +318,15 @@ import { Elysia } from 'elysia'
  * Elysia plugin to add TEE context headers
  */
 export function teeContextPlugin(env?: JejuEnv) {
-  return new Elysia({ name: 'tee-context' }).onBeforeHandle(({ request, set }) => {
-    const teeMode =
-      env?.TEE_MODE || request.headers.get('x-tee-mode') || 'simulated'
-    const teeRegion =
-      env?.TEE_REGION || request.headers.get('x-tee-region') || 'local'
+  return new Elysia({ name: 'tee-context' }).onBeforeHandle(
+    ({ request, set }) => {
+      const teeMode =
+        env?.TEE_MODE || request.headers.get('x-tee-mode') || 'simulated'
+      const teeRegion =
+        env?.TEE_REGION || request.headers.get('x-tee-region') || 'local'
 
-    set.headers['x-tee-mode'] = teeMode
-    set.headers['x-tee-region'] = teeRegion
-  })
+      set.headers['x-tee-mode'] = teeMode
+      set.headers['x-tee-region'] = teeRegion
+    },
+  )
 }

@@ -69,4 +69,3 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
 
   console.log('[Jeju Wallet Setup] Complete')
 })
-

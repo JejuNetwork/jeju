@@ -12,6 +12,7 @@
  * - Lookup registered contributors for dependencies
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -26,7 +27,6 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import { scanRepositoryRequestSchema } from '../../shared/schemas'
-import { expectValid } from '@jejunetwork/types'
 
 // ============ Types ============
 
@@ -294,165 +294,175 @@ export function createDependencyScannerRouter() {
 
   const publicClient = createPublicClient({ transport: http(rpcUrl) })
 
-  return new Elysia({ prefix: '/dependency-scanner' })
-    // Scan a repository
-    .post('/scan', async ({ body }) => {
-      const validBody = expectValid(
-        scanRepositoryRequestSchema,
-        body,
-        'Scan repository request',
-      )
-      const {
-        daoId,
-        repoOwner,
-        repoName,
-        registryTypes,
-        maxDepth,
-        autoRegister,
-      } = validBody
+  return (
+    new Elysia({ prefix: '/dependency-scanner' })
+      // Scan a repository
+      .post('/scan', async ({ body }) => {
+        const validBody = expectValid(
+          scanRepositoryRequestSchema,
+          body,
+          'Scan repository request',
+        )
+        const {
+          daoId,
+          repoOwner,
+          repoName,
+          registryTypes,
+          maxDepth,
+          autoRegister,
+        } = validBody
 
-      // Scan repository
-      const deps = await scanRepository(
-        repoOwner,
-        repoName,
-        registryTypes || ['npm', 'pypi', 'cargo', 'go'],
-        maxDepth ?? 1,
-        githubToken,
-      )
+        // Scan repository
+        const deps = await scanRepository(
+          repoOwner,
+          repoName,
+          registryTypes || ['npm', 'pypi', 'cargo', 'go'],
+          maxDepth ?? 1,
+          githubToken,
+        )
 
-      // Look up registered contributors
-      for (const dep of deps) {
-        try {
-          const contributorId = (await publicClient.readContract({
-            address: contributorRegistryAddress,
-            abi: CONTRIBUTOR_REGISTRY_ABI,
-            functionName: 'getContributorForDependency',
-            args: [dep.packageName, dep.registryType],
-          })) as Hex
-
-          if (contributorId !== `0x${'0'.repeat(64)}`) {
-            dep.isRegistered = true
-            dep.maintainerContributorId = contributorId
-          }
-        } catch {
-          // Contract not deployed or error
-        }
-      }
-
-      const result: ScanResult = {
-        repo: `${repoOwner}/${repoName}`,
-        dependencies: deps,
-        registeredCount: deps.filter((d) => d.isRegistered).length,
-        unregisteredCount: deps.filter((d) => !d.isRegistered).length,
-        totalWeight: deps.reduce((sum, d) => sum + d.adjustedWeight, 0),
-      }
-
-      // Auto-register if requested
-      if (autoRegister && adminKey && distributorAddress) {
-        const account = privateKeyToAccount(adminKey as Hex)
-        const chain: Chain = rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1')
-          ? localhost
-          : rpcUrl.includes('sepolia')
-            ? baseSepolia
-            : base
-        const walletClient = createWalletClient({
-          account,
-          chain,
-          transport: http(rpcUrl),
-        })
-
-        const registered: string[] = []
-        const errors: string[] = []
-
+        // Look up registered contributors
         for (const dep of deps) {
           try {
-            await walletClient.writeContract({
-              address: distributorAddress,
-              abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
-              functionName: 'registerDependency',
-              args: [
-                daoId as Hex,
-                dep.packageName,
-                dep.registryType,
-                (dep.maintainerContributorId || `0x${'0'.repeat(64)}`) as Hex,
-                BigInt(dep.adjustedWeight),
-                BigInt(dep.depth),
-                BigInt(1), // usageCount - we increment this for each repo
-              ],
-            })
-            registered.push(`${dep.registryType}:${dep.packageName}`)
-          } catch (err) {
-            const msg = err instanceof Error ? err.message : 'Unknown error'
-            errors.push(`${dep.registryType}:${dep.packageName}: ${msg}`)
+            const contributorId = (await publicClient.readContract({
+              address: contributorRegistryAddress,
+              abi: CONTRIBUTOR_REGISTRY_ABI,
+              functionName: 'getContributorForDependency',
+              args: [dep.packageName, dep.registryType],
+            })) as Hex
+
+            if (contributorId !== `0x${'0'.repeat(64)}`) {
+              dep.isRegistered = true
+              dep.maintainerContributorId = contributorId
+            }
+          } catch {
+            // Contract not deployed or error
           }
         }
 
-        return {
-          ...result,
-          autoRegistered: registered.length,
-          registrationErrors: errors,
+        const result: ScanResult = {
+          repo: `${repoOwner}/${repoName}`,
+          dependencies: deps,
+          registeredCount: deps.filter((d) => d.isRegistered).length,
+          unregisteredCount: deps.filter((d) => !d.isRegistered).length,
+          totalWeight: deps.reduce((sum, d) => sum + d.adjustedWeight, 0),
         }
-      }
 
-      return result
-    })
+        // Auto-register if requested
+        if (autoRegister && adminKey && distributorAddress) {
+          const account = privateKeyToAccount(adminKey as Hex)
+          const chain: Chain =
+            rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1')
+              ? localhost
+              : rpcUrl.includes('sepolia')
+                ? baseSepolia
+                : base
+          const walletClient = createWalletClient({
+            account,
+            chain,
+            transport: http(rpcUrl),
+          })
 
-    // Get dependency info from on-chain
-    .get('/dependency/:registryType/:packageName', async ({ params, query, set }) => {
-      const { registryType, packageName } = params
-      const daoId = query.daoId
+          const registered: string[] = []
+          const errors: string[] = []
 
-      if (!daoId) {
-        set.status = 400
-        return { error: 'daoId query param required' }
-      }
+          for (const dep of deps) {
+            try {
+              await walletClient.writeContract({
+                address: distributorAddress,
+                abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
+                functionName: 'registerDependency',
+                args: [
+                  daoId as Hex,
+                  dep.packageName,
+                  dep.registryType,
+                  (dep.maintainerContributorId || `0x${'0'.repeat(64)}`) as Hex,
+                  BigInt(dep.adjustedWeight),
+                  BigInt(dep.depth),
+                  BigInt(1), // usageCount - we increment this for each repo
+                ],
+              })
+              registered.push(`${dep.registryType}:${dep.packageName}`)
+            } catch (err) {
+              const msg = err instanceof Error ? err.message : 'Unknown error'
+              errors.push(`${dep.registryType}:${dep.packageName}: ${msg}`)
+            }
+          }
 
-      const depHash = keccak256(Buffer.from(`${registryType}:${packageName}`))
-
-      try {
-        const result = (await publicClient.readContract({
-          address: distributorAddress,
-          abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
-          functionName: 'getDependencyShare',
-          args: [daoId as Hex, depHash],
-        })) as [Hex, Hex, bigint, bigint, bigint, bigint, bigint, boolean]
-
-        return {
-          depHash: result[0],
-          contributorId: result[1],
-          weight: result[2].toString(),
-          transitiveDepth: Number(result[3]),
-          usageCount: Number(result[4]),
-          pendingRewards: result[5].toString(),
-          claimedRewards: result[6].toString(),
-          isRegistered: result[7],
+          return {
+            ...result,
+            autoRegistered: registered.length,
+            registrationErrors: errors,
+          }
         }
-      } catch {
-        set.status = 404
-        return { error: 'Dependency not found' }
-      }
-    })
 
-    // Get all DAO repos to scan (from on-chain registry)
-    .get('/repos/:daoId', async ({ params }) => {
-      const { daoId } = params
+        return result
+      })
 
-      // In production, this would fetch from DAORegistry.getLinkedRepos()
-      // For now, return empty since we need the actual contract call
-      return {
-        daoId,
-        repos: [],
-        message: 'Fetch linked repos from DAORegistry in production',
-      }
-    })
+      // Get dependency info from on-chain
+      .get(
+        '/dependency/:registryType/:packageName',
+        async ({ params, query, set }) => {
+          const { registryType, packageName } = params
+          const daoId = query.daoId
 
-    // Health check
-    .get('/health', () => {
-      return {
-        configured: !!adminKey && !!distributorAddress,
-        hasGitHubToken: !!githubToken,
-      }
-    })
+          if (!daoId) {
+            set.status = 400
+            return { error: 'daoId query param required' }
+          }
+
+          const depHash = keccak256(
+            Buffer.from(`${registryType}:${packageName}`),
+          )
+
+          try {
+            const result = (await publicClient.readContract({
+              address: distributorAddress,
+              abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
+              functionName: 'getDependencyShare',
+              args: [daoId as Hex, depHash],
+            })) as [Hex, Hex, bigint, bigint, bigint, bigint, bigint, boolean]
+
+            return {
+              depHash: result[0],
+              contributorId: result[1],
+              weight: result[2].toString(),
+              transitiveDepth: Number(result[3]),
+              usageCount: Number(result[4]),
+              pendingRewards: result[5].toString(),
+              claimedRewards: result[6].toString(),
+              isRegistered: result[7],
+            }
+          } catch {
+            set.status = 404
+            return { error: 'Dependency not found' }
+          }
+        },
+      )
+
+      // Get all DAO repos to scan (from on-chain registry)
+      .get('/repos/:daoId', async ({ params }) => {
+        const { daoId } = params
+
+        // In production, this would fetch from DAORegistry.getLinkedRepos()
+        // For now, return empty since we need the actual contract call
+        return {
+          daoId,
+          repos: [],
+          message: 'Fetch linked repos from DAORegistry in production',
+        }
+      })
+
+      // Health check
+      .get('/health', () => {
+        return {
+          configured: !!adminKey && !!distributorAddress,
+          hasGitHubToken: !!githubToken,
+        }
+      })
+  )
 }
 
-export type DependencyScannerRoutes = ReturnType<typeof createDependencyScannerRouter>
+export type DependencyScannerRoutes = ReturnType<
+  typeof createDependencyScannerRouter
+>

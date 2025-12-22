@@ -10,12 +10,16 @@ import {
 } from 'lucide-react'
 import { type ComponentType, useState } from 'react'
 import { useAccount } from 'wagmi'
-import { readContract, writeContract, waitForTransactionReceipt } from 'wagmi/actions'
-import { getConfig } from '../../lib/wagmi-config'
+import {
+  readContract,
+  waitForTransactionReceipt,
+  writeContract,
+} from 'wagmi/actions'
 import {
   useFeedRegistry,
   useOperatorCommittees,
 } from '../../hooks/useOracleNetwork'
+import { getConfig } from '../../lib/wagmi-config'
 
 const UsersIcon = Users as ComponentType<LucideProps>
 const ShieldIcon = Shield as ComponentType<LucideProps>

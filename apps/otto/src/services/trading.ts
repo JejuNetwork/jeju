@@ -3,10 +3,10 @@
  * Handles all trading operations: swaps, bridges, token launches, etc.
  */
 
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { expectValid } from '@jejunetwork/types'
 import { type Address, formatUnits, type Hex, parseUnits } from 'viem'
 import { DEFAULT_CHAIN_ID, DEFAULT_SLIPPAGE_BPS, getChainName } from '../config'
-import { expectValid } from '@jejunetwork/types'
-import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import {
   BalanceSchema,
   BridgeParamsSchema,

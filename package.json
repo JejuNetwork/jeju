@@ -1,7 +1,7 @@
 {
   "name": "jeju",
   "version": "0.1.0",
-  "description": "A modern EVM chain for agents and humans",
+  "description": "A network for agents and humans",
   "type": "module",
   "workspaces": [
     "packages/*",
@@ -60,7 +60,13 @@
     "got": ">=11.8.5",
     "tunnel-agent": ">=0.6.0",
     "tsup": ">=8.5.1",
-    "tough-cookie": ">=4.1.3"
+    "tough-cookie": ">=4.1.3",
+    "whatwg-url": "7.1.0",
+    "@langchain/core": "0.3.30",
+    "langchain": "0.3.30",
+    "hardhat": "2.22.18",
+    "@types/chai": "5.2.3",
+    "eslint": "9.39.2"
   },
   "scripts": {
     "preinstall": "python3 -c 'import distutils' 2>/dev/null || (echo 'Python distutils not found - run: pip3 install --user --break-system-packages setuptools' && exit 1)",
@@ -82,6 +88,23 @@
     "build": "bun run docs:generate && bun run jeju -- build",
     "lint": "biome check packages apps",
     "lint:fix": "biome check --write packages apps",
+    "lint:python": "ruff check packages apps vendor/babylon --fix || ruff check packages apps vendor/babylon",
+    "lint:python:fix": "ruff check packages apps vendor/babylon --fix && ruff format packages apps vendor/babylon",
+    "lint:rust": "bun run lint:rust:fmt:check || echo 'Rust format issues found - run lint:rust:fix'",
+    "lint:rust:clippy": "bun run lint:rust:clippy:tauri; bun run lint:rust:clippy:solana; bun run lint:rust:clippy:circuits",
+    "lint:rust:clippy:tauri": "cd apps/node/src-tauri && cargo clippy --all-targets -- -W clippy::all; cd ../../vpn/src-tauri && cargo clippy --all-targets -- -W clippy::all; cd ../../wallet/src-tauri && cargo clippy --all-targets -- -W clippy::all",
+    "lint:rust:clippy:solana": "cd packages/solana && cargo clippy --all-targets -- -W clippy::all || true",
+    "lint:rust:clippy:circuits": "cd packages/bridge/circuits && cargo clippy --all-targets -- -W clippy::all || true",
+    "lint:rust:fix": "bun run lint:rust:fmt",
+    "lint:rust:fmt": "cd apps/node/src-tauri && cargo fmt; cd ../../vpn/src-tauri && cargo fmt; cd ../../wallet/src-tauri && cargo fmt",
+    "lint:rust:fmt:check": "cd apps/node/src-tauri && cargo fmt --check; cd ../../vpn/src-tauri && cargo fmt --check; cd ../../wallet/src-tauri && cargo fmt --check",
+    "lint:all": "bun run lint && bun run lint:python && bun run lint:rust",
+    "lint:all:fix": "bun run lint:fix && bun run lint:python:fix && bun run lint:rust:fix",
+    "typecheck:python": "python3 -m pyright packages/training/python apps/dws/src vendor/babylon/packages/training/python vendor/babylon/packages/examples/babylon-langgraph-agent || echo 'Python type errors found'",
+    "typecheck:rust": "bun run typecheck:rust:tauri; bun run typecheck:rust:solana",
+    "typecheck:rust:tauri": "cd apps/node/src-tauri && cargo check; cd ../../vpn/src-tauri && cargo check; cd ../../wallet/src-tauri && cargo check",
+    "typecheck:rust:solana": "cd packages/solana && cargo check || true",
+    "typecheck:all": "bun run typecheck && bun run typecheck:python && bun run typecheck:rust",
     "typecheck": "turbo run typecheck --filter='!./vendor/*' --filter='!./vendor/*/packages/*' --filter='!./vendor/*/apps/*'",
     "typecheck:root": "tsc --noEmit",
     "test": "bun run packages/cli/src/index.ts test apps --no-docker",
@@ -161,7 +184,7 @@
     "deps:analyze": "bunx knip",
     "deps:analyze:ci": "bunx knip --no-exit-code",
     "ci:deps": "bun run deps:circular && bun run deps:check",
-    "ci:lint": "bun run lint && bun run typecheck:root",
+    "ci:lint": "bun run lint && bun run lint:python && bun run typecheck:root && bun run typecheck:python",
     "ci:test": "bun run test:core",
     "ci:all": "bun run ci:lint && bun run ci:deps && bun run ci:test"
   },
@@ -235,7 +258,6 @@
     "react-dom": "19.2.3",
     "@types/react": "19.2.3",
     "@types/react-dom": "19.2.3",
-    "hono": "4.11.1",
     "wagmi": "2.18.1",
     "@tanstack/react-query": "5.90.12",
     "zod": "4.2.1",
@@ -252,7 +274,13 @@
     "nanoid": ">=5.0.9",
     "@hapi/hoek": ">=9.0.3",
     "hawk": ">=9.0.1",
-    "tough-cookie": ">=4.1.3"
+    "tough-cookie": ">=4.1.3",
+    "whatwg-url": "7.1.0",
+    "@langchain/core": "0.3.30",
+    "langchain": "0.3.30",
+    "hardhat": "2.22.18",
+    "@types/chai": "5.2.3",
+    "eslint": "9.39.2"
   },
   "engines": {
     "bun": ">=1.0.0"

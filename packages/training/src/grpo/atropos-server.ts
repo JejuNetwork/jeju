@@ -12,9 +12,7 @@ import { Elysia } from 'elysia'
 import {
   DisconnectEnvSchema,
   type Message,
-  type RegisterEnv,
   RegisterEnvSchema,
-  type Registration,
   RegistrationSchema,
   type ScoredData,
   ScoredDataListSchema,

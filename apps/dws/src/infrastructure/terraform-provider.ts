@@ -31,10 +31,10 @@
  * ```
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
-import { expectValid } from '@jejunetwork/types'
 
 // ============================================================================
 // Terraform Provider Protocol Types
@@ -280,246 +280,248 @@ const nodeResourceSchema = z.object({
 // ============================================================================
 
 export function createTerraformProviderRouter() {
-  return new Elysia({ prefix: '/terraform/v1' })
-    // Provider schema endpoint (for terraform init)
-    .get('/schema', () => {
-      const schema: TerraformSchema = {
-        version: 1,
-        provider: DWS_PROVIDER_SCHEMA,
-        resource_schemas: {
-          dws_worker: DWS_WORKER_SCHEMA,
-          dws_container: DWS_CONTAINER_SCHEMA,
-          dws_storage: DWS_STORAGE_SCHEMA,
-          dws_domain: DWS_DOMAIN_SCHEMA,
-          dws_node: DWS_NODE_SCHEMA,
-        },
-        data_source_schemas: {
-          dws_worker: DWS_WORKER_SCHEMA,
-          dws_nodes: DWS_NODE_SCHEMA,
-        },
-      }
-      return schema
-    })
+  return (
+    new Elysia({ prefix: '/terraform/v1' })
+      // Provider schema endpoint (for terraform init)
+      .get('/schema', () => {
+        const schema: TerraformSchema = {
+          version: 1,
+          provider: DWS_PROVIDER_SCHEMA,
+          resource_schemas: {
+            dws_worker: DWS_WORKER_SCHEMA,
+            dws_container: DWS_CONTAINER_SCHEMA,
+            dws_storage: DWS_STORAGE_SCHEMA,
+            dws_domain: DWS_DOMAIN_SCHEMA,
+            dws_node: DWS_NODE_SCHEMA,
+          },
+          data_source_schemas: {
+            dws_worker: DWS_WORKER_SCHEMA,
+            dws_nodes: DWS_NODE_SCHEMA,
+          },
+        }
+        return schema
+      })
 
-    // Configure provider
-    .post('/configure', ({ body }) => {
-      const config = expectValid(
-        providerConfigSchema,
-        body,
-        'Provider config body',
-      )
+      // Configure provider
+      .post('/configure', ({ body }) => {
+        const config = expectValid(
+          providerConfigSchema,
+          body,
+          'Provider config body',
+        )
 
-      return {
-        success: true,
-        network: config.network ?? 'mainnet',
-        endpoint: config.endpoint ?? 'https://dws.jejunetwork.org',
-      }
-    })
+        return {
+          success: true,
+          network: config.network ?? 'mainnet',
+          endpoint: config.endpoint ?? 'https://dws.jejunetwork.org',
+        }
+      })
 
-    // ============================================================================
-    // Worker Resources
-    // ============================================================================
+      // ============================================================================
+      // Worker Resources
+      // ============================================================================
 
-    .post('/resources/dws_worker', ({ body, request }) => {
-      const validated = expectValid(
-        workerResourceSchema,
-        body,
-        'Worker resource body',
-      )
-      const _owner = request.headers.get('x-jeju-address') as Address
+      .post('/resources/dws_worker', ({ body, request }) => {
+        const validated = expectValid(
+          workerResourceSchema,
+          body,
+          'Worker resource body',
+        )
+        const _owner = request.headers.get('x-jeju-address') as Address
 
-      const workerId = `tf-worker-${Date.now()}`
+        const workerId = `tf-worker-${Date.now()}`
 
-      return {
-        id: workerId,
-        name: validated.name,
-        code_cid: validated.code_cid,
-        code_hash: validated.code_hash ?? '',
-        entrypoint: validated.entrypoint ?? 'index.js',
-        runtime: validated.runtime ?? 'workerd',
-        memory_mb: validated.memory_mb ?? 128,
-        timeout_ms: validated.timeout_ms ?? 30000,
-        min_instances: validated.min_instances ?? 0,
-        max_instances: validated.max_instances ?? 10,
-        scale_to_zero: validated.scale_to_zero ?? true,
-        tee_required: validated.tee_required ?? false,
-        tee_platform: validated.tee_platform ?? 'none',
-        status: 'deploying',
-        endpoints: [],
-        env: validated.env ?? {},
-      }
-    })
+        return {
+          id: workerId,
+          name: validated.name,
+          code_cid: validated.code_cid,
+          code_hash: validated.code_hash ?? '',
+          entrypoint: validated.entrypoint ?? 'index.js',
+          runtime: validated.runtime ?? 'workerd',
+          memory_mb: validated.memory_mb ?? 128,
+          timeout_ms: validated.timeout_ms ?? 30000,
+          min_instances: validated.min_instances ?? 0,
+          max_instances: validated.max_instances ?? 10,
+          scale_to_zero: validated.scale_to_zero ?? true,
+          tee_required: validated.tee_required ?? false,
+          tee_platform: validated.tee_platform ?? 'none',
+          status: 'deploying',
+          endpoints: [],
+          env: validated.env ?? {},
+        }
+      })
 
-    .get('/resources/dws_worker/:id', ({ params }) => ({
-      id: params.id,
-      status: 'active',
-      endpoints: [`https://${params.id}.workers.dws.jejunetwork.org`],
-    }))
-
-    .put('/resources/dws_worker/:id', ({ params, body }) => {
-      const validated = expectValid(
-        workerResourceSchema,
-        body,
-        'Worker update body',
-      )
-
-      return {
+      .get('/resources/dws_worker/:id', ({ params }) => ({
         id: params.id,
-        ...validated,
-        status: 'updating',
-      }
-    })
+        status: 'active',
+        endpoints: [`https://${params.id}.workers.dws.jejunetwork.org`],
+      }))
 
-    .delete('/resources/dws_worker/:id', ({ params }) => ({
-      success: true,
-      id: params.id,
-    }))
+      .put('/resources/dws_worker/:id', ({ params, body }) => {
+        const validated = expectValid(
+          workerResourceSchema,
+          body,
+          'Worker update body',
+        )
 
-    // ============================================================================
-    // Container Resources
-    // ============================================================================
+        return {
+          id: params.id,
+          ...validated,
+          status: 'updating',
+        }
+      })
 
-    .post('/resources/dws_container', ({ body }) => {
-      const validated = expectValid(
-        containerResourceSchema,
-        body,
-        'Container resource body',
-      )
+      .delete('/resources/dws_worker/:id', ({ params }) => ({
+        success: true,
+        id: params.id,
+      }))
 
-      const containerId = `tf-container-${Date.now()}`
+      // ============================================================================
+      // Container Resources
+      // ============================================================================
 
-      return {
-        id: containerId,
-        ...validated,
-        status: 'starting',
-        endpoint: '',
-      }
-    })
+      .post('/resources/dws_container', ({ body }) => {
+        const validated = expectValid(
+          containerResourceSchema,
+          body,
+          'Container resource body',
+        )
 
-    .get('/resources/dws_container/:id', ({ params }) => ({
-      id: params.id,
-      status: 'running',
-      endpoint: `https://${params.id}.containers.dws.jejunetwork.org`,
-    }))
+        const containerId = `tf-container-${Date.now()}`
 
-    .delete('/resources/dws_container/:id', ({ params }) => ({
-      success: true,
-      id: params.id,
-    }))
+        return {
+          id: containerId,
+          ...validated,
+          status: 'starting',
+          endpoint: '',
+        }
+      })
 
-    // ============================================================================
-    // Storage Resources
-    // ============================================================================
+      .get('/resources/dws_container/:id', ({ params }) => ({
+        id: params.id,
+        status: 'running',
+        endpoint: `https://${params.id}.containers.dws.jejunetwork.org`,
+      }))
 
-    .post('/resources/dws_storage', ({ body }) => {
-      const validated = expectValid(
-        storageResourceSchema,
-        body,
-        'Storage resource body',
-      )
+      .delete('/resources/dws_container/:id', ({ params }) => ({
+        success: true,
+        id: params.id,
+      }))
 
-      const storageId = `tf-storage-${Date.now()}`
+      // ============================================================================
+      // Storage Resources
+      // ============================================================================
 
-      return {
-        id: storageId,
-        ...validated,
-        cid: '',
-        endpoint: `https://storage.dws.jejunetwork.org/v1/${storageId}`,
-      }
-    })
+      .post('/resources/dws_storage', ({ body }) => {
+        const validated = expectValid(
+          storageResourceSchema,
+          body,
+          'Storage resource body',
+        )
 
-    .get('/resources/dws_storage/:id', ({ params }) => ({
-      id: params.id,
-      cid: `Qm${params.id.slice(0, 44)}`,
-      endpoint: `https://storage.dws.jejunetwork.org/v1/${params.id}`,
-    }))
+        const storageId = `tf-storage-${Date.now()}`
 
-    .delete('/resources/dws_storage/:id', ({ params }) => ({
-      success: true,
-      id: params.id,
-    }))
+        return {
+          id: storageId,
+          ...validated,
+          cid: '',
+          endpoint: `https://storage.dws.jejunetwork.org/v1/${storageId}`,
+        }
+      })
 
-    // ============================================================================
-    // Domain Resources
-    // ============================================================================
+      .get('/resources/dws_storage/:id', ({ params }) => ({
+        id: params.id,
+        cid: `Qm${params.id.slice(0, 44)}`,
+        endpoint: `https://storage.dws.jejunetwork.org/v1/${params.id}`,
+      }))
 
-    .post('/resources/dws_domain', ({ body }) => {
-      const validated = expectValid(
-        domainResourceSchema,
-        body,
-        'Domain resource body',
-      )
+      .delete('/resources/dws_storage/:id', ({ params }) => ({
+        success: true,
+        id: params.id,
+      }))
 
-      const domainId = `tf-domain-${Date.now()}`
-      const fullName = validated.name.endsWith('.jns')
-        ? validated.name
-        : `${validated.name}.jns`
+      // ============================================================================
+      // Domain Resources
+      // ============================================================================
 
-      return {
-        id: domainId,
-        name: fullName,
-        content_hash: validated.content_hash ?? '',
-        content_cid: validated.content_cid ?? '',
-        ttl: validated.ttl ?? 300,
+      .post('/resources/dws_domain', ({ body }) => {
+        const validated = expectValid(
+          domainResourceSchema,
+          body,
+          'Domain resource body',
+        )
+
+        const domainId = `tf-domain-${Date.now()}`
+        const fullName = validated.name.endsWith('.jns')
+          ? validated.name
+          : `${validated.name}.jns`
+
+        return {
+          id: domainId,
+          name: fullName,
+          content_hash: validated.content_hash ?? '',
+          content_cid: validated.content_cid ?? '',
+          ttl: validated.ttl ?? 300,
+          resolver: '0x0000000000000000000000000000000000000000',
+        }
+      })
+
+      .get('/resources/dws_domain/:id', ({ params }) => ({
+        id: params.id,
         resolver: '0x0000000000000000000000000000000000000000',
-      }
-    })
+      }))
 
-    .get('/resources/dws_domain/:id', ({ params }) => ({
-      id: params.id,
-      resolver: '0x0000000000000000000000000000000000000000',
-    }))
+      .delete('/resources/dws_domain/:id', ({ params }) => ({
+        success: true,
+        id: params.id,
+      }))
 
-    .delete('/resources/dws_domain/:id', ({ params }) => ({
-      success: true,
-      id: params.id,
-    }))
+      // ============================================================================
+      // Node Resources
+      // ============================================================================
 
-    // ============================================================================
-    // Node Resources
-    // ============================================================================
+      .post('/resources/dws_node', ({ body }) => {
+        const validated = expectValid(
+          nodeResourceSchema,
+          body,
+          'Node resource body',
+        )
 
-    .post('/resources/dws_node', ({ body }) => {
-      const validated = expectValid(
-        nodeResourceSchema,
-        body,
-        'Node resource body',
-      )
+        const nodeId = `tf-node-${Date.now()}`
 
-      const nodeId = `tf-node-${Date.now()}`
+        return {
+          id: nodeId,
+          agent_id: '0',
+          ...validated,
+          status: 'registering',
+        }
+      })
 
-      return {
-        id: nodeId,
-        agent_id: '0',
-        ...validated,
-        status: 'registering',
-      }
-    })
+      .get('/resources/dws_node/:id', ({ params }) => ({
+        id: params.id,
+        agent_id: '12345',
+        status: 'online',
+      }))
 
-    .get('/resources/dws_node/:id', ({ params }) => ({
-      id: params.id,
-      agent_id: '12345',
-      status: 'online',
-    }))
+      .delete('/resources/dws_node/:id', ({ params }) => ({
+        success: true,
+        id: params.id,
+      }))
 
-    .delete('/resources/dws_node/:id', ({ params }) => ({
-      success: true,
-      id: params.id,
-    }))
+      // ============================================================================
+      // Data Sources
+      // ============================================================================
 
-    // ============================================================================
-    // Data Sources
-    // ============================================================================
-
-    .get('/data/dws_nodes', () => ({
-      nodes: [
-        {
-          id: 'node-1',
-          agent_id: '12345',
-          endpoint: 'https://node1.dws.jejunetwork.org',
-          capabilities: ['compute', 'storage'],
-          status: 'online',
-        },
-      ],
-    }))
+      .get('/data/dws_nodes', () => ({
+        nodes: [
+          {
+            id: 'node-1',
+            agent_id: '12345',
+            endpoint: 'https://node1.dws.jejunetwork.org',
+            capabilities: ['compute', 'storage'],
+            status: 'online',
+          },
+        ],
+      }))
+  )
 }

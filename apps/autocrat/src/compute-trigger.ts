@@ -5,8 +5,8 @@
  */
 
 import { getAutocratUrl, getDWSComputeUrl } from '@jejunetwork/config'
+import { expectValid } from '@jejunetwork/types'
 import {
-  expectValid,
   TriggerHistoryResponseSchema,
   TriggerListResponseSchema,
   TriggerRegisterResponseSchema,

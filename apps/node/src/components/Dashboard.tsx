@@ -1,3 +1,4 @@
+import { formatDuration, formatUsd } from '@jejunetwork/shared'
 import { motion } from 'framer-motion'
 import {
   Activity,
@@ -11,7 +12,6 @@ import {
   Zap,
 } from 'lucide-react'
 import { useAppStore } from '../store'
-import { formatDuration, formatUsd } from '@jejunetwork/shared'
 import { formatEther } from '../utils'
 import { EarningsChart } from './EarningsChart'
 

@@ -255,7 +255,10 @@ export type JupiterQuoteResponse = z.infer<typeof JupiterQuoteResponseSchema>
  * Parse and validate an EVMChainId from a number
  * Throws if the chain ID is not valid
  */
-export function expectEVMChainId(value: number, context?: string): z.infer<typeof EVMChainIdSchema> {
+export function expectEVMChainId(
+  value: number,
+  context?: string,
+): z.infer<typeof EVMChainIdSchema> {
   const result = EVMChainIdSchema.safeParse(value)
   if (!result.success) {
     throw new Error(

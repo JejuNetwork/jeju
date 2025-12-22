@@ -113,16 +113,22 @@ export const deployWorkerRequestSchema = z.object({
   /** Require TEE execution */
   teeRequired: z.boolean().default(false),
   /** Preferred TEE platform */
-  teePlatform: z.enum(['dstack', 'phala', 'intel_sgx', 'intel_tdx', 'amd_sev']).optional(),
+  teePlatform: z
+    .enum(['dstack', 'phala', 'intel_sgx', 'intel_tdx', 'amd_sev'])
+    .optional(),
   /** KV namespace bindings */
   kvBindings: z.record(z.string(), z.string()).default({}),
   /** D1 database bindings */
   d1Bindings: z.record(z.string(), z.string()).default({}),
   /** Route patterns */
-  routes: z.array(z.object({
-    pattern: z.string(),
-    zone: z.string().optional(),
-  })).default([]),
+  routes: z
+    .array(
+      z.object({
+        pattern: z.string(),
+        zone: z.string().optional(),
+      }),
+    )
+    .default([]),
 })
 
 export type DeployWorkerRequest = z.infer<typeof deployWorkerRequestSchema>

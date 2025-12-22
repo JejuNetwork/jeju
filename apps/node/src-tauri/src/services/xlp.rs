@@ -101,7 +101,7 @@ impl Service for XlpService {
                         // 2. Listen for bridge requests
                         // 3. Facilitate transfers
                         // 4. Collect fees automatically
-                        
+
                         if !running.load(Ordering::SeqCst) {
                             break;
                         }
@@ -161,4 +161,3 @@ impl Service for XlpService {
         self.running.load(Ordering::SeqCst)
     }
 }
-

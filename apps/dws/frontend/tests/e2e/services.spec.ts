@@ -13,7 +13,6 @@ import {
   healthResponseSchema,
   jobStatusResponseSchema,
   rpcChainsResponseSchema,
-  searchPackagesResponseSchema,
   submitJobResponseSchema,
   uploadResponseSchema,
   validateResponse,

@@ -5,8 +5,8 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { type ChildProcess, spawn } from 'node:child_process'
-import { dirname, join } from 'node:path'
 import { existsSync } from 'node:fs'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { A2AResponseSchema, AgentCardSchema } from '../src/types'
 

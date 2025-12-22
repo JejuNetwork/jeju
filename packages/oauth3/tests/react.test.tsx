@@ -5,39 +5,27 @@
  */
 
 import { describe, expect, it, mock } from 'bun:test'
-import { OAuth3Provider } from '../src/react/provider.js'
-import { useLogin } from '../src/react/hooks/useLogin.js'
-import { useMFA } from '../src/react/hooks/useMFA.js'
-import { useCredentials } from '../src/react/hooks/useCredentials.js'
-import { useSession } from '../src/react/hooks/useSession.js'
-import { LoginButton } from '../src/react/components/LoginButton.js'
-import { LoginModal } from '../src/react/components/LoginModal.js'
-import { ConnectedAccount } from '../src/react/components/ConnectedAccount.js'
-import { MFASetup } from '../src/react/components/MFASetup.js'
-import * as reactSdk from '../src/react/index.js'
-import { AuthProvider } from '../src/types.js'
-import { MFAMethod } from '../src/mfa/index.js'
-import {
-  PasskeyManager,
-  createPasskeyManager,
-} from '../src/mfa/passkeys.js'
-import {
-  TOTPManager,
-  createTOTPManager,
-} from '../src/mfa/totp.js'
 import {
   BackupCodesManager,
   createBackupCodesManager,
 } from '../src/mfa/backup-codes.js'
-import {
-  EmailProvider,
-  createEmailProvider,
-} from '../src/providers/email.js'
-import {
-  PhoneProvider,
-  createPhoneProvider,
-} from '../src/providers/phone.js'
+import { MFAMethod } from '../src/mfa/index.js'
+import { createPasskeyManager, PasskeyManager } from '../src/mfa/passkeys.js'
+import { createTOTPManager, TOTPManager } from '../src/mfa/totp.js'
+import { createEmailProvider, EmailProvider } from '../src/providers/email.js'
+import { createPhoneProvider, PhoneProvider } from '../src/providers/phone.js'
+import { ConnectedAccount } from '../src/react/components/ConnectedAccount.js'
+import { LoginButton } from '../src/react/components/LoginButton.js'
+import { LoginModal } from '../src/react/components/LoginModal.js'
+import { MFASetup } from '../src/react/components/MFASetup.js'
+import { useCredentials } from '../src/react/hooks/useCredentials.js'
+import { useLogin } from '../src/react/hooks/useLogin.js'
+import { useMFA } from '../src/react/hooks/useMFA.js'
+import { useSession } from '../src/react/hooks/useSession.js'
+import * as reactSdk from '../src/react/index.js'
+import { OAuth3Provider } from '../src/react/provider.js'
 import { createOAuth3Client } from '../src/sdk/client.js'
+import { AuthProvider } from '../src/types.js'
 
 // Mock React for testing without DOM
 // Note: Using explicit type casts since we're testing module exports, not React integration

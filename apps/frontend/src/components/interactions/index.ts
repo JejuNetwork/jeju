@@ -1,1 +1,0 @@
-export { InteractionBar } from './InteractionBar'

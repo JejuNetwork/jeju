@@ -4,9 +4,9 @@
  * Uses StateManager for persistence
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { type Address, type Hex, isAddress, isHex, verifyMessage } from 'viem'
 import { DEFAULT_CHAIN_ID, DEFAULT_SLIPPAGE_BPS } from '../config'
-import { expectValid } from '@jejunetwork/types'
 import {
   ExternalResolveResponseSchema,
   ExternalReverseResolveResponseSchema,

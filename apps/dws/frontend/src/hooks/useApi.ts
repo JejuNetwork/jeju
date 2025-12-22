@@ -1,56 +1,56 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useAccount } from 'wagmi'
+import { z } from 'zod'
 import { fetchApi, postApi, uploadFile } from '../lib/eden'
 import {
-  apiListingsResponseSchema,
-  apiProvidersResponseSchema,
-  cdnStatsSchema,
-  computeJobsResponseSchema,
-  computeNodeSchema,
-  containersResponseSchema,
-  createListingResponseSchema,
-  depositResponseSchema,
-  dwsHealthSchema,
-  embeddingsResponseSchema,
-  inferenceResponseSchema,
-  kmsKeySchema,
-  kmsKeysResponseSchema,
-  packagesResponseSchema,
-  pipelinesResponseSchema,
-  registerNodeResponseSchema,
-  repositoriesResponseSchema,
-  repositorySchema,
-  rpcChainsResponseSchema,
-  rpcKeyResponseSchema,
-  secretSchema,
-  secretsResponseSchema,
-  storageHealthSchema,
-  submitJobResponseSchema,
-  trainingRunSchema,
-  userAccountSchema,
-  vpnRegionsResponseSchema,
-  vpnSessionSchema,
-  workerFunctionSchema,
-  workersResponseSchema,
   type APIListing,
   type APIProvider,
+  apiListingsResponseSchema,
+  apiProvidersResponseSchema,
   type CDNStats,
   type CIPipeline,
   type ComputeJob,
   type ComputeNode,
   type Container,
+  cdnStatsSchema,
+  computeJobsResponseSchema,
+  computeNodeSchema,
+  containersResponseSchema,
+  createListingResponseSchema,
   type DWSHealth,
+  depositResponseSchema,
+  dwsHealthSchema,
+  embeddingsResponseSchema,
+  inferenceResponseSchema,
   type KMSKey,
+  kmsKeySchema,
+  kmsKeysResponseSchema,
   type Package,
-  type RPCChain,
+  packagesResponseSchema,
+  pipelinesResponseSchema,
   type Repository,
+  type RPCChain,
+  registerNodeResponseSchema,
+  repositoriesResponseSchema,
+  repositorySchema,
+  rpcChainsResponseSchema,
+  rpcKeyResponseSchema,
   type Secret,
+  secretSchema,
+  secretsResponseSchema,
+  storageHealthSchema,
+  submitJobResponseSchema,
   type TrainingRun,
+  trainingRunSchema,
   type UserAccount,
+  userAccountSchema,
   type VPNSession,
+  vpnRegionsResponseSchema,
+  vpnSessionSchema,
   type WorkerFunction,
+  workerFunctionSchema,
+  workersResponseSchema,
 } from '../lib/schemas'
-import { z } from 'zod'
 
 // Health checks
 export function useHealth() {
@@ -130,7 +130,12 @@ export function useInference() {
         model: string
         choices: Array<{ message: { content: string } }>
         usage: { total_tokens: number }
-      }>('/compute/chat/completions', params, undefined, inferenceResponseSchema),
+      }>(
+        '/compute/chat/completions',
+        params,
+        undefined,
+        inferenceResponseSchema,
+      ),
   })
 }
 
@@ -235,7 +240,13 @@ export function useRunContainer() {
           executionId: z.string(),
           instanceId: z.string(),
           image: z.string(),
-          status: z.enum(['pending', 'running', 'completed', 'failed', 'cancelled']),
+          status: z.enum([
+            'pending',
+            'running',
+            'completed',
+            'failed',
+            'cancelled',
+          ]),
           submittedAt: z.number(),
           startedAt: z.number().nullable(),
         }),
@@ -372,7 +383,11 @@ export function useKMSKeys() {
   return useQuery({
     queryKey: ['kms-keys', address],
     queryFn: () =>
-      fetchApi<{ keys: KMSKey[] }>('/kms/keys', { address }, kmsKeysResponseSchema),
+      fetchApi<{ keys: KMSKey[] }>(
+        '/kms/keys',
+        { address },
+        kmsKeysResponseSchema,
+      ),
     enabled: !!address,
   })
 }
@@ -469,7 +484,12 @@ export function useCreateVPNSession() {
       type?: string
       duration?: number
     }) =>
-      postApi<VPNSession>('/vpn/sessions', params, { address }, vpnSessionSchema),
+      postApi<VPNSession>(
+        '/vpn/sessions',
+        params,
+        { address },
+        vpnSessionSchema,
+      ),
   })
 }
 

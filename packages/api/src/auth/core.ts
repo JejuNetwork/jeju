@@ -11,12 +11,12 @@ import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'
 import { z } from 'zod'
 import {
-  AuthError,
-  AuthErrorCode,
-  AuthMethod,
   type APIKeyConfig,
   type APIKeyValidationResult,
+  AuthError,
+  AuthErrorCode,
   type AuthHeaders,
+  AuthMethod,
   type AuthResult,
   type AuthUser,
   type OAuth3Config,
@@ -29,7 +29,10 @@ import {
 
 const AddressSchema = z
   .string()
-  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid Ethereum address') as z.ZodType<Address>
+  .regex(
+    /^0x[a-fA-F0-9]{40}$/,
+    'Invalid Ethereum address',
+  ) as z.ZodType<Address>
 
 const HexSchema = z
   .string()
@@ -39,7 +42,11 @@ const TimestampSchema = z.number().int().positive()
 
 const WalletSignatureHeadersSchema = z.object({
   'x-jeju-address': AddressSchema,
-  'x-jeju-timestamp': z.string().regex(/^\d+$/).transform(Number).pipe(TimestampSchema),
+  'x-jeju-timestamp': z
+    .string()
+    .regex(/^\d+$/)
+    .transform(Number)
+    .pipe(TimestampSchema),
   'x-jeju-signature': HexSchema,
 })
 
@@ -118,15 +125,12 @@ export async function validateOAuth3Session(
   }
 
   // Fetch session from TEE agent
-  const response = await fetch(
-    `${config.teeAgentUrl}/session/${sessionId}`,
-    {
-      headers: {
-        'Content-Type': 'application/json',
-        'X-App-Id': String(config.appId),
-      },
+  const response = await fetch(`${config.teeAgentUrl}/session/${sessionId}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      'X-App-Id': String(config.appId),
     },
-  )
+  })
 
   if (!response.ok) {
     if (response.status === 404) {
@@ -203,7 +207,8 @@ export async function validateWalletSignature(
   config: WalletSignatureConfig,
 ): Promise<WalletSignatureValidationResult> {
   const now = Date.now()
-  const validityWindow = config.validityWindowMs ?? DEFAULT_WALLET_VALIDITY_WINDOW_MS
+  const validityWindow =
+    config.validityWindowMs ?? DEFAULT_WALLET_VALIDITY_WINDOW_MS
   const prefix = config.messagePrefix ?? DEFAULT_MESSAGE_PREFIX
 
   // Check timestamp is within validity window
@@ -335,7 +340,8 @@ export function validateAPIKeyFromHeaders(
   config: APIKeyConfig,
 ): APIKeyValidationResult {
   const headerName = config.headerName ?? 'x-api-key'
-  const apiKey = headers['x-api-key'] ?? extractBearerToken(headers.authorization)
+  const apiKey =
+    headers['x-api-key'] ?? extractBearerToken(headers.authorization)
 
   if (!apiKey) {
     return {
@@ -509,7 +515,7 @@ export function parseWalletAuthMessage(
   if (!match) return null
 
   const timestamp = parseInt(match[1], 10)
-  if (isNaN(timestamp)) return null
+  if (Number.isNaN(timestamp)) return null
 
   return { timestamp }
 }

@@ -43,7 +43,9 @@ export default function TrendingGroupPage() {
         return { posts: [], tags: [] }
       }
 
-      const response = await fetch(`/api/trending/group?tags=${tagsParam}&limit=50`)
+      const response = await fetch(
+        `/api/trending/group?tags=${tagsParam}&limit=50`,
+      )
 
       if (!response.ok) {
         return { posts: [], tags: [] }
@@ -67,6 +69,7 @@ export default function TrendingGroupPage() {
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-4 mb-6">
         <button
+          type="button"
           onClick={() => navigate(-1)}
           className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           aria-label="Go back"
@@ -74,7 +77,10 @@ export default function TrendingGroupPage() {
           <ArrowLeft className="h-5 w-5" />
         </button>
         <div>
-          <h1 className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          <h1
+            className="text-xl font-bold"
+            style={{ color: 'var(--text-primary)' }}
+          >
             {tags.length > 0
               ? tags.map((t) => t.displayName).join(' • ')
               : 'Grouped Trending'}
@@ -93,7 +99,10 @@ export default function TrendingGroupPage() {
         </div>
       ) : posts.length === 0 ? (
         <div className="text-center py-12">
-          <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+          <h2
+            className="text-xl font-semibold mb-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
             No posts found
           </h2>
           <p style={{ color: 'var(--text-secondary)' }}>
@@ -105,15 +114,23 @@ export default function TrendingGroupPage() {
           {posts.map((post) => (
             <div key={post.id} className="card p-4">
               <div className="flex items-center gap-2 mb-2">
-                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <span
+                  className="font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   {post.authorName}
                 </span>
                 {post.authorUsername && (
-                  <span style={{ color: 'var(--text-tertiary)' }}>@{post.authorUsername}</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>
+                    @{post.authorUsername}
+                  </span>
                 )}
               </div>
               <p style={{ color: 'var(--text-secondary)' }}>{post.content}</p>
-              <div className="flex gap-4 mt-2 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              <div
+                className="flex gap-4 mt-2 text-sm"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
                 <span>{post.likeCount || 0} likes</span>
                 <span>{post.commentCount || 0} comments</span>
               </div>
@@ -121,7 +138,10 @@ export default function TrendingGroupPage() {
           ))}
 
           {posts.length > 0 && (
-            <div className="text-center py-4 text-xs" style={{ color: 'var(--text-tertiary)' }}>
+            <div
+              className="text-center py-4 text-xs"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               You're all caught up.
             </div>
           )}

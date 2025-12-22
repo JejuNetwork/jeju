@@ -6,8 +6,8 @@
  */
 
 import type { EVMChainId } from '@jejunetwork/types'
-import type { FeeConfig, TFMMRiskParameters } from '../types'
 import { expectEVMChainId } from '../schemas'
+import type { FeeConfig, TFMMRiskParameters } from '../types'
 
 // ============ Environment Loading ============
 

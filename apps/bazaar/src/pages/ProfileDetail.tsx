@@ -5,8 +5,8 @@
 
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
 
 interface ProfileInfo {
@@ -36,7 +36,9 @@ export default function ProfileDetailPage() {
   const { data: profile, isLoading } = useQuery({
     queryKey: ['profile', identifier],
     queryFn: async (): Promise<ProfileInfo | null> => {
-      const response = await fetch(`/api/users/${encodeURIComponent(identifier)}/profile`)
+      const response = await fetch(
+        `/api/users/${encodeURIComponent(identifier)}/profile`,
+      )
       if (!response.ok) return null
       const data = await response.json()
       return data.user as ProfileInfo
@@ -66,7 +68,10 @@ export default function ProfileDetailPage() {
           Back
         </Link>
         <div className="card p-8 text-center">
-          <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+          <h1
+            className="text-2xl font-bold mb-4"
+            style={{ color: 'var(--text-primary)' }}
+          >
             Profile Not Found
           </h1>
           <p style={{ color: 'var(--text-secondary)' }}>
@@ -105,11 +110,16 @@ export default function ProfileDetailPage() {
             </div>
           )}
           <div>
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            <h1
+              className="text-2xl font-bold"
+              style={{ color: 'var(--text-primary)' }}
+            >
               {profile.name}
             </h1>
             {profile.username && (
-              <p style={{ color: 'var(--text-tertiary)' }}>@{profile.username}</p>
+              <p style={{ color: 'var(--text-tertiary)' }}>
+                @{profile.username}
+              </p>
             )}
           </div>
         </div>
@@ -122,23 +132,56 @@ export default function ProfileDetailPage() {
 
         {profile.stats && (
           <div className="grid grid-cols-3 gap-4">
-            <div className="text-center p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            <div
+              className="text-center p-3 rounded-lg"
+              style={{ backgroundColor: 'var(--bg-secondary)' }}
+            >
+              <div
+                className="text-xl font-bold"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {profile.stats.posts}
               </div>
-              <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Posts</div>
+              <div
+                className="text-xs"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                Posts
+              </div>
             </div>
-            <div className="text-center p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            <div
+              className="text-center p-3 rounded-lg"
+              style={{ backgroundColor: 'var(--bg-secondary)' }}
+            >
+              <div
+                className="text-xl font-bold"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {profile.stats.followers}
               </div>
-              <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Followers</div>
+              <div
+                className="text-xs"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                Followers
+              </div>
             </div>
-            <div className="text-center p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <div className="text-xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            <div
+              className="text-center p-3 rounded-lg"
+              style={{ backgroundColor: 'var(--bg-secondary)' }}
+            >
+              <div
+                className="text-xl font-bold"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {profile.stats.following}
               </div>
-              <div className="text-xs" style={{ color: 'var(--text-tertiary)' }}>Following</div>
+              <div
+                className="text-xs"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
+                Following
+              </div>
             </div>
           </div>
         )}

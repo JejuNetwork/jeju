@@ -8,9 +8,6 @@
  * - Exposes provider interface for dApps
  */
 
-import type { Address, Hex, PublicClient, WalletClient } from 'viem'
-import { createPublicClient, http } from 'viem'
-import { z } from 'zod'
 import {
   expectAddress,
   expectBigInt,
@@ -19,6 +16,9 @@ import {
   expectHex,
   expectJson,
 } from '@jejunetwork/types'
+import type { Address, Hex, PublicClient, WalletClient } from 'viem'
+import { createPublicClient, http } from 'viem'
+import { z } from 'zod'
 import { expectNonEmpty, expectSchema } from '../lib/validation'
 import { type AAClient, createAAClient } from './account-abstraction'
 import { chains, getNetworkRpcUrl } from './chains'

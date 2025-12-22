@@ -266,7 +266,7 @@ export const rateLimiterPlugin = new Elysia({ name: 'rate-limiter' })
       return { rateLimit: undefined }
     }
 
-    const { key, address } = getUserKey(request)
+    const { address } = getUserKey(request)
 
     if (address && WHITELIST.has(address.toLowerCase())) {
       return {

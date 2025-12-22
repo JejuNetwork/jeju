@@ -76,128 +76,130 @@ export function createMCPServer(config: MCPConfig) {
     },
   }
 
-  return new Elysia()
-    .use(cors())
+  return (
+    new Elysia()
+      .use(cors())
 
-    // Initialize
-    .post('/initialize', () => ({
-      protocolVersion: '2024-11-05',
-      serverInfo,
-      capabilities: serverInfo.capabilities,
-    }))
+      // Initialize
+      .post('/initialize', () => ({
+        protocolVersion: '2024-11-05',
+        serverInfo,
+        capabilities: serverInfo.capabilities,
+      }))
 
-    // List resources
-    .post('/resources/list', () => ({ resources: config.resources }))
+      // List resources
+      .post('/resources/list', () => ({ resources: config.resources }))
 
-    // Read resource
-    .post('/resources/read', async ({ body, headers, set }) => {
-      const parseResult = MCPResourceReadSchema.safeParse(body)
-      if (!parseResult.success) {
-        set.status = 400
-        return { error: 'Invalid request: uri required' }
-      }
+      // Read resource
+      .post('/resources/read', async ({ body, headers, set }) => {
+        const parseResult = MCPResourceReadSchema.safeParse(body)
+        if (!parseResult.success) {
+          set.status = 400
+          return { error: 'Invalid request: uri required' }
+        }
 
-      const { uri } = parseResult.data
-      const address = headers['x-jeju-address'] as Address
+        const { uri } = parseResult.data
+        const address = headers['x-jeju-address'] as Address
 
-      if (!address) {
-        set.status = 401
-        return { error: 'Authentication required' }
-      }
+        if (!address) {
+          set.status = 401
+          return { error: 'Authentication required' }
+        }
 
-      const contents = await config.readResource(uri, address)
-      const resource = config.resources.find((r) => r.uri === uri)
+        const contents = await config.readResource(uri, address)
+        const resource = config.resources.find((r) => r.uri === uri)
 
-      return {
-        contents: [
-          {
-            uri,
-            mimeType: resource?.mimeType || 'application/json',
-            text: JSON.stringify(contents),
-          },
-        ],
-      }
-    })
-
-    // List tools
-    .post('/tools/list', () => ({ tools: config.tools }))
-
-    // Call tool
-    .post('/tools/call', async ({ body, headers, set }) => {
-      const parseResult = MCPToolCallSchema.safeParse(body)
-      if (!parseResult.success) {
-        set.status = 400
         return {
-          content: [
+          contents: [
             {
-              type: 'text',
-              text: 'Invalid request: name and arguments required',
+              uri,
+              mimeType: resource?.mimeType || 'application/json',
+              text: JSON.stringify(contents),
             },
           ],
-          isError: true,
         }
-      }
+      })
 
-      const { name, arguments: args } = parseResult.data
-      const address = headers['x-jeju-address'] as Address
+      // List tools
+      .post('/tools/list', () => ({ tools: config.tools }))
 
-      if (!address) {
+      // Call tool
+      .post('/tools/call', async ({ body, headers, set }) => {
+        const parseResult = MCPToolCallSchema.safeParse(body)
+        if (!parseResult.success) {
+          set.status = 400
+          return {
+            content: [
+              {
+                type: 'text',
+                text: 'Invalid request: name and arguments required',
+              },
+            ],
+            isError: true,
+          }
+        }
+
+        const { name, arguments: args } = parseResult.data
+        const address = headers['x-jeju-address'] as Address
+
+        if (!address) {
+          return {
+            content: [{ type: 'text', text: 'Authentication required' }],
+            isError: true,
+          }
+        }
+
+        const { result, isError } = await config.callTool(
+          name,
+          args as ProtocolData,
+          address,
+        )
+
         return {
-          content: [{ type: 'text', text: 'Authentication required' }],
-          isError: true,
+          content: [{ type: 'text', text: JSON.stringify(result) }],
+          isError,
         }
-      }
+      })
 
-      const { result, isError } = await config.callTool(
-        name,
-        args as ProtocolData,
-        address,
-      )
+      // Root info
+      .get('/', () => ({
+        ...serverInfo,
+        resources: config.resources,
+        tools: config.tools,
+        prompts: config.prompts,
+      }))
 
-      return {
-        content: [{ type: 'text', text: JSON.stringify(result) }],
-        isError,
-      }
-    })
+      // Prompts endpoints (always included, return error if not configured)
+      .post('/prompts/list', ({ set }) => {
+        if (!config.prompts) {
+          set.status = 404
+          return { error: 'Prompts not configured' }
+        }
+        return { prompts: config.prompts }
+      })
 
-    // Root info
-    .get('/', () => ({
-      ...serverInfo,
-      resources: config.resources,
-      tools: config.tools,
-      prompts: config.prompts,
-    }))
+      .post('/prompts/get', async ({ body, headers, set }) => {
+        const parseResult = MCPPromptGetSchema.safeParse(body)
+        if (!parseResult.success) {
+          set.status = 400
+          return { error: 'Invalid request: name and arguments required' }
+        }
 
-    // Prompts endpoints (always included, return error if not configured)
-    .post('/prompts/list', ({ set }) => {
-      if (!config.prompts) {
-        set.status = 404
-        return { error: 'Prompts not configured' }
-      }
-      return { prompts: config.prompts }
-    })
+        const { name, arguments: args } = parseResult.data
+        const address = headers['x-jeju-address'] as Address
 
-    .post('/prompts/get', async ({ body, headers, set }) => {
-      const parseResult = MCPPromptGetSchema.safeParse(body)
-      if (!parseResult.success) {
-        set.status = 400
-        return { error: 'Invalid request: name and arguments required' }
-      }
+        if (!address) {
+          set.status = 401
+          return { error: 'Authentication required' }
+        }
 
-      const { name, arguments: args } = parseResult.data
-      const address = headers['x-jeju-address'] as Address
+        if (!config.getPrompt) {
+          set.status = 404
+          return { error: 'Prompts not configured' }
+        }
 
-      if (!address) {
-        set.status = 401
-        return { error: 'Authentication required' }
-      }
-
-      if (!config.getPrompt) {
-        set.status = 404
-        return { error: 'Prompts not configured' }
-      }
-
-      const result = await config.getPrompt(name, args, address)
-      return result
-    })
+        const result = await config.getPrompt(name, args, address)
+        return result
+      })
+  )
 }

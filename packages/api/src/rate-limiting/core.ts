@@ -120,7 +120,7 @@ export class RateLimiter {
     if (this.store instanceof InMemoryRateLimitStore) {
       this.cleanupInterval = setInterval(
         () => {
-          (this.store as InMemoryRateLimitStore).cleanup()
+          ;(this.store as InMemoryRateLimitStore).cleanup()
         },
         60000, // Cleanup every minute
       )
@@ -292,7 +292,9 @@ export function extractClientIp(
 /**
  * Create rate limit headers from result
  */
-export function createRateLimitHeaders(result: RateLimitResult): RateLimitHeaders {
+export function createRateLimitHeaders(
+  result: RateLimitResult,
+): RateLimitHeaders {
   const headers: RateLimitHeaders = {
     'X-RateLimit-Limit': result.limit.toString(),
     'X-RateLimit-Remaining': result.remaining.toString(),

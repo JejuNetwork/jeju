@@ -2,9 +2,9 @@
  * Runner Manager - Dispatches CI jobs to compute nodes
  */
 
+import { unlink } from 'node:fs/promises'
 import type { Address, Hex } from 'viem'
 import type { JobRun, Runner, RunnerCapabilities, WorkflowJob } from './types'
-import { unlink } from 'node:fs/promises'
 
 interface ComputeNode {
   nodeId: string

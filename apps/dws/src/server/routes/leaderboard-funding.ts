@@ -11,6 +11,7 @@
  * 4. Weights are set on DeepFundingDistributor
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -25,7 +26,6 @@ import {
   leaderboardPreviewRequestSchema,
   leaderboardSyncRequestSchema,
 } from '../../shared/schemas'
-import { expectValid } from '@jejunetwork/types'
 
 // ============ Types ============
 
@@ -209,7 +209,10 @@ async function syncLeaderboardToFunding(
 // ============ Router ============
 
 export function createLeaderboardFundingRouter() {
-  let router = new Elysia({ name: 'leaderboard-funding', prefix: '/leaderboard-funding' })
+  let router = new Elysia({
+    name: 'leaderboard-funding',
+    prefix: '/leaderboard-funding',
+  })
 
   // Trigger sync
   router = router.post('/sync', async ({ body }) => {
@@ -219,7 +222,10 @@ export function createLeaderboardFundingRouter() {
       'Leaderboard sync request',
     )
 
-    const result = await syncLeaderboardToFunding(validBody.daoId, validBody.limit ?? 50)
+    const result = await syncLeaderboardToFunding(
+      validBody.daoId,
+      validBody.limit ?? 50,
+    )
     return result
   })
 

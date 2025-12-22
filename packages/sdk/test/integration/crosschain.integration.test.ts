@@ -6,14 +6,15 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { privateKeyToAccount } from 'viem/accounts'
 import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
+import { privateKeyToAccount } from 'viem/accounts'
 import { createJejuClient, type JejuClient } from '../../src'
 
 const TEST_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 const RPC_URL = process.env.RPC_URL || getL2RpcUrl()
-const GATEWAY_URL = process.env.GATEWAY_A2A_URL || getCoreAppUrl('NODE_EXPLORER_UI')
+const GATEWAY_URL =
+  process.env.GATEWAY_A2A_URL || getCoreAppUrl('NODE_EXPLORER_UI')
 
 describe('Cross-chain Integration Tests', () => {
   let client: JejuClient | null = null

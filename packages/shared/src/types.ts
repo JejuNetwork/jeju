@@ -113,4 +113,3 @@ export type ProtocolValue =
  * Webhook request body type.
  */
 export type WebhookBody = Record<string, ProtocolValue>
-

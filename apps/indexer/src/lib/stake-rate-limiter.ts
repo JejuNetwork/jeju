@@ -1,3 +1,4 @@
+import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
   type Abi,
@@ -10,7 +11,6 @@ import {
   parseAbi,
   type Transport,
 } from 'viem'
-import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import { loadNetworkConfig } from '../network-config'
 import { inferChainFromRpcUrl } from './chain-utils'
 

@@ -6,8 +6,8 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
-import { type Address, parseEther } from 'viem'
 import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
+import { type Address, parseEther } from 'viem'
 import { createJejuClient, type JejuClient } from '../../src/index'
 import {
   setupTestEnvironment,

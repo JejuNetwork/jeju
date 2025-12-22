@@ -2,8 +2,8 @@
  * Facilitator Configuration
  */
 
-import { getServiceName } from '@jejunetwork/shared'
 import { getSecretVault } from '@jejunetwork/kms'
+import { getServiceName } from '@jejunetwork/shared'
 import type { Address } from 'viem'
 import { getPrimaryChainConfig, ZERO_ADDRESS } from '../lib/chains'
 import { clearClientCache } from '../services/settler.js'

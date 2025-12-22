@@ -588,4 +588,3 @@ export function createServerlessHandler(config: UnifiedServerConfig): {
   const app = createUnifiedServer(config)
   return { fetch: app.fetch }
 }
-

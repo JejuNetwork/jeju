@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+
 /**
  * Babylon RLAIF Integration Verification Script
  *
@@ -13,19 +14,10 @@
  * - PHALA_API_KEY: API key for Phala TEE
  */
 
-import { RLAlgorithm, RLRunState } from '../../../../apps/dws/src/rlaif/types'
 import { createRLAIFCoordinator } from '../../../../apps/dws/src/rlaif/coordinator'
-import { createTrajectoryStore } from '../../../../apps/dws/src/rlaif/trajectory-store'
 import { createRulerScorer } from '../../../../apps/dws/src/rlaif/ruler-scorer'
-import {
-  BabylonJejuAdapter,
-  createBabylonJejuAdapter,
-  trainWithJejuRLAIF,
-} from '../../../../vendor/babylon/packages/training/src/compute/jeju-rlaif-adapter'
-import {
-  BabylonJejuAdapter as BabylonJejuAdapterFromIndex,
-  trainWithJejuRLAIF as trainWithJejuRLAIFFromIndex,
-} from '../../../../vendor/babylon/packages/training/src/compute/index'
+import { createTrajectoryStore } from '../../../../apps/dws/src/rlaif/trajectory-store'
+import { RLAlgorithm, RLRunState } from '../../../../apps/dws/src/rlaif/types'
 import { trainingCommand } from '../../../../packages/cli/src/commands/training'
 
 const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'

@@ -7,6 +7,7 @@
  * Fully permissionless - uses Network RPC infrastructure, no external API keys.
  */
 
+import { expectJson } from '@jejunetwork/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
@@ -14,7 +15,6 @@ import { createConfig, http, WagmiProvider } from 'wagmi'
 import { arbitrum, base, bsc, mainnet, optimism } from 'wagmi/chains'
 import { injected } from 'wagmi/connectors'
 import { z } from 'zod'
-import { expectJson } from '@jejunetwork/types'
 import App from '../../App'
 import '../../index.css'
 import { expectSchema } from '../../lib/validation'

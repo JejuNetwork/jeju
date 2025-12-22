@@ -499,28 +499,34 @@ export function createFundingRouter() {
     return { claims }
   })
 
-  router.get('/contributors/:contributorId/github-verified', async ({ params }) => {
-    const contributorId = params.contributorId as Hex
-    const verified = await publicClient.readContract({
-      address: config.contracts.contributorRegistry,
-      abi: CONTRIBUTOR_REGISTRY_ABI,
-      functionName: 'isVerifiedGitHub',
-      args: [contributorId],
-    })
-    return { verified }
-  })
+  router.get(
+    '/contributors/:contributorId/github-verified',
+    async ({ params }) => {
+      const contributorId = params.contributorId as Hex
+      const verified = await publicClient.readContract({
+        address: config.contracts.contributorRegistry,
+        abi: CONTRIBUTOR_REGISTRY_ABI,
+        functionName: 'isVerifiedGitHub',
+        args: [contributorId],
+      })
+      return { verified }
+    },
+  )
 
-  router.get('/contributors/:contributorId/rewards/:daoId', async ({ params }) => {
-    const contributorId = params.contributorId as Hex
-    const daoId = params.daoId as Hex
-    const rewards = await publicClient.readContract({
-      address: config.contracts.deepFundingDistributor,
-      abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
-      functionName: 'getPendingContributorRewards',
-      args: [daoId, contributorId],
-    })
-    return { rewards: rewards.toString() }
-  })
+  router.get(
+    '/contributors/:contributorId/rewards/:daoId',
+    async ({ params }) => {
+      const contributorId = params.contributorId as Hex
+      const daoId = params.daoId as Hex
+      const rewards = await publicClient.readContract({
+        address: config.contracts.deepFundingDistributor,
+        abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
+        functionName: 'getPendingContributorRewards',
+        args: [daoId, contributorId],
+      })
+      return { rewards: rewards.toString() }
+    },
+  )
 
   // ============ Payment Request Routes ============
 
@@ -557,16 +563,19 @@ export function createFundingRouter() {
     return { votes }
   })
 
-  router.get('/payment-requests/:requestId/ceo-decision', async ({ params }) => {
-    const requestId = params.requestId as Hex
-    const decision = await publicClient.readContract({
-      address: config.contracts.paymentRequestRegistry,
-      abi: PAYMENT_REQUEST_REGISTRY_ABI,
-      functionName: 'getCEODecision',
-      args: [requestId],
-    })
-    return decision
-  })
+  router.get(
+    '/payment-requests/:requestId/ceo-decision',
+    async ({ params }) => {
+      const requestId = params.requestId as Hex
+      const decision = await publicClient.readContract({
+        address: config.contracts.paymentRequestRegistry,
+        abi: PAYMENT_REQUEST_REGISTRY_ABI,
+        functionName: 'getCEODecision',
+        args: [requestId],
+      })
+      return decision
+    },
+  )
 
   // ============ Dependency Routes ============
 

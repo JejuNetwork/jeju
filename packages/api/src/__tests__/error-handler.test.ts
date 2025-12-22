@@ -13,8 +13,8 @@ import {
   getStatusCode,
   InternalError,
   NotFoundError,
-  sanitizeErrorMessage,
   ServiceUnavailableError,
+  sanitizeErrorMessage,
   toErrorResponse,
   ValidationError,
 } from '../error-handler'

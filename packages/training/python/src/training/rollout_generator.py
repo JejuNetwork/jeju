@@ -17,25 +17,25 @@ We need to capture ALL of this for training.
 import asyncio
 import json
 import logging
-from dataclasses import dataclass, field
-from typing import Callable, Protocol
 import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from typing import Protocol
 
 from ..models import (
-    BabylonTrajectory,
-    LLMCall,
     Action,
+    BabylonTrajectory,
     EnvironmentState,
+    LLMCall,
 )
 from .quality_utils import (
-    calculate_trajectory_quality_score,
     build_trajectory_from_ticks,
-    state_to_observation,
+    calculate_detailed_tick_quality,
+    calculate_trajectory_quality_score,
     state_to_env_state,
-    calculate_detailed_tick_quality
+    state_to_observation,
 )
-
-from .rewards import TrajectoryRewardInputs, composite_reward, calculate_risk_reward
+from .rewards import TrajectoryRewardInputs, calculate_risk_reward, composite_reward
 
 logger = logging.getLogger(__name__)
 
@@ -51,6 +51,7 @@ class AgentTickData:
     - The final action taken
     - Feedback received
     """
+
     tick_number: int
     timestamp: int
 
@@ -125,6 +126,7 @@ class RolloutConfig:
 @dataclass
 class RolloutResult:
     """Result of a rollout generation run"""
+
     agent_id: str
     trajectory_id: str
     ticks_completed: int
@@ -221,8 +223,7 @@ class FastRolloutGenerator:
                 tick_data.action.error = result.get("error")
 
             # Calculate reward for this tick using The Judge logic
-            tick_data.reward = self._calculate_tick_reward(
-                tick_data, env_state)
+            tick_data.reward = self._calculate_tick_reward(tick_data, env_state)
             total_reward += tick_data.reward
 
             # Validate tick quality
@@ -243,14 +244,11 @@ class FastRolloutGenerator:
 
             # Log progress periodically
             if tick_number % 50 == 0:
-                avg_tick = sum(tick_durations[-50:]) / \
-                    min(50, len(tick_durations))
-                logger.info(
-                    f"Tick {tick_number}: avg {avg_tick*1000:.1f}ms/tick")
+                avg_tick = sum(tick_durations[-50:]) / min(50, len(tick_durations))
+                logger.info(f"Tick {tick_number}: avg {avg_tick * 1000:.1f}ms/tick")
 
         total_duration_ms = int((time.time() - start_time) * 1000)
-        avg_tick_duration = sum(tick_durations) / \
-            len(tick_durations) if tick_durations else 0
+        avg_tick_duration = sum(tick_durations) / len(tick_durations) if tick_durations else 0
 
         # Build trajectory from ticks
         trajectory = build_trajectory_from_ticks(
@@ -281,7 +279,7 @@ class FastRolloutGenerator:
 
         logger.info(
             f"Rollout complete: {tick_number} ticks in {total_duration_ms}ms "
-            f"({avg_tick_duration*1000:.1f}ms/tick), quality={quality_score:.2f}"
+            f"({avg_tick_duration * 1000:.1f}ms/tick), quality={quality_score:.2f}"
         )
 
         return result
@@ -303,8 +301,7 @@ class FastRolloutGenerator:
         """
         self.start_time = time.time()
 
-        logger.info(
-            f"Starting parallel rollout generation for {len(agents)} agents")
+        logger.info(f"Starting parallel rollout generation for {len(agents)} agents")
 
         # Create tasks for each agent
         tasks = []
@@ -329,7 +326,7 @@ class FastRolloutGenerator:
             f"Parallel rollout generation complete: "
             f"{len(valid_results)}/{len(agents)} succeeded, "
             f"{self.total_ticks} total ticks in {total_time:.1f}s "
-            f"({self.total_ticks/total_time:.1f} ticks/s)"
+            f"({self.total_ticks / total_time:.1f} ticks/s)"
         )
 
         return valid_results
@@ -350,9 +347,7 @@ class FastRolloutGenerator:
         """
         # 1. Quality Scores (Format & Reasoning)
         fmt_score, rsn_score = calculate_detailed_tick_quality(
-            tick_data.llm_calls,
-            tick_data.action,
-            tick_data.feedback
+            tick_data.llm_calls, tick_data.action, tick_data.feedback
         )
 
         # 2. Risk Calculation
@@ -380,7 +375,7 @@ class FastRolloutGenerator:
             reasoning_score=rsn_score,
             risky_actions_count=risk_penalty_count,
             total_actions=1 if tick_data.action else 0,
-            successful_actions=1 if tick_data.action and tick_data.action.success else 0
+            successful_actions=1 if tick_data.action and tick_data.action.success else 0,
         )
 
         return composite_reward(inputs)
@@ -431,12 +426,12 @@ class RolloutQualityValidator:
         # Must have LLM calls
         if result.total_llm_calls < result.ticks_completed:
             issues.append(
-                f"Low LLM call rate: {result.total_llm_calls} calls for {result.ticks_completed} ticks")
+                f"Low LLM call rate: {result.total_llm_calls} calls for {result.ticks_completed} ticks"
+            )
 
         # Quality score threshold
         if result.quality_score < 0.5:
-            issues.append(
-                f"Quality score too low: {result.quality_score:.2f} < 0.5")
+            issues.append(f"Quality score too low: {result.quality_score:.2f} < 0.5")
 
         # Check trajectory steps
         traj = result.trajectory
@@ -448,8 +443,7 @@ class RolloutQualityValidator:
             # Each LLM call should have content
             for j, call in enumerate(step.llm_calls):
                 if not call.user_prompt or not call.response:
-                    issues.append(
-                        f"Step {i}, call {j}: missing prompt or response")
+                    issues.append(f"Step {i}, call {j}: missing prompt or response")
                 if not call.system_prompt:
                     issues.append(f"Step {i}, call {j}: missing system prompt")
 
@@ -480,12 +474,11 @@ class RolloutQualityValidator:
             total_llm_calls += result.total_llm_calls
             total_quality += result.quality_score
 
-        print(
-            f"\nValid rollouts: {valid_count}/{total} ({valid_count/total*100:.1f}%)")
+        print(f"\nValid rollouts: {valid_count}/{total} ({valid_count / total * 100:.1f}%)")
         print(f"Total ticks: {total_ticks}")
         print(f"Total LLM calls: {total_llm_calls}")
-        print(f"Average quality score: {total_quality/total:.2f}")
-        print(f"LLM calls per tick: {total_llm_calls/total_ticks:.1f}")
+        print(f"Average quality score: {total_quality / total:.2f}")
+        print(f"LLM calls per tick: {total_llm_calls / total_ticks:.1f}")
 
         if all_issues:
             print(f"\nIssues found ({len(all_issues)} total):")

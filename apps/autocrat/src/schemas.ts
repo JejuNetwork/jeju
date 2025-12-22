@@ -8,17 +8,11 @@
 import {
   AddressSchema,
   BigIntSchema,
-  expect,
-  expectDefined,
   expectValid,
   HashSchema,
   HexSchema,
-  validateOrThrow,
 } from '@jejunetwork/types'
 import { z } from 'zod'
-
-// Re-export assertion functions for use by other modules
-export { expect, expectDefined, expectValid, validateOrThrow }
 
 // ============ Base Schemas ============
 

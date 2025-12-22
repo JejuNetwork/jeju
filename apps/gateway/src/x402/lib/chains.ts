@@ -9,8 +9,8 @@
 
 import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
-import type { Address } from 'viem'
 import { ZERO_ADDRESS } from '@jejunetwork/ui'
+import type { Address } from 'viem'
 import type { ChainConfig, TokenConfig } from './types'
 
 export { ZERO_ADDRESS }

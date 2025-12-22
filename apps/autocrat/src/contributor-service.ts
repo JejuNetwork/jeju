@@ -20,8 +20,8 @@ import {
   toBytes,
   type WalletClient,
 } from 'viem'
+import { expectValid } from '@jejunetwork/types'
 import {
-  expectValid,
   expectValidResponse,
   GitHubRepoPermissionsSchema,
   GitHubTokenResponseSchema,

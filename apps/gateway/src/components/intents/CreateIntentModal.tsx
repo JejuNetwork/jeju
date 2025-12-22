@@ -1,3 +1,4 @@
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import {
   AlertCircle,
   ArrowRight,
@@ -18,7 +19,6 @@ import {
 } from 'wagmi'
 import { useIntentQuote, useSupportedChains } from '../../hooks/useIntentAPI'
 import { useOIFConfig } from '../../hooks/useOIF'
-import { ZERO_ADDRESS } from '@jejunetwork/ui'
 
 const XIcon = X as ComponentType<LucideProps>
 const ArrowRightIcon = ArrowRight as ComponentType<LucideProps>

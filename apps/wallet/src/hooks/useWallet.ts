@@ -1,3 +1,9 @@
+import {
+  expectAddress,
+  expectBigInt,
+  expectChainId,
+  expectHex,
+} from '@jejunetwork/types'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Address, Hex } from 'viem'
 import {
@@ -10,12 +16,6 @@ import {
   useSwitchChain,
   useWalletClient,
 } from 'wagmi'
-import {
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectHex,
-} from '@jejunetwork/types'
 import { expectNonEmpty, expectSchema, requireDefined } from '../lib/validation'
 import { chains, getChain } from '../sdk/chains'
 import { TransactionSchema, UnifiedAccountSchema } from '../sdk/schemas'

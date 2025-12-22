@@ -28,11 +28,8 @@ import {
   http,
   parseEther,
 } from 'viem'
-import {
-  RawArtifactJsonSchema,
-} from '../../schemas'
 import { privateKeyToAccount } from 'viem/accounts'
-import type { RawArtifactJson } from '../shared/contract-types'
+import { RawArtifactJsonSchema } from '../../schemas'
 
 // ============ Configuration ============
 
@@ -323,7 +320,10 @@ async function deploySponsoredPaymaster(
     path.join(process.cwd(), 'packages/contracts/abis/SponsoredPaymaster.json'),
   ]
 
-  let artifact: { bytecode?: { object?: string }; abi?: Array<unknown> } | null = null
+  let artifact: {
+    bytecode?: { object?: string }
+    abi?: Array<unknown>
+  } | null = null
   for (const artifactPath of artifactPaths) {
     try {
       const file = Bun.file(artifactPath)

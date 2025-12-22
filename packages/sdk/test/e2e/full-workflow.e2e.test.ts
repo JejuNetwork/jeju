@@ -8,9 +8,9 @@
  */
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import { parseEther } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import { createJejuClient, type JejuClient } from '../../src'
 
 const DEPLOYER_KEY =
@@ -18,7 +18,8 @@ const DEPLOYER_KEY =
 const RPC_URL = process.env.RPC_URL || getL2RpcUrl()
 const STORAGE_URL = process.env.STORAGE_API_URL || getCoreAppUrl('IPFS')
 const COMPUTE_URL = process.env.COMPUTE_API_URL || getCoreAppUrl('COMPUTE')
-const GATEWAY_URL = process.env.GATEWAY_A2A_URL || getCoreAppUrl('NODE_EXPLORER_UI')
+const GATEWAY_URL =
+  process.env.GATEWAY_A2A_URL || getCoreAppUrl('NODE_EXPLORER_UI')
 
 describe('Full Workflow E2E', () => {
   let deployerClient: JejuClient | null = null

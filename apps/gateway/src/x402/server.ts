@@ -41,7 +41,7 @@ const app = new Elysia()
   // Security middleware - body size check and security headers
   .onBeforeHandle(({ request, set }) => {
     const contentLength = request.headers.get('content-length')
-    if (contentLength && Number.parseInt(contentLength) > MAX_BODY_SIZE) {
+    if (contentLength && Number.parseInt(contentLength, 10) > MAX_BODY_SIZE) {
       set.status = 413
       return { error: 'Request body too large', maxSize: MAX_BODY_SIZE }
     }
@@ -65,7 +65,8 @@ const app = new Elysia()
 
     // SECURITY: Never expose internal error details to clients in production
     const isProduction = process.env.NODE_ENV === 'production'
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error'
     const safeMessage = isProduction ? 'Internal server error' : errorMessage
 
     set.status = 500

@@ -28,13 +28,11 @@ import {
   toBytes,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import {
-  CIDUploadResponseSchema,
-  expectValid,
-} from '../../schemas'
 import { base, baseSepolia } from 'viem/chains'
 import {
+  CIDUploadResponseSchema,
   expectJson,
+  expectValid,
   type JejuManifest,
   JejuManifestSchema,
   PackageJsonSchema,
@@ -393,7 +391,7 @@ class SelfHostingBootstrap {
         functionName: 'createRepo',
         args: [
           'jeju',
-          'Jeju Network - A modern EVM chain for agents and humans',
+          'Jeju Network - A network for agents and humans',
           0,
         ], // 0 = public
       })
@@ -959,7 +957,11 @@ class SelfHostingBootstrap {
     }
 
     const resultRaw = await response.json()
-    const result = expectValid(CIDUploadResponseSchema, resultRaw, 'upload response')
+    const result = expectValid(
+      CIDUploadResponseSchema,
+      resultRaw,
+      'upload response',
+    )
     return result.cid
   }
 

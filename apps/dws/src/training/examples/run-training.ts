@@ -156,10 +156,7 @@ async function main() {
 
     // Optional: Set up Psyche integration
     // Dynamic import kept conditional - only loads if Psyche is enabled
-    if (
-      config.usePsyche &&
-      trainer instanceof DistributedGRPOTrainer
-    ) {
+    if (config.usePsyche && trainer instanceof DistributedGRPOTrainer) {
       console.log('   Setting up Psyche distributed training...')
 
       const psycheClient = createPsycheClient({

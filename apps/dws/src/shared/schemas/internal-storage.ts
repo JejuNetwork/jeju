@@ -186,7 +186,10 @@ export const PackageManifestSchema = z.object({
   license: z.string().optional(),
   homepage: z.string().optional(),
   bugs: z
-    .union([z.string(), z.object({ url: z.string().optional(), email: z.string().optional() })])
+    .union([
+      z.string(),
+      z.object({ url: z.string().optional(), email: z.string().optional() }),
+    ])
     .optional(),
   funding: z
     .union([

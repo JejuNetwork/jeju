@@ -15,12 +15,12 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { readContract, waitForTransactionReceipt } from 'viem/actions'
-import { Logger } from './logger'
 import {
   AgentRegistrationFileSchema,
   expectValid,
   IPFSAddResponseLineSchema,
 } from '../../schemas'
+import { Logger } from './logger'
 
 const logger = new Logger({ prefix: 'agent0' })
 
@@ -327,7 +327,11 @@ export async function uploadToIPFS(
   }
 
   const resultRaw = await response.json()
-  const result = expectValid(IPFSAddResponseLineSchema, resultRaw, 'IPFS upload')
+  const result = expectValid(
+    IPFSAddResponseLineSchema,
+    resultRaw,
+    'IPFS upload',
+  )
   return `ipfs://${result.Hash}`
 }
 

@@ -12,7 +12,6 @@ import { z } from 'zod'
 import { checkRpcHealth, getAccountBalance } from '../lib/chain'
 import { hasKeys, resolvePrivateKey } from '../lib/keys'
 import { logger } from '../lib/logger'
-import { keysCommand } from './keys'
 import {
   checkDocker,
   checkFoundry,
@@ -20,6 +19,7 @@ import {
   getNetworkDir,
 } from '../lib/system'
 import { CHAIN_CONFIG, type NetworkType } from '../types'
+import { keysCommand } from './keys'
 
 // Schema validation for deployment config files
 const DeployConfigSchema = z.object({

@@ -9,7 +9,13 @@
  * - User inputs are sanitized before API calls
  */
 
-import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from 'node:fs'
+import {
+  existsSync,
+  lstatSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+} from 'node:fs'
 import { join, normalize, resolve } from 'node:path'
 import { Command } from 'commander'
 import type { Address } from 'viem'
@@ -33,8 +39,8 @@ import {
   RepoSchema,
   ServiceHealthResponseSchema,
   UploadResponseSchema,
-  WorkflowListResponseSchema,
   validate,
+  WorkflowListResponseSchema,
 } from '../schemas'
 import { createInfrastructureService } from '../services/infrastructure'
 import { DEFAULT_PORTS } from '../types'
@@ -1177,7 +1183,11 @@ async function seedDev(): Promise<void> {
         body: file.content,
       })
       if (res.ok) {
-        const { cid } = validate(await res.json(), CidResponseSchema, 'upload response')
+        const { cid } = validate(
+          await res.json(),
+          CidResponseSchema,
+          'upload response',
+        )
         logger.success(`${file.name} -> ${cid.slice(0, 16)}...`)
       }
     } catch {
@@ -1319,7 +1329,11 @@ async function selfHost(): Promise<void> {
     })
 
     if (res.ok) {
-      const { cid } = validate(await res.json(), CidResponseSchema, 'upload response')
+      const { cid } = validate(
+        await res.json(),
+        CidResponseSchema,
+        'upload response',
+      )
       logger.success('Frontend uploaded')
       logger.keyValue('Frontend CID', cid)
       logger.newline()

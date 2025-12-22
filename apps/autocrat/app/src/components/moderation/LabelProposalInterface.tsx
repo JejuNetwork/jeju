@@ -1,5 +1,3 @@
-'use client'
-
 import { AlertTriangle, Award, Shield, Tag, Upload, Zap } from 'lucide-react'
 import { useState } from 'react'
 import { parseEther } from 'viem'

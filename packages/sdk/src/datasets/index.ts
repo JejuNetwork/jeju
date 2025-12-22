@@ -12,7 +12,10 @@ import type { NetworkType } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { encodeFunctionData } from 'viem'
 import { getContractAddresses, getServicesConfig } from '../config'
-import { DatasetUploadResponseSchema, JsonRecordSchema } from '../shared/schemas'
+import {
+  DatasetUploadResponseSchema,
+  JsonRecordSchema,
+} from '../shared/schemas'
 import type { JejuWallet } from '../wallet'
 
 // ============================================================================

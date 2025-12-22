@@ -724,7 +724,11 @@ export class SolanaMempoolMonitor extends EventEmitter {
       return { success: false, error: 'Failed to get Jupiter quote' }
     }
 
-    const quote = parseOrThrow(JupiterQuoteApiResponseSchema, await quoteResponse.json(), 'Jupiter quote')
+    const quote = parseOrThrow(
+      JupiterQuoteApiResponseSchema,
+      await quoteResponse.json(),
+      'Jupiter quote',
+    )
 
     console.log(`   Quote: ${quote.inAmount ?? 'N/A'} -> ${quote.outAmount}`)
     console.log(
@@ -748,7 +752,11 @@ export class SolanaMempoolMonitor extends EventEmitter {
       return { success: false, error: 'Failed to get swap tx' }
     }
 
-    const swapData = parseOrThrow(JupiterSwapApiResponseSchema, await swapResponse.json(), 'Jupiter swap')
+    const swapData = parseOrThrow(
+      JupiterSwapApiResponseSchema,
+      await swapResponse.json(),
+      'Jupiter swap',
+    )
     const { swapTransaction } = swapData
 
     // 3. Deserialize and sign backrun tx
@@ -809,7 +817,10 @@ export class SolanaMempoolMonitor extends EventEmitter {
       }),
     })
 
-    const bundleResult = safeParse(JitoBundleSubmitSchema, await bundleResponse.json())
+    const bundleResult = safeParse(
+      JitoBundleSubmitSchema,
+      await bundleResponse.json(),
+    )
 
     if (bundleResult?.error) {
       return { success: false, error: bundleResult.error.message }

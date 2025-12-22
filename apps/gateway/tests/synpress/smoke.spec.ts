@@ -5,9 +5,9 @@
  * These should run first and fast to catch obvious breaks.
  */
 
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import { basicSetup } from '../../synpress.config'
 
 const test = testWithSynpress(metaMaskFixtures(basicSetup))

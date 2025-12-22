@@ -5,7 +5,6 @@
  * Framework-agnostic - accepts wallet operations as props.
  */
 
-'use client'
 
 import {
   createContext,

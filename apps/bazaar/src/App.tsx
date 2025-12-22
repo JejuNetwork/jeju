@@ -161,9 +161,15 @@ export function App() {
               <Route path="/markets" element={<MarketsPage />} />
               <Route path="/markets/:id" element={<MarketDetailPage />} />
               <Route path="/markets/perps" element={<PerpsPage />} />
-              <Route path="/markets/perps/:ticker" element={<PerpsDetailPage />} />
+              <Route
+                path="/markets/perps/:ticker"
+                element={<PerpsDetailPage />}
+              />
               <Route path="/markets/predictions" element={<MarketsPage />} />
-              <Route path="/markets/predictions/:id" element={<PredictionDetailPage />} />
+              <Route
+                path="/markets/predictions/:id"
+                element={<PredictionDetailPage />}
+              />
               <Route path="/items" element={<ItemsPage />} />
               <Route path="/items/mint" element={<ItemMintPage />} />
               <Route path="/items/:id" element={<ItemDetailPage />} />
@@ -178,7 +184,10 @@ export function App() {
               <Route path="/rewards" element={<RewardsPage />} />
               <Route path="/settings" element={<SettingsPage />} />
               <Route path="/share/pnl/:userId" element={<SharePnLPage />} />
-              <Route path="/share/referral/:userId" element={<ShareReferralPage />} />
+              <Route
+                path="/share/referral/:userId"
+                element={<ShareReferralPage />}
+              />
               <Route path="/trending" element={<TrendingTagPage />} />
               <Route path="/trending/:tag" element={<TrendingTagPage />} />
               <Route path="/trending/group" element={<TrendingGroupPage />} />

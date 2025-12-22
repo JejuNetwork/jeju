@@ -14,6 +14,7 @@
  * - Package registry (/pkg/*)
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -25,7 +26,6 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { recordFeeRequestSchema } from '../../shared/schemas'
-import { expectValid } from '@jejunetwork/types'
 
 // ============ Types ============
 

@@ -66,7 +66,10 @@ const verifyRoutes = new Elysia({ prefix: '/verify' })
     )
   })
   .post('/signature', async ({ body, set }) => {
-    const requestBody = body as { paymentHeader?: string; network?: string } | null
+    const requestBody = body as {
+      paymentHeader?: string
+      network?: string
+    } | null
 
     if (!requestBody) {
       set.status = 400

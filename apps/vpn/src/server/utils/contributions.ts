@@ -5,7 +5,7 @@
  */
 
 import type { Address } from 'viem'
-import { expect, type ContributionState } from '../schemas'
+import { type ContributionState, expect } from '../schemas'
 import type { VPNServiceContext } from '../types'
 
 /**

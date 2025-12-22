@@ -3,10 +3,8 @@
  */
 
 import { expectValid } from '@jejunetwork/types'
-import {
-  PlatformMessageSchema,
-  TwilioWebhookPayloadSchema,
-} from '../schemas'
+import twilio from 'twilio'
+import { PlatformMessageSchema, TwilioWebhookPayloadSchema } from '../schemas'
 import type {
   MessageButton,
   MessageEmbed,
@@ -20,7 +18,6 @@ import type {
   PlatformUserInfo,
   SendMessageOptions,
 } from './types'
-import twilio from 'twilio'
 
 /** Minimal interface for Twilio client - only the methods we use */
 interface TwilioClient {

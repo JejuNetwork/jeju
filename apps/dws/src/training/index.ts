@@ -3,23 +3,23 @@
  */
 
 export {
-  createAtroposServer,
-  startAtroposServer,
   type AtroposState,
+  createAtroposServer,
   type EnvConfig,
   type Message,
   type RegisterEnv,
   type Registration,
   type ScoredData,
+  startAtroposServer,
 } from './atropos-server'
 
 export {
-  createCrossChainBridge,
-  CrossChainTrainingBridge,
   type BridgeConfig,
   type BridgedRunState,
   type CheckpointData,
   type ClientRegistration,
+  CrossChainTrainingBridge,
+  createCrossChainBridge,
   type RewardDistribution,
 } from './cross-chain-bridge'
 
@@ -34,24 +34,24 @@ export {
 } from './dws-integration'
 
 export {
+  type BatchData,
   createDistributedGRPOTrainer,
   createGRPOTrainer,
   DistributedGRPOTrainer,
   GRPOTrainer,
-  type BatchData,
   type TrainerStatus,
   type TrainingConfig,
   type TrainingMetrics,
 } from './grpo-trainer'
 
 export {
-  createPsycheClient,
-  PsycheClient,
   type ClientInfo,
   type CoordinatorConfig,
   type CoordinatorProgress,
   type CoordinatorState,
+  createPsycheClient,
   type Model,
+  PsycheClient,
   type PsycheConfig,
   type RunMetadata,
   type WitnessProof,

@@ -1,6 +1,6 @@
+import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import type { DataSource } from 'typeorm'
 import { z } from 'zod'
-import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import { ComputeProvider, RegisteredAgent, StorageProvider } from './model'
 
 export interface AgentSearchResult {

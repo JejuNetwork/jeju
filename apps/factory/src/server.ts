@@ -8,9 +8,9 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { cors } from '@elysiajs/cors'
-import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { openapi } from '@elysiajs/openapi'
 import { staticPlugin } from '@elysiajs/static'
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { type Context, Elysia } from 'elysia'
 import { a2aRoutes } from './routes/a2a'
 import { agentsRoutes } from './routes/agents'
@@ -52,7 +52,10 @@ function createApp() {
       cors({
         origin: isDev
           ? '*'
-          : ['https://factory.jejunetwork.org', `https://jeju.local:${CORE_PORTS.FACTORY.get()}`],
+          : [
+              'https://factory.jejunetwork.org',
+              `https://jeju.local:${CORE_PORTS.FACTORY.get()}`,
+            ],
         credentials: true,
       }),
     )

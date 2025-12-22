@@ -13,13 +13,13 @@ import type {
   Provider,
   State,
 } from '@elizaos/core'
+import { expectValid } from '@jejunetwork/types'
 import {
   DEFAULT_CHAIN_ID,
   getChainId,
   getChainName,
   PENDING_ACTION_TTL,
 } from '../config'
-import { expectValid } from '@jejunetwork/types'
 import { OttoUserSchema } from '../schemas'
 import { getStateManager } from '../services/state'
 import { getTradingService } from '../services/trading'

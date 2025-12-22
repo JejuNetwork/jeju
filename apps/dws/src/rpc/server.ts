@@ -14,10 +14,7 @@ import {
   getTestnetChains,
   isChainSupported,
 } from './config/chains.js'
-import {
-  getRateLimitStats,
-  RATE_LIMITS,
-} from './middleware/rate-limiter.js'
+import { getRateLimitStats, RATE_LIMITS } from './middleware/rate-limiter.js'
 import {
   getChainStats,
   getEndpointHealth,
@@ -311,7 +308,7 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
       method: string
       params?: (string | number | boolean | null | object)[]
     }
-    let rpcBody:
+    const rpcBody:
       | RpcRequestBody
       | RpcRequestBody[]
       | Record<string, string | number | boolean | null | object>
@@ -364,7 +361,10 @@ export const rpcApp = new Elysia({ name: 'rpc-gateway' })
         }
       }
 
-      const results = await proxyBatchRequest(chainId, rpcBody as JsonRpcRequest[])
+      const results = await proxyBatchRequest(
+        chainId,
+        rpcBody as JsonRpcRequest[],
+      )
       return results.map((r) => r.response)
     }
 

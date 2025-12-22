@@ -65,7 +65,11 @@ function getVersion(): string {
   const __dirname = dirname(__filename)
   const pkgPath = join(__dirname, '..', 'package.json')
   if (existsSync(pkgPath)) {
-    const pkg = validate(JSON.parse(readFileSync(pkgPath, 'utf-8')), PackageJsonSchema, 'package.json')
+    const pkg = validate(
+      JSON.parse(readFileSync(pkgPath, 'utf-8')),
+      PackageJsonSchema,
+      'package.json',
+    )
     return pkg.version
   }
   return '0.1.0'

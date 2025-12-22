@@ -132,7 +132,11 @@ export function createA2AServer(): Elysia {
       return validatedCard
     })
     .post('/', async ({ body, request }) => {
-      const validatedMessage = expectValid(a2AMessageSchema, body, 'A2A message')
+      const validatedMessage = expectValid(
+        a2AMessageSchema,
+        body,
+        'A2A message',
+      )
 
       const addressHeader = request.headers.get('x-jeju-address')
       if (!addressHeader) {

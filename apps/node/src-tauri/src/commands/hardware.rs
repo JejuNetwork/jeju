@@ -34,7 +34,7 @@ pub async fn detect_tee() -> Result<TeeCapabilities, String> {
 pub async fn get_system_info() -> Result<SystemInfo, String> {
     let mut detector = HardwareDetector::new();
     let info = detector.detect();
-    
+
     Ok(SystemInfo {
         os: info.os,
         os_version: info.os_version,
@@ -46,4 +46,3 @@ pub async fn get_system_info() -> Result<SystemInfo, String> {
         gpu_count: info.gpus.len(),
     })
 }
-

@@ -8,6 +8,7 @@
  * - Metrics and monitoring
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { toBytes, toHex } from 'viem'
@@ -28,7 +29,6 @@ import {
   sampleRequestSchema,
   storeChunkRequestSchema,
 } from '../../shared/schemas'
-import { expectValid } from '@jejunetwork/types'
 
 // ============================================================================
 // Context
@@ -102,348 +102,379 @@ export function shutdownDA(): void {
 // ============================================================================
 
 export function createDARouter(ctx: DARouterContext = {}) {
-  return new Elysia({ prefix: '/da' })
-    // Initialize on first request if not already done
-    .onBeforeHandle(() => {
-      if (!isInitialized) {
-        initializeDA(ctx)
-      }
-    })
-
-    // ============ Health ============
-
-    .get('/health', () => {
-      const operatorCount = disperser?.getActiveOperators().length ?? 0
-      const blobStats = disperser?.getBlobManager().getStats()
-
-      return {
-        status: 'healthy',
-        initialized: isInitialized,
-        localOperator: localOperator?.getAddress() ?? null,
-        localOperatorStatus: localOperator?.getStatus() ?? 'stopped',
-        operators: operatorCount,
-        blobs: blobStats,
-        timestamp: Date.now(),
-      }
-    })
-
-    // ============ Blob Submission ============
-
-    .post('/blob', async ({ body, set }) => {
-      if (!disperser) {
-        set.status = 503
-        return { error: 'DA layer not initialized' }
-      }
-
-      const validBody = expectValid(blobSubmitRequestSchema, body, 'Blob submit request')
-
-      // Decode data
-      let data: Uint8Array
-      if (validBody.data.startsWith('0x')) {
-        data = toBytes(validBody.data as Hex)
-      } else {
-        data = Uint8Array.from(atob(validBody.data), (ch) => ch.charCodeAt(0))
-      }
-
-      // Check size (128MB max)
-      const maxSize = 128 * 1024 * 1024
-      if (data.length > maxSize) {
-        set.status = 400
-        return { error: `Blob too large: ${data.length} bytes (max: ${maxSize})` }
-      }
-
-      // Prepare request
-      const request: BlobSubmissionRequest = {
-        data,
-        submitter: validBody.submitter,
-        namespace: validBody.namespace,
-        quorumPercent: validBody.quorumPercent,
-        retentionPeriod: validBody.retentionPeriod,
-      }
-
-      // Disperse
-      const result = await disperser.disperse(request)
-
-      if (!result.success) {
-        set.status = 500
-        return {
-          error: result.error ?? 'Dispersal failed',
-          blobId: result.blobId,
-          quorumReached: result.quorumReached,
-          operatorCount: result.operatorCount,
+  return (
+    new Elysia({ prefix: '/da' })
+      // Initialize on first request if not already done
+      .onBeforeHandle(() => {
+        if (!isInitialized) {
+          initializeDA(ctx)
         }
-      }
-
-      return {
-        blobId: result.blobId,
-        commitment: result.commitment,
-        attestation: result.attestation,
-        operators: result.assignments.flatMap((a) => a.operators),
-        chunkAssignments: result.assignments,
-      }
-    })
-
-    // ============ Blob Status ============
-
-    .get('/blob/:id', ({ params, set }) => {
-      if (!disperser) {
-        set.status = 503
-        return { error: 'DA layer not initialized' }
-      }
-
-      const blobId = params.id as Hex
-      const metadata = disperser.getBlobManager().getMetadata(blobId)
-
-      if (!metadata) {
-        set.status = 404
-        return { error: 'Blob not found' }
-      }
-
-      return {
-        id: metadata.id,
-        status: metadata.status,
-        size: metadata.size,
-        commitment: metadata.commitment,
-        submitter: metadata.submitter,
-        submittedAt: metadata.submittedAt,
-        confirmedAt: metadata.confirmedAt,
-        expiresAt: metadata.expiresAt,
-      }
-    })
-
-    // ============ Blob Retrieval ============
-
-    .get('/blob/:id/data', ({ params, set }) => {
-      if (!disperser) {
-        set.status = 503
-        return { error: 'DA layer not initialized' }
-      }
-
-      const blobId = params.id as Hex
-      const metadata = disperser.getBlobManager().getMetadata(blobId)
-
-      if (!metadata) {
-        set.status = 404
-        return { error: 'Blob not found' }
-      }
-
-      const result = disperser.getBlobManager().retrieve({
-        blobId,
-        commitment: metadata.commitment,
       })
 
-      return {
-        blobId,
-        data: toHex(result.data),
-        verified: result.verified,
-        chunksUsed: result.chunksUsed,
-        latencyMs: result.latencyMs,
-      }
-    })
+      // ============ Health ============
 
-    // ============ Sampling ============
+      .get('/health', () => {
+        const operatorCount = disperser?.getActiveOperators().length ?? 0
+        const blobStats = disperser?.getBlobManager().getStats()
 
-    .post('/sample', async ({ body, set }) => {
-      if (!disperser) {
-        set.status = 503
-        return { error: 'DA layer not initialized' }
-      }
+        return {
+          status: 'healthy',
+          initialized: isInitialized,
+          localOperator: localOperator?.getAddress() ?? null,
+          localOperatorStatus: localOperator?.getStatus() ?? 'stopped',
+          operators: operatorCount,
+          blobs: blobStats,
+          timestamp: Date.now(),
+        }
+      })
 
-      const validBody = expectValid(blobSampleRequestSchema, body, 'Blob sample request')
+      // ============ Blob Submission ============
 
-      const metadata = disperser.getBlobManager().getMetadata(validBody.blobId)
-      if (!metadata) {
-        set.status = 404
-        return { error: 'Blob not found' }
-      }
+      .post('/blob', async ({ body, set }) => {
+        if (!disperser) {
+          set.status = 503
+          return { error: 'DA layer not initialized' }
+        }
 
-      const result = await disperser
-        .getSampler()
-        .sample(validBody.blobId, metadata.commitment, validBody.requester)
+        const validBody = expectValid(
+          blobSubmitRequestSchema,
+          body,
+          'Blob submit request',
+        )
 
-      return result
-    })
+        // Decode data
+        let data: Uint8Array
+        if (validBody.data.startsWith('0x')) {
+          data = toBytes(validBody.data as Hex)
+        } else {
+          data = Uint8Array.from(atob(validBody.data), (ch) => ch.charCodeAt(0))
+        }
 
-    // ============ Chunk Storage (for operators) ============
+        // Check size (128MB max)
+        const maxSize = 128 * 1024 * 1024
+        if (data.length > maxSize) {
+          set.status = 400
+          return {
+            error: `Blob too large: ${data.length} bytes (max: ${maxSize})`,
+          }
+        }
 
-    .post('/chunk', async ({ body, set }) => {
-      if (!localOperator) {
-        set.status = 503
-        return { error: 'Local operator not running' }
-      }
+        // Prepare request
+        const request: BlobSubmissionRequest = {
+          data,
+          submitter: validBody.submitter,
+          namespace: validBody.namespace,
+          quorumPercent: validBody.quorumPercent,
+          retentionPeriod: validBody.retentionPeriod,
+        }
 
-      const validBody = expectValid(storeChunkRequestSchema, body, 'Store chunk request')
+        // Disperse
+        const result = await disperser.disperse(request)
 
-      const stored = localOperator.storeChunk(
-        validBody.blobId,
-        validBody.index,
-        toBytes(validBody.data),
-        validBody.proof,
-        validBody.commitment,
-      )
+        if (!result.success) {
+          set.status = 500
+          return {
+            error: result.error ?? 'Dispersal failed',
+            blobId: result.blobId,
+            quorumReached: result.quorumReached,
+            operatorCount: result.operatorCount,
+          }
+        }
 
-      if (!stored) {
-        set.status = 400
-        return { error: 'Failed to store chunk (proof verification failed)' }
-      }
+        return {
+          blobId: result.blobId,
+          commitment: result.commitment,
+          attestation: result.attestation,
+          operators: result.assignments.flatMap((a) => a.operators),
+          chunkAssignments: result.assignments,
+        }
+      })
 
-      return { success: true, blobId: validBody.blobId, index: validBody.index }
-    })
+      // ============ Blob Status ============
 
-    // ============ Sample Request (for operators) ============
+      .get('/blob/:id', ({ params, set }) => {
+        if (!disperser) {
+          set.status = 503
+          return { error: 'DA layer not initialized' }
+        }
 
-    .post('/chunk/sample', async ({ body, set }) => {
-      if (!localOperator) {
-        set.status = 503
-        return { error: 'Local operator not running' }
-      }
+        const blobId = params.id as Hex
+        const metadata = disperser.getBlobManager().getMetadata(blobId)
 
-      const request = expectValid(sampleRequestSchema, body, 'Sample request')
-      const response = localOperator.handleSampleRequest(request as SampleRequest)
+        if (!metadata) {
+          set.status = 404
+          return { error: 'Blob not found' }
+        }
 
-      return response
-    })
+        return {
+          id: metadata.id,
+          status: metadata.status,
+          size: metadata.size,
+          commitment: metadata.commitment,
+          submitter: metadata.submitter,
+          submittedAt: metadata.submittedAt,
+          confirmedAt: metadata.confirmedAt,
+          expiresAt: metadata.expiresAt,
+        }
+      })
 
-    // ============ Attestation (for operators) ============
+      // ============ Blob Retrieval ============
 
-    .post('/attest', async ({ body, set }) => {
-      if (!localOperator) {
-        set.status = 503
-        return { error: 'Local operator not running' }
-      }
+      .get('/blob/:id/data', ({ params, set }) => {
+        if (!disperser) {
+          set.status = 503
+          return { error: 'DA layer not initialized' }
+        }
 
-      const validBody = expectValid(attestRequestSchema, body, 'Attest request')
+        const blobId = params.id as Hex
+        const metadata = disperser.getBlobManager().getMetadata(blobId)
 
-      const signature = await localOperator.signAttestation(
-        validBody.blobId,
-        validBody.commitment,
-        validBody.chunkIndices,
-      )
+        if (!metadata) {
+          set.status = 404
+          return { error: 'Blob not found' }
+        }
 
-      return { signature }
-    })
+        const result = disperser.getBlobManager().retrieve({
+          blobId,
+          commitment: metadata.commitment,
+        })
 
-    // ============ Operator Management ============
+        return {
+          blobId,
+          data: toHex(result.data),
+          verified: result.verified,
+          chunksUsed: result.chunksUsed,
+          latencyMs: result.latencyMs,
+        }
+      })
 
-    .get('/operators', ({ set }) => {
-      if (!disperser) {
-        set.status = 503
-        return { error: 'DA layer not initialized' }
-      }
+      // ============ Sampling ============
 
-      const operators = disperser.getActiveOperators()
-      return {
-        count: operators.length,
-        operators: operators.map((o) => ({
-          address: o.address,
-          endpoint: o.endpoint,
-          region: o.region,
-          status: o.status,
-          capacityGB: o.capacityGB,
-          usedGB: o.usedGB,
-        })),
-      }
-    })
+      .post('/sample', async ({ body, set }) => {
+        if (!disperser) {
+          set.status = 503
+          return { error: 'DA layer not initialized' }
+        }
 
-    .post('/operators', async ({ body, set }) => {
-      if (!disperser) {
-        set.status = 503
-        return { error: 'DA layer not initialized' }
-      }
+        const validBody = expectValid(
+          blobSampleRequestSchema,
+          body,
+          'Blob sample request',
+        )
 
-      const operator = expectValid(
-        daOperatorInfoSchema,
-        body,
-        'Register operator request',
-      )
-      disperser.registerOperator(operator as DAOperatorInfo)
+        const metadata = disperser
+          .getBlobManager()
+          .getMetadata(validBody.blobId)
+        if (!metadata) {
+          set.status = 404
+          return { error: 'Blob not found' }
+        }
 
-      return { success: true, address: operator.address }
-    })
+        const result = await disperser
+          .getSampler()
+          .sample(validBody.blobId, metadata.commitment, validBody.requester)
 
-    .delete('/operators/:address', ({ params, set }) => {
-      if (!disperser) {
-        set.status = 503
-        return { error: 'DA layer not initialized' }
-      }
+        return result
+      })
 
-      const address = params.address as Address
-      disperser.removeOperator(address)
+      // ============ Chunk Storage (for operators) ============
 
-      return { success: true }
-    })
+      .post('/chunk', async ({ body, set }) => {
+        if (!localOperator) {
+          set.status = 503
+          return { error: 'Local operator not running' }
+        }
 
-    // ============ Stats ============
+        const validBody = expectValid(
+          storeChunkRequestSchema,
+          body,
+          'Store chunk request',
+        )
 
-    .get('/stats', ({ set }) => {
-      if (!disperser) {
-        set.status = 503
-        return { error: 'DA layer not initialized' }
-      }
+        const stored = localOperator.storeChunk(
+          validBody.blobId,
+          validBody.index,
+          toBytes(validBody.data),
+          validBody.proof,
+          validBody.commitment,
+        )
 
-      const blobStats = disperser.getBlobManager().getStats()
-      const operators = disperser.getActiveOperators()
-      const localMetrics = localOperator?.getMetrics()
+        if (!stored) {
+          set.status = 400
+          return { error: 'Failed to store chunk (proof verification failed)' }
+        }
 
-      return {
-        blobs: blobStats,
-        operators: {
-          active: operators.length,
-          totalCapacityGB: operators.reduce((sum, o) => sum + o.capacityGB, 0),
-          usedCapacityGB: operators.reduce((sum, o) => sum + o.usedGB, 0),
-        },
-        localOperator: localMetrics
-          ? {
-              address: localOperator?.getAddress(),
-              status: localOperator?.getStatus(),
-              metrics: localMetrics,
-            }
-          : null,
-      }
-    })
+        return {
+          success: true,
+          blobId: validBody.blobId,
+          index: validBody.index,
+        }
+      })
 
-    // ============ Blob List ============
+      // ============ Sample Request (for operators) ============
 
-    .get('/blobs', ({ query, set }) => {
-      if (!disperser) {
-        set.status = 503
-        return { error: 'DA layer not initialized' }
-      }
+      .post('/chunk/sample', async ({ body, set }) => {
+        if (!localOperator) {
+          set.status = 503
+          return { error: 'Local operator not running' }
+        }
 
-      const status = query.status as string | undefined
-      const submitter = query.submitter as Address | undefined
-      const limit = parseInt(query.limit as string ?? '100', 10)
+        const request = expectValid(sampleRequestSchema, body, 'Sample request')
+        const response = localOperator.handleSampleRequest(
+          request as SampleRequest,
+        )
 
-      let blobs = status
-        ? disperser
-            .getBlobManager()
-            .listByStatus(
-              status as
-                | 'pending'
-                | 'dispersing'
-                | 'available'
-                | 'expired'
-                | 'unavailable',
-            )
-        : submitter
-          ? disperser.getBlobManager().listBySubmitter(submitter)
-          : []
+        return response
+      })
 
-      // Apply limit
-      blobs = blobs.slice(0, limit)
+      // ============ Attestation (for operators) ============
 
-      return {
-        count: blobs.length,
-        blobs: blobs.map((b) => ({
-          id: b.id,
-          status: b.status,
-          size: b.size,
-          submitter: b.submitter,
-          submittedAt: b.submittedAt,
-          expiresAt: b.expiresAt,
-        })),
-      }
-    })
+      .post('/attest', async ({ body, set }) => {
+        if (!localOperator) {
+          set.status = 503
+          return { error: 'Local operator not running' }
+        }
+
+        const validBody = expectValid(
+          attestRequestSchema,
+          body,
+          'Attest request',
+        )
+
+        const signature = await localOperator.signAttestation(
+          validBody.blobId,
+          validBody.commitment,
+          validBody.chunkIndices,
+        )
+
+        return { signature }
+      })
+
+      // ============ Operator Management ============
+
+      .get('/operators', ({ set }) => {
+        if (!disperser) {
+          set.status = 503
+          return { error: 'DA layer not initialized' }
+        }
+
+        const operators = disperser.getActiveOperators()
+        return {
+          count: operators.length,
+          operators: operators.map((o) => ({
+            address: o.address,
+            endpoint: o.endpoint,
+            region: o.region,
+            status: o.status,
+            capacityGB: o.capacityGB,
+            usedGB: o.usedGB,
+          })),
+        }
+      })
+
+      .post('/operators', async ({ body, set }) => {
+        if (!disperser) {
+          set.status = 503
+          return { error: 'DA layer not initialized' }
+        }
+
+        const operator = expectValid(
+          daOperatorInfoSchema,
+          body,
+          'Register operator request',
+        )
+        disperser.registerOperator(operator as DAOperatorInfo)
+
+        return { success: true, address: operator.address }
+      })
+
+      .delete('/operators/:address', ({ params, set }) => {
+        if (!disperser) {
+          set.status = 503
+          return { error: 'DA layer not initialized' }
+        }
+
+        const address = params.address as Address
+        disperser.removeOperator(address)
+
+        return { success: true }
+      })
+
+      // ============ Stats ============
+
+      .get('/stats', ({ set }) => {
+        if (!disperser) {
+          set.status = 503
+          return { error: 'DA layer not initialized' }
+        }
+
+        const blobStats = disperser.getBlobManager().getStats()
+        const operators = disperser.getActiveOperators()
+        const localMetrics = localOperator?.getMetrics()
+
+        return {
+          blobs: blobStats,
+          operators: {
+            active: operators.length,
+            totalCapacityGB: operators.reduce(
+              (sum, o) => sum + o.capacityGB,
+              0,
+            ),
+            usedCapacityGB: operators.reduce((sum, o) => sum + o.usedGB, 0),
+          },
+          localOperator: localMetrics
+            ? {
+                address: localOperator?.getAddress(),
+                status: localOperator?.getStatus(),
+                metrics: localMetrics,
+              }
+            : null,
+        }
+      })
+
+      // ============ Blob List ============
+
+      .get('/blobs', ({ query, set }) => {
+        if (!disperser) {
+          set.status = 503
+          return { error: 'DA layer not initialized' }
+        }
+
+        const status = query.status as string | undefined
+        const submitter = query.submitter as Address | undefined
+        const limit = parseInt((query.limit as string) ?? '100', 10)
+
+        let blobs = status
+          ? disperser
+              .getBlobManager()
+              .listByStatus(
+                status as
+                  | 'pending'
+                  | 'dispersing'
+                  | 'available'
+                  | 'expired'
+                  | 'unavailable',
+              )
+          : submitter
+            ? disperser.getBlobManager().listBySubmitter(submitter)
+            : []
+
+        // Apply limit
+        blobs = blobs.slice(0, limit)
+
+        return {
+          count: blobs.length,
+          blobs: blobs.map((b) => ({
+            id: b.id,
+            status: b.status,
+            size: b.size,
+            submitter: b.submitter,
+            submittedAt: b.submittedAt,
+            expiresAt: b.expiresAt,
+          })),
+        }
+      })
+  )
 }
 
 export type DARoutes = ReturnType<typeof createDARouter>

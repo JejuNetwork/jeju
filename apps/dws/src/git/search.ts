@@ -51,16 +51,6 @@ interface MeilisearchSearchResult {
   processingTimeMs: number
 }
 
-// Type for the MeiliSearch constructor from the optional meilisearch package
-interface MeilisearchConfig {
-  host: string
-  apiKey?: string
-}
-
-interface MeilisearchModule {
-  MeiliSearch: new (config: MeilisearchConfig) => MeilisearchClient
-}
-
 export interface SearchManagerConfig {
   repoManager: GitRepoManager
   issuesManager: IssuesManager
@@ -140,12 +130,9 @@ export class SearchManager {
     }
 
     try {
-      // Conditional dynamic import: only load meilisearch if MEILISEARCH_URL is configured
-      // This avoids bundling the optional dependency when using in-memory search
-      const meilisearchModule = (await import(
-        'meilisearch'
-      )) as MeilisearchModule
-      this.meilisearchClient = new meilisearchModule.MeiliSearch({
+      // Static import: meilisearch is a dependency, load it when MEILISEARCH_URL is configured
+      const { MeiliSearch } = await import('meilisearch')
+      this.meilisearchClient = new MeiliSearch({
         host: meilisearchUrl,
         apiKey: meilisearchKey,
       })

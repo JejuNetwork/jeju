@@ -241,10 +241,12 @@ export type RelayStatsResponse = z.infer<typeof RelayStatsResponseSchema>
 
 export const RelayMessagesResponseSchema = z.object({
   address: z.string().optional(),
-  messages: z.array(MessageEnvelopeSchema.extend({
-    cid: z.string().optional(),
-    receivedAt: z.number().optional(),
-  })),
+  messages: z.array(
+    MessageEnvelopeSchema.extend({
+      cid: z.string().optional(),
+      receivedAt: z.number().optional(),
+    }),
+  ),
   count: z.number().int().nonnegative(),
 })
 

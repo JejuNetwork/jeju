@@ -89,6 +89,7 @@ const stubPlugin: BunPlugin = {
 }
 
 import tw from 'bun-plugin-tailwind'
+
 const tailwindPlugin: BunPlugin = tw
 
 async function build() {

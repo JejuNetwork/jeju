@@ -7,6 +7,13 @@
 
 import type { IAgentRuntime } from '@elizaos/core'
 import {
+  expectAddress,
+  expectBigInt,
+  expectChainId,
+  expectHex,
+  expectNonNegative,
+} from '@jejunetwork/types'
+import {
   type Address,
   concat,
   createPublicClient,
@@ -17,13 +24,6 @@ import {
   type PublicClient,
   toHex,
 } from 'viem'
-import {
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectHex,
-  expectNonNegative,
-} from '@jejunetwork/types'
 import type { Intent, IntentOrder, OIFServiceConfig } from '../types'
 
 // InputSettler ABI (from the network contracts)

@@ -6,8 +6,8 @@
  * with Psyche integration for decentralized model training.
  */
 
-import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import {
   DisconnectEnvSchema,
   RegisterEnvSchema,

@@ -8,8 +8,8 @@
  */
 
 import { Command } from 'commander'
-import { logger } from '../lib/logger'
 import * as proxyModule from '../../../deployment/scripts/shared/local-proxy'
+import { logger } from '../lib/logger'
 
 interface ProxyModule {
   hasJejuHostsBlock: () => boolean

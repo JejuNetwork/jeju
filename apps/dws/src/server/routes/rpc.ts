@@ -191,7 +191,9 @@ export const rpcRoutes = new Elysia({ name: 'rpc', prefix: '/rpc' })
       const includeTestnets = query.testnet === 'true'
 
       const chains = Object.values(CHAINS)
-        .filter((chain) => chain.enabled && (includeTestnets || !chain.isTestnet))
+        .filter(
+          (chain) => chain.enabled && (includeTestnets || !chain.isTestnet),
+        )
         .map((chain) => {
           const chainProviders = Array.from(providers.values()).filter(
             (p) => p.chainId === chain.id && p.status === 'active',
@@ -313,7 +315,11 @@ export const rpcRoutes = new Elysia({ name: 'rpc', prefix: '/rpc' })
         endpoint: t.String(),
         wsEndpoint: t.Optional(t.String()),
         region: t.String(),
-        tier: t.Union([t.Literal('free'), t.Literal('standard'), t.Literal('premium')]),
+        tier: t.Union([
+          t.Literal('free'),
+          t.Literal('standard'),
+          t.Literal('premium'),
+        ]),
         maxRps: t.Number(),
       }),
     },
@@ -343,7 +349,13 @@ export const rpcRoutes = new Elysia({ name: 'rpc', prefix: '/rpc' })
       body: t.Object({
         latency: t.Optional(t.Number()),
         currentRps: t.Optional(t.Number()),
-        status: t.Optional(t.Union([t.Literal('active'), t.Literal('degraded'), t.Literal('offline')])),
+        status: t.Optional(
+          t.Union([
+            t.Literal('active'),
+            t.Literal('degraded'),
+            t.Literal('offline'),
+          ]),
+        ),
       }),
     },
   )
@@ -401,7 +413,13 @@ export const rpcRoutes = new Elysia({ name: 'rpc', prefix: '/rpc' })
         'x-jeju-address': t.Optional(t.String()),
       }),
       body: t.Object({
-        tier: t.Optional(t.Union([t.Literal('free'), t.Literal('standard'), t.Literal('premium')])),
+        tier: t.Optional(
+          t.Union([
+            t.Literal('free'),
+            t.Literal('standard'),
+            t.Literal('premium'),
+          ]),
+        ),
         chains: t.Optional(t.Array(t.Number())),
       }),
     },
@@ -491,7 +509,7 @@ export const rpcRoutes = new Elysia({ name: 'rpc', prefix: '/rpc' })
       // Get API key from header or query
       const apiKey = extractApiKey(
         headers['x-api-key'],
-        headers['authorization'],
+        headers.authorization,
         query.apiKey,
       )
 
@@ -537,7 +555,7 @@ export const rpcRoutes = new Elysia({ name: 'rpc', prefix: '/rpc' })
       }),
       headers: t.Object({
         'x-api-key': t.Optional(t.String()),
-        'authorization': t.Optional(t.String()),
+        authorization: t.Optional(t.String()),
       }),
       query: t.Object({
         apiKey: t.Optional(t.String()),

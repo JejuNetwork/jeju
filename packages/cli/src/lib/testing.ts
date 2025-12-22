@@ -11,7 +11,12 @@ import {
 } from 'node:fs'
 import { join } from 'node:path'
 import { execa } from 'execa'
-import type { AppManifest, AppTestConfig, TestPhase, TestResult } from '../types'
+import type {
+  AppManifest,
+  AppTestConfig,
+  TestPhase,
+  TestResult,
+} from '../types'
 import { checkRpcHealth } from './chain'
 import { logger } from './logger'
 
@@ -29,8 +34,7 @@ export function generateConfigFromManifest(
   if (!testing?.e2e) return null
 
   const port = manifest.ports?.main ?? manifest.ports?.frontend ?? 3000
-  const testDir =
-    type === 'synpress' ? './tests/synpress' : './tests/e2e'
+  const testDir = type === 'synpress' ? './tests/synpress' : './tests/e2e'
   const timeout = testing.e2e.timeout ?? 120000
 
   const configContent =

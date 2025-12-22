@@ -21,52 +21,6 @@ See README.md for usage instructions.
 """
 
 # Import non-torch modules directly
-from .rewards import (
-    pnl_reward,
-    risk_adjusted_reward,
-    efficiency_reward,
-    action_quality_reward,
-    composite_reward,
-    relative_scores,
-    ranking_to_scores,
-    pairwise_preferences_to_scores,
-    RewardNormalizer,
-)
-
-# Quality utilities (no torch dependency)
-from .quality_utils import (
-    calculate_tick_quality_score,
-    calculate_trajectory_quality_score,
-    calculate_detailed_tick_quality,
-    build_trajectory_from_ticks,
-    state_to_observation,
-    state_to_env_state,
-    validate_trajectory_quality,
-    ValidationResult,
-)
-
-# Multi-prompt dataset (no torch dependency)
-from .multi_prompt_dataset import (
-    MultiPromptDatasetBuilder,
-    PromptDataset,
-    PromptSample,
-    prepare_multi_prompt_training_data,
-    PromptTypeAnalyzer,
-    validate_training_sample,
-    validate_trajectory_for_training,
-)
-
-# Tick reward attribution (no torch dependency)
-from .tick_reward_attribution import (
-    TickRewardAttributor,
-    TickData,
-    TickOutcome,
-    LLMCallRecord,
-    CallPurpose,
-    build_training_samples_from_tick,
-    group_samples_for_grpo,
-)
-
 # Archetype training configuration (no torch dependency)
 from .archetype_trainer import (
     ArchetypeTrainer,
@@ -74,13 +28,58 @@ from .archetype_trainer import (
     ArchetypeTrainingResult,
 )
 
+# Multi-prompt dataset (no torch dependency)
+from .multi_prompt_dataset import (
+    MultiPromptDatasetBuilder,
+    PromptDataset,
+    PromptSample,
+    PromptTypeAnalyzer,
+    prepare_multi_prompt_training_data,
+    validate_training_sample,
+    validate_trajectory_for_training,
+)
+
+# Quality utilities (no torch dependency)
+from .quality_utils import (
+    ValidationResult,
+    build_trajectory_from_ticks,
+    calculate_detailed_tick_quality,
+    calculate_tick_quality_score,
+    calculate_trajectory_quality_score,
+    state_to_env_state,
+    state_to_observation,
+    validate_trajectory_quality,
+)
+from .rewards import (
+    RewardNormalizer,
+    action_quality_reward,
+    composite_reward,
+    efficiency_reward,
+    pairwise_preferences_to_scores,
+    pnl_reward,
+    ranking_to_scores,
+    relative_scores,
+    risk_adjusted_reward,
+)
+
 # Rubric loading from config/rubrics.json (single source of truth)
 from .rubric_loader import (
-    get_rubric,
-    get_priority_metrics,
-    get_available_archetypes,
-    reload_rubrics,
     DEFAULT_RUBRIC,
+    get_available_archetypes,
+    get_priority_metrics,
+    get_rubric,
+    reload_rubrics,
+)
+
+# Tick reward attribution (no torch dependency)
+from .tick_reward_attribution import (
+    CallPurpose,
+    LLMCallRecord,
+    TickData,
+    TickOutcome,
+    TickRewardAttributor,
+    build_training_samples_from_tick,
+    group_samples_for_grpo,
 )
 
 
@@ -92,21 +91,23 @@ def __getattr__(name: str):
         "AtroposTrainingConfig",
     ):
         from .atropos_trainer import (
-            BabylonAtroposTrainer,
             AtroposTrainingConfig,
+            BabylonAtroposTrainer,
         )
+
         return locals()[name]
-    
+
     if name in (
         "BabylonRLAIFEnv",
         "BabylonEnvConfig",
     ):
         from .babylon_env import (
-            BabylonRLAIFEnv,
             BabylonEnvConfig,
+            BabylonRLAIFEnv,
         )
+
         return locals()[name]
-    
+
     if name in (
         "FastRolloutGenerator",
         "RolloutConfig",
@@ -116,15 +117,16 @@ def __getattr__(name: str):
         "AgentRunner",
     ):
         from .rollout_generator import (
+            AgentRunner,
+            AgentTickData,
             FastRolloutGenerator,
             RolloutConfig,
-            RolloutResult,
-            AgentTickData,
             RolloutQualityValidator,
-            AgentRunner,
+            RolloutResult,
         )
+
         return locals()[name]
-    
+
     if name in (
         "FastSimulator",
         "SimulatorConfig",
@@ -133,12 +135,13 @@ def __getattr__(name: str):
     ):
         from .fast_simulator import (
             FastSimulator,
+            GameState,
             SimulatorConfig,
             SimulatorMetrics,
-            GameState,
         )
+
         return locals()[name]
-    
+
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

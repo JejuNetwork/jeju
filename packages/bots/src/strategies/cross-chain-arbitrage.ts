@@ -13,6 +13,7 @@
  */
 
 import { EventEmitter } from 'node:events'
+import type { EVMChainId, SolanaNetwork } from '@jejunetwork/types'
 import { expectValid } from '@jejunetwork/types'
 import { type Commitment, Connection, type PublicKey } from '@solana/web3.js'
 import {
@@ -26,7 +27,6 @@ import {
 } from 'viem'
 import { OracleAggregator, TOKEN_SYMBOLS } from '../oracles'
 import { JupiterQuoteResponseSchema } from '../schemas'
-import type { EVMChainId, SolanaNetwork } from '@jejunetwork/types'
 import type { CrossChainArbOpportunity } from '../types'
 
 // ============ Chain Configuration ============
@@ -336,6 +336,8 @@ const DEFAULT_CONFIG: Omit<CrossChainArbConfig, 'chains'> & {
 export class CrossChainArbitrage extends EventEmitter {
   private config: CrossChainArbConfig
   private evmClients: Map<EVMChainId, PublicClient> = new Map()
+  private oracle: OracleAggregator | null = null
+  private solanaConnection: Connection | null = null
   private prices: Map<string, ChainPrice[]> = new Map()
   private opportunities: CrossChainArbOpportunity[] = []
   private running = false
@@ -820,6 +822,9 @@ export interface SolanaArbConfig {
 }
 
 export class SolanaArbitrage {
+  private config: SolanaArbConfig
+  private connection: Connection
+
   constructor(config: SolanaArbConfig) {
     this.config = config
     this.connection = new Connection(config.rpcUrl, config.commitment)

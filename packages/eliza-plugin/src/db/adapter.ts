@@ -38,9 +38,9 @@ type JsonValue =
   | { [key: string]: JsonValue }
 
 // Internal schemas for database field validation
-const StringArraySchema = z.array(z.string())
-const RecordSchema = z.record(z.unknown())
-const NumberArraySchema = z.array(z.number())
+const _StringArraySchema = z.array(z.string())
+const _RecordSchema = z.record(z.unknown())
+const _NumberArraySchema = z.array(z.number())
 
 /**
  * CQL Database Adapter Configuration
@@ -137,27 +137,6 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
 
   private toJson(value: JsonValue): string {
     return JSON.stringify(value)
-  }
-
-  /**
-   * Parse JSON from database with schema validation
-   * Use this for all database reads to ensure type safety
-   */
-  private fromJsonValidated<T>(
-    value: string | null,
-    schema: ZodType<T>,
-  ): T | null {
-    if (!value) return null
-    const parsed: unknown = JSON.parse(value)
-    const result = schema.safeParse(parsed)
-    if (!result.success) {
-      logger.warn(
-        { src: 'cql-adapter', error: result.error.message },
-        'JSON validation failed, returning null',
-      )
-      return null
-    }
-    return result.data
   }
 
   /**

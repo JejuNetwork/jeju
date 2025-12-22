@@ -12,9 +12,9 @@
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync } from 'node:fs'
 import { readdir, readFile, rm } from 'node:fs/promises'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import { type Subprocess, spawn } from 'bun'
 import { z } from 'zod'
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import {
   A2AServiceInfoResponseSchema,
   AgentCardResponseSchema,
@@ -220,7 +220,6 @@ describe('Worker Module', () => {
   })
 
   test('worker handles requests correctly', async () => {
-
     const mockEnv = {
       NETWORK: 'localnet' as const,
       TEE_MODE: 'simulated' as const,

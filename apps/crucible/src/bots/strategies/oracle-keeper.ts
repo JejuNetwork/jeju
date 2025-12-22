@@ -8,7 +8,11 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { RedstonePriceResponseSchema, safeParse } from '../../schemas'
-import type { ChainConfig, ChainId, StrategyConfig } from '../autocrat-types-source'
+import type {
+  ChainConfig,
+  ChainId,
+  StrategyConfig,
+} from '../autocrat-types-source'
 import { CHAINLINK_AGGREGATOR_ABI, PRICE_ORACLE_ABI } from '../lib/contracts'
 
 interface PriceSource {
@@ -106,7 +110,6 @@ export class OracleKeeperStrategy {
   private checkInterval: ReturnType<typeof setInterval> | null = null
   private running = false
   private chainId: ChainId
-  private config: StrategyConfig
 
   constructor(chainId: ChainId, config: StrategyConfig, privateKey: string) {
     this.chainId = chainId

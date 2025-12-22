@@ -7,14 +7,13 @@
  * - Distributed training support with Psyche integration
  */
 
+export type { Message, RegisterEnv, Registration, ScoredData } from '../schemas'
 export {
   type AtroposState,
   createAtroposServer,
   type EnvConfig,
   startAtroposServer,
 } from './atropos-server'
-
-export type { Message, RegisterEnv, Registration, ScoredData } from '../schemas'
 
 export {
   type BatchData,

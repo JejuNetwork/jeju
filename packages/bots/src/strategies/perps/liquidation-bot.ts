@@ -4,6 +4,7 @@
  * Monitors positions from indexer and executes profitable liquidations on-chain.
  */
 
+import type { EVMChainId } from '@jejunetwork/types'
 import { expectValid } from '@jejunetwork/types'
 import {
   type Address,
@@ -16,7 +17,6 @@ import {
 import type { OracleAggregator } from '../../oracles'
 import { IndexerPositionsResponseSchema } from '../../schemas'
 import { sleep } from '../../shared'
-import type { EVMChainId } from '@jejunetwork/types'
 
 export interface LiquidationBotConfig {
   chainId: EVMChainId
@@ -59,6 +59,7 @@ const PERP_MARKET_ABI = parseAbi([
 
 export class LiquidationBot {
   private readonly config: LiquidationBotConfig
+  private readonly oracle: OracleAggregator
   private readonly publicClient: PublicClient
   private readonly walletClient: WalletClient
   private running = false

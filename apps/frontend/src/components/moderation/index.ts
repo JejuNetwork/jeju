@@ -1,1 +1,0 @@
-export { ModerationMenu } from './ModerationMenu'

@@ -4,17 +4,17 @@
  * Supports: HD wallets, private key import, watch-only, hardware wallets
  */
 
+import { expectJson } from '@jejunetwork/types'
+import { HDKey } from '@scure/bip32'
 import {
   generateMnemonic as generateBip39Mnemonic,
   mnemonicToSeedSync,
   validateMnemonic,
 } from '@scure/bip39'
 import { wordlist } from '@scure/bip39/wordlists/english'
-import { HDKey } from '@scure/bip32'
 import type { Address, Hex } from 'viem'
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
-import { expectJson } from '@jejunetwork/types'
 import { secureStorage } from '../../platform/secure-storage'
 
 type AccountType = 'hd' | 'imported' | 'watch' | 'hardware' | 'smart'

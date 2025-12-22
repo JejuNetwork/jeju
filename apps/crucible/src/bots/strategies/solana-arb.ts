@@ -15,7 +15,7 @@
  */
 
 import { EventEmitter } from 'node:events'
-import { Connection, Keypair } from '@solana/web3.js'
+import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js'
 import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import {
   JupiterQuoteApiResponseSchema,
@@ -278,7 +278,10 @@ export class SolanaArbStrategy extends EventEmitter {
       const response = await fetch(url)
       if (!response.ok) return null
 
-      const data = safeParse(JupiterQuoteApiResponseSchema, await response.json())
+      const data = safeParse(
+        JupiterQuoteApiResponseSchema,
+        await response.json(),
+      )
 
       const outAmount = Number(data?.outAmount ?? 0) / 1e6 // USDC has 6 decimals
       const tokenDecimals = SOLANA_TOKENS[symbol]?.decimals || 9
@@ -296,7 +299,10 @@ export class SolanaArbStrategy extends EventEmitter {
       const liquidityUrl = `${JUPITER_API}/quote?inputMint=${mint}&outputMint=${usdcMint}&amount=${largeAmount}&slippageBps=100`
       const liqResponse = await fetch(liquidityUrl)
       if (liqResponse.ok) {
-        const liqData = safeParse(JupiterQuoteApiResponseSchema, await liqResponse.json())
+        const liqData = safeParse(
+          JupiterQuoteApiResponseSchema,
+          await liqResponse.json(),
+        )
         // If price impact < 5%, use the large amount as liquidity indicator
         const priceImpact = parseFloat(liqData?.priceImpactPct || '100')
         if (priceImpact < 5) {
@@ -611,12 +617,14 @@ export class SolanaArbStrategy extends EventEmitter {
       throw new Error(`Jupiter swap API failed: ${response.statusText}`)
     }
 
-    const swapData = parseOrThrow(JupiterSwapApiResponseSchema, await response.json(), 'Jupiter swap')
+    const swapData = parseOrThrow(
+      JupiterSwapApiResponseSchema,
+      await response.json(),
+      'Jupiter swap',
+    )
     const { swapTransaction } = swapData
 
     // Deserialize and sign the transaction
-    // Conditional dynamic import: @solana/web3.js only needed when executing Solana swaps
-    const { VersionedTransaction } = await import('@solana/web3.js')
     const txBuffer = Buffer.from(swapTransaction, 'base64')
     const tx = VersionedTransaction.deserialize(txBuffer)
     tx.sign([this.solanaKeypair])
@@ -675,7 +683,11 @@ export class SolanaArbStrategy extends EventEmitter {
       throw new Error(`Bridge API failed: ${response.statusText}`)
     }
 
-    const result = parseOrThrow(ZKBridgeTxResponseSchema, await response.json(), 'ZK bridge response')
+    const result = parseOrThrow(
+      ZKBridgeTxResponseSchema,
+      await response.json(),
+      'ZK bridge response',
+    )
     return result.txHash
   }
 
@@ -710,7 +722,11 @@ export class SolanaArbStrategy extends EventEmitter {
       throw new Error(`Bridge API failed: ${response.statusText}`)
     }
 
-    const result = parseOrThrow(ZKBridgeTxResponseSchema, await response.json(), 'ZK bridge response')
+    const result = parseOrThrow(
+      ZKBridgeTxResponseSchema,
+      await response.json(),
+      'ZK bridge response',
+    )
     return result.txHash
   }
 

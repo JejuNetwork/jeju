@@ -1,5 +1,3 @@
-'use client'
-
 import {
   type AllocationKey,
   JEJU_TOKENOMICS,

@@ -14,6 +14,7 @@
 // Core - framework-agnostic functions
 export {
   authenticate,
+  type CombinedAuthConfig,
   constantTimeCompare,
   createWalletAuthMessage,
   extractAuthHeaders,
@@ -25,31 +26,11 @@ export {
   validateOAuth3Session,
   validateWalletSignature,
   validateWalletSignatureFromHeaders,
-  type CombinedAuthConfig,
 } from './core.js'
-
-// Types
-export {
-  AdminRole,
-  AuthError,
-  AuthErrorCode,
-  AuthMethod,
-  type AdminUser,
-  type AdminValidationResult,
-  type APIKeyConfig,
-  type APIKeyInfo,
-  type APIKeyValidationResult,
-  type AuthHeaders,
-  type AuthResult,
-  type AuthUser,
-  type OAuth3Config,
-  type OAuth3ValidationResult,
-  type WalletSignatureConfig,
-  type WalletSignatureValidationResult,
-} from './types.js'
-
 // Elysia adapter
 export {
+  type AuthContext,
+  type AuthPluginConfig,
   apiKeyAuthPlugin,
   authErrorHandler,
   authPlugin,
@@ -60,6 +41,23 @@ export {
   requireAuthMiddleware,
   walletAuthPlugin,
   withAuth,
-  type AuthContext,
-  type AuthPluginConfig,
 } from './elysia.js'
+// Types
+export {
+  AdminRole,
+  type AdminUser,
+  type AdminValidationResult,
+  type APIKeyConfig,
+  type APIKeyInfo,
+  type APIKeyValidationResult,
+  AuthError,
+  AuthErrorCode,
+  type AuthHeaders,
+  AuthMethod,
+  type AuthResult,
+  type AuthUser,
+  type OAuth3Config,
+  type OAuth3ValidationResult,
+  type WalletSignatureConfig,
+  type WalletSignatureValidationResult,
+} from './types.js'

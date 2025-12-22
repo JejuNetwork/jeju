@@ -32,6 +32,7 @@ import {
   findBestNode,
   getNodesByCountry,
 } from './utils/nodes'
+import { validateProxyUrlWithDNS } from './utils/proxy-validation'
 import {
   createSession,
   deleteSession,
@@ -41,7 +42,6 @@ import {
   getSessionsForAddress,
   verifySessionOwnership,
 } from './utils/sessions'
-import { validateProxyUrlWithDNS } from './utils/proxy-validation'
 import { verifyX402Payment } from './x402'
 
 // ============================================================================
@@ -354,7 +354,8 @@ export function createMCPRouter(ctx: VPNServiceContext) {
     .onError(({ error, set }) => {
       console.error('MCP API error:', error)
       set.status = 500
-      const message = error instanceof Error ? error.message : 'Internal server error'
+      const message =
+        error instanceof Error ? error.message : 'Internal server error'
       return { error: message }
     })
 
@@ -422,9 +423,19 @@ export function createMCPRouter(ctx: VPNServiceContext) {
       // auth.address is already validated as Address by verifyAuth when valid
       const address = auth.valid && auth.address ? auth.address : null
 
-      const validatedBody = expectValid(MCPToolCallSchema, body, 'tool call request')
+      const validatedBody = expectValid(
+        MCPToolCallSchema,
+        body,
+        'tool call request',
+      )
 
-      const result = await callTool(ctx, request, validatedBody.name, validatedBody.arguments, address)
+      const result = await callTool(
+        ctx,
+        request,
+        validatedBody.name,
+        validatedBody.arguments,
+        address,
+      )
 
       return {
         content: [
@@ -448,9 +459,17 @@ export function createMCPRouter(ctx: VPNServiceContext) {
      * POST /prompts/get - Get a prompt
      */
     .post('/prompts/get', async ({ body }) => {
-      const validatedBody = expectValid(MCPPromptGetSchema, body, 'prompt get request')
+      const validatedBody = expectValid(
+        MCPPromptGetSchema,
+        body,
+        'prompt get request',
+      )
 
-      const prompt = await getPrompt(ctx, validatedBody.name, validatedBody.arguments ?? {})
+      const prompt = await getPrompt(
+        ctx,
+        validatedBody.name,
+        validatedBody.arguments ?? {},
+      )
 
       return {
         description: prompt.description,

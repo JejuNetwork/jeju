@@ -68,12 +68,17 @@ export const ValidationRegistryAbi = ValidationRegistryAbiJson.abi as Abi
 
 // Babylon Diamond ABIs (EIP-2535 Prediction Markets)
 export const BabylonDiamondAbi = BabylonDiamondAbiJson.abi as Abi
-export const BabylonDiamondCutFacetAbi = BabylonDiamondCutFacetAbiJson.abi as Abi
-export const BabylonDiamondLoupeFacetAbi = BabylonDiamondLoupeFacetAbiJson.abi as Abi
-export const BabylonPredictionMarketFacetAbi = BabylonPredictionMarketFacetAbiJson.abi as Abi
+export const BabylonDiamondCutFacetAbi =
+  BabylonDiamondCutFacetAbiJson.abi as Abi
+export const BabylonDiamondLoupeFacetAbi =
+  BabylonDiamondLoupeFacetAbiJson.abi as Abi
+export const BabylonPredictionMarketFacetAbi =
+  BabylonPredictionMarketFacetAbiJson.abi as Abi
 export const BabylonOracleFacetAbi = BabylonOracleFacetAbiJson.abi as Abi
-export const BabylonERC8004IdentityRegistryAbi = BabylonERC8004IdentityRegistryAbiJson.abi as Abi
-export const BabylonERC8004ReputationSystemAbi = BabylonERC8004ReputationSystemAbiJson.abi as Abi
+export const BabylonERC8004IdentityRegistryAbi =
+  BabylonERC8004IdentityRegistryAbiJson.abi as Abi
+export const BabylonERC8004ReputationSystemAbi =
+  BabylonERC8004ReputationSystemAbiJson.abi as Abi
 
 // OIF ABIs
 export const InputSettlerAbi = InputSettlerAbiJson.abi as Abi

@@ -179,9 +179,6 @@ export interface CowSolution {
   prices: Record<string, bigint>
 }
 
-// Types derived from Zod schemas for type safety
-type CowApiAuctionParsed = z.infer<typeof CowApiAuctionSchema>
-
 export class CowProtocolSolver extends EventEmitter {
   private clients: Map<number, { public: PublicClient; wallet?: WalletClient }>
   private supportedChains: number[]
@@ -734,7 +731,10 @@ export class CowProtocolSolver extends EventEmitter {
     }
   }
 
-  private parseOrders(apiOrders: CowApiOrderParsed[], chainId: number): CowOrder[] {
+  private parseOrders(
+    apiOrders: CowApiOrderParsed[],
+    chainId: number,
+  ): CowOrder[] {
     return apiOrders.map((o) => ({
       uid: o.uid as `0x${string}`,
       chainId,

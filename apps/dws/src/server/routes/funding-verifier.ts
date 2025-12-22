@@ -9,6 +9,7 @@
  * This is the CRITICAL integration point between OAuth3 and funding.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -26,7 +27,6 @@ import {
   verifyRepoRequestSchema,
   verifySocialRequestSchema,
 } from '../../shared/schemas'
-import { expectValid } from '@jejunetwork/types'
 
 // Schemas for external API responses
 const GitHubRepoPermissionsSchema = z.object({
@@ -39,9 +39,7 @@ const GitHubRepoPermissionsSchema = z.object({
 })
 
 const NpmPackageSchema = z.object({
-  maintainers: z
-    .array(z.object({ name: z.string() }))
-    .optional(),
+  maintainers: z.array(z.object({ name: z.string() })).optional(),
 })
 
 // ============ ABI ============
@@ -296,7 +294,10 @@ async function verifyNpmMaintainer(
 // ============ Router ============
 
 export function createFundingVerifierRouter() {
-  const router = new Elysia({ name: 'funding-verifier', prefix: '/funding-verifier' })
+  const router = new Elysia({
+    name: 'funding-verifier',
+    prefix: '/funding-verifier',
+  })
 
   const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:6546'
   const verifierKey = process.env.VERIFIER_PRIVATE_KEY
@@ -544,7 +545,9 @@ export function createFundingVerifierRouter() {
       access_token: z.string().optional(),
       error: z.string().optional(),
     })
-    const tokenResult = TokenResponseSchema.safeParse(await tokenResponse.json())
+    const tokenResult = TokenResponseSchema.safeParse(
+      await tokenResponse.json(),
+    )
     if (!tokenResult.success) {
       set.status = 400
       return { error: 'Invalid token response' }

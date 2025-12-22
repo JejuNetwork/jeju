@@ -47,13 +47,21 @@ export const storageRoutes = new Elysia({ name: 'storage', prefix: '/storage' })
   .post(
     '/upload',
     async ({ body, storageManager }) => {
-      const { file, tier, category, encrypt, permanent, backends, accessPolicy } = body
+      const {
+        file,
+        tier,
+        category,
+        encrypt,
+        permanent,
+        backends,
+        accessPolicy,
+      } = body
 
       const content = Buffer.from(await file.arrayBuffer())
 
-      const preferredBackends = backends
-        ?.split(',')
-        .filter(Boolean) as StorageBackendType[] | undefined
+      const preferredBackends = backends?.split(',').filter(Boolean) as
+        | StorageBackendType[]
+        | undefined
 
       const result = await storageManager.upload(content, {
         filename: file.name,
@@ -80,8 +88,10 @@ export const storageRoutes = new Elysia({ name: 'storage', prefix: '/storage' })
     {
       body: t.Object({
         file: t.File(),
-        tier: t.Optional(t.Union(contentTierValues.map(v => t.Literal(v)))),
-        category: t.Optional(t.Union(contentCategoryValues.map(v => t.Literal(v)))),
+        tier: t.Optional(t.Union(contentTierValues.map((v) => t.Literal(v)))),
+        category: t.Optional(
+          t.Union(contentCategoryValues.map((v) => t.Literal(v))),
+        ),
         encrypt: t.Optional(t.String()),
         permanent: t.Optional(t.String()),
         backends: t.Optional(t.String()),
@@ -90,13 +100,10 @@ export const storageRoutes = new Elysia({ name: 'storage', prefix: '/storage' })
     },
   )
 
-  .post(
-    '/upload/raw',
-    () => {
-      // Raw bytes upload requires multipart form
-      return { message: 'Use multipart upload via /upload endpoint' }
-    },
-  )
+  .post('/upload/raw', () => {
+    // Raw bytes upload requires multipart form
+    return { message: 'Use multipart upload via /upload endpoint' }
+  })
 
   .post(
     '/upload/json',
@@ -117,8 +124,10 @@ export const storageRoutes = new Elysia({ name: 'storage', prefix: '/storage' })
       body: t.Object({
         data: t.Unknown(),
         name: t.Optional(t.String()),
-        tier: t.Optional(t.Union(contentTierValues.map(v => t.Literal(v)))),
-        category: t.Optional(t.Union(contentCategoryValues.map(v => t.Literal(v)))),
+        tier: t.Optional(t.Union(contentTierValues.map((v) => t.Literal(v)))),
+        category: t.Optional(
+          t.Union(contentCategoryValues.map((v) => t.Literal(v))),
+        ),
         encrypt: t.Optional(t.Boolean()),
       }),
     },
@@ -142,8 +151,10 @@ export const storageRoutes = new Elysia({ name: 'storage', prefix: '/storage' })
     {
       body: t.Object({
         file: t.File(),
-        tier: t.Optional(t.Union(contentTierValues.map(v => t.Literal(v)))),
-        category: t.Optional(t.Union(contentCategoryValues.map(v => t.Literal(v)))),
+        tier: t.Optional(t.Union(contentTierValues.map((v) => t.Literal(v)))),
+        category: t.Optional(
+          t.Union(contentCategoryValues.map((v) => t.Literal(v))),
+        ),
       }),
     },
   )
@@ -184,7 +195,9 @@ export const storageRoutes = new Elysia({ name: 'storage', prefix: '/storage' })
         cid: t.String({ minLength: 1 }),
       }),
       query: t.Object({
-        backend: t.Optional(t.Union(storageBackendValues.map(v => t.Literal(v)))),
+        backend: t.Optional(
+          t.Union(storageBackendValues.map((v) => t.Literal(v))),
+        ),
         decrypt: t.Optional(t.String()),
       }),
       headers: t.Object({
@@ -266,8 +279,10 @@ export const storageRoutes = new Elysia({ name: 'storage', prefix: '/storage' })
     },
     {
       query: t.Object({
-        tier: t.Optional(t.Union(contentTierValues.map(v => t.Literal(v)))),
-        category: t.Optional(t.Union(contentCategoryValues.map(v => t.Literal(v)))),
+        tier: t.Optional(t.Union(contentTierValues.map((v) => t.Literal(v)))),
+        category: t.Optional(
+          t.Union(contentCategoryValues.map((v) => t.Literal(v))),
+        ),
         limit: t.Optional(t.String()),
         offset: t.Optional(t.String()),
       }),
@@ -466,7 +481,9 @@ export const storageRoutes = new Elysia({ name: 'storage', prefix: '/storage' })
     async ({ params, headers, storageManager, set }) => {
       const region = headers['x-region'] ?? 'unknown'
 
-      const result = await storageManager.download(params.cid, { region }).catch(() => null)
+      const result = await storageManager
+        .download(params.cid, { region })
+        .catch(() => null)
 
       if (!result) {
         set.status = 404

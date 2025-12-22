@@ -11,17 +11,6 @@
  * import { rateLimitPlugin, simpleRateLimit } from '@jejunetwork/api/rate-limiting/elysia'
  */
 
-// Types
-export {
-  type RateLimitEntry,
-  type RateLimiterConfig,
-  type RateLimitHeaders,
-  type RateLimitResult,
-  type RateLimitStore,
-  type RateLimitTier,
-  RateLimitTiers,
-} from './types.js'
-
 // Core
 export {
   createRateLimitHeaders,
@@ -33,13 +22,22 @@ export {
   RateLimiter,
   resetRateLimiter,
 } from './core.js'
-
 // Elysia adapter
 export {
+  type RateLimitContext,
+  type RateLimitPluginConfig,
   rateLimitPlugin,
   simpleRateLimit,
   tieredRateLimit,
   withRateLimit,
-  type RateLimitContext,
-  type RateLimitPluginConfig,
 } from './elysia.js'
+// Types
+export {
+  type RateLimitEntry,
+  type RateLimiterConfig,
+  type RateLimitHeaders,
+  type RateLimitResult,
+  type RateLimitStore,
+  type RateLimitTier,
+  RateLimitTiers,
+} from './types.js'

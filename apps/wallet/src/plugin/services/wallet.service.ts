@@ -7,6 +7,15 @@
 
 import type { IAgentRuntime } from '@elizaos/core'
 import {
+  expectAddress,
+  expectBigInt,
+  expectChainId,
+  expectDefined,
+  expectHex,
+} from '@jejunetwork/types'
+import { generateMnemonic } from '@scure/bip39'
+import { wordlist } from '@scure/bip39/wordlists/english'
+import {
   type Address,
   type Chain,
   createPublicClient,
@@ -19,15 +28,6 @@ import {
 } from 'viem'
 import { mnemonicToAccount, privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, base, mainnet, optimism, polygon } from 'viem/chains'
-import { generateMnemonic } from '@scure/bip39'
-import { wordlist } from '@scure/bip39/wordlists/english'
-import {
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectDefined,
-  expectHex,
-} from '@jejunetwork/types'
 import { expectNonEmpty, expectSchema } from '../../lib/validation'
 import { WalletAccountSchema } from '../schemas'
 import type {

@@ -11,16 +11,16 @@
 
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { execa, type ResultPromise } from 'execa'
-import type { Hex } from 'viem'
-import { RPCGetCodeResponseSchema } from '../src/shared/schemas'
 import {
   CORE_PORTS,
-  INFRA_PORTS,
   getCoreAppUrl,
   getL1RpcUrl,
   getL2RpcUrl,
+  INFRA_PORTS,
 } from '@jejunetwork/config/ports'
+import { execa, type ResultPromise } from 'execa'
+import type { Hex } from 'viem'
+import { RPCGetCodeResponseSchema } from '../src/shared/schemas'
 
 // Configuration
 const TEST_LOCK_FILE = '/tmp/jeju-test-services.lock'

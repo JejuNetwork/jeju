@@ -1,7 +1,5 @@
-'use client'
-
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api, extractDataSafe } from '../lib/client'
 
 function getFactoryApiUrl(): string {

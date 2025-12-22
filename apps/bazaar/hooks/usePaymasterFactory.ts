@@ -1,5 +1,3 @@
-'use client'
-
 /**
  * Paymaster Factory Hook
  * Re-exports from @jejunetwork/ui with bazaar-specific config

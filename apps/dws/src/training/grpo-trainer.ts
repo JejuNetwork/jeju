@@ -6,9 +6,9 @@
  * for reinforcement learning from AI feedback.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { type Subprocess, spawn } from 'bun'
 import { BatchResponseSchema } from '../shared/schemas/training'
-import { expectValid } from '@jejunetwork/types'
 
 // ============================================================================
 // Types

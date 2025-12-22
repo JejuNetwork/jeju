@@ -1,5 +1,3 @@
-'use client'
-
 /**
  * OIF (Open Intent Framework) Hook
  * For cross-chain swap intents

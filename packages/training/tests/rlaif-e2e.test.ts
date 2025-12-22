@@ -18,27 +18,27 @@ import {
   expect,
   test,
 } from 'bun:test'
-import type { Server } from 'bun'
 import { expectValid } from '@jejunetwork/types'
+import type { Server } from 'bun'
 import {
+  BatchResponseSchema,
   clearRubrics,
   createAtroposServer,
   createFundamentalPredictionEnv,
   createGRPOTrainer,
   DEFAULT_RUBRIC,
+  EnvRegistrationResponseSchema,
   getRubric,
+  HealthResponseSchema,
   hasRubric,
+  InfoResponseSchema,
   type JudgeRubric,
   listRubrics,
+  RegisterResponseSchema,
+  RunInfoResponseSchema,
   registerOrUpdateRubric,
   registerRubric,
   type ScoredData,
-  BatchResponseSchema,
-  EnvRegistrationResponseSchema,
-  HealthResponseSchema,
-  InfoResponseSchema,
-  RegisterResponseSchema,
-  RunInfoResponseSchema,
   ScoredDataListResponseSchema,
   StatusResponseSchema,
 } from '../src'

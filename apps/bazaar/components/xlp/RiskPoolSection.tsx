@@ -1,5 +1,3 @@
-'use client'
-
 import { Activity, ChevronDown, ChevronUp, Flame, Shield } from 'lucide-react'
 import { useState } from 'react'
 import { type Address, formatEther, parseEther } from 'viem'

@@ -5,22 +5,22 @@
  * Provides Elysia plugins and derive functions.
  */
 
-import { Elysia, type Context } from 'elysia'
+import { type Context, Elysia } from 'elysia'
 import type { Address } from 'viem'
 import {
   authenticate,
+  type CombinedAuthConfig,
   extractAuthHeaders,
   requireAuth,
-  type CombinedAuthConfig,
 } from './core.js'
 import {
+  type APIKeyConfig,
   AuthError,
   AuthErrorCode,
   AuthMethod,
   type AuthUser,
   type OAuth3Config,
   type WalletSignatureConfig,
-  type APIKeyConfig,
 } from './types.js'
 
 // ============ Types for Elysia Context ============
@@ -135,7 +135,8 @@ export function authPlugin(config: AuthPluginConfig) {
     .derive(authDerive)
     .onBeforeHandle(async (ctx) => {
       const { path, request, set } = ctx
-      const isAuthenticated = (ctx as unknown as { isAuthenticated?: boolean }).isAuthenticated
+      const isAuthenticated = (ctx as unknown as { isAuthenticated?: boolean })
+        .isAuthenticated
 
       // Skip auth check for specified routes
       if (skipRoutes.has(path)) {
@@ -207,7 +208,9 @@ export function apiKeyAuthPlugin(apiKeyConfig: APIKeyConfig) {
  * Throws 401 if not authenticated.
  */
 export function withAuth<T>(
-  handler: (ctx: Context & { authUser: AuthUser; address: Address }) => T | Promise<T>,
+  handler: (
+    ctx: Context & { authUser: AuthUser; address: Address },
+  ) => T | Promise<T>,
   config: CombinedAuthConfig,
 ) {
   return async (ctx: Context): Promise<T> => {
@@ -217,7 +220,11 @@ export function withAuth<T>(
 
     const user = await requireAuth(headers, config)
 
-    return handler({ ...ctx, authUser: user, address: user.address } as Context & {
+    return handler({
+      ...ctx,
+      authUser: user,
+      address: user.address,
+    } as Context & {
       authUser: AuthUser
       address: Address
     })
@@ -229,7 +236,10 @@ export function withAuth<T>(
  * Returns undefined if auth succeeds, or an error response if it fails.
  */
 export function requireAuthMiddleware(config: CombinedAuthConfig) {
-  return async ({ request, set }: Context): Promise<
+  return async ({
+    request,
+    set,
+  }: Context): Promise<
     | {
         error: string
         code: string
@@ -290,12 +300,15 @@ export function createElysiaAuth(options: {
     domain: string
     validityWindowMs?: number
   }
-  apiKeys?: Map<string, {
-    address: Address
-    permissions: string[]
-    rateLimitTier: string
-    expiresAt?: number
-  }>
+  apiKeys?: Map<
+    string,
+    {
+      address: Address
+      permissions: string[]
+      rateLimitTier: string
+      expiresAt?: number
+    }
+  >
   skipRoutes?: string[]
   requireAuth?: boolean
 }) {

@@ -34,6 +34,7 @@
 // Core functions
 export {
   authenticate,
+  type CombinedAuthConfig,
   constantTimeCompare,
   createWalletAuthMessage,
   extractAuthHeaders,
@@ -45,31 +46,11 @@ export {
   validateOAuth3Session,
   validateWalletSignature,
   validateWalletSignatureFromHeaders,
-  type CombinedAuthConfig,
 } from './auth/core.js'
-
-// Types
-export {
-  AdminRole,
-  AuthError,
-  AuthErrorCode,
-  AuthMethod,
-  type AdminUser,
-  type AdminValidationResult,
-  type APIKeyConfig,
-  type APIKeyInfo,
-  type APIKeyValidationResult,
-  type AuthHeaders,
-  type AuthResult,
-  type AuthUser,
-  type OAuth3Config,
-  type OAuth3ValidationResult,
-  type WalletSignatureConfig,
-  type WalletSignatureValidationResult,
-} from './auth/types.js'
-
 // Elysia adapter
 export {
+  type AuthContext,
+  type AuthPluginConfig,
   apiKeyAuthPlugin,
   authErrorHandler,
   authPlugin,
@@ -80,22 +61,28 @@ export {
   requireAuthMiddleware,
   walletAuthPlugin,
   withAuth,
-  type AuthContext,
-  type AuthPluginConfig,
 } from './auth/elysia.js'
-
-// ============ Rate Limiting Module ============
-
 // Types
 export {
-  type RateLimitEntry,
-  type RateLimiterConfig,
-  type RateLimitHeaders,
-  type RateLimitResult,
-  type RateLimitStore,
-  type RateLimitTier,
-  RateLimitTiers,
-} from './rate-limiting/types.js'
+  AdminRole,
+  type AdminUser,
+  type AdminValidationResult,
+  type APIKeyConfig,
+  type APIKeyInfo,
+  type APIKeyValidationResult,
+  AuthError,
+  AuthErrorCode,
+  type AuthHeaders,
+  AuthMethod,
+  type AuthResult,
+  type AuthUser,
+  type OAuth3Config,
+  type OAuth3ValidationResult,
+  type WalletSignatureConfig,
+  type WalletSignatureValidationResult,
+} from './auth/types.js'
+
+// ============ Rate Limiting Module ============
 
 // Core
 export {
@@ -108,23 +95,27 @@ export {
   RateLimiter,
   resetRateLimiter,
 } from './rate-limiting/core.js'
-
 // Elysia adapter
 export {
+  type RateLimitContext,
+  type RateLimitPluginConfig,
   rateLimitPlugin,
   simpleRateLimit,
   tieredRateLimit,
   withRateLimit,
-  type RateLimitContext,
-  type RateLimitPluginConfig,
 } from './rate-limiting/elysia.js'
+// Types
+export {
+  type RateLimitEntry,
+  type RateLimiterConfig,
+  type RateLimitHeaders,
+  type RateLimitResult,
+  type RateLimitStore,
+  type RateLimitTier,
+  RateLimitTiers,
+} from './rate-limiting/types.js'
 
 // ============ Admin Module ============
-
-export {
-  type AdminConfig,
-  ROLE_HIERARCHY,
-} from './admin/types.js'
 
 export {
   createAdminConfig,
@@ -135,16 +126,19 @@ export {
   requireRole,
   validateAdmin,
 } from './admin/core.js'
-
 export {
+  type AdminContext,
+  type AdminPluginConfig,
   adminPlugin,
   requireAdminMiddleware,
   requireRoleMiddleware,
   withAdmin,
   withRole,
-  type AdminContext,
-  type AdminPluginConfig,
 } from './admin/elysia.js'
+export {
+  type AdminConfig,
+  ROLE_HIERARCHY,
+} from './admin/types.js'
 
 // ============ Error Handling ============
 
@@ -153,14 +147,14 @@ export {
   assert,
   ConflictError,
   createElysiaErrorHandler,
+  type ErrorResponse,
   expectDefined,
   expectValid,
   getStatusCode,
   InternalError,
   NotFoundError,
-  sanitizeErrorMessage,
   ServiceUnavailableError,
+  sanitizeErrorMessage,
   toErrorResponse,
   ValidationError,
-  type ErrorResponse,
 } from './error-handler.js'

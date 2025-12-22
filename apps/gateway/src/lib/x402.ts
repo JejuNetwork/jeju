@@ -1,7 +1,7 @@
-import type { Address } from 'viem'
-import { parseEther } from 'viem'
 import { createPaymentRequirement as sharedCreatePaymentRequirement } from '@jejunetwork/deployment/scripts/shared/x402'
 import { ZERO_ADDRESS } from '@jejunetwork/ui'
+import type { Address } from 'viem'
+import { parseEther } from 'viem'
 
 export const PAYMENT_TIERS = {
   // Node Operations

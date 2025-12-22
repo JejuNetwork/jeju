@@ -1,7 +1,7 @@
 //! Hardware detection for GPUs, CPUs, TEE capabilities
 
 use serde::{Deserialize, Serialize};
-use sysinfo::{System, Disks, Networks};
+use sysinfo::{Disks, Networks, System};
 
 /// GPU information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -112,7 +112,7 @@ impl HardwareDetector {
 
     pub fn detect(&mut self) -> HardwareInfo {
         self.system.refresh_all();
-        
+
         HardwareInfo {
             os: std::env::consts::OS.to_string(),
             os_version: System::os_version().unwrap_or_default(),
@@ -129,13 +129,19 @@ impl HardwareDetector {
     fn detect_cpu(&self) -> CpuInfo {
         let cpus = self.system.cpus();
         let first_cpu = cpus.first();
-        
+
         let total_usage: f32 = cpus.iter().map(|c| c.cpu_usage()).sum();
-        let avg_usage = if cpus.is_empty() { 0.0 } else { total_usage / cpus.len() as f32 };
-        
+        let avg_usage = if cpus.is_empty() {
+            0.0
+        } else {
+            total_usage / cpus.len() as f32
+        };
+
         CpuInfo {
             name: first_cpu.map(|c| c.brand().to_string()).unwrap_or_default(),
-            vendor: first_cpu.map(|c| c.vendor_id().to_string()).unwrap_or_default(),
+            vendor: first_cpu
+                .map(|c| c.vendor_id().to_string())
+                .unwrap_or_default(),
             cores_physical: self.system.physical_core_count().unwrap_or(0) as u32,
             cores_logical: cpus.len() as u32,
             frequency_mhz: first_cpu.map(|c| c.frequency()).unwrap_or(0),
@@ -148,18 +154,22 @@ impl HardwareDetector {
         let total = self.system.total_memory() / 1024 / 1024;
         let used = self.system.used_memory() / 1024 / 1024;
         let available = self.system.available_memory() / 1024 / 1024;
-        
+
         MemoryInfo {
             total_mb: total,
             used_mb: used,
             available_mb: available,
-            usage_percent: if total > 0 { (used as f32 / total as f32) * 100.0 } else { 0.0 },
+            usage_percent: if total > 0 {
+                (used as f32 / total as f32) * 100.0
+            } else {
+                0.0
+            },
         }
     }
 
     fn detect_gpus(&self) -> Vec<GpuInfo> {
         let mut gpus = Vec::new();
-        
+
         #[cfg(feature = "nvidia")]
         {
             if let Ok(nvml) = nvml_wrapper::Nvml::init() {
@@ -169,18 +179,26 @@ impl HardwareDetector {
                             let name = device.name().unwrap_or_default();
                             let memory = device.memory_info().ok();
                             let utilization = device.utilization_rates().ok();
-                            let temperature = device.temperature(nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu).ok();
+                            let temperature = device
+                                .temperature(
+                                    nvml_wrapper::enum_wrappers::device::TemperatureSensor::Gpu,
+                                )
+                                .ok();
                             let driver = nvml.sys_driver_version().ok();
                             let cuda = nvml.sys_cuda_driver_version().ok();
-                            
-                            let memory_total_mb = memory.as_ref().map(|m| m.total / 1024 / 1024).unwrap_or(0);
-                            
+
+                            let memory_total_mb =
+                                memory.as_ref().map(|m| m.total / 1024 / 1024).unwrap_or(0);
+
                             gpus.push(GpuInfo {
                                 index: i,
                                 name,
                                 vendor: "NVIDIA".to_string(),
                                 memory_total_mb,
-                                memory_used_mb: memory.as_ref().map(|m| m.used / 1024 / 1024).unwrap_or(0),
+                                memory_used_mb: memory
+                                    .as_ref()
+                                    .map(|m| m.used / 1024 / 1024)
+                                    .unwrap_or(0),
                                 utilization_percent: utilization.map(|u| u.gpu).unwrap_or(0),
                                 temperature_celsius: temperature,
                                 driver_version: driver,
@@ -193,7 +211,7 @@ impl HardwareDetector {
                 }
             }
         }
-        
+
         // Fallback: Try to detect GPUs via system info
         if gpus.is_empty() {
             // Check for AMD GPUs via sysfs on Linux
@@ -203,9 +221,11 @@ impl HardwareDetector {
                     for entry in entries.flatten() {
                         let path = entry.path();
                         if path.join("device/vendor").exists() {
-                            if let Ok(vendor) = std::fs::read_to_string(path.join("device/vendor")) {
+                            if let Ok(vendor) = std::fs::read_to_string(path.join("device/vendor"))
+                            {
                                 let vendor = vendor.trim();
-                                if vendor == "0x1002" { // AMD
+                                if vendor == "0x1002" {
+                                    // AMD
                                     gpus.push(GpuInfo {
                                         index: gpus.len() as u32,
                                         name: "AMD GPU".to_string(),
@@ -226,39 +246,45 @@ impl HardwareDetector {
                 }
             }
         }
-        
+
         gpus
     }
 
     fn detect_storage(&self) -> Vec<StorageInfo> {
         let disks = Disks::new_with_refreshed_list();
-        
-        disks.list().iter().map(|disk| {
-            let total = disk.total_space() / 1024 / 1024 / 1024;
-            let available = disk.available_space() / 1024 / 1024 / 1024;
-            
-            StorageInfo {
-                mount_point: disk.mount_point().to_string_lossy().to_string(),
-                total_gb: total,
-                used_gb: total - available,
-                available_gb: available,
-                filesystem: disk.file_system().to_string_lossy().to_string(),
-                is_ssd: disk.is_removable() == false && disk.kind() == sysinfo::DiskKind::SSD,
-            }
-        }).collect()
+
+        disks
+            .list()
+            .iter()
+            .map(|disk| {
+                let total = disk.total_space() / 1024 / 1024 / 1024;
+                let available = disk.available_space() / 1024 / 1024 / 1024;
+
+                StorageInfo {
+                    mount_point: disk.mount_point().to_string_lossy().to_string(),
+                    total_gb: total,
+                    used_gb: total - available,
+                    available_gb: available,
+                    filesystem: disk.file_system().to_string_lossy().to_string(),
+                    is_ssd: disk.is_removable() == false && disk.kind() == sysinfo::DiskKind::SSD,
+                }
+            })
+            .collect()
     }
 
     fn detect_network(&self) -> Vec<NetworkInterfaceInfo> {
         let networks = Networks::new_with_refreshed_list();
-        
-        networks.list().iter().map(|(name, data)| {
-            NetworkInterfaceInfo {
+
+        networks
+            .list()
+            .iter()
+            .map(|(name, data)| NetworkInterfaceInfo {
                 name: name.clone(),
                 mac_address: data.mac_address().to_string(),
                 bytes_sent: data.total_transmitted(),
                 bytes_received: data.total_received(),
-            }
-        }).collect()
+            })
+            .collect()
     }
 
     fn detect_tee(&self) -> TeeCapabilities {
@@ -276,31 +302,36 @@ impl HardwareDetector {
         #[cfg(target_os = "linux")]
         {
             // Check TDX device
-            if std::path::Path::new("/dev/tdx_guest").exists() ||
-               std::path::Path::new("/dev/tdx-guest").exists() {
+            if std::path::Path::new("/dev/tdx_guest").exists()
+                || std::path::Path::new("/dev/tdx-guest").exists()
+            {
                 caps.has_intel_tdx = true;
                 caps.attestation_available = true;
-                
+
                 // Try to get TDX version
                 if let Ok(output) = std::process::Command::new("cat")
                     .arg("/sys/firmware/tdx/version")
-                    .output() {
+                    .output()
+                {
                     if output.status.success() {
-                        caps.tdx_version = Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
+                        caps.tdx_version =
+                            Some(String::from_utf8_lossy(&output.stdout).trim().to_string());
                     }
                 }
             }
-            
+
             // Check for Intel SGX
-            if std::path::Path::new("/dev/sgx_enclave").exists() ||
-               std::path::Path::new("/dev/isgx").exists() {
+            if std::path::Path::new("/dev/sgx_enclave").exists()
+                || std::path::Path::new("/dev/isgx").exists()
+            {
                 caps.has_intel_sgx = true;
                 caps.attestation_available = true;
             }
-            
+
             // Check for AMD SEV
-            if std::path::Path::new("/dev/sev").exists() ||
-               std::path::Path::new("/dev/sev-guest").exists() {
+            if std::path::Path::new("/dev/sev").exists()
+                || std::path::Path::new("/dev/sev-guest").exists()
+            {
                 caps.has_amd_sev = true;
                 caps.attestation_available = true;
             }
@@ -331,36 +362,50 @@ impl HardwareDetector {
     }
 
     /// Check if hardware meets requirements for a service
-    pub fn meets_requirements(&self, info: &HardwareInfo, reqs: &ServiceRequirements) -> (bool, Vec<String>) {
+    pub fn meets_requirements(
+        &self,
+        info: &HardwareInfo,
+        reqs: &ServiceRequirements,
+    ) -> (bool, Vec<String>) {
         let mut issues = Vec::new();
-        
+
         if info.cpu.cores_physical < reqs.min_cpu_cores {
             issues.push(format!(
                 "Need {} CPU cores, have {}",
                 reqs.min_cpu_cores, info.cpu.cores_physical
             ));
         }
-        
+
         if info.memory.total_mb < reqs.min_memory_mb {
             issues.push(format!(
                 "Need {} MB RAM, have {} MB",
                 reqs.min_memory_mb, info.memory.total_mb
             ));
         }
-        
-        let max_storage = info.storage.iter().map(|s| s.available_gb).max().unwrap_or(0);
+
+        let max_storage = info
+            .storage
+            .iter()
+            .map(|s| s.available_gb)
+            .max()
+            .unwrap_or(0);
         if max_storage < reqs.min_storage_gb {
             issues.push(format!(
                 "Need {} GB storage, have {} GB",
                 reqs.min_storage_gb, max_storage
             ));
         }
-        
+
         if reqs.requires_gpu {
             if info.gpus.is_empty() {
                 issues.push("GPU required but none detected".to_string());
             } else if let Some(min_mem) = reqs.min_gpu_memory_mb {
-                let max_gpu_mem = info.gpus.iter().map(|g| g.memory_total_mb).max().unwrap_or(0);
+                let max_gpu_mem = info
+                    .gpus
+                    .iter()
+                    .map(|g| g.memory_total_mb)
+                    .max()
+                    .unwrap_or(0);
                 if max_gpu_mem < min_mem {
                     issues.push(format!(
                         "Need {} MB GPU memory, have {} MB",
@@ -369,11 +414,11 @@ impl HardwareDetector {
                 }
             }
         }
-        
+
         if reqs.requires_tee && !info.tee.attestation_available {
             issues.push("TEE (TDX/SGX/SEV) required but not available".to_string());
         }
-        
+
         (issues.is_empty(), issues)
     }
 }
@@ -383,4 +428,3 @@ impl Default for HardwareDetector {
         Self::new()
     }
 }
-

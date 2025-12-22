@@ -1,7 +1,7 @@
+import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import type { DataSource } from 'typeorm'
 import { formatEther } from 'viem'
 import { z } from 'zod'
-import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import {
   ComputeProvider,
   ComputeRental,

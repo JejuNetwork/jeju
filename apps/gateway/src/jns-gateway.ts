@@ -15,8 +15,8 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { Elysia } from 'elysia'
 import { getCacheClient } from '@jejunetwork/shared'
+import { Elysia } from 'elysia'
 import {
   type Address,
   type Chain,
@@ -244,7 +244,10 @@ export class JNSGateway {
     this.app.use(cors())
 
     // Health check
-    this.app.get('/health', () => ({ status: 'healthy', service: 'jns-gateway' }))
+    this.app.get('/health', () => ({
+      status: 'healthy',
+      service: 'jns-gateway',
+    }))
 
     // Direct CID access
     this.app.get('/ipfs/:cid', async ({ params, request, set }) => {

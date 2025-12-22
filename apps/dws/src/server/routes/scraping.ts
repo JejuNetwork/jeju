@@ -126,432 +126,439 @@ async function performScrape(
 }
 
 export function createScrapingRouter() {
-  return new Elysia({ name: 'scraping', prefix: '/scraping' })
-    // ============================================================================
-    // Health & Info
-    // ============================================================================
+  return (
+    new Elysia({ name: 'scraping', prefix: '/scraping' })
+      // ============================================================================
+      // Health & Info
+      // ============================================================================
 
-    .get('/health', () => {
-      const activeNodes = Array.from(scrapingNodes.values()).filter(
-        (n) => n.status === 'active' || n.status === 'busy',
-      )
-      const activeSessions = Array.from(scrapingSessions.values()).filter(
-        (s) => s.status === 'active',
-      )
-
-      return {
-        status: 'healthy',
-        service: 'dws-scraping',
-        nodes: {
-          total: scrapingNodes.size,
-          active: activeNodes.length,
-          capacity: activeNodes.reduce((sum, n) => sum + n.maxConcurrent, 0),
-          inUse: activeNodes.reduce((sum, n) => sum + n.currentSessions, 0),
-        },
-        sessions: {
-          active: activeSessions.length,
-        },
-        endpoints: BROWSERLESS_ENDPOINTS,
-      }
-    })
-
-    // ============================================================================
-    // Node Management
-    // ============================================================================
-
-    // Register scraping node
-    .post(
-      '/nodes',
-      async ({ headers, body, set }) => {
-        const operator = headers['x-jeju-address'] as Address
-        if (!operator) {
-          set.status = 401
-          return { error: 'Missing x-jeju-address header' }
-        }
-
-        const id = crypto.randomUUID()
-        const node: ScrapingNode = {
-          id,
-          operator,
-          endpoint: body.endpoint,
-          region: body.region,
-          browserType: body.browserType,
-          maxConcurrent: body.maxConcurrent,
-          currentSessions: 0,
-          status: 'active',
-          lastSeen: Date.now(),
-          capabilities: body.capabilities ?? [
-            'screenshot',
-            'pdf',
-            'content',
-            'cookies',
-            'headers',
-          ],
-        }
-
-        scrapingNodes.set(id, node)
-
-        set.status = 201
-        return { nodeId: id, status: 'registered' }
-      },
-      {
-        headers: t.Object({
-          'x-jeju-address': t.String(),
-        }),
-        body: t.Object({
-          endpoint: t.String(),
-          region: t.String(),
-          browserType: t.Union([
-            t.Literal('chromium'),
-            t.Literal('firefox'),
-            t.Literal('webkit'),
-          ]),
-          maxConcurrent: t.Number(),
-          capabilities: t.Optional(t.Array(t.String())),
-        }),
-      },
-    )
-
-    // List nodes
-    .get(
-      '/nodes',
-      ({ query }) => {
-        let nodes = Array.from(scrapingNodes.values())
-
-        if (query.region) nodes = nodes.filter((n) => n.region === query.region)
-        if (query.browserType)
-          nodes = nodes.filter((n) => n.browserType === query.browserType)
+      .get('/health', () => {
+        const activeNodes = Array.from(scrapingNodes.values()).filter(
+          (n) => n.status === 'active' || n.status === 'busy',
+        )
+        const activeSessions = Array.from(scrapingSessions.values()).filter(
+          (s) => s.status === 'active',
+        )
 
         return {
-          nodes: nodes.map((n) => ({
-            id: n.id,
-            region: n.region,
-            browserType: n.browserType,
-            maxConcurrent: n.maxConcurrent,
-            currentSessions: n.currentSessions,
-            status: n.status,
-            capabilities: n.capabilities,
-          })),
+          status: 'healthy',
+          service: 'dws-scraping',
+          nodes: {
+            total: scrapingNodes.size,
+            active: activeNodes.length,
+            capacity: activeNodes.reduce((sum, n) => sum + n.maxConcurrent, 0),
+            inUse: activeNodes.reduce((sum, n) => sum + n.currentSessions, 0),
+          },
+          sessions: {
+            active: activeSessions.length,
+          },
+          endpoints: BROWSERLESS_ENDPOINTS,
         }
-      },
-      {
-        query: t.Object({
-          region: t.Optional(t.String()),
-          browserType: t.Optional(t.String()),
-        }),
-      },
-    )
+      })
 
-    // ============================================================================
-    // Scraping Sessions
-    // ============================================================================
+      // ============================================================================
+      // Node Management
+      // ============================================================================
 
-    // Create session (for persistent browser)
-    .post(
-      '/sessions',
-      async ({ headers, body, set }) => {
-        const user = headers['x-jeju-address'] as Address
-        if (!user) {
-          set.status = 401
-          return { error: 'Missing x-jeju-address header' }
-        }
+      // Register scraping node
+      .post(
+        '/nodes',
+        async ({ headers, body, set }) => {
+          const operator = headers['x-jeju-address'] as Address
+          if (!operator) {
+            set.status = 401
+            return { error: 'Missing x-jeju-address header' }
+          }
 
-        // Find available node
-        const candidates = Array.from(scrapingNodes.values())
-          .filter(
-            (n) =>
-              n.status === 'active' &&
-              n.currentSessions < n.maxConcurrent &&
-              (!body.browserType || n.browserType === body.browserType) &&
-              (!body.region || n.region === body.region),
-          )
-          .sort(
-            (a, b) =>
-              a.currentSessions / a.maxConcurrent -
-              b.currentSessions / b.maxConcurrent,
-          )
+          const id = crypto.randomUUID()
+          const node: ScrapingNode = {
+            id,
+            operator,
+            endpoint: body.endpoint,
+            region: body.region,
+            browserType: body.browserType,
+            maxConcurrent: body.maxConcurrent,
+            currentSessions: 0,
+            status: 'active',
+            lastSeen: Date.now(),
+            capabilities: body.capabilities ?? [
+              'screenshot',
+              'pdf',
+              'content',
+              'cookies',
+              'headers',
+            ],
+          }
 
-        const node = candidates[0]
-        if (!node) {
-          set.status = 503
-          return { error: 'No available scraping nodes' }
-        }
+          scrapingNodes.set(id, node)
 
-        const sessionId = crypto.randomUUID()
-        const duration = body.duration ?? 1800 // 30 min default
-
-        const session: ScrapingSession = {
-          id: sessionId,
-          user,
-          nodeId: node.id,
-          browserType: node.browserType,
-          startedAt: Date.now(),
-          expiresAt: Date.now() + duration * 1000,
-          pageLoads: 0,
-          screenshotsTaken: 0,
-          status: 'active',
-        }
-
-        scrapingSessions.set(sessionId, session)
-        node.currentSessions++
-
-        set.status = 201
-        return {
-          sessionId,
-          browserType: node.browserType,
-          wsEndpoint: `ws://${node.endpoint}/session/${sessionId}`,
-          httpEndpoint: `/scraping/sessions/${sessionId}`,
-          expiresAt: session.expiresAt,
-        }
-      },
-      {
-        headers: t.Object({
-          'x-jeju-address': t.String(),
-        }),
-        body: t.Object({
-          browserType: t.Optional(
-            t.Union([
+          set.status = 201
+          return { nodeId: id, status: 'registered' }
+        },
+        {
+          headers: t.Object({
+            'x-jeju-address': t.String(),
+          }),
+          body: t.Object({
+            endpoint: t.String(),
+            region: t.String(),
+            browserType: t.Union([
               t.Literal('chromium'),
               t.Literal('firefox'),
               t.Literal('webkit'),
             ]),
-          ),
-          region: t.Optional(t.String()),
-          duration: t.Optional(t.Number()),
-        }),
-      },
-    )
+            maxConcurrent: t.Number(),
+            capabilities: t.Optional(t.Array(t.String())),
+          }),
+        },
+      )
 
-    // Get session status
-    .get(
-      '/sessions/:id',
-      ({ params, set }) => {
-        const session = scrapingSessions.get(params.id)
-        if (!session) {
-          set.status = 404
-          return { error: 'Session not found' }
-        }
+      // List nodes
+      .get(
+        '/nodes',
+        ({ query }) => {
+          let nodes = Array.from(scrapingNodes.values())
 
-        return {
-          sessionId: session.id,
-          browserType: session.browserType,
-          status: session.status,
-          startedAt: session.startedAt,
-          expiresAt: session.expiresAt,
-          pageLoads: session.pageLoads,
-          screenshotsTaken: session.screenshotsTaken,
-        }
-      },
-      {
-        params: t.Object({
-          id: t.String({ format: 'uuid' }),
-        }),
-      },
-    )
+          if (query.region)
+            nodes = nodes.filter((n) => n.region === query.region)
+          if (query.browserType)
+            nodes = nodes.filter((n) => n.browserType === query.browserType)
 
-    // Terminate session
-    .delete(
-      '/sessions/:id',
-      ({ headers, params, set }) => {
-        const user = headers['x-jeju-address']?.toLowerCase()
-        const session = scrapingSessions.get(params.id)
+          return {
+            nodes: nodes.map((n) => ({
+              id: n.id,
+              region: n.region,
+              browserType: n.browserType,
+              maxConcurrent: n.maxConcurrent,
+              currentSessions: n.currentSessions,
+              status: n.status,
+              capabilities: n.capabilities,
+            })),
+          }
+        },
+        {
+          query: t.Object({
+            region: t.Optional(t.String()),
+            browserType: t.Optional(t.String()),
+          }),
+        },
+      )
 
-        if (!session) {
-          set.status = 404
-          return { error: 'Session not found' }
-        }
-        if (session.user.toLowerCase() !== user) {
-          set.status = 403
-          return { error: 'Not authorized' }
-        }
+      // ============================================================================
+      // Scraping Sessions
+      // ============================================================================
 
-        session.status = 'terminated'
+      // Create session (for persistent browser)
+      .post(
+        '/sessions',
+        async ({ headers, body, set }) => {
+          const user = headers['x-jeju-address'] as Address
+          if (!user) {
+            set.status = 401
+            return { error: 'Missing x-jeju-address header' }
+          }
 
-        const node = scrapingNodes.get(session.nodeId)
-        if (node) node.currentSessions--
+          // Find available node
+          const candidates = Array.from(scrapingNodes.values())
+            .filter(
+              (n) =>
+                n.status === 'active' &&
+                n.currentSessions < n.maxConcurrent &&
+                (!body.browserType || n.browserType === body.browserType) &&
+                (!body.region || n.region === body.region),
+            )
+            .sort(
+              (a, b) =>
+                a.currentSessions / a.maxConcurrent -
+                b.currentSessions / b.maxConcurrent,
+            )
 
-        return { success: true }
-      },
-      {
-        headers: t.Object({
-          'x-jeju-address': t.Optional(t.String()),
-        }),
-        params: t.Object({
-          id: t.String({ format: 'uuid' }),
-        }),
-      },
-    )
+          const node = candidates[0]
+          if (!node) {
+            set.status = 503
+            return { error: 'No available scraping nodes' }
+          }
 
-    // ============================================================================
-    // Browserless-Compatible API
-    // ============================================================================
+          const sessionId = crypto.randomUUID()
+          const duration = body.duration ?? 1800 // 30 min default
 
-    // Get page content
-    .post(
-      '/content',
-      async ({ body, set }) => {
-        if (!body.url) {
-          set.status = 400
-          return { error: 'URL required' }
-        }
+          const session: ScrapingSession = {
+            id: sessionId,
+            user,
+            nodeId: node.id,
+            browserType: node.browserType,
+            startedAt: Date.now(),
+            expiresAt: Date.now() + duration * 1000,
+            pageLoads: 0,
+            screenshotsTaken: 0,
+            status: 'active',
+          }
 
-        const result = await performScrape(body, 'content')
-        return result
-      },
-      {
-        body: t.Object({
-          url: t.String(),
-          waitFor: t.Optional(t.String()),
-          waitForTimeout: t.Optional(t.Number()),
-          userAgent: t.Optional(t.String()),
-          headers: t.Optional(t.Record(t.String(), t.String())),
-          javascript: t.Optional(t.Boolean()),
-        }),
-      },
-    )
+          scrapingSessions.set(sessionId, session)
+          node.currentSessions++
 
-    // Take screenshot
-    .post(
-      '/screenshot',
-      async ({ body, set }) => {
-        if (!body.url) {
-          set.status = 400
-          return { error: 'URL required' }
-        }
+          set.status = 201
+          return {
+            sessionId,
+            browserType: node.browserType,
+            wsEndpoint: `ws://${node.endpoint}/session/${sessionId}`,
+            httpEndpoint: `/scraping/sessions/${sessionId}`,
+            expiresAt: session.expiresAt,
+          }
+        },
+        {
+          headers: t.Object({
+            'x-jeju-address': t.String(),
+          }),
+          body: t.Object({
+            browserType: t.Optional(
+              t.Union([
+                t.Literal('chromium'),
+                t.Literal('firefox'),
+                t.Literal('webkit'),
+              ]),
+            ),
+            region: t.Optional(t.String()),
+            duration: t.Optional(t.Number()),
+          }),
+        },
+      )
 
-        const result = await performScrape(
-          { ...body, screenshot: true },
-          'screenshot',
-        )
+      // Get session status
+      .get(
+        '/sessions/:id',
+        ({ params, set }) => {
+          const session = scrapingSessions.get(params.id)
+          if (!session) {
+            set.status = 404
+            return { error: 'Session not found' }
+          }
 
-        if (result.screenshot) {
-          // Return as image
-          const format = body.format ?? 'png'
-          const buffer = Buffer.from(result.screenshot, 'base64')
-          return new Response(buffer, {
-            headers: {
-              'Content-Type': `image/${format}`,
-              'Content-Length': String(buffer.length),
+          return {
+            sessionId: session.id,
+            browserType: session.browserType,
+            status: session.status,
+            startedAt: session.startedAt,
+            expiresAt: session.expiresAt,
+            pageLoads: session.pageLoads,
+            screenshotsTaken: session.screenshotsTaken,
+          }
+        },
+        {
+          params: t.Object({
+            id: t.String({ format: 'uuid' }),
+          }),
+        },
+      )
+
+      // Terminate session
+      .delete(
+        '/sessions/:id',
+        ({ headers, params, set }) => {
+          const user = headers['x-jeju-address']?.toLowerCase()
+          const session = scrapingSessions.get(params.id)
+
+          if (!session) {
+            set.status = 404
+            return { error: 'Session not found' }
+          }
+          if (session.user.toLowerCase() !== user) {
+            set.status = 403
+            return { error: 'Not authorized' }
+          }
+
+          session.status = 'terminated'
+
+          const node = scrapingNodes.get(session.nodeId)
+          if (node) node.currentSessions--
+
+          return { success: true }
+        },
+        {
+          headers: t.Object({
+            'x-jeju-address': t.Optional(t.String()),
+          }),
+          params: t.Object({
+            id: t.String({ format: 'uuid' }),
+          }),
+        },
+      )
+
+      // ============================================================================
+      // Browserless-Compatible API
+      // ============================================================================
+
+      // Get page content
+      .post(
+        '/content',
+        async ({ body, set }) => {
+          if (!body.url) {
+            set.status = 400
+            return { error: 'URL required' }
+          }
+
+          const result = await performScrape(body, 'content')
+          return result
+        },
+        {
+          body: t.Object({
+            url: t.String(),
+            waitFor: t.Optional(t.String()),
+            waitForTimeout: t.Optional(t.Number()),
+            userAgent: t.Optional(t.String()),
+            headers: t.Optional(t.Record(t.String(), t.String())),
+            javascript: t.Optional(t.Boolean()),
+          }),
+        },
+      )
+
+      // Take screenshot
+      .post(
+        '/screenshot',
+        async ({ body, set }) => {
+          if (!body.url) {
+            set.status = 400
+            return { error: 'URL required' }
+          }
+
+          const result = await performScrape(
+            { ...body, screenshot: true },
+            'screenshot',
+          )
+
+          if (result.screenshot) {
+            // Return as image
+            const format = body.format ?? 'png'
+            const buffer = Buffer.from(result.screenshot, 'base64')
+            return new Response(buffer, {
+              headers: {
+                'Content-Type': `image/${format}`,
+                'Content-Length': String(buffer.length),
+              },
+            })
+          }
+
+          set.status = 500
+          return { error: 'Screenshot failed' }
+        },
+        {
+          body: t.Object({
+            url: t.String(),
+            format: t.Optional(
+              t.Union([t.Literal('png'), t.Literal('jpeg'), t.Literal('webp')]),
+            ),
+            fullPage: t.Optional(t.Boolean()),
+            quality: t.Optional(t.Number()),
+            viewport: t.Optional(
+              t.Object({
+                width: t.Number(),
+                height: t.Number(),
+              }),
+            ),
+            userAgent: t.Optional(t.String()),
+          }),
+        },
+      )
+
+      // Generate PDF
+      .post(
+        '/pdf',
+        async ({ body, set }) => {
+          if (!body.url) {
+            set.status = 400
+            return { error: 'URL required' }
+          }
+
+          // PDF generation requires a headless browser
+          set.status = 501
+          return {
+            error: 'PDF generation not available',
+            message: 'Set BROWSERLESS_URL to enable PDF generation',
+            url: body.url,
+          }
+        },
+        {
+          body: t.Object({
+            url: t.String(),
+            printBackground: t.Optional(t.Boolean()),
+            landscape: t.Optional(t.Boolean()),
+            format: t.Optional(
+              t.Union([
+                t.Literal('A4'),
+                t.Literal('Letter'),
+                t.Literal('Legal'),
+              ]),
+            ),
+          }),
+        },
+      )
+
+      // Scrape with selectors
+      .post(
+        '/scrape',
+        async ({ body }) => {
+          const result = await performScrape(body, 'scrape')
+          return result
+        },
+        {
+          body: t.Object({
+            url: t.String(),
+            waitFor: t.Optional(t.String()),
+            waitForTimeout: t.Optional(t.Number()),
+            userAgent: t.Optional(t.String()),
+            headers: t.Optional(t.Record(t.String(), t.String())),
+            javascript: t.Optional(t.Boolean()),
+          }),
+        },
+      )
+
+      // Run custom function
+      .post(
+        '/function',
+        async ({ set }) => {
+          // Function execution requires a headless browser
+          set.status = 501
+          return {
+            error: 'Function execution not available',
+            message:
+              'Set BROWSERLESS_URL to enable browser-based function execution',
+          }
+        },
+        {
+          body: t.Object({
+            code: t.String(),
+            context: t.Optional(t.Record(t.String(), t.Unknown())),
+          }),
+        },
+      )
+
+      // ============================================================================
+      // Quick Scrape (stateless)
+      // ============================================================================
+
+      .get(
+        '/fetch',
+        async ({ query }) => {
+          const result = await performScrape(
+            {
+              url: query.url,
+              screenshot: query.screenshot === 'true',
+              waitFor: query.waitFor,
+              javascript: true,
             },
-          })
-        }
-
-        set.status = 500
-        return { error: 'Screenshot failed' }
-      },
-      {
-        body: t.Object({
-          url: t.String(),
-          format: t.Optional(
-            t.Union([t.Literal('png'), t.Literal('jpeg'), t.Literal('webp')]),
-          ),
-          fullPage: t.Optional(t.Boolean()),
-          quality: t.Optional(t.Number()),
-          viewport: t.Optional(
-            t.Object({
-              width: t.Number(),
-              height: t.Number(),
-            }),
-          ),
-          userAgent: t.Optional(t.String()),
-        }),
-      },
-    )
-
-    // Generate PDF
-    .post(
-      '/pdf',
-      async ({ body, set }) => {
-        if (!body.url) {
-          set.status = 400
-          return { error: 'URL required' }
-        }
-
-        // PDF generation requires a headless browser
-        set.status = 501
-        return {
-          error: 'PDF generation not available',
-          message: 'Set BROWSERLESS_URL to enable PDF generation',
-          url: body.url,
-        }
-      },
-      {
-        body: t.Object({
-          url: t.String(),
-          printBackground: t.Optional(t.Boolean()),
-          landscape: t.Optional(t.Boolean()),
-          format: t.Optional(
-            t.Union([t.Literal('A4'), t.Literal('Letter'), t.Literal('Legal')]),
-          ),
-        }),
-      },
-    )
-
-    // Scrape with selectors
-    .post(
-      '/scrape',
-      async ({ body }) => {
-        const result = await performScrape(body, 'scrape')
-        return result
-      },
-      {
-        body: t.Object({
-          url: t.String(),
-          waitFor: t.Optional(t.String()),
-          waitForTimeout: t.Optional(t.Number()),
-          userAgent: t.Optional(t.String()),
-          headers: t.Optional(t.Record(t.String(), t.String())),
-          javascript: t.Optional(t.Boolean()),
-        }),
-      },
-    )
-
-    // Run custom function
-    .post(
-      '/function',
-      async ({ set }) => {
-        // Function execution requires a headless browser
-        set.status = 501
-        return {
-          error: 'Function execution not available',
-          message:
-            'Set BROWSERLESS_URL to enable browser-based function execution',
-        }
-      },
-      {
-        body: t.Object({
-          code: t.String(),
-          context: t.Optional(t.Record(t.String(), t.Unknown())),
-        }),
-      },
-    )
-
-    // ============================================================================
-    // Quick Scrape (stateless)
-    // ============================================================================
-
-    .get(
-      '/fetch',
-      async ({ query }) => {
-        const result = await performScrape(
-          {
-            url: query.url,
-            screenshot: query.screenshot === 'true',
-            waitFor: query.waitFor,
-            javascript: true,
-          },
-          query.screenshot === 'true' ? 'screenshot' : 'content',
-        )
-        return result
-      },
-      {
-        query: t.Object({
-          url: t.String(),
-          screenshot: t.Optional(t.String()),
-          waitFor: t.Optional(t.String()),
-        }),
-      },
-    )
+            query.screenshot === 'true' ? 'screenshot' : 'content',
+          )
+          return result
+        },
+        {
+          query: t.Object({
+            url: t.String(),
+            screenshot: t.Optional(t.String()),
+            waitFor: t.Optional(t.String()),
+          }),
+        },
+      )
+  )
 }
 
 export type ScrapingRoutes = ReturnType<typeof createScrapingRouter>

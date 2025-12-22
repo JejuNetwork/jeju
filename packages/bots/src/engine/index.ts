@@ -5,6 +5,7 @@
  */
 
 import { EventEmitter } from 'node:events'
+import type { EVMChainId } from '@jejunetwork/types'
 import {
   type CrossChainArbConfig,
   CrossChainArbitrage,
@@ -13,7 +14,6 @@ import {
   TFMMRebalancer,
   type TFMMRebalancerConfig,
 } from '../strategies/tfmm/rebalancer'
-import type { EVMChainId } from '@jejunetwork/types'
 import type { BotStats, StrategyType, TradeResult } from '../types'
 
 // ============ Types ============

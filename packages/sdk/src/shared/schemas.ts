@@ -1534,7 +1534,14 @@ export const FeedLinkedFidResponseSchema = z.object({
 /** CICD job step schema */
 export const CICDJobStepSchema = z.object({
   name: z.string(),
-  status: z.enum(['pending', 'queued', 'running', 'success', 'failed', 'cancelled']),
+  status: z.enum([
+    'pending',
+    'queued',
+    'running',
+    'success',
+    'failed',
+    'cancelled',
+  ]),
   duration: z.number().optional(),
   output: z.string().optional(),
 })
@@ -1552,7 +1559,14 @@ export const CICDArtifactSchema = z.object({
 export const CICDWorkflowJobSchema = z.object({
   id: z.string(),
   name: z.string(),
-  status: z.enum(['pending', 'queued', 'running', 'success', 'failed', 'cancelled']),
+  status: z.enum([
+    'pending',
+    'queued',
+    'running',
+    'success',
+    'failed',
+    'cancelled',
+  ]),
   startedAt: z.string().optional(),
   completedAt: z.string().optional(),
   duration: z.number().optional(),
@@ -1584,7 +1598,14 @@ export const CICDWorkflowRunSchema = z.object({
   branch: z.string(),
   commitSha: z.string(),
   commitMessage: z.string().optional(),
-  status: z.enum(['pending', 'queued', 'running', 'success', 'failed', 'cancelled']),
+  status: z.enum([
+    'pending',
+    'queued',
+    'running',
+    'success',
+    'failed',
+    'cancelled',
+  ]),
   triggeredBy: z.string(),
   startedAt: z.string(),
   completedAt: z.string().optional(),
@@ -1600,7 +1621,13 @@ export const CICDDeploymentSchema = z.object({
   repoName: z.string(),
   branch: z.string(),
   commitSha: z.string(),
-  status: z.enum(['pending', 'in_progress', 'success', 'failed', 'rolled_back']),
+  status: z.enum([
+    'pending',
+    'in_progress',
+    'success',
+    'failed',
+    'rolled_back',
+  ]),
   deployedBy: z.string(),
   deployedAt: z.string(),
   url: z.string().optional(),

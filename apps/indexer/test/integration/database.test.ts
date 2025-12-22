@@ -1,16 +1,16 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
 import type { DataSource } from 'typeorm'
 import {
-  closeTestDataSource,
-  getTestDataSource,
-  isDatabaseAvailable,
-} from './setup'
-import {
   Account,
   ComputeProvider,
   RegisteredAgent,
   StorageProvider,
 } from '../../src/model'
+import {
+  closeTestDataSource,
+  getTestDataSource,
+  isDatabaseAvailable,
+} from './setup'
 
 let ds: DataSource | null = null
 let dbAvailable = false

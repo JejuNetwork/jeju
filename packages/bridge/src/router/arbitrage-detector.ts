@@ -87,9 +87,9 @@ const SOLANA_TOKENS: Record<string, string> = {
   WETH: '7vfCXTUXx5WJV5JADk17DUJ4ksgau7utNKj4b963voxs',
 }
 
-import { createLogger } from '../utils/logger.js'
 import { createPublicClient, http } from 'viem'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
+import { createLogger } from '../utils/logger.js'
 import {
   HyperliquidAllMidsResponseSchema,
   JitoBundleResponseSchema,
@@ -493,7 +493,6 @@ export class ArbitrageDetector {
     if (!quoterAddress) return null
 
     try {
-
       const chains = {
         1: mainnet,
         42161: arbitrum,

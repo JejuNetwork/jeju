@@ -11,22 +11,22 @@
 
 import { beforeEach, describe, expect, it } from 'bun:test'
 import {
+  getMPCConfig,
+  getMPCCoordinator,
+  MPCCoordinator,
+  resetMPCCoordinator,
+} from '@jejunetwork/kms'
+import {
   CovenantSQLClient,
-  HSMClient,
   createCovenantSQLClient,
   createTableMigration,
   getCovenantSQLClient,
   getHSMClient,
+  HSMClient,
   MigrationManager,
   resetCovenantSQLClient,
   resetHSMClient,
 } from '@jejunetwork/shared'
-import {
-  MPCCoordinator,
-  getMPCConfig,
-  getMPCCoordinator,
-  resetMPCCoordinator,
-} from '@jejunetwork/kms'
 import {
   getCQLDatabase,
   resetCQLDatabase,
@@ -43,7 +43,6 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 
   it('should reject empty nodes array', async () => {
-
     const client = createCovenantSQLClient({
       nodes: [],
       databaseId: 'test',
@@ -56,7 +55,6 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 
   it('should handle single node configuration', async () => {
-
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
@@ -69,7 +67,6 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 
   it('should handle maximum pool size', async () => {
-
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
@@ -81,7 +78,6 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 
   it('should handle zero query timeout', async () => {
-
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
@@ -93,7 +89,6 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 
   it('should handle zero retry attempts', async () => {
-
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
@@ -105,7 +100,6 @@ describe('CovenantSQL Client - Boundary Conditions', () => {
   })
 
   it('should use default consistency when not specified', async () => {
-
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
@@ -122,7 +116,6 @@ describe('CovenantSQL Client - Error Handling', () => {
   })
 
   it('should throw on missing databaseId from env', async () => {
-
     resetCovenantSQLClient()
     const originalDbId = process.env.COVENANTSQL_DATABASE_ID
     const originalKey = process.env.COVENANTSQL_PRIVATE_KEY
@@ -140,7 +133,6 @@ describe('CovenantSQL Client - Error Handling', () => {
   })
 
   it('should handle malformed node URLs gracefully', async () => {
-
     const client = createCovenantSQLClient({
       nodes: ['not-a-valid-url', ':::invalid:::'],
       databaseId: 'test',
@@ -152,7 +144,6 @@ describe('CovenantSQL Client - Error Handling', () => {
   })
 
   it('should close connections cleanly', async () => {
-
     const client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
@@ -171,7 +162,6 @@ describe('CovenantSQL Client - SQL Operations', () => {
   })
 
   it('should build correct INSERT SQL for single row', async () => {
-
     const _client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
@@ -184,7 +174,6 @@ describe('CovenantSQL Client - SQL Operations', () => {
   })
 
   it('should build correct INSERT SQL for multiple rows', async () => {
-
     const _client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
@@ -209,7 +198,6 @@ describe('CovenantSQL Client - SQL Operations', () => {
   })
 
   it('should handle empty insert data', async () => {
-
     const _client = createCovenantSQLClient({
       nodes: ['http://localhost:4661'],
       databaseId: 'test',
@@ -239,7 +227,6 @@ describe('MPC Custody - Configuration Validation', () => {
   })
 
   it('should reject threshold greater than total parties in generateKey', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -268,7 +255,6 @@ describe('MPC Custody - Configuration Validation', () => {
   })
 
   it('should reject threshold less than 2 in generateKey', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -309,7 +295,6 @@ describe('MPC Custody - Configuration Validation', () => {
   })
 
   it('should default to localnet network', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
     const status = manager.getStatus()
@@ -317,7 +302,6 @@ describe('MPC Custody - Configuration Validation', () => {
   })
 
   it('should use network presets correctly', async () => {
-
     const testnet = getMPCConfig('testnet')
     expect(testnet.threshold).toBe(2)
     expect(testnet.totalParties).toBe(3)
@@ -334,7 +318,6 @@ describe('MPC Custody - Party Management', () => {
   })
 
   it('should register parties', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -354,7 +337,6 @@ describe('MPC Custody - Party Management', () => {
   })
 
   it('should track active parties', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -375,7 +357,6 @@ describe('MPC Custody - Party Management', () => {
   })
 
   it('should update party heartbeat', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -404,7 +385,6 @@ describe('MPC Custody - Key Generation', () => {
   })
 
   it('should generate distributed key', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -439,7 +419,6 @@ describe('MPC Custody - Key Generation', () => {
   })
 
   it('should reject unregistered parties', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -465,7 +444,6 @@ describe('MPC Custody - Key Generation', () => {
   })
 
   it('should return null for non-existent key', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -474,7 +452,6 @@ describe('MPC Custody - Key Generation', () => {
   })
 
   it('should list all keys', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -601,7 +578,6 @@ describe('MPC Custody - Threshold Signing', () => {
   })
 
   it('should reject signing with insufficient parties', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -632,7 +608,6 @@ describe('MPC Custody - Threshold Signing', () => {
   })
 
   it('should produce cryptographically valid signatures', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -720,7 +695,6 @@ describe('MPC Custody - Key Rotation', () => {
   })
 
   it('should rotate key while preserving address', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -755,7 +729,6 @@ describe('MPC Custody - Key Rotation', () => {
   })
 
   it('should track key versions', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -860,7 +833,6 @@ describe('HSM Client - Connection States', () => {
   })
 
   it('should require connection before operations', async () => {
-
     const client = new HSMClient({
       provider: 'local-dev',
       endpoint: 'http://localhost:8080',
@@ -872,7 +844,6 @@ describe('HSM Client - Connection States', () => {
   })
 
   it('should allow multiple connect calls', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -889,7 +860,6 @@ describe('HSM Client - Connection States', () => {
   })
 
   it('should clear state on disconnect', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -913,7 +883,6 @@ describe('HSM Client - Key Generation', () => {
   })
 
   it('should generate EC secp256k1 keys', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -933,7 +902,6 @@ describe('HSM Client - Key Generation', () => {
   })
 
   it('should generate AES-256 keys', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -952,7 +920,6 @@ describe('HSM Client - Key Generation', () => {
   })
 
   it('should respect custom attributes', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -972,7 +939,6 @@ describe('HSM Client - Key Generation', () => {
   })
 
   it('should generate unique key IDs', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -995,7 +961,6 @@ describe('HSM Client - Cryptographic Operations', () => {
   })
 
   it('should sign with EC key', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1020,7 +985,6 @@ describe('HSM Client - Cryptographic Operations', () => {
   })
 
   it('should reject signing with non-existent key', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1041,7 +1005,6 @@ describe('HSM Client - Cryptographic Operations', () => {
   })
 
   it('should reject signing with non-signing key', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1063,7 +1026,6 @@ describe('HSM Client - Cryptographic Operations', () => {
   })
 
   it('should encrypt and decrypt with AES key - verify roundtrip', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1093,7 +1055,6 @@ describe('HSM Client - Cryptographic Operations', () => {
   })
 
   it('should reject encryption with non-encrypting key', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1111,7 +1072,6 @@ describe('HSM Client - Cryptographic Operations', () => {
   })
 
   it('should produce verifiable EC signatures', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1147,7 +1107,6 @@ describe('HSM Client - Key Lifecycle', () => {
   })
 
   it('should delete keys', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1169,7 +1128,6 @@ describe('HSM Client - Key Lifecycle', () => {
   })
 
   it('should reject deleting non-existent key', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1186,7 +1144,6 @@ describe('HSM Client - Key Lifecycle', () => {
   })
 
   it('should rotate keys', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1209,7 +1166,6 @@ describe('HSM Client - Key Lifecycle', () => {
   })
 
   it('should rotate keys while keeping old', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1232,7 +1188,6 @@ describe('HSM Client - Key Lifecycle', () => {
   })
 
   it('should update lastUsed on sign', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1269,7 +1224,6 @@ describe('CQL Adapter - In-Memory Mode', () => {
   })
 
   it('should initialize in memory mode without endpoint', async () => {
-
     resetCQLDatabase()
     const db = getCQLDatabase({
       blockProducerEndpoint: '', // Empty = memory mode
@@ -1281,7 +1235,6 @@ describe('CQL Adapter - In-Memory Mode', () => {
   })
 
   it('should create and retrieve pins in memory', async () => {
-
     resetCQLDatabase()
     const db = getCQLDatabase({ blockProducerEndpoint: '' })
     await db.initialize()
@@ -1311,7 +1264,6 @@ describe('CQL Adapter - In-Memory Mode', () => {
   })
 
   it('should list pins with filters', async () => {
-
     resetCQLDatabase()
     const db = getCQLDatabase({ blockProducerEndpoint: '' })
     await db.initialize()
@@ -1343,7 +1295,6 @@ describe('CQL Adapter - In-Memory Mode', () => {
   })
 
   it('should update pin status', async () => {
-
     resetCQLDatabase()
     const db = getCQLDatabase({ blockProducerEndpoint: '' })
     await db.initialize()
@@ -1371,7 +1322,6 @@ describe('CQL Adapter - In-Memory Mode', () => {
   })
 
   it('should delete pins', async () => {
-
     resetCQLDatabase()
     const db = getCQLDatabase({ blockProducerEndpoint: '' })
     await db.initialize()
@@ -1401,7 +1351,6 @@ describe('CQL Adapter - In-Memory Mode', () => {
   })
 
   it('should count pins correctly', async () => {
-
     resetCQLDatabase()
     const db = getCQLDatabase({ blockProducerEndpoint: '' })
     await db.initialize()
@@ -1451,7 +1400,6 @@ describe('CQL Adapter - In-Memory Mode', () => {
   })
 
   it('should calculate storage stats', async () => {
-
     resetCQLDatabase()
     const db = getCQLDatabase({ blockProducerEndpoint: '' })
     await db.initialize()
@@ -1507,7 +1455,6 @@ describe('CQL Adapter - In-Memory Mode', () => {
   })
 
   it('should find pin by CID', async () => {
-
     resetCQLDatabase()
     const db = getCQLDatabase({ blockProducerEndpoint: '' })
     await db.initialize()
@@ -1538,7 +1485,6 @@ describe('CQL Adapter - In-Memory Mode', () => {
   })
 
   it('should handle pagination in listPins', async () => {
-
     resetCQLDatabase()
     const db = getCQLDatabase({ blockProducerEndpoint: '' })
     await db.initialize()
@@ -1572,7 +1518,6 @@ describe('CQL Adapter - In-Memory Mode', () => {
   })
 
   it('should close and clear state', async () => {
-
     resetCQLDatabase()
     const db = getCQLDatabase({ blockProducerEndpoint: '' })
     await db.initialize()
@@ -1612,7 +1557,6 @@ describe('CQL Adapter - In-Memory Mode', () => {
 
 describe('Concurrent Operations', () => {
   it('should handle concurrent MPC key generation', async () => {
-
     resetMPCCoordinator()
     const manager = getMPCCoordinator()
 
@@ -1650,7 +1594,6 @@ describe('Concurrent Operations', () => {
   })
 
   it('should handle concurrent HSM operations', async () => {
-
     resetHSMClient()
     const client = getHSMClient({
       provider: 'local-dev',
@@ -1684,7 +1627,6 @@ describe('Concurrent Operations', () => {
   })
 
   it('should handle concurrent CQL pin operations', async () => {
-
     resetCQLDatabase()
     const db = getCQLDatabase({ blockProducerEndpoint: '' })
     await db.initialize()

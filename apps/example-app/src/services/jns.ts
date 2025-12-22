@@ -6,6 +6,7 @@
  */
 
 import type { Address, Hex } from 'viem'
+import type { JNSRecords } from '../schemas'
 import {
   jnsAvailableResponseSchema,
   jnsPriceResponseSchema,
@@ -13,7 +14,6 @@ import {
   jnsRegisterResponseSchema,
   jnsResolveResponseSchema,
 } from '../schemas'
-import type { JNSRecords } from '../schemas'
 import { normalizeJNSName } from '../utils'
 import { expectValid } from '../utils/validation'
 

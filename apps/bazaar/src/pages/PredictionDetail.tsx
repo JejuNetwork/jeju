@@ -3,14 +3,21 @@
  * Converted from Next.js to React Router
  */
 
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { ArrowLeft, CheckCircle, Clock, TrendingUp, Users, XCircle } from 'lucide-react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
+import { useMutation, useQuery } from '@tanstack/react-query'
+import {
+  ArrowLeft,
+  CheckCircle,
+  Clock,
+  TrendingUp,
+  Users,
+  XCircle,
+} from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
 import { useAccount } from 'wagmi'
-import { LoadingSpinner } from '../../components/LoadingSpinner'
 import { AuthButton } from '../../components/auth/AuthButton'
+import { LoadingSpinner } from '../../components/LoadingSpinner'
 
 interface PredictionMarket {
   id: number | string
@@ -28,45 +35,35 @@ export default function PredictionDetailPage() {
   const { id: marketId } = useParams<{ id?: string }>()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
-  const queryClient = useQueryClient()
-  const { address, isConnected } = useAccount()
-
-  useEffect(() => {
-    if (!marketId) {
-      navigate('/markets/predictions', { replace: true })
-    }
-  }, [marketId, navigate])
-
-  if (!marketId) {
-    return null
-  }
-
-  const from = searchParams.get('from')
+  const { isConnected } = useAccount()
   const [side, setSide] = useState<'yes' | 'no'>('yes')
   const [amount, setAmount] = useState('10')
 
-  const { data: market, isLoading: loading, refetch } = useQuery({
+  const {
+    data: market,
+    isLoading: loading,
+    refetch,
+  } = useQuery({
     queryKey: ['predictionMarket', marketId],
     queryFn: async (): Promise<PredictionMarket | null> => {
       const response = await fetch(`/api/markets/predictions`)
       const data = await response.json()
       const foundMarket = data.questions?.find(
-        (q: PredictionMarket) => q.id.toString() === marketId
+        (q: PredictionMarket) => q.id.toString() === marketId,
       )
       return foundMarket || null
     },
     enabled: !!marketId,
   })
 
-  useEffect(() => {
-    if (!loading && !market) {
-      toast.error('Market not found')
-      navigate(from === 'dashboard' ? '/markets' : '/markets/predictions')
-    }
-  }, [loading, market, navigate, from])
-
   const buyMutation = useMutation({
-    mutationFn: async ({ buyingSide, buyingAmount }: { buyingSide: 'yes' | 'no'; buyingAmount: number }) => {
+    mutationFn: async ({
+      buyingSide,
+      buyingAmount,
+    }: {
+      buyingSide: 'yes' | 'no'
+      buyingAmount: number
+    }) => {
       const response = await fetch(`/api/markets/predictions/${marketId}/buy`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -83,6 +80,25 @@ export default function PredictionDetailPage() {
       toast.error(error.message)
     },
   })
+
+  const from = searchParams.get('from')
+
+  useEffect(() => {
+    if (!marketId) {
+      navigate('/markets/predictions', { replace: true })
+    }
+  }, [marketId, navigate])
+
+  useEffect(() => {
+    if (!loading && !market) {
+      toast.error('Market not found')
+      navigate(from === 'dashboard' ? '/markets' : '/markets/predictions')
+    }
+  }, [loading, market, navigate, from])
+
+  if (!marketId) {
+    return null
+  }
 
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('en-US', {
@@ -149,6 +165,7 @@ export default function PredictionDetailPage() {
   return (
     <div className="max-w-4xl mx-auto">
       <button
+        type="button"
         onClick={() => {
           if (from === 'dashboard') {
             navigate('/markets')
@@ -165,12 +182,20 @@ export default function PredictionDetailPage() {
 
       <div className="card p-6 mb-6">
         <div className="flex items-start justify-between gap-4 mb-4">
-          <h1 className="flex-1 text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+          <h1
+            className="flex-1 text-2xl font-bold"
+            style={{ color: 'var(--text-primary)' }}
+          >
             {market.text}
           </h1>
           {timeLeft && (
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
-              style={{ backgroundColor: 'var(--bg-secondary)', color: 'var(--text-secondary)' }}>
+            <div
+              className="flex items-center gap-2 px-3 py-1.5 rounded-full text-sm"
+              style={{
+                backgroundColor: 'var(--bg-secondary)',
+                color: 'var(--text-secondary)',
+              }}
+            >
               <Clock className="h-4 w-4" />
               <span className="font-medium">{timeLeft}</span>
             </div>
@@ -178,55 +203,92 @@ export default function PredictionDetailPage() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+          <div
+            className="p-3 rounded-lg"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
+            <div
+              className="flex items-center gap-2 text-xs mb-1"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               <TrendingUp className="h-3 w-3" />
               Volume
             </div>
-            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{formatPrice(totalVolume)}</div>
+            <div
+              className="text-lg font-bold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {formatPrice(totalVolume)}
+            </div>
           </div>
-          <div className="p-3 rounded-lg" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-            <div className="flex items-center gap-2 text-xs mb-1" style={{ color: 'var(--text-tertiary)' }}>
+          <div
+            className="p-3 rounded-lg"
+            style={{ backgroundColor: 'var(--bg-secondary)' }}
+          >
+            <div
+              className="flex items-center gap-2 text-xs mb-1"
+              style={{ color: 'var(--text-tertiary)' }}
+            >
               <Users className="h-3 w-3" />
               Trades
             </div>
-            <div className="text-lg font-bold" style={{ color: 'var(--text-primary)' }}>{Math.floor(totalVolume / 10)}</div>
+            <div
+              className="text-lg font-bold"
+              style={{ color: 'var(--text-primary)' }}
+            >
+              {Math.floor(totalVolume / 10)}
+            </div>
           </div>
           <div className="p-3 rounded-lg bg-green-600/15">
             <div className="flex items-center gap-2 text-xs text-green-600 mb-1">
               <CheckCircle className="h-3 w-3" />
               YES
             </div>
-            <div className="text-2xl font-bold text-green-600">{(yesPrice * 100).toFixed(1)}%</div>
+            <div className="text-2xl font-bold text-green-600">
+              {(yesPrice * 100).toFixed(1)}%
+            </div>
           </div>
           <div className="p-3 rounded-lg bg-red-600/15">
             <div className="flex items-center gap-2 text-xs text-red-600 mb-1">
               <XCircle className="h-3 w-3" />
               NO
             </div>
-            <div className="text-2xl font-bold text-red-600">{(noPrice * 100).toFixed(1)}%</div>
+            <div className="text-2xl font-bold text-red-600">
+              {(noPrice * 100).toFixed(1)}%
+            </div>
           </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="card p-6">
-          <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)' }}>Trade</h2>
+          <h2
+            className="text-lg font-bold mb-4"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            Trade
+          </h2>
 
           <div className="flex gap-3 mb-4">
             <button
+              type="button"
               onClick={() => setSide('yes')}
               className={`flex-1 flex items-center justify-center gap-3 py-3 rounded font-bold transition-all ${
-                side === 'yes' ? 'bg-green-600 text-white' : 'bg-gray-200 dark:bg-gray-700'
+                side === 'yes'
+                  ? 'bg-green-600 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700'
               }`}
             >
               <CheckCircle size={18} />
               YES
             </button>
             <button
+              type="button"
               onClick={() => setSide('no')}
               className={`flex-1 flex items-center justify-center gap-3 py-3 rounded font-bold transition-all ${
-                side === 'no' ? 'bg-red-600 text-white' : 'bg-gray-200 dark:bg-gray-700'
+                side === 'no'
+                  ? 'bg-red-600 text-white'
+                  : 'bg-gray-200 dark:bg-gray-700'
               }`}
             >
               <XCircle size={18} />
@@ -235,10 +297,15 @@ export default function PredictionDetailPage() {
           </div>
 
           <div className="mb-4">
-            <label className="block text-sm mb-2" style={{ color: 'var(--text-secondary)' }}>
+            <label
+              htmlFor="prediction-amount-input"
+              className="block text-sm mb-2"
+              style={{ color: 'var(--text-secondary)' }}
+            >
               Amount (USD)
             </label>
             <input
+              id="prediction-amount-input"
               type="number"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
@@ -250,18 +317,35 @@ export default function PredictionDetailPage() {
           </div>
 
           {amountNum > 0 && (
-            <div className="p-4 rounded-lg mb-4" style={{ backgroundColor: 'var(--bg-secondary)' }}>
-              <h3 className="text-sm font-bold mb-3" style={{ color: 'var(--text-tertiary)' }}>
+            <div
+              className="p-4 rounded-lg mb-4"
+              style={{ backgroundColor: 'var(--bg-secondary)' }}
+            >
+              <h3
+                className="text-sm font-bold mb-3"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
                 Trade Preview
               </h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span style={{ color: 'var(--text-secondary)' }}>Cost</span>
-                  <span className="font-bold" style={{ color: 'var(--text-primary)' }}>{formatPrice(amountNum)}</span>
+                  <span
+                    className="font-bold"
+                    style={{ color: 'var(--text-primary)' }}
+                  >
+                    {formatPrice(amountNum)}
+                  </span>
                 </div>
                 <div className="flex justify-between">
-                  <span style={{ color: 'var(--text-secondary)' }}>If {side.toUpperCase()} Wins</span>
-                  <span className="font-bold text-green-600">{formatPrice(amountNum / (side === 'yes' ? yesPrice : noPrice))}</span>
+                  <span style={{ color: 'var(--text-secondary)' }}>
+                    If {side.toUpperCase()} Wins
+                  </span>
+                  <span className="font-bold text-green-600">
+                    {formatPrice(
+                      amountNum / (side === 'yes' ? yesPrice : noPrice),
+                    )}
+                  </span>
                 </div>
               </div>
             </div>
@@ -269,13 +353,18 @@ export default function PredictionDetailPage() {
 
           {isConnected ? (
             <button
+              type="button"
               onClick={handleSubmit}
               disabled={buyMutation.isPending || amountNum < 1}
               className={`w-full py-4 rounded-lg font-bold text-lg text-white transition-all ${
-                side === 'yes' ? 'bg-green-600 hover:bg-green-700' : 'bg-red-600 hover:bg-red-700'
+                side === 'yes'
+                  ? 'bg-green-600 hover:bg-green-700'
+                  : 'bg-red-600 hover:bg-red-700'
               } disabled:opacity-50 disabled:cursor-not-allowed`}
             >
-              {buyMutation.isPending ? 'Buying...' : `BUY ${side.toUpperCase()} - ${formatPrice(amountNum)}`}
+              {buyMutation.isPending
+                ? 'Buying...'
+                : `BUY ${side.toUpperCase()} - ${formatPrice(amountNum)}`}
             </button>
           ) : (
             <AuthButton />
@@ -283,12 +372,19 @@ export default function PredictionDetailPage() {
         </div>
 
         <div className="card p-6">
-          <h2 className="text-lg font-bold mb-4" style={{ color: 'var(--text-primary)' }}>How it works</h2>
+          <h2
+            className="text-lg font-bold mb-4"
+            style={{ color: 'var(--text-primary)' }}
+          >
+            How it works
+          </h2>
           <p className="mb-4" style={{ color: 'var(--text-secondary)' }}>
-            Buy YES shares if you think this will happen, NO shares if you think it won't.
+            Buy YES shares if you think this will happen, NO shares if you think
+            it won't.
           </p>
           <p style={{ color: 'var(--text-secondary)' }}>
-            If you're right, you'll receive $1 per share. The current price reflects the market's probability.
+            If you're right, you'll receive $1 per share. The current price
+            reflects the market's probability.
           </p>
         </div>
       </div>

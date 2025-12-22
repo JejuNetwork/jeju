@@ -7,30 +7,58 @@
 // Static Elysia plugins (already instantiated)
 // ============================================================================
 
-export { a2aRoutes, type A2ARoutes } from './a2a'
-export { cdnRoutes, type CDNRoutes } from './cdn'
-export { computeRoutes, type ComputeRoutes } from './compute'
-export { storageRoutes, type StorageRoutes } from './storage'
-export { rlaifRoutes, type RLAIFRoutes } from './rlaif'
-export { rpcRoutes, type RPCRoutes } from './rpc'
-export { trainingRoutes, type TrainingRoutes } from './training'
+export { type A2ARoutes, a2aRoutes } from './a2a'
+export { type CDNRoutes, cdnRoutes } from './cdn'
+export { type ComputeRoutes, computeRoutes } from './compute'
+export { type RLAIFRoutes, rlaifRoutes } from './rlaif'
+export { type RPCRoutes, rpcRoutes } from './rpc'
+export { type StorageRoutes, storageRoutes } from './storage'
+export { type TrainingRoutes, trainingRoutes } from './training'
 
 // ============================================================================
 // Elysia route factories (with type exports)
 // ============================================================================
 
-// OAuth3 proxy
-export { createOAuth3Router, type OAuth3Routes } from './oauth3'
-
+// API Marketplace
+export {
+  type APIMarketplaceRoutes,
+  createAPIMarketplaceRouter,
+} from './api-marketplace'
+// CI/CD
+export { type CIRoutes, createCIRouter } from './ci'
+// Containers
+export { type ContainerRoutes, createContainerRouter } from './containers'
+// Data Availability
+export { createDARouter, type DARoutes, shutdownDA } from './da'
+// Datasets
+export { createDatasetsRouter, type DatasetsRoutes } from './datasets'
+// Dependency Scanner
+export {
+  createDependencyScannerRouter,
+  type DependencyScannerRoutes,
+} from './dependency-scanner'
+// Edge Coordination
+export { createEdgeRouter, handleEdgeWebSocket } from './edge'
+// Funding
+export { createFundingRouter } from './funding'
+// Git
+export { createGitRouter } from './git'
 // Key Management Service
 export { createKMSRouter, type KMSRoutes } from './kms'
-
-// VPN/Proxy
-export { createVPNRouter, type VPNRoutes } from './vpn'
-
-// Web Scraping
-export { createScrapingRouter, type ScrapingRoutes } from './scraping'
-
+// MCP (Model Context Protocol)
+export { createMCPRouter, type MCPRoutes } from './mcp'
+// Models
+export { createModelsRouter, type ModelsRoutes } from './models'
+// Moderation
+export { createModerationRouter, type ModerationRoutes } from './moderation'
+// OAuth3 proxy
+export { createOAuth3Router, type OAuth3Routes } from './oauth3'
+// Packages
+export { createPkgRouter, type PkgRoutes } from './pkg'
+export {
+  createPkgRegistryProxyRouter,
+  type PkgRegistryProxyRoutes,
+} from './pkg-registry-proxy'
 // Price Streaming
 export {
   createPricesRouter,
@@ -39,67 +67,19 @@ export {
   type PricesRoutes,
   type SubscribableWebSocket,
 } from './prices'
-
-// Moderation
-export { createModerationRouter, type ModerationRoutes } from './moderation'
-
-// S3-compatible storage
-export { createS3Router, type S3Routes } from './s3'
-
-// Workers
-export { createWorkersRouter, type WorkersRoutes } from './workers'
-export {
-  createWorkerdRouter,
-  createDefaultWorkerdRouter,
-  type WorkerdRoutes,
-  type WorkerdRouterOptions,
-} from './workerd'
-
-// Containers
-export { createContainerRouter, type ContainerRoutes } from './containers'
-
-// Data Availability
-export { createDARouter, shutdownDA, type DARoutes } from './da'
-
-// Edge Coordination
-export { createEdgeRouter, handleEdgeWebSocket } from './edge'
-
-// Funding
-export { createFundingRouter } from './funding'
-
-// Git
-export { createGitRouter } from './git'
-
-// MCP (Model Context Protocol)
-export { createMCPRouter, type MCPRoutes } from './mcp'
-
-// Packages
-export { createPkgRouter, type PkgRoutes } from './pkg'
-export {
-  createPkgRegistryProxyRouter,
-  type PkgRegistryProxyRoutes,
-} from './pkg-registry-proxy'
-
-// CI/CD
-export { createCIRouter, type CIRoutes } from './ci'
-
-// API Marketplace
-export {
-  createAPIMarketplaceRouter,
-  type APIMarketplaceRoutes,
-} from './api-marketplace'
-
 // RPC (legacy factory export)
 export { createRPCRouter } from './rpc'
-
-// Models
-export { createModelsRouter, type ModelsRoutes } from './models'
-
-// Datasets
-export { createDatasetsRouter, type DatasetsRoutes } from './datasets'
-
-// Dependency Scanner
+// S3-compatible storage
+export { createS3Router, type S3Routes } from './s3'
+// Web Scraping
+export { createScrapingRouter, type ScrapingRoutes } from './scraping'
+// VPN/Proxy
+export { createVPNRouter, type VPNRoutes } from './vpn'
 export {
-  createDependencyScannerRouter,
-  type DependencyScannerRoutes,
-} from './dependency-scanner'
+  createDefaultWorkerdRouter,
+  createWorkerdRouter,
+  type WorkerdRouterOptions,
+  type WorkerdRoutes,
+} from './workerd'
+// Workers
+export { createWorkersRouter, type WorkersRoutes } from './workers'

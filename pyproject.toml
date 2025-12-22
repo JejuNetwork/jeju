@@ -1,0 +1,88 @@
+[project]
+name = "jeju"
+version = "0.1.0"
+description = "A network for agents and humans"
+requires-python = ">=3.10"
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+include = [
+    "packages/training/python",
+    "apps/dws/src/rlaif",
+    "apps/dws/src/training",
+    "vendor/babylon/packages/training/python",
+    "vendor/babylon/packages/examples/babylon-langgraph-agent",
+]
+exclude = [
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*",
+    "packages/contracts/lib",
+]
+reportMissingImports = "warning"
+reportMissingTypeStubs = false
+reportUnknownMemberType = false
+reportUnknownArgumentType = false
+reportUnknownVariableType = false
+reportGeneralTypeIssues = "warning"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+exclude = [
+    "node_modules",
+    "__pycache__",
+    "packages/contracts/lib",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+# Include all Python files
+include = [
+    "packages/**/*.py",
+    "apps/**/*.py",
+    "vendor/babylon/**/*.py",
+]
+
+# Exclude vendored dependencies and generated files
+exclude = [
+    ".git",
+    "__pycache__",
+    ".venv",
+    "venv",
+    "node_modules",
+    "packages/contracts/lib/**",
+    "**/site-packages/**",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",      # pycodestyle errors
+    "W",      # pycodestyle warnings
+    "F",      # Pyflakes
+    "I",      # isort
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "UP",     # pyupgrade
+    "ARG",    # flake8-unused-arguments
+    "SIM",    # flake8-simplify
+    "RUF",    # Ruff-specific rules
+]
+
+ignore = [
+    "E501",   # line too long (handled by formatter)
+    "B008",   # function calls in argument defaults
+    "ARG001", # unused function argument (common in ML callbacks)
+]
+
+[tool.ruff.lint.isort]
+known-first-party = ["jeju", "babylon"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

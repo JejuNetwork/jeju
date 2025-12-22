@@ -1,3 +1,4 @@
+import { formatUsd } from '@jejunetwork/shared'
 import clsx from 'clsx'
 import { AnimatePresence, motion } from 'framer-motion'
 import {
@@ -11,7 +12,6 @@ import {
 } from 'lucide-react'
 import { useState } from 'react'
 import { useAppStore } from '../store'
-import { formatUsd } from '@jejunetwork/shared'
 import { formatEther } from '../utils'
 
 export function Staking() {

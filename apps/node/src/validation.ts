@@ -964,7 +964,9 @@ export type JitoBundleStatusResponse = z.infer<
   typeof JitoBundleStatusResponseSchema
 >
 export type OneInchSwapResponse = z.infer<typeof OneInchSwapResponseSchema>
-export type BridgeTransferResponse = z.infer<typeof BridgeTransferResponseSchema>
+export type BridgeTransferResponse = z.infer<
+  typeof BridgeTransferResponseSchema
+>
 export type BridgeTxResponse = z.infer<typeof BridgeTxResponseSchema>
 export type HyperliquidPricesResponse = z.infer<
   typeof HyperliquidPricesResponseSchema

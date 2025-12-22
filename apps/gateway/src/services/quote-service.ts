@@ -1,4 +1,5 @@
 import type { IntentQuote, SupportedChainId } from '@jejunetwork/types'
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import {
   createPublicClient,
   encodePacked,
@@ -9,7 +10,6 @@ import {
 import { SOLVER_REGISTRY_ADDRESS } from '../config/contracts.js'
 import { getRpcUrl, IS_TESTNET } from '../config/networks.js'
 import { getChain } from '../lib/chains.js'
-import { ZERO_ADDRESS } from '@jejunetwork/ui'
 
 const SOLVER_REGISTRY_ABI = [
   {

@@ -17,8 +17,8 @@
 
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { spawn } from 'bun'
 import { getIpfsApiUrl } from '@jejunetwork/config/ports'
+import { spawn } from 'bun'
 import {
   type Address,
   createPublicClient,
@@ -280,7 +280,11 @@ async function uploadToIPFS(
   // The last line is the directory hash
   const lastLineStr = lines[lines.length - 1]
   if (!lastLineStr) throw new Error('Empty IPFS response')
-  const lastLine = expectJson(lastLineStr, IPFSAddResponseLineSchema, 'IPFS add response')
+  const lastLine = expectJson(
+    lastLineStr,
+    IPFSAddResponseLineSchema,
+    'IPFS add response',
+  )
   const cid = lastLine.Hash
 
   console.log(`✅ Uploaded to IPFS: ${cid}`)
@@ -357,13 +361,12 @@ async function deploy(config: DeployConfig): Promise<DeployResult> {
     throw new Error(`App not found: ${appPath}`)
   }
 
-  // Check for build directory
+  // Check for build directory (static files for IPFS/CDN)
   const possibleBuildDirs = [
+    'dist/static', // Bun/Elysia apps (preferred)
     'dist',
     'build',
     'out',
-    '.next/static',
-    '.output/public',
   ]
   let buildDir = ''
 
@@ -447,7 +450,11 @@ async function parseArgs(): Promise<DeployConfig> {
 
   if (existsSync(manifestPath)) {
     const manifestRaw = await Bun.file(manifestPath).json()
-    const manifest = expectValid(JejuAppManifestSchema, manifestRaw, `manifest ${appName}`)
+    const manifest = expectValid(
+      JejuAppManifestSchema,
+      manifestRaw,
+      `manifest ${appName}`,
+    )
     jnsName = manifest.jns?.name ?? jnsName
   }
 

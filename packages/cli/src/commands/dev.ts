@@ -170,7 +170,10 @@ async function startLocalProxy(rootDir: string): Promise<void> {
 
   logger.step('Starting local domain proxy...')
 
-  // Dynamic import: proxy script path is runtime-determined and may not exist
+  // Dynamic import required: file is optional (may not exist) and TypeScript
+  // static imports require files to exist at compile time. The path itself
+  // is static ('packages/deployment/scripts/shared/local-proxy.ts' relative
+  // to monorepo root), but we need runtime import to handle missing file.
   const { startProxy, isCaddyInstalled } = await import(proxyScript)
 
   // Check if Caddy is available
@@ -215,7 +218,10 @@ function setupSignalHandlers(): void {
         'packages/deployment/scripts/shared/local-proxy.ts',
       )
       if (existsSync(proxyScript)) {
-        // Dynamic import: proxy script path is runtime-determined and may not exist
+        // Dynamic import required: file is optional (may not exist) and TypeScript
+        // static imports require files to exist at compile time. The path itself
+        // is static ('packages/deployment/scripts/shared/local-proxy.ts' relative
+        // to monorepo root), but we need runtime import to handle missing file.
         const { stopProxy } = await import(proxyScript)
         await stopProxy()
       }
@@ -389,7 +395,11 @@ function printReady(
         value: 'http://127.0.0.1:4661',
         status: 'ok' as const,
       },
-      { label: 'IPFS', value: `http://127.0.0.1:${DEFAULT_PORTS.ipfs}`, status: 'ok' as const },
+      {
+        label: 'IPFS',
+        value: `http://127.0.0.1:${DEFAULT_PORTS.ipfs}`,
+        status: 'ok' as const,
+      },
       { label: 'Cache', value: 'http://127.0.0.1:4115', status: 'ok' as const },
       {
         label: 'DA Server',

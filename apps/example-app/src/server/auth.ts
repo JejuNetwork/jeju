@@ -10,9 +10,9 @@
  */
 
 import { getNetworkName } from '@jejunetwork/config'
-import { Elysia, type Context } from 'elysia'
-import { verifyMessage } from 'viem'
+import { type Context, Elysia } from 'elysia'
 import type { Address } from 'viem'
+import { verifyMessage } from 'viem'
 import {
   authCallbackQuerySchema,
   authProviderSchema,
@@ -31,7 +31,7 @@ import {
  * OAuth3 authentication derive function for Elysia
  * Adds address and auth method to context
  */
-export async function oauth3AuthDerive({ request, set }: Context): Promise<{
+export async function oauth3AuthDerive({ request }: Context): Promise<{
   address?: Address
   oauth3SessionId?: string
   authMethod?: 'oauth3' | 'wallet-signature'
@@ -120,11 +120,19 @@ export async function oauth3AuthDerive({ request, set }: Context): Promise<{
 /**
  * Guard that requires authentication - use in onBeforeHandle
  */
-export function requireAuth({ address, set }: { address?: Address; set: Context['set'] }): {
-  error: string
-  details: string
-  methods: Record<string, unknown>
-} | undefined {
+export function requireAuth({
+  address,
+  set,
+}: {
+  address?: Address
+  set: Context['set']
+}):
+  | {
+      error: string
+      details: string
+      methods: Record<string, unknown>
+    }
+  | undefined {
   if (!address) {
     set.status = 401
     return {
@@ -177,8 +185,16 @@ export function createAuthRoutes(): Elysia {
             name: 'Farcaster',
             available: health.teeNode,
           },
-          { id: AuthProvider.GITHUB, name: 'GitHub', available: health.teeNode },
-          { id: AuthProvider.GOOGLE, name: 'Google', available: health.teeNode },
+          {
+            id: AuthProvider.GITHUB,
+            name: 'GitHub',
+            available: health.teeNode,
+          },
+          {
+            id: AuthProvider.GOOGLE,
+            name: 'Google',
+            available: health.teeNode,
+          },
           {
             id: AuthProvider.TWITTER,
             name: 'Twitter',

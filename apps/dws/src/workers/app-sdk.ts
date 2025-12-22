@@ -25,7 +25,7 @@
 
 import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { getRegionConfig } from './tee/regions'
-import { createSecretManager, type TEESecretManager } from './tee/secrets'
+import { createSecretManager, TEESecretManager } from './tee/secrets'
 import type { NetworkEnvironment, RegionId, TEEPlatform } from './tee/types'
 
 // ============================================================================
@@ -300,11 +300,8 @@ export class DWSApp {
       const envValue = process.env[secretName]
       if (envValue) {
         // Store encrypted (simulated)
-        // Dynamic import: only needed when secret value exists (conditional check)
         const publicKey = this.secretManager.getEnclavePublicKey()
-        const encrypted = (
-          await import('./tee/secrets')
-        ).TEESecretManager.encryptSecret(envValue, publicKey)
+        const encrypted = TEESecretManager.encryptSecret(envValue, publicKey)
         encrypted.name = secretName
 
         await this.secretManager.storeSecret(
@@ -382,7 +379,6 @@ export function createDWSAppFromElysia(
     handler: elysia.fetch,
   })
 }
-
 
 // ============================================================================
 // Registry of all Jeju apps

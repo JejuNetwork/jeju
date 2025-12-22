@@ -46,7 +46,9 @@ const AgentTaskSchema = z.object({
     .object({
       result: z.string(),
       deliverables: z.array(z.string()).optional(),
-      recommendation: z.enum(['approve', 'reject', 'request_changes']).optional(),
+      recommendation: z
+        .enum(['approve', 'reject', 'request_changes'])
+        .optional(),
       confidence: z.number(),
     })
     .optional(),
@@ -161,7 +163,9 @@ class CrucibleService {
     const json: unknown = await response.json()
     const result = AgentTaskSchema.safeParse(json)
     if (!result.success) {
-      throw new Error(`Invalid task response: ${result.error.issues[0]?.message}`)
+      throw new Error(
+        `Invalid task response: ${result.error.issues[0]?.message}`,
+      )
     }
     return result.data
   }
@@ -189,7 +193,9 @@ class CrucibleService {
     const json: unknown = await response.json()
     const result = AgentTaskSchema.safeParse(json)
     if (!result.success) {
-      throw new Error(`Invalid task response: ${result.error.issues[0]?.message}`)
+      throw new Error(
+        `Invalid task response: ${result.error.issues[0]?.message}`,
+      )
     }
     return result.data
   }

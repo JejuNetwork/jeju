@@ -104,7 +104,9 @@ export const cdnRoutes = new Elysia({ name: 'cdn', prefix: '/cdn' })
     '/ipfs/:cid',
     async ({ params, path, set }) => {
       const cidPath = path.replace(`/cdn/ipfs/${params.cid}`, '') || '/'
-      const cacheKey = cache.generateKey({ path: `/ipfs/${params.cid}${cidPath}` })
+      const cacheKey = cache.generateKey({
+        path: `/ipfs/${params.cid}${cidPath}`,
+      })
 
       const { entry, status } = cache.get(cacheKey)
       if (entry && (status === 'HIT' || status === 'STALE')) {
@@ -116,9 +118,13 @@ export const cdnRoutes = new Elysia({ name: 'cdn', prefix: '/cdn' })
         return new Uint8Array(entry.data)
       }
 
-      const result = await fetcher.fetch(`/ipfs/${params.cid}${cidPath}`, undefined, {
-        headers: {},
-      })
+      const result = await fetcher.fetch(
+        `/ipfs/${params.cid}${cidPath}`,
+        undefined,
+        {
+          headers: {},
+        },
+      )
 
       if (!result.success) {
         throw new Error(result.error || 'Content not found')

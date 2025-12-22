@@ -4,7 +4,7 @@
  */
 
 import type { DataSource } from 'typeorm'
-import { ComputeProvider, StorageProvider, ContainerImage } from '../model'
+import { ComputeProvider, ContainerImage, StorageProvider } from '../model'
 import { NotFoundError } from './types'
 
 export interface FullStackProvider {

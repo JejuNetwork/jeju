@@ -8,13 +8,13 @@
  * - prices: Fetch current prices
  */
 
+import type { EVMChainId } from '@jejunetwork/types'
 import { z } from 'zod'
 import { BotEngine } from './engine'
 import { EVMChainIdSchema } from './schemas'
 import { type BacktestConfig, Backtester } from './simulation/backtester'
 import { HistoricalDataFetcher } from './simulation/data-fetcher'
 import { PortfolioSimulator } from './simulation/portfolio-simulator'
-import type { EVMChainId } from '@jejunetwork/types'
 import type { Token } from './types'
 
 // ============ CLI Argument Schemas ============

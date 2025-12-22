@@ -5,8 +5,8 @@
  * Requires: Gateway running on port 4001
  */
 
-import { expect, test } from '@playwright/test'
 import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { expect, test } from '@playwright/test'
 
 const GATEWAY_URL = process.env.GATEWAY_URL || getCoreAppUrl('GATEWAY')
 

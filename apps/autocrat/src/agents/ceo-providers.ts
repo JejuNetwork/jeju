@@ -19,9 +19,9 @@ import type {
   State,
 } from '@elizaos/core'
 import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
+import { expectValid } from '@jejunetwork/types'
 import {
   A2AJsonRpcResponseSchema,
-  expectValid,
   extractA2AData,
   MCPToolsResponseSchema,
 } from '../schemas'

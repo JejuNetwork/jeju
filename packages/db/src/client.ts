@@ -108,7 +108,9 @@ const RentalPlanSchema = z.object({
   name: z.string(),
   nodeCount: z.number(),
   storageBytes: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
-  queriesPerMonth: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
+  queriesPerMonth: z
+    .union([z.bigint(), z.string()])
+    .transform((v) => BigInt(v)),
   pricePerMonth: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
   paymentToken: AddressSchema,
 })
@@ -448,22 +450,18 @@ export class CQLClient {
 
   // Database Management
   async createDatabase(config: DatabaseConfig): Promise<DatabaseInfo> {
-    return request(
-      `${this.endpoint}/api/v1/databases`,
-      DatabaseInfoSchema,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          nodeCount: config.nodeCount,
-          useEventualConsistency: config.useEventualConsistency ?? false,
-          regions: config.regions,
-          schema: config.schema,
-          owner: config.owner,
-          paymentToken: config.paymentToken,
-        }),
-      },
-    )
+    return request(`${this.endpoint}/api/v1/databases`, DatabaseInfoSchema, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        nodeCount: config.nodeCount,
+        useEventualConsistency: config.useEventualConsistency ?? false,
+        regions: config.regions,
+        schema: config.schema,
+        owner: config.owner,
+        paymentToken: config.paymentToken,
+      }),
+    })
   }
 
   async getDatabase(id: string): Promise<DatabaseInfo> {
@@ -522,22 +520,15 @@ export class CQLClient {
   }
 
   async createRental(req: CreateRentalRequest): Promise<RentalInfo> {
-    return request(
-      `${this.endpoint}/api/v1/rentals`,
-      RentalInfoSchema,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(req),
-      },
-    )
+    return request(`${this.endpoint}/api/v1/rentals`, RentalInfoSchema, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+    })
   }
 
   async getRental(id: string): Promise<RentalInfo> {
-    return request(
-      `${this.endpoint}/api/v1/rentals/${id}`,
-      RentalInfoSchema,
-    )
+    return request(`${this.endpoint}/api/v1/rentals/${id}`, RentalInfoSchema)
   }
 
   async extendRental(id: string, months: number): Promise<RentalInfo> {
@@ -560,10 +551,7 @@ export class CQLClient {
 
   // Status
   async getBlockProducerInfo(): Promise<BlockProducerInfo> {
-    return request(
-      `${this.endpoint}/api/v1/status`,
-      BlockProducerInfoSchema,
-    )
+    return request(`${this.endpoint}/api/v1/status`, BlockProducerInfoSchema)
   }
 
   async isHealthy(): Promise<boolean> {

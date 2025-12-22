@@ -1,5 +1,4 @@
 import type { Address } from 'viem'
-import { formatError } from '../../lib/validation'
 import { calculateProtocolFee, formatAmount } from '../services/settler'
 import type {
   DecodedPayment,
@@ -90,4 +89,3 @@ export function buildSettleSuccessResponse(
     timestamp: Date.now(),
   }
 }
-

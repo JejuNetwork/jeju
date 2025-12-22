@@ -607,7 +607,6 @@ export const VendorAppsConfigSchema = z.object({
 })
 export type VendorAppsConfig = z.infer<typeof VendorAppsConfigSchema>
 
-
 // ============================================================================
 // Test Keys Schema
 // ============================================================================
@@ -680,7 +679,10 @@ const DeploymentValueSchema: z.ZodType<DeploymentJsonValue> = z.lazy(() =>
   ]),
 )
 
-export const DeploymentFileDataSchema = z.record(z.string(), DeploymentValueSchema)
+export const DeploymentFileDataSchema = z.record(
+  z.string(),
+  DeploymentValueSchema,
+)
 export type DeploymentFileData = z.infer<typeof DeploymentFileDataSchema>
 
 // ============================================================================

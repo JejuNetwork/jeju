@@ -5,8 +5,8 @@
  * Model deployments require DAO approval.
  */
 
-import type { Address } from 'viem'
 import { expectValid } from '@jejunetwork/types'
+import type { Address } from 'viem'
 import {
   AgentRegistrationResponseSchema,
   ProposalStatusResponseSchema,

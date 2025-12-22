@@ -11,6 +11,7 @@
 import { Command } from 'commander'
 import type { Address, Hex } from 'viem'
 import { createWalletClient, http } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import {
   arbitrum,
   arbitrumSepolia,
@@ -23,10 +24,9 @@ import {
   polygon,
   sepolia,
 } from 'viem/chains'
-import { privateKeyToAccount } from 'viem/accounts'
 import { MAINNET_CHAINS, TESTNET_CHAINS } from '../config/chains'
-import { MultiChainLauncher } from '../deployer/multi-chain-launcher'
 import { preloadAllArtifacts } from '../deployer/contract-deployer'
+import { MultiChainLauncher } from '../deployer/multi-chain-launcher'
 import type {
   CCAConfig,
   ChainId,

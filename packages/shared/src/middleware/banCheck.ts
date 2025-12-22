@@ -253,7 +253,7 @@ export function createElysiaBanPlugin(config: BanCheckConfig) {
   const checker = new BanChecker(config)
 
   return new Elysia({ name: 'ban-check' })
-    .derive(({ request, headers, body }) => {
+    .derive(({ request: _request, headers, body }) => {
       const requestBody = body as RequestBody | null
       const address = (headers['x-wallet-address'] ||
         requestBody?.address ||
@@ -264,7 +264,7 @@ export function createElysiaBanPlugin(config: BanCheckConfig) {
     })
     .onBeforeHandle(async ({ walletAddress, set }) => {
       if (!walletAddress || !/^0x[a-fA-F0-9]{40}$/.test(walletAddress)) {
-        return
+        return undefined
       }
 
       const result = await checker.checkBan(walletAddress)
@@ -279,6 +279,8 @@ export function createElysiaBanPlugin(config: BanCheckConfig) {
           canAppeal: result.status?.canAppeal,
         }
       }
+
+      return undefined
     })
 }
 

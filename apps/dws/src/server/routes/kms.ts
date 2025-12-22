@@ -3,13 +3,13 @@
  * Key Management Service integration for DWS
  */
 
+import crypto from 'node:crypto'
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
-import { keccak256, toBytes, fromHex } from 'viem'
+import { fromHex, keccak256, toBytes } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { expectValid } from '@jejunetwork/types'
 import { z } from 'zod'
-import crypto from 'node:crypto'
 import {
   createKmsKeyRequestSchema,
   decryptRequestSchema,
@@ -67,8 +67,7 @@ const signingSessions = new Map<
 >()
 
 export function createKMSRouter() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let router: any = new Elysia({ name: 'kms', prefix: '/kms' })
+  let router = new Elysia({ name: 'kms', prefix: '/kms' })
 
   // ============================================================================
   // Health & Info
@@ -209,36 +208,43 @@ export function createKMSRouter() {
   })
 
   // Rotate key
-  router = router.post('/keys/:keyId/rotate', async ({ params, body, request }) => {
-    const owner = request.headers.get('x-jeju-address') as Address
-    if (!owner) throw new Error('Missing x-jeju-address header')
+  router = router.post(
+    '/keys/:keyId/rotate',
+    async ({ params, body, request }) => {
+      const owner = request.headers.get('x-jeju-address') as Address
+      if (!owner) throw new Error('Missing x-jeju-address header')
 
-    const { keyId } = expectValid(kmsKeyParamsSchema, params, 'KMS key params')
-    const key = keys.get(keyId)
+      const { keyId } = expectValid(
+        kmsKeyParamsSchema,
+        params,
+        'KMS key params',
+      )
+      const key = keys.get(keyId)
 
-    if (!key) {
-      throw new Error('Key not found')
-    }
-    if (key.owner.toLowerCase() !== owner.toLowerCase()) {
-      throw new Error('Not authorized')
-    }
+      if (!key) {
+        throw new Error('Key not found')
+      }
+      if (key.owner.toLowerCase() !== owner.toLowerCase()) {
+        throw new Error('Not authorized')
+      }
 
-    const validBody = body as {
-      newThreshold?: number
-      newTotalParties?: number
-    }
+      const validBody = body as {
+        newThreshold?: number
+        newTotalParties?: number
+      }
 
-    key.threshold = validBody.newThreshold ?? key.threshold
-    key.totalParties = validBody.newTotalParties ?? key.totalParties
-    key.version++
+      key.threshold = validBody.newThreshold ?? key.threshold
+      key.totalParties = validBody.newTotalParties ?? key.totalParties
+      key.version++
 
-    return {
-      keyId: key.keyId,
-      version: key.version,
-      threshold: key.threshold,
-      totalParties: key.totalParties,
-    }
-  })
+      return {
+        keyId: key.keyId,
+        version: key.version,
+        threshold: key.threshold,
+        totalParties: key.totalParties,
+      }
+    },
+  )
 
   // Delete key
   router = router.delete('/keys/:keyId', ({ params, request }) => {
@@ -397,8 +403,7 @@ export function createKMSRouter() {
       set.status = 501
       return {
         error: 'MPC decryption not available',
-        message:
-          'MPC decryption requires MPC_COORDINATOR_URL to be configured',
+        message: 'MPC decryption requires MPC_COORDINATOR_URL to be configured',
         mode: 'development',
       }
     }
@@ -527,47 +532,50 @@ export function createKMSRouter() {
   })
 
   // Reveal secret value (requires authentication)
-  router = router.post('/vault/secrets/:id/reveal', async ({ params, request, set }) => {
-    const owner = request.headers.get('x-jeju-address')?.toLowerCase()
-    const secret = secrets.get(params.id)
+  router = router.post(
+    '/vault/secrets/:id/reveal',
+    async ({ params, request, set }) => {
+      const owner = request.headers.get('x-jeju-address')?.toLowerCase()
+      const secret = secrets.get(params.id)
 
-    if (!secret) {
-      set.status = 404
-      return { error: 'Secret not found' }
-    }
-    if (secret.owner.toLowerCase() !== owner) {
-      set.status = 403
-      return { error: 'Not authorized' }
-    }
-    if (secret.expiresAt && secret.expiresAt < Date.now()) {
-      set.status = 410
-      return { error: 'Secret expired' }
-    }
+      if (!secret) {
+        set.status = 404
+        return { error: 'Secret not found' }
+      }
+      if (secret.owner.toLowerCase() !== owner) {
+        set.status = 403
+        return { error: 'Not authorized' }
+      }
+      if (secret.expiresAt && secret.expiresAt < Date.now()) {
+        set.status = 410
+        return { error: 'Secret expired' }
+      }
 
-    // Decrypt the value with AES-256-GCM
-    const data = Buffer.from(secret.encryptedValue, 'base64')
-    const iv = data.subarray(0, 12)
-    const authTag = data.subarray(12, 28)
-    const ciphertext = data.subarray(28)
+      // Decrypt the value with AES-256-GCM
+      const data = Buffer.from(secret.encryptedValue, 'base64')
+      const iv = data.subarray(0, 12)
+      const authTag = data.subarray(12, 28)
+      const ciphertext = data.subarray(28)
 
-    const derivedKey = Buffer.from(
-      keccak256(toBytes(secret.id)).slice(2),
-      'hex',
-    )
-    const decipher = crypto.createDecipheriv('aes-256-gcm', derivedKey, iv)
-    decipher.setAuthTag(authTag)
+      const derivedKey = Buffer.from(
+        keccak256(toBytes(secret.id)).slice(2),
+        'hex',
+      )
+      const decipher = crypto.createDecipheriv('aes-256-gcm', derivedKey, iv)
+      decipher.setAuthTag(authTag)
 
-    const decrypted = Buffer.concat([
-      decipher.update(ciphertext),
-      decipher.final(),
-    ]).toString('utf8')
+      const decrypted = Buffer.concat([
+        decipher.update(ciphertext),
+        decipher.final(),
+      ]).toString('utf8')
 
-    return {
-      id: secret.id,
-      name: secret.name,
-      value: decrypted,
-    }
-  })
+      return {
+        id: secret.id,
+        name: secret.name,
+        value: decrypted,
+      }
+    },
+  )
 
   // Delete secret
   router = router.delete('/vault/secrets/:id', ({ params, request, set }) => {

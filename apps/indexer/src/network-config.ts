@@ -749,4 +749,3 @@ export function getNetworkConfig(): NetworkConfig {
   }
   return _networkConfig
 }
-

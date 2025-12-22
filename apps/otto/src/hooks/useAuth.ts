@@ -3,9 +3,9 @@
  * Shared authentication business logic
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { verifyMessage } from 'viem'
-import { expectValid } from '@jejunetwork/types'
 import { AuthVerifyRequestSchema } from '../schemas'
 import { getStateManager } from '../services/state'
 import { getWalletService } from '../services/wallet'

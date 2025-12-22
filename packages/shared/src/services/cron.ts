@@ -331,10 +331,7 @@ class CronServiceImpl implements CronService {
     // Use safeParse for external cron service responses
     const parseResult = CronListResponseSchema.safeParse(await response.json())
     if (!parseResult.success) {
-      console.error(
-        '[Cron] Invalid list response:',
-        parseResult.error.message,
-      )
+      console.error('[Cron] Invalid list response:', parseResult.error.message)
       return null
     }
     return parseResult.data.jobs

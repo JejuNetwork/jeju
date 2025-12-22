@@ -9,6 +9,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Hex } from 'viem'
 import { toBytes, toHex } from 'viem'
@@ -17,7 +18,6 @@ import {
   blobSubmitRequestSchema,
   daOperatorInfoSchema,
 } from '../shared/schemas'
-import { expectValid } from '@jejunetwork/types'
 import { createDisperser, type Disperser } from './disperser'
 import type {
   BlobRetrievalRequest,
@@ -238,7 +238,9 @@ export class DAGateway {
         'Blob sample request',
       )
 
-      const metadata = this.disperser.getBlobManager().getMetadata(validatedBody.blobId)
+      const metadata = this.disperser
+        .getBlobManager()
+        .getMetadata(validatedBody.blobId)
       if (!metadata) {
         set.status = 404
         return { error: 'Blob not found' }
@@ -246,7 +248,11 @@ export class DAGateway {
 
       const result = await this.disperser
         .getSampler()
-        .sample(validatedBody.blobId, metadata.commitment, validatedBody.requester)
+        .sample(
+          validatedBody.blobId,
+          metadata.commitment,
+          validatedBody.requester,
+        )
 
       return result
     })

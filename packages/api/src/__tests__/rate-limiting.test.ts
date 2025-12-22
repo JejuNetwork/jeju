@@ -2,7 +2,7 @@
  * Rate Limiting Module Tests
  */
 
-import { describe, expect, test, beforeEach, afterEach } from 'bun:test'
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import {
   createRateLimitHeaders,
   createRateLimitKey,
@@ -10,7 +10,7 @@ import {
   InMemoryRateLimitStore,
   RateLimiter,
 } from '../rate-limiting/core'
-import { RateLimitTiers, type RateLimitTier } from '../rate-limiting/types'
+import { type RateLimitTier, RateLimitTiers } from '../rate-limiting/types'
 
 describe('Rate Limiting Core', () => {
   describe('InMemoryRateLimitStore', () => {

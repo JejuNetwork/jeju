@@ -17,22 +17,22 @@ Tests verify:
 - Multi-prompt extraction preserves ALL calls
 """
 
-import pytest
 import sys
 from datetime import datetime
 
+import pytest
+
 sys.path.insert(0, ".")
 
+from src.data_bridge.converter import BabylonToAtroposConverter
 from src.models import (
-    BabylonTrajectory,
-    TrajectoryStep,
-    EnvironmentState,
     Action,
+    BabylonTrajectory,
+    EnvironmentState,
     LLMCall,
+    TrajectoryStep,
 )
 from src.training import MultiPromptDatasetBuilder
-from src.data_bridge.converter import BabylonToAtroposConverter
-
 
 # ============================================================
 # Test Fixtures
@@ -154,9 +154,7 @@ def multi_call_step():
 class TestExactPromptPreservation:
     """Verify that training samples preserve exact prompts."""
 
-    def test_system_prompt_preserved_exactly(
-        self, trajectory_with_exact_calls, exact_llm_calls
-    ):
+    def test_system_prompt_preserved_exactly(self, trajectory_with_exact_calls, exact_llm_calls):
         """System prompt must be preserved character-for-character."""
         builder = MultiPromptDatasetBuilder()
         builder.add_trajectory(trajectory_with_exact_calls, trajectory_score=0.8)
@@ -178,9 +176,7 @@ class TestExactPromptPreservation:
             )
             assert matching_sample.system_prompt == original_call.system_prompt
 
-    def test_user_prompt_preserved_exactly(
-        self, trajectory_with_exact_calls, exact_llm_calls
-    ):
+    def test_user_prompt_preserved_exactly(self, trajectory_with_exact_calls, exact_llm_calls):
         """User prompt must be preserved character-for-character."""
         builder = MultiPromptDatasetBuilder()
         builder.add_trajectory(trajectory_with_exact_calls, trajectory_score=0.8)
@@ -200,9 +196,7 @@ class TestExactPromptPreservation:
             )
             assert matching_sample.user_prompt == original_call.user_prompt
 
-    def test_response_preserved_exactly(
-        self, trajectory_with_exact_calls, exact_llm_calls
-    ):
+    def test_response_preserved_exactly(self, trajectory_with_exact_calls, exact_llm_calls):
         """Response must be preserved character-for-character."""
         builder = MultiPromptDatasetBuilder()
         builder.add_trajectory(trajectory_with_exact_calls, trajectory_score=0.8)
@@ -217,8 +211,7 @@ class TestExactPromptPreservation:
                 None,
             )
             assert matching_sample is not None, (
-                f"No sample found with exact response:\n"
-                f"Expected: {original_call.response[:100]}..."
+                f"No sample found with exact response:\nExpected: {original_call.response[:100]}..."
             )
             assert matching_sample.response == original_call.response
 
@@ -389,9 +382,7 @@ class TestConverterStructure:
         assistant_count = sum(1 for m in result.messages if m.role == "assistant")
 
         # Should have one assistant message per LLM call
-        expected_calls = sum(
-            len(step.llm_calls) for step in trajectory_with_exact_calls.steps
-        )
+        expected_calls = sum(len(step.llm_calls) for step in trajectory_with_exact_calls.steps)
         assert assistant_count == expected_calls, (
             f"Expected {expected_calls} assistant messages, got {assistant_count}"
         )
@@ -415,9 +406,7 @@ class TestConverterStructure:
                 f"Got: {msg.content[:100]}..."
             )
 
-    def test_converter_preserves_user_prompts(
-        self, trajectory_with_exact_calls, exact_llm_calls
-    ):
+    def test_converter_preserves_user_prompts(self, trajectory_with_exact_calls, exact_llm_calls):
         """Converter should preserve user prompts exactly."""
         converter = BabylonToAtroposConverter()
         result = converter.convert_trajectory(trajectory_with_exact_calls)
@@ -430,8 +419,7 @@ class TestConverterStructure:
 
         for msg in user_messages:
             assert msg.content in original_prompts, (
-                f"Converter user prompt doesn't match original:\n"
-                f"Got: {msg.content[:100]}..."
+                f"Converter user prompt doesn't match original:\nGot: {msg.content[:100]}..."
             )
 
 
@@ -563,7 +551,7 @@ class TestEdgeCases:
             model="qwen3-32b",
             system_prompt='Special chars: "quotes", <tags>, & ampersand, émojis: 🚀💰',
             user_prompt='JSON: {"key": "value", "nested": {"a": 1}}',
-            response='Unicode: ñ, ü, 日本語, العربية\nNewlines\tand\ttabs',
+            response="Unicode: ñ, ü, 日本語, العربية\nNewlines\tand\ttabs",
             purpose="action",
             temperature=0.7,
             max_tokens=100,
@@ -658,4 +646,3 @@ class TestSystemConsistency:
             f"Builder only: {builder_prompts - converter_prompts}\n"
             f"Converter only: {converter_prompts - builder_prompts}"
         )
-

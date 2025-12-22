@@ -289,7 +289,7 @@ export function getApp(
  */
 export function hasApp(name: string, rootDir: string = process.cwd()): boolean {
   const app = getApp(name, rootDir)
-  return app?.exists
+  return app?.exists ?? false
 }
 
 /**

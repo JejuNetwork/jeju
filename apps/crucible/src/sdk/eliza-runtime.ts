@@ -10,6 +10,7 @@
  */
 
 import { getDWSComputeUrl } from '@jejunetwork/config'
+import jejuPlugin from '@jejunetwork/eliza-plugin'
 import {
   DWSChatResponseSchema,
   DWSNodeStatsSchema,
@@ -144,7 +145,11 @@ async function generateResponse(
     throw new Error(`DWS inference failed: ${response.status} ${error}`)
   }
 
-  const data = parseOrThrow(DWSChatResponseSchema, await response.json(), 'DWS chat response')
+  const data = parseOrThrow(
+    DWSChatResponseSchema,
+    await response.json(),
+    'DWS chat response',
+  )
   return data.choices[0]?.message?.content ?? ''
 }
 
@@ -194,24 +199,15 @@ export class CrucibleAgentRuntime {
 
     // Load jeju plugin actions if not already loaded
     if (!jejuPluginLoaded) {
-      try {
-        // Conditional dynamic import: jeju plugin may not be available in all environments
-        const jejuPlugin = await import('@jejunetwork/eliza-plugin')
-        if (jejuPlugin?.jejuPlugin?.actions) {
-          jejuActions = (jejuPlugin.jejuPlugin.actions as JejuAction[]).map(
-            (a) => ({
-              name: a.name,
-              description: a.description ?? '',
-              parameters: a.parameters,
-            }),
-          )
-          this.log.info('Jeju plugin loaded', { actions: jejuActions.length })
-        }
-        jejuPluginLoaded = true
-      } catch (e) {
-        this.log.warn('Jeju plugin not available', { error: String(e) })
-        jejuPluginLoaded = true // Mark as attempted
+      if (jejuPlugin?.actions) {
+        jejuActions = (jejuPlugin.actions as JejuAction[]).map((a) => ({
+          name: a.name,
+          description: a.description ?? '',
+          parameters: a.parameters,
+        }))
+        this.log.info('Jeju plugin loaded', { actions: jejuActions.length })
       }
+      jejuPluginLoaded = true
     }
 
     this.log.info('Agent runtime initialized', {

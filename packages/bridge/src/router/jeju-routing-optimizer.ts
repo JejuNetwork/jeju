@@ -415,9 +415,10 @@ export class JejuRoutingOptimizer {
 
   private getCost(src: ChainConfig, dst: ChainConfig): RouteCost | null {
     if (src.type === 'evm' && dst.type === 'evm') {
+      const bscChains: ChainId[] = [ChainId.BSC, ChainId.BSC_TESTNET]
       const isBsc =
-        [ChainId.BSC, ChainId.BSC_TESTNET].includes(src.chainId as ChainId) ||
-        [ChainId.BSC, ChainId.BSC_TESTNET].includes(dst.chainId as ChainId)
+        bscChains.includes(src.chainId as ChainId) ||
+        bscChains.includes(dst.chainId as ChainId)
       return isBsc ? ROUTE_COSTS.bsc_route : ROUTE_COSTS.evm_l2_to_l2
     }
     if (src.type === 'solana') return ROUTE_COSTS.solana_to_evm

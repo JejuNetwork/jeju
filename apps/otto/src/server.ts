@@ -3,12 +3,12 @@
  * Provides HTTP API and integrates with ElizaOS plugins
  */
 
-import { cors } from '@elysiajs/cors'
 import { createHmac } from 'node:crypto'
+import { cors } from '@elysiajs/cors'
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { getConfig } from './config'
-import { expectValid } from '@jejunetwork/types'
 import {
   DiscordWebhookPayloadSchema,
   FarcasterFramePayloadSchema,

@@ -1,11 +1,11 @@
-import type { Address } from 'viem'
 import {
   CORE_PORTS,
   getCoreAppUrl,
-  getExplorerUrl as getLocalnetExplorerUrl,
   getL2RpcUrl,
+  getExplorerUrl as getLocalnetExplorerUrl,
 } from '@jejunetwork/config/ports'
 import { ZERO_ADDRESS } from '@jejunetwork/ui'
+import type { Address } from 'viem'
 
 // Network selection: NETWORK env var or default to testnet
 export type NetworkId = 'mainnet' | 'testnet' | 'localnet'
@@ -78,7 +78,8 @@ export const CHAINS = {
 // Service URLs (using centralized port config)
 export const SERVICES = {
   rpcGateway: getCoreAppUrl('RPC_GATEWAY'),
-  indexer: process.env.INDEXER_URL || `${getCoreAppUrl('INDEXER_GRAPHQL')}/graphql`,
+  indexer:
+    process.env.INDEXER_URL || `${getCoreAppUrl('INDEXER_GRAPHQL')}/graphql`,
   ipfsApi: getCoreAppUrl('IPFS'),
   ipfsGateway: getCoreAppUrl('IPFS'),
 } as const

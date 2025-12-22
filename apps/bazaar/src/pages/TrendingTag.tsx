@@ -5,8 +5,8 @@
 
 import { useInfiniteQuery } from '@tanstack/react-query'
 import { ArrowLeft } from 'lucide-react'
-import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect, useMemo } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
 
 interface PostData {
@@ -38,16 +38,6 @@ export default function TrendingTagPage() {
   const { tag } = useParams<{ tag?: string }>()
   const navigate = useNavigate()
 
-  useEffect(() => {
-    if (!tag) {
-      navigate('/trending', { replace: true })
-    }
-  }, [tag, navigate])
-
-  if (!tag) {
-    return null
-  }
-
   const {
     data,
     isLoading: loading,
@@ -58,7 +48,7 @@ export default function TrendingTagPage() {
     queryKey: ['trending', tag],
     queryFn: async ({ pageParam = 0 }) => {
       const response = await fetch(
-        `/api/trending/${encodeURIComponent(tag)}?limit=${PAGE_SIZE}&offset=${pageParam}`
+        `/api/trending/${encodeURIComponent(tag || '')}?limit=${PAGE_SIZE}&offset=${pageParam}`,
       )
 
       if (!response.ok) {
@@ -102,6 +92,16 @@ export default function TrendingTagPage() {
     return { posts: deduped, tagInfo: firstPageTag }
   }, [data])
 
+  useEffect(() => {
+    if (!tag) {
+      navigate('/trending', { replace: true })
+    }
+  }, [tag, navigate])
+
+  if (!tag) {
+    return null
+  }
+
   const handleLoadMore = () => {
     if (!loading && !loadingMore && hasMore) {
       fetchNextPage()
@@ -112,6 +112,7 @@ export default function TrendingTagPage() {
     <div className="max-w-2xl mx-auto">
       <div className="flex items-center gap-4 mb-6">
         <button
+          type="button"
           onClick={() => navigate(-1)}
           className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
           aria-label="Go back"
@@ -121,17 +122,26 @@ export default function TrendingTagPage() {
         <div>
           {tagInfo ? (
             <>
-              <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+              <h1
+                className="text-2xl font-bold"
+                style={{ color: 'var(--text-primary)' }}
+              >
                 {tagInfo.displayName}
               </h1>
               {tagInfo.category && (
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                <p
+                  className="text-sm"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
                   {tagInfo.category} · Trending
                 </p>
               )}
             </>
           ) : (
-            <h1 className="text-2xl font-bold" style={{ color: 'var(--text-primary)' }}>
+            <h1
+              className="text-2xl font-bold"
+              style={{ color: 'var(--text-primary)' }}
+            >
               {decodeURIComponent(tag)}
             </h1>
           )}
@@ -144,11 +154,15 @@ export default function TrendingTagPage() {
         </div>
       ) : posts.length === 0 ? (
         <div className="text-center py-12">
-          <h2 className="text-xl font-semibold mb-2" style={{ color: 'var(--text-primary)' }}>
+          <h2
+            className="text-xl font-semibold mb-2"
+            style={{ color: 'var(--text-primary)' }}
+          >
             No posts found
           </h2>
           <p style={{ color: 'var(--text-secondary)' }}>
-            No posts have been tagged with &quot;{tagInfo?.displayName || tag}&quot; yet.
+            No posts have been tagged with &quot;{tagInfo?.displayName || tag}
+            &quot; yet.
           </p>
         </div>
       ) : (
@@ -156,15 +170,23 @@ export default function TrendingTagPage() {
           {posts.map((post) => (
             <div key={post.id} className="card p-4">
               <div className="flex items-center gap-2 mb-2">
-                <span className="font-semibold" style={{ color: 'var(--text-primary)' }}>
+                <span
+                  className="font-semibold"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   {post.authorName}
                 </span>
                 {post.authorUsername && (
-                  <span style={{ color: 'var(--text-tertiary)' }}>@{post.authorUsername}</span>
+                  <span style={{ color: 'var(--text-tertiary)' }}>
+                    @{post.authorUsername}
+                  </span>
                 )}
               </div>
               <p style={{ color: 'var(--text-secondary)' }}>{post.content}</p>
-              <div className="flex gap-4 mt-2 text-sm" style={{ color: 'var(--text-tertiary)' }}>
+              <div
+                className="flex gap-4 mt-2 text-sm"
+                style={{ color: 'var(--text-tertiary)' }}
+              >
                 <span>{post.likeCount || 0} likes</span>
                 <span>{post.commentCount || 0} comments</span>
               </div>
@@ -176,7 +198,11 @@ export default function TrendingTagPage() {
               {loadingMore ? (
                 <LoadingSpinner size="sm" />
               ) : (
-                <button onClick={handleLoadMore} className="btn-primary">
+                <button
+                  type="button"
+                  onClick={handleLoadMore}
+                  className="btn-primary"
+                >
                   Load More
                 </button>
               )}

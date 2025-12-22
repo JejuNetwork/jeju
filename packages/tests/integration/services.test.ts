@@ -6,8 +6,8 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { Client } from 'pg'
 import { getIpfsApiUrl } from '@jejunetwork/config/ports'
+import { Client } from 'pg'
 
 const POSTGRES_URL =
   process.env.DATABASE_URL || 'postgresql://jeju:jeju@127.0.0.1:5432/jeju'

@@ -4,15 +4,6 @@
  * Framework-agnostic admin role validation with Elysia adapter.
  */
 
-// Types
-export {
-  AdminRole,
-  type AdminConfig,
-  type AdminUser,
-  type AdminValidationResult,
-  ROLE_HIERARCHY,
-} from './types.js'
-
 // Core
 export {
   createAdminConfig,
@@ -23,14 +14,21 @@ export {
   requireRole,
   validateAdmin,
 } from './core.js'
-
 // Elysia adapter
 export {
+  type AdminContext,
+  type AdminPluginConfig,
   adminPlugin,
   requireAdminMiddleware,
   requireRoleMiddleware,
   withAdmin,
   withRole,
-  type AdminContext,
-  type AdminPluginConfig,
 } from './elysia.js'
+// Types
+export {
+  type AdminConfig,
+  AdminRole,
+  type AdminUser,
+  type AdminValidationResult,
+  ROLE_HIERARCHY,
+} from './types.js'

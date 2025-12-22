@@ -10,6 +10,7 @@
  */
 
 import { EventEmitter } from 'node:events'
+import type { EVMChainId } from '@jejunetwork/types'
 import {
   type Address,
   type Chain,
@@ -23,7 +24,6 @@ import {
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { OracleAggregator } from '../../oracles'
 import { KeyedMutex } from '../../shared'
-import type { EVMChainId } from '@jejunetwork/types'
 import type { TFMMRiskParameters, TFMMWeightUpdate, Token } from '../../types'
 import type { StrategyContext, WeightCalculation } from './base-strategy'
 import { type CompositeConfig, CompositeStrategy } from './composite-strategy'
@@ -440,7 +440,7 @@ export class TFMMRebalancer extends EventEmitter {
    * Get current strategy configuration
    */
   getStrategyConfig(): CompositeConfig {
-    return this.strategy.config
+    return this.strategy.getConfig()
   }
 
   /**

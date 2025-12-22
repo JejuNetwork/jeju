@@ -12,7 +12,6 @@
 import { describe, expect, it } from 'bun:test'
 import {
   createCovenantSQLClient,
-  createTableMigration,
   getHSMClient,
   getMPCCustodyManager,
   MigrationManager,

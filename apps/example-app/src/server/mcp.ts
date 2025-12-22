@@ -6,6 +6,13 @@
 
 import { getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
+import type {
+  MCPResource,
+  MCPServerInfo,
+  MCPTool,
+  Todo,
+  TodoStats,
+} from '../schemas'
 import {
   addressSchema,
   bulkCompleteSchema,
@@ -22,13 +29,6 @@ import {
 } from '../schemas'
 import { getCronService } from '../services/cron'
 import { getTodoService } from '../services/todo'
-import type {
-  MCPResource,
-  MCPServerInfo,
-  MCPTool,
-  Todo,
-  TodoStats,
-} from '../schemas'
 import type { MCPPrompt } from '../types'
 import {
   expectValid,
@@ -233,7 +233,9 @@ export function createMCPServer(): Elysia {
 
       if (error instanceof ValidationError) {
         return {
-          content: [{ type: 'text', text: `Validation error: ${error.message}` }],
+          content: [
+            { type: 'text', text: `Validation error: ${error.message}` },
+          ],
           isError: true,
         }
       }
@@ -272,7 +274,9 @@ export function createMCPServer(): Elysia {
       const addressHeader = request.headers.get('x-jeju-address')
       if (!addressHeader) {
         set.status = 401
-        return { error: 'Authentication required: x-jeju-address header missing' }
+        return {
+          error: 'Authentication required: x-jeju-address header missing',
+        }
       }
 
       const address = expectValid(
@@ -294,12 +298,16 @@ export function createMCPServer(): Elysia {
           break
         }
         case 'todo://pending': {
-          const todos = await todoService.listTodos(address, { completed: false })
+          const todos = await todoService.listTodos(address, {
+            completed: false,
+          })
           contents = { todos, count: todos.length }
           break
         }
         case 'todo://completed': {
-          const todos = await todoService.listTodos(address, { completed: true })
+          const todos = await todoService.listTodos(address, {
+            completed: true,
+          })
           contents = { todos, count: todos.length }
           break
         }
@@ -308,7 +316,9 @@ export function createMCPServer(): Elysia {
           break
         }
         case 'todo://overdue': {
-          const todos = await todoService.listTodos(address, { completed: false })
+          const todos = await todoService.listTodos(address, {
+            completed: false,
+          })
           const now = Date.now()
           const overdue = todos.filter((t) => t.dueDate && t.dueDate < now)
           contents = { todos: overdue, count: overdue.length }
@@ -402,7 +412,10 @@ export function createMCPServer(): Elysia {
             validatedInput.arguments,
             'Create todo input',
           )
-          const todo = await todoService.createTodo(address, validatedCreateInput)
+          const todo = await todoService.createTodo(
+            address,
+            validatedCreateInput,
+          )
           result = { todo, created: true }
           break
         }
@@ -509,7 +522,9 @@ export function createMCPServer(): Elysia {
       const addressHeader = request.headers.get('x-jeju-address')
       if (!addressHeader) {
         set.status = 401
-        return { error: 'Authentication required: x-jeju-address header missing' }
+        return {
+          error: 'Authentication required: x-jeju-address header missing',
+        }
       }
 
       const address = expectValid(
@@ -544,7 +559,9 @@ export function createMCPServer(): Elysia {
         }
 
         case 'prioritize_tasks': {
-          const todos = await todoService.listTodos(address, { completed: false })
+          const todos = await todoService.listTodos(address, {
+            completed: false,
+          })
           const countArg = validatedInput.arguments.count
           const count = countArg !== undefined ? parseInt(countArg, 10) : 5
 

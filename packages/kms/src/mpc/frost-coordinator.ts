@@ -8,8 +8,8 @@
  * the same interface as the existing MPCCoordinator.
  */
 
-import { type Hex, keccak256, toBytes } from 'viem'
 import { FROSTCoordinator } from '@jejunetwork/oauth3'
+import { type Hex, keccak256, toBytes } from 'viem'
 import {
   getMPCConfig,
   type KeyVersion,

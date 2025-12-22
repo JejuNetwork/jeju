@@ -4,8 +4,8 @@
  * Sends tokens to a recipient address.
  */
 
-import { type Address, isAddress, parseUnits } from 'viem'
 import { expectAddress, expectBigInt, expectChainId } from '@jejunetwork/types'
+import { type Address, isAddress, parseUnits } from 'viem'
 import { expectNonEmpty } from '../../lib/validation'
 import type { SecurityService } from '../services/security.service'
 import type { ActionContext, ActionResult } from './wallet-info'

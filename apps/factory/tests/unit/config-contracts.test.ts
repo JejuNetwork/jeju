@@ -4,8 +4,8 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { getL2RpcUrl, INFRA_PORTS } from '@jejunetwork/config/ports'
 import type { Address } from 'viem'
-import { INFRA_PORTS, getL2RpcUrl } from '@jejunetwork/config/ports'
 
 // Expected localnet addresses (deterministic from anvil)
 const EXPECTED_LOCALNET_ADDRESSES = {

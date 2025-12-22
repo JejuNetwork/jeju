@@ -21,15 +21,15 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { $ } from 'bun'
 import { type Address, createPublicClient, formatEther, http } from 'viem'
-import { inferChainFromRpcUrl } from '../shared/chain-utils'
 import {
   ChainConfigMinimalSchema,
+  EILDeploymentSchema,
   expectJson,
   expectValid,
-  EILDeploymentSchema,
   JsonRpcBlockNumberResponseSchema,
   OIFDeploymentSchema,
 } from '../../schemas'
+import { inferChainFromRpcUrl } from '../shared/chain-utils'
 
 const ROOT = process.cwd()
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys')
@@ -519,7 +519,11 @@ async function checkChainStatus() {
     return
   }
   const configContent = readFileSync(CHAIN_CONFIG, 'utf-8')
-  const config = expectJson(configContent, ChainConfigMinimalSchema, 'chain config')
+  const config = expectJson(
+    configContent,
+    ChainConfigMinimalSchema,
+    'chain config',
+  )
 
   // Try to connect to testnet RPC
   try {
@@ -535,7 +539,11 @@ async function checkChainStatus() {
     })
 
     const dataRaw = await response.json()
-    const data = expectValid(JsonRpcBlockNumberResponseSchema, dataRaw, 'eth_blockNumber response')
+    const data = expectValid(
+      JsonRpcBlockNumberResponseSchema,
+      dataRaw,
+      'eth_blockNumber response',
+    )
     if (data.result) {
       const blockNumber = parseInt(data.result, 16)
       addResult(category, 'L2 RPC', 'pass', `Block: ${blockNumber}`)

@@ -147,7 +147,9 @@ export function createS3Router(backend: BackendManager): Elysia {
 
         // List objects if list-type is specified
         if (listType === '2') {
-          const maxKeys = query['max-keys'] ? parseInt(query['max-keys'], 10) : 1000
+          const maxKeys = query['max-keys']
+            ? parseInt(query['max-keys'], 10)
+            : 1000
 
           const result = await s3.listObjects({
             bucket: params.bucket,
@@ -217,7 +219,15 @@ export function createS3Router(backend: BackendManager): Elysia {
         const operation = query['X-DWS-Operation']
 
         if (signature && expires && operation) {
-          if (!s3.verifyPresignedUrl(params.bucket, params.key, signature, expires, operation)) {
+          if (
+            !s3.verifyPresignedUrl(
+              params.bucket,
+              params.key,
+              signature,
+              expires,
+              operation,
+            )
+          ) {
             set.status = 403
             return { error: 'Invalid signature' }
           }
@@ -231,11 +241,12 @@ export function createS3Router(backend: BackendManager): Elysia {
           }
         }
 
-        const bodyBuffer = body instanceof ArrayBuffer
-          ? Buffer.from(body)
-          : typeof body === 'string'
+        const bodyBuffer =
+          body instanceof ArrayBuffer
             ? Buffer.from(body)
-            : Buffer.from(body as Uint8Array)
+            : typeof body === 'string'
+              ? Buffer.from(body)
+              : Buffer.from(body as Uint8Array)
 
         const result = await s3.putObject({
           bucket: params.bucket,
@@ -248,7 +259,7 @@ export function createS3Router(backend: BackendManager): Elysia {
           contentEncoding: headers['content-encoding'],
         })
 
-        set.headers['ETag'] = result.etag
+        set.headers.ETag = result.etag
         if (result.versionId) {
           set.headers['x-amz-version-id'] = result.versionId
         }
@@ -286,7 +297,15 @@ export function createS3Router(backend: BackendManager): Elysia {
         const operation = query['X-DWS-Operation']
 
         if (signature && expires && operation) {
-          if (!s3.verifyPresignedUrl(params.bucket, params.key, signature, expires, operation)) {
+          if (
+            !s3.verifyPresignedUrl(
+              params.bucket,
+              params.key,
+              signature,
+              expires,
+              operation,
+            )
+          ) {
             set.status = 403
             return { error: 'Invalid signature' }
           }
@@ -300,7 +319,10 @@ export function createS3Router(backend: BackendManager): Elysia {
           responseHeaders.set('Content-Type', result.contentType)
           responseHeaders.set('Content-Length', String(result.contentLength))
           responseHeaders.set('ETag', result.etag)
-          responseHeaders.set('Last-Modified', result.lastModified.toUTCString())
+          responseHeaders.set(
+            'Last-Modified',
+            result.lastModified.toUTCString(),
+          )
           responseHeaders.set('x-amz-storage-class', result.storageClass)
 
           if (result.versionId) {
@@ -316,7 +338,7 @@ export function createS3Router(backend: BackendManager): Elysia {
 
         const ifNoneMatch = headers['if-none-match']
         const ifModifiedSince = headers['if-modified-since']
-        const range = headers['range']
+        const range = headers.range
 
         const result = await s3.getObject({
           bucket: params.bucket,
@@ -366,7 +388,7 @@ export function createS3Router(backend: BackendManager): Elysia {
         headers: t.Object({
           'if-none-match': t.Optional(t.String()),
           'if-modified-since': t.Optional(t.String()),
-          'range': t.Optional(t.String()),
+          range: t.Optional(t.String()),
         }),
       },
     )
@@ -398,7 +420,10 @@ export function createS3Router(backend: BackendManager): Elysia {
         const uploads = query.uploads
 
         if (uploads !== undefined) {
-          const uploadId = await s3.createMultipartUpload(params.bucket, params.key)
+          const uploadId = await s3.createMultipartUpload(
+            params.bucket,
+            params.key,
+          )
           return {
             Bucket: params.bucket,
             Key: params.key,
@@ -408,7 +433,12 @@ export function createS3Router(backend: BackendManager): Elysia {
 
         // Complete multipart upload
         const uploadId = query.uploadId
-        if (uploadId && body && typeof body === 'object' && 'CompleteMultipartUpload' in body) {
+        if (
+          uploadId &&
+          body &&
+          typeof body === 'object' &&
+          'CompleteMultipartUpload' in body
+        ) {
           const completeBody = body as {
             CompleteMultipartUpload: {
               Part: Array<{ PartNumber: number; ETag: string }>

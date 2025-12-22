@@ -13,8 +13,8 @@
 import { existsSync } from 'node:fs'
 import { platform } from 'node:os'
 import { join } from 'node:path'
-import { execa, type ResultPromise } from 'execa'
 import { CORE_PORTS } from '@jejunetwork/config/ports'
+import { execa, type ResultPromise } from 'execa'
 import { logger } from '../lib/logger'
 import { DEFAULT_PORTS } from '../types'
 

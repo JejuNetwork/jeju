@@ -5,7 +5,11 @@
  */
 
 import { describe, expect, it } from 'bun:test'
-import { getCoreAppUrl, getL2RpcUrl, getIndexerGraphqlUrl } from '@jejunetwork/config/ports'
+import {
+  getCoreAppUrl,
+  getIndexerGraphqlUrl,
+  getL2RpcUrl,
+} from '@jejunetwork/config/ports'
 import type {
   AgentDefinition,
   AgentRole,

@@ -2,15 +2,15 @@
  * API request/response Zod schemas
  */
 
-import { AddressSchema } from '@jejunetwork/types'
-import { z } from 'zod'
 import {
+  AddressSchema,
   BigIntSchema,
-  ChainTypeSchema,
   EvmChainIdSchema,
   NonEmptyStringSchema,
   SolanaNetworkIdSchema,
-} from './common'
+} from '@jejunetwork/types'
+import { z } from 'zod'
+import { ChainTypeSchema } from './common'
 import { TokenMetadataSchema } from './token'
 
 // ============ A2A API Schemas ============

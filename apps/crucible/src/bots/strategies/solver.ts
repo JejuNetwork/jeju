@@ -8,7 +8,11 @@ import {
   type WalletClient,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import type { ChainConfig, ChainId, StrategyConfig } from '../autocrat-types-source'
+import type {
+  ChainConfig,
+  ChainId,
+  StrategyConfig,
+} from '../autocrat-types-source'
 import { ERC20_ABI, OUTPUT_SETTLER_ABI, ZERO_ADDRESS } from '../lib/contracts'
 
 interface Intent {

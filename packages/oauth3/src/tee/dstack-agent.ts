@@ -160,10 +160,10 @@ export class DstackAuthAgent {
   private store: SessionStore
   private decentralizedStore: DecentralizedSessionStore | null = null
   private nodeAccount: ReturnType<typeof privateKeyToAccount>
+  private nodePrivateKey: Uint8Array
   private mpcCoordinator: FROSTCoordinator | null = null
   private mpcInitialized = false
   private cleanupInterval: ReturnType<typeof setInterval> | null = null
-  private nodePrivateKey: Uint8Array
 
   constructor(config: AuthAgentConfig) {
     this.config = config

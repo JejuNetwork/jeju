@@ -4,9 +4,9 @@
  * Coordinates wallet edge nodes for distributed CDN/caching/proxy services.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
-import { expectValid } from '@jejunetwork/types'
 import {
   edgeCacheRequestSchema,
   edgeNodeParamsSchema,
@@ -151,7 +151,11 @@ export function createEdgeRouter() {
   // ============================================================================
 
   router.post('/register', async ({ body, set }) => {
-    const validated = expectValid(edgeNodeRegistrationSchema, body, 'Edge node registration')
+    const validated = expectValid(
+      edgeNodeRegistrationSchema,
+      body,
+      'Edge node registration',
+    )
 
     const nodeId = crypto.randomUUID()
     const node: EdgeNode = {
@@ -191,7 +195,11 @@ export function createEdgeRouter() {
   // ============================================================================
 
   router.get('/nodes', ({ query }) => {
-    const validated = expectValid(edgeNodesQuerySchema, query, 'Edge nodes query')
+    const validated = expectValid(
+      edgeNodesQuerySchema,
+      query,
+      'Edge nodes query',
+    )
     const { region, type: nodeType, status } = validated
 
     let nodes = Array.from(edgeNodes.values())
@@ -215,7 +223,11 @@ export function createEdgeRouter() {
   })
 
   router.get('/nodes/:nodeId', ({ params }) => {
-    const { nodeId } = expectValid(edgeNodeParamsSchema, params, 'Edge node params')
+    const { nodeId } = expectValid(
+      edgeNodeParamsSchema,
+      params,
+      'Edge node params',
+    )
     const node = edgeNodes.get(nodeId)
     if (!node) {
       throw new Error('Node not found')
@@ -225,7 +237,11 @@ export function createEdgeRouter() {
   })
 
   router.delete('/nodes/:nodeId', ({ params }) => {
-    const { nodeId } = expectValid(edgeNodeParamsSchema, params, 'Edge node params')
+    const { nodeId } = expectValid(
+      edgeNodeParamsSchema,
+      params,
+      'Edge node params',
+    )
 
     if (!edgeNodes.has(nodeId)) {
       throw new Error('Node not found')
@@ -244,7 +260,11 @@ export function createEdgeRouter() {
   // ============================================================================
 
   router.post('/cache', async ({ body, set }) => {
-    const validated = expectValid(edgeCacheRequestSchema, body, 'Edge cache request')
+    const validated = expectValid(
+      edgeCacheRequestSchema,
+      body,
+      'Edge cache request',
+    )
 
     cacheRequests.set(validated.cid, validated)
 
@@ -281,7 +301,11 @@ export function createEdgeRouter() {
   })
 
   router.get('/cache/:cid', ({ params }) => {
-    const { cid } = expectValid(edgeRouteParamsSchema, params, 'Edge route params')
+    const { cid } = expectValid(
+      edgeRouteParamsSchema,
+      params,
+      'Edge route params',
+    )
 
     // Find CDN-capable nodes (cache inventory not tracked centrally)
     const cachingNodes = Array.from(edgeNodes.values()).filter((n) => {
@@ -300,9 +324,19 @@ export function createEdgeRouter() {
   // ============================================================================
 
   router.get('/route/:cid', ({ params, request }) => {
-    const { cid } = expectValid(edgeRouteParamsSchema, params, 'Edge route params')
-    const headersObj = { 'x-jeju-region': request.headers.get('x-jeju-region') ?? undefined }
-    const { 'x-jeju-region': clientRegion } = expectValid(regionHeaderSchema, headersObj, 'Region header')
+    const { cid } = expectValid(
+      edgeRouteParamsSchema,
+      params,
+      'Edge route params',
+    )
+    const headersObj = {
+      'x-jeju-region': request.headers.get('x-jeju-region') ?? undefined,
+    }
+    const { 'x-jeju-region': clientRegion } = expectValid(
+      regionHeaderSchema,
+      headersObj,
+      'Region header',
+    )
     const region = clientRegion ?? 'global'
 
     // Find best node for this content
@@ -339,7 +373,11 @@ export function createEdgeRouter() {
   // ============================================================================
 
   router.get('/earnings/:nodeId', ({ params }) => {
-    const { nodeId } = expectValid(edgeNodeParamsSchema, params, 'Edge node params')
+    const { nodeId } = expectValid(
+      edgeNodeParamsSchema,
+      params,
+      'Edge node params',
+    )
     const node = edgeNodes.get(nodeId)
     if (!node) {
       throw new Error('Node not found')

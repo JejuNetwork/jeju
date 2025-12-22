@@ -3,12 +3,9 @@
  * Uses Twitter API v2 for posting and monitoring mentions
  */
 
-import { z } from 'zod'
 import { expectValid } from '@jejunetwork/types'
-import {
-  PlatformMessageSchema,
-  TwitterWebhookPayloadSchema,
-} from '../schemas'
+import { z } from 'zod'
+import { PlatformMessageSchema, TwitterWebhookPayloadSchema } from '../schemas'
 import type {
   MessageButton,
   MessageEmbed,

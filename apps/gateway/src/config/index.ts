@@ -1,6 +1,6 @@
-import type { Address } from 'viem'
-import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import { CORE_PORTS, INFRA_PORTS } from '@jejunetwork/config/ports'
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
+import type { Address } from 'viem'
 
 // Build-time network selection
 export const NETWORK = (import.meta.env.VITE_NETWORK || 'localnet') as

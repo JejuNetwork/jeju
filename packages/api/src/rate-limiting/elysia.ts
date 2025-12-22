@@ -4,7 +4,7 @@
  * Provides Elysia plugins for rate limiting using the framework-agnostic core.
  */
 
-import { Elysia, type Context } from 'elysia'
+import { type Context, Elysia } from 'elysia'
 import {
   createRateLimitHeaders,
   createRateLimitKey,
@@ -174,13 +174,12 @@ export function tieredRateLimit(options?: {
  * Per-route rate limit decorator
  * Use this to set custom rate limits on specific routes
  */
-export function withRateLimit(
-  tier: RateLimitTier,
-  limiter: RateLimiter,
-) {
-  return async ({ request, set }: Context): Promise<
-    | { error: string; code: string; retryAfter: number }
-    | undefined
+export function withRateLimit(tier: RateLimitTier, limiter: RateLimiter) {
+  return async ({
+    request,
+    set,
+  }: Context): Promise<
+    { error: string; code: string; retryAfter: number } | undefined
   > => {
     const ip = extractClientIp(Object.fromEntries(request.headers.entries()))
     const result = await limiter.check(ip, tier)

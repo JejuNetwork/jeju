@@ -10,7 +10,11 @@ import { app } from '../src/server'
 // Helper for Elysia testing - converts Hono-style request to Elysia handle
 async function request(
   path: string,
-  options?: { method?: string; headers?: Record<string, string>; body?: string },
+  options?: {
+    method?: string
+    headers?: Record<string, string>
+    body?: string
+  },
 ): Promise<Response> {
   const url = `http://localhost${path}`
   const req = new Request(url, {

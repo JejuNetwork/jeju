@@ -12,6 +12,7 @@ import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { localhost, mainnet, sepolia } from 'viem/chains'
 import { z } from 'zod'
+import { DEFAULT_AUTONOMOUS_CONFIG } from './autonomous/types'
 import { BotInitializer } from './bots/initializer'
 import type { TradingBot } from './bots/trading-bot'
 import { characters, getCharacter, listCharacters } from './characters'
@@ -1028,9 +1029,6 @@ app.post('/api/v1/autonomous/agents', async ({ body, set }) => {
     set.status = 404
     return { error: `Character not found: ${parsedBody.characterId}` }
   }
-
-  // Conditional dynamic import: autonomous/types only needed when autonomous runner is enabled
-  const { DEFAULT_AUTONOMOUS_CONFIG } = await import('./autonomous/types')
 
   await autonomousRunner.registerAgent({
     ...DEFAULT_AUTONOMOUS_CONFIG,

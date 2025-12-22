@@ -302,4 +302,3 @@ export interface Pull {
   merged_at: number | null
   closed_at: number | null
 }
-

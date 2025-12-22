@@ -37,13 +37,7 @@ interface QueryResult<T = SqlRow> {
 const getCQLUrl = (): string => process.env.CQL_URL || 'http://localhost:4661'
 
 // Stub CovenantSQLClient
-interface CovenantSQLClientConfig {
-  blockProducerEndpoint: string
-  databaseId: string
-}
-
 class CovenantSQLClient {
-  constructor(_config: CovenantSQLClientConfig) {}
   async query<T = SqlRow>(
     _sql: string,
     _params?: SqlParam[],

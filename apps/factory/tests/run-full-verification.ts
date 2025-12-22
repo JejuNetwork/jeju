@@ -7,7 +7,6 @@ import { exec, spawn } from 'node:child_process'
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
-import { getL2RpcUrl } from '@jejunetwork/config/ports'
 
 const execAsync = promisify(exec)
 

@@ -6,18 +6,18 @@ import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
 import {
   authenticate,
+  type CombinedAuthConfig,
   constantTimeCompare,
   createWalletAuthMessage,
   extractAuthHeaders,
   parseWalletAuthMessage,
   validateAPIKey,
-  type CombinedAuthConfig,
 } from '../auth/core'
 import {
+  type APIKeyConfig,
   AuthError,
   AuthErrorCode,
   AuthMethod,
-  type APIKeyConfig,
   type WalletSignatureConfig,
 } from '../auth/types'
 

@@ -195,7 +195,10 @@ export const BatchResponseSchema = z.object({
         advantages: z.array(z.array(z.number())).nullable().optional(),
         overrides: z
           .array(
-            z.record(z.string(), z.union([z.string(), z.number(), z.boolean()])),
+            z.record(
+              z.string(),
+              z.union([z.string(), z.number(), z.boolean()]),
+            ),
           )
           .nullable()
           .optional(),

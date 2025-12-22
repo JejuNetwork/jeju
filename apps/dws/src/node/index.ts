@@ -112,7 +112,9 @@ export const nodeApp = new Elysia({ name: 'dws-node' })
     }
 
     const balance = formatEther(
-      await walletState.publicClient.getBalance({ address: walletState.address }),
+      await walletState.publicClient.getBalance({
+        address: walletState.address,
+      }),
     )
     return {
       address: walletState.address,
@@ -179,9 +181,12 @@ export const nodeApp = new Elysia({ name: 'dws-node' })
       return { error: 'Read-only mode' }
     }
 
-    const unpinResponse = await fetch(`${ipfsApiUrl}/api/v0/pin/rm?arg=${params.cid}`, {
-      method: 'POST',
-    })
+    const unpinResponse = await fetch(
+      `${ipfsApiUrl}/api/v0/pin/rm?arg=${params.cid}`,
+      {
+        method: 'POST',
+      },
+    )
     if (!unpinResponse.ok) {
       set.status = 500
       return { error: `Unpin failed: ${await unpinResponse.text()}` }

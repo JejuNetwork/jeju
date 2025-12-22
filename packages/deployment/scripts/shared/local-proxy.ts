@@ -18,8 +18,8 @@ import {
   unlinkSync,
   writeFileSync,
 } from 'node:fs'
-import { $ } from 'bun'
 import { CORE_PORTS, INFRA_PORTS } from '@jejunetwork/config/ports'
+import { $ } from 'bun'
 
 const DOMAIN = 'local.jejunetwork.org'
 const CADDY_DIR = '.jeju/caddy'

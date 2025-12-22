@@ -24,6 +24,9 @@
  * await jeju.crosschain.transfer({ from: 'base', to: 'arbitrum', amount });
  * ```
  */
+// Configuration and shared types
+export * from './config'
+export * from './shared'
 export * from './a2a'
 export * from './agents'
 export * from './amm'

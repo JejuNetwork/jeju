@@ -26,7 +26,10 @@ export default function PredictionDetailErrorPage() {
     <div className="flex min-h-[400px] flex-col items-center justify-center p-8">
       <div className="max-w-md text-center">
         <AlertTriangle className="mx-auto mb-4 h-16 w-16 text-orange-500" />
-        <h2 className="mb-2 font-bold text-2xl" style={{ color: 'var(--text-primary)' }}>
+        <h2
+          className="mb-2 font-bold text-2xl"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Chart Loading Error
         </h2>
         <p className="mb-6" style={{ color: 'var(--text-secondary)' }}>
@@ -40,6 +43,7 @@ export default function PredictionDetailErrorPage() {
         )}
         <div className="flex justify-center gap-4">
           <button
+            type="button"
             onClick={handleRetry}
             className="btn-primary flex items-center gap-2"
           >
@@ -47,6 +51,7 @@ export default function PredictionDetailErrorPage() {
             Try again
           </button>
           <button
+            type="button"
             onClick={() => navigate('/markets/predictions')}
             className="btn-secondary"
           >

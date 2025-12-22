@@ -1,11 +1,11 @@
-import { type Chain, defineChain } from 'viem'
-import { mainnet, sepolia } from 'viem/chains'
 import {
   CORE_PORTS,
-  INFRA_PORTS,
   getExplorerUrl,
   getL2RpcUrl,
+  INFRA_PORTS,
 } from '@jejunetwork/config/ports'
+import { type Chain, defineChain } from 'viem'
+import { mainnet, sepolia } from 'viem/chains'
 import { NETWORK_NAME } from './index'
 
 const networkName = NETWORK_NAME

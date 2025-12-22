@@ -37,10 +37,10 @@ import {
   type VerifiableCredential,
 } from '../types.js'
 import {
+  CredentialVerifyResponseSchema,
   OAuth3SessionSchema,
   OAuthInitResponseSchema,
   SignResponseSchema,
-  CredentialVerifyResponseSchema,
   TEEAttestationSchema,
   VerifiableCredentialSchema,
   validateResponse,

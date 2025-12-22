@@ -1,5 +1,3 @@
-'use client'
-
 import { AddressSchema } from '@jejunetwork/types'
 import { useCallback, useMemo, useState } from 'react'
 import type { Address, Hash } from 'viem'

@@ -518,7 +518,12 @@ describe('getTestEnv - Environment Config', () => {
 // Integration Tests (require live chain)
 // ============================================================================
 
-describe.skipIf(!process.env.CHAIN_AVAILABLE)(
+// Auto-detect chain availability (sync check for skipIf)
+const CHAIN_AVAILABLE =
+  process.env.CHAIN_AVAILABLE === 'true' ||
+  (await isRpcAvailable(REAL_RPC).catch(() => false))
+
+describe.skipIf(!CHAIN_AVAILABLE)(
   'RPC Health - Integration',
   () => {
     test('should return healthy for running chain', async () => {

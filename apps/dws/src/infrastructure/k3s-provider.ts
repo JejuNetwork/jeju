@@ -11,9 +11,9 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
+import { expectValid } from '@jejunetwork/types'
 import type { Hex } from 'viem'
 import { installDWSAgentRequestSchema } from '../shared/schemas'
-import { expectValid } from '@jejunetwork/types'
 
 // ============================================================================
 // Types
@@ -755,143 +755,145 @@ const installChartSchema = z.object({
 })
 
 export function createK3sRouter() {
-  return new Elysia()
-    // Health check
-    .get('/health', () => ({ status: 'healthy', provider: 'dws-k3s' }))
+  return (
+    new Elysia()
+      // Health check
+      .get('/health', () => ({ status: 'healthy', provider: 'dws-k3s' }))
 
-    // List clusters
-    .get('/clusters', () => {
-      const clusterList = listClusters().map((cl) => ({
-        name: cl.name,
-        provider: cl.provider,
-        status: cl.status,
-        apiEndpoint: cl.apiEndpoint,
-        nodes: cl.nodes.length,
-        createdAt: cl.createdAt,
-      }))
-      return { clusters: clusterList }
-    })
-
-    // Create cluster
-    .post('/clusters', async ({ body, set }) => {
-      const validated = expectValid(
-        createClusterSchema,
-        body,
-        'Create cluster body',
-      )
-
-      const cluster = await createCluster({
-        name: validated.name,
-        provider: validated.provider || 'k3d',
-        nodes: validated.nodes,
-        cpuCores: validated.cpuCores,
-        memoryMb: validated.memoryMb,
-        disableTraefik: validated.disableTraefik,
-        exposeApi: validated.exposeApi,
-        apiPort: validated.apiPort,
+      // List clusters
+      .get('/clusters', () => {
+        const clusterList = listClusters().map((cl) => ({
+          name: cl.name,
+          provider: cl.provider,
+          status: cl.status,
+          apiEndpoint: cl.apiEndpoint,
+          nodes: cl.nodes.length,
+          createdAt: cl.createdAt,
+        }))
+        return { clusters: clusterList }
       })
 
-      set.status = 201
-      return {
-        name: cluster.name,
-        provider: cluster.provider,
-        status: cluster.status,
-        apiEndpoint: cluster.apiEndpoint,
-        kubeconfig: cluster.kubeconfig,
-        nodes: cluster.nodes,
-      }
-    })
+      // Create cluster
+      .post('/clusters', async ({ body, set }) => {
+        const validated = expectValid(
+          createClusterSchema,
+          body,
+          'Create cluster body',
+        )
 
-    // Get cluster
-    .get('/clusters/:name', ({ params, set }) => {
-      const cluster = getCluster(params.name)
-
-      if (!cluster) {
-        set.status = 404
-        return { error: 'Cluster not found' }
-      }
-
-      return {
-        name: cluster.name,
-        provider: cluster.provider,
-        status: cluster.status,
-        apiEndpoint: cluster.apiEndpoint,
-        kubeconfig: cluster.kubeconfig,
-        nodes: cluster.nodes,
-        createdAt: cluster.createdAt,
-      }
-    })
-
-    // Delete cluster
-    .delete('/clusters/:name', async ({ params }) => {
-      await deleteCluster(params.name)
-      return { success: true }
-    })
-
-    // Install Helm chart
-    .post('/clusters/:name/helm', async ({ params, body, set }) => {
-      const validated = expectValid(
-        installChartSchema,
-        body,
-        'Install chart body',
-      )
-
-      const result = await installHelmChart(params.name, validated)
-
-      if (!result.success) {
-        set.status = 500
-        return { error: result.output }
-      }
-
-      return { success: true, output: result.output }
-    })
-
-    // Apply manifest
-    .post('/clusters/:name/apply', async ({ params, body, set }) => {
-      const result = await applyManifest(params.name, body as string | object)
-
-      if (!result.success) {
-        set.status = 500
-        return { error: result.output }
-      }
-
-      return { success: true, output: result.output }
-    })
-
-    // Install DWS agent
-    .post('/clusters/:name/dws-agent', async ({ params, body }) => {
-      const validated = expectValid(
-        installDWSAgentRequestSchema,
-        body,
-        'Install DWS agent request',
-      )
-
-      await installDWSAgent(params.name, validated)
-
-      return { success: true }
-    })
-
-    // Check available providers
-    .get('/providers', async () => {
-      const providers: Array<{
-        name: ClusterProvider
-        available: boolean
-        path?: string
-      }> = []
-
-      for (const providerName of [
-        'k3d',
-        'k3s',
-        'minikube',
-      ] as ClusterProvider[]) {
-        const path = await findBinary(providerName)
-        providers.push({
-          name: providerName,
-          available: !!path,
-          path: path || undefined,
+        const cluster = await createCluster({
+          name: validated.name,
+          provider: validated.provider || 'k3d',
+          nodes: validated.nodes,
+          cpuCores: validated.cpuCores,
+          memoryMb: validated.memoryMb,
+          disableTraefik: validated.disableTraefik,
+          exposeApi: validated.exposeApi,
+          apiPort: validated.apiPort,
         })
-      }
 
-      return { providers }
-    })
+        set.status = 201
+        return {
+          name: cluster.name,
+          provider: cluster.provider,
+          status: cluster.status,
+          apiEndpoint: cluster.apiEndpoint,
+          kubeconfig: cluster.kubeconfig,
+          nodes: cluster.nodes,
+        }
+      })
+
+      // Get cluster
+      .get('/clusters/:name', ({ params, set }) => {
+        const cluster = getCluster(params.name)
+
+        if (!cluster) {
+          set.status = 404
+          return { error: 'Cluster not found' }
+        }
+
+        return {
+          name: cluster.name,
+          provider: cluster.provider,
+          status: cluster.status,
+          apiEndpoint: cluster.apiEndpoint,
+          kubeconfig: cluster.kubeconfig,
+          nodes: cluster.nodes,
+          createdAt: cluster.createdAt,
+        }
+      })
+
+      // Delete cluster
+      .delete('/clusters/:name', async ({ params }) => {
+        await deleteCluster(params.name)
+        return { success: true }
+      })
+
+      // Install Helm chart
+      .post('/clusters/:name/helm', async ({ params, body, set }) => {
+        const validated = expectValid(
+          installChartSchema,
+          body,
+          'Install chart body',
+        )
+
+        const result = await installHelmChart(params.name, validated)
+
+        if (!result.success) {
+          set.status = 500
+          return { error: result.output }
+        }
+
+        return { success: true, output: result.output }
+      })
+
+      // Apply manifest
+      .post('/clusters/:name/apply', async ({ params, body, set }) => {
+        const result = await applyManifest(params.name, body as string | object)
+
+        if (!result.success) {
+          set.status = 500
+          return { error: result.output }
+        }
+
+        return { success: true, output: result.output }
+      })
+
+      // Install DWS agent
+      .post('/clusters/:name/dws-agent', async ({ params, body }) => {
+        const validated = expectValid(
+          installDWSAgentRequestSchema,
+          body,
+          'Install DWS agent request',
+        )
+
+        await installDWSAgent(params.name, validated)
+
+        return { success: true }
+      })
+
+      // Check available providers
+      .get('/providers', async () => {
+        const providers: Array<{
+          name: ClusterProvider
+          available: boolean
+          path?: string
+        }> = []
+
+        for (const providerName of [
+          'k3d',
+          'k3s',
+          'minikube',
+        ] as ClusterProvider[]) {
+          const path = await findBinary(providerName)
+          providers.push({
+            name: providerName,
+            available: !!path,
+            path: path || undefined,
+          })
+        }
+
+        return { providers }
+      })
+  )
 }

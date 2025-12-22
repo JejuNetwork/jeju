@@ -6,7 +6,12 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
-import type { ChainId, Pool, StrategyConfig, Token } from '../autocrat-types-source'
+import type {
+  ChainId,
+  Pool,
+  StrategyConfig,
+  Token,
+} from '../autocrat-types-source'
 import { CrossChainArbStrategy } from './cross-chain-arb'
 import { DexArbitrageStrategy } from './dex-arbitrage'
 

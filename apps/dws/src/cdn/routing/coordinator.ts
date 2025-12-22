@@ -8,8 +8,8 @@
  * - Coordinates billing and settlement
  */
 
-import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import {
   type Address,
   createPublicClient,
@@ -335,7 +335,9 @@ export class CDNCoordinator {
   private async handleMultiRouteRequest(
     body: RouteRequest & { count?: number },
     set: { status?: number | string },
-  ): Promise<{ routes: ReturnType<GeoRouter['routeMultiple']> } | { error: string }> {
+  ): Promise<
+    { routes: ReturnType<GeoRouter['routeMultiple']> } | { error: string }
+  > {
     const decisions = this.router.routeMultiple(body, body.count ?? 3)
 
     if (decisions.length === 0) {

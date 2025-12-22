@@ -6,8 +6,8 @@
 import {
   AddressSchema,
   ChainIdSchema,
-  HexSchema,
   expectValid,
+  HexSchema,
 } from '@jejunetwork/types'
 import { z } from 'zod'
 
@@ -745,11 +745,7 @@ export function expectValidArray<T>(
   context?: string,
 ): T[] {
   return items.map((item, index) =>
-    expectValid(
-      schema,
-      item,
-      context ? `${context}[${index}]` : `[${index}]`,
-    ),
+    expectValid(schema, item, context ? `${context}[${index}]` : `[${index}]`),
   )
 }
 

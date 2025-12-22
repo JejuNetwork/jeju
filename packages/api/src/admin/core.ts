@@ -7,8 +7,8 @@
 import type { Address } from 'viem'
 import { AuthError, AuthErrorCode, type AuthUser } from '../auth/types.js'
 import {
-  AdminRole,
   type AdminConfig,
+  AdminRole,
   type AdminUser,
   type AdminValidationResult,
   ROLE_HIERARCHY,
@@ -65,10 +65,7 @@ export function hasPermission(
 /**
  * Require admin access - throws if not admin
  */
-export function requireAdmin(
-  user: AuthUser,
-  config: AdminConfig,
-): AdminUser {
+export function requireAdmin(user: AuthUser, config: AdminConfig): AdminUser {
   const result = validateAdmin(user, config)
 
   if (!result.valid || !result.admin) {

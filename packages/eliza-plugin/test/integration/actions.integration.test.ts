@@ -6,8 +6,8 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { createJejuClient, type JejuClient } from '@jejunetwork/sdk'
 import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
+import { createJejuClient, type JejuClient } from '@jejunetwork/sdk'
 import { privateKeyToAccount } from 'viem/accounts'
 
 const TEST_PRIVATE_KEY =

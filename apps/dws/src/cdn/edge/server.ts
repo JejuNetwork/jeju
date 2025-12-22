@@ -9,9 +9,9 @@
  * - Integrates with the coordinator for routing
  */
 
+import { cors } from '@elysiajs/cors'
 import type { CacheStatus, EdgeNodeStatus } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
-import { cors } from '@elysiajs/cors'
 import {
   type Address,
   type Chain,
@@ -281,8 +281,7 @@ export class EdgeNodeServer {
     // Generate cache key
     const cacheKey = this.cache.generateKey({
       path: parsedRequest.path,
-      query:
-        new URLSearchParams(parsedRequest.query).toString() || undefined,
+      query: new URLSearchParams(parsedRequest.query).toString() || undefined,
       varyHeaders: this.getVaryHeaders(parsedRequest.headers),
     })
 
@@ -355,7 +354,10 @@ export class EdgeNodeServer {
 
       set.status = originResult.status || 502
       return new Response(
-        JSON.stringify({ error: originResult.error, origin: originResult.origin }),
+        JSON.stringify({
+          error: originResult.error,
+          origin: originResult.origin,
+        }),
         {
           status: originResult.status || 502,
           headers: { 'Content-Type': 'application/json' },

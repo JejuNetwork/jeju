@@ -44,12 +44,15 @@ if (BAN_MANAGER_ADDRESS) {
 /**
  * Elysia onBeforeHandle function for ban checking
  */
-export async function banCheckHandler({
-  request,
-  set,
-  path,
-}: Context): Promise<
-  { error: string; message: string; banType?: string; caseId?: string; canAppeal?: boolean } | undefined
+export async function banCheckHandler({ request, set, path }: Context): Promise<
+  | {
+      error: string
+      message: string
+      banType?: string
+      caseId?: string
+      canAppeal?: boolean
+    }
+  | undefined
 > {
   // Skip if no ban manager configured (local dev)
   if (!checker) {
@@ -80,8 +83,7 @@ export async function banCheckHandler({
     set.status = 403
     return {
       error: 'BANNED',
-      message:
-        result.status?.reason || 'User is banned from this application',
+      message: result.status?.reason || 'User is banned from this application',
       banType: result.status?.banType,
       caseId: result.status?.caseId,
       canAppeal: result.status?.canAppeal,

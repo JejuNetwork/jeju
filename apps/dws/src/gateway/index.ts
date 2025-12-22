@@ -68,7 +68,11 @@ export const gatewayApp = new Elysia({ name: 'dws-gateway' })
       const content = Buffer.from(await response.arrayBuffer())
       const type =
         response.headers.get('content-type') || 'application/octet-stream'
-      cache.set(cacheKey, { content, type, expiresAt: Date.now() + 31536000000 })
+      cache.set(cacheKey, {
+        content,
+        type,
+        expiresAt: Date.now() + 31536000000,
+      })
 
       return new Response(content, {
         headers: {

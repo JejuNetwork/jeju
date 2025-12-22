@@ -149,7 +149,10 @@ interface ElysiaSet {
 
 // Combined query/exec handler - CQL client sends both to same endpoint
 function handleCQLQuery(
-  rawBody: Record<string, string | number | boolean | null | (string | number | boolean | null)[]>,
+  rawBody: Record<
+    string,
+    string | number | boolean | null | (string | number | boolean | null)[]
+  >,
   set: ElysiaSet,
 ): ExecSuccessResponse | SelectSuccessResponse | QueryErrorResponse {
   const parseResult = CQLRequestSchema.safeParse(rawBody)
@@ -190,7 +193,9 @@ function handleCQLQuery(
   } else {
     const rawRows = stmt.all(...params)
     // Sanitize rows to prevent prototype pollution attacks
-    const rows = sanitizeRows(rawRows as Record<string, string | number | boolean | null>[])
+    const rows = sanitizeRows(
+      rawRows as Record<string, string | number | boolean | null>[],
+    )
     const executionTime = Math.round(performance.now() - start)
 
     return {
@@ -198,7 +203,11 @@ function handleCQLQuery(
       rows,
       rowCount: rows.length,
       columns:
-        rows.length > 0 ? Object.keys(rows[0] as Record<string, string | number | boolean | null>) : [],
+        rows.length > 0
+          ? Object.keys(
+              rows[0] as Record<string, string | number | boolean | null>,
+            )
+          : [],
       executionTime,
       blockHeight: 0,
     }
@@ -232,9 +241,7 @@ function handleListDbs(): DbListResponse {
 }
 
 // Create database handler
-function handleCreateDb(
-  rawBody: Record<string, string>,
-): CreateDbResponse {
+function handleCreateDb(rawBody: Record<string, string>): CreateDbResponse {
   const body = CreateDbSchema.parse(rawBody)
   getDb(body.database_id)
   return { success: true, databaseId: body.database_id }
@@ -251,16 +258,40 @@ const app = new Elysia()
   .get('/api/v1/status', handleStatus)
   // Query/exec routes
   .post('/v1/query', ({ body, set }) =>
-    handleCQLQuery(body as Record<string, string | number | boolean | null | (string | number | boolean | null)[]>, set),
+    handleCQLQuery(
+      body as Record<
+        string,
+        string | number | boolean | null | (string | number | boolean | null)[]
+      >,
+      set,
+    ),
   )
   .post('/api/v1/query', ({ body, set }) =>
-    handleCQLQuery(body as Record<string, string | number | boolean | null | (string | number | boolean | null)[]>, set),
+    handleCQLQuery(
+      body as Record<
+        string,
+        string | number | boolean | null | (string | number | boolean | null)[]
+      >,
+      set,
+    ),
   )
   .post('/v1/exec', ({ body, set }) =>
-    handleCQLQuery(body as Record<string, string | number | boolean | null | (string | number | boolean | null)[]>, set),
+    handleCQLQuery(
+      body as Record<
+        string,
+        string | number | boolean | null | (string | number | boolean | null)[]
+      >,
+      set,
+    ),
   )
   .post('/api/v1/exec', ({ body, set }) =>
-    handleCQLQuery(body as Record<string, string | number | boolean | null | (string | number | boolean | null)[]>, set),
+    handleCQLQuery(
+      body as Record<
+        string,
+        string | number | boolean | null | (string | number | boolean | null)[]
+      >,
+      set,
+    ),
   )
   // Database info routes
   .get('/v1/databases/:id', ({ params }) => handleDbInfo(params.id))
@@ -269,8 +300,12 @@ const app = new Elysia()
   .get('/v1/databases', handleListDbs)
   .get('/api/v1/databases', handleListDbs)
   // Create database routes
-  .post('/v1/databases', ({ body }) => handleCreateDb(body as Record<string, string>))
-  .post('/api/v1/databases', ({ body }) => handleCreateDb(body as Record<string, string>))
+  .post('/v1/databases', ({ body }) =>
+    handleCreateDb(body as Record<string, string>),
+  )
+  .post('/api/v1/databases', ({ body }) =>
+    handleCreateDb(body as Record<string, string>),
+  )
 
 console.log(`
 ╔════════════════════════════════════════════════════════════╗

@@ -1,3 +1,4 @@
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import {
   type Address,
   createPublicClient,
@@ -6,7 +7,6 @@ import {
   parseEther,
 } from 'viem'
 import { getRpcUrl, JEJU_CHAIN_ID } from '../config/networks.js'
-import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import {
   expect,
   formatError,

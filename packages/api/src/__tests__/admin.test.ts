@@ -13,15 +13,24 @@ import {
   requireRole,
   validateAdmin,
 } from '../admin/core'
-import { AdminRole, ROLE_HIERARCHY, type AdminConfig } from '../admin/types'
+import { type AdminConfig, AdminRole, ROLE_HIERARCHY } from '../admin/types'
 import { AuthError, AuthMethod } from '../auth/types'
 
 describe('Admin Core', () => {
   const testConfig: AdminConfig = {
     admins: new Map([
-      ['0x1111111111111111111111111111111111111111' as Address, AdminRole.SUPER_ADMIN],
-      ['0x2222222222222222222222222222222222222222' as Address, AdminRole.ADMIN],
-      ['0x3333333333333333333333333333333333333333' as Address, AdminRole.MODERATOR],
+      [
+        '0x1111111111111111111111111111111111111111' as Address,
+        AdminRole.SUPER_ADMIN,
+      ],
+      [
+        '0x2222222222222222222222222222222222222222' as Address,
+        AdminRole.ADMIN,
+      ],
+      [
+        '0x3333333333333333333333333333333333333333' as Address,
+        AdminRole.MODERATOR,
+      ],
     ]),
   }
 
@@ -119,9 +128,13 @@ describe('Admin Core', () => {
 
   describe('hasPermission', () => {
     test('super admin has all permissions', () => {
-      expect(hasPermission(AdminRole.SUPER_ADMIN, AdminRole.SUPER_ADMIN)).toBe(true)
+      expect(hasPermission(AdminRole.SUPER_ADMIN, AdminRole.SUPER_ADMIN)).toBe(
+        true,
+      )
       expect(hasPermission(AdminRole.SUPER_ADMIN, AdminRole.ADMIN)).toBe(true)
-      expect(hasPermission(AdminRole.SUPER_ADMIN, AdminRole.MODERATOR)).toBe(true)
+      expect(hasPermission(AdminRole.SUPER_ADMIN, AdminRole.MODERATOR)).toBe(
+        true,
+      )
     })
 
     test('admin has admin and moderator permissions', () => {
@@ -131,7 +144,9 @@ describe('Admin Core', () => {
     })
 
     test('moderator only has moderator permission', () => {
-      expect(hasPermission(AdminRole.MODERATOR, AdminRole.SUPER_ADMIN)).toBe(false)
+      expect(hasPermission(AdminRole.MODERATOR, AdminRole.SUPER_ADMIN)).toBe(
+        false,
+      )
       expect(hasPermission(AdminRole.MODERATOR, AdminRole.ADMIN)).toBe(false)
       expect(hasPermission(AdminRole.MODERATOR, AdminRole.MODERATOR)).toBe(true)
     })
@@ -224,14 +239,22 @@ describe('Admin Core', () => {
   describe('createAdminConfig', () => {
     test('creates config from array', () => {
       const config = createAdminConfig([
-        { address: '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' as Address, role: AdminRole.SUPER_ADMIN },
-        { address: '0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB' as Address, role: AdminRole.ADMIN },
+        {
+          address: '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' as Address,
+          role: AdminRole.SUPER_ADMIN,
+        },
+        {
+          address: '0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB' as Address,
+          role: AdminRole.ADMIN,
+        },
       ])
 
       expect(config.admins.size).toBe(2)
-      expect(config.admins.get('0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' as Address)).toBe(
-        AdminRole.SUPER_ADMIN,
-      )
+      expect(
+        config.admins.get(
+          '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' as Address,
+        ),
+      ).toBe(AdminRole.SUPER_ADMIN)
     })
 
     test('creates config with required role', () => {
@@ -247,12 +270,16 @@ describe('Admin Core', () => {
       )
 
       expect(config.admins.size).toBe(2)
-      expect(config.admins.get('0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' as Address)).toBe(
-        AdminRole.SUPER_ADMIN,
-      )
-      expect(config.admins.get('0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB' as Address)).toBe(
-        AdminRole.ADMIN,
-      )
+      expect(
+        config.admins.get(
+          '0xAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA' as Address,
+        ),
+      ).toBe(AdminRole.SUPER_ADMIN)
+      expect(
+        config.admins.get(
+          '0xBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB' as Address,
+        ),
+      ).toBe(AdminRole.ADMIN)
     })
 
     test('handles empty string', () => {

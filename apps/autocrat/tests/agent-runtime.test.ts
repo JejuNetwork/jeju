@@ -44,84 +44,76 @@ describe('Agent Runtime', () => {
   })
 
   describe('Agent Deliberation', () => {
-    test(
-      'should deliberate on proposal',
-      async () => {
-        const request = {
-          proposalId: 'test-prop-001',
-          title: 'Test Proposal',
-          summary: 'A test proposal for unit testing',
-          description: 'This is a detailed description of the test proposal.',
-          proposalType: 'TREASURY_SPEND',
-          submitter: '0x1234567890abcdef1234567890abcdef12345678',
-        }
+    test('should deliberate on proposal', async () => {
+      const request = {
+        proposalId: 'test-prop-001',
+        title: 'Test Proposal',
+        summary: 'A test proposal for unit testing',
+        description: 'This is a detailed description of the test proposal.',
+        proposalType: 'TREASURY_SPEND',
+        submitter: '0x1234567890abcdef1234567890abcdef12345678',
+      }
 
-        const vote = await autocratAgentRuntime.deliberate('treasury', request)
+      const vote = await autocratAgentRuntime.deliberate('treasury', request)
 
-        expect(vote).toBeDefined()
-        expect(vote.agentId).toBe('treasury')
-        expect(['APPROVE', 'REJECT', 'ABSTAIN']).toContain(vote.vote)
-        expect(typeof vote.reasoning).toBe('string')
-        expect(vote.reasoning.length).toBeGreaterThan(0)
-        expect(typeof vote.confidence).toBe('number')
-        expect(vote.confidence).toBeGreaterThanOrEqual(0)
-        expect(vote.confidence).toBeLessThanOrEqual(100)
+      expect(vote).toBeDefined()
+      expect(vote.agentId).toBe('treasury')
+      expect(['APPROVE', 'REJECT', 'ABSTAIN']).toContain(vote.vote)
+      expect(typeof vote.reasoning).toBe('string')
+      expect(vote.reasoning.length).toBeGreaterThan(0)
+      expect(typeof vote.confidence).toBe('number')
+      expect(vote.confidence).toBeGreaterThanOrEqual(0)
+      expect(vote.confidence).toBeLessThanOrEqual(100)
 
-        console.log(`[Test] Treasury vote: ${vote.vote} (${vote.confidence}%)`)
-      },
-      60000,
-    )
+      console.log(`[Test] Treasury vote: ${vote.vote} (${vote.confidence}%)`)
+    }, 60000)
   })
 
   describe('CEO Decision', () => {
-    test(
-      'should make CEO decision',
-      async () => {
-        const request = {
-          proposalId: 'test-prop-003',
-          autocratVotes: [
-            {
-              role: 'TREASURY',
-              agentId: 'treasury',
-              vote: 'APPROVE' as const,
-              reasoning: 'Looks good',
-              confidence: 85,
-              timestamp: Date.now(),
-            },
-            {
-              role: 'CODE',
-              agentId: 'code',
-              vote: 'APPROVE' as const,
-              reasoning: 'Code is sound',
-              confidence: 90,
-              timestamp: Date.now(),
-            },
-            {
-              role: 'SECURITY',
-              agentId: 'security',
-              vote: 'APPROVE' as const,
-              reasoning: 'No security issues',
-              confidence: 80,
-              timestamp: Date.now(),
-            },
-          ],
-        }
+    test('should make CEO decision', async () => {
+      const request = {
+        proposalId: 'test-prop-003',
+        autocratVotes: [
+          {
+            role: 'TREASURY',
+            agentId: 'treasury',
+            vote: 'APPROVE' as const,
+            reasoning: 'Looks good',
+            confidence: 85,
+            timestamp: Date.now(),
+          },
+          {
+            role: 'CODE',
+            agentId: 'code',
+            vote: 'APPROVE' as const,
+            reasoning: 'Code is sound',
+            confidence: 90,
+            timestamp: Date.now(),
+          },
+          {
+            role: 'SECURITY',
+            agentId: 'security',
+            vote: 'APPROVE' as const,
+            reasoning: 'No security issues',
+            confidence: 80,
+            timestamp: Date.now(),
+          },
+        ],
+      }
 
-        const decision = await autocratAgentRuntime.ceoDecision(request)
+      const decision = await autocratAgentRuntime.ceoDecision(request)
 
-        expect(decision).toBeDefined()
-        expect(typeof decision.approved).toBe('boolean')
-        expect(typeof decision.reasoning).toBe('string')
-        expect(decision.reasoning.length).toBeGreaterThan(0)
-        expect(typeof decision.confidence).toBe('number')
-        expect(typeof decision.personaResponse).toBe('string')
+      expect(decision).toBeDefined()
+      expect(typeof decision.approved).toBe('boolean')
+      expect(typeof decision.reasoning).toBe('string')
+      expect(decision.reasoning.length).toBeGreaterThan(0)
+      expect(typeof decision.confidence).toBe('number')
+      expect(typeof decision.personaResponse).toBe('string')
 
-        console.log(
-          `[Test] CEO decision: ${decision.approved ? 'APPROVED' : 'REJECTED'} (${decision.confidence}%)`,
-        )
-      },
-      60000,
-    )
+      console.log(
+        `[Test] CEO decision: ${decision.approved ? 'APPROVED' : 'REJECTED'} (${decision.confidence}%)`,
+      )
+    }, 60000)
   })
 
   describe('DAO-Specific Agents', () => {
@@ -166,19 +158,15 @@ describe('Agent Runtime', () => {
 })
 
 describe('DWS Direct Inference', () => {
-  test(
-    'should call DWS',
-    async () => {
-      const response = await dwsGenerate(
-        'What is 2 + 2?',
-        'You are a helpful assistant. Be brief.',
-        100,
-      )
+  test('should call DWS', async () => {
+    const response = await dwsGenerate(
+      'What is 2 + 2?',
+      'You are a helpful assistant. Be brief.',
+      100,
+    )
 
-      expect(typeof response).toBe('string')
-      expect(response.length).toBeGreaterThan(0)
-      console.log(`[Test] DWS response: ${response.slice(0, 100)}...`)
-    },
-    30000,
-  )
+    expect(typeof response).toBe('string')
+    expect(response.length).toBeGreaterThan(0)
+    console.log(`[Test] DWS response: ${response.slice(0, 100)}...`)
+  }, 30000)
 })

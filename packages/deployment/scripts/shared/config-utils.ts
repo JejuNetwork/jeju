@@ -23,10 +23,7 @@ import {
   type NetworkType,
 } from '../../packages/config'
 import { getExplorerKeyForChain } from '../../packages/config/api-keys'
-import {
-  getActiveProvider,
-  requireSecret,
-} from '../../packages/config/secrets'
+import { getActiveProvider, requireSecret } from '../../packages/config/secrets'
 import {
   getTestKeys,
   type KeyRole,

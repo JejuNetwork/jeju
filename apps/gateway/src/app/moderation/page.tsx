@@ -1,5 +1,3 @@
-'use client'
-
 import {
   AlertTriangle,
   CheckCircle,
@@ -28,11 +26,11 @@ const AlertTriangleIcon = AlertTriangle as ComponentType<LucideProps>
 const GavelIcon = Gavel as ComponentType<LucideProps>
 const EyeIcon = Eye as ComponentType<LucideProps>
 
+import { ZERO_BYTES32 } from '@jejunetwork/ui'
 import { formatEther } from 'viem'
 import BanVotingInterface from '../../components/moderation/BanVotingInterface'
 import { IPFS_GATEWAY_URL } from '../../config'
 import { MODERATION_CONTRACTS } from '../../config/moderation'
-import { ZERO_BYTES32 } from '@jejunetwork/ui'
 
 type TabType = 'overview' | 'active' | 'resolved' | 'submit' | 'labels' | 'bans'
 

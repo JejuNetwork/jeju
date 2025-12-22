@@ -22,7 +22,8 @@ import type { SolanaTokenPrice } from '../../solver/external/solana-price-aggreg
 import { getSolanaPriceAggregator as createSolanaPriceAggregator } from '../../solver/external/solana-price-aggregator'
 
 // Optional/conditional: Solana aggregator may fail due to buffer-layout compatibility issues
-let _solanaAggregator: ReturnType<typeof createSolanaPriceAggregator> | null = null
+let _solanaAggregator: ReturnType<typeof createSolanaPriceAggregator> | null =
+  null
 async function getSolanaAggregator() {
   if (!_solanaAggregator) {
     try {
@@ -45,13 +46,15 @@ const CachedPriceSchema = z.object({
   priceUSD: z.number(),
   priceETH: z.number(),
   confidence: z.number(),
-  sources: z.array(z.object({
-    dex: z.string(),
-    pool: z.string(),
-    price: z.number(),
-    liquidity: z.number(),
-    lastUpdate: z.number(),
-  })),
+  sources: z.array(
+    z.object({
+      dex: z.string(),
+      pool: z.string(),
+      price: z.number(),
+      liquidity: z.number(),
+      lastUpdate: z.number(),
+    }),
+  ),
   timestamp: z.number(),
   liquidityUSD: z.number(),
 })
@@ -290,7 +293,11 @@ class PriceStreamingService {
 
     let priceChange24h = 0
     if (cached) {
-      const prev = expectJson(cached, CachedPriceSchema, 'cached price') as TokenPrice
+      const prev = expectJson(
+        cached,
+        CachedPriceSchema,
+        'cached price',
+      ) as TokenPrice
       if (prev.priceUSD > 0) {
         priceChange24h =
           ((price.priceUSD - prev.priceUSD) / prev.priceUSD) * 100
@@ -329,7 +336,9 @@ class PriceStreamingService {
 
   async getPrice(chainId: number, address: string): Promise<TokenPrice | null> {
     const cached = await this.getCache().get(priceKey(chainId, address))
-    return cached ? expectJson(cached, CachedPriceSchema, 'price cache') as TokenPrice : null
+    return cached
+      ? (expectJson(cached, CachedPriceSchema, 'price cache') as TokenPrice)
+      : null
   }
 
   async getPrices(
@@ -341,7 +350,10 @@ class PriceStreamingService {
     const prices = new Map<string, TokenPrice>()
     for (const [key, value] of results) {
       if (value) {
-        prices.set(key, expectJson(value, CachedPriceSchema, 'batch price') as TokenPrice)
+        prices.set(
+          key,
+          expectJson(value, CachedPriceSchema, 'batch price') as TokenPrice,
+        )
       }
     }
     return prices
@@ -438,116 +450,118 @@ export function getPriceService(): PriceStreamingService {
 export function createPricesRouter() {
   const service = getPriceService()
 
-  return new Elysia({ name: 'prices', prefix: '/prices' })
-    // Health check
-    .get('/health', () => ({
-      status: 'healthy',
-      service: 'price-streaming',
-      subscribers: service.getSubscriberCount(),
-    }))
+  return (
+    new Elysia({ name: 'prices', prefix: '/prices' })
+      // Health check
+      .get('/health', () => ({
+        status: 'healthy',
+        service: 'price-streaming',
+        subscribers: service.getSubscriberCount(),
+      }))
 
-    // Get price for a single token
-    .get(
-      '/:chainId/:address',
-      async ({ params, set }) => {
-        const chainId = parseInt(params.chainId, 10)
-        const price = await service.getPrice(chainId, params.address)
-        if (!price) {
-          // Fetch fresh if not cached
-          const fresh = await getPriceAggregator().getPrice(
-            params.address as Address,
-            chainId,
-          )
-          if (!fresh) {
+      // Get price for a single token
+      .get(
+        '/:chainId/:address',
+        async ({ params, set }) => {
+          const chainId = parseInt(params.chainId, 10)
+          const price = await service.getPrice(chainId, params.address)
+          if (!price) {
+            // Fetch fresh if not cached
+            const fresh = await getPriceAggregator().getPrice(
+              params.address as Address,
+              chainId,
+            )
+            if (!fresh) {
+              set.status = 404
+              return { error: 'Token not found' }
+            }
+            await service.trackToken(chainId, params.address)
+            return fresh
+          }
+
+          return price
+        },
+        {
+          params: t.Object({
+            chainId: t.String({ pattern: '^\\d+$' }),
+            address: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
+          }),
+        },
+      )
+
+      // Get prices for multiple tokens (batch)
+      .post(
+        '/batch',
+        async ({ body }) => {
+          const prices = await service.getPrices(body.tokens)
+
+          const result: Record<string, TokenPrice> = {}
+          for (const [key, value] of prices) {
+            result[key] = value
+          }
+
+          return { prices: result }
+        },
+        {
+          body: t.Object({
+            tokens: t.Array(
+              t.Object({
+                chainId: t.Number(),
+                address: t.String(),
+              }),
+            ),
+          }),
+        },
+      )
+
+      // Get ETH price for a chain
+      .get(
+        '/eth/:chainId',
+        async ({ params }) => {
+          const chainId = parseInt(params.chainId, 10)
+          const price = await service.getETHPrice(chainId)
+          return { chainId, priceUSD: price, timestamp: Date.now() }
+        },
+        {
+          params: t.Object({
+            chainId: t.String({ pattern: '^\\d+$' }),
+          }),
+        },
+      )
+
+      // Track a token for price updates
+      .post(
+        '/track',
+        async ({ body }) => {
+          await service.trackToken(body.chainId, body.address)
+          return { success: true }
+        },
+        {
+          body: t.Object({
+            chainId: t.Number(),
+            address: t.String(),
+          }),
+        },
+      )
+
+      // Get Solana token price
+      .get(
+        '/solana/:mint',
+        async ({ params, set }) => {
+          const price = await service.getSolanaPrice(params.mint)
+          if (!price) {
             set.status = 404
             return { error: 'Token not found' }
           }
-          await service.trackToken(chainId, params.address)
-          return fresh
-        }
-
-        return price
-      },
-      {
-        params: t.Object({
-          chainId: t.String({ pattern: '^\\d+$' }),
-          address: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
-        }),
-      },
-    )
-
-    // Get prices for multiple tokens (batch)
-    .post(
-      '/batch',
-      async ({ body }) => {
-        const prices = await service.getPrices(body.tokens)
-
-        const result: Record<string, TokenPrice> = {}
-        for (const [key, value] of prices) {
-          result[key] = value
-        }
-
-        return { prices: result }
-      },
-      {
-        body: t.Object({
-          tokens: t.Array(
-            t.Object({
-              chainId: t.Number(),
-              address: t.String(),
-            }),
-          ),
-        }),
-      },
-    )
-
-    // Get ETH price for a chain
-    .get(
-      '/eth/:chainId',
-      async ({ params }) => {
-        const chainId = parseInt(params.chainId, 10)
-        const price = await service.getETHPrice(chainId)
-        return { chainId, priceUSD: price, timestamp: Date.now() }
-      },
-      {
-        params: t.Object({
-          chainId: t.String({ pattern: '^\\d+$' }),
-        }),
-      },
-    )
-
-    // Track a token for price updates
-    .post(
-      '/track',
-      async ({ body }) => {
-        await service.trackToken(body.chainId, body.address)
-        return { success: true }
-      },
-      {
-        body: t.Object({
-          chainId: t.Number(),
-          address: t.String(),
-        }),
-      },
-    )
-
-    // Get Solana token price
-    .get(
-      '/solana/:mint',
-      async ({ params, set }) => {
-        const price = await service.getSolanaPrice(params.mint)
-        if (!price) {
-          set.status = 404
-          return { error: 'Token not found' }
-        }
-        return price
-      },
-      {
-        params: t.Object({
-          mint: t.String(),
-        }),
-      },
-    )
+          return price
+        },
+        {
+          params: t.Object({
+            mint: t.String(),
+          }),
+        },
+      )
+  )
 }
 
 // ============ WebSocket Handler ============

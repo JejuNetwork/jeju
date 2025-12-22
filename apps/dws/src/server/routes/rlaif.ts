@@ -107,7 +107,9 @@ export const rlaifRoutes = new Elysia({ name: 'rlaif', prefix: '/rlaif' })
         }),
         rl: t.Optional(
           t.Object({
-            algorithm: t.Optional(t.Union([t.Literal('ppo'), t.Literal('dpo'), t.Literal('grpo')])),
+            algorithm: t.Optional(
+              t.Union([t.Literal('ppo'), t.Literal('dpo'), t.Literal('grpo')]),
+            ),
             learningRate: t.Optional(t.Number()),
             batchSize: t.Optional(t.Number()),
             klCoefficient: t.Optional(t.Number()),
@@ -294,7 +296,8 @@ export const rlaifRoutes = new Elysia({ name: 'rlaif', prefix: '/rlaif' })
       return {
         rewardsCID,
         scoreCount: scores.length,
-        averageScore: scores.reduce((sum, s) => sum + s.score, 0) / scores.length,
+        averageScore:
+          scores.reduce((sum, s) => sum + s.score, 0) / scores.length,
       }
     },
     {

@@ -11,6 +11,7 @@
  */
 
 import { spawn } from 'bun'
+import { LOCAL_PROVER_CONFIG } from '../../src/local-dev/config.js'
 import type {
   CrossChainTransfer,
   EthereumLightClientUpdate,
@@ -21,7 +22,6 @@ import type {
   SupermajorityProofInputs,
 } from '../../src/types/index.js'
 import { toHash32 } from '../../src/types/index.js'
-import { LOCAL_PROVER_CONFIG } from '../../src/local-dev/config.js'
 
 // =============================================================================
 // PROOF TYPES

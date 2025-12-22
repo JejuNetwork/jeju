@@ -123,7 +123,10 @@ abstract class OAuthProvider {
     }
   }
 
-  protected async fetchJson(url: string, options?: RequestInit): Promise<unknown> {
+  protected async fetchJson(
+    url: string,
+    options?: RequestInit,
+  ): Promise<unknown> {
     const response = await fetch(url, options)
     if (!response.ok) {
       const text = await response.text()

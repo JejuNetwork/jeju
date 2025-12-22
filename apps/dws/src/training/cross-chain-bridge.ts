@@ -10,6 +10,7 @@
  */
 
 import { Connection, type Keypair, type PublicKey } from '@solana/web3.js'
+import { sign } from 'tweetnacl'
 import {
   type Address,
   createPublicClient,
@@ -22,7 +23,6 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
-import { sign } from 'tweetnacl'
 import type { CoordinatorState, PsycheClient } from './psyche-client'
 
 // ============================================================================

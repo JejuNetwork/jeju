@@ -7,16 +7,16 @@
 
 import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
-import { execa } from 'execa'
-import type { Hex } from 'viem'
-import { z } from 'zod'
 import {
   CORE_PORTS,
-  INFRA_PORTS,
   getCoreAppUrl,
   getL1RpcUrl,
   getL2RpcUrl,
+  INFRA_PORTS,
 } from '@jejunetwork/config/ports'
+import { execa } from 'execa'
+import type { Hex } from 'viem'
+import { z } from 'zod'
 
 // Schema for RPC JSON-RPC response
 const RpcCodeResponseSchema = z.object({

@@ -43,6 +43,7 @@ import {
   createCIRouter,
   createContainerRouter,
   createDARouter,
+  createDefaultWorkerdRouter,
   createEdgeRouter,
   createFundingRouter,
   createGitRouter,
@@ -56,14 +57,13 @@ import {
   createS3Router,
   createScrapingRouter,
   createVPNRouter,
-  createDefaultWorkerdRouter,
   createWorkersRouter,
   getPriceService,
   handleEdgeWebSocket,
   rpcRoutes,
+  type SubscribableWebSocket,
   shutdownDA,
   storageRoutes,
-  type SubscribableWebSocket,
 } from './routes'
 
 // Server port
@@ -194,7 +194,8 @@ const elysiaRoutes = {
   da: () => createDARouter(daConfig),
   git: () => createGitRouter({ repoManager, backend: backendManager }),
   pkg: () => createPkgRouter({ registryManager, backend: backendManager }),
-  ci: () => createCIRouter({ workflowEngine, repoManager, backend: backendManager }),
+  ci: () =>
+    createCIRouter({ workflowEngine, repoManager, backend: backendManager }),
   api: () => createAPIMarketplaceRouter(),
   registry: () => createPkgRegistryProxyRouter(),
   agents: () => createAgentRouter(),
@@ -307,7 +308,9 @@ export const app = new Elysia({ name: 'dws' })
   .get('/health', async () => {
     const backends = backendManager.listBackends()
     const backendHealth = await backendManager.healthCheck()
-    const nodeCount = await decentralized.discovery.getNodeCount().catch(() => 0)
+    const nodeCount = await decentralized.discovery
+      .getNodeCount()
+      .catch(() => 0)
     const peerCount = p2pCoordinator?.getPeers().length ?? 0
     const frontendCid = await decentralized.frontend.getFrontendCid()
 

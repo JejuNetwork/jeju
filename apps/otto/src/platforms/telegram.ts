@@ -2,13 +2,10 @@
  * Telegram Platform Adapter
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { type Context, Markup, Telegraf } from 'telegraf'
 import type { Message, Update } from 'telegraf/types'
-import { expectValid } from '@jejunetwork/types'
-import {
-  PlatformMessageSchema,
-  TelegramWebhookPayloadSchema,
-} from '../schemas'
+import { PlatformMessageSchema, TelegramWebhookPayloadSchema } from '../schemas'
 import type {
   MessageButton,
   MessageEmbed,

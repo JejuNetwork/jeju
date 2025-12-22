@@ -57,8 +57,6 @@ import {
 import {
   findJejuWorkspaceRoot,
   JEJU_CHAIN,
-  JEJU_CHAIN_ID,
-  JEJU_RPC_URL,
   PASSWORD,
   SEED_PHRASE,
   TEST_ACCOUNTS,

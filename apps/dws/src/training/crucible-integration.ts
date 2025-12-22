@@ -5,8 +5,8 @@
  * Enables RLAIF (Reinforcement Learning from AI Feedback) for Eliza agents.
  */
 
-import { JobsListResponseSchema } from '../shared/schemas/training'
 import { expectValid } from '@jejunetwork/types'
+import { JobsListResponseSchema } from '../shared/schemas/training'
 
 // ============================================================================
 // Types

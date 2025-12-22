@@ -3,12 +3,12 @@
  * Converted from Next.js to React Router
  */
 
-import { ArrowLeft, User, Palette } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { ArrowLeft, Palette, User } from 'lucide-react'
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAccount } from 'wagmi'
-import { LoadingSpinner } from '../../components/LoadingSpinner'
 import { AuthButton } from '../../components/auth/AuthButton'
+import { LoadingSpinner } from '../../components/LoadingSpinner'
 
 type Tab = 'profile' | 'theme'
 
@@ -25,7 +25,11 @@ export default function SettingsPage() {
   useEffect(() => {
     setMounted(true)
     // Load saved theme preference
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | 'system' | null
+    const savedTheme = localStorage.getItem('theme') as
+      | 'light'
+      | 'dark'
+      | 'system'
+      | null
     if (savedTheme) {
       setTheme(savedTheme)
     }
@@ -36,7 +40,9 @@ export default function SettingsPage() {
     localStorage.setItem('theme', newTheme)
     // Apply theme
     if (newTheme === 'system') {
-      const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+      const prefersDark = window.matchMedia(
+        '(prefers-color-scheme: dark)',
+      ).matches
       document.documentElement.classList.toggle('dark', prefersDark)
     } else {
       document.documentElement.classList.toggle('dark', newTheme === 'dark')
@@ -53,7 +59,10 @@ export default function SettingsPage() {
   if (!isConnected) {
     return (
       <div className="max-w-2xl mx-auto text-center py-20">
-        <h1 className="text-2xl font-bold mb-4" style={{ color: 'var(--text-primary)' }}>
+        <h1
+          className="text-2xl font-bold mb-4"
+          style={{ color: 'var(--text-primary)' }}
+        >
           Settings
         </h1>
         <p className="mb-8" style={{ color: 'var(--text-secondary)' }}>
@@ -72,6 +81,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <button
+        type="button"
         onClick={() => navigate(-1)}
         className="mb-4 flex items-center gap-2 text-sm"
         style={{ color: 'var(--text-secondary)' }}
@@ -80,16 +90,23 @@ export default function SettingsPage() {
         Back
       </button>
 
-      <h1 className="text-3xl font-bold mb-8" style={{ color: 'var(--text-primary)' }}>
+      <h1
+        className="text-3xl font-bold mb-8"
+        style={{ color: 'var(--text-primary)' }}
+      >
         Settings
       </h1>
 
-      <div className="flex gap-2 border-b mb-8" style={{ borderColor: 'var(--border)' }}>
+      <div
+        className="flex gap-2 border-b mb-8"
+        style={{ borderColor: 'var(--border)' }}
+      >
         {tabs.map((tab) => {
           const Icon = tab.icon
           return (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-2 px-4 py-3 border-b-2 transition-all ${
                 activeTab === tab.id
@@ -97,7 +114,10 @@ export default function SettingsPage() {
                   : 'border-transparent'
               }`}
               style={{
-                color: activeTab === tab.id ? 'var(--bazaar-primary)' : 'var(--text-secondary)',
+                color:
+                  activeTab === tab.id
+                    ? 'var(--bazaar-primary)'
+                    : 'var(--text-secondary)',
               }}
             >
               <Icon className="h-4 w-4" />
@@ -110,7 +130,11 @@ export default function SettingsPage() {
       {activeTab === 'profile' && (
         <div className="space-y-6">
           <div>
-            <label htmlFor="displayName" className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            <label
+              htmlFor="displayName"
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Display Name
             </label>
             <input
@@ -124,7 +148,11 @@ export default function SettingsPage() {
           </div>
 
           <div>
-            <label htmlFor="bio" className="block text-sm font-medium mb-2" style={{ color: 'var(--text-primary)' }}>
+            <label
+              htmlFor="bio"
+              className="block text-sm font-medium mb-2"
+              style={{ color: 'var(--text-primary)' }}
+            >
               Bio
             </label>
             <textarea
@@ -138,6 +166,7 @@ export default function SettingsPage() {
           </div>
 
           <button
+            type="button"
             onClick={handleSave}
             disabled={isSaving}
             className="btn-primary px-6 py-3 flex items-center gap-2"
@@ -156,15 +185,20 @@ export default function SettingsPage() {
 
       {activeTab === 'theme' && mounted && (
         <div className="space-y-4">
-          <h2 className="text-lg font-medium mb-4" style={{ color: 'var(--text-primary)' }}>
+          <h2
+            className="text-lg font-medium mb-4"
+            style={{ color: 'var(--text-primary)' }}
+          >
             Theme Preference
           </h2>
           {(['light', 'dark', 'system'] as const).map((themeOption) => (
             <label
               key={themeOption}
+              htmlFor={`theme-${themeOption}`}
               className="flex items-center gap-3 p-4 card cursor-pointer"
             >
               <input
+                id={`theme-${themeOption}`}
                 type="radio"
                 name="theme"
                 value={themeOption}
@@ -173,10 +207,16 @@ export default function SettingsPage() {
                 className="h-4 w-4"
               />
               <div>
-                <p className="font-medium capitalize" style={{ color: 'var(--text-primary)' }}>
+                <p
+                  className="font-medium capitalize"
+                  style={{ color: 'var(--text-primary)' }}
+                >
                   {themeOption}
                 </p>
-                <p className="text-sm" style={{ color: 'var(--text-secondary)' }}>
+                <p
+                  className="text-sm"
+                  style={{ color: 'var(--text-secondary)' }}
+                >
                   {themeOption === 'light' && 'Light background with dark text'}
                   {themeOption === 'dark' && 'Dark background with light text'}
                   {themeOption === 'system' && 'Match your system settings'}

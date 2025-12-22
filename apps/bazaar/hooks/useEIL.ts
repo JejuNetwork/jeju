@@ -1,5 +1,3 @@
-'use client'
-
 /**
  * EIL Hooks for Bazaar
  * Provides Bazaar-specific EIL configuration and hooks

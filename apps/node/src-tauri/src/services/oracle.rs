@@ -105,11 +105,11 @@ impl Service for OracleService {
                         // 2. Compute median/TWAP
                         // 3. Sign and submit to ReportVerifier
                         // 4. Track acceptance and rewards
-                        
+
                         if !running.load(Ordering::SeqCst) {
                             break;
                         }
-                        
+
                         // Increment reports (simulated)
                         reports_submitted.fetch_add(1, Ordering::SeqCst);
                     }
@@ -168,4 +168,3 @@ impl Service for OracleService {
         self.running.load(Ordering::SeqCst)
     }
 }
-

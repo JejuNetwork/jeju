@@ -714,7 +714,11 @@ export class X402Client {
     })
 
     const resultRaw = await response.json()
-    const result = expectValid(X402SettlementResponseSchema, resultRaw, 'x402 gasless settlement')
+    const result = expectValid(
+      X402SettlementResponseSchema,
+      resultRaw,
+      'x402 gasless settlement',
+    )
 
     return {
       success: result.success,
@@ -972,7 +976,11 @@ export async function verifyPaymentViaHttp(
   })
 
   const resultRaw = await response.json()
-  const validated = expectValid(X402VerificationResponseSchema, resultRaw, 'x402 verification')
+  const validated = expectValid(
+    X402VerificationResponseSchema,
+    resultRaw,
+    'x402 verification',
+  )
 
   return {
     isValid: validated.isValid ?? validated.valid,
@@ -1013,7 +1021,11 @@ export async function settlePaymentViaHttp(
   })
 
   const resultRaw = await response.json()
-  const result = expectValid(X402SettlementWithFeeResponseSchema, resultRaw, 'x402 settlement')
+  const result = expectValid(
+    X402SettlementWithFeeResponseSchema,
+    resultRaw,
+    'x402 settlement',
+  )
 
   return result
 }
@@ -1034,7 +1046,11 @@ export async function getSupportedSchemes(facilitatorUrl: string): Promise<{
     if (!response.ok) return null
 
     const resultRaw = await response.json()
-    return expectValid(X402SupportedSchemesResponseSchema, resultRaw, 'x402 supported schemes')
+    return expectValid(
+      X402SupportedSchemesResponseSchema,
+      resultRaw,
+      'x402 supported schemes',
+    )
   } catch {
     return null
   }

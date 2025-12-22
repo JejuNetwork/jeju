@@ -5,18 +5,17 @@
  * RPC URLs use 127.0.0.1 for consistency across the codebase
  */
 
-// Import canonical test accounts from utils (single source of truth)
-import { SEED_PHRASE, TEST_ACCOUNTS } from './utils'
-
 // Import ports from central config
 import {
-  CORE_PORTS,
   INFRA_PORTS as CONFIG_INFRA_PORTS,
+  CORE_PORTS,
   getCoreAppUrl,
   getL1RpcUrl,
   getL2RpcUrl,
   getL2WsUrl,
 } from '../../config/ports'
+// Import canonical test accounts from utils (single source of truth)
+import { SEED_PHRASE, TEST_ACCOUNTS } from './utils'
 
 // ============================================================================
 // Infrastructure Ports (re-exported for backward compatibility)
@@ -107,7 +106,8 @@ export const APP_URLS = {
   facilitator: getCoreAppUrl('FACILITATOR'),
   // Indexer - use getCoreAppUrl for GraphQL, keep hardcoded for extras
   indexerGraphQL:
-    process.env.INDEXER_GRAPHQL_URL || `${getCoreAppUrl('INDEXER_GRAPHQL')}/graphql`,
+    process.env.INDEXER_GRAPHQL_URL ||
+    `${getCoreAppUrl('INDEXER_GRAPHQL')}/graphql`,
   indexerA2A: `http://${HOST}:${APP_PORTS.indexerA2A}`,
   indexerRest: `http://${HOST}:${APP_PORTS.indexerRest}`,
   indexerMcp: `http://${HOST}:${APP_PORTS.indexerMcp}`,

@@ -1,3 +1,4 @@
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import {
   type Address,
@@ -8,7 +9,6 @@ import {
   parseAbiItem,
 } from 'viem'
 import { z } from 'zod'
-import { expectValid } from '@jejunetwork/types'
 import { validateQueryFromObj } from '../shared/validation'
 import { emailsSentTotal, getMetrics, mailboxOperationsTotal } from './metrics'
 import { getEmailRelayService } from './relay'
@@ -239,12 +239,18 @@ export function createEmailRouter() {
       const emailRequest = parseBody(sendEmailSchema, body) as SendEmailRequest
 
       const relay = getEmailRelayService()
-      const response = await relay.sendEmail(emailRequest, user.address, user.tier)
+      const response = await relay.sendEmail(
+        emailRequest,
+        user.address,
+        user.tier,
+      )
 
       emailsSentTotal.inc({
         tier: user.tier,
         status: response.success ? 'success' : 'failure',
-        external: emailRequest.to.some((toAddr) => !toAddr.endsWith('@jeju.mail'))
+        external: emailRequest.to.some(
+          (toAddr) => !toAddr.endsWith('@jeju.mail'),
+        )
           ? 'true'
           : 'false',
       })
@@ -265,17 +271,26 @@ export function createEmailRouter() {
 
       if (!mailbox) {
         mailbox = await storage.initializeMailbox(user.address)
-        mailboxOperationsTotal.inc({ operation: 'initialize', status: 'success' })
+        mailboxOperationsTotal.inc({
+          operation: 'initialize',
+          status: 'success',
+        })
       }
 
       const index = await storage.getIndex(user.address)
       if (!index) {
-        mailboxOperationsTotal.inc({ operation: 'get_index', status: 'failure' })
+        mailboxOperationsTotal.inc({
+          operation: 'get_index',
+          status: 'failure',
+        })
         set.status = 500
         return { error: 'Failed to load mailbox' }
       }
 
-      mailboxOperationsTotal.inc({ operation: 'get_mailbox', status: 'success' })
+      mailboxOperationsTotal.inc({
+        operation: 'get_mailbox',
+        status: 'success',
+      })
       const unreadCount = index.inbox.filter((e) => !e.flags.read).length
 
       return {
@@ -381,21 +396,24 @@ export function createEmailRouter() {
       return response
     })
 
-    .patch('/email/:messageId/flags', async ({ params, body, request, set }) => {
-      const user = await getAuthenticatedUser(request)
-      if (!user) {
-        set.status = 401
-        return { error: 'Unauthorized' }
-      }
+    .patch(
+      '/email/:messageId/flags',
+      async ({ params, body, request, set }) => {
+        const user = await getAuthenticatedUser(request)
+        if (!user) {
+          set.status = 401
+          return { error: 'Unauthorized' }
+        }
 
-      const messageId = params.messageId as Hex
-      const flags = parseBody(updateFlagsSchema, body) as Partial<EmailFlags>
+        const messageId = params.messageId as Hex
+        const flags = parseBody(updateFlagsSchema, body) as Partial<EmailFlags>
 
-      const storage = getMailboxStorage()
-      await storage.updateFlags(user.address, messageId, flags)
+        const storage = getMailboxStorage()
+        await storage.updateFlags(user.address, messageId, flags)
 
-      return { success: true }
-    })
+        return { success: true }
+      },
+    )
 
     .post('/email/:messageId/move', async ({ params, body, request, set }) => {
       const user = await getAuthenticatedUser(request)
@@ -441,24 +459,32 @@ export function createEmailRouter() {
         return { error: 'Unauthorized' }
       }
 
-      const searchRequest = parseBody(searchEmailsSchema, body) as SearchEmailsRequest
+      const searchRequest = parseBody(
+        searchEmailsSchema,
+        body,
+      ) as SearchEmailsRequest
 
       const storage = getMailboxStorage()
-      const result = await storage.searchEmails(user.address, searchRequest.query, {
-        folder: searchRequest.folder,
-        from: searchRequest.from,
-        to: searchRequest.to,
-        dateFrom: searchRequest.dateFrom,
-        dateTo: searchRequest.dateTo,
-        hasAttachment: searchRequest.hasAttachment,
-        limit: searchRequest.limit,
-        offset: searchRequest.offset,
-      })
+      const result = await storage.searchEmails(
+        user.address,
+        searchRequest.query,
+        {
+          folder: searchRequest.folder,
+          from: searchRequest.from,
+          to: searchRequest.to,
+          dateFrom: searchRequest.dateFrom,
+          dateTo: searchRequest.dateTo,
+          hasAttachment: searchRequest.hasAttachment,
+          limit: searchRequest.limit,
+          offset: searchRequest.offset,
+        },
+      )
 
       const response: SearchEmailsResponse = {
         results: result.results,
         total: result.total,
-        hasMore: (searchRequest.offset ?? 0) + result.results.length < result.total,
+        hasMore:
+          (searchRequest.offset ?? 0) + result.results.length < result.total,
       }
 
       return response

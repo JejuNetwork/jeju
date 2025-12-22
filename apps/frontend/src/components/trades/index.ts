@@ -1,1 +1,0 @@
-export { TradesFeed } from './TradesFeed'

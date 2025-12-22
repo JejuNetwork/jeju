@@ -24,7 +24,7 @@ export {
   proxyBatchRequest,
   proxyRequest,
 } from './proxy/rpc-proxy.js'
-export { rpcApp, startRpcServer, type RpcApp } from './server.js'
+export { type RpcApp, rpcApp, startRpcServer } from './server.js'
 export {
   type ApiKeyRecord,
   createApiKey,

@@ -11,7 +11,10 @@
  */
 
 import { createLogger } from '../../sdk/logger'
-import type { ChainId, OpportunityExecutionResult } from '../autocrat-types-source'
+import type {
+  ChainId,
+  OpportunityExecutionResult,
+} from '../autocrat-types-source'
 
 const log = createLogger('RiskManager')
 

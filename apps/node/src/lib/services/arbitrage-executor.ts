@@ -45,7 +45,6 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js'
-import type { ArbOpportunity } from './bridge'
 import {
   BridgeTransferResponseSchema,
   BridgeTxResponseSchema,
@@ -55,6 +54,7 @@ import {
   JupiterSwapResponseSchema,
   OneInchSwapResponseSchema,
 } from '../../validation'
+import type { ArbOpportunity } from './bridge'
 
 // ============ Configuration ============
 
@@ -641,7 +641,9 @@ export class ArbitrageExecutor {
     const json: unknown = await response.json()
     const parsed = JupiterSwapResponseSchema.safeParse(json)
     if (!parsed.success) {
-      throw new Error(`Invalid Jupiter swap response: ${parsed.error.issues[0]?.message}`)
+      throw new Error(
+        `Invalid Jupiter swap response: ${parsed.error.issues[0]?.message}`,
+      )
     }
     const { swapTransaction } = parsed.data
 
@@ -991,7 +993,9 @@ export class ArbitrageExecutor {
     const json: unknown = await response.json()
     const parsed = BridgeTransferResponseSchema.safeParse(json)
     if (!parsed.success) {
-      throw new Error(`Invalid bridge response: ${parsed.error.issues[0]?.message}`)
+      throw new Error(
+        `Invalid bridge response: ${parsed.error.issues[0]?.message}`,
+      )
     }
     return parsed.data.transferId
   }
@@ -1044,7 +1048,9 @@ export class ArbitrageExecutor {
     const json: unknown = await response.json()
     const parsed = BridgeTransferResponseSchema.safeParse(json)
     if (!parsed.success) {
-      throw new Error(`Invalid bridge response: ${parsed.error.issues[0]?.message}`)
+      throw new Error(
+        `Invalid bridge response: ${parsed.error.issues[0]?.message}`,
+      )
     }
     return parsed.data.transferId
   }
@@ -1080,7 +1086,9 @@ export class ArbitrageExecutor {
     const json: unknown = await response.json()
     const parsed = BridgeTxResponseSchema.safeParse(json)
     if (!parsed.success) {
-      throw new Error(`Invalid bridge response: ${parsed.error.issues[0]?.message}`)
+      throw new Error(
+        `Invalid bridge response: ${parsed.error.issues[0]?.message}`,
+      )
     }
     return parsed.data.txHash
   }

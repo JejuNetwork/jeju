@@ -10,10 +10,10 @@
  * - Geo-routing for low latency
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
-import { expectValid } from '@jejunetwork/types'
 
 // ============================================================================
 // Types
@@ -516,55 +516,61 @@ const ingressRuleSchema = z.object({
 })
 
 export function createIngressRouter(controller: IngressController) {
-  return new Elysia({ prefix: '/ingress' })
-    // Health check
-    .get('/health', () => ({ status: 'healthy', rules: ingressRules.size }))
+  return (
+    new Elysia({ prefix: '/ingress' })
+      // Health check
+      .get('/health', () => ({ status: 'healthy', rules: ingressRules.size }))
 
-    // Create ingress
-    .post('/', async ({ body, set }) => {
-      const validated = expectValid(ingressRuleSchema, body, 'Ingress rule body')
-      const rule = await controller.createIngress(
-        validated as Omit<
-          IngressRule,
-          'id' | 'createdAt' | 'updatedAt' | 'status'
-        >,
-      )
-      set.status = 201
-      return rule
-    })
+      // Create ingress
+      .post('/', async ({ body, set }) => {
+        const validated = expectValid(
+          ingressRuleSchema,
+          body,
+          'Ingress rule body',
+        )
+        const rule = await controller.createIngress(
+          validated as Omit<
+            IngressRule,
+            'id' | 'createdAt' | 'updatedAt' | 'status'
+          >,
+        )
+        set.status = 201
+        return rule
+      })
 
-    // List ingress
-    .get('/', () => {
-      const rules = controller.listIngress()
-      return { rules }
-    })
+      // List ingress
+      .get('/', () => {
+        const rules = controller.listIngress()
+        return { rules }
+      })
 
-    // Get ingress
-    .get('/:id', ({ params, set }) => {
-      const rule = controller.getIngress(params.id)
-      if (!rule) {
-        set.status = 404
-        return { error: 'Ingress not found' }
-      }
-      return rule
-    })
+      // Get ingress
+      .get('/:id', ({ params, set }) => {
+        const rule = controller.getIngress(params.id)
+        if (!rule) {
+          set.status = 404
+          return { error: 'Ingress not found' }
+        }
+        return rule
+      })
 
-    // Update ingress
-    .put('/:id', async ({ params, body }) => {
-      const validated = expectValid(
-        ingressRuleSchema.partial(),
-        body,
-        'Ingress update body',
-      ) as Partial<IngressRule>
-      const rule = await controller.updateIngress(params.id, validated)
-      return rule
-    })
+      // Update ingress
+      .put('/:id', async ({ params, body }) => {
+        const validated = expectValid(
+          ingressRuleSchema.partial(),
+          body,
+          'Ingress update body',
+        ) as Partial<IngressRule>
+        const rule = await controller.updateIngress(params.id, validated)
+        return rule
+      })
 
-    // Delete ingress
-    .delete('/:id', async ({ params }) => {
-      await controller.deleteIngress(params.id)
-      return { success: true }
-    })
+      // Delete ingress
+      .delete('/:id', async ({ params }) => {
+        await controller.deleteIngress(params.id)
+        return { success: true }
+      })
+  )
 }
 
 // ============================================================================

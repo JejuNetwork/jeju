@@ -1,5 +1,5 @@
-import { NonEmptyStringSchema } from '@jejunetwork/types'
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
+import { NonEmptyStringSchema } from '@jejunetwork/types'
 import { parseEther } from 'viem'
 import {
   calculateNoPrice,

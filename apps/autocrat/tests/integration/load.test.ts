@@ -53,7 +53,9 @@ async function concurrent(fn: () => Promise<Response>, count: number) {
 const apiAvailable = await checkApi()
 
 if (!apiAvailable) {
-  throw new Error(`API not running at ${API_URL}. Start the server with: bun run dev`)
+  throw new Error(
+    `API not running at ${API_URL}. Start the server with: bun run dev`,
+  )
 }
 
 describe('Load Tests', () => {

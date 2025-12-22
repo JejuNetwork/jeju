@@ -29,6 +29,7 @@ import {
   filterNodesByStatus,
   findBestNode,
 } from './utils/nodes'
+import { validateProxyUrlWithDNS } from './utils/proxy-validation'
 import {
   createSession,
   deleteSession,
@@ -37,7 +38,6 @@ import {
   getSessionDuration,
   verifySessionOwnership,
 } from './utils/sessions'
-import { validateProxyUrlWithDNS } from './utils/proxy-validation'
 import { verifyX402Payment } from './x402'
 
 // Infer types from Zod schemas

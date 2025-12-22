@@ -407,7 +407,10 @@ export class MevBundler {
         }
       }
 
-      const result = safeParse(FlashbotsBundleResponseSchema, await response.json())
+      const result = safeParse(
+        FlashbotsBundleResponseSchema,
+        await response.json(),
+      )
 
       if (result?.error) {
         return { bundleHash: '', success: false, error: result.error.message }
@@ -471,7 +474,11 @@ export class MevBundler {
           }
         }
 
-        return { bundleHash: result?.result || '', success: true, builder: name }
+        return {
+          bundleHash: result?.result || '',
+          success: true,
+          builder: name,
+        }
       } catch (error) {
         return {
           bundleHash: '',
@@ -523,7 +530,10 @@ export class MevBundler {
         body,
       })
 
-      const result = safeParse(FlashbotsSimulationResponseSchema, await response.json())
+      const result = safeParse(
+        FlashbotsSimulationResponseSchema,
+        await response.json(),
+      )
 
       if (result?.error || !result?.result) {
         return { success: false, error: result?.error?.message || 'No result' }
@@ -589,7 +599,10 @@ export class MevBundler {
         body,
       })
 
-      const result = safeParse(FlashbotsBundleStatsSchema, await response.json())
+      const result = safeParse(
+        FlashbotsBundleStatsSchema,
+        await response.json(),
+      )
 
       const stats = result?.result
       const isIncluded =
@@ -673,7 +686,10 @@ export class MevBundler {
         body,
       })
 
-      const result = safeParse(MevSharePrivateTxResponseSchema, await response.json())
+      const result = safeParse(
+        MevSharePrivateTxResponseSchema,
+        await response.json(),
+      )
 
       if (result?.error) {
         return { txHash: '', success: false, error: result.error.message }
@@ -719,7 +735,10 @@ export class MevBundler {
         body,
       })
 
-      const result = safeParse(MevShareCancelResponseSchema, await response.json())
+      const result = safeParse(
+        MevShareCancelResponseSchema,
+        await response.json(),
+      )
       return result?.result === true
     } catch {
       return false

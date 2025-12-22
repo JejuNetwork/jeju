@@ -1,6 +1,6 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 
 /**
  * Integration tests for Node Explorer

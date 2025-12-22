@@ -13,8 +13,8 @@
 import { existsSync } from 'node:fs'
 import { mkdir, readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { type Subprocess, spawn } from 'bun'
 import { CORE_PORTS } from '@jejunetwork/config/ports'
+import { type Subprocess, spawn } from 'bun'
 import { DWSFunctionDeployResponseSchema } from '../schemas/api'
 
 // ============================================================================

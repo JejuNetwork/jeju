@@ -24,7 +24,10 @@ export const healthResponseSchema = z.object({
   backends: z
     .object({
       available: z.array(z.string()),
-      health: z.record(z.string(), z.union([z.boolean(), z.object({ status: z.string() })])),
+      health: z.record(
+        z.string(),
+        z.union([z.boolean(), z.object({ status: z.string() })]),
+      ),
     })
     .optional(),
 })
@@ -110,7 +113,9 @@ export const reposResponseSchema = z.object({
 
 // Package schemas
 export const searchPackagesResponseSchema = z.object({
-  objects: z.array(z.object({ package: z.object({ name: z.string() }) })).optional(),
+  objects: z
+    .array(z.object({ package: z.object({ name: z.string() }) }))
+    .optional(),
   packages: z.array(z.object({ name: z.string() })).optional(),
 })
 

@@ -1,8 +1,8 @@
+import { formatUsd } from '@jejunetwork/shared'
 import clsx from 'clsx'
 import { ArrowUpRight, Bot, Download, Server, TrendingUp } from 'lucide-react'
 import { useState } from 'react'
 import { useAppStore } from '../store'
-import { formatUsd } from '@jejunetwork/shared'
 import { formatEther } from '../utils'
 import { EarningsChart } from './EarningsChart'
 

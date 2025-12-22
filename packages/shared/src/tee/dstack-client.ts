@@ -5,18 +5,14 @@
  * Works with both simulator (development) and production TDX hardware
  */
 
-import { expectValid } from '@jejunetwork/types'
 import { existsSync } from 'node:fs'
+import { expectValid } from '@jejunetwork/types'
 import type { ZodSchema } from 'zod'
 import {
   TappdDeriveKeyResponseSchema,
   TappdInfoResponseSchema,
   TappdKeyResponseSchema,
   TappdQuoteResponseSchema,
-  type TappdDeriveKeyResponse,
-  type TappdInfoResponse,
-  type TappdKeyResponse,
-  type TappdQuoteResponse,
 } from '../schemas'
 import type {
   AttestationQuote,

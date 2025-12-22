@@ -54,7 +54,8 @@ export function createRESTRouter(ctx: VPNServiceContext) {
     .onError(({ error, set }) => {
       console.error('REST API error:', error)
       set.status = 500
-      const message = error instanceof Error ? error.message : 'Internal server error'
+      const message =
+        error instanceof Error ? error.message : 'Internal server error'
       return { error: message }
     })
 
@@ -159,7 +160,11 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         throw new Error('Authentication address missing')
       }
 
-      const validatedBody = expectValid(ConnectRequestSchema, body, 'connect request')
+      const validatedBody = expectValid(
+        ConnectRequestSchema,
+        body,
+        'connect request',
+      )
 
       // Find best node
       let targetNode: VPNNodeState | undefined
@@ -295,13 +300,20 @@ export function createRESTRouter(ctx: VPNServiceContext) {
 
       // SECURITY: Check content-length before parsing body
       const contentLength = request.headers.get('content-length')
-      if (contentLength && parseInt(contentLength, 10) > MAX_REQUEST_BODY_SIZE) {
+      if (
+        contentLength &&
+        parseInt(contentLength, 10) > MAX_REQUEST_BODY_SIZE
+      ) {
         throw new Error(
           `Request body too large. Max size: ${MAX_REQUEST_BODY_SIZE} bytes`,
         )
       }
 
-      const validatedBody = expectValid(ProxyRequestSchema, body, 'proxy request')
+      const validatedBody = expectValid(
+        ProxyRequestSchema,
+        body,
+        'proxy request',
+      )
 
       // SECURITY: Validate URL with DNS resolution to prevent SSRF and DNS rebinding attacks
       await validateProxyUrlWithDNS(validatedBody.url)

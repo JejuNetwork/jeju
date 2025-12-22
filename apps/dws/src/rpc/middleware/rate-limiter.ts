@@ -84,7 +84,9 @@ const checkAccess = async (addr: Address): Promise<boolean> => {
     .catch(() => true)
 }
 
-const getUserKey = (request: Request): { key: string; address: Address | null } => {
+const getUserKey = (
+  request: Request,
+): { key: string; address: Address | null } => {
   const apiKey = request.headers.get('X-Api-Key')
   if (apiKey && apiKeyCache.has(apiKey))
     return {
@@ -152,10 +154,13 @@ export function rateLimiter() {
 
       const limit = RATE_LIMITS[tier]
       const remaining = limit === 0 ? -1 : Math.max(0, limit - record.count)
-      set.headers['X-RateLimit-Limit'] = limit === 0 ? 'unlimited' : String(limit)
+      set.headers['X-RateLimit-Limit'] =
+        limit === 0 ? 'unlimited' : String(limit)
       set.headers['X-RateLimit-Remaining'] =
         remaining === -1 ? 'unlimited' : String(remaining)
-      set.headers['X-RateLimit-Reset'] = String(Math.ceil(record.resetAt / 1000))
+      set.headers['X-RateLimit-Reset'] = String(
+        Math.ceil(record.resetAt / 1000),
+      )
       set.headers['X-RateLimit-Tier'] = tier
 
       if (limit > 0 && record.count > limit) {

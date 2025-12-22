@@ -60,7 +60,7 @@ impl Service for RpcService {
         ServiceRequirements {
             min_cpu_cores: 8,
             min_memory_mb: 16 * 1024, // 16 GB
-            min_storage_gb: 500, // 500 GB for chain data
+            min_storage_gb: 500,      // 500 GB for chain data
             requires_gpu: false,
             min_gpu_memory_mb: None,
             requires_tee: false,
@@ -101,7 +101,7 @@ impl Service for RpcService {
                         // 2. Register with NodeStakingManager
                         // 3. Serve RPC requests
                         // 4. Report metrics for rewards
-                        
+
                         if !running.load(Ordering::SeqCst) {
                             break;
                         }
@@ -161,4 +161,3 @@ impl Service for RpcService {
         self.running.load(Ordering::SeqCst)
     }
 }
-

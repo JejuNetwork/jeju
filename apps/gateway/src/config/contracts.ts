@@ -1,5 +1,5 @@
-import type { Address } from 'viem'
 import { ZERO_ADDRESS } from '@jejunetwork/ui'
+import type { Address } from 'viem'
 import { NETWORK, type NetworkId } from './networks.js'
 
 interface NetworkContracts {

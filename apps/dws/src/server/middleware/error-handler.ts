@@ -6,7 +6,8 @@ import { Elysia } from 'elysia'
 
 export function errorHandler() {
   return new Elysia({ name: 'error-handler' }).onError(({ error, set }) => {
-    const message = error instanceof Error ? error.message : 'Internal server error'
+    const message =
+      error instanceof Error ? error.message : 'Internal server error'
     const lowerMessage = message.toLowerCase()
 
     // Check for auth-related errors (401) - check header validation failures

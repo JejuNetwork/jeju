@@ -14,12 +14,13 @@
  * - JNS for decentralized naming
  */
 
-import { getNetworkName } from '@jejunetwork/config'
 import { cors } from '@elysiajs/cors'
+import { getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { getDatabase } from '../db/client'
 import { banCheckHandler } from '../middleware/ban-check'
+import type { HealthResponse, ServiceStatus } from '../schemas'
 import { getOAuth3Service } from '../services/auth'
 import { getCache } from '../services/cache'
 import {
@@ -30,7 +31,6 @@ import {
 import { getKMSService } from '../services/kms'
 import { getRegistryService } from '../services/registry'
 import { getStorageService } from '../services/storage'
-import type { HealthResponse, ServiceStatus } from '../schemas'
 import { expectValid } from '../utils/validation'
 import { createA2AServer } from './a2a'
 import { createAuthRoutes } from './auth'

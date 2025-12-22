@@ -14,10 +14,10 @@
  *   - VERIFY: Set to "true" to verify contracts on explorer
  */
 
-import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { $ } from 'bun'
 import { parseArgs } from 'node:util'
+import { $ } from 'bun'
 
 const ROOT = join(import.meta.dir, '../..')
 const BABYLON_ROOT = join(ROOT, '../../vendor/babylon')
@@ -43,7 +43,8 @@ const NETWORKS: Record<string, NetworkConfig> = {
   },
   testnet: {
     chainId: 420690,
-    rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
+    rpcUrl:
+      process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
     explorerUrl: 'https://explorer.testnet.jejunetwork.org',
   },
   mainnet: {
@@ -70,8 +71,16 @@ interface DeployedContracts {
 async function main(): Promise<void> {
   const { values } = parseArgs({
     options: {
-      network: { type: 'string', short: 'n', default: process.env.NETWORK || 'localnet' },
-      verify: { type: 'boolean', short: 'v', default: process.env.VERIFY === 'true' },
+      network: {
+        type: 'string',
+        short: 'n',
+        default: process.env.NETWORK || 'localnet',
+      },
+      verify: {
+        type: 'boolean',
+        short: 'v',
+        default: process.env.VERIFY === 'true',
+      },
       'dry-run': { type: 'boolean', default: false },
     },
     allowPositionals: false,
@@ -96,7 +105,9 @@ async function main(): Promise<void> {
 
   const networkConfig = NETWORKS[network]
   if (!networkConfig) {
-    throw new Error(`Unknown network: ${network}. Available: ${Object.keys(NETWORKS).join(', ')}`)
+    throw new Error(
+      `Unknown network: ${network}. Available: ${Object.keys(NETWORKS).join(', ')}`,
+    )
   }
 
   // Check for private key
@@ -111,7 +122,8 @@ async function main(): Promise<void> {
   }
 
   console.log('📋 Building contracts...')
-  const buildResult = await $`cd ${CONTRACTS_DIR} && forge build --root ${BABYLON_ROOT}`.nothrow()
+  const buildResult =
+    await $`cd ${CONTRACTS_DIR} && forge build --root ${BABYLON_ROOT}`.nothrow()
   if (buildResult.exitCode !== 0) {
     console.log('⚠️  Build warning (may be ok if contracts exist)')
   } else {
@@ -130,7 +142,8 @@ async function main(): Promise<void> {
   const forgeArgs = [
     'script',
     'script/DeployAll.s.sol:DeployAll',
-    '--rpc-url', networkConfig.rpcUrl,
+    '--rpc-url',
+    networkConfig.rpcUrl,
     '--broadcast',
     '-vvv',
   ]
@@ -139,11 +152,14 @@ async function main(): Promise<void> {
     forgeArgs.push('--verify')
   }
 
-  const deployResult = await $`cd ${CONTRACTS_DIR} && FOUNDRY_PROFILE=packages forge ${forgeArgs}`.env({
-    PRIVATE_KEY: privateKey,
-    OWNER_ADDRESS: process.env.OWNER_ADDRESS || '',
-    AI_CEO_ADDRESS: process.env.AI_CEO_ADDRESS || '',
-  })
+  const deployResult =
+    await $`cd ${CONTRACTS_DIR} && FOUNDRY_PROFILE=packages forge ${forgeArgs}`.env(
+      {
+        PRIVATE_KEY: privateKey,
+        OWNER_ADDRESS: process.env.OWNER_ADDRESS || '',
+        AI_CEO_ADDRESS: process.env.AI_CEO_ADDRESS || '',
+      },
+    )
 
   if (deployResult.exitCode !== 0) {
     throw new Error('Deployment failed')
@@ -207,7 +223,14 @@ function parseDeployedAddresses(output: string): Record<string, string> | null {
     /Deployer:\s*(0x[a-fA-F0-9]{40})/,
   ]
 
-  const names = ['BBLNToken', 'BabylonTreasury', 'BabylonAgentVault', 'BabylonDAO', 'TrainingOrchestrator', 'deployer']
+  const names = [
+    'BBLNToken',
+    'BabylonTreasury',
+    'BabylonAgentVault',
+    'BabylonDAO',
+    'TrainingOrchestrator',
+    'deployer',
+  ]
 
   for (let i = 0; i < patterns.length; i++) {
     const match = output.match(patterns[i])
@@ -219,7 +242,10 @@ function parseDeployedAddresses(output: string): Record<string, string> | null {
   return Object.keys(addresses).length > 0 ? addresses : null
 }
 
-async function updateContractsJson(network: string, deployment: DeployedContracts): Promise<void> {
+async function updateContractsJson(
+  network: string,
+  deployment: DeployedContracts,
+): Promise<void> {
   const contractsJsonPath = join(CONFIG_DIR, 'contracts.json')
 
   if (!existsSync(contractsJsonPath)) {
@@ -230,7 +256,12 @@ async function updateContractsJson(network: string, deployment: DeployedContract
   const contracts = JSON.parse(readFileSync(contractsJsonPath, 'utf-8'))
 
   // Add Babylon contracts section
-  const networkKey = network === 'testnet' ? 'testnet' : network === 'mainnet' ? 'mainnet' : 'localnet'
+  const networkKey =
+    network === 'testnet'
+      ? 'testnet'
+      : network === 'mainnet'
+        ? 'mainnet'
+        : 'localnet'
 
   if (!contracts[networkKey]) {
     contracts[networkKey] = {}

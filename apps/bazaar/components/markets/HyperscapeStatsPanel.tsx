@@ -1,5 +1,3 @@
-'use client'
-
 /**
  * @deprecated This component is vendor-specific and maintained in vendor/hyperscape/components/.
  * This copy remains for backwards compatibility. For new development,

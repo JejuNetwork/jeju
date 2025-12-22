@@ -83,7 +83,8 @@ export function banCheckMiddleware() {
 
       // Extract address from various sources
       let address =
-        request.headers.get('x-wallet-address') ?? url.searchParams.get('address')
+        request.headers.get('x-wallet-address') ??
+        url.searchParams.get('address')
 
       if (!address) {
         // Try to get from JSON body for POST/PUT/DELETE
@@ -95,7 +96,8 @@ export function banCheckMiddleware() {
             const parsed = AddressFieldsSchema.safeParse(rawBody)
             if (parsed.success) {
               const body = parsed.data
-              address = body.address ?? body.from ?? body.sender ?? body.owner ?? null
+              address =
+                body.address ?? body.from ?? body.sender ?? body.owner ?? null
             }
           }
         }

@@ -10,9 +10,9 @@
  * automatically routing via OIF when needed.
  */
 
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import type { Address } from 'viem'
 import type { TokenBalance } from './multi-chain-discovery'
-import { getCoreAppUrl } from '@jejunetwork/config/ports'
 
 // ============ Types ============
 
@@ -429,7 +429,8 @@ export function getOIFClient(): OIFClient {
   if (!globalOIFClient) {
     // OIF is now served by Gateway A2A server on /api
     const aggregatorUrl =
-      process.env.OIF_AGGREGATOR_URL || `${getCoreAppUrl('NODE_EXPLORER_UI')}/api`
+      process.env.OIF_AGGREGATOR_URL ||
+      `${getCoreAppUrl('NODE_EXPLORER_UI')}/api`
     globalOIFClient = new OIFClient({ aggregatorUrl })
   }
   return globalOIFClient

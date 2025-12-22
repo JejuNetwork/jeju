@@ -23,10 +23,10 @@ import {
   getAutocratUrl,
   getCoreAppUrl,
 } from '@jejunetwork/config'
+import { expectValid } from '@jejunetwork/types'
 import {
   A2AJsonRpcResponseSchema,
   AgentCardSchema,
-  expectValid,
   extractA2AData,
   MCPToolsResponseSchema,
 } from '../schemas'

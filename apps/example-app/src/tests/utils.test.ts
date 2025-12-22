@@ -7,13 +7,9 @@
 
 import { describe, expect, test } from 'bun:test'
 import type { Address } from 'viem'
-import {
-  A2A_SKILLS,
-  MCP_TOOLS,
-  TODO_PRIORITIES,
-  X402_CONFIG,
-} from '../types'
 import { cacheKeys } from '../services/cache'
+import { getStorageService } from '../services/storage'
+import { A2A_SKILLS, MCP_TOOLS, TODO_PRIORITIES, X402_CONFIG } from '../types'
 import {
   constructAuthMessage,
   formatAddress,
@@ -29,7 +25,6 @@ import {
   TIMESTAMP_WINDOW_MS,
   validateTimestamp,
 } from '../utils'
-import { getStorageService } from '../services/storage'
 import {
   expectDefined,
   expectInRange,
@@ -263,8 +258,8 @@ describe('Configuration', () => {
   })
 })
 
-import { filterOverdue } from '../utils'
 import { z } from 'zod'
+import { filterOverdue } from '../utils'
 
 describe('Todo Prioritization', () => {
   const createTodo = (

@@ -23,11 +23,11 @@ import { join } from 'node:path'
 import { type Subprocess, spawn } from 'bun'
 import {
   type Address,
-  type Hex,
   createPublicClient,
+  encodePacked,
+  type Hex,
   http,
   keccak256,
-  encodePacked,
   toHex,
 } from 'viem'
 import { z } from 'zod'

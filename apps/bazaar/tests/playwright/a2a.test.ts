@@ -3,8 +3,8 @@
  * Tests the complete A2A protocol implementation including x402 payments
  */
 
-import { expect, test } from '@playwright/test'
 import { getCoreAppUrl } from '@jejunetwork/config/ports'
+import { expect, test } from '@playwright/test'
 
 const BAZAAR_URL = getCoreAppUrl('BAZAAR')
 const A2A_ENDPOINT = `${BAZAAR_URL}/api/a2a`

@@ -4,7 +4,6 @@
  */
 
 import type { TransactionStatus } from '@jejunetwork/types'
-import type { Address, Hex } from 'viem'
 import {
   expectAddress,
   expectBigInt,
@@ -12,6 +11,7 @@ import {
   expectHex,
   expectNonNegative,
 } from '@jejunetwork/types'
+import type { Address, Hex } from 'viem'
 import { requireDefined } from '../../lib/validation'
 import * as jeju from '../jeju'
 import { SUPPORTED_CHAINS, type SupportedChainId } from '../rpc'

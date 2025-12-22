@@ -823,7 +823,8 @@ export function getExplorerUrl(): string {
  * Get the Documentation A2A URL
  */
 export function getDocumentationA2AUrl(): string {
-  if (process.env.DOCUMENTATION_A2A_URL) return process.env.DOCUMENTATION_A2A_URL
+  if (process.env.DOCUMENTATION_A2A_URL)
+    return process.env.DOCUMENTATION_A2A_URL
   const port = CORE_PORTS.DOCUMENTATION_A2A.get()
   const host = process.env.HOST || '127.0.0.1'
   return `http://${host}:${port}/api/a2a`

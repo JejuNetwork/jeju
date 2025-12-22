@@ -52,7 +52,9 @@ export class ValidationError extends APIError {
  */
 export class NotFoundError extends APIError {
   constructor(resource: string, id?: string) {
-    const message = id ? `${resource} not found: ${id}` : `${resource} not found`
+    const message = id
+      ? `${resource} not found: ${id}`
+      : `${resource} not found`
     super(message, 404, 'NOT_FOUND', { resource, id })
     this.name = 'NotFoundError'
   }

@@ -88,7 +88,8 @@ const healthRoutes = new Elysia({ prefix: '/' })
     const configStatus = await getConfigStatus()
 
     const ready =
-      configStatus.keySource !== 'none' && cfg.facilitatorAddress !== ZERO_ADDRESS
+      configStatus.keySource !== 'none' &&
+      cfg.facilitatorAddress !== ZERO_ADDRESS
     set.status = ready ? 200 : 503
     return { status: ready ? 'ready' : 'not_ready', timestamp: Date.now() }
   })

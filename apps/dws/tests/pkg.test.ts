@@ -254,9 +254,7 @@ describe.skipIf(SKIP)('Package Registry', () => {
 
   describe('Tarball Download', () => {
     test('GET /:package/-/:tarball with invalid version should return 400', async () => {
-      const res = await request(
-        '/pkg/test-package/-/test-package-invalid.tgz',
-      )
+      const res = await request('/pkg/test-package/-/test-package-invalid.tgz')
       expect(res.status).toBe(400)
     })
 

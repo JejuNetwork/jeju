@@ -33,7 +33,8 @@ const WorkerdBindingsSchema = z.array(
   }),
 )
 
-const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 function isValidUUID(str: string): boolean {
   return UUID_REGEX.test(str)
@@ -125,7 +126,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
         const contentType = headers['content-type'] || ''
 
         let name: string
-        let handler = 'index.handler'
+        let _handler = 'index.handler'
         let memoryMb = 128
         let timeoutMs = 30000
         let cpuTimeMs = 50
@@ -145,11 +146,12 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
           const codeFile = formData.get('code')
 
           name = formData.get('name') as string
-          handler = (formData.get('handler') as string) || 'index.handler'
+          _handler = (formData.get('handler') as string) || 'index.handler'
           memoryMb = parseInt(formData.get('memoryMb') as string, 10) || 128
           timeoutMs = parseInt(formData.get('timeoutMs') as string, 10) || 30000
           cpuTimeMs = parseInt(formData.get('cpuTimeMs') as string, 10) || 50
-          compatibilityDate = (formData.get('compatibilityDate') as string) || '2024-01-01'
+          compatibilityDate =
+            (formData.get('compatibilityDate') as string) || '2024-01-01'
           bindings = expectJson(
             (formData.get('bindings') as string) || '[]',
             WorkerdBindingsSchema,
@@ -179,7 +181,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
           }
 
           name = jsonBody.name
-          handler = jsonBody.handler ?? 'index.handler'
+          _handler = jsonBody.handler ?? 'index.handler'
           memoryMb = jsonBody.memoryMb ?? 128
           timeoutMs = jsonBody.timeoutMs ?? 30000
           cpuTimeMs = jsonBody.cpuTimeMs ?? 50
@@ -260,9 +262,13 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
         if (registry && enableDecentralized) {
           const endpoint =
             routerConfig?.localEndpoint || DEFAULT_ROUTER_CONFIG.localEndpoint
-          await registry.registerWorker(worker, endpoint).catch((err: Error) => {
-            console.warn(`[Workerd] Failed to register on-chain: ${err.message}`)
-          })
+          await registry
+            .registerWorker(worker, endpoint)
+            .catch((err: Error) => {
+              console.warn(
+                `[Workerd] Failed to register on-chain: ${err.message}`,
+              )
+            })
         }
 
         set.status = 201
@@ -439,12 +445,23 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
           memoryMb: t.Optional(t.Number()),
           timeoutMs: t.Optional(t.Number()),
           cpuTimeMs: t.Optional(t.Number()),
-          bindings: t.Optional(t.Array(t.Object({
-            name: t.String(),
-            type: t.Union([t.Literal('text'), t.Literal('json'), t.Literal('data'), t.Literal('service')]),
-            value: t.Optional(t.Union([t.String(), t.Record(t.String(), t.String())])),
-            service: t.Optional(t.String()),
-          }))),
+          bindings: t.Optional(
+            t.Array(
+              t.Object({
+                name: t.String(),
+                type: t.Union([
+                  t.Literal('text'),
+                  t.Literal('json'),
+                  t.Literal('data'),
+                  t.Literal('service'),
+                ]),
+                value: t.Optional(
+                  t.Union([t.String(), t.Record(t.String(), t.String())]),
+                ),
+                service: t.Optional(t.String()),
+              }),
+            ),
+          ),
         }),
       },
     )
@@ -565,7 +582,8 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
         }
 
         const url = new URL(request.url)
-        const path = url.pathname.replace(`/workerd/${params.workerId}/http`, '') || '/'
+        const path =
+          url.pathname.replace(`/workerd/${params.workerId}/http`, '') || '/'
 
         const requestHeaders: Record<string, string> = {}
         request.headers.forEach((value, key) => {
@@ -656,7 +674,8 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
       .post(
         '/:workerId/replicate',
         async ({ params, body, set }) => {
-          const targetCount = (body as { targetCount?: number }).targetCount ?? 3
+          const targetCount =
+            (body as { targetCount?: number }).targetCount ?? 3
 
           const worker = await registry.getWorker(BigInt(params.workerId))
           if (!worker) {

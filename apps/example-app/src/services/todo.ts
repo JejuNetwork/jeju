@@ -12,6 +12,7 @@
 
 import type { Address } from 'viem'
 import { getTodoRepository } from '../db/client'
+import type { CreateTodoInput, Todo, UpdateTodoInput } from '../schemas'
 import {
   addressSchema,
   createTodoInputSchema,
@@ -21,7 +22,6 @@ import {
   todoStatsSchema,
   updateTodoInputSchema,
 } from '../schemas'
-import type { CreateTodoInput, Todo, UpdateTodoInput } from '../schemas'
 import { expectValid, ValidationError } from '../utils/validation'
 import { cacheKeys, getCache } from './cache'
 import { getKMSService } from './kms'

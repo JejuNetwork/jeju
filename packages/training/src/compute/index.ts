@@ -9,6 +9,7 @@
  * - Cross-chain reward distribution
  */
 
+export type { DWSJobStatus, JudgeResult } from '../schemas'
 export {
   createDWSClient,
   type DWSClientConfig,
@@ -17,8 +18,6 @@ export {
   isDWSAvailable,
   type RolloutData,
 } from './dws-client'
-
-export type { DWSJobStatus, JudgeResult } from '../schemas'
 
 export type {
   TrainingJobRequest,

@@ -2,6 +2,7 @@
  * Discord Platform Adapter
  */
 
+import { expectValid } from '@jejunetwork/types'
 import {
   ActionRowBuilder,
   type APIActionRowComponent,
@@ -22,7 +23,6 @@ import {
   SlashCommandBuilder,
   type TextChannel,
 } from 'discord.js'
-import { expectValid } from '@jejunetwork/types'
 import { PlatformMessageSchema } from '../schemas'
 import type { MessageButton, MessageEmbed, PlatformMessage } from '../types'
 import type {

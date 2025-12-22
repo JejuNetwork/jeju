@@ -151,7 +151,8 @@ export const computeRoutes = new Elysia({ name: 'compute', prefix: '/compute' })
         if (
           nodeModels.includes('*') ||
           nodeModels.some(
-            (m) => modelLower.includes(m) || m.includes(modelLower.split('-')[0]),
+            (m) =>
+              modelLower.includes(m) || m.includes(modelLower.split('-')[0]),
           )
         ) {
           selectedNode = node
@@ -244,7 +245,11 @@ export const computeRoutes = new Elysia({ name: 'compute', prefix: '/compute' })
               },
             ]
           : []),
-        { id: 'openai', url: 'https://api.openai.com/v1', env: 'OPENAI_API_KEY' },
+        {
+          id: 'openai',
+          url: 'https://api.openai.com/v1',
+          env: 'OPENAI_API_KEY',
+        },
         {
           id: 'together',
           url: 'https://api.together.xyz/v1',
@@ -512,7 +517,11 @@ export const computeRoutes = new Elysia({ name: 'compute', prefix: '/compute' })
   .get(
     '/training/runs',
     async ({ query }) => {
-      const status = query.status as 'active' | 'completed' | 'paused' | undefined
+      const status = query.status as
+        | 'active'
+        | 'completed'
+        | 'paused'
+        | undefined
       const runs = await trainingState.listRuns(status)
 
       return runs.map((r) => ({

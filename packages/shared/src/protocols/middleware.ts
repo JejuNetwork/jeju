@@ -512,7 +512,11 @@ export async function verifyX402Payment(
 export interface X402Context {
   paymentVerified: boolean
   paymentSigner: Address | null
-  x402Error: { error: string; x402?: PaymentRequirement; details?: string } | null
+  x402Error: {
+    error: string
+    x402?: PaymentRequirement
+    details?: string
+  } | null
 }
 
 /**

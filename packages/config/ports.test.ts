@@ -431,7 +431,15 @@ describe('Port Range Guidelines', () => {
       // - IPFS_API (5001) - standard Kubo HTTP API port
       // - DOCUMENTATION_A2A (7778) - separate A2A endpoint for docs search
       // - BABYLON_WEB/BABYLON_API (5008/5009) - social prediction platform in 5xxx range
-      if (!['INDEXER_DATABASE', 'IPFS_API', 'DOCUMENTATION_A2A', 'BABYLON_WEB', 'BABYLON_API'].includes(name)) {
+      if (
+        ![
+          'INDEXER_DATABASE',
+          'IPFS_API',
+          'DOCUMENTATION_A2A',
+          'BABYLON_WEB',
+          'BABYLON_API',
+        ].includes(name)
+      ) {
         expect(port).toBeGreaterThanOrEqual(3000)
         expect(port).toBeLessThan(5000)
       }

@@ -1,6 +1,6 @@
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import type { Address } from 'viem'
 import { hashMessage, recoverAddress } from 'viem'
-import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import { expectValid, X402PaymentProofSchema } from '../../lib/validation.js'
 import { initializeState, x402State } from '../../services/state.js'
 

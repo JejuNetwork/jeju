@@ -4,14 +4,10 @@
  */
 
 import { existsSync, mkdirSync, readFileSync } from 'node:fs'
+import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { z } from 'zod'
-import { expectValid } from '@jejunetwork/types'
-import {
-  LimitOrderSchema,
-  OttoUserSchema,
-  validateOrNull,
-} from '../schemas'
+import { LimitOrderSchema, OttoUserSchema, validateOrNull } from '../schemas'
 import type {
   LimitOrder,
   OttoUser,

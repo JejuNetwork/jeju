@@ -1,4 +1,8 @@
 import { cors } from '@elysiajs/cors'
+import {
+  checkPayment,
+  type PaymentRequirements,
+} from '@jejunetwork/deployment/scripts/shared/x402'
 import { getProviderInfo } from '@jejunetwork/shared'
 import { Elysia } from 'elysia'
 import { type Address, isAddress } from 'viem'
@@ -72,10 +76,6 @@ import {
   toResponseData,
   validateQuery,
 } from './lib/validation.js'
-import {
-  checkPayment,
-  type PaymentRequirements,
-} from '@jejunetwork/deployment/scripts/shared/x402'
 import { createPaymentRequirement, PAYMENT_TIERS } from './lib/x402.js'
 import { banCheckPlugin } from './middleware/ban-check.js'
 import {

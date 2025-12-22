@@ -8,8 +8,8 @@
  * - Edge cases
  */
 
-import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import type { PublicClient, WalletClient } from 'viem'
 import type { AgentSDK } from '../sdk/agent'
 import type { CrucibleConfig } from '../types'

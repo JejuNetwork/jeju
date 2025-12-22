@@ -101,7 +101,7 @@ impl Service for ProxyService {
                         // 2. Accept proxy requests
                         // 3. Forward traffic
                         // 4. Report metrics for payment
-                        
+
                         if !running.load(Ordering::SeqCst) {
                             break;
                         }
@@ -161,4 +161,3 @@ impl Service for ProxyService {
         self.running.load(Ordering::SeqCst)
     }
 }
-

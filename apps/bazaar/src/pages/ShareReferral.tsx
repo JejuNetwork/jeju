@@ -5,16 +5,20 @@
  */
 
 import { useQuery } from '@tanstack/react-query'
-import { useNavigate, useParams } from 'react-router-dom'
 import { useEffect } from 'react'
+import { useNavigate, useParams } from 'react-router-dom'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
 
 interface ReferralCodeResponse {
   referralCode: string | null
 }
 
-async function fetchReferralCode(userId: string): Promise<ReferralCodeResponse> {
-  const response = await fetch(`/api/users/${encodeURIComponent(userId)}/referral-code`)
+async function fetchReferralCode(
+  userId: string,
+): Promise<ReferralCodeResponse> {
+  const response = await fetch(
+    `/api/users/${encodeURIComponent(userId)}/referral-code`,
+  )
   if (!response.ok) {
     throw new Error(`Failed to fetch referral code: ${response.status}`)
   }
@@ -28,7 +32,12 @@ export default function ShareReferralPage() {
 
   const { data, isSuccess, isError } = useQuery({
     queryKey: ['referralCode', decodedUserId],
-    queryFn: () => fetchReferralCode(decodedUserId!),
+    queryFn: () => {
+      if (!decodedUserId) {
+        throw new Error('User ID is required to fetch referral code')
+      }
+      return fetchReferralCode(decodedUserId)
+    },
     enabled: !!decodedUserId,
     retry: false,
     staleTime: 0,
@@ -56,10 +65,15 @@ export default function ShareReferralPage() {
   return (
     <div className="flex min-h-[50vh] flex-col items-center justify-center">
       <LoadingSpinner size="lg" />
-      <h1 className="mt-4 font-bold text-xl" style={{ color: 'var(--text-primary)' }}>
+      <h1
+        className="mt-4 font-bold text-xl"
+        style={{ color: 'var(--text-primary)' }}
+      >
         Redirecting...
       </h1>
-      <p style={{ color: 'var(--text-secondary)' }}>Taking you to your referral link</p>
+      <p style={{ color: 'var(--text-secondary)' }}>
+        Taking you to your referral link
+      </p>
     </div>
   )
 }

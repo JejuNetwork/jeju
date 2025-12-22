@@ -4,9 +4,9 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import { Elysia } from 'elysia'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { Elysia } from 'elysia'
 import {
   createWorkerdRouter,
   type WorkerdRouterOptions,
@@ -76,10 +76,7 @@ beforeAll(async () => {
 })
 
 // Helper to make requests
-async function request(
-  path: string,
-  options?: RequestInit,
-): Promise<Response> {
+async function request(path: string, options?: RequestInit): Promise<Response> {
   const req = new Request(`http://localhost${path}`, options)
   return app.handle(req)
 }

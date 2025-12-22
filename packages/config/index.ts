@@ -842,7 +842,6 @@ export function loadVendorAppsConfig(): { apps: VendorAppConfig[] } {
   return VendorAppsConfigSchema.parse(loadJsonRaw('vendor-apps.json'))
 }
 
-
 // ============================================================================
 // Federation Config
 // ============================================================================
