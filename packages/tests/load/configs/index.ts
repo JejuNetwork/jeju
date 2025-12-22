@@ -8,6 +8,7 @@ import type { AppLoadTestConfig } from '../types'
 
 export { testServerConfig } from './test-server'
 export { cachedServerConfig } from './cached-server'
+export { workerServerConfig } from './worker-server'
 
 export const autocratConfig: AppLoadTestConfig = {
   name: 'autocrat',
@@ -619,6 +620,7 @@ export const documentationConfig: AppLoadTestConfig = {
 // Import test server configs
 import { testServerConfig } from './test-server'
 import { cachedServerConfig } from './cached-server'
+import { workerServerConfig } from './worker-server'
 
 // All configs for easy iteration
 export const ALL_CONFIGS: AppLoadTestConfig[] = [
@@ -639,6 +641,7 @@ export const ALL_CONFIGS: AppLoadTestConfig[] = [
   documentationConfig,
   testServerConfig,
   cachedServerConfig,
+  workerServerConfig,
 ]
 
 // API-focused configs (apps with meaningful API endpoints)

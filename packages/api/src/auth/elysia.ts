@@ -135,8 +135,9 @@ export function authPlugin(config: AuthPluginConfig) {
     .derive(authDerive)
     .onBeforeHandle(async (ctx) => {
       const { path, request, set } = ctx
-      const isAuthenticated = (ctx as unknown as { isAuthenticated?: boolean })
-        .isAuthenticated
+      // AuthContext is added by derive above
+      const authCtx = ctx as Context & AuthContext
+      const isAuthenticated = authCtx.isAuthenticated
 
       // Skip auth check for specified routes
       if (skipRoutes.has(path)) {

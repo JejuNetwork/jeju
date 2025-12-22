@@ -219,8 +219,8 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
         'passkey registration options',
       )
       const challengeId = optionsData.challengeId
-      const publicKey =
-        optionsData.publicKey as unknown as PublicKeyCredentialCreationOptions
+      // Server returns WebAuthn-compatible options - cast through unknown due to Record type
+      const publicKey = optionsData.publicKey as unknown as PublicKeyCredentialCreationOptions
 
       // Create credential using WebAuthn
       const credential = (await navigator.credentials.create({
@@ -300,8 +300,8 @@ export function useMFA(options: UseMFAOptions = {}): UseMFAReturn {
       'passkey authentication options',
     )
     const challengeId = authOptionsData.challengeId
-    const publicKey =
-      authOptionsData.publicKey as unknown as PublicKeyCredentialRequestOptions
+    // Server returns WebAuthn-compatible options - cast through unknown due to Record type
+    const publicKey = authOptionsData.publicKey as unknown as PublicKeyCredentialRequestOptions
 
     // Get credential using WebAuthn
     const credential = (await navigator.credentials.get({

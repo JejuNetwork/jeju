@@ -15,10 +15,28 @@ import {
 import { getSharedState } from '../shared-state'
 
 // Initialize fee actions on first call
-let initialized = false
+let readOnlyInitialized = false
+let writeInitialized = false
 
-function ensureFeeActionsInitialized(): boolean {
-  if (initialized) return true
+function ensureFeeActionsReadOnly(): boolean {
+  if (readOnlyInitialized) return true
+
+  const state = getSharedState()
+  if (state.clients.publicClient && state.contracts.feeConfig) {
+    // Initialize with null wallet client for read-only access
+    initializeFeeActions(
+      state.contracts.feeConfig,
+      state.clients.publicClient,
+      null,
+    )
+    readOnlyInitialized = true
+    return true
+  }
+  return false
+}
+
+function ensureFeeActionsWrite(): boolean {
+  if (writeInitialized) return true
 
   const state = getSharedState()
   if (
@@ -31,7 +49,7 @@ function ensureFeeActionsInitialized(): boolean {
       state.clients.publicClient,
       state.clients.walletClient,
     )
-    initialized = true
+    writeInitialized = true
     return true
   }
   return false
@@ -43,8 +61,8 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
    * Get current fee configuration
    */
   .get('/', async () => {
-    if (!ensureFeeActionsInitialized()) {
-      return { success: false, error: 'Fee actions not initialized' }
+    if (!ensureFeeActionsReadOnly()) {
+      return { success: false, error: 'Fee actions not initialized - check FEE_CONFIG_ADDRESS and RPC' }
     }
 
     const state = await getFeeConfigState()
@@ -71,8 +89,15 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
   .post(
     '/execute',
     async ({ body }) => {
-      if (!ensureFeeActionsInitialized()) {
-        return { success: false, error: 'Fee actions not initialized' }
+      // Read-only skills don't need wallet client
+      if (body.skillId === 'get-fees') {
+        if (!ensureFeeActionsReadOnly()) {
+          return { success: false, error: 'Fee actions not initialized' }
+        }
+      } else {
+        if (!ensureFeeActionsWrite()) {
+          return { success: false, error: 'Write access not available - wallet client required' }
+        }
       }
 
       const { skillId, params } = body
@@ -101,8 +126,8 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
    * Get a human-readable summary of current fees
    */
   .get('/summary', async () => {
-    if (!ensureFeeActionsInitialized()) {
-      return { success: false, error: 'Fee actions not initialized' }
+    if (!ensureFeeActionsReadOnly()) {
+      return { success: false, error: 'Fee actions not initialized - check FEE_CONFIG_ADDRESS and RPC' }
     }
 
     const state = await getFeeConfigState()
@@ -167,8 +192,8 @@ export const feesRoutes = new Elysia({ prefix: '/fees' })
   .post(
     '/propose',
     async ({ body }) => {
-      if (!ensureFeeActionsInitialized()) {
-        return { success: false, error: 'Fee actions not initialized' }
+      if (!ensureFeeActionsWrite()) {
+        return { success: false, error: 'Write access not available - wallet client required' }
       }
 
       const { category, newValues, reason } = body

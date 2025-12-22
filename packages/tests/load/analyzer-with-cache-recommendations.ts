@@ -8,10 +8,10 @@
 
 interface EndpointMetrics {
   path: string
-  avgLatency: number
-  maxLatency: number
+  avgLatency: number | string
+  maxLatency: number | string
   count: number
-  cacheHitRate?: number
+  cacheHitRate?: number | string
 }
 
 interface CacheRecommendation {
@@ -239,12 +239,20 @@ async function analyzeServer(baseUrl: string): Promise<CacheRecommendation[]> {
   const recommendations: CacheRecommendation[] = []
 
   for (const endpoint of metrics.allEndpoints) {
+    // Parse numeric fields which may come as strings from JSON
+    const avgLatency = typeof endpoint.avgLatency === 'string' ? parseFloat(endpoint.avgLatency) : endpoint.avgLatency
+    const maxLatency = typeof endpoint.maxLatency === 'string' ? parseFloat(endpoint.maxLatency) : endpoint.maxLatency
+    const cacheHitRate = endpoint.cacheHitRate
+      ? typeof endpoint.cacheHitRate === 'string'
+        ? parseFloat(endpoint.cacheHitRate)
+        : endpoint.cacheHitRate
+      : undefined
     const recommendation = analyzeEndpoint({
       path: endpoint.path,
-      avgLatency: parseFloat(endpoint.avgLatency as unknown as string),
-      maxLatency: parseFloat(endpoint.maxLatency as unknown as string),
+      avgLatency,
+      maxLatency,
       count: endpoint.count,
-      cacheHitRate: endpoint.cacheHitRate ? parseFloat(endpoint.cacheHitRate as unknown as string) : undefined,
+      cacheHitRate,
     })
 
     if (recommendation) {

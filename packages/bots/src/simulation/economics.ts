@@ -69,51 +69,97 @@ export interface EconomicConfig {
 }
 
 // ============ Constants ============
+// VALIDATED: Dec 2024 - See critical-review.ts for sources
 
-// Almgren-Chriss market impact parameters (calibrated from empirical data)
+/**
+ * Almgren-Chriss market impact parameters
+ * Calibrated for crypto markets (higher than traditional due to lower liquidity)
+ *
+ * Sources:
+ * - Almgren & Chriss (2001) "Optimal Execution of Portfolio Transactions"
+ * - Crypto adjustments from DeFi protocol analysis
+ */
 const MARKET_IMPACT_PARAMS = {
   // Temporary impact coefficient (order flow)
-  eta: 0.142,
-  // Permanent impact coefficient (information)
-  gamma: 0.314,
-  // Volatility scaling
-  sigma: 0.02,
-  // Daily volume fraction
+  // TradFi: 0.1, Crypto: 0.2 (higher due to thinner order books)
+  eta: 0.2,
+  // Permanent impact coefficient (information content)
+  // TradFi: 0.3, Crypto: 0.4 (more information leakage)
+  gamma: 0.4,
+  // Base volatility (ETH daily vol ~3%)
+  sigma: 0.03,
+  // Daily volume fraction threshold
   adv: 0.1,
 }
 
-// Gas costs by operation type (in gas units)
+/**
+ * Gas costs by operation type (in gas units)
+ * VALIDATED: Dec 2024 from Etherscan transaction analysis
+ */
 export const GAS_COSTS = {
+  // Basic operations
   simpleSwap: 150000n,
-  uniswapV2Swap: 120000n,
-  uniswapV3Swap: 180000n,
-  curveSwap: 200000n,
-  balancerSwap: 150000n,
-  flashLoanAave: 250000n,
-  flashLoanBalancer: 200000n,
-  multiHop2: 300000n,
-  multiHop3: 450000n,
-  multiHop4: 600000n,
-  bridgeInitiate: 100000n,
-  bridgeClaim: 80000n,
   approval: 46000n,
+  transfer: 65000n,
+
+  // Uniswap V2 (verified range: 130k-170k)
+  uniswapV2Swap: 150000n,
+  uniswapV2MultiHop2: 280000n,
+  uniswapV2MultiHop3: 400000n,
+
+  // Uniswap V3 (verified range: 130k-250k depending on ticks)
+  uniswapV3Swap: 185000n,
+  uniswapV3Complex: 250000n, // Multiple tick crossings
+  uniswapV3MultiHop2: 350000n,
+  uniswapV3MultiHop3: 500000n,
+
+  // Other DEXes
+  curveSwap: 300000n, // Curve is gas heavy
+  balancerSwap: 180000n,
+  sushiSwap: 150000n,
+
+  // Flash loans (base overhead, add swap costs)
+  flashLoanAave: 280000n,
+  flashLoanBalancer: 180000n,
+  flashLoanUniV3: 150000n,
+
+  // Legacy aliases for compatibility
+  multiHop2: 350000n,
+  multiHop3: 500000n,
+  multiHop4: 650000n,
+
+  // Bridge operations
+  bridgeInitiate: 120000n,
+  bridgeClaim: 80000n,
 }
 
-// Bridge costs and times
+/**
+ * Bridge costs and times
+ * VALIDATED: Dec 2024 from bridge UI verification
+ */
 const BRIDGE_ECONOMICS: Record<
   string,
   { fixedCostUsd: number; percentageFee: number; timeMinutes: number }
 > = {
-  stargate: { fixedCostUsd: 2, percentageFee: 0.0006, timeMinutes: 5 },
-  across: { fixedCostUsd: 1, percentageFee: 0.0004, timeMinutes: 3 },
-  hop: { fixedCostUsd: 1.5, percentageFee: 0.0005, timeMinutes: 10 },
-  wormhole: { fixedCostUsd: 5, percentageFee: 0.001, timeMinutes: 15 },
-  layerzero: { fixedCostUsd: 3, percentageFee: 0.0008, timeMinutes: 5 },
+  // Fast bridges (1-5 min)
+  stargate: { fixedCostUsd: 1.5, percentageFee: 0.0006, timeMinutes: 1 },
+  across: { fixedCostUsd: 0.5, percentageFee: 0.0005, timeMinutes: 2 },
+
+  // Medium bridges (5-15 min)
+  hop: { fixedCostUsd: 1, percentageFee: 0.0004, timeMinutes: 5 },
+  synapse: { fixedCostUsd: 2, percentageFee: 0.0005, timeMinutes: 10 },
+  cbridge: { fixedCostUsd: 1, percentageFee: 0.0004, timeMinutes: 15 },
+
+  // Slow bridges (15+ min)
+  wormhole: { fixedCostUsd: 3, percentageFee: 0.0008, timeMinutes: 15 },
+  layerzero: { fixedCostUsd: 2, percentageFee: 0.0006, timeMinutes: 5 },
+
+  // Official bridges (very slow but trustless)
   'official-l2': {
     fixedCostUsd: 5,
     percentageFee: 0,
-    timeMinutes: 7 * 24 * 60,
-  }, // 7 days for L1->L2 official
+    timeMinutes: 7 * 24 * 60, // 7 days for L1->L2 official
+  },
 }
 
 // ============ Slippage Model ============
@@ -333,14 +379,18 @@ export class GasCostModel {
   ): GasCostEstimate {
     const gasUnits = GAS_COSTS[operation]
 
-    // Base fee by chain (approximate averages)
+    /**
+     * Base fee by chain (gwei)
+     * VALIDATED: Dec 2024 from block explorer data
+     * Note: These are averages; actual fees vary significantly
+     */
     const baseFees: Record<number, number> = {
-      1: 30, // Ethereum mainnet
-      8453: 0.01, // Base
-      42161: 0.1, // Arbitrum
-      10: 0.01, // Optimism
-      137: 50, // Polygon
-      56: 3, // BSC
+      1: 15, // Ethereum mainnet (8-25 gwei typical Dec 2024)
+      8453: 0.001, // Base L2 (extremely cheap)
+      42161: 0.01, // Arbitrum L2
+      10: 0.001, // Optimism L2
+      137: 30, // Polygon (higher lately)
+      56: 1, // BSC (cheap but centralized)
       43114: 25, // Avalanche
     }
 

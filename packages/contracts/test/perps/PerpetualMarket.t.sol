@@ -82,8 +82,11 @@ contract PerpetualMarketTest is Test {
             owner
         );
         
-        // Authorize contracts
-        marginManager.setAuthorizedContract(address(market), true);
+        // Authorize contracts (with timelock for MarginManager)
+        bytes32 marginChangeId = marginManager.proposeAuthorizedContract(address(market), true);
+        vm.warp(block.timestamp + 12 hours + 1);
+        marginManager.executeAuthorizedContract(marginChangeId);
+        // InsuranceFund.setAuthorizedContract is not timelocked
         insuranceFund.setAuthorizedContract(address(market), true);
         
         // Create BTC market
