@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod';
-import { AddressSchema, HexSchema, TimestampSchema, BigIntSchema } from '@jejunetwork/types/validation';
+import { AddressSchema, HexSchema, TimestampSchema, BigIntSchema } from '@jejunetwork/types';
 import { type Address, type Hex } from 'viem';
 
 // Re-export base schemas from shared types

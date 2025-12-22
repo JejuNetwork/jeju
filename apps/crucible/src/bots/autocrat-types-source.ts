@@ -9,7 +9,7 @@
  */
 
 import { z } from 'zod';
-import { AddressSchema, ChainIdSchema } from '@jejunetwork/types/validation';
+import { AddressSchema, ChainIdSchema } from '@jejunetwork/types';
 
 // ============ Chain Configuration ============
 
@@ -193,7 +193,7 @@ export type Opportunity =
 
 // ============ Execution Types ============
 
-export const ExecutionResultSchema = z.object({
+export const OpportunityExecutionResultSchema = z.object({
   opportunityId: z.string(),
   success: z.boolean(),
   txHash: z.string().optional(),
@@ -204,7 +204,7 @@ export const ExecutionResultSchema = z.object({
   executedAt: z.number(),
   durationMs: z.number(),
 });
-export type ExecutionResult = z.infer<typeof ExecutionResultSchema>;
+export type OpportunityExecutionResult = z.infer<typeof OpportunityExecutionResultSchema>;
 
 // ============ Treasury Types ============
 

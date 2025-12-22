@@ -4,10 +4,10 @@
  * OAuth3 Callback Handler for Autocrat
  */
 
-import { useEffect, useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-export default function AuthCallbackPage() {
+function CallbackHandler() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [status, setStatus] = useState<'loading' | 'success' | 'error'>('loading');
@@ -15,12 +15,6 @@ export default function AuthCallbackPage() {
 
   useEffect(() => {
     async function handleCallback() {
-      if (!searchParams) {
-        setStatus('error');
-        setError('No search params');
-        return;
-      }
-      
       const code = searchParams.get('code');
       const state = searchParams.get('state');
       const errorParam = searchParams.get('error');
@@ -78,38 +72,55 @@ export default function AuthCallbackPage() {
   }, [searchParams, router]);
 
   return (
+    <div className="text-center space-y-4">
+      {status === 'loading' && (
+        <>
+          <div className="text-6xl animate-bounce">🏛️</div>
+          <h1 className="text-2xl font-bold">Signing you in...</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>Please wait</p>
+        </>
+      )}
+
+      {status === 'success' && (
+        <>
+          <div className="text-6xl">✅</div>
+          <h1 className="text-2xl font-bold text-emerald-500">Success!</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>Redirecting...</p>
+        </>
+      )}
+
+      {status === 'error' && (
+        <>
+          <div className="text-6xl">❌</div>
+          <h1 className="text-2xl font-bold text-red-500">Failed</h1>
+          <p style={{ color: 'var(--text-secondary)' }}>{error}</p>
+          <button
+            onClick={() => router.push('/')}
+            className="mt-4 btn-primary"
+          >
+            Back to Home
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
+function LoadingFallback() {
+  return (
+    <div className="text-center space-y-4">
+      <div className="text-6xl animate-bounce">🏛️</div>
+      <h1 className="text-2xl font-bold">Loading...</h1>
+    </div>
+  );
+}
+
+export default function AuthCallbackPage() {
+  return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center space-y-4">
-        {status === 'loading' && (
-          <>
-            <div className="text-6xl animate-bounce">🏛️</div>
-            <h1 className="text-2xl font-bold">Signing you in...</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Please wait</p>
-          </>
-        )}
-
-        {status === 'success' && (
-          <>
-            <div className="text-6xl">✅</div>
-            <h1 className="text-2xl font-bold text-emerald-500">Success!</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>Redirecting...</p>
-          </>
-        )}
-
-        {status === 'error' && (
-          <>
-            <div className="text-6xl">❌</div>
-            <h1 className="text-2xl font-bold text-red-500">Failed</h1>
-            <p style={{ color: 'var(--text-secondary)' }}>{error}</p>
-            <button
-              onClick={() => router.push('/')}
-              className="mt-4 btn-primary"
-            >
-              Back to Home
-            </button>
-          </>
-        )}
-      </div>
+      <Suspense fallback={<LoadingFallback />}>
+        <CallbackHandler />
+      </Suspense>
     </div>
   );
 }

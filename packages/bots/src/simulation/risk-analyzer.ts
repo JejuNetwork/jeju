@@ -6,8 +6,11 @@
  * - Conditional VaR / Expected Shortfall
  * - Drawdown analysis
  * - Sharpe, Sortino, Calmar ratios
+ * 
+ * Uses simple-statistics for reliable statistical calculations.
  */
 
+import { mean, standardDeviation, quantile } from 'simple-statistics';
 import type { PortfolioSnapshot, RiskMetrics } from '../types';
 
 export interface DrawdownAnalysis {
@@ -37,15 +40,15 @@ export class RiskAnalyzer {
     const returns = this.calculateReturns(snapshots);
     const annualizationFactor = Math.sqrt(365); // Assuming daily data
 
-    // Basic statistics
-    const meanReturn = this.mean(returns);
-    const stdDev = this.standardDeviation(returns);
+    // Basic statistics using simple-statistics
+    const meanReturn = returns.length > 0 ? mean(returns) : 0;
+    const stdDev = returns.length >= 2 ? standardDeviation(returns) : 0;
     const annualizedMean = meanReturn * 365;
     const annualizedStdDev = stdDev * annualizationFactor;
 
-    // Value at Risk
-    const var95 = this.calculateVaR(returns, 0.95);
-    const var99 = this.calculateVaR(returns, 0.99);
+    // Value at Risk using quantile function
+    const var95 = returns.length > 0 ? -quantile(returns, 0.05) : 0;
+    const var99 = returns.length > 0 ? -quantile(returns, 0.01) : 0;
 
     // Conditional VaR (Expected Shortfall)
     const cvar95 = this.calculateCVaR(returns, 0.95);
@@ -65,8 +68,8 @@ export class RiskAnalyzer {
 
     // Sortino ratio (downside deviation only)
     const negativeReturns = returns.filter(r => r < 0);
-    const downsideDeviation = negativeReturns.length > 0 
-      ? this.standardDeviation(negativeReturns)
+    const downsideDeviation = negativeReturns.length >= 2 
+      ? standardDeviation(negativeReturns)
       : stdDev; // Use total volatility if no downside moves
     const sortinoRatio = (meanReturn - dailyRiskFree) / downsideDeviation * annualizationFactor;
 
@@ -167,20 +170,28 @@ export class RiskAnalyzer {
       const windowSnapshots = snapshots.slice(i - windowSize, i);
       const windowReturns = this.calculateReturns(windowSnapshots);
 
-      const mean = this.mean(windowReturns);
-      const std = this.standardDeviation(windowReturns);
+      if (windowReturns.length < 2) {
+        rollingSharpe.push(0);
+        rollingVol.push(0);
+        rollingReturn.push(0);
+        continue;
+      }
+
+      const windowMean = mean(windowReturns);
+      const std = standardDeviation(windowReturns);
+      
       // Skip if no variance in this window
       if (std === 0) {
         rollingSharpe.push(0);
         rollingVol.push(0);
-        rollingReturn.push(mean * 365);
+        rollingReturn.push(windowMean * 365);
         continue;
       }
-      const sharpe = (mean - this.riskFreeRate / 365) / std * Math.sqrt(365);
+      const sharpe = (windowMean - this.riskFreeRate / 365) / std * Math.sqrt(365);
 
       rollingSharpe.push(sharpe);
       rollingVol.push(std * Math.sqrt(365));
-      rollingReturn.push(mean * 365);
+      rollingReturn.push(windowMean * 365);
     }
 
     metrics.set('sharpe', rollingSharpe);
@@ -199,7 +210,8 @@ export class RiskAnalyzer {
   ): Map<string, number> {
     const results = new Map<string, number>();
     const lastValue = snapshots[snapshots.length - 1].valueUsd;
-    const vol = this.standardDeviation(this.calculateReturns(snapshots));
+    const returns = this.calculateReturns(snapshots);
+    const vol = returns.length >= 2 ? standardDeviation(returns) : 0;
 
     for (const scenario of scenarios) {
       // Assume shock is in standard deviations
@@ -222,29 +234,11 @@ export class RiskAnalyzer {
     return returns;
   }
 
-  private mean(values: number[]): number {
-    if (values.length === 0) return 0;
-    return values.reduce((a, b) => a + b, 0) / values.length;
-  }
-
-  private standardDeviation(values: number[]): number {
-    if (values.length < 2) return 0;
-    const avg = this.mean(values);
-    const squareDiffs = values.map(v => (v - avg) ** 2);
-    return Math.sqrt(squareDiffs.reduce((a, b) => a + b, 0) / values.length);
-  }
-
-  private calculateVaR(returns: number[], confidence: number): number {
-    const sorted = [...returns].sort((a, b) => a - b);
-    const index = Math.floor((1 - confidence) * sorted.length);
-    return -sorted[index]; // Return positive number for loss
-  }
-
   private calculateCVaR(returns: number[], confidence: number): number {
-    const sorted = [...returns].sort((a, b) => a - b);
-    const cutoff = Math.floor((1 - confidence) * sorted.length);
-    const tailReturns = sorted.slice(0, cutoff);
-    return -this.mean(tailReturns);
+    if (returns.length === 0) return 0;
+    const varThreshold = quantile(returns, 1 - confidence);
+    const tailReturns = returns.filter(r => r <= varThreshold);
+    return tailReturns.length > 0 ? -mean(tailReturns) : 0;
   }
 
   private calculateMaxDrawdown(snapshots: PortfolioSnapshot[]): number {
@@ -264,4 +258,3 @@ export class RiskAnalyzer {
     return maxDrawdown;
   }
 }
-

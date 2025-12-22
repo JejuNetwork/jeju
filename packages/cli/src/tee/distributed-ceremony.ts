@@ -336,7 +336,7 @@ async function getTeeAttestation(
     const mod = dstackModule as Record<string, unknown>;
     
     type TeeClient = {
-      info(): Promise<{ app_id: string; instance_id: string; tcb_info: unknown }>;
+      info(): Promise<{ app_id: string; instance_id: string; tcb_info: Record<string, unknown> }>;
       getQuote?(data: Buffer): Promise<{ quote: string; event_log: string }>;
       tdxQuote?(data: Buffer, algo: string): Promise<{ quote: string; event_log: string }>;
     };

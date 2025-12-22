@@ -1,37 +1,28 @@
 import { useEffect, useState, useCallback } from "react";
 import { formatEther } from "viem";
 import { useNetworkContext } from "../context";
+import { useAsyncState, type AsyncState } from "./utils";
 
-export interface UseBalanceResult {
+export interface UseBalanceResult extends AsyncState {
   balance: bigint | null;
   balanceFormatted: string | null;
-  isLoading: boolean;
-  error: Error | null;
   refetch: () => Promise<void>;
 }
 
 export function useBalance(): UseBalanceResult {
   const { client } = useNetworkContext();
+  const { isLoading, error, execute } = useAsyncState();
   const [balance, setBalance] = useState<bigint | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<Error | null>(null);
 
   const refetch = useCallback(async (): Promise<void> => {
     if (!client) return;
-
-    setIsLoading(true);
-    setError(null);
-
-    const bal = await client.getBalance();
+    const bal = await execute<bigint>(() => client.getBalance());
     setBalance(bal);
-    setIsLoading(false);
-  }, [client]);
+  }, [client, execute]);
 
   useEffect(() => {
     if (client) {
-      refetch().catch((e: unknown) =>
-        setError(e instanceof Error ? e : new Error(String(e))),
-      );
+      refetch().catch(() => {});
     }
   }, [client, refetch]);
 

@@ -6,6 +6,7 @@
  */
 
 import type { SanitizationConfig } from './types';
+import type { JSONValue, JSONObject } from '../shared/validation';
 
 // ============================================================================
 // Default Patterns
@@ -135,39 +136,44 @@ export function sanitizeString(
 }
 
 /**
- * Sanitize a JSON object recursively
+ * Sanitize a JSON value recursively
+ * Handles strings, arrays, objects, and primitives
  */
 export function sanitizeObject(
-  obj: unknown,
+  obj: JSONValue | string | null | undefined,
   config: SanitizationConfig
-): unknown {
+): JSONValue | null {
   if (obj === null || obj === undefined) {
-    return obj;
+    return null;
   }
 
   if (typeof obj === 'string') {
     return sanitizeString(obj, config);
   }
 
+  if (typeof obj === 'number' || typeof obj === 'boolean') {
+    return obj;
+  }
+
   if (Array.isArray(obj)) {
-    return obj.map((item) => sanitizeObject(item, config));
+    return obj.map((item) => sanitizeObject(item, config)) as JSONValue[];
   }
 
   if (typeof obj === 'object') {
-    const result: Record<string, unknown> = {};
+    const result: JSONObject = {};
     for (const [key, value] of Object.entries(obj)) {
       // Check if this key should be fully redacted
       const lowerKey = key.toLowerCase();
       if (config.redactPaths.some((path) => lowerKey.includes(path.toLowerCase()))) {
         result[key] = '[REDACTED]';
       } else {
-        result[key] = sanitizeObject(value, config);
+        result[key] = sanitizeObject(value as JSONValue, config) as JSONValue;
       }
     }
     return result;
   }
 
-  return obj;
+  return null;
 }
 
 /**
@@ -198,10 +204,10 @@ export function sanitizeHeaders(
  * Full response sanitization
  */
 export function sanitizeResponse(
-  body: unknown,
+  body: JSONValue | string,
   headers: Record<string, string>,
   config: SanitizationConfig
-): { body: unknown; headers: Record<string, string> } {
+): { body: JSONValue | null; headers: Record<string, string> } {
   return {
     body: sanitizeObject(body, config),
     headers: sanitizeHeaders(headers, config),
@@ -247,7 +253,7 @@ export function extractPotentialKeys(input: string): string[] {
  * Create alert if potential key leak detected
  */
 export function checkForLeaks(
-  response: unknown,
+  response: JSONValue | string,
   knownKeys: string[]
 ): { leaked: boolean; details: string[] } {
   const details: string[] = [];

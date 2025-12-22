@@ -11,6 +11,7 @@
 import type { Address } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
+import type { JsonRecord } from "../shared/types";
 import { getServicesConfig } from "../config";
 import { generateAuthHeaders } from "../shared/api";
 import {
@@ -100,7 +101,7 @@ export interface WorkflowStep {
   stepId: string;
   name: string;
   type: "compute" | "storage" | "contract" | "http" | "transform";
-  config: Record<string, unknown>;
+  config: JsonRecord;
   dependencies: string[];
   timeout: number;
   retries: number;
@@ -114,8 +115,8 @@ export interface Job {
   startedAt: number;
   completedAt: number;
   duration: number;
-  input: Record<string, unknown>;
-  output: Record<string, unknown>;
+  input: JsonRecord;
+  output: JsonRecord;
   error: string | null;
   logs: string[];
   stepResults: StepResult[];
@@ -126,7 +127,7 @@ export interface StepResult {
   status: JobStatus;
   startedAt: number;
   completedAt: number;
-  output: Record<string, unknown>;
+  output: JsonRecord;
   error: string | null;
 }
 
@@ -145,7 +146,7 @@ export interface CreateWorkflowParams {
 
 export interface ExecuteWorkflowParams {
   workflowId: string;
-  input?: Record<string, unknown>;
+  input?: JsonRecord;
 }
 
 export interface DWSModule {
@@ -177,7 +178,7 @@ export interface DWSModule {
   /** Manually fire a trigger */
   fireTrigger(
     triggerId: string,
-    payload?: Record<string, unknown>,
+    payload?: JsonRecord,
   ): Promise<{ jobId: string }>;
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -297,9 +298,19 @@ export function createDWSModule(
       const rawData: unknown = await response.json();
       const parsed = TriggerSchema.parse(rawData);
       return {
-        ...parsed,
+        triggerId: parsed.triggerId,
         type: parsed.type as TriggerType,
+        name: parsed.name,
+        config: {
+          ...parsed.config,
+          contractAddress: parsed.config.contractAddress as Address | undefined,
+        },
+        workflowId: parsed.workflowId,
         owner: parsed.owner as Address,
+        isActive: parsed.isActive,
+        createdAt: parsed.createdAt,
+        lastTriggeredAt: parsed.lastTriggeredAt,
+        triggerCount: parsed.triggerCount,
       };
     },
 
@@ -312,9 +323,19 @@ export function createDWSModule(
       const rawData: unknown = await response.json();
       const data = TriggersListSchema.parse(rawData);
       return data.triggers.map((t) => ({
-        ...t,
+        triggerId: t.triggerId,
         type: t.type as TriggerType,
+        name: t.name,
+        config: {
+          ...t.config,
+          contractAddress: t.config.contractAddress as Address | undefined,
+        },
+        workflowId: t.workflowId,
         owner: t.owner as Address,
+        isActive: t.isActive,
+        createdAt: t.createdAt,
+        lastTriggeredAt: t.lastTriggeredAt,
+        triggerCount: t.triggerCount,
       }));
     },
 

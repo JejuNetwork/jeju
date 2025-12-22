@@ -12,9 +12,8 @@ import type {
   WorkerRuntime as RuntimeType,
 } from '../../workers/types';
 import type { BackendManager } from '../../storage/backends';
-import type { Address } from 'viem';
 import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, contentTypeHeaderSchema, z } from '../../shared';
-import { deployWorkerRequestSchema, workerParamsSchema, workerListQuerySchema, invokeWorkerRequestSchema, workerInvocationParamsSchema } from '../../shared/schemas/workers';
+import { deployWorkerRequestSchema, workerParamsSchema, invokeWorkerRequestSchema } from '../../shared/schemas/workers';
 
 export function createWorkersRouter(backend: BackendManager): Hono {
   const router = new Hono();
@@ -40,7 +39,7 @@ export function createWorkersRouter(backend: BackendManager): Hono {
     const { 'content-type': contentType } = validateHeaders(contentTypeHeaderSchema, c);
     let params: DeployParams;
 
-    if (contentType.includes('multipart/form-data')) {
+    if (contentType?.includes('multipart/form-data')) {
       const formData = await c.req.formData();
       const codeFile = formData.get('code');
       if (!(codeFile instanceof File)) {
@@ -168,7 +167,9 @@ export function createWorkersRouter(backend: BackendManager): Hono {
     if (updates.code) {
       const codeBuffer = typeof updates.code === 'string'
         ? Buffer.from(updates.code, 'base64')
-        : Buffer.from(updates.code);
+        : Buffer.isBuffer(updates.code) 
+          ? updates.code 
+          : Buffer.from(new Uint8Array(updates.code as ArrayBuffer));
       
       const uploadResult = await backend.upload(codeBuffer, {
         filename: `${fn.name}.js`,
@@ -266,11 +267,16 @@ export function createWorkersRouter(backend: BackendManager): Hono {
     const url = new URL(c.req.url);
     const path = url.pathname.replace(`/workers/${fn.id}/http`, '') || '/';
 
+    const requestHeaders: Record<string, string> = {};
+    c.req.raw.headers.forEach((value, key) => {
+      requestHeaders[key] = value;
+    });
+
     const event: HTTPEvent = {
       method: c.req.method,
       path,
-      headers: Object.fromEntries([...c.req.raw.headers]),
-      query: Object.fromEntries([...url.searchParams]),
+      headers: requestHeaders,
+      query: Object.fromEntries(url.searchParams),
       body: c.req.method !== 'GET' && c.req.method !== 'HEAD'
         ? await c.req.text()
         : null,

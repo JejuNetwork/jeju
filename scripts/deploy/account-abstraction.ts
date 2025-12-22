@@ -24,9 +24,12 @@ import {
   encodeDeployData,
   type Address,
   type Hex,
+  type Abi,
 } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import path from "path";
+import { getNetworkName } from '@jejunetwork/config';
+import type { RawArtifactJson } from '../shared/contract-types';
 
 // ============ Configuration ============
 
@@ -252,12 +255,12 @@ async function deploySponsoredPaymaster(
     path.join(process.cwd(), "packages/contracts/abis/SponsoredPaymaster.json"),
   ];
 
-  let artifact: { abi: unknown; bytecode?: { object?: string } } | null = null;
+  let artifact: Partial<RawArtifactJson> | null = null;
   for (const artifactPath of artifactPaths) {
     try {
       const file = Bun.file(artifactPath);
       if (await file.exists()) {
-        artifact = await file.json();
+        artifact = await file.json() as Partial<RawArtifactJson>;
         break;
       }
     } catch {
@@ -265,14 +268,14 @@ async function deploySponsoredPaymaster(
     }
   }
 
-  if (!artifact?.bytecode?.object) {
+  if (!artifact?.bytecode?.object || !artifact.abi) {
     console.log("   ⚠️  SponsoredPaymaster not compiled. Run: forge build");
     console.log("   Using deterministic address placeholder");
     return "0x0000000000000000000000000000000000000001" as Address;
   }
 
   const deployData = encodeDeployData({
-    abi: artifact.abi as Parameters<typeof encodeDeployData>[0]["abi"],
+    abi: artifact.abi,
     bytecode: artifact.bytecode.object as Hex,
     args: [ENTRYPOINT_V07, ownerAddress],
   });

@@ -73,7 +73,7 @@ export class WorkerRuntime {
       id: invocationId,
       functionId: params.functionId,
       type: params.type ?? 'sync',
-      payload: params.payload,
+      payload: params.payload ?? null,
       caller: '0x0000000000000000000000000000000000000000',
       startedAt: Date.now(),
       status: 'pending',
@@ -99,7 +99,7 @@ export class WorkerRuntime {
     try {
       const result = await this.executeInInstance(instance, fn, invocation, params);
       invocation.status = 'success';
-      invocation.result = result;
+      invocation.result = result as typeof invocation.result;
     } catch (error) {
       invocation.status = 'error';
       invocation.error = error instanceof Error ? error.message : String(error);
@@ -125,7 +125,13 @@ export class WorkerRuntime {
   async invokeHTTP(functionId: string, event: HTTPEvent): Promise<HTTPResponse> {
     const result = await this.invoke({
       functionId,
-      payload: event,
+      payload: {
+        method: event.method,
+        path: event.path,
+        headers: event.headers,
+        query: event.query,
+        body: event.body,
+      },
       type: 'sync',
     });
 
@@ -138,7 +144,7 @@ export class WorkerRuntime {
     }
 
     // Try to parse as HTTP response
-    const response = result.result as HTTPResponse;
+    const response = result.result as unknown as HTTPResponse | undefined;
     return {
       statusCode: response?.statusCode ?? 200,
       headers: response?.headers ?? { 'Content-Type': 'application/json' },

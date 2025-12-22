@@ -1,16 +1,16 @@
 /**
  * Shared validation utilities for fail-fast error handling
- * Re-exports from @jejunetwork/types/validation for app-wide use
+ * Re-exports from @jejunetwork/types/validation for DRY
  */
 
 export {
   expect,
   expectTrue,
+  expectDefined as expectExists,
   expectNonEmpty,
   expectPositive,
   expectNonNegative,
   expectValid,
-  expectDefined as expectExists,
   validateOrThrow,
   validateOrNull,
   expectAddress,
@@ -19,4 +19,4 @@ export {
   expectBigInt,
   expectNonEmptyString,
   expectJson,
-} from '@jejunetwork/types/validation';
+} from '@jejunetwork/types';

@@ -36,16 +36,6 @@ export interface HealthCheckResult {
   details?: Record<string, string | number | boolean>;
 }
 
-export interface DoctorResult {
-  system: HealthCheckResult[];
-  dependencies: HealthCheckResult[];
-  network: HealthCheckResult[];
-  keys: HealthCheckResult[];
-  ports: HealthCheckResult[];
-  apps: HealthCheckResult[];
-  ready: boolean;
-}
-
 export interface KeyConfig {
   name: string;
   address: string;
@@ -70,10 +60,21 @@ export interface TestPhase {
 }
 
 export interface TestResult {
-  phase: string;
+  name: string;
   passed: boolean;
   duration: number;
+  skipped?: boolean;
+  coverage?: number;
   output?: string;
+}
+
+export type TestMode = 'unit' | 'integration' | 'e2e' | 'full' | 'infra' | 'smoke';
+
+export interface CoverageReport {
+  lines: { total: number; covered: number; percent: number };
+  functions: { total: number; covered: number; percent: number };
+  branches: { total: number; covered: number; percent: number };
+  deadCode?: string[];
 }
 
 export interface DeploymentConfig {
@@ -121,12 +122,6 @@ export interface AppManifest {
   autoStart?: boolean;
   tags?: string[];
   testing?: AppTestConfig;
-}
-
-export interface ProjectTemplate {
-  name: string;
-  description: string;
-  files: Record<string, string>;
 }
 
 export const WELL_KNOWN_KEYS = {

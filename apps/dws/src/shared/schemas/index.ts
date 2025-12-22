@@ -6,7 +6,27 @@
 export * from './common';
 export * from './storage';
 export * from './compute';
-export * from './git';
+export { 
+  createRepoRequestSchema,
+  repoParamsSchema,
+  userReposParamsSchema,
+  repoListQuerySchema,
+  createIssueRequestSchema,
+  updateIssueRequestSchema,
+  issueParamsSchema,
+  createPRRequestSchema,
+  updatePRRequestSchema,
+  prParamsSchema,
+  gitRefParamsSchema,
+  gitObjectParamsSchema,
+  gitPackParamsSchema,
+  gitInfoRefsQuerySchema,
+  starParamsSchema,
+  forkParamsSchema,
+  gitSearchQuerySchema,
+  createIssueCommentRequestSchema,
+  mergePRRequestSchema,
+} from './git';
 export * from './ci';
 export * from './containers';
 export * from './workers';

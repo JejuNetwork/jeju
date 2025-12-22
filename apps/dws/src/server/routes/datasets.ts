@@ -9,11 +9,9 @@
 
 import { Hono } from 'hono';
 import { createHash } from 'crypto';
-import type { Address, Hex } from 'viem';
 import { keccak256, encodePacked } from 'viem';
 import type { BackendManager } from '../../storage/backends';
-import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, datasetCreationSchema, datasetParamsSchema, datasetsSearchQuerySchema, datasetConfigSchema } from '../../shared';
-import { z } from 'zod';
+import { validateBody, validateQuery, validateHeaders, jejuAddressHeaderSchema, datasetCreationSchema, datasetConfigSchema, z } from '../../shared';
 
 // Extended schemas for HuggingFace-compatible API
 const hfDatasetsQuerySchema = z.object({
@@ -181,10 +179,8 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
 
   // Get single dataset (HF Hub compatible)
   router.get('/api/datasets/:org/:name', async (c) => {
-    const { organization: org, dataset: name } = validateParams(datasetParamsSchema.extend({
-      org: z.string().min(1),
-      name: z.string().min(1),
-    }), c);
+    const org = c.req.param('org');
+    const name = c.req.param('name');
 
     const dataset = findDatasetByKey(`${org}/${name}`);
     if (!dataset) {
@@ -268,7 +264,8 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
       throw new Error('File not available');
     }
 
-    return new Response(result.content, {
+    const content = Buffer.isBuffer(result.content) ? new Uint8Array(result.content) : result.content;
+    return new Response(content, {
       headers: {
         'Content-Type': getContentType(filename),
         'Content-Disposition': `attachment; filename="${filename}"`,
@@ -383,15 +380,16 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
       ? DatasetLicense[body.license.toUpperCase().replace('-', '_') as keyof typeof DatasetLicense]
       : (body.license ?? DatasetLicense.CC_BY_4);
 
+    const org = body.organization ?? owner;
     const datasetId = keccak256(
       encodePacked(['string', 'string', 'address', 'uint256'], 
-        [body.organization, body.name, owner, BigInt(Date.now())])
+        [org, body.name, owner, BigInt(Date.now())])
     );
 
     const dataset: Dataset = {
       datasetId,
       name: body.name,
-      organization: body.organization,
+      organization: org,
       owner,
       description: body.description,
       format,
@@ -433,22 +431,23 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
     let totalSize = 0;
     let totalRows = 0;
 
-    for (const [key, value] of formData.entries()) {
-      if (value instanceof File) {
-        const content = Buffer.from(await value.arrayBuffer());
+    for (const [, value] of formData.entries()) {
+      if (typeof value !== 'string') {
+        const file = value as File;
+        const content = Buffer.from(await file.arrayBuffer());
         const sha256 = createHash('sha256').update(content).digest('hex');
         
-        const result = await backend.upload(content, { filename: value.name });
+        const result = await backend.upload(content, { filename: file.name });
         
         // Estimate row count for parquet/jsonl files
-        const estimatedRows = estimateRows(content, value.name);
+        const estimatedRows = estimateRows(content, file.name);
         
         uploadedFiles.push({
-          filename: value.name,
+          filename: file.name,
           cid: result.cid,
           size: content.length,
           sha256,
-          split: split || getSplitFromFilename(value.name),
+          split: split || getSplitFromFilename(file.name),
           numRows: estimatedRows,
         });
 
@@ -530,7 +529,8 @@ export function createDatasetsRouter(ctx: DatasetsContext): Hono {
     metricsStore.set(dataset.datasetId, metrics);
 
     const result = await backend.download(file.cid);
-    return new Response(result.content, {
+    const content = Buffer.isBuffer(result.content) ? new Uint8Array(result.content) : result.content;
+    return new Response(content, {
       headers: {
         'Content-Type': getContentType(filename),
         'Content-Disposition': `attachment; filename="${filename}"`,

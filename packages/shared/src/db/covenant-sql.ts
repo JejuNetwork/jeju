@@ -4,6 +4,7 @@
  */
 
 import { EventEmitter } from 'events';
+import type { SqlParam } from '../types';
 
 export type ConsistencyLevel = 'strong' | 'eventual';
 
@@ -35,7 +36,7 @@ export interface QueryOptions {
   transactionId?: string;
 }
 
-export interface QueryResult<T = Record<string, unknown>> {
+export interface QueryResult<T = Record<string, SqlParam>> {
   rows: T[];
   rowCount: number;
   affectedRows: number;
@@ -133,9 +134,9 @@ export class CovenantSQLClient extends EventEmitter {
   /**
    * Execute a query with automatic retry and failover
    */
-  async query<T = Record<string, unknown>>(
+  async query<T = Record<string, SqlParam>>(
     sql: string,
-    params: unknown[] = [],
+    params: SqlParam[] = [],
     options: QueryOptions = {}
   ): Promise<QueryResult<T>> {
     if (!this.initialized) await this.initialize();
@@ -181,9 +182,9 @@ export class CovenantSQLClient extends EventEmitter {
   /**
    * Execute query with strong consistency (waits for consensus)
    */
-  async queryStrong<T = Record<string, unknown>>(
+  async queryStrong<T = Record<string, SqlParam>>(
     sql: string,
-    params: unknown[] = []
+    params: SqlParam[] = []
   ): Promise<QueryResult<T>> {
     return this.query<T>(sql, params, { consistency: 'strong' });
   }
@@ -191,9 +192,9 @@ export class CovenantSQLClient extends EventEmitter {
   /**
    * Execute query with eventual consistency (faster reads)
    */
-  async queryEventual<T = Record<string, unknown>>(
+  async queryEventual<T = Record<string, SqlParam>>(
     sql: string,
-    params: unknown[] = []
+    params: SqlParam[] = []
   ): Promise<QueryResult<T>> {
     return this.query<T>(sql, params, { consistency: 'eventual' });
   }
@@ -273,7 +274,7 @@ export class CovenantSQLClient extends EventEmitter {
   /**
    * Insert row(s)
    */
-  async insert<T extends Record<string, unknown>>(
+  async insert<T extends Record<string, SqlParam>>(
     table: string,
     data: T | T[],
     options: QueryOptions = {}
@@ -288,7 +289,7 @@ export class CovenantSQLClient extends EventEmitter {
       `(${columns.map((_, j) => `$${i * columns.length + j + 1}`).join(', ')})`
     ).join(', ');
     
-    const values = rows.flatMap(row => columns.map(col => row[col]));
+    const values: SqlParam[] = rows.flatMap(row => columns.map(col => row[col]));
     const sql = `INSERT INTO ${table} (${columns.join(', ')}) VALUES ${placeholders}`;
 
     return this.query<T>(sql, values, { consistency: 'strong', ...options });
@@ -297,16 +298,16 @@ export class CovenantSQLClient extends EventEmitter {
   /**
    * Update row(s)
    */
-  async update<T extends Record<string, unknown>>(
+  async update<T extends Record<string, SqlParam>>(
     table: string,
     data: Partial<T>,
     where: string,
-    whereParams: unknown[] = [],
+    whereParams: SqlParam[] = [],
     options: QueryOptions = {}
   ): Promise<QueryResult<T>> {
     const columns = Object.keys(data);
     const sets = columns.map((col, i) => `${col} = $${i + 1}`).join(', ');
-    const values = [...columns.map(col => data[col]), ...whereParams];
+    const values: SqlParam[] = [...columns.map(col => data[col] as SqlParam), ...whereParams];
     
     const sql = `UPDATE ${table} SET ${sets} WHERE ${where}`;
     return this.query<T>(sql, values, { consistency: 'strong', ...options });
@@ -318,7 +319,7 @@ export class CovenantSQLClient extends EventEmitter {
   async delete(
     table: string,
     where: string,
-    whereParams: unknown[] = [],
+    whereParams: SqlParam[] = [],
     options: QueryOptions = {}
   ): Promise<QueryResult> {
     const sql = `DELETE FROM ${table} WHERE ${where}`;
@@ -328,12 +329,12 @@ export class CovenantSQLClient extends EventEmitter {
   /**
    * Select rows
    */
-  async select<T = Record<string, unknown>>(
+  async select<T = Record<string, SqlParam>>(
     table: string,
     options: {
       columns?: string[];
       where?: string;
-      whereParams?: unknown[];
+      whereParams?: SqlParam[];
       orderBy?: string;
       limit?: number;
       offset?: number;
@@ -343,7 +344,7 @@ export class CovenantSQLClient extends EventEmitter {
     const cols = options.columns?.join(', ') ?? '*';
     let sql = `SELECT ${cols} FROM ${table}`;
     
-    const params: unknown[] = [];
+    const params: SqlParam[] = [];
     if (options.where) {
       sql += ` WHERE ${options.where}`;
       params.push(...(options.whereParams ?? []));
@@ -365,10 +366,10 @@ export class CovenantSQLClient extends EventEmitter {
   /**
    * Get single row
    */
-  async selectOne<T = Record<string, unknown>>(
+  async selectOne<T = Record<string, SqlParam>>(
     table: string,
     where: string,
-    whereParams: unknown[] = [],
+    whereParams: SqlParam[] = [],
     options: QueryOptions = {}
   ): Promise<T | null> {
     const result = await this.query<T>(
@@ -385,7 +386,7 @@ export class CovenantSQLClient extends EventEmitter {
   async count(
     table: string,
     where?: string,
-    whereParams?: unknown[],
+    whereParams?: SqlParam[],
     options: QueryOptions = {}
   ): Promise<number> {
     let sql = `SELECT COUNT(*) as count FROM ${table}`;
@@ -402,7 +403,7 @@ export class CovenantSQLClient extends EventEmitter {
   async exists(
     table: string,
     where: string,
-    whereParams: unknown[] = []
+    whereParams: SqlParam[] = []
   ): Promise<boolean> {
     const count = await this.count(table, where, whereParams, { consistency: 'eventual' });
     return count > 0;
@@ -500,7 +501,7 @@ export class CovenantSQLClient extends EventEmitter {
   private async executeQuery<T>(
     conn: PooledConnection,
     sql: string,
-    params: unknown[],
+    params: SqlParam[],
     consistency: ConsistencyLevel,
     timeout: number
   ): Promise<QueryResult<T>> {

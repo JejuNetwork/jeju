@@ -2,7 +2,7 @@
  * Action Resolver - Maps GitHub Actions to Jeju equivalents
  */
 
-import type { WorkflowStep, Action, ActionRuns } from './types';
+import type { Action } from './types';
 
 interface ActionMapping {
   jejuAction: string;
@@ -24,7 +24,7 @@ const ACTION_MAPPINGS: Record<string, ActionMapping> = {
 };
 
 export function resolveAction(uses: string): { action: Action; isNative: boolean } | null {
-  const [actionRef, version] = uses.split('@');
+  const [actionRef, _version] = uses.split('@');
   const mapping = ACTION_MAPPINGS[actionRef];
 
   if (mapping) {

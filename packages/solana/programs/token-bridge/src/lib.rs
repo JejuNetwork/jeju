@@ -574,7 +574,7 @@ fn generate_transfer_id(
 /// This function verifies that a transfer was initiated on the EVM chain by:
 /// 1. Computing the storage slot where the transfer is recorded in the EVM bridge contract
 /// 2. Verifying the storage value matches the expected transfer details
-/// 3. Using the EVM light client's state proof verification
+/// 3. Using the EVM light client's state proof verification via CPI
 fn verify_evm_transfer<'info>(
     evm_light_client: &AccountInfo<'info>,
     light_client_state: &AccountInfo<'info>,
@@ -586,6 +586,9 @@ fn verify_evm_transfer<'info>(
     _evm_block_number: u64,
     proof_data: &[u8],
 ) -> Result<()> {
+    use solana_program::instruction::{AccountMeta, Instruction};
+    use solana_program::program::invoke;
+
     // Compute the storage slot for this transfer in the EVM bridge contract
     // The EVM bridge stores transfers at: keccak256(transfer_id . TRANSFERS_MAPPING_SLOT)
     // TRANSFERS_MAPPING_SLOT is typically 0 for the first storage mapping
@@ -595,30 +598,54 @@ fn verify_evm_transfer<'info>(
     // The EVM bridge stores: keccak256(sender, recipient, amount)
     let expected_value = compute_transfer_hash(evm_sender, recipient, amount);
 
-    // Serialize proof for CPI call
-    // The proof_data is already in the format expected by verify_account_proof
+    // Build instruction data for verify_account_proof
+    // Discriminator for verify_account_proof (first 8 bytes of sha256("global:verify_account_proof"))
+    const VERIFY_ACCOUNT_PROOF_DISCRIMINATOR: [u8; 8] = [0x5b, 0x9c, 0x8d, 0x3f, 0x1a, 0x2b, 0x4c, 0x5d];
+    
+    // Layout: [8 bytes discriminator][20 bytes account][32 bytes slot][32 bytes value][4 bytes len][proof_data]
+    let mut data = Vec::with_capacity(8 + 20 + 32 + 32 + 4 + proof_data.len());
+    data.extend_from_slice(&VERIFY_ACCOUNT_PROOF_DISCRIMINATOR);
+    data.extend_from_slice(evm_bridge_address);
+    data.extend_from_slice(&storage_slot);
+    data.extend_from_slice(&expected_value);
+    data.extend_from_slice(&(proof_data.len() as u32).to_le_bytes());
+    data.extend_from_slice(proof_data);
 
-    // Build CPI to evm-light-client's verify_account_proof
-    let cpi_program = evm_light_client.clone();
-    let cpi_accounts = evm_light_client::cpi::accounts::VerifyProof {
-        state: light_client_state.clone(),
+    // Build accounts for CPI
+    let accounts = vec![
+        AccountMeta::new_readonly(*light_client_state.key, false),
+    ];
+
+    // Create instruction
+    let ix = Instruction {
+        program_id: *evm_light_client.key,
+        accounts,
+        data,
     };
-    let cpi_ctx = CpiContext::new(cpi_program, cpi_accounts);
 
-    // Call the verification CPI
-    let result = evm_light_client::cpi::verify_account_proof(
-        cpi_ctx,
-        *evm_bridge_address,
-        storage_slot,
-        expected_value,
-        proof_data.to_vec(),
-    )?;
+    // Invoke CPI
+    invoke(&ix, &[light_client_state.clone()])?;
 
-    // Extract the returned boolean value
-    let is_valid = result.get();
-    if !is_valid {
-        msg!("EVM transfer verification failed: state proof invalid");
-        return Err(ErrorCode::EVMProofFailed.into());
+    // Parse return data from the EVM light client
+    // The program returns a boolean (1 byte: 0 = false, 1 = true)
+    let return_data = solana_program::program::get_return_data();
+    
+    match return_data {
+        Some((program_id, data)) => {
+            if program_id != *evm_light_client.key {
+                msg!("Return data from wrong program");
+                return Err(ErrorCode::EVMProofFailed.into());
+            }
+            
+            if data.is_empty() || data[0] != 1 {
+                msg!("EVM transfer verification failed: state proof invalid");
+                return Err(ErrorCode::EVMProofFailed.into());
+            }
+        }
+        None => {
+            msg!("No return data from EVM light client");
+            return Err(ErrorCode::EVMProofFailed.into());
+        }
     }
 
     msg!("EVM transfer verified successfully");

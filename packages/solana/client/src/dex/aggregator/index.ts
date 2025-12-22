@@ -17,6 +17,7 @@ import type {
   BondingCurveState,
   BondingCurveParams,
 } from '../types';
+import { USDC_MINT, WSOL_MINT } from '../types';
 import { JupiterAdapter, createJupiterAdapter } from '../jupiter';
 import { RaydiumAdapter, createRaydiumAdapter } from '../raydium';
 import { MeteoraAdapter, createMeteoraAdapter } from '../meteora';
@@ -294,13 +295,13 @@ export class SolanaDexAggregator {
   }
 
   async getPriceUSD(tokenMint: PublicKey): Promise<number> {
-    const USDC = new PublicKey('EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v');
+    const usdc = new PublicKey(USDC_MINT);
 
-    if (tokenMint.equals(USDC)) {
+    if (tokenMint.equals(usdc)) {
       return 1;
     }
 
-    return this.jupiter.getPrice(tokenMint, USDC, 1_000_000n);
+    return this.jupiter.getPrice(tokenMint, usdc, 1_000_000n);
   }
 
   async getTokenMarketData(tokenMint: PublicKey): Promise<{
@@ -311,7 +312,7 @@ export class SolanaDexAggregator {
   }> {
     const [priceUSD, pools] = await Promise.all([
       this.getPriceUSD(tokenMint),
-      this.findPools(tokenMint, new PublicKey('So11111111111111111111111111111111111111112')),
+      this.findPools(tokenMint, new PublicKey(WSOL_MINT)),
     ]);
 
     const topPools = pools.slice(0, 5);

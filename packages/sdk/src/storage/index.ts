@@ -31,6 +31,7 @@ export {
 import { parseEther } from "viem";
 import type { NetworkType } from "@jejunetwork/types";
 import type { JejuWallet } from "../wallet";
+import type { JsonValue, JsonRecord } from "../shared/types";
 import { getServicesConfig } from "../config";
 import { generateAuthHeaders } from "../shared/api";
 import {
@@ -40,16 +41,8 @@ import {
   PinsListSchema,
 } from "../shared/schemas";
 
-/**
- * JSON value type - valid JSON-serializable values for uploadJson
- */
-export type JsonValue =
-  | string
-  | number
-  | boolean
-  | null
-  | JsonValue[]
-  | { [key: string]: JsonValue };
+// Re-export JsonValue from shared types for convenience
+export type { JsonValue, JsonRecord } from "../shared/types";
 
 export type StorageTier = "hot" | "warm" | "cold" | "permanent";
 

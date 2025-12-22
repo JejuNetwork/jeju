@@ -5,7 +5,58 @@
  * Compatible with Atropos, Psyche, and custom environments.
  */
 
-import type { Address, Hash, Hex } from 'viem';
+import type { Address, Hex } from 'viem';
+import type { JSONValue, JSONObject } from '../shared/validation';
+
+// ============================================================================
+// Observation and Action Types
+// ============================================================================
+
+/**
+ * RL observation - extensible object containing environment state
+ * Using JSONObject since observations are serialized/deserialized via JSON
+ */
+export type RLObservation = JSONObject;
+
+/**
+ * RL action parameters - extensible object containing action details
+ * Using JSONObject since action params are serialized/deserialized via JSON
+ */
+export type RLActionParams = JSONObject;
+
+/**
+ * RL action - describes the action taken in a step
+ */
+export interface RLAction {
+  type: string;
+  parameters: RLActionParams;
+  reasoning?: string;
+}
+
+/**
+ * Environment info returned from step()
+ * Using JSONObject since info content varies by environment
+ */
+export type RLEnvInfo = JSONObject;
+
+/**
+ * Trajectory metadata - extensible object for episode-level info
+ */
+export interface RLTrajectoryMetadata {
+  startTime: number;
+  endTime: number;
+  episodeLength: number;
+  scenarioId?: string;
+  windowId?: string;
+  finalPnL?: number;
+  archetype?: string;
+  [key: string]: JSONValue | undefined;
+}
+
+/**
+ * Environment config - extensible configuration object
+ */
+export type RLEnvConfig = JSONObject;
 
 export enum RLAlgorithm {
   GRPO = 'grpo',
@@ -28,12 +79,8 @@ export enum RLRunState {
 export interface TrajectoryStep {
   stepNumber: number;
   timestamp: number;
-  observation: Record<string, unknown>;
-  action: {
-    type: string;
-    parameters: Record<string, unknown>;
-    reasoning?: string;
-  };
+  observation: RLObservation;
+  action: RLAction;
   reward: number;
   done: boolean;
   logprobs?: number[];
@@ -58,15 +105,7 @@ export interface Trajectory {
   policyModelCID: string;
   steps: TrajectoryStep[];
   totalReward: number;
-  metadata: {
-    startTime: number;
-    endTime: number;
-    episodeLength: number;
-    scenarioId?: string;
-    windowId?: string;
-    finalPnL?: number;
-    archetype?: string;
-  };
+  metadata: RLTrajectoryMetadata;
 }
 
 export interface TrajectoryManifest {
@@ -245,19 +284,19 @@ export interface ComputeJobResult {
 export interface RLEnvironment {
   id: string;
   name: string;
-  reset(): Promise<Record<string, unknown>>;
-  step(action: unknown): Promise<{
-    observation: Record<string, unknown>;
+  reset(): Promise<RLObservation>;
+  step(action: RLAction): Promise<{
+    observation: RLObservation;
     reward: number;
     done: boolean;
-    info: Record<string, unknown>;
+    info: RLEnvInfo;
   }>;
   getTrajectory(): Trajectory;
   close(): Promise<void>;
 }
 
 export interface RLEnvironmentFactory {
-  create(config: Record<string, unknown>): Promise<RLEnvironment>;
-  getSchema(): Record<string, unknown>;
+  create(config: RLEnvConfig): Promise<RLEnvironment>;
+  getSchema(): JSONObject;
 }
 

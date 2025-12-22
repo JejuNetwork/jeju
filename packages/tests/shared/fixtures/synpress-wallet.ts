@@ -1,7 +1,8 @@
 import { type Page } from '@playwright/test';
 import { testWithSynpress } from '@synthetixio/synpress';
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright';
-import { createWalletSetup, TEST_WALLET_ADDRESS } from '../synpress.config.base';
+import jejuWalletSetup, { PASSWORD } from '../wallet-setup/jeju.setup';
+import { TEST_WALLET_ADDRESS } from '../synpress.config.base';
 
 /**
  * Synpress wallet fixtures for network testing
@@ -21,20 +22,17 @@ import { createWalletSetup, TEST_WALLET_ADDRESS } from '../synpress.config.base'
  * ```
  */
 
-// Create the wallet setup
-const basicSetup = createWalletSetup();
-
 // Export test with properly configured MetaMask fixtures
-export const test = testWithSynpress(metaMaskFixtures(basicSetup));
+export const test = testWithSynpress(metaMaskFixtures(jejuWalletSetup));
 
 // Re-export expect for convenience
 export { expect } from '@playwright/test';
 
 // Export wallet password for MetaMask initialization
-export const walletPassword = basicSetup.walletPassword;
+export const walletPassword = PASSWORD;
 
 // Export the basic setup for apps that need it
-export { basicSetup };
+export const basicSetup = jejuWalletSetup;
 
 /**
  * Connect wallet and verify connection in one step

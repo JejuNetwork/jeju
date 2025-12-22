@@ -65,12 +65,20 @@ export const bigint: Marshal<bigint, string> = {
 }
 
 
-export const bigdecimal: Marshal<any, string> = {
-    fromJSON(value: unknown): bigint {
+/**
+ * BigDecimal interface for @subsquid/big-decimal compatibility
+ * This is an optional dependency - runtime check handles missing package
+ */
+interface BigDecimalLike {
+    toString(): string;
+}
+
+export const bigdecimal: Marshal<BigDecimalLike, string> = {
+    fromJSON(value: unknown): BigDecimalLike {
         assert(typeof value === 'string', 'invalid BigDecimal')
-        return decimal.BigDecimal(value)
+        return decimal.BigDecimal(value) as BigDecimalLike
     },
-    toJSON(value: any): string {
+    toJSON(value: BigDecimalLike): string {
         return value.toString()
     }
 }
@@ -127,16 +135,18 @@ export function nonNull<T>(val: T | undefined | null): T {
 }
 
 
-export function enumFromJson<E extends object>(json: unknown, enumObject: E): E[keyof E] {
+export function enumFromJson<E extends Record<string, string>>(json: unknown, enumObject: E): E[keyof E] {
     assert(typeof json == 'string', 'invalid enum value')
-    let val = (enumObject as any)[json]
+    const val = enumObject[json as keyof E]
     assert(typeof val == 'string', `invalid enum value`)
-    return val as any
+    return val
 }
 
 
-const decimal = {
-    get BigDecimal(): any {
+type BigDecimalConstructor = (value: string) => BigDecimalLike;
+
+const decimal: { BigDecimal: BigDecimalConstructor } = {
+    get BigDecimal(): BigDecimalConstructor {
         throw new Error('Package `@subsquid/big-decimal` is not installed')
     }
 }
@@ -144,6 +154,8 @@ const decimal = {
 
 try {
     Object.defineProperty(decimal, "BigDecimal", {
-        value: require('@subsquid/big-decimal').BigDecimal
+        value: require('@subsquid/big-decimal').BigDecimal as BigDecimalConstructor
     })
-} catch (e) {}
+} catch (_) {
+    // Package not installed - getter will throw on access
+}

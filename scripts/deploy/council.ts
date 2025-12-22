@@ -12,12 +12,13 @@
  * Networks: localnet, testnet, mainnet
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, encodeDeployData, getContractAddress, formatEther, type Address, type Chain, type Hex } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, encodeDeployData, getContractAddress, formatEther, type Address, type Chain, type Hex, type Abi } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { waitForTransactionReceipt } from 'viem/actions';
 import { readFileSync, writeFileSync, existsSync } from 'fs';
 import { join } from 'path';
 import { $ } from 'bun';
+import type { ConstructorArg, RawArtifactJson } from '../shared/contract-types';
 
 // Contract ABIs and bytecode will be loaded after compilation
 const CONTRACTS_DIR = join(import.meta.dir, '../packages/contracts');
@@ -71,17 +72,17 @@ function error(msg: string) {
   console.error(`\x1b[31m✗ ${msg}\x1b[0m`);
 }
 
-function loadContractArtifact(contractName: string): { abi: unknown[]; bytecode: string } {
+function loadContractArtifact(contractName: string): { abi: Abi; bytecode: Hex } {
   const artifactPath = join(OUT_DIR, `${contractName}.sol`, `${contractName}.json`);
   
   if (!existsSync(artifactPath)) {
     throw new Error(`Contract artifact not found: ${artifactPath}. Run 'forge build' first.`);
   }
   
-  const artifact = JSON.parse(readFileSync(artifactPath, 'utf-8'));
+  const artifact = JSON.parse(readFileSync(artifactPath, 'utf-8')) as RawArtifactJson;
   return {
     abi: artifact.abi,
-    bytecode: artifact.bytecode.object
+    bytecode: artifact.bytecode.object as Hex
   };
 }
 
@@ -90,7 +91,7 @@ async function deployContract(
   walletClient: ReturnType<typeof createWalletClient>,
   account: PrivateKeyAccount,
   contractName: string,
-  constructorArgs: unknown[]
+  constructorArgs: ConstructorArg[]
 ): Promise<Address> {
   log(`Deploying ${contractName}...`);
   
@@ -98,7 +99,7 @@ async function deployContract(
   
   const deployData = encodeDeployData({
     abi,
-    bytecode: bytecode as Hex,
+    bytecode,
     args: constructorArgs,
   });
   
@@ -245,7 +246,7 @@ async function main() {
     network,
     chainId: config.chainId,
     timestamp: new Date().toISOString(),
-    deployer: deployerAddress,
+    deployer: account.address,
     contracts: {
       Council: councilAddress,
       CEOAgent: ceoAgentAddress

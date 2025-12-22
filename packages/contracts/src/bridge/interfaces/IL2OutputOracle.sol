@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 /// @title IL2OutputOracle
 /// @notice Interface for OP Stack L2OutputOracle with Decentralized modifications

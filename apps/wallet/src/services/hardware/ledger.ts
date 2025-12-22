@@ -31,6 +31,27 @@ interface AccountDetails {
   publicKey?: string;
 }
 
+// Ledger keyring serialized state
+interface LedgerSerializedState {
+  accounts: Address[];
+  accountDetails: Record<string, AccountDetails>;
+  hdPath: string;
+  hdPathType: LedgerHDPathType;
+}
+
+// Partial serialized state for deserialization from storage
+export interface PartialLedgerSerializedState {
+  accounts?: Address[];
+  accountDetails?: Record<string, AccountDetails>;
+  hdPath?: string;
+  hdPathType?: LedgerHDPathType;
+}
+
+// Ledger error with status text
+interface LedgerError extends Error {
+  statusText?: string;
+}
+
 export class LedgerKeyring {
   static type = 'Ledger Hardware';
   type = 'Ledger Hardware';
@@ -245,11 +266,11 @@ export class LedgerKeyring {
       const vNum = typeof signature.v === 'string' ? parseInt(signature.v, 16) : signature.v;
       const vHex = vNum.toString(16).padStart(2, '0');
       return `0x${signature.r}${signature.s}${vHex}` as Hex;
-    } catch (e: unknown) {
+    } catch (e) {
       // Fall back to hashed method for older firmware
-      const err = e as { statusText?: string };
+      const err = e as LedgerError;
       if (err.statusText !== 'INS_NOT_SUPPORTED') {
-        throw e;
+        throw err;
       }
     }
     
@@ -365,7 +386,7 @@ export class LedgerKeyring {
   }
   
   // Serialization for persistence
-  serialize(): Record<string, unknown> {
+  serialize(): LedgerSerializedState {
     return {
       accounts: this.accounts,
       accountDetails: this.accountDetails,
@@ -374,11 +395,11 @@ export class LedgerKeyring {
     };
   }
   
-  deserialize(data: Record<string, unknown>): void {
-    if (data.accounts) this.accounts = data.accounts as Address[];
-    if (data.accountDetails) this.accountDetails = data.accountDetails as Record<string, AccountDetails>;
-    if (data.hdPath) this.hdPath = data.hdPath as string;
-    if (data.hdPathType) this.hdPathType = data.hdPathType as LedgerHDPathType;
+  deserialize(data: PartialLedgerSerializedState): void {
+    if (data.accounts) this.accounts = data.accounts;
+    if (data.accountDetails) this.accountDetails = data.accountDetails;
+    if (data.hdPath) this.hdPath = data.hdPath;
+    if (data.hdPathType) this.hdPathType = data.hdPathType;
   }
 }
 

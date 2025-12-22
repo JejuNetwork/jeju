@@ -34,7 +34,8 @@
     "@solana/web3.js": "1.98.4",
     "hono": "4.11.1",
     "viem": "2.43.2",
-    "zod": "^4.1.13"
+    "zod": "^4.1.13",
+    "pino": "^10.1.0"
   },
   "devDependencies": {
     "@jejunetwork/tests": "workspace:*",

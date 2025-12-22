@@ -63,9 +63,9 @@ const CliAppConfigSchema = z.object({
   logLevel: z.enum(['debug', 'info', 'warn', 'error']),
 });
 
-export type AppConfig = z.infer<typeof CliAppConfigSchema>;
+export type CliAppConfig = z.infer<typeof CliAppConfigSchema>;
 
-const DEFAULT_CONFIG: AppConfig = {
+const DEFAULT_CONFIG: CliAppConfig = {
   version: '1.0.0',
   network: 'testnet',
   rpcUrl: 'https://testnet-rpc.jejunetwork.org',
@@ -121,7 +121,7 @@ function getConfigPath(): string {
   return join(getConfigDir(), 'config.json');
 }
 
-function loadConfig(): AppConfig {
+function loadConfig(): CliAppConfig {
   const configPath = getConfigPath();
   if (existsSync(configPath)) {
     const fileContent = readFileSync(configPath, 'utf-8');
@@ -138,7 +138,7 @@ function loadConfig(): AppConfig {
   return DEFAULT_CONFIG;
 }
 
-export function saveConfig(config: AppConfig): void {
+export function saveConfig(config: CliAppConfig): void {
   const configPath = getConfigPath();
   const configDir = dirname(configPath);
   if (!existsSync(configDir)) {
@@ -441,6 +441,54 @@ async function cmdEarnings(): Promise<void> {
   console.log(`  ${chalk.dim('Coming soon: earnings tracking and history')}\n`);
 }
 
+/** Configuration value types that can be set via CLI */
+type ConfigValue = string | number | boolean | string[] | number[];
+
+/** Type guard for nested config objects */
+function isConfigObject(value: ConfigValue | NestedConfig): value is NestedConfig {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+/** Nested configuration structure */
+type NestedConfig = { [key: string]: ConfigValue | NestedConfig };
+
+/** Safely get a nested config value by path */
+function getConfigValue(config: NestedConfig, path: string[]): ConfigValue | NestedConfig | undefined {
+  let current: ConfigValue | NestedConfig = config;
+  for (const key of path) {
+    if (!isConfigObject(current)) return undefined;
+    current = current[key];
+    if (current === undefined) return undefined;
+  }
+  return current;
+}
+
+/** Safely set a nested config value by path */
+function setConfigValue(config: NestedConfig, path: string[], value: ConfigValue): boolean {
+  if (path.length === 0) return false;
+  
+  let current: NestedConfig = config;
+  for (let i = 0; i < path.length - 1; i++) {
+    const key = path[i];
+    const next = current[key];
+    if (!isConfigObject(next)) return false;
+    current = next;
+  }
+  
+  const finalKey = path[path.length - 1];
+  current[finalKey] = value;
+  return true;
+}
+
+/** Parse CLI value string to appropriate type */
+function parseConfigValue(value: string): ConfigValue {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  const num = Number(value);
+  if (!isNaN(num)) return num;
+  return value;
+}
+
 async function cmdConfig(args: string[]): Promise<void> {
   const config = loadConfig();
   const [action, key, value] = args;
@@ -454,26 +502,23 @@ async function cmdConfig(args: string[]): Promise<void> {
     return;
   }
   
+  // Cast config to NestedConfig for dynamic access
+  const configObj = config as NestedConfig;
+  
   if (action === 'set' && key && value) {
     const keys = key.split('.');
-    let obj: Record<string, unknown> = config as unknown as Record<string, unknown>;
-    for (let i = 0; i < keys.length - 1; i++) {
-      obj = obj[keys[i]] as Record<string, unknown>;
+    const parsedValue = parseConfigValue(value);
+    const success = setConfigValue(configObj, keys, parsedValue);
+    if (success) {
+      saveConfig(config);
+      console.log(chalk.green(`✓ Set ${key} = ${value}`));
+    } else {
+      console.log(chalk.red(`✗ Invalid config path: ${key}`));
     }
-    const finalKey = keys[keys.length - 1];
-    if (value === 'true') obj[finalKey] = true;
-    else if (value === 'false') obj[finalKey] = false;
-    else if (!isNaN(Number(value))) obj[finalKey] = Number(value);
-    else obj[finalKey] = value;
-    saveConfig(config);
-    console.log(chalk.green(`✓ Set ${key} = ${value}`));
   } else if (action === 'get' && key) {
     const keys = key.split('.');
-    let obj: unknown = config;
-    for (const k of keys) {
-      obj = (obj as Record<string, unknown>)[k];
-    }
-    console.log(obj);
+    const result = getConfigValue(configObj, keys);
+    console.log(result);
   }
 }
 

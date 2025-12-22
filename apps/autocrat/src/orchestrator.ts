@@ -11,9 +11,11 @@ import {
   type Address,
   type PublicClient,
   type WalletClient,
+  type Chain,
+  type Transport,
 } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
-import { readContract, waitForTransactionReceipt } from 'viem/actions';
+import { readContract, writeContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
 import { base, baseSepolia, localhost } from 'viem/chains';
 import type { CEOPersona } from './types';
@@ -207,8 +209,8 @@ interface DAOStateStatus {
 
 export class AutocratOrchestrator {
   private readonly config: AutocratConfig;
-  private readonly client: PublicClient;
-  private readonly walletClient: WalletClient;
+  private readonly client: PublicClient<Transport, Chain>;
+  private readonly walletClient: WalletClient<Transport, Chain>;
   private daoService: DAOService | null = null;
   private account: PrivateKeyAccount | null = null;
   private daoStates: Map<string, DAOState> = new Map();
@@ -224,15 +226,16 @@ export class AutocratOrchestrator {
   constructor(config: AutocratConfig, _blockchain: AutocratBlockchain) {
     this.config = config;
     const chain = inferChain(config.rpcUrl);
-    // @ts-expect-error viem version mismatch in monorepo
+    // Type assertion needed because createPublicClient returns a more specific type based on
+    // the chain parameter. The standalone actions from viem/actions work with any compatible client.
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
-    });
+    }) as PublicClient<Transport, Chain>;
     this.walletClient = createWalletClient({
       chain,
       transport: http(config.rpcUrl),
-    });
+    }) as WalletClient<Transport, Chain>;
   }
 
   private inferChainId(rpcUrl: string): number {
@@ -475,6 +478,7 @@ export class AutocratOrchestrator {
 
         if (this.account) {
           const reasoningHash = await store({
+            type: 'autocrat_vote_detail',
             proposalId,
             daoId: state.daoId,
             agent: vote.agentId,
@@ -486,13 +490,13 @@ export class AutocratOrchestrator {
 
           const voteValue = { APPROVE: 0, REJECT: 1, ABSTAIN: 2 }[vote.vote] ?? 2;
 
-          // @ts-expect-error viem version type mismatch in monorepo
-          const hash = await this.walletClient.writeContract({
+          const hash = await writeContract(this.walletClient, {
             address: councilAddress,
             abi: COUNCIL_WRITE_ABI,
             functionName: 'castAutocratVote',
             args: [proposalId as `0x${string}`, voteValue, keccak256(stringToHex(reasoningHash))],
             account: this.account,
+            chain: inferChain(this.config.rpcUrl),
           });
           await waitForTransactionReceipt(this.client, { hash });
           console.log(`[${daoName}:${shortId}] ${vote.role} vote on-chain`);
@@ -502,13 +506,13 @@ export class AutocratOrchestrator {
 
     const now = Math.floor(Date.now() / 1000);
     if (now >= Number(proposal.autocratVoteEnd) && this.account) {
-      // @ts-expect-error viem version type mismatch in monorepo
-          const hash = await this.walletClient.writeContract({
+        const hash = await writeContract(this.walletClient, {
         address: councilAddress,
         abi: COUNCIL_WRITE_ABI,
         functionName: 'finalizeAutocratVote',
         args: [proposalId as `0x${string}`],
         account: this.account,
+        chain: inferChain(this.config.rpcUrl),
       });
       await waitForTransactionReceipt(this.client, { hash });
       console.log(`[${daoName}:${shortId}] Autocrat vote finalized`);
@@ -543,13 +547,13 @@ export class AutocratOrchestrator {
     console.log(`[${daoName}:${shortId}] Key findings: ${report.keyFindings.slice(0, 2).join('; ')}`);
 
     if (this.account) {
-      // @ts-expect-error viem version type mismatch in monorepo
-          const hash = await this.walletClient.writeContract({
+      const hash = await writeContract(this.walletClient, {
         address: councilAddress,
         abi: COUNCIL_WRITE_ABI,
         functionName: 'recordResearch',
         args: [proposalId as `0x${string}`, keccak256(stringToHex(report.requestHash))],
         account: this.account,
+        chain: inferChain(this.config.rpcUrl),
       });
       await waitForTransactionReceipt(this.client, { hash });
       console.log(`[${daoName}:${shortId}] Research on-chain: ${report.requestHash.slice(0, 12)}...`);
@@ -565,13 +569,13 @@ export class AutocratOrchestrator {
     if (now < Number(proposal.autocratVoteEnd)) return;
 
     if (this.account) {
-      // @ts-expect-error viem version type mismatch in monorepo
-          const hash = await this.walletClient.writeContract({
+      const hash = await writeContract(this.walletClient, {
         address: councilAddress,
         abi: COUNCIL_WRITE_ABI,
         functionName: 'advanceToCEO',
         args: [proposalId as `0x${string}`],
         account: this.account,
+        chain: inferChain(this.config.rpcUrl),
       });
       await waitForTransactionReceipt(this.client, { hash });
       console.log(`[${daoName}:${shortId}] Advanced to CEO queue`);
@@ -624,6 +628,7 @@ export class AutocratOrchestrator {
     const personaResponse = this.generatePersonaResponse(persona, teeDecision.approved, teeDecision.publicReasoning, daoFull.dao.displayName);
 
     const decisionHash = await store({
+      type: 'ceo_decision_detail',
       proposalId,
       daoId: state.daoId,
       ceoAnalysis: ceoDecision,
@@ -644,8 +649,7 @@ export class AutocratOrchestrator {
     console.log(`[${daoName}:${shortId}] "${personaResponse.slice(0, 100)}..."`);
 
     if (this.account && ceoAgentAddress && ceoAgentAddress !== '0x0000000000000000000000000000000000000000') {
-      // @ts-expect-error viem version type mismatch in monorepo
-          const hash = await this.walletClient.writeContract({
+      const hash = await writeContract(this.walletClient, {
         address: ceoAgentAddress,
         abi: CEO_WRITE_ABI,
         functionName: 'recordDecision',
@@ -658,6 +662,7 @@ export class AutocratOrchestrator {
           BigInt(teeDecision.alignmentScore),
         ],
         account: this.account,
+        chain: inferChain(this.config.rpcUrl),
       });
       await waitForTransactionReceipt(this.client, { hash });
       console.log(`[${daoName}:${shortId}] Decision on-chain`);
@@ -677,13 +682,13 @@ export class AutocratOrchestrator {
     }
 
     if (this.account) {
-      // @ts-expect-error viem version type mismatch in monorepo
-          const hash = await this.walletClient.writeContract({
+      const hash = await writeContract(this.walletClient, {
         address: councilAddress,
         abi: COUNCIL_WRITE_ABI,
         functionName: 'executeProposal',
         args: [proposalId as `0x${string}`],
         account: this.account,
+        chain: inferChain(this.config.rpcUrl),
       });
       await waitForTransactionReceipt(this.client, { hash });
       console.log(`[${daoName}:${shortId}] Executed`);

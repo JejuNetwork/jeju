@@ -3,7 +3,7 @@
 import { useReadContract, useReadContracts, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi'
 import { useState, useCallback, useMemo } from 'react'
 import { type Address, type Hash } from 'viem'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { AddressSchema } from '@jejunetwork/types'
 import { expect, expectPositive, expectTrue } from '@/lib/validation'
 import { CONTRACTS } from '@/config'
 
@@ -199,6 +199,69 @@ export const PERPETUAL_MARKET_ABI = [
   }
 ] as const
 
+// ABI-inferred types - these match what wagmi returns from the typed ABI
+// For tuples with named components, wagmi returns objects with those property names
+type PositionTuple = {
+  positionId: `0x${string}`
+  trader: `0x${string}`
+  marketId: `0x${string}`
+  side: number
+  marginType: number
+  size: bigint
+  margin: bigint
+  marginToken: `0x${string}`
+  entryPrice: bigint
+  entryFundingIndex: bigint
+  lastUpdateTime: bigint
+  isOpen: boolean
+}
+
+type MarketTuple = {
+  marketId: `0x${string}`
+  symbol: string
+  baseAsset: `0x${string}`
+  maxLeverage: bigint
+  maintenanceMarginBps: bigint
+  takerFeeBps: bigint
+  makerFeeBps: bigint
+  maxOpenInterest: bigint
+  currentOpenInterest: bigint
+  isActive: boolean
+}
+
+// Converter functions for ABI tuples to domain types
+function positionFromTuple(tuple: PositionTuple): Position {
+  return {
+    positionId: tuple.positionId as Hash,
+    trader: tuple.trader as Address,
+    marketId: tuple.marketId as Hash,
+    side: tuple.side as PositionSide,
+    marginType: tuple.marginType,
+    size: tuple.size,
+    margin: tuple.margin,
+    marginToken: tuple.marginToken as Address,
+    entryPrice: tuple.entryPrice,
+    entryFundingIndex: tuple.entryFundingIndex,
+    lastUpdateTime: tuple.lastUpdateTime,
+    isOpen: tuple.isOpen,
+  }
+}
+
+function marketFromTuple(tuple: MarketTuple): Market {
+  return {
+    marketId: tuple.marketId as Hash,
+    symbol: tuple.symbol,
+    baseAsset: tuple.baseAsset as Address,
+    maxLeverage: tuple.maxLeverage,
+    maintenanceMarginBps: tuple.maintenanceMarginBps,
+    takerFeeBps: tuple.takerFeeBps,
+    makerFeeBps: tuple.makerFeeBps,
+    maxOpenInterest: tuple.maxOpenInterest,
+    currentOpenInterest: tuple.currentOpenInterest,
+    isActive: tuple.isActive,
+  }
+}
+
 export const MARGIN_MANAGER_ABI = [
   {
     name: 'deposit',
@@ -350,36 +413,32 @@ export function usePerpsMarkets(perpetualMarketAddress: Address | undefined) {
 
   const marketContracts = useMemo(() => {
     if (!marketIds || !perpetualMarketAddress) return []
-    return (marketIds as Hash[]).map(marketId => ({
+    return marketIds.map(marketId => ({
       address: perpetualMarketAddress,
       abi: PERPETUAL_MARKET_ABI,
-      functionName: 'getMarket',
-      args: [marketId]
+      functionName: 'getMarket' as const,
+      args: [marketId] as const
     }))
   }, [marketIds, perpetualMarketAddress])
 
   const { data: marketsData } = useReadContracts({
-    contracts: marketContracts as Array<{
-      address: Address
-      abi: typeof PERPETUAL_MARKET_ABI
-      functionName: 'getMarket'
-      args: [Hash]
-    }>,
+    contracts: marketContracts,
     query: { enabled: marketContracts.length > 0 }
   })
 
   const markets: Market[] = useMemo(() => {
     if (!marketsData) return []
     return marketsData
-      .filter(result => result.status === 'success')
-      .map(result => result.result as unknown as Market)
+      .filter((result): result is typeof result & { status: 'success'; result: MarketTuple } => 
+        result.status === 'success' && result.result !== undefined)
+      .map(result => marketFromTuple(result.result))
   }, [marketsData])
 
-  return { markets, marketIds: marketIds as Hash[] | undefined }
+  return { markets, marketIds: marketIds ?? undefined }
 }
 
 export function usePerpsMarket(perpetualMarketAddress: Address | undefined, marketId: Hash | undefined) {
-  const { data: market } = useReadContract({
+  const { data: marketData } = useReadContract({
     address: perpetualMarketAddress,
     abi: PERPETUAL_MARKET_ABI,
     functionName: 'getMarket',
@@ -419,13 +478,16 @@ export function usePerpsMarket(perpetualMarketAddress: Address | undefined, mark
     query: { enabled: Boolean(perpetualMarketAddress && marketId) }
   })
 
+  // Convert tuple to domain type if data exists
+  const market = marketData ? marketFromTuple(marketData as MarketTuple) : undefined
+
   return {
-    market: market as Market | undefined,
-    markPrice: markPrice as bigint | undefined,
-    indexPrice: indexPrice as bigint | undefined,
-    fundingRate: fundingRate as bigint | undefined,
-    longOpenInterest: openInterest?.[0] as bigint | undefined,
-    shortOpenInterest: openInterest?.[1] as bigint | undefined,
+    market,
+    markPrice,
+    indexPrice,
+    fundingRate,
+    longOpenInterest: openInterest?.[0],
+    shortOpenInterest: openInterest?.[1],
   }
 }
 
@@ -442,105 +504,80 @@ export function usePositions(perpetualMarketAddress: Address | undefined) {
 
   const positionContracts = useMemo(() => {
     if (!positionIds || !perpetualMarketAddress) return []
-    return (positionIds as Hash[]).map(positionId => ({
+    return positionIds.map(positionId => ({
       address: perpetualMarketAddress,
       abi: PERPETUAL_MARKET_ABI,
-      functionName: 'getPosition',
-      args: [positionId]
+      functionName: 'getPosition' as const,
+      args: [positionId] as const
     }))
   }, [positionIds, perpetualMarketAddress])
 
   const { data: positionsData, refetch: refetchPositions } = useReadContracts({
-    contracts: positionContracts as Array<{
-      address: Address
-      abi: typeof PERPETUAL_MARKET_ABI
-      functionName: 'getPosition'
-      args: [Hash]
-    }>,
+    contracts: positionContracts,
     query: { enabled: positionContracts.length > 0 }
   })
 
   // Fetch PnL data
   const pnlContracts = useMemo(() => {
     if (!positionIds || !perpetualMarketAddress) return []
-    return (positionIds as Hash[]).map(positionId => ({
+    return positionIds.map(positionId => ({
       address: perpetualMarketAddress,
       abi: PERPETUAL_MARKET_ABI,
-      functionName: 'getPositionPnl',
-      args: [positionId]
+      functionName: 'getPositionPnl' as const,
+      args: [positionId] as const
     }))
   }, [positionIds, perpetualMarketAddress])
 
   const { data: pnlData } = useReadContracts({
-    contracts: pnlContracts as Array<{
-      address: Address
-      abi: typeof PERPETUAL_MARKET_ABI
-      functionName: 'getPositionPnl'
-      args: [Hash]
-    }>,
+    contracts: pnlContracts,
     query: { enabled: pnlContracts.length > 0 }
   })
 
   // Fetch liquidation prices
   const liqPriceContracts = useMemo(() => {
     if (!positionIds || !perpetualMarketAddress) return []
-    return (positionIds as Hash[]).map(positionId => ({
+    return positionIds.map(positionId => ({
       address: perpetualMarketAddress,
       abi: PERPETUAL_MARKET_ABI,
-      functionName: 'getLiquidationPrice',
-      args: [positionId]
+      functionName: 'getLiquidationPrice' as const,
+      args: [positionId] as const
     }))
   }, [positionIds, perpetualMarketAddress])
 
   const { data: liqPriceData } = useReadContracts({
-    contracts: liqPriceContracts as Array<{
-      address: Address
-      abi: typeof PERPETUAL_MARKET_ABI
-      functionName: 'getLiquidationPrice'
-      args: [Hash]
-    }>,
+    contracts: liqPriceContracts,
     query: { enabled: liqPriceContracts.length > 0 }
   })
 
   // Fetch leverage
   const leverageContracts = useMemo(() => {
     if (!positionIds || !perpetualMarketAddress) return []
-    return (positionIds as Hash[]).map(positionId => ({
+    return positionIds.map(positionId => ({
       address: perpetualMarketAddress,
       abi: PERPETUAL_MARKET_ABI,
-      functionName: 'getPositionLeverage',
-      args: [positionId]
+      functionName: 'getPositionLeverage' as const,
+      args: [positionId] as const
     }))
   }, [positionIds, perpetualMarketAddress])
 
   const { data: leverageData } = useReadContracts({
-    contracts: leverageContracts as Array<{
-      address: Address
-      abi: typeof PERPETUAL_MARKET_ABI
-      functionName: 'getPositionLeverage'
-      args: [Hash]
-    }>,
+    contracts: leverageContracts,
     query: { enabled: leverageContracts.length > 0 }
   })
 
   // Fetch liquidation status
   const liqStatusContracts = useMemo(() => {
     if (!positionIds || !perpetualMarketAddress) return []
-    return (positionIds as Hash[]).map(positionId => ({
+    return positionIds.map(positionId => ({
       address: perpetualMarketAddress,
       abi: PERPETUAL_MARKET_ABI,
-      functionName: 'isLiquidatable',
-      args: [positionId]
+      functionName: 'isLiquidatable' as const,
+      args: [positionId] as const
     }))
   }, [positionIds, perpetualMarketAddress])
 
   const { data: liqStatusData } = useReadContracts({
-    contracts: liqStatusContracts as Array<{
-      address: Address
-      abi: typeof PERPETUAL_MARKET_ABI
-      functionName: 'isLiquidatable'
-      args: [Hash]
-    }>,
+    contracts: liqStatusContracts,
     query: { enabled: liqStatusContracts.length > 0 }
   })
 
@@ -548,21 +585,32 @@ export function usePositions(perpetualMarketAddress: Address | undefined) {
     if (!positionsData) return []
     return positionsData
       .map((result, index) => {
-        if (result.status !== 'success') return null
-        const position = result.result as unknown as Position
+        if (result.status !== 'success' || !result.result) return null
+        const position = positionFromTuple(result.result as PositionTuple)
         if (!position.isOpen) return null
         
-        const pnl = pnlData?.[index]?.status === 'success' 
-          ? pnlData[index].result as [bigint, bigint]
+        // PnL returns [unrealizedPnl, fundingPnl]
+        const pnlResult = pnlData?.[index]
+        const pnl: readonly [bigint, bigint] = pnlResult?.status === 'success' && pnlResult.result
+          ? pnlResult.result as readonly [bigint, bigint]
           : [0n, 0n]
-        const liqPrice = liqPriceData?.[index]?.status === 'success'
-          ? liqPriceData[index].result as bigint
+        
+        // Liquidation price is a single bigint
+        const liqPriceResult = liqPriceData?.[index]
+        const liqPrice: bigint = liqPriceResult?.status === 'success' && liqPriceResult.result !== undefined
+          ? liqPriceResult.result as bigint
           : 0n
-        const leverage = leverageData?.[index]?.status === 'success'
-          ? leverageData[index].result as bigint
+        
+        // Leverage is a single bigint
+        const leverageResult = leverageData?.[index]
+        const leverage: bigint = leverageResult?.status === 'success' && leverageResult.result !== undefined
+          ? leverageResult.result as bigint
           : 0n
-        const liqStatus = liqStatusData?.[index]?.status === 'success'
-          ? liqStatusData[index].result as [boolean, bigint]
+        
+        // isLiquidatable returns [canLiquidate, healthFactor]
+        const liqStatusResult = liqStatusData?.[index]
+        const liqStatus: readonly [boolean, bigint] = liqStatusResult?.status === 'success' && liqStatusResult.result
+          ? liqStatusResult.result as readonly [boolean, bigint]
           : [false, 0n]
           
         return {
@@ -583,7 +631,7 @@ export function usePositions(perpetualMarketAddress: Address | undefined) {
     refetchPositions()
   }, [refetchPositionIds, refetchPositions])
 
-  return { positions, positionIds: positionIds as Hash[] | undefined, refetch }
+  return { positions, positionIds: positionIds ?? undefined, refetch }
 }
 
 export function useCollateral(marginManagerAddress: Address | undefined) {
@@ -605,7 +653,7 @@ export function useCollateral(marginManagerAddress: Address | undefined) {
   })
 
   return {
-    totalValueUSD: totalValue as bigint | undefined,
+    totalValueUSD: totalValue,
     acceptedTokens: acceptedTokens as Address[] | undefined,
     refetch: refetchTotal
   }

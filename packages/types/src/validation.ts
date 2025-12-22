@@ -1,6 +1,9 @@
 import { z, type ZodIssue, type ZodSchema } from 'zod';
 import { isAddress, isHex, type Address, type Hex } from 'viem';
 
+// Re-export Address and Hex types from viem for convenience
+export type { Address, Hex };
+
 // ============================================================================
 // Core Primitive Schemas
 // ============================================================================
@@ -108,54 +111,6 @@ export const PaginationSchema = z.object({
   sortOrder: z.enum(['asc', 'desc']).default('desc'),
 });
 
-/**
- * Limit/Offset Pagination Schema
- * Alternative pagination style used by some services
- */
-export const LimitOffsetPaginationSchema = z.object({
-  limit: z.coerce.number().int().min(1).max(100).default(50),
-  offset: z.coerce.number().int().min(0).default(0),
-});
-
-/**
- * Search filter value - strongly typed alternatives to unknown
- */
-export const SearchFilterValueSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.array(z.string()),
-  z.array(z.number()),
-]);
-export type SearchFilterValue = z.infer<typeof SearchFilterValueSchema>;
-
-/**
- * Standard Search Params Schema
- */
-export const SearchParamsSchema = PaginationSchema.extend({
-  query: z.string().optional(),
-  filters: z.record(z.string(), SearchFilterValueSchema).optional(),
-});
-
-/**
- * Error detail value - strongly typed
- */
-export const ErrorDetailValueSchema = z.union([
-  z.string(),
-  z.number(),
-  z.boolean(),
-  z.array(z.string()),
-]);
-export type ErrorDetailValue = z.infer<typeof ErrorDetailValueSchema>;
-
-/**
- * Error Response Schema
- */
-export const ErrorResponseSchema = z.object({
-  error: z.string(),
-  message: z.string().optional(),
-  details: z.record(z.string(), ErrorDetailValueSchema).optional(),
-});
 
 // ============================================================================
 // String Schemas

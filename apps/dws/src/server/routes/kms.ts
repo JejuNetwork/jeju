@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Address, Hex } from 'viem';
-import { validateBody, validateParams, validateHeaders, expectValid, jejuAddressHeaderSchema, createKmsKeyRequestSchema, kmsKeyParamsSchema, signRequestSchema, encryptRequestSchema, decryptRequestSchema, keyListQuerySchema, z } from '../../shared';
+import { validateBody, validateParams, validateHeaders, jejuAddressHeaderSchema, createKmsKeyRequestSchema, kmsKeyParamsSchema, signRequestSchema, encryptRequestSchema, decryptRequestSchema, z } from '../../shared';
 
 // MPC Configuration
 const MPC_CONFIG = {
@@ -231,7 +231,7 @@ export function createKMSRouter(): Hono {
 
   // Request signature
   router.post('/sign', async (c) => {
-    const { 'x-jeju-address': requester } = validateHeaders(jejuAddressHeaderSchema, c);
+    validateHeaders(jejuAddressHeaderSchema, c);
     const body = await validateBody(signRequestSchema.extend({
       keyId: z.string().uuid(),
     }), c);
@@ -331,11 +331,6 @@ export function createKMSRouter(): Hono {
 
   // Legacy endpoint for backwards compatibility
   router.post('/decrypt-mpc', async (c) => {
-    const body = await c.req.json<{
-      encrypted: string;
-      keyId: string;
-    }>();
-
     const mpcEnabled = !!process.env.MPC_COORDINATOR_URL;
     
     if (!mpcEnabled) {

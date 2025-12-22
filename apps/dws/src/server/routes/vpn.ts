@@ -5,7 +5,7 @@
 
 import { Hono } from 'hono';
 import type { Address } from 'viem';
-import { validateBody, validateParams, validateQuery, validateHeaders, expectValid, jejuAddressHeaderSchema, vpnNodeRegistrationSchema, vpnNodeHeartbeatSchema, vpnSessionRequestSchema, vpnNodeParamsSchema, vpnSessionParamsSchema, vpnNodesQuerySchema, z } from '../../shared';
+import { validateBody, validateParams, validateQuery, validateHeaders, jejuAddressHeaderSchema, vpnNodeRegistrationSchema, vpnNodeHeartbeatSchema, vpnSessionRequestSchema, vpnNodeParamsSchema, vpnSessionParamsSchema, vpnNodesQuerySchema, z } from '../../shared';
 
 interface ProxyNode {
   id: string;

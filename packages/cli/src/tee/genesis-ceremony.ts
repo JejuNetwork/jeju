@@ -63,7 +63,7 @@ interface TeeClientType {
   // Legacy API (TappdClient 0.3.x)  
   deriveKey?(path?: string, subject?: string, altNames?: string[]): Promise<{ asUint8Array: (len?: number) => Uint8Array }>;
   tdxQuote?(reportData: string | Buffer | Uint8Array, hashAlgorithm?: string): Promise<{ quote: string; event_log: string }>;
-  info(): Promise<{ app_id: string; instance_id: string; tcb_info: unknown }>;
+  info(): Promise<{ app_id: string; instance_id: string; tcb_info: Record<string, unknown> }>;
 }
 
 /**

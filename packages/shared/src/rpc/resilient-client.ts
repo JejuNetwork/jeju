@@ -5,6 +5,7 @@
  */
 
 import { z } from 'zod';
+import type { RpcParam } from '../types';
 
 export interface RPCEndpoint {
   url: string
@@ -165,7 +166,7 @@ export class ResilientRPCClient {
       })
   }
 
-  async call<T>(method: string, params: unknown[]): Promise<T> {
+  async call<T>(method: string, params: RpcParam[]): Promise<T> {
     const healthyEndpoints = this.getHealthyEndpoints()
     
     if (healthyEndpoints.length === 0) {

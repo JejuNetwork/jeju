@@ -58,35 +58,3 @@ export async function verifyAuth(c: Context): Promise<AuthResult> {
   return { valid: true, address: validAddress };
 }
 
-/**
- * Get authenticated address from context
- * Returns null if invalid, but doesn't throw
- */
-export function getAuthAddress(c: Context): Address | null {
-  const address = c.req.header('x-jeju-address');
-  if (!address) return null;
-  
-  try {
-    return getAddress(address);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Create authentication headers for client
- */
-export function createAuthHeaders(
-  address: Address,
-  signMessage: (message: string) => Promise<Hex>,
-): Promise<Record<string, string>> {
-  const timestamp = Date.now().toString();
-  const message = `jeju-vpn:${timestamp}`;
-  
-  return signMessage(message).then(signature => ({
-    'x-jeju-address': address,
-    'x-jeju-timestamp': timestamp,
-    'x-jeju-signature': signature,
-  }));
-}
-

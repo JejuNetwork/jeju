@@ -276,33 +276,3 @@ export async function verifyX402Payment(
   return { valid: true, receipt };
 }
 
-// ============================================================================
-// Payment Header Creation (Client-side helper)
-// ============================================================================
-
-export function createX402PaymentHeader(params: {
-  resource: string;
-  amount: bigint;
-  recipient: Address;
-  asset: Address;
-  signature: Hex;
-  payer: Address;
-}): string {
-  const timestamp = Math.floor(Date.now() / 1000);
-  const nonce = `${params.payer}-${timestamp}-${Math.random().toString(36).slice(2, 8)}`;
-
-  const payload: X402PaymentPayload = {
-    scheme: 'exact',
-    network: 'jeju',
-    payTo: params.recipient,
-    amount: params.amount.toString(),
-    asset: params.asset,
-    resource: params.resource,
-    nonce,
-    timestamp,
-    signature: params.signature,
-  };
-
-  return `x402 ${Buffer.from(JSON.stringify(payload)).toString('base64')}`;
-}
-

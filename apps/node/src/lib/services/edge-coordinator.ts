@@ -45,7 +45,63 @@ const EdgeCoordinatorConfigSchema = z.object({
 
 export type EdgeCoordinatorConfig = z.infer<typeof EdgeCoordinatorConfigSchema>;
 
-// Schema for gossip messages
+// ============================================================================
+// Gossip Message Payload Types
+// ============================================================================
+
+/** Typed payload for announce messages */
+export interface AnnouncePayload {
+  action: 'join' | 'leave';
+  nodeId?: string;
+  nodeInfo?: EdgeNodeInfo;
+}
+
+/** Typed payload for query messages */
+export interface QueryPayload {
+  contentHash: string;
+}
+
+/** Typed payload for response messages */
+export interface ResponsePayload {
+  contentHash: string;
+  nodeId: string;
+  endpoint: string;
+}
+
+/** Typed payload for cache update messages */
+export interface CacheUpdatePayload {
+  action: 'add' | 'remove';
+  contentHash: string;
+  nodeId: string;
+  size?: number;
+}
+
+/** Typed payload for peer list messages */
+export interface PeerListPayload {
+  peers: EdgeNodeInfo[];
+}
+
+/** Typed payload for pong messages */
+export interface PongPayload {
+  metrics: EdgeMetrics;
+  latency: number;
+}
+
+/** 
+ * Gossip payload - typed union for compile-time safety.
+ * Runtime validation done via Zod schema below.
+ */
+export type GossipPayload = 
+  | AnnouncePayload 
+  | QueryPayload 
+  | ResponsePayload 
+  | CacheUpdatePayload 
+  | PeerListPayload 
+  | PongPayload 
+  | Record<string, never>;
+
+// Schema for gossip messages - payload validated permissively at runtime,
+// type safety ensured via GossipPayload union type at compile time
 const GossipMessageSchema = z.object({
   type: z.enum(['announce', 'query', 'response', 'ping', 'pong', 'cache_update', 'peer_list']),
   id: z.string().min(1),
@@ -53,7 +109,7 @@ const GossipMessageSchema = z.object({
   timestamp: z.number().int().positive(),
   ttl: z.number().int().min(0),
   signature: z.string(),
-  payload: z.record(z.string(), z.unknown()),
+  payload: z.record(z.string(), z.unknown()).transform((val) => val as GossipPayload),
 });
 
 // ============================================================================
@@ -103,7 +159,7 @@ export interface GossipMessage {
   timestamp: number;
   ttl: number;
   signature: string;
-  payload: Record<string, unknown>;
+  payload: GossipPayload;
 }
 
 // ============================================================================
@@ -471,10 +527,10 @@ export class EdgeCoordinator {
   }
 
   private async handleAnnounce(msg: GossipMessage, source: WebSocket | null): Promise<void> {
-    const action = msg.payload.action as string;
+    const payload = msg.payload as AnnouncePayload;
 
-    if (action === 'join') {
-      const nodeInfo = msg.payload.nodeInfo as EdgeNodeInfo;
+    if (payload.action === 'join' && payload.nodeInfo) {
+      const nodeInfo = payload.nodeInfo;
 
       if (source) {
         this.peers.set(nodeInfo.nodeId, {
@@ -484,17 +540,16 @@ export class EdgeCoordinator {
         coordinatorPeersTotal.set(this.peers.size);
         console.log(`[EdgeCoordinator] Peer joined: ${nodeInfo.nodeId}`);
       }
-    } else if (action === 'leave') {
-      const nodeId = msg.payload.nodeId as string;
-      this.peers.delete(nodeId);
+    } else if (payload.action === 'leave' && payload.nodeId) {
+      this.peers.delete(payload.nodeId);
       coordinatorPeersTotal.set(this.peers.size);
-      console.log(`[EdgeCoordinator] Peer left: ${nodeId}`);
+      console.log(`[EdgeCoordinator] Peer left: ${payload.nodeId}`);
     }
   }
 
   private async handleQuery(msg: GossipMessage, source: WebSocket | null): Promise<void> {
-    const contentHash = msg.payload.contentHash as string;
-    const location = this.contentIndex.get(contentHash);
+    const payload = msg.payload as QueryPayload;
+    const location = this.contentIndex.get(payload.contentHash);
 
     if (location && location.nodeIds.includes(this.config.nodeId)) {
       const response: GossipMessage = {
@@ -505,7 +560,7 @@ export class EdgeCoordinator {
         ttl: 1,
         signature: '',
         payload: {
-          contentHash,
+          contentHash: payload.contentHash,
           nodeId: this.config.nodeId,
           endpoint: `https://localhost:${this.config.listenPort}`,
         },
@@ -521,9 +576,8 @@ export class EdgeCoordinator {
   }
 
   private handleCacheUpdate(msg: GossipMessage): void {
-    const action = msg.payload.action as string;
-    const contentHash = msg.payload.contentHash as string;
-    const nodeId = msg.payload.nodeId as string;
+    const payload = msg.payload as CacheUpdatePayload;
+    const { action, contentHash, nodeId } = payload;
 
     if (action === 'add') {
       const existing = this.contentIndex.get(contentHash);
@@ -576,9 +630,9 @@ export class EdgeCoordinator {
   }
 
   private async handlePeerList(msg: GossipMessage): Promise<void> {
-    const newPeers = msg.payload.peers as EdgeNodeInfo[];
+    const payload = msg.payload as PeerListPayload;
 
-    for (const peerInfo of newPeers) {
+    for (const peerInfo of payload.peers) {
       if (!this.peers.has(peerInfo.nodeId) && peerInfo.nodeId !== this.config.nodeId) {
         if (this.peers.size < this.config.maxPeers) {
           await this.connectToPeer(peerInfo.endpoint);
@@ -783,9 +837,9 @@ export class EdgeCoordinator {
 
       this.messageHandlers.set(queryId, (msg: GossipMessage) => {
         if (msg.type === 'response') {
-          const nodeId = msg.payload.nodeId as string;
-          if (nodeId && !results.includes(nodeId)) {
-            results.push(nodeId);
+          const payload = msg.payload as ResponsePayload;
+          if (payload.nodeId && !results.includes(payload.nodeId)) {
+            results.push(payload.nodeId);
           }
         }
       });

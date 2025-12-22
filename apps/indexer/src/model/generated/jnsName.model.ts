@@ -76,8 +76,13 @@ export class JNSName {
     @StringColumn_({nullable: true})
     appA2AEndpoint!: string | undefined | null
 
+    /**
+     * ENS-style text records as key-value string pairs
+     * Keys are record names (e.g., 'url', 'avatar', 'com.twitter')
+     * Values are the corresponding text values
+     */
     @JSONColumn_({nullable: true})
-    textRecords!: unknown | undefined | null
+    textRecords!: Record<string, string> | undefined | null
 
     @BooleanColumn_({nullable: false})
     isListed!: boolean

@@ -8,7 +8,7 @@
 import { useReadContract, useWriteContract, useWaitForTransactionReceipt, useAccount } from 'wagmi'
 import { useState, useCallback, useEffect } from 'react'
 import { parseEther, type Address } from 'viem'
-import { AddressSchema } from '@jejunetwork/types/contracts'
+import { AddressSchema } from '@jejunetwork/types'
 import { expect, expectPositive } from '@/lib/validation'
 
 // Re-export shared types and utilities

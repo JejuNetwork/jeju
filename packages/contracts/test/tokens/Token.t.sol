@@ -399,6 +399,6 @@ contract TokenTest is Test {
     }
 
     function test_Version() public view {
-        assertEq(token.version(), "1.0.0");
+        assertEq(token.version(), "2.0.0");
     }
 }

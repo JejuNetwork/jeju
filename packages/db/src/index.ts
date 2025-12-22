@@ -81,4 +81,10 @@ export type {
   MinerInfo,
   // Events
   CQLEvent,
+  CQLEventDetails,
+  QueryEventDetails,
+  ExecEventDetails,
+  MigrationEventDetails,
+  ACLEventDetails,
+  RentalEventDetails,
 } from './types.js';

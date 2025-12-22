@@ -10,7 +10,7 @@
  * - RPC URL: contracts.json -> external.baseSepolia.rpcUrl (Jeju's own node)
  */
 
-import { createPublicClient, http, type PublicClient, type Hex, type Address, type Chain } from 'viem';
+import { createPublicClient, http, type Hex, type Address, type Chain } from 'viem';
 import { base, baseSepolia } from 'viem/chains';
 import { getPoCConfig, getCurrentNetwork } from '@jejunetwork/config';
 import {
@@ -77,11 +77,6 @@ interface VerifyQuoteResponse {
   error?: string;
 }
 
-interface HardwareLookupResponse {
-  found: boolean;
-  entry: PoCRegistryEntry | null;
-}
-
 interface RevocationFeed {
   revocations: PoCRevocation[];
   lastTimestamp: number;
@@ -110,7 +105,7 @@ interface RegistryClientConfig {
 }
 
 export class PoCRegistryClient {
-  private readonly publicClient: PublicClient;
+  private readonly publicClient;
   private readonly validatorAddress: Address;
   private readonly offChainEndpoints: string[];
   private readonly apiKey: string | null;
@@ -175,11 +170,12 @@ export class PoCRegistryClient {
       level: record.level as PoCVerificationLevel,
       cloudProvider: record.cloudProvider,
       region: record.region,
-      expiresAt: Number(record.expiresAt) * 1000,
-      active: !record.revoked && Number(record.expiresAt) * 1000 > Date.now(),
-      registeredAt: Number(record.verifiedAt) * 1000,
-      endorsements: [],
       evidenceHashes: [],
+      endorsements: [],
+      verifiedAt: Number(record.verifiedAt) * 1000,
+      lastVerifiedAt: Number(record.verifiedAt) * 1000,
+      monitoringCadence: 86400000, // 24 hours default
+      active: !record.revoked && Number(record.expiresAt) * 1000 > Date.now(),
     };
   }
 
@@ -454,7 +450,7 @@ export class MockPoCRegistryClient {
 
   async getAgentStatus(agentId: bigint): Promise<{ verified: boolean; level: PoCVerificationLevel; hardwareIdHash: Hex; expiresAt: number }> {
     const status = this.mockAgentStatus.get(agentId.toString());
-    if (!status) throw new PoCError(PoCErrorCode.HARDWARE_NOT_FOUND, `Agent ${agentId} not found`);
+    if (!status) throw new PoCError(PoCErrorCode.AGENT_NOT_FOUND, `Agent ${agentId} not found`);
     return status;
   }
 

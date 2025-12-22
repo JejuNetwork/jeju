@@ -7,7 +7,7 @@ import {
   PublicKey,
   VersionedTransaction,
 } from '@solana/web3.js';
-import { expectValid } from '@jejunetwork/types/validation';
+import { expectValid } from '@jejunetwork/types';
 import type {
   SwapParams,
   SwapQuote,

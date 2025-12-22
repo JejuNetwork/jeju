@@ -6,6 +6,7 @@
 
 import type { z } from "zod";
 import type { Address, Hex } from "viem";
+import type { JsonValue } from "./types";
 
 /** Wallet interface for auth header generation */
 export interface AuthWallet {
@@ -98,7 +99,7 @@ export async function fetchWithAuth<T extends z.ZodTypeAny>(
  */
 export async function postWithAuth<T extends z.ZodTypeAny>(
   url: string,
-  body: unknown,
+  body: JsonValue,
   schema: T,
   wallet: AuthWallet,
   service: AuthService,
@@ -116,7 +117,7 @@ export async function postWithAuth<T extends z.ZodTypeAny>(
  */
 export async function postVoidWithAuth(
   url: string,
-  body: unknown,
+  body: JsonValue,
   wallet: AuthWallet,
   service: AuthService,
 ): Promise<void> {
@@ -134,9 +135,16 @@ export async function postVoidWithAuth(
 }
 
 /**
- * Helper to transform bigint strings in API responses
+ * Type for objects that may have bigint values after transformation
  */
-export function transformBigIntFields<T extends Record<string, unknown>>(
+type TransformableRecord = Record<string, JsonValue | bigint>;
+
+/**
+ * Helper to transform bigint strings in API responses.
+ * Takes a JSON record and converts specified string fields to bigint.
+ * The result may contain bigint values which are not JSON-serializable.
+ */
+export function transformBigIntFields<T extends TransformableRecord>(
   obj: T,
   fields: (keyof T)[],
 ): T {
@@ -144,7 +152,7 @@ export function transformBigIntFields<T extends Record<string, unknown>>(
   for (const field of fields) {
     const value = obj[field];
     if (typeof value === "string") {
-      (result as Record<string, unknown>)[field as string] = BigInt(value);
+      (result as TransformableRecord)[field as string] = BigInt(value);
     }
   }
   return result;

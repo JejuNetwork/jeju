@@ -5,6 +5,31 @@
 import { describe, expect, it } from 'bun:test';
 import { app } from '../server/index';
 
+// Chat completion response types (OpenAI-compatible format)
+interface ChatCompletionMessage {
+  role: 'assistant' | 'user' | 'system';
+  content: string;
+}
+
+interface ChatCompletionChoice {
+  index: number;
+  message: ChatCompletionMessage;
+  finish_reason: string;
+}
+
+interface ChatCompletionResponse {
+  id: string;
+  object: string;
+  created: number;
+  model: string;
+  choices: ChatCompletionChoice[];
+}
+
+interface ChatCompletionErrorResponse {
+  error: string;
+  docs: string;
+}
+
 describe('DWS Server', () => {
   describe('Health & Info', () => {
     it('returns health status', async () => {
@@ -76,12 +101,13 @@ describe('DWS Server', () => {
       // Returns 200 when provider is configured, 503 otherwise
       expect([200, 503]).toContain(res.status);
 
-      const data = await res.json() as { error?: string; docs?: string; choices?: unknown[] };
       if (res.status === 503) {
+        const data = await res.json() as ChatCompletionErrorResponse;
         expect(data.error).toBe('No inference provider configured');
         expect(data.docs).toContain('groq.com');
       } else {
         // Provider is configured - expect a valid response
+        const data = await res.json() as ChatCompletionResponse;
         expect(data.choices).toBeDefined();
       }
     });

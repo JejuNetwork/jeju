@@ -95,7 +95,8 @@ export class TelegramAdapter implements PlatformAdapter {
       }
     });
 
-    this.bot.catch((err: unknown) => {
+    // Telegraf's catch requires (err: unknown, ctx: Context) signature
+    this.bot.catch((err) => {
       const errorMessage = err instanceof Error ? err.message : String(err);
       console.error('[Telegram] Bot error:', errorMessage);
     });
@@ -177,7 +178,10 @@ export class TelegramAdapter implements PlatformAdapter {
 
   async handleWebhook(payload: TelegramWebhookPayload): Promise<void> {
     const validatedPayload = expectValid(TelegramWebhookPayloadSchema, payload, 'Telegram webhook');
-    await this.bot.handleUpdate(validatedPayload as unknown as Update);
+    // TelegramWebhookPayload matches Telegraf's Update type structure
+    // The validated payload is safe to pass to handleUpdate
+    const update: Update = validatedPayload as Update;
+    await this.bot.handleUpdate(update);
   }
 
   async sendMessage(channelId: string, content: string, options?: SendMessageOptions): Promise<string> {

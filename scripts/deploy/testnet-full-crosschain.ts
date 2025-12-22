@@ -240,9 +240,9 @@ async function registerXLP(
     });
     await waitForTransactionReceipt(publicClient, { hash });
     success(`XLP registered with 1 ETH stake`);
-  } catch (e: unknown) {
-    const err = e as Error;
-    if (err.message.includes('AlreadyRegistered')) {
+  } catch (e) {
+    const errMsg = e instanceof Error ? e.message : String(e);
+    if (errMsg.includes('AlreadyRegistered')) {
       success('XLP already registered');
     } else {
       throw e;
@@ -284,8 +284,9 @@ async function depositXLPLiquidity(
       });
       await waitForTransactionReceipt(publicClient, { hash });
       success(`Deposited 0.1 ETH on ${chain.name}`);
-    } catch (e: unknown) {
-      error(`Failed to deposit on ${chain.name}: ${(e as Error).message}`);
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      error(`Failed to deposit on ${chain.name}: ${errMsg}`);
     }
   }
 }

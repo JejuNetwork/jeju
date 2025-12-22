@@ -345,29 +345,6 @@ export async function storeAWSSecret(name: SecretName, value: string): Promise<b
 // ============================================================================
 
 /**
- * Get all secrets for a given prefix (e.g., all API keys)
- */
-export async function getSecretsWithPrefix(prefix: string): Promise<Record<string, string>> {
-  const secrets: Record<string, string> = {};
-  const allSecretNames: SecretName[] = [
-    'ETHERSCAN_API_KEY', 'BASESCAN_API_KEY', 'ARBISCAN_API_KEY', 'OPSCAN_API_KEY',
-    'WALLETCONNECT_PROJECT_ID', 'PINATA_JWT', 'NEYNAR_API_KEY',
-    'OPENROUTER_API_KEY', 'OPENAI_API_KEY', 'ANTHROPIC_API_KEY',
-    'ALCHEMY_API_KEY', 'CLOUDFLARE_API_TOKEN', 'SUCCINCT_API_KEY',
-    'PHALA_API_KEY', 'ONEINCH_API_KEY',
-  ];
-  
-  for (const name of allSecretNames) {
-    if (name.startsWith(prefix) || name.includes(prefix)) {
-      const value = await getSecret(name);
-      if (value) secrets[name] = value;
-    }
-  }
-  
-  return secrets;
-}
-
-/**
  * Check which secret provider is being used
  */
 export function getActiveProvider(): SecretProvider {
@@ -415,5 +392,3 @@ export function initSecretsDirectory(): void {
     writeFileSync(gitignorePath, '*\n!.gitignore\n');
   }
 }
-
-

@@ -10,6 +10,7 @@
 
 import type { Address } from 'viem';
 import type { ProxyRequest, ProxyResponse, APIProvider } from './types';
+import type { JSONObject, JSONValue } from '../shared/validation';
 import { getListing, getProviderById, chargeUser, canAfford, recordRequest } from './registry';
 import { decryptKeyForRequest } from './key-vault';
 import { checkAccess, incrementRateLimit } from './access-control';
@@ -115,7 +116,7 @@ function buildUpstreamUrl(provider: APIProvider, endpoint: string, queryParams?:
 /**
  * Build request body
  */
-function buildRequestBody(body: string | Record<string, unknown> | undefined): string | undefined {
+function buildRequestBody(body: string | JSONObject | undefined): string | undefined {
   if (!body) return undefined;
   if (typeof body === 'string') return body;
   return JSON.stringify(body);
@@ -236,10 +237,10 @@ export async function proxyRequest(
       responseHeaders[key] = value;
     });
 
-    let responseBody: unknown;
+    let responseBody: JSONValue | string;
     const contentType = response.headers.get('content-type') || '';
     if (contentType.includes('application/json')) {
-      responseBody = await response.json();
+      responseBody = (await response.json()) as JSONValue;
     } else {
       responseBody = await response.text();
     }

@@ -3,6 +3,9 @@
  * @notice Central export for all shared utilities
  */
 
+// Contract types for deployment scripts
+export * from './contract-types';
+
 // Config utilities (unified config access)
 export * from './config-utils';
 

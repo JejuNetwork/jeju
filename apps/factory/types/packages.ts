@@ -14,12 +14,3 @@ export interface Package extends Timestamps {
   tarballUri: string;
   dependencies: Record<string, string>;
 }
-
-export interface PackageMetadata {
-  name: string;
-  version: string;
-  description?: string;
-  author: string;
-  license: string;
-  dependencies?: Record<string, string>;
-}

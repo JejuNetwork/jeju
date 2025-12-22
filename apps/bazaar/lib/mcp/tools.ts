@@ -3,7 +3,7 @@
  * Shared between API routes and hooks
  */
 
-import { AddressSchema } from '@jejunetwork/types/contracts';
+import { AddressSchema } from '@jejunetwork/types';
 import { expect, expectPositive } from '@/lib/validation';
 import { getNetworkTokens, getLatestBlocks, getTokenTransfers, getTokenHolders, getContractDetails } from '@/lib/indexer-client';
 import {
@@ -16,16 +16,218 @@ import {
   prepareReportTransaction,
   prepareVoteTransaction,
   prepareChallengeTransaction,
+  type BanStatus,
+  type ModeratorProfile,
+  type ModerationCase,
+  type ModerationStats,
+  type TransactionRequest,
 } from '@/lib/moderation-api';
 import { getV4Contracts } from '@/config/contracts';
 import { JEJU_CHAIN_ID } from '@/config/chains';
+
+// Result data types for each tool
+interface TokenInfo {
+  address: string;
+  creator: string;
+  isERC20: boolean;
+}
+
+interface BlockInfo {
+  number: number;
+  hash: string;
+  timestamp: string;
+}
+
+interface TokenListResult {
+  tokens: TokenInfo[];
+}
+
+interface BlockListResult {
+  blocks: BlockInfo[];
+}
+
+interface TokenDetailsResult {
+  id: string;
+  address: string;
+  contractType: string;
+  isERC20: boolean;
+  isERC721: boolean;
+  isERC1155: boolean;
+  creator: { address: string };
+  creationTransaction: { hash: string };
+  creationBlock: { number: number; timestamp: string };
+  firstSeenAt: string;
+  lastSeenAt: string;
+  topHolders: Array<{
+    id: string;
+    balance: string;
+    account: { address: string; firstSeenBlock: number };
+    lastUpdated: string;
+    transferCount: number;
+  }>;
+  recentTransfers: Array<{
+    id: string;
+    tokenStandard: string;
+    from: { address: string };
+    to: { address: string };
+    value: string;
+    timestamp: string;
+    transaction: { hash: string };
+    block: { number: number };
+  }>;
+}
+
+interface PoolContractsInfo {
+  poolManager: string;
+  swapRouter: string | undefined;
+  positionManager: string | undefined;
+}
+
+interface PoolInfoResult {
+  pools: never[];
+  note: string;
+  contracts: PoolContractsInfo | null;
+}
+
+interface TransactionInfo {
+  to: string;
+  data: string;
+}
+
+interface SwapResult {
+  action: 'sign-and-send';
+  transaction: TransactionInfo;
+  note: string;
+}
+
+interface BanStatusResult extends BanStatus {
+  summary: string;
+}
+
+interface ModeratorStatsResult extends ModeratorProfile {
+  summary: string;
+}
+
+interface ModerationCasesResult {
+  cases: ModerationCase[];
+  count: number;
+}
+
+interface ModerationCaseResult extends ModerationCase {
+  summary: string;
+}
+
+interface ModerationStatsResult extends ModerationStats {
+  summary: string;
+}
+
+interface TransactionResult {
+  action: 'sign-and-send';
+  transaction: TransactionRequest;
+}
+
+// Union type for all possible result data shapes
+type ToolResultData =
+  | TokenListResult
+  | BlockListResult
+  | TokenDetailsResult
+  | PoolInfoResult
+  | SwapResult
+  | BanStatusResult
+  | ModeratorStatsResult
+  | ModerationCasesResult
+  | ModerationCaseResult
+  | ModerationStatsResult
+  | TransactionResult;
+
+// Tool argument types - discriminated by tool name
+interface ListTokensArgs {
+  limit?: number;
+}
+
+interface GetLatestBlocksArgs {
+  limit?: number;
+}
+
+interface GetTokenDetailsArgs {
+  address: string;
+}
+
+interface GetPoolInfoArgs {
+  // No required args
+}
+
+interface SwapTokensArgs {
+  fromToken: string;
+  toToken: string;
+  amount: string;
+}
+
+interface CheckBanStatusArgs {
+  address: string;
+}
+
+interface GetModeratorStatsArgs {
+  address: string;
+}
+
+interface GetModerationCasesArgs {
+  activeOnly?: boolean;
+  resolvedOnly?: boolean;
+  limit?: number;
+}
+
+interface GetModerationCaseArgs {
+  caseId: string;
+}
+
+interface GetModerationStatsArgs {
+  // No required args
+}
+
+interface PrepareModerationStakeArgs {
+  stakeAmount: string;
+}
+
+interface PrepareReportUserArgs {
+  target: string;
+  reason: string;
+  evidenceHash: string;
+}
+
+interface PrepareVoteOnCaseArgs {
+  caseId: string;
+  voteYes: boolean;
+}
+
+interface PrepareChallengeArgs {
+  caseId: string;
+  stakeAmount: string;
+}
+
+// Union type for all tool arguments
+export type MCPToolArgs =
+  | ListTokensArgs
+  | GetLatestBlocksArgs
+  | GetTokenDetailsArgs
+  | GetPoolInfoArgs
+  | SwapTokensArgs
+  | CheckBanStatusArgs
+  | GetModeratorStatsArgs
+  | GetModerationCasesArgs
+  | GetModerationCaseArgs
+  | GetModerationStatsArgs
+  | PrepareModerationStakeArgs
+  | PrepareReportUserArgs
+  | PrepareVoteOnCaseArgs
+  | PrepareChallengeArgs;
 
 export interface ToolResult {
   content: Array<{ type: string; text: string }>;
   isError?: boolean;
 }
 
-function makeResult(data: unknown, isError = false): ToolResult {
+function makeResult(data: ToolResultData, isError = false): ToolResult {
   return {
     content: [{ type: 'text', text: JSON.stringify(data, null, 2) }],
     isError,
@@ -34,13 +236,14 @@ function makeResult(data: unknown, isError = false): ToolResult {
 
 export async function callMCPTool(
   name: string,
-  args: Record<string, unknown>
+  args: MCPToolArgs
 ): Promise<ToolResult> {
   expect(name, 'Tool name is required');
 
   switch (name) {
     case 'list_tokens': {
-      const limit = (args.limit as number) || 50;
+      const typedArgs = args as ListTokensArgs;
+      const limit = typedArgs.limit ?? 50;
       expectPositive(limit, 'Limit must be positive');
       const tokens = await getNetworkTokens({ limit });
       return makeResult({
@@ -53,7 +256,8 @@ export async function callMCPTool(
     }
 
     case 'get_latest_blocks': {
-      const limit = (args.limit as number) || 10;
+      const typedArgs = args as GetLatestBlocksArgs;
+      const limit = typedArgs.limit ?? 10;
       expectPositive(limit, 'Limit must be positive');
       const blocks = await getLatestBlocks(limit);
       return makeResult({
@@ -66,8 +270,8 @@ export async function callMCPTool(
     }
 
     case 'get_token_details': {
-      const address = args.address as string;
-      const validatedAddress = AddressSchema.parse(address);
+      const typedArgs = args as GetTokenDetailsArgs;
+      const validatedAddress = AddressSchema.parse(typedArgs.address);
       const [details, holders, transfers] = await Promise.all([
         getContractDetails(validatedAddress),
         getTokenHolders(validatedAddress, 10),
@@ -94,12 +298,12 @@ export async function callMCPTool(
     }
 
     case 'swap_tokens': {
-      const { fromToken, toToken, amount } = args as { fromToken: string; toToken: string; amount: string };
-      expect(fromToken, 'fromToken is required');
-      expect(toToken, 'toToken is required');
-      expect(amount, 'amount is required');
-      AddressSchema.parse(fromToken);
-      AddressSchema.parse(toToken);
+      const typedArgs = args as SwapTokensArgs;
+      expect(typedArgs.fromToken, 'fromToken is required');
+      expect(typedArgs.toToken, 'toToken is required');
+      expect(typedArgs.amount, 'amount is required');
+      AddressSchema.parse(typedArgs.fromToken);
+      AddressSchema.parse(typedArgs.toToken);
       const contracts = getV4Contracts(JEJU_CHAIN_ID);
       return makeResult({
         action: 'sign-and-send',
@@ -112,8 +316,8 @@ export async function callMCPTool(
     }
 
     case 'check_ban_status': {
-      const address = args.address as string;
-      const validatedAddress = AddressSchema.parse(address);
+      const typedArgs = args as CheckBanStatusArgs;
+      const validatedAddress = AddressSchema.parse(typedArgs.address);
       const result = await checkBanStatus(validatedAddress);
       return makeResult({
         ...result,
@@ -122,8 +326,8 @@ export async function callMCPTool(
     }
 
     case 'get_moderator_stats': {
-      const address = args.address as string;
-      const validatedAddress = AddressSchema.parse(address);
+      const typedArgs = args as GetModeratorStatsArgs;
+      const validatedAddress = AddressSchema.parse(typedArgs.address);
       const stats = await getModeratorStats(validatedAddress);
       const validatedStats = expect(stats, `Could not fetch moderator stats for address: ${validatedAddress}`);
       return makeResult({
@@ -135,10 +339,11 @@ export async function callMCPTool(
     }
 
     case 'get_moderation_cases': {
+      const typedArgs = args as GetModerationCasesArgs;
       const cases = await getModerationCases({
-        activeOnly: args.activeOnly as boolean,
-        resolvedOnly: args.resolvedOnly as boolean,
-        limit: args.limit as number,
+        activeOnly: typedArgs.activeOnly,
+        resolvedOnly: typedArgs.resolvedOnly,
+        limit: typedArgs.limit,
       });
       return makeResult({
         cases,
@@ -147,10 +352,10 @@ export async function callMCPTool(
     }
 
     case 'get_moderation_case': {
-      const caseId = args.caseId as string;
-      expect(caseId, 'caseId is required');
-      const caseData = await getModerationCase(caseId);
-      const validatedCaseData = expect(caseData, `Case not found: ${caseId}`);
+      const typedArgs = args as GetModerationCaseArgs;
+      expect(typedArgs.caseId, 'caseId is required');
+      const caseData = await getModerationCase(typedArgs.caseId);
+      const validatedCaseData = expect(caseData, `Case not found: ${typedArgs.caseId}`);
       return makeResult({
         ...validatedCaseData,
         summary: `Case ${validatedCaseData.status}: ${validatedCaseData.target} reported by ${validatedCaseData.reporter}`,
@@ -166,9 +371,9 @@ export async function callMCPTool(
     }
 
     case 'prepare_moderation_stake': {
-      const { stakeAmount } = args as { stakeAmount: string };
-      expect(stakeAmount, 'stakeAmount is required');
-      const tx = prepareStakeTransaction(stakeAmount);
+      const typedArgs = args as PrepareModerationStakeArgs;
+      expect(typedArgs.stakeAmount, 'stakeAmount is required');
+      const tx = prepareStakeTransaction(typedArgs.stakeAmount);
       return makeResult({
         action: 'sign-and-send',
         transaction: tx,
@@ -176,12 +381,12 @@ export async function callMCPTool(
     }
 
     case 'prepare_report_user': {
-      const { target, reason, evidenceHash } = args as { target: string; reason: string; evidenceHash: string };
-      expect(target, 'target is required');
-      expect(reason, 'reason is required');
-      expect(evidenceHash, 'evidenceHash is required');
-      AddressSchema.parse(target);
-      const tx = prepareReportTransaction(target, reason, evidenceHash);
+      const typedArgs = args as PrepareReportUserArgs;
+      expect(typedArgs.target, 'target is required');
+      expect(typedArgs.reason, 'reason is required');
+      expect(typedArgs.evidenceHash, 'evidenceHash is required');
+      AddressSchema.parse(typedArgs.target);
+      const tx = prepareReportTransaction(typedArgs.target, typedArgs.reason, typedArgs.evidenceHash);
       return makeResult({
         action: 'sign-and-send',
         transaction: tx,
@@ -189,10 +394,10 @@ export async function callMCPTool(
     }
 
     case 'prepare_vote_on_case': {
-      const { caseId, voteYes } = args as { caseId: string; voteYes: boolean };
-      expect(caseId, 'caseId is required');
-      expect(voteYes !== undefined, 'voteYes is required');
-      const tx = prepareVoteTransaction(caseId, voteYes);
+      const typedArgs = args as PrepareVoteOnCaseArgs;
+      expect(typedArgs.caseId, 'caseId is required');
+      expect(typedArgs.voteYes !== undefined, 'voteYes is required');
+      const tx = prepareVoteTransaction(typedArgs.caseId, typedArgs.voteYes);
       return makeResult({
         action: 'sign-and-send',
         transaction: tx,
@@ -200,10 +405,10 @@ export async function callMCPTool(
     }
 
     case 'prepare_challenge_ban': {
-      const { caseId, stakeAmount } = args as { caseId: string; stakeAmount: string };
-      expect(caseId, 'caseId is required');
-      expect(stakeAmount, 'stakeAmount is required');
-      const tx = prepareChallengeTransaction(caseId, stakeAmount);
+      const typedArgs = args as PrepareChallengeArgs;
+      expect(typedArgs.caseId, 'caseId is required');
+      expect(typedArgs.stakeAmount, 'stakeAmount is required');
+      const tx = prepareChallengeTransaction(typedArgs.caseId, typedArgs.stakeAmount);
       return makeResult({
         action: 'sign-and-send',
         transaction: tx,

@@ -128,6 +128,16 @@ export class FarcasterAdapter implements PlatformAdapter {
     if (!response?.ok) return;
 
     const rawData = await response.json();
+    
+    // Farcaster profile schema for mentioned users
+    const FarcasterProfileSchema = z.object({
+      fid: z.number().int().positive(),
+      username: z.string().min(1),
+      display_name: z.string().optional(),
+      pfp_url: z.string().url().optional(),
+      custody_address: z.string().optional(),
+    });
+    
     const NotificationsResponseSchema = z.object({
       notifications: z.array(z.object({
         cast: z.object({
@@ -143,7 +153,7 @@ export class FarcasterAdapter implements PlatformAdapter {
           timestamp: z.string(),
           parent_hash: z.string().optional(),
           parent_url: z.string().optional(),
-          mentioned_profiles: z.array(z.unknown()).optional(),
+          mentioned_profiles: z.array(FarcasterProfileSchema).optional(),
           channel: z.object({
             id: z.string().min(1),
             name: z.string().min(1),

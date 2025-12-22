@@ -235,7 +235,9 @@ describe('Org Agent CQL Operations', () => {
   test('should build correct SQL queries', () => {
     // Test query building logic
     const conditions: string[] = ['org_id = ?'];
-    const queryParams: unknown[] = ['test-org'];
+    /** SQL query parameters can be strings or numbers */
+    type SqlQueryParam = string | number;
+    const queryParams: SqlQueryParam[] = ['test-org'];
     
     conditions.push('status = ?');
     queryParams.push('pending');
@@ -292,7 +294,8 @@ describe('Executor Bot Type Routing', () => {
   });
 
   test('should handle unknown bot type', () => {
-    const unknownType = 'unknown' as unknown as string;
+    // 'unknown' is already a valid string, no cast needed
+    const unknownType = 'unknown';
     const validTypes = ['ai_agent', 'trading_bot', 'org_tool'];
     expect(validTypes.includes(unknownType)).toBe(false);
   });

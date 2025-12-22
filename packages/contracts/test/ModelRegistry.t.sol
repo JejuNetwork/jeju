@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.26;
+pragma solidity ^0.8.33;
 
 import "forge-std/Test.sol";
 import "../src/models/ModelRegistry.sol";
@@ -46,7 +46,7 @@ contract ModelRegistryTest is Test {
             "jeju-labs",
             ModelRegistry.ModelType.LLM,
             ModelRegistry.LicenseType.MIT,
-            ModelRegistry.AccessLevel.PUBLIC,
+            BaseArtifactRegistry.Visibility.PUBLIC,
             "LLaMA 3 fine-tuned on Jeju documentation",
             tags
         );
@@ -54,11 +54,11 @@ contract ModelRegistryTest is Test {
         vm.stopPrank();
         
         // Verify model was created
-        ModelRegistry.Model memory model = modelRegistry.getModel(modelId);
-        assertEq(model.name, "llama-3-jeju");
-        assertEq(model.organization, "jeju-labs");
-        assertEq(model.owner, creator);
-        assertEq(uint8(model.modelType), uint8(ModelRegistry.ModelType.LLM));
+        ModelRegistry.FullModel memory model = modelRegistry.getModel(modelId);
+        assertEq(model.artifact.name, "llama-3-jeju");
+        assertEq(model.artifact.namespace, "jeju-labs");
+        assertEq(model.artifact.owner, creator);
+        assertEq(uint8(model.metadata.modelType), uint8(ModelRegistry.ModelType.LLM));
     }
     
     function test_PublishVersion() public {
@@ -84,9 +84,9 @@ contract ModelRegistryTest is Test {
         assertTrue(versionId != bytes32(0));
         
         // Get versions
-        ModelRegistry.ModelVersion[] memory versions = modelRegistry.getVersions(modelId);
-        assertEq(versions.length, 1);
-        assertEq(versions[0].version, "1.0.0");
+        BaseArtifactRegistry.ArtifactVersion[] memory artifactVersions = modelRegistry.getVersions(modelId);
+        assertEq(artifactVersions.length, 1);
+        assertEq(artifactVersions[0].version, "1.0.0");
     }
     
     function test_DownloadModel() public {
@@ -111,8 +111,8 @@ contract ModelRegistryTest is Test {
         modelRegistry.recordDownload(modelId);
         
         // Verify download count via getModel
-        ModelRegistry.Model memory model = modelRegistry.getModel(modelId);
-        assertEq(model.downloadCount, 1);
+        ModelRegistry.FullModel memory model = modelRegistry.getModel(modelId);
+        assertEq(model.artifact.downloadCount, 1);
     }
     
     function test_StarModel() public {
@@ -122,15 +122,15 @@ contract ModelRegistryTest is Test {
         vm.prank(user);
         modelRegistry.toggleStar(modelId);
         
-        ModelRegistry.Model memory model = modelRegistry.getModel(modelId);
-        assertEq(model.starCount, 1);
+        ModelRegistry.FullModel memory model = modelRegistry.getModel(modelId);
+        assertEq(model.artifact.starCount, 1);
         
         // Unstar
         vm.prank(user);
         modelRegistry.toggleStar(modelId);
         
         model = modelRegistry.getModel(modelId);
-        assertEq(model.starCount, 0);
+        assertEq(model.artifact.starCount, 0);
     }
     
     function test_CreateMultipleModels() public {
@@ -144,7 +144,7 @@ contract ModelRegistryTest is Test {
             "org1",
             ModelRegistry.ModelType.LLM,
             ModelRegistry.LicenseType.MIT,
-            ModelRegistry.AccessLevel.PUBLIC,
+            BaseArtifactRegistry.Visibility.PUBLIC,
             "First model",
             tags1
         );
@@ -156,7 +156,7 @@ contract ModelRegistryTest is Test {
             "org1",
             ModelRegistry.ModelType.VISION,
             ModelRegistry.LicenseType.APACHE_2,
-            ModelRegistry.AccessLevel.PUBLIC,
+            BaseArtifactRegistry.Visibility.PUBLIC,
             "Second model",
             tags2
         );
@@ -164,13 +164,13 @@ contract ModelRegistryTest is Test {
         vm.stopPrank();
         
         // Verify both models created
-        ModelRegistry.Model memory model1 = modelRegistry.getModel(modelId1);
-        ModelRegistry.Model memory model2 = modelRegistry.getModel(modelId2);
+        ModelRegistry.FullModel memory model1 = modelRegistry.getModel(modelId1);
+        ModelRegistry.FullModel memory model2 = modelRegistry.getModel(modelId2);
         
-        assertEq(model1.name, "model-1");
-        assertEq(model2.name, "model-2");
-        assertEq(uint8(model1.modelType), uint8(ModelRegistry.ModelType.LLM));
-        assertEq(uint8(model2.modelType), uint8(ModelRegistry.ModelType.VISION));
+        assertEq(model1.artifact.name, "model-1");
+        assertEq(model2.artifact.name, "model-2");
+        assertEq(uint8(model1.metadata.modelType), uint8(ModelRegistry.ModelType.LLM));
+        assertEq(uint8(model2.metadata.modelType), uint8(ModelRegistry.ModelType.VISION));
     }
 
     // Helper function
@@ -185,7 +185,7 @@ contract ModelRegistryTest is Test {
             "test-org",
             ModelRegistry.ModelType.LLM,
             ModelRegistry.LicenseType.MIT,
-            ModelRegistry.AccessLevel.PUBLIC,
+            BaseArtifactRegistry.Visibility.PUBLIC,
             "A test model",
             tags
         );

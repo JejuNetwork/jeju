@@ -11,8 +11,8 @@ import { Hono } from 'hono';
 import { createRLAIFCoordinator } from '../../rlaif/coordinator';
 import { createTrajectoryStore } from '../../rlaif/trajectory-store';
 import { createRulerScorer } from '../../rlaif/ruler-scorer';
-import type { RLAIFRunConfig, RLAlgorithm } from '../../rlaif/types';
-import { validateBody, validateParams, validateQuery, expectValid, rlaifRunCreationSchema, rlaifRunStartSchema, rlaifRunParamsSchema, rlaifRolloutsSchema, rlaifJudgeSchema, rlaifCidParamsSchema, rlaifManifestTrajectoriesQuerySchema } from '../../shared';
+import { type RLAIFRunConfig, RLAlgorithm } from '../../rlaif/types';
+import { validateBody, validateParams, validateQuery, rlaifRunCreationSchema, rlaifRunStartSchema, rlaifRunParamsSchema, rlaifRolloutsSchema, rlaifJudgeSchema, rlaifCidParamsSchema, rlaifManifestTrajectoriesQuerySchema } from '../../shared';
 
 const app = new Hono();
 
@@ -36,37 +36,6 @@ const rulerScorer = createRulerScorer({
   computeApiUrl: process.env.COMPUTE_API_URL ?? 'http://localhost:4010',
 });
 
-interface CreateRunBody {
-  runId?: string;
-  environment: {
-    id: string;
-    type: string;
-    configCID: string;
-  };
-  model: {
-    baseModelCID: string;
-    referenceModelCID?: string;
-    tokenizer: string;
-    maxSeqLen?: number;
-  };
-  rl?: {
-    algorithm?: RLAlgorithm;
-    learningRate?: number;
-    batchSize?: number;
-    epochs?: number;
-    klCoefficient?: number;
-  };
-  judge?: {
-    modelCID?: string;
-    rubricId?: string;
-    temperature?: number;
-  };
-  targetIterations?: number;
-  minTrajectoriesPerIteration?: number;
-  rewardToken?: string;
-  rewardPerIteration?: string;
-}
-
 app.post('/runs', async (c) => {
   const body = await validateBody(rlaifRunCreationSchema, c);
 
@@ -82,7 +51,7 @@ app.post('/runs', async (c) => {
       dtype: 'bfloat16',
     },
     rl: {
-      algorithm: body.rl?.algorithm ?? 'grpo' as RLAlgorithm,
+      algorithm: (body.rl?.algorithm === 'ppo' ? RLAlgorithm.PPO : body.rl?.algorithm === 'dpo' ? RLAlgorithm.DPO : RLAlgorithm.GRPO),
       learningRate: body.rl?.learningRate ?? 1e-5,
       batchSize: body.rl?.batchSize ?? 4,
       gradientAccumulationSteps: 8,
@@ -168,26 +137,6 @@ app.post('/runs/:runId/resume', async (c) => {
   });
 });
 
-interface SubmitRolloutsBody {
-  trajectories: Array<{
-    id: string;
-    steps: Array<{
-      stepNumber: number;
-      timestamp: number;
-      observation: Record<string, unknown>;
-      action: {
-        type: string;
-        parameters: Record<string, unknown>;
-        reasoning?: string;
-      };
-      reward: number;
-      done: boolean;
-    }>;
-    totalReward: number;
-    metadata: Record<string, unknown>;
-  }>;
-}
-
 app.post('/runs/:runId/rollouts', async (c) => {
   const { runId } = validateParams(rlaifRunParamsSchema, c);
   const body = await validateBody(rlaifRolloutsSchema, c);
@@ -220,18 +169,6 @@ app.post('/runs/:runId/rollouts', async (c) => {
     merkleRoot: manifest.merkleRoot,
   });
 });
-
-interface ScoreTrajectoriesBody {
-  manifestCID: string;
-  rubric?: {
-    id: string;
-    name: string;
-    description: string;
-    criteria: string;
-    priorityMetrics: string[];
-  };
-  groupSize?: number;
-}
 
 app.post('/judge', async (c) => {
   const body = await validateBody(rlaifJudgeSchema, c);

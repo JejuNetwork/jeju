@@ -32,9 +32,17 @@ export function getNetworkRpc(chainId: SupportedChainId): string {
 }
 
 
+// Cache value types for RPC responses
+type CacheableValue = bigint | string | number | boolean;
+
+interface CacheEntry<T extends CacheableValue> {
+  data: T;
+  timestamp: number;
+}
+
 class RPCService {
   private clients: Map<SupportedChainId, PublicClient> = new Map();
-  private requestCache: Map<string, { data: unknown; timestamp: number }> = new Map();
+  private requestCache: Map<string, CacheEntry<CacheableValue>> = new Map();
   private cacheTTL = 5000; // 5 seconds
 
   getClient(chainId: SupportedChainId): PublicClient {
@@ -147,7 +155,7 @@ class RPCService {
     return null;
   }
 
-  private setCache(key: string, data: unknown, ttl?: number) {
+  private setCache<T extends CacheableValue>(key: string, data: T, ttl?: number): void {
     this.requestCache.set(key, { data, timestamp: Date.now() });
     // Clean old entries periodically
     if (this.requestCache.size > 1000) {

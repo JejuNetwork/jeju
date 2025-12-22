@@ -3,13 +3,49 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { InferenceClient } from './inferenceClient';
+import { InferenceClient, type AvailableModel } from './inferenceClient';
 
-// Helper to create mock Response
-const createMockResponse = (data: unknown, ok = true) => ({
-  ok,
-  json: () => Promise.resolve(data),
-}) as unknown as Response;
+// ============================================================================
+// Mock Types
+// ============================================================================
+
+/** API response for models endpoint */
+interface ModelsApiResponse {
+  models: Partial<AvailableModel>[];
+}
+
+/** API response for chat endpoint */
+interface ChatApiResponse {
+  id?: string;
+  model?: string;
+  choices?: Array<{ message?: { role?: string; content?: string } }>;
+  usage?: { prompt_tokens?: number; completion_tokens?: number; total_tokens?: number };
+}
+
+type MockApiResponse = ModelsApiResponse | ChatApiResponse;
+
+// Helper to create mock Response - minimal mock for testing
+const createMockResponse = (data: MockApiResponse, ok = true): Response => {
+  const response = {
+    ok,
+    json: () => Promise.resolve(data),
+    headers: new Headers(),
+    redirected: false,
+    status: ok ? 200 : 500,
+    statusText: ok ? 'OK' : 'Error',
+    type: 'basic' as ResponseType,
+    url: '',
+    body: null,
+    bodyUsed: false,
+    arrayBuffer: () => Promise.resolve(new ArrayBuffer(0)),
+    blob: () => Promise.resolve(new Blob()),
+    bytes: () => Promise.resolve(new Uint8Array()),
+    formData: () => Promise.resolve(new FormData()),
+    text: () => Promise.resolve(JSON.stringify(data)),
+    clone: (): Response => createMockResponse(data, ok),
+  };
+  return response as Response;
+};
 
 let mockFetch: ReturnType<typeof vi.fn>;
 
@@ -18,6 +54,7 @@ describe('InferenceClient', () => {
 
   beforeEach(() => {
     mockFetch = vi.fn();
+    // Mock fetch for testing - override global fetch
     globalThis.fetch = mockFetch as unknown as typeof fetch;
     client = new InferenceClient({
       gatewayUrl: 'https://test-gateway.example.com',

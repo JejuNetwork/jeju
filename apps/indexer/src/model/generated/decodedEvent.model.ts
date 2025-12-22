@@ -4,6 +4,23 @@ import {Block} from "./block.model"
 import {Transaction} from "./transaction.model"
 import {Log} from "./log.model"
 
+/**
+ * ABI-decoded event argument value types
+ * These are the possible types from Ethereum ABI decoding
+ */
+export type DecodedArgValue = 
+  | string           // address, bytes, string
+  | bigint           // uint/int types
+  | boolean          // bool
+  | null             // null values
+  | DecodedArgValue[]; // arrays and tuples
+
+/**
+ * Decoded event arguments as key-value pairs
+ * Keys are parameter names from the ABI, values are decoded primitives
+ */
+export type DecodedEventArgs = Record<string, DecodedArgValue>;
+
 @Entity_()
 export class DecodedEvent {
     constructor(props?: Partial<DecodedEvent>) {
@@ -21,7 +38,7 @@ export class DecodedEvent {
     eventName!: string
 
     @JSONColumn_({nullable: false})
-    args!: unknown
+    args!: DecodedEventArgs
 
     @Index_()
     @ManyToOne_(() => Account, {nullable: true})

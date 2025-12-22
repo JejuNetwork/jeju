@@ -13,10 +13,11 @@
  *   bun run scripts/demo/federation-demo.ts
  */
 
-import { createPublicClient, createWalletClient, http, parseEther, formatEther, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, parseEther, formatEther, type Address, type Abi } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import type { ConstructorArg, RawArtifactJson } from '../shared/contract-types';
 
 const CONTRACTS_DIR = join(import.meta.dir, '../../packages/contracts');
 const OUT_DIR = join(CONTRACTS_DIR, 'out');
@@ -28,8 +29,8 @@ const OPERATOR1_KEY = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603
 const OPERATOR2_KEY = '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a';
 
 interface ContractArtifact {
-  abi: unknown[];
-  bytecode: string;
+  abi: Abi;
+  bytecode: `0x${string}`;
 }
 
 function getArtifact(contractName: string): ContractArtifact {
@@ -37,10 +38,10 @@ function getArtifact(contractName: string): ContractArtifact {
   if (!existsSync(artifactPath)) {
     throw new Error(`Artifact not found: ${artifactPath}. Run 'forge build' first.`);
   }
-  const artifact = JSON.parse(readFileSync(artifactPath, 'utf-8'));
+  const artifact = JSON.parse(readFileSync(artifactPath, 'utf-8')) as RawArtifactJson;
   return {
     abi: artifact.abi,
-    bytecode: artifact.bytecode.object,
+    bytecode: artifact.bytecode.object as `0x${string}`,
   };
 }
 
@@ -48,12 +49,12 @@ async function deployContract(
   walletClient: ReturnType<typeof createWalletClient>,
   publicClient: ReturnType<typeof createPublicClient>,
   contractName: string,
-  args: unknown[] = []
-): Promise<{ address: Address; abi: unknown[] }> {
+  args: ConstructorArg[] = []
+): Promise<{ address: Address; abi: Abi }> {
   const { abi, bytecode } = getArtifact(contractName);
   const hash = await walletClient.deployContract({
     abi,
-    bytecode: bytecode as `0x${string}`,
+    bytecode,
     args,
   });
   const receipt = await publicClient.waitForTransactionReceipt({ hash });

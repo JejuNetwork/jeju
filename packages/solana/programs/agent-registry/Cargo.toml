@@ -1,0 +1,23 @@
+[package]
+name = "agent-registry"
+version = "0.1.0"
+description = "ERC-8004 Agent Identity Registry on Solana - NFT-based agent registration with staking"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "agent_registry"
+
+[features]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+cpi = ["no-entrypoint"]
+default = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { workspace = true }
+anchor-spl = { workspace = true }
+solana-program = { workspace = true }
+mpl-token-metadata = { version = "4.1.2", features = ["no-entrypoint"] }

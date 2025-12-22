@@ -10,9 +10,6 @@ import { getStateManager } from '../services/state';
 import { expectValid, AuthVerifyRequestSchema } from '../schemas';
 import { validateNonce } from '../utils/validation';
 
-const walletService = getWalletService();
-const stateManager = getStateManager();
-
 /**
  * Generate authentication message for wallet signing
  */
@@ -37,6 +34,9 @@ export async function verifyAndConnectWallet(
   sessionId: string,
   platform: 'web' = 'web'
 ): Promise<{ success: boolean; error?: string }> {
+  const walletService = getWalletService();
+  const stateManager = getStateManager();
+  
   // Validate inputs
   const validated = expectValid(AuthVerifyRequestSchema, {
     address,
