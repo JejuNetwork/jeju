@@ -1,17 +1,16 @@
-import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt, useBalance } from 'wagmi'
+import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
 import { parseEther, formatEther, type Address } from 'viem'
 import { AddressSchema } from '@jejunetwork/types'
 import { expect, expectPositive } from '@/lib/validation'
 import { BondingCurveAbi } from '@jejunetwork/contracts'
+import {
+  parseBondingCurveStats,
+  formatPrice,
+  formatBasisPoints,
+  type BondingCurveStats,
+} from '@/lib/launchpad'
 
-export interface BondingCurveStats {
-  price: bigint
-  progress: number  // 0-10000 (basis points)
-  ethCollected: bigint
-  tokensRemaining: bigint
-  graduated: boolean
-  marketCap: bigint
-}
+export type { BondingCurveStats }
 
 export interface BondingCurveQuote {
   tokensOut: bigint
@@ -83,15 +82,10 @@ export function useBondingCurve(bondingCurveAddress: Address | null) {
     query: { enabled },
   })
 
-  // Parse stats
-  const parsedStats: BondingCurveStats | undefined = stats ? {
-    price: (stats as [bigint, bigint, bigint, bigint, boolean])[0],
-    progress: Number((stats as [bigint, bigint, bigint, bigint, boolean])[1]),
-    ethCollected: (stats as [bigint, bigint, bigint, bigint, boolean])[2],
-    tokensRemaining: (stats as [bigint, bigint, bigint, bigint, boolean])[3],
-    graduated: (stats as [bigint, bigint, bigint, bigint, boolean])[4],
-    marketCap: 0n, // Calculated separately if needed
-  } : undefined
+  // Parse stats using typed parser
+  const parsedStats: BondingCurveStats | undefined = stats 
+    ? parseBondingCurveStats(stats as readonly [bigint, bigint, bigint, bigint, boolean])
+    : undefined
 
   /**
    * Buy tokens with ETH
@@ -207,21 +201,6 @@ export function useBondingCurveQuote(
   }
 }
 
-/**
- * Format price for display
- */
-export function formatBondingCurvePrice(priceWei: bigint): string {
-  const ethPrice = Number(formatEther(priceWei))
-  if (ethPrice < 0.000001) {
-    return ethPrice.toExponential(4)
-  }
-  return ethPrice.toFixed(8)
-}
-
-/**
- * Format progress for display
- */
-export function formatProgress(progressBps: number): string {
-  return (progressBps / 100).toFixed(2) + '%'
-}
+// Re-export formatting functions from lib/launchpad
+export { formatPrice as formatBondingCurvePrice, formatBasisPoints as formatProgress } from '@/lib/launchpad'
 

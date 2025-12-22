@@ -24,7 +24,7 @@ export async function startEdgeNode(): Promise<EdgeNodeServer> {
     region: (process.env.CDN_REGION ?? 'us-east-1') as EdgeNodeConfig['region'],
     registryAddress: (process.env.CDN_REGISTRY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
     billingAddress: (process.env.CDN_BILLING_ADDRESS ?? '0x0000000000000000000000000000000000000000') as `0x${string}`,
-    rpcUrl: process.env.RPC_URL ?? 'http://localhost:6546',
+    rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
     
     maxCacheSizeMB: parseInt(process.env.CDN_CACHE_SIZE_MB ?? '512', 10),
     maxCacheEntries: parseInt(process.env.CDN_CACHE_MAX_ENTRIES ?? '100000', 10),

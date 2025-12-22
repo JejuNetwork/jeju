@@ -12,7 +12,7 @@ import {
   toBytes,
   defineChain,
 } from 'viem';
-import { privateKeyToAccount } from 'viem/accounts';
+import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { base, baseSepolia, foundry } from 'viem/chains';
 import {
   FEED_REGISTRY_ABI,
@@ -27,6 +27,7 @@ const ZERO_BYTES32 = '0x00000000000000000000000000000000000000000000000000000000
 
 export class OracleNode {
   private config: OracleNodeConfig;
+  private account: PrivateKeyAccount;
   private publicClient: PublicClient;
   private walletClient: WalletClient;
   private priceFetcher: PriceFetcher;
@@ -41,7 +42,7 @@ export class OracleNode {
     this.config = config;
     this.startTime = Date.now();
 
-    const account = privateKeyToAccount(config.workerPrivateKey);
+    this.account = privateKeyToAccount(config.workerPrivateKey);
     const chain = this.getChain(config.chainId);
 
     this.publicClient = createPublicClient({
@@ -50,7 +51,7 @@ export class OracleNode {
     });
 
     this.walletClient = createWalletClient({
-      account,
+      account: this.account,
       chain,
       transport: http(config.rpcUrl),
     });
@@ -102,7 +103,7 @@ export class OracleNode {
   }
 
   private async ensureRegistered(): Promise<void> {
-    const workerAddress = this.walletClient.account!.address;
+    const workerAddress = this.account.address;
 
     const existingOperatorId = await this.publicClient.readContract({
       address: this.config.networkConnector,
@@ -178,7 +179,7 @@ export class OracleNode {
   }
 
   private async isCommitteeMember(feedId: Hex): Promise<boolean> {
-    const workerAddress = this.walletClient.account!.address;
+    const workerAddress = this.account.address;
 
     return this.publicClient.readContract({
       address: this.config.committeeManager,
@@ -269,8 +270,10 @@ export class OracleNode {
   }
 
   private async signReport(reportHash: Hex): Promise<Hex> {
-    // @ts-expect-error - viem types require account but client has it set
-    return this.walletClient.signMessage({ message: { raw: toBytes(reportHash) } });
+    return this.walletClient.signMessage({
+      account: this.account,
+      message: { raw: toBytes(reportHash) },
+    });
   }
 
   private async sendHeartbeat(): Promise<void> {
@@ -327,7 +330,7 @@ export function createNodeConfig(): OracleNodeConfig {
   const zeroAddress = '0x0000000000000000000000000000000000000000' as Address;
 
   return {
-    rpcUrl: process.env.RPC_URL || 'http://localhost:6546',
+    rpcUrl: process.env.RPC_URL || 'http://localhost:9545',
     chainId: parseInt(process.env.CHAIN_ID || '1337'),
     operatorPrivateKey: (process.env.OPERATOR_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex,
     workerPrivateKey: (process.env.WORKER_PRIVATE_KEY || '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d') as Hex,

@@ -3,13 +3,11 @@
  */
 
 import { describe, it, expect, beforeEach } from 'vitest';
-import { getPlatformInfo, isWeb, isDesktop, isMobile, isExtension } from './detection';
+import { getPlatformInfo, isWeb, isDesktop, isMobile, isExtension, resetPlatformCache } from './detection';
 
 describe('Platform Detection', () => {
   beforeEach(() => {
-    // Reset cached platform info
-    // @ts-expect-error - accessing private module state for testing
-    globalThis.__platformInfoCache = null;
+    resetPlatformCache();
   });
 
   describe('getPlatformInfo', () => {

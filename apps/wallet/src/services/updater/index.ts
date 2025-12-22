@@ -411,9 +411,10 @@ export class UpdateService {
     const platform = getPlatformInfo();
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
-      // @ts-expect-error - Tauri types only available when building for desktop
-      const { writeBinaryFile, BaseDirectory } = await import('@tauri-apps/api/fs');
-      await writeBinaryFile('pending_update', data, { dir: BaseDirectory.AppData });
+      // Tauri v2: Use invoke to call a custom command that handles file writing
+      // BaseDirectory.AppData = 14 in Tauri v2
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke<void>('save_pending_update', { data: Array.from(data) });
     } else if (typeof indexedDB !== 'undefined') {
       const db = await this.getIndexedDB();
       const tx = db.transaction('updates', 'readwrite');
@@ -460,9 +461,9 @@ export class UpdateService {
     this.notify('onInstallStart');
 
     try {
-      // @ts-expect-error - Tauri types only available when building for desktop
-      const { invoke } = await import('@tauri-apps/api/tauri');
-      await invoke('install_update');
+      // Tauri v2: invoke is in @tauri-apps/api/core
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke<void>('install_update');
       
       this.state.installing = false;
       this.notify('onInstallComplete');
@@ -484,8 +485,10 @@ export class UpdateService {
       chrome.runtime.reload();
     } else if (platform.type === 'firefox-extension') {
       // Firefox extension - browser global available in Firefox extension context
-      // @ts-expect-error - browser global only available in Firefox extension
-      (browser as { runtime: { reload: () => void } }).runtime.reload();
+      const firefoxBrowser = globalThis as typeof globalThis & { 
+        browser: { runtime: { reload: () => void } } 
+      };
+      firefoxBrowser.browser.runtime.reload();
     }
 
     return true;

@@ -8,9 +8,9 @@
  * - On-chain registry interaction
  */
 
-import type { Address, Hex } from "viem";
+import type { Address, Hex, PublicClient } from "viem";
 import { createPublicClient, createWalletClient, http } from "viem";
-import type { PublicClient, WalletClient } from "viem";
+import { privateKeyToAccount, type PrivateKeyAccount } from "viem/accounts";
 
 export interface GitSDKConfig {
   rpcUrl: string;
@@ -289,7 +289,8 @@ const GIT_REGISTRY_ABI = [
 export class JejuGitSDK {
   private config: GitSDKConfig;
   private publicClient: PublicClient;
-  private walletClient?: WalletClient;
+  private walletClient: ReturnType<typeof createWalletClient> | null = null;
+  private account: PrivateKeyAccount | null = null;
 
   constructor(config: GitSDKConfig) {
     this.config = config;
@@ -298,6 +299,7 @@ export class JejuGitSDK {
     });
 
     if (config.privateKey) {
+      this.account = privateKeyToAccount(config.privateKey);
       this.walletClient = createWalletClient({
         transport: http(config.rpcUrl),
       });
@@ -723,36 +725,38 @@ export class JejuGitSDK {
     visibility: 0 | 1 | 2,
     defaultBranch: string,
   ): Promise<Hex> {
-    if (!this.walletClient || !this.config.registryAddress) {
+    if (!this.walletClient || !this.account || !this.config.registryAddress) {
       throw new Error(
-        "Wallet client and registry address required for on-chain operations",
+        "Wallet client, account, and registry address required for on-chain operations",
       );
     }
 
-    // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: GIT_REGISTRY_ABI,
       functionName: "createRepository",
       args: [name, description, visibility, defaultBranch],
+      account: this.account,
+      chain: null,
     });
 
     return hash;
   }
 
   async linkCouncilProposal(repoId: Hex, proposalId: bigint): Promise<Hex> {
-    if (!this.walletClient || !this.config.registryAddress) {
+    if (!this.walletClient || !this.account || !this.config.registryAddress) {
       throw new Error(
-        "Wallet client and registry address required for on-chain operations",
+        "Wallet client, account, and registry address required for on-chain operations",
       );
     }
 
-    // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: GIT_REGISTRY_ABI,
       functionName: "linkCouncilProposal",
       args: [repoId, proposalId],
+      account: this.account,
+      chain: null,
     });
 
     return hash;

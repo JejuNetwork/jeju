@@ -23,7 +23,7 @@ import { privateKeyToAccount } from 'viem/accounts';
 
 const DWS_URL = process.env.DWS_URL || 'http://localhost:4030';
 const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY;
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546';
+const RPC_URL = process.env.RPC_URL || 'http://localhost:9545';
 
 interface DeployConfig {
   domain: string;

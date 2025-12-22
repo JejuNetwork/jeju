@@ -399,7 +399,7 @@ function parseArgs(): DeployConfig {
   const networkConfigs = {
     localnet: {
       ipfsApiUrl: process.env.IPFS_API_URL ?? 'http://localhost:5001',
-      rpcUrl: process.env.RPC_URL ?? 'http://localhost:6546',
+      rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
       jnsRegistryAddress: (process.env.JNS_REGISTRY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as Address,
       jnsResolverAddress: (process.env.JNS_RESOLVER_ADDRESS ?? '0x0000000000000000000000000000000000000000') as Address,
     },

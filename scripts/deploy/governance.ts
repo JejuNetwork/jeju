@@ -44,7 +44,7 @@ interface DeployedAddresses {
 
 const NETWORKS: Record<string, NetworkConfig> = {
   localnet: {
-    rpcUrl: process.env.LOCALNET_RPC_URL ?? 'http://localhost:6546',
+    rpcUrl: process.env.LOCALNET_RPC_URL ?? 'http://localhost:9545',
     chainId: 31337,
     safeFactory: '0x0000000000000000000000000000000000000000',
     safeSingleton: '0x0000000000000000000000000000000000000000',

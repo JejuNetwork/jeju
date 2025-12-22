@@ -32,7 +32,7 @@ sleep 2
 
 # Set test private key (Anvil's first account)
 export PRIVATE_KEY="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
-export RPC_URL="http://localhost:6546"
+export RPC_URL="http://localhost:9545"
 # Set dummy API key to avoid foundry.toml errors
 export BASESCAN_API_KEY="dummy"
 export ETHERSCAN_API_KEY="dummy"

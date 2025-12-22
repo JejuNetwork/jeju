@@ -12,7 +12,7 @@
  * - gateway.local.jejunetwork.org -> localhost:4001
  * - bazaar.local.jejunetwork.org -> localhost:4006
  * - docs.local.jejunetwork.org -> localhost:4004
- * - rpc.local.jejunetwork.org -> localhost:6546
+ * - rpc.local.jejunetwork.org -> localhost:9545
  */
 
 import { existsSync, mkdirSync, writeFileSync, unlinkSync, readFileSync } from 'fs';
@@ -33,7 +33,7 @@ const SERVICES: Record<string, number> = {
   bazaar: 4006,
   docs: 4004,
   indexer: 4350,
-  rpc: 6546,
+  rpc: 9545,
   ws: 6547,
   crucible: 4003,
   compute: 4007,

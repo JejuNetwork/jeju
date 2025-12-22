@@ -40,7 +40,7 @@ import {
 setDefaultTimeout(120000);
 
 const TEST_CONFIG = {
-	evmRpc: "http://127.0.0.1:6545",
+	evmRpc: "http://127.0.0.1:8545",
 	solanaRpc: "http://127.0.0.1:8899",
 	relayerPort: 18081,
 };

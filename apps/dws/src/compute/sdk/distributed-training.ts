@@ -386,7 +386,7 @@ export class DistributedTrainingClient {
     );
 
     // Only start P2P if selfEndpoint and rpcUrl are properly configured
-    if (this.config.selfEndpoint && this.config.rpcUrl && !this.config.rpcUrl.includes('localhost:6546')) {
+    if (this.config.selfEndpoint && this.config.rpcUrl && !this.config.rpcUrl.includes('localhost:9545')) {
       if (!this.p2pNetwork) {
         this.p2pNetwork = createP2PNetwork({
           rpcUrl: this.config.rpcUrl,

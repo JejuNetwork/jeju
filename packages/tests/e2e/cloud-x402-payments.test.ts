@@ -33,7 +33,7 @@ const CREDIT_MANAGER_ADDRESS = process.env.CREDIT_MANAGER_ADDRESS || '0xDc64a140
 const SERVICE_REGISTRY_ADDRESS = process.env.SERVICE_REGISTRY_ADDRESS || '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9';
 
 // Check if localnet is available
-const rpcUrl = process.env.RPC_URL || 'http://localhost:6546';
+const rpcUrl = process.env.RPC_URL || 'http://localhost:9545';
 let localnetAvailable = false;
 try {
   const response = await fetch(rpcUrl, {

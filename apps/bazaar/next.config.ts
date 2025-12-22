@@ -1,7 +1,7 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Next.js 16 uses Turbopack by default
   turbopack: {},
   output: 'standalone',
   typescript: {
@@ -15,7 +15,6 @@ const nextConfig = {
       },
     ],
   },
-  // Serve agent-card.json at /.well-known/agent-card.json for A2A discovery
   async rewrites() {
     return [
       {
@@ -25,15 +24,14 @@ const nextConfig = {
     ];
   },
   webpack: (config) => {
-    config.externals.push('pino-pretty', 'lokijs', 'encoding')
-    config.resolve.fallback = { fs: false, net: false, tls: false }
+    config.externals.push('pino-pretty', 'lokijs', 'encoding');
+    config.resolve.fallback = { fs: false, net: false, tls: false };
     config.resolve.alias = {
       ...config.resolve.alias,
       'zod/mini': require.resolve('zod/v4/mini'),
-    }
-    return config
+    };
+    return config;
   },
-}
+};
 
-module.exports = nextConfig
-
+export default nextConfig;

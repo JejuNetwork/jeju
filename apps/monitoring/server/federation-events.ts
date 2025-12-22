@@ -43,7 +43,7 @@
 import { createPublicClient, http, parseAbi, type Address, type Log } from 'viem';
 
 // Configuration
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546';
+const RPC_URL = process.env.RPC_URL || 'http://localhost:9545';
 const REGISTRY_HUB = process.env.REGISTRY_HUB as Address;
 const NETWORK_REGISTRY = process.env.NETWORK_REGISTRY as Address;
 const CROSS_CHAIN_SYNC = process.env.CROSS_CHAIN_SYNC as Address;

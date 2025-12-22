@@ -5,37 +5,15 @@ import { expect, expectTrue, expectPositive } from '@/lib/validation'
 import { TokenLaunchpadAbi } from '@jejunetwork/contracts'
 import { getLaunchpadContracts, hasLaunchpad } from '@/config/contracts'
 import { JEJU_CHAIN_ID } from '@/config/chains'
+import {
+  validateBondingCurveLaunch,
+  validateICOLaunch,
+  type BondingCurveConfig,
+  type ICOConfig,
+  type LaunchInfo,
+} from '@/lib/launchpad'
 
-export interface BondingCurveConfig {
-  virtualEthReserves: string  // ETH amount (e.g., "30")
-  graduationTarget: string    // ETH amount (e.g., "10")
-  tokenSupply: string         // Token amount (e.g., "1000000000")
-}
-
-export interface ICOConfig {
-  presaleAllocationBps: number  // 1000 = 10%
-  presalePrice: string          // ETH per token (e.g., "0.0001")
-  lpFundingBps: number          // 8000 = 80%
-  lpLockDuration: number        // seconds
-  buyerLockDuration: number     // seconds
-  softCap: string               // ETH amount
-  hardCap: string               // ETH amount
-  presaleDuration: number       // seconds
-}
-
-export interface LaunchInfo {
-  id: bigint
-  creator: Address
-  token: Address
-  launchType: 'bonding' | 'ico'
-  creatorFeeBps: number
-  communityFeeBps: number
-  bondingCurve: Address | null
-  presale: Address | null
-  lpLocker: Address | null
-  createdAt: bigint
-  graduated: boolean
-}
+export type { BondingCurveConfig, ICOConfig, LaunchInfo }
 
 export function useTokenLaunchpad(chainId: number = JEJU_CHAIN_ID) {
   const { address, isConnected } = useAccount()

@@ -707,12 +707,12 @@ export class JejuPkgSDK {
       );
     }
 
-    // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: PACKAGE_REGISTRY_ABI,
       functionName: "registerScope",
       args: [scope],
+      chain: null,
     });
 
     return hash;
@@ -731,12 +731,12 @@ export class JejuPkgSDK {
       );
     }
 
-    // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: PACKAGE_REGISTRY_ABI,
       functionName: "createPackage",
       args: [name, scope, description, visibility, manifestCid],
+      chain: null,
     });
 
     return hash;
@@ -749,12 +749,12 @@ export class JejuPkgSDK {
       );
     }
 
-    // @ts-expect-error - chain inferred at runtime from RPC
     const hash = await this.walletClient.writeContract({
       address: this.config.registryAddress,
       abi: PACKAGE_REGISTRY_ABI,
       functionName: "linkCouncilProposal",
       args: [packageId, proposalId],
+      chain: null,
     });
 
     return hash;

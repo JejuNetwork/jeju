@@ -480,7 +480,7 @@ describe('getTestEnv - Environment Config', () => {
     
     const env = getTestEnv();
     
-    expect(env.L1_RPC_URL).toBe('http://127.0.0.1:6545');
+    expect(env.L1_RPC_URL).toBe('http://127.0.0.1:8545');
     expect(env.L2_RPC_URL).toBe('http://127.0.0.1:9545');
     expect(env.CHAIN_ID).toBe('1337');
   });

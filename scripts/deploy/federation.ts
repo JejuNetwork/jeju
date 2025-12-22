@@ -50,8 +50,8 @@ interface FederationDeployment {
 
 const CHAIN_CONFIGS: Record<NetworkType, { local: ChainConfig; hub: ChainConfig }> = {
   localnet: {
-    local: { chainId: 1337, rpcUrl: 'http://localhost:6546' },
-    hub: { chainId: 31337, rpcUrl: 'http://localhost:6546' },
+    local: { chainId: 1337, rpcUrl: 'http://localhost:9545' },
+    hub: { chainId: 31337, rpcUrl: 'http://localhost:9545' },
   },
   testnet: {
     local: { chainId: 420690, rpcUrl: 'https://testnet-rpc.jejunetwork.org' },

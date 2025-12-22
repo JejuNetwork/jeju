@@ -73,7 +73,7 @@ const NETWORK_CONFIG: Record<string, {
 }> = {
   localnet: {
     chainId: 1337,
-    rpcUrl: 'http://localhost:6546',
+    rpcUrl: 'http://localhost:9545',
     registries: {
       IDENTITY: '',
       REPUTATION: '',

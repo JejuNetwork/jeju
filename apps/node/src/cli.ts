@@ -156,7 +156,7 @@ program
     }
     
     // Configure network
-    let rpcUrl = 'http://127.0.0.1:6546';
+    let rpcUrl = 'http://127.0.0.1:9545';
     
     switch (options.network) {
       case 'mainnet':
@@ -329,7 +329,7 @@ program
     }
     
     // Configure network
-    let rpcUrl = 'http://127.0.0.1:6546';
+    let rpcUrl = 'http://127.0.0.1:9545';
     let chainId = 1337;
     
     switch (options.network) {

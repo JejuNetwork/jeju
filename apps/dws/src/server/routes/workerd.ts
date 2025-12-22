@@ -614,7 +614,7 @@ const NETWORK_DEFAULTS: Record<NetworkType, {
   identityRegistry: Address;
 }> = {
   localnet: {
-    rpcUrl: 'http://localhost:6546',
+    rpcUrl: 'http://localhost:9545',
     identityRegistry: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
   },
   testnet: {

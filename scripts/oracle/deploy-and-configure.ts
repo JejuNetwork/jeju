@@ -61,7 +61,7 @@ function parseArgs(): { network: NetworkType; deploy: boolean; configure: boolea
 
 function getRpcUrl(network: NetworkType): string {
   const config = NETWORK_CONFIG[network];
-  const rpcUrl = process.env[config.rpcEnvVar] || (network === 'localnet' ? 'http://localhost:6546' : undefined);
+  const rpcUrl = process.env[config.rpcEnvVar] || (network === 'localnet' ? 'http://localhost:9545' : undefined);
   
   if (!rpcUrl) {
     throw new Error(`${config.rpcEnvVar} environment variable not set`);

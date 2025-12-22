@@ -6,7 +6,7 @@
   "wsUrl": "ws://127.0.0.1:9546",
   "explorerUrl": "http://127.0.0.1:4000",
   "l1ChainId": 1337,
-  "l1RpcUrl": "http://127.0.0.1:6545",
+  "l1RpcUrl": "http://127.0.0.1:8545",
   "l1Name": "Local",
   "note": "STATIC ports via automatic forwarding: L1=8545, L2=9545. Dev environment handles Kurtosis dynamic ports automatically.",
   "flashblocksEnabled": true,

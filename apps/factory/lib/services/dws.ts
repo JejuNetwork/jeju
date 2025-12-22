@@ -156,7 +156,7 @@ class DecentralizedDWSClient {
     identityRegistryAddress?: Address;
     account?: Account;
   }): Promise<void> {
-    const rpcUrl = config?.rpcUrl || process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:6546';
+    const rpcUrl = config?.rpcUrl || process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:9545';
     this.registryAddress = (config?.identityRegistryAddress || 
       process.env.NEXT_PUBLIC_IDENTITY_REGISTRY_ADDRESS || 
       '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9') as Address;

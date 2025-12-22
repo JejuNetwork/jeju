@@ -41,7 +41,7 @@ import type { CDNRegion } from '@jejunetwork/types';
 // ============================================================================
 
 const CDN_REGISTRY_ABI = parseAbi([
-  'function getEdgeNode(bytes32 nodeId) view returns (tuple(bytes32 nodeId, address operator, string endpoint, uint8 region, uint8 providerType, uint8 status, uint256 stake, uint256 registeredAt, uint256 lastSeen, uint256 agentId))',
+  'function getEdgeNode(bytes32 nodeId) view returns ((bytes32 nodeId, address operator, string endpoint, uint8 region, uint8 providerType, uint8 status, uint256 stake, uint256 registeredAt, uint256 lastSeen, uint256 agentId))',
   'function getActiveNodesInRegion(uint8 region) view returns (bytes32[])',
   'function completeInvalidation(bytes32 requestId, uint256 nodesProcessed) external',
 ]);
@@ -83,7 +83,6 @@ export class CDNCoordinator {
     if (!privateKey) throw new Error('PRIVATE_KEY required');
     this.account = privateKeyToAccount(privateKey as `0x${string}`);
     const chain = inferChainFromRpcUrl(config.rpcUrl);
-    // @ts-expect-error viem version type mismatch in monorepo
     this.publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
     this.walletClient = createWalletClient({ account: this.account, chain, transport: http(config.rpcUrl) });
     this.registryAddress = config.registryAddress;
@@ -374,7 +373,6 @@ export class CDNCoordinator {
       ? request.requestId
       : `0x${request.requestId.padStart(64, '0')}`;
     
-    // @ts-expect-error viem ABI type inference
     await this.walletClient.writeContract({
       address: this.registryAddress,
       abi: CDN_REGISTRY_ABI,
@@ -477,7 +475,7 @@ export async function startCoordinator(): Promise<CDNCoordinator> {
     port: parseInt(process.env.CDN_COORDINATOR_PORT ?? '4021', 10),
     registryAddress: (process.env.CDN_REGISTRY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as Address,
     billingAddress: (process.env.CDN_BILLING_ADDRESS ?? '0x0000000000000000000000000000000000000000') as Address,
-    rpcUrl: process.env.RPC_URL ?? 'http://localhost:6546',
+    rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
     healthCheckInterval: parseInt(process.env.CDN_HEALTH_CHECK_INTERVAL ?? '60000', 10),
     maxNodesPerRegion: parseInt(process.env.CDN_MAX_NODES_PER_REGION ?? '100', 10),
     settlementInterval: parseInt(process.env.CDN_SETTLEMENT_INTERVAL ?? '3600000', 10),

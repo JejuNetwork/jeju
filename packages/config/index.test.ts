@@ -221,9 +221,9 @@ describe('Configuration Loaders', () => {
       });
 
       it('should override with environment variable', () => {
-        process.env.JEJU_L1_RPC_URL = 'http://localhost:6545';
+        process.env.JEJU_L1_RPC_URL = 'http://localhost:8545';
         const l1Rpc = getL1RpcUrl('mainnet');
-        expect(l1Rpc).toBe('http://localhost:6545');
+        expect(l1Rpc).toBe('http://localhost:8545');
       });
     });
 

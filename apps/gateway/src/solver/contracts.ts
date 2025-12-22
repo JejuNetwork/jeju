@@ -141,7 +141,7 @@ export function bytes32ToAddress(b32: `0x${string}`): `0x${string}` {
 }
 
 /** Check if address is the zero/native address */
-export function isNativeToken(addr: string): boolean {
+export function isNativeToken(addr: string | null | undefined): boolean {
   return addr === '0x0000000000000000000000000000000000000000' ||
          addr === '0x' || !addr;
 }

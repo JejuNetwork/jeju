@@ -50,7 +50,7 @@ interface ValidationReport {
 }
 
 const REPORTS_DIR = join(process.cwd(), 'test-reports');
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546';
+const RPC_URL = process.env.RPC_URL ?? 'http://localhost:9545';
 const NETWORK = process.env.NETWORK ?? 'localnet';
 
 async function ensureReportsDir(): Promise<void> {

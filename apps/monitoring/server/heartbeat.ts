@@ -22,7 +22,7 @@ if (!OPERATOR_PRIVATE_KEY) {
 
 // Optional config with explicit defaults
 const NODE_EXPLORER_API = process.env.NODE_EXPLORER_API ?? 'https://nodes.jejunetwork.org/api';
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546';
+const RPC_URL = process.env.RPC_URL ?? 'http://localhost:9545';
 const HEARTBEAT_INTERVAL = process.env.HEARTBEAT_INTERVAL;
 const INTERVAL = HEARTBEAT_INTERVAL ? parseInt(HEARTBEAT_INTERVAL, 10) : 300000;
 

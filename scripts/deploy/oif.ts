@@ -33,7 +33,7 @@ interface NetworkConfig {
 
 const NETWORKS: Record<string, NetworkConfig[]> = {
   localnet: [
-    { chainId: 1337, name: 'Anvil', rpcUrl: 'http://localhost:6546', oracleType: 'simple' },
+    { chainId: 1337, name: 'Anvil', rpcUrl: 'http://localhost:9545', oracleType: 'simple' },
   ],
   testnet: [
     { chainId: 420690, name: 'Testnet', rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org', oracleType: 'superchain' },

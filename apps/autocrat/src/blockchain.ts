@@ -41,7 +41,9 @@ export class AutocratBlockchain {
   constructor(config: AutocratConfig) {
     this.config = config;
     const chain = inferChainFromRpcUrl(config.rpcUrl);
-    // @ts-expect-error viem version type mismatch in monorepo
+    // Monorepo has multiple viem versions (2.43.2 in package.json, 2.43.3 hoisted).
+    // This causes PublicClient types to be incompatible. Fix requires aligning viem versions.
+    // @ts-expect-error - viem version mismatch in monorepo causes incompatible PublicClient types
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
@@ -255,7 +257,7 @@ export class AutocratBlockchain {
     expect(limit > 0 && limit <= 100, `Limit must be between 1 and 100, got ${limit}`);
     if (!this.ceoDeployed) return [];
 
-    const decisionIds = await readContract(this.client, {
+    const decisionIds = await this.client.readContract({
       address: this.ceoAgentAddress,
       abi: CEO_AGENT_ABI,
       functionName: 'getRecentDecisions',
@@ -264,7 +266,7 @@ export class AutocratBlockchain {
     const decisions = [];
 
     for (const id of decisionIds) {
-      const d = await readContract(this.client, {
+      const d = await this.client.readContract({
         address: this.ceoAgentAddress,
         abi: CEO_AGENT_ABI,
         functionName: 'getDecision',
@@ -304,27 +306,27 @@ export class AutocratBlockchain {
       };
     }
 
-    const proposalCount = await readContract(this.client, {
+    const proposalCount = await this.client.readContract({
       address: this.councilAddress,
       abi: COUNCIL_ABI,
       functionName: 'proposalCount',
     }) as bigint;
-    const ceoStats = await readContract(this.client, {
+    const ceoStats = await this.client.readContract({
       address: this.ceoAgentAddress,
       abi: CEO_AGENT_ABI,
       functionName: 'getCEOStats',
     }) as CEOStatsFromContract;
-    const minQuality = await readContract(this.client, {
+    const minQuality = await this.client.readContract({
       address: this.councilAddress,
       abi: COUNCIL_ABI,
       functionName: 'minQualityScore',
     }) as number;
-    const votingPeriod = await readContract(this.client, {
+    const votingPeriod = await this.client.readContract({
       address: this.councilAddress,
       abi: COUNCIL_ABI,
       functionName: 'autocratVotingPeriod',
     }) as bigint;
-    const grace = await readContract(this.client, {
+    const grace = await this.client.readContract({
       address: this.councilAddress,
       abi: COUNCIL_ABI,
       functionName: 'gracePeriod',

@@ -45,7 +45,7 @@ const CHAINS: Record<number, ChainConfig> = {
   10: { chainId: 10, name: 'Optimism', rpcUrl: process.env.OPTIMISM_RPC_URL || 'https://mainnet.optimism.io' },
   420690: { chainId: 420690, name: 'Testnet', rpcUrl: process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org' },
   420691: { chainId: 420691, name: 'Mainnet', rpcUrl: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org' },
-  1337: { chainId: 1337, name: 'Anvil', rpcUrl: 'http://localhost:6546' },
+  1337: { chainId: 1337, name: 'Anvil', rpcUrl: 'http://localhost:9545' },
 };
 
 async function verifyContract(

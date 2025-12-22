@@ -182,7 +182,7 @@ class ForcedInclusionMonitor {
 
 async function main() {
   const network = process.env.NETWORK || 'localnet';
-  const rpc = process.env.L1_RPC_URL || 'http://127.0.0.1:6545';
+  const rpc = process.env.L1_RPC_URL || 'http://127.0.0.1:8545';
   let addr = process.env.FORCED_INCLUSION_ADDRESS;
 
   const file = join(DEPLOYMENTS_DIR, `${network}.json`);

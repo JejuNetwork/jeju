@@ -57,7 +57,7 @@ exports.RPC_URLS = {
     'base-sepolia': 'https://sepolia.base.org',
     ethereum: 'https://eth.llamarpc.com',
     base: 'https://mainnet.base.org',
-    jeju: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
+    jeju: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
     'jeju-testnet': process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
 };
 // USDC addresses per network

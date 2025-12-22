@@ -1,11 +1,11 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Next.js 16 uses Turbopack by default
   turbopack: {},
   transpilePackages: ['lucide-react'],
   async rewrites() {
-    const apiUrl = process.env.COUNCIL_API_URL || 'http://localhost:8010'
+    const apiUrl = process.env.COUNCIL_API_URL || 'http://localhost:8010';
     return [
       {
         source: '/api/:path*',
@@ -19,8 +19,8 @@ const nextConfig = {
         source: '/mcp/:path*',
         destination: `${apiUrl}/mcp/:path*`,
       },
-    ]
+    ];
   },
-}
+};
 
-module.exports = nextConfig
+export default nextConfig;

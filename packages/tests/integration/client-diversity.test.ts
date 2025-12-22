@@ -22,7 +22,7 @@ interface ClientEndpoint {
 }
 
 const L1_CLIENTS: ClientEndpoint[] = [
-  { name: 'Geth L1', http: process.env.GETH_L1_HTTP ?? 'http://localhost:6545', clientType: 'geth', layer: 'l1' },
+  { name: 'Geth L1', http: process.env.GETH_L1_HTTP ?? 'http://localhost:8545', clientType: 'geth', layer: 'l1' },
   { name: 'Reth L1', http: process.env.RETH_L1_HTTP ?? 'http://localhost:8645', clientType: 'reth', layer: 'l1' },
   { name: 'Nethermind L1', http: process.env.NETHERMIND_L1_HTTP ?? 'http://localhost:8745', clientType: 'nethermind', layer: 'l1' },
 ];

@@ -8,7 +8,7 @@
 import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, http, parseEther } from 'viem';
 
-const L1_RPC = process.env.L1_RPC_URL || 'http://127.0.0.1:6545';
+const L1_RPC = process.env.L1_RPC_URL || 'http://127.0.0.1:8545';
 const L2_RPC = process.env.L2_RPC_URL || 'http://127.0.0.1:9545';
 
 const TEST_ACCOUNT = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';

@@ -8,7 +8,7 @@
 import { test, expect } from '@playwright/test';
 
 const AUTOCRAT_URL = 'http://localhost:8010';
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546';
+const RPC_URL = process.env.RPC_URL ?? 'http://localhost:9545';
 
 const sendA2A = async (
   request: Parameters<Parameters<typeof test>[1]>[0]['request'],

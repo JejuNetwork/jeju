@@ -13,7 +13,7 @@ const SKIP_RPC = !process.env.INTEGRATION;
 
 // Test configuration - uses localhost by default
 const testConfig: RegistryIntegrationConfig = {
-  rpcUrl: process.env.RPC_URL || 'http://localhost:6546',
+  rpcUrl: process.env.RPC_URL || 'http://localhost:9545',
   identityRegistry: process.env.IDENTITY_REGISTRY_ADDRESS || ZERO_ADDRESS,
   reputationRegistry: process.env.REPUTATION_REGISTRY_ADDRESS || ZERO_ADDRESS,
   integrationContract: process.env.REGISTRY_INTEGRATION_ADDRESS,

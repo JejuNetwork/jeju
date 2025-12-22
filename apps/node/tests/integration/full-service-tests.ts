@@ -13,7 +13,7 @@ import { createNodeServices, type NodeServices } from '../../src/lib/services';
 import { detectHardware, getComputeCapabilities, meetsRequirements, type HardwareInfo, type ServiceRequirements } from '../../src/lib/hardware';
 
 // Test configuration
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546';
+const RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545';
 const CHAIN_ID = 1337;
 
 // Anvil test accounts

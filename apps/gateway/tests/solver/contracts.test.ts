@@ -74,9 +74,7 @@ describe('isNativeToken', () => {
   });
 
   test('should handle undefined-like values', () => {
-    // @ts-expect-error - testing runtime behavior
     expect(isNativeToken(null)).toBe(true);
-    // @ts-expect-error - testing runtime behavior  
     expect(isNativeToken(undefined)).toBe(true);
   });
 });

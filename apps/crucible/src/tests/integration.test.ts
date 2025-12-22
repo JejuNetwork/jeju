@@ -28,7 +28,7 @@ const DWS_URL = process.env.DWS_URL ?? 'http://127.0.0.1:4030';
 
 // Read contract addresses from env or use defaults
 const config: CrucibleConfig = {
-  rpcUrl: process.env.RPC_URL ?? 'http://127.0.0.1:6546',
+  rpcUrl: process.env.RPC_URL ?? 'http://127.0.0.1:9545',
   privateKey: TEST_PRIVATE_KEY,
   contracts: {
     agentVault: (process.env.AGENT_VAULT_ADDRESS ?? '0x5FbDB2315678afecb367f032d93F642f64180aa3') as `0x${string}`,
@@ -50,7 +50,7 @@ const config: CrucibleConfig = {
 // Check if infrastructure is available (runs once before tests)
 const checkInfrastructure = async (): Promise<boolean> => {
   const checks = await Promise.all([
-    fetch('http://127.0.0.1:6546', { 
+    fetch('http://127.0.0.1:9545', { 
       method: 'POST', 
       headers: { 'Content-Type': 'application/json' }, 
       body: JSON.stringify({ jsonrpc: '2.0', method: 'eth_blockNumber', params: [], id: 1 }),

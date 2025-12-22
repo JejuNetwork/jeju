@@ -75,7 +75,7 @@ async function main() {
   console.log('\n🌐 JEJU FEDERATION DEMO\n');
 
   // Setup
-  const rpcUrl = process.env.RPC_URL || 'http://localhost:6546';
+  const rpcUrl = process.env.RPC_URL || 'http://localhost:9545';
   const publicClient = createPublicClient({ transport: http(rpcUrl) });
   
   const deployerAccount = privateKeyToAccount(DEPLOYER_KEY as `0x${string}`);

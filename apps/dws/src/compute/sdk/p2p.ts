@@ -13,8 +13,37 @@
  * In production: Can use Iroh for lower-latency gossip and blob transfer
  */
 
-import type { Address, Hex, PublicClient } from 'viem';
+import type { Address, Chain, Hex } from 'viem';
 import { createPublicClient, http, keccak256, toBytes } from 'viem';
+
+// ============================================================================
+// Chain Inference
+// ============================================================================
+
+function inferChainFromRpcUrl(rpcUrl: string): Chain {
+  if (rpcUrl.includes('localhost') || rpcUrl.includes('127.0.0.1') || rpcUrl.includes(':9545') || rpcUrl.includes(':8545')) {
+    return {
+      id: 1337,
+      name: 'Local Network',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [rpcUrl] } },
+    };
+  }
+  if (rpcUrl.includes('testnet')) {
+    return {
+      id: 420691,
+      name: 'Network Testnet',
+      nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+      rpcUrls: { default: { http: [rpcUrl] } },
+    };
+  }
+  return {
+    id: 42069,
+    name: 'Network',
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: [rpcUrl] } },
+  };
+}
 
 // ============================================================================
 // Types
@@ -110,17 +139,25 @@ const IDENTITY_REGISTRY_ABI = [
 // ============================================================================
 
 export class PeerDiscovery {
-  private publicClient: PublicClient;
+  private publicClient: ReturnType<typeof createPublicClient>;
   private registryAddress: Address;
   private peerCache: Map<string, PeerNode> = new Map();
   private cacheExpiry = 30000; // 30 seconds
   private lastRefresh = 0;
 
   constructor(rpcUrl: string, registryAddress: Address) {
-    this.publicClient = createPublicClient({
-      transport: http(rpcUrl),
-    });
+    const chain = inferChainFromRpcUrl(rpcUrl);
+    this.publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
     this.registryAddress = registryAddress;
+  }
+
+  private async read<T>(functionName: string, args: readonly (string | bigint)[] = []): Promise<T> {
+    return this.publicClient.readContract({
+      address: this.registryAddress,
+      abi: IDENTITY_REGISTRY_ABI as never,
+      functionName,
+      args,
+    } as never) as Promise<T>;
   }
 
   async discoverTrainingNodes(): Promise<PeerNode[]> {
@@ -130,12 +167,7 @@ export class PeerDiscovery {
     }
 
     // Find all agents tagged as training nodes
-    const agentIds = (await this.publicClient.readContract({
-      address: this.registryAddress,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'getAgentsByTag',
-      args: ['dws-training'],
-    })) as bigint[];
+    const agentIds = await this.read<bigint[]>('getAgentsByTag', ['dws-training']);
 
     const peers: PeerNode[] = [];
     for (const agentId of agentIds) {
@@ -156,35 +188,16 @@ export class PeerDiscovery {
       return cached;
     }
 
-    const agent = (await this.publicClient.readContract({
-      address: this.registryAddress,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'getAgent',
-      args: [agentId],
-    })) as {
-      agentId: bigint;
-      owner: Address;
-      isBanned: boolean;
-    };
+    const agent = await this.read<{ agentId: bigint; owner: Address; isBanned: boolean }>('getAgent', [agentId]);
 
     if (agent.isBanned) return null;
 
-    const endpoint = (await this.publicClient.readContract({
-      address: this.registryAddress,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'getA2AEndpoint',
-      args: [agentId],
-    })) as string;
+    const endpoint = await this.read<string>('getA2AEndpoint', [agentId]);
 
     if (!endpoint) return null;
 
     // Get public key from metadata
-    const pubKeyBytes = (await this.publicClient.readContract({
-      address: this.registryAddress,
-      abi: IDENTITY_REGISTRY_ABI,
-      functionName: 'getMetadata',
-      args: [agentId, 'p2pPublicKey'],
-    })) as Hex;
+    const pubKeyBytes = await this.read<Hex>('getMetadata', [agentId, 'p2pPublicKey']);
 
     const publicKey = pubKeyBytes || ('0x' as Hex);
 
@@ -455,11 +468,8 @@ export class P2PTrainingNetwork {
   private discovery: PeerDiscovery;
   private gossip: GossipNetwork;
   private blobs: BlobStore;
-  // @ts-expect-error Reserved for configuration
-  private _config: P2PConfig;
 
   constructor(config: P2PConfig) {
-    this._config = config;
     this.discovery = new PeerDiscovery(config.rpcUrl, config.identityRegistryAddress);
     this.gossip = new GossipNetwork(this.discovery, config.selfEndpoint);
     this.blobs = new BlobStore(this.discovery, config.selfEndpoint);

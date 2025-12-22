@@ -167,7 +167,7 @@ function getChainConfig(network: string) {
     case 'testnet':
       return { chain: baseSepolia, rpcUrl: process.env.BASE_SEPOLIA_RPC_URL ?? 'https://sepolia.base.org' };
     default:
-      return { chain: localhost, rpcUrl: process.env.LOCAL_RPC_URL ?? 'http://localhost:6546' };
+      return { chain: localhost, rpcUrl: process.env.LOCAL_RPC_URL ?? 'http://localhost:9545' };
   }
 }
 

@@ -46,7 +46,7 @@ describe('WorkflowEngine', () => {
 
   beforeEach(() => {
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:6546', dwsUrl: 'http://localhost:4030' },
+      { rpcUrl: 'http://localhost:9545', dwsUrl: 'http://localhost:4030' },
       mockBackend as never,
       mockRepoManager as never
     );
@@ -306,7 +306,7 @@ describe('CIScheduler', () => {
   beforeEach(() => {
     resetCIScheduler();
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:6546' },
+      { rpcUrl: 'http://localhost:9545' },
       mockBackend as never,
       mockRepoManager as never
     );
@@ -564,7 +564,7 @@ describe('CIEventBus', () => {
   beforeEach(() => {
     resetCIEventBus();
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:6546' },
+      { rpcUrl: 'http://localhost:9545' },
       mockBackend as never,
       mockRepoManager as never
     );
@@ -688,7 +688,7 @@ describe('Expression Evaluation', () => {
 
   beforeEach(() => {
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:6546' },
+      { rpcUrl: 'http://localhost:9545' },
       mockBackend as never,
       mockRepoManager as never
     );
@@ -721,7 +721,7 @@ describe('Matrix Expansion', () => {
 
   beforeEach(() => {
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:6546' },
+      { rpcUrl: 'http://localhost:9545' },
       mockBackend as never,
       mockRepoManager as never
     );
@@ -760,7 +760,7 @@ describe('Workflow Concurrency', () => {
 
   beforeEach(() => {
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:6546' },
+      { rpcUrl: 'http://localhost:9545' },
       mockBackend as never,
       mockRepoManager as never
     );
@@ -808,7 +808,7 @@ describe('Workflow Triggers', () => {
 
   beforeEach(() => {
     engine = new WorkflowEngine(
-      { rpcUrl: 'http://localhost:6546' },
+      { rpcUrl: 'http://localhost:9545' },
       mockBackend as never,
       mockRepoManager as never
     );

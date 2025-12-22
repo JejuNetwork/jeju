@@ -37,7 +37,7 @@ const NETWORKS: Record<string, NetworkConfig> = {
   localnet: {
     name: 'Localnet',
     chainId: 8545,
-    rpcUrl: process.env.RPC_URL ?? 'http://localhost:6546',
+    rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
     governanceToken: process.env.GOVERNANCE_TOKEN ?? '0x0000000000000000000000000000000000000000',
     identityRegistry: process.env.IDENTITY_REGISTRY ?? '0x0000000000000000000000000000000000000000',
     reputationRegistry: process.env.REPUTATION_REGISTRY ?? '0x0000000000000000000000000000000000000000',

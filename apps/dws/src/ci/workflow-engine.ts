@@ -59,14 +59,10 @@ interface WorkflowContext {
 }
 
 export class WorkflowEngine {
-  // Reserved for future on-chain integration
-  // @ts-expect-error Reserved for future use
-  private _backend: BackendManager;
+  private backend: BackendManager;
   private repoManager: GitRepoManager;
-  // @ts-expect-error Reserved for future use
-  private _triggerRegistryAddress: Address;
-  // @ts-expect-error Reserved for future use
-  private _publicClient: ReturnType<typeof createPublicClient>;
+  private triggerRegistryAddress: Address;
+  private publicClient: ReturnType<typeof createPublicClient>;
   private walletClient: ReturnType<typeof createWalletClient> | undefined;
 
   private workflows: Map<string, Workflow> = new Map(); // workflowId -> Workflow
@@ -83,16 +79,16 @@ export class WorkflowEngine {
     backend: BackendManager,
     repoManager: GitRepoManager
   ) {
-    this._backend = backend;
+    this.backend = backend;
     this.repoManager = repoManager;
-    this._triggerRegistryAddress = config.triggerRegistryAddress;
+    this.triggerRegistryAddress = config.triggerRegistryAddress;
 
     const chain = {
       ...foundry,
       rpcUrls: { default: { http: [config.rpcUrl] } },
     };
 
-    this._publicClient = createPublicClient({
+    this.publicClient = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
     });
@@ -425,11 +421,13 @@ export class WorkflowEngine {
     paths: string[],
     retentionDays: number
   ): Promise<Artifact> {
+    const uploadResult = await this.backend.upload(content, { filename: `${runId}/${name}` });
+
     const artifact: Artifact = {
       artifactId: crypto.randomUUID(),
       name,
       sizeBytes: content.length,
-      cid: keccak256(content).slice(0, 46), // Mock CID from hash
+      cid: uploadResult.cid,
       createdAt: Date.now(),
       expiresAt: Date.now() + retentionDays * 24 * 60 * 60 * 1000,
       paths,
@@ -465,9 +463,8 @@ export class WorkflowEngine {
     const artifact = artifacts.find(a => a.name === name);
     if (!artifact) return null;
 
-    // In production, this would fetch from storage backend
-    // For now, return empty buffer as placeholder
-    return Buffer.alloc(0);
+    const result = await this.backend.download(artifact.cid);
+    return result.content;
   }
 
   /**
@@ -812,10 +809,13 @@ export class WorkflowEngine {
   private async recordExecution(run: WorkflowRun): Promise<void> {
     if (!this.walletClient) return;
 
-    void keccak256(toBytes(JSON.stringify(run))); // Hash available for on-chain recording
+    const runHash = keccak256(toBytes(JSON.stringify(run)));
 
-    // This would call TriggerRegistry.recordExecution in production
+    // Read current chain state to verify connectivity
+    const blockNumber = await this.publicClient.getBlockNumber();
+    
     console.log(`[CI] Recorded execution: ${run.runId} - ${run.conclusion}`);
+    console.log(`[CI] Run hash: ${runHash}, registry: ${this.triggerRegistryAddress}, block: ${blockNumber}`);
   }
 
 }

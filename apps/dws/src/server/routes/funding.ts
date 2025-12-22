@@ -114,7 +114,7 @@ function getConfig(): FundingConfig {
   };
 
   return {
-    rpcUrl: process.env.RPC_URL || 'http://127.0.0.1:8545',
+    rpcUrl: process.env.RPC_URL || 'http://localhost:8545',
     chainId: network === 'localnet' ? 31337 : network === 'testnet' ? 84532 : 8453,
     contracts,
   };

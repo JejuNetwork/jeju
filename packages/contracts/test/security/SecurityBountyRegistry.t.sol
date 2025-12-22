@@ -8,10 +8,12 @@ import {SecurityBountyRegistry} from "../../src/security/SecurityBountyRegistry.
 contract MockIdentityRegistry {
     mapping(uint256 => address) public owners;
     mapping(uint256 => bool) public exists;
+    uint256 public _totalAgents;
     
     function setAgent(uint256 agentId, address _owner) external {
         owners[agentId] = _owner;
         exists[agentId] = true;
+        _totalAgents++;
     }
     
     function ownerOf(uint256 agentId) external view returns (address) {
@@ -20,6 +22,10 @@ contract MockIdentityRegistry {
     
     function agentExists(uint256 agentId) external view returns (bool) {
         return exists[agentId];
+    }
+    
+    function totalAgents() external view returns (uint256) {
+        return _totalAgents;
     }
     
     function getAgentProfile(uint256) external pure returns (

@@ -20,7 +20,7 @@ async function main() {
   console.log('🔄 Decentralized Consensus Coordinator\n');
 
   const network = process.env.NETWORK || 'localnet';
-  const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:6545';
+  const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:8545';
   const blockInterval = parseInt(process.env.BLOCK_INTERVAL || '2000', 10);
   const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`);
 

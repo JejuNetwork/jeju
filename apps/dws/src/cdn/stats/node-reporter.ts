@@ -183,7 +183,7 @@ export class NodeStatsReporter {
     this.config = {
       nodeId: config.nodeId ?? `node-${Math.random().toString(36).slice(2, 10)}`,
       region: config.region ?? 'us-east-1',
-      rpcUrl: config.rpcUrl ?? process.env.RPC_URL ?? 'http://localhost:6546',
+      rpcUrl: config.rpcUrl ?? process.env.RPC_URL ?? 'http://localhost:9545',
       privateKey: config.privateKey ?? process.env.NODE_PRIVATE_KEY,
       statsContractAddress: config.statsContractAddress ?? process.env.CDN_STATS_CONTRACT,
       reportIntervalMs: config.reportIntervalMs ?? 3600000, // 1 hour

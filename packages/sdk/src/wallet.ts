@@ -4,7 +4,6 @@
  */
 
 import {
-  type Account,
   type Address,
   type Chain,
   type Hex,
@@ -14,7 +13,11 @@ import {
   createWalletClient,
   http,
 } from "viem";
-import { privateKeyToAccount, mnemonicToAccount } from "viem/accounts";
+import {
+  type LocalAccount,
+  privateKeyToAccount,
+  mnemonicToAccount,
+} from "viem/accounts";
 import {
   createSmartAccountClient,
   type SmartAccountClient,
@@ -27,14 +30,14 @@ import { getChainConfig, getContract, getServicesConfig } from "./config";
 export interface WalletConfig {
   privateKey?: Hex;
   mnemonic?: string;
-  account?: Account;
+  account?: LocalAccount;
   smartAccount?: boolean;
   network: NetworkType;
 }
 
 export interface JejuWallet {
   address: Address;
-  account: Account;
+  account: LocalAccount;
   publicClient: PublicClient;
   walletClient: WalletClient;
   smartAccountClient?: SmartAccountClient;
@@ -75,7 +78,7 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
   const services = getServicesConfig(config.network);
 
   // Create account from private key or mnemonic
-  let account: Account;
+  let account: LocalAccount;
   if (config.account) {
     account = config.account;
   } else if (config.privateKey) {
@@ -118,7 +121,6 @@ export async function createWallet(config: WalletConfig): Promise<JejuWallet> {
     if (entryPoint && factoryAddress && entryPoint !== "0x") {
       const smartAccount = await toSimpleSmartAccount({
         client: publicClient,
-        // @ts-expect-error - permissionless library expects specific account types
         owner: account,
         entryPoint: {
           address: entryPoint,

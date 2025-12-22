@@ -735,15 +735,17 @@ export class PkgRegistryManager {
    * Record a download (for analytics)
    */
   async recordDownload(packageId: Hex, versionId: Hex): Promise<void> {
-    if (!this.walletClient) return;
+    if (!this.walletClient?.account) return;
 
-    // @ts-expect-error viem ABI type inference
-    await this.walletClient.writeContract({
+    const { request } = await this.publicClient.simulateContract({
       address: this.packageRegistryAddress,
       abi: PACKAGE_REGISTRY_ABI,
       functionName: 'recordDownload',
       args: [packageId, versionId],
+      account: this.walletClient.account,
     });
+
+    await this.walletClient.writeContract(request);
   }
 
   /**

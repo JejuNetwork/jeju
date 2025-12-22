@@ -31,7 +31,7 @@ const RPC_URL = isMainnet
   ? process.env.BASE_RPC_URL || 'https://mainnet.base.org'
   : isTestnet
     ? process.env.BASE_SEPOLIA_RPC_URL || 'https://sepolia.base.org'
-    : process.env.RPC_URL || 'http://127.0.0.1:6546';
+    : process.env.RPC_URL || 'http://127.0.0.1:9545';
 
 const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY || 
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'; // Anvil default

@@ -953,7 +953,7 @@ if (import.meta.main) {
     evmChains: [
       {
         chainId: (parseInt(process.env.EVM_CHAIN_ID ?? '31337', 10)) as ChainId,
-        rpcUrl: requireEnv('EVM_RPC_URL', 'http://127.0.0.1:6545'),
+        rpcUrl: requireEnv('EVM_RPC_URL', 'http://127.0.0.1:8545'),
         bridgeAddress: requireEnv('BRIDGE_ADDRESS'),
         lightClientAddress: requireEnv('LIGHT_CLIENT_ADDRESS'),
         privateKey: requireEnvSecret('PRIVATE_KEY'),

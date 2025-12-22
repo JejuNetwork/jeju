@@ -13,7 +13,7 @@ import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import { compress } from 'hono/compress';
 import { logger } from 'hono/logger';
-import { createPublicClient, createWalletClient, http, type Address } from 'viem';
+import { createPublicClient, createWalletClient, http, type Address, type PublicClient, type WalletClient, type Chain } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { parseAbi } from 'viem';
 import { base, baseSepolia, localhost } from 'viem/chains';
@@ -61,8 +61,9 @@ export class EdgeNodeServer {
   private cache: EdgeCache;
   private originFetcher: OriginFetcher;
   private account: PrivateKeyAccount;
-  private publicClient!: ReturnType<typeof createPublicClient>;
-  private walletClient!: ReturnType<typeof createWalletClient>;
+  private publicClient!: PublicClient;
+  private walletClient!: WalletClient;
+  private chain: Chain;
   private registryAddress: Address;
   private nodeIdBytes: string;
 
@@ -100,10 +101,9 @@ export class EdgeNodeServer {
 
     // Initialize wallet and contract
     this.account = privateKeyToAccount(config.privateKey as `0x${string}`);
-    const chain = inferChainFromRpcUrl(config.rpcUrl);
-    // @ts-expect-error viem version type mismatch in monorepo
-    this.publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
-    this.walletClient = createWalletClient({ account: this.account, chain, transport: http(config.rpcUrl) });
+    this.chain = inferChainFromRpcUrl(config.rpcUrl);
+    this.publicClient = createPublicClient({ chain: this.chain, transport: http(config.rpcUrl) });
+    this.walletClient = createWalletClient({ account: this.account, chain: this.chain, transport: http(config.rpcUrl) });
     this.registryAddress = config.registryAddress;
     
     // Convert nodeId to bytes32
@@ -640,7 +640,6 @@ export class EdgeNodeServer {
     setInterval(async () => {
       const metrics = this.getMetrics();
       
-      // @ts-expect-error viem ABI type inference
       const hash = await this.walletClient.writeContract({
         address: this.registryAddress,
         abi: CDN_REGISTRY_ABI,
@@ -656,6 +655,7 @@ export class EdgeNodeServer {
           BigInt(Math.round(metrics.cacheHitRate * 10000)),
           BigInt(Math.round(metrics.avgLatencyMs)),
         ],
+        chain: this.chain,
         account: this.account,
       });
       await this.publicClient.waitForTransactionReceipt({ hash }).catch((e: Error) => {
@@ -680,7 +680,6 @@ export class EdgeNodeServer {
         message: usageData,
       });
 
-      // @ts-expect-error viem ABI type inference
       const hash = await this.walletClient.writeContract({
         address: this.registryAddress,
         abi: CDN_REGISTRY_ABI,

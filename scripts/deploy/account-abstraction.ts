@@ -49,7 +49,7 @@ function getNetworkConfig(network: string): Omit<DeployConfig, "privateKey" | "f
     case "localnet":
       return {
         network: "localnet",
-        rpcUrl: process.env.JEJU_RPC_URL || "http://localhost:6546",
+        rpcUrl: process.env.JEJU_RPC_URL || "http://localhost:9545",
         chainId: 420691,
       };
     case "testnet":

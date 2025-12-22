@@ -45,7 +45,7 @@ export default defineConfig({
   webServer: [
     // 1. Council Backend API (port 8010)
     {
-      command: 'cd .. && RPC_URL=http://localhost:6546 bun run src/index.ts',
+      command: 'cd .. && RPC_URL=http://localhost:9545 bun run src/index.ts',
       url: 'http://localhost:8010/health',
       reuseExistingServer: true, // Reuse if already running
       timeout: 30000,

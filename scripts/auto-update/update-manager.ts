@@ -263,7 +263,7 @@ async function verifyUpdate(): Promise<boolean> {
   
   try {
     // Check if RPC is responding
-    const response = await fetch('http://localhost:6546', {
+    const response = await fetch('http://localhost:9545', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({

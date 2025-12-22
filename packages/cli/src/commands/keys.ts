@@ -1241,7 +1241,7 @@ async function showKeys(network: NetworkType, showPrivate: boolean) {
     logger.subheader('MetaMask Configuration');
     logger.newline();
     logger.info('Network Name:   Network Localnet');
-    logger.info('RPC URL:        http://127.0.0.1:6546');
+    logger.info('RPC URL:        http://127.0.0.1:9545');
     logger.info('Chain ID:       1337');
     logger.info('Currency:       ETH');
     logger.newline();

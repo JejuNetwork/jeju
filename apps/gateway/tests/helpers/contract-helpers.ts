@@ -3,7 +3,7 @@
  * @module gateway/tests/helpers/contract-helpers
  */
 
-import type { PublicClient, WalletClient } from 'viem';
+import type { PublicClient, WalletClient, TestClient } from 'viem';
 
 // Minimal ERC20 bytecode (OpenZeppelin-style with constructor args)
 // This is the bytecode for a simple ERC20 with name, symbol, and initial supply
@@ -135,49 +135,25 @@ export async function getCurrentBlock(publicClient: PublicClient): Promise<bigin
 /**
  * Mine blocks (for testing time-dependent features)
  */
-export async function mineBlocks(publicClient: PublicClient, count: number): Promise<void> {
-  // Send eth_mine RPC calls
-  for (let i = 0; i < count; i++) {
-    await publicClient.request({
-      // @ts-expect-error - evm_mine not in standard RPC types
-      method: 'evm_mine',
-      params: [],
-    });
-  }
+export async function mineBlocks(testClient: TestClient, count: number): Promise<void> {
+  await testClient.mine({ blocks: count });
 }
 
 /**
  * Increase time (for testing time-locks)
  */
-export async function increaseTime(publicClient: PublicClient, seconds: number): Promise<void> {
-  await publicClient.request({
-    // @ts-expect-error - evm_increaseTime not in standard RPC types
-    method: 'evm_increaseTime',
-    params: [seconds],
-  });
-  
-  await mineBlocks(publicClient, 1);
+export async function increaseTime(testClient: TestClient, seconds: number): Promise<void> {
+  await testClient.increaseTime({ seconds });
+  await mineBlocks(testClient, 1);
 }
 
 /**
  * Snapshot and revert (for test isolation)
  */
-export async function snapshot(publicClient: PublicClient): Promise<`0x${string}`> {
-  const snapshotId = await publicClient.request({
-    // @ts-expect-error - evm_snapshot not in standard RPC types
-    method: 'evm_snapshot',
-    params: [],
-  });
-  
-  return snapshotId as `0x${string}`;
+export async function snapshot(testClient: TestClient): Promise<`0x${string}`> {
+  return await testClient.snapshot();
 }
 
-export async function revert(publicClient: PublicClient, snapshotId: `0x${string}`): Promise<void> {
-  await publicClient.request({
-    // @ts-expect-error - evm_revert not in standard RPC types
-    method: 'evm_revert',
-    params: [snapshotId],
-  });
+export async function revert(testClient: TestClient, snapshotId: `0x${string}`): Promise<void> {
+  await testClient.revert({ id: snapshotId });
 }
-
-

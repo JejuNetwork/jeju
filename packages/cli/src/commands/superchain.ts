@@ -171,7 +171,7 @@ superchainCommand
     console.log(chalk.cyan(`\n${displayName} Superchain Status\n`));
 
     console.log(chalk.bold('OP Stack Components:'));
-    console.log('  op-reth:     Running on port 6546');
+    console.log('  op-reth:     Running on port 9545');
     console.log('  op-node:     Running');
     console.log('  op-batcher:  Running');
     console.log('  op-proposer: Running');

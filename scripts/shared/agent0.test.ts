@@ -21,7 +21,7 @@ describe('Agent0 SDK Integration', () => {
     test('should return localnet config with correct chain ID', () => {
       const config = getNetworkConfig('localnet');
       expect(config.chainId).toBe(1337);
-      expect(config.rpcUrl).toBe('http://localhost:6546');
+      expect(config.rpcUrl).toBe('http://localhost:9545');
     });
     
     test('should return testnet config with Sepolia chain ID', () => {

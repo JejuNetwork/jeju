@@ -343,7 +343,7 @@ async function main(): Promise<void> {
   console.log('🔐 Threshold Batch Submitter Proxy\n');
 
   const network = process.env.NETWORK || 'localnet';
-  const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:6545';
+  const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:8545';
   const port = parseInt(process.env.BATCHER_PROXY_PORT || '4200', 10);
 
   // Load contract address

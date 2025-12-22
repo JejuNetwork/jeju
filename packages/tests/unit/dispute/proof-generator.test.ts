@@ -31,7 +31,7 @@ const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae78
 const testAccount = privateKeyToAccount(TEST_PRIVATE_KEY);
 
 // Mock L1 RPC (local anvil)
-const L1_RPC = 'http://127.0.0.1:6545';
+const L1_RPC = 'http://127.0.0.1:8545';
 
 // Create mock L2 state snapshot for testing
 function createMockSnapshot(blockNumber: bigint): L2StateSnapshot {
@@ -539,7 +539,7 @@ describe('StateFetcher', () => {
   describe('Output Root Computation', () => {
     test('computes output root correctly', () => {
       // This test uses mock data since we don't have a live L2
-      const fetcher = new StateFetcher('http://127.0.0.1:8545');
+      const fetcher = new StateFetcher('http://localhost:8545');
 
       const stateRoot = keccak256(encodeAbiParameters([{ type: 'string' }], ['state']));
       const messagePasserRoot = keccak256(encodeAbiParameters([{ type: 'string' }], ['mpr']));
@@ -556,7 +556,7 @@ describe('StateFetcher', () => {
     });
 
     test('different inputs produce different output roots', () => {
-      const fetcher = new StateFetcher('http://127.0.0.1:8545');
+      const fetcher = new StateFetcher('http://localhost:8545');
 
       const stateRoot1 = keccak256(encodeAbiParameters([{ type: 'string' }], ['state1']));
       const stateRoot2 = keccak256(encodeAbiParameters([{ type: 'string' }], ['state2']));
@@ -572,7 +572,7 @@ describe('StateFetcher', () => {
 
   describe('Storage Slots', () => {
     test('computes mapping slot correctly', () => {
-      const fetcher = new StateFetcher('http://127.0.0.1:8545');
+      const fetcher = new StateFetcher('http://localhost:8545');
 
       const baseSlot = 0n;
       const key = '0x1234567890123456789012345678901234567890' as Hex;
@@ -584,7 +584,7 @@ describe('StateFetcher', () => {
     });
 
     test('computes array slots correctly', () => {
-      const fetcher = new StateFetcher('http://127.0.0.1:8545');
+      const fetcher = new StateFetcher('http://localhost:8545');
 
       const baseSlot = 5n;
       const slots = fetcher.getArraySlots(baseSlot, 0n, 3n);
@@ -883,7 +883,7 @@ describe('Bisection Game', () => {
 
 describe('Output Root Computation', () => {
   test('computes output root per OP Stack spec', () => {
-    const fetcher = new StateFetcher('http://127.0.0.1:8545');
+    const fetcher = new StateFetcher('http://localhost:8545');
 
     const stateRoot = keccak256(encodeAbiParameters([{ type: 'string' }], ['state']));
     const messagePasserRoot = keccak256(encodeAbiParameters([{ type: 'string' }], ['mpr']));
@@ -904,7 +904,7 @@ describe('Output Root Computation', () => {
 
   test('output root matches snapshot output root', () => {
     const snapshot = createMockSnapshot(100n);
-    const fetcher = new StateFetcher('http://127.0.0.1:8545');
+    const fetcher = new StateFetcher('http://localhost:8545');
 
     const computed = fetcher.computeOutputRoot(
       snapshot.stateRoot,

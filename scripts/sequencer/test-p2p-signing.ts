@@ -31,7 +31,7 @@ const ACCOUNTS = [
   },
 ];
 
-const RPC_URL = process.env.L1_RPC_URL || 'http://localhost:6545';
+const RPC_URL = process.env.L1_RPC_URL || 'http://localhost:8545';
 const THRESHOLD = 2;
 const SIGNER_BASE_PORT = 4200;
 

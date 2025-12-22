@@ -373,7 +373,7 @@ if (import.meta.main) {
     beaconRpcUrl:
       process.env.BEACON_RPC_URL ?? 'http://localhost:5052',
     executionRpcUrl:
-      process.env.EXECUTION_RPC_URL ?? 'http://localhost:6545',
+      process.env.EXECUTION_RPC_URL ?? 'http://localhost:8545',
     relayerEndpoint: process.env.RELAYER_ENDPOINT ?? 'http://localhost:8081',
     pollingIntervalMs: 12000, // 12 seconds (slot time)
     finalityConfirmations: 2,

@@ -639,7 +639,7 @@ export class TokenPaymentRouter {
 export function createTokenPaymentRouter(config: Partial<PaymentRouterConfig>): TokenPaymentRouter {
   const fullConfig: PaymentRouterConfig = {
     chainId: config.chainId || 420691,
-    rpcUrl: config.rpcUrl || process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
+    rpcUrl: config.rpcUrl || process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
     crossChainPaymaster: (config.crossChainPaymaster ||
       process.env.CROSS_CHAIN_PAYMASTER_ADDRESS ||
       '0x0000000000000000000000000000000000000000') as Address,
@@ -711,15 +711,12 @@ export function formatPaymentOption(option: PaymentOption): string {
 let globalRouter: TokenPaymentRouter | null = null;
 let globalUserAddress: Address | null = null;
 let globalUserTokens: Address[] = [];
-// @ts-expect-error - Global chain ID stored for future use
-let _globalChainId: number = 420691;
 
 /**
  * Initialize the payment system (call once at app startup)
  */
 export function initializePayment(config: Partial<PaymentRouterConfig> = {}): TokenPaymentRouter {
   globalRouter = createTokenPaymentRouter(config);
-  _globalChainId = config.chainId || 420691;
   return globalRouter;
 }
 

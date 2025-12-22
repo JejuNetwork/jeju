@@ -69,7 +69,7 @@ export const JEJU_LOCALNET_CONFIG = {
     chainId: 1337,
     chainType: 'evm' as const,
     name: 'Anvil Localnet',
-    rpcUrl: 'http://localhost:6546',
+    rpcUrl: 'http://localhost:9545',
     blockExplorerUrl: '',
     nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
     hyperlaneMailbox: '',

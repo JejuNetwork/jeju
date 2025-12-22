@@ -15,9 +15,11 @@ test.describe('Token Launch Page', () => {
     // Fee slider
     await expect(page.getByTestId('fee-slider')).toBeVisible()
     
-    // Launch type buttons
-    await expect(page.getByTestId('bonding-type-btn')).toBeVisible()
-    await expect(page.getByTestId('ico-type-btn')).toBeVisible()
+    // Launch style preset buttons
+    await expect(page.getByTestId('preset-pump-btn')).toBeVisible()
+    await expect(page.getByTestId('preset-ico-btn')).toBeVisible()
+    await expect(page.getByTestId('preset-degen-btn')).toBeVisible()
+    await expect(page.getByTestId('preset-custom-btn')).toBeVisible()
     
     // Launch button
     await expect(page.getByTestId('launch-btn')).toBeVisible()
@@ -46,14 +48,17 @@ test.describe('Token Launch Page', () => {
     await expect(page.getByText('Community: 50%')).toBeVisible()
   })
 
-  test('can switch between launch types', async ({ page }) => {
-    // Default is bonding
-    const bondingBtn = page.getByTestId('bonding-type-btn')
-    const icoBtn = page.getByTestId('ico-type-btn')
+  test('can switch between launch presets', async ({ page }) => {
+    // Default is pump (bonding curve)
+    const pumpBtn = page.getByTestId('preset-pump-btn')
+    const icoBtn = page.getByTestId('preset-ico-btn')
+    const degenBtn = page.getByTestId('preset-degen-btn')
     
-    await expect(bondingBtn).toHaveClass(/border-bazaar-primary/)
+    // Pump should be selected by default
+    await expect(pumpBtn).toHaveClass(/border-bazaar-primary/)
+    await expect(page.getByText('Bonding Curve Settings')).toBeVisible()
     
-    // Switch to ICO
+    // Switch to ICO preset
     await icoBtn.click()
     await expect(icoBtn).toHaveClass(/border-bazaar-primary/)
     
@@ -62,8 +67,13 @@ test.describe('Token Launch Page', () => {
     await expect(page.getByText('Soft Cap')).toBeVisible()
     await expect(page.getByText('Hard Cap')).toBeVisible()
     
-    // Switch back to bonding
-    await bondingBtn.click()
+    // Switch to degen preset
+    await degenBtn.click()
+    await expect(degenBtn).toHaveClass(/border-bazaar-primary/)
+    await expect(page.getByText('Fast Presale Settings')).toBeVisible()
+    
+    // Switch back to pump
+    await pumpBtn.click()
     await expect(page.getByText('Bonding Curve Settings')).toBeVisible()
   })
 
@@ -93,5 +103,29 @@ test.describe('Token Launch Page', () => {
   test('launch button disabled without symbol', async ({ page }) => {
     await page.getByTestId('token-name-input').fill('Test Token')
     await expect(page.getByTestId('launch-btn')).toBeDisabled()
+  })
+
+  test('preset descriptions are visible', async ({ page }) => {
+    // Check that preset descriptions are shown
+    await expect(page.getByText('Pump Style')).toBeVisible()
+    await expect(page.getByText('ICO Style')).toBeVisible()
+    await expect(page.getByText('Modern Degen')).toBeVisible()
+    await expect(page.getByText('Custom')).toBeVisible()
+  })
+
+  test('bonding curve settings show price estimate', async ({ page }) => {
+    // Select pump preset (default)
+    await expect(page.getByText('Initial Price:')).toBeVisible()
+    await expect(page.getByText('Market Cap at Launch:')).toBeVisible()
+  })
+
+  test('ICO preset shows correct settings', async ({ page }) => {
+    await page.getByTestId('preset-ico-btn').click()
+    
+    // Check ICO-specific settings
+    await expect(page.getByText('Presale Allocation:')).toBeVisible()
+    await expect(page.getByText('Presale Price')).toBeVisible()
+    await expect(page.getByText('LP Funding:')).toBeVisible()
+    await expect(page.getByText('LP Lock Duration')).toBeVisible()
   })
 })

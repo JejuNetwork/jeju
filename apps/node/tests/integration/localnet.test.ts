@@ -8,7 +8,7 @@ import { describe, test, expect, beforeAll } from 'bun:test';
 import { createPublicClient, http, parseEther, formatEther } from 'viem';
 import { createNodeClient, jejuLocalnet, getContractAddresses } from '../../src/lib/contracts';
 
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546';
+const RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545';
 const CHAIN_ID = 1337;
 
 // Anvil's default funded account

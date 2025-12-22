@@ -20,7 +20,7 @@ interface NetworkCheckResult {
 
 const NETWORK_CONFIGS: Record<NetworkType, { rpcUrl: string; chainId: number; name: string }> = {
   localnet: {
-    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
+    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
     chainId: 1337,
     name: getLocalnetChain().name,
   },

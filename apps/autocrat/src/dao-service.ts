@@ -8,9 +8,10 @@ import {
   createWalletClient,
   http,
   type Address,
-  type PublicClient,
-  type WalletClient,
   type Hash,
+  type Chain,
+  type HttpTransport,
+  type Account,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
 import { base, baseSepolia, localhost } from 'viem/chains';
@@ -889,20 +890,23 @@ interface RawFundingConfigResult {
 
 // ============ DAO Service Class ============
 
+// Define client types using ReturnType to avoid monorepo type resolution issues
+type ViemPublicClient = ReturnType<typeof createPublicClient<HttpTransport, Chain>>;
+type ViemWalletClient = ReturnType<typeof createWalletClient<HttpTransport, Chain, Account>>;
+
 export class DAOService {
-  private publicClient: PublicClient;
-  private walletClient: WalletClient | null = null;
+  private publicClient: ViemPublicClient;
+  private walletClient: ViemWalletClient | null = null;
+  private chain: Chain;
   private config: DAOServiceConfig;
   private daoCache: Map<string, DAOFull> = new Map();
 
   constructor(config: DAOServiceConfig) {
     this.config = config;
+    this.chain = this.getChain(config.chainId);
 
-    const chain = this.getChain(config.chainId);
-
-    // @ts-expect-error viem version mismatch in monorepo
     this.publicClient = createPublicClient({
-      chain,
+      chain: this.chain,
       transport: http(config.rpcUrl),
     });
 
@@ -910,7 +914,7 @@ export class DAOService {
       const account = privateKeyToAccount(config.privateKey as `0x${string}`);
       this.walletClient = createWalletClient({
         account,
-        chain,
+        chain: this.chain,
         transport: http(config.rpcUrl),
       });
     }
@@ -1139,7 +1143,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1175,7 +1178,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1201,7 +1203,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1218,7 +1219,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1250,7 +1250,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1267,7 +1266,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1284,7 +1282,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1301,7 +1298,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1318,7 +1314,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1335,7 +1330,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1358,7 +1352,6 @@ export class DAOService {
     const hashes: Hash[] = [];
 
     if (contracts.council) {
-      // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
         address: this.config.daoRegistryAddress,
         abi: DAORegistryABI,
@@ -1369,7 +1362,6 @@ export class DAOService {
     }
 
     if (contracts.ceoAgent) {
-      // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
         address: this.config.daoRegistryAddress,
         abi: DAORegistryABI,
@@ -1380,7 +1372,6 @@ export class DAOService {
     }
 
     if (contracts.feeConfig) {
-      // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
         address: this.config.daoRegistryAddress,
         abi: DAORegistryABI,
@@ -1399,7 +1390,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoRegistryAddress,
       abi: DAORegistryABI,
@@ -1532,7 +1522,6 @@ export class DAOService {
 
     const projectType = params.projectType === 'package' ? 0 : 1;
 
-    // @ts-expect-error viem version type mismatch in monorepo
     const hash = await this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1557,7 +1546,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1571,7 +1559,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1585,7 +1572,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1599,7 +1585,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1614,7 +1599,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1630,7 +1614,6 @@ export class DAOService {
     expect(matchingPool >= 0n, `Matching pool must be non-negative, got ${matchingPool.toString()}`);
     expect(this.walletClient !== null && this.walletClient !== undefined, 'Wallet client not initialized');
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1644,7 +1627,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,
@@ -1658,7 +1640,6 @@ export class DAOService {
       throw new Error('Wallet client not initialized');
     }
 
-    // @ts-expect-error viem version type mismatch in monorepo
     return this.walletClient.writeContract({
       address: this.config.daoFundingAddress,
       abi: DAOFundingABI,

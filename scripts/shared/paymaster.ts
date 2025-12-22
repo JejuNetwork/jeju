@@ -69,7 +69,7 @@ const DEFAULT_CONFIG: PaymasterConfig = {
   factoryAddress: (process.env.PAYMASTER_FACTORY_ADDRESS || 
     '0x0000000000000000000000000000000000000000') as Address,
   minStakedEth: parseEther(process.env.MIN_PAYMASTER_STAKE || '1.0'),
-  rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
+  rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
   chainId: Number(process.env.CHAIN_ID) || 1337,
 };
 
@@ -324,7 +324,7 @@ export function loadPaymasterConfig(): PaymasterConfig {
       process.env.NEXT_PUBLIC_PAYMASTER_MIN_STAKE ||
       '1.0'
     ),
-    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
+    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
     chainId: Number(process.env.CHAIN_ID) || 1337,
   };
 }

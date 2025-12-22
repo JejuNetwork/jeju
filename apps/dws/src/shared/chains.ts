@@ -9,7 +9,7 @@ export const jejuLocalnet: Chain = {
   id: 420690,
   name: 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['http://localhost:6546'] } },
+  rpcUrls: { default: { http: ['http://localhost:9545'] } },
   testnet: true,
 };
 
@@ -60,6 +60,6 @@ export function getRpcUrl(chainId: number): string {
     return chain.rpcUrls.default.http[0];
   }
   
-  return 'http://localhost:6546';
+  return 'http://localhost:9545';
 }
 

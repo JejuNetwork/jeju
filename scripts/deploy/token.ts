@@ -39,7 +39,7 @@ import { parseArgs } from 'util';
 const NETWORKS = {
   localnet: {
     chain: foundry,
-    rpcUrl: 'http://localhost:6546',
+    rpcUrl: 'http://localhost:9545',
     chainId: 1337,
     enableFaucet: true,
     requireMultiSig: false,

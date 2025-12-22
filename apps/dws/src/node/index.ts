@@ -4,7 +4,7 @@
 
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createPublicClient, createWalletClient, http, formatEther, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, formatEther, type Address } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { getBalance } from 'viem/actions';
 import { base, baseSepolia, localhost } from 'viem/chains';
@@ -23,10 +23,11 @@ const rpcUrl = process.env.RPC_URL || 'http://localhost:9545';
 const ipfsApiUrl = process.env.IPFS_API_URL || 'http://localhost:5001';
 
 let account: PrivateKeyAccount | null = null;
-let publicClient: PublicClient | null = null;
-// @ts-expect-error Reserved for write operations
-let _walletClient: WalletClient | null = null;
 let address: Address | null = null;
+
+// Create clients lazily with proper type inference
+let publicClient: ReturnType<typeof createPublicClient> | null = null;
+let walletClient: ReturnType<typeof createWalletClient> | null = null;
 
 const pinnedCids = new Map<string, { size: number; pinnedAt: number }>();
 const nodeStartTime = Date.now();
@@ -40,9 +41,8 @@ async function initializeWallet(): Promise<void> {
   account = privateKeyToAccount(privateKey as `0x${string}`);
   const chain = inferChainFromRpcUrl(rpcUrl);
 
-  // @ts-expect-error viem version type mismatch in monorepo
   publicClient = createPublicClient({ chain, transport: http(rpcUrl) });
-  _walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
+  walletClient = createWalletClient({ account, chain, transport: http(rpcUrl) });
   address = account.address;
 
   console.log(`[DWS Node] Initialized with address: ${address}`);
@@ -66,7 +66,7 @@ app.get('/health', async (c) => {
   return c.json({
     status: ipfsHealthy ? 'healthy' : 'degraded',
     service: 'dws-node',
-    address: address || 'read-only',
+    address: walletState?.address ?? 'read-only',
     rpcUrl,
     ipfs: ipfsHealthy ? 'connected' : 'disconnected',
     uptime: Date.now() - nodeStartTime,
@@ -74,7 +74,7 @@ app.get('/health', async (c) => {
 });
 
 app.get('/status', async (c) => {
-  if (!publicClient || !address) {
+  if (!walletState) {
     return c.json({
       address: 'read-only',
       balance: '0',
@@ -86,9 +86,9 @@ app.get('/status', async (c) => {
     });
   }
 
-  const balance = formatEther(await getBalance(publicClient, { address }));
+  const balance = formatEther(await getBalance(walletState.publicClient, { address: walletState.address }));
   return c.json({
-    address,
+    address: walletState.address,
     balance,
     registered: false,
     reputation: 0,
@@ -163,4 +163,4 @@ if (import.meta.main) {
   Bun.serve({ port: PORT, fetch: app.fetch });
 }
 
-export { app as nodeApp };
+export { app as nodeApp, publicClient, walletClient };

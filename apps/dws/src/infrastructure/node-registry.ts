@@ -11,12 +11,15 @@ import {
   createWalletClient,
   http,
   encodeFunctionData,
+  defineChain,
   type Address,
   type Hex,
   type PublicClient,
   type WalletClient,
+  type Chain,
 } from 'viem';
 import { privateKeyToAccount } from 'viem/accounts';
+import { base, baseSepolia } from 'viem/chains';
 import type {
   NodeConfig,
   NodeCapability,
@@ -27,6 +30,25 @@ import type {
   InfraEventHandler,
 } from './types';
 import { parseQuote, verifyQuote } from '../poc/quote-parser';
+
+// ============================================================================
+// Chain Configuration
+// ============================================================================
+
+function getChainFromConfig(config: NetworkConfig): Chain {
+  // Use known chains for testnet/mainnet
+  if (config.chainId === 8453) return base;
+  if (config.chainId === 84532) return baseSepolia;
+  
+  // Define custom chain for localnet or unknown chains
+  return defineChain({
+    id: config.chainId,
+    name: config.environment === 'localnet' ? 'Localnet' : `Chain ${config.chainId}`,
+    nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
+    rpcUrls: { default: { http: [config.rpcUrl] } },
+    testnet: config.environment !== 'mainnet',
+  });
+}
 
 // ============================================================================
 // ABI for Node Registry (extends ERC-8004 IdentityRegistry)
@@ -171,6 +193,7 @@ export class DecentralizedNodeRegistry {
   private walletClient: WalletClient | null = null;
   private registryAddress: Address;
   private networkConfig: NetworkConfig;
+  private chain: Chain;
   
   // Cache
   private nodeCache = new Map<string, NodeConfig>();
@@ -183,17 +206,20 @@ export class DecentralizedNodeRegistry {
   constructor(config: NetworkConfig, privateKey?: Hex) {
     this.networkConfig = config;
     this.registryAddress = config.contracts.identityRegistry;
+    this.chain = getChainFromConfig(config);
     
     this.publicClient = createPublicClient({
+      chain: this.chain,
       transport: http(config.rpcUrl),
-    }) as PublicClient;
+    });
 
     if (privateKey) {
       const account = privateKeyToAccount(privateKey);
       this.walletClient = createWalletClient({
         account,
+        chain: this.chain,
         transport: http(config.rpcUrl),
-      }) as WalletClient;
+      });
     }
   }
 
@@ -232,8 +258,8 @@ export class DecentralizedNodeRegistry {
       args: [tokenURI],
     });
 
-    // @ts-expect-error - viem version type mismatch
     const registerTx = await this.walletClient.sendTransaction({
+      chain: this.chain,
       to: this.registryAddress,
       data: registerData,
     });
@@ -343,8 +369,8 @@ export class DecentralizedNodeRegistry {
       args: [agentId],
     });
 
-    // @ts-expect-error - viem version type mismatch
     return this.walletClient.sendTransaction({
+      chain: this.chain,
       to: this.registryAddress,
       data,
     });
@@ -364,8 +390,8 @@ export class DecentralizedNodeRegistry {
       args: [agentId, amount],
     });
 
-    // @ts-expect-error - viem version type mismatch
     return this.walletClient.sendTransaction({
+      chain: this.chain,
       to: this.registryAddress,
       data,
     });
@@ -635,7 +661,6 @@ export class DecentralizedNodeRegistry {
       args: [agentId, endpoint],
     });
 
-    // @ts-expect-error - viem version type mismatch
     return this.walletClient.sendTransaction({
       to: this.registryAddress,
       data,
@@ -651,7 +676,6 @@ export class DecentralizedNodeRegistry {
       args: [agentId, tag],
     });
 
-    // @ts-expect-error - viem version type mismatch
     return this.walletClient.sendTransaction({
       to: this.registryAddress,
       data,
@@ -667,7 +691,6 @@ export class DecentralizedNodeRegistry {
       args: [agentId, key, `0x${Buffer.from(value).toString('hex')}` as Hex],
     });
 
-    // @ts-expect-error - viem version type mismatch
     return this.walletClient.sendTransaction({
       to: this.registryAddress,
       data,

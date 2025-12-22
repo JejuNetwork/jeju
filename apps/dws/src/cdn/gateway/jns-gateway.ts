@@ -13,7 +13,7 @@
 import { Hono, type Context } from 'hono';
 import type { StatusCode as _StatusCode } from 'hono/utils/http-status';
 import { cors } from 'hono/cors';
-import { createPublicClient, http, keccak256, stringToBytes, type Address } from 'viem';
+import { createPublicClient, http, keccak256, stringToBytes, type Address, type PublicClient } from 'viem';
 import { parseAbi } from 'viem';
 import { base, baseSepolia, localhost } from 'viem/chains';
 import { EdgeCache, getEdgeCache } from '../cache/edge-cache';
@@ -72,7 +72,7 @@ export class JNSGateway {
   private config: JNSGatewayConfig;
   private cache: EdgeCache;
   private originFetcher: OriginFetcher;
-  private publicClient!: ReturnType<typeof createPublicClient>;
+  private publicClient!: PublicClient;
   private registryAddress: Address;
   private defaultResolverAddress: Address;
 
@@ -101,7 +101,7 @@ export class JNSGateway {
     ]);
 
     const chain = inferChainFromRpcUrl(config.rpcUrl);
-    // @ts-expect-error viem version type mismatch in monorepo
+    // @ts-expect-error TS2719: Multiple viem versions in monorepo cause incompatible PublicClient types
     this.publicClient = createPublicClient({ chain, transport: http(config.rpcUrl) });
     this.registryAddress = config.jnsRegistryAddress;
     this.defaultResolverAddress = config.jnsResolverAddress;
@@ -512,7 +512,7 @@ export class JNSGateway {
 export async function startJNSGateway(): Promise<JNSGateway> {
   const config: JNSGatewayConfig = {
     port: parseInt(process.env.JNS_GATEWAY_PORT ?? '4022', 10),
-    rpcUrl: process.env.RPC_URL ?? 'http://localhost:6546',
+    rpcUrl: process.env.RPC_URL ?? 'http://localhost:9545',
     jnsRegistryAddress: (process.env.JNS_REGISTRY_ADDRESS ?? '0x0000000000000000000000000000000000000000') as Address,
     jnsResolverAddress: (process.env.JNS_RESOLVER_ADDRESS ?? '0x0000000000000000000000000000000000000000') as Address,
     ipfsGateway: process.env.IPFS_GATEWAY_URL ?? 'https://ipfs.io',

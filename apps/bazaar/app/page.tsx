@@ -9,6 +9,7 @@ const features = [
   { href: '/coins', icon: '🪙', title: 'Coins' },
   { href: '/markets', icon: '🎯', title: 'Predict' },
   { href: '/items', icon: '🖼️', title: 'NFTs' },
+  { href: '/faucet', icon: '🚰', title: 'Faucet' },
 ]
 
 export default function Home() {

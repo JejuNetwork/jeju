@@ -13,7 +13,7 @@ describe('CrucibleCompute', () => {
   beforeEach(() => {
     compute = createCompute({
       marketplaceUrl: 'http://localhost:4007',
-      rpcUrl: 'http://localhost:6546',
+      rpcUrl: 'http://localhost:9545',
       defaultModel: 'llama-3.1-8b',
     });
     mockFetch = mock(() => Promise.resolve(new Response()));

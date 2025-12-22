@@ -269,8 +269,10 @@ export class OracleNode {
   }
 
   private async signReport(reportHash: Hex): Promise<Hex> {
-    // @ts-expect-error - viem types require account but client has it set
-    return this.walletClient.signMessage({ message: { raw: toBytes(reportHash) } });
+    return this.walletClient.signMessage({
+      message: { raw: toBytes(reportHash) },
+      account: this.walletClient.account!,
+    });
   }
 
   private async sendHeartbeat(): Promise<void> {
@@ -327,7 +329,7 @@ export function createNodeConfig(): OracleNodeConfig {
   const zeroAddress = '0x0000000000000000000000000000000000000000' as Address;
 
   return {
-    rpcUrl: process.env.RPC_URL || 'http://localhost:6546',
+    rpcUrl: process.env.RPC_URL || 'http://localhost:9545',
     chainId: parseInt(process.env.CHAIN_ID || '1337'),
     operatorPrivateKey: (process.env.OPERATOR_PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex,
     workerPrivateKey: (process.env.WORKER_PRIVATE_KEY || '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d') as Hex,

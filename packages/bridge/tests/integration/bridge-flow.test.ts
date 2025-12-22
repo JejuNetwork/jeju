@@ -34,7 +34,7 @@ setDefaultTimeout(60000);
 
 // Test configuration
 const TEST_CONFIG = {
-	evmRpc: "http://127.0.0.1:6545",
+	evmRpc: "http://127.0.0.1:8545",
 	solanaRpc: "http://127.0.0.1:8899",
 };
 

@@ -4,7 +4,7 @@
  * Tests actual deployed contracts on localnet
  * 
  * NOTE: These tests require contracts to be deployed first.
- * Run `forge script script/DeployCloudIntegration.s.sol --rpc-url http://localhost:6546 --broadcast`
+ * Run `forge script script/DeployCloudIntegration.s.sol --rpc-url http://localhost:9545 --broadcast`
  */
 
 import { describe, test, expect, beforeAll } from 'bun:test';
@@ -53,9 +53,9 @@ let localnetAvailable = false;
 
 beforeAll(async () => {
   ADDRESSES = loadDeployedAddresses();
-  const chain = inferChainFromRpcUrl('http://localhost:6546');
+  const chain = inferChainFromRpcUrl('http://localhost:9545');
   deployer = privateKeyToAccount('0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as `0x${string}`);
-  publicClient = createPublicClient({ chain, transport: http('http://localhost:6546') });
+  publicClient = createPublicClient({ chain, transport: http('http://localhost:9545') });
   
   if (Object.keys(ADDRESSES).length === 0) {
     console.warn('⚠️ No deployment addresses found. Tests may be skipped.');
@@ -66,7 +66,7 @@ beforeAll(async () => {
     await publicClient.getBlockNumber();
     localnetAvailable = true;
   } catch {
-    console.warn('⚠️ Localnet not available at http://localhost:6546. Tests will be skipped.');
+    console.warn('⚠️ Localnet not available at http://localhost:9545. Tests will be skipped.');
     localnetAvailable = false;
   }
 });

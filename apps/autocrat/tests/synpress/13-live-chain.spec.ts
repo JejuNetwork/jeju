@@ -9,7 +9,7 @@ import { test, expect } from '@playwright/test';
 
 const AUTOCRAT_URL = process.env.AUTOCRAT_URL ?? 'http://localhost:8010';
 const COMPUTE_URL = process.env.COMPUTE_URL ?? 'http://localhost:8020';
-const RPC_URL = process.env.RPC_URL ?? 'http://localhost:6546';
+const RPC_URL = process.env.RPC_URL ?? 'http://localhost:9545';
 
 // Skip tests if live chain is not available
 test.beforeAll(async ({ request }) => {

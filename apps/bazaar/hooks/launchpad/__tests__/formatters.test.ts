@@ -1,6 +1,9 @@
 /**
  * Unit tests for launchpad formatting functions
  * Tests bonding curve and ICO presale formatters
+ * 
+ * Note: These tests use the re-exported functions from hooks for backwards compatibility.
+ * The core implementations are in lib/launchpad.ts with more comprehensive tests.
  */
 
 import { describe, test, expect } from 'bun:test';

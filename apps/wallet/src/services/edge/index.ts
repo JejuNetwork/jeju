@@ -11,6 +11,39 @@ import { EdgeConfigSchema, CoordinatorMessageSchema } from '../../plugin/schemas
 import { expectJson } from '../../lib/validation';
 
 // ============================================================================
+// WebTorrent Types (dynamic import - package may not be installed)
+// ============================================================================
+
+interface WebTorrentTorrent {
+  infoHash: string;
+  uploadSpeed: number;
+  downloadSpeed: number;
+  numPeers: number;
+  on(event: 'ready', callback: () => void): void;
+  on(event: 'error', callback: (err: Error) => void): void;
+  destroy(): void;
+}
+
+interface WebTorrentInstance {
+  seed(
+    input: Buffer | Uint8Array,
+    opts?: { name?: string },
+    callback?: (torrent: WebTorrentTorrent) => void
+  ): WebTorrentTorrent;
+  add(torrentId: string, callback?: (torrent: WebTorrentTorrent) => void): WebTorrentTorrent;
+  get(torrentId: string): WebTorrentTorrent | null;
+  destroy(callback?: () => void): void;
+  torrents: WebTorrentTorrent[];
+}
+
+interface WebTorrentConstructor {
+  new (opts?: {
+    dht?: boolean;
+    tracker?: { announce?: string[] };
+  }): WebTorrentInstance;
+}
+
+// ============================================================================
 // Types
 // ============================================================================
 
@@ -470,10 +503,12 @@ export class WalletEdgeService {
     const platform = getPlatformInfo();
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
-      // Use Tauri filesystem - dynamic import for desktop only
-      // @ts-expect-error - Tauri types only available when building for desktop
-      const { writeBinaryFile, BaseDirectory } = await import('@tauri-apps/api/fs');
-      await writeBinaryFile(`cache/${key}`, data, { dir: BaseDirectory.AppData });
+      // Use Tauri invoke command for file storage
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('edge_cache_write', { 
+        key, 
+        data: Array.from(data instanceof Buffer ? new Uint8Array(data) : data) 
+      });
     } else if (typeof indexedDB !== 'undefined') {
       // Use IndexedDB
       const db = await this.getIndexedDB();
@@ -486,9 +521,8 @@ export class WalletEdgeService {
     const platform = getPlatformInfo();
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
-      // @ts-expect-error - Tauri types only available when building for desktop
-      const { readBinaryFile, BaseDirectory } = await import('@tauri-apps/api/fs');
-      const data = await readBinaryFile(`cache/${key}`, { dir: BaseDirectory.AppData }).catch(() => null);
+      const { invoke } = await import('@tauri-apps/api/core');
+      const data = await invoke<number[] | null>('edge_cache_read', { key }).catch(() => null);
       return data ? new Uint8Array(data) : null;
     } else if (typeof indexedDB !== 'undefined') {
       const db = await this.getIndexedDB();
@@ -508,9 +542,8 @@ export class WalletEdgeService {
     const platform = getPlatformInfo();
 
     if (platform.category === 'desktop' && '__TAURI__' in globalThis) {
-      // @ts-expect-error - Tauri types only available when building for desktop
-      const { removeFile, BaseDirectory } = await import('@tauri-apps/api/fs');
-      await removeFile(`cache/${key}`, { dir: BaseDirectory.AppData }).catch(() => {});
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('edge_cache_delete', { key }).catch(() => {});
     } else if (typeof indexedDB !== 'undefined') {
       const db = await this.getIndexedDB();
       const tx = db.transaction('cache', 'readwrite');
@@ -551,9 +584,11 @@ export class WalletEdgeService {
 
   private async initTorrent(): Promise<void> {
     // Dynamically import WebTorrent for platforms that support it
-    // @ts-expect-error - WebTorrent types only available when package is installed
-    const WebTorrent = (await import('webtorrent')).default;
-    const client = new WebTorrent({
+    // Using Function constructor to prevent TypeScript from analyzing the import path
+    const importFn = new Function('specifier', 'return import(specifier)') as (specifier: string) => Promise<{ default: WebTorrentConstructor }>;
+    const WebTorrentModule = await importFn('webtorrent');
+    const WebTorrent = WebTorrentModule.default;
+    const client: WebTorrentInstance = new WebTorrent({
       dht: true,
       tracker: {
         announce: [
@@ -581,13 +616,12 @@ export class WalletEdgeService {
         if (torrent) torrent.destroy();
       },
       getStats: () => ({
-        uploadSpeed: client.torrents.reduce((sum: number, t: { uploadSpeed: number }) => sum + t.uploadSpeed, 0),
-        downloadSpeed: client.torrents.reduce((sum: number, t: { downloadSpeed: number }) => sum + t.downloadSpeed, 0),
-        peers: client.torrents.reduce((sum: number, t: { numPeers: number }) => sum + t.numPeers, 0),
+        uploadSpeed: client.torrents.reduce((sum, t) => sum + t.uploadSpeed, 0),
+        downloadSpeed: client.torrents.reduce((sum, t) => sum + t.downloadSpeed, 0),
+        peers: client.torrents.reduce((sum, t) => sum + t.numPeers, 0),
         torrents: client.torrents.length,
       }),
     };
-
   }
 
   private async initProxy(): Promise<void> {
@@ -595,8 +629,7 @@ export class WalletEdgeService {
     if (!('__TAURI__' in globalThis)) return;
 
     // Proxy runs in Rust backend, we just control it
-    // @ts-expect-error - Tauri types only available when building for desktop
-    const { invoke } = await import('@tauri-apps/api/tauri');
+    const { invoke } = await import('@tauri-apps/api/core');
 
     this.proxyService = {
       start: async () => invoke('start_proxy_service'),

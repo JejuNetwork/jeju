@@ -32,8 +32,8 @@ describe('JEJU Token Ban Check', () => {
 describe('Ban Type Labels', () => {
   test('should return correct labels for all ban types', () => {
     expect(getBanTypeLabel(BanType.NONE)).toBe('Not Banned');
-    expect(getBanTypeLabel(BanType.ON_NOTICE)).toBe('On Notice (Pending Review)');
-    expect(getBanTypeLabel(BanType.CHALLENGED)).toBe('Challenged (Market Active)');
+    expect(getBanTypeLabel(BanType.ON_NOTICE)).toBe('On Notice');
+    expect(getBanTypeLabel(BanType.CHALLENGED)).toBe('Challenged');
     expect(getBanTypeLabel(BanType.PERMANENT)).toBe('Permanently Banned');
   });
 });

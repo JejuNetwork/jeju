@@ -152,10 +152,10 @@ function getChain(network: NetworkType) {
 
 function getRpcUrl(network: NetworkType): string {
   switch (network) {
-    case 'localnet': return process.env.RPC_URL ?? 'http://localhost:6546';
+    case 'localnet': return process.env.RPC_URL ?? 'http://localhost:9545';
     case 'testnet': return process.env.RPC_URL ?? 'https://sepolia.base.org';
     case 'mainnet': return process.env.RPC_URL ?? 'https://mainnet.base.org';
-    default: return 'http://localhost:6546';
+    default: return 'http://localhost:9545';
   }
 }
 
@@ -185,23 +185,21 @@ async function main() {
   if (command === 'list') {
     console.log('Fetching registered DAOs...');
     try {
-      // @ts-expect-error - viem type issue with abi parsing
       const daoIds = await publicClient.readContract({
         address: registryAddress as Hex,
         abi: DAO_REGISTRY_ABI,
         functionName: 'getAllDAOs',
-      }) as Hex[];
+      });
       
       console.log(`Found ${daoIds.length} DAOs:`);
       for (const daoId of daoIds) {
-        // @ts-expect-error - viem type issue
         const dao = await publicClient.readContract({
           address: registryAddress as Hex,
           abi: DAO_REGISTRY_ABI,
           functionName: 'getDAO',
           args: [daoId],
         });
-        console.log(`  - ${(dao as { name: string }).name} (${daoId.slice(0, 10)}...)`);
+        console.log(`  - ${dao.name} (${daoId.slice(0, 10)}...)`);
       }
     } catch (e) {
       console.error('Failed to fetch DAOs:', (e as Error).message);

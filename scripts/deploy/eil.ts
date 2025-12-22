@@ -44,8 +44,8 @@ interface DeploymentResult {
 
 const NETWORK_CONFIGS: Record<string, NetworkConfig> = {
   localnet: {
-    l1RpcUrl: 'http://127.0.0.1:6545',
-    l2RpcUrl: 'http://127.0.0.1:6546',
+    l1RpcUrl: 'http://127.0.0.1:8545',
+    l2RpcUrl: 'http://127.0.0.1:9545',
     l1ChainId: 1337,
     l2ChainId: 420690,
     l1CrossDomainMessenger: '0x0000000000000000000000000000000000000000',

@@ -21,7 +21,7 @@ import type { IssuesManager } from './issues';
 import type { SocialManager } from './social';
 import type { BackendManager } from '../storage/backends';
 
-// Optional Meilisearch client interface
+// Optional Meilisearch client interface (mirrors the meilisearch package API)
 interface MeilisearchClient {
   index(indexName: string): MeilisearchIndex;
 }
@@ -46,6 +46,16 @@ interface MeilisearchSearchResult {
   hits: Record<string, unknown>[];
   estimatedTotalHits: number;
   processingTimeMs: number;
+}
+
+// Type for the MeiliSearch constructor from the optional meilisearch package
+interface MeilisearchConfig {
+  host: string;
+  apiKey?: string;
+}
+
+interface MeilisearchModule {
+  MeiliSearch: new (config: MeilisearchConfig) => MeilisearchClient;
 }
 
 export interface SearchManagerConfig {
@@ -127,12 +137,12 @@ export class SearchManager {
 
     try {
       // Dynamic import to avoid bundling meilisearch if not used
-      // @ts-expect-error meilisearch is optional, only required if MEILISEARCH_URL is set
-      const { MeiliSearch } = await import('meilisearch');
-      this.meilisearchClient = new MeiliSearch({
+      // Cast the module to our local interface that mirrors the meilisearch API
+      const meilisearchModule = await import('meilisearch') as MeilisearchModule;
+      this.meilisearchClient = new meilisearchModule.MeiliSearch({
         host: meilisearchUrl,
         apiKey: meilisearchKey,
-      }) as unknown as MeilisearchClient;
+      });
       
       console.log(`[Search] Connected to Meilisearch at ${meilisearchUrl}`);
     } catch (error) {

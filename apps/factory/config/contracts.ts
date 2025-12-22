@@ -63,7 +63,7 @@ export function getContractAddresses(): ContractAddresses {
 }
 
 export function getRpcUrl(): string {
-  return process.env.NEXT_PUBLIC_RPC_URL || 'http://127.0.0.1:8545';
+  return process.env.NEXT_PUBLIC_RPC_URL || 'http://localhost:8545';
 }
 
 export function getDwsUrl(): string {

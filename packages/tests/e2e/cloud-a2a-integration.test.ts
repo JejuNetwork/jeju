@@ -67,7 +67,7 @@ describe('Cloud A2A E2E - Agent Discovery', () => {
     logger.info('🔍 Discovering cloud agent...');
     
     // Query IdentityRegistry for cloud agent
-    const publicClient = createPublicClient({ transport: http('http://localhost:6546') });
+    const publicClient = createPublicClient({ transport: http('http://localhost:9545') });
     const identityRegistryAbi = [
       { name: 'totalAgents', type: 'function', stateMutability: 'view', inputs: [], outputs: [{ type: 'uint256' }] },
       { name: 'getAgent', type: 'function', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }], outputs: [{ type: 'tuple', components: [{ name: 'agentId', type: 'uint256' }, { name: 'owner', type: 'address' }, { name: 'tier', type: 'uint8' }, { name: 'stakedToken', type: 'address' }, { name: 'stakedAmount', type: 'uint256' }, { name: 'registeredAt', type: 'uint256' }, { name: 'lastActivityAt', type: 'uint256' }, { name: 'isBanned', type: 'bool' }, { name: 'isSlashed', type: 'bool' }] }] },
@@ -252,7 +252,7 @@ describe('Cloud A2A E2E - Reputation Integration', () => {
   test('should update reputation after successful A2A request', async () => {
     logger.info('⭐ Testing reputation update...');
     
-    const publicClient = createPublicClient({ transport: http('http://localhost:6546') });
+    const publicClient = createPublicClient({ transport: http('http://localhost:9545') });
     const reputationRegistryAbi = [
       { name: 'getSummary', type: 'function', stateMutability: 'view', inputs: [{ name: 'agentId', type: 'uint256' }, { name: 'clientAddresses', type: 'address[]' }, { name: 'tag1', type: 'bytes32' }, { name: 'tag2', type: 'bytes32' }], outputs: [{ name: 'count', type: 'uint64' }, { name: 'averageScore', type: 'uint8' }] },
     ] as const;

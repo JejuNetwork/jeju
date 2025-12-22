@@ -119,7 +119,7 @@ const agent = (id: string, name: string, prompt: string) => ({ id, name, model: 
 
 function getConfig(): CouncilConfig {
   return {
-    rpcUrl: process.env.RPC_URL ?? process.env.JEJU_RPC_URL ?? 'http://localhost:6546',
+    rpcUrl: process.env.RPC_URL ?? process.env.JEJU_RPC_URL ?? 'http://localhost:9545',
     daoId: process.env.DEFAULT_DAO ?? 'jeju',
     contracts: {
       council: addr('COUNCIL_ADDRESS'),

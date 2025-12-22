@@ -309,7 +309,7 @@ APP_NAME="${config.displayName}"
 
 # Network
 NETWORK=localnet
-L2_RPC_URL=http://localhost:6546
+L2_RPC_URL=http://localhost:9545
 
 # Services
 CQL_BLOCK_PRODUCER_ENDPOINT=http://localhost:4300

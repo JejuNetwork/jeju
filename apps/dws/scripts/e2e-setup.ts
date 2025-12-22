@@ -3,7 +3,7 @@
  * DWS E2E Test Setup
  * 
  * This script sets up the complete environment for E2E testing:
- * 1. Checks/starts Jeju localnet (L2: 6546, L1: 6545)
+ * 1. Checks/starts Jeju localnet (L2: 9545, L1: 8545)
  * 2. Deploys all contracts if needed
  * 3. Starts DWS server with proper config
  * 4. Registers test worker nodes
@@ -20,8 +20,8 @@ import { join } from 'path';
 // Configuration
 // ============================================================================
 
-const JEJU_L2_RPC = 'http://127.0.0.1:6546';
-const JEJU_L1_RPC = 'http://127.0.0.1:6545';
+const JEJU_L2_RPC = 'http://127.0.0.1:9545';
+const JEJU_L1_RPC = 'http://127.0.0.1:8545';
 const DWS_PORT = 4030;
 const IPFS_PORT = 4100;
 

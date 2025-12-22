@@ -65,7 +65,7 @@ async function runTest(name: string, fn: () => Promise<void>, skipCondition?: ()
 // ============================================================================
 
 const network = process.env.NETWORK ?? 'localnet';
-const rpcUrl = process.env.RPC_URL ?? (network === 'localnet' ? 'http://localhost:6546' : undefined);
+const rpcUrl = process.env.RPC_URL ?? (network === 'localnet' ? 'http://localhost:9545' : undefined);
 const dwsEndpoint = process.env.DWS_ENDPOINT ?? 'http://localhost:4030';
 const privateKey = process.env.DEPLOYER_PRIVATE_KEY as Hex;
 

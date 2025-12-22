@@ -8,7 +8,7 @@
  * 
  * Environment:
  *   PRIVATE_KEY - Deployer private key
- *   JEJU_RPC_URL - RPC endpoint (default: http://127.0.0.1:6546)
+ *   JEJU_RPC_URL - RPC endpoint (default: http://127.0.0.1:9545)
  *   TREASURY_ADDRESS - Address to receive protocol fees (optional, defaults to deployer)
  */
 
@@ -78,7 +78,7 @@ async function deployContract(
 }
 
 async function deploy(): Promise<DeployResult> {
-  const rpcUrl = process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546';
+  const rpcUrl = process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545';
   const privateKey = process.env.PRIVATE_KEY;
   
   if (!privateKey) {

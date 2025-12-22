@@ -109,7 +109,7 @@ const DEFAULT_CHAINS: ChainConfig[] = [
   {
     chainId: 420691,
     name: 'Network',
-    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
+    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
     nativeCurrency: { symbol: 'ETH', decimals: 18 },
     tokens: [
       { address: '0x0000000000000000000000000000000000000000', symbol: 'ETH', decimals: 18, isNative: true },

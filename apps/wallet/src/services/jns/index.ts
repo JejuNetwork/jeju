@@ -79,7 +79,7 @@ export class JNSService {
       return rpcService.getClient(this.chainId as SupportedChainId);
     }
     if (!this.clientCache.has(this.chainId)) {
-      const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:6546';
+      const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:9545';
       this.clientCache.set(this.chainId, createPublicClient({ transport: http(rpcUrl) }));
     }
     return this.clientCache.get(this.chainId)!;

@@ -213,3 +213,10 @@ export function hasBiometrics(): boolean {
 export function hasIAP(): boolean {
   return getPlatformInfo().capabilities.hasIAP;
 }
+
+/**
+ * Reset platform cache - useful for testing
+ */
+export function resetPlatformCache(): void {
+  cachedPlatform = null;
+}

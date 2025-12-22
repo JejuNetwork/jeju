@@ -1,6 +1,6 @@
 /** Futarchy - Prediction market escalation for vetoed proposals */
 
-import { createPublicClient, createWalletClient, http, formatEther, zeroAddress, zeroHash, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, formatEther, zeroAddress, zeroHash, type Address, type Chain, type PublicClient, type Transport, type WalletClient } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
@@ -49,8 +49,8 @@ export interface FutarchyConfig { rpcUrl: string; councilAddress: string; predim
 type TxResult = { success: boolean; txHash?: string; error?: string; approved?: boolean };
 
 export class FutarchyClient {
-  private readonly client: PublicClient;
-  private readonly walletClient: WalletClient;
+  private readonly client: PublicClient<Transport, Chain>;
+  private readonly walletClient: WalletClient<Transport, Chain>;
   private readonly account: PrivateKeyAccount | null;
   private readonly chain: ReturnType<typeof inferChainFromRpcUrl>;
   private readonly councilAddress: Address;
@@ -62,15 +62,10 @@ export class FutarchyClient {
   constructor(config: FutarchyConfig) {
     const chain = inferChainFromRpcUrl(config.rpcUrl);
     this.chain = chain;
-    // @ts-expect-error viem version type mismatch in monorepo
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
-    });
-    this.walletClient = createWalletClient({
-      chain,
-      transport: http(config.rpcUrl),
-    });
+    }) as PublicClient<Transport, Chain>;
     
     this.councilAddress = config.councilAddress as Address;
     this.marketAddress = config.predimarketAddress as Address;
@@ -84,9 +79,13 @@ export class FutarchyClient {
         account: this.account,
         chain,
         transport: http(config.rpcUrl),
-      });
+      }) as WalletClient<Transport, Chain>;
     } else {
       this.account = null;
+      this.walletClient = createWalletClient({
+        chain,
+        transport: http(config.rpcUrl),
+      }) as WalletClient<Transport, Chain>;
     }
   }
 
@@ -149,8 +148,8 @@ export class FutarchyClient {
     if (!this.councilDeployed) return { success: false, error: 'Council not deployed' };
     if (!this.account) return { success: false, error: 'Wallet required' };
 
-    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.councilAddress,
       abi: COUNCIL_ABI,
       functionName: 'escalateToFutarchy',
@@ -185,8 +184,8 @@ export class FutarchyClient {
     if (!this.councilDeployed) return { success: false, error: 'Council not deployed' };
     if (!this.account) return { success: false, error: 'Wallet required' };
 
-    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.councilAddress,
       abi: COUNCIL_ABI,
       functionName: 'executeFutarchyApproved',

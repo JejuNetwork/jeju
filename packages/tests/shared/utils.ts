@@ -341,7 +341,7 @@ export function getChainId(): number {
  */
 export function getTestEnv(): Record<string, string> {
   return {
-    L1_RPC_URL: process.env.L1_RPC_URL ?? 'http://127.0.0.1:6545',
+    L1_RPC_URL: process.env.L1_RPC_URL ?? 'http://127.0.0.1:8545',
     L2_RPC_URL: process.env.L2_RPC_URL ?? 'http://127.0.0.1:9545',
     JEJU_RPC_URL: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:9545',
     CHAIN_ID: process.env.CHAIN_ID ?? '1337',

@@ -7,7 +7,7 @@
  *
  * To set up:
  *   1. Start anvil: anvil
- *   2. Deploy contracts: cd packages/contracts && forge script deploy/DeployTraining.s.sol --rpc-url http://localhost:6546 --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+ *   2. Deploy contracts: cd packages/contracts && forge script deploy/DeployTraining.s.sol --rpc-url http://localhost:9545 --broadcast --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
  *   3. Export addresses or use deployment-localnet.json
  */
 
@@ -33,7 +33,7 @@ import { existsSync, readFileSync } from 'fs';
 
 setDefaultTimeout(60000);
 
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546';
+const RPC_URL = process.env.RPC_URL || 'http://localhost:9545';
 const PRIVATE_KEY = (process.env.PRIVATE_KEY || '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex;
 const PRIVATE_KEY_2 = '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d' as Hex;
 

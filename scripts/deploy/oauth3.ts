@@ -72,7 +72,7 @@ const DEFAULT_COUNCILS: Record<string, CouncilAppConfig> = {
 };
 
 async function deployOAuth3(): Promise<OAuth3Deployment> {
-  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:6546';
+  const rpcUrl = process.env.RPC_URL ?? 'http://localhost:9545';
   const privateKey = process.env.DEPLOYER_PRIVATE_KEY;
   
   if (!privateKey) {

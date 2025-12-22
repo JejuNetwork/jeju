@@ -147,7 +147,6 @@ describe('Event Parsing - Invalid Events', () => {
   test('should reject event without orderId', () => {
     const monitor = createMonitor();
     const log = createMockLog();
-    // @ts-expect-error - testing invalid data
     delete log.args.orderId;
     
     const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);
@@ -159,7 +158,6 @@ describe('Event Parsing - Invalid Events', () => {
   test('should reject event without order struct', () => {
     const monitor = createMonitor();
     const log = createMockLog();
-    // @ts-expect-error - testing invalid data
     delete log.args.order;
     
     const parseEvent = (monitor as unknown as MonitorTestAccess).parseEvent.bind(monitor);

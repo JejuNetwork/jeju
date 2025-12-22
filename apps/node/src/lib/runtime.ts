@@ -25,7 +25,6 @@ import {
 export type RuntimeEnv = 'tauri' | 'browser' | 'node';
 
 export function detectRuntime(): RuntimeEnv {
-  // @ts-expect-error - Tauri injects __TAURI_INTERNALS__
   if (typeof window !== 'undefined' && window.__TAURI_INTERNALS__) {
     return 'tauri';
   }
@@ -132,7 +131,7 @@ export interface BotInfo {
 
 const DEFAULT_CONFIG: RuntimeConfig = {
   network: 'localnet',
-  rpcUrl: 'http://127.0.0.1:6546',
+  rpcUrl: 'http://127.0.0.1:9545',
   chainId: 1337,
   autoClaim: true,
   autoStake: false,
@@ -177,8 +176,7 @@ function createBrowserAPI(): RuntimeAPI {
           architecture: 'unknown',
         },
         memory: {
-          // @ts-expect-error - deviceMemory is not in standard types
-          total_mb: (navigator.deviceMemory || 8) * 1024,
+          total_mb: (navigator.deviceMemory ?? 8) * 1024,
           used_mb: 0,
           available_mb: 0,
           usage_percent: 0,
@@ -219,7 +217,6 @@ function createBrowserAPI(): RuntimeAPI {
 
     async connectWallet(): Promise<WalletConnection | null> {
       // Use injected wallet if available
-      // @ts-expect-error - window.ethereum
       const ethereum = window.ethereum;
       if (ethereum) {
         const accounts = await ethereum.request({ method: 'eth_requestAccounts' });

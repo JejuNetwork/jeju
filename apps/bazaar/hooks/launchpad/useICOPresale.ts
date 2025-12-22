@@ -1,26 +1,20 @@
 import { useAccount, useWriteContract, useReadContract, useWaitForTransactionReceipt } from 'wagmi'
-import { parseEther, formatEther, type Address } from 'viem'
+import { parseEther, type Address } from 'viem'
 import { AddressSchema } from '@jejunetwork/types'
 import { expect } from '@/lib/validation'
 import { ICOPresaleAbi } from '@jejunetwork/contracts'
+import {
+  parsePresaleStatus,
+  parseUserContribution,
+  canClaimTokens,
+  canClaimRefund,
+  formatBasisPoints,
+  formatDuration,
+  type PresaleStatus,
+  type UserContribution,
+} from '@/lib/launchpad'
 
-export interface PresaleStatus {
-  raised: bigint
-  participants: bigint
-  progress: number  // 0-10000 (basis points)
-  timeRemaining: bigint
-  isActive: boolean
-  isFinalized: boolean
-  isFailed: boolean
-}
-
-export interface UserContribution {
-  ethAmount: bigint
-  tokenAllocation: bigint
-  claimedTokens: bigint
-  claimable: bigint
-  isRefunded: boolean
-}
+export type { PresaleStatus, UserContribution }
 
 /**
  * Hook to interact with an ICO presale
@@ -118,25 +112,15 @@ export function useICOPresale(presaleAddress: Address | null) {
     query: { enabled },
   })
 
-  // Parse status
-  const parsedStatus: PresaleStatus | undefined = status ? {
-    raised: (status as [bigint, bigint, bigint, bigint, boolean, boolean, boolean])[0],
-    participants: (status as [bigint, bigint, bigint, bigint, boolean, boolean, boolean])[1],
-    progress: Number((status as [bigint, bigint, bigint, bigint, boolean, boolean, boolean])[2]),
-    timeRemaining: (status as [bigint, bigint, bigint, bigint, boolean, boolean, boolean])[3],
-    isActive: (status as [bigint, bigint, bigint, bigint, boolean, boolean, boolean])[4],
-    isFinalized: (status as [bigint, bigint, bigint, bigint, boolean, boolean, boolean])[5],
-    isFailed: (status as [bigint, bigint, bigint, bigint, boolean, boolean, boolean])[6],
-  } : undefined
+  // Parse status using typed parser
+  const parsedStatus: PresaleStatus | undefined = status 
+    ? parsePresaleStatus(status as readonly [bigint, bigint, bigint, bigint, boolean, boolean, boolean])
+    : undefined
 
-  // Parse user contribution
-  const parsedContribution: UserContribution | undefined = contribution ? {
-    ethAmount: (contribution as [bigint, bigint, bigint, bigint, boolean])[0],
-    tokenAllocation: (contribution as [bigint, bigint, bigint, bigint, boolean])[1],
-    claimedTokens: (contribution as [bigint, bigint, bigint, bigint, boolean])[2],
-    claimable: (contribution as [bigint, bigint, bigint, bigint, boolean])[3],
-    isRefunded: (contribution as [bigint, bigint, bigint, bigint, boolean])[4],
-  } : undefined
+  // Parse user contribution using typed parser
+  const parsedContribution: UserContribution | undefined = contribution 
+    ? parseUserContribution(contribution as readonly [bigint, bigint, bigint, bigint, boolean])
+    : undefined
 
   /**
    * Start the presale (creator only)
@@ -221,24 +205,20 @@ export function useICOPresale(presaleAddress: Address | null) {
     })
   }
 
-  // Check if user can claim
-  const canClaim: boolean = Boolean(
-    parsedStatus?.isFinalized &&
-    !parsedStatus?.isFailed &&
-    parsedContribution &&
-    parsedContribution.claimable > 0n &&
-    buyerClaimStart &&
-    BigInt(Math.floor(Date.now() / 1000)) >= (buyerClaimStart as bigint)
-  )
+  // Check if user can claim using lib function
+  const canClaim: boolean = parsedStatus && parsedContribution && buyerClaimStart
+    ? canClaimTokens(
+        parsedStatus,
+        parsedContribution,
+        buyerClaimStart as bigint,
+        BigInt(Math.floor(Date.now() / 1000))
+      )
+    : false
 
-  // Check if user can refund
-  const canRefund: boolean = Boolean(
-    parsedStatus?.isFinalized &&
-    parsedStatus?.isFailed &&
-    parsedContribution &&
-    parsedContribution.ethAmount > 0n &&
-    !parsedContribution.isRefunded
-  )
+  // Check if user can refund using lib function
+  const canRefundTokens: boolean = parsedStatus && parsedContribution
+    ? canClaimRefund(parsedStatus, parsedContribution)
+    : false
 
   return {
     // State
@@ -263,7 +243,7 @@ export function useICOPresale(presaleAddress: Address | null) {
     buyerClaimStart: buyerClaimStart as bigint | undefined,
     lpPair: lpPair as Address | undefined,
     canClaim,
-    canRefund,
+    canRefund: canRefundTokens,
     
     // Transaction state
     txHash,
@@ -284,26 +264,6 @@ export function useICOPresale(presaleAddress: Address | null) {
   }
 }
 
-/**
- * Format presale progress
- */
-export function formatPresaleProgress(progressBps: number): string {
-  return (progressBps / 100).toFixed(2) + '%'
-}
-
-/**
- * Format time remaining
- */
-export function formatTimeRemaining(seconds: bigint): string {
-  const secs = Number(seconds)
-  if (secs <= 0) return 'Ended'
-  
-  const days = Math.floor(secs / 86400)
-  const hours = Math.floor((secs % 86400) / 3600)
-  const mins = Math.floor((secs % 3600) / 60)
-  
-  if (days > 0) return `${days}d ${hours}h`
-  if (hours > 0) return `${hours}h ${mins}m`
-  return `${mins}m`
-}
+// Re-export formatting functions from lib/launchpad
+export { formatBasisPoints as formatPresaleProgress, formatDuration as formatTimeRemaining } from '@/lib/launchpad'
 

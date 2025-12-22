@@ -12,7 +12,7 @@ import type { Hex } from 'viem';
 import { PriceFetcher } from '../../src/oracle/price-fetcher';
 import type { PriceSourceConfig } from '../../src/oracle/types';
 
-const RPC_URL = 'http://localhost:6546';
+const RPC_URL = 'http://localhost:9545';
 
 describe('PriceFetcher', () => {
   describe('Manual Price Management', () => {

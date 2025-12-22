@@ -224,18 +224,18 @@ export const VENDOR_PORTS = {
 // ============================================================================
 
 export const INFRA_PORTS = {
-  /** L1 RPC - Jeju localnet L1 (6545 to avoid conflicts with standard anvil 8545) */
+  /** L1 RPC - Jeju localnet L1 (8545 to avoid conflicts with standard anvil 8545) */
   L1_RPC: {
-    DEFAULT: 6545,
+    DEFAULT: 8545,
     ENV_VAR: 'L1_RPC_PORT',
-    get: () => parseInt(process.env.L1_RPC_PORT || '6545')
+    get: () => parseInt(process.env.L1_RPC_PORT || '8545')
   },
 
   /** L2 RPC - Jeju localnet L2 (main chain) */
   L2_RPC: {
-    DEFAULT: 6546,
+    DEFAULT: 9545,
     ENV_VAR: 'L2_RPC_PORT',
-    get: () => parseInt(process.env.L2_RPC_PORT || '6546')
+    get: () => parseInt(process.env.L2_RPC_PORT || '9545')
   },
 
   /** L2 WebSocket */

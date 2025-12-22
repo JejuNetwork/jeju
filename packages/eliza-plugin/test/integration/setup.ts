@@ -17,7 +17,7 @@ const DEPLOYER_KEY: Hex = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae7
 
 // Service URLs - L2 defaults to 9545 to match localnet.json config
 export const TEST_RPC_URL = process.env.TEST_RPC_URL || "http://127.0.0.1:9545";
-export const TEST_L1_RPC_URL = process.env.TEST_L1_RPC_URL || "http://127.0.0.1:6545";
+export const TEST_L1_RPC_URL = process.env.TEST_L1_RPC_URL || "http://127.0.0.1:8545";
 export const TEST_STORAGE_URL = process.env.TEST_STORAGE_URL || "http://127.0.0.1:4010";
 export const TEST_COMPUTE_URL = process.env.TEST_COMPUTE_URL || "http://127.0.0.1:4007";
 export const TEST_GATEWAY_URL = process.env.TEST_GATEWAY_URL || "http://127.0.0.1:4003";

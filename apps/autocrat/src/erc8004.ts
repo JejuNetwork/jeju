@@ -1,7 +1,7 @@
 /** ERC-8004 Agent Identity & Reputation */
 
 import { z } from 'zod';
-import { createPublicClient, createWalletClient, http, keccak256, stringToHex, zeroAddress, zeroHash, type Address, type PublicClient, type WalletClient } from 'viem';
+import { createPublicClient, createWalletClient, http, keccak256, stringToHex, zeroAddress, zeroHash, type Address } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import { readContract, waitForTransactionReceipt } from 'viem/actions';
 import { parseAbi } from 'viem';
@@ -58,8 +58,8 @@ export interface AgentReputation { agentId: bigint; feedbackCount: number; avera
 export interface ERC8004Config { rpcUrl: string; identityRegistry: string; reputationRegistry: string; validationRegistry: string; operatorKey?: string }
 
 export class ERC8004Client {
-  private readonly client: PublicClient;
-  private readonly walletClient: WalletClient;
+  private readonly client: ReturnType<typeof createPublicClient>;
+  private readonly walletClient: ReturnType<typeof createWalletClient>;
   private readonly account: PrivateKeyAccount | null;
   private readonly chain: ReturnType<typeof inferChainFromRpcUrl>;
   private readonly identityAddress: Address;
@@ -73,7 +73,6 @@ export class ERC8004Client {
   constructor(config: ERC8004Config) {
     const chain = inferChainFromRpcUrl(config.rpcUrl);
     this.chain = chain;
-    // @ts-expect-error viem version type mismatch in monorepo
     this.client = createPublicClient({
       chain,
       transport: http(config.rpcUrl),
@@ -112,8 +111,8 @@ export class ERC8004Client {
     if (!mcpEndpoint || !mcpEndpoint.trim()) throw new Error('MCP endpoint is required');
 
     const tokenURI = `data:application/json,${encodeURIComponent(JSON.stringify({ name, role, description: `${role} agent` }))}`;
-    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.identityAddress,
       abi: IDENTITY_ABI,
       functionName: 'register',
@@ -260,8 +259,8 @@ export class ERC8004Client {
     if (score < 0 || score > 100) throw new Error('Score must be between 0 and 100');
     if (!tag || tag.trim().length === 0) throw new Error('Tag is required');
 
-    // @ts-expect-error viem ABI type inference
     const hash = await this.walletClient.writeContract({
+      chain: this.chain,
       address: this.reputationAddress,
       abi: REPUTATION_ABI,
       functionName: 'giveFeedback',

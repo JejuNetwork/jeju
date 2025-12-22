@@ -9,6 +9,17 @@ import { JEJU_CHAIN_ID } from '@/config/chains'
 import { request, gql } from 'graphql-request'
 import { LoadingSpinner } from '@/components/LoadingSpinner'
 import { INDEXER_URL } from '@/config'
+import {
+  normalizeNFTQueryResult,
+  filterNFTsByOwner,
+  sortNFTs,
+  groupNFTsByCollection,
+  isNFTOwner,
+  type NFTSortOption,
+  type ERC721TokenInput,
+  type ERC1155BalanceInput,
+} from '@/lib/nft'
+import type { NormalizedNFT } from '@/schemas/nft'
 
 const NFT_QUERY = gql`
   query GetNFTs($owner: String) {
@@ -36,35 +47,9 @@ const NFT_QUERY = gql`
   }
 `
 
-interface NFTToken {
-  id: string
-  tokenId: string
-  owner?: { address: string }
-  contract?: { address: string; name: string }
-  metadata?: string
-}
-
-interface NFTBalance {
-  id: string
-  tokenId: string
-  balance: string
-  contract?: { address: string; name: string }
-}
-
 interface NFTQueryResult {
-  erc721Tokens: NFTToken[]
-  erc1155Balances: NFTBalance[]
-}
-
-interface NormalizedNFT {
-  id: string
-  tokenId: string
-  owner?: string
-  balance?: string
-  contract?: string
-  contractName: string
-  type: 'ERC721' | 'ERC1155'
-  metadata?: string
+  erc721Tokens: ERC721TokenInput[]
+  erc1155Balances: ERC1155BalanceInput[]
 }
 
 type ModalMode = 'view' | 'sell'
@@ -73,7 +58,7 @@ function NFTsPageContent() {
   const { address, isConnected } = useAccount()
   const searchParams = useSearchParams()
   const [filter, setFilter] = useState<'all' | 'my-nfts'>('all')
-  const [sortBy, setSortBy] = useState<'recent' | 'price' | 'collection'>('recent')
+  const [sortBy, setSortBy] = useState<NFTSortOption>('recent')
   
   // Single modal with mode switching
   const [selectedNFT, setSelectedNFT] = useState<NormalizedNFT | null>(null)
@@ -83,7 +68,7 @@ function NFTsPageContent() {
   const [buyoutPrice, setBuyoutPrice] = useState('')
 
   const hasMarketplace = hasNFTMarketplace(JEJU_CHAIN_ID)
-  const isOwner = selectedNFT?.owner?.toLowerCase() === address?.toLowerCase()
+  const isOwner = selectedNFT && address ? isNFTOwner(selectedNFT, address) : false
 
   useEffect(() => {
     const urlFilter = searchParams?.get('filter')
@@ -104,49 +89,18 @@ function NFTsPageContent() {
     refetchInterval: 10000,
   })
 
-  const allNFTs: NormalizedNFT[] = [
-    ...(nftData?.erc721Tokens || []).map((token) => ({
-      id: token.id,
-      tokenId: token.tokenId,
-      owner: token.owner?.address,
-      contract: token.contract?.address,
-      contractName: token.contract?.name || 'Unknown',
-      type: 'ERC721' as const,
-      metadata: token.metadata,
-    })),
-    ...(nftData?.erc1155Balances || []).map((balance) => ({
-      id: balance.id,
-      tokenId: balance.tokenId,
-      balance: balance.balance,
-      contract: balance.contract?.address,
-      contractName: balance.contract?.name || 'Unknown',
-      type: 'ERC1155' as const,
-    }))
-  ]
+  // Use lib functions for normalization, filtering, sorting, and grouping
+  const allNFTs = normalizeNFTQueryResult(
+    nftData?.erc721Tokens ?? [],
+    nftData?.erc1155Balances ?? []
+  )
 
-  const filteredNFTs = filter === 'my-nfts' 
-    ? allNFTs.filter(nft => nft.owner?.toLowerCase() === address?.toLowerCase() || Number(nft.balance) > 0)
+  const filteredNFTs = filter === 'my-nfts' && address
+    ? filterNFTsByOwner(allNFTs, address)
     : allNFTs
 
-  const sortedNFTs = [...filteredNFTs].sort((a, b) => {
-    switch (sortBy) {
-      case 'collection':
-        return a.contractName.localeCompare(b.contractName)
-      case 'recent':
-        return parseInt(b.tokenId || '0') - parseInt(a.tokenId || '0')
-      case 'price':
-        return 0
-      default:
-        return 0
-    }
-  })
-
-  const collections = sortedNFTs.reduce((acc, nft) => {
-    const collection = nft.contractName
-    if (!acc[collection]) acc[collection] = []
-    acc[collection].push(nft)
-    return acc
-  }, {} as Record<string, NormalizedNFT[]>)
+  const sortedNFTs = sortNFTs(filteredNFTs, sortBy)
+  const collections = groupNFTsByCollection(sortedNFTs)
 
   const openNFT = (nft: NormalizedNFT) => {
     setSelectedNFT(nft)
@@ -216,7 +170,7 @@ function NFTsPageContent() {
 
           <select
             value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as 'recent' | 'price' | 'collection')}
+            onChange={(e) => setSortBy(e.target.value as NFTSortOption)}
             className="input w-full sm:w-40 py-2 text-sm"
           >
             <option value="recent">Newest</option>

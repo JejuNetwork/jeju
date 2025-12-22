@@ -21,7 +21,7 @@ import { privateKeyToAccount } from "viem/accounts";
 // ============ Constants ============
 
 export const TEST_CHAIN_ID = 31337;
-export const TEST_RPC_URL = "http://127.0.0.1:6546";
+export const TEST_RPC_URL = "http://127.0.0.1:9545";
 
 // Anvil default accounts
 export const TEST_ACCOUNTS = {
@@ -75,7 +75,7 @@ export async function startAnvil(): Promise<ChildProcess> {
 
     const proc = spawn(anvilPath, [
       "--host", "127.0.0.1",
-      "--port", "6546",
+      "--port", "9545",
       "--chain-id", TEST_CHAIN_ID.toString(),
       "--gas-limit", "30000000",
       "--code-size-limit", "100000",

@@ -264,7 +264,7 @@ const IDENTITY_REGISTRY_ABI = [
 export const CHAIN_CONFIGS: Record<number, { name: string; rpcUrl: string; usdc: Address }> = {
   420691: {
     name: 'Network',
-    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
+    rpcUrl: process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
     usdc: '0x0165878A594ca255338adfa4d48449f69242Eb8F' as Address,
   },
   420690: {
@@ -309,7 +309,7 @@ export class X402Client {
   constructor(config: X402ClientConfig) {
     this.config = config;
     const chainConfig = CHAIN_CONFIGS[config.chainId];
-    const rpcUrl = config.rpcUrl || chainConfig?.rpcUrl || 'http://127.0.0.1:6546';
+    const rpcUrl = config.rpcUrl || chainConfig?.rpcUrl || 'http://127.0.0.1:9545';
 
     const chain: Chain = {
       id: config.chainId,

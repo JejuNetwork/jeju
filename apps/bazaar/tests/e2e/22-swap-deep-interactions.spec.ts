@@ -165,7 +165,7 @@ test.describe('Swap - Deep Interaction Testing', () => {
     const inputSelect = page.locator('select').first();
     const outputSelect = page.locator('select').nth(1);
     
-    const tokens = ['ETH', 'USDC', 'elizaOS'];
+    const tokens = ['ETH', 'USDC', 'JEJU'];
     
     for (const inputToken of tokens) {
       for (const outputToken of tokens) {

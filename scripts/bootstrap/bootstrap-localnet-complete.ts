@@ -112,7 +112,7 @@ class CompleteBootstrapper {
   ];
 
   constructor() {
-    this.rpcUrl = process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546';
+    this.rpcUrl = process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545';
     this.deployerKey = process.env.PRIVATE_KEY || this.TEST_ACCOUNTS[0].key;
     this.deployerAddress = this.getAddress(this.deployerKey);
   }

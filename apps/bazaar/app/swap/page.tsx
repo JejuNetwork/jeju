@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useAccount } from 'wagmi'
-import { parseEther, formatEther, type Address } from 'viem'
+import { parseEther, formatEther } from 'viem'
 import { JEJU_CHAIN_ID } from '@/config/chains'
 import { toast } from 'sonner'
 import { 
@@ -12,12 +12,16 @@ import {
   SUPPORTED_CHAINS,
   isCrossChainSwap as checkCrossChain
 } from '@/hooks/useEIL'
-
-const TOKENS = [
-  { symbol: 'ETH', name: 'Ethereum', icon: '⟠', address: '0x0000000000000000000000000000000000000000' as Address },
-  { symbol: 'USDC', name: 'USD Coin', icon: '💵', address: '0x0000000000000000000000000000000000000001' as Address },
-  { symbol: 'JEJU', name: 'Jeju Token', icon: '🏝️', address: '0x0000000000000000000000000000000000000002' as Address },
-]
+import {
+  SWAP_TOKENS,
+  getTokenBySymbol,
+  isCrossChain,
+  validateSwap,
+  generateSwapQuote,
+  formatSwapAmount,
+  getSwapButtonText,
+  isSwapButtonDisabled,
+} from '@/lib/swap'
 
 export default function SwapPage() {
   const { isConnected, chain, address } = useAccount()
@@ -33,14 +37,12 @@ export default function SwapPage() {
   const { isAvailable: eilAvailable, crossChainPaymaster } = useEILConfig()
   const { executeCrossChainSwap, swapStatus, isLoading: isSwapping, hash } = useCrossChainSwap(crossChainPaymaster)
   
-  const isCrossChain = checkCrossChain(sourceChainId, destChainId)
+  const isCrossChainSwap = checkCrossChain(sourceChainId, destChainId)
   const amount = inputAmount ? parseEther(inputAmount) : 0n
   const feeEstimate = useSwapFeeEstimate(sourceChainId, destChainId, amount)
 
   const sourceChain = SUPPORTED_CHAINS.find(c => c.id === sourceChainId)
   const destChain = SUPPORTED_CHAINS.find(c => c.id === destChainId)
-  const inputTokenInfo = TOKENS.find(t => t.symbol === inputToken)
-  const outputTokenInfo = TOKENS.find(t => t.symbol === outputToken)
 
   useEffect(() => {
     if (!inputAmount || parseFloat(inputAmount) <= 0) {
@@ -48,47 +50,40 @@ export default function SwapPage() {
       return
     }
     
-    const inputValue = parseEther(inputAmount)
-    const fee = feeEstimate.totalFee
-    const outputValue = inputValue - fee - (inputValue * 30n / 10000n)
+    const quote = generateSwapQuote(
+      parseEther(inputAmount),
+      inputToken,
+      outputToken,
+      sourceChainId,
+      destChainId
+    )
     
-    let output = outputValue
-    if (inputToken === 'ETH' && outputToken === 'USDC') {
-      output = outputValue * 3000n / parseEther('1')
-    } else if (inputToken === 'USDC' && outputToken === 'ETH') {
-      output = outputValue * parseEther('1') / 3000n
-    }
-    
-    setOutputAmount(formatEther(output > 0n ? output : 0n))
-  }, [inputAmount, inputToken, outputToken, feeEstimate.totalFee])
+    setOutputAmount(formatSwapAmount(quote.outputAmount))
+  }, [inputAmount, inputToken, outputToken, sourceChainId, destChainId])
 
   const handleSwap = async () => {
-    if (!isConnected) {
-      toast.error('Connect your wallet first')
+    const validation = validateSwap(
+      isConnected,
+      inputAmount,
+      inputToken,
+      outputToken,
+      sourceChainId,
+      destChainId,
+      isCorrectChain,
+      eilAvailable
+    )
+
+    if (!validation.valid) {
+      toast.error(validation.error)
       return
     }
 
-    if (!inputAmount || parseFloat(inputAmount) <= 0) {
-      toast.error('Enter an amount')
-      return
-    }
-
-    if (inputToken === outputToken && !isCrossChain) {
-      toast.error('Select different tokens')
-      return
-    }
-
-    const sourceTokenInfo = TOKENS.find(t => t.symbol === inputToken)
-    const destTokenInfo = TOKENS.find(t => t.symbol === outputToken)
+    const sourceTokenInfo = getTokenBySymbol(inputToken)
+    const destTokenInfo = getTokenBySymbol(outputToken)
 
     if (!sourceTokenInfo || !destTokenInfo) return
 
-    if (isCrossChain) {
-      if (!eilAvailable) {
-        toast.error('Cross-chain swaps not available yet')
-        return
-      }
-
+    if (isCrossChainSwap) {
       await executeCrossChainSwap({
         sourceToken: sourceTokenInfo.address,
         destinationToken: destTokenInfo.address,
@@ -97,11 +92,6 @@ export default function SwapPage() {
         destinationChainId: destChainId
       })
     } else {
-      if (!isCorrectChain) {
-        toast.error('Switch to the correct network')
-        return
-      }
-
       await executeCrossChainSwap({
         sourceToken: sourceTokenInfo.address,
         destinationToken: destTokenInfo.address,
@@ -121,13 +111,30 @@ export default function SwapPage() {
     setDestChainId(temp)
   }
 
+  const buttonText = getSwapButtonText(
+    isConnected,
+    isSwapping,
+    isCorrectChain,
+    Boolean(inputAmount),
+    isCrossChainSwap,
+    destChain?.name ?? 'Unknown'
+  )
+
+  const buttonDisabled = isSwapButtonDisabled(
+    isConnected,
+    isSwapping,
+    isCorrectChain,
+    Boolean(inputAmount),
+    isCrossChainSwap
+  )
+
   return (
     <div className="max-w-lg mx-auto">
       <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-6 md:mb-8 text-center" style={{ color: 'var(--text-primary)' }}>
         🔄 Swap
       </h1>
 
-      {isConnected && !isCorrectChain && !isCrossChain && (
+      {isConnected && !isCorrectChain && !isCrossChainSwap && (
         <div className="card p-4 mb-4 border-red-500/30 bg-red-500/10">
           <p className="text-red-400 text-sm text-center">Switch to the correct network to swap</p>
         </div>
@@ -164,7 +171,7 @@ export default function SwapPage() {
               onChange={(e) => setInputToken(e.target.value)}
               className="input w-32 font-medium"
             >
-              {TOKENS.map((token) => (
+              {SWAP_TOKENS.map((token) => (
                 <option key={token.symbol} value={token.symbol}>
                   {token.icon} {token.symbol}
                 </option>
@@ -217,7 +224,7 @@ export default function SwapPage() {
               onChange={(e) => setOutputToken(e.target.value)}
               className="input w-32 font-medium"
             >
-              {TOKENS.map((token) => (
+              {SWAP_TOKENS.map((token) => (
                 <option key={token.symbol} value={token.symbol}>
                   {token.icon} {token.symbol}
                 </option>
@@ -227,7 +234,7 @@ export default function SwapPage() {
         </div>
 
         {/* Cross-chain Info */}
-        {isCrossChain && (
+        {isCrossChainSwap && (
           <div className="mb-4 p-3 rounded-xl text-sm" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             <div className="flex items-center gap-2 mb-2">
               <span className="text-lg">🌉</span>
@@ -251,7 +258,7 @@ export default function SwapPage() {
         )}
 
         {/* Swap Summary */}
-        {inputAmount && outputAmount && !isCrossChain && (
+        {inputAmount && outputAmount && !isCrossChainSwap && (
           <div className="mb-4 p-3 rounded-xl text-sm space-y-1.5" style={{ backgroundColor: 'var(--bg-secondary)' }}>
             <div className="flex justify-between">
               <span style={{ color: 'var(--text-tertiary)' }}>Rate</span>
@@ -269,17 +276,10 @@ export default function SwapPage() {
         {/* Swap Button */}
         <button
           onClick={handleSwap}
-          disabled={!isConnected || isSwapping || (!isCorrectChain && !isCrossChain) || !inputAmount}
+          disabled={buttonDisabled}
           className="btn-primary w-full py-4 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {!isConnected 
-            ? 'Connect Wallet' 
-            : isSwapping 
-            ? 'Swapping...' 
-            : isCrossChain
-            ? `Swap to ${destChain?.name}`
-            : 'Swap'
-          }
+          {buttonText}
         </button>
 
         {/* Success Message */}
@@ -292,4 +292,3 @@ export default function SwapPage() {
     </div>
   )
 }
-

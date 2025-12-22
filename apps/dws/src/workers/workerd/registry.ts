@@ -11,8 +11,7 @@ import {
   type PublicClient,
   type WalletClient,
   type Chain,
-  encodeFunctionData,
-  decodeFunctionResult,
+  decodeEventLog,
 } from 'viem';
 import { privateKeyToAccount, type PrivateKeyAccount } from 'viem/accounts';
 import type { WorkerdWorkerDefinition } from './types';
@@ -58,6 +57,16 @@ export interface RegistryConfig {
 // ============================================================================
 
 const IDENTITY_REGISTRY_ABI = [
+  // Events for proper log parsing
+  {
+    name: 'Transfer',
+    type: 'event',
+    inputs: [
+      { name: 'from', type: 'address', indexed: true },
+      { name: 'to', type: 'address', indexed: true },
+      { name: 'tokenId', type: 'uint256', indexed: true },
+    ],
+  },
   {
     name: 'register',
     type: 'function',
@@ -230,27 +239,51 @@ export class DecentralizedWorkerRegistry {
       },
     }))}`;
 
-    // Register agent
-    const registerData = encodeFunctionData({
+    // Simulate and execute registration
+    const { request: registerRequest } = await this.publicClient.simulateContract({
+      address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'register',
       args: [tokenURI],
+      account: this.account,
     });
 
-    // @ts-expect-error viem version type mismatch in monorepo
-    const registerTx = await this.walletClient.sendTransaction({
-      to: this.registryAddress,
-      data: registerData,
-    });
+    const registerTx = await this.walletClient.writeContract(registerRequest);
 
-    // Wait for receipt and extract agentId from event
+    // Wait for receipt and extract agentId from Transfer event
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: registerTx,
     });
 
-    // Parse agentId from logs (simplified - would need proper event parsing)
-    // @ts-expect-error viem version type mismatch
-    const agentId = BigInt(receipt.logs[0]?.topics?.[1] || 0);
+    // Parse agentId from Transfer event (ERC-721 mint emits Transfer with tokenId)
+    const transferLog = receipt.logs.find((log) => {
+      try {
+        const decoded = decodeEventLog({
+          abi: IDENTITY_REGISTRY_ABI,
+          data: log.data,
+          topics: log.topics,
+        });
+        return decoded.eventName === 'Transfer';
+      } catch {
+        return false;
+      }
+    });
+
+    if (!transferLog) {
+      throw new Error('Transfer event not found in registration transaction');
+    }
+
+    const decoded = decodeEventLog({
+      abi: IDENTITY_REGISTRY_ABI,
+      data: transferLog.data,
+      topics: transferLog.topics,
+    });
+
+    if (decoded.eventName !== 'Transfer') {
+      throw new Error('Unexpected event type');
+    }
+
+    const agentId = (decoded.args as { tokenId: bigint }).tokenId;
 
     // Set metadata
     await this.setWorkerMetadata(agentId, worker);
@@ -284,11 +317,11 @@ export class DecentralizedWorkerRegistry {
     agentId: bigint,
     worker: WorkerdWorkerDefinition
   ): Promise<void> {
-    if (!this.walletClient) {
+    if (!this.walletClient || !this.account) {
       throw new Error('Wallet not configured');
     }
 
-    const metadataEntries = [
+    const metadataEntries: [string, string][] = [
       [WORKER_CODE_CID_KEY, worker.codeCid],
       [WORKER_VERSION_KEY, String(worker.version)],
       [WORKER_MEMORY_KEY, String(worker.memoryMb)],
@@ -296,50 +329,44 @@ export class DecentralizedWorkerRegistry {
     ];
 
     for (const [key, value] of metadataEntries) {
-      const data = encodeFunctionData({
+      const { request } = await this.publicClient.simulateContract({
+        address: this.registryAddress,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: 'setMetadata',
         args: [agentId, key, `0x${Buffer.from(value).toString('hex')}` as `0x${string}`],
+        account: this.account,
       });
 
-      // @ts-expect-error viem version type mismatch
-      await this.walletClient.sendTransaction({
-        to: this.registryAddress,
-        data,
-      });
+      await this.walletClient.writeContract(request);
     }
   }
 
   private async setEndpoint(agentId: bigint, endpoint: string): Promise<void> {
-    if (!this.walletClient) return;
+    if (!this.walletClient || !this.account) return;
 
-    const data = encodeFunctionData({
+    const { request } = await this.publicClient.simulateContract({
+      address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'setA2AEndpoint',
       args: [agentId, endpoint],
+      account: this.account,
     });
 
-    // @ts-expect-error viem version type mismatch
-    await this.walletClient.sendTransaction({
-      to: this.registryAddress,
-      data,
-    });
+    await this.walletClient.writeContract(request);
   }
 
   private async addTag(agentId: bigint, tag: string): Promise<void> {
-    if (!this.walletClient) return;
+    if (!this.walletClient || !this.account) return;
 
-    const data = encodeFunctionData({
+    const { request } = await this.publicClient.simulateContract({
+      address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'addTag',
       args: [agentId, tag],
+      account: this.account,
     });
 
-    // @ts-expect-error viem version type mismatch
-    await this.walletClient.sendTransaction({
-      to: this.registryAddress,
-      data,
-    });
+    await this.walletClient.writeContract(request);
   }
 
   // ============================================================================
@@ -456,24 +483,49 @@ export class DecentralizedWorkerRegistry {
       },
     }))}`;
 
-    const registerData = encodeFunctionData({
+    const { request: registerRequest } = await this.publicClient.simulateContract({
+      address: this.registryAddress,
       abi: IDENTITY_REGISTRY_ABI,
       functionName: 'register',
       args: [tokenURI],
+      account: this.account,
     });
 
-    // @ts-expect-error viem version type mismatch
-    const registerTx = await this.walletClient.sendTransaction({
-      to: this.registryAddress,
-      data: registerData,
-    });
+    const registerTx = await this.walletClient.writeContract(registerRequest);
 
     const receipt = await this.publicClient.waitForTransactionReceipt({
       hash: registerTx,
     });
 
-    // @ts-expect-error viem version type mismatch
-    const agentId = BigInt(receipt.logs[0]?.topics?.[1] || 0);
+    // Parse agentId from Transfer event (ERC-721 mint emits Transfer with tokenId)
+    const transferLog = receipt.logs.find((log) => {
+      try {
+        const decoded = decodeEventLog({
+          abi: IDENTITY_REGISTRY_ABI,
+          data: log.data,
+          topics: log.topics,
+        });
+        return decoded.eventName === 'Transfer';
+      } catch {
+        return false;
+      }
+    });
+
+    if (!transferLog) {
+      throw new Error('Transfer event not found in registration transaction');
+    }
+
+    const decoded = decodeEventLog({
+      abi: IDENTITY_REGISTRY_ABI,
+      data: transferLog.data,
+      topics: transferLog.topics,
+    });
+
+    if (decoded.eventName !== 'Transfer') {
+      throw new Error('Unexpected event type');
+    }
+
+    const agentId = (decoded.args as { tokenId: bigint }).tokenId;
 
     // Set endpoint and metadata
     await this.setEndpoint(agentId, endpoint);
@@ -488,25 +540,23 @@ export class DecentralizedWorkerRegistry {
     region: string,
     capabilities: string[]
   ): Promise<void> {
-    if (!this.walletClient) return;
+    if (!this.walletClient || !this.account) return;
 
-    const entries = [
+    const entries: [string, string][] = [
       [WORKER_REGION_KEY, region],
       [WORKER_CAPABILITIES_KEY, capabilities.join(',')],
     ];
 
     for (const [key, value] of entries) {
-      const data = encodeFunctionData({
+      const { request } = await this.publicClient.simulateContract({
+        address: this.registryAddress,
         abi: IDENTITY_REGISTRY_ABI,
         functionName: 'setMetadata',
         args: [agentId, key, `0x${Buffer.from(value).toString('hex')}` as `0x${string}`],
+        account: this.account,
       });
 
-      // @ts-expect-error viem version type mismatch
-      await this.walletClient.sendTransaction({
-        to: this.registryAddress,
-        data,
-      });
+      await this.walletClient.writeContract(request);
     }
   }
 

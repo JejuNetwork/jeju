@@ -13,7 +13,7 @@ import { privateKeyToAccount, generatePrivateKey } from "viem/accounts";
 import { parseEther } from "viem";
 
 const DEPLOYER_KEY = "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80";
-const RPC_URL = process.env.RPC_URL || "http://127.0.0.1:6546";
+const RPC_URL = process.env.RPC_URL || "http://127.0.0.1:9545";
 const STORAGE_URL = process.env.STORAGE_API_URL || "http://127.0.0.1:4010";
 const COMPUTE_URL = process.env.COMPUTE_API_URL || "http://127.0.0.1:4007";
 const GATEWAY_URL = process.env.GATEWAY_A2A_URL || "http://127.0.0.1:4003";

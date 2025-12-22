@@ -26,7 +26,7 @@ async function deploy(network: Network) {
   if (!deployerKey) throw new Error('DEPLOYER_PRIVATE_KEY not set');
 
   const { chain, linkToken } = CHAINS[network];
-  const rpcUrl = process.env[`${network.toUpperCase()}_RPC_URL`] ?? 'http://localhost:6546';
+  const rpcUrl = process.env[`${network.toUpperCase()}_RPC_URL`] ?? 'http://localhost:9545';
   const autocrat = (process.env.AUTOCRAT_ADDRESS ?? '0x0') as Address;
   const treasury = (process.env.TREASURY_ADDRESS ?? '0x0') as Address;
 

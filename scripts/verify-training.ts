@@ -7,7 +7,7 @@
 import { createPublicClient, http } from 'viem';
 import { foundry } from 'viem/chains';
 
-const RPC_URL = process.env.RPC_URL || 'http://localhost:6546';
+const RPC_URL = process.env.RPC_URL || 'http://localhost:9545';
 
 // Contract addresses (localnet)
 const CONTRACTS = {

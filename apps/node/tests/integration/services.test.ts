@@ -9,7 +9,7 @@ import { createPublicClient, http, parseEther, formatEther } from 'viem';
 import { createNodeClient, jejuLocalnet } from '../../src/lib/contracts';
 import { createNodeServices } from '../../src/lib/services';
 
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546';
+const RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545';
 const CHAIN_ID = 1337;
 const TEST_PRIVATE_KEY = '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80';
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266';

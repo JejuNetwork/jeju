@@ -139,7 +139,7 @@ class ServicesOrchestrator {
   private rootDir: string;
   private rpcUrl: string;
 
-  constructor(rootDir: string, rpcUrl = 'http://localhost:6546') {
+  constructor(rootDir: string, rpcUrl = 'http://localhost:9545') {
     this.rootDir = rootDir;
     this.rpcUrl = rpcUrl;
   }

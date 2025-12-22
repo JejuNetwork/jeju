@@ -22,7 +22,7 @@ import { buildSwapIntent } from '../../../scripts/shared/intent-swap';
 
 // Test configuration
 const TEST_CONFIG = {
-  rpcUrl: process.env.RPC_URL || 'http://localhost:6546',
+  rpcUrl: process.env.RPC_URL || 'http://localhost:9545',
   chainId: parseInt(process.env.CHAIN_ID || '31337'),
   testTimeout: 30000,
 };

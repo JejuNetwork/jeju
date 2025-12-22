@@ -1,14 +1,14 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
+import type { NextConfig } from 'next';
+import path from 'path';
+
+const nextConfig: NextConfig = {
   reactStrictMode: true,
-  // Next.js 16 uses Turbopack by default
   turbopack: {
     resolveAlias: {
       'porto/internal': './lib/stubs/porto-stub.js',
       'porto': './lib/stubs/porto-stub.js',
     },
   },
-  // Skip TypeScript errors during build (monorepo type conflicts)
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -30,7 +30,6 @@ const nextConfig = {
     ],
   },
   webpack: (config, { isServer }) => {
-    // Fix browser-only module resolution
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -41,26 +40,23 @@ const nextConfig = {
         child_process: false,
       };
     }
-    
-    // Stub out problematic porto connector and its dependencies
-    const portoStub = require.resolve('./lib/stubs/porto-stub.js');
+
+    const portoStub = path.resolve(__dirname, './lib/stubs/porto-stub.js');
     config.resolve.alias = {
       ...config.resolve.alias,
       'porto/internal': portoStub,
       'porto': portoStub,
       'zod/mini': require.resolve('zod'),
     };
-    
-    // Ignore dynamic requires in problematic packages
+
     config.module = {
       ...config.module,
       exprContextCritical: false,
       unknownContextCritical: false,
     };
-    
+
     return config;
   },
 };
 
-module.exports = nextConfig;
-
+export default nextConfig;

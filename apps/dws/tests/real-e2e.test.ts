@@ -2,7 +2,7 @@
  * REAL End-to-End Tests for DWS
  * 
  * These tests run against ACTUAL infrastructure:
- * - Jeju localnet (L2: 6546)
+ * - Jeju localnet (L2: 9545)
  * - Deployed contracts
  * - Running DWS server
  * - Real workerd execution
@@ -25,7 +25,7 @@ setDefaultTimeout(120000);
 // ============================================================================
 
 const DWS_URL = process.env.DWS_URL ?? 'http://localhost:4030';
-const RPC_URL = process.env.RPC_URL ?? 'http://127.0.0.1:6546';
+const RPC_URL = process.env.RPC_URL ?? 'http://127.0.0.1:9545';
 const E2E_MODE = process.env.E2E_MODE === 'true';
 
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address;
