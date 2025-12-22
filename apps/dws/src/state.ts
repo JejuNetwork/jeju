@@ -263,6 +263,26 @@ async function ensureTablesExist(): Promise<void> {
       nonce TEXT PRIMARY KEY,
       used_at INTEGER NOT NULL
     )`,
+    `CREATE TABLE IF NOT EXISTS training_runs (
+      run_id TEXT PRIMARY KEY,
+      model TEXT NOT NULL,
+      state INTEGER NOT NULL DEFAULT 0,
+      clients INTEGER NOT NULL DEFAULT 0,
+      step INTEGER NOT NULL DEFAULT 0,
+      total_steps INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )`,
+    `CREATE TABLE IF NOT EXISTS training_nodes (
+      address TEXT PRIMARY KEY,
+      gpu_tier INTEGER NOT NULL DEFAULT 0,
+      score INTEGER NOT NULL DEFAULT 100,
+      latency_ms INTEGER NOT NULL DEFAULT 50,
+      bandwidth_mbps INTEGER NOT NULL DEFAULT 1000,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      last_heartbeat INTEGER,
+      created_at INTEGER NOT NULL
+    )`,
   ];
   
   const indexes = [
@@ -277,6 +297,8 @@ async function ensureTablesExist(): Promise<void> {
     'CREATE INDEX IF NOT EXISTS idx_listings_provider ON api_listings(provider_id)',
     'CREATE INDEX IF NOT EXISTS idx_api_keys_address ON api_keys(address)',
     'CREATE INDEX IF NOT EXISTS idx_api_keys_hash ON api_keys(key_hash)',
+    'CREATE INDEX IF NOT EXISTS idx_training_runs_state ON training_runs(state)',
+    'CREATE INDEX IF NOT EXISTS idx_training_nodes_active ON training_nodes(is_active)',
   ];
   
   for (const ddl of tables) {
@@ -954,6 +976,182 @@ export const apiKeyState = {
       CQL_DATABASE_ID
     );
     return result.rowsAffected > 0;
+  },
+};
+
+// Training Run Row Type
+interface TrainingRunRow {
+  run_id: string;
+  model: string;
+  state: number;
+  clients: number;
+  step: number;
+  total_steps: number;
+  created_at: number;
+  updated_at: number;
+}
+
+// Training Node Row Type
+interface TrainingNodeRow {
+  address: string;
+  gpu_tier: number;
+  score: number;
+  latency_ms: number;
+  bandwidth_mbps: number;
+  is_active: number;
+  last_heartbeat: number | null;
+  created_at: number;
+}
+
+// Training State Operations
+export const trainingState = {
+  // Training Runs
+  async saveRun(run: {
+    runId: string;
+    model: string;
+    state: number;
+    clients: number;
+    step: number;
+    totalSteps: number;
+  }): Promise<void> {
+    const client = await getCQLClient();
+    const now = Date.now();
+    await client.exec(
+      `INSERT INTO training_runs (run_id, model, state, clients, step, total_steps, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(run_id) DO UPDATE SET
+       state = ?, clients = ?, step = ?, updated_at = ?`,
+      [run.runId, run.model, run.state, run.clients, run.step, run.totalSteps, now, now,
+       run.state, run.clients, run.step, now],
+      CQL_DATABASE_ID
+    );
+  },
+
+  async getRun(runId: string): Promise<TrainingRunRow | null> {
+    const client = await getCQLClient();
+    const result = await client.query<TrainingRunRow>(
+      'SELECT * FROM training_runs WHERE run_id = ?',
+      [runId],
+      CQL_DATABASE_ID
+    );
+    return result.rows[0] ?? null;
+  },
+
+  async listRuns(status?: 'active' | 'completed' | 'paused'): Promise<TrainingRunRow[]> {
+    const client = await getCQLClient();
+    let query = 'SELECT * FROM training_runs';
+    const params: unknown[] = [];
+    
+    if (status === 'active') {
+      query += ' WHERE state >= 1 AND state <= 5';
+    } else if (status === 'completed') {
+      query += ' WHERE state = 6';
+    } else if (status === 'paused') {
+      query += ' WHERE state = 7';
+    }
+    
+    query += ' ORDER BY created_at DESC';
+    
+    const result = await client.query<TrainingRunRow>(query, params, CQL_DATABASE_ID);
+    return result.rows;
+  },
+
+  async deleteRun(runId: string): Promise<boolean> {
+    const client = await getCQLClient();
+    const result = await client.exec(
+      'DELETE FROM training_runs WHERE run_id = ?',
+      [runId],
+      CQL_DATABASE_ID
+    );
+    return result.rowsAffected > 0;
+  },
+
+  // Training Nodes
+  async saveNode(node: {
+    address: string;
+    gpuTier: number;
+    score?: number;
+    latencyMs?: number;
+    bandwidthMbps?: number;
+    isActive?: boolean;
+  }): Promise<void> {
+    const client = await getCQLClient();
+    const now = Date.now();
+    const addr = node.address.toLowerCase();
+    await client.exec(
+      `INSERT INTO training_nodes (address, gpu_tier, score, latency_ms, bandwidth_mbps, is_active, last_heartbeat, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       ON CONFLICT(address) DO UPDATE SET
+       gpu_tier = ?, score = ?, latency_ms = ?, bandwidth_mbps = ?, is_active = ?, last_heartbeat = ?`,
+      [addr, node.gpuTier, node.score ?? 100, node.latencyMs ?? 50, node.bandwidthMbps ?? 1000,
+       node.isActive !== false ? 1 : 0, now, now,
+       node.gpuTier, node.score ?? 100, node.latencyMs ?? 50, node.bandwidthMbps ?? 1000,
+       node.isActive !== false ? 1 : 0, now],
+      CQL_DATABASE_ID
+    );
+  },
+
+  async getNode(address: string): Promise<TrainingNodeRow | null> {
+    const client = await getCQLClient();
+    const result = await client.query<TrainingNodeRow>(
+      'SELECT * FROM training_nodes WHERE address = ?',
+      [address.toLowerCase()],
+      CQL_DATABASE_ID
+    );
+    return result.rows[0] ?? null;
+  },
+
+  async listNodes(activeOnly = true): Promise<TrainingNodeRow[]> {
+    const client = await getCQLClient();
+    let query = 'SELECT * FROM training_nodes';
+    if (activeOnly) {
+      query += ' WHERE is_active = 1';
+    }
+    const result = await client.query<TrainingNodeRow>(query, [], CQL_DATABASE_ID);
+    return result.rows;
+  },
+
+  async updateHeartbeat(address: string): Promise<boolean> {
+    const client = await getCQLClient();
+    const result = await client.exec(
+      'UPDATE training_nodes SET last_heartbeat = ?, is_active = 1 WHERE address = ?',
+      [Date.now(), address.toLowerCase()],
+      CQL_DATABASE_ID
+    );
+    return result.rowsAffected > 0;
+  },
+
+  async deleteNode(address: string): Promise<boolean> {
+    const client = await getCQLClient();
+    const result = await client.exec(
+      'DELETE FROM training_nodes WHERE address = ?',
+      [address.toLowerCase()],
+      CQL_DATABASE_ID
+    );
+    return result.rowsAffected > 0;
+  },
+
+  async getStats(): Promise<{ totalNodes: number; activeNodes: number; totalRuns: number; activeRuns: number }> {
+    const client = await getCQLClient();
+    
+    const nodes = await client.query<{ total: number; active: number }>(
+      'SELECT COUNT(*) as total, SUM(CASE WHEN is_active = 1 THEN 1 ELSE 0 END) as active FROM training_nodes',
+      [],
+      CQL_DATABASE_ID
+    );
+    
+    const runs = await client.query<{ total: number; active: number }>(
+      'SELECT COUNT(*) as total, SUM(CASE WHEN state >= 1 AND state <= 5 THEN 1 ELSE 0 END) as active FROM training_runs',
+      [],
+      CQL_DATABASE_ID
+    );
+    
+    return {
+      totalNodes: nodes.rows[0]?.total ?? 0,
+      activeNodes: nodes.rows[0]?.active ?? 0,
+      totalRuns: runs.rows[0]?.total ?? 0,
+      activeRuns: runs.rows[0]?.active ?? 0,
+    };
   },
 };
 

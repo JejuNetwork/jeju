@@ -1,0 +1,16 @@
+# Prometheus configuration for XMTP + Jeju Messaging
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: 'jeju-xmtp-node'
+    static_configs:
+      - targets: ['jeju-xmtp-node:9100']
+    metrics_path: /metrics
+
+  - job_name: 'jeju-relay'
+    static_configs:
+      - targets: ['jeju-relay:3000']
+    metrics_path: /metrics
+

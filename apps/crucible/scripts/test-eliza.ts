@@ -1,12 +1,22 @@
 /**
- * Test script to verify ElizaOS integration works
+ * Test script to verify Crucible runtime works with DWS
  */
 
-import { createCrucibleRuntime, type RuntimeMessage } from '../src/sdk/eliza-runtime';
+import { createCrucibleRuntime, checkDWSHealth, type RuntimeMessage } from '../src/sdk/eliza-runtime';
 import { getCharacter } from '../src/characters';
 
 async function main() {
-  console.log('=== Testing Crucible ElizaOS Integration ===');
+  console.log('=== Testing Crucible Agent Runtime ===');
+  
+  // Check DWS health first
+  console.log('Checking DWS availability...');
+  const dwsOk = await checkDWSHealth();
+  console.log('DWS available:', dwsOk);
+  
+  if (!dwsOk) {
+    console.error('DWS is not available. Please start DWS first.');
+    process.exit(1);
+  }
   
   const character = getCharacter('project-manager');
   if (!character) {
@@ -26,7 +36,7 @@ async function main() {
   try {
     await runtime.initialize();
     console.log('Runtime initialized successfully');
-    console.log('ElizaOS runtime available:', !!runtime.getElizaRuntime());
+    console.log('Has actions:', runtime.hasActions());
   } catch (e) {
     console.error('Failed to initialize:', e);
     process.exit(1);
@@ -46,14 +56,14 @@ async function main() {
     const response = await runtime.processMessage(message);
     console.log('=== Response ===');
     console.log('Text:', response.text);
-    console.log('Action:', response.action);
-    console.log('Actions:', response.actions);
+    if (response.action) {
+      console.log('Action:', response.action);
+    }
+    console.log('=== Test Complete ===');
   } catch (e) {
     console.error('Message processing failed:', e);
     process.exit(1);
   }
-  
-  console.log('=== Test Complete ===');
 }
 
 main();

@@ -55,7 +55,7 @@ const RISK_SLEEVE_ABI = [
     outputs: [],
   },
   {
-    name: 'positions',
+    name: 'getUserPosition',
     type: 'function',
     stateMutability: 'view',
     inputs: [
@@ -63,24 +63,22 @@ const RISK_SLEEVE_ABI = [
       { name: 'tier', type: 'uint8' },
     ],
     outputs: [
-      { name: 'amount', type: 'uint256' },
-      { name: 'tier', type: 'uint8' },
-      { name: 'depositTime', type: 'uint256' },
-      { name: 'accumulatedYield', type: 'uint256' },
+      { name: 'deposited', type: 'uint256' },
+      { name: 'pendingYield', type: 'uint256' },
+      { name: 'depositDuration', type: 'uint256' },
     ],
   },
   {
-    name: 'sleeves',
+    name: 'getSleeveStats',
     type: 'function',
     stateMutability: 'view',
     inputs: [{ name: 'tier', type: 'uint8' }],
     outputs: [
-      { name: 'maxUtilizationBps', type: 'uint256' },
-      { name: 'minTokenRiskScore', type: 'uint256' },
-      { name: 'baseYieldBps', type: 'uint256' },
-      { name: 'riskPremiumBps', type: 'uint256' },
-      { name: 'totalDeposited', type: 'uint256' },
-      { name: 'totalUtilized', type: 'uint256' },
+      { name: 'deposited', type: 'uint256' },
+      { name: 'utilized', type: 'uint256' },
+      { name: 'available', type: 'uint256' },
+      { name: 'utilizationBps', type: 'uint256' },
+      { name: 'yieldBps', type: 'uint256' },
     ],
   },
 ] as const;

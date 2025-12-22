@@ -1028,9 +1028,12 @@ export enum BountySubmissionStatus {
 }
 
 export enum ValidationResult {
-  VALID = 0,
-  INVALID = 1,
-  NEEDS_REVIEW = 2,
+  PENDING = 0,
+  VERIFIED = 1,
+  LIKELY_VALID = 2,
+  NEEDS_MORE_INFO = 3,
+  INVALID = 4,
+  SANDBOX_ERROR = 5,
 }
 
 export interface BountySubmissionDraft {
@@ -1054,28 +1057,29 @@ export interface BountySubmission extends BountySubmissionDraft {
   rewardAmount: bigint;
   status: BountySubmissionStatus;
   validationResult: ValidationResult;
-  validationNotes: string;
+  validationNotes?: string;
   guardianApprovals: number;
   guardianRejections: number;
   submittedAt: number;
-  validatedAt: number;
-  resolvedAt: number;
-  fixCommitHash: string | null;
-  disclosureDate: number | null;
-  researcherDisclosed: boolean;
+  validatedAt?: number;
+  resolvedAt?: number;
+  fixCommitHash?: string;
+  disclosureDate?: number;
+  researcherDisclosed?: boolean;
   encryptedReportCid: string;
   encryptionKeyId: string;
   proofOfConceptHash: string;
 }
 
 export interface BountyAssessment {
-  severityScore: number;
-  impactScore: number;
-  exploitabilityScore: number;
-  isImmediateThreat: boolean;
-  estimatedReward: bigint;
-  validationPriority: 'critical' | 'high' | 'medium' | 'low';
-  feedback: string[];
+  severity: BountySeverity;
+  estimatedReward: {
+    min: number;
+    max: number;
+    currency: string;
+  };
+  qualityScore: number;
+  issues: string[];
   readyToSubmit: boolean;
 }
 
@@ -1107,9 +1111,9 @@ export interface BountyPoolStats {
   guardianCount: number;
 }
 
-export const SEVERITY_REWARDS: Record<BountySeverity, { min: string; max: string }> = {
-  [BountySeverity.LOW]: { min: '$500', max: '$2,500' },
-  [BountySeverity.MEDIUM]: { min: '$2,500', max: '$10,000' },
-  [BountySeverity.HIGH]: { min: '$10,000', max: '$25,000' },
-  [BountySeverity.CRITICAL]: { min: '$25,000', max: '$50,000' },
+export const SEVERITY_REWARDS: Record<BountySeverity, { minReward: number; maxReward: number }> = {
+  [BountySeverity.LOW]: { minReward: 500, maxReward: 2500 },
+  [BountySeverity.MEDIUM]: { minReward: 2500, maxReward: 10000 },
+  [BountySeverity.HIGH]: { minReward: 10000, maxReward: 25000 },
+  [BountySeverity.CRITICAL]: { minReward: 25000, maxReward: 50000 },
 };

@@ -315,6 +315,16 @@ contract VoterSlashing is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @notice Check if a voter is currently banned from voting
+     * @param voter The voter address to check
+     * @return bool Whether the voter is banned
+     */
+    function isVotingBanned(address voter) external view returns (bool) {
+        VoterRecord storage record = voterRecords[voter];
+        return record.votingBanned && block.timestamp < record.votingBanExpiry;
+    }
+    
+    /**
      * @notice Get full voter record
      */
     function getVoterRecord(address voter) external view returns (

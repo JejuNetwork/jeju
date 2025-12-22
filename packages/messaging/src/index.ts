@@ -44,5 +44,8 @@
 // Re-export SDK (browser-compatible)
 export * from './sdk';
 
+// XMTP integration
+export * from './xmtp';
+
 // Node-only exports (relay server) available via '@jejunetwork/messaging/node'
 

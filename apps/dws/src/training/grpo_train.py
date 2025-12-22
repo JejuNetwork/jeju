@@ -19,8 +19,8 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as F
-from torch.optim import AdamW
 from transformers import AutoModelForCausalLM, AutoTokenizer
+import bitsandbytes as bnb
 import requests
 
 # ============================================================================
@@ -29,11 +29,12 @@ import requests
 
 @dataclass
 class TrainingConfig:
-    model_name: str = "microsoft/phi-2"
+    # Use TinyLlama-1.1B - fits in 16GB with gradients
+    model_name: str = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     learning_rate: float = 1e-5
     training_steps: int = 10
-    batch_size: int = 2
-    max_seq_len: int = 1024
+    batch_size: int = 1
+    max_seq_len: int = 512
     gradient_accumulation_steps: int = 4
     save_path: str = "./training_checkpoints"
     atropos_url: str = "http://localhost:8000"
@@ -65,8 +66,8 @@ class VLLMServer:
             "--model", self.model_path,
             "--port", str(self.port),
             "--dtype", "float16",
-            "--gpu-memory-utilization", "0.4",
-            "--max-model-len", "1024",
+            "--gpu-memory-utilization", "0.35",
+            "--max-model-len", "512",
             "--enforce-eager",
         ]
         
@@ -258,13 +259,13 @@ class GRPOTrainer:
         ).to(self.device)
         self.model.gradient_checkpointing_enable()
         
-        self.optimizer = AdamW(
+        # Use 8-bit Adam to save memory
+        self.optimizer = bnb.optim.Adam8bit(
             self.model.parameters(),
             lr=config.learning_rate,
             weight_decay=0.01,
         )
         
-        self.vllm = VLLMServer(config.model_name, config.vllm_port)
         self.atropos = AtroposClient(config.atropos_url)
         
         self.current_step = 0
@@ -388,8 +389,30 @@ class GRPOTrainer:
         
         return avg_metrics
     
+    @torch.no_grad()
+    def generate_completion(self, prompt: str, max_new_tokens: int = 128) -> str:
+        """Generate completion using the training model directly."""
+        self.model.eval()
+        
+        inputs = self.tokenizer(prompt, return_tensors="pt", truncation=True, max_length=512)
+        inputs = {k: v.to(self.device) for k, v in inputs.items()}
+        
+        outputs = self.model.generate(
+            **inputs,
+            max_new_tokens=max_new_tokens,
+            do_sample=True,
+            temperature=0.8,
+            top_p=0.95,
+            pad_token_id=self.tokenizer.pad_token_id,
+        )
+        
+        # Decode only the new tokens
+        new_tokens = outputs[0][inputs["input_ids"].shape[1]:]
+        completion = self.tokenizer.decode(new_tokens, skip_special_tokens=True)
+        return completion
+    
     def collect_rollouts(self, prompts: list, group_size: int = 4) -> list:
-        """Collect rollouts from vLLM and score them."""
+        """Collect rollouts using the training model and score them."""
         all_data = []
         
         for prompt in prompts:
@@ -398,7 +421,8 @@ class GRPOTrainer:
             masks_list = []
             
             for _ in range(group_size):
-                completion = self.vllm.generate(prompt, max_tokens=256, temperature=0.8)
+                # Use training model for generation (no vLLM needed)
+                completion = self.generate_completion(prompt, max_new_tokens=128)
                 completions.append(completion)
                 
                 # Tokenize
@@ -439,7 +463,7 @@ class GRPOTrainer:
         return all_data
     
     def train(self):
-        """Main training loop."""
+        """Main training loop with real gradient updates."""
         print(f"[GRPO] Starting training for {self.config.training_steps} steps")
         print(f"[GRPO] Model: {self.config.model_name}")
         print(f"[GRPO] Device: {self.device}")
@@ -449,9 +473,6 @@ class GRPOTrainer:
         self.atropos.register_trainer(self.config)
         print("[GRPO] Registered with Atropos")
         
-        # Start vLLM
-        self.vllm.start()
-        
         # Training prompts
         prompts = [
             "Analyze this financial data:\nQ3 Revenue: $45B (+12%)\nNet Income: $8B\nPredict earnings guidance direction.",
@@ -459,51 +480,49 @@ class GRPOTrainer:
             "Market conditions:\nGDP growth 2.8%\nInflation 3.2%\nPredict dividend policy.",
         ]
         
-        try:
-            for step in range(self.config.training_steps):
-                print(f"\n{'='*60}")
-                print(f"[GRPO] Step {step + 1}/{self.config.training_steps}")
-                print(f"{'='*60}")
-                
-                # Collect rollouts
-                print("[GRPO] Collecting rollouts...")
-                rollouts = self.collect_rollouts(
-                    [prompts[step % len(prompts)]],
-                    group_size=4,
+        for step in range(self.config.training_steps):
+            print(f"\n{'='*60}")
+            print(f"[GRPO] Step {step + 1}/{self.config.training_steps}")
+            print(f"{'='*60}")
+            
+            # Collect rollouts using the training model
+            print("[GRPO] Collecting rollouts...")
+            rollouts = self.collect_rollouts(
+                [prompts[step % len(prompts)]],
+                group_size=4,
+            )
+            
+            # Show sample completion
+            if rollouts and rollouts[0]["tokens"]:
+                sample = self.tokenizer.decode(rollouts[0]["tokens"][0][:50], skip_special_tokens=True)
+                print(f"[GRPO] Sample: {sample[:100]}...")
+            
+            # Submit to Atropos for coordination
+            for data in rollouts:
+                self.atropos.submit_scored_data(
+                    data["tokens"],
+                    data["masks"],
+                    data["scores"],
                 )
-                
-                # Submit to Atropos
-                for data in rollouts:
-                    self.atropos.submit_scored_data(
-                        data["tokens"],
-                        data["masks"],
-                        data["scores"],
-                    )
-                
-                # Train
-                print("[GRPO] Training...")
-                metrics = self.train_step(rollouts)
-                
-                print(f"[GRPO] Loss: {metrics['loss']:.6f}")
-                print(f"[GRPO] Grad Norm: {metrics['grad_norm']:.6f}")
-                print(f"[GRPO] Pos LogP: {metrics['pos_log_prob']:.6f}")
-                print(f"[GRPO] Neg LogP: {metrics['neg_log_prob']:.6f}")
-                
-                self.current_step = step + 1
-                
-                # Save checkpoint and restart vLLM periodically
-                if (step + 1) % self.config.vllm_restart_interval == 0:
-                    checkpoint_path = self.save_checkpoint(step + 1)
-                    self.vllm.stop()
-                    self.vllm.model_path = checkpoint_path
-                    self.vllm.start()
             
-            # Final save
-            final_path = self.save_checkpoint(self.config.training_steps)
-            print(f"\n[GRPO] Training complete. Final model saved to {final_path}")
+            # Train with real gradients
+            print("[GRPO] Training with REAL gradients...")
+            metrics = self.train_step(rollouts)
             
-        finally:
-            self.vllm.stop()
+            print(f"[GRPO] Loss: {metrics['loss']:.6f}")
+            print(f"[GRPO] Grad Norm: {metrics['grad_norm']:.6f}")
+            print(f"[GRPO] Pos LogP: {metrics['pos_log_prob']:.6f}")
+            print(f"[GRPO] Neg LogP: {metrics['neg_log_prob']:.6f}")
+            
+            self.current_step = step + 1
+            
+            # Save checkpoint periodically
+            if (step + 1) % self.config.vllm_restart_interval == 0:
+                self.save_checkpoint(step + 1)
+        
+        # Final save
+        final_path = self.save_checkpoint(self.config.training_steps)
+        print(f"\n[GRPO] Training complete. Final model saved to {final_path}")
 
 
 # ============================================================================

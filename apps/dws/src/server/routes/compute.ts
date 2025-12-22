@@ -407,78 +407,77 @@ async function finishJob(job: ComputeJob, output: string, exitCode: number): Pro
   processQueue();
 }
 
-// ============ Training Routes ============
+// ============ Training Routes (CQL-backed) ============
 
-interface TrainingRun {
-  runId: string;
-  model: string;
-  state: number;
-  clients: number;
-  step: number;
-  totalSteps: number;
-  createdAt: number;
-}
-
-interface TrainingNode {
-  address: string;
-  gpuTier: number;
-  score: number;
-  latencyMs: number;
-  bandwidthMbps: number;
-  isActive: boolean;
-}
-
-// In-memory storage for training runs
-// NOTE: This is ephemeral - data is lost on restart.
-// Production should use CQL or on-chain storage for persistence.
-const trainingRuns: Map<string, TrainingRun> = new Map();
-const trainingNodes: Map<string, TrainingNode> = new Map();
+import { trainingState } from '../../state';
 
 export function addTrainingRoutes(app: Hono): void {
   // List training runs
   app.get('/training/runs', async (c) => {
     const { status } = validateQuery(trainingRunsQuerySchema, c);
-    let runs = Array.from(trainingRuns.values());
+    const runs = await trainingState.listRuns(status as 'active' | 'completed' | 'paused' | undefined);
     
-    if (status === 'active') {
-      runs = runs.filter(r => r.state >= 1 && r.state <= 5);
-    } else if (status === 'completed') {
-      runs = runs.filter(r => r.state === 6);
-    } else if (status === 'paused') {
-      runs = runs.filter(r => r.state === 7);
-    }
-    
-    return c.json(runs);
+    return c.json(runs.map(r => ({
+      runId: r.run_id,
+      model: r.model,
+      state: r.state,
+      clients: r.clients,
+      step: r.step,
+      totalSteps: r.total_steps,
+      createdAt: r.created_at,
+    })));
   });
 
   // Get training run
   app.get('/training/runs/:runId', async (c) => {
     const { runId } = validateParams(trainingRunParamsSchema, c);
-    const run = trainingRuns.get(runId);
+    const run = await trainingState.getRun(runId);
     
     if (!run) {
       throw new Error('Run not found');
     }
     
-    return c.json(run);
+    return c.json({
+      runId: run.run_id,
+      model: run.model,
+      state: run.state,
+      clients: run.clients,
+      step: run.step,
+      totalSteps: run.total_steps,
+      createdAt: run.created_at,
+    });
   });
 
   // List compute nodes
   app.get('/nodes', async (c) => {
-    const nodes = Array.from(trainingNodes.values()).filter(n => n.isActive);
-    return c.json(nodes);
+    const nodes = await trainingState.listNodes(true);
+    return c.json(nodes.map(n => ({
+      address: n.address,
+      gpuTier: n.gpu_tier,
+      score: n.score,
+      latencyMs: n.latency_ms,
+      bandwidthMbps: n.bandwidth_mbps,
+      isActive: n.is_active === 1,
+    })));
   });
 
   // Get node info
   app.get('/nodes/:address', async (c) => {
     const { address } = validateParams(nodeParamsSchema, c);
-    const node = trainingNodes.get(address.toLowerCase());
+    const node = await trainingState.getNode(address);
     
     if (!node) {
       throw new Error('Node not found');
     }
     
-    return c.json(node);
+    return c.json({
+      address: node.address,
+      gpuTier: node.gpu_tier,
+      score: node.score,
+      latencyMs: node.latency_ms,
+      bandwidthMbps: node.bandwidth_mbps,
+      isActive: node.is_active === 1,
+    });
   });
 
   // Register as training/inference node (for DWS nodes)
@@ -486,8 +485,8 @@ export function addTrainingRoutes(app: Hono): void {
     const body = await validateBody(trainingNodeRegistrationSchema, c);
     const address = body.address.toLowerCase();
     
-    // Register for training jobs
-    trainingNodes.set(address, {
+    // Register for training jobs (persisted to CQL)
+    await trainingState.saveNode({
       address,
       gpuTier: body.gpuTier,
       score: 100,
@@ -530,26 +529,42 @@ export function addTrainingRoutes(app: Hono): void {
   // Node heartbeat
   app.post('/nodes/heartbeat', async (c) => {
     const body = await c.req.json<{ address: string; load?: number }>();
-    const updated = updateNodeHeartbeat(body.address.toLowerCase(), body.load);
+    const address = body.address.toLowerCase();
+    
+    // Update CQL
+    await trainingState.updateHeartbeat(address);
+    
+    // Update inference node (in-memory)
+    const updated = updateNodeHeartbeat(address, body.load);
+    
     return c.json({ success: updated });
   });
   
   // Unregister node
   app.delete('/nodes/:address', async (c) => {
     const address = c.req.param('address').toLowerCase();
-    trainingNodes.delete(address);
+    
+    // Remove from CQL
+    await trainingState.deleteNode(address);
+    
+    // Remove from inference nodes
     unregisterNode(address);
+    
     return c.json({ success: true });
   });
   
-  // Get inference node stats
+  // Get node stats
   app.get('/nodes/stats', async (c) => {
-    const stats = getNodeStats();
+    const inferenceStats = getNodeStats();
+    const trainingStats = await trainingState.getStats();
+    
     return c.json({
-      inference: stats,
+      inference: inferenceStats,
       training: {
-        totalNodes: trainingNodes.size,
-        activeNodes: Array.from(trainingNodes.values()).filter(n => n.isActive).length,
+        totalNodes: trainingStats.totalNodes,
+        activeNodes: trainingStats.activeNodes,
+        totalRuns: trainingStats.totalRuns,
+        activeRuns: trainingStats.activeRuns,
       },
     });
   });
@@ -562,7 +577,16 @@ export function addTrainingRoutes(app: Hono): void {
   // Training webhook for state updates
   app.post('/training/webhook', async (c) => {
     const body = await validateBody(trainingRunSchema, c);
-    trainingRuns.set(body.runId, body);
+    
+    await trainingState.saveRun({
+      runId: body.runId,
+      model: body.model,
+      state: body.state,
+      clients: body.clients,
+      step: body.step,
+      totalSteps: body.totalSteps,
+    });
+    
     return c.json({ success: true });
   });
 }

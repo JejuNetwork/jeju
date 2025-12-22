@@ -1,0 +1,64 @@
+# =============================================================================
+# Jeju Messaging Relay Node Dockerfile
+# 
+# Runs a relay node for decentralized message transport.
+# =============================================================================
+
+FROM oven/bun:1.1-alpine AS base
+
+# Install dependencies
+RUN apk add --no-cache \
+    curl \
+    ca-certificates
+
+WORKDIR /app
+
+# ============ Build Stage ============
+FROM base AS builder
+
+# Copy package files
+COPY package.json bun.lockb* ./
+COPY packages/messaging/package.json ./packages/messaging/
+
+# Install dependencies
+RUN bun install --frozen-lockfile
+
+# Copy source
+COPY packages/messaging/src ./packages/messaging/src
+COPY packages/messaging/tsconfig.json ./packages/messaging/
+
+WORKDIR /app/packages/messaging
+
+# ============ Production Stage ============
+FROM base AS production
+
+# Create non-root user
+RUN addgroup -S jeju && adduser -S jeju -G jeju
+
+WORKDIR /app
+
+# Copy built application
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/packages/messaging ./packages/messaging
+
+# Create data directory
+RUN mkdir -p /data && chown -R jeju:jeju /data
+
+# Switch to non-root user
+USER jeju
+
+# Environment
+ENV NODE_ENV=production
+ENV PORT=3000
+ENV WS_PORT=3001
+
+EXPOSE 3000 3001
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD curl -f http://localhost:3000/health || exit 1
+
+# Entry point
+WORKDIR /app/packages/messaging
+CMD ["bun", "run", "src/node/server.ts"]
+

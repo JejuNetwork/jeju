@@ -8,10 +8,8 @@
  */
 
 import { bls12_381 as bls } from '@noble/curves/bls12-381';
-import { sha256 } from '@noble/hashes/sha256';
-import { sha512 } from '@noble/hashes/sha512';
-import { expand_message_xmd } from '@noble/hashes/utils';
-import { bytesToHex, hexToBytes, concatBytes } from '@noble/hashes/utils';
+import { sha256 } from '@noble/hashes/sha2.js';
+import { bytesToHex, hexToBytes, concatBytes } from '@noble/hashes/utils.js';
 import type { Hex } from 'viem';
 
 // ============================================================================

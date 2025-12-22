@@ -8,6 +8,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "./BanManager.sol";
 import "./IGitHubReputationProvider.sol";
+import "./IModerationExtensions.sol";
 
 /**
  * @title ModerationMarketplace
@@ -329,6 +330,31 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     /// @notice Evidence registry for community evidence submissions
     address public evidenceRegistry;
 
+    // ═══════════════════════════════════════════════════════════════════════
+    //                         EXTENSION CONTRACTS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /// @notice Commit-reveal voting extension (optional, enables hidden votes)
+    ICommitRevealVoting public commitRevealVoting;
+    
+    /// @notice Voter slashing extension (optional, penalizes bad voters)
+    IVoterSlashing public voterSlashing;
+    
+    /// @notice Multi-oracle reputation extension (optional, aggregates reputations)
+    IMultiOracleReputation public multiOracleReputation;
+    
+    /// @notice Cross-chain arbitration extension (optional, enables multi-chain cases)
+    ICrossChainArbitration public crossChainArbitration;
+    
+    /// @notice Whether to use commit-reveal voting for new cases
+    bool public useCommitRevealVoting;
+    
+    /// @notice Whether to apply voter slashing on resolution
+    bool public useVoterSlashing;
+    
+    /// @notice Whether to use multi-oracle reputation
+    bool public useMultiOracleReputation;
+
     /// @notice Track which reporter has reported which target (for quorum)
     mapping(address => mapping(address => bool)) public hasReportedTarget;
 
@@ -406,6 +432,14 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
 
     event EvidenceResolutionFailed(bytes32 indexed caseId);
     
+    event ExtensionUpdated(string indexed name, address indexed extension, bool enabled);
+    
+    event CaseEscalated(bytes32 indexed caseId);
+    
+    event VoterSlashed(bytes32 indexed caseId, address indexed voter, uint256 amount);
+    
+    event CommitRevealInitialized(bytes32 indexed caseId);
+    
     event EvidenceRegistrationFailed(bytes32 indexed caseId);
     
     event EvidenceResolutionRetried(bytes32 indexed caseId, bool success);
@@ -444,6 +478,8 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
     error QuorumStakeAgeTooYoung();
     error QuorumCombinedStakeTooLow();
     error ConvictionLockActive();
+    error ExtensionNotEnabled();
+    error VoterBanned();
 
     // ═══════════════════════════════════════════════════════════════════════
     //                              MODIFIERS
@@ -1069,6 +1105,13 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         if (banManager.isAddressBanned(msg.sender)) {
             revert BannedUserCannotVote();
         }
+        
+        // Check voter slashing extension if enabled
+        if (useVoterSlashing && address(voterSlashing) != address(0)) {
+            if (voterSlashing.isVotingBanned(msg.sender)) {
+                revert VoterBanned();
+            }
+        }
 
         StakeInfo storage stakeInfo = stakes[msg.sender];
 
@@ -1366,6 +1409,48 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
             // Reporter succeeded - update their reputation positively
             _updateReputation(banCase.reporter, true, winnerAmount, 0);
         }
+        
+        // Apply voter slashing if extension is enabled
+        _applyVoterSlashing(caseId, banCase.outcome == MarketOutcome.BAN_UPHELD);
+    }
+    
+    /**
+     * @notice Apply voter slashing to all voters in a case
+     * @dev Only called if voterSlashing extension is enabled
+     * @param caseId The resolved case
+     * @param banUpheld Whether the ban was upheld (YES won)
+     */
+    function _applyVoterSlashing(bytes32 caseId, bool banUpheld) internal {
+        if (!useVoterSlashing || address(voterSlashing) == address(0)) {
+            return;
+        }
+        
+        // Track slashing for reporter and target
+        BanCase storage banCase = cases[caseId];
+        
+        // Reporter: won if banUpheld, lost if not
+        uint256 reporterSlash = voterSlashing.recordVoteOutcome(
+            banCase.reporter,
+            caseId,
+            banUpheld,
+            banCase.reporterStake
+        );
+        if (reporterSlash > 0) {
+            emit VoterSlashed(caseId, banCase.reporter, reporterSlash);
+        }
+        
+        // Target: won if !banUpheld, lost if banUpheld
+        if (banCase.target != address(0) && banCase.targetStake > 0) {
+            uint256 targetSlash = voterSlashing.recordVoteOutcome(
+                banCase.target,
+                caseId,
+                !banUpheld,
+                banCase.targetStake
+            );
+            if (targetSlash > 0) {
+                emit VoterSlashed(caseId, banCase.target, targetSlash);
+            }
+        }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -1623,6 +1708,16 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
                 && moderatorReputation[user].unsuccessfulBans == 0
         ) {
             score = INITIAL_REPUTATION;
+        }
+        
+        // If multi-oracle reputation is enabled, use aggregated score
+        if (useMultiOracleReputation && address(multiOracleReputation) != address(0)) {
+            (uint256 aggregatedScore, , , , bool isValid) = multiOracleReputation.getAggregatedReputation(user);
+            if (isValid) {
+                // Combine internal and external reputation (weighted average)
+                // Internal: 60%, External: 40%
+                score = (score * 6000 + aggregatedScore * 4000) / 10000;
+            }
         }
 
         if (score <= TIER_LOW) return ReputationTier.UNTRUSTED;
@@ -2035,6 +2130,71 @@ contract ModerationMarketplace is Ownable, Pausable, ReentrancyGuard {
         address oldRegistry = evidenceRegistry;
         evidenceRegistry = registry;
         emit EvidenceRegistryUpdated(oldRegistry, registry);
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    //                         EXTENSION SETTERS
+    // ═══════════════════════════════════════════════════════════════════════
+
+    /**
+     * @notice Set commit-reveal voting extension
+     * @param _extension Address of CommitRevealVoting contract
+     * @param _enabled Whether to enable commit-reveal for new cases
+     */
+    function setCommitRevealVoting(address _extension, bool _enabled) external onlyOwner {
+        commitRevealVoting = ICommitRevealVoting(_extension);
+        useCommitRevealVoting = _enabled;
+        emit ExtensionUpdated("CommitRevealVoting", _extension, _enabled);
+    }
+
+    /**
+     * @notice Set voter slashing extension
+     * @param _extension Address of VoterSlashing contract
+     * @param _enabled Whether to enable voter slashing on resolution
+     */
+    function setVoterSlashing(address _extension, bool _enabled) external onlyOwner {
+        voterSlashing = IVoterSlashing(_extension);
+        useVoterSlashing = _enabled;
+        emit ExtensionUpdated("VoterSlashing", _extension, _enabled);
+    }
+
+    /**
+     * @notice Set multi-oracle reputation extension
+     * @param _extension Address of MultiOracleReputation contract
+     * @param _enabled Whether to use multi-oracle reputation
+     */
+    function setMultiOracleReputation(address _extension, bool _enabled) external onlyOwner {
+        multiOracleReputation = IMultiOracleReputation(_extension);
+        useMultiOracleReputation = _enabled;
+        emit ExtensionUpdated("MultiOracleReputation", _extension, _enabled);
+    }
+
+    /**
+     * @notice Set cross-chain arbitration extension
+     * @param _extension Address of CrossChainArbitration contract
+     */
+    function setCrossChainArbitration(address _extension) external onlyOwner {
+        crossChainArbitration = ICrossChainArbitration(_extension);
+        emit ExtensionUpdated("CrossChainArbitration", _extension, true);
+    }
+
+    /**
+     * @notice Escalate a case to cross-chain arbitration
+     * @param caseId The case to escalate
+     */
+    function escalateToCrossChain(bytes32 caseId) external payable caseExists(caseId) {
+        BanCase storage banCase = cases[caseId];
+        if (banCase.resolved) revert CaseAlreadyResolved();
+        if (address(crossChainArbitration) == address(0)) revert ExtensionNotEnabled();
+        
+        crossChainArbitration.escalateCase{value: msg.value}(
+            caseId,
+            banCase.target,
+            banCase.reporter,
+            banCase.reason
+        );
+        
+        emit CaseEscalated(caseId);
     }
 
     function pause() external onlyOwner {
