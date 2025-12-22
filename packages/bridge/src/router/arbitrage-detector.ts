@@ -778,7 +778,7 @@ export class ArbitrageDetector {
     bundle: JitoBundle,
   ): Promise<{ bundleId: string; landed: boolean }> {
     try {
-      const response = await fetch(
+      const response = await fetchWithRetry(
         `${this.jitoBlockEngineUrl}/api/v1/bundles`,
         {
           method: 'POST',
@@ -812,7 +812,7 @@ export class ArbitrageDetector {
    */
   async getJitoTipFloor(): Promise<bigint> {
     try {
-      const response = await fetch(
+      const response = await fetchWithRetry(
         `${this.jitoBlockEngineUrl}/api/v1/bundles/tip_floor`,
       )
       if (!response.ok) return 1000n // Default 1000 lamports
