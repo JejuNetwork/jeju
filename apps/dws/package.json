@@ -36,6 +36,7 @@
     "train:demo": "bun run src/training/demo-full-system.ts",
     "train:integrated": "bun run src/training/run-integrated-demo.ts",
     "train:real": "bun run src/training/run-real-training.ts",
+    "train:benchmark": "bun run src/training/benchmark-tictactoe.ts",
     "train:test": "bun test src/training/",
     "train:atropos": "bun run src/training/atropos-server.ts",
     "train:api": "bun run src/training/dws-integration.ts",
