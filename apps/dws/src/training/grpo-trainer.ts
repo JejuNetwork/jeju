@@ -48,6 +48,14 @@ export interface TrainingMetrics {
   learningRate: number
 }
 
+export interface TrainerStatus {
+  running: boolean
+  currentStep: number
+  totalSteps: number
+  lastMetrics: TrainingMetrics | null
+  checkpointPath: string | null
+}
+
 // ============================================================================
 // Constants
 // ============================================================================
@@ -184,9 +192,25 @@ function padToGoodOffset(
 export class GRPOTrainer {
   private config: TrainingConfig
   private vllmProcess: Subprocess | null = null
+  private status: TrainerStatus = {
+    running: false,
+    currentStep: 0,
+    totalSteps: 0,
+    lastMetrics: null,
+    checkpointPath: null,
+  }
 
   constructor(config: Partial<TrainingConfig> = {}) {
     this.config = { ...DEFAULT_CONFIG, ...config }
+    this.status.totalSteps = this.config.trainingSteps
+  }
+
+  getConfig(): TrainingConfig {
+    return { ...this.config }
+  }
+
+  getStatus(): TrainerStatus {
+    return { ...this.status }
   }
 
   async registerWithAtropos(): Promise<void> {

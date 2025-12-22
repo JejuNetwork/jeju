@@ -1,6 +1,5 @@
 # Dependencies
 node_modules/
-vendor/*/node_modules/
 
 # Build outputs
 dist/
@@ -74,16 +73,6 @@ packages/contracts/deployments/*-1337.json
 # Docker
 .docker/
 
-# Vendor apps (git submodules - tracked separately)
-# Ignore everything in vendor except manifests and integration scripts
-vendor/*
-!vendor/README.md
-!vendor/.gitkeep
-!vendor/*/jeju-manifest.json
-!vendor/generate-all-integrations.ts
-!vendor/verify-integrations.ts
-!vendor/run-all-vendor-tests.sh
-
 # Terraform
 **/.terraform/
 **/.terraform.lock.hcl
@@ -95,13 +84,9 @@ vendor/*
 # Misc
 .cache/
 .cache-synpress/
-vendor/
 vendor_examples/
 playwright-report/
 test-results/
-smoke-results.json
-**/smoke-results.json
-**/wallet-smoke-results.json
 *.backup
 *.bak
 **/__pycache__/
@@ -149,7 +134,3 @@ test-ledger/
 
 # CQL local development data
 .cql-data/
-
-# Tauri / Rust
-**/src-tauri/target/
-**/src-tauri/gen/

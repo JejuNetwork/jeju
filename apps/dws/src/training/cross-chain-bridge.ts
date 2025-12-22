@@ -513,6 +513,27 @@ export class CrossChainTrainingBridge {
     return proof
   }
 
+  verifyMerkleProof(leaf: Hex, proof: Hex[], root: Hex): boolean {
+    let computedHash = leaf
+
+    for (const proofElement of proof) {
+      // Sort to ensure consistent ordering
+      const [left, right] =
+        computedHash < proofElement
+          ? [computedHash, proofElement]
+          : [proofElement, computedHash]
+
+      computedHash = keccak256(
+        encodeAbiParameters(
+          [{ type: 'bytes32' }, { type: 'bytes32' }],
+          [left, right],
+        ),
+      )
+    }
+
+    return computedHash === root
+  }
+
   // ============================================================================
   // Utilities
   // ============================================================================

@@ -17,12 +17,12 @@ import { spawn } from 'bun';
 // ============================================================================
 
 const CONFIG = {
-  modelName: 'sshleifer/tiny-gpt2',
+  modelName: 'distilgpt2',  // Larger model that can actually learn
   trainedModelPath: './training_output/ttt-trained',
   numBenchmarkGames: 100,
-  trainingEpochs: 3,
-  batchSize: 4,
-  learningRate: 2e-4,
+  trainingEpochs: 10,
+  batchSize: 8,
+  learningRate: 5e-4,
 };
 
 // ============================================================================
@@ -85,12 +85,6 @@ function getOptimalMove(board: Board, player: Player): number {
   
   // Take any
   return valid[0];
-}
-
-// Random strategy
-function getRandomMove(board: Board): number {
-  const valid = getValidMoves(board);
-  return valid[Math.floor(Math.random() * valid.length)];
 }
 
 // ============================================================================
@@ -458,32 +452,39 @@ async function main() {
   console.log('COMPARISON');
   console.log('='.repeat(70));
   
-  const baselineWinRate = baseline.wins / CONFIG.numBenchmarkGames;
-  const trainedWinRate = trained.wins / CONFIG.numBenchmarkGames;
-  const improvement = trainedWinRate - baselineWinRate;
+  // In tic-tac-toe against optimal opponent, not losing is winning
+  // The best possible outcome is always drawing
+  const baselineNotLoseRate = (baseline.wins + baseline.draws) / CONFIG.numBenchmarkGames;
+  const trainedNotLoseRate = (trained.wins + trained.draws) / CONFIG.numBenchmarkGames;
+  
+  const lossReduction = baseline.losses - trained.losses;
+  const lossReductionPct = baseline.losses > 0 ? (lossReduction / baseline.losses * 100) : 0;
   
   console.log();
-  console.log(`Baseline win rate: ${(baselineWinRate * 100).toFixed(1)}%`);
-  console.log(`Trained win rate:  ${(trainedWinRate * 100).toFixed(1)}%`);
-  console.log(`Improvement:       ${improvement >= 0 ? '+' : ''}${(improvement * 100).toFixed(1)}%`);
+  console.log('Performance against optimal opponent:');
+  console.log('  (Note: Against perfect play, drawing is the best possible outcome)');
+  console.log();
+  console.log(`  Baseline: ${baseline.wins}W / ${baseline.losses}L / ${baseline.draws}D`);
+  console.log(`  Trained:  ${trained.wins}W / ${trained.losses}L / ${trained.draws}D`);
+  console.log();
+  console.log(`  Loss reduction: ${lossReduction} games (${lossReductionPct.toFixed(1)}% fewer losses)`);
+  console.log(`  Not-lose rate:  ${(baselineNotLoseRate * 100).toFixed(1)}% -> ${(trainedNotLoseRate * 100).toFixed(1)}%`);
   console.log();
 
-  if (improvement > 0) {
-    console.log('SUCCESS: Model improved after training.');
-  } else if (improvement === 0) {
-    console.log('NEUTRAL: No change in performance.');
+  if (lossReduction > 0) {
+    console.log('SUCCESS: Model learned to play better tic-tac-toe.');
+    if (trained.losses === 0) {
+      console.log('PERFECT: Model achieved optimal play - never loses.');
+    }
+  } else if (lossReduction === 0) {
+    console.log('NEUTRAL: No improvement in loss rate.');
   } else {
     console.log('REGRESSION: Model got worse after training.');
   }
 
-  // More detailed analysis
-  const baselineDrawRate = baseline.draws / CONFIG.numBenchmarkGames;
-  const trainedDrawRate = trained.draws / CONFIG.numBenchmarkGames;
-  const drawImprovement = trainedDrawRate - baselineDrawRate;
-  
+  // Additional stats
   console.log();
   console.log('Additional metrics:');
-  console.log(`  Draw rate: ${(baselineDrawRate * 100).toFixed(1)}% -> ${(trainedDrawRate * 100).toFixed(1)}% (${drawImprovement >= 0 ? '+' : ''}${(drawImprovement * 100).toFixed(1)}%)`);
   console.log(`  Invalid moves: ${baseline.invalidMoves} -> ${trained.invalidMoves}`);
   
   const validMoveImprovement = baseline.invalidMoves - trained.invalidMoves;
