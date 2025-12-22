@@ -64,6 +64,8 @@ import {
   createK3sRouter,
   createServiceMeshRouter,
   createTerraformProviderRouter,
+  getIngressController,
+  getServiceMesh,
 } from '../infrastructure'
 
 // Server port - defined early for use in config
@@ -310,6 +312,11 @@ app.get('/health', async (c) => {
       scraping: { status: 'healthy' },
       rpc: { status: 'healthy' },
       da: { status: 'healthy', description: 'Data Availability layer' },
+      k3s: { status: 'healthy', description: 'Local Kubernetes provider' },
+      helm: { status: 'healthy', description: 'Helm chart deployment' },
+      terraform: { status: 'healthy', description: 'Terraform provider' },
+      ingress: { status: 'healthy', description: 'Ingress controller' },
+      mesh: { status: 'healthy', description: 'Service mesh' },
     },
     backends: { available: backends, health: backendHealth },
   })
@@ -341,9 +348,10 @@ app.get('/', (c) => {
       'da',
       'funding',
       'registry',
-      'k8s',
+      'k3s',
       'helm',
       'terraform',
+      'ingress',
       'mesh',
     ],
     endpoints: {
@@ -410,6 +418,13 @@ app.route('/email', createEmailRouter())
 app.route('/funding', createFundingRouter())
 app.route('/registry', createPkgRegistryProxyRouter())
 
+// Infrastructure providers (K8s, Helm, Terraform)
+app.route('/k3s', createK3sRouter())
+app.route('/helm', createHelmProviderRouter())
+app.route('/terraform', createTerraformProviderRouter())
+app.route('/ingress', createIngressRouter(getIngressController()))
+app.route('/mesh', createServiceMeshRouter(getServiceMesh()))
+
 // Data Availability Layer
 const daConfig = {
   operatorPrivateKey: process.env.DA_OPERATOR_PRIVATE_KEY as Hex | undefined,
@@ -426,13 +441,6 @@ app.route('/da', createDARouter(daConfig))
 
 // Agent system - uses workerd for execution
 app.route('/agents', createAgentRouter())
-
-// Infrastructure routes - K8s, Helm, Terraform, Service Mesh
-app.route('/k3s', createK3sRouter())
-app.route('/helm', createHelmProviderRouter())
-app.route('/terraform', createTerraformProviderRouter())
-app.route('/ingress', createIngressRouter())
-app.route('/mesh', createServiceMeshRouter())
 
 // Initialize services
 initializeMarketplace()

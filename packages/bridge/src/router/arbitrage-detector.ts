@@ -100,6 +100,87 @@ import {
 
 const log = createLogger('arbitrage')
 
+// Retry configuration for external API calls
+const RETRY_CONFIG = {
+  maxAttempts: 3,
+  initialDelayMs: 500,
+  maxDelayMs: 5000,
+  backoffMultiplier: 2,
+}
+
+/**
+ * Check if error is retryable (network errors, 5xx, rate limits)
+ */
+function isRetryableError(error: unknown): boolean {
+  if (error instanceof TypeError) {
+    return true // Network errors
+  }
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase()
+    if (
+      msg.includes('network') ||
+      msg.includes('timeout') ||
+      msg.includes('econnrefused') ||
+      msg.includes('econnreset') ||
+      msg.includes('unable to connect')
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+/**
+ * Fetch with retry logic for external APIs
+ */
+async function fetchWithRetry(
+  url: string,
+  options?: RequestInit,
+): Promise<Response> {
+  let lastError: Error | undefined
+  let delay = RETRY_CONFIG.initialDelayMs
+
+  for (let attempt = 0; attempt < RETRY_CONFIG.maxAttempts; attempt++) {
+    try {
+      const response = await fetch(url, options)
+
+      // Retry on 5xx or 429 (rate limit)
+      if (response.status >= 500 || response.status === 429) {
+        if (attempt < RETRY_CONFIG.maxAttempts - 1) {
+          log.warn('API error, retrying', {
+            url,
+            status: response.status,
+            attempt: attempt + 1,
+            delay,
+          })
+          await new Promise((r) => setTimeout(r, delay))
+          delay = Math.min(delay * RETRY_CONFIG.backoffMultiplier, RETRY_CONFIG.maxDelayMs)
+          continue
+        }
+      }
+
+      return response
+    } catch (error) {
+      lastError = error as Error
+
+      if (!isRetryableError(error) || attempt === RETRY_CONFIG.maxAttempts - 1) {
+        throw error
+      }
+
+      log.warn('Network error, retrying', {
+        url,
+        error: lastError.message,
+        attempt: attempt + 1,
+        delay,
+      })
+      await new Promise((r) => setTimeout(r, delay))
+      delay = Math.min(delay * RETRY_CONFIG.backoffMultiplier, RETRY_CONFIG.maxDelayMs)
+    }
+  }
+
+  throw lastError ?? new Error('API request failed after retries')
+}
+
 // ============ Arbitrage Detector ============
 
 export class ArbitrageDetector {
@@ -382,21 +463,26 @@ export class ArbitrageDetector {
 
     const url = `${JUPITER_API}/quote?inputMint=${mint}&outputMint=${usdcMint}&amount=${amount}&slippageBps=50`
 
-    const response = await fetch(url)
-    if (!response.ok) return null
+    try {
+      const response = await fetchWithRetry(url)
+      if (!response.ok) return null
 
-    const rawData: unknown = await response.json()
-    const data = JupiterArbQuoteResponseSchema.parse(rawData)
+      const rawData: unknown = await response.json()
+      const data = JupiterArbQuoteResponseSchema.parse(rawData)
 
-    return {
-      chain: 'solana',
-      dex: 'jupiter',
-      tokenIn: token,
-      tokenOut: 'USDC',
-      amountIn: BigInt(data.inAmount),
-      amountOut: BigInt(data.outAmount),
-      priceImpactBps: parseFloat(data.priceImpactPct) * 100,
-      timestamp: Date.now(),
+      return {
+        chain: 'solana',
+        dex: 'jupiter',
+        tokenIn: token,
+        tokenOut: 'USDC',
+        amountIn: BigInt(data.inAmount),
+        amountOut: BigInt(data.outAmount),
+        priceImpactBps: parseFloat(data.priceImpactPct) * 100,
+        timestamp: Date.now(),
+      }
+    } catch (error) {
+      log.warn('Failed to get Jupiter price', { token, error: (error as Error).message })
+      return null
     }
   }
 
@@ -438,7 +524,7 @@ export class ArbitrageDetector {
       }
 
       const amount = token === 'USDC' ? '1000000' : '1000000000000000000' // 1 token
-      const response = await fetch(
+      const response = await fetchWithRetry(
         `${ONE_INCH_API}?src=${tokenAddress}&dst=${usdcAddress}&amount=${amount}`,
         {
           headers: {
@@ -570,23 +656,28 @@ export class ArbitrageDetector {
   }
 
   private async getHyperliquidPrice(pair: string): Promise<number | null> {
-    const response = await fetch(`${HYPERLIQUID_API}/info`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ type: 'allMids' }),
-    })
+    try {
+      const response = await fetchWithRetry(`${HYPERLIQUID_API}/info`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'allMids' }),
+      })
 
-    if (!response.ok) return null
+      if (!response.ok) return null
 
-    const rawData: unknown = await response.json()
-    const data = HyperliquidAllMidsResponseSchema.parse(rawData)
-    const symbol = pair.split('-')[0]
-    if (!symbol) return null
+      const rawData: unknown = await response.json()
+      const data = HyperliquidAllMidsResponseSchema.parse(rawData)
+      const symbol = pair.split('-')[0]
+      if (!symbol) return null
 
-    const priceStr = data[symbol]
-    if (!priceStr) return null
+      const priceStr = data[symbol]
+      if (!priceStr) return null
 
-    return parseFloat(priceStr)
+      return parseFloat(priceStr)
+    } catch (error) {
+      log.warn('Failed to get Hyperliquid price', { pair, error: (error as Error).message })
+      return null
+    }
   }
 
   // ============ Helpers ============

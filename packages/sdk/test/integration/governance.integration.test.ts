@@ -50,9 +50,9 @@ describe('Governance Integration Tests', () => {
   })
 
   test('client created successfully', () => {
-    if (!chainRunning) return
+    if (!chainRunning || !client) return
     expect(client).toBeDefined()
-    expect(client?.governance).toBeDefined()
+    expect(client.governance).toBeDefined()
   })
 
   test('listProposals returns array', async () => {

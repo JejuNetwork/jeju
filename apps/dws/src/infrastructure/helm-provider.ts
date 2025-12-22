@@ -464,19 +464,19 @@ const manifestsSchema = z.object({
       metadata: z.object({
         name: z.string(),
         namespace: z.string().optional(),
-        labels: z.record(z.string()).optional(),
-        annotations: z.record(z.string()).optional(),
+        labels: z.record(z.string(), z.string()).optional(),
+        annotations: z.record(z.string(), z.string()).optional(),
       }),
       // spec is optional - ConfigMaps/Secrets use data, other resources use spec
-      spec: z.record(z.unknown()).optional(),
-      data: z.record(z.string()).optional(),
-      stringData: z.record(z.string()).optional(),
+      spec: z.record(z.string(), z.any()).optional(),
+      data: z.record(z.string(), z.string()).optional(),
+      stringData: z.record(z.string(), z.string()).optional(),
       type: z.string().optional(),
     }),
   ),
   release: z.string().optional(),
   namespace: z.string().optional(),
-  values: z.record(z.unknown()).optional(),
+  values: z.record(z.string(), z.any()).optional(),
 })
 
 const deployments = new Map<string, DWSDeployment>()

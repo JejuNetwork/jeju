@@ -19,7 +19,7 @@ import type {
   Plugin,
   State,
 } from '@elizaos/core'
-import { getAutocratA2AUrl } from '@jejunetwork/config'
+import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
 import { A2AJsonRpcResponseSchema, expectValid } from '../schemas'
 import { makeTEEDecision } from '../tee'
 import { ceoProviders } from './ceo-providers'
