@@ -141,8 +141,8 @@ export function PriceChart({
       })}
 
       {/* Candles */}
-      {chartData.candles.map((c, i) => (
-        <g key={i}>
+      {chartData.candles.map((c) => (
+        <g key={c.x}>
           {/* Wick */}
           <line
             x1={c.x}

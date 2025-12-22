@@ -8,9 +8,7 @@ import { expect, test } from '@playwright/test'
 test.describe('Bounty List', () => {
   test('displays bounty list with stats', async ({ page }) => {
     await page.goto('/bounties')
-    await expect(
-      page.getByRole('heading', { name: /bounties/i }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: /bounties/i })).toBeVisible()
     await expect(page.getByText(/open bounties/i)).toBeVisible()
     await expect(page.getByText(/total value/i)).toBeVisible()
   })

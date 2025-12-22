@@ -1,0 +1,24 @@
+# Bun configuration for Bazaar
+
+[serve.static]
+# TailwindCSS plugin
+plugins = ["bun-plugin-tailwind"]
+
+# Inline environment variables with PUBLIC_ prefix
+env = "PUBLIC_*"
+
+[build]
+# External packages that shouldn't be bundled (server-only)
+external = [
+  "@jejunetwork/db",
+  "bun:sqlite",
+  "child_process",
+  "http2",
+  "tls",
+  "dgram",
+  "google-gax",
+  "google-auth-library",
+  "@grpc/grpc-js",
+  "native-dns",
+  "native-dns-cache"
+]

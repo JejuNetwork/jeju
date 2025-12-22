@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "description": "Developer coordination hub - bounties, jobs, git, packages, containers, models, project management",
   "private": true,
+  "type": "module",
   "scripts": {
-    "dev": "next dev -p 4009",
-    "build": "next build",
-    "start": "next start -p 4009",
+    "dev": "bun run --watch src/server.ts",
+    "dev:client": "bun ./src/client/index.html --port 4009",
+    "build": "bun scripts/build-client.ts && bun build src/server.ts --outdir dist --target bun",
+    "start": "bun dist/server.js",
     "lint": "biome check .",
     "typecheck": "tsc --noEmit",
     "test": "bun test tests/unit",
@@ -14,6 +16,9 @@
     "test:wallet": "playwright test --config synpress.config.ts"
   },
   "dependencies": {
+    "@elysiajs/cors": "1.1.1",
+    "@elysiajs/static": "1.1.1",
+    "@elysiajs/swagger": "1.1.6",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/contracts": "workspace:*",
     "@jejunetwork/oauth3": "workspace:*",
@@ -24,12 +29,13 @@
     "class-variance-authority": "0.7.1",
     "clsx": "2.1.1",
     "date-fns": "4.1.0",
+    "elysia": "1.1.25",
     "lucide-react": "0.562.0",
-    "next": "16.1.0",
     "react": "19.2.3",
     "react-dom": "19.2.3",
     "react-hook-form": "7.56.4",
     "react-markdown": "9.0.1",
+    "react-router-dom": "7.6.1",
     "sonner": "1.7.2",
     "tailwind-merge": "2.6.0",
     "viem": "2.43.2",
@@ -40,17 +46,18 @@
     "@jejunetwork/tests": "workspace:*",
     "@playwright/test": "1.57.0",
     "@synthetixio/synpress": "4.1.1",
+    "@types/bun": "1.2.16",
     "@types/node": "22.15.30",
     "@types/react": "19.2.3",
     "@types/react-dom": "19.2.3",
     "autoprefixer": "10.4.21",
+    "bun-plugin-tailwind": "0.1.2",
     "playwright-core": "1.57.0",
     "postcss": "8.5.3",
     "tailwindcss": "3.4.17",
     "typescript": "5.9.3"
   },
   "engines": {
-    "node": ">=18.0.0",
     "bun": ">=1.2.0"
   }
 }

@@ -114,9 +114,9 @@ class WebSecureStorage implements SecureStorageAdapter {
     }
 
     const decrypted = await crypto.subtle.decrypt(
-      { name: 'AES-GCM', iv: ivBytes },
+      { name: 'AES-GCM', iv: ivBytes as Uint8Array },
       cryptoKey,
-      dataBytes,
+      dataBytes as Uint8Array,
     )
 
     return new TextDecoder().decode(decrypted)

@@ -43,9 +43,12 @@ export function HyperscapeStatsPanel({
       <div className={`animate-pulse ${className}`}>
         <div className="h-8 bg-gray-700 rounded mb-4"></div>
         <div className="grid grid-cols-3 gap-4">
-          {[...Array(6)].map((_, i) => (
-            <div key={i} className="h-24 bg-gray-700 rounded"></div>
-          ))}
+          <div className="h-24 bg-gray-700 rounded" />
+          <div className="h-24 bg-gray-700 rounded" />
+          <div className="h-24 bg-gray-700 rounded" />
+          <div className="h-24 bg-gray-700 rounded" />
+          <div className="h-24 bg-gray-700 rounded" />
+          <div className="h-24 bg-gray-700 rounded" />
         </div>
       </div>
     )

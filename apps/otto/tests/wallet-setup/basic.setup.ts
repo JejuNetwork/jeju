@@ -1,11 +1,6 @@
-/**
- * Synpress Wallet Setup for Otto E2E Tests
- */
-
 import { defineWalletSetup } from '@synthetixio/synpress'
 import { MetaMask } from '@synthetixio/synpress/playwright'
 
-// Test seed phrase (DO NOT use in production)
 const SEED_PHRASE =
   'test test test test test test test test test test test junk'
 const PASSWORD = 'Tester@1234'

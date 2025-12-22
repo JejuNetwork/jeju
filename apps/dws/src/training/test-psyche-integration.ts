@@ -469,7 +469,9 @@ async function runAllTests(): Promise<void> {
     console.log('\nFailed Tests:')
     results
       .filter((r) => !r.passed)
-      .forEach((r) => console.log(`  - ${r.name}: ${r.error}`))
+      .forEach((r) => {
+        console.log(`  - ${r.name}: ${r.error}`)
+      })
   }
 
   console.log('='.repeat(60))

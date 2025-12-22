@@ -1,18 +1,17 @@
-/**
- * Chat API Tests
- */
-
 import { beforeEach, describe, expect, test } from 'bun:test'
 
-// Mock chat session state
-const mockSessions = new Map<
-  string,
-  {
-    sessionId: string
-    userId: string
-    messages: Array<{ role: string; content: string }>
-  }
->()
+interface ChatMessage {
+  role: 'user' | 'assistant'
+  content: string
+}
+
+interface ChatSession {
+  sessionId: string
+  userId: string
+  messages: ChatMessage[]
+}
+
+const mockSessions = new Map<string, ChatSession>()
 
 describe('Chat API', () => {
   beforeEach(() => {
@@ -63,10 +62,10 @@ describe('Chat API', () => {
   describe('message handling', () => {
     test('adds user message to session', () => {
       const sessionId = crypto.randomUUID()
-      const session = {
+      const session: ChatSession = {
         sessionId,
         userId: 'test-user',
-        messages: [] as Array<{ role: string; content: string }>,
+        messages: [],
       }
       mockSessions.set(sessionId, session)
 
@@ -97,14 +96,13 @@ describe('Chat API', () => {
 
     test('maintains conversation history', () => {
       const sessionId = crypto.randomUUID()
-      const session = {
+      const session: ChatSession = {
         sessionId,
         userId: 'test-user',
-        messages: [] as Array<{ role: string; content: string }>,
+        messages: [],
       }
       mockSessions.set(sessionId, session)
 
-      // Simulate multi-turn conversation
       session.messages.push({ role: 'user', content: 'price ETH' })
       session.messages.push({ role: 'assistant', content: 'ETH: $3,500' })
       session.messages.push({ role: 'user', content: 'swap 1 ETH to USDC' })

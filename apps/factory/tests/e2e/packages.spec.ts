@@ -8,9 +8,7 @@ import { expect, test } from '@playwright/test'
 test.describe('Package List', () => {
   test('displays package list', async ({ page }) => {
     await page.goto('/packages')
-    await expect(
-      page.getByRole('heading', { name: /packages/i }),
-    ).toBeVisible()
+    await expect(page.getByRole('heading', { name: /packages/i })).toBeVisible()
   })
 
   test('shows package stats', async ({ page }) => {

@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_AUTOCRAT_API || ''
+const API_BASE = import.meta.env.VITE_AUTOCRAT_API || ''
 
 interface A2ARequest {
   skillId: string

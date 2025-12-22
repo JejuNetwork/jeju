@@ -242,8 +242,10 @@ export class AutocratAgentRuntimeManager {
   }
 
   static getInstance(): AutocratAgentRuntimeManager {
-    return (AutocratAgentRuntimeManager.instance ??=
-      new AutocratAgentRuntimeManager())
+    if (!AutocratAgentRuntimeManager.instance) {
+      AutocratAgentRuntimeManager.instance = new AutocratAgentRuntimeManager()
+    }
+    return AutocratAgentRuntimeManager.instance
   }
 
   async initialize(): Promise<void> {

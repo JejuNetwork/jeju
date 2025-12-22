@@ -1,6 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
+import Image from 'next/image'
 import Link from 'next/link'
 import { useState } from 'react'
 import { formatUnits } from 'viem'
@@ -29,10 +30,13 @@ function TokenCard({ token }: { token: Token }) {
     >
       <div className="flex items-center gap-3 mb-4">
         {token.logoUrl ? (
-          <img
+          <Image
             src={token.logoUrl}
             alt={token.symbol}
+            width={48}
+            height={48}
             className="w-12 h-12 rounded-2xl"
+            unoptimized
           />
         ) : (
           <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-bazaar-primary to-bazaar-purple flex items-center justify-center text-lg font-bold text-white group-hover:scale-110 transition-transform">

@@ -950,7 +950,9 @@ describe('Concurrent Operations', () => {
 
     const results = await checks
     expect(results.length).toBe(3)
-    results.forEach((r) => expect(typeof r).toBe('boolean'))
+    results.forEach((r) => {
+      expect(typeof r).toBe('boolean')
+    })
   })
 
   it('should handle parallel compute health checks', async () => {
@@ -965,7 +967,9 @@ describe('Concurrent Operations', () => {
 
     const results = await checks
     expect(results.length).toBe(3)
-    results.forEach((r) => expect(typeof r).toBe('boolean'))
+    results.forEach((r) => {
+      expect(typeof r).toBe('boolean')
+    })
   })
 })
 

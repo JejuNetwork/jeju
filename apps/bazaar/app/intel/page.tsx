@@ -320,7 +320,7 @@ function WhaleTracker({ activity }: { activity: WhaleActivity[] }) {
         </h3>
       </div>
       <div className="divide-y" style={{ borderColor: 'var(--border)' }}>
-        {activity.map((whale, i) => {
+        {activity.map((whale) => {
           const chain = CHAINS.find((c) => c.id === whale.chain)
           const actionColors = {
             buy: 'text-green-400',
@@ -330,7 +330,10 @@ function WhaleTracker({ activity }: { activity: WhaleActivity[] }) {
           const timeAgo = Math.floor((Date.now() - whale.timestamp) / 60000)
 
           return (
-            <div key={i} className="p-3 flex items-center gap-3">
+            <div
+              key={`${whale.address}-${whale.timestamp}-${whale.action}`}
+              className="p-3 flex items-center gap-3"
+            >
               <div className="text-lg">{chain?.icon}</div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">

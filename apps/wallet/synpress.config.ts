@@ -1,11 +1,7 @@
-import { createSynpressConfig, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests'
-
-const WALLET_PORT = parseInt(process.env.WALLET_PORT || '4015', 10)
-
 /**
- * Synpress configuration for wallet E2E tests
+ * Synpress Configuration for Wallet E2E Tests
  *
- * Tests for:
+ * For MetaMask/wallet integration tests that require:
  * - Wallet connection flows
  * - Transaction signing
  * - Cross-chain transfers (EIL)
@@ -13,10 +9,15 @@ const WALLET_PORT = parseInt(process.env.WALLET_PORT || '4015', 10)
  * - Gas token selection
  * - Account abstraction features
  */
+
+import { createSynpressConfig, PASSWORD, SEED_PHRASE } from '@jejunetwork/tests'
+
+const WALLET_PORT = parseInt(process.env.WALLET_PORT || '4015', 10)
+
 export default createSynpressConfig({
   appName: 'wallet',
   port: WALLET_PORT,
-  testDir: './tests',
+  testDir: './tests/e2e/metamask',
   overrides: {
     timeout: 120000,
     expect: {
@@ -25,5 +26,4 @@ export default createSynpressConfig({
   },
 })
 
-// Export wallet setup - app-specific setup is in tests/wallet-setup/basic.setup.ts
 export { PASSWORD, SEED_PHRASE }

@@ -311,4 +311,3 @@ describe('Monitoring Stack', () => {
     console.log('   ✅ All dashboards have valid JSON')
   })
 })
-

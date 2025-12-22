@@ -1,8 +1,6 @@
-'use client'
-
 import { AlertCircle, CheckCircle, Clock, Users, XCircle } from 'lucide-react'
-import Link from 'next/link'
-import type { Proposal } from '@/config/api'
+import { Link } from 'react-router-dom'
+import type { Proposal } from '../config/api'
 
 const STATUS_CONFIG: Record<
   string,
@@ -40,7 +38,7 @@ export function ProposalCard({ proposal }: ProposalCardProps) {
   const emoji = TYPE_EMOJI[proposal.proposalType] || '📋'
 
   return (
-    <Link href={`/proposals/${proposal.proposalId}`}>
+    <Link to={`/proposals/${proposal.proposalId}`}>
       <div className="card p-3 sm:p-4">
         <div className="flex items-center justify-between gap-2 mb-1.5 sm:mb-2">
           <div className="flex items-center gap-1.5 sm:gap-2 min-w-0">

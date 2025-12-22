@@ -598,7 +598,10 @@ Return JSON: {"verified":true/false,"confidence":0-100,"explanation":"...","sour
 let instance: ResearchAgent | null = null
 
 export function getResearchAgent(): ResearchAgent {
-  return (instance ??= new ResearchAgent())
+  if (!instance) {
+    instance = new ResearchAgent()
+  }
+  return instance
 }
 
 export async function generateResearchReport(

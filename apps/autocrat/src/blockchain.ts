@@ -488,5 +488,8 @@ export class AutocratBlockchain {
 let instance: AutocratBlockchain | null = null
 
 export function getBlockchain(config: AutocratConfig): AutocratBlockchain {
-  return (instance ??= new AutocratBlockchain(config))
+  if (!instance) {
+    instance = new AutocratBlockchain(config)
+  }
+  return instance
 }

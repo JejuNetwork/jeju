@@ -381,7 +381,7 @@ export function Services() {
                       <div className="mt-3 pt-3 border-t border-volcanic-700 space-y-2">
                         {hardware.gpus.map((gpu, i) => (
                           <label
-                            key={i}
+                            key={`gpu-${gpu.index}`}
                             className="flex items-center gap-3 cursor-pointer"
                             onClick={(e) => e.stopPropagation()}
                           >
@@ -612,9 +612,9 @@ export function Services() {
                   {/* Requirement Issues */}
                   {service.requirement_issues.length > 0 && (
                     <div className="mt-3 space-y-1">
-                      {service.requirement_issues.map((issue, i) => (
+                      {service.requirement_issues.map((issue) => (
                         <div
-                          key={i}
+                          key={issue}
                           className="flex items-center gap-2 text-sm text-yellow-400"
                         >
                           <AlertTriangle size={14} />
@@ -628,8 +628,11 @@ export function Services() {
                   {service.metadata.warnings.length > 0 &&
                     expandedService === service.metadata.id && (
                       <div className="mt-3 p-3 bg-volcanic-800/50 rounded-lg space-y-1">
-                        {service.metadata.warnings.map((warning, i) => (
-                          <p key={i} className="text-sm text-volcanic-400">
+                        {service.metadata.warnings.map((warning) => (
+                          <p
+                            key={warning}
+                            className="text-sm text-volcanic-400"
+                          >
                             {warning}
                           </p>
                         ))}

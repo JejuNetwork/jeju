@@ -5,12 +5,12 @@
   "type": "module",
   "scripts": {
     "dev": "tauri dev",
-    "dev:web": "vite --port 1421",
-    "build": "vite build",
+    "dev:web": "PORT=1421 bun index.html",
+    "build": "bun build index.html --outdir=dist --minify",
     "build:tauri": "tauri build",
-    "preview": "vite preview",
+    "preview": "PORT=1421 bun index.html",
     "tauri": "tauri",
-    "test": "echo 'E2E tests require running dev server - run: npx playwright test'",
+    "test": "bun test src",
     "test:unit": "bun test src",
     "test:e2e": "playwright test",
     "test:e2e:headed": "playwright test --headed",
@@ -42,11 +42,7 @@
     "@types/bun": "latest",
     "@types/react": "19.2.3",
     "@types/react-dom": "^19.0.0",
-    "@vitejs/plugin-react": "4.3.4",
-    "autoprefixer": "10.4.21",
-    "postcss": "8.5.3",
-    "tailwindcss": "3.4.17",
-    "typescript": "5.9.3",
-    "vite": "6.3.5"
+    "bun-plugin-tailwind": "0.1.1",
+    "typescript": "5.9.3"
   }
 }

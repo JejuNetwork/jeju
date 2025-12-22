@@ -150,9 +150,9 @@ export const TransactionSimulation: React.FC<TransactionSimulationProps> = ({
             )}
 
             {/* Token changes */}
-            {simulation.tokenChanges.map((change, i) => (
+            {simulation.tokenChanges.map((change) => (
               <div
-                key={i}
+                key={`token-${change.token.address}-${change.type}`}
                 className="flex items-center justify-between p-3 bg-zinc-800 rounded"
               >
                 <div className="flex items-center gap-3">
@@ -191,9 +191,9 @@ export const TransactionSimulation: React.FC<TransactionSimulationProps> = ({
             Approval Changes
           </h3>
           <div className="space-y-2">
-            {simulation.approvalChanges.map((approval, i) => (
+            {simulation.approvalChanges.map((approval) => (
               <div
-                key={i}
+                key={`approval-${approval.token}-${approval.spender}`}
                 className={`p-3 rounded ${approval.isRevoke ? 'bg-zinc-800' : 'bg-yellow-500/10 border border-yellow-500/30'}`}
               >
                 <div className="flex items-center justify-between">
@@ -283,8 +283,11 @@ export const TransactionSimulation: React.FC<TransactionSimulationProps> = ({
             ⚠️ Warnings
           </h3>
           <ul className="space-y-1">
-            {simulation.risk.warnings.map((warning, i) => (
-              <li key={i} className="text-sm text-yellow-300">
+            {simulation.risk.warnings.map((warning) => (
+              <li
+                key={`warning-${warning}`}
+                className="text-sm text-yellow-300"
+              >
                 • {warning}
               </li>
             ))}
@@ -299,8 +302,11 @@ export const TransactionSimulation: React.FC<TransactionSimulationProps> = ({
             💡 Suggestions
           </h3>
           <ul className="space-y-1">
-            {simulation.risk.suggestions.map((suggestion, i) => (
-              <li key={i} className="text-sm text-blue-300">
+            {simulation.risk.suggestions.map((suggestion) => (
+              <li
+                key={`suggestion-${suggestion}`}
+                className="text-sm text-blue-300"
+              >
                 • {suggestion}
               </li>
             ))}

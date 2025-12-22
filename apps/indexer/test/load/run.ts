@@ -130,7 +130,7 @@ async function runScenario(config: LoadTestConfig): Promise<TestResult> {
       console.log(`   ${passed ? '✅ PASSED' : '❌ FAILED'}`)
 
       if (!passed) {
-        errors.forEach((e) => console.log(`      - ${e}`))
+        for (const e of errors) console.log(`      - ${e}`)
       }
 
       resolve({ name: config.name, passed, rps, p99, errorRate, errors })
@@ -193,7 +193,7 @@ async function main() {
     )
     if (!result.passed) {
       allPassed = false
-      result.errors.forEach((e) => console.log(`   ⚠️  ${e}`))
+      for (const e of result.errors) console.log(`   ⚠️  ${e}`)
     }
   }
 

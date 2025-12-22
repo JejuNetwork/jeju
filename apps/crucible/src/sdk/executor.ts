@@ -527,10 +527,8 @@ export class ExecutorSDK {
     let matchCount = 0
     const maxMatches = 100 // Limit number of actions to prevent DoS
 
-    while (
-      (match = regex.exec(safeResponse)) !== null &&
-      matchCount < maxMatches
-    ) {
+    match = regex.exec(safeResponse)
+    while (match !== null && matchCount < maxMatches) {
       matchCount++
       expect(match[1], 'Action type is required')
       const params: ActionParams = {}

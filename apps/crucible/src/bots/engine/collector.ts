@@ -173,7 +173,9 @@ export class EventCollector extends EventEmitter {
 
   async stop(): Promise<void> {
     this.running = false
-    this.unwatchers.forEach((unwatch) => unwatch())
+    for (const unwatch of this.unwatchers) {
+      unwatch()
+    }
     this.unwatchers = []
     log.info('Event collection stopped')
   }

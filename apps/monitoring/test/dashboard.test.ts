@@ -20,7 +20,13 @@ const GRAFANA_PORT = parseInt(process.env.GRAFANA_PORT || '4010', 10)
 const GRAFANA_URL = `http://localhost:${GRAFANA_PORT}`
 const AUTH = Buffer.from('admin:admin').toString('base64')
 
-const DASHBOARD_DIR = path.join(__dirname, '..', 'config', 'grafana', 'dashboards')
+const DASHBOARD_DIR = path.join(
+  __dirname,
+  '..',
+  'config',
+  'grafana',
+  'dashboards',
+)
 
 async function grafanaRequest(endpoint: string): Promise<Response> {
   return fetch(`${GRAFANA_URL}${endpoint}`, {

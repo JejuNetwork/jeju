@@ -149,7 +149,7 @@ test.describe('NFT Validation Matrix', () => {
     console.log('Validation Matrix:')
     validationMatrix.forEach(({ feature, checks, status }) => {
       console.log(`${feature}: ${status}`)
-      checks.forEach((check) => console.log(`  - ${check}`))
+      for (const check of checks) console.log(`  - ${check}`)
     })
 
     expect(validationMatrix.every((v) => v.status === 'IMPLEMENTED')).toBe(true)

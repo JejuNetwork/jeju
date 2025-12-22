@@ -1,5 +1,3 @@
-'use client'
-
 import {
   AlertCircle,
   AlertTriangle,
@@ -24,7 +22,7 @@ import {
   type QuickScoreResult,
   quickScore,
   type SimilarProposal,
-} from '@/config/api'
+} from '../config/api'
 
 const PROPOSAL_TYPES = [
   {
@@ -617,9 +615,9 @@ function QualityStep({
                 Must Fix Before Submission
               </h3>
               <ul className="space-y-1">
-                {assessment.blockers.map((b, i) => (
+                {assessment.blockers.map((b) => (
                   <li
-                    key={i}
+                    key={b}
                     className="text-sm text-red-600 dark:text-red-400"
                   >
                     • {b}
@@ -636,9 +634,9 @@ function QualityStep({
                 Suggestions for Improvement
               </h3>
               <ul className="space-y-1">
-                {assessment.suggestions.map((s, i) => (
+                {assessment.suggestions.map((s) => (
                   <li
-                    key={i}
+                    key={s}
                     className="text-sm text-yellow-700 dark:text-yellow-400"
                   >
                     • {s}
@@ -653,8 +651,8 @@ function QualityStep({
             <div>
               <h3 className="text-sm font-medium mb-2">Detailed Feedback</h3>
               <ul className="space-y-1 text-sm text-gray-600 dark:text-gray-400">
-                {assessment.feedback.map((f, i) => (
-                  <li key={i}>• {f}</li>
+                {assessment.feedback.map((f) => (
+                  <li key={f}>• {f}</li>
                 ))}
               </ul>
             </div>

@@ -1,9 +1,5 @@
-import cors from 'cors'
-import express, {
-  type NextFunction,
-  type Request,
-  type Response,
-} from 'express'
+import { cors } from '@elysiajs/cors'
+import { type Context, Elysia } from 'elysia'
 import { z } from 'zod'
 import { getAccountByAddress } from './lib/account-utils'
 import { getAgentsByTag } from './lib/agent-utils'
@@ -95,26 +91,16 @@ if (!REST_PORT || REST_PORT <= 0 || REST_PORT > 65535) {
   )
 }
 
-type AsyncHandler = (
-  req: Request,
-  res: Response,
-  next: NextFunction,
-) => Promise<void>
-const asyncHandler =
-  (fn: AsyncHandler) => (req: Request, res: Response, next: NextFunction) =>
-    Promise.resolve(fn(req, res, next)).catch(next)
-
-const app: express.Application = express()
-
 // SECURITY: Configure CORS with allowlist - defaults to permissive for local dev
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',')
   .map((o) => o.trim())
   .filter(Boolean)
-const corsOptions: cors.CorsOptions = CORS_ORIGINS?.length
+
+const corsOptions = CORS_ORIGINS?.length
   ? {
       origin: CORS_ORIGINS,
       credentials: true,
-      methods: ['GET', 'POST', 'OPTIONS'],
+      methods: ['GET', 'POST', 'OPTIONS'] as ('GET' | 'POST' | 'OPTIONS')[],
       allowedHeaders: [
         'Content-Type',
         'Authorization',
@@ -123,18 +109,17 @@ const corsOptions: cors.CorsOptions = CORS_ORIGINS?.length
         'X-Agent-Id',
       ],
     }
-  : {} // Permissive CORS for local development when CORS_ORIGINS not set
+  : undefined // Permissive CORS for local development when CORS_ORIGINS not set
 
-app.use(cors(corsOptions))
-app.use(express.json({ limit: '1mb' })) // Limit request body size
-app.use(stakeRateLimiter({ skipPaths: ['/health', '/'] }))
-
-app.get('/health', (_req: Request, res: Response) => {
-  res.json({ status: 'ok', service: 'indexer-rest', port: REST_PORT })
-})
-
-app.get('/', (_req: Request, res: Response) => {
-  res.json({
+const app = new Elysia()
+  .use(cors(corsOptions))
+  .use(stakeRateLimiter({ skipPaths: ['/health', '/'] }))
+  .get('/health', () => ({
+    status: 'ok',
+    service: 'indexer-rest',
+    port: REST_PORT,
+  }))
+  .get('/', () => ({
     name: 'Network Indexer REST API',
     version: '1.0.0',
     endpoints: {
@@ -149,12 +134,10 @@ app.get('/', (_req: Request, res: Response) => {
       providers: '/api/providers',
       tags: '/api/tags',
       stats: '/api/stats',
-      // Cross-service integration
       containers: '/api/containers',
       crossServiceRequests: '/api/cross-service/requests',
       marketplaceStats: '/api/marketplace/stats',
       fullStackProviders: '/api/full-stack',
-      // Oracle Network (JON)
       oracleFeeds: '/api/oracle/feeds',
       oracleOperators: '/api/oracle/operators',
       oracleReports: '/api/oracle/reports',
@@ -163,16 +146,12 @@ app.get('/', (_req: Request, res: Response) => {
     },
     graphql: 'http://localhost:4350/graphql',
     rateLimits: RATE_LIMITS,
-  })
-})
-
-app.get(
-  '/api/search',
-  asyncHandler(async (req, res) => {
+  }))
+  .get('/api/search', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       restSearchParamsSchema,
-      req.query,
+      ctx.query,
       'GET /api/search',
     )
 
@@ -188,29 +167,19 @@ app.get(
       offset: validated.offset,
     }
 
-    const results = await search(ds, params)
-    res.json(results)
-  }),
-)
-
-app.get(
-  '/api/tags',
-  asyncHandler(async (req, res) => {
+    return await search(ds, params)
+  })
+  .get('/api/tags', async (ctx: Context) => {
     const ds = await getDataSource()
-    // Validate query params even if not used (for consistency and future-proofing)
-    validateQuery(z.object({}).passthrough(), req.query, 'GET /api/tags')
+    validateQuery(z.object({}).passthrough(), ctx.query, 'GET /api/tags')
     const tags = await getPopularTags(ds, 100)
-    res.json({ tags, total: tags.length })
-  }),
-)
-
-app.get(
-  '/api/agents',
-  asyncHandler(async (req, res) => {
+    return { tags, total: tags.length }
+  })
+  .get('/api/agents', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       agentsQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/agents',
     )
 
@@ -229,7 +198,7 @@ app.get(
         relations: ['owner'],
       })
 
-    res.json({
+    return {
       agents: agents.map((a) => ({
         ...mapAgentSummary(a),
         owner: a.owner?.address,
@@ -237,61 +206,50 @@ app.get(
       total,
       limit: validated.limit,
       offset: validated.offset,
-    })
-  }),
-)
-
-app.get(
-  '/api/agents/:id',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/agents/:id', async (ctx: Context) => {
     const ds = await getDataSource()
     const { id } = validateParams(
       agentIdParamSchema,
-      req.params,
+      ctx.params,
       'GET /api/agents/:id',
     )
 
     const agent = await getAgentById(ds, id)
     if (!agent) {
-      throw new NotFoundError('Agent', id)
+      ctx.set.status = 404
+      return { error: `Agent not found: ${id}` }
     }
 
-    res.json(agent)
-  }),
-)
-
-app.get(
-  '/api/agents/tag/:tag',
-  asyncHandler(async (req, res) => {
+    return agent
+  })
+  .get('/api/agents/tag/:tag', async (ctx: Context) => {
     const ds = await getDataSource()
     const { tag } = validateParams(
       agentTagParamSchema,
-      req.params,
+      ctx.params,
       'GET /api/agents/tag/:tag',
     )
     const validated = validateQuery(
       paginationSchema,
-      req.query,
+      ctx.query,
       'GET /api/agents/tag/:tag',
     )
 
     const result = await getAgentsByTag(ds, tag, validated.limit)
 
-    res.json({
+    return {
       tag: result.tag,
       agents: result.agents.map(mapAgentSummary),
       count: result.agents.length,
-    })
-  }),
-)
-
-app.get(
-  '/api/blocks',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/blocks', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       blocksQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/blocks',
     )
 
@@ -300,42 +258,35 @@ app.get(
       offset: validated.offset,
     })
 
-    res.json({
+    return {
       blocks: blocks.map(mapBlockSummary),
-    })
-  }),
-)
-
-app.get(
-  '/api/blocks/:numberOrHash',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/blocks/:numberOrHash', async (ctx: Context) => {
     const ds = await getDataSource()
     const { numberOrHash } = validateParams(
       blockNumberOrHashParamSchema,
-      req.params,
+      ctx.params,
       'GET /api/blocks/:numberOrHash',
     )
 
     const block = await getBlockByIdentifier(ds, numberOrHash)
     if (!block) {
-      throw new NotFoundError('Block', numberOrHash)
+      ctx.set.status = 404
+      return { error: `Block not found: ${numberOrHash}` }
     }
 
-    res.json({
+    return {
       ...mapBlockDetail(block),
       baseFeePerGas: block.baseFeePerGas?.toString() || null,
       size: block.size,
-    })
-  }),
-)
-
-app.get(
-  '/api/transactions',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/transactions', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       transactionsQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/transactions',
     )
 
@@ -344,110 +295,92 @@ app.get(
       offset: validated.offset,
     })
 
-    res.json({
+    return {
       transactions: txs.map(mapTransactionSummary),
-    })
-  }),
-)
-
-app.get(
-  '/api/transactions/:hash',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/transactions/:hash', async (ctx: Context) => {
     const ds = await getDataSource()
     const { hash } = validateParams(
       transactionHashParamSchema,
-      req.params,
+      ctx.params,
       'GET /api/transactions/:hash',
     )
 
     const tx = await getTransactionByHash(ds, hash)
 
     if (!tx) {
-      throw new NotFoundError('Transaction', hash)
+      ctx.set.status = 404
+      return { error: `Transaction not found: ${hash}` }
     }
 
-    res.json({
+    return {
       ...mapTransactionDetail(tx),
       gasLimit: tx.gasLimit.toString(),
       input: tx.input,
       nonce: tx.nonce,
-    })
-  }),
-)
-
-app.get(
-  '/api/accounts/:address',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/accounts/:address', async (ctx: Context) => {
     const ds = await getDataSource()
     const { address } = validateParams(
       accountAddressParamSchema,
-      req.params,
+      ctx.params,
       'GET /api/accounts/:address',
     )
 
     const account = await getAccountByAddress(ds, address)
 
     if (!account) {
-      throw new NotFoundError('Account', address.toLowerCase())
+      ctx.set.status = 404
+      return { error: `Account not found: ${address.toLowerCase()}` }
     }
 
-    res.json(mapAccountResponse(account))
-  }),
-)
-
-app.get(
-  '/api/contracts',
-  asyncHandler(async (req, res) => {
+    return mapAccountResponse(account)
+  })
+  .get('/api/contracts', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       contractsQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/contracts',
     )
 
-    const query = buildContractsQuery(ds, {
+    const contractsQuery = buildContractsQuery(ds, {
       type: validated.type,
       limit: validated.limit,
     })
 
-    const contracts = await query.getMany()
+    const contracts = await contractsQuery.getMany()
 
-    res.json({
+    return {
       contracts: contracts.map(mapContractResponse),
-    })
-  }),
-)
-
-app.get(
-  '/api/tokens/transfers',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/tokens/transfers', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       tokenTransfersQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/tokens/transfers',
     )
 
-    const query = buildTokenTransfersQuery(ds, {
+    const transfersQuery = buildTokenTransfersQuery(ds, {
       token: validated.token,
       limit: validated.limit,
     })
 
-    const transfers = await query.getMany()
+    const transfers = await transfersQuery.getMany()
 
-    res.json({
+    return {
       transfers: transfers.map(mapTokenTransferResponse),
-    })
-  }),
-)
-
-app.get(
-  '/api/nodes',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/nodes', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       nodesQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/nodes',
     )
 
@@ -456,20 +389,16 @@ app.get(
       limit: validated.limit,
     })
 
-    res.json({
+    return {
       nodes: nodes.map(mapNodeResponse),
       total: nodes.length,
-    })
-  }),
-)
-
-app.get(
-  '/api/providers',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/providers', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       providersQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/providers',
     )
 
@@ -478,21 +407,17 @@ app.get(
       limit: validated.limit,
     })
 
-    res.json(result)
-  }),
-)
-
-app.get(
-  '/api/containers',
-  asyncHandler(async (req, res) => {
+    return result
+  })
+  .get('/api/containers', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       containersQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/containers',
     )
 
-    const query = buildContainersQuery(ds, {
+    const containersQuery = buildContainersQuery(ds, {
       verified: validated.verified,
       gpu: validated.gpu,
       tee: validated.tee,
@@ -500,272 +425,210 @@ app.get(
       offset: validated.offset,
     })
 
-    const [containers, total] = await query.getManyAndCount()
+    const [containers, total] = await containersQuery.getManyAndCount()
 
-    res.json({
+    return {
       containers: containers.map(mapContainerListResponse),
       total,
       limit: validated.limit,
       offset: validated.offset,
-    })
-  }),
-)
-
-app.get(
-  '/api/containers/:cid',
-  asyncHandler(async (req: Request, res: Response) => {
+    }
+  })
+  .get('/api/containers/:cid', async (ctx: Context) => {
     const ds = await getDataSource()
     const { cid } = validateParams(
       containerCidParamSchema,
-      req.params,
+      ctx.params,
       'GET /api/containers/:cid',
     )
-    const result = await getContainerDetail(ds, cid)
-    res.json(result)
-  }),
-)
-
-app.get(
-  '/api/cross-service/requests',
-  asyncHandler(async (req, res) => {
+    return await getContainerDetail(ds, cid)
+  })
+  .get('/api/cross-service/requests', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       crossServiceRequestsQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/cross-service/requests',
     )
 
-    const query = buildCrossServiceRequestsQuery(ds, {
+    const requestsQuery = buildCrossServiceRequestsQuery(ds, {
       status: validated.status,
       type: validated.type,
       limit: validated.limit,
       offset: validated.offset,
     })
 
-    const [requests, total] = await query.getManyAndCount()
+    const [requests, total] = await requestsQuery.getManyAndCount()
 
-    res.json({
+    return {
       requests: requests.map(mapCrossServiceRequestResponse),
       total,
       limit: validated.limit,
       offset: validated.offset,
-    })
-  }),
-)
-
-app.get(
-  '/api/marketplace/stats',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/marketplace/stats', async (ctx: Context) => {
     const ds = await getDataSource()
-    // Validate query params even if not used (for consistency and future-proofing)
     validateQuery(
       z.object({}).passthrough(),
-      req.query,
+      ctx.query,
       'GET /api/marketplace/stats',
     )
-    const stats = await getMarketplaceStats(ds)
-    res.json(stats)
-  }),
-)
-
-// ============================================================================
-// FULL-STACK PROVIDERS - Providers with both compute and storage
-// ============================================================================
-
-app.get(
-  '/api/full-stack',
-  asyncHandler(async (req: Request, res: Response) => {
+    return await getMarketplaceStats(ds)
+  })
+  .get('/api/full-stack', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       paginationSchema.extend({
         limit: z.coerce.number().int().min(1).max(50).default(20),
       }),
-      req.query,
+      ctx.query,
       'GET /api/full-stack',
     )
-    const result = await getFullStackProviders(ds, validated.limit)
-    res.json(result)
-  }),
-)
-
-app.get(
-  '/api/oracle/feeds',
-  asyncHandler(async (req, res) => {
+    return await getFullStackProviders(ds, validated.limit)
+  })
+  .get('/api/oracle/feeds', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       oracleFeedsQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/oracle/feeds',
     )
 
-    const query = buildOracleFeedsQuery(ds, {
+    const feedsQuery = buildOracleFeedsQuery(ds, {
       active: validated.active,
       category: validated.category,
       limit: validated.limit,
       offset: validated.offset,
     })
 
-    const [feeds, total] = await query.getManyAndCount()
+    const [feeds, total] = await feedsQuery.getManyAndCount()
 
-    res.json({
+    return {
       feeds: feeds.map(mapOracleFeedResponse),
       total,
       limit: validated.limit,
       offset: validated.offset,
-    })
-  }),
-)
-
-app.get(
-  '/api/oracle/feeds/:feedId',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/oracle/feeds/:feedId', async (ctx: Context) => {
     const ds = await getDataSource()
     const { feedId } = validateParams(
       oracleFeedIdParamSchema,
-      req.params,
+      ctx.params,
       'GET /api/oracle/feeds/:feedId',
     )
-    const result = await getOracleFeedDetail(ds, feedId)
-    res.json(result)
-  }),
-)
-
-app.get(
-  '/api/oracle/operators',
-  asyncHandler(async (req, res) => {
+    return await getOracleFeedDetail(ds, feedId)
+  })
+  .get('/api/oracle/operators', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       oracleOperatorsQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/oracle/operators',
     )
 
-    const query = buildOracleOperatorsQuery(ds, {
+    const operatorsQuery = buildOracleOperatorsQuery(ds, {
       active: validated.active,
       jailed: validated.jailed,
       limit: validated.limit,
       offset: validated.offset,
     })
 
-    const [operators, total] = await query.getManyAndCount()
+    const [operators, total] = await operatorsQuery.getManyAndCount()
 
-    res.json({
+    return {
       operators: operators.map(mapOracleOperatorResponse),
       total,
       limit: validated.limit,
       offset: validated.offset,
-    })
-  }),
-)
-
-app.get(
-  '/api/oracle/operators/:address',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/oracle/operators/:address', async (ctx: Context) => {
     const ds = await getDataSource()
     const { address } = validateParams(
       oracleOperatorAddressParamSchema,
-      req.params,
+      ctx.params,
       'GET /api/oracle/operators/:address',
     )
 
     const operator = await getOracleOperatorByAddress(ds, address)
 
     if (!operator) {
-      throw new NotFoundError('Oracle Operator', address.toLowerCase())
+      ctx.set.status = 404
+      return { error: `Oracle Operator not found: ${address.toLowerCase()}` }
     }
 
-    res.json({
+    return {
       operator: mapOracleOperatorResponse(operator),
-    })
-  }),
-)
-
-app.get(
-  '/api/oracle/reports',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/oracle/reports', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       oracleReportsQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/oracle/reports',
     )
 
-    const query = buildOracleReportsQuery(ds, {
+    const reportsQuery = buildOracleReportsQuery(ds, {
       feedId: validated.feedId,
       disputed: validated.disputed,
       limit: validated.limit,
       offset: validated.offset,
     })
 
-    const [reports, total] = await query.getManyAndCount()
+    const [reports, total] = await reportsQuery.getManyAndCount()
 
-    res.json({
+    return {
       reports: reports.map(mapOracleReportResponse),
       total,
       limit: validated.limit,
       offset: validated.offset,
-    })
-  }),
-)
-
-app.get(
-  '/api/oracle/disputes',
-  asyncHandler(async (req: Request, res: Response) => {
+    }
+  })
+  .get('/api/oracle/disputes', async (ctx: Context) => {
     const ds = await getDataSource()
     const validated = validateQuery(
       oracleDisputesQuerySchema,
-      req.query,
+      ctx.query,
       'GET /api/oracle/disputes',
     )
 
-    const query = buildOracleDisputesQuery(ds, {
+    const disputesQuery = buildOracleDisputesQuery(ds, {
       status: validated.status,
       limit: validated.limit,
       offset: validated.offset,
     })
 
-    const [disputes, total] = await query.getManyAndCount()
+    const [disputes, total] = await disputesQuery.getManyAndCount()
 
-    res.json({
+    return {
       disputes: disputes.map(mapOracleDisputeResponse),
       total,
       limit: validated.limit,
       offset: validated.offset,
-    })
-  }),
-)
-
-app.get(
-  '/api/oracle/stats',
-  asyncHandler(async (req, res) => {
+    }
+  })
+  .get('/api/oracle/stats', async (ctx: Context) => {
     const ds = await getDataSource()
-    // Validate query params even if not used (for consistency and future-proofing)
     validateQuery(
       z.object({}).passthrough(),
-      req.query,
+      ctx.query,
       'GET /api/oracle/stats',
     )
-    const stats = await getOracleStats(ds)
-    res.json(stats)
-  }),
-)
-
-app.get(
-  '/api/stats',
-  asyncHandler(async (req, res) => {
+    return await getOracleStats(ds)
+  })
+  .get('/api/stats', async (ctx: Context) => {
     const ds = await getDataSource()
-    // Validate query params even if not used (for consistency and future-proofing)
-    validateQuery(z.object({}).passthrough(), req.query, 'GET /api/stats')
+    validateQuery(z.object({}).passthrough(), ctx.query, 'GET /api/stats')
     const stats = await getNetworkStats(ds)
-    res.json({
+    return {
       ...stats,
       rateLimitStats: getRateLimitStats(),
-    })
-  }),
-)
-
-app.get('/api/rate-limits', (_req, res) => {
-  res.json({
+    }
+  })
+  .get('/api/rate-limits', () => ({
     tiers: RATE_LIMITS,
     thresholds: {
       FREE: { minUsd: 0, limit: RATE_LIMITS.FREE },
@@ -775,35 +638,36 @@ app.get('/api/rate-limits', (_req, res) => {
     },
     stats: getRateLimitStats(),
     note: 'Stake tokens to increase rate limits',
+  }))
+  .onError(({ error, set }) => {
+    // Handle actual Error instances
+    if (error instanceof Error) {
+      console.error('[REST] Unhandled error:', error.message, error.stack)
+
+      if (
+        error.name === 'ValidationError' ||
+        error.message.includes('Validation error')
+      ) {
+        set.status = 400
+        return { error: 'Validation error', message: error.message }
+      }
+
+      if (error instanceof NotFoundError || error.name === 'NotFoundError') {
+        set.status = 404
+        return { error: error.message }
+      }
+
+      if (error.name === 'BadRequestError') {
+        set.status = 400
+        return { error: error.message }
+      }
+    } else {
+      console.error('[REST] Unhandled non-error:', error)
+    }
+
+    set.status = 500
+    return { error: 'Internal server error' }
   })
-})
-
-app.use((err: Error, _req: Request, res: Response, _next: NextFunction) => {
-  // Log full error details server-side for debugging
-  console.error('[REST] Unhandled error:', err.message, err.stack)
-
-  if (
-    err.name === 'ValidationError' ||
-    err.message.includes('Validation error')
-  ) {
-    res.status(400).json({ error: 'Validation error', message: err.message })
-    return
-  }
-
-  if (err.name === 'NotFoundError') {
-    res.status(404).json({ error: err.message })
-    return
-  }
-
-  if (err.name === 'BadRequestError') {
-    res.status(400).json({ error: err.message })
-    return
-  }
-
-  // SECURITY: Never expose internal error details to clients
-  // Internal errors are logged server-side but clients only see a generic message
-  res.status(500).json({ error: 'Internal server error' })
-})
 
 export async function startRestServer(): Promise<void> {
   await getDataSource()

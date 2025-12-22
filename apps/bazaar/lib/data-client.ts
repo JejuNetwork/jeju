@@ -62,8 +62,12 @@ export interface PriceCandle {
 }
 
 let rpcClient: PublicClient | null = null
-const getRpcClient = (): PublicClient =>
-  (rpcClient ??= createPublicClient({ transport: http(RPC_URL) }))
+const getRpcClient = (): PublicClient => {
+  if (!rpcClient) {
+    rpcClient = createPublicClient({ transport: http(RPC_URL) })
+  }
+  return rpcClient
+}
 
 // Security: Maximum limits to prevent DoS via large responses
 const MAX_LIMIT = 500

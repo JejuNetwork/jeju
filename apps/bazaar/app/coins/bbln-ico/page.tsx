@@ -238,9 +238,9 @@ export default function BBLNICOPage() {
                   q: 'Can I bid from multiple chains?',
                   a: 'Yes! Cross-chain bids are supported from Ethereum, Base, and Arbitrum. Funds are bridged via Hyperlane for settlement on Ethereum mainnet.',
                 },
-              ].map((faq, i) => (
+              ].map((faq) => (
                 <div
-                  key={i}
+                  key={faq.q}
                   className="rounded-xl border border-amber-500/10 bg-black/30 p-4"
                 >
                   <h3 className="mb-2 font-medium text-amber-100">{faq.q}</h3>

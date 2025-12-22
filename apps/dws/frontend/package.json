@@ -4,9 +4,8 @@
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview",
+    "dev": "PORT=4031 bun index.html",
+    "build": "bun build index.html --outdir=dist --minify --sourcemap",
     "typecheck": "tsc --noEmit",
     "test": "playwright test tests/*.spec.ts",
     "test:headed": "playwright test tests/*.spec.ts --headed",
@@ -34,8 +33,6 @@
     "@synthetixio/synpress": "4.1.1",
     "@types/react": "19.2.3",
     "@types/react-dom": "19.2.3",
-    "@vitejs/plugin-react": "4.3.4",
-    "typescript": "5.9.3",
-    "vite": "6.3.5"
+    "typescript": "5.9.3"
   }
 }

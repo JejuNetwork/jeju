@@ -1,5 +1,3 @@
-'use client'
-
 import {
   AlertTriangle,
   BarChart3,
@@ -24,7 +22,7 @@ import {
   fetchModelCandidates,
   fetchRecentDecisions,
   type ModelCandidate,
-} from '@/config/api'
+} from '../config/api'
 
 interface CEODashboardProps {
   compact?: boolean

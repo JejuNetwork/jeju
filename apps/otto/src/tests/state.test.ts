@@ -1,8 +1,3 @@
-/**
- * Otto State Manager Tests
- * Tests state persistence, history management, and expiry logic
- */
-
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
 import { existsSync, mkdirSync, rmSync } from 'node:fs'
 

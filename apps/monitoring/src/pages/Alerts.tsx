@@ -154,11 +154,21 @@ export function Alerts() {
       {/* List */}
       {loading ? (
         <div className="space-y-4">
-          {[...Array(5)].map((_, i) => (
-            <div key={i} className="card-static p-4">
-              <div className="shimmer h-16 w-full rounded" />
-            </div>
-          ))}
+          <div key="skeleton-0" className="card-static p-4">
+            <div className="shimmer h-16 w-full rounded" />
+          </div>
+          <div key="skeleton-1" className="card-static p-4">
+            <div className="shimmer h-16 w-full rounded" />
+          </div>
+          <div key="skeleton-2" className="card-static p-4">
+            <div className="shimmer h-16 w-full rounded" />
+          </div>
+          <div key="skeleton-3" className="card-static p-4">
+            <div className="shimmer h-16 w-full rounded" />
+          </div>
+          <div key="skeleton-4" className="card-static p-4">
+            <div className="shimmer h-16 w-full rounded" />
+          </div>
         </div>
       ) : filteredAlerts.length === 0 ? (
         <div className="card-static p-8 text-center">
@@ -170,9 +180,10 @@ export function Alerts() {
         </div>
       ) : (
         <div className="space-y-4">
-          {filteredAlerts.map((alert, i) => (
-            <AlertCard key={i} alert={alert} />
-          ))}
+          {filteredAlerts.map((alert) => {
+            const alertKey = `${alert.labels.alertname || 'unknown'}-${alert.labels.instance || ''}-${alert.labels.job || ''}-${alert.activeAt || ''}`
+            return <AlertCard key={alertKey} alert={alert} />
+          })}
         </div>
       )}
     </div>

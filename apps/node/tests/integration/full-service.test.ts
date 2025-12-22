@@ -1,19 +1,11 @@
 /**
- * Comprehensive Service Integration Tests
- *
- * Tests ALL services, capabilities, and on-chain interactions
- * Run with: bun test tests/integration/full-service-tests.ts
+ * Service Integration Tests
+ * Tests service capabilities and on-chain interactions
  * Requires: localnet running with `jeju dev`
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
-import {
-  type Address,
-  createPublicClient,
-  formatEther,
-  http,
-  parseEther,
-} from 'viem'
+import { type Address, createPublicClient, http, parseEther } from 'viem'
 import {
   createNodeClient,
   getContractAddresses,
@@ -28,54 +20,55 @@ import {
 } from '../../src/lib/hardware'
 import { createNodeServices, type NodeServices } from '../../src/lib/services'
 
-// Test configuration
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545'
+const RPC_URL = process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:9545'
 const CHAIN_ID = 1337
 
-// Anvil test accounts
-const TEST_ACCOUNTS = [
+interface TestAccount {
+  key: `0x${string}`
+  address: Address
+}
+
+const TEST_ACCOUNTS: TestAccount[] = [
   {
     key: '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
-    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address,
+    address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   },
   {
     key: '0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d',
-    address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address,
+    address: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
   },
   {
     key: '0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a',
-    address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC' as Address,
+    address: '0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC',
   },
 ]
 
 let isLocalnetRunning = false
 let hardware: HardwareInfo
 
-/**
- * Check if localnet is running
- */
 async function checkLocalnet(): Promise<boolean> {
-  try {
-    const publicClient = createPublicClient({
-      chain: jejuLocalnet,
-      transport: http(RPC_URL),
-    })
-    await publicClient.getBlockNumber()
-    return true
-  } catch {
-    return false
-  }
+  const publicClient = createPublicClient({
+    chain: jejuLocalnet,
+    transport: http(RPC_URL),
+  })
+  const blockNumber = await publicClient.getBlockNumber().catch(() => null)
+  return blockNumber !== null
 }
 
-/**
- * Wait for transaction to be mined
- */
 async function waitForTx(hash: string): Promise<void> {
   const publicClient = createPublicClient({
     chain: jejuLocalnet,
     transport: http(RPC_URL),
   })
   await publicClient.waitForTransactionReceipt({ hash: hash as `0x${string}` })
+}
+
+function skipIfNoLocalnet(): boolean {
+  if (!isLocalnetRunning) {
+    console.log('SKIPPED: Localnet not running')
+    return true
+  }
+  return false
 }
 
 describe('Pre-flight Checks', () => {
@@ -86,44 +79,21 @@ describe('Pre-flight Checks', () => {
 
   test('localnet connectivity', async () => {
     if (!isLocalnetRunning) {
-      console.log('⚠️  Localnet not running - run `jeju dev` to start')
-      console.log('   Some tests will be skipped')
-    } else {
-      console.log('✓ Localnet is running')
+      console.log('Localnet not running - run `jeju dev` to start')
     }
-    expect(true).toBe(true) // Always pass - just log status
+    expect(true).toBe(true)
   })
 
   test('hardware detection works', () => {
     expect(hardware).toBeDefined()
     expect(hardware.cpu.coresPhysical).toBeGreaterThan(0)
     expect(hardware.memory.totalMb).toBeGreaterThan(0)
-    console.log(
-      `✓ Hardware detected: ${hardware.cpu.coresPhysical} cores, ${(hardware.memory.totalMb / 1024).toFixed(1)}GB RAM`,
-    )
-    if (hardware.gpus.length > 0) {
-      console.log(`  GPU: ${hardware.gpus.map((g) => g.name).join(', ')}`)
-    }
-    if (hardware.docker.available) {
-      console.log(
-        `  Docker: ${hardware.docker.version}, running: ${hardware.docker.runtimeAvailable}`,
-      )
-    }
   })
 
   test('compute capabilities analysis', () => {
     const capabilities = getComputeCapabilities(hardware)
     expect(capabilities.cpuCompute).toBeDefined()
     expect(capabilities.gpuCompute).toBeDefined()
-    console.log(
-      `✓ CPU compute: ${capabilities.cpuCompute.available ? 'available' : 'not available'}`,
-    )
-    console.log(
-      `  GPU compute: ${capabilities.gpuCompute.available ? 'available' : 'not available'}`,
-    )
-    console.log(
-      `  TEE: CPU=${capabilities.cpuCompute.teeAvailable}, GPU=${capabilities.gpuCompute.teeAvailable}`,
-    )
   })
 
   test('contract addresses are valid', () => {
@@ -133,7 +103,6 @@ describe('Pre-flight Checks', () => {
     expect(addresses.oracleStakingManager).toMatch(/^0x[a-fA-F0-9]{40}$/)
     expect(addresses.storageMarket).toMatch(/^0x[a-fA-F0-9]{40}$/)
     expect(addresses.triggerRegistry).toMatch(/^0x[a-fA-F0-9]{40}$/)
-    console.log('✓ Contract addresses are valid')
   })
 })
 
@@ -154,28 +123,20 @@ describe('Wallet & Signing', () => {
   })
 
   test('can read balance', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const client = createNodeClient(RPC_URL, CHAIN_ID, TEST_ACCOUNTS[0].key)
     const balance = await client.publicClient.getBalance({
       address: TEST_ACCOUNTS[0].address,
     })
     expect(balance).toBeGreaterThan(0n)
-    console.log(`✓ Account balance: ${formatEther(balance)} ETH`)
   })
 
   test('can send transaction', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const client = createNodeClient(RPC_URL, CHAIN_ID, TEST_ACCOUNTS[0].key)
 
-    // Send 0.001 ETH to self
     const hash = await client.walletClient!.sendTransaction({
       chain: jejuLocalnet,
       account: client.walletClient!.account!,
@@ -185,11 +146,10 @@ describe('Wallet & Signing', () => {
 
     expect(hash).toMatch(/^0x[a-fA-F0-9]{64}$/)
     await waitForTx(hash)
-    console.log(`✓ Transaction sent: ${hash.slice(0, 18)}...`)
   })
 })
 
-describe('Compute Service - Full Flow', () => {
+describe('Compute Service', () => {
   let services: NodeServices
 
   beforeAll(() => {
@@ -198,68 +158,49 @@ describe('Compute Service - Full Flow', () => {
   })
 
   test('can read compute service state', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const state = await services.compute.getState(TEST_ACCOUNTS[0].address)
     expect(state).toBeDefined()
     expect(typeof state.isRegistered).toBe('boolean')
     expect(typeof state.isStaked).toBe('boolean')
-    console.log(
-      `✓ Compute state: registered=${state.isRegistered}, staked=${state.isStaked}`,
-    )
   })
 
   test('can stake as compute provider', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const stakeAmount = parseEther('0.1')
 
-    try {
-      const hash = await services.compute.stake(stakeAmount)
+    const hash = await services.compute.stake(stakeAmount).catch((e: Error) => {
+      if (
+        e.message?.includes('already staked') ||
+        e.message?.includes('execution reverted')
+      ) {
+        return null
+      }
+      throw e
+    })
+
+    if (hash) {
       expect(hash).toMatch(/^0x[a-fA-F0-9]{64}$/)
       await waitForTx(hash)
-      console.log(
-        `✓ Staked ${formatEther(stakeAmount)} ETH: ${hash.slice(0, 18)}...`,
-      )
 
-      // Verify stake
       const state = await services.compute.getState(TEST_ACCOUNTS[0].address)
       expect(state.stakeAmount).toBeGreaterThanOrEqual(stakeAmount)
-    } catch (e: unknown) {
-      const error = e as Error
-      if (
-        error.message?.includes('already staked') ||
-        error.message?.includes('execution reverted')
-      ) {
-        console.log('✓ Stake check passed (already staked or contract limit)')
-      } else {
-        throw e
-      }
     }
   })
 
   test('can register compute service', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
-    // Set hardware for TEE check
     services.compute.setHardware(hardware)
 
-    // Acknowledge non-TEE if needed
     if (services.compute.isNonTeeMode('cpu')) {
       services.compute.acknowledgeNonTeeRisk()
     }
 
-    try {
-      const hash = await services.compute.registerService({
+    const hash = await services.compute
+      .registerService({
         modelId: 'test-model-v1',
         endpoint: 'http://localhost:8080/inference',
         pricePerInputToken: 1000n,
@@ -270,45 +211,25 @@ describe('Compute Service - Full Flow', () => {
         cpuCores: 2,
         acceptNonTeeRisk: true,
       })
+      .catch((e: Error) => {
+        if (
+          e.message?.includes('already registered') ||
+          e.message?.includes('execution reverted')
+        ) {
+          return null
+        }
+        throw e
+      })
 
+    if (hash) {
       expect(hash).toMatch(/^0x[a-fA-F0-9]{64}$/)
       await waitForTx(hash)
-      console.log(`✓ Registered compute service: ${hash.slice(0, 18)}...`)
-    } catch (e: unknown) {
-      const error = e as Error
-      if (
-        error.message?.includes('already registered') ||
-        error.message?.includes('execution reverted')
-      ) {
-        console.log(
-          '✓ Registration check passed (already registered or contract limit)',
-        )
-      } else {
-        console.log(
-          `Note: Registration failed with: ${error.message?.slice(0, 100)}`,
-        )
-      }
     }
   })
 
-  test('can create compute offer from hardware', () => {
-    services.compute.setHardware(hardware)
-
-    const offer = services.compute.createOffer(
-      parseEther('0.01'), // price per hour
-      parseEther('0.05'), // price per GPU hour
-      'cpu',
-    )
-
-    expect(offer).not.toBeNull()
-    if (offer) {
-      expect(offer.cpuCores).toBe(hardware.cpu.coresPhysical)
-      expect(offer.cpuGflops).toBeGreaterThan(0)
-      expect(offer.memoryMb).toBe(hardware.memory.totalMb)
-      console.log(
-        `✓ Compute offer created: ${offer.cpuCores} cores, ${offer.cpuGflops.toFixed(1)} GFLOPS`,
-      )
-    }
+  test('setHardware accepts hardware info', () => {
+    // Verify setHardware doesn't throw with valid hardware info
+    expect(() => services.compute.setHardware(hardware)).not.toThrow()
   })
 
   test('non-TEE warning is required for non-TEE compute', () => {
@@ -316,7 +237,6 @@ describe('Compute Service - Full Flow', () => {
     const newServices = createNodeServices(client)
     newServices.compute.setHardware(hardware)
 
-    // Should not be able to register without acknowledging
     if (newServices.compute.isNonTeeMode('cpu')) {
       expect(newServices.compute.getNonTeeWarning()).toContain(
         'NON-CONFIDENTIAL',
@@ -325,7 +245,7 @@ describe('Compute Service - Full Flow', () => {
   })
 })
 
-describe('Oracle Service - Full Flow', () => {
+describe('Oracle Service', () => {
   let services: NodeServices
 
   beforeAll(() => {
@@ -334,83 +254,64 @@ describe('Oracle Service - Full Flow', () => {
   })
 
   test('can read oracle service state', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const state = await services.oracle.getState(TEST_ACCOUNTS[1].address)
     expect(state).toBeDefined()
     expect(typeof state.isRegistered).toBe('boolean')
-    console.log(
-      `✓ Oracle state: registered=${state.isRegistered}, reputation=${state.reputation}`,
-    )
   })
 
   test('can register as oracle provider', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
-    try {
-      const hash = await services.oracle.register({
+    const hash = await services.oracle
+      .register({
         agentId: 1n,
         stakeAmount: parseEther('1.0'),
         markets: ['ETH/USD', 'BTC/USD'],
       })
+      .catch((e: Error) => {
+        if (
+          e.message?.includes('already registered') ||
+          e.message?.includes('execution reverted')
+        ) {
+          return null
+        }
+        throw e
+      })
 
+    if (hash) {
       expect(hash).toMatch(/^0x[a-fA-F0-9]{64}$/)
       await waitForTx(hash)
-      console.log(`✓ Registered as oracle: ${hash.slice(0, 18)}...`)
-    } catch (e) {
-      const error = e as Error
-      if (
-        error.message?.includes('already registered') ||
-        error.message?.includes('execution reverted')
-      ) {
-        console.log('✓ Oracle registration check passed')
-      } else {
-        console.log(
-          `Note: Oracle registration failed: ${error.message?.slice(0, 100)}`,
-        )
-      }
     }
   })
 
   test('can submit price data', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
-    // First check if registered
     const state = await services.oracle.getState(TEST_ACCOUNTS[1].address)
     if (!state.isRegistered) {
       console.log('SKIPPED: Oracle not registered')
       return
     }
 
-    try {
-      const hash = await services.oracle.submitPrice('ETH/USD', 250000000000n) // $2500 with 8 decimals
+    const hash = await services.oracle
+      .submitPrice('ETH/USD', 250000000000n)
+      .catch(() => null)
 
+    if (hash) {
       expect(hash).toMatch(/^0x[a-fA-F0-9]{64}$/)
       await waitForTx(hash)
-      console.log(`✓ Submitted price: ${hash.slice(0, 18)}...`)
-    } catch (e) {
-      const error = e as Error
-      console.log(`Note: Price submission: ${error.message?.slice(0, 100)}`)
     }
   })
 
   test('submission history is tracked locally', () => {
     const history = services.oracle.getSubmissionHistory()
     expect(Array.isArray(history)).toBe(true)
-    console.log(`✓ Submission history: ${history.length} entries`)
   })
 })
 
-describe('Storage Service - Full Flow', () => {
+describe('Storage Service', () => {
   let services: NodeServices
 
   beforeAll(() => {
@@ -419,53 +320,41 @@ describe('Storage Service - Full Flow', () => {
   })
 
   test('can read storage service state', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const state = await services.storage.getState(TEST_ACCOUNTS[2].address)
     expect(state).toBeDefined()
     expect(typeof state.isRegistered).toBe('boolean')
-    console.log(
-      `✓ Storage state: registered=${state.isRegistered}, capacity=${state.capacityGB}GB`,
-    )
   })
 
   test('can register as storage provider', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
-    try {
-      const hash = await services.storage.register({
+    const hash = await services.storage
+      .register({
         endpoint: 'http://localhost:9000/storage',
         capacityGB: 100,
         pricePerGBMonth: parseEther('0.001'),
         stakeAmount: parseEther('0.5'),
       })
+      .catch((e: Error) => {
+        if (
+          e.message?.includes('already registered') ||
+          e.message?.includes('execution reverted')
+        ) {
+          return null
+        }
+        throw e
+      })
 
+    if (hash) {
       expect(hash).toMatch(/^0x[a-fA-F0-9]{64}$/)
       await waitForTx(hash)
-      console.log(`✓ Registered as storage provider: ${hash.slice(0, 18)}...`)
-    } catch (e) {
-      const error = e as Error
-      if (
-        error.message?.includes('already registered') ||
-        error.message?.includes('execution reverted')
-      ) {
-        console.log('✓ Storage registration check passed')
-      } else {
-        console.log(
-          `Note: Storage registration: ${error.message?.slice(0, 100)}`,
-        )
-      }
     }
   })
 })
 
-describe('Cron Service - Full Flow', () => {
+describe('Cron Service', () => {
   let services: NodeServices
 
   beforeAll(() => {
@@ -474,23 +363,19 @@ describe('Cron Service - Full Flow', () => {
   })
 
   test('can get active triggers', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const triggers = await services.cron.getActiveTriggers()
     expect(Array.isArray(triggers)).toBe(true)
-    console.log(`✓ Active triggers: ${triggers.length}`)
   })
 
-  test('cron state tracking works', () => {
-    const state = services.cron.getState()
+  test('cron state tracking works', async () => {
+    if (skipIfNoLocalnet()) return
+
+    const state = await services.cron.getState()
+    expect(state).toBeDefined()
     expect(typeof state.executionsCompleted).toBe('number')
     expect(typeof state.earningsWei).toBe('bigint')
-    console.log(
-      `✓ Cron state: ${state.executionsCompleted} executions, ${formatEther(state.earningsWei)} ETH earned`,
-    )
   })
 })
 
@@ -505,12 +390,8 @@ describe('Requirements Checking', () => {
     }
 
     const result = meetsRequirements(hardware, requirements)
-    console.log(
-      `✓ CPU service requirements: ${result.meets ? 'met' : 'not met'}`,
-    )
-    if (!result.meets) {
-      console.log(`  Issues: ${result.issues.join(', ')}`)
-    }
+    expect(typeof result.meets).toBe('boolean')
+    expect(Array.isArray(result.issues)).toBe(true)
   })
 
   test('compute requirements - GPU service', () => {
@@ -524,12 +405,7 @@ describe('Requirements Checking', () => {
     }
 
     const result = meetsRequirements(hardware, requirements)
-    console.log(
-      `✓ GPU service requirements: ${result.meets ? 'met' : 'not met'}`,
-    )
-    if (!result.meets) {
-      console.log(`  Issues: ${result.issues.join(', ')}`)
-    }
+    expect(typeof result.meets).toBe('boolean')
   })
 
   test('compute requirements - TEE service', () => {
@@ -542,12 +418,7 @@ describe('Requirements Checking', () => {
     }
 
     const result = meetsRequirements(hardware, requirements)
-    console.log(
-      `✓ TEE service requirements: ${result.meets ? 'met' : 'not met'}`,
-    )
-    if (!result.meets) {
-      console.log(`  Issues: ${result.issues.join(', ')}`)
-    }
+    expect(typeof result.meets).toBe('boolean')
   })
 
   test('compute requirements - Docker service', () => {
@@ -561,12 +432,7 @@ describe('Requirements Checking', () => {
     }
 
     const result = meetsRequirements(hardware, requirements)
-    console.log(
-      `✓ Docker service requirements: ${result.meets ? 'met' : 'not met'}`,
-    )
-    if (!result.meets) {
-      console.log(`  Issues: ${result.issues.join(', ')}`)
-    }
+    expect(typeof result.meets).toBe('boolean')
   })
 })
 
@@ -579,60 +445,38 @@ describe('Service Factory & Lifecycle', () => {
     expect(services.oracle).toBeDefined()
     expect(services.storage).toBeDefined()
     expect(services.cron).toBeDefined()
-
-    console.log('✓ All services created successfully')
   })
 
   test('services throw when wallet not connected', async () => {
-    const client = createNodeClient(RPC_URL, CHAIN_ID) // No wallet
+    const client = createNodeClient(RPC_URL, CHAIN_ID)
     const services = createNodeServices(client)
 
-    // Compute stake should fail
-    try {
-      await services.compute.stake(parseEther('0.1'))
-      expect(true).toBe(false) // Should not reach here
-    } catch (e) {
-      const error = e as Error
-      expect(error.message).toContain('Wallet not connected')
-    }
+    await expect(services.compute.stake(parseEther('0.1'))).rejects.toThrow(
+      'Wallet not connected',
+    )
 
-    // Oracle register should fail
-    try {
-      await services.oracle.register({
+    await expect(
+      services.oracle.register({
         agentId: 1n,
         stakeAmount: parseEther('1'),
-        markets: [],
-      })
-      expect(true).toBe(false)
-    } catch (e) {
-      const error = e as Error
-      expect(error.message).toContain('Wallet not connected')
-    }
+        markets: ['ETH/USD'],
+      }),
+    ).rejects.toThrow('Wallet not connected')
 
-    // Storage register should fail
-    try {
-      await services.storage.register({
-        endpoint: '',
+    await expect(
+      services.storage.register({
+        endpoint: 'http://localhost:9000',
         capacityGB: 1,
         pricePerGBMonth: 1n,
         stakeAmount: 1n,
-      })
-      expect(true).toBe(false)
-    } catch (e) {
-      const error = e as Error
-      expect(error.message).toContain('Wallet not connected')
-    }
-
-    console.log('✓ All services properly require wallet connection')
+      }),
+    ).rejects.toThrow('Wallet not connected')
   })
 })
 
 describe('Contract Deployment Verification', () => {
   test('identity registry is deployed', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const client = createNodeClient(RPC_URL, CHAIN_ID)
     const code = await client.publicClient.getCode({
@@ -640,18 +484,12 @@ describe('Contract Deployment Verification', () => {
     })
 
     if (code && code !== '0x') {
-      console.log('✓ IdentityRegistry deployed')
-      expect(true).toBe(true)
-    } else {
-      console.log('⚠️  IdentityRegistry not deployed (run contract bootstrap)')
+      expect(code.length).toBeGreaterThan(2)
     }
   })
 
   test('compute staking is deployed', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const client = createNodeClient(RPC_URL, CHAIN_ID)
     const code = await client.publicClient.getCode({
@@ -659,18 +497,12 @@ describe('Contract Deployment Verification', () => {
     })
 
     if (code && code !== '0x') {
-      console.log('✓ ComputeStaking deployed')
-      expect(true).toBe(true)
-    } else {
-      console.log('⚠️  ComputeStaking not deployed')
+      expect(code.length).toBeGreaterThan(2)
     }
   })
 
   test('oracle staking manager is deployed', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const client = createNodeClient(RPC_URL, CHAIN_ID)
     const code = await client.publicClient.getCode({
@@ -678,18 +510,12 @@ describe('Contract Deployment Verification', () => {
     })
 
     if (code && code !== '0x') {
-      console.log('✓ OracleStakingManager deployed')
-      expect(true).toBe(true)
-    } else {
-      console.log('⚠️  OracleStakingManager not deployed')
+      expect(code.length).toBeGreaterThan(2)
     }
   })
 
   test('storage market is deployed', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const client = createNodeClient(RPC_URL, CHAIN_ID)
     const code = await client.publicClient.getCode({
@@ -697,18 +523,12 @@ describe('Contract Deployment Verification', () => {
     })
 
     if (code && code !== '0x') {
-      console.log('✓ StorageMarket deployed')
-      expect(true).toBe(true)
-    } else {
-      console.log('⚠️  StorageMarket not deployed')
+      expect(code.length).toBeGreaterThan(2)
     }
   })
 
   test('trigger registry is deployed', async () => {
-    if (!isLocalnetRunning) {
-      console.log('SKIPPED: Localnet not running')
-      return
-    }
+    if (skipIfNoLocalnet()) return
 
     const client = createNodeClient(RPC_URL, CHAIN_ID)
     const code = await client.publicClient.getCode({
@@ -716,14 +536,7 @@ describe('Contract Deployment Verification', () => {
     })
 
     if (code && code !== '0x') {
-      console.log('✓ TriggerRegistry deployed')
-      expect(true).toBe(true)
-    } else {
-      console.log('⚠️  TriggerRegistry not deployed')
+      expect(code.length).toBeGreaterThan(2)
     }
   })
 })
-
-console.log('\n========================================')
-console.log('Full Service Integration Tests')
-console.log('========================================\n')

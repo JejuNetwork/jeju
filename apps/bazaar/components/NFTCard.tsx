@@ -1,5 +1,6 @@
 'use client'
 
+import Image from 'next/image'
 import { LoadingSkeleton } from './LoadingSpinner'
 
 interface NFT {
@@ -24,10 +25,12 @@ export function NFTCard({ nft, onClick }: NFTCardProps) {
       {/* Image */}
       <div className="aspect-square bg-gradient-to-br from-purple-500/20 to-pink-500/20 relative overflow-hidden">
         {nft.image ? (
-          <img
+          <Image
             src={nft.image}
             alt={nft.name}
-            className="w-full h-full object-cover"
+            fill
+            className="object-cover"
+            unoptimized
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-6xl">

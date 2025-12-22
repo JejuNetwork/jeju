@@ -48,7 +48,8 @@ const MEDIUM_SEVERITY_SUBMISSION: BountySubmissionDraft = {
   severity: BountySeverity.MEDIUM,
   vulnType: VulnerabilityType.DENIAL_OF_SERVICE,
   title: 'Regex DoS in Search API Causes CPU Exhaustion Vulnerability',
-  summary: 'The search endpoint uses a vulnerable regex pattern that can cause catastrophic backtracking.',
+  summary:
+    'The search endpoint uses a vulnerable regex pattern that can cause catastrophic backtracking.',
   description: `A ReDoS vulnerability exists in the /api/search endpoint.
 
 The search function uses this vulnerable pattern:
@@ -71,8 +72,10 @@ This can bring down the entire service with a single request.`,
 const HIGH_SEVERITY_SUBMISSION: BountySubmissionDraft = {
   severity: BountySeverity.HIGH,
   vulnType: VulnerabilityType.PRIVILEGE_ESCALATION,
-  title: 'IDOR in User Settings Allows Account Takeover Vulnerability Discovered',
-  summary: 'The /api/user/settings endpoint does not validate user ownership, allowing any authenticated user to modify settings of any other user.',
+  title:
+    'IDOR in User Settings Allows Account Takeover Vulnerability Discovered',
+  summary:
+    'The /api/user/settings endpoint does not validate user ownership, allowing any authenticated user to modify settings of any other user.',
   description: `A critical IDOR vulnerability in the user settings API allows complete account takeover.
 
 The PUT /api/user/settings/{userId} endpoint only checks if the requester is authenticated, but does NOT verify they own the userId being modified.
@@ -93,7 +96,8 @@ This is a critical issue that affects all users.`,
     'Request password reset for userId 1',
   ],
   proofOfConcept: `curl -X PUT /api/user/settings/1 -H "Authorization: Bearer $TOKEN" -d '{"email":"attacker@test.com"}'`,
-  suggestedFix: 'Add ownership verification: if (req.user.id !== req.params.userId) return 403',
+  suggestedFix:
+    'Add ownership verification: if (req.user.id !== req.params.userId) return 403',
   stake: '0.05',
 }
 
@@ -101,7 +105,8 @@ const CRITICAL_SEVERITY_SUBMISSION: BountySubmissionDraft = {
   severity: BountySeverity.CRITICAL,
   vulnType: VulnerabilityType.WALLET_DRAIN,
   title: 'Flash Loan Attack Vector in AMM Pool Drains Liquidity Critical Bug',
-  summary: 'The AMM pool contract has a price manipulation vulnerability exploitable via flash loans. An attacker can drain significant liquidity in a single transaction.',
+  summary:
+    'The AMM pool contract has a price manipulation vulnerability exploitable via flash loans. An attacker can drain significant liquidity in a single transaction.',
   description: `A critical vulnerability in the LiquidityPool.sol contract allows complete liquidity drain via flash loan price manipulation.
 
 The vulnerable swap() function calculates output based on current reserves without accounting for flash loan manipulation within the same transaction.
@@ -237,7 +242,9 @@ describe('Bug Bounty Assessment', () => {
     }
 
     const assessment = assessSubmission(badDesc)
-    expect(assessment.issues).toContain('Description too short (min 50 characters)')
+    expect(assessment.issues).toContain(
+      'Description too short (min 50 characters)',
+    )
     expect(assessment.readyToSubmit).toBe(false)
   })
 

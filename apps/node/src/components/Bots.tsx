@@ -220,8 +220,11 @@ export function Bots() {
                   {bot.metadata.warnings.length > 0 &&
                     expandedBot === bot.metadata.id && (
                       <div className="mt-3 p-3 bg-volcanic-800/50 rounded-lg space-y-1">
-                        {bot.metadata.warnings.map((warning, i) => (
-                          <p key={i} className="text-sm text-volcanic-400">
+                        {bot.metadata.warnings.map((warning) => (
+                          <p
+                            key={warning}
+                            className="text-sm text-volcanic-400"
+                          >
                             {warning}
                           </p>
                         ))}

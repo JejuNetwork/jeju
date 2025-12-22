@@ -74,8 +74,8 @@ export default function GamesPage() {
             {/* Tags */}
             {game.tags && game.tags.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
-                {game.tags.map((tag, i) => (
-                  <span key={i} className="badge-primary">
+                {game.tags.map((tag) => (
+                  <span key={tag} className="badge-primary">
                     {tag}
                   </span>
                 ))}

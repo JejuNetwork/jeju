@@ -1,5 +1,3 @@
-'use client'
-
 /**
  * AuthButton - Universal Authentication for Autocrat
  *
@@ -26,9 +24,9 @@ interface AuthButtonProps {
   className?: string
 }
 
-const CHAIN_ID = parseInt(process.env.NEXT_PUBLIC_CHAIN_ID || '420691', 10)
+const CHAIN_ID = parseInt(import.meta.env.VITE_CHAIN_ID || '420691', 10)
 const WALLETCONNECT_PROJECT_ID =
-  process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || ''
+  import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || ''
 
 export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
   const [showModal, setShowModal] = useState(false)
@@ -101,7 +99,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
 
     try {
       const oauth3Url =
-        process.env.NEXT_PUBLIC_OAUTH3_AGENT_URL || 'http://localhost:4200'
+        import.meta.env.VITE_OAUTH3_AGENT_URL || 'http://localhost:4200'
       const redirectUri = `${window.location.origin}/auth/callback`
 
       const response = await fetch(`${oauth3Url}/auth/init`, {
@@ -131,7 +129,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
 
     try {
       const oauth3Url =
-        process.env.NEXT_PUBLIC_OAUTH3_AGENT_URL || 'http://localhost:4200'
+        import.meta.env.VITE_OAUTH3_AGENT_URL || 'http://localhost:4200'
       const redirectUri = `${window.location.origin}/auth/callback`
 
       const response = await fetch(`${oauth3Url}/auth/init`, {

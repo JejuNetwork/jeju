@@ -181,7 +181,7 @@ export default function StakingUI({
 
             return (
               <button
-                key={index}
+                key={tier.name}
                 onClick={() => canUpgrade && setSelectedTier(index)}
                 disabled={
                   isCurrentTier || isLowerTier || isPending || isConfirming
