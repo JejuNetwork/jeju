@@ -254,13 +254,12 @@ describe('NodeStakingManager Contract', () => {
       return
     }
 
-    // Get elizaOS token address
-    const elizaOSAddress = process.env
-      .VITE_ELIZAOS_TOKEN_ADDRESS as `0x${string}`
+    // Get JEJU token address
+    const jejuAddress = process.env.VITE_JEJU_TOKEN_ADDRESS as `0x${string}`
 
     if (
-      elizaOSAddress &&
-      elizaOSAddress !== '0x0000000000000000000000000000000000000000'
+      jejuAddress &&
+      jejuAddress !== '0x0000000000000000000000000000000000000000'
     ) {
       const distribution = await publicClient.readContract({
         address: addresses.nodeStakingManager,
@@ -285,7 +284,7 @@ describe('NodeStakingManager Contract', () => {
           },
         ],
         functionName: 'getTokenDistribution',
-        args: [elizaOSAddress],
+        args: [jejuAddress],
       })
 
       expect(distribution).toBeDefined()

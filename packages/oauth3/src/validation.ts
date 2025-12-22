@@ -5,18 +5,28 @@
  * Use these at entry points instead of defensive fallbacks.
  */
 
-import type { Address, Hex } from 'viem'
+import type { Hex } from 'viem'
 import { z } from 'zod'
 import { AuthProvider, SessionCapability, TEEProvider } from './types.js'
 
-// ============ Hex and Address Validators ============
+export {
+  AddressSchema,
+  expect,
+  HexSchema,
+  type JsonValue,
+} from '@jejunetwork/types'
 
-export const HexSchema = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string') as z.ZodType<Hex>
-export const AddressSchema = z
-  .string()
-  .regex(/^0x[a-fA-F0-9]{40}$/, 'Invalid address') as z.ZodType<Address>
+import { AddressSchema, HexSchema } from '@jejunetwork/types'
+
+// Type guard helpers for runtime validation
+export function isHex(value: unknown): value is `0x${string}` {
+  return typeof value === 'string' && HexSchema.safeParse(value).success
+}
+
+export function isAddress(value: unknown): value is `0x${string}` {
+  return typeof value === 'string' && AddressSchema.safeParse(value).success
+}
+
 export const Bytes32Schema = z
   .string()
   .regex(/^0x[a-fA-F0-9]{64}$/, 'Invalid bytes32') as z.ZodType<Hex>
@@ -108,6 +118,9 @@ export const TOTPSetupResponseSchema = z.object({
 })
 
 export const MFAStatusSchema = z.object({
+  enabled: z.boolean(),
+  methods: z.array(z.enum(['passkey', 'totp', 'sms', 'backup_code'])),
+  preferredMethod: z.enum(['passkey', 'totp', 'sms', 'backup_code']).nullable(),
   totpEnabled: z.boolean(),
   passkeyCount: z.number().int().nonnegative(),
   backupCodesRemaining: z.number().int().nonnegative(),
@@ -405,17 +418,6 @@ export type DstackQuoteResponse = z.infer<typeof DstackQuoteResponseSchema>
 // ============ Helper Functions ============
 
 /**
- * Validates that a value exists and is not null/undefined.
- * Use this instead of ?? fallbacks when the value is required.
- */
-export function expect<T>(value: T | null | undefined, message: string): T {
-  if (value === null || value === undefined) {
-    throw new Error(message)
-  }
-  return value
-}
-
-/**
  * Validates that a node endpoint is available.
  * Use this in React hooks instead of ?? 'http://localhost:4200'
  */
@@ -493,20 +495,6 @@ export function expectJson<T>(
  */
 export function validateConfig(config: unknown): ValidatedOAuth3Config {
   return OAuth3ConfigSchema.parse(config)
-}
-
-/**
- * Type guard for checking if value is a valid hex string
- */
-export function isHex(value: unknown): value is Hex {
-  return typeof value === 'string' && /^0x[a-fA-F0-9]+$/.test(value)
-}
-
-/**
- * Type guard for checking if value is a valid address
- */
-export function isAddress(value: unknown): value is Address {
-  return typeof value === 'string' && /^0x[a-fA-F0-9]{40}$/.test(value)
 }
 
 /**

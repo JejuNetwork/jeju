@@ -75,24 +75,16 @@ export {
   TOKEN_TO_FEED,
   type TokenPrice,
 } from './price-oracle'
-// Solana Price Aggregation (lazy loaded due to buffer-layout compatibility)
-// Use: const { SolanaPriceAggregator } = await import('./solana-price-aggregator');
-export type {
-  OrcaWhirlpoolState,
-  RaydiumPoolState,
-  SolanaPriceSource,
-  SolanaTokenPrice,
+// Solana Price Aggregation
+export {
+  getSolanaPriceAggregator,
+  type OrcaWhirlpoolState,
+  type RaydiumPoolState,
+  SolanaPriceAggregator,
+  type SolanaPriceSource,
+  type SolanaTokenPrice,
 } from './solana-price-aggregator'
 export { UniswapXAdapter, type UniswapXOrder } from './uniswapx'
-
-// Lazy loader for Solana price aggregator (avoids buffer-layout compatibility issues)
-export async function loadSolanaPriceAggregator() {
-  const mod = await import('./solana-price-aggregator')
-  return {
-    SolanaPriceAggregator: mod.SolanaPriceAggregator,
-    getSolanaPriceAggregator: mod.getSolanaPriceAggregator,
-  }
-}
 
 // Chain configurations for external protocols
 export const SUPPORTED_CHAINS = {

@@ -18,7 +18,9 @@
   },
   "dependencies": {
     "@elysiajs/eden": "^1.4.5",
+    "@jejunetwork/dws": "workspace:*",
     "@jejunetwork/oauth3": "workspace:*",
+    "elysia": "^1.4.19",
     "@rainbow-me/rainbowkit": "2.2.9",
     "@tanstack/react-query": "5.90.12",
     "lucide-react": "0.562.0",
@@ -27,7 +29,8 @@
     "react-router-dom": "6.30.0",
     "recharts": "3.6.0",
     "viem": "2.43.2",
-    "wagmi": "2.18.1"
+    "wagmi": "2.18.1",
+    "zod": "^4.1.13"
   },
   "devDependencies": {
     "@playwright/test": "1.57.0",

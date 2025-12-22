@@ -13,8 +13,12 @@ import { Elysia } from 'elysia'
 import { createA2ARouter } from './a2a'
 import { createMCPRouter } from './mcp'
 import { createRESTRouter } from './rest'
-import { expectValid, VPNServerConfigSchema } from './schemas'
-import type { VPNServerConfig, VPNServiceContext } from './types'
+import {
+  expectValid,
+  type VPNServerConfig,
+  VPNServerConfigSchema,
+} from './schemas'
+import type { VPNServiceContext } from './types'
 import { checkRateLimit } from './utils/rate-limit'
 import { createX402Middleware } from './x402'
 
@@ -69,7 +73,10 @@ export function createVPNServer(config: VPNServerConfig) {
       const realIp = request.headers.get('x-real-ip')
       const jejuAddress = request.headers.get('x-jeju-address')
       const identifier =
-        jejuAddress ?? forwardedFor?.split(',')[0]?.trim() ?? realIp ?? 'unknown'
+        jejuAddress ??
+        forwardedFor?.split(',')[0]?.trim() ??
+        realIp ??
+        'unknown'
 
       // Determine endpoint type for rate limiting
       const path = new URL(request.url).pathname
@@ -267,4 +274,5 @@ export function createVPNServer(config: VPNServerConfig) {
   return app
 }
 
-export type { VPNServerConfig, VPNServiceContext } from './types'
+export type { VPNServerConfig } from './schemas'
+export type { VPNServiceContext } from './types'

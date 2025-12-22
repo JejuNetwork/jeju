@@ -15,13 +15,16 @@
  */
 
 import type { Token } from '../types'
-import { Backtester, type BacktestConfig } from './backtester'
-import { MultiSourceFetcher } from './multi-source-fetcher'
-import { StressTestRunner, STRESS_SCENARIOS, type StressTestConfig } from './stress-tests'
-import { runFlashLoanTests, type FlashLoanTestConfig } from './flashloan-tests'
-import { runMEVCompetitionSim, type CompetitionSimResult } from './mev-competition'
+import { type BacktestConfig, Backtester } from './backtester'
+import { type FlashLoanTestConfig, runFlashLoanTests } from './flashloan-tests'
+import { runMEVCompetitionSim } from './mev-competition'
 import { createScanner } from './multi-chain-scanner'
-import { RiskAnalyzer } from './risk-analyzer'
+import { MultiSourceFetcher } from './multi-source-fetcher'
+import {
+  STRESS_SCENARIOS,
+  type StressTestConfig,
+  StressTestRunner,
+} from './stress-tests'
 
 // ============ Types ============
 
@@ -125,13 +128,15 @@ export class TestPipeline {
     let failed = 0
     let warnings = 0
 
-    console.log('\n' + '═'.repeat(70))
+    console.log(`\n${'═'.repeat(70)}`)
     console.log('  BOT VALIDATION PIPELINE')
     console.log('═'.repeat(70))
     console.log(`  Strategy: ${this.config.strategy}`)
-    console.log(`  Initial Capital: $${this.config.initialCapitalUsd.toLocaleString()}`)
+    console.log(
+      `  Initial Capital: $${this.config.initialCapitalUsd.toLocaleString()}`,
+    )
     console.log(`  Chain: ${this.config.chainId}`)
-    console.log('═'.repeat(70) + '\n')
+    console.log(`${'═'.repeat(70)}\n`)
 
     // 1. Historical Backtest
     if (this.config.runBacktest) {
@@ -140,26 +145,33 @@ export class TestPipeline {
 
       try {
         this.results.backtestResults = await this.runBacktest()
-        
+
         if (this.results.backtestResults.profitable) {
           passed++
-          console.log('✅ Backtest PASSED - Strategy is profitable on historical data')
+          console.log(
+            '✅ Backtest PASSED - Strategy is profitable on historical data',
+          )
         } else {
           failed++
           console.log('❌ Backtest FAILED - Strategy unprofitable')
-          recommendations.push('Review strategy parameters - not profitable on historical data')
+          recommendations.push(
+            'Review strategy parameters - not profitable on historical data',
+          )
         }
 
         if (this.results.backtestResults.maxDrawdown > 0.3) {
           warnings++
-          recommendations.push('High drawdown risk - consider reducing position sizes')
+          recommendations.push(
+            'High drawdown risk - consider reducing position sizes',
+          )
         }
 
         if (this.results.backtestResults.sharpeRatio < 1) {
           warnings++
-          recommendations.push('Low Sharpe ratio - risk-adjusted returns could be improved')
+          recommendations.push(
+            'Low Sharpe ratio - risk-adjusted returns could be improved',
+          )
         }
-
       } catch (error) {
         failed++
         console.error('❌ Backtest error:', error)
@@ -175,23 +187,32 @@ export class TestPipeline {
       try {
         this.results.stressTestResults = await this.runStressTests()
 
-        const survivalRate = 
-          this.results.stressTestResults.scenariosSurvived / 
+        const survivalRate =
+          this.results.stressTestResults.scenariosSurvived /
           this.results.stressTestResults.scenariosRun
 
         if (survivalRate >= 0.75) {
           passed++
-          console.log(`✅ Stress tests PASSED - Survived ${this.results.stressTestResults.scenariosSurvived}/${this.results.stressTestResults.scenariosRun} scenarios`)
+          console.log(
+            `✅ Stress tests PASSED - Survived ${this.results.stressTestResults.scenariosSurvived}/${this.results.stressTestResults.scenariosRun} scenarios`,
+          )
         } else if (survivalRate >= 0.5) {
           warnings++
-          console.log(`⚠️ Stress tests WARNING - Survived only ${survivalRate * 100}% of scenarios`)
-          recommendations.push('Strategy struggles in extreme conditions - add circuit breakers')
+          console.log(
+            `⚠️ Stress tests WARNING - Survived only ${survivalRate * 100}% of scenarios`,
+          )
+          recommendations.push(
+            'Strategy struggles in extreme conditions - add circuit breakers',
+          )
         } else {
           failed++
-          console.log(`❌ Stress tests FAILED - Survived only ${survivalRate * 100}% of scenarios`)
-          recommendations.push('Strategy fails in crisis - requires major risk management improvements')
+          console.log(
+            `❌ Stress tests FAILED - Survived only ${survivalRate * 100}% of scenarios`,
+          )
+          recommendations.push(
+            'Strategy fails in crisis - requires major risk management improvements',
+          )
         }
-
       } catch (error) {
         failed++
         console.error('❌ Stress test error:', error)
@@ -205,27 +226,41 @@ export class TestPipeline {
 
       if (!this.config.testPrivateKey) {
         warnings++
-        console.log('⚠️ Skipping flash loan tests - no test private key configured')
-        recommendations.push('Configure TEST_PRIVATE_KEY to run flash loan tests')
+        console.log(
+          '⚠️ Skipping flash loan tests - no test private key configured',
+        )
+        recommendations.push(
+          'Configure TEST_PRIVATE_KEY to run flash loan tests',
+        )
       } else {
         try {
           this.results.flashLoanResults = await this.runFlashLoanTestSuite()
 
-          if (this.results.flashLoanResults.testsPassed === this.results.flashLoanResults.testsRun) {
+          if (
+            this.results.flashLoanResults.testsPassed ===
+            this.results.flashLoanResults.testsRun
+          ) {
             passed++
             console.log('✅ Flash loan tests PASSED')
           } else {
-            const passRate = this.results.flashLoanResults.testsPassed / this.results.flashLoanResults.testsRun
+            const passRate =
+              this.results.flashLoanResults.testsPassed /
+              this.results.flashLoanResults.testsRun
             if (passRate >= 0.8) {
               warnings++
-              console.log(`⚠️ Flash loan tests WARNING - ${passRate * 100}% passed`)
+              console.log(
+                `⚠️ Flash loan tests WARNING - ${passRate * 100}% passed`,
+              )
             } else {
               failed++
-              console.log(`❌ Flash loan tests FAILED - ${passRate * 100}% passed`)
-              recommendations.push('Flash loan execution issues - review contract interactions')
+              console.log(
+                `❌ Flash loan tests FAILED - ${passRate * 100}% passed`,
+              )
+              recommendations.push(
+                'Flash loan execution issues - review contract interactions',
+              )
             }
           }
-
         } catch (error) {
           failed++
           console.error('❌ Flash loan test error:', error)
@@ -244,22 +279,39 @@ export class TestPipeline {
 
         // MEV is highly competitive - realistic thresholds
         // >5% is good, >2% is acceptable (profitable), <1% is concerning
-        if (this.results.mevSimResults.winRate >= 0.02 && this.results.mevSimResults.netProfit > 0) {
+        if (
+          this.results.mevSimResults.winRate >= 0.02 &&
+          this.results.mevSimResults.netProfit > 0
+        ) {
           passed++
-          console.log(`✅ MEV simulation PASSED - ${(this.results.mevSimResults.winRate * 100).toFixed(1)}% win rate, profitable`)
-        } else if (this.results.mevSimResults.winRate >= 0.01 || this.results.mevSimResults.netProfit > 0) {
+          console.log(
+            `✅ MEV simulation PASSED - ${(this.results.mevSimResults.winRate * 100).toFixed(1)}% win rate, profitable`,
+          )
+        } else if (
+          this.results.mevSimResults.winRate >= 0.01 ||
+          this.results.mevSimResults.netProfit > 0
+        ) {
           warnings++
-          console.log(`⚠️ MEV simulation WARNING - Marginal profitability ${(this.results.mevSimResults.winRate * 100).toFixed(1)}%`)
-          recommendations.push('Consider latency improvements or niche strategy focus')
+          console.log(
+            `⚠️ MEV simulation WARNING - Marginal profitability ${(this.results.mevSimResults.winRate * 100).toFixed(1)}%`,
+          )
+          recommendations.push(
+            'Consider latency improvements or niche strategy focus',
+          )
         } else {
           failed++
           console.log(`❌ MEV simulation FAILED - Not profitable`)
-          recommendations.push('Current MEV approach not competitive - consider alternative strategies')
+          recommendations.push(
+            'Current MEV approach not competitive - consider alternative strategies',
+          )
         }
 
-        console.log(`   Net profit potential: $${this.results.mevSimResults.netProfit.toFixed(2)}/week`)
-        console.log(`   Competitor advantage: ${this.results.mevSimResults.competitorAdvantage}`)
-
+        console.log(
+          `   Net profit potential: $${this.results.mevSimResults.netProfit.toFixed(2)}/week`,
+        )
+        console.log(
+          `   Competitor advantage: ${this.results.mevSimResults.competitorAdvantage}`,
+        )
       } catch (error) {
         failed++
         console.error('❌ MEV simulation error:', error)
@@ -276,15 +328,22 @@ export class TestPipeline {
 
         if (this.results.scanResults.opportunitiesFound > 0) {
           passed++
-          console.log(`✅ Scan PASSED - Found ${this.results.scanResults.opportunitiesFound} opportunities`)
-          console.log(`   Total value: $${this.results.scanResults.totalValueUsd.toFixed(2)}`)
+          console.log(
+            `✅ Scan PASSED - Found ${this.results.scanResults.opportunitiesFound} opportunities`,
+          )
+          console.log(
+            `   Total value: $${this.results.scanResults.totalValueUsd.toFixed(2)}`,
+          )
           console.log(`   Best: ${this.results.scanResults.bestOpportunity}`)
         } else {
           warnings++
-          console.log('⚠️ Scan found no profitable opportunities in current market')
-          recommendations.push('Current market conditions may not favor arbitrage')
+          console.log(
+            '⚠️ Scan found no profitable opportunities in current market',
+          )
+          recommendations.push(
+            'Current market conditions may not favor arbitrage',
+          )
         }
-
       } catch (error) {
         warnings++
         console.error('⚠️ Scan error (non-critical):', error)
@@ -295,7 +354,7 @@ export class TestPipeline {
     const duration = Date.now() - this.startTime
     const totalTests = passed + failed + warnings
 
-    console.log('\n' + '═'.repeat(70))
+    console.log(`\n${'═'.repeat(70)}`)
     console.log('  PIPELINE SUMMARY')
     console.log('═'.repeat(70))
     console.log(`  Duration: ${(duration / 1000).toFixed(1)}s`)
@@ -311,12 +370,15 @@ export class TestPipeline {
       }
     }
 
-    const overallStatus = failed === 0 
-      ? (warnings === 0 ? '✅ ALL TESTS PASSED' : '⚠️ PASSED WITH WARNINGS')
-      : '❌ SOME TESTS FAILED'
-    
-    console.log('\n  ' + overallStatus)
-    console.log('═'.repeat(70) + '\n')
+    const overallStatus =
+      failed === 0
+        ? warnings === 0
+          ? '✅ ALL TESTS PASSED'
+          : '⚠️ PASSED WITH WARNINGS'
+        : '❌ SOME TESTS FAILED'
+
+    console.log(`\n  ${overallStatus}`)
+    console.log(`${'═'.repeat(70)}\n`)
 
     return {
       timestamp: this.startTime,
@@ -340,8 +402,18 @@ export class TestPipeline {
     })
 
     const tokens: Token[] = [
-      { symbol: 'ETH', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18, chainId: 1 },
-      { symbol: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6, chainId: 1 },
+      {
+        symbol: 'ETH',
+        address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+        decimals: 18,
+        chainId: 1,
+      },
+      {
+        symbol: 'USDC',
+        address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        decimals: 6,
+        chainId: 1,
+      },
     ]
 
     // Fetch 6 months of data
@@ -349,12 +421,19 @@ export class TestPipeline {
     const startDate = new Date()
     startDate.setMonth(startDate.getMonth() - 6)
 
-    let priceData = await fetcher.fetchDefiLlamaPrices(tokens, startDate, endDate, 86400000)
+    let priceData = await fetcher.fetchDefiLlamaPrices(
+      tokens,
+      startDate,
+      endDate,
+      86400000,
+    )
 
     // If no data, generate synthetic
     if (priceData.length === 0) {
       console.log('   Using synthetic data (no historical data available)')
-      const basicFetcher = await import('./data-fetcher').then(m => new m.HistoricalDataFetcher())
+      const basicFetcher = await import('./data-fetcher').then(
+        (m) => new m.HistoricalDataFetcher(),
+      )
       priceData = basicFetcher.generateSyntheticData(
         tokens,
         startDate,
@@ -395,8 +474,18 @@ export class TestPipeline {
 
   private async runStressTests(): Promise<StressTestSummary> {
     const tokens: Token[] = [
-      { symbol: 'ETH', address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2', decimals: 18, chainId: 1 },
-      { symbol: 'USDC', address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48', decimals: 6, chainId: 1 },
+      {
+        symbol: 'ETH',
+        address: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
+        decimals: 18,
+        chainId: 1,
+      },
+      {
+        symbol: 'USDC',
+        address: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48',
+        decimals: 6,
+        chainId: 1,
+      },
     ]
 
     const stressConfig: StressTestConfig = {
@@ -412,14 +501,14 @@ export class TestPipeline {
     }
 
     const runner = new StressTestRunner()
-    
+
     // Filter scenarios if specified
     let scenarios = STRESS_SCENARIOS
     if (this.config.stressScenarios && this.config.stressScenarios.length > 0) {
-      scenarios = STRESS_SCENARIOS.filter(s => 
-        this.config.stressScenarios?.some(name => 
-          s.name.toLowerCase().includes(name.toLowerCase())
-        )
+      scenarios = STRESS_SCENARIOS.filter((s) =>
+        this.config.stressScenarios?.some((name) =>
+          s.name.toLowerCase().includes(name.toLowerCase()),
+        ),
       )
     }
 
@@ -430,7 +519,7 @@ export class TestPipeline {
 
     for (const scenario of scenarios) {
       const result = await runner.runScenario(scenario, stressConfig)
-      
+
       if (result.survivalMetrics.survived) survived++
       totalCapitalPreserved += result.survivalMetrics.capitalPreserved
       worstDrawdown = Math.max(worstDrawdown, result.backtest.maxDrawdown)
@@ -459,16 +548,19 @@ export class TestPipeline {
 
     const results = await runFlashLoanTests(flashConfig)
 
-    const passed = results.filter(r => r.success).length
-    const avgGas = results
-      .filter(r => r.gasUsed)
-      .reduce((sum, r) => sum + Number(r.gasUsed), 0) / results.length
+    const passed = results.filter((r) => r.success).length
+    const avgGas =
+      results
+        .filter((r) => r.gasUsed)
+        .reduce((sum, r) => sum + Number(r.gasUsed), 0) / results.length
 
     return {
       testsRun: results.length,
       testsPassed: passed,
       avgGasUsed: avgGas,
-      profitabilityVerified: results.some(r => r.testName === 'Profitability Calculation' && r.success),
+      profitabilityVerified: results.some(
+        (r) => r.testName === 'Profitability Calculation' && r.success,
+      ),
     }
   }
 
@@ -479,14 +571,15 @@ export class TestPipeline {
       gasPriceGwei: 30,
       ethPriceUsd: 3500,
       ourLatencyMs: 50,
-      ourSuccessRate: 0.20,
+      ourSuccessRate: 0.2,
     })
 
-    const competitorAdvantage = result.competitionAnalysis.avgCompetitors > 5
-      ? 'High competition - focus on niche strategies'
-      : result.competitionAnalysis.avgCompetitors > 3
-        ? 'Moderate competition - optimize latency'
-        : 'Low competition - good opportunity'
+    const competitorAdvantage =
+      result.competitionAnalysis.avgCompetitors > 5
+        ? 'High competition - focus on niche strategies'
+        : result.competitionAnalysis.avgCompetitors > 3
+          ? 'Moderate competition - optimize latency'
+          : 'Low competition - good opportunity'
 
     return {
       winRate: result.winRate,
@@ -501,7 +594,11 @@ export class TestPipeline {
       chains: [
         { chainId: 1, rpcUrl: this.config.rpcUrl, name: 'Ethereum' },
         { chainId: 8453, rpcUrl: 'https://mainnet.base.org', name: 'Base' },
-        { chainId: 42161, rpcUrl: 'https://arb1.arbitrum.io/rpc', name: 'Arbitrum' },
+        {
+          chainId: 42161,
+          rpcUrl: 'https://arb1.arbitrum.io/rpc',
+          name: 'Arbitrum',
+        },
       ],
       tokens: ['WETH', 'USDC'],
       minSpreadBps: 5,
@@ -597,4 +694,3 @@ async function main() {
 if (import.meta.main) {
   main().catch(console.error)
 }
-

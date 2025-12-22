@@ -3,7 +3,6 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { type Address, parseEther } from 'viem'
 import {
   estimateTokenCost,
   getApprovalTxData,
@@ -11,7 +10,8 @@ import {
   getPaymasterForToken,
   getPaymasterOptions,
   preparePaymasterData,
-} from '../paymaster'
+} from '@jejunetwork/deployment/scripts/shared/paymaster'
+import { type Address, parseEther } from 'viem'
 
 describe('Paymaster Integration', () => {
   test('should get available paymasters', async () => {
@@ -123,7 +123,7 @@ describe('Paymaster Integration', () => {
     }
   })
 
-  test('should mark USDC and elizaOS as recommended', async () => {
+  test('should mark USDC and JEJU as recommended', async () => {
     const options = await getPaymasterOptions(
       BigInt(100000),
       parseEther('0.00000001'),

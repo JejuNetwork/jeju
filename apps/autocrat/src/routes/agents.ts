@@ -2,10 +2,11 @@
  * ERC-8004 Agent Registry Routes
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { Elysia, t } from 'elysia'
 import { createAutocratA2AServer } from '../a2a-server'
 import { type ERC8004Config, getERC8004Client } from '../erc8004'
-import { A2AJsonRpcResponseSchema, expectValid } from '../schemas'
+import { A2AJsonRpcResponseSchema } from '../schemas'
 import { blockchain, config } from '../shared-state'
 
 const erc8004Config: ERC8004Config = {

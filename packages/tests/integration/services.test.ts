@@ -6,10 +6,12 @@
  */
 
 import { beforeAll, describe, expect, test } from 'bun:test'
+import { getIpfsApiUrl } from '@jejunetwork/config/ports'
+import { Client } from 'pg'
 
 const POSTGRES_URL =
   process.env.DATABASE_URL || 'postgresql://jeju:jeju@127.0.0.1:5432/jeju'
-const IPFS_API = process.env.IPFS_API_URL || 'http://127.0.0.1:5001'
+const IPFS_API = getIpfsApiUrl()
 
 async function isServiceRunning(
   check: () => Promise<boolean>,
@@ -27,7 +29,6 @@ describe('Infrastructure Services', () => {
 
   beforeAll(async () => {
     postgresAvailable = await isServiceRunning(async () => {
-      const { Client } = await import('pg')
       const client = new Client({ connectionString: POSTGRES_URL })
       await client.connect()
       await client.end()
@@ -56,7 +57,6 @@ describe('Infrastructure Services', () => {
         return
       }
 
-      const { Client } = await import('pg')
       const client = new Client({ connectionString: POSTGRES_URL })
       await client.connect()
 
@@ -70,7 +70,6 @@ describe('Infrastructure Services', () => {
     test('should create and query tables', async () => {
       if (!postgresAvailable) return
 
-      const { Client } = await import('pg')
       const client = new Client({ connectionString: POSTGRES_URL })
       await client.connect()
 

@@ -19,7 +19,7 @@ export {
   type BackendManager,
   createBackendManager,
   type DownloadResponse,
-  type UploadOptions as LegacyUploadOptions,
+  type UploadOptions,
   type UploadResponse,
 } from './backends'
 // Multi-backend manager

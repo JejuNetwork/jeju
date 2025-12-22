@@ -17,10 +17,9 @@
  *   bun packages/tests/load/continuous.ts --watch --json
  */
 
-export * from './types'
-export * from './simulator'
 export * from './analyzer'
 export * from './configs'
-export { runTests } from './runner'
 export { runContinuousLoop } from './continuous'
-
+export { runTests } from './runner'
+export * from './simulator'
+export * from './types'

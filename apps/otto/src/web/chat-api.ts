@@ -4,6 +4,7 @@
  */
 
 import { cors } from '@elysiajs/cors'
+import { expectValid } from '@jejunetwork/types'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import { isAddress, verifyMessage } from 'viem'
@@ -16,7 +17,6 @@ import {
   ChatMessageSchema,
   ChatRequestSchema,
   ChatResponseSchema,
-  expectValid,
 } from '../schemas'
 import { getStateManager } from '../services/state'
 import { getWalletService } from '../services/wallet'
@@ -389,4 +389,3 @@ export const chatApi = new Elysia({ prefix: '/api/chat' })
   })
 
 export default chatApi
-

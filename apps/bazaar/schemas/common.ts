@@ -1,38 +1,17 @@
 /**
- * Common schemas used across the app
- * Re-exports shared schemas from @jejunetwork/types and defines app-specific ones
+ * App-specific common schemas used across Bazaar
+ *
+ * For shared schemas like AddressSchema, BigIntSchema, etc.,
+ * import directly from @jejunetwork/types
  */
 
 import {
   AddressSchema,
-  BigIntSchema,
   EvmChainIdSchema,
   HashSchema,
-  IsoDateSchema,
-  NonEmptyStringSchema,
-  NonNegativeNumberSchema,
-  PercentageSchema,
-  PositiveNumberSchema,
   SolanaNetworkIdSchema,
-  UrlSchema,
 } from '@jejunetwork/types'
 import { z } from 'zod'
-
-// Re-export shared schemas
-export {
-  NonEmptyStringSchema,
-  BigIntSchema,
-  PositiveNumberSchema,
-  NonNegativeNumberSchema,
-  PercentageSchema,
-  EvmChainIdSchema,
-  SolanaNetworkIdSchema,
-}
-export { UrlSchema as URLSchema }
-export { IsoDateSchema as DateStringSchema }
-
-// Re-export types
-export type { EvmChainId, SolanaNetworkId } from '@jejunetwork/types'
 
 // App-specific: Chain type enum
 export const ChainTypeSchema = z.enum(['evm', 'solana'])
@@ -70,7 +49,7 @@ export const AddressOrEmptySchema = z.union([
   z.literal('0x0000000000000000000000000000000000000000'),
 ])
 
-// Re-export transaction hash
+// App-specific: Transaction hash alias
 export const TransactionHashSchema = HashSchema
 
 // App-specific: Block number

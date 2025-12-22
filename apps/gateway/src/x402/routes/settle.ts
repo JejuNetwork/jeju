@@ -5,7 +5,7 @@ import {
   buildSettleErrorResponse,
   buildSettleSuccessResponse,
 } from '../lib/response-builders'
-import { handleSettleRequest, parseJsonBody } from '../lib/route-helpers'
+import { handleSettleRequest } from '../lib/route-helpers'
 import type {
   AuthParams,
   DecodedPayment,
@@ -142,22 +142,28 @@ async function processSettlement(
 
   return {
     status: 200,
-    response: buildSettleSuccessResponse(network, payment, settlementResult, feeBps),
+    response: buildSettleSuccessResponse(
+      network,
+      payment,
+      settlementResult,
+      feeBps,
+    ),
   }
 }
 
-const settleRoutes = new Elysia({ prefix: '/settle' })
-  .post('/', async ({ request, set }) => {
+const settleRoutes = new Elysia()
+  .post('/settle', async ({ body, set }) => {
     const cfg = config()
-    const parseResult = await parseJsonBody(request)
-    if (parseResult.error) {
+    const requestBody = body as Record<string, unknown> | null
+
+    if (!requestBody) {
       set.status = 400
       return buildSettleErrorResponse(cfg.network, 'Invalid JSON request body')
     }
 
-    const handleResult = handleSettleRequest(parseResult.body, cfg.network)
-    if (!handleResult.valid) {
-      set.status = handleResult.status
+    const handleResult = handleSettleRequest(requestBody, cfg.network)
+    if (handleResult.valid === false) {
+      set.status = handleResult.status as 200 | 400
       return handleResult.response
     }
 
@@ -177,27 +183,31 @@ const settleRoutes = new Elysia({ prefix: '/settle' })
       handleResult.network,
       settlePayment,
     )
-    set.status = result.status
+    set.status = result.status as 200 | 500 | 503
     return result.response
   })
-  .post('/gasless', async ({ request, set }) => {
+  .post('/settle/gasless', async ({ body, set }) => {
     const cfg = config()
-    const parseResult = await parseJsonBody(request)
-    if (parseResult.error) {
+    const requestBody = body as Record<string, unknown> | null
+
+    if (!requestBody) {
       set.status = 400
       return buildSettleErrorResponse(cfg.network, 'Invalid JSON request body')
     }
 
-    const handleResult = handleSettleRequest(parseResult.body, cfg.network, true)
-    if (!handleResult.valid) {
-      set.status = handleResult.status
+    const handleResult = handleSettleRequest(requestBody, cfg.network, true)
+    if (handleResult.valid === false) {
+      set.status = handleResult.status as 200 | 400
       return handleResult.response
     }
 
     const authParams = handleResult.body.authParams
     if (!authParams || typeof authParams !== 'object') {
       set.status = 400
-      return buildSettleErrorResponse(cfg.network, 'Missing authParams for EIP-3009')
+      return buildSettleErrorResponse(
+        cfg.network,
+        'Missing authParams for EIP-3009',
+      )
     }
 
     const auth: {
@@ -229,7 +239,7 @@ const settleRoutes = new Elysia({ prefix: '/settle' })
       settleGaslessPayment,
       auth,
     )
-    set.status = result.status
+    set.status = result.status as 200 | 500 | 503
     return result.response
   })
 

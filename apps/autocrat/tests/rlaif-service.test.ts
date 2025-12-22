@@ -108,7 +108,9 @@ describe('RLAIF Service', () => {
 
       const env1Runs = service.listRuns('env1')
       expect(env1Runs.length).toBe(2)
-      env1Runs.forEach((r) => expect(r.environment.id).toBe('env1'))
+      for (const r of env1Runs) {
+        expect(r.environment.id).toBe('env1')
+      }
     })
 
     it('should update run status', () => {
@@ -223,8 +225,8 @@ describe('RLAIF Service', () => {
 
       expect(stats.environment).toBe('babylon')
       expect(stats.totalTrajectories).toBe(3)
-      expect(stats.byArchetype['trader']).toBe(1)
-      expect(stats.byArchetype['degen']).toBe(2)
+      expect(stats.byArchetype.trader).toBe(1)
+      expect(stats.byArchetype.degen).toBe(2)
       expect(stats.thresholdNeeded).toBe(20)
       expect(stats.readyForTraining).toBe(false)
     })

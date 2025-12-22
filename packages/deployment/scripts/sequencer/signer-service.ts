@@ -12,6 +12,11 @@ import { createHash, randomBytes } from 'node:crypto'
 import { Elysia } from 'elysia'
 import { signMessage, signTypedData } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import {
+  expectValid,
+  type SignResponse,
+  SignResponseSchema,
+} from '../../schemas'
 
 // ============ Types ============
 
@@ -31,13 +36,6 @@ interface TypedSignRequest extends SignRequest {
   }
   types: Record<string, Array<{ name: string; type: string }>>
   message: Record<string, unknown>
-}
-
-interface SignResponse {
-  requestId: string
-  signature: string
-  signer: string
-  error?: string
 }
 
 // ============ Constants ============
@@ -157,8 +155,13 @@ class ThresholdSignerService {
           set.status = 429
           return { error: 'Rate limited' }
         }
-        const origin = request.headers.get('Origin') ?? request.headers.get('X-Origin')
-        if (this.allowedOrigins.size > 0 && origin && !this.allowedOrigins.has(origin)) {
+        const origin =
+          request.headers.get('Origin') ?? request.headers.get('X-Origin')
+        if (
+          this.allowedOrigins.size > 0 &&
+          origin &&
+          !this.allowedOrigins.has(origin)
+        ) {
           set.status = 403
           return { error: 'Origin blocked' }
         }
@@ -199,7 +202,11 @@ class ThresholdSignerService {
         const typedBody = body as TypedSignRequest
         if (!typedBody.domain || !typedBody.types || !typedBody.message) {
           set.status = 400
-          return this.errorResponse(typedBody.requestId ?? '', 'Missing typed data fields', 400).json
+          return this.errorResponse(
+            typedBody.requestId ?? '',
+            'Missing typed data fields',
+            400,
+          ).json
         }
         const err = this.validateRequest(typedBody)
         if (err) {
@@ -216,7 +223,9 @@ class ThresholdSignerService {
           message: typedBody.message,
         })
         this.stats.signaturesIssued++
-        console.log(`[Signer] Signed typed ${typedBody.requestId.slice(0, 8)}...`)
+        console.log(
+          `[Signer] Signed typed ${typedBody.requestId.slice(0, 8)}...`,
+        )
         return {
           requestId: typedBody.requestId,
           signature,
@@ -288,7 +297,8 @@ export class SignatureCollector {
             })
             clearTimeout(tid)
             if (!res.ok) return null
-            const r = (await res.json()) as SignResponse
+            const rRaw = await res.json()
+            const r = expectValid(SignResponseSchema, rRaw, 'sign response')
             return r.error ? null : { signature: r.signature, signer: r.signer }
           } catch {
             return null

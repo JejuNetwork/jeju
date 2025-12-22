@@ -10,8 +10,23 @@
 
 import { Command } from 'commander'
 import type { Address, Hex } from 'viem'
+import { createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import {
+  arbitrum,
+  arbitrumSepolia,
+  avalanche,
+  base,
+  baseSepolia,
+  bsc,
+  mainnet,
+  optimism,
+  polygon,
+  sepolia,
+} from 'viem/chains'
 import { MAINNET_CHAINS, TESTNET_CHAINS } from '../config/chains'
+import { preloadAllArtifacts } from '../deployer/contract-deployer'
+import { MultiChainLauncher } from '../deployer/multi-chain-launcher'
 import type {
   CCAConfig,
   ChainId,
@@ -402,25 +417,6 @@ async function main() {
     console.log('  • Liquidity deployment requires ETH in deployer wallet')
     return
   }
-
-  // Conditional imports: only loaded when not in dry-run mode to avoid loading heavy dependencies unnecessarily
-  const { createWalletClient, http } = await import('viem')
-  const {
-    arbitrum,
-    arbitrumSepolia,
-    avalanche,
-    base,
-    baseSepolia,
-    bsc,
-    mainnet,
-    optimism,
-    polygon,
-    sepolia,
-  } = await import('viem/chains')
-  const { MultiChainLauncher } = await import(
-    '../deployer/multi-chain-launcher'
-  )
-  const { preloadAllArtifacts } = await import('../deployer/contract-deployer')
 
   const VIEM_CHAINS = {
     1: mainnet,

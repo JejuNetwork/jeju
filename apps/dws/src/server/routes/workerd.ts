@@ -4,15 +4,10 @@
  */
 
 import { expectJson } from '@jejunetwork/types'
-import { Hono } from 'hono'
+import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import { z } from 'zod'
-import {
-  workerdRegistryDeploySchema,
-  workerdReplicateRequestSchema,
-} from '../../shared/schemas'
-import { expectValid } from '../../shared/validation'
 import type { BackendManager } from '../../storage/backends'
 import {
   DEFAULT_ROUTER_CONFIG,
@@ -26,7 +21,7 @@ import {
 } from '../../workers/workerd'
 
 // ============================================================================
-// Schemas
+// Schemas & Validation
 // ============================================================================
 
 const WorkerdBindingsSchema = z.array(
@@ -38,32 +33,12 @@ const WorkerdBindingsSchema = z.array(
   }),
 )
 
-const deployRequestSchema = z.object({
-  name: z.string().min(1).max(64),
-  code: z.string().or(z.instanceof(ArrayBuffer)).optional(),
-  codeCid: z.string().optional(),
-  handler: z.string().default('index.handler'),
-  memoryMb: z.number().int().min(64).max(2048).default(128),
-  timeoutMs: z.number().int().min(1000).max(900000).default(30000),
-  cpuTimeMs: z.number().int().min(10).max(30000).default(50),
-  compatibilityDate: z
-    .string()
-    .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .default('2024-01-01'),
-  compatibilityFlags: z.array(z.string()).optional(),
-  bindings: WorkerdBindingsSchema.optional(),
-})
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
-const invokeRequestSchema = z.object({
-  method: z.string().default('POST'),
-  path: z.string().default('/'),
-  headers: z.record(z.string(), z.string()).optional(),
-  body: z.string().optional(),
-})
-
-const workerIdParamsSchema = z.object({
-  workerId: z.string().uuid(),
-})
+function isValidUUID(str: string): boolean {
+  return UUID_REGEX.test(str)
+}
 
 // ============================================================================
 // Router Factory
@@ -77,7 +52,7 @@ export interface WorkerdRouterOptions {
   enableDecentralized?: boolean
 }
 
-export function createWorkerdRouter(options: WorkerdRouterOptions): Hono {
+export function createWorkerdRouter(options: WorkerdRouterOptions): Elysia {
   const {
     backend,
     workerdConfig = {},
@@ -85,45 +60,6 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Hono {
     registryConfig,
     enableDecentralized = false,
   } = options
-
-  const router = new Hono()
-
-  // Error handler for proper status codes
-  router.onError((error, c) => {
-    const message = error.message
-    const lowerMessage = message.toLowerCase()
-
-    // Check for auth-related errors (401)
-    const isAuthError =
-      lowerMessage.includes('x-jeju-address') ||
-      lowerMessage.includes('authentication')
-
-    // Check for not found errors (404)
-    const isNotFound = lowerMessage.includes('not found')
-
-    // Check for permission errors (403)
-    const isForbidden =
-      lowerMessage.includes('not authorized') ||
-      lowerMessage.includes('access denied')
-
-    // Check for validation errors (400)
-    const isBadRequest =
-      lowerMessage.includes('invalid') ||
-      lowerMessage.includes('required') ||
-      error.name === 'ZodError'
-
-    const statusCode = isAuthError
-      ? 401
-      : isNotFound
-        ? 404
-        : isForbidden
-          ? 403
-          : isBadRequest
-            ? 400
-            : 500
-
-    return c.json({ error: message }, statusCode)
-  })
 
   // Initialize executor
   const executor = new WorkerdExecutor(backend, workerdConfig)
@@ -142,500 +78,680 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Hono {
     workerRouter.start()
   }
 
-  // ============================================================================
-  // Health & Stats
-  // ============================================================================
+  const router = new Elysia({ name: 'workerd', prefix: '/workerd' })
 
-  router.get('/health', (c) => {
-    const stats = executor.getStats()
-    const routerStats = workerRouter?.getStats()
+    // ============================================================================
+    // Health & Stats
+    // ============================================================================
 
-    return c.json({
-      status: 'healthy',
-      service: 'dws-workerd',
-      runtime: 'workerd',
-      ...stats,
-      decentralized: enableDecentralized,
-      router: routerStats,
+    .get('/health', () => {
+      const stats = executor.getStats()
+      const routerStats = workerRouter?.getStats()
+
+      return {
+        status: 'healthy',
+        service: 'dws-workerd',
+        runtime: 'workerd',
+        ...stats,
+        decentralized: enableDecentralized,
+        router: routerStats,
+      }
     })
-  })
 
-  router.get('/stats', (c) => {
-    const poolMetrics = executor.getPoolMetrics()
-    const routerStats = workerRouter?.getStats()
+    .get('/stats', () => {
+      const poolMetrics = executor.getPoolMetrics()
+      const routerStats = workerRouter?.getStats()
 
-    return c.json({
-      pool: poolMetrics,
-      router: routerStats,
+      return {
+        pool: poolMetrics,
+        router: routerStats,
+      }
     })
-  })
 
-  // ============================================================================
-  // Worker Deployment
-  // ============================================================================
+    // ============================================================================
+    // Worker Deployment
+    // ============================================================================
 
-  router.post('/', async (c) => {
-    // Validate auth first
-    const ownerHeader = c.req.header('x-jeju-address')
-    if (!ownerHeader) {
-      return c.json({ error: 'x-jeju-address header required' }, 401)
-    }
-    const owner = ownerHeader as Address
+    .post(
+      '/',
+      async ({ headers, body, set }) => {
+        // Validate auth first
+        const ownerHeader = headers['x-jeju-address']
+        if (!ownerHeader) {
+          set.status = 401
+          return { error: 'x-jeju-address header required' }
+        }
+        const owner = ownerHeader as Address
 
-    const contentType = c.req.header('content-type') || ''
+        const contentType = headers['content-type'] || ''
 
-    let params: z.infer<typeof deployRequestSchema>
-    let codeBuffer: Buffer | null = null
+        let name: string
+        let memoryMb = 128
+        let timeoutMs = 30000
+        let cpuTimeMs = 50
+        let compatibilityDate = '2024-01-01'
+        let compatibilityFlags: string[] | undefined
+        let bindings: Array<{
+          name: string
+          type: 'text' | 'json' | 'data' | 'service'
+          value?: string | Record<string, string>
+          service?: string
+        }> = []
+        let codeBuffer: Buffer | null = null
+        let codeCid: string | undefined
 
-    try {
-      if (contentType.includes('multipart/form-data')) {
-        const formData = await c.req.formData()
-        const codeFile = formData.get('code')
+        if (contentType.includes('multipart/form-data')) {
+          const formData = body as FormData
+          const codeFile = formData.get('code')
 
-        params = deployRequestSchema.parse({
-          name: formData.get('name'),
-          handler: formData.get('handler') || 'index.handler',
-          memoryMb: parseInt(formData.get('memoryMb') as string, 10) || 128,
-          timeoutMs: parseInt(formData.get('timeoutMs') as string, 10) || 30000,
-          cpuTimeMs: parseInt(formData.get('cpuTimeMs') as string, 10) || 50,
-          compatibilityDate: formData.get('compatibilityDate') || '2024-01-01',
-          bindings: expectJson(
+          name = formData.get('name') as string
+          memoryMb = parseInt(formData.get('memoryMb') as string, 10) || 128
+          timeoutMs = parseInt(formData.get('timeoutMs') as string, 10) || 30000
+          cpuTimeMs = parseInt(formData.get('cpuTimeMs') as string, 10) || 50
+          compatibilityDate =
+            (formData.get('compatibilityDate') as string) || '2024-01-01'
+          bindings = expectJson(
             (formData.get('bindings') as string) || '[]',
             WorkerdBindingsSchema,
             'form data bindings',
+          )
+
+          if (codeFile instanceof File) {
+            codeBuffer = Buffer.from(await codeFile.arrayBuffer())
+          }
+        } else {
+          const jsonBody = body as {
+            name: string
+            code?: string
+            codeCid?: string
+            handler?: string
+            memoryMb?: number
+            timeoutMs?: number
+            cpuTimeMs?: number
+            compatibilityDate?: string
+            compatibilityFlags?: string[]
+            bindings?: Array<{
+              name: string
+              type: 'text' | 'json' | 'data' | 'service'
+              value?: string | Record<string, string>
+              service?: string
+            }>
+          }
+
+          name = jsonBody.name
+          memoryMb = jsonBody.memoryMb ?? 128
+          timeoutMs = jsonBody.timeoutMs ?? 30000
+          cpuTimeMs = jsonBody.cpuTimeMs ?? 50
+          compatibilityDate = jsonBody.compatibilityDate ?? '2024-01-01'
+          compatibilityFlags = jsonBody.compatibilityFlags
+          bindings = jsonBody.bindings ?? []
+          codeCid = jsonBody.codeCid
+
+          if (typeof jsonBody.code === 'string') {
+            codeBuffer = Buffer.from(jsonBody.code, 'base64')
+          }
+        }
+
+        if (!name) {
+          set.status = 400
+          return { error: 'Worker name required' }
+        }
+
+        // Validate limits
+        if (memoryMb < 64 || memoryMb > 2048) {
+          set.status = 400
+          return { error: 'memoryMb must be between 64 and 2048' }
+        }
+
+        if (timeoutMs < 1000 || timeoutMs > 900000) {
+          set.status = 400
+          return { error: 'timeoutMs must be between 1000 and 900000' }
+        }
+
+        if (cpuTimeMs < 10 || cpuTimeMs > 30000) {
+          set.status = 400
+          return { error: 'cpuTimeMs must be between 10 and 30000' }
+        }
+
+        // Upload code to storage if provided
+        if (codeBuffer && !codeCid) {
+          const uploadResult = await backend.upload(codeBuffer, {
+            filename: `${name}.js`,
+          })
+          codeCid = uploadResult.cid
+        }
+
+        if (!codeCid) {
+          set.status = 400
+          return { error: 'Code or codeCid required' }
+        }
+
+        // Create worker definition
+        const workerId = crypto.randomUUID()
+        const worker: WorkerdWorkerDefinition = {
+          id: workerId,
+          name,
+          owner,
+          modules: [], // Will be populated during deployment
+          bindings: bindings.map((b) => ({
+            name: b.name,
+            type: b.type,
+            value: b.value,
+            service: b.service,
+          })),
+          compatibilityDate,
+          compatibilityFlags,
+          mainModule: 'worker.js',
+          memoryMb,
+          cpuTimeMs,
+          timeoutMs,
+          codeCid,
+          version: 1,
+          status: 'pending',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        }
+
+        // Deploy worker
+        await executor.deployWorker(worker)
+
+        // Register on-chain if decentralized
+        if (registry && enableDecentralized) {
+          const endpoint =
+            routerConfig?.localEndpoint || DEFAULT_ROUTER_CONFIG.localEndpoint
+          await registry
+            .registerWorker(worker, endpoint)
+            .catch((err: Error) => {
+              console.warn(
+                `[Workerd] Failed to register on-chain: ${err.message}`,
+              )
+            })
+        }
+
+        set.status = 201
+        return {
+          workerId: worker.id,
+          name: worker.name,
+          codeCid: worker.codeCid,
+          status: worker.status,
+          runtime: 'workerd',
+        }
+      },
+      {
+        headers: t.Object({
+          'x-jeju-address': t.Optional(t.String()),
+          'content-type': t.Optional(t.String()),
+        }),
+      },
+    )
+
+    // List workers
+    .get(
+      '/',
+      ({ headers }) => {
+        const owner = headers['x-jeju-address']
+        let workers = executor.listWorkers()
+
+        if (owner) {
+          workers = workers.filter(
+            (w) => w.owner.toLowerCase() === owner.toLowerCase(),
+          )
+        }
+
+        return {
+          workers: workers.map((w) => ({
+            id: w.id,
+            name: w.name,
+            memoryMb: w.memoryMb,
+            timeoutMs: w.timeoutMs,
+            status: w.status,
+            version: w.version,
+            codeCid: w.codeCid,
+            createdAt: w.createdAt,
+            updatedAt: w.updatedAt,
+          })),
+          runtime: 'workerd',
+        }
+      },
+      {
+        headers: t.Object({
+          'x-jeju-address': t.Optional(t.String()),
+        }),
+      },
+    )
+
+    // Get worker
+    .get(
+      '/:workerId',
+      ({ params, set }) => {
+        if (!isValidUUID(params.workerId)) {
+          set.status = 400
+          return { error: 'Invalid worker ID format' }
+        }
+
+        const worker = executor.getWorker(params.workerId)
+
+        if (!worker) {
+          set.status = 404
+          return { error: 'Worker not found' }
+        }
+
+        const instance = executor.getInstance(params.workerId)
+        const metrics = executor.getMetrics(params.workerId)
+
+        return {
+          ...worker,
+          instance: instance
+            ? {
+                port: instance.port,
+                status: instance.status,
+                activeRequests: instance.activeRequests,
+                totalRequests: instance.totalRequests,
+                memoryUsedMb: instance.memoryUsedMb,
+              }
+            : null,
+          metrics,
+        }
+      },
+      {
+        params: t.Object({
+          workerId: t.String(),
+        }),
+      },
+    )
+
+    // Update worker
+    .put(
+      '/:workerId',
+      async ({ params, headers, body, set }) => {
+        // Validate auth first
+        const ownerHeader = headers['x-jeju-address']
+        if (!ownerHeader) {
+          set.status = 401
+          return { error: 'x-jeju-address header required' }
+        }
+        const owner = ownerHeader as Address
+
+        const worker = executor.getWorker(params.workerId)
+        if (!worker) {
+          set.status = 404
+          return { error: 'Worker not found' }
+        }
+
+        if (worker.owner.toLowerCase() !== owner.toLowerCase()) {
+          set.status = 403
+          return { error: 'Not authorized' }
+        }
+
+        const updates = body as {
+          code?: string
+          memoryMb?: number
+          timeoutMs?: number
+          cpuTimeMs?: number
+          bindings?: Array<{
+            name: string
+            type: 'text' | 'json' | 'data' | 'service'
+            value?: string | Record<string, string>
+            service?: string
+          }>
+        }
+
+        // Update code if provided
+        if (updates.code) {
+          const codeBuffer =
+            typeof updates.code === 'string'
+              ? Buffer.from(updates.code, 'base64')
+              : Buffer.from(updates.code)
+
+          const uploadResult = await backend.upload(codeBuffer, {
+            filename: `${worker.name}.js`,
+          })
+
+          worker.codeCid = uploadResult.cid
+          worker.version++
+        }
+
+        if (updates.memoryMb) worker.memoryMb = updates.memoryMb
+        if (updates.timeoutMs) worker.timeoutMs = updates.timeoutMs
+        if (updates.cpuTimeMs) worker.cpuTimeMs = updates.cpuTimeMs
+        if (updates.bindings) {
+          worker.bindings = updates.bindings.map((b) => ({
+            name: b.name,
+            type: b.type,
+            value: b.value,
+            service: b.service,
+          }))
+        }
+        worker.updatedAt = Date.now()
+
+        // Redeploy
+        await executor.undeployWorker(params.workerId)
+        await executor.deployWorker(worker)
+
+        return { success: true, version: worker.version }
+      },
+      {
+        params: t.Object({
+          workerId: t.String(),
+        }),
+        headers: t.Object({
+          'x-jeju-address': t.Optional(t.String()),
+        }),
+        body: t.Object({
+          code: t.Optional(t.String()),
+          memoryMb: t.Optional(t.Number()),
+          timeoutMs: t.Optional(t.Number()),
+          cpuTimeMs: t.Optional(t.Number()),
+          bindings: t.Optional(
+            t.Array(
+              t.Object({
+                name: t.String(),
+                type: t.Union([
+                  t.Literal('text'),
+                  t.Literal('json'),
+                  t.Literal('data'),
+                  t.Literal('service'),
+                ]),
+                value: t.Optional(
+                  t.Union([t.String(), t.Record(t.String(), t.String())]),
+                ),
+                service: t.Optional(t.String()),
+              }),
+            ),
           ),
+        }),
+      },
+    )
+
+    // Delete worker
+    .delete(
+      '/:workerId',
+      async ({ params, headers, set }) => {
+        // Validate auth first
+        const ownerHeader = headers['x-jeju-address']
+        if (!ownerHeader) {
+          set.status = 401
+          return { error: 'x-jeju-address header required' }
+        }
+        const owner = ownerHeader as Address
+
+        const worker = executor.getWorker(params.workerId)
+        if (!worker) {
+          set.status = 404
+          return { error: 'Worker not found' }
+        }
+
+        if (worker.owner.toLowerCase() !== owner.toLowerCase()) {
+          set.status = 403
+          return { error: 'Not authorized' }
+        }
+
+        await executor.undeployWorker(params.workerId)
+        return { success: true }
+      },
+      {
+        params: t.Object({
+          workerId: t.String(),
+        }),
+        headers: t.Object({
+          'x-jeju-address': t.Optional(t.String()),
+        }),
+      },
+    )
+
+    // ============================================================================
+    // Worker Invocation
+    // ============================================================================
+
+    // Synchronous invocation
+    .post(
+      '/:workerId/invoke',
+      async ({ params, body }) => {
+        const request = body as {
+          method?: string
+          path?: string
+          headers?: Record<string, string>
+          body?: string
+        }
+
+        // Use decentralized router if enabled (it checks local executor first)
+        if (workerRouter && enableDecentralized) {
+          const response = await workerRouter.route(params.workerId, {
+            method: request.method ?? 'POST',
+            url: request.path ?? '/',
+            headers: request.headers || {},
+            body: request.body,
+          })
+
+          return {
+            status: response.status,
+            headers: response.headers,
+            body:
+              typeof response.body === 'string'
+                ? response.body
+                : response.body.toString(),
+          }
+        }
+
+        // Direct invocation when decentralized mode is disabled
+        const response = await executor.invoke(params.workerId, {
+          method: request.method ?? 'POST',
+          url: request.path ?? '/',
+          headers: request.headers || {},
+          body: request.body,
         })
 
-        if (codeFile instanceof File) {
-          codeBuffer = Buffer.from(await codeFile.arrayBuffer())
-        }
-      } else {
-        const body = await c.req.json()
-        params = deployRequestSchema.parse(body)
-
-        if (typeof params.code === 'string') {
-          codeBuffer = Buffer.from(params.code, 'base64')
-        }
-      }
-    } catch (error) {
-      // Handle Zod validation errors
-      if (error instanceof z.ZodError) {
-        const issues = error.issues
-          .map((i) => `${i.path.join('.')}: ${i.message}`)
-          .join(', ')
-        return c.json({ error: `Validation failed: ${issues}` }, 400)
-      }
-      throw error
-    }
-
-    // Upload code to storage if provided
-    let codeCid = params.codeCid
-    if (codeBuffer && !codeCid) {
-      const uploadResult = await backend.upload(codeBuffer, {
-        filename: `${params.name}.js`,
-      })
-      codeCid = uploadResult.cid
-    }
-
-    if (!codeCid) {
-      return c.json({ error: 'Code or codeCid required' }, 400)
-    }
-
-    // Create worker definition
-    const workerId = crypto.randomUUID()
-    const worker: WorkerdWorkerDefinition = {
-      id: workerId,
-      name: params.name,
-      owner,
-      modules: [], // Will be populated during deployment
-      bindings: (params.bindings || []).map((b) => ({
-        name: b.name,
-        type: b.type as 'text' | 'json' | 'data' | 'service',
-        value: b.value,
-        service: b.service,
-      })),
-      compatibilityDate: params.compatibilityDate,
-      compatibilityFlags: params.compatibilityFlags,
-      mainModule: 'worker.js',
-      memoryMb: params.memoryMb,
-      cpuTimeMs: params.cpuTimeMs,
-      timeoutMs: params.timeoutMs,
-      codeCid,
-      version: 1,
-      status: 'pending',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }
-
-    // Deploy worker
-    await executor.deployWorker(worker)
-
-    // Register on-chain if decentralized
-    if (registry && enableDecentralized) {
-      const endpoint =
-        routerConfig?.localEndpoint || DEFAULT_ROUTER_CONFIG.localEndpoint
-      await registry.registerWorker(worker, endpoint).catch((err: Error) => {
-        console.warn(`[Workerd] Failed to register on-chain: ${err.message}`)
-      })
-    }
-
-    return c.json(
-      {
-        workerId: worker.id,
-        name: worker.name,
-        codeCid: worker.codeCid,
-        status: worker.status,
-        runtime: 'workerd',
-      },
-      201,
-    )
-  })
-
-  // List workers
-  router.get('/', (c) => {
-    const owner = c.req.header('x-jeju-address')
-    let workers = executor.listWorkers()
-
-    if (owner) {
-      workers = workers.filter(
-        (w) => w.owner.toLowerCase() === owner.toLowerCase(),
-      )
-    }
-
-    return c.json({
-      workers: workers.map((w) => ({
-        id: w.id,
-        name: w.name,
-        memoryMb: w.memoryMb,
-        timeoutMs: w.timeoutMs,
-        status: w.status,
-        version: w.version,
-        codeCid: w.codeCid,
-        createdAt: w.createdAt,
-        updatedAt: w.updatedAt,
-      })),
-      runtime: 'workerd',
-    })
-  })
-
-  // Get worker
-  router.get('/:workerId', (c) => {
-    const { workerId } = workerIdParamsSchema.parse({
-      workerId: c.req.param('workerId'),
-    })
-    const worker = executor.getWorker(workerId)
-
-    if (!worker) {
-      return c.json({ error: 'Worker not found' }, 404)
-    }
-
-    const instance = executor.getInstance(workerId)
-    const metrics = executor.getMetrics(workerId)
-
-    return c.json({
-      ...worker,
-      instance: instance
-        ? {
-            port: instance.port,
-            status: instance.status,
-            activeRequests: instance.activeRequests,
-            totalRequests: instance.totalRequests,
-            memoryUsedMb: instance.memoryUsedMb,
-          }
-        : null,
-      metrics,
-    })
-  })
-
-  // Update worker
-  router.put('/:workerId', async (c) => {
-    // Validate auth first
-    const ownerHeader = c.req.header('x-jeju-address')
-    if (!ownerHeader) {
-      return c.json({ error: 'x-jeju-address header required' }, 401)
-    }
-    const owner = ownerHeader as Address
-
-    const { workerId } = workerIdParamsSchema.parse({
-      workerId: c.req.param('workerId'),
-    })
-
-    const worker = executor.getWorker(workerId)
-    if (!worker) {
-      return c.json({ error: 'Worker not found' }, 404)
-    }
-
-    if (worker.owner.toLowerCase() !== owner.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403)
-    }
-
-    const body = await c.req.json()
-    const updates = deployRequestSchema.partial().parse(body)
-
-    // Update code if provided
-    if (updates.code) {
-      const codeBuffer =
-        typeof updates.code === 'string'
-          ? Buffer.from(updates.code, 'base64')
-          : Buffer.from(updates.code)
-
-      const uploadResult = await backend.upload(codeBuffer, {
-        filename: `${worker.name}.js`,
-      })
-
-      worker.codeCid = uploadResult.cid
-      worker.version++
-    }
-
-    if (updates.memoryMb) worker.memoryMb = updates.memoryMb
-    if (updates.timeoutMs) worker.timeoutMs = updates.timeoutMs
-    if (updates.cpuTimeMs) worker.cpuTimeMs = updates.cpuTimeMs
-    if (updates.bindings) {
-      worker.bindings = updates.bindings.map((b) => ({
-        name: b.name,
-        type: b.type as 'text' | 'json' | 'data' | 'service',
-        value: b.value,
-        service: b.service,
-      }))
-    }
-    worker.updatedAt = Date.now()
-
-    // Redeploy
-    await executor.undeployWorker(workerId)
-    await executor.deployWorker(worker)
-
-    return c.json({ success: true, version: worker.version })
-  })
-
-  // Delete worker
-  router.delete('/:workerId', async (c) => {
-    // Validate auth first
-    const ownerHeader = c.req.header('x-jeju-address')
-    if (!ownerHeader) {
-      return c.json({ error: 'x-jeju-address header required' }, 401)
-    }
-    const owner = ownerHeader as Address
-
-    const { workerId } = workerIdParamsSchema.parse({
-      workerId: c.req.param('workerId'),
-    })
-
-    const worker = executor.getWorker(workerId)
-    if (!worker) {
-      return c.json({ error: 'Worker not found' }, 404)
-    }
-
-    if (worker.owner.toLowerCase() !== owner.toLowerCase()) {
-      return c.json({ error: 'Not authorized' }, 403)
-    }
-
-    await executor.undeployWorker(workerId)
-    return c.json({ success: true })
-  })
-
-  // ============================================================================
-  // Worker Invocation
-  // ============================================================================
-
-  // Synchronous invocation
-  router.post('/:workerId/invoke', async (c) => {
-    const { workerId } = workerIdParamsSchema.parse({
-      workerId: c.req.param('workerId'),
-    })
-    const body = await c.req.json()
-    const request = invokeRequestSchema.parse(body)
-
-    // Use decentralized router if enabled (it checks local executor first)
-    if (workerRouter && enableDecentralized) {
-      const response = await workerRouter.route(workerId, {
-        method: request.method,
-        url: request.path,
-        headers: request.headers || {},
-        body: request.body,
-      })
-
-      return c.json({
-        status: response.status,
-        headers: response.headers,
-        body:
+        const bodyStr =
           typeof response.body === 'string'
             ? response.body
-            : response.body.toString(),
-      })
-    }
+            : Buffer.isBuffer(response.body)
+              ? response.body.toString('utf-8')
+              : String(response.body)
 
-    // Direct invocation when decentralized mode is disabled
-    const response = await executor.invoke(workerId, {
-      method: request.method,
-      url: request.path,
-      headers: request.headers || {},
-      body: request.body,
-    })
+        return {
+          status: response.status,
+          headers: response.headers,
+          body: bodyStr,
+        }
+      },
+      {
+        params: t.Object({
+          workerId: t.String(),
+        }),
+        body: t.Object({
+          method: t.Optional(t.String()),
+          path: t.Optional(t.String()),
+          headers: t.Optional(t.Record(t.String(), t.String())),
+          body: t.Optional(t.String()),
+        }),
+      },
+    )
 
-    const bodyStr =
-      typeof response.body === 'string'
-        ? response.body
-        : Buffer.isBuffer(response.body)
-          ? response.body.toString('utf-8')
-          : String(response.body)
+    // HTTP handler (Cloudflare Workers style)
+    .all(
+      '/:workerId/http/*',
+      async ({ params, request, set }) => {
+        const worker = executor.getWorker(params.workerId)
 
-    return c.json({
-      status: response.status,
-      headers: response.headers,
-      body: bodyStr,
-    })
-  })
+        if (!worker) {
+          set.status = 404
+          return { error: 'Worker not found' }
+        }
 
-  // HTTP handler (Cloudflare Workers style)
-  router.all('/:workerId/http/*', async (c) => {
-    const workerId = c.req.param('workerId')
-    const worker = executor.getWorker(workerId)
+        const url = new URL(request.url)
+        const path =
+          url.pathname.replace(`/workerd/${params.workerId}/http`, '') || '/'
 
-    if (!worker) {
-      return c.json({ error: 'Worker not found' }, 404)
-    }
+        const requestHeaders: Record<string, string> = {}
+        request.headers.forEach((value, key) => {
+          requestHeaders[key] = value
+        })
 
-    const url = new URL(c.req.url)
-    const path = url.pathname.replace(`/workerd/${workerId}/http`, '') || '/'
+        const body =
+          request.method !== 'GET' && request.method !== 'HEAD'
+            ? await request.text()
+            : undefined
 
-    const headers: Record<string, string> = {}
-    c.req.raw.headers.forEach((value, key) => {
-      headers[key] = value
-    })
+        const response = await executor.invoke(params.workerId, {
+          method: request.method,
+          url: `${path}${url.search}`,
+          headers: requestHeaders,
+          body,
+        })
 
-    const body =
-      c.req.method !== 'GET' && c.req.method !== 'HEAD'
-        ? await c.req.text()
-        : undefined
+        return new Response(response.body, {
+          status: response.status,
+          headers: response.headers,
+        })
+      },
+      {
+        params: t.Object({
+          workerId: t.String(),
+          '*': t.String(),
+        }),
+      },
+    )
 
-    const response = await executor.invoke(workerId, {
-      method: c.req.method,
-      url: `${path}${url.search}`,
-      headers,
-      body,
-    })
+    // ============================================================================
+    // Metrics & Logs
+    // ============================================================================
 
-    return new Response(response.body, {
-      status: response.status,
-      headers: response.headers,
-    })
-  })
+    .get(
+      '/:workerId/metrics',
+      ({ params }) => {
+        const metrics = executor.getMetrics(params.workerId)
+        return metrics
+      },
+      {
+        params: t.Object({
+          workerId: t.String(),
+        }),
+      },
+    )
 
-  // ============================================================================
-  // Metrics & Logs
-  // ============================================================================
+    .get(
+      '/:workerId/invocations/:invocationId',
+      ({ params, set }) => {
+        const invocation = executor.getInvocation(params.invocationId)
 
-  router.get('/:workerId/metrics', (c) => {
-    const { workerId } = workerIdParamsSchema.parse({
-      workerId: c.req.param('workerId'),
-    })
-    const metrics = executor.getMetrics(workerId)
+        if (!invocation) {
+          set.status = 404
+          return { error: 'Invocation not found' }
+        }
 
-    return c.json(metrics)
-  })
-
-  router.get('/:workerId/invocations/:invocationId', (c) => {
-    const invocationId = c.req.param('invocationId')
-    const invocation = executor.getInvocation(invocationId)
-
-    if (!invocation) {
-      return c.json({ error: 'Invocation not found' }, 404)
-    }
-
-    return c.json(invocation)
-  })
+        return invocation
+      },
+      {
+        params: t.Object({
+          workerId: t.String(),
+          invocationId: t.String(),
+        }),
+      },
+    )
 
   // ============================================================================
   // Decentralized Operations
   // ============================================================================
 
   if (enableDecentralized && registry) {
-    // Discover registered workers
-    router.get('/registry/workers', async (c) => {
-      const workers = await registry.getWorkers()
-      return c.json({ workers })
-    })
-
-    // Discover worker nodes
-    router.get('/registry/nodes', async (c) => {
-      const nodes = await registry.getNodes()
-      return c.json({ nodes })
-    })
-
-    // Replicate worker to other nodes
-    router.post('/:workerId/replicate', async (c) => {
-      const { workerId } = workerIdParamsSchema.parse({
-        workerId: c.req.param('workerId'),
+    router
+      // Discover registered workers
+      .get('/registry/workers', async () => {
+        const workers = await registry.getWorkers()
+        return { workers }
       })
-      const body = expectValid(
-        workerdReplicateRequestSchema,
-        await c.req.json(),
-        'Replicate worker request',
-      )
-      const targetCount = body.targetCount
 
-      const worker = await registry.getWorker(BigInt(workerId))
-      if (!worker) {
-        return c.json({ error: 'Worker not registered' }, 404)
-      }
-
-      const replicatedTo = await workerRouter?.replicateWorker(
-        worker,
-        targetCount,
-      )
-
-      return c.json({
-        success: true,
-        replicatedTo,
+      // Discover worker nodes
+      .get('/registry/nodes', async () => {
+        const nodes = await registry.getNodes()
+        return { nodes }
       })
-    })
 
-    // Deploy from registry (pull worker code from another node)
-    router.post('/deploy-from-registry', async (c) => {
-      const body = expectValid(
-        workerdRegistryDeploySchema,
-        await c.req.json(),
-        'Deploy from registry request',
+      // Replicate worker to other nodes
+      .post(
+        '/:workerId/replicate',
+        async ({ params, body, set }) => {
+          const targetCount =
+            (body as { targetCount?: number }).targetCount ?? 3
+
+          const worker = await registry.getWorker(BigInt(params.workerId))
+          if (!worker) {
+            set.status = 404
+            return { error: 'Worker not registered' }
+          }
+
+          const replicatedTo = await workerRouter?.replicateWorker(
+            worker,
+            targetCount,
+          )
+
+          return {
+            success: true,
+            replicatedTo,
+          }
+        },
+        {
+          params: t.Object({
+            workerId: t.String(),
+          }),
+          body: t.Object({
+            targetCount: t.Optional(t.Number()),
+          }),
+        },
       )
-      const agentId = BigInt(body.agentId)
 
-      const worker = await registry.getWorker(agentId)
-      if (!worker) {
-        return c.json({ error: 'Worker not found in registry' }, 404)
-      }
+      // Deploy from registry (pull worker code from another node)
+      .post(
+        '/deploy-from-registry',
+        async ({ body, set }) => {
+          const agentId = BigInt((body as { agentId: string }).agentId)
 
-      // Create worker definition from registration
-      const workerId = crypto.randomUUID()
-      const workerDef: WorkerdWorkerDefinition = {
-        id: workerId,
-        name: `worker-${agentId}`,
-        owner: worker.owner,
-        modules: [],
-        bindings: [],
-        compatibilityDate: '2024-01-01',
-        mainModule: 'worker.js',
-        memoryMb: worker.memoryMb,
-        cpuTimeMs: 50,
-        timeoutMs: worker.timeoutMs,
-        codeCid: worker.codeCid,
-        version: worker.version,
-        status: 'pending',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      }
+          const worker = await registry.getWorker(agentId)
+          if (!worker) {
+            set.status = 404
+            return { error: 'Worker not found in registry' }
+          }
 
-      await executor.deployWorker(workerDef)
+          // Create worker definition from registration
+          const workerId = crypto.randomUUID()
+          const workerDef: WorkerdWorkerDefinition = {
+            id: workerId,
+            name: `worker-${agentId}`,
+            owner: worker.owner,
+            modules: [],
+            bindings: [],
+            compatibilityDate: '2024-01-01',
+            mainModule: 'worker.js',
+            memoryMb: worker.memoryMb,
+            cpuTimeMs: 50,
+            timeoutMs: worker.timeoutMs,
+            codeCid: worker.codeCid,
+            version: worker.version,
+            status: 'pending',
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+          }
 
-      return c.json({
-        success: true,
-        workerId,
-        fromAgentId: agentId.toString(),
-      })
-    })
+          await executor.deployWorker(workerDef)
+
+          return {
+            success: true,
+            workerId,
+            fromAgentId: agentId.toString(),
+          }
+        },
+        {
+          body: t.Object({
+            agentId: t.String(),
+          }),
+        },
+      )
   }
 
   return router
 }
+
+export type WorkerdRoutes = ReturnType<typeof createWorkerdRouter>
 
 // ============================================================================
 // Network Configuration
@@ -689,7 +805,7 @@ const NETWORK_DEFAULTS: Record<
 // Default Export for Standalone Use
 // ============================================================================
 
-export function createDefaultWorkerdRouter(backend: BackendManager): Hono {
+export function createDefaultWorkerdRouter(backend: BackendManager): Elysia {
   const network = getNetworkType()
   const defaults = NETWORK_DEFAULTS[network]
   const chain = getChainForNetwork(network)

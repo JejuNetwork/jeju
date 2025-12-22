@@ -23,10 +23,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { z } from 'zod'
-import {
-  CloudflareDNSRecordListSchema,
-  expectValid,
-} from '../../schemas'
+import { CloudflareDNSRecordListSchema, expectValid } from '../../schemas'
 
 // AWS SDK types (optional - loaded dynamically)
 interface ResourceRecordSet {
@@ -661,7 +658,11 @@ export class DNSSyncService {
         )
 
         const listDataRaw = await listResponse.json()
-        const listData = expectValid(CloudflareDNSRecordListSchema, listDataRaw, 'Cloudflare DNS records')
+        const listData = expectValid(
+          CloudflareDNSRecordListSchema,
+          listDataRaw,
+          'Cloudflare DNS records',
+        )
         const existing = listData.result[0]
 
         const recordData = {

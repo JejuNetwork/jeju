@@ -20,7 +20,10 @@ import {
   LOCALNET_CONFIG,
   TESTNET_CONFIG,
 } from '../src/workers/tee/regions'
-import { createSecretManager } from '../src/workers/tee/secrets'
+import {
+  createSecretManager,
+  TEESecretManager,
+} from '../src/workers/tee/secrets'
 import type { NetworkEnvironment } from '../src/workers/tee/types'
 
 const RPC_URL = 'http://127.0.0.1:6546'
@@ -253,7 +256,6 @@ describe('Secret Manager Live', () => {
     const manager = createSecretManager(environment)
     const publicKey = manager.getEnclavePublicKey()
 
-    const { TEESecretManager } = await import('../src/workers/tee/secrets')
     const encrypted = TEESecretManager.encryptSecret(
       'my-secret-value',
       publicKey,
@@ -272,7 +274,6 @@ describe('Secret Manager Live', () => {
     const owner = '0x1234567890123456789012345678901234567890' as const
 
     // First encrypt the secret
-    const { TEESecretManager } = await import('../src/workers/tee/secrets')
     const publicKey = manager.getEnclavePublicKey()
     const encrypted = TEESecretManager.encryptSecret('test-value', publicKey)
     encrypted.name = 'TEST_KEY'
@@ -288,7 +289,6 @@ describe('Secret Manager Live', () => {
     const owner = '0xabcdef1234567890abcdef1234567890abcdef12' as const
 
     // Encrypt secrets first
-    const { TEESecretManager } = await import('../src/workers/tee/secrets')
     const publicKey = manager.getEnclavePublicKey()
 
     const encrypted1 = TEESecretManager.encryptSecret('value1', publicKey)

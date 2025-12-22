@@ -4,8 +4,9 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 
-const A2A_BASE_URL = 'http://localhost:4003'
+const A2A_BASE_URL = getCoreAppUrl('NODE_EXPLORER_UI')
 
 describe('A2A Agent Card Discovery', () => {
   test('should serve agent card at well-known endpoint', async () => {
@@ -138,14 +139,11 @@ describe('A2A JSON-RPC Communication', () => {
     expect(dataPart.data.tokens).toBeDefined()
     expect(Array.isArray(dataPart.data.tokens)).toBe(true)
 
-    // Should include all protocol tokens
+    // Should include protocol token
     const symbols = dataPart.data.tokens.map(
       (t: { symbol: string }) => t.symbol,
     )
-    expect(symbols).toContain('elizaOS')
-    expect(symbols).toContain('CLANKER')
-    expect(symbols).toContain('VIRTUAL')
-    expect(symbols).toContain('CLANKERMON')
+    expect(symbols).toContain('JEJU')
   })
 
   test('should execute get-node-stats skill', async () => {

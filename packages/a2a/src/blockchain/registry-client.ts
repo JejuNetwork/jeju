@@ -7,7 +7,6 @@ import { createPublicClient, http, type PublicClient } from 'viem'
 
 import type { AgentProfile, AgentReputation } from '../types/a2a'
 import { AgentCapabilitiesSchema, type JsonValue } from '../types/common'
-import { logger } from '../utils/logger'
 
 /**
  * Minimal ABI for Identity Registry contract
@@ -115,6 +114,7 @@ export class RegistryClient {
       abi: IDENTITY_ABI,
       functionName: 'getAgentProfile',
       args: [BigInt(tokenId)],
+      authorizationList: undefined,
     })
     const reputation = await this.getAgentReputation(tokenId)
     const address = await this.client.readContract({
@@ -122,6 +122,7 @@ export class RegistryClient {
       abi: IDENTITY_ABI,
       functionName: 'ownerOf',
       args: [BigInt(tokenId)],
+      authorizationList: undefined,
     })
 
     return {
@@ -146,6 +147,7 @@ export class RegistryClient {
       abi: IDENTITY_ABI,
       functionName: 'getTokenId',
       args: [address as `0x${string}`],
+      authorizationList: undefined,
     })
     if (tokenId === 0n) return null
     return this.getAgentProfile(Number(tokenId))
@@ -160,6 +162,7 @@ export class RegistryClient {
       abi: REPUTATION_ABI,
       functionName: 'getReputation',
       args: [BigInt(tokenId)],
+      authorizationList: undefined,
     })
 
     return {
@@ -189,6 +192,7 @@ export class RegistryClient {
         abi: REPUTATION_ABI,
         functionName: 'getAgentsByMinScore',
         args: [BigInt(filters.minReputation)],
+        authorizationList: undefined,
       })
     } else {
       tokenIds = await this.client.readContract({
@@ -196,6 +200,7 @@ export class RegistryClient {
         abi: IDENTITY_ABI,
         functionName: 'getAllActiveAgents',
         args: [],
+        authorizationList: undefined,
       })
     }
 
@@ -239,7 +244,6 @@ export class RegistryClient {
       if (!hasMarket) return false
     }
 
-    // Check reputation (already filtered in query if provided)
     if (filters.minReputation) {
       if (profile.reputation.trustScore < filters.minReputation) {
         return false
@@ -294,6 +298,7 @@ export class RegistryClient {
       abi: IDENTITY_ABI,
       functionName: 'ownerOf',
       args: [BigInt(tokenId)],
+      authorizationList: undefined,
     })
     return owner.toLowerCase() === address.toLowerCase()
   }
@@ -307,89 +312,38 @@ export class RegistryClient {
       abi: IDENTITY_ABI,
       functionName: 'isEndpointActive',
       args: [endpoint],
+      authorizationList: undefined,
     })
   }
 
   /**
-   * Register agent (interface compatibility)
-   *
-   * NOTE: This client is READ-ONLY. For actual registration, use:
-   * - A write-enabled client with wallet signing
-   * - On-chain registration endpoint with server wallet
-   *
-   * This method exists for interface compatibility only.
+   * Register agent (read-only - throws error)
    */
   async register(
-    agentId: string,
-    data: Record<string, JsonValue>,
+    _agentId: string,
+    _data: Record<string, JsonValue>,
   ): Promise<void> {
-    logger.info(`Register agent ${agentId} (read-only client)`, { data })
     throw new Error(
       'RegistryClient is read-only. Use a write-enabled client for registration',
     )
   }
 
   /**
-   * Unregister agent (interface compatibility)
-   *
-   * NOTE: This client is READ-ONLY. Unregistration requires direct blockchain interaction
-   * with a wallet that owns the agent token.
+   * Unregister agent (read-only - throws error)
    */
-  async unregister(agentId: string): Promise<void> {
-    logger.info(`Unregister agent ${agentId} (read-only client)`)
+  async unregister(_agentId: string): Promise<void> {
     throw new Error(
-      'RegistryClient is read-only. Unregistration requires direct blockchain interaction with agent owner wallet',
+      'RegistryClient is read-only. Use a write-enabled client for unregistration',
     )
   }
 
   /**
-   * Get all agents (interface compatibility)
+   * Transform AgentProfile to registry entry format
    */
-  async getAgents(): Promise<
-    Array<{ agentId: string; [key: string]: JsonValue }>
-  > {
-    const profiles = await this.discoverAgents()
-    return profiles.map((profile) => ({
-      agentId: String(profile.tokenId),
-      tokenId: profile.tokenId,
-      address: profile.address,
-      name: profile.name,
-      endpoint: profile.endpoint,
-      capabilities: {
-        strategies: profile.capabilities.strategies,
-        markets: profile.capabilities.markets,
-        actions: profile.capabilities.actions,
-        version: profile.capabilities.version,
-        skills: profile.capabilities.skills || [],
-        domains: profile.capabilities.domains || [],
-      },
-      reputation: {
-        totalBets: profile.reputation.totalBets,
-        winningBets: profile.reputation.winningBets,
-        accuracyScore: profile.reputation.accuracyScore,
-        trustScore: profile.reputation.trustScore,
-        totalVolume: profile.reputation.totalVolume,
-        profitLoss: profile.reputation.profitLoss,
-        isBanned: profile.reputation.isBanned,
-      },
-      isActive: profile.isActive,
-    }))
-  }
-
-  /**
-   * Get agent by ID (interface compatibility)
-   */
-  async getAgent(
-    agentId: string,
-  ): Promise<{ agentId: string; [key: string]: JsonValue } | null> {
-    const tokenId = Number.parseInt(agentId, 10)
-    if (Number.isNaN(tokenId)) {
-      return null
-    }
-    const profile = await this.getAgentProfile(tokenId)
-    if (!profile) {
-      return null
-    }
+  private toRegistryEntry(profile: AgentProfile): {
+    agentId: string
+    [key: string]: JsonValue
+  } {
     return {
       agentId: String(profile.tokenId),
       tokenId: profile.tokenId,
@@ -415,5 +369,32 @@ export class RegistryClient {
       },
       isActive: profile.isActive,
     }
+  }
+
+  /**
+   * Get all agents
+   */
+  async getAgents(): Promise<
+    Array<{ agentId: string; [key: string]: JsonValue }>
+  > {
+    const profiles = await this.discoverAgents()
+    return profiles.map((profile) => this.toRegistryEntry(profile))
+  }
+
+  /**
+   * Get agent by ID
+   */
+  async getAgent(
+    agentId: string,
+  ): Promise<{ agentId: string; [key: string]: JsonValue } | null> {
+    const tokenId = Number.parseInt(agentId, 10)
+    if (Number.isNaN(tokenId)) {
+      return null
+    }
+    const profile = await this.getAgentProfile(tokenId)
+    if (!profile) {
+      return null
+    }
+    return this.toRegistryEntry(profile)
   }
 }

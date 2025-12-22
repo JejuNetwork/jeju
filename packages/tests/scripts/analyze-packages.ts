@@ -37,7 +37,7 @@ interface PackageAnalysis {
   utilsToConsolidate: string[]
 }
 
-const PACKAGES_DIR = join(import.meta.dir, '../../..')
+const _PACKAGES_DIR = join(import.meta.dir, '../../..')
 const SHARED_UTILS = [
   'logger',
   'retry',
@@ -51,7 +51,10 @@ const SHARED_UTILS = [
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+    if (
+      existsSync(join(dir, 'bun.lock')) &&
+      existsSync(join(dir, 'packages'))
+    ) {
       return dir
     }
     dir = join(dir, '..')
@@ -99,7 +102,8 @@ function analyzeComplexity(content: string): 'low' | 'medium' | 'high' {
   score += (content.match(/async\s+function|async\s*\(/g) || []).length * 2
 
   // Control flow complexity
-  score += (content.match(/if\s*\(|switch\s*\(|for\s*\(|while\s*\(/g) || []).length
+  score += (content.match(/if\s*\(|switch\s*\(|for\s*\(|while\s*\(/g) || [])
+    .length
 
   // Error handling
   score += (content.match(/try\s*{|catch\s*\(/g) || []).length
@@ -108,20 +112,28 @@ function analyzeComplexity(content: string): 'low' | 'medium' | 'high' {
   score += (content.match(/\.then\(|\.catch\(|Promise\./g) || []).length
 
   // External API calls
-  score += (content.match(/fetch\(|axios\.|createPublicClient|ethers\./g) || []).length * 3
+  score +=
+    (content.match(/fetch\(|axios\.|createPublicClient|ethers\./g) || [])
+      .length * 3
 
   // Crypto operations
-  score += (content.match(/sign|encrypt|decrypt|hash|verify/gi) || []).length * 2
+  score +=
+    (content.match(/sign|encrypt|decrypt|hash|verify/gi) || []).length * 2
 
   // Contract interactions
-  score += (content.match(/writeContract|readContract|simulateContract/g) || []).length * 3
+  score +=
+    (content.match(/writeContract|readContract|simulateContract/g) || [])
+      .length * 3
 
   if (score > 30 || lines > 300) return 'high'
   if (score > 15 || lines > 150) return 'medium'
   return 'low'
 }
 
-function categorizeFile(filePath: string, content: string): FileAnalysis['category'] {
+function categorizeFile(
+  filePath: string,
+  content: string,
+): FileAnalysis['category'] {
   const name = filePath.toLowerCase()
 
   if (name.includes('/types') || name.endsWith('types.ts')) return 'types'
@@ -151,7 +163,7 @@ function shouldBeInShared(filePath: string, content: string): boolean {
       // Check if it's truly generic
       const hasPackageSpecificLogic =
         content.includes('@jejunetwork/') ||
-        content.includes('import {') && content.includes('from \'.')
+        (content.includes('import {') && content.includes("from '."))
 
       if (!hasPackageSpecificLogic) {
         return true
@@ -196,11 +208,15 @@ function analyzePackage(packagePath: string): PackageAnalysis | null {
 
   const allFiles = getAllTsFiles(srcDir)
   const testFiles = allFiles.filter(
-    (f) => f.includes('.test.') || f.includes('.spec.') || f.includes('__tests__'),
+    (f) =>
+      f.includes('.test.') || f.includes('.spec.') || f.includes('__tests__'),
   )
 
   const srcFiles = allFiles.filter(
-    (f) => !f.includes('.test.') && !f.includes('.spec.') && !f.includes('__tests__'),
+    (f) =>
+      !f.includes('.test.') &&
+      !f.includes('.spec.') &&
+      !f.includes('__tests__'),
   )
 
   const fileAnalyses: FileAnalysis[] = []
@@ -273,7 +289,10 @@ function analyzePackage(packagePath: string): PackageAnalysis | null {
     coverage: {
       testedFiles,
       untestedFiles,
-      percent: srcFiles.length > 0 ? Math.round((testedFiles / srcFiles.length) * 100) : 0,
+      percent:
+        srcFiles.length > 0
+          ? Math.round((testedFiles / srcFiles.length) * 100)
+          : 0,
     },
     recommendations,
     utilsToConsolidate,
@@ -289,7 +308,8 @@ async function main() {
   const packages = readdirSync(packagesDir).filter((p) => {
     const pkgPath = join(packagesDir, p)
     return (
-      statSync(pkgPath).isDirectory() && existsSync(join(pkgPath, 'package.json'))
+      statSync(pkgPath).isDirectory() &&
+      existsSync(join(pkgPath, 'package.json'))
     )
   })
 
@@ -307,16 +327,18 @@ async function main() {
   analyses.sort((a, b) => a.coverage.percent - b.coverage.percent)
 
   // Output summary
-  console.log('=' .repeat(80))
+  console.log('='.repeat(80))
   console.log('PACKAGE ANALYSIS SUMMARY')
-  console.log('=' .repeat(80))
+  console.log('='.repeat(80))
   console.log('')
 
   for (const analysis of analyses) {
     console.log(`\n${'─'.repeat(60)}`)
     console.log(`📦 ${analysis.name}`)
     console.log(`${'─'.repeat(60)}`)
-    console.log(`Coverage: ${analysis.coverage.percent}% (${analysis.coverage.testedFiles}/${analysis.coverage.testedFiles + analysis.coverage.untestedFiles} files)`)
+    console.log(
+      `Coverage: ${analysis.coverage.percent}% (${analysis.coverage.testedFiles}/${analysis.coverage.testedFiles + analysis.coverage.untestedFiles} files)`,
+    )
     console.log(`Test files: ${analysis.testFiles.length}`)
 
     if (analysis.recommendations.length > 0) {
@@ -328,12 +350,16 @@ async function main() {
 
     // List high-complexity untested files
     const highPriority = analysis.files.filter(
-      (f) => !f.hasTests && (f.complexity === 'high' || f.category === 'business-logic'),
+      (f) =>
+        !f.hasTests &&
+        (f.complexity === 'high' || f.category === 'business-logic'),
     )
     if (highPriority.length > 0) {
       console.log('\nHigh-priority files needing tests:')
       for (const file of highPriority.slice(0, 5)) {
-        console.log(`  - ${file.path} (${file.complexity} complexity, ${file.category})`)
+        console.log(
+          `  - ${file.path} (${file.complexity} complexity, ${file.category})`,
+        )
       }
       if (highPriority.length > 5) {
         console.log(`  ... and ${highPriority.length - 5} more`)
@@ -348,12 +374,15 @@ async function main() {
 
   // Summary stats
   const totalFiles = analyses.reduce((sum, a) => sum + a.files.length, 0)
-  const testedFiles = analyses.reduce((sum, a) => sum + a.coverage.testedFiles, 0)
+  const testedFiles = analyses.reduce(
+    (sum, a) => sum + a.coverage.testedFiles,
+    0,
+  )
   const overallCoverage = Math.round((testedFiles / totalFiles) * 100)
 
-  console.log('\n' + '=' .repeat(80))
+  console.log(`\n${'='.repeat(80)}`)
   console.log('OVERALL STATS')
-  console.log('=' .repeat(80))
+  console.log('='.repeat(80))
   console.log(`Total packages analyzed: ${analyses.length}`)
   console.log(`Total source files: ${totalFiles}`)
   console.log(`Files with tests: ${testedFiles}`)
@@ -361,4 +390,3 @@ async function main() {
 }
 
 main().catch(console.error)
-

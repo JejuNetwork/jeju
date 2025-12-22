@@ -16,54 +16,19 @@
 import type { Account, Hex } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
-  type ContractCategoryName,
-  getChainConfig,
   getConfig,
-  getContract,
   getCurrentNetwork,
   getEILChains,
   getExternalRpc,
-  getServiceUrl,
   type NetworkType,
 } from '../../packages/config'
+import { getExplorerKeyForChain } from '../../packages/config/api-keys'
+import { getActiveProvider, requireSecret } from '../../packages/config/secrets'
 import {
-  getApiKey,
-  getExplorerKeyForChain,
-  hasApiKey,
-} from '../../packages/config/api-keys'
-import {
-  getActiveProvider,
-  getSecret,
-  requireSecret,
-} from '../../packages/config/secrets'
-import {
-  getDeployerKey,
-  getKeyByRole,
   getTestKeys,
   type KeyRole,
   testnetKeysExist,
 } from '../../packages/config/test-keys'
-
-// Re-export commonly used functions
-export {
-  getCurrentNetwork,
-  getConfig,
-  getContract,
-  getServiceUrl,
-  getExternalRpc,
-  getChainConfig,
-  getEILChains,
-  getSecret,
-  requireSecret,
-  getApiKey,
-  hasApiKey,
-  getExplorerKeyForChain,
-  getTestKeys,
-  getKeyByRole,
-  getDeployerKey,
-}
-
-export type { NetworkType, ContractCategoryName, KeyRole }
 
 // ============================================================================
 // Script-Friendly Helpers

@@ -50,7 +50,7 @@ const supportedRoutes = new Elysia({ prefix: '/supported' })
     return { networks: details }
   })
   .get('/tokens/:network', ({ params, set }) => {
-    const { network } = params
+    const network = params.network
     const chainConfig = CHAIN_CONFIGS[network]
 
     if (!chainConfig) {

@@ -49,7 +49,8 @@ function gfMul(a: number, b: number): number {
   return gfExp[gfLog[a] + gfLog[b]]
 }
 
-function _gfDiv(a: number, b: number): number {
+/** Galois field division */
+export function gfDiv(a: number, b: number): number {
   if (b === 0) throw new Error('Division by zero in GF')
   if (a === 0) return 0
   return gfExp[gfLog[a] + GF_SIZE - 1 - gfLog[b]]

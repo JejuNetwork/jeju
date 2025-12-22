@@ -8,8 +8,9 @@
  * - Operator management
  */
 
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { cors } from '@elysiajs/cors'
+import { expectValid } from '@jejunetwork/types'
+import { Elysia } from 'elysia'
 import type { Hex } from 'viem'
 import { toBytes, toHex } from 'viem'
 import {
@@ -17,7 +18,6 @@ import {
   blobSubmitRequestSchema,
   daOperatorInfoSchema,
 } from '../shared/schemas'
-import { expectValid } from '../shared/validation'
 import { createDisperser, type Disperser } from './disperser'
 import type {
   BlobRetrievalRequest,
@@ -47,7 +47,7 @@ export interface DAGatewayConfig {
 // ============================================================================
 
 export class DAGateway {
-  private readonly app: Hono
+  private readonly app: Elysia
   private readonly disperser: Disperser
   private readonly config: DAGatewayConfig
 
@@ -60,15 +60,15 @@ export class DAGateway {
     }
 
     this.disperser = createDisperser()
-    this.app = new Hono()
+    this.app = new Elysia()
 
     this.setupRoutes()
   }
 
   /**
-   * Get Hono app instance
+   * Get Elysia app instance
    */
-  getApp(): Hono {
+  getApp(): Elysia {
     return this.app
   }
 
@@ -93,82 +93,82 @@ export class DAGateway {
     const basePath = this.config.basePath ?? '/da'
 
     if (this.config.enableCors) {
-      this.app.use('*', cors())
+      this.app.use(cors())
     }
 
     // Health check
-    this.app.get(`${basePath}/health`, (c) => {
-      return c.json({
+    this.app.get(`${basePath}/health`, () => {
+      return {
         status: 'healthy',
         operators: this.disperser.getActiveOperators().length,
         timestamp: Date.now(),
-      })
+      }
     })
 
     // Submit blob
-    this.app.post(`${basePath}/blob`, async (c) => {
-      const body = expectValid(
+    this.app.post(`${basePath}/blob`, async ({ body, set }) => {
+      const validatedBody = expectValid(
         blobSubmitRequestSchema,
-        await c.req.json(),
+        body,
         'Blob submit request',
       )
 
       // Decode data
       let data: Uint8Array
-      if (body.data.startsWith('0x')) {
+      if (validatedBody.data.startsWith('0x')) {
         // Validate hex format before decoding
-        if (!/^0x[a-fA-F0-9]*$/.test(body.data)) {
-          return c.json({ error: 'Invalid hex data format' }, 400)
+        if (!/^0x[a-fA-F0-9]*$/.test(validatedBody.data)) {
+          set.status = 400
+          return { error: 'Invalid hex data format' }
         }
-        data = toBytes(body.data as Hex)
+        data = toBytes(validatedBody.data as Hex)
       } else {
         // Validate base64 format
-        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(body.data)) {
-          return c.json({ error: 'Invalid base64 data format' }, 400)
+        if (!/^[A-Za-z0-9+/]*={0,2}$/.test(validatedBody.data)) {
+          set.status = 400
+          return { error: 'Invalid base64 data format' }
         }
-        data = Uint8Array.from(atob(body.data), (c) => c.charCodeAt(0))
+        data = Uint8Array.from(atob(validatedBody.data), (c) => c.charCodeAt(0))
       }
 
       // Check size
       if (data.length > (this.config.maxBlobSize ?? 128 * 1024 * 1024)) {
-        return c.json({ error: 'Blob too large' }, 400)
+        set.status = 400
+        return { error: 'Blob too large' }
       }
 
       // Validate data is not empty
       if (data.length === 0) {
-        return c.json({ error: 'Blob data cannot be empty' }, 400)
+        set.status = 400
+        return { error: 'Blob data cannot be empty' }
       }
 
       // Prepare request
       const request: BlobSubmissionRequest = {
         data,
-        submitter: body.submitter,
-        namespace: body.namespace,
-        quorumPercent: body.quorumPercent,
-        retentionPeriod: body.retentionPeriod,
+        submitter: validatedBody.submitter,
+        namespace: validatedBody.namespace,
+        quorumPercent: validatedBody.quorumPercent,
+        retentionPeriod: validatedBody.retentionPeriod,
       }
 
       // Disperse
       const result = await this.disperser.disperse(request)
 
       if (!result.success) {
-        return c.json(
-          {
-            error: result.error ?? 'Dispersal failed',
-            blobId: result.blobId,
-          },
-          500,
-        )
+        set.status = 500
+        return {
+          error: result.error ?? 'Dispersal failed',
+          blobId: result.blobId,
+        }
       }
 
       if (!result.attestation) {
-        return c.json(
-          {
-            error: 'Dispersal succeeded but attestation missing',
-            blobId: result.blobId,
-          },
-          500,
-        )
+        set.status = 500
+        return {
+          error: 'Dispersal succeeded but attestation missing',
+          blobId: result.blobId,
+        }
       }
 
       const response: BlobSubmissionResult = {
@@ -179,19 +179,20 @@ export class DAGateway {
         chunkAssignments: result.assignments,
       }
 
-      return c.json(response)
+      return response
     })
 
     // Get blob status
-    this.app.get(`${basePath}/blob/:id`, (c) => {
-      const blobId = c.req.param('id') as Hex
+    this.app.get(`${basePath}/blob/:id`, ({ params, set }) => {
+      const blobId = params.id as Hex
       const metadata = this.disperser.getBlobManager().getMetadata(blobId)
 
       if (!metadata) {
-        return c.json({ error: 'Blob not found' }, 404)
+        set.status = 404
+        return { error: 'Blob not found' }
       }
 
-      return c.json({
+      return {
         id: metadata.id,
         status: metadata.status,
         size: metadata.size,
@@ -200,16 +201,17 @@ export class DAGateway {
         submittedAt: metadata.submittedAt,
         confirmedAt: metadata.confirmedAt,
         expiresAt: metadata.expiresAt,
-      })
+      }
     })
 
     // Retrieve blob data
-    this.app.get(`${basePath}/blob/:id/data`, (c) => {
-      const blobId = c.req.param('id') as Hex
+    this.app.get(`${basePath}/blob/:id/data`, ({ params, set }) => {
+      const blobId = params.id as Hex
       const metadata = this.disperser.getBlobManager().getMetadata(blobId)
 
       if (!metadata) {
-        return c.json({ error: 'Blob not found' }, 404)
+        set.status = 404
+        return { error: 'Blob not found' }
       }
 
       const request: BlobRetrievalRequest = {
@@ -219,39 +221,46 @@ export class DAGateway {
 
       const result = this.disperser.getBlobManager().retrieve(request)
 
-      return c.json({
+      return {
         blobId,
         data: toHex(result.data),
         verified: result.verified,
         chunksUsed: result.chunksUsed,
         latencyMs: result.latencyMs,
-      })
+      }
     })
 
     // Sample blob
-    this.app.post(`${basePath}/sample`, async (c) => {
-      const body = expectValid(
+    this.app.post(`${basePath}/sample`, async ({ body, set }) => {
+      const validatedBody = expectValid(
         blobSampleRequestSchema,
-        await c.req.json(),
+        body,
         'Blob sample request',
       )
 
-      const metadata = this.disperser.getBlobManager().getMetadata(body.blobId)
+      const metadata = this.disperser
+        .getBlobManager()
+        .getMetadata(validatedBody.blobId)
       if (!metadata) {
-        return c.json({ error: 'Blob not found' }, 404)
+        set.status = 404
+        return { error: 'Blob not found' }
       }
 
       const result = await this.disperser
         .getSampler()
-        .sample(body.blobId, metadata.commitment, body.requester)
+        .sample(
+          validatedBody.blobId,
+          metadata.commitment,
+          validatedBody.requester,
+        )
 
-      return c.json(result)
+      return result
     })
 
     // List operators
-    this.app.get(`${basePath}/operators`, (c) => {
+    this.app.get(`${basePath}/operators`, () => {
       const operators = this.disperser.getActiveOperators()
-      return c.json({
+      return {
         count: operators.length,
         operators: operators.map((o) => ({
           address: o.address,
@@ -261,33 +270,33 @@ export class DAGateway {
           capacityGB: o.capacityGB,
           usedGB: o.usedGB,
         })),
-      })
+      }
     })
 
     // Register operator
-    this.app.post(`${basePath}/operators`, async (c) => {
-      const body = expectValid(
+    this.app.post(`${basePath}/operators`, async ({ body }) => {
+      const validatedBody = expectValid(
         daOperatorInfoSchema,
-        await c.req.json(),
+        body,
         'Register operator request',
       )
-      this.disperser.registerOperator(body as DAOperatorInfo)
-      return c.json({ success: true })
+      this.disperser.registerOperator(validatedBody as DAOperatorInfo)
+      return { success: true }
     })
 
     // Get stats
-    this.app.get(`${basePath}/stats`, (c) => {
+    this.app.get(`${basePath}/stats`, () => {
       const blobStats = this.disperser.getBlobManager().getStats()
       const operators = this.disperser.getActiveOperators()
 
-      return c.json({
+      return {
         blobs: blobStats,
         operators: {
           active: operators.length,
           totalCapacityGB: operators.reduce((sum, o) => sum + o.capacityGB, 0),
           usedCapacityGB: operators.reduce((sum, o) => sum + o.usedGB, 0),
         },
-      })
+      }
     })
   }
 }
@@ -301,9 +310,9 @@ export function createDAGateway(config?: DAGatewayConfig): DAGateway {
 }
 
 /**
- * Create Hono router for DA gateway
+ * Create Elysia router for DA gateway
  */
-export function createDARouter(config?: DAGatewayConfig): Hono {
+export function createDARouter(config?: DAGatewayConfig): Elysia {
   const gateway = new DAGateway(config)
   return gateway.getApp()
 }

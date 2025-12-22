@@ -33,14 +33,11 @@ fn verify_signature(address: &str, message: &str, signature: &str) -> Result<boo
     let v = sig_bytes[64];
     
     // Construct recovery id (v = 27 or 28 for Ethereum, or 0/1)
+    // RecoveryId::new(is_y_odd, is_x_reduced)
     let recovery_id = match v {
-        27 | 0 => RecoveryId::new(0),
-        28 | 1 => RecoveryId::new(1),
+        27 | 0 => RecoveryId::new(false, false),
+        28 | 1 => RecoveryId::new(true, false),
         _ => return Err(format!("Invalid recovery id: {}", v)),
-    };
-    
-    let Some(recovery_id) = recovery_id else {
-        return Err("Invalid recovery id".into());
     };
     
     // Create signature

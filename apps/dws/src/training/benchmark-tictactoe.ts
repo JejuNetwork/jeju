@@ -507,7 +507,11 @@ async function main() {
 
   // Clear GPU before training
   console.log('\nClearing GPU memory before training...')
-  await Bun.spawn(['python3', '-c', 'import torch, gc; torch.cuda.empty_cache(); gc.collect(); print("GPU cleared")']).exited
+  await Bun.spawn([
+    'python3',
+    '-c',
+    'import torch, gc; torch.cuda.empty_cache(); gc.collect(); print("GPU cleared")',
+  ]).exited
   await Bun.sleep(1000)
 
   // Step 3: Train model
@@ -516,7 +520,11 @@ async function main() {
 
   // Clear GPU before final evaluation
   console.log('\nClearing GPU memory before evaluation...')
-  await Bun.spawn(['python3', '-c', 'import torch, gc; torch.cuda.empty_cache(); gc.collect(); print("GPU cleared")']).exited
+  await Bun.spawn([
+    'python3',
+    '-c',
+    'import torch, gc; torch.cuda.empty_cache(); gc.collect(); print("GPU cleared")',
+  ]).exited
   await Bun.sleep(1000)
 
   // Step 4: Benchmark trained model

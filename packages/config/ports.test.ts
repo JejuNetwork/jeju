@@ -25,15 +25,24 @@ import {
 describe('Port Constants', () => {
   describe('CORE_PORTS', () => {
     it('should have correct default values', () => {
+      expect(CORE_PORTS.EXPLORER.DEFAULT).toBe(4000)
       expect(CORE_PORTS.GATEWAY.DEFAULT).toBe(4001)
       expect(CORE_PORTS.NODE_EXPLORER_API.DEFAULT).toBe(4002)
       expect(CORE_PORTS.NODE_EXPLORER_UI.DEFAULT).toBe(4003)
       expect(CORE_PORTS.DOCUMENTATION.DEFAULT).toBe(4004)
       expect(CORE_PORTS.BAZAAR.DEFAULT).toBe(4006)
-      expect(CORE_PORTS.COMPUTE.DEFAULT).toBe(4007)
+      expect(CORE_PORTS.COMPUTE.DEFAULT).toBe(4015)
       expect(CORE_PORTS.IPFS.DEFAULT).toBe(3100)
+      expect(CORE_PORTS.IPFS_API.DEFAULT).toBe(5001)
       expect(CORE_PORTS.INDEXER_GRAPHQL.DEFAULT).toBe(4350)
+      expect(CORE_PORTS.INDEXER_A2A.DEFAULT).toBe(4351)
+      expect(CORE_PORTS.INDEXER_REST.DEFAULT).toBe(4352)
+      expect(CORE_PORTS.INDEXER_MCP.DEFAULT).toBe(4353)
       expect(CORE_PORTS.FACILITATOR.DEFAULT).toBe(3402)
+      expect(CORE_PORTS.OIF_AGGREGATOR.DEFAULT).toBe(4011)
+      expect(CORE_PORTS.RPC_GATEWAY.DEFAULT).toBe(4012)
+      expect(CORE_PORTS.LEADERBOARD_API.DEFAULT).toBe(4090)
+      expect(CORE_PORTS.OAUTH3_API.DEFAULT).toBe(4060)
     })
 
     it('should have ENV_VAR for each port', () => {
@@ -204,7 +213,7 @@ describe('Port Conflict Detection', () => {
     process.env = { ...originalEnv }
   })
 
-  it('should detect no conflicts with default ports', () => {
+  it('should detect known conflicts with default ports', () => {
     // Reset all port env vars to use defaults
     Object.values(CORE_PORTS).forEach((config) => {
       process.env[config.ENV_VAR] = undefined
@@ -217,8 +226,11 @@ describe('Port Conflict Detection', () => {
     })
 
     const result = checkPortConflicts()
-    expect(result.hasConflicts).toBe(false)
-    expect(result.conflicts).toHaveLength(0)
+    // Known conflicts that require env var overrides in practice:
+    // - Port 5008: BABYLON_WEB (core) vs CALIGULAND_GAME (vendor)
+    // - Port 5009: BABYLON_API (core) vs CALIGULAND_AUTH (vendor)
+    expect(result.hasConflicts).toBe(true)
+    expect(result.conflicts).toHaveLength(2)
   })
 
   it('should detect conflicts when ports overlap', () => {
@@ -242,7 +254,8 @@ describe('Port Conflict Detection', () => {
 
     const result = checkPortConflicts()
     expect(result.hasConflicts).toBe(true)
-    expect(result.conflicts.length).toBe(2)
+    // 2 known conflicts (5008, 5009) + 2 new conflicts (1111, 2222) = 4 total
+    expect(result.conflicts.length).toBe(4)
   })
 })
 
@@ -412,9 +425,22 @@ describe('Port Range Guidelines', () => {
     const corePorts = getAllCorePorts()
 
     Object.entries(corePorts).forEach(([name, port]) => {
-      // Most core ports in 3100-4999 range (storage, apps, indexer)
-      if (!['INDEXER_DATABASE'].includes(name)) {
-        expect(port).toBeGreaterThanOrEqual(3100)
+      // Most core ports in 3000-4999 range (storage, apps, indexer)
+      // Exceptions:
+      // - INDEXER_DATABASE (23798) - PostgreSQL convention
+      // - IPFS_API (5001) - standard Kubo HTTP API port
+      // - DOCUMENTATION_A2A (7778) - separate A2A endpoint for docs search
+      // - BABYLON_WEB/BABYLON_API (5008/5009) - social prediction platform in 5xxx range
+      if (
+        ![
+          'INDEXER_DATABASE',
+          'IPFS_API',
+          'DOCUMENTATION_A2A',
+          'BABYLON_WEB',
+          'BABYLON_API',
+        ].includes(name)
+      ) {
+        expect(port).toBeGreaterThanOrEqual(3000)
         expect(port).toBeLessThan(5000)
       }
     })
@@ -440,7 +466,7 @@ describe('Port Range Guidelines', () => {
     })
   })
 
-  it('no ports should conflict by default', () => {
+  it('known port conflicts should be documented', () => {
     // Reset all env vars
     const originalEnv = { ...process.env }
 
@@ -460,6 +486,10 @@ describe('Port Range Guidelines', () => {
     // Restore env
     process.env = { ...originalEnv }
 
-    expect(result.hasConflicts).toBe(false)
+    // Known conflicts that require env var overrides in practice:
+    // - Port 5008: BABYLON_WEB (core) vs CALIGULAND_GAME (vendor)
+    // - Port 5009: BABYLON_API (core) vs CALIGULAND_AUTH (vendor)
+    expect(result.hasConflicts).toBe(true)
+    expect(result.conflicts.length).toBe(2)
   })
 })

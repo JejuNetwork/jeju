@@ -1,7 +1,7 @@
+import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import type { DataSource } from 'typeorm'
 import { formatEther } from 'viem'
 import { z } from 'zod'
-import { addressSchema, validateOrThrow } from './lib/validation'
 import {
   ComputeProvider,
   ComputeRental,
@@ -215,7 +215,7 @@ export async function getProviderByAddress(
     throw new Error('address is required and must be a string')
   }
 
-  validateOrThrow(addressSchema, address, 'getProviderByAddress address')
+  validateOrThrow(AddressSchema, address, 'getProviderByAddress address')
   const normalizedAddress = address.toLowerCase()
 
   const computeRepo = dataSource.getRepository(ComputeProvider)

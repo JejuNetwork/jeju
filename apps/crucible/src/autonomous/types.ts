@@ -202,9 +202,10 @@ export const BLUE_TEAM_CONFIG: Omit<
 /**
  * Get configuration for red team mode
  */
-export function getRedTeamConfig(
-  network: 'localnet' | 'testnet' | 'mainnet',
-): { enabled: boolean; model: string } {
+export function getRedTeamConfig(network: 'localnet' | 'testnet' | 'mainnet'): {
+  enabled: boolean
+  model: string
+} {
   // Red team enabled on all networks except mainnet
   if (network === 'mainnet') {
     return { enabled: false, model: DEFAULT_LARGE_MODEL }

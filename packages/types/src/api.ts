@@ -6,7 +6,7 @@
  */
 
 import { z } from 'zod'
-import { PaginationSchema } from './validation'
+import type { PaginationSchema } from './validation'
 
 // ============================================================================
 // Error Detail Types - Strongly typed alternatives to unknown
@@ -77,7 +77,6 @@ export type ApiError = z.infer<typeof ApiErrorSchema>
 
 /**
  * Generic API response wrapper
- * Consolidates all ApiResponse definitions across the codebase
  *
  * @template T - The data type returned by the API
  */

@@ -4,13 +4,16 @@
  * Tests micropayment protocol: payment creation, verification, expiration
  */
 
-import { describe, expect, it, beforeEach, afterEach } from 'bun:test'
-import { X402Manager, type RedisClient } from '../payments/x402'
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test'
+import { type RedisClient, X402Manager } from '../payments/x402'
 
 /**
  * Mock Redis client for testing
  */
-function createMockRedis(): RedisClient & { store: Map<string, string>; ttls: Map<string, number> } {
+function createMockRedis(): RedisClient & {
+  store: Map<string, string>
+  ttls: Map<string, number>
+} {
   const store = new Map<string, string>()
   const ttls = new Map<string, number>()
 
@@ -234,7 +237,8 @@ describe('X402Manager', () => {
 
       const result = await shortManager.verifyPayment({
         requestId: request.requestId,
-        txHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        txHash:
+          '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
       })
 
       expect(result.verified).toBe(false)
@@ -244,7 +248,8 @@ describe('X402Manager', () => {
     it('should reject non-existent payment request', async () => {
       const result = await manager.verifyPayment({
         requestId: 'non-existent',
-        txHash: '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+        txHash:
+          '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
       })
 
       expect(result.verified).toBe(false)
@@ -287,7 +292,7 @@ describe('X402Manager without Redis', () => {
       '5000000000000000',
       'service-1',
     )
-    const request2 = await manager.createPaymentRequest(
+    const _request2 = await manager.createPaymentRequest(
       '0xSender',
       '0xRecipient',
       '5000000000000000',
@@ -304,4 +309,3 @@ describe('X402Manager without Redis', () => {
     expect(pendingAfter[0].request.service).toBe('service-2')
   })
 })
-

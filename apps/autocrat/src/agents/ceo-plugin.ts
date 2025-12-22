@@ -20,7 +20,8 @@ import type {
   State,
 } from '@elizaos/core'
 import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
-import { A2AJsonRpcResponseSchema, expectValid } from '../schemas'
+import { expectValid } from '@jejunetwork/types'
+import { A2AJsonRpcResponseSchema } from '../schemas'
 import { makeTEEDecision } from '../tee'
 import { ceoProviders } from './ceo-providers'
 
@@ -264,7 +265,7 @@ const getDeliberationAction: Action = {
       await response.json(),
       'autocrat votes A2A response',
     )
-    const dataPart = result.result?.parts?.find((p) => p.kind === 'data')
+    const dataPart = result.result?.parts?.find((p: { kind: string }) => p.kind === 'data')
     const votesData =
       dataPart?.kind === 'data' && dataPart.data ? dataPart.data : {}
     const votes =

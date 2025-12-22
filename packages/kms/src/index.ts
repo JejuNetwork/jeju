@@ -35,6 +35,7 @@ export {
   deriveKeyForEncryption,
   deriveKeyFromSecret,
   encryptToPayload,
+  extractRecoveryId,
   generateKeyId,
   parseCiphertextPayload,
   sealWithMasterKey,

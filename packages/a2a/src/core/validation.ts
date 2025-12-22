@@ -28,7 +28,12 @@ export const PaymentRequestParamsSchema = z.object({
   to: z.string().min(1),
   amount: z.string().min(1),
   service: z.string().min(1),
-  metadata: z.record(z.string(), z.unknown()).optional(),
+  metadata: z
+    .record(
+      z.string(),
+      z.union([z.string(), z.number(), z.boolean(), z.null()]),
+    )
+    .optional(),
   from: z.string().optional(),
 })
 export type PaymentRequestParams = z.infer<typeof PaymentRequestParamsSchema>

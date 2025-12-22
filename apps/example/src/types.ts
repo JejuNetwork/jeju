@@ -1,47 +1,4 @@
-/**
- * Type definitions for the Decentralized App Template
- *
- * Types are exported from zod schemas for runtime validation consistency.
- */
-
 import type { Address, Hex } from 'viem'
-
-// Re-export types from schemas
-export type {
-  A2AAgentCard,
-  A2AMessage,
-  A2ASkillParams,
-  AuthCallbackQuery,
-  AuthLoginProvider,
-  AuthProvider,
-  BulkCompleteInput,
-  BulkDeleteInput,
-  CreateTodoInput,
-  HealthResponse,
-  JNSAvailableResponse,
-  JNSPriceResponse,
-  JNSRecords,
-  JNSRegisterResponse,
-  JNSResolveResponse,
-  ListTodosQuery,
-  MCPPromptGet,
-  MCPResource,
-  MCPResourceRead,
-  MCPServerInfo,
-  MCPTool,
-  MCPToolCall,
-  OAuth3AuthHeaders,
-  ServiceStatus,
-  Todo,
-  TodoStats,
-  UpdateTodoInput,
-  WalletAuthHeaders,
-  X402Config,
-  X402PaymentHeader,
-  X402VerifyInput,
-} from './schemas'
-
-// Additional types not in schemas (or partials/specific usage)
 
 export interface A2AResponse {
   jsonrpc: string
@@ -126,7 +83,6 @@ export const MCP_TOOLS = [
   'bulk_complete',
 ] as const
 
-// Default x402 configuration
 export const X402_CONFIG = {
   enabled: true,
   paymentAddress: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8' as Address, // Default dev address

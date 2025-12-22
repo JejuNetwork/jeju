@@ -13,6 +13,7 @@
 
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { execa } from 'execa'
 import { logger } from '../lib/logger'
 
@@ -45,7 +46,7 @@ const SERVICE_PORTS: Record<string, { port: number; healthPath: string }> = {
   'op-geth': { port: 9545, healthPath: '/' },
   postgres: { port: 5432, healthPath: '' },
   redis: { port: 6379, healthPath: '' },
-  ipfs: { port: 5001, healthPath: '/api/v0/id' },
+  ipfs: { port: CORE_PORTS.IPFS_API.DEFAULT, healthPath: '/api/v0/id' },
   prometheus: { port: 9090, healthPath: '/-/healthy' },
   grafana: { port: 4010, healthPath: '/api/health' },
   solana: { port: 8899, healthPath: '/' },
@@ -297,7 +298,7 @@ export class DockerOrchestrator {
       CHAIN_ID: '1337',
       DATABASE_URL: 'postgresql://jeju:jeju@127.0.0.1:5432/jeju',
       REDIS_URL: 'redis://127.0.0.1:6379',
-      IPFS_API_URL: 'http://127.0.0.1:5001',
+      IPFS_API_URL: `http://127.0.0.1:${CORE_PORTS.IPFS_API.DEFAULT}`,
       IPFS_GATEWAY_URL: 'http://127.0.0.1:8080',
     }
 

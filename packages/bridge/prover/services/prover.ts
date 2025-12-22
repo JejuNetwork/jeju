@@ -11,6 +11,7 @@
  */
 
 import { spawn } from 'bun'
+import { LOCAL_PROVER_CONFIG } from '../../src/local-dev/config.js'
 import type {
   CrossChainTransfer,
   EthereumLightClientUpdate,
@@ -475,9 +476,6 @@ export function createProverService(config: ProverConfig): ProverService {
 // =============================================================================
 
 if (import.meta.main) {
-  // Conditional dynamic import: only load config when running as main module
-  const { LOCAL_PROVER_CONFIG } = await import('../../src/local-dev/config.js')
-
   const prover = createProverService(LOCAL_PROVER_CONFIG)
   await prover.initialize()
 

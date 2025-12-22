@@ -45,57 +45,52 @@ pub async fn register_agent(
     request: RegisterAgentRequest,
 ) -> Result<AgentInfo, String> {
     let inner = state.inner.read();
-    
+
     // Verify wallet is connected
     if inner.wallet_manager.is_none() {
         return Err("Wallet not connected".to_string());
     }
-    
+
     // TODO: Call IdentityRegistry.register()
     // 1. Determine stake amount based on tier
     // 2. Approve token spending if needed
     // 3. Call register() with tokenURI and stake
     // 4. Return agent info
-    
+
     Err("Agent registration not yet implemented".to_string())
 }
 
 #[tauri::command]
-pub async fn get_agent_info(
-    state: State<'_, AppState>,
-) -> Result<Option<AgentInfo>, String> {
+pub async fn get_agent_info(state: State<'_, AppState>) -> Result<Option<AgentInfo>, String> {
     let inner = state.inner.read();
-    
+
     let agent_id = inner.config.wallet.agent_id;
-    
+
     if agent_id.is_none() {
         return Ok(None);
     }
-    
+
     // TODO: Query IdentityRegistry for agent info
     // 1. Get agent metadata
     // 2. Get reputation score
     // 3. Check ban status
-    
+
     Err("Get agent info not yet implemented".to_string())
 }
 
 #[tauri::command]
-pub async fn check_ban_status(
-    state: State<'_, AppState>,
-) -> Result<BanStatus, String> {
+pub async fn check_ban_status(state: State<'_, AppState>) -> Result<BanStatus, String> {
     let inner = state.inner.read();
-    
-    let agent_id = inner.config.wallet.agent_id
-        .ok_or("No agent registered")?;
-    
+
+    let agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
+
     // TODO: Query BanManager for status
     // 1. Check isBanned()
     // 2. Check isOnNotice()
     // 3. Check isPermanentlyBanned()
     // 4. Get ban reason if applicable
     // 5. Check for pending appeals
-    
+
     Ok(BanStatus {
         is_banned: false,
         is_on_notice: false,
@@ -112,15 +107,13 @@ pub async fn appeal_ban(
     request: AppealBanRequest,
 ) -> Result<String, String> {
     let inner = state.inner.read();
-    
-    let agent_id = inner.config.wallet.agent_id
-        .ok_or("No agent registered")?;
-    
+
+    let agent_id = inner.config.wallet.agent_id.ok_or("No agent registered")?;
+
     // TODO: Submit appeal via RegistryGovernance
     // 1. Check if appeal is possible (within deadline, has stake)
     // 2. Submit appeal with reason and evidence
     // 3. Return appeal ID / status
-    
+
     Err("Appeal ban not yet implemented".to_string())
 }
-

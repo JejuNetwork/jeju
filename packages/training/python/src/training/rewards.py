@@ -12,12 +12,13 @@ Also provides utilities for normalizing and comparing rewards.
 """
 
 import math
+
 from pydantic import BaseModel, Field
 
 
 class TrajectoryRewardInputs(BaseModel):
     """Inputs for computing rewards."""
-    
+
     model_config = {"frozen": False, "extra": "ignore"}
 
     # Financial Metrics
@@ -78,7 +79,7 @@ def calculate_risk_reward(exposure: float, action_type: str) -> float:
         return 0.0
 
     act = action_type.lower()
-    is_buying = any(x in act for x in ['buy', 'long', 'open'])
+    is_buying = any(x in act for x in ["buy", "long", "open"])
 
     if exposure > 0.80 and is_buying:
         return -0.5
@@ -161,8 +162,7 @@ def composite_reward(
 
     # 1. Calculate PnL Score
     if inputs.end_balance != inputs.starting_balance:
-        pnl_score = calculate_pnl_reward(
-            inputs.starting_balance, inputs.end_balance)
+        pnl_score = calculate_pnl_reward(inputs.starting_balance, inputs.end_balance)
     else:
         # Fallback if specific balances aren't tracked separately
         end_bal = inputs.starting_balance + inputs.final_pnl
@@ -174,7 +174,7 @@ def composite_reward(
 
     # 2. Risk Penalty
     if inputs.risky_actions_count > 0:
-        pnl_score -= (inputs.risky_actions_count * 0.5)
+        pnl_score -= inputs.risky_actions_count * 0.5
 
     # 3. Scoring System
     if inputs.format_score != 0 or inputs.reasoning_score != 0:
@@ -183,9 +183,9 @@ def composite_reward(
             return 0.0
 
         composite = (
-            (pnl_score * pnl_weight) +
-            (inputs.format_score * format_weight) +
-            (inputs.reasoning_score * reasoning_weight)
+            (pnl_score * pnl_weight)
+            + (inputs.format_score * format_weight)
+            + (inputs.reasoning_score * reasoning_weight)
         ) / total_weight
 
         return max(-1.0, min(1.0, composite))
@@ -260,9 +260,7 @@ def ranking_to_scores(rankings: list[int]) -> list[float]:
     return [(n - r) / (n - 1) for r in rankings]
 
 
-def pairwise_preferences_to_scores(
-    n_items: int, preferences: list[tuple[int, int]]
-) -> list[float]:
+def pairwise_preferences_to_scores(n_items: int, preferences: list[tuple[int, int]]) -> list[float]:
     """
     Convert pairwise preferences to scores via Bradley-Terry model.
 

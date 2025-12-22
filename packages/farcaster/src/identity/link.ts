@@ -1,4 +1,4 @@
-import { verifyMessage, type Address, type Hex } from 'viem'
+import { type Address, type Hex, verifyMessage } from 'viem'
 import { FarcasterClient } from '../hub/client'
 
 export interface LinkVerificationResult {

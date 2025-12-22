@@ -14,11 +14,12 @@ import { type Address, getAddress, type Hex, recoverMessageAddress } from 'viem'
 import {
   expect,
   expectValid,
+  type VPNServerConfig,
   X402CreateHeaderRequestSchema,
   X402PaymentPayloadSchema,
   X402VerifyRequestSchema,
 } from './schemas'
-import type { VPNServerConfig, VPNServiceContext } from './types'
+import type { VPNServiceContext } from './types'
 
 // ============================================================================
 // Types
@@ -129,7 +130,8 @@ export function createX402Middleware(ctx: VPNServiceContext) {
     .onError(({ error, set }) => {
       console.error('x402 API error:', error)
       set.status = 500
-      const message = error instanceof Error ? error.message : 'Internal server error'
+      const message =
+        error instanceof Error ? error.message : 'Internal server error'
       return { error: message }
     })
 
@@ -167,7 +169,11 @@ export function createX402Middleware(ctx: VPNServiceContext) {
      * POST /verify - Verify a payment
      */
     .post('/verify', async ({ body }) => {
-      const validatedBody = expectValid(X402VerifyRequestSchema, body, 'verify request')
+      const validatedBody = expectValid(
+        X402VerifyRequestSchema,
+        body,
+        'verify request',
+      )
 
       const amount = BigInt(validatedBody.amount)
       expect(amount >= BigInt(0), 'Amount cannot be negative')

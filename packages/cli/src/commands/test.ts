@@ -20,7 +20,7 @@ import {
   readFileSync,
   writeFileSync,
 } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { Command } from 'commander'
 import { type ExecaError, execa } from 'execa'
 import { logger } from '../lib/logger'
@@ -210,16 +210,6 @@ export const testCommand = new Command('test')
 
         printSummary(results)
 
-        // Coverage and dead code detection
-        if (options.coverage || options.deadCode || options.ci) {
-          const coverage = await generateCoverageReport(
-            rootDir,
-            results,
-            options.deadCode,
-          )
-          printCoverageReport(coverage)
-        }
-
         const failed = results.filter((r) => !r.passed && !r.skipped).length
         if (failed > 0) {
           await cleanup()
@@ -375,7 +365,9 @@ testCommand
 
 testCommand
   .command('analyze')
-  .description('Analyze codebase for test coverage gaps, complex code, and shared utils')
+  .description(
+    'Analyze codebase for test coverage gaps, complex code, and shared utils',
+  )
   .option('-a, --app <app>', 'Analyze specific app')
   .option('--json', 'Output JSON only')
   .action(async (options) => {
@@ -1458,8 +1450,7 @@ async function setupE2EInfra(
     const apps = discoverApps(rootDir)
     const appManifest = apps.find(
       (a) =>
-        (a._folderName ?? a.slug ?? a.name) === appName ||
-        a.name === appName,
+        (a._folderName ?? a.slug ?? a.name) === appName || a.name === appName,
     )
 
     if (appManifest) {

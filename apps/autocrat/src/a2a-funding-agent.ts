@@ -9,8 +9,8 @@
  * - Deliberation voting
  */
 
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import cors from '@elysiajs/cors'
+import { Elysia, t } from 'elysia'
 import type {
   DependencyClaim,
   RepositoryClaim,
@@ -553,51 +553,47 @@ async function handleSkill(
 
 // ============ HTTP Server ============
 
-export function createA2AFundingServer(): Hono {
-  const app = new Hono()
+// TypeBox schema for A2A task request body
+const A2ATaskRequestBodySchema = t.Object({
+  taskId: t.String(),
+  skillId: t.String(),
+  input: t.Record(t.String(), t.Union([t.String(), t.Number(), t.Boolean()])),
+})
 
-  // SECURITY: Configure CORS based on environment
-  const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
-  const isProduction = process.env.NODE_ENV === 'production'
-  app.use('*', cors({
-    origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : '*',
-    credentials: true,
-  }))
-
-  // A2A Agent Card endpoint
-  app.get('/.well-known/agent.json', (c) => {
-    return c.json(AGENT_CARD)
-  })
-
-  // A2A Tasks endpoint
-  app.post('/tasks', async (c) => {
-    const request = await c.req.json<A2ATaskRequest>()
-
-    const response: A2ATaskResponse = {
-      taskId: request.taskId,
-      status: 'pending',
-    }
-
-    try {
-      const output = await handleSkill(request.skillId, request.input)
-      response.status = 'completed'
-      response.output = output
-    } catch (error) {
-      response.status = 'failed'
-      response.error = error instanceof Error ? error.message : 'Unknown error'
-    }
-
-    return c.json(response)
-  })
-
-  // Health check
-  app.get('/health', (c) => {
-    return c.json({
+export function createA2AFundingServer() {
+  const app = new Elysia()
+    .use(cors())
+    // A2A Agent Card endpoint
+    .get('/.well-known/agent.json', () => AGENT_CARD)
+    // A2A Tasks endpoint
+    .post(
+      '/tasks',
+      async (ctx): Promise<A2ATaskResponse> => {
+        const body = ctx.body as A2ATaskRequest
+        const output = await handleSkill(body.skillId, body.input)
+        return {
+          taskId: body.taskId,
+          status: 'completed',
+          output,
+        }
+      },
+      {
+        body: A2ATaskRequestBodySchema,
+        error({ error }): A2ATaskResponse {
+          return {
+            taskId: '',
+            status: 'failed',
+            error: error instanceof Error ? error.message : 'Unknown error',
+          }
+        },
+      },
+    )
+    // Health check
+    .get('/health', () => ({
       status: 'healthy',
       agent: 'jeju-deep-funding',
       version: '1.0.0',
-    })
-  })
+    }))
 
   return app
 }
@@ -609,8 +605,5 @@ if (import.meta.main) {
 
   console.log(`A2A Funding Agent starting on port ${port}`)
 
-  Bun.serve({
-    fetch: app.fetch,
-    port,
-  })
+  app.listen(port)
 }

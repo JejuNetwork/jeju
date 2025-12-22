@@ -2,14 +2,14 @@
  * Prediction market-related Zod schemas
  */
 
-import { AddressSchema } from '@jejunetwork/types'
-import { z } from 'zod'
 import {
+  AddressSchema,
   BigIntSchema,
-  DateSchema,
   NonEmptyStringSchema,
   NonNegativeNumberSchema,
-} from './common'
+} from '@jejunetwork/types'
+import { z } from 'zod'
+import { DateSchema } from './common'
 
 export const MarketSchema = z.object({
   id: NonEmptyStringSchema,

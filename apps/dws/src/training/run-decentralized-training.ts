@@ -20,20 +20,22 @@ import { spawn } from 'bun'
 import {
   createPublicClient,
   createWalletClient,
+  type Hex,
   http,
   keccak256,
   toHex,
-  type Hex,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 import { createAtroposServer } from './atropos-server'
-import { createDWSTrainingService } from './dws-integration'
+import {
+  type DeployedContracts,
+  deployTrainingContracts,
+} from './deploy-contracts'
 import {
   createTicTacToeEnv,
   trajectoryToTrainingFormat,
 } from './environments/tic-tac-toe'
-import { deployTrainingContracts, type DeployedContracts } from './deploy-contracts'
 
 // ============================================================================
 // Configuration
@@ -157,14 +159,30 @@ const COORDINATOR_ABI = [
 // ============================================================================
 
 async function main() {
-  console.log('╔══════════════════════════════════════════════════════════════╗')
-  console.log('║     FULLY DECENTRALIZED TRAINING - NO LARP                    ║')
-  console.log('╠══════════════════════════════════════════════════════════════╣')
-  console.log('║  ✓ Real EVM contracts (DistributedTrainingCoordinator)        ║')
-  console.log('║  ✓ Real Atropos rollout server                                ║')
-  console.log('║  ✓ Real PyTorch training on GPU                               ║')
-  console.log('║  ✓ Real on-chain state management                             ║')
-  console.log('╚══════════════════════════════════════════════════════════════╝')
+  console.log(
+    '╔══════════════════════════════════════════════════════════════╗',
+  )
+  console.log(
+    '║     FULLY DECENTRALIZED TRAINING - NO LARP                    ║',
+  )
+  console.log(
+    '╠══════════════════════════════════════════════════════════════╣',
+  )
+  console.log(
+    '║  ✓ Real EVM contracts (DistributedTrainingCoordinator)        ║',
+  )
+  console.log(
+    '║  ✓ Real Atropos rollout server                                ║',
+  )
+  console.log(
+    '║  ✓ Real PyTorch training on GPU                               ║',
+  )
+  console.log(
+    '║  ✓ Real on-chain state management                             ║',
+  )
+  console.log(
+    '╚══════════════════════════════════════════════════════════════╝',
+  )
   console.log()
 
   // ============================================================================
@@ -353,9 +371,11 @@ async function main() {
   console.log('\n[8/8] Running PyTorch training...')
 
   // Prepare training texts
-  const trainingTexts = trainingData.map(
-    (t) =>
-      `${t.prompt} ${t.response}`.replace(/[\n\r]/g, ' ').replace(/\s+/g, ' ').trim(),
+  const trainingTexts = trainingData.map((t) =>
+    `${t.prompt} ${t.response}`
+      .replace(/[\n\r]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim(),
   )
   const trainingDataB64 = Buffer.from(JSON.stringify(trainingTexts)).toString(
     'base64',
@@ -445,7 +465,8 @@ tokenizer.save_pretrained(OUTPUT)
 print("TRAINING_COMPLETE")
 `
 
-  await Bun.spawn(['mkdir', '-p', './training_output/decentralized-model']).exited
+  await Bun.spawn(['mkdir', '-p', './training_output/decentralized-model'])
+    .exited
 
   const proc = spawn(['python3', '-c', pythonScript], {
     stdout: 'inherit',
@@ -470,14 +491,7 @@ print("TRAINING_COMPLETE")
       address: contracts.coordinator,
       abi: COORDINATOR_ABI,
       functionName: 'reportProgress',
-      args: [
-        runId,
-        epoch,
-        BigInt(epoch * 10),
-        1,
-        modelHash,
-        toHex(signature),
-      ],
+      args: [runId, epoch, BigInt(epoch * 10), 1, modelHash, toHex(signature)],
     })
     await publicClient.waitForTransactionReceipt({ hash: progressHash })
     console.log(`       Epoch ${epoch} progress recorded on-chain`)
@@ -496,7 +510,7 @@ print("TRAINING_COMPLETE")
   // ============================================================================
   // Summary
   // ============================================================================
-  console.log('\n' + '═'.repeat(70))
+  console.log(`\n${'═'.repeat(70)}`)
   console.log('DECENTRALIZED TRAINING COMPLETE')
   console.log('═'.repeat(70))
   console.log()
@@ -530,4 +544,3 @@ main().catch((err) => {
   console.error('ERROR:', err)
   process.exit(1)
 })
-

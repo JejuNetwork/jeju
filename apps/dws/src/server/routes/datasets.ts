@@ -8,16 +8,14 @@
  */
 
 import { createHash } from 'node:crypto'
-import { Hono } from 'hono'
+import { expectValid } from '@jejunetwork/types'
+import { Elysia } from 'elysia'
 import { encodePacked, keccak256 } from 'viem'
+import { z } from 'zod'
 import {
   datasetConfigSchema,
   datasetCreationSchema,
   jejuAddressHeaderSchema,
-  validateBody,
-  validateHeaders,
-  validateQuery,
-  z,
 } from '../../shared'
 import type { BackendManager } from '../../storage/backends'
 
@@ -117,511 +115,530 @@ const filesStore = new Map<string, DatasetFile[]>()
 const configsStore = new Map<string, DatasetConfig>()
 const metricsStore = new Map<string, { downloads: number; views: number }>()
 
+function extractHeaders(request: Request): Record<string, string> {
+  const headers: Record<string, string> = {}
+  request.headers.forEach((value, key) => {
+    headers[key.toLowerCase()] = value
+  })
+  return headers
+}
+
 // ============================================================================
 // Router
 // ============================================================================
 
-export function createDatasetsRouter(ctx: DatasetsContext): Hono {
-  const router = new Hono()
+export function createDatasetsRouter(ctx: DatasetsContext) {
   const { backend } = ctx
 
-  // Health check
-  router.get('/health', (c) =>
-    c.json({ service: 'dws-datasets', status: 'healthy' }),
-  )
+  return (
+    new Elysia({ prefix: '/datasets' })
+      // Health check
+      .get('/health', () => ({ service: 'dws-datasets', status: 'healthy' }))
 
-  // ============================================================================
-  // HuggingFace Hub API Compatibility
-  // ============================================================================
+      // ============================================================================
+      // HuggingFace Hub API Compatibility
+      // ============================================================================
 
-  // List datasets (HF Hub compatible)
-  router.get('/api/datasets', async (c) => {
-    const { search, author, sort, limit, offset } = validateQuery(
-      hfDatasetsQuerySchema,
-      c,
-    )
+      // List datasets (HF Hub compatible)
+      .get('/api/datasets', async ({ query, set }) => {
+        const { search, author, sort, limit, offset } = expectValid(
+          hfDatasetsQuerySchema,
+          query,
+        )
 
-    let datasets = Array.from(datasetsStore.values())
+        let datasets = Array.from(datasetsStore.values())
 
-    // Filter by author/organization
-    if (author) {
-      datasets = datasets.filter(
-        (d) => d.organization.toLowerCase() === author.toLowerCase(),
-      )
-    }
+        // Filter by author/organization
+        if (author) {
+          datasets = datasets.filter(
+            (d) => d.organization.toLowerCase() === author.toLowerCase(),
+          )
+        }
 
-    // Filter by search term
-    if (search) {
-      const searchLower = search.toLowerCase()
-      datasets = datasets.filter(
-        (d) =>
-          d.name.toLowerCase().includes(searchLower) ||
-          d.description.toLowerCase().includes(searchLower) ||
-          d.tags.some((t) => t.toLowerCase().includes(searchLower)),
-      )
-    }
+        // Filter by search term
+        if (search) {
+          const searchLower = search.toLowerCase()
+          datasets = datasets.filter(
+            (d) =>
+              d.name.toLowerCase().includes(searchLower) ||
+              d.description.toLowerCase().includes(searchLower) ||
+              d.tags.some((t) => t.toLowerCase().includes(searchLower)),
+          )
+        }
 
-    // Sort
-    datasets.sort((a, b) => {
-      const metricsA = metricsStore.get(a.datasetId) || {
-        downloads: 0,
-        views: 0,
-      }
-      const metricsB = metricsStore.get(b.datasetId) || {
-        downloads: 0,
-        views: 0,
-      }
+        // Sort
+        datasets.sort((a, b) => {
+          const metricsA = metricsStore.get(a.datasetId) || {
+            downloads: 0,
+            views: 0,
+          }
+          const metricsB = metricsStore.get(b.datasetId) || {
+            downloads: 0,
+            views: 0,
+          }
 
-      if (sort === 'downloads') return metricsB.downloads - metricsA.downloads
-      if (sort === 'modified') return b.updatedAt - a.updatedAt
-      return b.createdAt - a.createdAt
-    })
-
-    const total = datasets.length
-    datasets = datasets.slice(offset, offset + limit)
-
-    // Convert to HF format
-    const result = datasets.map((d) => {
-      const metrics = metricsStore.get(d.datasetId) || {
-        downloads: 0,
-        views: 0,
-      }
-      return {
-        _id: d.datasetId,
-        id: `${d.organization}/${d.name}`,
-        author: d.organization,
-        sha: d.datasetId.slice(0, 40),
-        lastModified: new Date(d.updatedAt).toISOString(),
-        private: !d.isPublic,
-        disabled: false,
-        tags: d.tags,
-        downloads: metrics.downloads,
-        createdAt: new Date(d.createdAt).toISOString(),
-      }
-    })
-
-    return c.json(result, 200, {
-      'X-Total-Count': total.toString(),
-    })
-  })
-
-  // Get single dataset (HF Hub compatible)
-  router.get('/api/datasets/:org/:name', async (c) => {
-    const org = c.req.param('org')
-    const name = c.req.param('name')
-
-    const dataset = findDatasetByKey(`${org}/${name}`)
-    if (!dataset) {
-      throw new Error('Dataset not found')
-    }
-
-    const files = filesStore.get(dataset.datasetId) || []
-    const config = configsStore.get(dataset.datasetId)
-    const metrics = metricsStore.get(dataset.datasetId) || {
-      downloads: 0,
-      views: 0,
-    }
-
-    return c.json({
-      _id: dataset.datasetId,
-      id: `${org}/${name}`,
-      author: dataset.organization,
-      sha: dataset.datasetId.slice(0, 40),
-      lastModified: new Date(dataset.updatedAt).toISOString(),
-      private: !dataset.isPublic,
-      disabled: false,
-      tags: dataset.tags,
-      downloads: metrics.downloads,
-      createdAt: new Date(dataset.createdAt).toISOString(),
-      cardData: {
-        license: DatasetLicense[dataset.license]
-          .toLowerCase()
-          .replace('_', '-'),
-        tags: dataset.tags,
-        size_categories: getSizeCategory(dataset.size),
-      },
-      siblings: files.map((f) => ({
-        rfilename: f.filename,
-        size: f.size,
-        blobId: f.cid,
-      })),
-      config: config || null,
-    })
-  })
-
-  // Get dataset files/tree (HF Hub compatible)
-  router.get('/api/datasets/:org/:name/tree/:revision', async (c) => {
-    const org = c.req.param('org')
-    const name = c.req.param('name')
-
-    const dataset = findDatasetByKey(`${org}/${name}`)
-    if (!dataset) {
-      throw new Error('Dataset not found')
-    }
-
-    const files = filesStore.get(dataset.datasetId) || []
-
-    return c.json(
-      files.map((f) => ({
-        type: 'file',
-        oid: f.cid,
-        size: f.size,
-        path: f.filename,
-      })),
-    )
-  })
-
-  // Download file (HF Hub compatible)
-  router.get('/api/datasets/:org/:name/resolve/:revision/*', async (c) => {
-    const org = c.req.param('org')
-    const name = c.req.param('name')
-    const filename = c.req.url
-      .split('/resolve/')[1]
-      ?.split('/')
-      .slice(1)
-      .join('/')
-
-    const dataset = findDatasetByKey(`${org}/${name}`)
-    if (!dataset) {
-      throw new Error('Dataset not found')
-    }
-
-    const files = filesStore.get(dataset.datasetId) || []
-    const file = files.find((f) => f.filename === filename)
-
-    if (!file) {
-      return c.json({ error: 'File not found' }, 404)
-    }
-
-    // Track download
-    const metrics = metricsStore.get(dataset.datasetId) || {
-      downloads: 0,
-      views: 0,
-    }
-    metrics.downloads++
-    metricsStore.set(dataset.datasetId, metrics)
-
-    const result = await backend.download(file.cid).catch(() => null)
-    if (!result) {
-      throw new Error('File not available')
-    }
-
-    const content = Buffer.isBuffer(result.content)
-      ? new Uint8Array(result.content)
-      : result.content
-    return new Response(content, {
-      headers: {
-        'Content-Type': getContentType(filename),
-        'Content-Disposition': `attachment; filename="${filename}"`,
-        'X-Sha256': file.sha256,
-      },
-    })
-  })
-
-  // Parquet files info (for datasets library)
-  router.get('/api/datasets/:org/:name/parquet', async (c) => {
-    const org = c.req.param('org')
-    const name = c.req.param('name')
-
-    const dataset = findDatasetByKey(`${org}/${name}`)
-    if (!dataset) {
-      throw new Error('Dataset not found')
-    }
-
-    const files = filesStore.get(dataset.datasetId) || []
-    const parquetFiles = files.filter((f) => f.filename.endsWith('.parquet'))
-
-    // Group by split
-    const splits: Record<string, string[]> = {}
-    for (const file of parquetFiles) {
-      const split = file.split || 'train'
-      if (!splits[split]) splits[split] = []
-      splits[split].push(`/storage/download/${file.cid}`)
-    }
-
-    return c.json({
-      parquet_files: splits,
-      features: configsStore.get(dataset.datasetId)?.features || {},
-    })
-  })
-
-  // ============================================================================
-  // Jeju Native API
-  // ============================================================================
-
-  // List all datasets
-  router.get('/', async (c) => {
-    const {
-      org,
-      q: search,
-      format,
-      limit,
-      offset,
-    } = validateQuery(nativeDatasetsQuerySchema, c)
-
-    let datasets = Array.from(datasetsStore.values())
-
-    if (org) {
-      datasets = datasets.filter(
-        (d) => d.organization.toLowerCase() === org.toLowerCase(),
-      )
-    }
-
-    if (search) {
-      const searchLower = search.toLowerCase()
-      datasets = datasets.filter(
-        (d) =>
-          d.name.toLowerCase().includes(searchLower) ||
-          d.description.toLowerCase().includes(searchLower),
-      )
-    }
-
-    if (format) {
-      const formatNum =
-        DatasetFormat[format.toUpperCase() as keyof typeof DatasetFormat]
-      if (formatNum !== undefined) {
-        datasets = datasets.filter((d) => d.format === formatNum)
-      }
-    }
-
-    const total = datasets.length
-    datasets = datasets.slice(offset, offset + limit)
-
-    return c.json({
-      datasets: datasets.map((d) => ({
-        ...d,
-        metrics: metricsStore.get(d.datasetId) || { downloads: 0, views: 0 },
-      })),
-      total,
-      limit,
-      offset,
-    })
-  })
-
-  // Get dataset details
-  router.get('/:org/:name', async (c) => {
-    const org = c.req.param('org')
-    const name = c.req.param('name')
-
-    const dataset = findDatasetByKey(`${org}/${name}`)
-    if (!dataset) {
-      throw new Error('Dataset not found')
-    }
-
-    const files = filesStore.get(dataset.datasetId) || []
-    const config = configsStore.get(dataset.datasetId)
-    const metrics = metricsStore.get(dataset.datasetId) || {
-      downloads: 0,
-      views: 0,
-    }
-
-    return c.json({
-      ...dataset,
-      files,
-      config,
-      metrics,
-    })
-  })
-
-  // Create dataset
-  router.post('/', async (c) => {
-    const { 'x-jeju-address': owner } = validateHeaders(
-      jejuAddressHeaderSchema,
-      c,
-    )
-    const body = await validateBody(
-      datasetCreationSchema.extend({
-        isPublic: z.boolean().optional(),
-      }),
-      c,
-    )
-
-    const format =
-      typeof body.format === 'string'
-        ? DatasetFormat[body.format.toUpperCase() as keyof typeof DatasetFormat]
-        : (body.format ?? DatasetFormat.PARQUET)
-    const license =
-      typeof body.license === 'string'
-        ? DatasetLicense[
-            body.license
-              .toUpperCase()
-              .replace('-', '_') as keyof typeof DatasetLicense
-          ]
-        : (body.license ?? DatasetLicense.CC_BY_4)
-
-    const org = body.organization ?? owner
-    const datasetId = keccak256(
-      encodePacked(
-        ['string', 'string', 'address', 'uint256'],
-        [org, body.name, owner, BigInt(Date.now())],
-      ),
-    )
-
-    const dataset: Dataset = {
-      datasetId,
-      name: body.name,
-      organization: org,
-      owner,
-      description: body.description,
-      format,
-      license,
-      licenseUri: '',
-      tags: body.tags || [],
-      size: 0,
-      numRows: 0,
-      numFiles: 0,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      isPublic: body.isPublic ?? true,
-    }
-
-    datasetsStore.set(datasetId, dataset)
-    metricsStore.set(datasetId, { downloads: 0, views: 0 })
-
-    return c.json(dataset, 201)
-  })
-
-  // Upload dataset files
-  router.post('/:org/:name/upload', async (c) => {
-    const { 'x-jeju-address': owner } = validateHeaders(
-      jejuAddressHeaderSchema,
-      c,
-    )
-    const org = c.req.param('org')
-    const name = c.req.param('name')
-
-    const dataset = findDatasetByKey(`${org}/${name}`)
-    if (!dataset) {
-      throw new Error('Dataset not found')
-    }
-
-    if (dataset.owner.toLowerCase() !== owner.toLowerCase()) {
-      throw new Error('Not authorized')
-    }
-
-    const formData = await c.req.formData()
-    const split = formData.get('split') as string | null
-    const uploadedFiles: DatasetFile[] = []
-    let totalSize = 0
-    let totalRows = 0
-
-    for (const [, value] of formData.entries()) {
-      if (typeof value !== 'string') {
-        const file = value as File
-        const content = Buffer.from(await file.arrayBuffer())
-        const sha256 = createHash('sha256').update(content).digest('hex')
-
-        const result = await backend.upload(content, { filename: file.name })
-
-        // Estimate row count for parquet/jsonl files
-        const estimatedRows = estimateRows(content, file.name)
-
-        uploadedFiles.push({
-          filename: file.name,
-          cid: result.cid,
-          size: content.length,
-          sha256,
-          split: split || getSplitFromFilename(file.name),
-          numRows: estimatedRows,
+          if (sort === 'downloads')
+            return metricsB.downloads - metricsA.downloads
+          if (sort === 'modified') return b.updatedAt - a.updatedAt
+          return b.createdAt - a.createdAt
         })
 
-        totalSize += content.length
-        totalRows += estimatedRows
-      }
-    }
+        const total = datasets.length
+        datasets = datasets.slice(offset, offset + limit)
 
-    // Append to existing files
-    const existingFiles = filesStore.get(dataset.datasetId) || []
-    filesStore.set(dataset.datasetId, [...existingFiles, ...uploadedFiles])
+        // Convert to HF format
+        const result = datasets.map((d) => {
+          const metrics = metricsStore.get(d.datasetId) || {
+            downloads: 0,
+            views: 0,
+          }
+          return {
+            _id: d.datasetId,
+            id: `${d.organization}/${d.name}`,
+            author: d.organization,
+            sha: d.datasetId.slice(0, 40),
+            lastModified: new Date(d.updatedAt).toISOString(),
+            private: !d.isPublic,
+            disabled: false,
+            tags: d.tags,
+            downloads: metrics.downloads,
+            createdAt: new Date(d.createdAt).toISOString(),
+          }
+        })
 
-    // Update dataset metadata
-    dataset.size += totalSize
-    dataset.numRows += totalRows
-    dataset.numFiles += uploadedFiles.length
-    dataset.updatedAt = Date.now()
-    datasetsStore.set(dataset.datasetId, dataset)
+        set.headers['X-Total-Count'] = total.toString()
+        return result
+      })
 
-    return c.json({ uploaded: uploadedFiles })
-  })
+      // Get single dataset (HF Hub compatible)
+      .get('/api/datasets/:org/:name', async ({ params }) => {
+        const { org, name } = params
 
-  // Set dataset config
-  router.put('/:org/:name/config', async (c) => {
-    const { 'x-jeju-address': owner } = validateHeaders(
-      jejuAddressHeaderSchema,
-      c,
-    )
-    const org = c.req.param('org')
-    const name = c.req.param('name')
+        const dataset = findDatasetByKey(`${org}/${name}`)
+        if (!dataset) {
+          throw new Error('Dataset not found')
+        }
 
-    const dataset = findDatasetByKey(`${org}/${name}`)
-    if (!dataset) {
-      throw new Error('Dataset not found')
-    }
+        const files = filesStore.get(dataset.datasetId) || []
+        const config = configsStore.get(dataset.datasetId)
+        const metrics = metricsStore.get(dataset.datasetId) || {
+          downloads: 0,
+          views: 0,
+        }
 
-    if (dataset.owner.toLowerCase() !== owner.toLowerCase()) {
-      throw new Error('Not authorized')
-    }
+        return {
+          _id: dataset.datasetId,
+          id: `${org}/${name}`,
+          author: dataset.organization,
+          sha: dataset.datasetId.slice(0, 40),
+          lastModified: new Date(dataset.updatedAt).toISOString(),
+          private: !dataset.isPublic,
+          disabled: false,
+          tags: dataset.tags,
+          downloads: metrics.downloads,
+          createdAt: new Date(dataset.createdAt).toISOString(),
+          cardData: {
+            license:
+              (Object.keys(DatasetLicense) as (keyof typeof DatasetLicense)[])
+                .find((key) => DatasetLicense[key] === dataset.license)
+                ?.toLowerCase()
+                .replace('_', '-') ?? 'other',
+            tags: dataset.tags,
+            size_categories: getSizeCategory(dataset.size),
+          },
+          siblings: files.map((f) => ({
+            rfilename: f.filename,
+            size: f.size,
+            blobId: f.cid,
+          })),
+          config: config || null,
+        }
+      })
 
-    const config = await validateBody(datasetConfigSchema, c)
-    configsStore.set(dataset.datasetId, config)
+      // Get dataset files/tree (HF Hub compatible)
+      .get('/api/datasets/:org/:name/tree/:revision', async ({ params }) => {
+        const { org, name } = params
 
-    return c.json(config)
-  })
+        const dataset = findDatasetByKey(`${org}/${name}`)
+        if (!dataset) {
+          throw new Error('Dataset not found')
+        }
 
-  // Get files
-  router.get('/:org/:name/files', async (c) => {
-    const org = c.req.param('org')
-    const name = c.req.param('name')
+        const files = filesStore.get(dataset.datasetId) || []
 
-    const dataset = findDatasetByKey(`${org}/${name}`)
-    if (!dataset) {
-      throw new Error('Dataset not found')
-    }
+        return files.map((f) => ({
+          type: 'file',
+          oid: f.cid,
+          size: f.size,
+          path: f.filename,
+        }))
+      })
 
-    const files = filesStore.get(dataset.datasetId) || []
-    return c.json(files)
-  })
+      // Download file (HF Hub compatible)
+      .get(
+        '/api/datasets/:org/:name/resolve/:revision/*',
+        async ({ params, request }) => {
+          const { org, name } = params
+          const url = new URL(request.url)
+          const filename = url.pathname
+            .split('/resolve/')[1]
+            ?.split('/')
+            .slice(1)
+            .join('/')
 
-  // Download file
-  router.get('/:org/:name/files/:filename', async (c) => {
-    const org = c.req.param('org')
-    const name = c.req.param('name')
-    const filename = c.req.param('filename')
+          const dataset = findDatasetByKey(`${org}/${name}`)
+          if (!dataset) {
+            throw new Error('Dataset not found')
+          }
 
-    const dataset = findDatasetByKey(`${org}/${name}`)
-    if (!dataset) {
-      throw new Error('Dataset not found')
-    }
+          const files = filesStore.get(dataset.datasetId) || []
+          const file = files.find((f) => f.filename === filename)
 
-    const files = filesStore.get(dataset.datasetId) || []
-    const file = files.find((f) => f.filename === filename)
+          if (!file) {
+            return new Response(JSON.stringify({ error: 'File not found' }), {
+              status: 404,
+              headers: { 'Content-Type': 'application/json' },
+            })
+          }
 
-    if (!file) {
-      return c.json({ error: 'File not found' }, 404)
-    }
+          // Track download
+          const metrics = metricsStore.get(dataset.datasetId) || {
+            downloads: 0,
+            views: 0,
+          }
+          metrics.downloads++
+          metricsStore.set(dataset.datasetId, metrics)
 
-    // Track download
-    const metrics = metricsStore.get(dataset.datasetId) || {
-      downloads: 0,
-      views: 0,
-    }
-    metrics.downloads++
-    metricsStore.set(dataset.datasetId, metrics)
+          const result = await backend.download(file.cid).catch(() => null)
+          if (!result) {
+            throw new Error('File not available')
+          }
 
-    const result = await backend.download(file.cid)
-    const content = Buffer.isBuffer(result.content)
-      ? new Uint8Array(result.content)
-      : result.content
-    return new Response(content, {
-      headers: {
-        'Content-Type': getContentType(filename),
-        'Content-Disposition': `attachment; filename="${filename}"`,
-      },
-    })
-  })
+          const content = Buffer.isBuffer(result.content)
+            ? new Uint8Array(result.content)
+            : result.content
+          return new Response(content, {
+            headers: {
+              'Content-Type': getContentType(filename),
+              'Content-Disposition': `attachment; filename="${filename}"`,
+              'X-Sha256': file.sha256,
+            },
+          })
+        },
+      )
 
-  return router
+      // Parquet files info (for datasets library)
+      .get('/api/datasets/:org/:name/parquet', async ({ params }) => {
+        const { org, name } = params
+
+        const dataset = findDatasetByKey(`${org}/${name}`)
+        if (!dataset) {
+          throw new Error('Dataset not found')
+        }
+
+        const files = filesStore.get(dataset.datasetId) || []
+        const parquetFiles = files.filter((f) =>
+          f.filename.endsWith('.parquet'),
+        )
+
+        // Group by split
+        const splits: Record<string, string[]> = {}
+        for (const file of parquetFiles) {
+          const split = file.split || 'train'
+          if (!splits[split]) splits[split] = []
+          splits[split].push(`/storage/download/${file.cid}`)
+        }
+
+        return {
+          parquet_files: splits,
+          features: configsStore.get(dataset.datasetId)?.features || {},
+        }
+      })
+
+      // ============================================================================
+      // Jeju Native API
+      // ============================================================================
+
+      // List all datasets
+      .get('/', async ({ query }) => {
+        const {
+          org,
+          q: search,
+          format,
+          limit,
+          offset,
+        } = expectValid(nativeDatasetsQuerySchema, query)
+
+        let datasets = Array.from(datasetsStore.values())
+
+        if (org) {
+          datasets = datasets.filter(
+            (d) => d.organization.toLowerCase() === org.toLowerCase(),
+          )
+        }
+
+        if (search) {
+          const searchLower = search.toLowerCase()
+          datasets = datasets.filter(
+            (d) =>
+              d.name.toLowerCase().includes(searchLower) ||
+              d.description.toLowerCase().includes(searchLower),
+          )
+        }
+
+        if (format) {
+          const formatNum =
+            DatasetFormat[format.toUpperCase() as keyof typeof DatasetFormat]
+          if (formatNum !== undefined) {
+            datasets = datasets.filter((d) => d.format === formatNum)
+          }
+        }
+
+        const total = datasets.length
+        datasets = datasets.slice(offset, offset + limit)
+
+        return {
+          datasets: datasets.map((d) => ({
+            ...d,
+            metrics: metricsStore.get(d.datasetId) || {
+              downloads: 0,
+              views: 0,
+            },
+          })),
+          total,
+          limit,
+          offset,
+        }
+      })
+
+      // Get dataset details
+      .get('/:org/:name', async ({ params }) => {
+        const { org, name } = params
+
+        const dataset = findDatasetByKey(`${org}/${name}`)
+        if (!dataset) {
+          throw new Error('Dataset not found')
+        }
+
+        const files = filesStore.get(dataset.datasetId) || []
+        const config = configsStore.get(dataset.datasetId)
+        const metrics = metricsStore.get(dataset.datasetId) || {
+          downloads: 0,
+          views: 0,
+        }
+
+        return {
+          ...dataset,
+          files,
+          config,
+          metrics,
+        }
+      })
+
+      // Create dataset
+      .post('/', async ({ body, request, set }) => {
+        const headers = extractHeaders(request)
+        const { 'x-jeju-address': owner } = expectValid(
+          jejuAddressHeaderSchema,
+          headers,
+        )
+        const validBody = expectValid(
+          datasetCreationSchema.extend({
+            isPublic: z.boolean().optional(),
+          }),
+          body,
+        )
+
+        const format: DatasetFormat =
+          typeof validBody.format === 'string'
+            ? (DatasetFormat[
+                validBody.format.toUpperCase() as keyof typeof DatasetFormat
+              ] ?? DatasetFormat.PARQUET)
+            : ((validBody.format as DatasetFormat) ?? DatasetFormat.PARQUET)
+        const license: DatasetLicense =
+          typeof validBody.license === 'string'
+            ? (DatasetLicense[
+                validBody.license
+                  .toUpperCase()
+                  .replace('-', '_') as keyof typeof DatasetLicense
+              ] ?? DatasetLicense.CC_BY_4)
+            : ((validBody.license as DatasetLicense) ?? DatasetLicense.CC_BY_4)
+
+        const org = validBody.organization ?? owner
+        const datasetId = keccak256(
+          encodePacked(
+            ['string', 'string', 'address', 'uint256'],
+            [org, validBody.name, owner, BigInt(Date.now())],
+          ),
+        )
+
+        const dataset: Dataset = {
+          datasetId,
+          name: validBody.name,
+          organization: org,
+          owner,
+          description: validBody.description,
+          format,
+          license,
+          licenseUri: '',
+          tags: validBody.tags || [],
+          size: 0,
+          numRows: 0,
+          numFiles: 0,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          isPublic: validBody.isPublic ?? true,
+        }
+
+        datasetsStore.set(datasetId, dataset)
+        metricsStore.set(datasetId, { downloads: 0, views: 0 })
+
+        set.status = 201
+        return dataset
+      })
+
+      // Upload dataset files
+      .post('/:org/:name/upload', async ({ params, request }) => {
+        const headers = extractHeaders(request)
+        const { 'x-jeju-address': owner } = expectValid(
+          jejuAddressHeaderSchema,
+          headers,
+        )
+        const { org, name } = params
+
+        const dataset = findDatasetByKey(`${org}/${name}`)
+        if (!dataset) {
+          throw new Error('Dataset not found')
+        }
+
+        if (dataset.owner.toLowerCase() !== owner.toLowerCase()) {
+          throw new Error('Not authorized')
+        }
+
+        const formData = await request.formData()
+        const split = formData.get('split') as string | null
+        const uploadedFiles: DatasetFile[] = []
+        let totalSize = 0
+        let totalRows = 0
+
+        for (const [, value] of formData.entries()) {
+          if (typeof value !== 'string') {
+            const file = value as File
+            const content = Buffer.from(await file.arrayBuffer())
+            const sha256 = createHash('sha256').update(content).digest('hex')
+
+            const result = await backend.upload(content, {
+              filename: file.name,
+            })
+
+            // Estimate row count for parquet/jsonl files
+            const estimatedRows = estimateRows(content, file.name)
+
+            uploadedFiles.push({
+              filename: file.name,
+              cid: result.cid,
+              size: content.length,
+              sha256,
+              split: split || getSplitFromFilename(file.name),
+              numRows: estimatedRows,
+            })
+
+            totalSize += content.length
+            totalRows += estimatedRows
+          }
+        }
+
+        // Append to existing files
+        const existingFiles = filesStore.get(dataset.datasetId) || []
+        filesStore.set(dataset.datasetId, [...existingFiles, ...uploadedFiles])
+
+        // Update dataset metadata
+        dataset.size += totalSize
+        dataset.numRows += totalRows
+        dataset.numFiles += uploadedFiles.length
+        dataset.updatedAt = Date.now()
+        datasetsStore.set(dataset.datasetId, dataset)
+
+        return { uploaded: uploadedFiles }
+      })
+
+      // Set dataset config
+      .put('/:org/:name/config', async ({ params, body, request }) => {
+        const headers = extractHeaders(request)
+        const { 'x-jeju-address': owner } = expectValid(
+          jejuAddressHeaderSchema,
+          headers,
+        )
+        const { org, name } = params
+
+        const dataset = findDatasetByKey(`${org}/${name}`)
+        if (!dataset) {
+          throw new Error('Dataset not found')
+        }
+
+        if (dataset.owner.toLowerCase() !== owner.toLowerCase()) {
+          throw new Error('Not authorized')
+        }
+
+        const config = expectValid(datasetConfigSchema, body)
+        configsStore.set(dataset.datasetId, config)
+
+        return config
+      })
+
+      // Get files
+      .get('/:org/:name/files', async ({ params }) => {
+        const { org, name } = params
+
+        const dataset = findDatasetByKey(`${org}/${name}`)
+        if (!dataset) {
+          throw new Error('Dataset not found')
+        }
+
+        const files = filesStore.get(dataset.datasetId) || []
+        return files
+      })
+
+      // Download file
+      .get('/:org/:name/files/:filename', async ({ params, set }) => {
+        const { org, name, filename } = params
+
+        const dataset = findDatasetByKey(`${org}/${name}`)
+        if (!dataset) {
+          throw new Error('Dataset not found')
+        }
+
+        const files = filesStore.get(dataset.datasetId) || []
+        const file = files.find((f) => f.filename === filename)
+
+        if (!file) {
+          set.status = 404
+          return { error: 'File not found' }
+        }
+
+        // Track download
+        const metrics = metricsStore.get(dataset.datasetId) || {
+          downloads: 0,
+          views: 0,
+        }
+        metrics.downloads++
+        metricsStore.set(dataset.datasetId, metrics)
+
+        const result = await backend.download(file.cid)
+        const content = Buffer.isBuffer(result.content)
+          ? new Uint8Array(result.content)
+          : result.content
+        return new Response(content, {
+          headers: {
+            'Content-Type': getContentType(filename),
+            'Content-Disposition': `attachment; filename="${filename}"`,
+          },
+        })
+      })
+  )
 }
+
+export type DatasetsRoutes = ReturnType<typeof createDatasetsRouter>
 
 // ============================================================================
 // Helpers

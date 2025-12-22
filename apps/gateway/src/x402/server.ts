@@ -23,7 +23,8 @@ const MAX_BODY_SIZE = 256 * 1024 // 256KB for x402 payment data
 const CORS_ORIGINS = process.env.CORS_ORIGINS?.split(',').filter(Boolean)
 const isProduction = process.env.NODE_ENV === 'production'
 
-const app = new Elysia({ name: 'x402-facilitator' })
+const app = new Elysia()
+  // CORS middleware
   .use(
     cors({
       origin: isProduction && CORS_ORIGINS?.length ? CORS_ORIGINS : true,
@@ -37,42 +38,35 @@ const app = new Elysia({ name: 'x402-facilitator' })
       exposeHeaders: ['X-Payment-Requirement', 'WWW-Authenticate'],
     }),
   )
+  // Security middleware - body size check and security headers
   .onBeforeHandle(({ request, set }) => {
-    // Body size limit check
     const contentLength = request.headers.get('content-length')
-    if (contentLength && Number.parseInt(contentLength) > MAX_BODY_SIZE) {
+    if (contentLength && Number.parseInt(contentLength, 10) > MAX_BODY_SIZE) {
       set.status = 413
       return { error: 'Request body too large', maxSize: MAX_BODY_SIZE }
     }
-
-    // Security headers
+  })
+  .onAfterHandle(({ set }) => {
     set.headers['X-Content-Type-Options'] = 'nosniff'
     set.headers['X-Frame-Options'] = 'DENY'
     set.headers['X-XSS-Protection'] = '1; mode=block'
     set.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
   })
+  // Mount routes
   .use(healthRoutes)
   .use(verifyRoutes)
   .use(settleRoutes)
   .use(supportedRoutes)
   .use(metricsRoutes)
-  .onError(({ code, error, set, request }) => {
-    // Handle 404s
-    if (code === 'NOT_FOUND') {
-      set.status = 404
-      return {
-        error: 'Not found',
-        path: new URL(request.url).pathname,
-        timestamp: Date.now(),
-      }
-    }
-
+  // Error handler
+  .onError(({ error, set }) => {
     // Log full error details server-side only
     console.error('[Facilitator] Error:', error)
 
     // SECURITY: Never expose internal error details to clients in production
     const isProduction = process.env.NODE_ENV === 'production'
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    const errorMessage =
+      error instanceof Error ? error.message : 'Unknown error'
     const safeMessage = isProduction ? 'Internal server error' : errorMessage
 
     set.status = 500
@@ -83,24 +77,20 @@ const app = new Elysia({ name: 'x402-facilitator' })
     }
   })
 
+// 404 handler - Elysia handles this via a catch-all route
+app.all('*', ({ request, set }) => {
+  set.status = 404
+  return {
+    error: 'Not found',
+    path: new URL(request.url).pathname,
+    timestamp: Date.now(),
+  }
+})
+
 export type X402App = typeof app
 
-// Helper for testing - mimics Hono's request() API
-function createTestableApp(elysiaApp: typeof app) {
-  return Object.assign(elysiaApp, {
-    request: async (
-      path: string,
-      init?: RequestInit,
-    ): Promise<Response> => {
-      const url = path.startsWith('http') ? path : `http://localhost${path}`
-      const request = new Request(url, init)
-      return elysiaApp.handle(request)
-    },
-  })
-}
-
 export function createServer() {
-  return createTestableApp(app)
+  return app
 }
 
 export async function startServer(): Promise<void> {
@@ -125,10 +115,9 @@ export async function startServer(): Promise<void> {
   )
   console.log(`[Facilitator] Contract: ${cfg.facilitatorAddress}`)
 
-  const server = Bun.serve({
+  const server = app.listen({
     port: cfg.port,
     hostname: cfg.host,
-    fetch: app.fetch,
   })
 
   console.log(`[Facilitator] Listening on http://${cfg.host}:${cfg.port}`)

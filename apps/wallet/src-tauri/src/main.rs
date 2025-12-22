@@ -4,4 +4,3 @@
 fn main() {
     jeju_wallet_lib::run()
 }
-

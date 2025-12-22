@@ -1,31 +1,18 @@
-import { defineConfig, devices } from '@playwright/test'
+/**
+ * Documentation Playwright Configuration
+ * Uses shared config from @jejunetwork/tests
+ */
+import { createAppConfig } from '@jejunetwork/tests'
 
-const port = process.env.DOCUMENTATION_PORT ?? '4004'
+const DOCS_PORT = parseInt(process.env.DOCUMENTATION_PORT || '4004', 10)
 
-export default defineConfig({
+export default createAppConfig({
+  name: 'documentation',
+  port: DOCS_PORT,
   testDir: './tests/e2e',
-  fullyParallel: true,
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? 'github' : 'html',
-
-  use: {
-    baseURL: `http://localhost:${port}/jeju`,
-    trace: 'on-first-retry',
-  },
-
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
-
+  baseURL: `http://localhost:${DOCS_PORT}/jeju`,
   webServer: {
-    command: `bun run dev`,
-    port: Number(port),
-    reuseExistingServer: true,
+    command: 'bun run dev',
     timeout: 120000,
   },
 })

@@ -1,11 +1,10 @@
 //! Tauri commands - exposed to frontend
 
-pub mod hardware;
-pub mod wallet;
 pub mod agent;
+pub mod bots;
+pub mod config;
+pub mod earnings;
+pub mod hardware;
 pub mod services;
 pub mod staking;
-pub mod earnings;
-pub mod config;
-pub mod bots;
-
+pub mod wallet;

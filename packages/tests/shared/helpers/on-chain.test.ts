@@ -9,6 +9,7 @@ import {
   parseEther,
   type TransactionReceipt,
 } from 'viem'
+import { isRpcAvailable } from '../utils'
 import {
   clearClientCache,
   compareSnapshots,
@@ -32,6 +33,11 @@ beforeEach(() => {
 
 const FAKE_RPC = 'http://localhost:59999'
 const REAL_RPC = process.env.L2_RPC_URL || 'http://localhost:6546'
+
+// Auto-detect chain availability
+const CHAIN_AVAILABLE =
+  process.env.CHAIN_AVAILABLE === 'true' ||
+  (await isRpcAvailable(REAL_RPC).catch(() => false))
 
 // Well-known test addresses
 const TEST_ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' as Address
@@ -422,9 +428,8 @@ describe('On-Chain - Address Validation', () => {
   })
 })
 
-// Integration tests require running localnet - run separately with:
-// CHAIN_AVAILABLE=true bun test on-chain.test.ts
-describe.skipIf(!process.env.CHAIN_AVAILABLE)(
+// Integration tests require running localnet - auto-detected
+describe.skipIf(!CHAIN_AVAILABLE)(
   'On-Chain - Integration Tests (requires localnet)',
   () => {
     test('should get balance for funded account', async () => {

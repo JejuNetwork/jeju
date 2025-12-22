@@ -19,8 +19,6 @@
  * Environment variables:
  *   MODEL_NAME - Model to train (default: microsoft/phi-2, no auth required)
  *   TRAINING_STEPS - Number of training steps (default: 10)
- *   USE_WANDB - Enable Weights & Biases logging (default: false)
- *   WANDB_PROJECT - W&B project name
  */
 
 import { spawn } from 'bun'
@@ -47,8 +45,6 @@ const config = {
   maxTokenLength: parseInt(process.env.MAX_TOKEN_LENGTH ?? '2048', 10),
   vllmPort: parseInt(process.env.VLLM_PORT ?? '9001', 10),
   atroposPort: parseInt(process.env.ATROPOS_PORT ?? '8000', 10),
-  useWandb: process.env.USE_WANDB === 'true',
-  wandbProject: process.env.WANDB_PROJECT,
   usePsyche: process.env.USE_PSYCHE === 'true',
   solanaRpcUrl: process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com',
   evmRpcUrl: process.env.EVM_RPC_URL ?? 'http://localhost:6545',
@@ -139,8 +135,6 @@ async function main() {
           batchSize: config.batchSize,
           vllmPort: config.vllmPort,
           atroposUrl: `http://localhost:${config.atroposPort}`,
-          useWandb: config.useWandb,
-          wandbProject: config.wandbProject,
           savePath: config.savePath,
         })
       : createGRPOTrainer({
@@ -149,17 +143,12 @@ async function main() {
           batchSize: config.batchSize,
           vllmPort: config.vllmPort,
           atroposUrl: `http://localhost:${config.atroposPort}`,
-          useWandb: config.useWandb,
-          wandbProject: config.wandbProject,
           savePath: config.savePath,
         })
 
     // Optional: Set up Psyche integration
     // Dynamic import kept conditional - only loads if Psyche is enabled
-    if (
-      config.usePsyche &&
-      trainer instanceof DistributedGRPOTrainer
-    ) {
+    if (config.usePsyche && trainer instanceof DistributedGRPOTrainer) {
       console.log('   Setting up Psyche distributed training...')
 
       const psycheClient = createPsycheClient({
@@ -190,8 +179,6 @@ async function main() {
         groupSize: config.groupSize,
         rolloutServerUrl: `http://localhost:${config.atroposPort}`,
         maxTokenLength: config.maxTokenLength,
-        useWandb: config.useWandb,
-        wandbName: 'fundamental_prediction',
       },
       [
         {

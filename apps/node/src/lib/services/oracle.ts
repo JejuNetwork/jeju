@@ -1,7 +1,3 @@
-/**
- * Oracle service - Real contract integration
- */
-
 import { type Address, keccak256, toBytes } from 'viem'
 import { z } from 'zod'
 import { ORACLE_STAKING_MANAGER_ABI } from '../abis'

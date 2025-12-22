@@ -61,7 +61,7 @@ export default function AddLiquidity({
           onSelect={(token) =>
             setSelectedToken(typeof token === 'string' ? null : token)
           }
-          label="Select Token (JEJU, elizaOS, CLANKER, VIRTUAL, etc.)"
+          label="Select Token"
           placeholder="Choose token vault..."
           disabled={isLoading}
         />

@@ -488,11 +488,11 @@ describe('OP Stack Dashboard', () => {
     ).toBe(true)
   })
 
-  test('should monitor EigenDA', () => {
+  test('should monitor Jeju DA', () => {
     const queries = dashboard.panels
       .flatMap((p) => p.targets?.map((t) => t.expr || '') || [])
       .join(' ')
-    expect(queries.includes('eigenda')).toBe(true)
+    expect(queries.includes('jeju_da')).toBe(true)
   })
 
   test('should track challenger activity', () => {
@@ -766,7 +766,7 @@ describe('Dashboard Query Validation', () => {
       'op_proposer',
       'op_challenger',
       'reth_',
-      'eigenda_',
+      'jeju_da_',
       'subsquid',
       'pg_',
       'rate(',

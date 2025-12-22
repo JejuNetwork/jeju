@@ -6,7 +6,7 @@
 import { AddressSchema as TypesAddressSchema } from '@jejunetwork/types'
 import { z } from 'zod'
 
-// Re-export the canonical AddressSchema from types package
+// Use shared AddressSchema from types package
 export const AddressSchema = TypesAddressSchema
 
 // Optional address that can be null/undefined/empty

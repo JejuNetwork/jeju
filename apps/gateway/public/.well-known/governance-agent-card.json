@@ -77,7 +77,7 @@
   "metadata": {
     "governance_type": "futarchy",
     "voting_mechanism": "stake_weighted",
-    "supported_tokens": ["elizaOS", "CLANKER", "VIRTUAL", "CLANKERMON"],
+    "supported_tokens": ["JEJU"],
     "min_voting_period": "7 days",
     "timelock_period": "7 days"
   }

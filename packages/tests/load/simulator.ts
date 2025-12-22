@@ -377,5 +377,21 @@ export const SCENARIOS: Record<string, LoadTestScenario> = {
     rampUpSeconds: 30,
     thinkTimeMs: 200,
   },
+  EXTREME: {
+    name: 'extreme',
+    description: 'Extreme load - find absolute limit',
+    concurrentUsers: 500,
+    durationSeconds: 30,
+    rampUpSeconds: 5,
+    thinkTimeMs: 0,
+  },
+  BURST: {
+    name: 'burst',
+    description: 'Burst load - sudden traffic spike simulation',
+    concurrentUsers: 300,
+    durationSeconds: 15,
+    rampUpSeconds: 1,
+    thinkTimeMs: 0,
+  },
 }
 

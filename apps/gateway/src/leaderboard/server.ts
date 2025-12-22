@@ -11,6 +11,7 @@ import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { isAddress } from 'viem'
 import {
+  A2ARequestSchema,
   AgentLinkQuerySchema,
   ConfirmAttestationRequestSchema,
   CreateAgentLinkRequestSchema,
@@ -23,7 +24,6 @@ import {
   validateQuery,
   WalletVerifyQuerySchema,
   WalletVerifyRequestSchema,
-  A2ARequestSchema,
 } from '../lib/validation.js'
 import {
   authenticateRequest,
@@ -79,7 +79,11 @@ const app = new Elysia()
         ? {
             origin: CORS_ORIGINS,
             methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-            allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+            allowedHeaders: [
+              'Content-Type',
+              'Authorization',
+              'X-Requested-With',
+            ],
             credentials: true,
             maxAge: 86400,
           }
@@ -437,7 +441,9 @@ const app = new Elysia()
     )
     if (users.length === 0) {
       set.status = 404
-      return { error: 'User not found. Please ensure your GitHub is synced first.' }
+      return {
+        error: 'User not found. Please ensure your GitHub is synced first.',
+      }
     }
 
     const timestamp = Date.now()
@@ -496,7 +502,9 @@ const app = new Elysia()
     const messageAge = Date.now() - timestamp
     if (messageAge > LEADERBOARD_CONFIG.tokens.maxMessageAgeMs) {
       set.status = 400
-      return { error: 'Verification message expired. Please request a new one.' }
+      return {
+        error: 'Verification message expired. Please request a new one.',
+      }
     }
     if (messageAge < 0) {
       set.status = 400
@@ -888,11 +896,7 @@ const app = new Elysia()
       return { error: 'Rate limit exceeded' }
     }
 
-    const validated = validateBody(
-      A2ARequestSchema,
-      body,
-      'A2A request',
-    )
+    const validated = validateBody(A2ARequestSchema, body, 'A2A request')
     const message = validated.params.message
     const dataPart = message.parts.find((p) => p.kind === 'data')
     const skillId = dataPart?.data?.skillId

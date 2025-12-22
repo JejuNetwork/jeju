@@ -16,10 +16,23 @@ import {
   stringToHex,
   zeroAddress,
 } from 'viem'
-import {
-  type PrivateKeyAccount,
-  privateKeyToAccount,
-} from 'viem/accounts'
+
+// Helper to call readContract via client.readContract
+async function _readContract(
+  client: PublicClient,
+  params: {
+    address: Address
+    abi: readonly unknown[]
+    functionName: string
+    args?: readonly unknown[]
+  },
+) {
+  return client.readContract(
+    params as Parameters<typeof client.readContract>[0],
+  )
+}
+
+import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 
 const RPC_URL =

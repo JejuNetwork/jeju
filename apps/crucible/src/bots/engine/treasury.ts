@@ -15,7 +15,7 @@ import type {
   ProfitDeposit,
   ProfitSource,
   TreasuryStats,
-} from '../autocrat-types'
+} from '../autocrat-types-source'
 import {
   AUTOCRAT_TREASURY_ABI,
   ERC20_ABI,

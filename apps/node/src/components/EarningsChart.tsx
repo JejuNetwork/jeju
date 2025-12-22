@@ -1,6 +1,3 @@
-// Simple earnings chart component
-// Using a basic CSS chart since recharts has React type conflicts
-
 const mockData = [
   { date: 'Mon', earnings: 0.42 },
   { date: 'Tue', earnings: 0.58 },

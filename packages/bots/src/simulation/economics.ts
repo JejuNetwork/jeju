@@ -100,13 +100,20 @@ export const GAS_COSTS = {
 }
 
 // Bridge costs and times
-const BRIDGE_ECONOMICS: Record<string, { fixedCostUsd: number; percentageFee: number; timeMinutes: number }> = {
-  'stargate': { fixedCostUsd: 2, percentageFee: 0.0006, timeMinutes: 5 },
-  'across': { fixedCostUsd: 1, percentageFee: 0.0004, timeMinutes: 3 },
-  'hop': { fixedCostUsd: 1.5, percentageFee: 0.0005, timeMinutes: 10 },
-  'wormhole': { fixedCostUsd: 5, percentageFee: 0.001, timeMinutes: 15 },
-  'layerzero': { fixedCostUsd: 3, percentageFee: 0.0008, timeMinutes: 5 },
-  'official-l2': { fixedCostUsd: 5, percentageFee: 0, timeMinutes: 7 * 24 * 60 }, // 7 days for L1->L2 official
+const BRIDGE_ECONOMICS: Record<
+  string,
+  { fixedCostUsd: number; percentageFee: number; timeMinutes: number }
+> = {
+  stargate: { fixedCostUsd: 2, percentageFee: 0.0006, timeMinutes: 5 },
+  across: { fixedCostUsd: 1, percentageFee: 0.0004, timeMinutes: 3 },
+  hop: { fixedCostUsd: 1.5, percentageFee: 0.0005, timeMinutes: 10 },
+  wormhole: { fixedCostUsd: 5, percentageFee: 0.001, timeMinutes: 15 },
+  layerzero: { fixedCostUsd: 3, percentageFee: 0.0008, timeMinutes: 5 },
+  'official-l2': {
+    fixedCostUsd: 5,
+    percentageFee: 0,
+    timeMinutes: 7 * 24 * 60,
+  }, // 7 days for L1->L2 official
 }
 
 // ============ Slippage Model ============
@@ -127,19 +134,21 @@ export class SlippageModel {
     const decimalsOut = isBuyToken0 ? pool.token0Decimals : pool.token1Decimals
 
     // Spot price before swap
-    const spotPrice = Number(reserveOut) / Number(reserveIn) * 
-      Math.pow(10, decimalsIn - decimalsOut)
+    const spotPrice =
+      (Number(reserveOut) / Number(reserveIn)) *
+      10 ** (decimalsIn - decimalsOut)
 
     // Apply fee
-    const amountInAfterFee = amountIn * BigInt(10000 - pool.fee) / 10000n
+    const amountInAfterFee = (amountIn * BigInt(10000 - pool.fee)) / 10000n
 
     // Calculate output using constant product formula
     // amountOut = reserveOut * amountIn / (reserveIn + amountIn)
-    const amountOut = (reserveOut * amountInAfterFee) / (reserveIn + amountInAfterFee)
+    const amountOut =
+      (reserveOut * amountInAfterFee) / (reserveIn + amountInAfterFee)
 
     // Effective price
-    const effectivePrice = Number(amountIn) / Number(amountOut) * 
-      Math.pow(10, decimalsOut - decimalsIn)
+    const effectivePrice =
+      (Number(amountIn) / Number(amountOut)) * 10 ** (decimalsOut - decimalsIn)
 
     // Price impact = (effective - spot) / spot
     const priceImpactBps = ((effectivePrice - spotPrice) / spotPrice) * 10000
@@ -182,7 +191,8 @@ export class SlippageModel {
       }
     }
 
-    const midPrice = (orderBook.bids[0]?.price ?? 0 + (orderBook.asks[0]?.price ?? 0)) / 2
+    const midPrice =
+      (orderBook.bids[0]?.price ?? 0 + (orderBook.asks[0]?.price ?? 0)) / 2
     let remainingAmount = amountUsd
     let totalCost = 0
     let totalFilled = 0
@@ -210,7 +220,8 @@ export class SlippageModel {
     }
 
     const effectivePrice = totalCost / totalFilled
-    const priceImpactBps = Math.abs((effectivePrice - midPrice) / midPrice) * 10000
+    const priceImpactBps =
+      Math.abs((effectivePrice - midPrice) / midPrice) * 10000
 
     // Calculate total depth
     const totalDepth = orders.reduce((sum, o) => sum + o.price * o.size, 0)
@@ -264,7 +275,8 @@ export class MarketImpactModel {
     const { eta, gamma } = MARKET_IMPACT_PARAMS
 
     // Participation rate
-    const participationRate = tradeSizeUsd / (dailyVolumeUsd * (executionTimeHours / 24))
+    const participationRate =
+      tradeSizeUsd / (dailyVolumeUsd * (executionTimeHours / 24))
 
     // Temporary impact: proportional to trading rate
     // I_temp = eta * sigma * sqrt(tradingRate / avgDailyVolume)
@@ -323,13 +335,13 @@ export class GasCostModel {
 
     // Base fee by chain (approximate averages)
     const baseFees: Record<number, number> = {
-      1: 30,      // Ethereum mainnet
+      1: 30, // Ethereum mainnet
       8453: 0.01, // Base
       42161: 0.1, // Arbitrum
-      10: 0.01,   // Optimism
-      137: 50,    // Polygon
-      56: 3,      // BSC
-      43114: 25,  // Avalanche
+      10: 0.01, // Optimism
+      137: 50, // Polygon
+      56: 3, // BSC
+      43114: 25, // Avalanche
     }
 
     const baseFeeGwei = (baseFees[chainId] ?? 30) * config.gasMultiplier
@@ -362,11 +374,14 @@ export class GasCostModel {
   /**
    * Calculate gas cost for multi-hop swap
    */
-  static multiHopCost(hops: number, chainId: number, config: EconomicConfig): GasCostEstimate {
-    const operation = hops <= 2 ? 'multiHop2' 
-      : hops <= 3 ? 'multiHop3' 
-      : 'multiHop4'
-    return this.estimate(operation, chainId, config)
+  static multiHopCost(
+    hops: number,
+    chainId: number,
+    config: EconomicConfig,
+  ): GasCostEstimate {
+    const operation =
+      hops <= 2 ? 'multiHop2' : hops <= 3 ? 'multiHop3' : 'multiHop4'
+    return GasCostModel.estimate(operation, chainId, config)
   }
 }
 
@@ -380,7 +395,11 @@ export class BridgeEconomics {
     bridge: keyof typeof BRIDGE_ECONOMICS,
     amountUsd: number,
     hourlyOpportunityCost: number = 0.01, // 1% per hour opportunity cost
-  ): { totalCostUsd: number; timeMinutes: number; breakdown: Record<string, number> } {
+  ): {
+    totalCostUsd: number
+    timeMinutes: number
+    breakdown: Record<string, number>
+  } {
     const params = BRIDGE_ECONOMICS[bridge]
     if (!params) {
       return {
@@ -392,7 +411,8 @@ export class BridgeEconomics {
 
     const fixedCost = params.fixedCostUsd
     const percentageCost = amountUsd * params.percentageFee
-    const timeCost = amountUsd * hourlyOpportunityCost * (params.timeMinutes / 60)
+    const timeCost =
+      amountUsd * hourlyOpportunityCost * (params.timeMinutes / 60)
 
     return {
       totalCostUsd: fixedCost + percentageCost + timeCost,
@@ -418,7 +438,11 @@ export class BridgeEconomics {
     for (const [bridge, params] of Object.entries(BRIDGE_ECONOMICS)) {
       if (params.timeMinutes > maxTimeMinutes) continue
 
-      const cost = this.calculateCost(bridge, amountUsd, hourlyOpportunityCost)
+      const cost = BridgeEconomics.calculateCost(
+        bridge,
+        amountUsd,
+        hourlyOpportunityCost,
+      )
       if (cost.totalCostUsd < cheapest.cost) {
         cheapest = { bridge, cost: cost.totalCostUsd, time: params.timeMinutes }
       }
@@ -519,7 +543,8 @@ export class TradeEconomicsCalculator {
 
     // 2. Slippage cost
     const slippage = SlippageModel.estimateSlippage(tradeSizeUsd, poolTvlUsd)
-    const slippageCostUsd = tradeSizeUsd * (slippage.expectedSlippageBps / 10000)
+    const slippageCostUsd =
+      tradeSizeUsd * (slippage.expectedSlippageBps / 10000)
 
     // 3. Market impact
     const impact = MarketImpactModel.calculateImpact(
@@ -553,8 +578,13 @@ export class TradeEconomicsCalculator {
     const opportunityCostUsd = tradeSizeUsd * 0.0001 * executionTimeHours // 0.01% per hour
 
     // Net profit
-    const totalCosts = slippageCostUsd + marketImpactCostUsd + gasCostUsd + 
-      bridgeCostUsd + mevRiskCostUsd + opportunityCostUsd
+    const totalCosts =
+      slippageCostUsd +
+      marketImpactCostUsd +
+      gasCostUsd +
+      bridgeCostUsd +
+      mevRiskCostUsd +
+      opportunityCostUsd
     const netProfitUsd = grossProfitUsd - totalCosts
 
     // Return in bps
@@ -627,7 +657,8 @@ export class TradeEconomicsCalculator {
     const sign = x < 0 ? -1 : 1
     x = Math.abs(x)
     const t = 1 / (1 + p * x)
-    const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x)
+    const y =
+      1 - ((((a5 * t + a4) * t + a3) * t + a2) * t + a1) * t * Math.exp(-x * x)
     return sign * y
   }
 }
@@ -641,7 +672,7 @@ export class ImpermanentLossCalculator {
   static calculate(priceRatio: number): { ilPercent: number; ilBps: number } {
     // IL formula: 2 * sqrt(priceRatio) / (1 + priceRatio) - 1
     const sqrtRatio = Math.sqrt(priceRatio)
-    const il = 2 * sqrtRatio / (1 + priceRatio) - 1
+    const il = (2 * sqrtRatio) / (1 + priceRatio) - 1
 
     return {
       ilPercent: il * 100,
@@ -664,7 +695,7 @@ export class ImpermanentLossCalculator {
     const holdValue = w + (1 - w) * ratio
 
     // Value in pool: (ratio^(1-w)) for normalized pool
-    const poolValue = Math.pow(ratio, 1 - w)
+    const poolValue = ratio ** (1 - w)
 
     const il = poolValue / holdValue - 1
 
@@ -690,12 +721,12 @@ export class ImpermanentLossCalculator {
     const expectedAbsLogRatio = expectedLogRatio * Math.sqrt(2 / Math.PI)
     const expectedRatio = Math.exp(expectedAbsLogRatio)
 
-    const expectedIl = this.calculate(expectedRatio)
+    const expectedIl = ImpermanentLossCalculator.calculate(expectedRatio)
 
     // 95th percentile
     const p95LogRatio = expectedLogRatio * 1.96
     const p95Ratio = Math.exp(p95LogRatio)
-    const p95Il = this.calculate(p95Ratio)
+    const p95Il = ImpermanentLossCalculator.calculate(p95Ratio)
 
     return {
       expectedIlBps: Math.abs(expectedIl.ilBps),
@@ -706,7 +737,9 @@ export class ImpermanentLossCalculator {
 
 // ============ Exports ============
 
-export function createEconomicsCalculator(config: Partial<EconomicConfig> = {}): TradeEconomicsCalculator {
+export function createEconomicsCalculator(
+  config: Partial<EconomicConfig> = {},
+): TradeEconomicsCalculator {
   const fullConfig: EconomicConfig = {
     ethPriceUsd: config.ethPriceUsd ?? 3500,
     gasMultiplier: config.gasMultiplier ?? 1.2,
@@ -715,4 +748,3 @@ export function createEconomicsCalculator(config: Partial<EconomicConfig> = {}):
   }
   return new TradeEconomicsCalculator(fullConfig)
 }
-

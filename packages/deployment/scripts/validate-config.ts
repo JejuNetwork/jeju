@@ -209,7 +209,7 @@ async function main() {
   console.log('🔍 Validating configuration files...\n')
 
   // Validate JSON files
-  validateJson('chains.json', 'Chains JSON')
+  validateJson('infrastructure.json', 'Infrastructure JSON')
 
   // Validate chain configs
   validateChainConfig('localnet')

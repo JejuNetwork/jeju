@@ -1,8 +1,9 @@
-'use client'
-
+import {
+  getPaymasterOptions,
+  type PaymasterOption,
+} from '@jejunetwork/deployment/scripts/shared/paymaster'
 import { Check, ChevronDown, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { getPaymasterOptions, type PaymasterOption } from '../lib/paymaster'
 
 interface PaymasterSelectorProps {
   estimatedGas: bigint

@@ -144,6 +144,146 @@
         }
       }
     },
+    "architecture": {
+      "type": "object",
+      "description": "Application architecture configuration",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["serverless", "container", "hybrid"],
+          "description": "Deployment type: serverless (workerd), container (Docker), or hybrid"
+        },
+        "runtime": {
+          "type": "string",
+          "enum": ["workerd", "bun", "node", "docker"],
+          "description": "Execution runtime"
+        },
+        "frontend": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["spa", "mpa", "ssr", "static"] },
+            "builder": { "type": "string", "enum": ["vite", "bun", "webpack", "next"] },
+            "entrypoint": { "type": "string" },
+            "outputDir": { "type": "string" }
+          }
+        },
+        "backend": {
+          "type": "object",
+          "properties": {
+            "type": { "type": "string", "enum": ["elysia", "hono", "express", "custom"] },
+            "entrypoint": { "type": "string" },
+            "outputDir": { "type": "string" }
+          }
+        }
+      }
+    },
+    "dws": {
+      "type": "object",
+      "description": "DWS (Decentralized Web Services) worker configuration",
+      "properties": {
+        "worker": {
+          "type": "object",
+          "description": "Serverless worker configuration (workerd-based)",
+          "properties": {
+            "name": { "type": "string", "description": "Worker name" },
+            "entrypoint": { "type": "string", "description": "Main worker file" },
+            "compatibilityDate": { "type": "string", "description": "Workers API compatibility date" },
+            "tee": {
+              "type": "object",
+              "description": "TEE (Trusted Execution Environment) configuration",
+              "properties": {
+                "required": { "type": "boolean" },
+                "preferred": { "type": "boolean" },
+                "platforms": { "type": "array", "items": { "type": "string", "enum": ["dstack", "phala", "intel_sgx", "intel_tdx", "amd_sev"] } }
+              }
+            },
+            "bindings": {
+              "type": "object",
+              "description": "Worker bindings (KV, D1, secrets)",
+              "properties": {
+                "kv": { "type": "object", "additionalProperties": { "type": "string" } },
+                "d1": { "type": "object", "additionalProperties": { "type": "string" } },
+                "secrets": { "type": "array", "items": { "type": "string" } }
+              }
+            },
+            "routes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pattern": { "type": "string" },
+                  "zone": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "scaling": {
+          "type": "object",
+          "description": "Autoscaling configuration with scale-to-zero support",
+          "properties": {
+            "minInstances": { "type": "integer", "minimum": 0, "default": 0, "description": "Minimum instances (0 for scale-to-zero)" },
+            "maxInstances": { "type": "integer", "minimum": 1, "default": 100 },
+            "targetConcurrency": { "type": "integer", "minimum": 1, "default": 10 },
+            "scaleToZero": { "type": "boolean", "default": true },
+            "idleTimeoutMs": { "type": "integer", "default": 600000, "description": "Idle timeout before scaling to zero (ms)" },
+            "cooldownMs": { "type": "integer", "default": 60000 },
+            "regions": {
+              "type": "array",
+              "description": "Regional scaling overrides",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "region": { "type": "string" },
+                  "enabled": { "type": "boolean" },
+                  "minInstances": { "type": "integer" },
+                  "maxInstances": { "type": "integer" },
+                  "scaleToZero": { "type": "boolean" },
+                  "idleTimeoutMs": { "type": "integer" }
+                }
+              }
+            },
+            "preferredRegions": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Preferred regions for traffic routing"
+            },
+            "geoRouting": { "type": "boolean", "default": true }
+          }
+        },
+        "database": {
+          "type": "object",
+          "description": "CovenantSQL database configuration",
+          "properties": {
+            "type": { "type": "string", "enum": ["covenantsql", "d1", "none"] },
+            "name": { "type": "string" },
+            "consistency": { "type": "string", "enum": ["strong", "eventual"] },
+            "tables": { "type": "array", "items": { "type": "string" } }
+          }
+        },
+        "cdn": {
+          "type": "object",
+          "description": "CDN configuration for static assets",
+          "properties": {
+            "enabled": { "type": "boolean" },
+            "regions": { "type": "array", "items": { "type": "string" } },
+            "staticDir": { "type": "string" },
+            "cacheRules": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "pattern": { "type": "string" },
+                  "ttl": { "type": "integer" },
+                  "immutable": { "type": "boolean" },
+                  "staleWhileRevalidate": { "type": "integer" }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "decentralization": {
       "type": "object",
       "description": "Decentralized infrastructure configuration",

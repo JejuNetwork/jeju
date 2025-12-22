@@ -2,113 +2,113 @@
  * A2A Module - Agent-to-agent protocol client
  */
 
-import type { NetworkType } from '@jejunetwork/types'
-import type { ServicesConfig } from '../config'
+import type { NetworkType } from "@jejunetwork/types";
+import type { ServicesConfig } from "../config";
 import {
   A2AResponseSchema,
   A2AStreamMessageSchema,
   AgentCardSchema,
   AgentsListSchema,
   JNSRecordsResponseSchema,
-} from '../shared/schemas'
-import type { JsonRecord, JsonValue } from '../shared/types'
-import type { JejuWallet } from '../wallet'
+} from "../shared/schemas";
+import type { JsonRecord, JsonValue } from "../shared/types";
+import type { JejuWallet } from "../wallet";
 
 export interface AgentCard {
-  protocolVersion: string
-  name: string
-  description: string
-  url: string
-  provider: { organization: string; url: string }
-  version: string
+  protocolVersion: string;
+  name: string;
+  description: string;
+  url: string;
+  provider: { organization: string; url: string };
+  version: string;
   capabilities: {
-    streaming: boolean
-    pushNotifications: boolean
-    stateTransitionHistory: boolean
-  }
-  skills: AgentSkill[]
+    streaming: boolean;
+    pushNotifications: boolean;
+    stateTransitionHistory: boolean;
+  };
+  skills: AgentSkill[];
 }
 
 export interface AgentSkill {
-  id: string
-  name: string
-  description: string
-  tags: string[]
+  id: string;
+  name: string;
+  description: string;
+  tags: string[];
   inputSchema?: {
-    type: string
+    type: string;
     properties: Record<
       string,
       { type: string; description?: string; required?: boolean }
-    >
-    required?: string[]
-  }
-  outputs?: Record<string, string>
-  paymentRequired?: boolean
+    >;
+    required?: string[];
+  };
+  outputs?: Record<string, string>;
+  paymentRequired?: boolean;
 }
 
 export interface A2AMessage {
-  role: 'user' | 'agent'
+  role: "user" | "agent";
   parts: Array<{
-    kind: 'text' | 'data'
-    text?: string
-    data?: JsonRecord
-  }>
-  messageId: string
+    kind: "text" | "data";
+    text?: string;
+    data?: JsonRecord;
+  }>;
+  messageId: string;
 }
 
 export interface A2ARequest {
-  skillId: string
-  params?: JsonRecord
-  paymentHeader?: string
+  skillId: string;
+  params?: JsonRecord;
+  paymentHeader?: string;
 }
 
 export interface A2AResponse {
-  message: string
-  data: JsonRecord
-  error?: { code: number; message: string; data?: JsonValue }
+  message: string;
+  data: JsonRecord;
+  error?: { code: number; message: string; data?: JsonValue };
 }
 
 export interface DiscoveredAgent {
-  name: string
-  endpoint: string
-  card: AgentCard
-  jnsName?: string
-  skills: Array<{ id: string; name: string; description: string }>
+  name: string;
+  endpoint: string;
+  card: AgentCard;
+  jnsName?: string;
+  skills: Array<{ id: string; name: string; description: string }>;
 }
 
 export interface A2AModule {
   // Discovery
-  discover(endpoint: string): Promise<AgentCard>
-  discoverByJNS(name: string): Promise<DiscoveredAgent>
-  listKnownAgents(): Promise<DiscoveredAgent[]>
+  discover(endpoint: string): Promise<AgentCard>;
+  discoverByJNS(name: string): Promise<DiscoveredAgent>;
+  listKnownAgents(): Promise<DiscoveredAgent[]>;
 
   // Communication
-  call(endpoint: string, request: A2ARequest): Promise<A2AResponse>
+  call(endpoint: string, request: A2ARequest): Promise<A2AResponse>;
   callSkill(
     endpoint: string,
     skillId: string,
     params?: JsonRecord,
-  ): Promise<A2AResponse>
+  ): Promise<A2AResponse>;
 
   // network services shortcuts
-  callCompute(request: A2ARequest): Promise<A2AResponse>
-  callStorage(request: A2ARequest): Promise<A2AResponse>
-  callGateway(request: A2ARequest): Promise<A2AResponse>
-  callBazaar(request: A2ARequest): Promise<A2AResponse>
+  callCompute(request: A2ARequest): Promise<A2AResponse>;
+  callStorage(request: A2ARequest): Promise<A2AResponse>;
+  callGateway(request: A2ARequest): Promise<A2AResponse>;
+  callBazaar(request: A2ARequest): Promise<A2AResponse>;
 
   // Agent discovery
-  discoverAgents(tags?: string[]): Promise<DiscoveredAgent[]>
+  discoverAgents(tags?: string[]): Promise<DiscoveredAgent[]>;
 
   // Streaming
   stream(
     endpoint: string,
     request: A2ARequest,
     onMessage: (msg: A2AMessage) => void,
-  ): Promise<void>
+  ): Promise<void>;
 }
 
 // Maximum buffer size for SSE streaming (1MB)
-const MAX_STREAM_BUFFER_SIZE = 1024 * 1024
+const MAX_STREAM_BUFFER_SIZE = 1024 * 1024;
 
 export function createA2AModule(
   wallet: JejuWallet,
@@ -116,51 +116,52 @@ export function createA2AModule(
   services: ServicesConfig,
 ): A2AModule {
   // Use atomic counter pattern to avoid race conditions
-  let messageCounter = 0
+  let messageCounter = 0;
   const getNextMessageId = (): number => {
-    return ++messageCounter
-  }
+    return ++messageCounter;
+  };
 
   async function buildAuthHeaders(): Promise<Record<string, string>> {
-    const timestamp = Date.now().toString()
-    const message = `a2a:${timestamp}`
-    const signature = await wallet.signMessage(message)
+    const timestamp = Date.now().toString();
+    const message = `a2a:${timestamp}`;
+    const signature = await wallet.signMessage(message);
 
     return {
-      'Content-Type': 'application/json',
-      'x-jeju-address': wallet.address,
-      'x-jeju-timestamp': timestamp,
-      'x-jeju-signature': signature,
-    }
+      "Content-Type": "application/json",
+      "x-jeju-address": wallet.address,
+      "x-jeju-timestamp": timestamp,
+      "x-jeju-signature": signature,
+    };
   }
 
   async function discover(endpoint: string): Promise<AgentCard> {
-    const cardUrl = endpoint.endsWith('/')
+    const cardUrl = endpoint.endsWith("/")
       ? `${endpoint}.well-known/agent-card.json`
-      : `${endpoint}/.well-known/agent-card.json`
+      : `${endpoint}/.well-known/agent-card.json`;
 
-    const response = await fetch(cardUrl)
-    if (!response.ok) throw new Error(`Failed to discover agent at ${endpoint}`)
+    const response = await fetch(cardUrl);
+    if (!response.ok)
+      throw new Error(`Failed to discover agent at ${endpoint}`);
 
-    const rawData: unknown = await response.json()
-    return AgentCardSchema.parse(rawData)
+    const rawData: unknown = await response.json();
+    return AgentCardSchema.parse(rawData);
   }
 
   async function discoverByJNS(name: string): Promise<DiscoveredAgent> {
     // Resolve JNS to get A2A endpoint
-    const normalized = name.endsWith('.jeju') ? name : `${name}.jeju`
+    const normalized = name.endsWith(".jeju") ? name : `${name}.jeju`;
     const response = await fetch(
       `${services.gateway.api}/jns/records/${normalized}`,
-    )
+    );
 
-    if (!response.ok) throw new Error(`JNS name ${normalized} not found`)
+    if (!response.ok) throw new Error(`JNS name ${normalized} not found`);
 
-    const rawData: unknown = await response.json()
-    const records = JNSRecordsResponseSchema.parse(rawData)
+    const rawData: unknown = await response.json();
+    const records = JNSRecordsResponseSchema.parse(rawData);
     if (!records.a2aEndpoint)
-      throw new Error(`No A2A endpoint for ${normalized}`)
+      throw new Error(`No A2A endpoint for ${normalized}`);
 
-    const card = await discover(records.a2aEndpoint)
+    const card = await discover(records.a2aEndpoint);
 
     return {
       name: card.name,
@@ -172,41 +173,41 @@ export function createA2AModule(
         name: s.name,
         description: s.description,
       })),
-    }
+    };
   }
 
   async function listKnownAgents(): Promise<DiscoveredAgent[]> {
-    const response = await fetch(`${services.gateway.api}/a2a/agents`)
+    const response = await fetch(`${services.gateway.api}/a2a/agents`);
     if (!response.ok) {
-      throw new Error(`Failed to list known agents: ${response.statusText}`)
+      throw new Error(`Failed to list known agents: ${response.statusText}`);
     }
 
-    const rawData: unknown = await response.json()
-    const data = AgentsListSchema.parse(rawData)
-    return data.agents
+    const rawData: unknown = await response.json();
+    const data = AgentsListSchema.parse(rawData);
+    return data.agents;
   }
 
   async function call(
     endpoint: string,
     request: A2ARequest,
   ): Promise<A2AResponse> {
-    const headers = await buildAuthHeaders()
+    const headers = await buildAuthHeaders();
     if (request.paymentHeader) {
-      headers['x-payment'] = request.paymentHeader
+      headers["x-payment"] = request.paymentHeader;
     }
 
-    const msgId = getNextMessageId()
-    const messageId = `msg-${msgId}-${Date.now()}`
+    const msgId = getNextMessageId();
+    const messageId = `msg-${msgId}-${Date.now()}`;
 
     const body = {
-      jsonrpc: '2.0',
-      method: 'message/send',
+      jsonrpc: "2.0",
+      method: "message/send",
       params: {
         message: {
           messageId,
           parts: [
             {
-              kind: 'data',
+              kind: "data",
               data: {
                 skillId: request.skillId,
                 params: request.params ?? {},
@@ -216,39 +217,39 @@ export function createA2AModule(
         },
       },
       id: msgId,
-    }
+    };
 
-    const a2aUrl = endpoint.endsWith('/a2a') ? endpoint : `${endpoint}/a2a`
+    const a2aUrl = endpoint.endsWith("/a2a") ? endpoint : `${endpoint}/a2a`;
     const response = await fetch(a2aUrl, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: JSON.stringify(body),
-    })
+    });
 
-    const rawData: unknown = await response.json()
-    const result = A2AResponseSchema.parse(rawData)
+    const rawData: unknown = await response.json();
+    const result = A2AResponseSchema.parse(rawData);
 
     if (result.error) {
       if (result.error.code === 402) {
         return {
-          message: 'Payment required',
+          message: "Payment required",
           data: {},
           error: result.error,
-        }
+        };
       }
-      throw new Error(`A2A error: ${result.error.message}`)
+      throw new Error(`A2A error: ${result.error.message}`);
     }
 
     if (!result.result) {
-      throw new Error('A2A call returned no result')
+      throw new Error("A2A call returned no result");
     }
-    const textPart = result.result.parts.find((p) => p.kind === 'text')
-    const dataPart = result.result.parts.find((p) => p.kind === 'data')
+    const textPart = result.result.parts.find((p) => p.kind === "text");
+    const dataPart = result.result.parts.find((p) => p.kind === "data");
 
     return {
-      message: textPart?.text ?? '',
+      message: textPart?.text ?? "",
       data: (dataPart?.data ?? {}) as JsonRecord, // Empty object is valid for responses with no structured data
-    }
+    };
   }
 
   async function callSkill(
@@ -256,55 +257,55 @@ export function createA2AModule(
     skillId: string,
     params?: JsonRecord,
   ): Promise<A2AResponse> {
-    return call(endpoint, { skillId, params })
+    return call(endpoint, { skillId, params });
   }
 
   async function callCompute(request: A2ARequest): Promise<A2AResponse> {
-    return call(services.compute.nodeApi, request)
+    return call(services.compute.nodeApi, request);
   }
 
   async function callStorage(request: A2ARequest): Promise<A2AResponse> {
-    return call(services.storage.api, request)
+    return call(services.storage.api, request);
   }
 
   async function callGateway(request: A2ARequest): Promise<A2AResponse> {
-    return call(services.gateway.a2a, request)
+    return call(services.gateway.a2a, request);
   }
 
   async function callBazaar(request: A2ARequest): Promise<A2AResponse> {
-    return call(services.bazaar ?? `${services.gateway.api}/bazaar`, request)
+    return call(services.bazaar ?? `${services.gateway.api}/bazaar`, request);
   }
 
   async function discoverAgents(tags?: string[]): Promise<DiscoveredAgent[]> {
     // Query gateway for registered agents
     const response = await callGateway({
-      skillId: 'list-registered-apps',
+      skillId: "list-registered-apps",
       params: tags ? { tags } : {},
-    })
+    });
 
     if (!response.data || !Array.isArray(response.data.apps)) {
       throw new Error(
-        'Invalid response from list-registered-apps: expected apps array',
-      )
+        "Invalid response from list-registered-apps: expected apps array",
+      );
     }
     const apps = response.data.apps as Array<{
-      name: string
-      endpoint: string
-      jnsName?: string
-      metadata?: JsonRecord
-    }>
+      name: string;
+      endpoint: string;
+      jnsName?: string;
+      metadata?: JsonRecord;
+    }>;
 
     // Discover agent cards for each app
-    const agents: DiscoveredAgent[] = []
+    const agents: DiscoveredAgent[] = [];
     for (const app of apps.slice(0, 20)) {
       // Agent discovery can fail for individual agents without failing the whole list
       // Log the error but continue with other agents
       const card = await discover(app.endpoint).catch((err: Error) => {
         console.warn(
           `Failed to discover agent at ${app.endpoint}: ${err.message}`,
-        )
-        return null
-      })
+        );
+        return null;
+      });
       if (card) {
         agents.push({
           name: app.name,
@@ -316,11 +317,11 @@ export function createA2AModule(
             name: s.name,
             description: s.description,
           })),
-        })
+        });
       }
     }
 
-    return agents
+    return agents;
   }
 
   async function stream(
@@ -328,19 +329,19 @@ export function createA2AModule(
     request: A2ARequest,
     onMessage: (msg: A2AMessage) => void,
   ): Promise<void> {
-    const headers = await buildAuthHeaders()
-    const msgId = getNextMessageId()
-    const messageId = `msg-${msgId}-${Date.now()}`
+    const headers = await buildAuthHeaders();
+    const msgId = getNextMessageId();
+    const messageId = `msg-${msgId}-${Date.now()}`;
 
     const body = {
-      jsonrpc: '2.0',
-      method: 'message/stream',
+      jsonrpc: "2.0",
+      method: "message/stream",
       params: {
         message: {
           messageId,
           parts: [
             {
-              kind: 'data',
+              kind: "data",
               data: {
                 skillId: request.skillId,
                 params: request.params ?? {},
@@ -350,60 +351,60 @@ export function createA2AModule(
         },
       },
       id: msgId,
-    }
+    };
 
-    const a2aUrl = endpoint.endsWith('/a2a') ? endpoint : `${endpoint}/a2a`
+    const a2aUrl = endpoint.endsWith("/a2a") ? endpoint : `${endpoint}/a2a`;
     const response = await fetch(a2aUrl, {
-      method: 'POST',
+      method: "POST",
       headers,
       body: JSON.stringify(body),
-    })
+    });
 
-    if (!response.ok) throw new Error(`Stream failed: ${response.statusText}`)
-    if (!response.body) throw new Error('No response body')
+    if (!response.ok) throw new Error(`Stream failed: ${response.statusText}`);
+    if (!response.body) throw new Error("No response body");
 
-    const reader = response.body.getReader()
-    const decoder = new TextDecoder()
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
 
-    let buffer = ''
+    let buffer = "";
 
     while (true) {
-      const { done, value } = await reader.read()
-      if (done) break
+      const { done, value } = await reader.read();
+      if (done) break;
 
-      buffer += decoder.decode(value, { stream: true })
+      buffer += decoder.decode(value, { stream: true });
 
       // Prevent unbounded buffer growth (DoS protection)
       if (buffer.length > MAX_STREAM_BUFFER_SIZE) {
-        throw new Error('SSE stream buffer exceeded maximum size')
+        throw new Error("SSE stream buffer exceeded maximum size");
       }
 
       // Parse SSE events
-      const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
 
       for (const line of lines) {
-        if (line.startsWith('data: ')) {
-          const data = line.slice(6)
-          if (data === '[DONE]') return
+        if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (data === "[DONE]") return;
 
           // Safely parse JSON with error handling
-          let parsed: unknown
+          let parsed: unknown;
           try {
-            parsed = JSON.parse(data)
+            parsed = JSON.parse(data);
           } catch {
-            console.error('Invalid JSON in SSE stream, skipping message')
-            continue
+            console.error("Invalid JSON in SSE stream, skipping message");
+            continue;
           }
 
           // Validate with schema - use safeParse since individual messages may be malformed
-          const result = A2AStreamMessageSchema.safeParse(parsed)
+          const result = A2AStreamMessageSchema.safeParse(parsed);
           if (!result.success) {
-            console.error('Invalid A2A message format, skipping')
-            continue
+            console.error("Invalid A2A message format, skipping");
+            continue;
           }
 
-          onMessage(result.data as A2AMessage)
+          onMessage(result.data as A2AMessage);
         }
       }
     }
@@ -421,5 +422,5 @@ export function createA2AModule(
     callBazaar,
     discoverAgents,
     stream,
-  }
+  };
 }

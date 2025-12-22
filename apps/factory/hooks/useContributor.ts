@@ -1,5 +1,3 @@
-'use client'
-
 import type { Address } from 'viem'
 import { keccak256, parseAbi, toBytes } from 'viem'
 import {

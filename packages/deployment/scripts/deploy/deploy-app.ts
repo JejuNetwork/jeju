@@ -7,6 +7,7 @@ import { join } from 'node:path'
  * App Deployment Script
  */
 import { parseArgs } from 'node:util'
+import { getIpfsApiUrl } from '@jejunetwork/config/ports'
 import {
   type Address,
   createPublicClient,
@@ -142,7 +143,7 @@ Options:
 Environment:
   PRIVATE_KEY         Deployer private key
   RPC_URL             Network RPC URL
-  IPFS_API_URL        IPFS API URL (default: http://localhost:5001)
+  IPFS_API_URL        IPFS API URL (uses centralized config, default: 5001)
   JNS_REGISTRAR       JNS Registrar address
   JNS_RESOLVER        JNS Resolver address
   KEEPALIVE_REGISTRY  KeepaliveRegistry address
@@ -451,7 +452,7 @@ async function main() {
   }
 
   const rpcUrl = process.env.RPC_URL ?? 'http://localhost:6546'
-  const ipfsApiUrl = process.env.IPFS_API_URL ?? 'http://localhost:5001'
+  const ipfsApiUrl = getIpfsApiUrl()
   const jnsRegistrar = (process.env.JNS_REGISTRAR ?? '0x0') as Address
   const jnsResolver = (process.env.JNS_RESOLVER ?? '0x0') as Address
   const keepaliveRegistry = (process.env.KEEPALIVE_REGISTRY ?? '0x0') as Address

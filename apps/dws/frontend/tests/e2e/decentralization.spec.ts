@@ -11,6 +11,14 @@
  */
 
 import { expect, test } from '@playwright/test'
+import { z } from 'zod'
+import {
+  edgeNodesResponseSchema,
+  healthResponseSchema,
+  rpcChainsResponseSchema,
+  uploadResponseSchema,
+  validateResponse,
+} from './api-schemas'
 
 const dwsUrl = process.env.DWS_URL || 'http://127.0.0.1:4030'
 const frontendUrl = process.env.BASE_URL || 'http://127.0.0.1:4033'
@@ -21,25 +29,25 @@ const testWallet = {
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',
 }
 
+// RPC response schema
+const rpcResponseSchema = z.object({
+  jsonrpc: z.string(),
+  result: z.string(),
+  id: z.number(),
+})
+
 test.describe('DWS E2E - Decentralization Verification', () => {
   test('health endpoint shows decentralized status', async () => {
     const res = await fetch(`${dwsUrl}/health`)
     expect(res.status).toBe(200)
 
-    const health = (await res.json()) as {
-      decentralized: {
-        identityRegistry: string
-        registeredNodes: number
-        connectedPeers: number
-        frontendCid: string
-        p2pEnabled: boolean
-      }
-    }
+    const data = await res.json()
+    const health = validateResponse(data, healthResponseSchema, '/health')
 
     expect(health.decentralized).toBeDefined()
-    expect(health.decentralized.identityRegistry).toMatch(/^0x/)
-    expect(typeof health.decentralized.registeredNodes).toBe('number')
-    expect(typeof health.decentralized.connectedPeers).toBe('number')
+    expect(health.decentralized?.identityRegistry).toMatch(/^0x/)
+    expect(typeof health.decentralized?.registeredNodes).toBe('number')
+    expect(typeof health.decentralized?.connectedPeers).toBe('number')
   })
 
   test('storage returns content identifier', async () => {
@@ -56,7 +64,8 @@ test.describe('DWS E2E - Decentralization Verification', () => {
     })
     expect(uploadRes.status).toBe(200)
 
-    const { cid } = (await uploadRes.json()) as { cid: string }
+    const uploadData = await uploadRes.json()
+    const { cid } = validateResponse(uploadData, uploadResponseSchema, 'upload')
 
     // CID should be defined (could be IPFS CID or local ID)
     expect(cid).toBeDefined()
@@ -67,26 +76,28 @@ test.describe('DWS E2E - Decentralization Verification', () => {
     const res = await fetch(`${dwsUrl}/rpc/chains`)
     expect(res.status).toBe(200)
 
-    const data = (await res.json()) as {
-      chains: Array<{ chainId: number; name: string }>
-    }
+    const data = await res.json()
+    const { chains } = validateResponse(
+      data,
+      rpcChainsResponseSchema,
+      '/rpc/chains',
+    )
 
     // Should have chains array
-    expect(Array.isArray(data.chains)).toBe(true)
-    expect(data.chains.length).toBeGreaterThan(0)
+    expect(Array.isArray(chains)).toBe(true)
+    expect(chains.length).toBeGreaterThan(0)
   })
 
   test('edge nodes are distributed', async () => {
     const res = await fetch(`${dwsUrl}/edge/nodes`)
     expect(res.status).toBe(200)
 
-    const { nodes } = (await res.json()) as {
-      nodes: Array<{
-        id: string
-        region: string
-        status: string
-      }>
-    }
+    const data = await res.json()
+    const { nodes } = validateResponse(
+      data,
+      edgeNodesResponseSchema,
+      '/edge/nodes',
+    )
 
     expect(Array.isArray(nodes)).toBe(true)
 
@@ -132,20 +143,20 @@ test.describe('DWS E2E - On-Chain Integration', () => {
     })
 
     expect(res.status).toBe(200)
-    const data = (await res.json()) as { result: string }
-    expect(data.result).toBe('0x539') // 1337 in hex
+    const data = await res.json()
+    const result = validateResponse(data, rpcResponseSchema, 'eth_chainId')
+    expect(result.result).toBe('0x539') // 1337 in hex
   })
 
   test('localnet has identity registry configured', async () => {
     // Get health to find contract addresses
     const healthRes = await fetch(`${dwsUrl}/health`)
-    const health = (await healthRes.json()) as {
-      decentralized: { identityRegistry: string }
-    }
+    const data = await healthRes.json()
+    const health = validateResponse(data, healthResponseSchema, '/health')
 
     // Identity registry should be configured
-    expect(health.decentralized.identityRegistry).toBeDefined()
-    expect(health.decentralized.identityRegistry).toMatch(/^0x/)
+    expect(health.decentralized?.identityRegistry).toBeDefined()
+    expect(health.decentralized?.identityRegistry).toMatch(/^0x/)
   })
 })
 
@@ -171,18 +182,14 @@ test.describe('DWS E2E - Multi-Backend Storage', () => {
     const res = await fetch(`${dwsUrl}/health`)
     expect(res.status).toBe(200)
 
-    const health = (await res.json()) as {
-      backends: {
-        available: string[]
-        health: Record<string, { status: string }>
-      }
-    }
+    const data = await res.json()
+    const health = validateResponse(data, healthResponseSchema, '/health')
 
-    expect(health.backends.available).toBeDefined()
-    expect(Array.isArray(health.backends.available)).toBe(true)
+    expect(health.backends?.available).toBeDefined()
+    expect(Array.isArray(health.backends?.available)).toBe(true)
 
     // Should have at least memory backend
-    expect(health.backends.available.length).toBeGreaterThan(0)
+    expect(health.backends?.available?.length).toBeGreaterThan(0)
   })
 
   test('IPFS page shows decentralized storage', async ({ page }) => {

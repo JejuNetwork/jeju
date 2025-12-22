@@ -1,5 +1,11 @@
+import {
+  CORE_PORTS,
+  getCoreAppUrl,
+  getL2RpcUrl,
+  getExplorerUrl as getLocalnetExplorerUrl,
+} from '@jejunetwork/config/ports'
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import type { Address } from 'viem'
-import { ZERO_ADDRESS } from '../lib/contracts.js'
 
 // Network selection: NETWORK env var or default to testnet
 export type NetworkId = 'mainnet' | 'testnet' | 'localnet'
@@ -21,7 +27,7 @@ export const RPC_URLS = {
   420691: process.env.JEJU_RPC_URL || 'https://rpc.jejunetwork.org',
   420690:
     process.env.JEJU_TESTNET_RPC_URL || 'https://testnet-rpc.jejunetwork.org',
-  1337: process.env.LOCALNET_RPC_URL || 'http://localhost:6546',
+  1337: process.env.LOCALNET_RPC_URL || getL2RpcUrl(),
   // Mainnets
   1: process.env.ETHEREUM_RPC_URL || 'https://eth.llamarpc.com',
   42161: process.env.ARBITRUM_RPC_URL || 'https://arb1.arbitrum.io/rpc',
@@ -43,7 +49,7 @@ export const RPC_URLS = {
 export const EXPLORER_URLS = {
   420691: 'https://explorer.jejunetwork.org',
   420690: 'https://testnet-explorer.jejunetwork.org',
-  1337: 'http://localhost:4000',
+  1337: getLocalnetExplorerUrl(),
   1: 'https://etherscan.io',
   42161: 'https://arbiscan.io',
   10: 'https://optimistic.etherscan.io',
@@ -69,19 +75,20 @@ export const CHAINS = {
   421614: { name: 'Arbitrum Sepolia', shortName: 'ARB-SEP', isTestnet: true },
 } as const
 
-// Service URLs (defaults, can be overridden)
+// Service URLs (using centralized port config)
 export const SERVICES = {
-  rpcGateway: process.env.RPC_GATEWAY_URL || 'http://localhost:4004',
-  indexer: process.env.INDEXER_URL || 'http://127.0.0.1:4350/graphql',
-  ipfsApi: process.env.IPFS_API_URL || 'http://localhost:3100',
-  ipfsGateway: process.env.IPFS_GATEWAY_URL || 'http://localhost:3100',
+  rpcGateway: getCoreAppUrl('RPC_GATEWAY'),
+  indexer:
+    process.env.INDEXER_URL || `${getCoreAppUrl('INDEXER_GRAPHQL')}/graphql`,
+  ipfsApi: getCoreAppUrl('IPFS'),
+  ipfsGateway: getCoreAppUrl('IPFS'),
 } as const
 
-// Server ports (defaults)
+// Server ports (using centralized port config)
 export const PORTS = {
-  a2a: Number(process.env.A2A_PORT) || 4003,
-  websocket: Number(process.env.WS_PORT) || 4012,
-  rpc: Number(process.env.RPC_GATEWAY_PORT) || 4004,
+  a2a: CORE_PORTS.GATEWAY.get(),
+  websocket: Number(process.env.WS_PORT) || CORE_PORTS.RPC_GATEWAY.DEFAULT,
+  rpc: CORE_PORTS.RPC_GATEWAY.get(),
 } as const
 
 // Helper functions

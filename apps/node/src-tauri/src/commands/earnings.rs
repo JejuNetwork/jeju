@@ -1,9 +1,9 @@
 //! Earnings tracking commands
 
 use crate::state::AppState;
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use tauri::State;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EarningsSummary {
@@ -86,17 +86,15 @@ pub struct EarningsHistoryRequest {
 }
 
 #[tauri::command]
-pub async fn get_earnings_summary(
-    state: State<'_, AppState>,
-) -> Result<EarningsSummary, String> {
+pub async fn get_earnings_summary(state: State<'_, AppState>) -> Result<EarningsSummary, String> {
     let inner = state.inner.read();
-    
+
     // TODO: Aggregate earnings from:
     // 1. On-chain claims history
     // 2. Pending rewards from staking contracts
     // 3. Bot profits from trading history
     // 4. Local earnings tracker cache
-    
+
     Ok(EarningsSummary {
         total_earnings_wei: "0".to_string(),
         total_earnings_usd: 0.0,
@@ -119,11 +117,11 @@ pub async fn get_earnings_history(
     request: EarningsHistoryRequest,
 ) -> Result<Vec<EarningsHistoryEntry>, String> {
     let inner = state.inner.read();
-    
+
     // TODO: Query earnings history from:
     // 1. Local database
     // 2. On-chain events if needed
-    
+
     Ok(vec![])
 }
 
@@ -132,16 +130,16 @@ pub async fn get_projected_earnings(
     state: State<'_, AppState>,
 ) -> Result<ProjectedEarnings, String> {
     let inner = state.inner.read();
-    
+
     // Calculate projections based on:
     // 1. Current hardware capabilities
     // 2. Network demand
     // 3. Staking amounts
     // 4. Historical performance
-    
+
     let mut projections = vec![];
     let mut total_hourly = 0.0;
-    
+
     // Service projections
     for (service_id, config) in &inner.config.services {
         let hourly_rate = match service_id.as_str() {
@@ -156,9 +154,9 @@ pub async fn get_projected_earnings(
             "sequencer" if config.enabled => 0.50,
             _ => 0.0,
         };
-        
+
         total_hourly += hourly_rate;
-        
+
         projections.push(ServiceProjection {
             service_id: service_id.clone(),
             service_name: service_id.clone(),
@@ -171,7 +169,7 @@ pub async fn get_projected_earnings(
             ],
         });
     }
-    
+
     // Bot projections
     for (bot_id, config) in &inner.config.bots {
         if config.enabled {
@@ -184,9 +182,9 @@ pub async fn get_projected_earnings(
                 "solver" => 0.20,
                 _ => 0.0,
             };
-            
+
             total_hourly += hourly_rate;
-            
+
             projections.push(ServiceProjection {
                 service_id: format!("bot_{}", bot_id),
                 service_name: format!("{} Bot", bot_id),
@@ -200,7 +198,7 @@ pub async fn get_projected_earnings(
             });
         }
     }
-    
+
     Ok(ProjectedEarnings {
         hourly_usd: total_hourly,
         daily_usd: total_hourly * 24.0,
@@ -225,13 +223,12 @@ pub async fn export_earnings(
     end_timestamp: Option<i64>,
 ) -> Result<String, String> {
     let inner = state.inner.read();
-    
+
     // TODO: Export earnings data to file
     // 1. Query all earnings history
     // 2. Format as CSV or JSON
     // 3. Write to file in data directory
     // 4. Return file path
-    
+
     Err("Export not yet implemented".to_string())
 }
-

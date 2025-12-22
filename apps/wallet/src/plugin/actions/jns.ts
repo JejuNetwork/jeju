@@ -3,7 +3,8 @@
  * Register names, resolve, reverse lookup
  */
 
-import { expectNonEmpty, expectPositive } from '../../lib/validation'
+import { expectPositive } from '@jejunetwork/types'
+import { expectNonEmpty } from '../../lib/validation'
 import { jnsService } from '../../services'
 import type { ActionContext, ActionResult } from './wallet-info'
 

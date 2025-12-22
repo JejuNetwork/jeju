@@ -8,6 +8,7 @@ import {
   PROXY_REGISTRY_ABI,
   STORAGE_MARKET_ABI,
 } from '../abis'
+import { getContractAddresses } from '../contracts'
 
 describe('Storage ABIs', () => {
   describe('STORAGE_MARKET_ABI', () => {
@@ -104,12 +105,9 @@ describe('Storage ABIs', () => {
 })
 
 describe('Contract Addresses', () => {
-  it('exports ContractAddresses interface with contentRegistry', async () => {
-    // Dynamic import: Test may run before module is fully initialized
-    const contracts = await import('../contracts')
-
+  it('exports ContractAddresses interface with contentRegistry', () => {
     // Localnet should have all addresses
-    const addresses = contracts.getContractAddresses(1337)
+    const addresses = getContractAddresses(1337)
 
     expect(addresses.storageMarket).toBeDefined()
     expect(addresses.contentRegistry).toBeDefined()

@@ -10,7 +10,7 @@
  */
 
 import { beforeEach, describe, expect, test } from 'bun:test'
-import type { OpportunityExecutionResult } from '../autocrat-types'
+import type { OpportunityExecutionResult } from '../autocrat-types-source'
 import { DEFAULT_RISK_CONFIG, RiskManager } from './risk-manager'
 
 describe('RiskManager', () => {

@@ -31,12 +31,12 @@ import {
   waitForTransactionReceipt,
 } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
-import { inferChainFromRpcUrl } from '../shared/chain-utils'
 import {
+  type DeployerConfig,
   DeployerConfigSchema,
   expectJson,
-  type DeployerConfig,
 } from '../../schemas'
+import { inferChainFromRpcUrl } from '../shared/chain-utils'
 
 const ROOT = join(import.meta.dir, '../../../..')
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys')

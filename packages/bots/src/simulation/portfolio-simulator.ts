@@ -1,11 +1,5 @@
 /**
  * Portfolio Simulator
- *
- * Simulates a TFMM portfolio with:
- * - Weight evolution
- * - Swap execution
- * - Liquidity provision
- * - Fee accrual
  */
 
 import { OracleAggregator } from '../oracles'
@@ -17,7 +11,6 @@ import type {
 import { CompositeStrategy } from '../strategies/tfmm/composite-strategy'
 import type { OraclePrice, Token } from '../types'
 
-// Maximum history entries to prevent memory leaks
 const MAX_SWAP_HISTORY = 10000
 const MAX_WEIGHT_HISTORY = 10000
 
@@ -81,13 +74,9 @@ export class PortfolioSimulator {
     this.weightHistory.push({ block: 0, weights: [...initialWeights] })
   }
 
-  /**
-   * Advance simulation by one block
-   */
   advanceBlock(prices?: OraclePrice[]): void {
     this.currentBlock++
 
-    // Interpolate weights
     if (this.pool.blocksRemaining > 0) {
       for (let i = 0; i < this.pool.weights.length; i++) {
         this.pool.weights[i] += this.pool.weightDeltas[i]
@@ -95,29 +84,21 @@ export class PortfolioSimulator {
       this.pool.blocksRemaining--
 
       if (this.pool.blocksRemaining === 0) {
-        // Snap to target weights
         this.pool.weights = [...this.pool.targetWeights]
       }
     }
 
-    // Update price history
     if (prices) {
       this.strategy.updatePriceHistory(prices)
     }
   }
 
-  /**
-   * Advance multiple blocks
-   */
   advanceBlocks(count: number, prices?: OraclePrice[]): void {
     for (let i = 0; i < count; i++) {
       this.advanceBlock(prices)
     }
   }
 
-  /**
-   * Simulate a swap
-   */
   swap(
     tokenInSymbol: string,
     tokenOutSymbol: string,
@@ -139,12 +120,8 @@ export class PortfolioSimulator {
     const weightIn = this.pool.weights[inIndex]
     const weightOut = this.pool.weights[outIndex]
 
-    // Calculate fee
     const fee = (amountIn * BigInt(this.pool.swapFeeBps)) / BPS_PRECISION
     const amountInAfterFee = amountIn - fee
-
-    // Calculate output using weighted power function
-    // amountOut = balanceOut * (1 - (balanceIn / (balanceIn + amountInAfterFee)) ^ (weightIn / weightOut))
     const newBalanceIn = balanceIn + amountInAfterFee
     const ratio = (balanceIn * WEIGHT_PRECISION) / newBalanceIn
     const weightRatio = (weightIn * WEIGHT_PRECISION) / weightOut
@@ -152,15 +129,12 @@ export class PortfolioSimulator {
     const amountOut =
       (balanceOut * (WEIGHT_PRECISION - powerResult)) / WEIGHT_PRECISION
 
-    // Update balances
     this.pool.balances[inIndex] += amountIn
     this.pool.balances[outIndex] -= amountOut
 
-    // Accumulate protocol fee
     const protocolFee = (fee * BigInt(this.pool.protocolFeeBps)) / BPS_PRECISION
     this.pool.accumulatedFees[inIndex] += protocolFee
 
-    // Calculate slippage vs spot price
     const spotPrice = (balanceOut * weightIn) / (balanceIn * weightOut)
     const effectivePrice = amountOut / amountInAfterFee
     const slippage = Number(spotPrice - effectivePrice) / Number(spotPrice)
@@ -177,7 +151,6 @@ export class PortfolioSimulator {
 
     this.swapHistory.push(swap)
 
-    // Prevent unbounded memory growth
     if (this.swapHistory.length > MAX_SWAP_HISTORY) {
       this.swapHistory = this.swapHistory.slice(-MAX_SWAP_HISTORY)
     }
@@ -185,9 +158,6 @@ export class PortfolioSimulator {
     return swap
   }
 
-  /**
-   * Update pool weights using strategy
-   */
   async updateWeights(
     prices: OraclePrice[],
     blocksToTarget = 100,
@@ -218,15 +188,11 @@ export class PortfolioSimulator {
     return calculation
   }
 
-  /**
-   * Apply new weight targets
-   */
   applyWeightUpdate(newWeights: bigint[], blocksToTarget: number): void {
     this.pool.targetWeights = [...newWeights]
     this.pool.blocksRemaining = blocksToTarget
     this.pool.lastUpdateBlock = this.currentBlock
 
-    // Calculate deltas
     for (let i = 0; i < newWeights.length; i++) {
       this.pool.weightDeltas[i] =
         (newWeights[i] - this.pool.weights[i]) / BigInt(blocksToTarget)
@@ -237,15 +203,11 @@ export class PortfolioSimulator {
       weights: [...newWeights],
     })
 
-    // Prevent unbounded memory growth
     if (this.weightHistory.length > MAX_WEIGHT_HISTORY) {
       this.weightHistory = this.weightHistory.slice(-MAX_WEIGHT_HISTORY)
     }
   }
 
-  /**
-   * Add liquidity proportionally
-   */
   addLiquidity(amounts: bigint[]): bigint {
     let minRatio = WEIGHT_PRECISION
 
@@ -256,21 +218,16 @@ export class PortfolioSimulator {
       }
     }
 
-    // Add to balances
     for (let i = 0; i < amounts.length; i++) {
       this.pool.balances[i] += amounts[i]
     }
 
-    // Mint LP tokens
     const lpTokens = (this.pool.totalLpTokens * minRatio) / WEIGHT_PRECISION
     this.pool.totalLpTokens += lpTokens
 
     return lpTokens
   }
 
-  /**
-   * Remove liquidity proportionally
-   */
   removeLiquidity(lpTokens: bigint): bigint[] {
     const share = (lpTokens * WEIGHT_PRECISION) / this.pool.totalLpTokens
     const amounts: bigint[] = []
@@ -285,37 +242,22 @@ export class PortfolioSimulator {
     return amounts
   }
 
-  /**
-   * Get current pool state
-   */
   getState(): SimulatedPool {
     return { ...this.pool }
   }
 
-  /**
-   * Get current weights (interpolated)
-   */
   getCurrentWeights(): bigint[] {
     return [...this.pool.weights]
   }
 
-  /**
-   * Get swap history
-   */
   getSwapHistory(): SimulatedSwap[] {
     return [...this.swapHistory]
   }
 
-  /**
-   * Get weight history
-   */
   getWeightHistory(): { block: number; weights: bigint[] }[] {
     return [...this.weightHistory]
   }
 
-  /**
-   * Calculate spot price
-   */
   getSpotPrice(tokenIn: string, tokenOut: string): bigint {
     const inIndex = this.pool.tokens.findIndex((t) => t.symbol === tokenIn)
     const outIndex = this.pool.tokens.findIndex((t) => t.symbol === tokenOut)
@@ -368,11 +310,8 @@ export class PortfolioSimulator {
   }
 
   private power(base: bigint, exp: bigint): bigint {
-    // Approximation for (base/PRECISION)^(exp/PRECISION)
     if (base >= WEIGHT_PRECISION) return WEIGHT_PRECISION
-
     const x = WEIGHT_PRECISION - base
-    // Linear approximation: (1-x)^n ≈ 1 - n*x for small x
     return WEIGHT_PRECISION - (x * exp) / WEIGHT_PRECISION
   }
 }

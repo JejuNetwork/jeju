@@ -11,7 +11,7 @@
  * All data is read from on-chain contracts, no centralized database.
  */
 
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import type { Address, Hex } from 'viem'
 import { createPublicClient, http, parseAbi } from 'viem'
 
@@ -327,8 +327,8 @@ function getConfig(): FundingConfig {
 
 // ============ Router ============
 
-export function createFundingRouter(): Hono {
-  const router = new Hono()
+export function createFundingRouter() {
+  const router = new Elysia({ name: 'funding', prefix: '/funding' })
   const config = getConfig()
 
   const publicClient = createPublicClient({
@@ -337,262 +337,271 @@ export function createFundingRouter(): Hono {
 
   // ============ DAO Routes ============
 
-  router.get('/daos', async (c) => {
+  router.get('/daos', async () => {
     const daoIds = await publicClient.readContract({
       address: config.contracts.daoRegistry,
       abi: DAO_REGISTRY_ABI,
       functionName: 'getAllDAOs',
     })
-    return c.json({ daoIds })
+    return { daoIds }
   })
 
-  router.get('/daos/:daoId', async (c) => {
-    const daoId = c.req.param('daoId') as Hex
+  router.get('/daos/:daoId', async ({ params }) => {
+    const daoId = params.daoId as Hex
     const dao = await publicClient.readContract({
       address: config.contracts.daoRegistry,
       abi: DAO_REGISTRY_ABI,
       functionName: 'getDAO',
       args: [daoId],
     })
-    return c.json(dao)
+    return dao
   })
 
-  router.get('/daos/:daoId/council', async (c) => {
-    const daoId = c.req.param('daoId') as Hex
+  router.get('/daos/:daoId/council', async ({ params }) => {
+    const daoId = params.daoId as Hex
     const members = await publicClient.readContract({
       address: config.contracts.daoRegistry,
       abi: DAO_REGISTRY_ABI,
       functionName: 'getCouncilMembers',
       args: [daoId],
     })
-    return c.json({ members })
+    return { members }
   })
 
   // ============ Pool & Epoch Routes ============
 
-  router.get('/daos/:daoId/pool', async (c) => {
-    const daoId = c.req.param('daoId') as Hex
+  router.get('/daos/:daoId/pool', async ({ params }) => {
+    const daoId = params.daoId as Hex
     const pool = await publicClient.readContract({
       address: config.contracts.deepFundingDistributor,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getDAOPool',
       args: [daoId],
     })
-    return c.json(pool)
+    return pool
   })
 
-  router.get('/daos/:daoId/epoch', async (c) => {
-    const daoId = c.req.param('daoId') as Hex
+  router.get('/daos/:daoId/epoch', async ({ params }) => {
+    const daoId = params.daoId as Hex
     const epoch = await publicClient.readContract({
       address: config.contracts.deepFundingDistributor,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getCurrentEpoch',
       args: [daoId],
     })
-    return c.json(epoch)
+    return epoch
   })
 
-  router.get('/daos/:daoId/epoch/:epochId/votes', async (c) => {
-    const daoId = c.req.param('daoId') as Hex
-    const epochId = BigInt(c.req.param('epochId'))
+  router.get('/daos/:daoId/epoch/:epochId/votes', async ({ params }) => {
+    const daoId = params.daoId as Hex
+    const epochId = BigInt(params.epochId)
     const votes = await publicClient.readContract({
       address: config.contracts.deepFundingDistributor,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getEpochVotes',
       args: [daoId, epochId],
     })
-    return c.json({ votes })
+    return { votes }
   })
 
-  router.get('/daos/:daoId/config', async (c) => {
-    const daoId = c.req.param('daoId') as Hex
+  router.get('/daos/:daoId/config', async ({ params }) => {
+    const daoId = params.daoId as Hex
     const config_ = await publicClient.readContract({
       address: config.contracts.deepFundingDistributor,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getDAOConfig',
       args: [daoId],
     })
-    return c.json(config_)
+    return config_
   })
 
-  router.get('/config/default', async (c) => {
+  router.get('/config/default', async () => {
     const defaultConfig = await publicClient.readContract({
       address: config.contracts.deepFundingDistributor,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'defaultConfig',
     })
-    return c.json(defaultConfig)
+    return defaultConfig
   })
 
   // ============ Contributor Routes ============
 
-  router.get('/contributors', async (c) => {
+  router.get('/contributors', async () => {
     const contributorIds = await publicClient.readContract({
       address: config.contracts.contributorRegistry,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getAllContributors',
     })
-    return c.json({ contributorIds })
+    return { contributorIds }
   })
 
-  router.get('/contributors/count', async (c) => {
+  router.get('/contributors/count', async () => {
     const count = await publicClient.readContract({
       address: config.contracts.contributorRegistry,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getContributorCount',
     })
-    return c.json({ count: count.toString() })
+    return { count: count.toString() }
   })
 
-  router.get('/contributors/:contributorId', async (c) => {
-    const contributorId = c.req.param('contributorId') as Hex
+  router.get('/contributors/:contributorId', async ({ params }) => {
+    const contributorId = params.contributorId as Hex
     const contributor = await publicClient.readContract({
       address: config.contracts.contributorRegistry,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getContributor',
       args: [contributorId],
     })
-    return c.json(contributor)
+    return contributor
   })
 
-  router.get('/contributors/wallet/:wallet', async (c) => {
-    const wallet = c.req.param('wallet') as Address
+  router.get('/contributors/wallet/:wallet', async ({ params }) => {
+    const wallet = params.wallet as Address
     const contributor = await publicClient.readContract({
       address: config.contracts.contributorRegistry,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getContributorByWallet',
       args: [wallet],
     })
-    return c.json(contributor)
+    return contributor
   })
 
-  router.get('/contributors/:contributorId/social', async (c) => {
-    const contributorId = c.req.param('contributorId') as Hex
+  router.get('/contributors/:contributorId/social', async ({ params }) => {
+    const contributorId = params.contributorId as Hex
     const links = await publicClient.readContract({
       address: config.contracts.contributorRegistry,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getSocialLinks',
       args: [contributorId],
     })
-    return c.json({ links })
+    return { links }
   })
 
-  router.get('/contributors/:contributorId/repos', async (c) => {
-    const contributorId = c.req.param('contributorId') as Hex
+  router.get('/contributors/:contributorId/repos', async ({ params }) => {
+    const contributorId = params.contributorId as Hex
     const claims = await publicClient.readContract({
       address: config.contracts.contributorRegistry,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getRepositoryClaims',
       args: [contributorId],
     })
-    return c.json({ claims })
+    return { claims }
   })
 
-  router.get('/contributors/:contributorId/deps', async (c) => {
-    const contributorId = c.req.param('contributorId') as Hex
+  router.get('/contributors/:contributorId/deps', async ({ params }) => {
+    const contributorId = params.contributorId as Hex
     const claims = await publicClient.readContract({
       address: config.contracts.contributorRegistry,
       abi: CONTRIBUTOR_REGISTRY_ABI,
       functionName: 'getDependencyClaims',
       args: [contributorId],
     })
-    return c.json({ claims })
+    return { claims }
   })
 
-  router.get('/contributors/:contributorId/github-verified', async (c) => {
-    const contributorId = c.req.param('contributorId') as Hex
-    const verified = await publicClient.readContract({
-      address: config.contracts.contributorRegistry,
-      abi: CONTRIBUTOR_REGISTRY_ABI,
-      functionName: 'isVerifiedGitHub',
-      args: [contributorId],
-    })
-    return c.json({ verified })
-  })
+  router.get(
+    '/contributors/:contributorId/github-verified',
+    async ({ params }) => {
+      const contributorId = params.contributorId as Hex
+      const verified = await publicClient.readContract({
+        address: config.contracts.contributorRegistry,
+        abi: CONTRIBUTOR_REGISTRY_ABI,
+        functionName: 'isVerifiedGitHub',
+        args: [contributorId],
+      })
+      return { verified }
+    },
+  )
 
-  router.get('/contributors/:contributorId/rewards/:daoId', async (c) => {
-    const contributorId = c.req.param('contributorId') as Hex
-    const daoId = c.req.param('daoId') as Hex
-    const rewards = await publicClient.readContract({
-      address: config.contracts.deepFundingDistributor,
-      abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
-      functionName: 'getPendingContributorRewards',
-      args: [daoId, contributorId],
-    })
-    return c.json({ rewards: rewards.toString() })
-  })
+  router.get(
+    '/contributors/:contributorId/rewards/:daoId',
+    async ({ params }) => {
+      const contributorId = params.contributorId as Hex
+      const daoId = params.daoId as Hex
+      const rewards = await publicClient.readContract({
+        address: config.contracts.deepFundingDistributor,
+        abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
+        functionName: 'getPendingContributorRewards',
+        args: [daoId, contributorId],
+      })
+      return { rewards: rewards.toString() }
+    },
+  )
 
   // ============ Payment Request Routes ============
 
-  router.get('/daos/:daoId/payment-requests', async (c) => {
-    const daoId = c.req.param('daoId') as Hex
+  router.get('/daos/:daoId/payment-requests', async ({ params }) => {
+    const daoId = params.daoId as Hex
     const requests = await publicClient.readContract({
       address: config.contracts.paymentRequestRegistry,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'getPendingRequests',
       args: [daoId],
     })
-    return c.json({ requests })
+    return { requests }
   })
 
-  router.get('/payment-requests/:requestId', async (c) => {
-    const requestId = c.req.param('requestId') as Hex
+  router.get('/payment-requests/:requestId', async ({ params }) => {
+    const requestId = params.requestId as Hex
     const request = await publicClient.readContract({
       address: config.contracts.paymentRequestRegistry,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'getRequest',
       args: [requestId],
     })
-    return c.json(request)
+    return request
   })
 
-  router.get('/payment-requests/:requestId/votes', async (c) => {
-    const requestId = c.req.param('requestId') as Hex
+  router.get('/payment-requests/:requestId/votes', async ({ params }) => {
+    const requestId = params.requestId as Hex
     const votes = await publicClient.readContract({
       address: config.contracts.paymentRequestRegistry,
       abi: PAYMENT_REQUEST_REGISTRY_ABI,
       functionName: 'getCouncilVotes',
       args: [requestId],
     })
-    return c.json({ votes })
+    return { votes }
   })
 
-  router.get('/payment-requests/:requestId/ceo-decision', async (c) => {
-    const requestId = c.req.param('requestId') as Hex
-    const decision = await publicClient.readContract({
-      address: config.contracts.paymentRequestRegistry,
-      abi: PAYMENT_REQUEST_REGISTRY_ABI,
-      functionName: 'getCEODecision',
-      args: [requestId],
-    })
-    return c.json(decision)
-  })
+  router.get(
+    '/payment-requests/:requestId/ceo-decision',
+    async ({ params }) => {
+      const requestId = params.requestId as Hex
+      const decision = await publicClient.readContract({
+        address: config.contracts.paymentRequestRegistry,
+        abi: PAYMENT_REQUEST_REGISTRY_ABI,
+        functionName: 'getCEODecision',
+        args: [requestId],
+      })
+      return decision
+    },
+  )
 
   // ============ Dependency Routes ============
 
-  router.get('/daos/:daoId/dependencies/:depHash', async (c) => {
-    const daoId = c.req.param('daoId') as Hex
-    const depHash = c.req.param('depHash') as Hex
+  router.get('/daos/:daoId/dependencies/:depHash', async ({ params }) => {
+    const daoId = params.daoId as Hex
+    const depHash = params.depHash as Hex
     const share = await publicClient.readContract({
       address: config.contracts.deepFundingDistributor,
       abi: DEEP_FUNDING_DISTRIBUTOR_ABI,
       functionName: 'getDependencyShare',
       args: [daoId, depHash],
     })
-    return c.json(share)
+    return share
   })
 
   // ============ Health ============
 
-  router.get('/health', async (c) => {
+  router.get('/health', async () => {
     const blockNumber = await publicClient.getBlockNumber()
-    return c.json({
+    return {
       status: 'ok',
       network: process.env.NETWORK || 'localnet',
       rpcUrl: config.rpcUrl,
       blockNumber: blockNumber.toString(),
       contracts: config.contracts,
-    })
+    }
   })
 
   return router

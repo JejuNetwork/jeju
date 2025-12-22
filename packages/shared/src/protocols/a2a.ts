@@ -102,71 +102,73 @@ export function createA2AServer(config: A2AConfig) {
     skills: config.skills,
   }
 
-  return new Elysia()
-    .use(cors())
-    // Agent card discovery
-    .get('/.well-known/agent-card.json', () => agentCard)
+  return (
+    new Elysia()
+      .use(cors())
+      // Agent card discovery
+      .get('/.well-known/agent-card.json', () => agentCard)
 
-    // Main A2A endpoint
-    .post('/', async ({ body, headers, set }) => {
-      const parseResult = A2ARequestSchema.safeParse(body)
+      // Main A2A endpoint
+      .post('/', async ({ body, headers, set }) => {
+        const parseResult = A2ARequestSchema.safeParse(body)
 
-      if (!parseResult.success) {
-        set.status = 400
-        return {
-          jsonrpc: '2.0',
-          id: 0,
-          error: { code: -32600, message: 'Invalid request format' },
+        if (!parseResult.success) {
+          set.status = 400
+          return {
+            jsonrpc: '2.0',
+            id: 0,
+            error: { code: -32600, message: 'Invalid request format' },
+          }
         }
-      }
 
-      const requestBody = parseResult.data
-      const address = headers['x-jeju-address'] as Address
+        const requestBody = parseResult.data
+        const address = headers['x-jeju-address'] as Address
 
-      if (requestBody.method !== 'message/send') {
+        if (requestBody.method !== 'message/send') {
+          return {
+            jsonrpc: '2.0',
+            id: requestBody.id,
+            error: { code: -32601, message: 'Method not found' },
+          }
+        }
+
+        if (!address) {
+          return {
+            jsonrpc: '2.0',
+            id: requestBody.id,
+            error: { code: 401, message: 'Authentication required' },
+          }
+        }
+
+        const dataPart = requestBody.params?.message?.parts?.find(
+          (p) => p.kind === 'data',
+        )
+        if (!dataPart?.data) {
+          return {
+            jsonrpc: '2.0',
+            id: requestBody.id,
+            error: { code: -32602, message: 'No data part found in message' },
+          }
+        }
+        const skillId = dataPart.data.skillId as string
+        const params = dataPart.data as ProtocolData
+
+        const result = await config.executeSkill(skillId, params, address)
+
         return {
           jsonrpc: '2.0',
           id: requestBody.id,
-          error: { code: -32601, message: 'Method not found' },
+          result: {
+            role: 'agent',
+            parts: [
+              { kind: 'text', text: result.message },
+              { kind: 'data', data: result.data },
+            ],
+            messageId:
+              requestBody.params?.message?.messageId ?? `msg-${Date.now()}`,
+            kind: 'message',
+          },
         }
-      }
-
-      if (!address) {
-        return {
-          jsonrpc: '2.0',
-          id: requestBody.id,
-          error: { code: 401, message: 'Authentication required' },
-        }
-      }
-
-      const dataPart = requestBody.params?.message?.parts?.find(
-        (p) => p.kind === 'data',
-      )
-      if (!dataPart?.data) {
-        return {
-          jsonrpc: '2.0',
-          id: requestBody.id,
-          error: { code: -32602, message: 'No data part found in message' },
-        }
-      }
-      const skillId = dataPart.data.skillId as string
-      const params = dataPart.data as ProtocolData
-
-      const result = await config.executeSkill(skillId, params, address)
-
-      return {
-        jsonrpc: '2.0',
-        id: requestBody.id,
-        result: {
-          role: 'agent',
-          parts: [
-            { kind: 'text', text: result.message },
-            { kind: 'data', data: result.data },
-          ],
-          messageId:
-            requestBody.params?.message?.messageId ?? `msg-${Date.now()}`,
-          kind: 'message',
-        },
-      }
-    })
+      })
+  )
 }

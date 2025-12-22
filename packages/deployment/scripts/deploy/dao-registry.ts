@@ -23,9 +23,9 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import {
+  type DAODeploymentConfig,
   DAODeploymentConfigSchema,
   expectJson,
-  type DAODeploymentConfig,
 } from '../../schemas'
 
 interface DAOCreateParams {
@@ -191,7 +191,11 @@ async function loadDeployment(
   )
   const content = await readFile(path, 'utf-8').catch(() => null)
   return content
-    ? expectJson(content, DAODeploymentConfigSchema, `deployment config ${network}`)
+    ? expectJson(
+        content,
+        DAODeploymentConfigSchema,
+        `deployment config ${network}`,
+      )
     : null
 }
 

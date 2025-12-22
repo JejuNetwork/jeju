@@ -53,8 +53,7 @@ describe('AddressSchema - Ethereum Address Validation', () => {
     expect(result.success).toBe(true)
   })
 
-  test('should reject all-uppercase address (not EIP-55 checksummed)', () => {
-    // All-uppercase addresses fail EIP-55 checksum validation
+  test('should reject all-uppercase address (not valid checksum)', () => {
     const result = AddressSchema.safeParse(
       '0xF39FD6E51AAD88F6F4CE6AB8827279CFFFB92266',
     )
@@ -1010,12 +1009,18 @@ describe('Schema Edge Cases', () => {
     expect(result).toBe(1)
   })
 
-  test('AddressSchema rejects improperly checksummed mixed case', () => {
-    // Mixed-case addresses must be properly EIP-55 checksummed
+  test('AddressSchema should reject invalid checksum mixed case', () => {
     const result = AddressSchema.safeParse(
       '0xAaBbCcDdEeFf0011223344556677889900aAbBcC',
     )
     expect(result.success).toBe(false)
+  })
+
+  test('AddressSchema should accept all lowercase', () => {
+    const result = AddressSchema.safeParse(
+      '0xaabbccddeeff0011223344556677889900aabbcc',
+    )
+    expect(result.success).toBe(true)
   })
 
   test('should handle empty warmup routes array', () => {

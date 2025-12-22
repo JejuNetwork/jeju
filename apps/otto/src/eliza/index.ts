@@ -152,6 +152,5 @@ export const ottoProject = {
   agents: [ottoAgent],
 }
 
-// Re-export plugin
 export { ottoPlugin } from './plugin'
 export default ottoCharacter

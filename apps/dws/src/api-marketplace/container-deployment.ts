@@ -3,13 +3,10 @@
  * Allows users to deploy their own API services as containers or workers
  */
 
+import type { DeploymentStatus } from '@jejunetwork/types'
 import type { Address } from 'viem'
 
 export type DeploymentType = 'container' | 'worker' | 'serverless'
-
-// Re-export consolidated DeploymentStatus
-import type { DeploymentStatus } from '@jejunetwork/types'
-export type { DeploymentStatus }
 
 export interface ContainerSpec {
   image: string // Container image or code bundle CID

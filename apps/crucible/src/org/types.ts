@@ -4,10 +4,7 @@
  * Type definitions for decentralized organization management.
  */
 
-// Re-export consolidated TodoStatus
 import type { TodoStatus } from '@jejunetwork/types'
-export type { TodoStatus }
-
 import type { Address } from 'viem'
 import type { JsonObject } from '../types'
 
@@ -16,7 +13,6 @@ import type { JsonObject } from '../types'
 // =============================================================================
 
 export type TodoPriority = 'low' | 'medium' | 'high' | 'urgent'
-// TodoStatus is imported from @jejunetwork/types above
 
 export interface Todo {
   id: string

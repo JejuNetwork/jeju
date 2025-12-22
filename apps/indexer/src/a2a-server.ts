@@ -5,8 +5,9 @@
  * Provides indexed blockchain data via A2A protocol.
  */
 
-import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
+import { validateOrThrow } from '@jejunetwork/types'
+import { Elysia } from 'elysia'
 import {
   buildAccountQuery,
   buildAgentQuery,
@@ -40,7 +41,6 @@ import {
   getTransactionSkillSchema,
   type JsonValue,
   validateBody,
-  validateOrThrow,
 } from './lib/validation'
 
 // Local agent card creator (avoids React dependency from shared package)
@@ -577,12 +577,16 @@ export function createIndexerA2AServer() {
     )
     // SECURITY: Global error handler for JSON parse errors and other exceptions
     .onError(({ error, set }) => {
-      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
       const errorName = error instanceof Error ? error.name : 'Error'
       console.error('[A2A] Error:', errorMessage)
 
       // Handle JSON parse errors
-      if (errorMessage.includes('JSON') || errorMessage.includes('Unexpected')) {
+      if (
+        errorMessage.includes('JSON') ||
+        errorMessage.includes('Unexpected')
+      ) {
         set.status = 400
         return {
           jsonrpc: '2.0',
@@ -592,7 +596,10 @@ export function createIndexerA2AServer() {
       }
 
       // Handle validation errors
-      if (errorMessage.includes('Validation') || errorName === 'BadRequestError') {
+      if (
+        errorMessage.includes('Validation') ||
+        errorName === 'BadRequestError'
+      ) {
         set.status = 400
         return {
           jsonrpc: '2.0',
@@ -626,7 +633,10 @@ export function createIndexerA2AServer() {
       if (path === '/' || path === '/.well-known/agent-card.json') return
 
       // Use IP or Agent ID for rate limiting
-      const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      const forwarded = request.headers
+        .get('x-forwarded-for')
+        ?.split(',')[0]
+        ?.trim()
       const agentId = request.headers.get('x-agent-id')
       const clientKey = agentId
         ? `agent:${agentId}`
@@ -644,7 +654,9 @@ export function createIndexerA2AServer() {
       set.headers['X-RateLimit-Remaining'] = String(
         Math.max(0, A2A_RATE_LIMIT - record.count),
       )
-      set.headers['X-RateLimit-Reset'] = String(Math.ceil(record.resetAt / 1000))
+      set.headers['X-RateLimit-Reset'] = String(
+        Math.ceil(record.resetAt / 1000),
+      )
 
       if (record.count > A2A_RATE_LIMIT) {
         set.status = 429

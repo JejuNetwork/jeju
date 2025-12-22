@@ -1,0 +1,11 @@
+# Clippy configuration
+# https://rust-lang.github.io/rust-clippy/master/index.html
+
+# Allow complex types in certain contexts (common in Tauri)
+type-complexity-threshold = 500
+
+# Allow many arguments for certain functions
+too-many-arguments-threshold = 10
+
+# Allow larger error types
+large-error-threshold = 256

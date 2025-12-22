@@ -6,7 +6,13 @@
  * Outputs JSON for CI integration - no blocking windows.
  */
 
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  statSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { execa } from 'execa'
 
@@ -40,7 +46,10 @@ interface CoverageReport {
 function findMonorepoRoot(): string {
   let dir = process.cwd()
   while (dir !== '/') {
-    if (existsSync(join(dir, 'bun.lock')) && existsSync(join(dir, 'packages'))) {
+    if (
+      existsSync(join(dir, 'bun.lock')) &&
+      existsSync(join(dir, 'packages'))
+    ) {
       return dir
     }
     dir = join(dir, '..')
@@ -63,7 +72,9 @@ async function runPackageTests(
     readdirSync(packagePath, { recursive: true }).some(
       (f) =>
         typeof f === 'string' &&
-        (f.includes('.test.') || f.includes('.spec.') || f.includes('__tests__')),
+        (f.includes('.test.') ||
+          f.includes('.spec.') ||
+          f.includes('__tests__')),
     )
 
   if (!hasTests) {
@@ -85,7 +96,7 @@ async function runPackageTests(
       },
       timeout: 120000,
     })
-  } catch (error) {
+  } catch (_error) {
     // Tests may fail but still generate coverage
     console.log(`  Tests completed (some may have failed)`)
   }
@@ -136,7 +147,9 @@ function parseLcov(lcovPath: string, packageName: string): PackageCoverage {
       coveredLines += currentFile.lines.covered
       currentFile.lines.percent =
         currentFile.lines.total > 0
-          ? Math.round((currentFile.lines.covered / currentFile.lines.total) * 100)
+          ? Math.round(
+              (currentFile.lines.covered / currentFile.lines.total) * 100,
+            )
           : 0
     } else if (line.startsWith('FNF:') && currentFile) {
       currentFile.functions.total = parseInt(line.substring(4), 10)
@@ -146,7 +159,10 @@ function parseLcov(lcovPath: string, packageName: string): PackageCoverage {
       coveredFunctions += currentFile.functions.covered
       currentFile.functions.percent =
         currentFile.functions.total > 0
-          ? Math.round((currentFile.functions.covered / currentFile.functions.total) * 100)
+          ? Math.round(
+              (currentFile.functions.covered / currentFile.functions.total) *
+                100,
+            )
           : 0
     } else if (line.startsWith('BRF:') && currentFile) {
       currentFile.branches.total = parseInt(line.substring(4), 10)
@@ -156,7 +172,9 @@ function parseLcov(lcovPath: string, packageName: string): PackageCoverage {
       coveredBranches += currentFile.branches.covered
       currentFile.branches.percent =
         currentFile.branches.total > 0
-          ? Math.round((currentFile.branches.covered / currentFile.branches.total) * 100)
+          ? Math.round(
+              (currentFile.branches.covered / currentFile.branches.total) * 100,
+            )
           : 0
     } else if (line === 'end_of_record' && currentFile) {
       files.push(currentFile)
@@ -169,19 +187,24 @@ function parseLcov(lcovPath: string, packageName: string): PackageCoverage {
     lines: {
       total: totalLines,
       covered: coveredLines,
-      percent: totalLines > 0 ? Math.round((coveredLines / totalLines) * 100) : 0,
+      percent:
+        totalLines > 0 ? Math.round((coveredLines / totalLines) * 100) : 0,
     },
     functions: {
       total: totalFunctions,
       covered: coveredFunctions,
       percent:
-        totalFunctions > 0 ? Math.round((coveredFunctions / totalFunctions) * 100) : 0,
+        totalFunctions > 0
+          ? Math.round((coveredFunctions / totalFunctions) * 100)
+          : 0,
     },
     branches: {
       total: totalBranches,
       covered: coveredBranches,
       percent:
-        totalBranches > 0 ? Math.round((coveredBranches / totalBranches) * 100) : 0,
+        totalBranches > 0
+          ? Math.round((coveredBranches / totalBranches) * 100)
+          : 0,
     },
     files,
   }
@@ -199,7 +222,8 @@ async function main() {
   const packages = readdirSync(packagesDir).filter((p) => {
     const pkgPath = join(packagesDir, p)
     return (
-      statSync(pkgPath).isDirectory() && existsSync(join(pkgPath, 'package.json'))
+      statSync(pkgPath).isDirectory() &&
+      existsSync(join(pkgPath, 'package.json'))
     )
   })
 
@@ -210,7 +234,9 @@ async function main() {
     if (pkg === 'tests') continue
 
     const pkgPath = join(packagesDir, pkg)
-    const pkgJson = JSON.parse(readFileSync(join(pkgPath, 'package.json'), 'utf-8'))
+    const pkgJson = JSON.parse(
+      readFileSync(join(pkgPath, 'package.json'), 'utf-8'),
+    )
     const coverage = await runPackageTests(pkgPath, pkgJson.name || pkg)
     if (coverage) {
       coverages.push(coverage)
@@ -245,19 +271,24 @@ async function main() {
       lines: {
         total: totalLines,
         covered: coveredLines,
-        percent: totalLines > 0 ? Math.round((coveredLines / totalLines) * 100) : 0,
+        percent:
+          totalLines > 0 ? Math.round((coveredLines / totalLines) * 100) : 0,
       },
       functions: {
         total: totalFunctions,
         covered: coveredFunctions,
         percent:
-          totalFunctions > 0 ? Math.round((coveredFunctions / totalFunctions) * 100) : 0,
+          totalFunctions > 0
+            ? Math.round((coveredFunctions / totalFunctions) * 100)
+            : 0,
       },
       branches: {
         total: totalBranches,
         covered: coveredBranches,
         percent:
-          totalBranches > 0 ? Math.round((coveredBranches / totalBranches) * 100) : 0,
+          totalBranches > 0
+            ? Math.round((coveredBranches / totalBranches) * 100)
+            : 0,
       },
     },
   }
@@ -267,24 +298,33 @@ async function main() {
   await Bun.write(reportPath, JSON.stringify(report, null, 2))
 
   // Print summary
-  console.log('\n' + '='.repeat(80))
+  console.log(`\n${'='.repeat(80)}`)
   console.log('COVERAGE SUMMARY')
   console.log('='.repeat(80))
   console.log(`Packages: ${report.summary.totalPackages}`)
   console.log(`Files: ${report.summary.totalFiles}`)
-  console.log(`Lines: ${report.summary.lines.percent}% (${report.summary.lines.covered}/${report.summary.lines.total})`)
-  console.log(`Functions: ${report.summary.functions.percent}% (${report.summary.functions.covered}/${report.summary.functions.total})`)
-  console.log(`Branches: ${report.summary.branches.percent}% (${report.summary.branches.covered}/${report.summary.branches.total})`)
+  console.log(
+    `Lines: ${report.summary.lines.percent}% (${report.summary.lines.covered}/${report.summary.lines.total})`,
+  )
+  console.log(
+    `Functions: ${report.summary.functions.percent}% (${report.summary.functions.covered}/${report.summary.functions.total})`,
+  )
+  console.log(
+    `Branches: ${report.summary.branches.percent}% (${report.summary.branches.covered}/${report.summary.branches.total})`,
+  )
   console.log('')
   console.log(`Report written to: ${reportPath}`)
 
   // Print per-package breakdown
   console.log('\nPer-package coverage:')
-  for (const pkg of coverages.sort((a, b) => a.lines.percent - b.lines.percent)) {
-    const bar = '█'.repeat(Math.floor(pkg.lines.percent / 5)) + '░'.repeat(20 - Math.floor(pkg.lines.percent / 5))
+  for (const pkg of coverages.sort(
+    (a, b) => a.lines.percent - b.lines.percent,
+  )) {
+    const bar =
+      '█'.repeat(Math.floor(pkg.lines.percent / 5)) +
+      '░'.repeat(20 - Math.floor(pkg.lines.percent / 5))
     console.log(`  ${pkg.name.padEnd(30)} ${bar} ${pkg.lines.percent}%`)
   }
 }
 
 main().catch(console.error)
-

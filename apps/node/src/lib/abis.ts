@@ -1,9 +1,3 @@
-/**
- * Contract ABIs for network Node services
- */
-
-// Minimal ABIs with only the functions we need
-
 export const IDENTITY_REGISTRY_ABI = [
   {
     type: 'function',

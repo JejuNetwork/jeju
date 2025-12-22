@@ -86,12 +86,18 @@ packages/config/
 │   ├── localnet.json          # Local chain settings
 │   ├── testnet.json           # Testnet chain settings
 │   └── mainnet.json           # Mainnet chain settings
+├── chainlink/                 # Chainlink integration configs
+│   ├── feeds.json             # Price feed addresses
+│   ├── vrf.json               # VRF configuration
+│   ├── automation.json        # Automation config
+│   └── index.ts               # Chainlink utilities
 ├── contracts.json             # All contract addresses
 ├── services.json              # All service URLs
 ├── eil.json                   # Cross-chain liquidity config
 ├── federation.json            # Federation config
 ├── tokens.json                # Token metadata
 ├── branding.json              # Network branding
+├── infrastructure.json        # Node infrastructure config
 ├── ports.ts                   # Port allocations
 ├── secrets.ts                 # Secret type definitions
 ├── api-keys.ts                # Optional API key registry
@@ -267,7 +273,7 @@ Default ports for local development (all overridable via env):
 
 | Service | Port | Env Override |
 |---------|------|--------------|
-| L1 RPC (Anvil) | 8545 | `L1_RPC_PORT` |
+| L1 RPC | 6545 | `L1_RPC_PORT` |
 | L2 RPC | 6546 | `L2_RPC_PORT` |
 | L2 WebSocket | 6547 | `L2_WS_PORT` |
 | Indexer GraphQL | 4350 | `INDEXER_GRAPHQL_PORT` |

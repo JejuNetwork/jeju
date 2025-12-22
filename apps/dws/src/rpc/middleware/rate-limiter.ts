@@ -1,4 +1,4 @@
-import type { Context, Next } from 'hono'
+import { Elysia } from 'elysia'
 import { type Address, type Chain, createPublicClient, http } from 'viem'
 
 export const RATE_LIMITS = {
@@ -84,18 +84,20 @@ const checkAccess = async (addr: Address): Promise<boolean> => {
     .catch(() => true)
 }
 
-const getUserKey = (c: Context): { key: string; address: Address | null } => {
-  const apiKey = c.req.header('X-Api-Key')
+const getUserKey = (
+  request: Request,
+): { key: string; address: Address | null } => {
+  const apiKey = request.headers.get('X-Api-Key')
   if (apiKey && apiKeyCache.has(apiKey))
     return {
       key: `key:${apiKey}`,
       address: apiKeyCache.get(apiKey)?.address || null,
     }
-  const wallet = c.req.header('X-Wallet-Address') as Address | undefined
+  const wallet = request.headers.get('X-Wallet-Address') as Address | undefined
   if (wallet) return { key: `addr:${wallet.toLowerCase()}`, address: wallet }
   const ip =
-    c.req.header('X-Forwarded-For')?.split(',')[0]?.trim() ||
-    c.req.header('X-Real-IP') ||
+    request.headers.get('X-Forwarded-For')?.split(',')[0]?.trim() ||
+    request.headers.get('X-Real-IP') ||
     'unknown'
   return { key: `ip:${ip}`, address: null }
 }
@@ -109,58 +111,69 @@ const rateLimitToTier = (limit: number): RateTier =>
         ? 'BASIC'
         : 'FREE'
 
+export interface RateLimitContext {
+  rateLimit: {
+    tier: RateTier
+    remaining: number
+    resetAt: number
+  }
+}
+
 export function rateLimiter() {
-  return async (c: Context, next: Next) => {
-    if (c.req.path === '/health' || c.req.path === '/') return next()
+  return new Elysia({ name: 'rate-limiter' })
+    .derive(() => ({
+      rateLimit: { tier: 'FREE' as RateTier, remaining: -1, resetAt: 0 },
+    }))
+    .onBeforeHandle(async ({ request, set }) => {
+      const url = new URL(request.url)
+      if (url.pathname === '/health' || url.pathname === '/') return
 
-    const { key, address } = getUserKey(c)
-    const now = Date.now()
+      const { key, address } = getUserKey(request)
+      const now = Date.now()
 
-    if (address && WHITELIST.has(address.toLowerCase())) {
-      c.set('rateLimit', { tier: 'UNLIMITED', remaining: -1, resetAt: 0 })
-      return next()
-    }
+      if (address && WHITELIST.has(address.toLowerCase())) {
+        return
+      }
 
-    let rateLimit: number = RATE_LIMITS.FREE
-    if (address) {
-      if (!(await checkAccess(address)))
-        return c.json({ error: 'Access denied' }, 403)
-      rateLimit = await getContractRateLimit(address)
-    }
+      let rateLimit: number = RATE_LIMITS.FREE
+      if (address) {
+        if (!(await checkAccess(address))) {
+          set.status = 403
+          return { error: 'Access denied' }
+        }
+        rateLimit = await getContractRateLimit(address)
+      }
 
-    const tier = rateLimitToTier(rateLimit)
-    let record = rateLimitStore.get(key)
-    if (!record || now > record.resetAt) {
-      record = { count: 0, resetAt: now + 60_000, tier }
-      rateLimitStore.set(key, record)
-    }
-    record.count++
+      const tier = rateLimitToTier(rateLimit)
+      let record = rateLimitStore.get(key)
+      if (!record || now > record.resetAt) {
+        record = { count: 0, resetAt: now + 60_000, tier }
+        rateLimitStore.set(key, record)
+      }
+      record.count++
 
-    const limit = RATE_LIMITS[tier]
-    const remaining = limit === 0 ? -1 : Math.max(0, limit - record.count)
-    c.header('X-RateLimit-Limit', limit === 0 ? 'unlimited' : String(limit))
-    c.header(
-      'X-RateLimit-Remaining',
-      remaining === -1 ? 'unlimited' : String(remaining),
-    )
-    c.header('X-RateLimit-Reset', String(Math.ceil(record.resetAt / 1000)))
-    c.header('X-RateLimit-Tier', tier)
-    c.set('rateLimit', { tier, remaining, resetAt: record.resetAt })
+      const limit = RATE_LIMITS[tier]
+      const remaining = limit === 0 ? -1 : Math.max(0, limit - record.count)
+      set.headers['X-RateLimit-Limit'] =
+        limit === 0 ? 'unlimited' : String(limit)
+      set.headers['X-RateLimit-Remaining'] =
+        remaining === -1 ? 'unlimited' : String(remaining)
+      set.headers['X-RateLimit-Reset'] = String(
+        Math.ceil(record.resetAt / 1000),
+      )
+      set.headers['X-RateLimit-Tier'] = tier
 
-    if (limit > 0 && record.count > limit) {
-      return c.json(
-        {
+      if (limit > 0 && record.count > limit) {
+        set.status = 429
+        return {
           error: 'Rate limit exceeded',
           tier,
           limit,
           resetAt: record.resetAt,
           upgrade: 'Stake JEJU to increase limit',
-        },
-        429,
-      )
-    }
-    return next()
-  }
+        }
+      }
+    })
 }
 
 export const registerApiKey = (key: string, addr: Address, tier: RateTier) =>

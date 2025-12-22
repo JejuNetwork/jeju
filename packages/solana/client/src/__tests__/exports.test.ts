@@ -121,7 +121,9 @@ describe('@jejunetwork/solana exports', () => {
     it('exports GROTH16_PROOF_SIZE constant', () => {
       expect(Solana.GROTH16_PROOF_SIZE).toBe(256)
     })
+  })
 
+  describe('DEX Utility exports', () => {
     it('exports hexToBytes helper', () => {
       expect(Solana.hexToBytes).toBeDefined()
       const bytes = Solana.hexToBytes('0xdeadbeef')

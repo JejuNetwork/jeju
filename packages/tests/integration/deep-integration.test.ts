@@ -15,7 +15,7 @@
 import { afterAll, beforeAll, describe, it } from 'bun:test'
 import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants'
+import { APP_URLS, JEJU_LOCALNET, TEST_WALLETS } from '../shared/constants'
 
 const RPC_URL = process.env.RPC_URL || JEJU_LOCALNET.rpcUrl
 const PRIVATE_KEY = (process.env.PRIVATE_KEY ||
@@ -101,7 +101,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
     //   args: [
     //     JSON.stringify({ name: 'Bazaar', description: 'DeFi + NFT Marketplace' }),
     //     ['marketplace', 'defi'],
-    //     'http://localhost:4006/api/a2a',
+    //     `${APP_URLS.bazaar}/api/a2a`,
     //     elizaOSAddress,
     //   ],
     //   value: 0n,
@@ -173,11 +173,11 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
     //   args: [bazaarAgentId, 'a2a-endpoint'],
     // });
 
-    const bazaarEndpoint = 'http://localhost:4006/api/a2a'
+    const bazaarEndpoint = `${APP_URLS.bazaar}/api/a2a`
 
     console.log(`✅ Bazaar A2A: ${bazaarEndpoint}`)
 
-    if (!bazaarEndpoint.includes('localhost:4006')) {
+    if (!bazaarEndpoint.startsWith(APP_URLS.bazaar)) {
       throw new Error('Invalid Bazaar endpoint')
     }
   })
@@ -186,7 +186,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
     console.log('\n📇 Fetching Bazaar agent card...')
 
     const response = await fetch(
-      'http://localhost:4006/.well-known/agent-card.json',
+      `${APP_URLS.bazaar}/.well-known/agent-card.json`,
     )
     const agentCard = await response.json()
 
@@ -207,7 +207,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
   it('should call list-tokens skill on Bazaar via A2A', async () => {
     console.log('\n🪙 Calling list-tokens on Bazaar...')
 
-    const response = await fetch('http://localhost:4006/api/a2a', {
+    const response = await fetch(`${APP_URLS.bazaar}/api/a2a`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -237,10 +237,7 @@ describe.skipIf(!servicesAvailable)('Deep Integration E2E', () => {
   it('should discover apps in agent registry tab', async () => {
     console.log('\n🤖 Testing agent Registry tab...')
 
-    // This would be tested via Playwright/Dappwright
-    // For now, verify the component exists
-
-    console.log('✅ Agent Registry tab ready (manual test required)')
+    console.log('✅ Agent Registry tab ready (requires Playwright E2E test)')
   })
 
   it('should withdraw stake successfully', async () => {

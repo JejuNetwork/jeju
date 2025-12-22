@@ -5,10 +5,7 @@
 import { keccak_256 } from '@noble/hashes/sha3'
 import pRetry from 'p-retry'
 
-// Re-export logger
 export { createLogger, type Logger, type LogLevel } from './logger.js'
-
-// Re-export validation utilities
 export {
   type AWSNitroConfig as ValidationAWSNitroConfig,
   AWSNitroConfigSchema,
@@ -50,9 +47,7 @@ export {
   type PhalaHealthResponse,
   PhalaHealthResponseSchema,
   PhalaVerifyResponseSchema,
-  // Types
   type ProofData,
-  // Schemas
   ProofDataSchema,
   RelayerEnvSchema,
   requireEnv,
@@ -66,7 +61,6 @@ export {
   type SuccinctProveResponse,
   SuccinctProveResponseSchema,
   TransferSubmissionSchema,
-  // Relayer schemas
   ValidatorVoteSchema,
   type WormholeVAAResponse,
   WormholeVAAResponseSchema,

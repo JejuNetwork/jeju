@@ -1,3 +1,18 @@
+import {
+  APP_TOKEN_PREFERENCE_ABI,
+  type AppPreference,
+  CROSS_CHAIN_PAYMASTER_ABI,
+  type CrossChainSwapParams,
+  L1_STAKE_MANAGER_ABI,
+  SUPPORTED_CHAINS,
+  type SwapStatus,
+  type XLPPosition,
+} from '@jejunetwork/deployment/scripts/shared/eil-hooks'
+
+/** Stake status - local type definition */
+type StakeStatus = 'idle' | 'pending' | 'complete' | 'error'
+
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { type Address, parseEther } from 'viem'
 import {
@@ -7,51 +22,6 @@ import {
   useWriteContract,
 } from 'wagmi'
 import { NETWORK } from '../config'
-import { ZERO_ADDRESS } from '../lib/contracts'
-
-// Re-export shared types and utilities
-export {
-  APP_TOKEN_PREFERENCE_ABI,
-  type AppPreference,
-  buildAppAwarePaymentData,
-  buildLiquidityDepositTransaction,
-  buildSwapTransaction,
-  buildTokenPaymentData,
-  buildXLPStakeTransaction,
-  type ChainInfo,
-  CROSS_CHAIN_PAYMASTER_ABI,
-  type CrossChainSwapParams,
-  calculateSwapFee,
-  type EILStats,
-  estimateSwapTime,
-  formatGasPaymentOption,
-  formatSwapRoute,
-  formatXLPPosition,
-  type GasPaymentOption,
-  getBestGasTokenForApp,
-  getChainById,
-  isCrossChainSwap,
-  L1_STAKE_MANAGER_ABI,
-  type StakeStatus,
-  SUPPORTED_CHAINS,
-  type SwapStatus,
-  selectBestGasToken,
-  validateSwapParams,
-  type XLPPosition,
-} from '@jejunetwork/deployment/scripts/shared/eil-hooks'
-
-// Import for local use
-import {
-  APP_TOKEN_PREFERENCE_ABI,
-  type AppPreference,
-  CROSS_CHAIN_PAYMASTER_ABI,
-  type CrossChainSwapParams,
-  L1_STAKE_MANAGER_ABI,
-  type StakeStatus,
-  SUPPORTED_CHAINS,
-  type SwapStatus,
-  type XLPPosition,
-} from '@jejunetwork/deployment/scripts/shared/eil-hooks'
 
 // ABI-inferred tuple types for getXLPStake return value
 // Returns: (stakedAmount, unbondingAmount, unbondingStartTime, slashedAmount, isActive, registeredAt)

@@ -102,7 +102,7 @@ impl Service for CronService {
                         // 2. Execute trigger endpoints
                         // 3. Record execution on-chain
                         // 4. Collect executor fee
-                        
+
                         if !running.load(Ordering::SeqCst) {
                             break;
                         }
@@ -162,4 +162,3 @@ impl Service for CronService {
         self.running.load(Ordering::SeqCst)
     }
 }
-

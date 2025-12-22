@@ -11,7 +11,7 @@ import {
 } from 'viem'
 import { arbitrum, base, bsc, mainnet, optimism, sepolia } from 'viem/chains'
 import { createLogger } from '../../sdk/logger'
-import type { ChainConfig, ChainId, Pool } from '../autocrat-types'
+import type { ChainConfig, ChainId, Pool } from '../autocrat-types-source'
 import { XLP_V2_FACTORY_ABI, XLP_V2_PAIR_ABI } from '../lib/contracts'
 
 const log = createLogger('Collector')

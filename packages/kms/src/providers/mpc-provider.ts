@@ -7,6 +7,7 @@ import {
   decryptFromPayload,
   deriveKeyFromSecret,
   encryptToPayload,
+  extractRecoveryId,
   generateKeyId,
 } from '../crypto.js'
 import { mpcLogger as log } from '../logger.js'
@@ -43,17 +44,6 @@ interface MPCKey {
   versions: KeyVersion[]
 }
 
-/** Safe recovery ID extraction from signature with bounds validation */
-function extractRecoveryId(signature: string): number {
-  if (signature.length < 132) return 0
-  const vHex = signature.slice(130, 132)
-  const v = parseInt(vHex, 16)
-  // Recovery ID must be 0 or 1 (v is 27/28 for legacy, or 0/1 for EIP-155)
-  if (v >= 27 && v <= 28) return v - 27
-  if (v === 0 || v === 1) return v
-  return 0 // Default to 0 for invalid values
-}
-
 export class MPCProvider implements KMSProvider {
   type = KMSProviderType.MPC
   private config: MPCConfig
@@ -86,7 +76,7 @@ export class MPCProvider implements KMSProvider {
         `${this.config.coordinatorEndpoint}/health`,
         { signal: AbortSignal.timeout(2000) },
       ).catch(() => null)
-      return response?.ok
+      return response?.ok ?? false
     }
     return true
   }
@@ -110,7 +100,6 @@ export class MPCProvider implements KMSProvider {
       }
     }
     this.connected = true
-    this.connectPromise = null
   }
 
   async disconnect(): Promise<void> {

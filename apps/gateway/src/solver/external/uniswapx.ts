@@ -170,7 +170,6 @@ void FILL_CALLBACK_ABI
 export class UniswapXAdapter extends EventEmitter {
   private clients: Map<number, { public: PublicClient; wallet?: WalletClient }>
   private supportedChains: number[]
-  private isTestnet: boolean
   private pollInterval: ReturnType<typeof setInterval> | null = null
   private running = false
   private processedOrders = new Set<string>()

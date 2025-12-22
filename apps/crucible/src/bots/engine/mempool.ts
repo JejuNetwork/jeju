@@ -13,7 +13,7 @@ import {
   WebSocketEthSubscriptionMessageSchema,
 } from '../../schemas'
 import { createLogger } from '../../sdk/logger'
-import type { ChainId } from '../autocrat-types'
+import type { ChainId } from '../autocrat-types-source'
 
 const log = createLogger('Mempool')
 

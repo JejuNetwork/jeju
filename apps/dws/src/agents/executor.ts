@@ -205,16 +205,14 @@ export class AgentExecutor {
       bindings,
       compatibilityDate: '2024-01-01',
 
-      memory: agent.runtime.maxMemoryMb,
-      timeout: agent.runtime.timeoutMs,
+      memoryMb: agent.runtime.maxMemoryMb,
+      cpuTimeMs: agent.runtime.timeoutMs,
+      timeoutMs: agent.runtime.timeoutMs,
 
       status: 'pending',
       version: 1,
       createdAt: Date.now(),
       updatedAt: Date.now(),
-      invocationCount: 0,
-      avgDurationMs: 0,
-      errorCount: 0,
     }
   }
 

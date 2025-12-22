@@ -1,23 +1,11 @@
-/**
- * Bridge Service for Node Operators
- *
- * Enables node operators to:
- * - Run ZKSolBridge relayer
- * - Participate as XLP (Cross-chain Liquidity Provider)
- * - Act as OIF solver
- * - Detect and execute cross-chain arbitrage
- * - Capture MEV on Solana via Jito
- *
- * Revenue streams:
- * - Bridge fees (0.1-0.3% per transfer)
- * - XLP liquidity provision fees
- * - Solver fees for intent fulfillment
- * - Cross-chain arbitrage profits
- * - Solana MEV (Jito bundles)
- * - Hyperliquid orderbook arbitrage
- */
-
 import type { Address, Hex } from 'viem'
+import {
+  createPublicClient,
+  createWalletClient,
+  encodeFunctionData,
+  http,
+} from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import {
   HyperliquidPricesResponseSchema,
   JitoBundleResponseSchema,
@@ -26,7 +14,7 @@ import {
   JupiterPriceResponseSchema,
 } from '../../validation'
 
-// Lazy import to avoid native module issues with @solana/web3.js
+// Dynamic import: Lazy load to avoid native module issues with @solana/web3.js
 type ArbitrageExecutorModule = typeof import('./arbitrage-executor')
 let arbExecutorModule: ArbitrageExecutorModule | null = null
 async function getArbitrageExecutorModule(): Promise<ArbitrageExecutorModule> {
@@ -369,11 +357,6 @@ class BridgeServiceImpl implements BridgeService {
 
     console.log(`[Bridge] Depositing ${amount} of ${token} to chain ${chainId}`)
 
-    const { createWalletClient, createPublicClient, http, encodeFunctionData } =
-      await import('viem')
-    // Dynamic import: viem/accounts only needed when private key is present
-    const { privateKeyToAccount } = await import('viem/accounts')
-
     const account = privateKeyToAccount(this.config.privateKey)
     const publicClient = createPublicClient({ transport: http(rpcUrl) })
     const walletClient = createWalletClient({
@@ -446,12 +429,6 @@ class BridgeServiceImpl implements BridgeService {
       `[Bridge] Withdrawing ${amount} of ${token} from chain ${chainId}`,
     )
 
-    const { createWalletClient, http, encodeFunctionData } = await import(
-      'viem'
-    )
-    // Dynamic import: viem/accounts only needed when private key is present
-    const { privateKeyToAccount } = await import('viem/accounts')
-
     const account = privateKeyToAccount(this.config.privateKey)
     const walletClient = createWalletClient({
       account,
@@ -491,7 +468,6 @@ class BridgeServiceImpl implements BridgeService {
 
     console.log(`[Bridge] Getting liquidity balance for chain ${chainId}`)
 
-    const { createPublicClient, http } = await import('viem')
     const publicClient = createPublicClient({ transport: http(rpcUrl) })
 
     const balance = (await publicClient.readContract({
@@ -532,11 +508,6 @@ class BridgeServiceImpl implements BridgeService {
     const chainId = Object.keys(this.config.evmRpcUrls)[0]
     const rpcUrl = this.config.evmRpcUrls[Number(chainId)]
     if (!rpcUrl) throw new Error('No RPC URL configured')
-
-    const { createWalletClient, http, encodeFunctionData } = await import(
-      'viem'
-    )
-    const { privateKeyToAccount } = await import('viem/accounts')
 
     const account = privateKeyToAccount(this.config.privateKey)
     const walletClient = createWalletClient({
@@ -581,11 +552,6 @@ class BridgeServiceImpl implements BridgeService {
     const chainId = Object.keys(this.config.evmRpcUrls)[0]
     const rpcUrl = this.config.evmRpcUrls[Number(chainId)]
     if (!rpcUrl) throw new Error('No RPC URL configured')
-
-    const { createWalletClient, http, encodeFunctionData } = await import(
-      'viem'
-    )
-    const { privateKeyToAccount } = await import('viem/accounts')
 
     const account = privateKeyToAccount(this.config.privateKey)
     const walletClient = createWalletClient({
@@ -655,13 +621,12 @@ class BridgeServiceImpl implements BridgeService {
     )
     console.log(`   Expected profit: $${opportunity.netProfitUsd.toFixed(2)}`)
 
-    // Execute the arbitrage based on type
     if (opportunity.type === 'solana_evm') {
       return this.executeSolanaEvmArb(opportunity)
     } else if (opportunity.type === 'hyperliquid') {
       return this.executeHyperliquidArb(opportunity)
     } else {
-      return this.executeCrossDevArb(opportunity)
+      return this.executeCrossDexArb(opportunity)
     }
   }
 
@@ -743,7 +708,11 @@ class BridgeServiceImpl implements BridgeService {
 
     const json: unknown = await response.json()
     const parsed = JitoTipFloorResponseSchema.safeParse(json)
-    return BigInt(parsed.success ? (parsed.data.result?.tip_floor_lamports ?? 10000) : 10000)
+    return BigInt(
+      parsed.success
+        ? (parsed.data.result?.tip_floor_lamports ?? 10000)
+        : 10000,
+    )
   }
 
   // ============ Event Methods ============
@@ -942,7 +911,6 @@ class BridgeServiceImpl implements BridgeService {
     const feedAddress = CHAINLINK_FEEDS[token]?.[chainId]
     if (!feedAddress) return null
 
-    const { createPublicClient, http } = await import('viem')
     const client = createPublicClient({ transport: http(rpcUrl) })
 
     const result = (await client.readContract({
@@ -1026,7 +994,7 @@ class BridgeServiceImpl implements BridgeService {
     return result
   }
 
-  private async executeCrossDevArb(
+  private async executeCrossDexArb(
     opportunity: ArbOpportunity,
   ): Promise<{ success: boolean; txHash?: string; profit?: number }> {
     if (!this.arbExecutor) {

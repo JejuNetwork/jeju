@@ -3,7 +3,7 @@
  * Password/PIN protection with auto-lock timeout
  */
 
-import { expectJson } from '../../lib/validation'
+import { expectJson } from '@jejunetwork/types'
 import { secureStorage } from '../../platform/secure-storage'
 import { LockConfigSchema, LockStateSchema } from '../../plugin/schemas'
 

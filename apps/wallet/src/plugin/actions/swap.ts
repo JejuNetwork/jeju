@@ -4,7 +4,8 @@
  * Swaps one token for another on the same chain.
  */
 
-import { expectChainId, expectNonEmpty } from '../../lib/validation'
+import { expectChainId } from '@jejunetwork/types'
+import { expectNonEmpty } from '../../lib/validation'
 import type { GasService } from '../services/gas.service'
 import type { ActionContext, ActionResult } from './wallet-info'
 

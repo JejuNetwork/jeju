@@ -8,7 +8,14 @@
  */
 
 import { expectValid } from '@jejunetwork/types'
-import { type Address, type Hex, keccak256, toBytes, toHex, verifyMessage } from 'viem'
+import {
+  type Address,
+  type Hex,
+  keccak256,
+  toBytes,
+  toHex,
+  verifyMessage,
+} from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import {
   HSMDecryptionResponseSchema,

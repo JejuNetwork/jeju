@@ -2,7 +2,8 @@
  * Otto Trading Agent - Configuration
  */
 
-import { expectValid, OttoConfigSchema } from './schemas'
+import { expectValid } from '@jejunetwork/types'
+import { OttoConfigSchema } from './schemas'
 import type { OttoConfig } from './types'
 
 export const DEFAULT_CHAIN_ID = 420691 // Jeju Network

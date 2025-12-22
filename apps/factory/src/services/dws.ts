@@ -7,10 +7,11 @@
  * - Wallet-authenticated requests
  */
 
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { type Address, createPublicClient, http } from 'viem'
 
 const DWS_TAG = 'dws'
-const FALLBACK_DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
+const FALLBACK_DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
 
 const IDENTITY_REGISTRY_ABI = [
   {

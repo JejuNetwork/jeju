@@ -1,7 +1,7 @@
 /**
  * Workerd App Adapter
  *
- * Wraps Elysia/Hono apps to run as workerd workers.
+ * Wraps Elysia apps to run as workerd workers.
  * Provides the same interface as Cloudflare Workers with Jeju extensions.
  *
  * Features:
@@ -131,7 +131,7 @@ export interface WorkerdAppHandler {
 }
 
 /**
- * Adapt an Elysia/Hono app to workerd format
+ * Adapt an Elysia app to workerd format
  */
 export function adaptAppForWorkerd(
   handler: FetchHandler,
@@ -309,52 +309,24 @@ function escapeCapnp(value: string): string {
 }
 
 // ============================================================================
-// Middleware for existing apps
+// Elysia Plugin for TEE Context
 // ============================================================================
 
-/**
- * Hono middleware to add TEE context
- */
-export function teeContextMiddleware() {
-  return async (
-    c: {
-      req: Request
-      set: { headers: Record<string, string> }
-      env?: JejuEnv
-    },
-    next: () => Promise<void>,
-  ) => {
-    const teeMode =
-      c.env?.TEE_MODE || c.req.headers.get('x-tee-mode') || 'simulated'
-    const teeRegion =
-      c.env?.TEE_REGION || c.req.headers.get('x-tee-region') || 'local'
-
-    // Set response headers
-    c.set.headers['x-tee-mode'] = teeMode
-    c.set.headers['x-tee-region'] = teeRegion
-
-    await next()
-  }
-}
+import { Elysia } from 'elysia'
 
 /**
- * Elysia plugin to add TEE context
+ * Elysia plugin to add TEE context headers
  */
-export function elysiaTeEPlugin() {
-  return {
-    name: 'tee-context',
-    beforeHandle: ({
-      request,
-      set,
-    }: {
-      request: Request
-      set: { headers: Record<string, string> }
-    }) => {
-      const teeMode = request.headers.get('x-tee-mode') || 'simulated'
-      const teeRegion = request.headers.get('x-tee-region') || 'local'
+export function teeContextPlugin(env?: JejuEnv) {
+  return new Elysia({ name: 'tee-context' }).onBeforeHandle(
+    ({ request, set }) => {
+      const teeMode =
+        env?.TEE_MODE || request.headers.get('x-tee-mode') || 'simulated'
+      const teeRegion =
+        env?.TEE_REGION || request.headers.get('x-tee-region') || 'local'
 
       set.headers['x-tee-mode'] = teeMode
       set.headers['x-tee-region'] = teeRegion
     },
-  }
+  )
 }

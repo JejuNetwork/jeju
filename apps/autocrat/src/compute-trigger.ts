@@ -5,8 +5,8 @@
  */
 
 import { getAutocratUrl, getDWSComputeUrl } from '@jejunetwork/config'
+import { expectValid } from '@jejunetwork/types'
 import {
-  expectValid,
   TriggerHistoryResponseSchema,
   TriggerListResponseSchema,
   TriggerRegisterResponseSchema,
@@ -14,7 +14,7 @@ import {
 
 export type TriggerSource = 'cloud' | 'compute' | 'onchain'
 
-export interface UnifiedTrigger {
+export interface Trigger {
   id: string
   source: TriggerSource
   type: 'cron' | 'webhook' | 'event'
@@ -68,7 +68,7 @@ function getComputeEndpoint(): string {
 const ORCHESTRATOR_CRON = process.env.ORCHESTRATOR_CRON ?? '*/30 * * * * *'
 
 export function getAutocratTriggers(): Array<
-  Omit<UnifiedTrigger, 'id' | 'createdAt'>
+  Omit<Trigger, 'id' | 'createdAt'>
 > {
   const autocratUrl = getAutocratEndpoint()
   return [
@@ -114,9 +114,6 @@ export function getAutocratTriggers(): Array<
     },
   ]
 }
-
-// Legacy export for backwards compatibility
-export const autocratTriggers = getAutocratTriggers()
 
 export async function registerAutocratTriggers(): Promise<void> {
   console.log('[Trigger] Registering...')
@@ -164,9 +161,7 @@ export function startLocalCron(
 export class ComputeTriggerClient {
   constructor(private readonly computeUrl = getComputeEndpoint()) {}
 
-  async register(
-    trigger: Omit<UnifiedTrigger, 'id' | 'createdAt'>,
-  ): Promise<string> {
+  async register(trigger: Omit<Trigger, 'id' | 'createdAt'>): Promise<string> {
     const r = await fetch(`${this.computeUrl}/api/triggers`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -198,10 +193,7 @@ export class ComputeTriggerClient {
     return r.json() as Promise<TriggerExecutionResult>
   }
 
-  async list(filter?: {
-    type?: string
-    active?: boolean
-  }): Promise<UnifiedTrigger[]> {
+  async list(filter?: { type?: string; active?: boolean }): Promise<Trigger[]> {
     const params = new URLSearchParams()
     if (filter?.type) params.set('type', filter.type)
     if (filter?.active !== undefined)
@@ -213,7 +205,7 @@ export class ComputeTriggerClient {
       await r.json(),
       'Trigger list',
     )
-    return data.triggers as UnifiedTrigger[]
+    return data.triggers as Trigger[]
   }
 
   async getHistory(

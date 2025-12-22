@@ -14,7 +14,8 @@
  * - Package registry (/pkg/*)
  */
 
-import { Hono } from 'hono'
+import { expectValid } from '@jejunetwork/types'
+import { Elysia } from 'elysia'
 import {
   type Address,
   createPublicClient,
@@ -25,7 +26,6 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { recordFeeRequestSchema } from '../../shared/schemas'
-import { expectValid } from '../../shared/validation'
 
 // ============ Types ============
 
@@ -166,18 +166,18 @@ export function stopFeeCollector(): void {
 
 // ============ Router ============
 
-export function createFeeCollectorRouter(): Hono {
-  const router = new Hono()
+export function createFeeCollectorRouter() {
+  const router = new Elysia({ name: 'fee-collector', prefix: '/fees' })
 
   // Manual deposit trigger (admin)
-  router.post('/deposit', async (c) => {
+  router.post('/deposit', async () => {
     const count = await depositPendingFees()
-    return c.json({ depositsProcessed: count })
+    return { depositsProcessed: count }
   })
 
   // Get stats
-  router.get('/stats', (c) => {
-    return c.json({
+  router.get('/stats', () => {
+    return {
       totalCollected: feeStats.totalCollected.toString(),
       totalDeposited: feeStats.totalDeposited.toString(),
       pendingDeposit: feeStats.pendingDeposit.toString(),
@@ -185,22 +185,22 @@ export function createFeeCollectorRouter(): Hono {
         Object.entries(feeStats.bySource).map(([k, v]) => [k, v.toString()]),
       ),
       pendingDaos: Array.from(pendingFees.keys()),
-    })
+    }
   })
 
   // Record fee manually (for services that don't use middleware)
-  router.post('/record', async (c) => {
-    const body = expectValid(
+  router.post('/record', async ({ body }) => {
+    const validated = expectValid(
       recordFeeRequestSchema,
-      await c.req.json(),
+      body,
       'Record fee request',
     )
-    recordFee(body.daoId, body.source, BigInt(body.amount))
-    return c.json({ recorded: true })
+    recordFee(validated.daoId, validated.source, BigInt(validated.amount))
+    return { recorded: true }
   })
 
   // Health
-  router.get('/health', async (c) => {
+  router.get('/health', async () => {
     const rpcUrl = process.env.RPC_URL || 'http://127.0.0.1:6546'
     const depositorKey = process.env.FEE_DEPOSITOR_PRIVATE_KEY
     const distributorAddress = process.env
@@ -224,34 +224,29 @@ export function createFeeCollectorRouter(): Hono {
       }
     }
 
-    return c.json({
+    return {
       configured: !!depositorKey && !!distributorAddress,
       isAuthorized,
       collectorRunning: !!depositInterval,
-    })
+    }
   })
 
   return router
 }
 
-// ============ Middleware for Service Routes ============
+// ============ Elysia Plugin for Fee Collection ============
 
 /**
- * Middleware to collect fees from service requests
- * Usage: app.use('/rpc/*', feeCollectorMiddleware('rpc', jejuDaoId))
+ * Elysia plugin to collect fees from service requests
+ * Usage: app.use(feeCollectorPlugin('rpc', jejuDaoId))
  */
-export function feeCollectorMiddleware(source: string, daoId: string) {
-  return async (
-    c: { req: { header: (name: string) => string | undefined } },
-    next: () => Promise<void>,
-  ) => {
-    // Check if request has fee payment header
-    const feeAmount = c.req.header('x-jeju-fee')
-
-    await next()
-
-    if (feeAmount) {
-      recordFee(daoId, source, BigInt(feeAmount))
-    }
-  }
+export function feeCollectorPlugin(source: string, daoId: string) {
+  return new Elysia({ name: `fee-collector-${source}` }).onAfterHandle(
+    ({ request }) => {
+      const feeAmount = request.headers.get('x-jeju-fee')
+      if (feeAmount) {
+        recordFee(daoId, source, BigInt(feeAmount))
+      }
+    },
+  )
 }

@@ -575,7 +575,7 @@ export const DEFAULT_FEED_CONFIG = {
   category: 'SPOT_PRICE' as FeedCategory,
 } as const
 
-export const DEFAULT_FEE_CONFIG: FeeConfig = {
+export const DEFAULT_ORACLE_FEE_CONFIG: FeeConfig = {
   subscriptionFeePerMonth: 100n * E18,
   perReadFee: 1n * E15,
   treasuryShareBps: 1000,

@@ -6,7 +6,7 @@
  * mobile platforms run lightweight versions.
  */
 
-import { expectJson } from '../../lib/validation'
+import { expectJson } from '@jejunetwork/types'
 import { getPlatformInfo } from '../../platform/detection'
 import {
   CoordinatorMessageSchema,

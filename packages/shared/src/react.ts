@@ -4,6 +4,7 @@
  *
  * Usage:
  *   import { BanBanner, BanIndicator, BanOverlay } from '@jejunetwork/shared/react'
+ *   import type { BanStatus, BanType } from '@jejunetwork/shared'
  */
 
 export {
@@ -11,6 +12,3 @@ export {
   BanIndicator,
   BanOverlay,
 } from './components/BanBanner'
-
-// Re-export types that React components depend on
-export type { BanStatus, BanType } from './hooks/useBanStatus'

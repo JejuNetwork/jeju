@@ -5,7 +5,7 @@
  * These schemas provide fail-fast validation to catch configuration errors early.
  */
 
-import type { Abi, Address, Hex } from 'viem'
+import type { Abi } from 'viem'
 import { z } from 'zod'
 
 // ============================================================================
@@ -398,18 +398,20 @@ export type RawArtifactJson = z.infer<typeof RawArtifactJsonSchema>
 /**
  * Deployment state for rollback operations
  */
-export const DeploymentStateSchema = z.object({
-  network: z.string(),
-  chainId: z.number(),
-  timestamp: z.number(),
-  deployer: z.string(),
-  sequencerRegistry: z.string().optional(),
-  thresholdBatchSubmitter: z.string().optional(),
-  disputeGameFactory: z.string().optional(),
-  prover: z.string().optional(),
-  proxyRegistry: z.string().optional(),
-  proxyPayment: z.string().optional(),
-}).passthrough()
+export const DeploymentStateSchema = z
+  .object({
+    network: z.string(),
+    chainId: z.number(),
+    timestamp: z.number(),
+    deployer: z.string(),
+    sequencerRegistry: z.string().optional(),
+    thresholdBatchSubmitter: z.string().optional(),
+    disputeGameFactory: z.string().optional(),
+    prover: z.string().optional(),
+    proxyRegistry: z.string().optional(),
+    proxyPayment: z.string().optional(),
+  })
+  .passthrough()
 export type DeploymentState = z.infer<typeof DeploymentStateSchema>
 
 /**
@@ -467,6 +469,16 @@ export const JsonRpcResponseSchema = z.object({
 export type JsonRpcResponse = z.infer<typeof JsonRpcResponseSchema>
 
 /**
+ * Minimal chain config schema (just rpcUrl for readiness checks)
+ */
+export const ChainConfigMinimalSchema = z
+  .object({
+    rpcUrl: z.string(),
+  })
+  .passthrough()
+export type ChainConfigMinimal = z.infer<typeof ChainConfigMinimalSchema>
+
+/**
  * JSON-RPC response for eth_getBalance
  */
 export const JsonRpcBalanceResponseSchema = z.object({
@@ -506,7 +518,9 @@ export const X402SettlementResponseSchema = z.object({
   paymentId: z.string().optional(),
   error: z.string().nullable(),
 })
-export type X402SettlementResponse = z.infer<typeof X402SettlementResponseSchema>
+export type X402SettlementResponse = z.infer<
+  typeof X402SettlementResponseSchema
+>
 
 /**
  * x402 payment verification response
@@ -526,10 +540,12 @@ export type X402VerificationResponse = z.infer<
  * x402 supported schemes response
  */
 export const X402SupportedSchemesResponseSchema = z.object({
-  kinds: z.array(z.object({
-    scheme: z.string(),
-    network: z.string(),
-  })),
+  kinds: z.array(
+    z.object({
+      scheme: z.string(),
+      network: z.string(),
+    }),
+  ),
   x402Version: z.number(),
   facilitator: z.object({
     name: z.string(),
@@ -549,15 +565,19 @@ export const X402SettlementWithFeeResponseSchema = z.object({
   txHash: z.string().nullable(),
   error: z.string().nullable(),
   paymentId: z.string().optional(),
-  fee: z.object({
-    human: z.string(),
-    base: z.string(),
-    bps: z.number(),
-  }).optional(),
-  net: z.object({
-    human: z.string(),
-    base: z.string(),
-  }).optional(),
+  fee: z
+    .object({
+      human: z.string(),
+      base: z.string(),
+      bps: z.number(),
+    })
+    .optional(),
+  net: z
+    .object({
+      human: z.string(),
+      base: z.string(),
+    })
+    .optional(),
 })
 export type X402SettlementWithFeeResponse = z.infer<
   typeof X402SettlementWithFeeResponseSchema
@@ -581,9 +601,11 @@ export type OIFDeployment = z.infer<typeof OIFDeploymentSchema>
 /**
  * EIL deployment configuration
  */
-export const EILDeploymentSchema = z.object({
-  l1StakeManager: z.string().optional(),
-}).passthrough()
+export const EILDeploymentSchema = z
+  .object({
+    l1StakeManager: z.string().optional(),
+  })
+  .passthrough()
 export type EILDeployment = z.infer<typeof EILDeploymentSchema>
 
 /**
@@ -633,9 +655,11 @@ export type FrontendManifest = z.infer<typeof FrontendManifestSchema>
 export const VendorManifestSchema = z
   .object({
     devCommand: z.string().optional(),
-    ports: z.object({
-      main: z.number().optional(),
-    }).optional(),
+    ports: z
+      .object({
+        main: z.number().optional(),
+      })
+      .optional(),
   })
   .passthrough()
 export type VendorManifest = z.infer<typeof VendorManifestSchema>
@@ -647,6 +671,25 @@ export const CIDUploadResponseSchema = z.object({
   cid: z.string(),
 })
 export type CIDUploadResponse = z.infer<typeof CIDUploadResponseSchema>
+
+/**
+ * Agent registration file (ERC-8004 metadata)
+ */
+export const AgentRegistrationFileSchema = z
+  .object({
+    name: z.string().optional(),
+    description: z.string().optional(),
+    endpoints: z
+      .array(
+        z.object({
+          type: z.string(),
+          value: z.string(),
+        }),
+      )
+      .optional(),
+  })
+  .passthrough()
+export type AgentRegistrationFile = z.infer<typeof AgentRegistrationFileSchema>
 
 /**
  * DNS zone list response (Cloudflare style)
@@ -672,7 +715,9 @@ export const CloudflareDNSRecordListSchema = z.object({
     }),
   ),
 })
-export type CloudflareDNSRecordList = z.infer<typeof CloudflareDNSRecordListSchema>
+export type CloudflareDNSRecordList = z.infer<
+  typeof CloudflareDNSRecordListSchema
+>
 
 /**
  * DNS record list response
@@ -693,11 +738,13 @@ export type DNSRecordListResponse = z.infer<typeof DNSRecordListResponseSchema>
 /**
  * Build output line (for parsing build tools)
  */
-export const BuildOutputLineSchema = z.object({
-  size: z.number().optional(),
-  hash: z.string().optional(),
-  name: z.string().optional(),
-}).passthrough()
+export const BuildOutputLineSchema = z
+  .object({
+    size: z.number().optional(),
+    hash: z.string().optional(),
+    name: z.string().optional(),
+  })
+  .passthrough()
 export type BuildOutputLine = z.infer<typeof BuildOutputLineSchema>
 
 /**

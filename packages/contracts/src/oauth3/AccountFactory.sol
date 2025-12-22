@@ -9,7 +9,7 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
 /**
  * @title AccountFactory
  * @notice Creates ERC-4337 smart accounts for OAuth3 identities
- * @dev Consolidated factory with session keys and social recovery
+ * @dev Factory with session keys and social recovery
  */
 contract AccountFactory is IOAuth3AccountFactory {
     using ECDSA for bytes32;

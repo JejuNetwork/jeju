@@ -10,8 +10,7 @@ import type { AgentCharacter } from '../../types'
 export const fuzzTesterCharacter: AgentCharacter = {
   id: 'fuzz-tester',
   name: 'Chaos',
-  description:
-    'Red team fuzzing agent for finding edge cases and crashes',
+  description: 'Red team fuzzing agent for finding edge cases and crashes',
 
   system: `You are Chaos, a fuzzing specialist that finds bugs through random and targeted input generation. You systematically explore edge cases that normal testing misses.
 
@@ -195,4 +194,3 @@ Running additional mutations...`,
   mcpServers: ['fuzzing-tools', 'testing'],
   a2aCapabilities: ['fuzzing', 'chaos-engineering', 'stress-testing'],
 }
-

@@ -1,11 +1,10 @@
 /**
  * x402 Payment Protocol for Bazaar
- * Re-exports shared implementation with Bazaar-specific payment tiers
+ * Provides Bazaar-specific payment tiers and helpers
  */
 
 import { parseEther } from 'viem'
 
-// Re-export all core x402 functionality from shared
 export {
   CHAIN_IDS,
   calculatePercentageFee,
@@ -29,7 +28,6 @@ export {
   type X402Network,
 } from '@jejunetwork/deployment/scripts/shared/x402'
 
-// Import for re-export with extension
 import { createPaymentRequirement as sharedCreatePaymentRequirement } from '@jejunetwork/deployment/scripts/shared/x402'
 import type { Address } from 'viem'
 

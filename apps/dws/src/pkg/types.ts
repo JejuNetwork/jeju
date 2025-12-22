@@ -463,16 +463,3 @@ export interface PkgRegistryConfig {
   rpcUrl: string
   packageRegistryAddress: Address
 }
-
-// ============ Legacy NPM Compatibility Aliases ============
-// For backwards compatibility with npm CLI (kept for compatibility)
-
-export type NpmPackageMetadata = PkgPackageMetadata
-export type NpmVersionMetadata = PkgVersionMetadata
-export type NpmExport = PkgExport
-export type NpmPerson = PkgPerson
-export type NpmDist = PkgDist
-export type NpmPublishPayload = PkgPublishPayload
-export type NpmAttachment = PkgAttachment
-export type NpmSearchResult = PkgSearchResult
-export type NpmSearchObject = PkgSearchObject

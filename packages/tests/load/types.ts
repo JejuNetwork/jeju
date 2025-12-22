@@ -159,4 +159,3 @@ export interface ImprovementRecord {
   before: number
   after: number
 }
-

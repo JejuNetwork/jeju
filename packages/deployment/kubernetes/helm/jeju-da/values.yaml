@@ -1,17 +1,18 @@
-# JejuDA - Native Data Availability Server
-# Implements OP Stack Alt-DA interface using IPFS + KZG commitments
+# Jeju DA - Native Data Availability Layer
+# Implements OP Stack Alt-DA interface with PeerDAS integration
 #
 # Architecture:
-# 1. op-batcher sends batch data to JejuDA server
-# 2. JejuDA creates KZG commitment and stores data in IPFS
+# 1. op-batcher sends batch data to Jeju DA server
+# 2. Jeju DA creates KZG commitment and stores data in IPFS
 # 3. Commitment posted to L1 (tiny footprint)
-# 4. op-node retrieves data from JejuDA using commitment
-# 5. IPFS provides redundancy and global availability
+# 4. op-node retrieves data from Jeju DA using commitment
+# 5. IPFS + PeerDAS provides redundancy and global availability
 #
-# Why use this over EigenDA?
+# Features:
 # - Self-sovereign: no external dependencies
+# - PeerDAS integration for enhanced sampling
 # - Uses existing IPFS infrastructure
-# - Cheaper: only pay for IPFS storage
+# - Cost-effective: only pay for IPFS storage
 # - Decentralized: IPFS provides global redundancy
 
 replicaCount: 3

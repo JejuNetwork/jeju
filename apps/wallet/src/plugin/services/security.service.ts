@@ -7,6 +7,12 @@
 
 import type { IAgentRuntime } from '@elizaos/core'
 import {
+  expectAddress,
+  expectBigInt,
+  expectChainId,
+  expectHex,
+} from '@jejunetwork/types'
+import {
   type Address,
   createPublicClient,
   decodeErrorResult,
@@ -14,13 +20,7 @@ import {
   http,
   type PublicClient,
 } from 'viem'
-import {
-  expectAddress,
-  expectBigInt,
-  expectChainId,
-  expectHex,
-  expectNonEmpty,
-} from '../../lib/validation'
+import { expectNonEmpty } from '../../lib/validation'
 import type { SecurityAnalysis, SignatureRisk, TransactionRisk } from '../types'
 
 // Known malicious/scam patterns

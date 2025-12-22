@@ -1,5 +1,5 @@
 /**
- * @fileoverview Consolidated API Key Management
+ * @fileoverview API Key Management
  * @module config/api-keys
  *
  * All API keys are OPTIONAL. Features gracefully degrade when keys are missing.

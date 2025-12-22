@@ -15,7 +15,6 @@ import {
   tokenEconomicsSchema,
 } from './schemas'
 
-// Re-export all schemas
 export * from './schemas'
 
 // =============================================================================

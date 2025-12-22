@@ -10,6 +10,7 @@ import { Elysia } from 'elysia'
 import { z } from 'zod'
 import {
   A2ARequestSchema,
+  formatVolume,
   OIFRouteSchema,
   OIFSolverSchema,
   OIFStatsResponseSchema,
@@ -42,27 +43,6 @@ if (!OIF_AGGREGATOR_URL) {
 
 const prometheusUrl = PROMETHEUS_URL ?? 'http://localhost:9090'
 const oifAggregatorUrl = OIF_AGGREGATOR_URL ?? 'http://localhost:4010'
-
-// Safely format volume using BigInt to handle large token amounts without precision loss
-function formatVolume(amount: string): string {
-  // Validate input is a valid numeric string
-  if (!/^-?\d+$/.test(amount)) {
-    return '0.0000' // Return safe default for invalid input
-  }
-
-  // Use BigInt for precision with large numbers
-  const bigValue = BigInt(amount)
-  const divisor = BigInt(1e18)
-  const wholePart = bigValue / divisor
-  const remainder = bigValue % divisor
-
-  // Convert to number only after scaling down (safe after division by 1e18)
-  const value = Number(wholePart) + Number(remainder) / 1e18
-
-  if (value >= 1000000) return `${(value / 1000000).toFixed(2)}M`
-  if (value >= 1000) return `${(value / 1000).toFixed(2)}K`
-  return value.toFixed(4)
-}
 
 // Maximum allowed query length to prevent DoS via extremely long queries
 const MAX_QUERY_LENGTH = 2000

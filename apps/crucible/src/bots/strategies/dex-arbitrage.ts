@@ -13,7 +13,7 @@ import type {
   ChainId,
   Pool,
   StrategyConfig,
-} from '../autocrat-types'
+} from '../autocrat-types-source'
 import type { SwapEvent, SyncEvent } from '../engine/collector'
 import {
   bigintMax,

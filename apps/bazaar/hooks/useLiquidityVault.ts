@@ -1,5 +1,3 @@
-'use client'
-
 /**
  * Liquidity Vault Hook
  * Re-exports from @jejunetwork/ui

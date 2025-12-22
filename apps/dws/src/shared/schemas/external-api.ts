@@ -3,7 +3,6 @@
  * Used for validated parsing of responses from third-party APIs
  */
 
-import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 import { addressSchema, strictHexSchema } from '../validation'
 

@@ -25,7 +25,6 @@ export {
   test,
   verifyAuth,
   verifyDisconnected,
-  verifyWalletConnected,
   walletPassword,
 } from './fixtures/synpress-wallet'
 // Helpers
@@ -58,7 +57,7 @@ export {
   type WalletSetupOptions,
   type WalletSetupResult,
 } from './synpress.config.base'
-// Shared utilities - DRY consolidated code
+// Shared utilities
 export {
   checkContractsDeployed,
   checkRpcHealth,

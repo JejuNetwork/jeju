@@ -1,3 +1,9 @@
+import {
+  CORE_PORTS,
+  getExplorerUrl,
+  getL2RpcUrl,
+  INFRA_PORTS,
+} from '@jejunetwork/config/ports'
 import { type Chain, defineChain } from 'viem'
 import { mainnet, sepolia } from 'viem/chains'
 import { NETWORK_NAME } from './index'
@@ -59,11 +65,21 @@ export const jejuLocalnet = defineChain({
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:6546'],
+      http: [
+        process.env.NEXT_PUBLIC_JEJU_RPC_URL ||
+          getL2RpcUrl() ||
+          `http://localhost:${INFRA_PORTS.L2_RPC.DEFAULT}`,
+      ],
     },
   },
   blockExplorers: {
-    default: { name: `${networkName} Explorer`, url: 'http://localhost:4004' },
+    default: {
+      name: `${networkName} Explorer`,
+      url:
+        process.env.NEXT_PUBLIC_EXPLORER_URL ||
+        getExplorerUrl() ||
+        `http://localhost:${CORE_PORTS.EXPLORER.DEFAULT}`,
+    },
   },
   testnet: true,
 })
@@ -98,7 +114,9 @@ export const EVM_RPC_URLS: Record<EvmChainIds, string[]> = {
   [EvmChainIds.mainnetChain]: ['https://rpc.jejunetwork.org'],
   [EvmChainIds.testnetChain]: ['https://testnet-rpc.jejunetwork.org'],
   [EvmChainIds.localnetChain]: [
-    process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:6546',
+    process.env.NEXT_PUBLIC_JEJU_RPC_URL ||
+      getL2RpcUrl() ||
+      `http://localhost:${INFRA_PORTS.L2_RPC.DEFAULT}`,
   ],
 }
 
@@ -135,7 +153,10 @@ export const CHAIN_BLOCK_EXPLORER: Record<EvmChainIds, string> = {
   [EvmChainIds.EthereumSepolia]: 'https://sepolia.etherscan.io',
   [EvmChainIds.mainnetChain]: 'https://explorer.jejunetwork.org',
   [EvmChainIds.testnetChain]: 'https://testnet-explorer.jejunetwork.org',
-  [EvmChainIds.localnetChain]: 'http://localhost:4004',
+  [EvmChainIds.localnetChain]:
+    process.env.NEXT_PUBLIC_EXPLORER_URL ||
+    getExplorerUrl() ||
+    `http://localhost:${CORE_PORTS.EXPLORER.DEFAULT}`,
 }
 
 // Chain names (display)

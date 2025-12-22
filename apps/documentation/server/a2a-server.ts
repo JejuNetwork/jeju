@@ -1,12 +1,17 @@
 /**
  * A2A Server for network Documentation
  * Enables agents to search and query documentation programmatically
+ *
+ * This is a secondary server for the Documentation app, providing A2A protocol support.
+ * The main docs site runs on CORE_PORTS.DOCUMENTATION (4004), while this A2A server
+ * runs on CORE_PORTS.DOCUMENTATION_A2A (7778 by default).
  */
 
 import { readFile, realpath, stat } from 'node:fs/promises'
 import path from 'node:path'
 import { cors } from '@elysiajs/cors'
 import { getNetworkName } from '@jejunetwork/config'
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { Elysia } from 'elysia'
 import { z } from 'zod'
 import {
@@ -17,7 +22,8 @@ import {
   type Topic,
 } from '../lib/a2a'
 
-const PORT = process.env.DOCUMENTATION_A2A_PORT || 7778
+// A2A server port - separate from main docs site (CORE_PORTS.DOCUMENTATION)
+const PORT = CORE_PORTS.DOCUMENTATION_A2A.get()
 const MAX_FILE_SIZE_BYTES = 1024 * 1024 // 1MB max file size
 const RATE_LIMIT_WINDOW_MS = 60 * 1000 // 1 minute
 const RATE_LIMIT_MAX_REQUESTS = 100
@@ -55,10 +61,9 @@ setInterval(() => {
   }
 }, RATE_LIMIT_WINDOW_MS)
 
-// Allowed origins for CORS (production should be more restrictive)
 const ALLOWED_ORIGINS = process.env.ALLOWED_ORIGINS?.split(',') || [
-  'http://localhost:4004',
-  'http://localhost:3000',
+  `http://localhost:${CORE_PORTS.DOCUMENTATION.DEFAULT}`, // Main docs site
+  'http://localhost:3000', // Common dev server port
   'https://docs.jejunetwork.org',
   'https://jejunetwork.org',
 ]

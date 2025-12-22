@@ -391,7 +391,10 @@ describe('Retry Logic', () => {
     // Simulate another failed retry
     const pending = pendingMessages.get(envelope.id)
     expect(pending).toBeDefined()
-    if (pending) pending.attempts++
+    if (!pending) {
+      throw new Error('Expected pending message to be defined')
+    }
+    pending.attempts++
 
     if (pending.attempts >= maxTotalAttempts) {
       pendingMessages.delete(envelope.id)

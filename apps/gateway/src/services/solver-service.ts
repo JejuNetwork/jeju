@@ -10,7 +10,7 @@ import type {
   SolverLiquidity,
   SupportedChainId,
 } from '@jejunetwork/types'
-import { ZERO_ADDRESS } from '../lib/contracts.js'
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import {
   expect,
   expectAddress,

@@ -75,7 +75,11 @@ async function getLatestVersion(): Promise<Version> {
     }
 
     const releaseRaw = await response.json()
-    const release = expectValid(GitHubReleaseSchema, releaseRaw, 'GitHub release')
+    const release = expectValid(
+      GitHubReleaseSchema,
+      releaseRaw,
+      'GitHub release',
+    )
 
     // Parse version from release notes
     // Look for version strings in format: "reth: v1.0.3" or "op-node: v1.7.6"
@@ -298,7 +302,11 @@ async function verifyUpdate(): Promise<boolean> {
     })
 
     const dataRaw = await response.json()
-    const data = expectValid(JsonRpcBlockNumberResponseSchema, dataRaw, 'eth_blockNumber')
+    const data = expectValid(
+      JsonRpcBlockNumberResponseSchema,
+      dataRaw,
+      'eth_blockNumber',
+    )
 
     if (!data.result) {
       throw new Error('RPC not responding correctly')

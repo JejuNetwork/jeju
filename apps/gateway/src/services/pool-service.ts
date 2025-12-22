@@ -1,3 +1,4 @@
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import {
   type Address,
   createPublicClient,
@@ -6,7 +7,6 @@ import {
   parseEther,
 } from 'viem'
 import { getRpcUrl, JEJU_CHAIN_ID } from '../config/networks.js'
-import { ZERO_ADDRESS } from '../lib/contracts.js'
 import {
   expect,
   formatError,
@@ -393,10 +393,10 @@ const TOKENS: Record<
     symbol: 'USDC',
     decimals: 6,
   },
-  elizaOS: {
-    address: (process.env.ELIZAOS_ADDRESS ||
+  JEJU: {
+    address: (process.env.JEJU_TOKEN_ADDRESS ||
       '0x0000000000000000000000000000000000000002') as Address,
-    symbol: 'elizaOS',
+    symbol: 'JEJU',
     decimals: 18,
   },
 }

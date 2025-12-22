@@ -1,13 +1,3 @@
-/**
- * OAuth3 Authentication Service
- *
- * Wraps the @jejunetwork/oauth3 SDK for decentralized authentication with:
- * - TEE-backed key management
- * - MPC threshold signing
- * - Session management
- * - Decentralized infrastructure integration
- */
-
 import { getNetworkName } from '@jejunetwork/config'
 import {
   AuthProvider,

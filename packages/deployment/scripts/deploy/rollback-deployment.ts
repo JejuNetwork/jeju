@@ -22,12 +22,12 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
-import { logger } from '../shared/logger'
 import {
   type DeploymentState,
   DeploymentStateSchema,
   expectJson,
 } from '../../schemas'
+import { logger } from '../shared/logger'
 
 const ROOT = join(import.meta.dir, '..')
 const DEPLOYMENTS_DIR = join(ROOT, 'packages/contracts/deployments')
@@ -179,7 +179,11 @@ async function verifyRollback(
   )
 
   // Verify key addresses match
-  const keyFields = ['sequencerRegistry', 'disputeGameFactory', 'prover'] as const
+  const keyFields = [
+    'sequencerRegistry',
+    'disputeGameFactory',
+    'prover',
+  ] as const
   let allMatch = true
 
   for (const field of keyFields) {

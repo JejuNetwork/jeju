@@ -76,6 +76,7 @@
     "wallet"
   ],
   "dependencies": {
+    "@jejunetwork/config": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
     "@jejunetwork/types": "workspace:*",

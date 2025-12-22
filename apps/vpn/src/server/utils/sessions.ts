@@ -5,8 +5,8 @@
  */
 
 import type { Address } from 'viem'
-import { expect, expectExists } from '../schemas'
-import type { VPNServiceContext, VPNSessionState } from '../types'
+import { expect, expectExists, type VPNSessionState } from '../schemas'
+import type { VPNServiceContext } from '../types'
 
 // SECURITY: Maximum sessions per address to prevent resource exhaustion
 const MAX_SESSIONS_PER_ADDRESS = 5

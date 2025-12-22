@@ -32,6 +32,8 @@ import {
   findBestNode,
   getNodesByCountry,
 } from './utils/nodes'
+import { validateProxyUrlWithDNS } from './utils/proxy-validation'
+import { readResponseBody } from './utils/response-reader'
 import {
   createSession,
   deleteSession,
@@ -41,7 +43,6 @@ import {
   getSessionsForAddress,
   verifySessionOwnership,
 } from './utils/sessions'
-import { validateProxyUrlWithDNS } from './utils/proxy-validation'
 import { verifyX402Payment } from './x402'
 
 // ============================================================================
@@ -354,7 +355,8 @@ export function createMCPRouter(ctx: VPNServiceContext) {
     .onError(({ error, set }) => {
       console.error('MCP API error:', error)
       set.status = 500
-      const message = error instanceof Error ? error.message : 'Internal server error'
+      const message =
+        error instanceof Error ? error.message : 'Internal server error'
       return { error: message }
     })
 
@@ -422,9 +424,19 @@ export function createMCPRouter(ctx: VPNServiceContext) {
       // auth.address is already validated as Address by verifyAuth when valid
       const address = auth.valid && auth.address ? auth.address : null
 
-      const validatedBody = expectValid(MCPToolCallSchema, body, 'tool call request')
+      const validatedBody = expectValid(
+        MCPToolCallSchema,
+        body,
+        'tool call request',
+      )
 
-      const result = await callTool(ctx, request, validatedBody.name, validatedBody.arguments, address)
+      const result = await callTool(
+        ctx,
+        request,
+        validatedBody.name,
+        validatedBody.arguments,
+        address,
+      )
 
       return {
         content: [
@@ -448,9 +460,17 @@ export function createMCPRouter(ctx: VPNServiceContext) {
      * POST /prompts/get - Get a prompt
      */
     .post('/prompts/get', async ({ body }) => {
-      const validatedBody = expectValid(MCPPromptGetSchema, body, 'prompt get request')
+      const validatedBody = expectValid(
+        MCPPromptGetSchema,
+        body,
+        'prompt get request',
+      )
 
-      const prompt = await getPrompt(ctx, validatedBody.name, validatedBody.arguments ?? {})
+      const prompt = await getPrompt(
+        ctx,
+        validatedBody.name,
+        validatedBody.arguments ?? {},
+      )
 
       return {
         description: prompt.description,
@@ -664,37 +684,10 @@ async function callTool(
         signal: controller.signal,
       }).finally(() => clearTimeout(timeoutId))
 
-      // SECURITY: Read response with size limit
       const MCP_MAX_RESPONSE_SIZE = 10 * 1024 * 1024
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('No response body')
-      }
-
-      const chunks: Uint8Array[] = []
-      let totalSize = 0
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        totalSize += value.length
-        if (totalSize > MCP_MAX_RESPONSE_SIZE) {
-          reader.cancel()
-          throw new Error(
-            `Response too large. Max size: ${MCP_MAX_RESPONSE_SIZE} bytes`,
-          )
-        }
-        chunks.push(value)
-      }
-
-      const responseBody = new TextDecoder().decode(
-        chunks.reduce((acc, chunk) => {
-          const result = new Uint8Array(acc.length + chunk.length)
-          result.set(acc)
-          result.set(chunk, acc.length)
-          return result
-        }, new Uint8Array(0)),
+      const responseBody = await readResponseBody(
+        response,
+        MCP_MAX_RESPONSE_SIZE,
       )
 
       return {

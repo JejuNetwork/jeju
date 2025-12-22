@@ -2,12 +2,9 @@
  * Shared constants and utilities for Council
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { z } from 'zod'
-import {
-  expectValid,
-  extractLLMContent,
-  LLMCompletionResponseSchema,
-} from './schemas'
+import { extractLLMContent, LLMCompletionResponseSchema } from './schemas'
 
 /**
  * Parse JSON from LLM response that may include markdown code fences

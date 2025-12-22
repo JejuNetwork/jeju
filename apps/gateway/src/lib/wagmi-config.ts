@@ -2,7 +2,6 @@ import { getDefaultConfig } from '@rainbow-me/rainbowkit'
 import { http } from 'wagmi'
 import { CHAIN_ID, NETWORK, RPC_URL, WALLETCONNECT_PROJECT_ID } from '../config'
 
-// Network chain config from centralized config
 const jejuChain = {
   id: CHAIN_ID,
   name:

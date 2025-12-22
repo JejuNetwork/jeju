@@ -1,6 +1,5 @@
 /**
  * Shared entity helpers for processors
- * Consolidates common patterns across all event processors
  */
 
 import { Account } from '../model'

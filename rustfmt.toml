@@ -1,0 +1,17 @@
+# Rust formatting configuration (stable options only)
+edition = "2021"
+max_width = 100
+tab_spaces = 4
+use_small_heuristics = "Default"
+newline_style = "Auto"
+
+# Imports (stable options)
+reorder_imports = true
+reorder_modules = true
+
+# Note: The following options require nightly:
+# imports_granularity = "Crate"
+# group_imports = "StdExternalCrate"
+# format_code_in_doc_comments = true
+# format_macro_matchers = true
+# wrap_comments = true

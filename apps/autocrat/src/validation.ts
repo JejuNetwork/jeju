@@ -1,8 +1,10 @@
 /**
  * Validation Utilities
  *
- * Hono-specific validation helpers that wrap shared validation from @jejunetwork/types.
+ * Framework-agnostic validation helpers that wrap shared validation from @jejunetwork/types.
  * Uses fail-fast expect/throw patterns - validation errors expose bugs immediately.
+ *
+ * These work with Elysia by accepting raw data (body, query, params) directly.
  */
 
 import {
@@ -12,53 +14,84 @@ import {
   expectTrue,
   expectValid,
 } from '@jejunetwork/types'
-import type { Context } from 'hono'
 import { isHex } from 'viem'
 import type { z } from 'zod'
 
 /**
- * Parse and validate JSON body from Hono request
+ * Query string parameter type from HTTP frameworks (Elysia, Hono, Express, etc.)
+ * Allows nested objects and arrays for complex query params.
  */
-export async function parseAndValidateBody<T>(
-  c: Context,
+export interface QueryParams {
+  [key: string]: string | string[] | QueryParams | QueryParams[] | undefined
+}
+
+/**
+ * Path parameter type from HTTP frameworks
+ * Path params are string values extracted from URL patterns.
+ */
+export type PathParams = Record<string, string | undefined>
+
+/**
+ * JSON value type for request bodies
+ */
+export type JsonPrimitive = string | number | boolean | null
+export type JsonValue =
+  | JsonPrimitive
+  | JsonValue[]
+  | { [key: string]: JsonValue }
+
+/**
+ * Validate JSON body against a schema
+ * Framework-agnostic: accepts the body directly
+ */
+export function validateBody<T>(
+  body: JsonValue | Record<string, JsonValue>,
   schema: z.ZodSchema<T>,
   context = 'Request body',
-): Promise<T> {
-  const body = await c.req.json().catch(() => {
-    throw new Error(`${context}: Invalid JSON`)
-  })
+): T {
   return expectValid(schema, body, context)
 }
 
 /**
- * Parse and validate query parameters from Hono request
+ * Validate query parameters against a schema
+ * Framework-agnostic: accepts the query object directly
  */
-export function parseAndValidateQuery<T>(
-  c: Context,
+export function validateQuery<T>(
+  query: QueryParams,
   schema: z.ZodSchema<T>,
   context = 'Query parameters',
 ): T {
-  const query = Object.fromEntries(
-    Object.entries(c.req.query()).map(([k, v]) => [k, v ?? '']),
-  )
   return expectValid(schema, query, context)
 }
 
 /**
- * Parse and validate route parameter
+ * Validate a single route parameter
+ * Framework-agnostic: accepts the params object directly
  */
-export function parseAndValidateParam(
-  c: Context,
+export function validateParam(
+  params: PathParams,
   paramName: string,
   schema: z.ZodSchema<string>,
   context?: string,
 ): string {
-  const param = c.req.param(paramName)
+  const param = params[paramName]
   expectDefined(
     param,
     `${context ?? 'Route parameter'} '${paramName}' is required`,
   )
   return expectValid(schema, param, context ?? `Route parameter '${paramName}'`)
+}
+
+/**
+ * Validate all route parameters against an object schema
+ * Framework-agnostic: accepts the params object directly
+ */
+export function validateParams<T>(
+  params: PathParams,
+  schema: z.ZodSchema<T>,
+  context = 'Route parameters',
+): T {
+  return expectValid(schema, params, context)
 }
 
 /**
@@ -204,25 +237,181 @@ export function expectInRange(
 }
 
 /**
- * Create error response helper (Hono-specific)
+ * HTTP error response type
  */
-export function errorResponse(
-  c: Context,
-  message: string,
-  status: number = 400,
-) {
-  return c.json(
-    { error: message },
-    status as 200 | 201 | 400 | 401 | 403 | 404 | 500 | 502 | 503,
+export interface ErrorResponse {
+  error: string
+  status: number
+}
+
+/**
+ * Create error response object
+ * Framework-agnostic: returns an object that can be used with any framework
+ * For Elysia, throw an error or return this with set.status
+ */
+export function errorResponse(message: string, status = 400): ErrorResponse {
+  return { error: message, status }
+}
+
+/**
+ * Hono context with json response method
+ */
+interface HonoResponseContext {
+  json<U>(data: U, status?: number): Response
+}
+
+/**
+ * Create success response
+ * For Hono: use successResponse(c, data) which calls c.json(data)
+ * For Elysia: use successResponse(data) which returns data directly
+ *
+ * @example
+ * // Hono usage:
+ * return successResponse(c, { result: 'ok' })
+ *
+ * // Elysia usage (data only):
+ * return successResponse({ result: 'ok' })
+ */
+export function successResponse<T>(
+  context: HonoResponseContext,
+  data: T,
+): Response
+export function successResponse<T>(data: T): T
+export function successResponse<T>(
+  contextOrData: HonoResponseContext | T,
+  maybeData?: T,
+): Response | T {
+  if (maybeData !== undefined) {
+    return (contextOrData as HonoResponseContext).json(maybeData)
+  }
+  return contextOrData as T
+}
+
+/**
+ * Validation error class for HTTP error responses
+ * Throw this in Elysia handlers to return error responses
+ */
+export class ValidationError extends Error {
+  readonly status: number
+
+  constructor(message: string, status = 400) {
+    super(message)
+    this.name = 'ValidationError'
+    this.status = status
+  }
+}
+
+// ============================================================================
+// Backward-compatible aliases for Hono migration
+// These functions work with framework contexts that have body, query, params
+// ============================================================================
+
+/**
+ * Hono context interface for request handling
+ */
+interface HonoContext {
+  req: {
+    json(): Promise<JsonValue | Record<string, JsonValue>>
+    query(): Record<string, string | undefined>
+    param(name: string): string | undefined
+  }
+}
+
+/**
+ * Elysia context interface for request handling
+ */
+interface ElysiaContext {
+  body: JsonValue | Record<string, JsonValue>
+  query: QueryParams
+  params: PathParams
+}
+
+/** Union type for both framework contexts */
+type FrameworkContext = HonoContext | ElysiaContext
+
+/** Type guard to check if context is Hono */
+function isHonoContext(c: FrameworkContext): c is HonoContext {
+  return 'req' in c && typeof c.req?.json === 'function'
+}
+
+/** Type guard to check if context is Elysia */
+function isElysiaContext(c: FrameworkContext): c is ElysiaContext {
+  return (
+    'body' in c &&
+    !('req' in c && typeof (c as HonoContext).req?.json === 'function')
   )
 }
 
 /**
- * Create success response helper (Hono-specific)
+ * Parse and validate JSON body from request context
+ * Compatible with both Hono (c.req.json()) and Elysia (c.body)
  */
-export function successResponse<T>(c: Context, data: T, status: number = 200) {
-  return c.json(
-    data as T & (Record<string, unknown> | unknown[]),
-    status as 200 | 201 | 400 | 401 | 403 | 404 | 500 | 502 | 503,
+export async function parseAndValidateBody<T>(
+  c: FrameworkContext,
+  schema: z.ZodSchema<T>,
+  context = 'Request body',
+): Promise<T> {
+  let body: JsonValue | Record<string, JsonValue>
+
+  if (isHonoContext(c)) {
+    body = await c.req.json().catch(() => {
+      throw new Error(`${context}: Invalid JSON`)
+    })
+  } else if (isElysiaContext(c)) {
+    body = c.body
+  } else {
+    throw new Error(`${context}: No body available`)
+  }
+
+  return validateBody(body, schema, context)
+}
+
+/**
+ * Parse and validate query parameters from request context
+ * Compatible with both Hono (c.req.query()) and Elysia (c.query)
+ */
+export function parseAndValidateQuery<T>(
+  c: FrameworkContext,
+  schema: z.ZodSchema<T>,
+  context = 'Query parameters',
+): T {
+  let query: QueryParams
+
+  if (isHonoContext(c)) {
+    const rawQuery = c.req.query()
+    query = Object.fromEntries(
+      Object.entries(rawQuery).map(([k, v]) => [k, v ?? '']),
+    )
+  } else if (isElysiaContext(c)) {
+    query = c.query
+  } else {
+    query = {}
+  }
+
+  return validateQuery(query, schema, context)
+}
+
+/**
+ * Parse and validate route parameter from request context
+ * Compatible with both Hono (c.req.param()) and Elysia (c.params)
+ */
+export function parseAndValidateParam(
+  c: FrameworkContext,
+  paramName: string,
+  schema: z.ZodSchema<string>,
+  context?: string,
+): string {
+  let param: string | undefined
+
+  if (isHonoContext(c)) {
+    param = c.req.param(paramName)
+  } else if (isElysiaContext(c)) {
+    param = c.params[paramName]
+  }
+
+  expectDefined(
+    param,
+    `${context ?? 'Route parameter'} '${paramName}' is required`,
   )
+  return expectValid(schema, param, context ?? `Route parameter '${paramName}'`)
 }

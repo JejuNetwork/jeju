@@ -11,7 +11,8 @@
 
 import { afterAll, beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync } from 'node:fs'
-import { readFile, rm } from 'node:fs/promises'
+import { readdir, readFile, rm } from 'node:fs/promises'
+import { getCoreAppUrl, getL2RpcUrl } from '@jejunetwork/config/ports'
 import { type Subprocess, spawn } from 'bun'
 import { z } from 'zod'
 import {
@@ -37,8 +38,9 @@ const WorkerServiceBodySchema = z.object({
 const DIST_DIR = './dist'
 const STATIC_DIR = `${DIST_DIR}/static`
 const WORKER_DIR = `${DIST_DIR}/worker`
-const API_PORT = 4097 // Use non-conflicting port for tests
-const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
+// Test-specific port to avoid conflicts with running services
+const API_PORT = 4097
+const DWS_URL = process.env.DWS_URL || getCoreAppUrl('DWS_API')
 
 let apiServer: Subprocess | null = null
 const deployedWorkerId: string | null = null
@@ -76,7 +78,6 @@ describe('Build System', () => {
     expect(existsSync(`${STATIC_DIR}/globals.css`)).toBe(true)
 
     // Check for JS files
-    const { readdir } = await import('node:fs/promises')
     const staticFiles = await readdir(STATIC_DIR)
     const jsFiles = staticFiles.filter((f) => f.endsWith('.js'))
     expect(jsFiles.length).toBeGreaterThan(0)
@@ -212,28 +213,22 @@ describe('Standalone API Server', () => {
 })
 
 describe('Worker Module', () => {
-  test('worker can be imported', async () => {
-    const { createBazaarApp, default: workerExport } = await import(
-      '../../api/worker'
-    )
-
+  test('worker can be imported', () => {
     expect(typeof createBazaarApp).toBe('function')
-    expect(workerExport).toHaveProperty('fetch')
-    expect(typeof workerExport.fetch).toBe('function')
+    expect(worker).toHaveProperty('fetch')
+    expect(typeof worker.fetch).toBe('function')
   })
 
   test('worker handles requests correctly', async () => {
-    const { default: worker } = await import('../../api/worker')
-
     const mockEnv = {
       NETWORK: 'localnet' as const,
       TEE_MODE: 'simulated' as const,
       TEE_PLATFORM: 'test',
       TEE_REGION: 'local',
-      RPC_URL: 'http://localhost:6545',
-      DWS_URL: 'http://localhost:4030',
-      GATEWAY_URL: 'http://localhost:4002',
-      INDEXER_URL: 'http://localhost:4003',
+      RPC_URL: getL2RpcUrl(),
+      DWS_URL: getCoreAppUrl('DWS_API'),
+      GATEWAY_URL: getCoreAppUrl('GATEWAY'),
+      INDEXER_URL: getCoreAppUrl('NODE_EXPLORER_UI'),
       COVENANTSQL_NODES: '',
       COVENANTSQL_DATABASE_ID: '',
       COVENANTSQL_PRIVATE_KEY: '',
@@ -593,7 +588,6 @@ describe('Static Assets', () => {
   })
 
   test('JS files are minified', async () => {
-    const { readdir } = await import('node:fs/promises')
     const files = await readdir(STATIC_DIR)
     const jsFiles = files.filter((f) => f.endsWith('.js'))
 
@@ -607,7 +601,6 @@ describe('Static Assets', () => {
   })
 
   test('chunks directory exists for code splitting', async () => {
-    const { readdir } = await import('node:fs/promises')
     const staticFiles = await readdir(STATIC_DIR)
     const hasChunks =
       staticFiles.includes('chunks') ||

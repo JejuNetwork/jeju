@@ -25,6 +25,7 @@ import {
   createPublicClient,
   createWalletClient,
   encodeDeployData,
+  formatEther,
   getContractAddress,
   type Hex,
   http,

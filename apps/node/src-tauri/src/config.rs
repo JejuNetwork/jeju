@@ -138,23 +138,34 @@ pub struct NodeConfig {
 impl Default for NodeConfig {
     fn default() -> Self {
         let mut services = HashMap::new();
-        
+
         // Initialize all services with defaults
         for service_id in &[
-            "compute", "storage", "oracle", "proxy", "cron", 
-            "rpc", "xlp", "solver", "sequencer"
+            "compute",
+            "storage",
+            "oracle",
+            "proxy",
+            "cron",
+            "rpc",
+            "xlp",
+            "solver",
+            "sequencer",
         ] {
             services.insert(service_id.to_string(), ServiceConfig::default());
         }
-        
+
         let mut bots = HashMap::new();
         for bot_id in &[
-            "dex_arb", "cross_chain_arb", "sandwich", 
-            "liquidation", "oracle_keeper", "solver"
+            "dex_arb",
+            "cross_chain_arb",
+            "sandwich",
+            "liquidation",
+            "oracle_keeper",
+            "solver",
         ] {
             bots.insert(bot_id.to_string(), BotConfig::default());
         }
-        
+
         Self {
             version: "1.0.0".to_string(),
             network: NetworkConfig::default(),
@@ -172,7 +183,7 @@ impl Default for NodeConfig {
 impl NodeConfig {
     pub fn load() -> Result<Self, Box<dyn std::error::Error>> {
         let config_path = Self::config_path()?;
-        
+
         if config_path.exists() {
             let contents = std::fs::read_to_string(&config_path)?;
             let config: NodeConfig = serde_json::from_str(&contents)?;
@@ -186,27 +197,24 @@ impl NodeConfig {
 
     pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
         let config_path = Self::config_path()?;
-        
+
         if let Some(parent) = config_path.parent() {
             std::fs::create_dir_all(parent)?;
         }
-        
+
         let contents = serde_json::to_string_pretty(self)?;
         std::fs::write(&config_path, contents)?;
-        
+
         Ok(())
     }
 
     pub fn config_path() -> Result<PathBuf, Box<dyn std::error::Error>> {
-        let config_dir = dirs::config_dir()
-            .ok_or("Could not find config directory")?;
+        let config_dir = dirs::config_dir().ok_or("Could not find config directory")?;
         Ok(config_dir.join("jeju-node").join("config.json"))
     }
 
     pub fn data_dir() -> Result<PathBuf, Box<dyn std::error::Error>> {
-        let data_dir = dirs::data_dir()
-            .ok_or("Could not find data directory")?;
+        let data_dir = dirs::data_dir().ok_or("Could not find data directory")?;
         Ok(data_dir.join("jeju-node"))
     }
 }
-

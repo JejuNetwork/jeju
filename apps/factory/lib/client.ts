@@ -6,12 +6,13 @@
  */
 
 import { treaty } from '@elysiajs/eden'
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import type { App } from '../src/server'
 
 const API_BASE =
   typeof window !== 'undefined'
     ? ''
-    : process.env.FACTORY_API_URL || 'http://localhost:4009'
+    : process.env.FACTORY_API_URL || getCoreAppUrl('FACTORY')
 
 /**
  * Typed Eden Treaty client for Factory API

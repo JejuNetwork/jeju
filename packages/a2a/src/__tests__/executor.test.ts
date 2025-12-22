@@ -4,10 +4,14 @@
  * Tests the A2A executor lifecycle: task creation, state transitions, completion
  */
 
+import { beforeEach, describe, expect, it } from 'bun:test'
 import type { Message, Task } from '@a2a-js/sdk'
 import type { ExecutionEventBus, RequestContext } from '@a2a-js/sdk/server'
-import { describe, expect, it, beforeEach } from 'bun:test'
-import { BaseAgentExecutor, type ExecutorCommand, type ExecutorResult } from '../core/executor'
+import {
+  BaseAgentExecutor,
+  type ExecutorCommand,
+  type ExecutorResult,
+} from '../core/executor'
 
 /**
  * Concrete implementation for testing
@@ -37,7 +41,9 @@ class TestExecutor extends BaseAgentExecutor {
 /**
  * Mock event bus for capturing published events
  */
-function createMockEventBus(): ExecutionEventBus & { events: Array<Task | object> } {
+function createMockEventBus(): ExecutionEventBus & {
+  events: Array<Task | object>
+} {
   const events: Array<Task | object> = []
   return {
     events,
@@ -124,7 +130,9 @@ describe('BaseAgentExecutor', () => {
 
       expect(executor.executedCommands).toHaveLength(1)
       expect(executor.executedCommands[0].operation).toBe('test')
-      expect(executor.executedCommands[0].params.message).toBe('Test command content')
+      expect(executor.executedCommands[0].params.message).toBe(
+        'Test command content',
+      )
     })
 
     it('should publish artifact with result', async () => {
@@ -145,8 +153,12 @@ describe('BaseAgentExecutor', () => {
       await executor.execute(context, eventBus)
 
       const artifactEvent = eventBus.events.find(
-        (e): e is { kind: 'artifact-update'; artifact: { parts: Array<{ data: object }> } } =>
-          (e as { kind?: string }).kind === 'artifact-update',
+        (
+          e,
+        ): e is {
+          kind: 'artifact-update'
+          artifact: { parts: Array<{ data: object }> }
+        } => (e as { kind?: string }).kind === 'artifact-update',
       )
 
       expect(artifactEvent).toBeDefined()
@@ -190,10 +202,12 @@ describe('BaseAgentExecutor', () => {
       await executor.cancelTask('task-123', eventBus)
 
       expect(eventBus.events).toHaveLength(1)
-      const cancelEvent = eventBus.events[0] as { status: { state: string }; final: boolean }
+      const cancelEvent = eventBus.events[0] as {
+        status: { state: string }
+        final: boolean
+      }
       expect(cancelEvent.status.state).toBe('canceled')
       expect(cancelEvent.final).toBe(true)
     })
   })
 })
-

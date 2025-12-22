@@ -3,7 +3,9 @@
  * @module gateway/tests/helpers/a2a-helpers
  */
 
-const A2A_BASE_URL = 'http://localhost:4003'
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
+
+const A2A_BASE_URL = getCoreAppUrl('NODE_EXPLORER_UI')
 
 export interface A2AMessage {
   messageId: string

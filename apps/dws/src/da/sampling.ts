@@ -9,7 +9,7 @@
  */
 
 import type { Address, Hex } from 'viem'
-import { keccak256, toBytes } from 'viem'
+import { bytesToHex, keccak256, toBytes } from 'viem'
 import { verifyProof } from './commitment'
 import type {
   BlobCommitment,
@@ -69,7 +69,7 @@ export function generateSampleIndices(
   let nonce = 0
   while (indices.size < sampleCount && indices.size < totalChunks) {
     // Deterministic random from seed + nonce
-    const hash = keccak256(toBytes(`${toBytes(seedBytes)}:${nonce}`))
+    const hash = keccak256(toBytes(`${bytesToHex(seedBytes)}:${nonce}`))
     const value = BigInt(hash) % BigInt(totalChunks)
     indices.add(Number(value))
     nonce++

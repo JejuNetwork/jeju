@@ -3,24 +3,24 @@
  */
 
 import { describe, expect, test } from 'bun:test'
+import { z } from 'zod'
 import {
   AddressSchema,
   Bytes32Schema,
-  HexSchema,
-  OAuth3ConfigSchema,
-  expect as expectValue,
   expectEndpoint,
   expectJson,
+  expect as expectValue,
   extractError,
   generateOTP,
   getEndpointWithDevFallback,
+  HexSchema,
   isAddress,
   isHex,
+  OAuth3ConfigSchema,
   safeParseJson,
   validateConfig,
   validateResponse,
 } from '../validation'
-import { z } from 'zod'
 
 // ============ Hex and Address Schema Tests ============
 

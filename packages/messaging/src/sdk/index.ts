@@ -29,7 +29,6 @@ export {
   publicKeysEqual,
   publicKeyToBytes32,
   publicKeyToHex,
-  type SerializedEncryptedMessage,
   serializeEncryptedMessage,
 } from './crypto'
 // Types
@@ -62,6 +61,7 @@ export {
   type RelayNode,
   type SendMessageRequest,
   type SendMessageResponse,
+  type SerializedEncryptedMessage,
   type User,
   type WebSocketIncomingMessage,
 } from './types'

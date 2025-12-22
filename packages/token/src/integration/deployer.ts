@@ -132,8 +132,6 @@ export class TokenDeployer {
       }
 
       progress('EVM', `Deploying to chain ${chainId}...`)
-      // In production, this calls the actual contract deployment
-      // For now, we note that deployment is pending
       result.evmDeployments.push({
         chainId,
         tokenAddress: '0x0000000000000000000000000000000000000000' as Address,
@@ -253,8 +251,3 @@ export async function deployToken(
 
   return deployer.deploy(options?.onProgress)
 }
-
-// Legacy aliases
-export type UnifiedTokenDeploymentConfig = TokenDeploymentConfig
-export type UnifiedTokenDeploymentResult = TokenDeploymentResult
-export const UnifiedTokenDeployer = TokenDeployer

@@ -8,7 +8,6 @@ import {
   Play,
   Plus,
   RefreshCw,
-  Server,
   Settings,
   Trash2,
 } from 'lucide-react'
@@ -156,7 +155,10 @@ export default function InfrastructurePage() {
         <div className="stat-card">
           <div
             className="stat-icon"
-            style={{ background: 'var(--success-soft)', color: 'var(--success)' }}
+            style={{
+              background: 'var(--success-soft)',
+              color: 'var(--success)',
+            }}
           >
             <Network size={24} />
           </div>
@@ -251,7 +253,9 @@ function ClustersTab({
 }) {
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+      <div
+        style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}
+      >
         <div className="spinner" />
       </div>
     )
@@ -295,14 +299,24 @@ function ClustersTab({
                 </span>
               </td>
               <td>{cluster.nodes}</td>
-              <td style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}>
+              <td
+                style={{ fontFamily: 'var(--font-mono)', fontSize: '0.85rem' }}
+              >
                 {cluster.apiEndpoint || '—'}
               </td>
               <td style={{ display: 'flex', gap: '0.25rem' }}>
-                <button type="button" className="btn btn-ghost btn-sm" title="Settings">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  title="Settings"
+                >
                   <Settings size={14} />
                 </button>
-                <button type="button" className="btn btn-ghost btn-sm" title="Delete">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  title="Delete"
+                >
                   <Trash2 size={14} />
                 </button>
               </td>
@@ -325,7 +339,9 @@ function HelmTab({
 }) {
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+      <div
+        style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}
+      >
         <div className="spinner" />
       </div>
     )
@@ -371,10 +387,18 @@ function HelmTab({
               <td>{dep.workers}</td>
               <td>{dep.services}</td>
               <td style={{ display: 'flex', gap: '0.25rem' }}>
-                <button type="button" className="btn btn-ghost btn-sm" title="View">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  title="View"
+                >
                   <Container size={14} />
                 </button>
-                <button type="button" className="btn btn-ghost btn-sm" title="Delete">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  title="Delete"
+                >
                   <Trash2 size={14} />
                 </button>
               </td>
@@ -397,7 +421,9 @@ function WorkerdTab({
 }) {
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+      <div
+        style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}
+      >
         <div className="spinner" />
       </div>
     )
@@ -445,10 +471,18 @@ function WorkerdTab({
                 {worker.invocations?.toLocaleString() ?? 0}
               </td>
               <td style={{ display: 'flex', gap: '0.25rem' }}>
-                <button type="button" className="btn btn-ghost btn-sm" title="Invoke">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  title="Invoke"
+                >
                   <Play size={14} />
                 </button>
-                <button type="button" className="btn btn-ghost btn-sm" title="Delete">
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm"
+                  title="Delete"
+                >
                   <Trash2 size={14} />
                 </button>
               </td>
@@ -471,7 +505,9 @@ function MeshTab({
 }) {
   if (isLoading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}>
+      <div
+        style={{ display: 'flex', justifyContent: 'center', padding: '3rem' }}
+      >
         <div className="spinner" />
       </div>
     )
@@ -760,4 +796,3 @@ function CreateResourceModal({
     </div>
   )
 }
-

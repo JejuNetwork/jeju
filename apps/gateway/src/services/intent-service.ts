@@ -10,8 +10,8 @@ import type {
   OIFStats,
   SupportedChainId,
 } from '@jejunetwork/types'
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import { encodeAbiParameters, keccak256, parseAbiParameters } from 'viem'
-import { ZERO_ADDRESS } from '../lib/contracts.js'
 import {
   type CreateIntentRequest,
   CreateIntentRequestSchema,

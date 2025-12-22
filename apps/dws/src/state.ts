@@ -124,7 +124,7 @@ async function getCQLClient(): Promise<MinimalCQLClient> {
           const statusMatch = sql.match(/WHERE\s+status\s*=\s*\?/i)
           if (statusMatch && params[0]) {
             const rows = Array.from(store.values()).filter(
-              (r) => r.status === params[0],
+              (r) => 'status' in r && r.status === params[0],
             ) as T[]
             return Promise.resolve({
               rows,
