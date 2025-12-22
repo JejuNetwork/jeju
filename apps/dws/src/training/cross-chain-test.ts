@@ -51,9 +51,22 @@ const EVM_RPC_URL = process.env.EVM_RPC_URL ?? 'http://127.0.0.1:9545'
 const EVM_PRIVATE_KEY =
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex
 
-// Placeholder bridge contract address (would be deployed contract)
-const BRIDGE_CONTRACT_ADDRESS =
-  '0x5FbDB2315678afecb367f032d93F642f64180aa3' as Address
+// Load bridge contract from deployed contracts or env var
+async function getBridgeContractAddress(): Promise<Address> {
+  const deployedPath = './training_output/deployed-contracts.json'
+  const file = Bun.file(deployedPath)
+  if (await file.exists()) {
+    const deployed = await file.json()
+    return deployed.coordinator as Address
+  }
+  if (process.env.COORDINATOR_ADDRESS) {
+    return process.env.COORDINATOR_ADDRESS as Address
+  }
+  throw new Error('No bridge contract. Run: bun run train:decentralized first')
+}
+
+// Will be set in main()
+let BRIDGE_CONTRACT_ADDRESS: Address
 
 // ============================================================================
 // Main Test
@@ -64,6 +77,10 @@ async function main() {
   console.log('CROSS-CHAIN TRAINING TEST')
   console.log('='.repeat(70))
   console.log()
+
+  // Load bridge contract address
+  BRIDGE_CONTRACT_ADDRESS = await getBridgeContractAddress()
+  console.log(`[0/7] Bridge contract: ${BRIDGE_CONTRACT_ADDRESS}\n`)
 
   // Check services
   console.log('[1/7] Checking infrastructure...\n')

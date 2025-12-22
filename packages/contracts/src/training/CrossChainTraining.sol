@@ -196,7 +196,11 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
 
     /**
      * @notice Submit a cross-chain witness for a training round
-     * @dev Allows EVM witnesses to attest to Solana training rounds
+     * @dev Allows EVM witnesses to attest to Solana training rounds.
+     *      The signature must be an ECDSA signature from a registered witness.
+     * @param evmRunId The EVM run ID linked to the Solana run
+     * @param witness The witness data from the Solana coordinator
+     * @param signature ECDSA signature over the witness data hash
      */
     function submitCrossChainWitness(
         bytes32 evmRunId,
@@ -211,7 +215,7 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
             revert SlotNotVerified();
         }
 
-        // Verify witness signature
+        // Verify witness signature - compute message hash and recover signer
         bytes32 messageHash = keccak256(abi.encode(
             evmRunId,
             witness.solanaRunId,
@@ -221,10 +225,34 @@ contract CrossChainTraining is Ownable, ReentrancyGuard {
             witness.solanaSlot
         ));
         
+        // Verify signature is from the caller (self-attestation)
+        // For cross-chain attestation, the witness signs their own attestation
+        bytes32 ethSignedHash = keccak256(abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash));
+        address recovered = _recoverSigner(ethSignedHash, signature);
+        require(recovered == msg.sender, "Invalid witness signature");
+        require(signature.length == 65, "Invalid signature length");
+        
         // Store the witness
         crossChainWitnesses[evmRunId][msg.sender] = witness;
 
         emit CrossChainWitnessSubmitted(evmRunId, solanaRunId, msg.sender, witness.step);
+    }
+
+    /**
+     * @notice Recover signer from signature
+     */
+    function _recoverSigner(bytes32 hash, bytes calldata sig) internal pure returns (address) {
+        require(sig.length == 65, "Invalid sig length");
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly {
+            r := calldataload(sig.offset)
+            s := calldataload(add(sig.offset, 32))
+            v := byte(0, calldataload(add(sig.offset, 64)))
+        }
+        if (v < 27) v += 27;
+        return ecrecover(hash, v, r, s);
     }
 
     /**

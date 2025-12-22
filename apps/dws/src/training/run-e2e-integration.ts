@@ -434,7 +434,9 @@ async function main() {
     const bridge = createCrossChainBridge({
       evmRpcUrl: CONFIG.jejuRpcUrl,
       evmPrivateKey: CONFIG.privateKey,
-      bridgeContractAddress: '0x0000000000000000000000000000000000000000', // Placeholder
+      bridgeContractAddress: process.env.COORDINATOR_ADDRESS as `0x${string}` || (() => {
+        throw new Error('COORDINATOR_ADDRESS env var required for cross-chain bridge')
+      })()
       solanaRpcUrl: CONFIG.solanaRpcUrl,
     })
     bridge.setPsycheClient(psyche)
