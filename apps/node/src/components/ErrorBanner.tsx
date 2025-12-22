@@ -20,6 +20,7 @@ export function ErrorBanner() {
         <p className="text-sm text-red-200/70 mt-1">{error}</p>
       </div>
       <button
+        type="button"
         onClick={clearError}
         className="p-1 rounded-lg hover:bg-red-500/20 transition-colors"
       >

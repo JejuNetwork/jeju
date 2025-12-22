@@ -52,3 +52,15 @@ export const installPackageRequestSchema = z.object({
     .regex(/^\d+\.\d+\.\d+/, 'Invalid semantic version')
     .optional(),
 })
+
+/**
+ * Batch packages request schema (for multi-registry dependency resolution)
+ */
+export const batchPackagesRequestSchema = z.object({
+  packages: z.array(
+    z.object({
+      name: nonEmptyStringSchema,
+      registry: z.enum(['npm', 'pypi', 'cargo', 'go']),
+    }),
+  ),
+})

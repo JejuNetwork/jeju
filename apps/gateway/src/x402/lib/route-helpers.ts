@@ -1,4 +1,3 @@
-import type { Context } from 'hono'
 import {
   validateSettleRequest,
   validateVerifyRequest,
@@ -31,10 +30,10 @@ function getNetworkFromRequest(
 }
 
 export async function parseJsonBody<T>(
-  c: Context,
+  request: Request,
 ): Promise<{ body: T; error?: string }> {
   try {
-    const body = await c.req.json<T>()
+    const body = (await request.json()) as T
     return { body }
   } catch (error) {
     const message =
@@ -43,13 +42,14 @@ export async function parseJsonBody<T>(
   }
 }
 
+type HandleVerifyResult =
+  | { valid: false; status: number; response: ReturnType<typeof buildVerifyErrorResponse> }
+  | { valid: true; body: VerifyRequest; network: string }
+
 export function handleVerifyRequest(
-  c: Context,
   body: unknown,
   defaultNetwork: string,
-):
-  | { valid: false; response: Response }
-  | { valid: true; body: VerifyRequest; network: string } {
+): HandleVerifyResult {
   const validation = validateVerifyRequest(body)
   if (!validation.valid || !validation.body) {
     const isClientError =
@@ -61,10 +61,8 @@ export function handleVerifyRequest(
     const status = isClientError ? 400 : 200
     return {
       valid: false,
-      response: c.json(
-        buildVerifyErrorResponse(validation.error ?? 'Validation failed'),
-        status,
-      ),
+      status,
+      response: buildVerifyErrorResponse(validation.error ?? 'Validation failed'),
     }
   }
 
@@ -75,34 +73,28 @@ export function handleVerifyRequest(
   return { valid: true, body: validation.body, network }
 }
 
+type HandleSettleResultBase = { valid: false; status: number; response: ReturnType<typeof buildSettleErrorResponse> }
+type HandleSettleResultWithAuth = { valid: true; body: SettleRequestWithAuth; network: string }
+type HandleSettleResultNoAuth = { valid: true; body: SettleRequest; network: string }
+
 export function handleSettleRequest(
-  c: Context,
   body: unknown,
   defaultNetwork: string,
   requireAuthParams: true,
-):
-  | { valid: false; response: Response }
-  | { valid: true; body: SettleRequestWithAuth; network: string }
+): HandleSettleResultBase | HandleSettleResultWithAuth
 export function handleSettleRequest(
-  c: Context,
   body: unknown,
   defaultNetwork: string,
   requireAuthParams?: false,
-):
-  | { valid: false; response: Response }
-  | { valid: true; body: SettleRequest; network: string }
+): HandleSettleResultBase | HandleSettleResultNoAuth
 export function handleSettleRequest(
-  c: Context,
   body: unknown,
   defaultNetwork: string,
   requireAuthParams = false,
 ):
-  | { valid: false; response: Response }
-  | {
-      valid: true
-      body: SettleRequest | SettleRequestWithAuth
-      network: string
-    } {
+  | HandleSettleResultBase
+  | HandleSettleResultWithAuth
+  | HandleSettleResultNoAuth {
   const validation = requireAuthParams
     ? validateSettleRequest(body, true)
     : validateSettleRequest(body, false)
@@ -116,12 +108,10 @@ export function handleSettleRequest(
     const status = isClientError ? 400 : 200
     return {
       valid: false,
-      response: c.json(
-        buildSettleErrorResponse(
-          defaultNetwork,
-          validation.error ?? 'Validation failed',
-        ),
-        status,
+      status,
+      response: buildSettleErrorResponse(
+        defaultNetwork,
+        validation.error ?? 'Validation failed',
       ),
     }
   }
@@ -134,14 +124,13 @@ export function handleSettleRequest(
 }
 
 export function handleRouteError(
-  c: Context,
   error: unknown,
   network: string,
   operation: string,
 ) {
   const message = formatError(error)
-  return c.json(
-    buildSettleErrorResponse(network, `${operation}: ${message}`),
-    500,
-  )
+  return {
+    status: 500,
+    response: buildSettleErrorResponse(network, `${operation}: ${message}`),
+  }
 }

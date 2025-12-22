@@ -152,6 +152,7 @@ function NameSearchCard() {
           </span>
         </div>
         <button
+          type="button"
           className="button"
           onClick={handleSearch}
           disabled={searching || !searchName}
@@ -222,6 +223,7 @@ function NameSearchCard() {
             <div>
               <div style={{ marginBottom: '1rem' }}>
                 <label
+                  htmlFor="registration-duration"
                   style={{
                     display: 'block',
                     marginBottom: '0.5rem',
@@ -232,6 +234,7 @@ function NameSearchCard() {
                   Registration Duration
                 </label>
                 <select
+                  id="registration-duration"
                   className="input"
                   value={duration}
                   onChange={(e) => {
@@ -275,6 +278,7 @@ function NameSearchCard() {
               </div>
 
               <button
+                type="button"
                 className="button"
                 onClick={handleRegister}
                 disabled={registering || !address}
@@ -487,6 +491,7 @@ function MyNamesCard() {
               </div>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button
+                  type="button"
                   className="button-secondary"
                   onClick={() => renew(name.name, 1)}
                   disabled={renewing}
@@ -495,6 +500,7 @@ function MyNamesCard() {
                   <RefreshCwIcon size={14} /> Renew
                 </button>
                 <button
+                  type="button"
                   className="button-secondary"
                   onClick={() => setPrimaryName(name.name)}
                   style={{ padding: '0.25rem 0.5rem', fontSize: '0.75rem' }}
@@ -672,6 +678,7 @@ function NameManagerCard() {
         >
           <div>
             <label
+              htmlFor="resolver-address"
               style={{
                 display: 'block',
                 marginBottom: '0.25rem',
@@ -683,6 +690,7 @@ function NameManagerCard() {
             </label>
             {editMode ? (
               <input
+                id="resolver-address"
                 className="input"
                 type="text"
                 value={resolverData.addr || ''}
@@ -710,6 +718,7 @@ function NameManagerCard() {
           {/* ERC-8004 Agent Link */}
           <div>
             <label
+              htmlFor="resolver-agent-id"
               style={{
                 marginBottom: '0.25rem',
                 fontSize: '0.75rem',
@@ -723,6 +732,7 @@ function NameManagerCard() {
             </label>
             {editMode ? (
               <input
+                id="resolver-agent-id"
                 className="input"
                 type="number"
                 min="0"
@@ -794,6 +804,7 @@ function NameManagerCard() {
 
           <div>
             <label
+              htmlFor="resolver-url-display"
               style={{
                 display: 'block',
                 marginBottom: '0.25rem',
@@ -805,6 +816,7 @@ function NameManagerCard() {
             </label>
             {editMode ? (
               <input
+                id="resolver-url-display"
                 className="input"
                 type="text"
                 value={resolverData.url}
@@ -820,6 +832,7 @@ function NameManagerCard() {
           </div>
           <div>
             <label
+              htmlFor="resolver-description"
               style={{
                 display: 'block',
                 marginBottom: '0.25rem',
@@ -831,6 +844,7 @@ function NameManagerCard() {
             </label>
             {editMode ? (
               <textarea
+                id="resolver-description"
                 className="input"
                 value={resolverData.description}
                 onChange={(e) =>
@@ -847,6 +861,7 @@ function NameManagerCard() {
           </div>
           <div>
             <label
+              htmlFor="resolver-endpoint"
               style={{
                 display: 'block',
                 marginBottom: '0.25rem',
@@ -858,6 +873,7 @@ function NameManagerCard() {
             </label>
             {editMode ? (
               <input
+                id="resolver-endpoint"
                 className="input"
                 type="text"
                 value={resolverData.endpoint}
@@ -874,6 +890,7 @@ function NameManagerCard() {
           </div>
           <div>
             <label
+              htmlFor="resolver-a2a-endpoint"
               style={{
                 display: 'block',
                 marginBottom: '0.25rem',
@@ -885,6 +902,7 @@ function NameManagerCard() {
             </label>
             {editMode ? (
               <input
+                id="resolver-a2a-endpoint"
                 className="input"
                 type="text"
                 value={resolverData.a2aEndpoint}
@@ -907,6 +925,7 @@ function NameManagerCard() {
             {editMode ? (
               <>
                 <button
+                  type="button"
                   className="button"
                   onClick={handleSave}
                   disabled={saving}
@@ -914,6 +933,7 @@ function NameManagerCard() {
                   {saving ? 'Saving...' : 'Save Changes'}
                 </button>
                 <button
+                  type="button"
                   className="button-secondary"
                   onClick={() => {
                     setEditMode(false)
@@ -924,7 +944,11 @@ function NameManagerCard() {
                 </button>
               </>
             ) : (
-              <button className="button" onClick={() => setEditMode(true)}>
+              <button
+                type="button"
+                className="button"
+                onClick={() => setEditMode(true)}
+              >
                 Edit Records
               </button>
             )}
@@ -992,8 +1016,19 @@ function RegisteredAppsCard() {
             onMouseOver={(e) => {
               e.currentTarget.style.background = 'var(--surface-active)'
             }}
+            onFocus={(e) => {
+              e.currentTarget.style.background = 'var(--surface-active)'
+            }}
             onMouseOut={(e) => {
               e.currentTarget.style.background = 'var(--surface-hover)'
+            }}
+            onBlur={(e) => {
+              e.currentTarget.style.background = 'var(--surface-hover)'
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.currentTarget.click()
+              }
             }}
           >
             <div style={{ fontWeight: '600', color: 'var(--accent-primary)' }}>

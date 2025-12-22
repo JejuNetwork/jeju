@@ -43,6 +43,15 @@ export {
   defineMigration,
   MigrationManager,
 } from './migration.js'
+// Query Builder Utilities
+export {
+  buildOrderByClause,
+  buildWhereClause,
+  type OrderByInput,
+  toQueryParam,
+  type WhereClauseResult,
+  type WhereInput,
+} from './query-builder.js'
 // Server (for local development)
 export { CQLServer, createCQLServer } from './server.js'
 // Types

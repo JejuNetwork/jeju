@@ -2,8 +2,13 @@
  * Projects Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
+import {
+  CreateProjectBodySchema,
+  expectValid,
+  ProjectsQuerySchema,
+} from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
 interface Project {
@@ -32,8 +37,9 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
   .get(
     '/',
     async ({ query }) => {
-      const page = parseInt(query.page || '1', 10)
-      const limit = parseInt(query.limit || '20', 10)
+      const validated = expectValid(ProjectsQuerySchema, query, 'query params')
+      const page = parseInt(validated.page || '1', 10)
+      const limit = parseInt(validated.limit || '20', 10)
 
       const projects: Project[] = [
         {
@@ -63,12 +69,6 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
       }
     },
     {
-      query: t.Object({
-        page: t.Optional(t.String()),
-        limit: t.Optional(t.String()),
-        status: t.Optional(t.String()),
-        owner: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['projects'],
         summary: 'List projects',
@@ -85,11 +85,17 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
+      const validated = expectValid(
+        CreateProjectBodySchema,
+        body,
+        'request body',
+      )
+
       const project: Project = {
         id: `project-${Date.now()}`,
-        name: body.name,
-        description: body.description,
-        visibility: body.visibility,
+        name: validated.name,
+        description: validated.description,
+        visibility: validated.visibility,
         status: 'active',
         owner: authResult.address,
         members: 0,
@@ -103,15 +109,6 @@ export const projectsRoutes = new Elysia({ prefix: '/api/projects' })
       return project
     },
     {
-      body: t.Object({
-        name: t.String({ minLength: 1, maxLength: 100 }),
-        description: t.String({ minLength: 10 }),
-        visibility: t.Union([
-          t.Literal('public'),
-          t.Literal('private'),
-          t.Literal('internal'),
-        ]),
-      }),
       detail: {
         tags: ['projects'],
         summary: 'Create project',

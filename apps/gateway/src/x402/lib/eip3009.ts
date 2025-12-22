@@ -140,8 +140,13 @@ export async function createGaslessPayment(
     authSignature: Hex
   }
 }> {
+  const fromAddress = walletClient.account?.address
+  if (!fromAddress) {
+    throw new Error('Wallet client must have an account')
+  }
+
   const auth = createAuthParams(
-    walletClient.account?.address,
+    fromAddress,
     params.facilitatorAddress, // EIP-3009 transfer goes to facilitator
     params.amount,
     params.validitySeconds ?? 300,

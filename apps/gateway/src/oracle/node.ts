@@ -340,7 +340,7 @@ export function createNodeConfig(): OracleNodeConfig {
   const zeroAddress = '0x0000000000000000000000000000000000000000' as Address
 
   return {
-    rpcUrl: process.env.RPC_URL || 'http://localhost:9545',
+    rpcUrl: process.env.RPC_URL || 'http://localhost:6546',
     chainId: parseInt(process.env.CHAIN_ID || '1337', 10),
     operatorPrivateKey: (process.env.OPERATOR_PRIVATE_KEY ||
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex,

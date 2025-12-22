@@ -527,7 +527,7 @@ describe('Scheduler', () => {
     expect(node?.resources.availableCpu).toBe(initialCpu - 2)
 
     // Release
-    const released = releaseReservation(reservation!.reservationId)
+    const released = releaseReservation(reservation?.reservationId)
     expect(released).toBe(true)
 
     // Check resources restored

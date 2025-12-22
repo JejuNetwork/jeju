@@ -88,6 +88,7 @@ export function RegionSelector({
     <div className="relative">
       {/* Selected Region Button */}
       <button
+        type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         className={`w-full card-hover flex items-center justify-between ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -128,6 +129,7 @@ export function RegionSelector({
         <div className="absolute top-full left-0 right-0 mt-2 bg-[#12121a] border border-[#2a2a35] rounded-2xl overflow-hidden z-50 max-h-80 overflow-y-auto">
           {/* Auto Select Option */}
           <button
+            type="button"
             onClick={() => {
               const best = findBestClientNode(validatedNodes)
               onSelectNode(best)
@@ -153,6 +155,7 @@ export function RegionSelector({
 
               return (
                 <button
+                  type="button"
                   key={countryCode}
                   onClick={() => {
                     onSelectNode(bestNode)
@@ -204,7 +207,12 @@ export function RegionSelector({
 
       {/* Overlay to close dropdown */}
       {isOpen && (
-        <div className="fixed inset-0 z-40" onClick={() => setIsOpen(false)} />
+        <button
+          type="button"
+          className="fixed inset-0 z-40 cursor-default"
+          onClick={() => setIsOpen(false)}
+          aria-label="Close dropdown"
+        />
       )}
     </div>
   )

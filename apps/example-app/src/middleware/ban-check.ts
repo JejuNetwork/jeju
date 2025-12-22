@@ -8,7 +8,7 @@ import {
   BanChecker,
   type BanCheckResult,
 } from '@jejunetwork/shared'
-import type { Context, Next } from 'hono'
+import type { Context } from 'elysia'
 import type { Address } from 'viem'
 
 // Get config from environment
@@ -17,7 +17,7 @@ const BAN_MANAGER_ADDRESS = process.env.BAN_MANAGER_ADDRESS as
   | undefined
 const MODERATION_MARKETPLACE_ADDRESS = process.env
   .MODERATION_MARKETPLACE_ADDRESS as Address | undefined
-const RPC_URL = process.env.RPC_URL || 'http://localhost:8545'
+const RPC_URL = process.env.RPC_URL || 'http://localhost:6545'
 const NETWORK = (process.env.NETWORK || 'localnet') as
   | 'mainnet'
   | 'testnet'
@@ -42,51 +42,53 @@ if (BAN_MANAGER_ADDRESS) {
 }
 
 /**
- * Hono middleware that checks ban status
+ * Elysia onBeforeHandle function for ban checking
  */
-export function banCheckMiddleware() {
-  return async (c: Context, next: Next) => {
-    // Skip if no ban manager configured (local dev)
-    if (!checker) {
-      return next()
-    }
-
-    // Skip certain paths
-    if (SKIP_PATHS.some((path) => c.req.path.startsWith(path))) {
-      return next()
-    }
-
-    // Extract address from x-jeju-address header (our auth header)
-    const address = c.req.header('x-jeju-address')
-
-    // No address to check - allow through
-    if (!address) {
-      return next()
-    }
-
-    // Validate address format
-    if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      return next()
-    }
-
-    const result = await checker.checkBan(address as Address)
-
-    if (!result.allowed) {
-      return c.json(
-        {
-          error: 'BANNED',
-          message:
-            result.status?.reason || 'User is banned from this application',
-          banType: result.status?.banType,
-          caseId: result.status?.caseId,
-          canAppeal: result.status?.canAppeal,
-        },
-        403,
-      )
-    }
-
-    return next()
+export async function banCheckHandler({
+  request,
+  set,
+  path,
+}: Context): Promise<
+  { error: string; message: string; banType?: string; caseId?: string; canAppeal?: boolean } | undefined
+> {
+  // Skip if no ban manager configured (local dev)
+  if (!checker) {
+    return undefined
   }
+
+  // Skip certain paths
+  if (SKIP_PATHS.some((skipPath) => path.startsWith(skipPath))) {
+    return undefined
+  }
+
+  // Extract address from x-jeju-address header (our auth header)
+  const address = request.headers.get('x-jeju-address')
+
+  // No address to check - allow through
+  if (!address) {
+    return undefined
+  }
+
+  // Validate address format
+  if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
+    return undefined
+  }
+
+  const result = await checker.checkBan(address as Address)
+
+  if (!result.allowed) {
+    set.status = 403
+    return {
+      error: 'BANNED',
+      message:
+        result.status?.reason || 'User is banned from this application',
+      banType: result.status?.banType,
+      caseId: result.status?.caseId,
+      canAppeal: result.status?.canAppeal,
+    }
+  }
+
+  return undefined
 }
 
 /**

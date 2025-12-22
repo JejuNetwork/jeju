@@ -152,6 +152,7 @@ export default function MarketsPage() {
         <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
           {(['all', 'active', 'resolved'] as const).map((f) => (
             <button
+              type="button"
               key={f}
               onClick={() => setFilter(f)}
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
@@ -183,7 +184,11 @@ export default function MarketsPage() {
           <p className="font-semibold mb-1 text-red-400">
             Unable to load markets
           </p>
-          <button onClick={() => refetch()} className="btn-secondary text-sm">
+          <button
+            type="button"
+            onClick={() => refetch()}
+            className="btn-secondary text-sm"
+          >
             Retry
           </button>
         </div>

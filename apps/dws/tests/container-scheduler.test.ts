@@ -579,7 +579,7 @@ describe('Resource Reservation', () => {
     )
 
     expect(reservation).not.toBeNull()
-    const released = releaseReservation(reservation!.reservationId)
+    const released = releaseReservation(reservation?.reservationId)
     expect(released).toBe(true)
 
     const node = getNode('reservation-node')

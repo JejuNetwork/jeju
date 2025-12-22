@@ -105,7 +105,7 @@ describe('SolanaAdapter - Token Info', () => {
     const randomMint = new PublicKey(
       'So11111111111111111111111111111111111111112', // Native SOL mint
     )
-    // Generate a fresh random keypair for an address that definitely has no tokens
+    // Conditional import: only loaded during test execution to avoid loading Solana SDK unless needed
     const { Keypair } = await import('@solana/web3.js')
     const randomOwner = Keypair.generate().publicKey
 
@@ -123,7 +123,7 @@ describe('SolanaAdapter - SOL Balance', () => {
   })
 
   test('getSolBalance returns bigint for any account', async () => {
-    // Generate a random keypair for a fresh address
+    // Conditional import: only loaded during test execution to avoid loading Solana SDK unless needed
     const { Keypair } = await import('@solana/web3.js')
     const randomAccount = Keypair.generate().publicKey
     const balance = await adapter.getSolBalance(randomAccount)

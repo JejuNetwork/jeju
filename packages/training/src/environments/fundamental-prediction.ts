@@ -9,6 +9,8 @@
  */
 
 import { HfInference } from '@huggingface/inference'
+import { expectValid } from '@jejunetwork/types'
+import { CompletionResponseSchema } from '../schemas'
 
 // ============================================================================
 // Types
@@ -354,12 +356,11 @@ export class FundamentalPredictionEnv {
         throw new Error(`Completion request failed: ${response.status}`)
       }
 
-      const result = (await response.json()) as {
-        choices: Array<{
-          text: string
-          logprobs?: { tokens: number[]; token_logprobs: number[] }
-        }>
-      }
+      const result = expectValid(
+        CompletionResponseSchema,
+        await response.json(),
+        'vLLM completion response',
+      )
 
       const choice = result.choices[0]
       if (!choice) {

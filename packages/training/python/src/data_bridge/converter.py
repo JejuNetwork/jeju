@@ -218,8 +218,9 @@ class BabylonToAtroposConverter:
             final_pnl=babylon_traj.final_pnl,
             starting_balance=start_bal,
             end_balance=end_bal,
-            format_score=avg_format,
-            reasoning_score=avg_reasoning,
+            # Clamp scores to [0, 1] range as required by Pydantic model
+            format_score=max(0.0, min(1.0, avg_format)),
+            reasoning_score=max(0.0, min(1.0, avg_reasoning)),
             risky_actions_count=risky_actions_count,
 
             # Legacy stats

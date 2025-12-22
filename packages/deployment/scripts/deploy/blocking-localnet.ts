@@ -28,7 +28,7 @@ import { ANVIL_KEYS } from '../../packages/config/test-keys'
 
 // ============ Configuration ============
 
-const RPC_URL = 'http://localhost:8545'
+const RPC_URL = 'http://localhost:6545'
 const CHAIN_ID = 31337
 
 const CONTRACTS_DIR = join(import.meta.dir, '../../packages/contracts')

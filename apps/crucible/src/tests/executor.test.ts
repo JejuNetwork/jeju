@@ -249,17 +249,25 @@ describe('Cron Parser', () => {
     const parts = cron.split(' ')
     if (parts.length !== 5) return null
 
+    const [minute, hour, dayOfMonth, month, dayOfWeek] = parts as [
+      string,
+      string,
+      string,
+      string,
+      string,
+    ]
+
     const parseField = (field: string): number => {
       if (field === '*') return -1
       return parseInt(field, 10)
     }
 
     return {
-      minute: parseField(parts[0]!),
-      hour: parseField(parts[1]!),
-      dayOfMonth: parseField(parts[2]!),
-      month: parseField(parts[3]!),
-      dayOfWeek: parseField(parts[4]!),
+      minute: parseField(minute),
+      hour: parseField(hour),
+      dayOfMonth: parseField(dayOfMonth),
+      month: parseField(month),
+      dayOfWeek: parseField(dayOfWeek),
     }
   }
 

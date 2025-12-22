@@ -337,9 +337,13 @@ export class AutocratMCPServer {
       proposalId,
       'Proposal ID',
     )
-    const result = await this.blockchain.getProposal(validated)
-    expect(result !== null, 'Contract not deployed')
-    expect(result.proposal.createdAt !== 0n, 'Proposal not found')
+    const result = expect(
+      await this.blockchain.getProposal(validated),
+      'Contract not deployed',
+    )
+    if (result.proposal.createdAt === 0n) {
+      throw new Error('Proposal not found')
+    }
     return {
       result: this.blockchain.formatProposal(result.proposal),
       isError: false,
@@ -497,11 +501,17 @@ export class AutocratMCPServer {
       proposalId,
       'Proposal ID',
     )
-    const result = await this.blockchain.getProposal(validated)
-    expect(result !== null, 'Contract not deployed')
-    expect(result.proposal.status === 5, 'Proposal not in APPROVED status')
+    const result = expect(
+      await this.blockchain.getProposal(validated),
+      'Contract not deployed',
+    )
+    if (result.proposal.status !== 5) {
+      throw new Error('Proposal not in APPROVED status')
+    }
     const gracePeriodEnd = Number(result.proposal.gracePeriodEnd)
-    expect(!Number.isNaN(gracePeriodEnd), 'Invalid grace period end')
+    if (Number.isNaN(gracePeriodEnd)) {
+      throw new Error('Invalid grace period end')
+    }
     const now = Math.floor(Date.now() / 1000)
     return {
       result: {

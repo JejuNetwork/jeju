@@ -3,7 +3,7 @@
  */
 
 import { Elysia, t } from 'elysia'
-import { getResearchAgent } from '../research-agent'
+import { getResearchAgent, type ResearchRequest } from '../research-agent'
 
 const researchAgent = getResearchAgent()
 
@@ -11,37 +11,58 @@ export const researchRoutes = new Elysia({ prefix: '/api/v1/research' })
   .post(
     '/conduct',
     async ({ body }) => {
-      const report = await researchAgent.conductResearch(body)
+      const request: ResearchRequest = {
+        proposalId: body.proposalId,
+        title: body.title,
+        description: body.description,
+        proposalType: body.proposalType,
+        references: body.references,
+        depth: body.depth,
+        daoId: body.daoId,
+        daoName: body.daoName,
+      }
+      const report = await researchAgent.conductResearch(request)
       return report
     },
     {
       body: t.Object({
-        topic: t.String(),
-        context: t.Optional(t.String()),
+        proposalId: t.String(),
+        title: t.String(),
+        description: t.String(),
+        proposalType: t.Optional(t.String()),
+        references: t.Optional(t.Array(t.String())),
         depth: t.Optional(
           t.Union([
-            t.Literal('shallow'),
+            t.Literal('quick'),
+            t.Literal('standard'),
             t.Literal('deep'),
-            t.Literal('comprehensive'),
           ]),
         ),
-        sources: t.Optional(t.Array(t.String())),
+        daoId: t.Optional(t.String()),
+        daoName: t.Optional(t.String()),
       }),
-      detail: { tags: ['research'], summary: 'Conduct research on a topic' },
+      detail: { tags: ['research'], summary: 'Conduct research on a proposal' },
     },
   )
   .post(
     '/quick-screen',
     async ({ body }) => {
-      const result = await researchAgent.quickScreen(body)
+      const request: ResearchRequest = {
+        proposalId: body.proposalId,
+        title: body.title,
+        description: body.description,
+        depth: 'quick',
+      }
+      const result = await researchAgent.quickScreen(request)
       return result
     },
     {
       body: t.Object({
-        topic: t.String(),
-        context: t.Optional(t.String()),
+        proposalId: t.String(),
+        title: t.String(),
+        description: t.String(),
       }),
-      detail: { tags: ['research'], summary: 'Quick screen a topic' },
+      detail: { tags: ['research'], summary: 'Quick screen a proposal' },
     },
   )
   .post(

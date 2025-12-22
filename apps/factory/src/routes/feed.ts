@@ -2,28 +2,25 @@
  * Developer Feed Routes (Farcaster Integration)
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { CreateCastBodySchema, expectValid, FeedQuerySchema } from '../schemas'
 import { farcasterClient } from '../services/farcaster'
 
 export const feedRoutes = new Elysia({ prefix: '/api/feed' })
   .get(
     '/',
     async ({ query }) => {
+      const validated = expectValid(FeedQuerySchema, query, 'query params')
       const feed = await farcasterClient.getChannelFeed(
-        query.channel ?? undefined,
+        validated.channel ?? undefined,
         {
-          cursor: query.cursor ?? undefined,
-          limit: parseInt(query.limit || '20', 10),
+          cursor: validated.cursor ?? undefined,
+          limit: parseInt(validated.limit || '20', 10),
         },
       )
       return feed
     },
     {
-      query: t.Object({
-        channel: t.Optional(t.String()),
-        cursor: t.Optional(t.String()),
-        limit: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['feed'],
         summary: 'Get feed',
@@ -42,22 +39,22 @@ export const feedRoutes = new Elysia({ prefix: '/api/feed' })
         }
       }
 
-      const cast = await farcasterClient.publishCast(signerUuid, body.text, {
-        embeds: body.embeds,
-        parentHash: body.parentHash,
-        channelId: body.channelId,
-      })
+      const validated = expectValid(CreateCastBodySchema, body, 'request body')
+
+      const cast = await farcasterClient.publishCast(
+        signerUuid,
+        validated.text,
+        {
+          embeds: validated.embeds,
+          parentHash: validated.parentHash,
+          channelId: validated.channelId,
+        },
+      )
 
       set.status = 201
       return cast
     },
     {
-      body: t.Object({
-        text: t.String({ minLength: 1, maxLength: 320 }),
-        embeds: t.Optional(t.Array(t.Object({ url: t.String() }))),
-        parentHash: t.Optional(t.String()),
-        channelId: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['feed'],
         summary: 'Post to feed',

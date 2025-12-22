@@ -24,11 +24,13 @@
  */
 
 import { spawn } from 'bun'
+import { createAtroposServer } from '../atropos-server'
 import { createCrossChainBridge } from '../cross-chain-bridge'
 import { createFundamentalPredictionEnv } from '../environments/fundamental-prediction'
 import {
   createDistributedGRPOTrainer,
   createGRPOTrainer,
+  DistributedGRPOTrainer,
 } from '../grpo-trainer'
 import { createPsycheClient } from '../psyche-client'
 
@@ -49,7 +51,7 @@ const config = {
   wandbProject: process.env.WANDB_PROJECT,
   usePsyche: process.env.USE_PSYCHE === 'true',
   solanaRpcUrl: process.env.SOLANA_RPC_URL ?? 'https://api.devnet.solana.com',
-  evmRpcUrl: process.env.EVM_RPC_URL ?? 'http://localhost:8545',
+  evmRpcUrl: process.env.EVM_RPC_URL ?? 'http://localhost:6545',
   savePath: process.env.SAVE_PATH ?? './training-checkpoints',
 }
 
@@ -75,7 +77,7 @@ async function main() {
   try {
     // Step 1: Start Atropos server
     console.log('\n[1/5] Starting Atropos API server...')
-    const atroposApp = (await import('../atropos-server')).createAtroposServer()
+    const atroposApp = createAtroposServer()
     atroposServer = Bun.serve({
       port: config.atroposPort,
       fetch: atroposApp.fetch,
@@ -153,10 +155,10 @@ async function main() {
         })
 
     // Optional: Set up Psyche integration
+    // Dynamic import kept conditional - only loads if Psyche is enabled
     if (
       config.usePsyche &&
-      trainer instanceof
-        (await import('../grpo-trainer')).DistributedGRPOTrainer
+      trainer instanceof DistributedGRPOTrainer
     ) {
       console.log('   Setting up Psyche distributed training...')
 

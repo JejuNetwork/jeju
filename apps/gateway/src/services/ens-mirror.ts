@@ -375,7 +375,7 @@ export function createENSMirrorService(
     ethRpcUrl:
       config.ethRpcUrl ?? process.env.ETH_RPC_URL ?? 'https://eth.llamarpc.com',
     jejuRpcUrl:
-      config.jejuRpcUrl ?? process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:9545',
+      config.jejuRpcUrl ?? process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546',
     ensMirrorAddress: (config.ensMirrorAddress ??
       process.env.ENS_MIRROR_ADDRESS ??
       '0x0') as Address,

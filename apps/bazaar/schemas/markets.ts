@@ -89,3 +89,28 @@ export const UserStatsSchema = z.object({
 })
 
 export type UserStats = z.infer<typeof UserStatsSchema>
+
+// ============ GraphQL Response Schemas ============
+
+export const RawMarketPositionSchema = z.object({
+  id: z.string(),
+  yesShares: z.string(),
+  noShares: z.string(),
+  totalSpent: z.string(),
+  totalReceived: z.string(),
+  hasClaimed: z.boolean(),
+  market: z.object({
+    sessionId: z.string(),
+    question: z.string(),
+    resolved: z.boolean(),
+    outcome: z.boolean().nullable(),
+  }),
+})
+export type RawMarketPosition = z.infer<typeof RawMarketPositionSchema>
+
+export const MarketPositionsResponseSchema = z.object({
+  marketPositions: z.array(RawMarketPositionSchema),
+})
+export type MarketPositionsResponse = z.infer<
+  typeof MarketPositionsResponseSchema
+>

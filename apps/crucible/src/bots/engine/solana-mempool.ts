@@ -22,6 +22,14 @@ import {
   VersionedTransaction,
 } from '@solana/web3.js'
 import WebSocket from 'ws'
+import {
+  JitoBundleStatusSchema,
+  JitoBundleSubmitSchema,
+  JupiterQuoteApiResponseSchema,
+  JupiterSwapApiResponseSchema,
+  parseOrThrow,
+  safeParse,
+} from '../../schemas'
 
 // ============ Configuration ============
 
@@ -716,15 +724,11 @@ export class SolanaMempoolMonitor extends EventEmitter {
       return { success: false, error: 'Failed to get Jupiter quote' }
     }
 
-    const quote = (await quoteResponse.json()) as {
-      inAmount: string
-      outAmount: string
-      routePlan: Array<{ swapInfo: { label: string } }>
-    }
+    const quote = parseOrThrow(JupiterQuoteApiResponseSchema, await quoteResponse.json(), 'Jupiter quote')
 
-    console.log(`   Quote: ${quote.inAmount} -> ${quote.outAmount}`)
+    console.log(`   Quote: ${quote.inAmount ?? 'N/A'} -> ${quote.outAmount}`)
     console.log(
-      `   Route: ${quote.routePlan.map((r) => r.swapInfo.label).join(' → ')}`,
+      `   Route: ${quote.routePlan?.map((r) => r.swapInfo.label).join(' → ') ?? 'N/A'}`,
     )
 
     // 2. Get swap transaction
@@ -744,10 +748,8 @@ export class SolanaMempoolMonitor extends EventEmitter {
       return { success: false, error: 'Failed to get swap tx' }
     }
 
-    const { swapTransaction } = (await swapResponse.json()) as {
-      swapTransaction: string
-      lastValidBlockHeight: number
-    }
+    const swapData = parseOrThrow(JupiterSwapApiResponseSchema, await swapResponse.json(), 'Jupiter swap')
+    const { swapTransaction } = swapData
 
     // 3. Deserialize and sign backrun tx
     const txBuffer = Buffer.from(swapTransaction, 'base64')
@@ -807,16 +809,13 @@ export class SolanaMempoolMonitor extends EventEmitter {
       }),
     })
 
-    const bundleResult = (await bundleResponse.json()) as {
-      result?: string
-      error?: { message: string }
-    }
+    const bundleResult = safeParse(JitoBundleSubmitSchema, await bundleResponse.json())
 
-    if (bundleResult.error) {
+    if (bundleResult?.error) {
       return { success: false, error: bundleResult.error.message }
     }
 
-    const bundleId = bundleResult.result || ''
+    const bundleId = bundleResult?.result || ''
     console.log(`   Bundle submitted: ${bundleId}`)
 
     // 6. Wait for bundle confirmation
@@ -851,11 +850,9 @@ export class SolanaMempoolMonitor extends EventEmitter {
         }),
       })
 
-      const result = (await response.json()) as {
-        result?: { value: Array<{ confirmation_status: string }> }
-      }
+      const result = safeParse(JitoBundleStatusSchema, await response.json())
 
-      const status = result.result?.value?.[0]?.confirmation_status
+      const status = result?.result?.value?.[0]?.confirmation_status
       if (status === 'confirmed' || status === 'finalized') {
         return true
       }

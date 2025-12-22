@@ -160,7 +160,10 @@ function TokenCard({ tokenAddress }: { tokenAddress: `0x${string}` }) {
             <strong>Vault:</strong> {deployment.vault.slice(0, 10)}...
           </p>
           <p style={{ margin: '0.125rem 0' }}>
-            <strong>Fee:</strong> {Number(deployment.feeMargin) / 100}%
+            <strong>Fee:</strong>{' '}
+            {Number((deployment as { feeMargin?: number }).feeMargin ?? 0) /
+              100}
+            %
           </p>
         </div>
       )}
@@ -219,6 +222,7 @@ export default function TokenList() {
           Registered Tokens ({allTokens.length})
         </h2>
         <button
+          type="button"
           className="button"
           onClick={() => refetchTokens()}
           style={{ padding: '0.5rem 0.75rem', fontSize: '0.8125rem' }}

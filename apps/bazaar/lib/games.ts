@@ -3,14 +3,20 @@
  * Extracted from pages/hooks for testability
  */
 
-import { INDEXER_URL } from '@/config'
-import { expect } from '@/lib/validation'
+import { z } from 'zod'
+import { INDEXER_URL } from '../config'
 import {
   type GameItem,
   type ItemCategory,
   type RegisteredGame,
   RegisteredGamesResponseSchema,
-} from '@/schemas/games'
+} from '../schemas/games'
+import { expect } from './validation'
+
+// GraphQL response schema for games query
+const GamesGraphQLResponseSchema = z.object({
+  data: RegisteredGamesResponseSchema.optional(),
+})
 
 // GraphQL query for registered games
 const REGISTERED_GAMES_QUERY = `
@@ -37,15 +43,16 @@ export async function fetchRegisteredGames(): Promise<RegisteredGame[]> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query: REGISTERED_GAMES_QUERY }),
-    next: { revalidate: 10 },
   })
 
-  const result = (await response.json()) as {
-    data?: { registeredGames?: RegisteredGame[] }
-  }
-  const validated = RegisteredGamesResponseSchema.safeParse(result.data)
+  const rawJson: unknown = await response.json()
+  const parsed = GamesGraphQLResponseSchema.safeParse(rawJson)
 
-  return validated.success ? validated.data.registeredGames : []
+  if (!parsed.success || !parsed.data.data) {
+    return []
+  }
+
+  return parsed.data.data.registeredGames
 }
 
 // Rarity info lookup table

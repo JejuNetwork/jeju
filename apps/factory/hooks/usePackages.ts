@@ -1,7 +1,7 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
+import { api, extractDataSafe } from '../lib/client'
 
 // ============ Types ============
 
@@ -45,67 +45,60 @@ export interface PackageListItem {
   verified: boolean
 }
 
-// ============ Fetchers ============
+// ============ Fetchers using Eden Treaty ============
 
 async function fetchPackages(query?: {
-  scope?: string
   search?: string
 }): Promise<PackageListItem[]> {
-  const dwsUrl = getDwsUrl()
-  const params = new URLSearchParams()
-  if (query?.scope) params.set('scope', query.scope)
-  if (query?.search) params.set('q', query.search)
+  const response = await api.api.packages.get({
+    query: {
+      q: query?.search,
+    },
+  })
 
-  const res = await fetch(`${dwsUrl}/api/packages?${params.toString()}`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.packages || []
+  const data = extractDataSafe(response)
+  if (!data) return []
+
+  // Transform API response to expected format
+  const packages = Array.isArray(data)
+    ? data
+    : (data as { packages?: PackageListItem[] }).packages || []
+  return packages as PackageListItem[]
 }
 
 async function fetchPackage(
   scope: string,
   name: string,
 ): Promise<PackageInfo | null> {
-  const dwsUrl = getDwsUrl()
   // Remove @ prefix if present for API call
   const cleanScope = scope.startsWith('@') ? scope.slice(1) : scope
+  const packageName = cleanScope ? `${cleanScope}/${name}` : name
 
-  const res = await fetch(`${dwsUrl}/api/packages/${cleanScope}/${name}`)
-  if (!res.ok) return null
-  return res.json()
+  const response = await api.api.packages({ name: packageName }).get()
+  return extractDataSafe(response) as PackageInfo | null
 }
 
 async function fetchPackageVersions(
   scope: string,
   name: string,
 ): Promise<PackageVersion[]> {
-  const dwsUrl = getDwsUrl()
-  const cleanScope = scope.startsWith('@') ? scope.slice(1) : scope
-
-  const res = await fetch(
-    `${dwsUrl}/api/packages/${cleanScope}/${name}/versions`,
-  )
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.versions || []
+  // Fetch package and extract versions
+  const pkg = await fetchPackage(scope, name)
+  return pkg?.versions || []
 }
 
 async function fetchPackageReadme(
   scope: string,
   name: string,
 ): Promise<string> {
-  const dwsUrl = getDwsUrl()
-  const cleanScope = scope.startsWith('@') ? scope.slice(1) : scope
-
-  const res = await fetch(`${dwsUrl}/api/packages/${cleanScope}/${name}/readme`)
-  if (!res.ok) return ''
-  const data = await res.json()
-  return data.readme || ''
+  // Fetch package and extract readme
+  const pkg = await fetchPackage(scope, name)
+  return pkg?.readme || ''
 }
 
 // ============ Hooks ============
 
-export function usePackages(query?: { scope?: string; search?: string }) {
+export function usePackages(query?: { search?: string }) {
   const {
     data: packages,
     isLoading,

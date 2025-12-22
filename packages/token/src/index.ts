@@ -8,8 +8,6 @@
  * For Solana bridging, use @jejunetwork/zksolbridge package.
  */
 
-// Re-export useful types from dependencies
-export type { Address, Hex } from 'viem'
 // Bridge & Cross-chain (EVM only)
 export * from './bridge'
 // Configuration

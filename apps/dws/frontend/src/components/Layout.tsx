@@ -271,9 +271,11 @@ export default function Layout({
   return (
     <div className="layout">
       {sidebarOpen && (
-        <div
-          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+        <button
+          type="button"
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden cursor-default"
           onClick={() => setSidebarOpen(false)}
+          aria-label="Close sidebar"
         />
       )}
 
@@ -289,6 +291,7 @@ export default function Layout({
           </Link>
           {!collapsed && (
             <button
+              type="button"
               className="btn btn-ghost btn-icon ml-auto hidden lg:flex"
               onClick={() => setCollapsed(true)}
               title="Collapse sidebar"
@@ -298,6 +301,7 @@ export default function Layout({
           )}
           {collapsed && (
             <button
+              type="button"
               className="btn btn-ghost btn-icon hidden lg:flex"
               onClick={() => setCollapsed(false)}
               title="Expand sidebar"
@@ -359,6 +363,7 @@ export default function Layout({
         <header className="header">
           <div className="header-left">
             <button
+              type="button"
               className="btn btn-ghost btn-icon lg:hidden"
               onClick={() => setSidebarOpen(!sidebarOpen)}
             >
@@ -382,12 +387,14 @@ export default function Layout({
           <div className="header-right">
             <div className="mode-toggle">
               <button
+                type="button"
                 className={viewMode === 'consumer' ? 'active' : ''}
                 onClick={() => setViewMode('consumer')}
               >
                 Consumer
               </button>
               <button
+                type="button"
                 className={viewMode === 'provider' ? 'active' : ''}
                 onClick={() => setViewMode('provider')}
               >
@@ -395,7 +402,11 @@ export default function Layout({
               </button>
             </div>
 
-            <button className="btn btn-ghost btn-icon" title="Notifications">
+            <button
+              type="button"
+              className="btn btn-ghost btn-icon"
+              title="Notifications"
+            >
               <Bell size={18} />
             </button>
 

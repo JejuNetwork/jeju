@@ -6,12 +6,59 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Command } from 'commander'
 import { execa } from 'execa'
+import { z } from 'zod'
 import {
   discoverCoreApps,
   discoverVendorApps,
 } from '../../../../packages/deployment/scripts/shared/discover-apps'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
+import { validate } from '../schemas'
+
+// Schema for jeju-manifest.json validation
+const JejuManifestSchema = z.object({
+  name: z.string().min(1).optional(),
+  version: z.string().optional(),
+  jns: z
+    .object({
+      name: z.string().optional(),
+      description: z.string().optional(),
+    })
+    .optional(),
+  decentralization: z
+    .object({
+      cdn: z
+        .object({
+          enabled: z.boolean().optional(),
+          regions: z.array(z.string()).optional(),
+          serviceWorker: z.boolean().optional(),
+        })
+        .optional(),
+      frontend: z
+        .object({
+          ipfs: z.boolean().optional(),
+        })
+        .optional(),
+      robustness: z
+        .object({
+          offlineSupport: z.boolean().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+  healthCheck: z
+    .object({
+      url: z.string().optional(),
+      endpoint: z.string().optional(),
+    })
+    .optional(),
+  agent: z
+    .object({
+      enabled: z.boolean().optional(),
+      jnsName: z.string().optional(),
+    })
+    .optional(),
+})
 
 interface ValidationResult {
   app: string
@@ -52,7 +99,12 @@ function validateManifest(appPath: string): ValidationResult {
   }
 
   const content = readFileSync(manifestPath, 'utf-8')
-  const manifest = JSON.parse(content)
+  const rawManifest = JSON.parse(content)
+  const manifest = validate(
+    rawManifest,
+    JejuManifestSchema,
+    `manifest at ${manifestPath}`,
+  )
 
   // Check JNS configuration
   if (manifest.jns?.name) {

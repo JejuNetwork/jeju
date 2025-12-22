@@ -189,9 +189,20 @@ export function LoginModal({
   }
 
   return (
-    <div style={modalOverlayStyle} onClick={onClose}>
-      <div style={modalContentStyle} onClick={(e) => e.stopPropagation()}>
-        <button style={closeButtonStyle} onClick={onClose}>
+    <div
+      style={modalOverlayStyle}
+      onClick={onClose}
+      onKeyDown={(e) => e.key === 'Escape' && onClose()}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        style={modalContentStyle}
+        onClick={(e) => e.stopPropagation()}
+        onKeyDown={(e) => e.stopPropagation()}
+        role="document"
+      >
+        <button type="button" style={closeButtonStyle} onClick={onClose}>
           ×
         </button>
 
@@ -223,6 +234,7 @@ export function LoginModal({
 
                 <div style={{ display: 'flex', gap: '12px' }}>
                   <button
+                    type="button"
                     onClick={() => setView('email')}
                     style={{
                       ...submitButtonStyle,
@@ -234,6 +246,7 @@ export function LoginModal({
                     📧 Email
                   </button>
                   <button
+                    type="button"
                     onClick={() => setView('phone')}
                     style={{
                       ...submitButtonStyle,
@@ -253,6 +266,7 @@ export function LoginModal({
         {view === 'email' && (
           <>
             <button
+              type="button"
               style={backButtonStyle}
               onClick={() => {
                 setView('providers')
@@ -318,6 +332,7 @@ export function LoginModal({
         {view === 'phone' && (
           <>
             <button
+              type="button"
               style={backButtonStyle}
               onClick={() => {
                 setView('providers')

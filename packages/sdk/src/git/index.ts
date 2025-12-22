@@ -11,6 +11,18 @@
 import type { Address, Hex } from 'viem'
 import { createPublicClient, createWalletClient, http } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
+import {
+  GitBranchSchema,
+  GitIssueSchema,
+  GitPullRequestSchema,
+  GitRepositoryListResponseSchema,
+  GitRepositorySchema,
+  GitSearchResponseSchema,
+  GitTagSchema,
+  GitUserSchema,
+  HealthCheckResponseSchema,
+} from '../shared/schemas'
 
 export interface GitSDKConfig {
   rpcUrl: string
@@ -327,10 +339,8 @@ export class JejuGitSDK {
     if (!response.ok)
       throw new Error(`Failed to list repositories: ${response.statusText}`)
 
-    const data = (await response.json()) as {
-      repositories: Repository[]
-      total: number
-    }
+    const rawData: unknown = await response.json()
+    const data = GitRepositoryListResponseSchema.parse(rawData)
     return { total: data.total, items: data.repositories }
   }
 
@@ -340,7 +350,8 @@ export class JejuGitSDK {
     )
     if (!response.ok)
       throw new Error(`Failed to get repository: ${response.statusText}`)
-    return response.json() as Promise<Repository>
+    const rawData: unknown = await response.json()
+    return GitRepositorySchema.parse(rawData)
   }
 
   async createRepository(
@@ -364,7 +375,8 @@ export class JejuGitSDK {
 
     if (!response.ok)
       throw new Error(`Failed to create repository: ${response.statusText}`)
-    return response.json() as Promise<Repository>
+    const rawData: unknown = await response.json()
+    return GitRepositorySchema.parse(rawData)
   }
 
   async updateRepository(
@@ -392,7 +404,8 @@ export class JejuGitSDK {
 
     if (!response.ok)
       throw new Error(`Failed to update repository: ${response.statusText}`)
-    return response.json() as Promise<Repository>
+    const rawData: unknown = await response.json()
+    return GitRepositorySchema.parse(rawData)
   }
 
   async deleteRepository(
@@ -431,7 +444,8 @@ export class JejuGitSDK {
 
     if (!response.ok)
       throw new Error(`Failed to fork repository: ${response.statusText}`)
-    return response.json() as Promise<Repository>
+    const rawData: unknown = await response.json()
+    return GitRepositorySchema.parse(rawData)
   }
 
   async starRepository(
@@ -480,7 +494,8 @@ export class JejuGitSDK {
     )
     if (!response.ok)
       throw new Error(`Failed to list branches: ${response.statusText}`)
-    return response.json() as Promise<Branch[]>
+    const rawData: unknown = await response.json()
+    return z.array(GitBranchSchema).parse(rawData)
   }
 
   async listTags(owner: string, repo: string): Promise<Tag[]> {
@@ -489,7 +504,8 @@ export class JejuGitSDK {
     )
     if (!response.ok)
       throw new Error(`Failed to list tags: ${response.statusText}`)
-    return response.json() as Promise<Tag[]>
+    const rawData: unknown = await response.json()
+    return z.array(GitTagSchema).parse(rawData)
   }
 
   // Issue Operations
@@ -513,7 +529,8 @@ export class JejuGitSDK {
     )
     if (!response.ok)
       throw new Error(`Failed to list issues: ${response.statusText}`)
-    return response.json() as Promise<Issue[]>
+    const rawData: unknown = await response.json()
+    return z.array(GitIssueSchema).parse(rawData)
   }
 
   async getIssue(owner: string, repo: string, number: number): Promise<Issue> {
@@ -522,7 +539,8 @@ export class JejuGitSDK {
     )
     if (!response.ok)
       throw new Error(`Failed to get issue: ${response.statusText}`)
-    return response.json() as Promise<Issue>
+    const rawData: unknown = await response.json()
+    return GitIssueSchema.parse(rawData)
   }
 
   async createIssue(
@@ -550,7 +568,8 @@ export class JejuGitSDK {
 
     if (!response.ok)
       throw new Error(`Failed to create issue: ${response.statusText}`)
-    return response.json() as Promise<Issue>
+    const rawData: unknown = await response.json()
+    return GitIssueSchema.parse(rawData)
   }
 
   async updateIssue(
@@ -579,7 +598,8 @@ export class JejuGitSDK {
 
     if (!response.ok)
       throw new Error(`Failed to update issue: ${response.statusText}`)
-    return response.json() as Promise<Issue>
+    const rawData: unknown = await response.json()
+    return GitIssueSchema.parse(rawData)
   }
 
   // Pull Request Operations
@@ -603,7 +623,8 @@ export class JejuGitSDK {
     )
     if (!response.ok)
       throw new Error(`Failed to list pull requests: ${response.statusText}`)
-    return response.json() as Promise<PullRequest[]>
+    const rawData: unknown = await response.json()
+    return z.array(GitPullRequestSchema).parse(rawData)
   }
 
   async getPullRequest(
@@ -616,7 +637,8 @@ export class JejuGitSDK {
     )
     if (!response.ok)
       throw new Error(`Failed to get pull request: ${response.statusText}`)
-    return response.json() as Promise<PullRequest>
+    const rawData: unknown = await response.json()
+    return GitPullRequestSchema.parse(rawData)
   }
 
   async createPullRequest(
@@ -644,7 +666,8 @@ export class JejuGitSDK {
 
     if (!response.ok)
       throw new Error(`Failed to create pull request: ${response.statusText}`)
-    return response.json() as Promise<PullRequest>
+    const rawData: unknown = await response.json()
+    return GitPullRequestSchema.parse(rawData)
   }
 
   async mergePullRequest(
@@ -665,7 +688,8 @@ export class JejuGitSDK {
 
     if (!response.ok)
       throw new Error(`Failed to merge pull request: ${response.statusText}`)
-    return response.json() as Promise<PullRequest>
+    const rawData: unknown = await response.json()
+    return GitPullRequestSchema.parse(rawData)
   }
 
   // User Operations
@@ -676,7 +700,8 @@ export class JejuGitSDK {
     )
     if (!response.ok)
       throw new Error(`Failed to get user: ${response.statusText}`)
-    return response.json() as Promise<GitUser>
+    const rawData: unknown = await response.json()
+    return GitUserSchema.parse(rawData)
   }
 
   async getUserRepositories(username: string): Promise<Repository[]> {
@@ -685,7 +710,8 @@ export class JejuGitSDK {
     )
     if (!response.ok)
       throw new Error(`Failed to get user repositories: ${response.statusText}`)
-    return response.json() as Promise<Repository[]>
+    const rawData: unknown = await response.json()
+    return z.array(GitRepositorySchema).parse(rawData)
   }
 
   // Search
@@ -708,10 +734,8 @@ export class JejuGitSDK {
     if (!response.ok)
       throw new Error(`Failed to search repositories: ${response.statusText}`)
 
-    const data = (await response.json()) as {
-      total_count: number
-      items: Repository[]
-    }
+    const rawData: unknown = await response.json()
+    const data = GitSearchResponseSchema.parse(rawData)
     return { total: data.total_count, items: data.items }
   }
 
@@ -766,7 +790,8 @@ export class JejuGitSDK {
     const response = await fetch(`${this.config.gitServerUrl}/git/health`)
     if (!response.ok)
       throw new Error(`Health check failed: ${response.statusText}`)
-    return response.json() as Promise<{ status: string; service: string }>
+    const rawData: unknown = await response.json()
+    return HealthCheckResponseSchema.parse(rawData)
   }
 
   // Clone URL helper
@@ -783,7 +808,7 @@ export function createJejuGitSDK(config: GitSDKConfig): JejuGitSDK {
 // Convenience function for default config
 export function createDefaultGitSDK(): JejuGitSDK {
   return new JejuGitSDK({
-    rpcUrl: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:9545',
+    rpcUrl: process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546',
     gitServerUrl: process.env.JEJUGIT_URL ?? 'http://localhost:4030/git',
     registryAddress: process.env.GIT_REGISTRY_ADDRESS as Address | undefined,
   })

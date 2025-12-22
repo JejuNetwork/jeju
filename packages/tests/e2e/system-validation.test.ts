@@ -32,7 +32,7 @@ import { TEST_ACCOUNTS } from '../shared/utils'
 
 // Test configuration
 const TEST_CONFIG = {
-  rpcUrl: process.env.RPC_URL || 'http://localhost:9545',
+  rpcUrl: process.env.RPC_URL || 'http://localhost:6546',
   chainId: parseInt(process.env.CHAIN_ID || '31337', 10),
   testTimeout: 30000,
 }

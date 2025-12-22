@@ -10,8 +10,8 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { CONTRACTS } from '@/config'
-import { expect, expectPositive, expectTrue } from '@/lib/validation'
+import { CONTRACTS } from '../../config'
+import { expect, expectPositive, expectTrue } from '../../lib/validation'
 
 // Re-export types and formatters from lib for backwards compatibility
 export {
@@ -53,27 +53,27 @@ export {
   sizeToNumber,
   validateMargin,
   validatePositionParams,
-} from '@/lib/perps'
+} from '../../lib/perps'
 
 // Re-export types from schemas
 export type {
   FormattedPnL,
-  Market,
   OpenInterest,
   OpenPositionParams,
-  Position,
+  PerpsMarket as Market,
+  PerpsPosition as Position,
   PositionValidationResult,
   PositionWithPnL,
   PriceData,
   TradeResult,
-} from '@/schemas/perps'
+} from '../../schemas/perps'
 
 import type {
-  Market,
+  PerpsMarket as Market,
   OpenPositionParams,
-  Position,
+  PerpsPosition as Position,
   PositionWithPnL,
-} from '@/schemas/perps'
+} from '../../schemas/perps'
 
 export const PERPETUAL_MARKET_ABI = [
   {

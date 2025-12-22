@@ -85,6 +85,7 @@ export COMPUTE_MODEL=claude-3-opus
 | `TEE_API_KEY` | No | - | Phala Cloud API key |
 | `COMPUTE_ENABLED` | No | `false` | Enable compute marketplace |
 | `COMPUTE_URL` | No | `http://localhost:8020` | Compute marketplace URL |
+| `JEJU_COMPUTE_API_URL` | No | `http://localhost:8010` | RLAIF API URL for training pipelines |
 
 ## Security
 
@@ -119,6 +120,46 @@ cd ../../packages/contracts && forge test --match-contract "Council|QualityOracl
 | `/mcp/tools/list` | POST | List MCP tools |
 | `/mcp/tools/call` | POST | Call MCP tool |
 | `/a2a` | POST | Agent-to-agent messaging |
+| `/rlaif/runs` | POST | Create RLAIF training run |
+| `/rlaif/runs` | GET | List training runs |
+| `/rlaif/runs/:id` | GET | Get run status |
+| `/rlaif/runs/:id/start` | POST | Start training run |
+| `/rlaif/runs/:id/rollouts` | POST | Submit rollouts/trajectories |
+| `/rlaif/trajectories` | POST | Submit trajectories for collection |
+| `/rlaif/trajectories/stats` | GET | Get trajectory stats |
+| `/rlaif/health` | GET | RLAIF service health |
+
+### RLAIF Integration
+
+For external training pipelines (e.g., Babylon) to use the RLAIF endpoint:
+
+```bash
+# Set environment variable in your training service
+JEJU_COMPUTE_API_URL=http://localhost:8010
+```
+
+Example training run creation:
+
+```typescript
+const response = await fetch(`${JEJU_COMPUTE_API_URL}/rlaif/runs`, {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({
+    environment: {
+      id: 'babylon',
+      type: 'game',
+      configCID: 'QmConfig...',
+    },
+    archetype: 'trader',
+    baseModel: 'Qwen/Qwen2.5-3B-Instruct',
+    trainingConfig: {
+      steps: 1000,
+      batchSize: 8,
+      learningRate: 0.0001,
+    },
+  }),
+})
+```
 
 ## Deployment
 

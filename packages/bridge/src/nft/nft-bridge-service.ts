@@ -91,12 +91,13 @@ export interface BridgeRequest {
   status: BridgeStatus
 }
 
-export enum BridgeStatus {
-  PENDING = 0,
-  COMPLETED = 1,
-  CANCELLED = 2,
-  FAILED = 3,
-}
+export const BridgeStatus = {
+  PENDING: 0,
+  COMPLETED: 1,
+  CANCELLED: 2,
+  FAILED: 3,
+} as const
+export type BridgeStatus = (typeof BridgeStatus)[keyof typeof BridgeStatus]
 
 export interface SolanaNFTMetadata {
   mint: string
@@ -766,7 +767,7 @@ export class NFTBridgeService extends EventEmitter {
     const isProduction = process.env.NODE_ENV === 'production'
 
     if (proverUrl || apiKey) {
-      // Use SP1 prover via createSP1Client
+      // Conditional dynamic import: only load SP1 prover if configured
       const { createSP1Client } = await import('../prover/sp1-client.js')
       const { toHash32 } = await import('../types/index.js')
       const prover = createSP1Client({

@@ -33,7 +33,7 @@ async function deploy(network: Network) {
 
   const { chain, linkToken } = CHAINS[network]
   const rpcUrl =
-    process.env[`${network.toUpperCase()}_RPC_URL`] ?? 'http://localhost:9545'
+    process.env[`${network.toUpperCase()}_RPC_URL`] ?? 'http://localhost:6546'
   const autocrat = (process.env.AUTOCRAT_ADDRESS ?? '0x0') as Address
   const treasury = (process.env.TREASURY_ADDRESS ?? '0x0') as Address
 

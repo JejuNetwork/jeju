@@ -63,8 +63,10 @@
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",
+    "@elysiajs/eden": "^1.4.0",
     "@jejunetwork/config": "workspace:*",
     "@jejunetwork/db": "workspace:*",
+    "@jejunetwork/deployment": "workspace:*",
     "@jejunetwork/dws": "workspace:*",
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/oauth3": "workspace:*",
@@ -99,6 +101,7 @@
     "@types/ws": "8.18.1",
     "@types/react": "19.2.3",
     "@types/react-dom": "19.2.3",
+    "bun-plugin-tailwind": "0.1.1",
     "concurrently": "9.1.0",
     "playwright-core": "1.57.0",
     "typescript": "5.9.3"

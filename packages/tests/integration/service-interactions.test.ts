@@ -18,7 +18,7 @@
  * bun run localnet:start
  *
  * # Deploy contracts
- * cd packages/contracts && forge script script/DeployLiquiditySystem.s.sol --broadcast --rpc-url http://127.0.0.1:9545
+ * cd packages/contracts && forge script script/DeployLiquiditySystem.s.sol --broadcast --rpc-url http://127.0.0.1:6546
  *
  * # Start indexer (in separate terminal)
  * cd apps/indexer && bun run dev
@@ -331,7 +331,7 @@ describe('System Health and Monitoring', () => {
     console.log('\n📋 Manual Testing Checklist:\n')
     console.log('   □ Start localnet: bun run localnet:start')
     console.log(
-      '   □ Deploy contracts: cd packages/contracts && forge script script/DeployLiquiditySystem.s.sol --broadcast --rpc-url http://127.0.0.1:9545',
+      '   □ Deploy contracts: cd packages/contracts && forge script script/DeployLiquiditySystem.s.sol --broadcast --rpc-url http://127.0.0.1:6546',
     )
     console.log('   □ Start indexer: cd apps/indexer && bun run dev')
     console.log('   □ Deploy oracle bot: bun run scripts/oracle-updater.ts')

@@ -1,12 +1,5 @@
-# Babylon RL Training - Atropos + Tinker Framework
-# Supports: Tinker Cloud (RECOMMENDED), CUDA (GPU), MLX (Apple Silicon), CPU
-
-# ===========================================
-# Tinker API (RECOMMENDED - Cloud Training)
-# ===========================================
-# Tinker provides cloud-based training without local GPU requirements
-# Get API key from: https://tinker-docs.thinkingmachines.ai/
-tinker>=0.1.0
+# Jeju RL Training - Atropos Framework
+# Supports: CUDA (GPU), MLX (Apple Silicon), CPU
 
 # ===========================================
 # Core Atropos Framework (for environments)
@@ -58,8 +51,7 @@ jsonlines>=4.0.0
 # ============================================
 # OPTIONAL: Local Training (GPU/CPU)
 # ============================================
-# Only needed if NOT using Tinker for training
-# Uncomment if you need local fallback:
+# Uncomment if you need local training:
 #
 # torch>=2.1.0
 # transformers>=4.36.0

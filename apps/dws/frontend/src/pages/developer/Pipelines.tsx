@@ -76,10 +76,18 @@ export default function PipelinesPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
-          <button className="btn btn-primary" disabled={!isConnected}>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={!isConnected}
+          >
             <Plus size={16} /> New Pipeline
           </button>
         </div>
@@ -159,17 +167,23 @@ export default function PipelinesPage() {
               <GitBranch size={48} />
               <h3>No pipelines</h3>
               <p>Create your first CI/CD pipeline</p>
-              <button className="btn btn-primary" disabled={!isConnected}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                disabled={!isConnected}
+              >
                 <Plus size={16} /> New Pipeline
               </button>
             </div>
           ) : (
             <div style={{ display: 'grid', gap: '0.5rem' }}>
               {pipelines.map((pipeline) => (
-                <div
+                <button
+                  type="button"
                   key={pipeline.id}
                   onClick={() => setSelectedPipeline(pipeline.id)}
                   style={{
+                    cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '1rem',
@@ -180,8 +194,9 @@ export default function PipelinesPage() {
                         : 'var(--bg-tertiary)',
                     borderRadius: 'var(--radius-md)',
                     border: `1px solid ${selectedPipeline === pipeline.id ? 'var(--accent)' : 'var(--border)'}`,
-                    cursor: 'pointer',
                     transition: 'all var(--transition-fast)',
+                    textAlign: 'left' as const,
+                    width: '100%',
                   }}
                 >
                   {getStatusIcon(pipeline.status)}
@@ -204,7 +219,7 @@ export default function PipelinesPage() {
                     size={16}
                     style={{ color: 'var(--text-muted)' }}
                   />
-                </div>
+                </button>
               ))}
             </div>
           )}
@@ -215,6 +230,7 @@ export default function PipelinesPage() {
             <div className="card-header">
               <h3 className="card-title">Pipeline Details</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-sm"
                 onClick={() => setSelectedPipeline(null)}
               >
@@ -341,11 +357,19 @@ export default function PipelinesPage() {
               )}
 
               <div style={{ display: 'flex', gap: '0.5rem' }}>
-                <button className="btn btn-secondary" style={{ flex: 1 }}>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  style={{ flex: 1 }}
+                >
                   <RefreshCw size={16} /> Re-run
                 </button>
                 {selectedPipelineData.status === 'running' && (
-                  <button className="btn btn-secondary" style={{ flex: 1 }}>
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    style={{ flex: 1 }}
+                  >
                     Cancel
                   </button>
                 )}

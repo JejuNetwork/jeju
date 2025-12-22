@@ -59,8 +59,9 @@ export default function RepositoriesPage() {
     try {
       const response = await fetch(`${gitServerUrl}/api/v1/repos?${params}`)
       if (response.ok) {
-        const data = (await response.json()) as { items: Repository[] }
-        setRepositories(data.items ?? [])
+        const data = await response.json()
+        const items = Array.isArray(data?.items) ? data.items : []
+        setRepositories(items as Repository[])
       }
     } catch (error) {
       console.error('Failed to fetch repositories:', error)

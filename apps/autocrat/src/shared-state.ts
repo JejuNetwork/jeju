@@ -3,6 +3,7 @@
  * Avoids circular imports between server.ts and routes
  */
 
+import { getL1RpcUrl } from '@jejunetwork/config'
 import type { Address } from 'viem'
 import { type AutocratBlockchain, getBlockchain } from './blockchain'
 import { type AutocratOrchestrator, createOrchestrator } from './orchestrator'
@@ -23,10 +24,7 @@ const agent = (id: string, name: string, prompt: string) => ({
 
 export function getConfig(): CouncilConfig {
   return {
-    rpcUrl:
-      process.env.RPC_URL ??
-      process.env.JEJU_RPC_URL ??
-      'http://localhost:9545',
+    rpcUrl: process.env.RPC_URL ?? process.env.JEJU_RPC_URL ?? getL1RpcUrl(),
     daoId: process.env.DEFAULT_DAO ?? 'jeju',
     contracts: {
       council: addr('COUNCIL_ADDRESS'),

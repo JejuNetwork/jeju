@@ -26,32 +26,50 @@ export default function CoinCreatePage() {
         <form className="space-y-4">
           <div>
             <label
+              htmlFor="token-name"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
               Token Name
             </label>
-            <input type="text" placeholder="My Token" className="input" />
+            <input
+              id="token-name"
+              type="text"
+              placeholder="My Token"
+              className="input"
+            />
           </div>
 
           <div>
             <label
+              htmlFor="token-symbol"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
               Symbol
             </label>
-            <input type="text" placeholder="MTK" className="input" />
+            <input
+              id="token-symbol"
+              type="text"
+              placeholder="MTK"
+              className="input"
+            />
           </div>
 
           <div>
             <label
+              htmlFor="token-supply"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
               Initial Supply
             </label>
-            <input type="number" placeholder="1000000" className="input" />
+            <input
+              id="token-supply"
+              type="number"
+              placeholder="1000000"
+              className="input"
+            />
           </div>
 
           <button type="submit" className="btn-primary w-full py-3">

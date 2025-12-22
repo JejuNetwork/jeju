@@ -140,8 +140,8 @@ export class SearchManager {
     }
 
     try {
-      // Dynamic import to avoid bundling meilisearch if not used
-      // Cast the module to our local interface that mirrors the meilisearch API
+      // Conditional dynamic import: only load meilisearch if MEILISEARCH_URL is configured
+      // This avoids bundling the optional dependency when using in-memory search
       const meilisearchModule = (await import(
         'meilisearch'
       )) as MeilisearchModule

@@ -85,8 +85,8 @@ describe('Atropos Server', () => {
 
   test('register trainer creates session', async () => {
     const registration: Registration = {
-      wandb_group: 'test-group',
-      wandb_project: 'test-project',
+      run_group: 'test-group',
+      run_project: 'test-project',
       batch_size: 32,
       max_token_len: 2048,
       checkpoint_dir: '/tmp/checkpoints',
@@ -107,14 +107,14 @@ describe('Atropos Server', () => {
     expect(data.uuid).toBeDefined()
   })
 
-  test('wandb_info returns project info after registration', async () => {
+  test('run_info returns experiment info after registration', async () => {
     // Register first
     await fetch(`${baseUrl()}/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        wandb_group: 'test-group',
-        wandb_project: 'test-project',
+        run_group: 'test-group',
+        run_project: 'test-project',
         batch_size: 32,
         max_token_len: 2048,
         checkpoint_dir: '/tmp/checkpoints',
@@ -124,7 +124,7 @@ describe('Atropos Server', () => {
       }),
     })
 
-    const response = await fetch(`${baseUrl()}/wandb_info`)
+    const response = await fetch(`${baseUrl()}/run_info`)
     const data = (await response.json()) as { group: string; project: string }
 
     expect(response.status).toBe(200)
@@ -158,8 +158,8 @@ describe('Atropos Server', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        wandb_group: 'test-group',
-        wandb_project: 'test-project',
+        run_group: 'test-group',
+        run_project: 'test-project',
         batch_size: 4,
         max_token_len: 2048,
         checkpoint_dir: '/tmp/checkpoints',
@@ -235,8 +235,8 @@ describe('Atropos Server', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        wandb_group: 'test',
-        wandb_project: 'test',
+        run_group: 'test',
+        run_project: 'test',
         batch_size: 4,
         max_token_len: 2048,
         checkpoint_dir: '/tmp',
@@ -410,7 +410,7 @@ describe('Cross-Chain Bridge', () => {
 
     // Create bridge with mock config
     const bridge = new CrossChainTrainingBridge({
-      evmRpcUrl: 'http://localhost:8545',
+      evmRpcUrl: 'http://localhost:6545',
       bridgeContractAddress: '0x0000000000000000000000000000000000000001',
       solanaRpcUrl: 'http://localhost:8899',
     })
@@ -451,8 +451,8 @@ describe('Integration', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        wandb_group: 'integration-test',
-        wandb_project: 'jeju-training',
+        run_group: 'integration-test',
+        run_project: 'jeju-training',
         batch_size: 8,
         max_token_len: 1024,
         checkpoint_dir: '/tmp/integration-test',
@@ -535,8 +535,8 @@ describe('Performance', () => {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        wandb_group: 'perf-test',
-        wandb_project: 'perf',
+        run_group: 'perf-test',
+        run_project: 'perf',
         batch_size: 32,
         max_token_len: 1024,
         checkpoint_dir: '/tmp/perf',

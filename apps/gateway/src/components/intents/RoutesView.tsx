@@ -1,4 +1,3 @@
-import type { IntentRoute } from '@jejunetwork/types'
 import {
   Activity,
   ArrowRight,
@@ -8,7 +7,7 @@ import {
 } from 'lucide-react'
 import type React from 'react'
 import type { ComponentType } from 'react'
-import { useRoutes } from '../../hooks/useIntentAPI'
+import { type IntentRoute, useRoutes } from '../../hooks/useIntentAPI'
 
 const ArrowRightIcon = ArrowRight as ComponentType<LucideProps>
 const ActivityIcon = Activity as ComponentType<LucideProps>
@@ -181,12 +180,12 @@ function RouteCard({ route }: { route: IntentRoute }) {
         <StatItem
           icon={<ClockIcon size={14} />}
           label="Avg Time"
-          value={`${route.avgFillTimeSeconds}s`}
+          value={`${route.avgFillTimeSeconds ?? 0}s`}
         />
         <StatItem
           icon={<CheckCircleIcon size={14} />}
           label="Success"
-          value={`${route.successRate.toFixed(1)}%`}
+          value={`${(route.successRate ?? 0).toFixed(1)}%`}
         />
       </div>
 
@@ -210,19 +209,19 @@ function RouteCard({ route }: { route: IntentRoute }) {
               color: 'var(--text-primary)',
             }}
           >
-            {route.oracle}
+            {route.oracle ?? 'Native'}
           </div>
         </div>
         <div style={{ textAlign: 'center' }}>
           <div style={{ color: 'var(--text-secondary)' }}>Solvers</div>
           <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
-            {route.activeSolvers}
+            {route.activeSolvers ?? 0}
           </div>
         </div>
         <div style={{ textAlign: 'right' }}>
           <div style={{ color: 'var(--text-secondary)' }}>Fee</div>
           <div style={{ fontWeight: 500, color: 'var(--text-primary)' }}>
-            {(route.avgFeePercent / 100).toFixed(2)}%
+            {((route.avgFeePercent ?? 0) / 100).toFixed(2)}%
           </div>
         </div>
       </div>

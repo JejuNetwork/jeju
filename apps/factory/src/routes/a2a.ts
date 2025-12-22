@@ -2,7 +2,8 @@
  * A2A (Agent-to-Agent) Protocol Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { A2ARequestBodySchema, expectValid } from '../schemas'
 
 const NETWORK_NAME = 'Jeju'
 
@@ -208,13 +209,13 @@ function executeSkill(
         data: {
           packages: [
             {
-              name: '@jeju/sdk',
+              name: '@jejunetwork/sdk',
               version: '1.5.2',
               downloads: 45000,
               description: 'Jeju Network SDK',
             },
             {
-              name: '@jeju/contracts',
+              name: '@jejunetwork/contracts',
               version: '2.0.0',
               downloads: 32000,
               description: 'Smart contract ABIs',
@@ -346,19 +347,21 @@ export const a2aRoutes = new Elysia({ prefix: '/api/a2a' })
   .post(
     '/',
     async ({ body }) => {
-      if (body.method !== 'message/send') {
+      const validated = expectValid(A2ARequestBodySchema, body, 'request body')
+
+      if (validated.method !== 'message/send') {
         return {
           jsonrpc: '2.0',
-          id: body.id,
+          id: validated.id,
           error: { code: -32601, message: 'Method not found' },
         }
       }
 
-      const message = body.params?.message
+      const message = validated.params?.message
       if (!message?.parts) {
         return {
           jsonrpc: '2.0',
-          id: body.id,
+          id: validated.id,
           error: { code: -32602, message: 'Invalid params' },
         }
       }
@@ -369,7 +372,7 @@ export const a2aRoutes = new Elysia({ prefix: '/api/a2a' })
       if (!dataPart?.data) {
         return {
           jsonrpc: '2.0',
-          id: body.id,
+          id: validated.id,
           error: { code: -32602, message: 'No data part found' },
         }
       }
@@ -379,7 +382,7 @@ export const a2aRoutes = new Elysia({ prefix: '/api/a2a' })
       if (!skillId) {
         return {
           jsonrpc: '2.0',
-          id: body.id,
+          id: validated.id,
           error: { code: -32602, message: 'skillId required in data part' },
         }
       }
@@ -391,7 +394,7 @@ export const a2aRoutes = new Elysia({ prefix: '/api/a2a' })
 
       return {
         jsonrpc: '2.0',
-        id: body.id,
+        id: validated.id,
         result: {
           role: 'agent',
           parts: [
@@ -404,27 +407,6 @@ export const a2aRoutes = new Elysia({ prefix: '/api/a2a' })
       }
     },
     {
-      body: t.Object({
-        jsonrpc: t.Literal('2.0'),
-        method: t.String(),
-        params: t.Optional(
-          t.Object({
-            message: t.Optional(
-              t.Object({
-                messageId: t.String(),
-                parts: t.Array(
-                  t.Object({
-                    kind: t.String(),
-                    text: t.Optional(t.String()),
-                    data: t.Optional(t.Record(t.String(), t.Any())),
-                  }),
-                ),
-              }),
-            ),
-          }),
-        ),
-        id: t.Union([t.String(), t.Number()]),
-      }),
       detail: {
         tags: ['a2a'],
         summary: 'A2A request',

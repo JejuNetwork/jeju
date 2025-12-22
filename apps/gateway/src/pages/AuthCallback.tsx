@@ -114,6 +114,7 @@ export function AuthCallback() {
             </h1>
             <p className="text-muted-foreground">{error}</p>
             <button
+              type="button"
               onClick={() => navigate('/')}
               className="mt-4 px-6 py-2 rounded-xl bg-violet-600 text-white font-medium hover:bg-violet-700 transition-colors"
             >

@@ -14,7 +14,7 @@
  * const deployment = await cdn.deploy({
  *   domain: 'myapp.jns.eth',
  *   buildDir: './dist',
- *   framework: 'next',
+ *   framework: 'bun',
  * });
  *
  * // Invalidate cache
@@ -67,7 +67,7 @@ export interface DeployOptions {
   domain: string
   buildDir: string
   jnsName?: string
-  framework?: 'next' | 'vite' | 'astro' | 'remix' | 'static'
+  framework?: 'bun' | 'vite' | 'astro' | 'remix' | 'static'
   cacheConfig?: Partial<CacheConfig>
   regions?: CDNRegion[]
   warmup?: boolean
@@ -119,7 +119,7 @@ const localChain = {
   id: 31337,
   name: 'local',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
-  rpcUrls: { default: { http: ['http://localhost:8545'] } },
+  rpcUrls: { default: { http: ['http://localhost:6545'] } },
 } as const satisfies Chain
 
 export class CDNClient {

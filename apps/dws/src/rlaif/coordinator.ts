@@ -14,9 +14,11 @@
  * - Optional Psyche for distributed training
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { type Address, createWalletClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
+import { z } from 'zod'
 import { RulerScorer } from './ruler-scorer'
 import { TrajectoryStore } from './trajectory-store'
 import {
@@ -30,6 +32,36 @@ import {
   type RolloutJobConfig,
   type TrainingJobConfig,
 } from './types'
+
+// Schema for compute job responses
+const ComputeJobResultSchema = z.object({
+  jobId: z.string(),
+  status: z.enum(['pending', 'running', 'completed', 'failed']).optional(),
+  outputCID: z.string().optional(),
+  metrics: z.record(z.string(), z.number()).optional(),
+  error: z.string().optional(),
+})
+
+// Schema for Phala TEE job response
+const PhalaJobSubmitResultSchema = z.object({
+  jobId: z.string(),
+  enclaveId: z.string(),
+})
+
+// Schema for Phala status response
+const PhalaStatusResultSchema = z.object({
+  status: z.enum(['pending', 'running', 'completed', 'failed']),
+  outputCID: z.string().optional(),
+  attestation: z
+    .object({
+      quote: z.string(),
+      mrEnclave: z.string(),
+      timestamp: z.number(),
+    })
+    .optional(),
+  metrics: z.record(z.string(), z.number()).optional(),
+  error: z.string().optional(),
+})
 
 const RLAIF_COORDINATOR_ABI = [
   {
@@ -322,7 +354,11 @@ export class RLAIFCoordinator {
       throw new Error(`Rollout job failed: ${response.status}`)
     }
 
-    const result = (await response.json()) as ComputeJobResult
+    const result = expectValid(
+      ComputeJobResultSchema,
+      await response.json(),
+      'rollout job result',
+    )
     return this.waitForJob(result.jobId)
   }
 
@@ -384,7 +420,11 @@ export class RLAIFCoordinator {
       throw new Error(`Training job failed: ${response.status}`)
     }
 
-    const result = (await response.json()) as ComputeJobResult
+    const result = expectValid(
+      ComputeJobResultSchema,
+      await response.json(),
+      'training job result',
+    )
     return this.waitForJob(result.jobId)
   }
 
@@ -441,10 +481,11 @@ export class RLAIFCoordinator {
       )
     }
 
-    const result = (await response.json()) as {
-      jobId: string
-      enclaveId: string
-    }
+    const result = expectValid(
+      PhalaJobSubmitResultSchema,
+      await response.json(),
+      'Phala TEE submit result',
+    )
     console.log(
       `[RLAIF] Phala TEE job submitted: ${result.jobId}, enclave: ${result.enclaveId}`,
     )
@@ -476,17 +517,11 @@ export class RLAIFCoordinator {
         throw new Error(`Failed to get Phala job status: ${response.status}`)
       }
 
-      const status = (await response.json()) as {
-        status: 'pending' | 'running' | 'completed' | 'failed'
-        outputCID?: string
-        attestation?: {
-          quote: string
-          mrEnclave: string
-          timestamp: number
-        }
-        metrics?: Record<string, number>
-        error?: string
-      }
+      const status = expectValid(
+        PhalaStatusResultSchema,
+        await response.json(),
+        'Phala job status',
+      )
 
       if (status.status === 'completed') {
         console.log(
@@ -533,7 +568,11 @@ export class RLAIFCoordinator {
       throw new Error(`Evaluation job failed: ${response.status}`)
     }
 
-    const result = (await response.json()) as ComputeJobResult
+    const result = expectValid(
+      ComputeJobResultSchema,
+      await response.json(),
+      'evaluation job result',
+    )
     return this.waitForJob(result.jobId)
   }
 
@@ -549,7 +588,11 @@ export class RLAIFCoordinator {
         throw new Error(`Failed to get job status: ${response.status}`)
       }
 
-      const result = (await response.json()) as ComputeJobResult
+      const result = expectValid(
+        ComputeJobResultSchema,
+        await response.json(),
+        'job status result',
+      )
 
       if (result.status === 'completed' || result.status === 'failed') {
         return result

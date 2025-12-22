@@ -5,6 +5,9 @@
  * Enables RLAIF (Reinforcement Learning from AI Feedback) for Eliza agents.
  */
 
+import { JobsListResponseSchema } from '../shared/schemas/training'
+import { expectValid } from '../shared/validation'
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -182,16 +185,27 @@ export class CrucibleTrainingClient {
     // Check DWS for latest status
     const response = await fetch(`${this.dwsApiUrl}/training/jobs`)
     if (response.ok) {
-      const data = (await response.json()) as {
-        jobs: Array<{ status: string; metrics?: TrainingMetrics }>
-      }
+      const data = expectValid(
+        JobsListResponseSchema,
+        await response.json(),
+        'DWS jobs list response',
+      )
       const job = data.jobs.find(
         (j) => j.status === 'running' || j.status === 'completed',
       )
       if (job) {
         run.status = job.status as TrainingRun['status']
         if (job.metrics) {
-          run.metrics = job.metrics
+          run.metrics = {
+            totalEpisodes:
+              job.metrics.totalEpisodes ?? job.metrics.total_episodes ?? 0,
+            totalSteps: job.metrics.totalSteps ?? job.metrics.total_steps ?? 0,
+            averageReward:
+              job.metrics.averageReward ?? job.metrics.average_reward ?? 0,
+            bestReward: job.metrics.bestReward ?? job.metrics.best_reward ?? 0,
+            lossHistory:
+              job.metrics.lossHistory ?? job.metrics.loss_history ?? [],
+          }
         }
       }
     }

@@ -36,7 +36,15 @@ import {
   type TEEAttestation,
   type VerifiableCredential,
 } from '../types.js'
-import { OAuth3SessionSchema } from '../validation.js'
+import {
+  OAuth3SessionSchema,
+  OAuthInitResponseSchema,
+  SignResponseSchema,
+  CredentialVerifyResponseSchema,
+  TEEAttestationSchema,
+  VerifiableCredentialSchema,
+  validateResponse,
+} from '../validation.js'
 
 export interface OAuth3Config {
   /** App ID (hex) or JNS name (e.g., 'myapp.oauth3.jeju') */
@@ -343,7 +351,11 @@ export class OAuth3Client {
       throw new Error(`Wallet login failed: ${response.status}`)
     }
 
-    const session = (await response.json()) as OAuth3Session
+    const session = validateResponse(
+      OAuth3SessionSchema,
+      await response.json(),
+      'wallet login session',
+    )
     this.setSession(session)
     this.emit('login', { provider: 'wallet', session })
 
@@ -390,7 +402,11 @@ export class OAuth3Client {
       throw new Error(`Farcaster login failed: ${response.status}`)
     }
 
-    const session = (await response.json()) as OAuth3Session
+    const session = validateResponse(
+      OAuth3SessionSchema,
+      await response.json(),
+      'farcaster login session',
+    )
     this.setSession(session)
     this.emit('login', { provider: 'farcaster', session })
 
@@ -415,11 +431,11 @@ export class OAuth3Client {
       throw new Error(`Failed to initialize OAuth: ${initResponse.status}`)
     }
 
-    const { authUrl, state, sessionId } = (await initResponse.json()) as {
-      authUrl: string
-      state: string
-      sessionId: Hex
-    }
+    const { authUrl, state, sessionId } = validateResponse(
+      OAuthInitResponseSchema,
+      await initResponse.json(),
+      'OAuth init response',
+    )
 
     sessionStorage.setItem('oauth3_state', state)
     sessionStorage.setItem('oauth3_session_id', sessionId)
@@ -470,7 +486,11 @@ export class OAuth3Client {
           return
         }
 
-        const session = (await callbackResponse.json()) as OAuth3Session
+        const session = validateResponse(
+          OAuth3SessionSchema,
+          await callbackResponse.json(),
+          'OAuth callback session',
+        )
         this.setSession(session)
         this.emit('login', { provider: options.provider, session })
         resolve(session)
@@ -564,7 +584,11 @@ export class OAuth3Client {
       throw new Error(`Signing failed: ${response.status}`)
     }
 
-    const { signature } = (await response.json()) as { signature: Hex }
+    const { signature } = validateResponse(
+      SignResponseSchema,
+      await response.json(),
+      'sign response',
+    )
     return signature
   }
 
@@ -595,7 +619,11 @@ export class OAuth3Client {
       throw new Error(`Credential issuance failed: ${response.status}`)
     }
 
-    const credential = (await response.json()) as VerifiableCredential
+    const credential = validateResponse(
+      VerifiableCredentialSchema,
+      await response.json(),
+      'credential issuance response',
+    )
 
     // Store credential in decentralized storage
     if (this.storage) {
@@ -618,7 +646,11 @@ export class OAuth3Client {
       return false
     }
 
-    const { valid } = (await response.json()) as { valid: boolean }
+    const { valid } = validateResponse(
+      CredentialVerifyResponseSchema,
+      await response.json(),
+      'credential verify response',
+    )
     return valid
   }
 
@@ -669,7 +701,11 @@ export class OAuth3Client {
       throw new Error(`Failed to get attestation: ${response.status}`)
     }
 
-    return response.json() as Promise<TEEAttestation>
+    return validateResponse(
+      TEEAttestationSchema,
+      await response.json(),
+      'TEE attestation',
+    )
   }
 
   async refreshSession(): Promise<OAuth3Session> {
@@ -688,7 +724,11 @@ export class OAuth3Client {
       throw new Error(`Session refresh failed: ${response.status}`)
     }
 
-    const newSession = (await response.json()) as OAuth3Session
+    const newSession = validateResponse(
+      OAuth3SessionSchema,
+      await response.json(),
+      'session refresh response',
+    )
     this.setSession(newSession)
 
     // Update in decentralized storage

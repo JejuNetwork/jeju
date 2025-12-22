@@ -210,11 +210,21 @@ describe('OIFClient', () => {
     it('should use API quote when available', async () => {
       const apiQuote = {
         inputToken: USDC_ADDRESS,
-        inputAmount: 1000000000n,
+        inputAmount: '1000000000',
         outputToken: USDC_ADDRESS,
-        outputAmount: 999000000n,
-        fee: 1000000n,
-        route: [{ chainId: 84532, protocol: 'custom', action: 'bridge' }],
+        outputAmount: '999000000',
+        fee: '1000000',
+        route: [
+          {
+            chainId: 84532,
+            protocol: 'custom',
+            action: 'bridge',
+            inputToken: USDC_ADDRESS,
+            outputToken: USDC_ADDRESS,
+            inputAmount: '1000000000',
+            outputAmount: '999000000',
+          },
+        ],
         estimatedTime: 60,
         priceImpact: 0.001,
       }
@@ -556,10 +566,10 @@ describe('OIFClient', () => {
 
       // Verify the order structure was built correctly before callback
       expect(capturedOrder).not.toBeNull()
-      expect(capturedOrder!.user).toBe(TEST_USER)
-      expect(capturedOrder!.originSettler).toBe(TEST_INPUT_SETTLER)
-      expect(capturedOrder!.nonce).toBe(5n)
-      expect(capturedOrder!.originChainId).toBe(84532n)
+      expect(capturedOrder?.user).toBe(TEST_USER)
+      expect(capturedOrder?.originSettler).toBe(TEST_INPUT_SETTLER)
+      expect(capturedOrder?.nonce).toBe(5n)
+      expect(capturedOrder?.originChainId).toBe(84532n)
 
       // Verify signature callback was called with the order
       expect(signatureCallback).toHaveBeenCalledTimes(1)

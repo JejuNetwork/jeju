@@ -12,6 +12,7 @@ import {
   CoordinatorMessageSchema,
   EdgeConfigSchema,
 } from '../../plugin/schemas'
+import { AppManifestResponseSchema } from '../../schemas/api-responses'
 
 // ============================================================================
 // WebTorrent Types (dynamic import - package may not be installed)
@@ -512,7 +513,9 @@ export class WalletEdgeService {
       `${this.dwsEndpoint}/cdn/manifest/${appName}`,
     ).catch(() => null)
     if (!response?.ok) return null
-    return response.json()
+    const result = AppManifestResponseSchema.safeParse(await response.json())
+    if (!result.success) return null
+    return result.data
   }
 
   private async fetchFromDWS(cid: string): Promise<Uint8Array | null> {

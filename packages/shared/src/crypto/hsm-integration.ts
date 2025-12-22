@@ -7,10 +7,18 @@
  * For production: Configure AWS CloudHSM, Azure KeyVault, HashiCorp Vault, or YubiHSM.
  */
 
-import { type Address, type Hex, keccak256, toBytes, toHex } from 'viem'
+import { expectValid } from '@jejunetwork/types'
+import { type Address, type Hex, keccak256, toBytes, toHex, verifyMessage } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import {
+  HSMDecryptionResponseSchema,
+  HSMEncryptionResponseSchema,
+  HSMKeyGenerationResponseSchema,
+  HSMSignatureResponseSchema,
+  HSMVerifyResponseSchema,
+} from '../schemas'
 
-async function createAccountFromPrivateKey(privateKeyHex: `0x${string}`) {
-  const { privateKeyToAccount } = await import('viem/accounts')
+function createAccountFromPrivateKey(privateKeyHex: `0x${string}`) {
   return privateKeyToAccount(privateKeyHex)
 }
 
@@ -280,10 +288,11 @@ export class HSMClient {
       headers: this.getHeaders(),
       body: JSON.stringify({ keyId, type, partition: this.config.partition }),
     })
-    const result = (await response.json()) as {
-      publicKey?: string
-      address?: string
-    }
+    const result = expectValid(
+      HSMKeyGenerationResponseSchema,
+      await response.json(),
+      'HSM key generation response',
+    )
     return {
       publicKey: result.publicKey as Hex | undefined,
       address: result.address as Address | undefined,
@@ -323,7 +332,11 @@ export class HSMClient {
         body: JSON.stringify({ data, hashAlgorithm }),
       },
     )
-    return response.json() as Promise<SignatureResult>
+    return expectValid(
+      HSMSignatureResponseSchema,
+      await response.json(),
+      'HSM sign response',
+    )
   }
 
   private async verifyInHSM(
@@ -336,7 +349,6 @@ export class HSMClient {
       const key = this.keys.get(keyId)
       if (!key?.address) throw new Error(`Key ${keyId} has no address`)
 
-      const { verifyMessage } = await import('viem')
       const hash = keccak256(toBytes(data))
       return verifyMessage({
         address: key.address,
@@ -353,7 +365,12 @@ export class HSMClient {
         body: JSON.stringify({ data, signature, hashAlgorithm }),
       },
     )
-    return ((await response.json()) as { valid: boolean }).valid
+    const result = expectValid(
+      HSMVerifyResponseSchema,
+      await response.json(),
+      'HSM verify response',
+    )
+    return result.valid
   }
 
   private async encryptInHSM(
@@ -398,7 +415,11 @@ export class HSMClient {
         body: JSON.stringify({ plaintext }),
       },
     )
-    return response.json() as Promise<EncryptionResult>
+    return expectValid(
+      HSMEncryptionResponseSchema,
+      await response.json(),
+      'HSM encrypt response',
+    )
   }
 
   private async decryptInHSM(
@@ -442,7 +463,12 @@ export class HSMClient {
         body: JSON.stringify({ ciphertext, iv, tag }),
       },
     )
-    return ((await response.json()) as { plaintext: string }).plaintext as Hex
+    const result = expectValid(
+      HSMDecryptionResponseSchema,
+      await response.json(),
+      'HSM decrypt response',
+    )
+    return result.plaintext as Hex
   }
 
   private async deleteKeyFromHSM(keyId: string): Promise<void> {

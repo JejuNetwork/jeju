@@ -30,12 +30,21 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
-import { expect, expectDefined } from './schemas'
+import {
+  BountySubmissionSchema,
+  expectDefined,
+  expectValid,
+  KMSEncryptResponseSchema,
+  type SandboxResult,
+  SandboxResultSchema,
+  StringArraySchema,
+} from './schemas'
 import {
   type BountyAssessment,
   type BountyGuardianVote,
   type BountyPoolStats,
   BountySeverity,
+  BountySeverityName,
   type BountySubmission,
   type BountySubmissionDraft,
   BountySubmissionStatus,
@@ -43,6 +52,7 @@ import {
   SEVERITY_REWARDS,
   ValidationResult,
   VulnerabilityType,
+  VulnerabilityTypeName,
 } from './types'
 
 // ============ Configuration ============
@@ -363,11 +373,11 @@ async function encryptReport(report: string): Promise<EncryptedReport> {
     throw new Error(`KMS encryption failed: ${response.statusText}`)
   }
 
-  const result = (await response.json()) as {
-    cid: string
-    keyId: string
-    encrypted: string
-  }
+  const result = expectValid(
+    KMSEncryptResponseSchema,
+    await response.json(),
+    'KMS encryption',
+  )
   return {
     cid: result.cid,
     keyId: result.keyId,
@@ -376,15 +386,6 @@ async function encryptReport(report: string): Promise<EncryptedReport> {
 }
 
 // ============ TEE/Sandbox Execution ============
-
-interface SandboxResult {
-  success: boolean
-  exploitTriggered: boolean
-  exploitDetails: string
-  executionTimeMs: number
-  stdout: string
-  stderr: string
-}
 
 async function executePoCInSandbox(
   poc: string,
@@ -404,7 +405,7 @@ async function executePoCInSandbox(
       command: ['node', '/sandbox/run.js'],
       env: {
         POC_CODE: poc,
-        VULN_TYPE: VulnerabilityType[vulnType],
+        VULN_TYPE: VulnerabilityTypeName[vulnType],
         NETWORK: network,
       },
       resources: {
@@ -432,7 +433,11 @@ async function executePoCInSandbox(
     throw new Error(`Sandbox execution failed: ${error}`)
   }
 
-  return (await response.json()) as SandboxResult
+  return expectValid(
+    SandboxResultSchema,
+    await response.json(),
+    'Sandbox execution',
+  )
 }
 
 function getSandboxImage(vulnType: VulnerabilityType): string {
@@ -639,7 +644,7 @@ export async function submitBounty(
   await getCache().delete(`submission:${submissionId}`)
 
   console.log(
-    `[BugBounty] Submission created: ${submissionId} (severity: ${BountySeverity[submission.severity]})`,
+    `[BugBounty] Submission created: ${submissionId} (severity: ${BountySeverityName[submission.severity]})`,
   )
 
   return submission
@@ -652,7 +657,13 @@ export async function getSubmission(
   const cache = getCache()
   const cached = await cache.get(`submission:${submissionId}`).catch(() => null)
   if (cached) {
-    return JSON.parse(cached) as BountySubmission
+    // Validate schema then cast - enum values are validated by schema
+    const validated = expectValid(
+      BountySubmissionSchema,
+      JSON.parse(cached),
+      'cached submission',
+    )
+    return validated as BountySubmission
   }
 
   const client = await getCQLClient()
@@ -711,11 +722,12 @@ export async function listSubmissions(
 
 export async function triggerValidation(submissionId: string): Promise<void> {
   const submission = await getSubmission(submissionId)
-  expect(submission !== null, `Submission ${submissionId} not found`)
-  expect(
-    submission.status === BountySubmissionStatus.PENDING,
-    'Submission not in PENDING status',
-  )
+  if (!submission) {
+    throw new Error(`Submission ${submissionId} not found`)
+  }
+  if (submission.status !== BountySubmissionStatus.PENDING) {
+    throw new Error('Submission not in PENDING status')
+  }
 
   // Update status
   const client = await getCQLClient()
@@ -730,36 +742,20 @@ export async function triggerValidation(submissionId: string): Promise<void> {
 
   // Execute PoC in sandbox if available
   if (submission.proofOfConcept) {
-    try {
-      const result = await executePoCInSandbox(
-        submission.proofOfConcept,
-        submission.vulnType,
-      )
+    const result = await executePoCInSandbox(
+      submission.proofOfConcept,
+      submission.vulnType,
+    )
 
-      const validationResult = result.exploitTriggered
-        ? ValidationResult.VERIFIED
-        : ValidationResult.NEEDS_MORE_INFO
+    const validationResult = result.exploitTriggered
+      ? ValidationResult.VERIFIED
+      : ValidationResult.NEEDS_MORE_INFO
 
-      await completeValidation(
-        submissionId,
-        validationResult,
-        result.exploitDetails || 'Sandbox validation complete',
-      )
-    } catch (err) {
-      console.log(
-        `[BugBounty] Sandbox validation failed: ${err instanceof Error ? err.message : 'unknown'}`,
-      )
-      // Move to guardian review for manual validation
-      await client.exec(
-        'UPDATE bounty_submissions SET status = ?, validation_notes = ? WHERE submission_id = ?',
-        [
-          BountySubmissionStatus.GUARDIAN_REVIEW,
-          'Automated validation unavailable - manual review required',
-          submissionId,
-        ],
-        CQL_DATABASE_ID,
-      )
-    }
+    await completeValidation(
+      submissionId,
+      validationResult,
+      result.exploitDetails ?? 'Sandbox validation complete',
+    )
   } else {
     // No PoC - move directly to guardian review
     await client.exec(
@@ -823,7 +819,9 @@ export async function completeValidation(
   await getCache().delete(`submission:${submissionId}`)
 
   const submission = await getSubmission(submissionId)
-  expect(submission !== null, 'Failed to fetch updated submission')
+  if (!submission) {
+    throw new Error(`Failed to fetch updated submission ${submissionId}`)
+  }
   return submission
 }
 
@@ -979,7 +977,9 @@ export async function ceoDecision(
   await getCache().delete(`submission:${submissionId}`)
 
   const submission = await getSubmission(submissionId)
-  expect(submission !== null, 'Failed to fetch updated submission')
+  if (!submission) {
+    throw new Error(`Failed to fetch updated submission ${submissionId}`)
+  }
 
   // Update researcher stats
   await updateResearcherStats(
@@ -995,12 +995,15 @@ export async function payReward(
   submissionId: string,
 ): Promise<{ txHash: string; amount: bigint }> {
   const submission = await getSubmission(submissionId)
-  expect(submission !== null, `Submission ${submissionId} not found`)
-  expect(
-    submission.status === BountySubmissionStatus.APPROVED,
-    'Submission not approved',
-  )
-  expect(submission.rewardAmount > 0n, 'Reward amount must be positive')
+  if (!submission) {
+    throw new Error(`Submission ${submissionId} not found`)
+  }
+  if (submission.status !== BountySubmissionStatus.APPROVED) {
+    throw new Error('Submission not approved')
+  }
+  if (submission.rewardAmount <= 0n) {
+    throw new Error('Reward amount must be positive')
+  }
 
   const client = await getCQLClient()
 
@@ -1045,7 +1048,9 @@ export async function recordFix(
   submissionId: string,
   commitHash: string,
 ): Promise<BountySubmission> {
-  expect(/^[a-f0-9]{40}$/.test(commitHash), 'Invalid commit hash format')
+  if (!/^[a-f0-9]{40}$/.test(commitHash)) {
+    throw new Error('Invalid commit hash format')
+  }
 
   const client = await getCQLClient()
   const disclosureDate = Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60 // 7 days grace
@@ -1059,7 +1064,9 @@ export async function recordFix(
   await getCache().delete(`submission:${submissionId}`)
 
   const submission = await getSubmission(submissionId)
-  expect(submission !== null, 'Failed to fetch updated submission')
+  if (!submission) {
+    throw new Error(`Failed to fetch updated submission ${submissionId}`)
+  }
   return submission
 }
 
@@ -1068,11 +1075,12 @@ export async function researcherDisclose(
   researcher: Address,
 ): Promise<BountySubmission> {
   const submission = await getSubmission(submissionId)
-  expect(submission !== null, `Submission ${submissionId} not found`)
-  expect(
-    submission.researcher.toLowerCase() === researcher.toLowerCase(),
-    'Not the researcher',
-  )
+  if (!submission) {
+    throw new Error(`Submission ${submissionId} not found`)
+  }
+  if (submission.researcher.toLowerCase() !== researcher.toLowerCase()) {
+    throw new Error('Not the researcher')
+  }
 
   const client = await getCQLClient()
 
@@ -1085,7 +1093,9 @@ export async function researcherDisclose(
   await getCache().delete(`submission:${submissionId}`)
 
   const updated = await getSubmission(submissionId)
-  expect(updated !== null, 'Failed to fetch updated submission')
+  if (!updated) {
+    throw new Error(`Failed to fetch updated submission ${submissionId}`)
+  }
   return updated
 }
 
@@ -1242,10 +1252,16 @@ function rowToSubmission(row: Record<string, unknown>): BountySubmission {
     title: row.title as string,
     summary: row.summary as string,
     description: row.description as string,
-    affectedComponents: JSON.parse(
-      row.affected_components as string,
-    ) as string[],
-    stepsToReproduce: JSON.parse(row.steps_to_reproduce as string) as string[],
+    affectedComponents: expectValid(
+      StringArraySchema,
+      JSON.parse(row.affected_components as string),
+      'affectedComponents',
+    ),
+    stepsToReproduce: expectValid(
+      StringArraySchema,
+      JSON.parse(row.steps_to_reproduce as string),
+      'stepsToReproduce',
+    ),
     proofOfConcept: row.proof_of_concept as string | undefined,
     suggestedFix: row.suggested_fix as string | undefined,
     encryptedReportCid: row.encrypted_report_cid as string,

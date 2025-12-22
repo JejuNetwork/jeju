@@ -29,32 +29,46 @@ export default function CoinLaunchPage() {
         <form className="space-y-4">
           <div>
             <label
+              htmlFor="token-name"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
               Token Name
             </label>
-            <input type="text" placeholder="My Token" className="input" />
+            <input
+              id="token-name"
+              type="text"
+              placeholder="My Token"
+              className="input"
+            />
           </div>
 
           <div>
             <label
+              htmlFor="symbol"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
               Symbol
             </label>
-            <input type="text" placeholder="MTK" className="input" />
+            <input
+              id="symbol"
+              type="text"
+              placeholder="MTK"
+              className="input"
+            />
           </div>
 
           <div>
             <label
+              htmlFor="description"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
               Description
             </label>
             <textarea
+              id="description"
               placeholder="Describe your token..."
               className="input min-h-[100px]"
             />
@@ -62,12 +76,14 @@ export default function CoinLaunchPage() {
 
           <div>
             <label
+              htmlFor="initial-liquidity"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
               Initial Liquidity (ETH)
             </label>
             <input
+              id="initial-liquidity"
               type="number"
               placeholder="0.1"
               step="0.01"

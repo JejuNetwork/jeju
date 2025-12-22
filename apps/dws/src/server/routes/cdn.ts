@@ -4,19 +4,13 @@
  * Includes JNS gateway for serving decentralized apps
  */
 
-import { Hono } from 'hono'
+import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
-import { z } from 'zod'
 import { type EdgeCache, getEdgeCache, getOriginFetcher } from '../../cdn'
 import {
   JNSGateway,
   type JNSGatewayConfig,
 } from '../../cdn/gateway/jns-gateway'
-import {
-  cdnCacheParamsSchema,
-  validateBody,
-  validateParams,
-} from '../../shared'
 
 // JNS Gateway instance (initialized lazily)
 let jnsGateway: JNSGateway | null = null
@@ -24,7 +18,6 @@ let jnsGateway: JNSGateway | null = null
 function getJNSGateway(): JNSGateway | null {
   if (jnsGateway) return jnsGateway
 
-  // Only initialize if JNS contracts are configured
   const jnsRegistry = process.env.JNS_REGISTRY_ADDRESS
   const jnsResolver = process.env.JNS_RESOLVER_ADDRESS
 
@@ -43,7 +36,7 @@ function getJNSGateway(): JNSGateway | null {
   }
 
   const config: JNSGatewayConfig = {
-    port: 0, // Not used when embedded
+    port: 0,
     rpcUrl,
     jnsRegistryAddress: jnsRegistry as Address,
     jnsResolverAddress: jnsResolver as Address,
@@ -56,24 +49,23 @@ function getJNSGateway(): JNSGateway | null {
   return jnsGateway
 }
 
-export function createCDNRouter(): Hono {
-  const router = new Hono()
-  // CDN cache configuration - defaults are sensible for development
-  const cacheMb = parseInt(process.env.DWS_CDN_CACHE_MB || '512', 10)
-  const maxEntries = parseInt(process.env.DWS_CDN_CACHE_ENTRIES || '100000', 10)
-  const defaultTTL = parseInt(process.env.DWS_CDN_DEFAULT_TTL || '3600', 10)
+// CDN cache configuration
+const cacheMb = parseInt(process.env.DWS_CDN_CACHE_MB || '512', 10)
+const maxEntries = parseInt(process.env.DWS_CDN_CACHE_ENTRIES || '100000', 10)
+const defaultTTL = parseInt(process.env.DWS_CDN_DEFAULT_TTL || '3600', 10)
 
-  const cache: EdgeCache = getEdgeCache({
-    maxSizeBytes: cacheMb * 1024 * 1024,
-    maxEntries,
-    defaultTTL,
-  })
-  const fetcher = getOriginFetcher()
+const cache: EdgeCache = getEdgeCache({
+  maxSizeBytes: cacheMb * 1024 * 1024,
+  maxEntries,
+  defaultTTL,
+})
+const fetcher = getOriginFetcher()
 
-  router.get('/health', (c) => {
+export const cdnRoutes = new Elysia({ name: 'cdn', prefix: '/cdn' })
+  .get('/health', () => {
     const stats = cache.getStats()
-    return c.json({
-      status: 'healthy',
+    return {
+      status: 'healthy' as const,
       service: 'dws-cdn',
       cache: {
         entries: stats.entries,
@@ -81,143 +73,172 @@ export function createCDNRouter(): Hono {
         maxSizeBytes: stats.maxSizeBytes,
         hitRate: stats.hitRate,
       },
-    })
-  })
-
-  router.get('/stats', (c) => c.json(cache.getStats()))
-
-  router.post('/invalidate', async (c) => {
-    const body = await validateBody(
-      z.object({ paths: z.array(z.string()).min(1) }),
-      c,
-    )
-    let purged = 0
-    for (const path of body.paths) {
-      purged += cache.purge(path)
     }
-    return c.json({ success: true, entriesPurged: purged })
   })
 
-  router.post('/purge', (c) => {
+  .get('/stats', () => cache.getStats())
+
+  .post(
+    '/invalidate',
+    ({ body }) => {
+      let purged = 0
+      for (const path of body.paths) {
+        purged += cache.purge(path)
+      }
+      return { success: true, entriesPurged: purged }
+    },
+    {
+      body: t.Object({
+        paths: t.Array(t.String(), { minItems: 1 }),
+      }),
+    },
+  )
+
+  .post('/purge', () => {
     const stats = cache.getStats()
     cache.clear()
-    return c.json({ success: true, entriesPurged: stats.entries })
+    return { success: true, entriesPurged: stats.entries }
   })
 
-  router.get('/ipfs/:cid{.+}', async (c) => {
-    const { cid } = validateParams(cdnCacheParamsSchema, c)
-    const path = c.req.path.replace(`/cdn/ipfs/${cid}`, '') || '/'
-    const cacheKey = cache.generateKey({ path: `/ipfs/${cid}${path}` })
+  .get(
+    '/ipfs/:cid',
+    async ({ params, path, set }) => {
+      const cidPath = path.replace(`/cdn/ipfs/${params.cid}`, '') || '/'
+      const cacheKey = cache.generateKey({ path: `/ipfs/${params.cid}${cidPath}` })
 
-    const { entry, status } = cache.get(cacheKey)
-    if (entry && (status === 'HIT' || status === 'STALE')) {
-      return new Response(new Uint8Array(entry.data), {
-        headers: {
+      const { entry, status } = cache.get(cacheKey)
+      if (entry && (status === 'HIT' || status === 'STALE')) {
+        set.headers = {
           ...entry.metadata.headers,
           'X-Cache': status,
           'X-Served-By': 'dws-cdn',
-        },
+        }
+        return new Uint8Array(entry.data)
+      }
+
+      const result = await fetcher.fetch(`/ipfs/${params.cid}${cidPath}`, undefined, {
+        headers: {},
       })
-    }
 
-    const result = await fetcher.fetch(`/ipfs/${cid}${path}`, undefined, {
-      headers: {},
-    })
+      if (!result.success) {
+        throw new Error(result.error || 'Content not found')
+      }
 
-    if (!result.success) {
-      throw new Error(result.error || 'Content not found')
-    }
+      const cacheControl = result.headers['cache-control'] || ''
+      cache.set(cacheKey, result.body, {
+        contentType: result.headers['content-type'],
+        headers: result.headers,
+        origin: result.origin,
+        cacheControl,
+        immutable: cacheControl.includes('immutable'),
+      })
 
-    const cacheControl = result.headers['cache-control'] || ''
-    cache.set(cacheKey, result.body, {
-      contentType: result.headers['content-type'],
-      headers: result.headers,
-      origin: result.origin,
-      cacheControl,
-      immutable: cacheControl.includes('immutable'),
-    })
-
-    return new Response(new Uint8Array(result.body), {
-      headers: {
+      set.headers = {
         ...result.headers,
         'X-Cache': 'MISS',
         'X-Served-By': 'dws-cdn',
-      },
-    })
-  })
-
-  // JNS name resolution
-  router.get('/resolve/:name', async (c) => {
-    const { name } = validateParams(z.object({ name: z.string().min(1) }), c)
-    const fullName = name.endsWith('.jns') ? name : `${name}.jns`
-
-    const gateway = getJNSGateway()
-    if (!gateway) {
-      throw new Error(
-        'JNS contracts not configured. Set JNS_REGISTRY_ADDRESS and JNS_RESOLVER_ADDRESS.',
-      )
-    }
-
-    const contentHash = await gateway.resolveJNS(fullName)
-    if (!contentHash) {
-      throw new Error('Name not found')
-    }
-
-    return c.json({
-      name: fullName,
-      contentHash: {
-        protocol: contentHash.protocol,
-        hash: contentHash.hash,
-      },
-      resolvedAt: Date.now(),
-    })
-  })
-
-  // Serve JNS content: /cdn/jns/:name/*
-  router.get('/jns/:name{.+}', async (c) => {
-    const { name } = validateParams(z.object({ name: z.string().min(1) }), c)
-    const path = c.req.path.replace(`/cdn/jns/${name}`, '') || '/'
-
-    const gateway = getJNSGateway()
-    if (!gateway) {
-      throw new Error('JNS not configured')
-    }
-
-    // Use the JNS gateway's app to handle the request
-    const jnsApp = gateway.getApp()
-    const newRequest = new Request(
-      `http://localhost/jns/${name}${path}`,
-      c.req.raw,
-    )
-    return jnsApp.fetch(newRequest)
-  })
-
-  router.post('/warmup', async (c) => {
-    const body = await validateBody(
-      z.object({ urls: z.array(z.string().url()).min(1) }),
-      c,
-    )
-    let success = 0
-    let failed = 0
-    for (const url of body.urls) {
-      const urlObj = new URL(url)
-      const result = await fetcher.fetch(urlObj.pathname, undefined, {
-        headers: {},
-      })
-      if (result.success) {
-        const cacheKey = cache.generateKey({ path: urlObj.pathname })
-        cache.set(cacheKey, result.body, {
-          contentType: result.headers['content-type'],
-          headers: result.headers,
-          origin: result.origin,
-        })
-        success++
-      } else {
-        failed++
       }
-    }
-    return c.json({ success, failed })
-  })
+      return new Uint8Array(result.body)
+    },
+    {
+      params: t.Object({
+        cid: t.String({ minLength: 1 }),
+      }),
+    },
+  )
 
-  return router
-}
+  .get(
+    '/resolve/:name',
+    async ({ params, set }) => {
+      const fullName = params.name.endsWith('.jns')
+        ? params.name
+        : `${params.name}.jns`
+
+      const gateway = getJNSGateway()
+      if (!gateway) {
+        set.status = 503
+        return {
+          error:
+            'JNS contracts not configured. Set JNS_REGISTRY_ADDRESS and JNS_RESOLVER_ADDRESS.',
+        }
+      }
+
+      const contentHash = await gateway.resolveJNS(fullName)
+      if (!contentHash) {
+        set.status = 404
+        return { error: 'Name not found' }
+      }
+
+      return {
+        name: fullName,
+        contentHash: {
+          protocol: contentHash.protocol,
+          hash: contentHash.hash,
+        },
+        resolvedAt: Date.now(),
+      }
+    },
+    {
+      params: t.Object({
+        name: t.String({ minLength: 1 }),
+      }),
+    },
+  )
+
+  .get(
+    '/jns/:name/*',
+    async ({ params, path, set }) => {
+      const jnsPath = path.replace(`/cdn/jns/${params.name}`, '') || '/'
+
+      const gateway = getJNSGateway()
+      if (!gateway) {
+        set.status = 503
+        return { error: 'JNS not configured' }
+      }
+
+      const jnsApp = gateway.getApp()
+      const newRequest = new Request(
+        `http://localhost/jns/${params.name}${jnsPath}`,
+      )
+      return jnsApp.fetch(newRequest)
+    },
+    {
+      params: t.Object({
+        name: t.String({ minLength: 1 }),
+        '*': t.String(),
+      }),
+    },
+  )
+
+  .post(
+    '/warmup',
+    async ({ body }) => {
+      let success = 0
+      let failed = 0
+      for (const url of body.urls) {
+        const urlObj = new URL(url)
+        const result = await fetcher.fetch(urlObj.pathname, undefined, {
+          headers: {},
+        })
+        if (result.success) {
+          const cacheKey = cache.generateKey({ path: urlObj.pathname })
+          cache.set(cacheKey, result.body, {
+            contentType: result.headers['content-type'],
+            headers: result.headers,
+            origin: result.origin,
+          })
+          success++
+        } else {
+          failed++
+        }
+      }
+      return { success, failed }
+    },
+    {
+      body: t.Object({
+        urls: t.Array(t.String({ format: 'uri' }), { minItems: 1 }),
+      }),
+    },
+  )
+
+export type CDNRoutes = typeof cdnRoutes

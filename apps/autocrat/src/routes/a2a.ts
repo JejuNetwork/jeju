@@ -14,13 +14,13 @@ const honoRouter = a2aServer.getRouter()
 export const a2aRoutes = new Elysia({ prefix: '/a2a' })
   .get('/', async () => {
     const response = await honoRouter.fetch(
-      new Request('http://localhost/a2a', { method: 'GET' }),
+      new Request('http://localhost/', { method: 'GET' }),
     )
     return response.json()
   })
   .get('/.well-known/agent-card.json', async () => {
     const response = await honoRouter.fetch(
-      new Request('http://localhost/a2a/.well-known/agent-card.json', {
+      new Request('http://localhost/.well-known/agent-card.json', {
         method: 'GET',
       }),
     )
@@ -30,7 +30,7 @@ export const a2aRoutes = new Elysia({ prefix: '/a2a' })
     '/',
     async ({ body }) => {
       const response = await honoRouter.fetch(
-        new Request('http://localhost/a2a', {
+        new Request('http://localhost/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -48,7 +48,3 @@ export const a2aRoutes = new Elysia({ prefix: '/a2a' })
       detail: { tags: ['a2a'], summary: 'A2A JSON-RPC endpoint' },
     },
   )
-  // Redirect well-known from root
-  .get('/.well-known/agent-card.json', async ({ redirect }) => {
-    return redirect('/a2a/.well-known/agent-card.json')
-  })

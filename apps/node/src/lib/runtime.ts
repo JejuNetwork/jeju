@@ -131,7 +131,7 @@ export interface BotInfo {
 
 const DEFAULT_CONFIG: RuntimeConfig = {
   network: 'localnet',
-  rpcUrl: 'http://127.0.0.1:9545',
+  rpcUrl: 'http://127.0.0.1:6546',
   chainId: 1337,
   autoClaim: true,
   autoStake: false,
@@ -154,18 +154,22 @@ function createBrowserAPI(): RuntimeAPI {
   const runningServices = new Map<string, ServiceState>()
   const runningBots = new Map<string, BotState>()
 
-  // Load config from localStorage with prototype pollution protection
+  // Load config from localStorage with schema validation
   if (typeof localStorage !== 'undefined') {
     const stored = localStorage.getItem(CONFIG_KEY)
     if (stored) {
-      const parsed = JSON.parse(stored) as Record<string, unknown>
-      // Prevent prototype pollution - only merge allowed keys from DEFAULT_CONFIG
-      // This ensures we only copy known properties, not __proto__ or constructor
-      const safeKeys = Object.keys(DEFAULT_CONFIG)
-      const dangerousKeys = new Set(['__proto__', 'constructor', 'prototype'])
-      for (const key of safeKeys) {
-        if (key in parsed && !dangerousKeys.has(key)) {
-          config[key] = parsed[key]
+      // Parse and validate - use partial schema since stored config may be from older version
+      const PartialConfigSchema = z.record(z.string(), z.unknown())
+      const parseResult = PartialConfigSchema.safeParse(JSON.parse(stored))
+      if (parseResult.success) {
+        const parsed = parseResult.data
+        // Prevent prototype pollution - only merge allowed keys from DEFAULT_CONFIG
+        const safeKeys = Object.keys(DEFAULT_CONFIG)
+        const dangerousKeys = new Set(['__proto__', 'constructor', 'prototype'])
+        for (const key of safeKeys) {
+          if (key in parsed && !dangerousKeys.has(key)) {
+            config[key] = parsed[key]
+          }
         }
       }
     }

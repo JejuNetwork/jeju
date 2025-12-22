@@ -21,7 +21,9 @@ import {
   AddMemoryRequestSchema,
   AgentIdParamSchema,
   AgentSearchQuerySchema,
+  AgentStartRequestSchema,
   BotIdParamSchema,
+  ChatRequestSchema,
   CreateRoomRequestSchema,
   ExecuteRequestSchema,
   expect,
@@ -427,15 +429,8 @@ app.post('/api/v1/chat/:characterId', async (c) => {
     return c.json({ error: `Character not found: ${characterId}` }, 404)
   }
 
-  const body = (await c.req.json()) as {
-    text: string
-    userId?: string
-    roomId?: string
-  }
-
-  if (!body.text) {
-    return c.json({ error: 'Missing text field' }, 400)
-  }
+  const rawBody = await c.req.json()
+  const body = parseOrThrow(ChatRequestSchema, rawBody, 'Chat request')
 
   // Get or create runtime for this character
   let runtime = runtimeManager.getRuntime(characterId)
@@ -991,11 +986,12 @@ app.post('/api/v1/autonomous/agents', async (c) => {
     return c.json({ error: 'Autonomous runner not started' }, 400)
   }
 
-  const body = (await c.req.json()) as {
-    characterId: string
-    tickIntervalMs?: number
-    capabilities?: Record<string, boolean>
-  }
+  const rawBody = await c.req.json()
+  const body = parseOrThrow(
+    AgentStartRequestSchema,
+    rawBody,
+    'Agent start request',
+  )
 
   const character = getCharacter(body.characterId)
   if (!character) {

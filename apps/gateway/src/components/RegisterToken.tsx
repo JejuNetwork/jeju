@@ -62,6 +62,7 @@ export default function RegisterToken() {
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: '1rem' }}>
           <label
+            htmlFor="token-address"
             style={{
               display: 'block',
               marginBottom: '0.5rem',
@@ -71,6 +72,7 @@ export default function RegisterToken() {
             Token Address
           </label>
           <input
+            id="token-address"
             className="input"
             type="text"
             placeholder="0x..."
@@ -83,6 +85,7 @@ export default function RegisterToken() {
         <div className="grid grid-2" style={{ marginBottom: '1rem' }}>
           <div>
             <label
+              htmlFor="min-fee"
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -92,6 +95,7 @@ export default function RegisterToken() {
               Min Fee (basis points)
             </label>
             <input
+              id="min-fee"
               className="input"
               type="number"
               placeholder="0"
@@ -114,6 +118,7 @@ export default function RegisterToken() {
 
           <div>
             <label
+              htmlFor="max-fee"
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -123,6 +128,7 @@ export default function RegisterToken() {
               Max Fee (basis points)
             </label>
             <input
+              id="max-fee"
               className="input"
               type="number"
               placeholder="200"

@@ -27,7 +27,14 @@ export function HealthRing({
 
   return (
     <div className="relative inline-flex items-center justify-center">
-      <svg width={size} height={size} className="-rotate-90">
+      <svg
+        width={size}
+        height={size}
+        className="-rotate-90"
+        role="img"
+        aria-label={`Health indicator: ${Math.round(percentage)}%`}
+      >
+        <title>Health status: {Math.round(percentage)}%</title>
         {/* Background ring */}
         <circle
           cx={size / 2}

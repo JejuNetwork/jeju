@@ -127,23 +127,17 @@ export function checkRateLimit(
 }
 
 /**
- * Create a rate limit middleware for Hono
+ * Create a rate limit middleware for Elysia
  */
 export function createRateLimitMiddleware(
   type: string,
   config?: RateLimitConfig,
 ) {
-  return async (
-    c: {
-      req: { header: (name: string) => string | undefined }
-      json: (body: object, status: number) => Response
-    },
-    next: () => Promise<void>,
-  ) => {
+  return ({ request, set }: { request: Request; set: { status: number } }) => {
     // Get identifier from request (prefer X-Forwarded-For, then X-Real-IP, then connection)
-    const forwardedFor = c.req.header('x-forwarded-for')
-    const realIp = c.req.header('x-real-ip')
-    const jejuAddress = c.req.header('x-jeju-address')
+    const forwardedFor = request.headers.get('x-forwarded-for')
+    const realIp = request.headers.get('x-real-ip')
+    const jejuAddress = request.headers.get('x-jeju-address')
 
     // Use wallet address if authenticated, otherwise IP
     const identifier =
@@ -152,16 +146,13 @@ export function createRateLimitMiddleware(
     const result = checkRateLimit(type, identifier, config)
 
     if (!result.allowed) {
-      return c.json(
-        {
-          error: 'Too many requests',
-          retryAfter: Math.ceil((result.resetAt - Date.now()) / 1000),
-        },
-        429,
-      )
+      set.status = 429
+      return {
+        error: 'Too many requests',
+        retryAfter: Math.ceil((result.resetAt - Date.now()) / 1000),
+      }
     }
-
-    return next()
+    return undefined
   }
 }
 

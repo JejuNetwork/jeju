@@ -229,14 +229,15 @@ export interface TokenDistribution {
   rewardBudget: bigint
 }
 
-export enum Region {
-  NorthAmerica = 0,
-  SouthAmerica = 1,
-  Europe = 2,
-  Asia = 3,
-  Africa = 4,
-  Oceania = 5,
-}
+export const Region = {
+  NorthAmerica: 0,
+  SouthAmerica: 1,
+  Europe: 2,
+  Asia: 3,
+  Africa: 4,
+  Oceania: 5,
+} as const
+export type Region = (typeof Region)[keyof typeof Region]
 
 export const REGION_NAMES = {
   [Region.NorthAmerica]: 'North America',

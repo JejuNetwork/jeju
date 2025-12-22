@@ -4,7 +4,13 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import type { ServicesConfig } from '../config'
-import { AgentCardSchema, AgentsListSchema } from '../shared/schemas'
+import {
+  A2AResponseSchema,
+  A2AStreamMessageSchema,
+  AgentCardSchema,
+  AgentsListSchema,
+  JNSRecordsResponseSchema,
+} from '../shared/schemas'
 import type { JsonRecord, JsonValue } from '../shared/types'
 import type { JejuWallet } from '../wallet'
 
@@ -149,7 +155,8 @@ export function createA2AModule(
 
     if (!response.ok) throw new Error(`JNS name ${normalized} not found`)
 
-    const records = (await response.json()) as { a2aEndpoint?: string }
+    const rawData: unknown = await response.json()
+    const records = JNSRecordsResponseSchema.parse(rawData)
     if (!records.a2aEndpoint)
       throw new Error(`No A2A endpoint for ${normalized}`)
 
@@ -218,18 +225,8 @@ export function createA2AModule(
       body: JSON.stringify(body),
     })
 
-    const result = (await response.json()) as {
-      jsonrpc: string
-      id: number
-      result?: {
-        parts: Array<{
-          kind: string
-          text?: string
-          data?: JsonRecord
-        }>
-      }
-      error?: { code: number; message: string; data?: JsonValue }
-    }
+    const rawData: unknown = await response.json()
+    const result = A2AResponseSchema.parse(rawData)
 
     if (result.error) {
       if (result.error.code === 402) {
@@ -250,7 +247,7 @@ export function createA2AModule(
 
     return {
       message: textPart?.text ?? '',
-      data: dataPart?.data ?? {}, // Empty object is valid for responses with no structured data
+      data: (dataPart?.data ?? {}) as JsonRecord, // Empty object is valid for responses with no structured data
     }
   }
 
@@ -391,25 +388,22 @@ export function createA2AModule(
           if (data === '[DONE]') return
 
           // Safely parse JSON with error handling
-          let parsed: A2AMessage
+          let parsed: unknown
           try {
-            parsed = JSON.parse(data) as A2AMessage
+            parsed = JSON.parse(data)
           } catch {
             console.error('Invalid JSON in SSE stream, skipping message')
             continue
           }
 
-          // Validate required fields
-          if (
-            typeof parsed.role !== 'string' ||
-            !Array.isArray(parsed.parts) ||
-            typeof parsed.messageId !== 'string'
-          ) {
+          // Validate with schema - use safeParse since individual messages may be malformed
+          const result = A2AStreamMessageSchema.safeParse(parsed)
+          if (!result.success) {
             console.error('Invalid A2A message format, skipping')
             continue
           }
 
-          onMessage(parsed)
+          onMessage(result.data as A2AMessage)
         }
       }
     }

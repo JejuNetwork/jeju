@@ -10,6 +10,15 @@ import {
 } from '@jejunetwork/shared'
 import type { Context, Next } from 'hono'
 import type { Address } from 'viem'
+import { z } from 'zod'
+
+// Schema for extracting address from request body
+const AddressFieldsSchema = z.object({
+  address: z.string().optional(),
+  from: z.string().optional(),
+  sender: z.string().optional(),
+  owner: z.string().optional(),
+})
 
 // Get config from environment
 const BAN_MANAGER_ADDRESS = process.env.BAN_MANAGER_ADDRESS as
@@ -17,7 +26,7 @@ const BAN_MANAGER_ADDRESS = process.env.BAN_MANAGER_ADDRESS as
   | undefined
 const MODERATION_MARKETPLACE_ADDRESS = process.env
   .MODERATION_MARKETPLACE_ADDRESS as Address | undefined
-const RPC_URL = process.env.RPC_URL || 'http://localhost:8545'
+const RPC_URL = process.env.RPC_URL || 'http://localhost:6545'
 const NETWORK = (process.env.NETWORK || 'localnet') as
   | 'mainnet'
   | 'testnet'
@@ -76,13 +85,12 @@ export function banCheckMiddleware() {
       if (['POST', 'PUT', 'DELETE'].includes(c.req.method)) {
         const contentType = c.req.header('content-type') || ''
         if (contentType.includes('application/json')) {
-          const body = (await c.req.json().catch(() => ({}))) as {
-            address?: string
-            from?: string
-            sender?: string
-            owner?: string
+          const rawBody = await c.req.json().catch(() => ({}))
+          const parsed = AddressFieldsSchema.safeParse(rawBody)
+          if (parsed.success) {
+            const body = parsed.data
+            address = body.address || body.from || body.sender || body.owner
           }
-          address = body.address || body.from || body.sender || body.owner
         }
       }
     }

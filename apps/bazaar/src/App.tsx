@@ -4,17 +4,17 @@
  * Main application component with routing and providers
  */
 
-import { OAuth3Provider } from '@jejunetwork/oauth3/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 // Lazy load pages for better performance
 import { lazy, Suspense, useState } from 'react'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { Toaster } from 'sonner'
 import { WagmiProvider } from 'wagmi'
-import { BanCheckWrapper } from '../components/BanCheckWrapper'
 import { Header } from '../components/Header'
 import { LoadingSpinner } from '../components/LoadingSpinner'
 import { chainId, rpcUrl, wagmiConfig } from '../config/wagmi'
+import { BanCheckWrapper } from './components/BanCheckWrapper'
+import { OAuth3Provider } from './providers/OAuth3Provider'
 
 const HomePage = lazy(() => import('./pages/Home'))
 const SwapPage = lazy(() => import('./pages/Swap'))
@@ -45,8 +45,6 @@ const PortfolioPage = lazy(() => import('./pages/Portfolio'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallback'))
 const NotFoundPage = lazy(() => import('./pages/NotFound'))
 
-const OAUTH3_AGENT_URL = process.env.OAUTH3_AGENT_URL || 'http://localhost:4200'
-
 function PageLoader() {
   return (
     <div className="flex justify-center py-20">
@@ -75,13 +73,10 @@ function Providers({ children }: { children: React.ReactNode }) {
         <OAuth3Provider
           config={{
             appId: 'bazaar.apps.jeju',
-            redirectUri: `${window.location.origin}/auth/callback`,
+            redirectUri: `${typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback`,
             chainId,
             rpcUrl,
-            teeAgentUrl: OAUTH3_AGENT_URL,
-            decentralized: true,
           }}
-          autoConnect={true}
         >
           {children}
         </OAuth3Provider>

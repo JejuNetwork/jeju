@@ -20,7 +20,7 @@ import {
 } from '../../src/lib/hardware'
 import { createNodeServices, type NodeServices } from '../../src/lib/services'
 
-const RPC_URL = process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:9545'
+const RPC_URL = process.env.JEJU_RPC_URL ?? 'http://127.0.0.1:6546'
 const CHAIN_ID = 1337
 
 interface TestAccount {
@@ -137,9 +137,12 @@ describe('Wallet & Signing', () => {
 
     const client = createNodeClient(RPC_URL, CHAIN_ID, TEST_ACCOUNTS[0].key)
 
-    const hash = await client.walletClient!.sendTransaction({
+    const account = client.walletClient?.account
+    if (!account) throw new Error('Wallet client account not available')
+
+    const hash = await client.walletClient?.sendTransaction({
       chain: jejuLocalnet,
-      account: client.walletClient!.account!,
+      account,
       to: TEST_ACCOUNTS[0].address,
       value: parseEther('0.001'),
     })

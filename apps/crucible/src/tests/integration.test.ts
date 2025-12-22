@@ -29,7 +29,7 @@ const DWS_URL = process.env.DWS_URL ?? 'http://127.0.0.1:4030'
 
 // Read contract addresses from env or use defaults
 const config: CrucibleConfig = {
-  rpcUrl: process.env.RPC_URL ?? 'http://127.0.0.1:9545',
+  rpcUrl: process.env.RPC_URL ?? 'http://127.0.0.1:6546',
   privateKey: TEST_PRIVATE_KEY,
   contracts: {
     agentVault: (process.env.AGENT_VAULT_ADDRESS ??
@@ -58,7 +58,7 @@ const config: CrucibleConfig = {
 // Check if infrastructure is available (runs once before tests)
 const checkInfrastructure = async (): Promise<boolean> => {
   const checks = await Promise.all([
-    fetch('http://127.0.0.1:9545', {
+    fetch('http://127.0.0.1:6546', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -202,13 +202,14 @@ describe.skipIf(SKIP)('Integration Tests', () => {
       const character = getCharacter('project-manager')
       expect(character).toBeDefined()
 
-      const cid = await storage.storeCharacter(character!)
+      if (!character) throw new Error('character not found')
+      const cid = await storage.storeCharacter(character)
       log.info('Stored character', { cid })
       expect(cid).toMatch(/^Qm|^bafy/)
 
       const loaded = await storage.loadCharacter(cid)
-      expect(loaded.id).toBe(character!.id)
-      expect(loaded.name).toBe(character!.name)
+      expect(loaded.id).toBe(character?.id)
+      expect(loaded.name).toBe(character?.name)
     })
 
     test('should store and retrieve agent state from IPFS', async () => {
@@ -227,9 +228,10 @@ describe.skipIf(SKIP)('Integration Tests', () => {
       const character = getCharacter('project-manager')
       expect(character).toBeDefined()
 
-      log.info('Registering agent', { name: character!.name })
+      log.info('Registering agent', { name: character?.name })
 
-      const result = await agentSdk.registerAgent(character!, {
+      if (!character) throw new Error('character not found')
+      const result = await agentSdk.registerAgent(character, {
         initialFunding: parseEther('0.01'),
       })
 

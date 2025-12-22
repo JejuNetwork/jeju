@@ -6,12 +6,24 @@
  * and integrating with the decentralized training network.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
-import type {
-  TrainingJobRequest,
-  TrainingJobResult,
-  TrainingJobStatus,
-} from './types'
+import {
+  AtroposStartResponseSchema,
+  type DWSJobStatus,
+  DWSJobStatusSchema,
+  JobAllocationsResponseSchema,
+  JobIdResponseSchema,
+  JobsListResponseSchema,
+  JudgeResponseSchema,
+  type JudgeResult,
+  MerkleProofResponseSchema,
+  MerkleRootResponseSchema,
+} from '../schemas'
+import type { TrainingJobRequest, TrainingJobResult } from './types'
+
+// Re-export types for external use
+export type { DWSJobStatus, JudgeResult }
 
 // ============================================================================
 // Types
@@ -48,33 +60,6 @@ export interface RolloutData {
   }>
   totalReward: number
   metadata: Record<string, unknown>
-}
-
-export interface JudgeResult {
-  trajectoryId: string
-  score: number
-  reasoning: string
-  confidence: number
-}
-
-export interface DWSJobStatus {
-  jobId: string
-  status: TrainingJobStatus
-  progress: {
-    step: number
-    totalSteps: number
-    epoch: number
-  }
-  metrics?: {
-    loss: number
-    learningRate: number
-    gradientNorm: number
-  }
-  allocations: Array<{
-    nodeId: string
-    gpuType: string
-    status: string
-  }>
 }
 
 // ============================================================================
@@ -131,7 +116,11 @@ export class DWSTrainingClient {
       throw new Error(`DWS job submission failed: ${error}`)
     }
 
-    const result = (await response.json()) as { jobId: string }
+    const result = expectValid(
+      JobIdResponseSchema,
+      await response.json(),
+      'DWS job submission response',
+    )
 
     this.startPolling(result.jobId)
 
@@ -149,7 +138,11 @@ export class DWSTrainingClient {
       throw new Error(`Failed to get job status: ${response.statusText}`)
     }
 
-    const status = (await response.json()) as DWSJobStatus
+    const status = expectValid(
+      DWSJobStatusSchema,
+      await response.json(),
+      'DWS job status response',
+    )
     this.activeJobs.set(jobId, status)
     return status
   }
@@ -165,9 +158,11 @@ export class DWSTrainingClient {
       return []
     }
 
-    const result = (await response.json()) as {
-      allocations: Array<{ nodeId: string; gpuType: string; status: string }>
-    }
+    const result = expectValid(
+      JobAllocationsResponseSchema,
+      await response.json(),
+      'DWS job allocations response',
+    )
     return result.allocations
   }
 
@@ -235,14 +230,11 @@ export class DWSTrainingClient {
       throw new Error(`LLM judging failed: ${response.statusText}`)
     }
 
-    const result = (await response.json()) as {
-      results: Array<{
-        bundleId: string
-        score: number
-        reasoning: string
-        confidence: number
-      }>
-    }
+    const result = expectValid(
+      JudgeResponseSchema,
+      await response.json(),
+      'DWS judge response',
+    )
 
     return result.results.map((r, i) => {
       const rollout = rollouts[i]
@@ -275,7 +267,11 @@ export class DWSTrainingClient {
       throw new Error(`Failed to start Atropos server: ${response.statusText}`)
     }
 
-    return response.json() as Promise<{ url: string; port: number }>
+    return expectValid(
+      AtroposStartResponseSchema,
+      await response.json(),
+      'Atropos start response',
+    )
   }
 
   async computeMerkleRoot(
@@ -299,7 +295,11 @@ export class DWSTrainingClient {
       throw new Error(`Failed to compute Merkle root: ${response.statusText}`)
     }
 
-    const result = (await response.json()) as { root: string }
+    const result = expectValid(
+      MerkleRootResponseSchema,
+      await response.json(),
+      'Merkle root response',
+    )
     return result.root
   }
 
@@ -326,7 +326,11 @@ export class DWSTrainingClient {
       throw new Error(`Failed to generate Merkle proof: ${response.statusText}`)
     }
 
-    const result = (await response.json()) as { proof: string[] }
+    const result = expectValid(
+      MerkleProofResponseSchema,
+      await response.json(),
+      'Merkle proof response',
+    )
     return result.proof
   }
 
@@ -337,7 +341,11 @@ export class DWSTrainingClient {
       return []
     }
 
-    const result = (await response.json()) as { jobs: DWSJobStatus[] }
+    const result = expectValid(
+      JobsListResponseSchema,
+      await response.json(),
+      'DWS jobs list response',
+    )
     return result.jobs
   }
 

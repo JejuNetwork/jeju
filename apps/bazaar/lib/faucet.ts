@@ -21,8 +21,8 @@ import {
   EXPLORER_URL,
   NETWORK_NAME,
   RPC_URL,
-} from '@/config'
-import { expectAddress } from '@/lib/validation'
+} from '../config'
+import { expectAddress } from './validation'
 
 // =============================================================================
 // Configuration

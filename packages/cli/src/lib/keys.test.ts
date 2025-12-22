@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'bun:test'
+import { privateKeyToAccount } from 'viem/accounts'
 import type { KeySet, NetworkType } from '../types'
 import {
   decryptKeySet,
@@ -47,8 +48,6 @@ describe('Key Management', () => {
   })
 
   test('generateKey address derived from private key is valid', async () => {
-    const { privateKeyToAccount } = await import('viem/accounts')
-
     const key = generateKey('Test', 'role')
     const account = privateKeyToAccount(key.privateKey as `0x${string}`)
 

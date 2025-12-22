@@ -4,7 +4,7 @@
  * HTTP API for DC operations.
  */
 
-import { type Context, Hono, type Next } from 'hono'
+import { Elysia } from 'elysia'
 import { z } from 'zod'
 import type { DirectCastClient } from './client'
 import type { DirectCastEmbed } from './types'
@@ -90,156 +90,171 @@ const PaginationSchema = z.object({
   after: z.string().optional(),
 })
 
+const MuteRequestSchema = z.object({
+  muted: z.boolean().default(true),
+})
+
+// ============ Helper Functions ============
+
+function requireClient(
+  getClient: () => DirectCastClient | null,
+): DirectCastClient {
+  const client = getClient()
+  if (!client) {
+    throw new Error('NOT_AUTHENTICATED')
+  }
+  return client
+}
+
 // ============ API Factory ============
 
 /**
  * Create Direct Cast REST API
  */
-export function createDCApi(getClient: () => DirectCastClient | null): Hono {
-  const app = new Hono()
+export function createDCApi(getClient: () => DirectCastClient | null): Elysia {
+  const app = new Elysia()
 
-  // ============ Middleware ============
-
-  // Require authenticated client
-  app.use(
-    '*',
-    async (c: Context, next: Next): Promise<Response | undefined> => {
-      const client = getClient()
-      if (!client) {
-        return c.json({ error: 'Not authenticated' }, 401)
-      }
-      c.set('dcClient' as never, client as never)
-      await next()
-      return undefined
-    },
-  )
+  // Error handler for auth
+  app.onError(({ error, set }) => {
+    if (error instanceof Error && error.message === 'NOT_AUTHENTICATED') {
+      set.status = 401
+      return { error: 'Not authenticated' }
+    }
+    throw error
+  })
 
   // ============ Conversations ============
 
   // List conversations
-  app.get('/conversations', async (c: Context) => {
-    const client = c.get('dcClient' as never) as DirectCastClient
+  app.get('/conversations', async () => {
+    const client = requireClient(getClient)
     const conversations = await client.getConversations()
 
-    return c.json({
+    return {
       conversations,
       count: conversations.length,
-    })
+    }
   })
 
   // Get conversation by FID
-  app.get('/conversations/:fid', async (c: Context) => {
-    const client = c.get('dcClient' as never) as DirectCastClient
-    const fid = parseInt(c.req.param('fid'), 10)
+  app.get('/conversations/:fid', async ({ params, set }) => {
+    const client = requireClient(getClient)
+    const fid = parseInt(params.fid, 10)
 
     if (Number.isNaN(fid) || fid <= 0) {
-      return c.json({ error: 'Invalid FID' }, 400)
+      set.status = 400
+      return { error: 'Invalid FID' }
     }
 
     const conversation = await client.getConversation(fid)
-    return c.json({ conversation })
+    return { conversation }
   })
 
   // Archive conversation
-  app.post('/conversations/:fid/archive', async (c: Context) => {
-    const client = c.get('dcClient' as never) as DirectCastClient
-    const fid = parseInt(c.req.param('fid'), 10)
+  app.post('/conversations/:fid/archive', async ({ params, set }) => {
+    const client = requireClient(getClient)
+    const fid = parseInt(params.fid, 10)
 
     if (Number.isNaN(fid) || fid <= 0) {
-      return c.json({ error: 'Invalid FID' }, 400)
+      set.status = 400
+      return { error: 'Invalid FID' }
     }
 
     await client.archiveConversation(fid)
-    return c.json({ success: true })
+    return { success: true }
   })
 
   // Mute/unmute conversation
-  app.post('/conversations/:fid/mute', async (c: Context) => {
-    const client = c.get('dcClient' as never) as DirectCastClient
-    const fid = parseInt(c.req.param('fid'), 10)
+  app.post('/conversations/:fid/mute', async ({ params, body, set }) => {
+    const client = requireClient(getClient)
+    const fid = parseInt(params.fid, 10)
 
     if (Number.isNaN(fid) || fid <= 0) {
-      return c.json({ error: 'Invalid FID' }, 400)
+      set.status = 400
+      return { error: 'Invalid FID' }
     }
 
-    const { muted } = (await c.req.json()) as { muted?: boolean }
+    const parseResult = MuteRequestSchema.safeParse(body)
+    if (!parseResult.success) {
+      set.status = 400
+      return { error: 'Invalid request' }
+    }
 
-    await client.muteConversation(fid, muted ?? true)
-    return c.json({ success: true })
+    await client.muteConversation(fid, parseResult.data.muted)
+    return { success: true }
   })
 
   // ============ Messages ============
 
   // Get messages in conversation
-  app.get('/conversations/:fid/messages', async (c: Context) => {
-    const client = c.get('dcClient' as never) as DirectCastClient
+  app.get('/conversations/:fid/messages', async ({ params, query, set }) => {
+    const client = requireClient(getClient)
     const clientState = client.getState()
 
     // Rate limit read operations
     const rateLimitKey = `read:${clientState.fid}`
     if (!readLimiter.isAllowed(rateLimitKey)) {
-      return c.json(
-        {
-          error:
-            'Rate limit exceeded. Please wait before making more requests.',
-        },
-        429,
-      )
+      set.status = 429
+      return {
+        error: 'Rate limit exceeded. Please wait before making more requests.',
+      }
     }
 
-    const fid = parseInt(c.req.param('fid'), 10)
+    const fid = parseInt(params.fid, 10)
 
     if (Number.isNaN(fid) || fid <= 0) {
-      return c.json({ error: 'Invalid FID' }, 400)
+      set.status = 400
+      return { error: 'Invalid FID' }
     }
 
     const parsed = PaginationSchema.safeParse({
-      limit: c.req.query('limit'),
-      before: c.req.query('before'),
-      after: c.req.query('after'),
+      limit: query.limit,
+      before: query.before,
+      after: query.after,
     })
 
     if (!parsed.success) {
-      return c.json({ error: 'Invalid pagination params' }, 400)
+      set.status = 400
+      return { error: 'Invalid pagination params' }
     }
 
     const messages = await client.getMessages(fid, parsed.data)
 
-    return c.json({
+    return {
       messages,
       count: messages.length,
       hasMore: messages.length === parsed.data.limit,
-    })
+    }
   })
 
   // Send message
-  app.post('/conversations/:fid/messages', async (c) => {
-    const client = c.get('dcClient' as never) as DirectCastClient
+  app.post('/conversations/:fid/messages', async ({ params, body, set }) => {
+    const client = requireClient(getClient)
     const clientState = client.getState()
 
     // Rate limit by sender FID
     const rateLimitKey = `send:${clientState.fid}`
     if (!messageSendLimiter.isAllowed(rateLimitKey)) {
-      return c.json(
-        {
-          error:
-            'Rate limit exceeded. Please wait before sending more messages.',
-        },
-        429,
-      )
+      set.status = 429
+      return {
+        error: 'Rate limit exceeded. Please wait before sending more messages.',
+      }
     }
 
-    const fid = parseInt(c.req.param('fid'), 10)
+    const fid = parseInt(params.fid, 10)
 
     if (Number.isNaN(fid) || fid <= 0) {
-      return c.json({ error: 'Invalid FID' }, 400)
+      set.status = 400
+      return { error: 'Invalid FID' }
     }
 
-    const body = await c.req.json()
-    const parsed = SendDCSchema.safeParse({ ...body, recipientFid: fid })
+    const requestBody =
+      body && typeof body === 'object' ? (body as Record<string, unknown>) : {}
+    const parsed = SendDCSchema.safeParse({ ...requestBody, recipientFid: fid })
 
     if (!parsed.success) {
-      return c.json({ error: 'Invalid request' }, 400)
+      set.status = 400
+      return { error: 'Invalid request' }
     }
 
     const message = await client.send({
@@ -249,42 +264,45 @@ export function createDCApi(getClient: () => DirectCastClient | null): Hono {
       replyTo: parsed.data.replyTo,
     })
 
-    return c.json({ message }, 201)
+    set.status = 201
+    return { message }
   })
 
   // Mark as read
-  app.post('/conversations/:fid/read', async (c: Context) => {
-    const client = c.get('dcClient' as never) as DirectCastClient
-    const fid = parseInt(c.req.param('fid'), 10)
+  app.post('/conversations/:fid/read', async ({ params, set }) => {
+    const client = requireClient(getClient)
+    const fid = parseInt(params.fid, 10)
 
     if (Number.isNaN(fid) || fid <= 0) {
-      return c.json({ error: 'Invalid FID' }, 400)
+      set.status = 400
+      return { error: 'Invalid FID' }
     }
 
     await client.markAsRead(fid)
-    return c.json({ success: true })
+    return { success: true }
   })
 
   // ============ Status ============
 
   // Get client state
-  app.get('/status', async (c) => {
-    const client = c.get('dcClient' as never) as DirectCastClient
+  app.get('/status', async () => {
+    const client = requireClient(getClient)
     const state = client.getState()
     const publicKey = client.getEncryptionPublicKey()
 
-    return c.json({
-      ...state,
+    return {
+      fid: state.fid,
+      isConnected: state.isConnected,
       encryptionPublicKey: publicKey,
-    })
+    }
   })
 
   // Publish encryption key
-  app.post('/publish-key', async (c: Context) => {
-    const client = c.get('dcClient' as never) as DirectCastClient
+  app.post('/publish-key', async () => {
+    const client = requireClient(getClient)
     await client.publishEncryptionKey()
 
-    return c.json({ success: true })
+    return { success: true }
   })
 
   return app
@@ -299,12 +317,9 @@ export function createDCServer(client: DirectCastClient, port: number = 3300) {
   const app = createDCApi(() => client)
 
   // Health check
-  app.get('/health', (c: Context) => c.json({ status: 'ok' }))
+  app.get('/health', () => ({ status: 'ok' }))
 
   console.log(`[DC API] Starting server on port ${port}`)
 
-  return Bun.serve({
-    port,
-    fetch: app.fetch,
-  })
+  return app.listen(port)
 }

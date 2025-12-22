@@ -156,6 +156,7 @@ export default function SwapPage() {
         <div className="mb-2">
           <div className="flex items-center justify-between mb-2">
             <label
+              htmlFor="swap-input-amount"
               className="text-sm"
               style={{ color: 'var(--text-tertiary)' }}
             >
@@ -181,6 +182,7 @@ export default function SwapPage() {
           </div>
           <div className="flex gap-2">
             <input
+              id="swap-input-amount"
               type="number"
               value={inputAmount}
               onChange={(e) => setInputAmount(e.target.value)}
@@ -204,6 +206,7 @@ export default function SwapPage() {
         {/* Swap Button */}
         <div className="flex justify-center my-3">
           <button
+            type="button"
             className="p-2.5 rounded-xl transition-all hover:scale-110 active:scale-95"
             style={{ backgroundColor: 'var(--bg-secondary)' }}
             onClick={swapTokens}
@@ -213,7 +216,9 @@ export default function SwapPage() {
               fill="none"
               stroke="currentColor"
               viewBox="0 0 24 24"
+              aria-label="Swap tokens"
             >
+              <title>Swap tokens</title>
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -228,6 +233,7 @@ export default function SwapPage() {
         <div className="mb-4">
           <div className="flex items-center justify-between mb-2">
             <label
+              htmlFor="swap-output-amount"
               className="text-sm"
               style={{ color: 'var(--text-tertiary)' }}
             >
@@ -253,6 +259,7 @@ export default function SwapPage() {
           </div>
           <div className="flex gap-2">
             <input
+              id="swap-output-amount"
               type="number"
               value={outputAmount}
               placeholder="0.0"
@@ -336,6 +343,7 @@ export default function SwapPage() {
 
         {/* Swap Button */}
         <button
+          type="button"
           onClick={handleSwap}
           disabled={buttonDisabled}
           className="btn-primary w-full py-4 text-lg font-semibold disabled:opacity-50 disabled:cursor-not-allowed"

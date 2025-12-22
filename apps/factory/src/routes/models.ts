@@ -2,7 +2,13 @@
  * AI Model Hub Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import {
+  CreateModelBodySchema,
+  expectValid,
+  ModelParamsSchema,
+  ModelsQuerySchema,
+} from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
 interface Model {
@@ -25,8 +31,9 @@ interface Model {
 export const modelsRoutes = new Elysia({ prefix: '/api/models' })
   .get(
     '/',
-    async () => {
-      // Mock data - in production this would query the ModelRegistry
+    async ({ query }) => {
+      expectValid(ModelsQuerySchema, query, 'query params')
+
       const models: Model[] = [
         {
           id: 'jeju/llama-3-jeju-ft',
@@ -65,11 +72,6 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
       return { models, total: models.length }
     },
     {
-      query: t.Object({
-        type: t.Optional(t.String()),
-        org: t.Optional(t.String()),
-        q: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['models'],
         summary: 'List models',
@@ -86,12 +88,14 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
+      const validated = expectValid(CreateModelBodySchema, body, 'request body')
+
       const model: Model = {
-        id: `${body.organization}/${body.name}`,
-        name: body.name,
-        organization: body.organization,
-        description: body.description,
-        type: body.type,
+        id: `${validated.organization}/${validated.name}`,
+        name: validated.name,
+        organization: validated.organization,
+        description: validated.description,
+        type: validated.type,
         version: '1.0.0',
         fileUri: '',
         downloads: 0,
@@ -105,27 +109,6 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
       return model
     },
     {
-      body: t.Object({
-        name: t.String({
-          minLength: 1,
-          maxLength: 100,
-          pattern: '^[a-zA-Z0-9._-]+$',
-        }),
-        organization: t.String({
-          minLength: 1,
-          maxLength: 100,
-          pattern: '^[a-zA-Z0-9._-]+$',
-        }),
-        description: t.String({ minLength: 10 }),
-        type: t.Union([
-          t.Literal('llm'),
-          t.Literal('embedding'),
-          t.Literal('image'),
-          t.Literal('audio'),
-          t.Literal('multimodal'),
-          t.Literal('code'),
-        ]),
-      }),
       detail: {
         tags: ['models'],
         summary: 'Upload model',
@@ -136,10 +119,11 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
   .get(
     '/:org/:name',
     async ({ params }) => {
+      const validated = expectValid(ModelParamsSchema, params, 'params')
       const model: Model = {
-        id: `${params.org}/${params.name}`,
-        name: params.name,
-        organization: params.org,
+        id: `${validated.org}/${validated.name}`,
+        name: validated.name,
+        organization: validated.org,
         type: 'llm',
         description: 'Example model',
         version: '1.0.0',
@@ -153,10 +137,6 @@ export const modelsRoutes = new Elysia({ prefix: '/api/models' })
       return model
     },
     {
-      params: t.Object({
-        org: t.String(),
-        name: t.String(),
-      }),
       detail: {
         tags: ['models'],
         summary: 'Get model',

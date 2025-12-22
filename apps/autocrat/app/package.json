@@ -4,16 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "bun --port=3010 ./index.html",
-    "build": "rm -rf dist && bun build ./index.html --outdir dist --minify && bunx tailwindcss -i src/app/globals.css -o dist/index.css --minify && bun run fix-css-path",
-    "fix-css-path": "bun -e \"const html = Bun.file('dist/index.html'); const text = await html.text(); await Bun.write('dist/index.html', text.replace(/index-[a-z0-9]+\\.css/, 'index.css'))\"",
+    "dev": "PORT=3010 bun index.html",
+    "build": "bun build index.html --outdir=dist --minify",
     "start": "bun run server.ts",
+    "typecheck": "tsc --noEmit",
     "lint": "biome check .",
     "test": "playwright test --project=chromium",
     "test:all": "playwright test",
     "test:ui": "playwright test --ui"
   },
   "dependencies": {
+    "@elysiajs/eden": "^1.4.0",
     "@rainbow-me/rainbowkit": "2.2.9",
     "@tanstack/react-query": "5.90.12",
     "lucide-react": "0.562.0",

@@ -7,7 +7,8 @@
     "build": "bun build index.html --outdir=dist --minify",
     "server": "bun server/a2a.ts",
     "heartbeat": "bun server/heartbeat.ts",
-    "test": "bun test test/"
+    "test": "bun test test/",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@elysiajs/cors": "^1.4.0",

@@ -48,7 +48,7 @@ describe('Contract Client', () => {
   })
 
   test('createNodeClient creates client without wallet', () => {
-    const client = createNodeClient('http://127.0.0.1:9545', 1337)
+    const client = createNodeClient('http://127.0.0.1:6546', 1337)
 
     expect(client.publicClient).toBeDefined()
     expect(client.walletClient).toBeNull()
@@ -60,7 +60,7 @@ describe('Contract Client', () => {
     // Test private key (anvil default)
     const privateKey =
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
-    const client = createNodeClient('http://127.0.0.1:9545', 1337, privateKey)
+    const client = createNodeClient('http://127.0.0.1:6546', 1337, privateKey)
 
     expect(client.publicClient).toBeDefined()
     expect(client.walletClient).toBeDefined()

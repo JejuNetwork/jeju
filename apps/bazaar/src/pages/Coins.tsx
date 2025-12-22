@@ -31,7 +31,6 @@ function TokenCard({ token }: { token: Token }) {
     >
       <div className="flex items-center gap-3 mb-4">
         {token.logoUrl ? (
-          // biome-ignore lint/performance/noImgElement: React Router app, not Next.js
           <img
             src={token.logoUrl}
             alt={token.symbol}
@@ -138,6 +137,7 @@ export default function CoinsPage() {
         <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
           {(['all', 'verified', 'new'] as const).map((f) => (
             <button
+              type="button"
               key={f}
               onClick={() => setFilter(f)}
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
@@ -191,6 +191,7 @@ export default function CoinsPage() {
                 {error instanceof Error ? error.message : 'Network error'}
               </p>
               <button
+                type="button"
                 onClick={() => refetch()}
                 className="btn-secondary text-sm"
               >

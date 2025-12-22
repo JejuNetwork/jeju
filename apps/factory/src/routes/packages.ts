@@ -2,7 +2,14 @@
  * Package Registry Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import {
+  CreatePackageBodySchema,
+  expectValid,
+  PackageParamsSchema,
+  PackagesQuerySchema,
+  PackageVersionQuerySchema,
+} from '../schemas'
 import { dwsClient } from '../services/dws'
 import { requireAuth } from '../validation/access-control'
 
@@ -10,13 +17,11 @@ export const packagesRoutes = new Elysia({ prefix: '/api/packages' })
   .get(
     '/',
     async ({ query }) => {
-      const packages = await dwsClient.searchPackages(query.q || '')
+      const validated = expectValid(PackagesQuerySchema, query, 'query params')
+      const packages = await dwsClient.searchPackages(validated.q || '')
       return packages
     },
     {
-      query: t.Object({
-        q: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['packages'],
         summary: 'Search packages',
@@ -33,14 +38,18 @@ export const packagesRoutes = new Elysia({ prefix: '/api/packages' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      // Handle form data for package upload
-      // In production, this would accept a tarball and metadata
+      const validated = expectValid(
+        CreatePackageBodySchema,
+        body,
+        'request body',
+      )
+
       const pkg = {
-        name: body.name,
-        version: body.version,
-        description: body.description,
+        name: validated.name,
+        version: validated.version,
+        description: validated.description,
         author: authResult.address,
-        license: body.license,
+        license: validated.license,
         publishedAt: Date.now(),
       }
 
@@ -48,12 +57,6 @@ export const packagesRoutes = new Elysia({ prefix: '/api/packages' })
       return pkg
     },
     {
-      body: t.Object({
-        name: t.String({ minLength: 1, maxLength: 214 }),
-        version: t.String({ pattern: '^\\d+\\.\\d+\\.\\d+(-.+)?$' }),
-        description: t.Optional(t.String({ maxLength: 500 })),
-        license: t.String({ minLength: 1 }),
-      }),
       detail: {
         tags: ['packages'],
         summary: 'Publish package',
@@ -64,16 +67,19 @@ export const packagesRoutes = new Elysia({ prefix: '/api/packages' })
   .get(
     '/:name',
     async ({ params, query }) => {
-      const pkg = await dwsClient.getPackage(params.name, query.version)
+      const validatedParams = expectValid(PackageParamsSchema, params, 'params')
+      const validatedQuery = expectValid(
+        PackageVersionQuerySchema,
+        query,
+        'query params',
+      )
+      const pkg = await dwsClient.getPackage(
+        validatedParams.name,
+        validatedQuery.version,
+      )
       return pkg
     },
     {
-      params: t.Object({
-        name: t.String(),
-      }),
-      query: t.Object({
-        version: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['packages'],
         summary: 'Get package',

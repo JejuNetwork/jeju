@@ -78,6 +78,7 @@ export function NamesView({ address }: NamesViewProps) {
             { id: 'my-names' as const, label: 'My Names', icon: AtSign },
           ].map(({ id, label, icon: Icon }) => (
             <button
+              type="button"
               key={id}
               onClick={() => setTab(id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -116,6 +117,7 @@ export function NamesView({ address }: NamesViewProps) {
                   </span>
                 </div>
                 <button
+                  type="button"
                   onClick={handleSearch}
                   disabled={isSearching || searchQuery.length < 3}
                   className="px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-medium disabled:opacity-50"
@@ -165,6 +167,7 @@ export function NamesView({ address }: NamesViewProps) {
                         </span>
                         <div className="flex items-center gap-2">
                           <button
+                            type="button"
                             onClick={() => setYears(Math.max(1, years - 1))}
                             className="w-8 h-8 rounded bg-secondary hover:bg-secondary/80"
                           >
@@ -174,6 +177,7 @@ export function NamesView({ address }: NamesViewProps) {
                             {years} yr{years > 1 ? 's' : ''}
                           </span>
                           <button
+                            type="button"
                             onClick={() => setYears(Math.min(10, years + 1))}
                             className="w-8 h-8 rounded bg-secondary hover:bg-secondary/80"
                           >
@@ -195,7 +199,10 @@ export function NamesView({ address }: NamesViewProps) {
                       </div>
                     </div>
 
-                    <button className="w-full px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-medium">
+                    <button
+                      type="button"
+                      className="w-full px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-medium"
+                    >
                       Register {searchResult.name}.jeju
                     </button>
 
@@ -317,6 +324,7 @@ export function NamesView({ address }: NamesViewProps) {
                 Register a .jeju name to get started
               </p>
               <button
+                type="button"
                 onClick={() => setTab('search')}
                 className="mt-4 px-6 py-2 bg-teal-500 hover:bg-teal-600 text-white rounded-xl"
               >

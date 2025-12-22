@@ -1,4 +1,6 @@
-export enum PerpPositionSide {
-  LONG = 'LONG',
-  SHORT = 'SHORT',
-}
+export const PerpPositionSide = {
+  LONG: 'LONG',
+  SHORT: 'SHORT',
+} as const
+export type PerpPositionSide =
+  (typeof PerpPositionSide)[keyof typeof PerpPositionSide]

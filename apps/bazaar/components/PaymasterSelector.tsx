@@ -2,7 +2,7 @@
 
 import { Check, ChevronDown, Loader2 } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
-import { getPaymasterOptions, type PaymasterOption } from '@/lib/paymaster'
+import { getPaymasterOptions, type PaymasterOption } from '../lib/paymaster'
 
 interface PaymasterSelectorProps {
   estimatedGas: bigint
@@ -64,11 +64,12 @@ export default function PaymasterSelector({
 
   return (
     <div className={`relative ${className}`}>
-      <label className="block text-sm font-medium text-gray-700 mb-2">
+      <div className="block text-sm font-medium text-gray-700 mb-2">
         Pay Gas With
-      </label>
+      </div>
 
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
         className="w-full border border-gray-300 rounded-lg px-4 py-3 bg-white hover:bg-gray-50 transition-colors flex items-center justify-between"
       >
@@ -107,13 +108,16 @@ export default function PaymasterSelector({
 
       {isOpen && (
         <>
-          <div
-            className="fixed inset-0 z-10"
+          <button
+            type="button"
+            className="fixed inset-0 z-10 cursor-default"
             onClick={() => setIsOpen(false)}
+            aria-label="Close selector"
           />
           <div className="absolute z-20 w-full mt-2 bg-white border border-gray-200 rounded-lg shadow-lg overflow-hidden">
             {/* ETH Option */}
             <button
+              type="button"
               onClick={handleUseETH}
               className="w-full px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between group"
             >
@@ -142,6 +146,7 @@ export default function PaymasterSelector({
               return (
                 <button
                   key={option.paymaster.address}
+                  type="button"
                   onClick={() => handleSelect(option)}
                   className={`w-full px-4 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between group ${isJeju ? 'bg-purple-50' : ''}`}
                 >

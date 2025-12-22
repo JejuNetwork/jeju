@@ -30,6 +30,7 @@ export default function LiquidityPage() {
         <div className="space-y-4">
           <div>
             <label
+              htmlFor="token0-amount"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
@@ -37,6 +38,7 @@ export default function LiquidityPage() {
             </label>
             <div className="flex gap-2">
               <input
+                id="token0-amount"
                 type="number"
                 value={token0Amount}
                 onChange={(e) => setToken0Amount(e.target.value)}
@@ -62,6 +64,7 @@ export default function LiquidityPage() {
 
           <div>
             <label
+              htmlFor="token1-amount"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
@@ -69,6 +72,7 @@ export default function LiquidityPage() {
             </label>
             <div className="flex gap-2">
               <input
+                id="token1-amount"
                 type="number"
                 value={token1Amount}
                 onChange={(e) => setToken1Amount(e.target.value)}
@@ -99,7 +103,9 @@ export default function LiquidityPage() {
             </div>
           </div>
 
-          <button className="btn-primary w-full py-3">Add Liquidity</button>
+          <button type="button" className="btn-primary w-full py-3">
+            Add Liquidity
+          </button>
         </div>
       </div>
     </div>

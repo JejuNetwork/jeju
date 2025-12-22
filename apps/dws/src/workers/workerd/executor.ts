@@ -195,6 +195,12 @@ export class WorkerdExecutor {
       throw new Error('Workerd not initialized. Call initialize() first.')
     }
 
+    console.log(
+      `[WorkerdExecutor] Starting workerd process: ${this.workerdPath} serve ${configPath}`,
+    )
+    console.log(`[WorkerdExecutor] Working directory: ${codeDir}`)
+    console.log(`[WorkerdExecutor] Port: ${port}`)
+
     const proc = Bun.spawn(
       [this.workerdPath, 'serve', configPath, '--verbose'],
       {
@@ -207,6 +213,21 @@ export class WorkerdExecutor {
         },
       },
     )
+
+    // Capture stderr for debugging
+    const stderrChunks: string[] = []
+    ;(async () => {
+      const reader = proc.stderr.getReader()
+      while (true) {
+        const { done, value } = await reader.read()
+        if (done) break
+        const text = new TextDecoder().decode(value)
+        stderrChunks.push(text)
+        if (text.includes('error') || text.includes('Error')) {
+          console.error(`[WorkerdExecutor] stderr: ${text.trim()}`)
+        }
+      }
+    })()
 
     const processId = crypto.randomUUID()
     const workerdProcess: WorkerdProcess = {
@@ -240,21 +261,39 @@ export class WorkerdExecutor {
     }
     this.instances.set(worker.id, instance)
 
-    // Wait for ready
-    const ready = await this.waitForReady(port)
+    // Check if process exits early
+    const earlyExitPromise = proc.exited.then((exitCode) => {
+      if (exitCode !== 0) {
+        console.error(
+          `[WorkerdExecutor] Process exited early with code ${exitCode}`,
+        )
+        console.error(`[WorkerdExecutor] stderr: ${stderrChunks.join('')}`)
+      }
+      return exitCode
+    })
+
+    // Wait for ready with early exit detection
+    const ready = await Promise.race([
+      this.waitForReady(port),
+      earlyExitPromise.then(() => false),
+    ])
+
     if (ready) {
       workerdProcess.status = 'ready'
       instance.status = 'ready'
       this.emit({ type: 'process:started', processId, port })
+      console.log(`[WorkerdExecutor] Workerd process ready on port ${port}`)
     } else {
       workerdProcess.status = 'error'
       instance.status = 'error'
       worker.status = 'error'
-      worker.error = 'Failed to start workerd process'
-      throw new Error('Workerd process failed to start')
+      const errorMsg = stderrChunks.join('').trim() || 'Unknown error'
+      worker.error = `Failed to start workerd process: ${errorMsg}`
+      console.error(`[WorkerdExecutor] Failed to start: ${errorMsg}`)
+      throw new Error(`Workerd process failed to start: ${errorMsg}`)
     }
 
-    // Handle process exit
+    // Handle process exit after ready
     proc.exited.then((exitCode) => {
       console.log(
         `[WorkerdExecutor] Process ${processId} exited with code ${exitCode}`,

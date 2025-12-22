@@ -6,8 +6,22 @@ import {
   http,
   type PublicClient,
 } from 'viem'
-import { INDEXER_URL, RPC_URL } from '@/config'
-import { expect, expectTrue } from '@/lib/validation'
+import { z } from 'zod'
+import { INDEXER_URL, RPC_URL } from '../config'
+import { expect, expectTrue } from './validation'
+
+// GraphQL response schema for runtime validation
+const GraphQLResponseSchema = z.object({
+  data: z.unknown().optional(),
+  errors: z
+    .array(
+      z.object({
+        message: z.string(),
+      }),
+    )
+    .optional(),
+})
+type GraphQLResponse<T> = { data?: T; errors?: Array<{ message: string }> }
 
 /** Token data from indexer/RPC - full market data */
 export interface Token {
@@ -122,10 +136,12 @@ async function gql<T>(
 
   expectTrue(response.ok, `Indexer: ${response.status} ${response.statusText}`)
 
-  const json = (await response.json()) as {
-    data?: T
-    errors?: Array<{ message: string }>
+  const rawJson: unknown = await response.json()
+  const parsed = GraphQLResponseSchema.safeParse(rawJson)
+  if (!parsed.success) {
+    throw new Error(`Invalid GraphQL response: ${parsed.error.message}`)
   }
+  const json = parsed.data as GraphQLResponse<T>
   if (json.errors?.length) throw new Error(`GraphQL: ${json.errors[0].message}`)
   const data = expect(json.data, 'No data from indexer')
   return data

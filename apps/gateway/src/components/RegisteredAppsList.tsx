@@ -265,6 +265,7 @@ export default function RegisteredAppsList({
           ))}
         </select>
         <button
+          type="button"
           onClick={fetchApps}
           className="button button-secondary"
           style={{ padding: '0.75rem', flexShrink: 0 }}
@@ -283,6 +284,7 @@ export default function RegisteredAppsList({
       >
         {TYPE_FILTERS.map(({ value, label, icon: Icon }) => (
           <button
+            type="button"
             key={value}
             onClick={() => setSelectedType(value)}
             className={`pill ${selectedType === value ? 'pill-active' : ''}`}
@@ -334,6 +336,7 @@ export default function RegisteredAppsList({
       >
         {TAG_FILTERS.map(({ value, label, emoji }) => (
           <button
+            type="button"
             key={value}
             onClick={() => setSelectedTag(value)}
             className={`pill ${selectedTag === value ? 'pill-active' : ''}`}
@@ -391,12 +394,17 @@ export default function RegisteredAppsList({
             const tier = STAKE_TIERS[app.stakeTier ?? 0]
 
             return (
-              <div
+              <button
                 key={app.agentId}
+                type="button"
                 className="card"
                 onClick={() => onSelectApp(BigInt(app.agentId))}
                 style={{
                   cursor: 'pointer',
+                  textAlign: 'left',
+                  width: '100%',
+                  border: 'none',
+                  background: 'inherit',
                   opacity: app.active ? 1 : 0.6,
                   padding: '1.25rem',
                 }}
@@ -676,7 +684,7 @@ export default function RegisteredAppsList({
                     </a>
                   )}
                 </div>
-              </div>
+              </button>
             )
           })}
         </div>

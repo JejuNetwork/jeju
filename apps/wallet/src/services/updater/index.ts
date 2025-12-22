@@ -7,6 +7,7 @@
 
 import { getPlatformInfo, isDesktop } from '../../platform/detection'
 import type { PlatformType } from '../../platform/types'
+import { UpdateManifestResponseSchema } from '../../schemas/api-responses'
 
 // ============================================================================
 // Types
@@ -243,7 +244,13 @@ export class UpdateService {
       return this.fetchFromRegistry()
     }
 
-    return response.json()
+    const result = UpdateManifestResponseSchema.safeParse(await response.json())
+    if (!result.success) {
+      console.warn('Invalid update manifest format:', result.error)
+      return this.fetchFromRegistry()
+    }
+
+    return result.data
   }
 
   private async fetchFromRegistry(): Promise<{

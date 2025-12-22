@@ -26,6 +26,7 @@ import {
 } from '@elizaos/core'
 import { type CQLClient, getCQL, type QueryParam } from '@jejunetwork/db'
 import { v4 as uuidv4 } from 'uuid'
+import { type ZodType, z } from 'zod'
 import { checkMigrationStatus, runCQLMigrations } from './migrations'
 
 type JsonValue =
@@ -35,6 +36,11 @@ type JsonValue =
   | null
   | JsonValue[]
   | { [key: string]: JsonValue }
+
+// Internal schemas for database field validation
+const StringArraySchema = z.array(z.string())
+const RecordSchema = z.record(z.unknown())
+const NumberArraySchema = z.array(z.number())
 
 /**
  * CQL Database Adapter Configuration
@@ -133,6 +139,31 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
     return JSON.stringify(value)
   }
 
+  /**
+   * Parse JSON from database with schema validation
+   * Use this for all database reads to ensure type safety
+   */
+  private fromJsonValidated<T>(
+    value: string | null,
+    schema: ZodType<T>,
+  ): T | null {
+    if (!value) return null
+    const parsed: unknown = JSON.parse(value)
+    const result = schema.safeParse(parsed)
+    if (!result.success) {
+      logger.warn(
+        { src: 'cql-adapter', error: result.error.message },
+        'JSON validation failed, returning null',
+      )
+      return null
+    }
+    return result.data
+  }
+
+  /**
+   * Parse JSON from database - internal use for known-good data
+   * This is used for data we wrote ourselves where the schema is implicit
+   */
   private fromJson<T>(value: string | null): T | null {
     if (!value) return null
     return JSON.parse(value) as T
@@ -1036,7 +1067,11 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
   // Cache Methods - In-Memory Implementation
   // ============================================================================
 
-  async getCache<T>(key: string): Promise<T | undefined> {
+  /**
+   * Get cached value with optional schema validation
+   * Note: For type safety with external data, provide a schema parameter
+   */
+  async getCache<T>(key: string, schema?: ZodType<T>): Promise<T | undefined> {
     const entry = this.cacheStore.get(key)
     if (!entry) return undefined
 
@@ -1045,7 +1080,20 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
       return undefined
     }
 
-    return JSON.parse(entry.value) as T
+    const parsed: unknown = JSON.parse(entry.value)
+    if (schema) {
+      const result = schema.safeParse(parsed)
+      if (!result.success) {
+        logger.warn(
+          { src: 'cql-adapter', key, error: result.error.message },
+          'Cache value failed validation',
+        )
+        return undefined
+      }
+      return result.data
+    }
+    // For internal cache (we control what's stored), return as-is
+    return parsed as T
   }
 
   async setCache<T>(key: string, value: T): Promise<boolean> {
@@ -1472,13 +1520,11 @@ export class CQLDatabaseAdapter extends DatabaseAdapter<CQLClient> {
 
   private hashContent(content: Memory['content']): string {
     const text = typeof content === 'string' ? content : JSON.stringify(content)
-    // Simple hash for uniqueness check
-    let hash = 0
-    for (let i = 0; i < text.length; i++) {
-      const char = text.charCodeAt(i)
-      hash = (hash << 5) - hash + char
-      hash = hash & hash
-    }
-    return hash.toString(16)
+    // Use crypto for proper content hashing
+    const encoder = new TextEncoder()
+    const data = encoder.encode(text)
+    // Synchronous hash using Bun's built-in
+    const hash = Bun.hash(data)
+    return hash.toString(16).padStart(16, '0')
   }
 }

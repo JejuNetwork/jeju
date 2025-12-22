@@ -3,6 +3,7 @@
  * Routes worker invocations across distributed nodes
  */
 
+import type { WorkerdExecutor } from './executor'
 import type {
   DecentralizedWorkerRegistry,
   WorkerNode,
@@ -56,6 +57,7 @@ export class DecentralizedWorkerRouter {
   private nodeHealth = new Map<string, NodeHealth>()
   private workerLocations = new Map<string, Set<string>>() // workerId -> nodeAgentIds
   private healthCheckInterval: ReturnType<typeof setInterval> | null = null
+  private localExecutor: WorkerdExecutor | null = null
 
   constructor(
     registry: DecentralizedWorkerRegistry,
@@ -63,6 +65,16 @@ export class DecentralizedWorkerRouter {
   ) {
     this.registry = registry
     this.config = { ...DEFAULT_ROUTER_CONFIG, ...config }
+  }
+
+  /**
+   * Set the local executor for direct invocation of locally deployed workers
+   */
+  setLocalExecutor(executor: WorkerdExecutor): void {
+    this.localExecutor = executor
+    console.log(
+      '[WorkerRouter] Local executor configured for direct invocation',
+    )
   }
 
   async start(): Promise<void> {
@@ -94,7 +106,15 @@ export class DecentralizedWorkerRouter {
     workerId: string,
     request: WorkerdRequest,
   ): Promise<WorkerdResponse> {
-    // Check if worker is deployed locally first
+    // Check if worker is deployed in local executor first (fastest path)
+    if (this.localExecutor) {
+      const localWorker = this.localExecutor.getWorker(workerId)
+      if (localWorker && localWorker.status === 'active') {
+        return this.localExecutor.invoke(workerId, request)
+      }
+    }
+
+    // Fall back to HTTP check for local deployment (other runtimes)
     if (await this.isDeployedLocally(workerId)) {
       return this.invokeLocal(workerId, request)
     }

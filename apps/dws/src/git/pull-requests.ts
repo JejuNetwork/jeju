@@ -3,7 +3,13 @@
  * Manages PRs with on-chain CID references stored in RepoRegistry metadata
  */
 
+import { expectJson } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import {
+  PRIndexSchema,
+  PullRequestSchema,
+  RepoMetadataSchema,
+} from '../shared/schemas/internal-storage'
 import type { BackendManager } from '../storage/backends'
 import { decodeBytes32ToOid } from './oid-utils'
 import type { GitRepoManager } from './repo-manager'
@@ -46,15 +52,21 @@ export class PullRequestsManager {
     if (metadataCid) {
       const result = await this.backend.download(metadataCid).catch(() => null)
       if (result) {
-        const metadata = JSON.parse(result.content.toString()) as {
-          prIndexCid?: string
-        }
+        const metadata = expectJson(
+          result.content.toString(),
+          RepoMetadataSchema,
+          'repo metadata',
+        )
         if (metadata.prIndexCid) {
           const indexResult = await this.backend
             .download(metadata.prIndexCid)
             .catch(() => null)
           if (indexResult) {
-            const index = JSON.parse(indexResult.content.toString()) as PRIndex
+            const index = expectJson(
+              indexResult.content.toString(),
+              PRIndexSchema,
+              'PR index',
+            )
             this.indexCache.set(repoId, index)
             return index
           }
@@ -92,7 +104,7 @@ export class PullRequestsManager {
     const result = await this.backend.download(prRef.cid).catch(() => null)
     if (!result) return null
 
-    const pr = JSON.parse(result.content.toString()) as PullRequest
+    const pr = expectJson(result.content.toString(), PullRequestSchema, 'pull request')
     this.prCache.set(cacheKey, pr)
     return pr
   }
@@ -647,7 +659,7 @@ export class PullRequestsManager {
   async preloadIndex(repoId: Hex, prIndexCid: string): Promise<void> {
     const result = await this.backend.download(prIndexCid).catch(() => null)
     if (result) {
-      const index = JSON.parse(result.content.toString()) as PRIndex
+      const index = expectJson(result.content.toString(), PRIndexSchema, 'PR index')
       this.indexCache.set(repoId, index)
     }
   }

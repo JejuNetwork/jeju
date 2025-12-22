@@ -23,6 +23,11 @@ import {
   type PublicClient,
   parseAbi,
 } from 'viem'
+import {
+  safeParse,
+  SolanaDexPoolsResponseSchema,
+  SolanaLendingMarketsResponseSchema,
+} from '../../schemas'
 import type { ChainId, StrategyConfig } from '../autocrat-types'
 
 // ============ Types ============
@@ -875,20 +880,9 @@ export class YieldFarmingStrategy extends EventEmitter {
       const response = await fetch(`${protocol.apiEndpoint}/pools?limit=20`)
       if (!response.ok) return opportunities
 
-      const data = (await response.json()) as {
-        data?: Array<{
-          id: string
-          name: string
-          tvl: number
-          volume24h: number
-          apr: { trading: number; rewards?: number }
-          tokenA: { symbol: string; mint: string; decimals: number }
-          tokenB: { symbol: string; mint: string; decimals: number }
-          fee: number
-        }>
-      }
+      const data = safeParse(SolanaDexPoolsResponseSchema, await response.json())
 
-      for (const pool of data.data ?? []) {
+      for (const pool of data?.data ?? []) {
         const tradingApr = pool.apr?.trading ?? 0
         const rewardsApr = pool.apr?.rewards ?? 0
 
@@ -928,7 +922,7 @@ export class YieldFarmingStrategy extends EventEmitter {
           ],
           tvlUsd: pool.tvl,
           volume24hUsd: pool.volume24h,
-          feeRate: pool.fee / 10000,
+          feeRate: (pool.fee ?? 0) / 10000,
           riskLevel: this.calculateRiskLevel(
             protocol.riskBase + (rewardsApr > tradingApr ? 10 : 0),
           ),
@@ -967,19 +961,9 @@ export class YieldFarmingStrategy extends EventEmitter {
       const response = await fetch(`${protocol.apiEndpoint}/markets`)
       if (!response.ok) return opportunities
 
-      const data = (await response.json()) as {
-        markets?: Array<{
-          mint: string
-          symbol: string
-          decimals: number
-          supplyApr: number
-          borrowApr: number
-          tvl: number
-          utilization: number
-        }>
-      }
+      const data = safeParse(SolanaLendingMarketsResponseSchema, await response.json())
 
-      for (const market of data.markets ?? []) {
+      for (const market of data?.markets ?? []) {
         opportunities.push({
           id: `${protocol.name}-${market.symbol}`,
           chain: 'solana',

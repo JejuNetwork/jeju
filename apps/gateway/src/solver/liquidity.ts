@@ -14,7 +14,7 @@ export interface BalanceClient {
 
 /** Minimal interface for wallet account access - what LiquidityManager actually uses from WalletClient */
 export interface AccountClient {
-  account: { address: `0x${string}` }
+  account: { address: `0x${string}` } | undefined
 }
 
 /** Client pair used by LiquidityManager */

@@ -355,8 +355,9 @@ describe('TEE Integration Flow', () => {
     await keyManager.exportEncrypted(identityKey.keyId, 'password')
 
     // 6. Verify attestation
+    expect(identityKey.attestation).toBeDefined()
     const verification = await keyManager.verifyAttestation(
-      identityKey.attestation!,
+      identityKey.attestation ?? new Uint8Array(),
     )
 
     expect(verification.valid).toBe(true)

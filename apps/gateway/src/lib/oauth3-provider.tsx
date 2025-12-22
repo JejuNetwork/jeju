@@ -36,10 +36,9 @@ export function GatewayOAuth3Provider({
     <OAuth3Provider
       config={oauth3Config}
       autoConnect={true}
-      persistSession={true}
       onSessionChange={(session) => {
         if (session) {
-          console.log('[OAuth3] Session established:', session.id)
+          console.log('[OAuth3] Session established')
         } else {
           console.log('[OAuth3] Session ended')
         }

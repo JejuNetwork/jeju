@@ -3,15 +3,13 @@
  * Run with: bun src/rpc-server.ts
  */
 
-import { rpcApp, startRpcServer } from './rpc/index.js'
+import { startRpcServer } from './rpc/index.js'
 
 const PORT = Number(process.env.RPC_GATEWAY_PORT || 4004)
 const HOST = process.env.RPC_GATEWAY_HOST || '0.0.0.0'
 
-startRpcServer(PORT, HOST)
+const server = startRpcServer(PORT, HOST)
 
-export default {
-  port: PORT,
-  hostname: HOST,
-  fetch: rpcApp.fetch,
-}
+console.log(`🌐 RPC Gateway running at http://${HOST}:${PORT}`)
+
+export default server

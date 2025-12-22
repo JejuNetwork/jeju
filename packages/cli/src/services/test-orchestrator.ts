@@ -109,6 +109,7 @@ export class TestOrchestrator {
           releaseLock: () => boolean
         }
       }
+      // Dynamic import: optional dependency that may not be available
       const lockModule = (await import('@jejunetwork/tests/lock-manager').catch(
         () => null,
       )) as LockManagerModule | null
@@ -203,6 +204,7 @@ export class TestOrchestrator {
           chainId: number
         }) => Promise<{ success: boolean }>
       }
+      // Dynamic import: optional dependency that may not be available
       const preflightModule = (await import(
         '@jejunetwork/tests/preflight'
       ).catch(() => null)) as PreflightModule | null

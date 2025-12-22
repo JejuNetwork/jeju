@@ -142,6 +142,7 @@ export default function RPCSetupTab() {
           </p>
         </div>
         <button
+          type="button"
           onClick={() => {
             refetchPosition()
             fetchApiKeys()
@@ -229,6 +230,7 @@ export default function RPCSetupTab() {
           <div className="grid grid-cols-4 gap-4">
             {Object.entries(tierRequirements).map(([t, c]) => (
               <button
+                type="button"
                 key={t}
                 onClick={() =>
                   t !== 'FREE' && setStakeAmt(String(c.jejuNeeded))
@@ -255,6 +257,7 @@ export default function RPCSetupTab() {
               className="flex-1 px-3 py-2 border border-gray-300 rounded-lg"
             />
             <button
+              type="button"
               onClick={() =>
                 needsApproval ? approve(stakeAmt) : handleStake()
               }
@@ -289,6 +292,7 @@ export default function RPCSetupTab() {
                   )}
                   {canWithdraw && (
                     <button
+                      type="button"
                       onClick={completeUnstaking}
                       disabled={loading}
                       className="mt-2 px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 disabled:opacity-50"
@@ -307,6 +311,7 @@ export default function RPCSetupTab() {
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
                   />
                   <button
+                    type="button"
                     onClick={handleUnbond}
                     disabled={loading || !unstakeAmt}
                     className="px-3 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 disabled:opacity-50 text-sm"
@@ -339,6 +344,7 @@ export default function RPCSetupTab() {
                   {newKey}
                 </code>
                 <button
+                  type="button"
                   onClick={handleCopy}
                   className="p-2 hover:bg-green-200 rounded"
                 >
@@ -350,6 +356,7 @@ export default function RPCSetupTab() {
                 </button>
               </div>
               <button
+                type="button"
                 onClick={() => setNewKey(null)}
                 className="mt-2 text-sm text-green-600 hover:underline"
               >
@@ -367,6 +374,7 @@ export default function RPCSetupTab() {
             className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
           />
           <button
+            type="button"
             onClick={handleCreateKey}
             disabled={loading}
             className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 disabled:opacity-50 text-sm"
@@ -400,6 +408,7 @@ export default function RPCSetupTab() {
                 </div>
                 {k.isActive && (
                   <button
+                    type="button"
                     onClick={() =>
                       confirm('Revoke this key?') && revokeApiKey(k.id)
                     }

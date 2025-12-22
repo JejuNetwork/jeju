@@ -8,9 +8,24 @@
  */
 
 import { rmSync } from 'node:fs'
+import { z } from 'zod'
+import { expectValid } from '../src/schemas'
 
 const DWS_URL = process.env.DWS_URL || 'http://localhost:4030'
 const NETWORK = process.env.NETWORK || 'localnet'
+
+// ============================================================================
+// Response Schemas
+// ============================================================================
+
+const UploadResponseSchema = z.object({
+  cid: z.string(),
+})
+
+const DeployResponseSchema = z.object({
+  id: z.string(),
+  status: z.string(),
+})
 
 interface DeployResult {
   frontend: {
@@ -72,7 +87,8 @@ async function main(): Promise<DeployResult> {
     throw new Error(`Frontend upload failed: ${error}`)
   }
 
-  const uploadResult = (await uploadResponse.json()) as { cid: string }
+  const uploadJson: unknown = await uploadResponse.json()
+  const uploadResult = expectValid(UploadResponseSchema, uploadJson, 'upload response')
   const frontendCid = uploadResult.cid
   console.log(`✅ Frontend uploaded: ${frontendCid}`)
 
@@ -111,9 +127,8 @@ async function main(): Promise<DeployResult> {
     throw new Error(`Worker upload failed: ${error}`)
   }
 
-  const workerUploadResult = (await workerUploadResponse.json()) as {
-    cid: string
-  }
+  const workerUploadJson: unknown = await workerUploadResponse.json()
+  const workerUploadResult = expectValid(UploadResponseSchema, workerUploadJson, 'worker upload response')
   const workerCid = workerUploadResult.cid
   console.log(`✅ Worker uploaded: ${workerCid}`)
 
@@ -143,10 +158,8 @@ async function main(): Promise<DeployResult> {
     throw new Error(`Worker deployment failed: ${error}`)
   }
 
-  const deployResult = (await deployResponse.json()) as {
-    id: string
-    status: string
-  }
+  const deployJson: unknown = await deployResponse.json()
+  const deployResult = expectValid(DeployResponseSchema, deployJson, 'deploy response')
   console.log(`✅ Worker deployed: ${deployResult.id}`)
 
   // Step 5: Return deployment info

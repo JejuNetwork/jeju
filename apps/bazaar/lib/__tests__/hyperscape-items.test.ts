@@ -6,7 +6,8 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { getRarityInfo } from '@/lib/games'
+import { ABIFunctionSchema, ABISchema } from '../../schemas/api'
+import { getRarityInfo } from '../games'
 
 describe('Game Items', () => {
   describe('getRarityInfo', () => {
@@ -100,9 +101,11 @@ describe('Game Items', () => {
       ).find((item) => item.name === 'mintItem')
 
       expect(mintItem).toBeDefined()
-      expect(mintItem!.inputs).toBeDefined()
+      if (!mintItem) throw new Error('mintItem not found')
+      expect(mintItem.inputs).toBeDefined()
+      if (!mintItem.inputs) throw new Error('mintItem.inputs not found')
 
-      const inputNames = mintItem!.inputs!.map((i) => i.name)
+      const inputNames = mintItem.inputs.map((i) => i.name)
       expect(inputNames).toContain('itemId')
       expect(inputNames).toContain('amount')
       expect(inputNames).toContain('instanceId')
@@ -121,10 +124,15 @@ describe('Game Items', () => {
       ).find((item) => item.name === 'getItemMetadata')
 
       expect(getItemMetadata).toBeDefined()
-      expect(getItemMetadata!.outputs).toBeDefined()
-      expect(getItemMetadata!.outputs![0].type).toBe('tuple')
+      if (!getItemMetadata) throw new Error('getItemMetadata not found')
+      expect(getItemMetadata.outputs).toBeDefined()
+      if (!getItemMetadata.outputs)
+        throw new Error('getItemMetadata.outputs not found')
+      expect(getItemMetadata.outputs[0].type).toBe('tuple')
+      if (!getItemMetadata.outputs[0].components)
+        throw new Error('getItemMetadata.outputs[0].components not found')
 
-      const componentNames = getItemMetadata!.outputs![0].components!.map(
+      const componentNames = getItemMetadata.outputs[0].components.map(
         (c) => c.name,
       )
       expect(componentNames).toContain('itemId')
@@ -187,9 +195,9 @@ describe('Game Items', () => {
       ).find((item) => item.name === 'claimGold')
 
       expect(claimGold).toBeDefined()
-      expect(claimGold!.inputs).toBeDefined()
+      expect(claimGold?.inputs).toBeDefined()
 
-      const inputNames = claimGold!.inputs!.map((i) => i.name)
+      const inputNames = claimGold?.inputs?.map((i) => i.name)
       expect(inputNames).toContain('amount')
       expect(inputNames).toContain('nonce')
       expect(inputNames).toContain('signature')
@@ -198,7 +206,7 @@ describe('Game Items', () => {
 
   describe('NFT Marketplace Integration', () => {
     test('NFTMarketplace ABI should have listing functions', async () => {
-      const abi = await import('@/lib/abis/NFTMarketplace.json')
+      const abi = await import('../abis/NFTMarketplace.json')
 
       const functionNames = abi.default
         .filter((item: { type: string }) => item.type === 'function')
@@ -224,7 +232,7 @@ describe('Game Items', () => {
 
   describe('ERC20 Factory Integration', () => {
     test('SimpleERC20Factory ABI should have token creation', async () => {
-      const abi = await import('@/lib/abis/SimpleERC20Factory.json')
+      const abi = await import('../abis/SimpleERC20Factory.json')
 
       const functionNames = abi.default
         .filter((item: { type: string }) => item.type === 'function')
@@ -237,18 +245,23 @@ describe('Game Items', () => {
     })
 
     test('createToken should have correct parameters', async () => {
-      const abi = await import('@/lib/abis/SimpleERC20Factory.json')
+      const abi = await import('../abis/SimpleERC20Factory.json')
 
-      const createToken = abi.default.find(
-        (item: { name?: string }) => item.name === 'createToken',
-      ) as { name: string; inputs: { name: string }[] } | undefined
+      const parsed = ABISchema.safeParse(abi.default)
+      expect(parsed.success).toBe(true)
+      if (!parsed.success) return
 
-      expect(createToken).toBeDefined()
-      if (!createToken) throw new Error('createToken not found')
+      const createTokenItem = parsed.data.find(
+        (item) => item.name === 'createToken',
+      )
+      const createToken = ABIFunctionSchema.safeParse(createTokenItem)
 
-      expect(createToken.inputs).toHaveLength(4)
+      expect(createToken.success).toBe(true)
+      if (!createToken.success) throw new Error('createToken not found')
 
-      const inputNames = createToken.inputs.map((i: { name: string }) => i.name)
+      expect(createToken.data.inputs).toHaveLength(4)
+
+      const inputNames = createToken.data.inputs?.map((i) => i.name) ?? []
       expect(inputNames).toContain('name')
       expect(inputNames).toContain('symbol')
       expect(inputNames).toContain('decimals')

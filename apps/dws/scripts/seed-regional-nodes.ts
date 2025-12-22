@@ -325,7 +325,7 @@ async function seedLocalnet(baseConfig: Partial<SeedConfig>): Promise<void> {
     endpoint: baseConfig.endpoint ?? 'http://localhost:4040',
     teePlatform: 'simulator',
     capabilities: ['compute', 'storage'],
-    rpcUrl: baseConfig.rpcUrl ?? 'http://localhost:9545',
+    rpcUrl: baseConfig.rpcUrl ?? 'http://localhost:6546',
     registryAddress:
       baseConfig.registryAddress ??
       (process.env.IDENTITY_REGISTRY_ADDRESS as Address) ??

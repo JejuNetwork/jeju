@@ -82,11 +82,16 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
           {viewMode === 'provider' && (
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setShowModal(true)}
               disabled={!isConnected}
@@ -178,6 +183,7 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
             </p>
             {viewMode === 'provider' && (
               <button
+                type="button"
                 className="btn btn-primary"
                 onClick={() => setShowModal(true)}
                 disabled={!isConnected}
@@ -252,6 +258,7 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
                       </td>
                       <td style={{ display: 'flex', gap: '0.25rem' }}>
                         <button
+                          type="button"
                           className="btn btn-ghost btn-sm"
                           title={listing.active ? 'Pause' : 'Resume'}
                         >
@@ -262,12 +269,17 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
                           )}
                         </button>
                         <button
+                          type="button"
                           className="btn btn-ghost btn-sm"
                           title="Settings"
                         >
                           <Settings size={14} />
                         </button>
-                        <button className="btn btn-ghost btn-sm" title="Delete">
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          title="Delete"
+                        >
                           <Trash2 size={14} />
                         </button>
                       </td>
@@ -281,11 +293,29 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowModal(false)}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">New API Listing</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowModal(false)}
               >
@@ -295,8 +325,11 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
             <form onSubmit={handleCreate}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">API Provider *</label>
+                  <label htmlFor="listing-provider" className="form-label">
+                    API Provider *
+                  </label>
                   <select
+                    id="listing-provider"
                     className="input"
                     value={formData.providerId}
                     onChange={(e) =>
@@ -313,8 +346,11 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
                   </select>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Your API Key *</label>
+                  <label htmlFor="listing-api-key" className="form-label">
+                    Your API Key *
+                  </label>
                   <input
+                    id="listing-api-key"
                     className="input"
                     type="password"
                     placeholder="Enter your provider API key"
@@ -329,8 +365,11 @@ export default function ListingsPage({ viewMode }: ListingsPageProps) {
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Price per Request (wei)</label>
+                  <label htmlFor="listing-price" className="form-label">
+                    Price per Request (wei)
+                  </label>
                   <input
+                    id="listing-price"
                     className="input"
                     type="number"
                     placeholder="Leave empty for default pricing"

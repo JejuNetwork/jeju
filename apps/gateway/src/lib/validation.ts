@@ -5,7 +5,6 @@
  */
 
 import {
-  type Address,
   AddressSchema,
   expectAddress as baseExpectAddress,
   expectChainId as baseExpectChainId,
@@ -17,7 +16,7 @@ import {
   type SupportedChainId,
   SupportedChainIdSchema,
 } from '@jejunetwork/types'
-import type { Hex } from 'viem'
+import type { Address, Hex } from 'viem'
 import { z } from 'zod'
 
 // ============================================================================
@@ -99,6 +98,7 @@ export const HexStringSchema = HexSchema
 export type HexString = z.infer<typeof HexStringSchema>
 
 export {
+  AddressSchema,
   NonEmptyStringSchema,
   PositiveNumberStringSchema,
   NonNegativeNumberStringSchema,
@@ -548,6 +548,548 @@ export const EILJsonConfigSchema = z.object({
   localnet: EILNetworkConfigSchema,
 })
 export type EILJsonConfig = z.infer<typeof EILJsonConfigSchema>
+
+// ============================================================================
+// Cached Data Schemas (for JSON.parse validation)
+// ============================================================================
+
+/**
+ * Intent input/output token schemas
+ */
+export const IntentTokenAmountSchema = z.object({
+  token: AddressSchema,
+  amount: z.string(),
+  chainId: z.number().int().positive().optional(),
+})
+export type IntentTokenAmount = z.infer<typeof IntentTokenAmountSchema>
+
+/**
+ * Cached Intent schema (for state.ts cache parsing)
+ */
+export const CachedIntentSchema = z.object({
+  intentId: HexSchema,
+  user: AddressSchema,
+  nonce: z.string(),
+  sourceChainId: z.number().int().positive(),
+  openDeadline: z.number().int(),
+  fillDeadline: z.number().int(),
+  inputs: z.array(IntentTokenAmountSchema),
+  outputs: z.array(IntentTokenAmountSchema),
+  signature: HexSchema,
+  status: z.enum([
+    'open',
+    'pending',
+    'filled',
+    'expired',
+    'cancelled',
+    'failed',
+  ]),
+  solver: AddressSchema.optional(),
+  txHash: HexSchema.optional(),
+  createdAt: z.number().int().optional(),
+  filledAt: z.number().int().optional(),
+  cancelledAt: z.number().int().optional(),
+})
+export type CachedIntent = z.infer<typeof CachedIntentSchema>
+
+/**
+ * Solver liquidity entry schema
+ */
+export const SolverLiquiditySchema = z.object({
+  chainId: z.number().int().positive(),
+  token: AddressSchema,
+  amount: z.string(),
+})
+export type SolverLiquidity = z.infer<typeof SolverLiquiditySchema>
+
+/**
+ * Cached Solver schema (for state.ts cache parsing)
+ */
+export const CachedSolverSchema = z.object({
+  address: AddressSchema,
+  name: z.string(),
+  endpoint: z.string().optional(),
+  supportedChains: z.array(z.number().int().positive()),
+  supportedTokens: z.record(z.string(), z.array(AddressSchema)),
+  liquidity: z.array(SolverLiquiditySchema).optional(),
+  reputation: z.number().int(),
+  totalFills: z.number().int(),
+  successfulFills: z.number().int(),
+  failedFills: z.number().int(),
+  successRate: z.number(),
+  avgResponseMs: z.number().optional(),
+  avgFillTimeMs: z.number().optional(),
+  totalVolumeUsd: z.string(),
+  totalFeesEarnedUsd: z.string(),
+  stakedAmount: z.string(),
+  status: z.enum(['active', 'inactive', 'banned']),
+  registeredAt: z.number().int(),
+  lastActiveAt: z.number().int().optional(),
+})
+export type CachedSolver = z.infer<typeof CachedSolverSchema>
+
+/**
+ * JNS resolved content schema (for jns-gateway.ts cache parsing)
+ */
+export const ResolvedContentSchema = z.object({
+  cid: z.string().min(1),
+  codec: z.enum(['ipfs', 'ipns', 'swarm', 'arweave']),
+})
+export type ResolvedContent = z.infer<typeof ResolvedContentSchema>
+
+/**
+ * X402 Payment Proof schema (for x402-payments.ts)
+ */
+export const X402PaymentProofSchema = z.object({
+  payTo: AddressSchema,
+  amount: z.string(),
+  nonce: z.string(),
+  timestamp: z.number().int().positive(),
+  network: z.string(),
+  signature: z.string(),
+})
+export type X402PaymentProof = z.infer<typeof X402PaymentProofSchema>
+
+/**
+ * RPC Chain Info schema (for rpc-client.ts)
+ */
+export const RpcChainInfoSchema = z.object({
+  chainId: z.number().int().positive(),
+  name: z.string(),
+  shortName: z.string(),
+  rpcEndpoint: z.string(),
+  explorerUrl: z.string(),
+  isTestnet: z.boolean(),
+  nativeCurrency: z.object({
+    name: z.string(),
+    symbol: z.string(),
+    decimals: z.number().int().nonnegative(),
+  }),
+})
+export type RpcChainInfo = z.infer<typeof RpcChainInfoSchema>
+
+export const RpcChainsResponseSchema = z.object({
+  chains: z.array(RpcChainInfoSchema),
+})
+export type RpcChainsResponse = z.infer<typeof RpcChainsResponseSchema>
+
+/**
+ * Flashbots JSON-RPC response schemas
+ */
+export const FlashbotsRpcResponseSchema = z.object({
+  result: z.unknown().optional(),
+  error: z
+    .object({
+      message: z.string(),
+    })
+    .optional(),
+})
+export type FlashbotsRpcResponse = z.infer<typeof FlashbotsRpcResponseSchema>
+
+export const FlashbotsBundleHashResponseSchema = z.object({
+  result: z
+    .object({
+      bundleHash: HexSchema,
+    })
+    .optional(),
+  error: z
+    .object({
+      message: z.string(),
+    })
+    .optional(),
+})
+export type FlashbotsBundleHashResponse = z.infer<
+  typeof FlashbotsBundleHashResponseSchema
+>
+
+export const FlashbotsProtectedTxResponseSchema = z.object({
+  result: HexSchema.optional(),
+  error: z
+    .object({
+      message: z.string(),
+    })
+    .optional(),
+})
+export type FlashbotsProtectedTxResponse = z.infer<
+  typeof FlashbotsProtectedTxResponseSchema
+>
+
+export const FlashbotsProtectedStatusResponseSchema = z.object({
+  result: z
+    .object({
+      status: z.string(),
+      includedBlock: z.string().optional(),
+    })
+    .optional(),
+  error: z
+    .object({
+      message: z.string(),
+    })
+    .optional(),
+})
+export type FlashbotsProtectedStatusResponse = z.infer<
+  typeof FlashbotsProtectedStatusResponseSchema
+>
+
+export const FlashbotsSimulationResultSchema = z.object({
+  txHash: z.string(),
+  gasUsed: z.string(),
+  value: z.string(),
+  error: z.string().optional(),
+})
+export type FlashbotsSimulationResult = z.infer<
+  typeof FlashbotsSimulationResultSchema
+>
+
+export const FlashbotsSimulationResponseSchema = z.object({
+  result: z
+    .object({
+      results: z.array(FlashbotsSimulationResultSchema),
+      totalGasUsed: z.string(),
+      coinbaseDiff: z.string(),
+      ethSentToCoinbase: z.string(),
+    })
+    .optional(),
+  error: z
+    .object({
+      message: z.string(),
+    })
+    .optional(),
+})
+export type FlashbotsSimulationResponse = z.infer<
+  typeof FlashbotsSimulationResponseSchema
+>
+
+export const FlashbotsBundleStatsResponseSchema = z.object({
+  result: z
+    .object({
+      isHighPriority: z.boolean(),
+      isSentToMiners: z.boolean(),
+      isSimulated: z.boolean(),
+      simulatedAt: z.string().optional(),
+      receivedAt: z.string().optional(),
+      consideredByBuildersAt: z.array(z.string()).optional(),
+    })
+    .optional(),
+  error: z
+    .object({
+      message: z.string(),
+    })
+    .optional(),
+})
+export type FlashbotsBundleStatsResponse = z.infer<
+  typeof FlashbotsBundleStatsResponseSchema
+>
+
+export const FlashbotsBlockNumberResponseSchema = z.object({
+  result: z.string().optional(),
+})
+export type FlashbotsBlockNumberResponse = z.infer<
+  typeof FlashbotsBlockNumberResponseSchema
+>
+
+export const FlashbotsL2BlockResponseSchema = z.object({
+  result: z
+    .object({
+      blockHash: HexSchema,
+    })
+    .optional(),
+  error: z
+    .object({
+      message: z.string(),
+    })
+    .optional(),
+})
+export type FlashbotsL2BlockResponse = z.infer<
+  typeof FlashbotsL2BlockResponseSchema
+>
+
+export const FlashbotsSuaveResponseSchema = z.object({
+  result: z
+    .object({
+      requestId: HexSchema,
+    })
+    .optional(),
+  error: z
+    .object({
+      message: z.string(),
+    })
+    .optional(),
+})
+export type FlashbotsSuaveResponse = z.infer<
+  typeof FlashbotsSuaveResponseSchema
+>
+
+/** Schema for MEV-Share SSE event data */
+export const MevShareEventDataSchema = z.object({
+  hash: z.string(),
+  logs: z.array(
+    z.object({
+      address: z.string(),
+      topics: z.array(z.string()),
+      data: z.string(),
+    }),
+  ),
+  txs: z.array(
+    z.object({
+      to: z.string(),
+      functionSelector: z.string(),
+      callData: z.string().optional(),
+    }),
+  ),
+  mevGasPrice: z.string().optional(),
+  gasUsed: z.string().optional(),
+})
+export type MevShareEventData = z.infer<typeof MevShareEventDataSchema>
+
+// ============================================================================
+// External API Response Schemas
+// ============================================================================
+
+/** WebSocket message from Alchemy pending transactions subscription */
+export const AlchemyPendingTxMessageSchema = z.object({
+  params: z
+    .object({
+      result: z
+        .object({
+          hash: z.string(),
+          from: z.string(),
+          to: z.string().nullable(),
+          input: z.string(),
+          value: z.string(),
+          gasPrice: z.string().optional(),
+          maxFeePerGas: z.string().optional(),
+          maxPriorityFeePerGas: z.string().optional(),
+          nonce: z.string(),
+        })
+        .optional(),
+    })
+    .optional(),
+})
+export type AlchemyPendingTxMessage = z.infer<
+  typeof AlchemyPendingTxMessageSchema
+>
+
+/** Cache service response schemas */
+export const CacheSetResponseSchema = z.object({
+  success: z.boolean(),
+})
+export type CacheSetResponse = z.infer<typeof CacheSetResponseSchema>
+
+export const CacheGetResponseSchema = z.object({
+  value: z.string().nullable(),
+})
+export type CacheGetResponse = z.infer<typeof CacheGetResponseSchema>
+
+/** CoinGecko price response */
+export const CoinGeckoPriceResponseSchema = z.object({
+  ethereum: z.object({
+    usd: z.number(),
+  }),
+})
+export type CoinGeckoPriceResponse = z.infer<
+  typeof CoinGeckoPriceResponseSchema
+>
+
+/** GitHub user response */
+export const GitHubUserResponseSchema = z.object({
+  id: z.number(),
+  login: z.string(),
+  name: z.string().nullable().optional(),
+  email: z.string().nullable().optional(),
+  avatar_url: z.string(),
+})
+export type GitHubUserResponse = z.infer<typeof GitHubUserResponseSchema>
+
+/** GitHub avatar-only response */
+export const GitHubAvatarResponseSchema = z.object({
+  avatar_url: z.string(),
+})
+export type GitHubAvatarResponse = z.infer<typeof GitHubAvatarResponseSchema>
+
+/** UniswapX API order response */
+export const UniswapXOrderResponseSchema = z.object({
+  orders: z.array(
+    z.object({
+      orderHash: z.string(),
+      chainId: z.number(),
+      swapper: z.string(),
+      reactor: z.string(),
+      deadline: z.number(),
+      input: z.object({
+        token: z.string(),
+        startAmount: z.string(),
+        endAmount: z.string(),
+      }),
+      outputs: z.array(
+        z.object({
+          token: z.string(),
+          startAmount: z.string(),
+          endAmount: z.string(),
+          recipient: z.string(),
+        }),
+      ),
+      decayStartTime: z.number(),
+      decayEndTime: z.number(),
+      exclusiveFiller: z.string().optional(),
+      exclusivityOverrideBps: z.number().optional(),
+      nonce: z.string(),
+      encodedOrder: z.string(),
+      signature: z.string(),
+      createdAt: z.number(),
+      orderStatus: z.string(),
+    }),
+  ),
+})
+export type UniswapXOrderResponse = z.infer<typeof UniswapXOrderResponseSchema>
+
+/** CoW auction history response */
+export const CowAuctionHistoryResponseSchema = z.object({
+  auctionId: z.number(),
+  orders: z.array(
+    z.object({
+      uid: z.string(),
+      sellToken: z.string(),
+      buyToken: z.string(),
+      sellAmount: z.string(),
+      buyAmount: z.string(),
+      kind: z.string(),
+      partiallyFillable: z.boolean(),
+    }),
+  ),
+  solutions: z.array(
+    z.object({
+      solver: z.string(),
+      score: z.string(),
+      ranking: z.number(),
+      orders: z.array(
+        z.object({
+          id: z.string(),
+          executedAmount: z.string(),
+        }),
+      ),
+    }),
+  ),
+})
+export type CowAuctionHistoryResponse = z.infer<
+  typeof CowAuctionHistoryResponseSchema
+>
+
+/** DWS LLM response */
+export const DWSChatCompletionResponseSchema = z.object({
+  choices: z.array(
+    z.object({
+      message: z.object({
+        content: z.string(),
+      }),
+    }),
+  ),
+  usage: z
+    .object({
+      total_tokens: z.number(),
+    })
+    .optional(),
+})
+export type DWSChatCompletionResponse = z.infer<
+  typeof DWSChatCompletionResponseSchema
+>
+
+/** Git server repositories response */
+export const GitRepositoriesResponseSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      full_name: z.string(),
+      owner: z.object({ login: z.string() }),
+      description: z.string().nullable(),
+      visibility: z.enum(['public', 'private', 'internal']),
+      stargazers_count: z.number(),
+      forks_count: z.number(),
+      default_branch: z.string(),
+      topics: z.array(z.string()),
+      created_at: z.string(),
+      updated_at: z.string(),
+      pushed_at: z.string().nullable(),
+      reputation_score: z.number(),
+      verified: z.boolean(),
+      head_cid: z.string(),
+      storage_backend: z.string(),
+    }),
+  ),
+})
+export type GitRepositoriesResponse = z.infer<
+  typeof GitRepositoriesResponseSchema
+>
+
+/** NPM search response */
+export const NPMSearchResponseSchema = z.object({
+  objects: z.array(
+    z.object({
+      package: z.object({
+        name: z.string(),
+        version: z.string(),
+        description: z.string().optional(),
+      }),
+      score: z.object({
+        final: z.number(),
+      }),
+    }),
+  ),
+})
+export type NPMSearchResponse = z.infer<typeof NPMSearchResponseSchema>
+
+/** Git organizations response */
+export const GitOrganizationsResponseSchema = z.array(
+  z.object({
+    name: z.string(),
+    displayName: z.string().optional(),
+    description: z.string().optional(),
+    avatarUrl: z.string().optional(),
+    website: z.string().optional(),
+    memberCount: z.number(),
+    repoCount: z.number(),
+    createdAt: z.string(),
+    verified: z.boolean().optional(),
+  }),
+)
+export type GitOrganizationsResponse = z.infer<
+  typeof GitOrganizationsResponseSchema
+>
+
+/** Git organization members response */
+export const GitOrgMembersResponseSchema = z.array(
+  z.object({
+    username: z.string(),
+    role: z.enum(['owner', 'admin', 'member']),
+    joinedAt: z.string(),
+  }),
+)
+export type GitOrgMembersResponse = z.infer<typeof GitOrgMembersResponseSchema>
+
+/** JSON-RPC response schema for proxy */
+export const JsonRpcResponseSchema = z.object({
+  jsonrpc: z.string(),
+  id: z.union([z.number(), z.string()]),
+  result: JsonValueSchema.optional(),
+  error: z
+    .object({
+      code: z.number(),
+      message: z.string(),
+      data: JsonValueSchema.optional(),
+    })
+    .optional(),
+})
+export type JsonRpcResponseType = z.infer<typeof JsonRpcResponseSchema>
+
+/** Rate limit info response */
+export const RateLimitInfoResponseSchema = z.object({
+  tier: z.string(),
+  limit: z.union([z.number(), z.string()]),
+  remaining: z.union([z.number(), z.string()]),
+  resetAt: z.number(),
+})
+export type RateLimitInfoResponse = z.infer<typeof RateLimitInfoResponseSchema>
 
 // ============================================================================
 // Validation Utilities (re-exported from @jejunetwork/types/validation)

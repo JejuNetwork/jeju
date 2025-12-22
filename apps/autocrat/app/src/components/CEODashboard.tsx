@@ -75,6 +75,7 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
             AI CEO
           </h3>
           <button
+            type="button"
             onClick={loadData}
             className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
           >
@@ -123,6 +124,7 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
           AI CEO Dashboard
         </h2>
         <button
+          type="button"
           onClick={loadData}
           className="btn-secondary text-sm flex items-center gap-2"
         >
@@ -212,6 +214,7 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
               }`}
             >
               <button
+                type="button"
                 onClick={() =>
                   setExpandedModel(
                     expandedModel === model.modelId ? null : model.modelId,
@@ -298,10 +301,13 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
                   </div>
 
                   <div className="flex gap-3 mt-4">
-                    <button className="btn-primary text-sm flex-1">
+                    <button
+                      type="button"
+                      className="btn-primary text-sm flex-1"
+                    >
                       Stake on Model
                     </button>
-                    <button className="btn-secondary text-sm">
+                    <button type="button" className="btn-secondary text-sm">
                       View Details
                     </button>
                   </div>
@@ -311,7 +317,7 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
           ))}
         </div>
 
-        <button className="btn-accent text-sm w-full mt-4">
+        <button type="button" className="btn-accent text-sm w-full mt-4">
           + Nominate New Model
         </button>
       </div>
@@ -380,7 +386,7 @@ export function CEODashboard({ compact = false }: CEODashboardProps) {
           ))}
         </div>
 
-        <button className="btn-secondary text-sm w-full mt-4">
+        <button type="button" className="btn-secondary text-sm w-full mt-4">
           View All Decisions
         </button>
       </div>

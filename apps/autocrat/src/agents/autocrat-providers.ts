@@ -19,6 +19,13 @@ import type {
   State,
 } from '@elizaos/core'
 import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
+import {
+  A2AJsonRpcResponseSchema,
+  AgentCardSchema,
+  expectValid,
+  extractA2AData,
+  MCPToolsResponseSchema,
+} from '../schemas'
 
 // ============================================================================
 // Configuration (Network-Aware)
@@ -93,10 +100,16 @@ async function callA2A(
     }),
   })
 
-  const result = (await response.json()) as {
-    result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }
+  if (!response.ok) {
+    throw new Error(`A2A call to ${url} failed: ${response.status}`)
   }
-  return result.result?.parts?.find((p) => p.kind === 'data')?.data ?? {}
+
+  const result = expectValid(
+    A2AJsonRpcResponseSchema,
+    await response.json(),
+    `A2A ${skillId}`,
+  )
+  return extractA2AData<Record<string, unknown>>(result, `A2A ${skillId}`)
 }
 
 async function fetchAgentCard(
@@ -105,7 +118,8 @@ async function fetchAgentCard(
   const cardUrl = `${baseUrl.replace('/a2a', '')}/.well-known/agent-card.json`
   const response = await fetch(cardUrl)
   if (!response.ok) return null
-  return (await response.json()) as Record<string, unknown>
+  const result = AgentCardSchema.safeParse(await response.json())
+  return result.success ? result.data : null
 }
 
 // ============================================================================
@@ -426,9 +440,11 @@ export const mcpToolsProvider: Provider = {
     // Autocrat MCP tools
     const autocratResponse = await fetch(`${getAutocratMCP()}/tools`)
     if (autocratResponse.ok) {
-      const autocratData = (await autocratResponse.json()) as {
-        tools?: Array<{ name: string; description: string }>
-      }
+      const autocratData = expectValid(
+        MCPToolsResponseSchema,
+        await autocratResponse.json(),
+        'Autocrat MCP tools',
+      )
       for (const tool of autocratData.tools ?? []) {
         tools.push({ source: 'autocrat', ...tool })
       }
@@ -437,9 +453,11 @@ export const mcpToolsProvider: Provider = {
     // CEO MCP tools
     const ceoResponse = await fetch(`${getCEOMCP()}/tools`)
     if (ceoResponse.ok) {
-      const ceoData = (await ceoResponse.json()) as {
-        tools?: Array<{ name: string; description: string }>
-      }
+      const ceoData = expectValid(
+        MCPToolsResponseSchema,
+        await ceoResponse.json(),
+        'CEO MCP tools',
+      )
       for (const tool of ceoData.tools ?? []) {
         tools.push({ source: 'ceo', ...tool })
       }

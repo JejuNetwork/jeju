@@ -2,7 +2,12 @@
  * Dataset Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import {
+  CreateDatasetBodySchema,
+  DatasetsQuerySchema,
+  expectValid,
+} from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
 interface Dataset {
@@ -27,7 +32,9 @@ interface Dataset {
 export const datasetsRoutes = new Elysia({ prefix: '/api/datasets' })
   .get(
     '/',
-    async () => {
+    async ({ query }) => {
+      expectValid(DatasetsQuerySchema, query, 'query params')
+
       const datasets: Dataset[] = [
         {
           id: '1',
@@ -52,12 +59,6 @@ export const datasetsRoutes = new Elysia({ prefix: '/api/datasets' })
       return { datasets, total: datasets.length }
     },
     {
-      query: t.Object({
-        type: t.Optional(t.String()),
-        org: t.Optional(t.String()),
-        q: t.Optional(t.String()),
-        sortBy: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['datasets'],
         summary: 'List datasets',
@@ -74,13 +75,19 @@ export const datasetsRoutes = new Elysia({ prefix: '/api/datasets' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
+      const validated = expectValid(
+        CreateDatasetBodySchema,
+        body,
+        'request body',
+      )
+
       const dataset: Dataset = {
         id: `dataset-${Date.now()}`,
-        name: body.name,
-        organization: body.organization,
-        description: body.description,
-        type: body.type,
-        license: body.license,
+        name: validated.name,
+        organization: validated.organization,
+        description: validated.description,
+        type: validated.type,
+        license: validated.license,
         format: 'unknown',
         size: '0',
         rows: 0,
@@ -97,28 +104,6 @@ export const datasetsRoutes = new Elysia({ prefix: '/api/datasets' })
       return dataset
     },
     {
-      body: t.Object({
-        name: t.String({
-          minLength: 1,
-          maxLength: 100,
-          pattern: '^[a-zA-Z0-9._-]+$',
-        }),
-        organization: t.String({
-          minLength: 1,
-          maxLength: 100,
-          pattern: '^[a-zA-Z0-9._-]+$',
-        }),
-        description: t.String({ minLength: 10 }),
-        type: t.Union([
-          t.Literal('text'),
-          t.Literal('code'),
-          t.Literal('image'),
-          t.Literal('audio'),
-          t.Literal('multimodal'),
-          t.Literal('tabular'),
-        ]),
-        license: t.String({ minLength: 1 }),
-      }),
       detail: {
         tags: ['datasets'],
         summary: 'Upload dataset',

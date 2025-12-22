@@ -55,7 +55,6 @@
     "@subsquid/typeorm-store": "1.5.1",
     "@subsquid/util-internal": "3.2.0",
     "elysia": "^1.4.19",
-    "hono": "4.11.1",
     "pg": "8.16.0",
     "typeorm": "0.3.26",
     "viem": "2.43.2",

@@ -63,10 +63,11 @@ export default function OAuth3Page() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary">
+          <button type="button" className="btn btn-secondary">
             <RefreshCw size={16} /> Refresh
           </button>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
             disabled={!isConnected}
@@ -137,6 +138,7 @@ export default function OAuth3Page() {
             <h3>No OAuth3 applications</h3>
             <p>Register an application to enable wallet-based authentication</p>
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setShowModal(true)}
               disabled={!isConnected}
@@ -178,7 +180,11 @@ export default function OAuth3Page() {
                       {app.requestCount.toLocaleString()} requests
                     </div>
                   </div>
-                  <button className="btn btn-ghost btn-sm" title="Delete">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    title="Delete"
+                  >
                     <Trash2 size={14} />
                   </button>
                 </div>
@@ -211,6 +217,7 @@ export default function OAuth3Page() {
                         {app.clientId}
                       </code>
                       <button
+                        type="button"
                         className="btn btn-ghost btn-icon"
                         style={{ padding: '0.25rem' }}
                         onClick={() => handleCopy(app.clientId, app.id)}
@@ -403,11 +410,29 @@ authUrl.searchParams.set('state', generateState());
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowModal(false)}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">New OAuth3 Application</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowModal(false)}
               >
@@ -417,8 +442,11 @@ authUrl.searchParams.set('state', generateState());
             <form onSubmit={handleCreate}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Application Name *</label>
+                  <label htmlFor="oauth3-app-name" className="form-label">
+                    Application Name *
+                  </label>
                   <input
+                    id="oauth3-app-name"
                     className="input"
                     placeholder="My App"
                     value={formData.name}
@@ -429,8 +457,11 @@ authUrl.searchParams.set('state', generateState());
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Redirect URI *</label>
+                  <label htmlFor="oauth3-redirect-uri" className="form-label">
+                    Redirect URI *
+                  </label>
                   <input
+                    id="oauth3-redirect-uri"
                     className="input"
                     placeholder="https://myapp.com/callback"
                     value={formData.redirectUri}
@@ -444,7 +475,7 @@ authUrl.searchParams.set('state', generateState());
                   </div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Grant Types</label>
+                  <span className="form-label">Grant Types</span>
                   <div style={{ display: 'grid', gap: '0.5rem' }}>
                     {[
                       {

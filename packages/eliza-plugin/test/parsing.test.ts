@@ -503,14 +503,14 @@ describe('Launchpad parsing patterns', () => {
       const text = 'supply: 1,000,000'
       const match = text.match(supplyPattern)
       expect(match?.[1]).toBe('1,000,000')
-      expect(BigInt(match![1].replace(/,/g, ''))).toBe(1000000n)
+      expect(BigInt(match?.[1].replace(/,/g, ''))).toBe(1000000n)
     })
 
     test('extracts large supply', () => {
       const text = 'supply: 1,000,000,000,000'
       const match = text.match(supplyPattern)
       expect(match?.[1]).toBe('1,000,000,000,000')
-      expect(BigInt(match![1].replace(/,/g, ''))).toBe(1000000000000n)
+      expect(BigInt(match?.[1].replace(/,/g, ''))).toBe(1000000000000n)
     })
   })
 
@@ -656,7 +656,8 @@ describe('Amount parsing property tests', () => {
       const result = parseSwapParams(`swap ${amount} ETH for USDC`)
       expect(result.amountIn).toBe(parseEther(amount))
       // Verify round-trip
-      expect(formatEther(result.amountIn!)).toBe(amount)
+      if (!result.amountIn) throw new Error('amountIn is undefined')
+      expect(formatEther(result.amountIn)).toBe(amount)
     }
   })
 
@@ -666,7 +667,8 @@ describe('Amount parsing property tests', () => {
         `bridge ${amount} ETH from jeju to base`,
       )
       expect(result.amount).toBe(parseEther(amount))
-      expect(formatEther(result.amount!)).toBe(amount)
+      expect(result.amount).toBeDefined()
+      expect(formatEther(result.amount ?? 0n)).toBe(amount)
     }
   })
 })

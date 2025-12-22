@@ -1,8 +1,16 @@
 /**
  * API Key Management Service - Decentralized via CovenantSQL
+ *
+ * Uses cryptographic hashing for key validation.
+ * Keys are hashed with SHA-256 before storage - plaintext keys are NEVER stored.
  */
 
-import { createHash, randomBytes } from 'node:crypto'
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+} from 'node:crypto'
 import type { Address } from 'viem'
 import { apiKeyState } from '../../state.js'
 import {
@@ -23,17 +31,75 @@ export interface ApiKeyRecord {
   isActive: boolean
 }
 
-// State initialization is handled by main server startup
-
 // Local cache for key -> id mapping (for fast validation without async)
 const localKeyCache = new Map<string, string>()
 
+/**
+ * Generate a cryptographically secure API key
+ */
 function generateKey(): string {
   return `jrpc_${randomBytes(24).toString('base64url')}`
 }
 
+/**
+ * Hash an API key for storage using SHA-256
+ * The plaintext key is NEVER stored - only the hash
+ */
 function hashKey(key: string): string {
   return createHash('sha256').update(key).digest('hex')
+}
+
+/**
+ * Derive encryption key for metadata encryption
+ * SECURITY: API_KEY_ENCRYPTION_SECRET MUST be set in production
+ */
+function deriveEncryptionKey(): Buffer {
+  const secret = process.env.API_KEY_ENCRYPTION_SECRET
+  const isProduction = process.env.NODE_ENV === 'production'
+
+  if (!secret) {
+    if (isProduction) {
+      throw new Error(
+        'CRITICAL: API_KEY_ENCRYPTION_SECRET must be set in production.',
+      )
+    }
+    // Dev mode - use derived key (logged warning)
+    console.warn('[API Keys] WARNING: API_KEY_ENCRYPTION_SECRET not set.')
+  }
+  return createHash('sha256')
+    .update(secret ?? 'INSECURE_API_KEY_SECRET')
+    .digest()
+}
+
+/**
+ * Encrypt sensitive metadata (address binding) with AES-256-GCM
+ * Exported for use by other services that need metadata encryption
+ */
+export function encryptMetadata(data: string): string {
+  const key = deriveEncryptionKey()
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', key, iv)
+  const encrypted = Buffer.concat([cipher.update(data, 'utf8'), cipher.final()])
+  const authTag = cipher.getAuthTag()
+  return Buffer.concat([iv, authTag, encrypted]).toString('base64')
+}
+
+/**
+ * Decrypt sensitive metadata with AES-256-GCM
+ * Exported for use by other services that need metadata decryption
+ */
+export function decryptMetadata(encryptedData: string): string {
+  const key = deriveEncryptionKey()
+  const data = Buffer.from(encryptedData, 'base64')
+  const iv = data.subarray(0, 12)
+  const authTag = data.subarray(12, 28)
+  const ciphertext = data.subarray(28)
+  const decipher = createDecipheriv('aes-256-gcm', key, iv)
+  decipher.setAuthTag(authTag)
+  return Buffer.concat([
+    decipher.update(ciphertext),
+    decipher.final(),
+  ]).toString('utf8')
 }
 
 export async function createApiKey(

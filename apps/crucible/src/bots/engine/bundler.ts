@@ -13,6 +13,15 @@
 import { type Chain, createWalletClient, http, keccak256, toBytes } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
+import {
+  FlashbotsBundleResponseSchema,
+  FlashbotsBundleStatsSchema,
+  FlashbotsSimulationResponseSchema,
+  L2RawTxResponseSchema,
+  MevShareCancelResponseSchema,
+  MevSharePrivateTxResponseSchema,
+  safeParse,
+} from '../../schemas'
 import { createLogger } from '../../sdk/logger'
 import type { ChainId } from '../autocrat-types'
 
@@ -398,16 +407,13 @@ export class MevBundler {
         }
       }
 
-      const result = (await response.json()) as {
-        result?: { bundleHash?: string }
-        error?: { message: string }
-      }
+      const result = safeParse(FlashbotsBundleResponseSchema, await response.json())
 
-      if (result.error) {
+      if (result?.error) {
         return { bundleHash: '', success: false, error: result.error.message }
       }
 
-      if (!result.result?.bundleHash) {
+      if (!result?.result?.bundleHash) {
         return {
           bundleHash: '',
           success: false,
@@ -454,12 +460,9 @@ export class MevBundler {
           }),
         })
 
-        const result = (await response.json()) as {
-          result?: string
-          error?: { message: string }
-        }
+        const result = safeParse(L2RawTxResponseSchema, await response.json())
 
-        if (result.error) {
+        if (result?.error) {
           return {
             bundleHash: '',
             success: false,
@@ -468,7 +471,7 @@ export class MevBundler {
           }
         }
 
-        return { bundleHash: result.result || '', success: true, builder: name }
+        return { bundleHash: result?.result || '', success: true, builder: name }
       } catch (error) {
         return {
           bundleHash: '',
@@ -520,17 +523,10 @@ export class MevBundler {
         body,
       })
 
-      const result = (await response.json()) as {
-        result?: {
-          results?: Array<{ txHash: string; gasUsed: string; revert?: string }>
-          totalGasUsed?: string
-          coinbaseDiff?: string
-        }
-        error?: { message: string }
-      }
+      const result = safeParse(FlashbotsSimulationResponseSchema, await response.json())
 
-      if (result.error || !result.result) {
-        return { success: false, error: result.error?.message || 'No result' }
+      if (result?.error || !result?.result) {
+        return { success: false, error: result?.error?.message || 'No result' }
       }
 
       if (!result.result.results) {
@@ -593,15 +589,9 @@ export class MevBundler {
         body,
       })
 
-      const result = (await response.json()) as {
-        result?: {
-          isSimulated?: boolean
-          isIncluded?: boolean
-          blockNumber?: string
-        }
-      }
+      const result = safeParse(FlashbotsBundleStatsSchema, await response.json())
 
-      const stats = result.result
+      const stats = result?.result
       const isIncluded =
         stats?.isIncluded === true || stats?.isSimulated === true
 
@@ -683,19 +673,16 @@ export class MevBundler {
         body,
       })
 
-      const result = (await response.json()) as {
-        result?: string | { txHash?: string }
-        error?: { message: string }
-      }
+      const result = safeParse(MevSharePrivateTxResponseSchema, await response.json())
 
-      if (result.error) {
+      if (result?.error) {
         return { txHash: '', success: false, error: result.error.message }
       }
 
       const txHash =
-        typeof result.result === 'string'
+        typeof result?.result === 'string'
           ? result.result
-          : result.result?.txHash || ''
+          : (result?.result as { txHash?: string } | undefined)?.txHash || ''
 
       return { txHash, success: !!txHash }
     } catch (error) {
@@ -732,8 +719,8 @@ export class MevBundler {
         body,
       })
 
-      const result = (await response.json()) as { result?: boolean }
-      return result.result === true
+      const result = safeParse(MevShareCancelResponseSchema, await response.json())
+      return result?.result === true
     } catch {
       return false
     }

@@ -4,7 +4,7 @@
  * Decentralized organization management using CQL database and DEX cache
  */
 
-import type { CQLQueryable, QueryParam } from '@jeju/db'
+import type { CQLQueryable, QueryParam } from '@jejunetwork/db'
 import { expect, StringArraySchema } from '../schemas'
 import { createLogger, type Logger } from '../sdk/logger'
 import type {

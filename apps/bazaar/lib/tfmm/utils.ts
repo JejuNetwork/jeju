@@ -4,12 +4,12 @@
  */
 
 import { AddressSchema } from '@jejunetwork/types'
-import { expect } from '@/lib/validation'
 import type {
   TFMMCreatePoolParams,
   TFMMTriggerRebalanceParams,
   TFMMUpdateStrategyParams,
-} from '@/schemas/api'
+} from '../../schemas/api'
+import { expect } from '../validation'
 
 export interface TFMMPool {
   address: string

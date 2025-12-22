@@ -87,6 +87,7 @@ export function Header() {
 
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={toggleTheme}
                 className="p-2 rounded-xl"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -105,6 +106,7 @@ export function Header() {
               </button>
 
               <button
+                type="button"
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="lg:hidden p-2 rounded-xl"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -120,12 +122,14 @@ export function Header() {
         </div>
       </header>
 
-      <div
+      <button
+        type="button"
         className={`fixed inset-0 z-40 lg:hidden transition-opacity duration-300 ${
           showMobileMenu ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
-        style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)', border: 'none' }}
         onClick={() => setShowMobileMenu(false)}
+        aria-label="Close mobile menu"
       />
 
       <nav
@@ -141,6 +145,7 @@ export function Header() {
           >
             <span className="font-bold text-gradient">Menu</span>
             <button
+              type="button"
               onClick={() => setShowMobileMenu(false)}
               className="p-2 rounded-xl"
               style={{ backgroundColor: 'var(--bg-secondary)' }}

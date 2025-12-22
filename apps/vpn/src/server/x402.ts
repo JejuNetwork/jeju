@@ -9,7 +9,7 @@
  * Uses fail-fast validation patterns
  */
 
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import { type Address, getAddress, type Hex } from 'viem'
 import {
   expect,
@@ -123,120 +123,120 @@ function checkAndUseNonce(nonce: string): boolean {
 // Middleware
 // ============================================================================
 
-export function createX402Middleware(ctx: VPNServiceContext): Hono {
-  const router = new Hono()
-
-  // Error handling middleware
-  router.onError((err, c) => {
-    console.error('x402 API error:', err)
-    return c.json({ error: err.message || 'Internal server error' }, 500)
-  })
-
-  /**
-   * GET /pricing - Get payment pricing for VPN services
-   */
-  router.get('/pricing', (c) => {
-    return c.json({
-      services: [
-        {
-          resource: 'vpn:connect',
-          description: 'Premium VPN connection (per hour)',
-          price: ctx.config.pricing.pricePerHour.toString(),
-          tokens: ctx.config.pricing.supportedTokens,
-        },
-        {
-          resource: 'vpn:proxy',
-          description: 'Single proxy request',
-          price: ctx.config.pricing.pricePerRequest.toString(),
-          tokens: ctx.config.pricing.supportedTokens,
-        },
-        {
-          resource: 'vpn:bandwidth',
-          description: 'Premium bandwidth (per GB)',
-          price: ctx.config.pricing.pricePerGB.toString(),
-          tokens: ctx.config.pricing.supportedTokens,
-        },
-      ],
-      recipient: ctx.config.paymentRecipient,
-      network: 'jeju',
+export function createX402Middleware(ctx: VPNServiceContext) {
+  const router = new Elysia({ prefix: '/x402' })
+    // Error handling middleware
+    .onError(({ error, set }) => {
+      console.error('x402 API error:', error)
+      set.status = 500
+      const message = error instanceof Error ? error.message : 'Internal server error'
+      return { error: message }
     })
-  })
 
-  /**
-   * POST /verify - Verify a payment
-   */
-  router.post('/verify', async (c) => {
-    const rawBody = await c.req.json()
-    const body = expectValid(X402VerifyRequestSchema, rawBody, 'verify request')
-
-    const amount = BigInt(body.amount)
-    expect(amount >= BigInt(0), 'Amount cannot be negative')
-
-    const result = await verifyX402Payment(
-      body.paymentHeader,
-      amount,
-      body.resource,
-      ctx.config,
-    )
-
-    if (!result.valid) {
-      throw new Error(result.error || 'Payment verification failed')
-    }
-    if (!result.receipt) {
-      throw new Error('Payment receipt missing after verification')
-    }
-
-    return c.json({
-      valid: true,
-      receipt: {
-        paymentId: result.receipt.paymentId,
-        payer: result.receipt.payer,
-        amount: result.receipt.amount.toString(),
-        resource: result.receipt.resource,
-      },
+    /**
+     * GET /pricing - Get payment pricing for VPN services
+     */
+    .get('/pricing', () => {
+      return {
+        services: [
+          {
+            resource: 'vpn:connect',
+            description: 'Premium VPN connection (per hour)',
+            price: ctx.config.pricing.pricePerHour.toString(),
+            tokens: ctx.config.pricing.supportedTokens,
+          },
+          {
+            resource: 'vpn:proxy',
+            description: 'Single proxy request',
+            price: ctx.config.pricing.pricePerRequest.toString(),
+            tokens: ctx.config.pricing.supportedTokens,
+          },
+          {
+            resource: 'vpn:bandwidth',
+            description: 'Premium bandwidth (per GB)',
+            price: ctx.config.pricing.pricePerGB.toString(),
+            tokens: ctx.config.pricing.supportedTokens,
+          },
+        ],
+        recipient: ctx.config.paymentRecipient,
+        network: 'jeju',
+      }
     })
-  })
 
-  /**
-   * POST /create-header - Create a payment header for client use
-   */
-  router.post('/create-header', async (c) => {
-    const rawBody = await c.req.json()
-    const body = expectValid(
-      X402CreateHeaderRequestSchema,
-      rawBody,
-      'create header request',
-    )
+    /**
+     * POST /verify - Verify a payment
+     */
+    .post('/verify', async ({ body }) => {
+      const validatedBody = expectValid(X402VerifyRequestSchema, body, 'verify request')
 
-    expect(
-      ctx.config.pricing.supportedTokens.length > 0,
-      'No supported tokens configured',
-    )
+      const amount = BigInt(validatedBody.amount)
+      expect(amount >= BigInt(0), 'Amount cannot be negative')
 
-    const timestamp = Math.floor(Date.now() / 1000)
-    // SECURITY: Use cryptographically secure random generation for nonces
-    const nonce = `${body.payer}-${timestamp}-${crypto.randomUUID()}`
+      const result = await verifyX402Payment(
+        validatedBody.paymentHeader,
+        amount,
+        validatedBody.resource,
+        ctx.config,
+      )
 
-    const payload: X402PaymentPayload = {
-      scheme: 'exact',
-      network: 'jeju',
-      payTo: ctx.config.paymentRecipient,
-      amount: body.amount,
-      asset: ctx.config.pricing.supportedTokens[0],
-      resource: body.resource,
-      nonce,
-      timestamp,
-      signature: body.signature as Hex,
-    }
+      if (!result.valid) {
+        throw new Error(result.error || 'Payment verification failed')
+      }
+      if (!result.receipt) {
+        throw new Error('Payment receipt missing after verification')
+      }
 
-    // Encode to base64 header
-    const header = Buffer.from(JSON.stringify(payload)).toString('base64')
-
-    return c.json({
-      header: `x402 ${header}`,
-      expiresAt: timestamp + 300, // 5 minutes
+      return {
+        valid: true,
+        receipt: {
+          paymentId: result.receipt.paymentId,
+          payer: result.receipt.payer,
+          amount: result.receipt.amount.toString(),
+          resource: result.receipt.resource,
+        },
+      }
     })
-  })
+
+    /**
+     * POST /create-header - Create a payment header for client use
+     */
+    .post('/create-header', async ({ body }) => {
+      const validatedBody = expectValid(
+        X402CreateHeaderRequestSchema,
+        body,
+        'create header request',
+      )
+
+      expect(
+        ctx.config.pricing.supportedTokens.length > 0,
+        'No supported tokens configured',
+      )
+
+      const timestamp = Math.floor(Date.now() / 1000)
+      // SECURITY: Use cryptographically secure random generation for nonces
+      const nonce = `${validatedBody.payer}-${timestamp}-${crypto.randomUUID()}`
+
+      const payload: X402PaymentPayload = {
+        scheme: 'exact',
+        network: 'jeju',
+        payTo: ctx.config.paymentRecipient,
+        amount: validatedBody.amount,
+        asset: ctx.config.pricing.supportedTokens[0],
+        resource: validatedBody.resource,
+        nonce,
+        timestamp,
+        // body.signature is already validated as Hex by X402CreateHeaderRequestSchema
+        signature: validatedBody.signature,
+      }
+
+      // Encode to base64 header
+      const header = Buffer.from(JSON.stringify(payload)).toString('base64')
+
+      return {
+        header: `x402 ${header}`,
+        expiresAt: timestamp + 300, // 5 minutes
+      }
+    })
 
   return router
 }
@@ -265,24 +265,13 @@ export async function verifyX402Payment(
 
     const decoded = Buffer.from(encoded, 'base64').toString('utf-8')
     const parsed = JSON.parse(decoded)
-    const validated = expectValid(
+    // X402PaymentPayloadSchema validates and transforms to correct types
+    // AddressSchema returns Address, HexSchema returns Hex
+    payload = expectValid(
       X402PaymentPayloadSchema,
       parsed,
       'x402 payment payload',
     )
-
-    // Convert validated schema to X402PaymentPayload type
-    payload = {
-      scheme: validated.scheme,
-      network: validated.network,
-      payTo: validated.payTo as Address,
-      amount: validated.amount,
-      asset: validated.asset as Address,
-      resource: validated.resource,
-      nonce: validated.nonce,
-      timestamp: validated.timestamp,
-      signature: validated.signature as Hex,
-    }
   } catch (err) {
     return {
       valid: false,

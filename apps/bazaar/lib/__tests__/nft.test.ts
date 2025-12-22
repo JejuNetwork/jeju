@@ -4,7 +4,7 @@
 
 import { describe, expect, test } from 'bun:test'
 import { parseEther } from 'viem'
-import type { NormalizedNFT } from '@/schemas/nft'
+import type { NormalizedNFT } from '../../schemas/nft'
 import {
   // Types
   type AuctionState,

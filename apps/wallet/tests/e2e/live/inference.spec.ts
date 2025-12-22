@@ -8,39 +8,47 @@
  */
 
 import { expect, test } from '@playwright/test'
+import { z } from 'zod'
 
-interface ModelInfo {
-  id: string
-}
+// Zod schemas for test validation
+const ModelInfoSchema = z.object({
+  id: z.string(),
+})
 
-interface ChatChoice {
-  message: {
-    role: string
-    content: string
-  }
-}
+const ChatChoiceSchema = z.object({
+  message: z.object({
+    role: z.string(),
+    content: z.string(),
+  }),
+})
 
-interface ChatCompletionResponse {
-  id: string
-  object: string
-  model: string
-  choices: ChatChoice[]
-  usage: {
-    prompt_tokens: number
-    completion_tokens: number
-    total_tokens: number
-  }
-}
+const ChatCompletionResponseSchema = z.object({
+  id: z.string().optional(),
+  object: z.string(),
+  model: z.string().optional(),
+  choices: z.array(ChatChoiceSchema),
+  usage: z
+    .object({
+      prompt_tokens: z.number(),
+      completion_tokens: z.number(),
+      total_tokens: z.number(),
+    })
+    .optional(),
+})
 
-interface ModelsResponse {
-  object: string
-  data: ModelInfo[]
-}
+const ModelsResponseSchema = z.object({
+  object: z.string(),
+  data: z.array(ModelInfoSchema),
+})
 
-interface HealthResponse {
-  status: string
-  providers?: number
-}
+const HealthResponseSchema = z.object({
+  status: z.string(),
+  providers: z.number().optional(),
+})
+
+type ChatCompletionResponse = z.infer<typeof ChatCompletionResponseSchema>
+type ModelsResponse = z.infer<typeof ModelsResponseSchema>
+type HealthResponse = z.infer<typeof HealthResponseSchema>
 
 test.describe('Inference API', () => {
   const inferenceUrl = 'http://localhost:4100'
@@ -49,7 +57,7 @@ test.describe('Inference API', () => {
     const response = await request.get(`${inferenceUrl}/health`)
     expect(response.ok()).toBe(true)
 
-    const data: HealthResponse = await response.json()
+    const data = HealthResponseSchema.parse(await response.json())
     expect(data.status).toBe('ok')
   })
 
@@ -57,7 +65,7 @@ test.describe('Inference API', () => {
     const response = await request.get(`${inferenceUrl}/v1/models`)
     expect(response.ok()).toBe(true)
 
-    const data: ModelsResponse = await response.json()
+    const data = ModelsResponseSchema.parse(await response.json())
     expect(data.object).toBe('list')
     expect(data.data).toBeInstanceOf(Array)
     expect(data.data.length).toBeGreaterThan(0)
@@ -76,7 +84,7 @@ test.describe('Inference API', () => {
 
     expect(response.ok()).toBe(true)
 
-    const data: ChatCompletionResponse = await response.json()
+    const data = ChatCompletionResponseSchema.parse(await response.json())
     expect(data.object).toBe('chat.completion')
     expect(data.choices).toBeInstanceOf(Array)
     expect(data.choices.length).toBe(1)
@@ -96,7 +104,7 @@ test.describe('Inference API', () => {
 
     expect(response.ok()).toBe(true)
 
-    const data: ChatCompletionResponse = await response.json()
+    const data = ChatCompletionResponseSchema.parse(await response.json())
     expect(data).toHaveProperty('id')
     expect(data).toHaveProperty('object', 'chat.completion')
     expect(data).toHaveProperty('model')
@@ -109,7 +117,7 @@ test.describe('Inference API', () => {
 
   test('should indicate when no API key is configured', async ({ request }) => {
     const healthResponse = await request.get(`${inferenceUrl}/health`)
-    const health: HealthResponse = await healthResponse.json()
+    const health = HealthResponseSchema.parse(await healthResponse.json())
 
     if (health.providers === 0) {
       const response = await request.post(
@@ -122,7 +130,7 @@ test.describe('Inference API', () => {
         },
       )
 
-      const data: ChatCompletionResponse = await response.json()
+      const data = ChatCompletionResponseSchema.parse(await response.json())
       const content = data.choices[0].message.content.toLowerCase()
       expect(content).toContain('api')
     }

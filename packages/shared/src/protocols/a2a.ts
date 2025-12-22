@@ -4,12 +4,47 @@
  * Creates A2A servers for dApps.
  */
 
+import { cors } from '@elysiajs/cors'
 import { getNetworkName, getWebsiteUrl } from '@jejunetwork/config'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
-import type { JsonRpcId, ProtocolData } from '../types'
+import { z } from 'zod'
+import type { ProtocolData, ProtocolValue } from '../types'
 import type { A2ASkill } from './server'
+
+// Zod schema for recursive ProtocolValue type
+const ProtocolValueSchema: z.ZodType<ProtocolValue> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(ProtocolValueSchema),
+    z.record(z.string(), ProtocolValueSchema),
+  ]),
+)
+
+const A2AMessagePartSchema = z.object({
+  kind: z.string(),
+  text: z.string().optional(),
+  data: z.record(z.string(), ProtocolValueSchema).optional(),
+})
+
+const A2ARequestSchema = z.object({
+  jsonrpc: z.string(),
+  method: z.string(),
+  params: z
+    .object({
+      message: z
+        .object({
+          messageId: z.string(),
+          parts: z.array(A2AMessagePartSchema),
+        })
+        .optional(),
+    })
+    .optional(),
+  id: z.union([z.number(), z.string(), z.null()]),
+})
 
 export interface A2AConfig {
   name: string
@@ -48,10 +83,7 @@ export interface AgentCard {
   skills: A2ASkill[]
 }
 
-export function createA2AServer(config: A2AConfig): Hono {
-  const app = new Hono()
-  app.use('/*', cors())
-
+export function createA2AServer(config: A2AConfig) {
   const agentCard: AgentCard = {
     protocolVersion: '0.3.0',
     name: config.name,
@@ -70,69 +102,71 @@ export function createA2AServer(config: A2AConfig): Hono {
     skills: config.skills,
   }
 
-  // Agent card discovery
-  app.get('/.well-known/agent-card.json', (c) => c.json(agentCard))
+  return new Elysia()
+    .use(cors())
+    // Agent card discovery
+    .get('/.well-known/agent-card.json', () => agentCard)
 
-  // Main A2A endpoint
-  app.post('/', async (c) => {
-    interface A2ARequest {
-      jsonrpc: string
-      method: string
-      params?: {
-        message?: {
-          messageId: string
-          parts: Array<{ kind: string; text?: string; data?: ProtocolData }>
+    // Main A2A endpoint
+    .post('/', async ({ body, headers, set }) => {
+      const parseResult = A2ARequestSchema.safeParse(body)
+
+      if (!parseResult.success) {
+        set.status = 400
+        return {
+          jsonrpc: '2.0',
+          id: 0,
+          error: { code: -32600, message: 'Invalid request format' },
         }
       }
-      id: JsonRpcId
-    }
 
-    const body = (await c.req.json()) as A2ARequest
-    const address = c.req.header('x-jeju-address') as Address
+      const requestBody = parseResult.data
+      const address = headers['x-jeju-address'] as Address
 
-    if (body.method !== 'message/send') {
-      return c.json({
+      if (requestBody.method !== 'message/send') {
+        return {
+          jsonrpc: '2.0',
+          id: requestBody.id,
+          error: { code: -32601, message: 'Method not found' },
+        }
+      }
+
+      if (!address) {
+        return {
+          jsonrpc: '2.0',
+          id: requestBody.id,
+          error: { code: 401, message: 'Authentication required' },
+        }
+      }
+
+      const dataPart = requestBody.params?.message?.parts?.find(
+        (p) => p.kind === 'data',
+      )
+      if (!dataPart?.data) {
+        return {
+          jsonrpc: '2.0',
+          id: requestBody.id,
+          error: { code: -32602, message: 'No data part found in message' },
+        }
+      }
+      const skillId = dataPart.data.skillId as string
+      const params = dataPart.data as ProtocolData
+
+      const result = await config.executeSkill(skillId, params, address)
+
+      return {
         jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32601, message: 'Method not found' },
-      })
-    }
-
-    if (!address) {
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        error: { code: 401, message: 'Authentication required' },
-      })
-    }
-
-    const dataPart = body.params?.message?.parts?.find((p) => p.kind === 'data')
-    if (!dataPart?.data) {
-      return c.json({
-        jsonrpc: '2.0',
-        id: body.id,
-        error: { code: -32602, message: 'No data part found in message' },
-      })
-    }
-    const skillId = dataPart.data.skillId as string
-    const params = dataPart.data
-
-    const result = await config.executeSkill(skillId, params, address)
-
-    return c.json({
-      jsonrpc: '2.0',
-      id: body.id,
-      result: {
-        role: 'agent',
-        parts: [
-          { kind: 'text', text: result.message },
-          { kind: 'data', data: result.data },
-        ],
-        messageId: body.params?.message?.messageId ?? `msg-${Date.now()}`,
-        kind: 'message',
-      },
+        id: requestBody.id,
+        result: {
+          role: 'agent',
+          parts: [
+            { kind: 'text', text: result.message },
+            { kind: 'data', data: result.data },
+          ],
+          messageId:
+            requestBody.params?.message?.messageId ?? `msg-${Date.now()}`,
+          kind: 'message',
+        },
+      }
     })
-  })
-
-  return app
 }

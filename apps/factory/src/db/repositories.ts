@@ -5,6 +5,14 @@
 
 import type { Address } from 'viem'
 import {
+  AssigneesSchema,
+  expectJson,
+  LabelsSchema,
+  MilestonesSchema,
+  ReviewersSchema,
+  SkillsSchema,
+} from '../schemas'
+import {
   type Agent,
   type Bounty,
   getFactoryDB,
@@ -56,10 +64,12 @@ export const BountyRepository = {
     return rows.map((row) => ({
       ...row,
       skills:
-        typeof row.skills === 'string' ? JSON.parse(row.skills) : row.skills,
+        typeof row.skills === 'string'
+          ? expectJson(SkillsSchema, row.skills, 'bounty skills')
+          : row.skills,
       milestones: row.milestones
         ? typeof row.milestones === 'string'
-          ? JSON.parse(row.milestones)
+          ? expectJson(MilestonesSchema, row.milestones, 'bounty milestones')
           : row.milestones
         : undefined,
     }))
@@ -73,10 +83,12 @@ export const BountyRepository = {
     return {
       ...row,
       skills:
-        typeof row.skills === 'string' ? JSON.parse(row.skills) : row.skills,
+        typeof row.skills === 'string'
+          ? expectJson(SkillsSchema, row.skills, 'bounty skills')
+          : row.skills,
       milestones: row.milestones
         ? typeof row.milestones === 'string'
-          ? JSON.parse(row.milestones)
+          ? expectJson(MilestonesSchema, row.milestones, 'bounty milestones')
           : row.milestones
         : undefined,
     }
@@ -189,7 +201,9 @@ export const JobRepository = {
     return rows.map((row) => ({
       ...row,
       skills:
-        typeof row.skills === 'string' ? JSON.parse(row.skills) : row.skills,
+        typeof row.skills === 'string'
+          ? expectJson(SkillsSchema, row.skills, 'job skills')
+          : row.skills,
     }))
   },
 
@@ -201,7 +215,9 @@ export const JobRepository = {
     return {
       ...row,
       skills:
-        typeof row.skills === 'string' ? JSON.parse(row.skills) : row.skills,
+        typeof row.skills === 'string'
+          ? expectJson(SkillsSchema, row.skills, 'job skills')
+          : row.skills,
     }
   },
 
@@ -654,12 +670,12 @@ export const IssueRepository = {
       ...row,
       labels: row.labels
         ? typeof row.labels === 'string'
-          ? JSON.parse(row.labels)
+          ? expectJson(LabelsSchema, row.labels, 'issue labels')
           : row.labels
         : null,
       assignees: row.assignees
         ? typeof row.assignees === 'string'
-          ? JSON.parse(row.assignees)
+          ? expectJson(AssigneesSchema, row.assignees, 'issue assignees')
           : row.assignees
         : null,
     }))
@@ -681,12 +697,12 @@ export const IssueRepository = {
       ...row,
       labels: row.labels
         ? typeof row.labels === 'string'
-          ? JSON.parse(row.labels)
+          ? expectJson(LabelsSchema, row.labels, 'issue labels')
           : row.labels
         : null,
       assignees: row.assignees
         ? typeof row.assignees === 'string'
-          ? JSON.parse(row.assignees)
+          ? expectJson(AssigneesSchema, row.assignees, 'issue assignees')
           : row.assignees
         : null,
     }
@@ -765,12 +781,12 @@ export const PullRepository = {
       ...row,
       labels: row.labels
         ? typeof row.labels === 'string'
-          ? JSON.parse(row.labels)
+          ? expectJson(LabelsSchema, row.labels, 'pull labels')
           : row.labels
         : null,
       reviewers: row.reviewers
         ? typeof row.reviewers === 'string'
-          ? JSON.parse(row.reviewers)
+          ? expectJson(ReviewersSchema, row.reviewers, 'pull reviewers')
           : row.reviewers
         : null,
     }))

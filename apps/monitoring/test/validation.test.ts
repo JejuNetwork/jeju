@@ -4,32 +4,63 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import type { GraphQLResponse, JsonRpcParams, JsonRpcResponse } from '../types'
+import { z } from 'zod'
+import type { JsonRpcParams } from '../src/types'
 
 const INDEXER_GRAPHQL_URL =
   process.env.INDEXER_GRAPHQL_URL || 'http://localhost:4350/graphql'
-const RPC_URL = process.env.RPC_URL || 'http://localhost:9545'
+const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
 
-async function graphqlQuery<T>(query: string): Promise<T> {
+// ============================================================================
+// Response Schemas for Test Helpers
+// ============================================================================
+
+function GraphQLResponseSchema<T extends z.ZodTypeAny>(dataSchema: T) {
+  return z.object({
+    data: dataSchema.optional(),
+    errors: z
+      .array(z.object({ message: z.string() }))
+      .optional(),
+  })
+}
+
+function JsonRpcResponseSchema<T extends z.ZodTypeAny>(resultSchema: T) {
+  return z.object({
+    result: resultSchema,
+    error: z.object({ message: z.string() }).optional(),
+  })
+}
+
+async function graphqlQuery<T>(
+  query: string,
+  responseSchema: z.ZodSchema<T>,
+): Promise<T> {
   const response = await fetch(INDEXER_GRAPHQL_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query }),
   })
 
-  const result = (await response.json()) as GraphQLResponse<T>
-  if (result.errors) {
-    throw new Error(result.errors[0].message)
+  const json: unknown = await response.json()
+  const schema = GraphQLResponseSchema(responseSchema)
+  const parsed = schema.safeParse(json)
+
+  if (!parsed.success) {
+    throw new Error(`Invalid GraphQL response: ${parsed.error.issues[0]?.message}`)
   }
-  if (!result.data) {
+  if (parsed.data.errors?.length) {
+    throw new Error(parsed.data.errors[0].message)
+  }
+  if (!parsed.data.data) {
     throw new Error('GraphQL response missing data field')
   }
-  return result.data
+  return parsed.data.data
 }
 
 async function rpcCall<T>(
   method: string,
-  params: JsonRpcParams = [],
+  params: JsonRpcParams,
+  resultSchema: z.ZodSchema<T>,
 ): Promise<T> {
   const response = await fetch(RPC_URL, {
     method: 'POST',
@@ -37,33 +68,126 @@ async function rpcCall<T>(
     body: JSON.stringify({ jsonrpc: '2.0', method, params, id: 1 }),
   })
 
-  const result = (await response.json()) as JsonRpcResponse<T>
-  if (result.error) {
-    throw new Error(result.error.message)
+  const json: unknown = await response.json()
+  const schema = JsonRpcResponseSchema(resultSchema)
+  const parsed = schema.safeParse(json)
+
+  if (!parsed.success) {
+    throw new Error(`Invalid RPC response: ${parsed.error.issues[0]?.message}`)
   }
-  return result.result
+  if (parsed.data.error) {
+    throw new Error(parsed.data.error.message)
+  }
+  return parsed.data.result
 }
+
+// ============================================================================
+// Response Schemas for Test Data
+// ============================================================================
+
+const BlocksSchema = z.object({
+  blocks: z.array(z.object({
+    number: z.number(),
+    hash: z.string().optional(),
+    parentHash: z.string().optional(),
+    transactionCount: z.number().optional(),
+  })),
+})
+
+const TransactionsSchema = z.object({
+  transactions: z.array(z.object({
+    hash: z.string(),
+    from: z.object({ address: z.string() }),
+    to: z.object({ address: z.string() }).optional().nullable(),
+    value: z.string().optional(),
+    nonce: z.number().optional(),
+  })),
+})
+
+const AccountsSchema = z.object({
+  accounts: z.array(z.object({ address: z.string() })),
+})
+
+const AccountsConnectionSchema = z.object({
+  accountsConnection: z.object({ totalCount: z.number() }),
+})
+
+const ContractsSchema = z.object({
+  contracts: z.array(z.object({
+    address: z.string(),
+    isERC20: z.boolean(),
+    isERC721: z.boolean(),
+  })),
+})
+
+const TokenTransfersSchema = z.object({
+  tokenTransfers: z.array(z.object({
+    from: z.object({ address: z.string() }),
+    to: z.object({ address: z.string() }),
+    token: z.object({ address: z.string() }),
+    value: z.string(),
+    tokenStandard: z.string(),
+  })),
+})
+
+const DecodedEventsSchema = z.object({
+  decodedEvents: z.array(z.object({
+    eventName: z.string(),
+    eventSignature: z.string(),
+    args: z.record(z.string(), z.string()),
+  })),
+})
+
+const LogsSchema = z.object({
+  logs: z.array(z.object({
+    transaction: z.object({ hash: z.string() }),
+    logIndex: z.number(),
+    address: z.object({ address: z.string() }),
+    topic0: z.string().nullable(),
+    data: z.string(),
+  })),
+})
+
+const RpcStringResultSchema = z.string()
+
+const RpcBlockSchema = z.object({
+  hash: z.string(),
+  parentHash: z.string(),
+  transactions: z.array(z.string()),
+})
+
+const RpcTxSchema = z.object({
+  from: z.string(),
+  value: z.string(),
+  nonce: z.string(),
+})
+
+const RpcReceiptSchema = z.object({
+  logs: z.array(z.object({
+    logIndex: z.string(),
+    address: z.string(),
+    topics: z.array(z.string()),
+    data: z.string(),
+  })),
+})
 
 describe('Block Count Validation', () => {
   test('indexed block count should match on-chain', async () => {
-    const onChainBlockHex = await rpcCall<string>('eth_blockNumber').catch(
-      () => null,
-    )
+    const onChainBlockHex = await rpcCall(
+      'eth_blockNumber',
+      [],
+      RpcStringResultSchema,
+    ).catch(() => null)
     if (!onChainBlockHex) {
       console.log('⚠️ RPC not available - skipping on-chain validation')
       return
     }
     const onChainBlockNumber = parseInt(onChainBlockHex, 16)
 
-    const indexerData = await graphqlQuery<{
-      blocks: Array<{ number: number }>
-    }>(`
-      query {
-        blocks(orderBy: number_DESC, limit: 1) {
-          number
-        }
-      }
-    `).catch(() => null)
+    const indexerData = await graphqlQuery(
+      `query { blocks(orderBy: number_DESC, limit: 1) { number } }`,
+      BlocksSchema,
+    ).catch(() => null)
 
     if (!indexerData) {
       console.log('⚠️ Indexer not available - skipping validation')
@@ -88,16 +212,10 @@ describe('Block Count Validation', () => {
 
 describe('Transaction Count Validation', () => {
   test('should have indexed transactions for recent blocks', async () => {
-    const indexerData = await graphqlQuery<{
-      blocks: Array<{ number: number; transactionCount: number }>
-    }>(`
-      query {
-        blocks(orderBy: number_DESC, limit: 10) {
-          number
-          transactionCount
-        }
-      }
-    `).catch(() => null)
+    const indexerData = await graphqlQuery(
+      `query { blocks(orderBy: number_DESC, limit: 10) { number transactionCount } }`,
+      BlocksSchema,
+    ).catch(() => null)
 
     if (!indexerData) {
       console.log('⚠️ Indexer not available')
@@ -105,9 +223,10 @@ describe('Transaction Count Validation', () => {
     }
 
     for (const block of indexerData.blocks) {
-      const onChainBlock = await rpcCall<{ transactions: string[] }>(
+      const onChainBlock = await rpcCall(
         'eth_getBlockByNumber',
         [`0x${block.number.toString(16)}`, false],
+        RpcBlockSchema,
       ).catch(() => null)
 
       if (onChainBlock) {
@@ -121,19 +240,10 @@ describe('Transaction Count Validation', () => {
 
 describe('Account Tracking Validation', () => {
   test('transaction participants should be tracked as accounts', async () => {
-    const txData = await graphqlQuery<{
-      transactions: Array<{
-        from: { address: string }
-        to?: { address: string }
-      }>
-    }>(`
-      query {
-        transactions(limit: 10) {
-          from { address }
-          to { address }
-        }
-      }
-    `).catch(() => null)
+    const txData = await graphqlQuery(
+      `query { transactions(limit: 10) { from { address } to { address } } }`,
+      TransactionsSchema,
+    ).catch(() => null)
 
     if (!txData) {
       console.log('⚠️ Indexer not available')
@@ -147,15 +257,10 @@ describe('Account Tracking Validation', () => {
     }
 
     for (const address of addresses) {
-      const accountData = await graphqlQuery<{
-        accounts: Array<{ address: string }>
-      }>(`
-        query {
-          accounts(where: { address_eq: "${address}" }) {
-            address
-          }
-        }
-      `).catch(() => null)
+      const accountData = await graphqlQuery(
+        `query { accounts(where: { address_eq: "${address}" }) { address } }`,
+        AccountsSchema,
+      ).catch(() => null)
 
       expect(accountData?.accounts.length).toBeGreaterThan(0)
     }
@@ -166,17 +271,10 @@ describe('Account Tracking Validation', () => {
 
 describe('Contract Detection Validation', () => {
   test('deployed contracts should be detected', async () => {
-    const contractData = await graphqlQuery<{
-      contracts: Array<{ address: string; isERC20: boolean; isERC721: boolean }>
-    }>(`
-      query {
-        contracts(limit: 10) {
-          address
-          isERC20
-          isERC721
-        }
-      }
-    `).catch(() => null)
+    const contractData = await graphqlQuery(
+      `query { contracts(limit: 10) { address isERC20 isERC721 } }`,
+      ContractsSchema,
+    ).catch(() => null)
 
     if (!contractData) {
       console.log('⚠️ Indexer not available')
@@ -184,10 +282,11 @@ describe('Contract Detection Validation', () => {
     }
 
     for (const contract of contractData.contracts) {
-      const code = await rpcCall<string>('eth_getCode', [
-        contract.address,
-        'latest',
-      ]).catch(() => '0x')
+      const code = await rpcCall(
+        'eth_getCode',
+        [contract.address, 'latest'],
+        RpcStringResultSchema,
+      ).catch(() => '0x')
       expect(code.length).toBeGreaterThan(2)
     }
 
@@ -199,25 +298,10 @@ describe('Contract Detection Validation', () => {
 
 describe('Token Transfer Validation', () => {
   test('ERC20 transfers should have valid balances', async () => {
-    const transferData = await graphqlQuery<{
-      tokenTransfers: Array<{
-        from: { address: string }
-        to: { address: string }
-        token: { address: string }
-        value: string
-        tokenStandard: string
-      }>
-    }>(`
-      query {
-        tokenTransfers(where: { tokenStandard_eq: ERC20 }, limit: 5) {
-          from { address }
-          to { address }
-          token { address }
-          value
-          tokenStandard
-        }
-      }
-    `).catch(() => null)
+    const transferData = await graphqlQuery(
+      `query { tokenTransfers(where: { tokenStandard_eq: ERC20 }, limit: 5) { from { address } to { address } token { address } value tokenStandard } }`,
+      TokenTransfersSchema,
+    ).catch(() => null)
 
     if (!transferData) {
       console.log('⚠️ Indexer not available')
@@ -238,21 +322,10 @@ describe('Token Transfer Validation', () => {
 
 describe('Event Decoding Validation', () => {
   test('decoded events should have valid signatures', async () => {
-    const eventData = await graphqlQuery<{
-      decodedEvents: Array<{
-        eventName: string
-        eventSignature: string
-        args: Record<string, string>
-      }>
-    }>(`
-      query {
-        decodedEvents(limit: 20) {
-          eventName
-          eventSignature
-          args
-        }
-      }
-    `).catch(() => null)
+    const eventData = await graphqlQuery(
+      `query { decodedEvents(limit: 20) { eventName eventSignature args } }`,
+      DecodedEventsSchema,
+    ).catch(() => null)
 
     if (!eventData) {
       console.log('⚠️ Indexer not available')
@@ -275,17 +348,10 @@ describe('Event Decoding Validation', () => {
 
 describe('Block Data Integrity', () => {
   test('block hashes should match on-chain', async () => {
-    const indexerData = await graphqlQuery<{
-      blocks: Array<{ number: number; hash: string; parentHash: string }>
-    }>(`
-      query {
-        blocks(orderBy: number_DESC, limit: 5) {
-          number
-          hash
-          parentHash
-        }
-      }
-    `).catch(() => null)
+    const indexerData = await graphqlQuery(
+      `query { blocks(orderBy: number_DESC, limit: 5) { number hash parentHash } }`,
+      BlocksSchema,
+    ).catch(() => null)
 
     if (!indexerData) {
       console.log('⚠️ Indexer not available')
@@ -293,12 +359,13 @@ describe('Block Data Integrity', () => {
     }
 
     for (const block of indexerData.blocks) {
-      const onChainBlock = await rpcCall<{ hash: string; parentHash: string }>(
+      const onChainBlock = await rpcCall(
         'eth_getBlockByNumber',
         [`0x${block.number.toString(16)}`, false],
+        RpcBlockSchema,
       ).catch(() => null)
 
-      if (onChainBlock) {
+      if (onChainBlock && block.hash && block.parentHash) {
         expect(block.hash.toLowerCase()).toBe(onChainBlock.hash.toLowerCase())
         expect(block.parentHash.toLowerCase()).toBe(
           onChainBlock.parentHash.toLowerCase(),
@@ -312,23 +379,10 @@ describe('Block Data Integrity', () => {
 
 describe('Transaction Data Integrity', () => {
   test('transaction data should match on-chain', async () => {
-    const indexerData = await graphqlQuery<{
-      transactions: Array<{
-        hash: string
-        from: { address: string }
-        value: string
-        nonce: number
-      }>
-    }>(`
-      query {
-        transactions(limit: 5) {
-          hash
-          from { address }
-          value
-          nonce
-        }
-      }
-    `).catch(() => null)
+    const indexerData = await graphqlQuery(
+      `query { transactions(limit: 5) { hash from { address } value nonce } }`,
+      TransactionsSchema,
+    ).catch(() => null)
 
     if (!indexerData) {
       console.log('⚠️ Indexer not available')
@@ -336,13 +390,13 @@ describe('Transaction Data Integrity', () => {
     }
 
     for (const tx of indexerData.transactions) {
-      const onChainTx = await rpcCall<{
-        from: string
-        value: string
-        nonce: string
-      }>('eth_getTransactionByHash', [tx.hash]).catch(() => null)
+      const onChainTx = await rpcCall(
+        'eth_getTransactionByHash',
+        [tx.hash],
+        RpcTxSchema,
+      ).catch(() => null)
 
-      if (onChainTx) {
+      if (onChainTx && tx.value && tx.nonce !== undefined) {
         expect(tx.from.address.toLowerCase()).toBe(onChainTx.from.toLowerCase())
         expect(BigInt(tx.value)).toBe(BigInt(onChainTx.value))
         expect(tx.nonce).toBe(parseInt(onChainTx.nonce, 16))
@@ -355,25 +409,10 @@ describe('Transaction Data Integrity', () => {
 
 describe('Log Data Integrity', () => {
   test('logs should match on-chain receipts', async () => {
-    const indexerData = await graphqlQuery<{
-      logs: Array<{
-        transaction: { hash: string }
-        logIndex: number
-        address: { address: string }
-        topic0: string
-        data: string
-      }>
-    }>(`
-      query {
-        logs(limit: 5) {
-          transaction { hash }
-          logIndex
-          address { address }
-          topic0
-          data
-        }
-      }
-    `).catch(() => null)
+    const indexerData = await graphqlQuery(
+      `query { logs(limit: 5) { transaction { hash } logIndex address { address } topic0 data } }`,
+      LogsSchema,
+    ).catch(() => null)
 
     if (!indexerData) {
       console.log('⚠️ Indexer not available')
@@ -381,14 +420,11 @@ describe('Log Data Integrity', () => {
     }
 
     for (const log of indexerData.logs) {
-      const receipt = await rpcCall<{
-        logs: Array<{
-          logIndex: string
-          address: string
-          topics: string[]
-          data: string
-        }>
-      }>('eth_getTransactionReceipt', [log.transaction.hash]).catch(() => null)
+      const receipt = await rpcCall(
+        'eth_getTransactionReceipt',
+        [log.transaction.hash],
+        RpcReceiptSchema,
+      ).catch(() => null)
 
       if (receipt) {
         const onChainLog = receipt.logs[log.logIndex]
@@ -411,25 +447,15 @@ describe('Log Data Integrity', () => {
 
 describe('Metrics Consistency', () => {
   test('account count should match unique addresses in transactions', async () => {
-    const accountCount = await graphqlQuery<{
-      accountsConnection: { totalCount: number }
-    }>(`
-      query {
-        accountsConnection {
-          totalCount
-        }
-      }
-    `).catch(() => null)
+    const accountCount = await graphqlQuery(
+      `query { accountsConnection { totalCount } }`,
+      AccountsConnectionSchema,
+    ).catch(() => null)
 
-    const txData = await graphqlQuery<{
-      transactions: Array<{ from: { address: string } }>
-    }>(`
-      query {
-        transactions(limit: 1000) {
-          from { address }
-        }
-      }
-    `).catch(() => null)
+    const txData = await graphqlQuery(
+      `query { transactions(limit: 1000) { from { address } } }`,
+      TransactionsSchema,
+    ).catch(() => null)
 
     if (!accountCount || !txData) {
       console.log('⚠️ Indexer not available')

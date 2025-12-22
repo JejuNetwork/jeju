@@ -535,7 +535,7 @@ describe('Messaging Relay', () => {
     expect(received).toBeDefined()
 
     const decrypted = decrypt(
-      new Uint8Array(Buffer.from(received!.content, 'base64')),
+      new Uint8Array(Buffer.from(received?.content, 'base64')),
       sharedKey,
     )
     expect(decrypted).toBe(originalMessage)

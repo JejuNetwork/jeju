@@ -31,7 +31,7 @@ import {
 const CONFIG = {
   atroposPort: 8000,
   trainingApiPort: 8080,
-  evmRpcUrl: 'http://localhost:8545',
+  evmRpcUrl: 'http://localhost:6545',
   solanaRpcUrl: 'http://localhost:8899',
   bridgeAddress: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512' as Address,
   evmPrivateKey:

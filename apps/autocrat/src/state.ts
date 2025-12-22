@@ -8,6 +8,7 @@
 import { getCurrentNetwork } from '@jejunetwork/config'
 import { type CQLClient, getCQL, type QueryParam } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+import { keccak256, stringToHex } from 'viem'
 import { z } from 'zod'
 import type { AutocratVote, StoredObject } from './types.js'
 
@@ -699,7 +700,6 @@ const StoredObjectSchema = z.discriminatedUnion('type', [
 export const storageState = {
   async store(data: StoredObject): Promise<string> {
     const content = JSON.stringify(data)
-    const { keccak256, stringToHex } = await import('viem')
     const hash = keccak256(stringToHex(content)).slice(2, 50)
 
     const client = await getCQLClient()

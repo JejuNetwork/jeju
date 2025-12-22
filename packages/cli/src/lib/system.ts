@@ -227,6 +227,7 @@ export async function installKurtosis(): Promise<boolean> {
       const url = `https://github.com/kurtosis-tech/kurtosis-cli-release-artifacts/releases/download/${version}/${tarball}`
 
       // Use cryptographically secure temp path to prevent race conditions
+      // Dynamic import: only needed on Linux platform (conditional)
       const { randomBytes } = await import('node:crypto')
       const tmpPath = `/tmp/kurtosis-${randomBytes(16).toString('hex')}.tar.gz`
       await execa('curl', ['-fsSL', url, '-o', tmpPath], { timeout: 60000 })

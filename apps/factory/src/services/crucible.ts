@@ -4,49 +4,64 @@
  */
 
 import type { Address } from 'viem'
+import { z } from 'zod'
+import { AddressSchema } from '../schemas'
 
 const CRUCIBLE_API = process.env.CRUCIBLE_URL || 'http://localhost:4020'
 
-export interface Agent {
-  agentId: bigint
-  owner: Address
-  name: string
-  botType: string
-  characterCid: string | null
-  stateCid: string
-  vaultAddress: Address
-  active: boolean
-  registeredAt: number
-  lastExecutedAt: number
-  executionCount: number
-  capabilities: string[]
-  specializations: string[]
-  reputation: number
-}
+// ============================================================================
+// Zod Schemas for Crucible API Responses
+// ============================================================================
 
-export interface AgentTask {
-  taskId: string
-  agentId: bigint
-  type: 'bounty' | 'pr_review' | 'code_audit' | 'job' | 'custom'
-  status: 'pending' | 'assigned' | 'in_progress' | 'completed' | 'failed'
-  input: {
-    bountyId?: string
-    prId?: string
-    repoId?: string
-    description: string
-    requirements?: string[]
-  }
-  output?: {
-    result: string
-    deliverables?: string[]
-    recommendation?: 'approve' | 'reject' | 'request_changes'
-    confidence: number
-  }
-  reward: bigint
-  deadline: number
-  createdAt: number
-  completedAt?: number
-}
+const AgentSchema = z.object({
+  agentId: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
+  owner: AddressSchema,
+  name: z.string(),
+  botType: z.string(),
+  characterCid: z.string().nullable(),
+  stateCid: z.string(),
+  vaultAddress: AddressSchema,
+  active: z.boolean(),
+  registeredAt: z.number(),
+  lastExecutedAt: z.number(),
+  executionCount: z.number(),
+  capabilities: z.array(z.string()),
+  specializations: z.array(z.string()),
+  reputation: z.number(),
+})
+
+const AgentTaskSchema = z.object({
+  taskId: z.string(),
+  agentId: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
+  type: z.enum(['bounty', 'pr_review', 'code_audit', 'job', 'custom']),
+  status: z.enum(['pending', 'assigned', 'in_progress', 'completed', 'failed']),
+  input: z.object({
+    bountyId: z.string().optional(),
+    prId: z.string().optional(),
+    repoId: z.string().optional(),
+    description: z.string(),
+    requirements: z.array(z.string()).optional(),
+  }),
+  output: z
+    .object({
+      result: z.string(),
+      deliverables: z.array(z.string()).optional(),
+      recommendation: z.enum(['approve', 'reject', 'request_changes']).optional(),
+      confidence: z.number(),
+    })
+    .optional(),
+  reward: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
+  deadline: z.number(),
+  createdAt: z.number(),
+  completedAt: z.number().optional(),
+})
+
+const AgentsResponseSchema = z.object({
+  agents: z.array(AgentSchema),
+})
+
+export type Agent = z.infer<typeof AgentSchema>
+export type AgentTask = z.infer<typeof AgentTaskSchema>
 
 class CrucibleService {
   private headers: Record<string, string> = {
@@ -103,8 +118,13 @@ class CrucibleService {
       ]
     }
 
-    const data = (await response.json()) as { agents: Agent[] }
-    return data.agents
+    const json: unknown = await response.json()
+    const result = AgentsResponseSchema.safeParse(json)
+    if (!result.success) {
+      console.error('Invalid agents response:', result.error.issues)
+      return []
+    }
+    return result.data.agents
   }
 
   async getAgent(agentId: bigint): Promise<Agent | null> {
@@ -113,7 +133,9 @@ class CrucibleService {
     }).catch(() => null)
 
     if (!response?.ok) return null
-    return response.json()
+    const json: unknown = await response.json()
+    const result = AgentSchema.safeParse(json)
+    return result.success ? result.data : null
   }
 
   async assignBountyToAgent(
@@ -136,7 +158,12 @@ class CrucibleService {
     })
 
     if (!response.ok) throw new Error('Failed to assign bounty')
-    return response.json()
+    const json: unknown = await response.json()
+    const result = AgentTaskSchema.safeParse(json)
+    if (!result.success) {
+      throw new Error(`Invalid task response: ${result.error.issues[0]?.message}`)
+    }
+    return result.data
   }
 
   async requestPRReview(
@@ -159,7 +186,12 @@ class CrucibleService {
     })
 
     if (!response.ok) throw new Error('Failed to request PR review')
-    return response.json()
+    const json: unknown = await response.json()
+    const result = AgentTaskSchema.safeParse(json)
+    if (!result.success) {
+      throw new Error(`Invalid task response: ${result.error.issues[0]?.message}`)
+    }
+    return result.data
   }
 
   async getTask(taskId: string): Promise<AgentTask | null> {
@@ -168,7 +200,9 @@ class CrucibleService {
     }).catch(() => null)
 
     if (!response?.ok) return null
-    return response.json()
+    const json: unknown = await response.json()
+    const result = AgentTaskSchema.safeParse(json)
+    return result.success ? result.data : null
   }
 }
 

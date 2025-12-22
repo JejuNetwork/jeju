@@ -17,21 +17,23 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum RunState {
-  UNINITIALIZED = 0,
-  WAITING_FOR_MEMBERS = 1,
-  WARMUP = 2,
-  ROUND_TRAIN = 3,
-  ROUND_WITNESS = 4,
-  COOLDOWN = 5,
-  FINISHED = 6,
-  PAUSED = 7,
-}
+export const RunState = {
+  UNINITIALIZED: 0,
+  WAITING_FOR_MEMBERS: 1,
+  WARMUP: 2,
+  ROUND_TRAIN: 3,
+  ROUND_WITNESS: 4,
+  COOLDOWN: 5,
+  FINISHED: 6,
+  PAUSED: 7,
+} as const
+export type RunState = (typeof RunState)[keyof typeof RunState]
 
-export enum PrivacyMode {
-  PUBLIC = 0,
-  PRIVATE = 1, // TEE + MPC encrypted
-}
+export const PrivacyMode = {
+  PUBLIC: 0,
+  PRIVATE: 1, // TEE + MPC encrypted
+} as const
+export type PrivacyMode = (typeof PrivacyMode)[keyof typeof PrivacyMode]
 
 export interface TrainingRun {
   runId: Hex

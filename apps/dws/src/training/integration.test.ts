@@ -29,7 +29,7 @@ import { createPsycheClient } from './psyche-client'
 
 const TEST_CONFIG = {
   atroposPort: 18000 + Math.floor(Math.random() * 1000),
-  evmRpcUrl: 'http://localhost:8545',
+  evmRpcUrl: 'http://localhost:6545',
   solanaRpcUrl: 'http://localhost:8899',
   evmPrivateKey:
     '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80' as Hex,
@@ -89,8 +89,8 @@ describe('Atropos Server Integration', () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          wandb_group: 'test',
-          wandb_project: 'integration-test',
+          run_group: 'test',
+          run_project: 'integration-test',
           batch_size: 8,
           max_token_len: 512,
           checkpoint_dir: './test-checkpoints',
@@ -245,6 +245,12 @@ describe('Psyche Client Integration', () => {
   })
 
   test('LLM-as-judge bundles are properly structured', async () => {
+    interface RolloutBundle {
+      prompt: string
+      completions: string[]
+      metadata: Record<string, string>
+    }
+
     const bundle: RolloutBundle = {
       prompt: 'What is 2 + 2?',
       completions: ['4', 'Four', 'The answer is 4'],

@@ -2,7 +2,15 @@
  * Git Repository Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import {
+  CreateRepoBodySchema,
+  expectValid,
+  GitQuerySchema,
+  RepoContentsParamsSchema,
+  RepoContentsQuerySchema,
+  RepoParamsSchema,
+} from '../schemas'
 import { dwsClient } from '../services/dws'
 import { requireAuth } from '../validation/access-control'
 
@@ -29,13 +37,11 @@ export const gitRoutes = new Elysia({ prefix: '/api/git' })
   .get(
     '/',
     async ({ query }) => {
-      const repos = await dwsClient.listRepositories(query.owner)
+      const validated = expectValid(GitQuerySchema, query, 'query params')
+      const repos = await dwsClient.listRepositories(validated.owner)
       return repos
     },
     {
-      query: t.Object({
-        owner: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['git'],
         summary: 'List repositories',
@@ -52,24 +58,17 @@ export const gitRoutes = new Elysia({ prefix: '/api/git' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
+      const validated = expectValid(CreateRepoBodySchema, body, 'request body')
+
       const repo = await dwsClient.createRepository({
-        name: body.name,
-        description: body.description,
-        isPrivate: body.isPrivate ?? false,
+        name: validated.name,
+        description: validated.description,
+        isPrivate: validated.isPrivate ?? false,
       })
 
       return repo
     },
     {
-      body: t.Object({
-        name: t.String({
-          minLength: 1,
-          maxLength: 100,
-          pattern: '^[a-zA-Z0-9._-]+$',
-        }),
-        description: t.Optional(t.String({ maxLength: 500 })),
-        isPrivate: t.Optional(t.Boolean()),
-      }),
       detail: {
         tags: ['git'],
         summary: 'Create repository',
@@ -80,14 +79,14 @@ export const gitRoutes = new Elysia({ prefix: '/api/git' })
   .get(
     '/:owner/:repo',
     async ({ params }) => {
-      const repo = await dwsClient.getRepository(params.owner, params.repo)
+      const validated = expectValid(RepoParamsSchema, params, 'params')
+      const repo = await dwsClient.getRepository(
+        validated.owner,
+        validated.repo,
+      )
       return repo
     },
     {
-      params: t.Object({
-        owner: t.String(),
-        repo: t.String(),
-      }),
       detail: {
         tags: ['git'],
         summary: 'Get repository',
@@ -98,25 +97,27 @@ export const gitRoutes = new Elysia({ prefix: '/api/git' })
   .get(
     '/:owner/:repo/contents/*',
     async ({ params, query }) => {
-      const path = params['*'] || ''
-      const ref = query.ref || 'main'
+      const validatedParams = expectValid(
+        RepoContentsParamsSchema,
+        params,
+        'params',
+      )
+      const validatedQuery = expectValid(
+        RepoContentsQuerySchema,
+        query,
+        'query params',
+      )
+      const path = validatedParams['*'] || ''
+      const ref = validatedQuery.ref || 'main'
       const files = await dwsClient.getRepoFiles(
-        params.owner,
-        params.repo,
+        validatedParams.owner,
+        validatedParams.repo,
         path,
         ref,
       )
       return files
     },
     {
-      params: t.Object({
-        owner: t.String(),
-        repo: t.String(),
-        '*': t.Optional(t.String()),
-      }),
-      query: t.Object({
-        ref: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['git'],
         summary: 'List repository contents',
@@ -127,11 +128,21 @@ export const gitRoutes = new Elysia({ prefix: '/api/git' })
   .get(
     '/:owner/:repo/raw/*',
     async ({ params, query, set }) => {
-      const path = params['*'] || ''
-      const ref = query.ref || 'main'
+      const validatedParams = expectValid(
+        RepoContentsParamsSchema,
+        params,
+        'params',
+      )
+      const validatedQuery = expectValid(
+        RepoContentsQuerySchema,
+        query,
+        'query params',
+      )
+      const path = validatedParams['*'] || ''
+      const ref = validatedQuery.ref || 'main'
       const content = await dwsClient.getFileContent(
-        params.owner,
-        params.repo,
+        validatedParams.owner,
+        validatedParams.repo,
         path,
         ref,
       )
@@ -139,14 +150,6 @@ export const gitRoutes = new Elysia({ prefix: '/api/git' })
       return content
     },
     {
-      params: t.Object({
-        owner: t.String(),
-        repo: t.String(),
-        '*': t.Optional(t.String()),
-      }),
-      query: t.Object({
-        ref: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['git'],
         summary: 'Get file content',

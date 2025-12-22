@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, mock, test } from 'bun:test'
 import { parseEther } from 'viem'
-import { calculateNoPrice, calculateYesPrice } from '@/lib/markets/lmsrPricing'
-import { NonEmptyStringSchema } from '@/schemas/common'
+import {
+  calculateNoPrice,
+  calculateYesPrice,
+} from '../../../lib/markets/lmsrPricing'
+import { NonEmptyStringSchema } from '../../../schemas/common'
 import { useMarket } from '../useMarket'
 
 // Mock graphql-request

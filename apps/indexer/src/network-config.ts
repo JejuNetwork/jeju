@@ -7,6 +7,8 @@
 
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { validateOrNull } from '@jejunetwork/types'
+import { z } from 'zod'
 
 export type NetworkType = 'localnet' | 'testnet' | 'mainnet'
 
@@ -109,16 +111,21 @@ const DEFAULT_RPC: Record<NetworkType, string> = {
   mainnet: 'https://rpc.jejunetwork.org',
 }
 
+/** Loose schema for deployment JSON files - ensures it's a valid JSON object */
+const JsonObjectSchema = z.record(z.string(), z.unknown())
+
 function loadJsonFile<T>(path: string): T | null {
   if (!existsSync(path)) {
     return null
   }
   const content = readFileSync(path, 'utf-8')
-  const parsed = JSON.parse(content) as T
-  // JSON.parse returns a value - if parsing fails, it throws.
-  // The type assertion is acceptable here since deployment files are internal config,
-  // not external/user input. Schema validation would be excessive for internal files.
-  return parsed
+  // Validate as JSON object (deployment files are always objects)
+  const validated = validateOrNull(JsonObjectSchema, JSON.parse(content))
+  if (!validated) {
+    return null
+  }
+  // Type assertion acceptable for internal deployment config that passed object validation
+  return validated as T
 }
 
 function getDeploymentsPath(): string {

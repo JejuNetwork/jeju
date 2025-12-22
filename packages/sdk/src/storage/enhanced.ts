@@ -16,6 +16,10 @@ import {
   ContentInfoSchema,
   ContentListSchema,
   EnhancedStorageStatsSchema,
+  EnhancedUploadResultSchema,
+  JsonValueSchema,
+  KMSDecryptResponseSchema,
+  KMSEncryptResponseSchema,
   TorrentInfoSchema,
 } from '../shared/schemas'
 import type { JsonValue } from '../shared/types'
@@ -241,7 +245,8 @@ export function createEnhancedStorageModule(
       throw new Error(`Upload failed: ${response.statusText}`)
     }
 
-    const result = (await response.json()) as EnhancedUploadResult
+    const rawData: unknown = await response.json()
+    const result = EnhancedUploadResultSchema.parse(rawData)
     return {
       ...result,
       gatewayUrl: getGatewayUrl(result.cid),
@@ -301,7 +306,8 @@ export function createEnhancedStorageModule(
   ): Promise<T> {
     const data = await download(cid, options)
     const text = new TextDecoder().decode(data)
-    return JSON.parse(text) as T
+    const parsed = JsonValueSchema.parse(JSON.parse(text))
+    return parsed as T
   }
 
   async function getContent(cid: string): Promise<ContentInfo | null> {
@@ -445,10 +451,8 @@ export async function encryptForStorage(
     throw new Error(`Encryption failed: ${response.statusText}`)
   }
 
-  const result = (await response.json()) as {
-    ciphertext: string
-    keyId: string
-  }
+  const rawData: unknown = await response.json()
+  const result = KMSEncryptResponseSchema.parse(rawData)
   return {
     ciphertext: new Uint8Array(Buffer.from(result.ciphertext, 'base64')),
     keyId: result.keyId,
@@ -473,7 +477,8 @@ export async function decryptFromStorage(
     throw new Error(`Decryption failed: ${response.statusText}`)
   }
 
-  const result = (await response.json()) as { plaintext: string }
+  const rawData: unknown = await response.json()
+  const result = KMSDecryptResponseSchema.parse(rawData)
   return new Uint8Array(Buffer.from(result.plaintext, 'base64'))
 }
 

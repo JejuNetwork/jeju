@@ -53,6 +53,7 @@ export function OIFStats() {
       <div className="flex items-center justify-between">
         <h1 className="text-2xl md:text-3xl font-bold text-gradient">OIF</h1>
         <button
+          type="button"
           onClick={() => refetch()}
           disabled={loading}
           className="btn-secondary flex items-center gap-2"
@@ -71,6 +72,7 @@ export function OIFStats() {
           const Icon = tab.icon
           return (
             <button
+              type="button"
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg text-sm font-medium transition-all ${

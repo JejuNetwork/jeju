@@ -2,8 +2,14 @@
  * Bounties Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
+import {
+  BountiesQuerySchema,
+  BountyIdParamSchema,
+  CreateBountyBodySchema,
+  expectValid,
+} from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
 interface Bounty {
@@ -32,10 +38,10 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
   .get(
     '/',
     async ({ query }) => {
-      const page = parseInt(query.page || '1', 10)
-      const limit = parseInt(query.limit || '20', 10)
+      const validated = expectValid(BountiesQuerySchema, query, 'query params')
+      const page = parseInt(validated.page || '1', 10)
+      const limit = parseInt(validated.limit || '20', 10)
 
-      // Mock data - in production this would query the BountyRegistry contract
       const bounties: Bounty[] = [
         {
           id: '1',
@@ -76,12 +82,6 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
       }
     },
     {
-      query: t.Object({
-        page: t.Optional(t.String()),
-        limit: t.Optional(t.String()),
-        status: t.Optional(t.String()),
-        skill: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['bounties'],
         summary: 'List bounties',
@@ -98,15 +98,21 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
+      const validated = expectValid(
+        CreateBountyBodySchema,
+        body,
+        'request body',
+      )
+
       const bounty: Bounty = {
         id: `bounty-${Date.now()}`,
-        title: body.title,
-        description: body.description,
-        reward: body.reward,
-        currency: body.currency,
-        skills: body.skills,
-        deadline: body.deadline,
-        milestones: body.milestones,
+        title: validated.title,
+        description: validated.description,
+        reward: validated.reward,
+        currency: validated.currency,
+        skills: validated.skills,
+        deadline: validated.deadline,
+        milestones: validated.milestones,
         status: 'open',
         creator: authResult.address,
         submissions: 0,
@@ -118,25 +124,6 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
       return bounty
     },
     {
-      body: t.Object({
-        title: t.String({ minLength: 1, maxLength: 200 }),
-        description: t.String({ minLength: 10 }),
-        reward: t.String({ pattern: '^\\d+(\\.\\d+)?$' }),
-        currency: t.String({ minLength: 1 }),
-        skills: t.Array(t.String({ minLength: 1 })),
-        deadline: t.Number(),
-        milestones: t.Optional(
-          t.Array(
-            t.Object({
-              name: t.String(),
-              description: t.String(),
-              reward: t.String(),
-              currency: t.String(),
-              deadline: t.Number(),
-            }),
-          ),
-        ),
-      }),
       detail: {
         tags: ['bounties'],
         summary: 'Create bounty',
@@ -147,9 +134,9 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
   .get(
     '/:id',
     async ({ params }) => {
-      // Mock data - in production fetch from contract
+      const validated = expectValid(BountyIdParamSchema, params, 'params')
       const bounty: Bounty = {
-        id: params.id,
+        id: validated.id,
         title: 'Example Bounty',
         description: 'This is an example bounty',
         reward: '1000',
@@ -165,9 +152,6 @@ export const bountiesRoutes = new Elysia({ prefix: '/api/bounties' })
       return bounty
     },
     {
-      params: t.Object({
-        id: t.String(),
-      }),
       detail: {
         tags: ['bounties'],
         summary: 'Get bounty',

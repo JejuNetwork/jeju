@@ -11,13 +11,15 @@ export const moderationRoutes = new Elysia({ prefix: '/api/v1/moderation' })
   .post(
     '/flag',
     async ({ body }) => {
+      // Join evidence array into comma-separated string if provided
+      const evidenceStr = body.evidence?.join(',')
       const flag = moderation.submitFlag(
         body.proposalId,
         body.flagger,
         body.flagType as FlagType,
         body.reason,
         body.stake ?? 10,
-        body.evidence,
+        evidenceStr,
       )
       return flag
     },

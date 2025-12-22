@@ -112,7 +112,7 @@ async function deploy() {
   const chain = config.network === 'localnet' ? localhost : baseSepolia
   const rpcUrl =
     process.env.RPC_URL ??
-    (config.network === 'localnet' ? 'http://localhost:9545' : undefined)
+    (config.network === 'localnet' ? 'http://localhost:6546' : undefined)
 
   createPublicClient({
     chain,

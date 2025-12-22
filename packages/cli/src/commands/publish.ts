@@ -12,20 +12,25 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { Command } from 'commander'
 import { execa } from 'execa'
+import { z } from 'zod'
 import { logger } from '../lib/logger'
 import { findMonorepoRoot } from '../lib/system'
+import { validate } from '../schemas'
 
 // Packages in publish order (dependencies first)
 const PACKAGES = ['types', 'config', 'contracts', 'sdk', 'cli']
 
-interface PackageJson {
-  name: string
-  version: string
-  scripts?: Record<string, string>
-  dependencies?: Record<string, string>
-  peerDependencies?: Record<string, string>
-  devDependencies?: Record<string, string>
-}
+// Schema for package.json validation
+const PackageJsonSchema = z.object({
+  name: z.string().min(1),
+  version: z.string().min(1),
+  scripts: z.record(z.string(), z.string()).optional(),
+  dependencies: z.record(z.string(), z.string()).optional(),
+  peerDependencies: z.record(z.string(), z.string()).optional(),
+  devDependencies: z.record(z.string(), z.string()).optional(),
+})
+
+type PackageJson = z.infer<typeof PackageJsonSchema>
 
 export const publishCommand = new Command('publish')
   .description('Publish workspace packages to JejuPkg (npm CLI compatible)')
@@ -156,7 +161,8 @@ function getPackagePath(rootDir: string, pkg: string): string {
 
 function readPackageJson(rootDir: string, pkg: string): PackageJson {
   const path = join(getPackagePath(rootDir, pkg), 'package.json')
-  return JSON.parse(readFileSync(path, 'utf-8'))
+  const rawData = JSON.parse(readFileSync(path, 'utf-8'))
+  return validate(rawData, PackageJsonSchema, `package.json for ${pkg}`)
 }
 
 function writePackageJson(

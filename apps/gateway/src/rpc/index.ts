@@ -1,7 +1,7 @@
 /**
  * RPC Gateway Module
  * @deprecated RPC functionality has moved to DWS. This re-exports for backwards compatibility.
- * Use @jeju/dws for new code.
+ * Use @jejunetwork/dws for new code.
  */
 
 export {
@@ -16,7 +16,7 @@ export {
   getRateLimitStats,
   RATE_LIMITS,
   type RateTier,
-  rateLimiter,
+  rateLimiterPlugin,
 } from './middleware/rate-limiter.js'
 export {
   getChainStats,
@@ -25,7 +25,7 @@ export {
   proxyRequest,
 } from './proxy/rpc-proxy.js'
 // Re-export from DWS for backwards compatibility
-export { rpcApp, startRpcServer } from './server.js'
+export { rpcApp, startRpcServer, type RpcApp } from './server.js'
 export {
   type ApiKeyRecord,
   createApiKey,
@@ -55,5 +55,5 @@ export {
 
 // Note: For new code, import directly from DWS
 console.warn(
-  '[Gateway/RPC] RPC functionality has moved to DWS. Consider importing from @jeju/dws instead.',
+  '[Gateway/RPC] RPC functionality has moved to DWS. Consider importing from @jejunetwork/dws instead.',
 )

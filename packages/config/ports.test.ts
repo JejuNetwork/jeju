@@ -68,8 +68,8 @@ describe('Port Constants', () => {
 
   describe('INFRA_PORTS', () => {
     it('should have correct default values', () => {
-      expect(INFRA_PORTS.L1_RPC.DEFAULT).toBe(8545)
-      expect(INFRA_PORTS.L2_RPC.DEFAULT).toBe(9545)
+      expect(INFRA_PORTS.L1_RPC.DEFAULT).toBe(6545) // Port 6545 avoids conflicts with Anvil/Hardhat default (8545)
+      expect(INFRA_PORTS.L2_RPC.DEFAULT).toBe(6546) // Port 6546 avoids conflicts with standard Anvil
       expect(INFRA_PORTS.L2_WS.DEFAULT).toBe(6547)
       expect(INFRA_PORTS.PROMETHEUS.DEFAULT).toBe(9090)
       expect(INFRA_PORTS.GRAFANA.DEFAULT).toBe(4010)
@@ -309,7 +309,7 @@ describe('RPC URL Helpers', () => {
   describe('getL1RpcUrl', () => {
     it('should return default L1 RPC URL', () => {
       const url = getL1RpcUrl()
-      expect(url).toBe('http://127.0.0.1:8545')
+      expect(url).toBe('http://127.0.0.1:6545')
     })
 
     it('should respect L1_RPC_URL env var', () => {
@@ -321,14 +321,14 @@ describe('RPC URL Helpers', () => {
     it('should respect RPC_HOST env var', () => {
       process.env.RPC_HOST = '192.168.1.100'
       const url = getL1RpcUrl()
-      expect(url).toBe('http://192.168.1.100:8545')
+      expect(url).toBe('http://192.168.1.100:6545')
     })
   })
 
   describe('getL2RpcUrl', () => {
     it('should return default L2 RPC URL', () => {
       const url = getL2RpcUrl()
-      expect(url).toBe('http://127.0.0.1:9545')
+      expect(url).toBe('http://127.0.0.1:6546')
     })
 
     it('should respect L2_RPC_URL env var', () => {
@@ -381,23 +381,23 @@ describe('RPC URL Helpers', () => {
 
 describe('isLocalnet', () => {
   it('should return true for localhost URLs', () => {
-    expect(isLocalnet('http://localhost:8545')).toBe(true)
-    expect(isLocalnet('http://localhost:9545')).toBe(true)
-    expect(isLocalnet('ws://localhost:8546')).toBe(true)
+    expect(isLocalnet('http://localhost:6545')).toBe(true)
+    expect(isLocalnet('http://localhost:6546')).toBe(true)
+    expect(isLocalnet('ws://localhost:6547')).toBe(true)
   })
 
   it('should return true for 127.0.0.1 URLs', () => {
-    expect(isLocalnet('http://localhost:8545')).toBe(true)
-    expect(isLocalnet('http://127.0.0.1:8545')).toBe(true)
+    expect(isLocalnet('http://localhost:6545')).toBe(true)
+    expect(isLocalnet('http://127.0.0.1:6545')).toBe(true)
     expect(isLocalnet('ws://127.0.0.1:6547')).toBe(true)
   })
 
   it('should return true for default L1 port', () => {
-    expect(isLocalnet('http://somehost:8545')).toBe(true)
+    expect(isLocalnet('http://somehost:6545')).toBe(true)
   })
 
   it('should return true for default L2 port', () => {
-    expect(isLocalnet('http://somehost:9545')).toBe(true)
+    expect(isLocalnet('http://somehost:6546')).toBe(true)
   })
 
   it('should return false for production URLs', () => {

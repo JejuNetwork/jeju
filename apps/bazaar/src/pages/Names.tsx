@@ -29,6 +29,7 @@ export default function NamesPage() {
       <div className="max-w-xl mx-auto">
         <div className="card p-6 mb-6">
           <label
+            htmlFor="name-search"
             className="text-sm block mb-2"
             style={{ color: 'var(--text-tertiary)' }}
           >
@@ -36,6 +37,7 @@ export default function NamesPage() {
           </label>
           <div className="flex gap-2">
             <input
+              id="name-search"
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -74,6 +76,7 @@ export default function NamesPage() {
           )}
 
           <button
+            type="button"
             className="btn-primary w-full py-3 mt-4"
             disabled={!isConnected || !searchQuery}
           >

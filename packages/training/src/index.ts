@@ -129,3 +129,60 @@ export {
   type TrainingRun,
   type TrajectoryStep,
 } from './integrations'
+
+// ============================================================================
+// Rubrics Registry
+// ============================================================================
+
+export {
+  clearRubrics,
+  DEFAULT_RUBRIC,
+  getAllRubrics,
+  getRubric,
+  getRubricCount,
+  getRubricOrDefault,
+  hasRubric,
+  type JudgeRubric,
+  listRubrics,
+  onRubricChange,
+  type RubricRegistry,
+  registerOrUpdateRubric,
+  registerRubric,
+  rubricRegistry,
+  unregisterRubric,
+} from './rubrics'
+
+// ============================================================================
+// Validation Schemas
+// ============================================================================
+
+export {
+  AgentRegistrationResponseSchema,
+  AtroposStartResponseSchema,
+  BatchResponseSchema,
+  CompletionResponseSchema,
+  DisconnectEnvSchema,
+  DWSJobStatusSchema,
+  EnvRegistrationResponseSchema,
+  HealthResponseSchema,
+  InfoResponseSchema,
+  JobAllocationsResponseSchema,
+  JobIdResponseSchema,
+  JobsListResponseSchema,
+  JobsListResponseSchemaExternal,
+  JudgeResponseSchema,
+  JudgeResultSchema,
+  MerkleProofResponseSchema,
+  MerkleRootResponseSchema,
+  MessageSchema,
+  ProposalStatusResponseSchema,
+  RegisterEnvSchema,
+  RegisterResponseSchema,
+  RegistrationSchema,
+  RunInfoResponseSchema,
+  ScoredDataListResponseSchema,
+  ScoredDataListSchema,
+  ScoredDataSchema,
+  StatusResponseSchema,
+  TrainingJobStatusSchema,
+} from './schemas'

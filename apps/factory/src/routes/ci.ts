@@ -2,7 +2,13 @@
  * CI/CD Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import {
+  CIQuerySchema,
+  CIRunParamsSchema,
+  expectValid,
+  TriggerWorkflowBodySchema,
+} from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
 interface CIRun {
@@ -30,7 +36,8 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
   .get(
     '/',
     async ({ query }) => {
-      const page = parseInt(query.page || '1', 10)
+      const validated = expectValid(CIQuerySchema, query, 'query params')
+      const page = parseInt(validated.page || '1', 10)
 
       const runs: CIRun[] = [
         {
@@ -75,13 +82,6 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
       return { runs, total: runs.length, page }
     },
     {
-      query: t.Object({
-        page: t.Optional(t.String()),
-        limit: t.Optional(t.String()),
-        repo: t.Optional(t.String()),
-        status: t.Optional(t.String()),
-        branch: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['ci'],
         summary: 'List CI runs',
@@ -98,10 +98,16 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
+      const validated = expectValid(
+        TriggerWorkflowBodySchema,
+        body,
+        'request body',
+      )
+
       const run: CIRun = {
         id: `run-${Date.now()}`,
-        workflow: body.workflow,
-        branch: body.branch,
+        workflow: validated.workflow,
+        branch: validated.branch,
         status: 'queued',
         commit: '',
         commitMessage: '',
@@ -116,12 +122,6 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
       return run
     },
     {
-      body: t.Object({
-        repo: t.String({ minLength: 1 }),
-        workflow: t.String({ minLength: 1 }),
-        branch: t.String({ minLength: 1 }),
-        inputs: t.Optional(t.Record(t.String(), t.String())),
-      }),
       detail: {
         tags: ['ci'],
         summary: 'Trigger workflow',
@@ -132,8 +132,9 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
   .get(
     '/:runId',
     async ({ params }) => {
+      const validated = expectValid(CIRunParamsSchema, params, 'params')
       const run: CIRun = {
-        id: params.runId,
+        id: validated.runId,
         workflow: 'Build & Test',
         status: 'success',
         branch: 'main',
@@ -150,9 +151,6 @@ export const ciRoutes = new Elysia({ prefix: '/api/ci' })
       return run
     },
     {
-      params: t.Object({
-        runId: t.String(),
-      }),
       detail: {
         tags: ['ci'],
         summary: 'Get CI run',

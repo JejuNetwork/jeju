@@ -13,12 +13,13 @@ const ShieldIcon = Shield as ComponentType<LucideProps>
 const ZapIcon = Zap as ComponentType<LucideProps>
 const FlameIcon = Flame as ComponentType<LucideProps>
 
-// Risk tier enum matching the contract
-enum RiskTier {
-  CONSERVATIVE = 0,
-  BALANCED = 1,
-  AGGRESSIVE = 2,
-}
+// Risk tier const object matching the contract
+const RiskTier = {
+  CONSERVATIVE: 0,
+  BALANCED: 1,
+  AGGRESSIVE: 2,
+} as const
+type RiskTier = (typeof RiskTier)[keyof typeof RiskTier]
 
 const RISK_SLEEVE_ABI = [
   {
@@ -185,10 +186,15 @@ function TierCard({
         transition: 'all 0.2s',
       }}
     >
-      <div
+      <button
+        type="button"
         onClick={onToggle}
         style={{
           display: 'flex',
+          width: '100%',
+          border: 'none',
+          background: 'inherit',
+          cursor: 'pointer',
           alignItems: 'center',
           gap: '1rem',
           marginBottom: isExpanded ? '1.5rem' : 0,
@@ -251,7 +257,7 @@ function TierCard({
             {config.expectedApy}
           </p>
         </div>
-      </div>
+      </button>
 
       {isExpanded && (
         <div>
@@ -319,6 +325,7 @@ function TierCard({
 
           <form onSubmit={handleDeposit} style={{ marginBottom: '1rem' }}>
             <label
+              htmlFor="deposit-amount"
               style={{
                 display: 'block',
                 marginBottom: '0.5rem',
@@ -330,6 +337,7 @@ function TierCard({
             </label>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <input
+                id="deposit-amount"
                 className="input"
                 type="number"
                 step="0.01"
@@ -354,6 +362,7 @@ function TierCard({
             <>
               <form onSubmit={handleWithdraw} style={{ marginBottom: '1rem' }}>
                 <label
+                  htmlFor="withdraw-amount"
                   style={{
                     display: 'block',
                     marginBottom: '0.5rem',
@@ -365,6 +374,7 @@ function TierCard({
                 </label>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <input
+                    id="withdraw-amount"
                     className="input"
                     type="number"
                     step="0.01"
@@ -385,6 +395,7 @@ function TierCard({
               </form>
 
               <button
+                type="button"
                 className="button"
                 style={{ width: '100%', background: config.color }}
                 onClick={handleClaimYield}

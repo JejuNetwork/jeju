@@ -30,27 +30,31 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum TriggerType {
-  CRON = 'cron',
-  WEBHOOK = 'webhook',
-  EVENT = 'event',
-  MANUAL = 'manual',
-  CHAIN_EVENT = 'chain_event',
-}
+export const TriggerType = {
+  CRON: 'cron',
+  WEBHOOK: 'webhook',
+  EVENT: 'event',
+  MANUAL: 'manual',
+  CHAIN_EVENT: 'chain_event',
+} as const
+export type TriggerType = (typeof TriggerType)[keyof typeof TriggerType]
 
-export enum JobStatus {
-  PENDING = 'pending',
-  RUNNING = 'running',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  CANCELLED = 'cancelled',
-}
+export const JobStatus = {
+  PENDING: 'pending',
+  RUNNING: 'running',
+  COMPLETED: 'completed',
+  FAILED: 'failed',
+  CANCELLED: 'cancelled',
+} as const
+export type JobStatus = (typeof JobStatus)[keyof typeof JobStatus]
 
-export enum WorkflowStatus {
-  ACTIVE = 'active',
-  PAUSED = 'paused',
-  DISABLED = 'disabled',
-}
+export const WorkflowStatus = {
+  ACTIVE: 'active',
+  PAUSED: 'paused',
+  DISABLED: 'disabled',
+} as const
+export type WorkflowStatus =
+  (typeof WorkflowStatus)[keyof typeof WorkflowStatus]
 
 export interface Trigger {
   triggerId: string

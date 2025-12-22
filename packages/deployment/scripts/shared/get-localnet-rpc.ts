@@ -31,12 +31,12 @@ export function getLocalnetRpcUrl(): string {
 
     return `http://${address}`
   } catch {
-    // Fallback to default port if Kurtosis is not running
+    // Fallback to default Jeju L2 port if Kurtosis is not running
     console.warn(
-      '⚠️  Warning: Could not get RPC URL from Kurtosis, using default port 9545',
+      '⚠️  Warning: Could not get RPC URL from Kurtosis, using default Jeju port 6546',
     )
     console.warn('Make sure localnet is running: bun run localnet:start')
-    return 'http://127.0.0.1:9545'
+    return 'http://127.0.0.1:6546'
   }
 }
 

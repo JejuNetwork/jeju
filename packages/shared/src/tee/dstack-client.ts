@@ -5,36 +5,25 @@
  * Works with both simulator (development) and production TDX hardware
  */
 
+import { expectValid } from '@jejunetwork/types'
 import { existsSync } from 'node:fs'
+import type { ZodSchema } from 'zod'
+import {
+  TappdDeriveKeyResponseSchema,
+  TappdInfoResponseSchema,
+  TappdKeyResponseSchema,
+  TappdQuoteResponseSchema,
+  type TappdDeriveKeyResponse,
+  type TappdInfoResponse,
+  type TappdKeyResponse,
+  type TappdQuoteResponse,
+} from '../schemas'
 import type {
   AttestationQuote,
   DerivedKey,
   TEEInfo,
   TLSCertificate,
 } from './types'
-
-interface TappdQuoteResponse {
-  quote: string
-  event_log: string
-}
-
-interface TappdKeyResponse {
-  key: string
-  certificate_chain: string[]
-}
-
-interface TappdDeriveKeyResponse {
-  asBytes: () => Uint8Array
-  toJSON: () => { key: string; signature: string }
-}
-
-interface TappdInfoResponse {
-  app_id: string
-  instance_id: string
-  os_image_hash: string
-  compose_hash: string
-  tcb_info: Record<string, unknown>
-}
 
 /**
  * Configuration for Dstack client
@@ -105,7 +94,11 @@ export class DstackClient {
    * Get TEE information
    */
   async getInfo(): Promise<TEEInfo> {
-    const response = await this.request<TappdInfoResponse>('/info')
+    const response = await this.request(
+      '/info',
+      TappdInfoResponseSchema,
+      'Dstack info',
+    )
     return {
       isSimulator: this.isSimulator,
       appId: response.app_id,
@@ -126,8 +119,10 @@ export class DstackClient {
       ? reportData
       : `0x${reportData}`
 
-    const response = await this.request<TappdQuoteResponse>(
+    const response = await this.request(
       `/GetQuote?report_data=${cleanData}`,
+      TappdQuoteResponseSchema,
+      'Dstack quote',
     )
 
     return {
@@ -148,23 +143,23 @@ export class DstackClient {
   async deriveKey(purpose: string, path?: string): Promise<DerivedKey> {
     const derivationPath = path ?? `/jeju/${purpose}`
 
-    const response = await this.request<TappdDeriveKeyResponse>('/DeriveKey', {
-      method: 'POST',
-      body: JSON.stringify({ path: derivationPath, purpose }),
-    })
+    const response = await this.request(
+      '/DeriveKey',
+      TappdDeriveKeyResponseSchema,
+      'Dstack derive key',
+      {
+        method: 'POST',
+        body: JSON.stringify({ path: derivationPath, purpose }),
+      },
+    )
 
-    const keyData = response.toJSON()
-    const keyBytes = response.asBytes()
-
-    // Derive public key from private key
-    // In production, this would use proper elliptic curve operations
-    const privateKeyHex = Buffer.from(keyBytes).toString('hex')
-
+    // The response is a JSON object with key and signature
+    // The key field contains the hex-encoded key material
     return {
-      privateKey: privateKeyHex,
-      publicKey: keyData.key, // The response includes the public key
+      privateKey: response.key,
+      publicKey: response.key,
       path: derivationPath,
-      signature: keyData.signature,
+      signature: response.signature,
     }
   }
 
@@ -179,15 +174,20 @@ export class DstackClient {
     domain: string,
     altNames?: string[],
   ): Promise<TLSCertificate> {
-    const response = await this.request<TappdKeyResponse>('/GetTlsKey', {
-      method: 'POST',
-      body: JSON.stringify({
-        domain,
-        alt_names: altNames ?? [],
-        // Request RA-TLS certificate if in production mode
-        ra_tls: !this.isSimulator,
-      }),
-    })
+    const response = await this.request(
+      '/GetTlsKey',
+      TappdKeyResponseSchema,
+      'Dstack TLS key',
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          domain,
+          alt_names: altNames ?? [],
+          // Request RA-TLS certificate if in production mode
+          ra_tls: !this.isSimulator,
+        }),
+      },
+    )
 
     return {
       certificate: response.certificate_chain[0],
@@ -197,10 +197,12 @@ export class DstackClient {
   }
 
   /**
-   * Make a request to the Dstack endpoint
+   * Make a request to the Dstack endpoint with validated response
    */
   private async request<T>(
     path: string,
+    schema: ZodSchema<T>,
+    context: string,
     options: RequestInit = {},
   ): Promise<T> {
     const url = this.buildUrl(path)
@@ -223,7 +225,7 @@ export class DstackClient {
         throw new Error(`Dstack request failed: ${response.status} - ${error}`)
       }
 
-      return response.json() as Promise<T>
+      return expectValid(schema, await response.json(), context)
     } finally {
       clearTimeout(timeoutId)
     }

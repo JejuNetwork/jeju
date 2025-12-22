@@ -209,7 +209,15 @@ export async function decryptKeySet(
   // Clear key from memory
   key.fill(0)
 
-  return JSON.parse(decrypted.toString('utf8'))
+  // SECURITY: Validate decrypted data against schema to prevent insecure deserialization
+  const rawData = JSON.parse(decrypted.toString('utf8'))
+  const result = KeySetSchema.safeParse(rawData)
+  if (!result.success) {
+    throw new Error(
+      `Invalid decrypted key data format: ${result.error.message}`,
+    )
+  }
+  return result.data as KeySet
 }
 
 export function saveKeys(

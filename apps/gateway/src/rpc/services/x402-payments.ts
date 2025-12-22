@@ -1,6 +1,7 @@
 import type { Address } from 'viem'
 import { hashMessage, recoverAddress } from 'viem'
 import { ZERO_ADDRESS } from '../../lib/contracts.js'
+import { expectValid, X402PaymentProofSchema } from '../../lib/validation.js'
 import { initializeState, x402State } from '../../services/state.js'
 
 export type X402Network =
@@ -35,14 +36,6 @@ export interface X402PaymentHeader {
   amount: string
 }
 
-interface X402PaymentProof {
-  payTo: Address
-  amount: string
-  nonce: string
-  timestamp: number
-  network: string
-  signature: string
-}
 const PAYMENT_RECIPIENT = (process.env.RPC_PAYMENT_RECIPIENT ||
   ZERO_ADDRESS) as Address
 const X402_ENABLED = process.env.X402_ENABLED !== 'false'
@@ -104,7 +97,11 @@ export async function verifyX402Payment(
   if (BigInt(payment.amount) < expectedAmount)
     return { valid: false, error: 'Insufficient payment' }
 
-  const proof = JSON.parse(payment.payload) as X402PaymentProof
+  const proof = expectValid(
+    X402PaymentProofSchema,
+    JSON.parse(payment.payload),
+    'x402 payment proof',
+  )
   const nonceKey = `${userAddress}:${proof.nonce}`
 
   if (proof.payTo.toLowerCase() !== PAYMENT_RECIPIENT.toLowerCase())

@@ -170,7 +170,7 @@ async function startLocalProxy(rootDir: string): Promise<void> {
 
   logger.step('Starting local domain proxy...')
 
-  // Import and start the proxy
+  // Dynamic import: proxy script path is runtime-determined and may not exist
   const { startProxy, isCaddyInstalled } = await import(proxyScript)
 
   // Check if Caddy is available
@@ -215,6 +215,7 @@ function setupSignalHandlers(): void {
         'packages/deployment/scripts/shared/local-proxy.ts',
       )
       if (existsSync(proxyScript)) {
+        // Dynamic import: proxy script path is runtime-determined and may not exist
         const { stopProxy } = await import(proxyScript)
         await stopProxy()
       }

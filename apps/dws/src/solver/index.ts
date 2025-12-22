@@ -36,10 +36,10 @@ function getRpcUrl(chainId: number): string {
     84532: 'https://sepolia.base.org',
     421614: 'https://sepolia-rollup.arbitrum.io/rpc',
     11155420: 'https://sepolia.optimism.io',
-    420690: 'http://localhost:9545',
+    420690: 'http://localhost:6546',
     420691: 'https://rpc.jejunetwork.org',
   }
-  return defaults[chainId] || 'http://localhost:9545'
+  return defaults[chainId] || 'http://localhost:6546'
 }
 
 const CHAINS = (

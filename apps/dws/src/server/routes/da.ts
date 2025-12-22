@@ -20,6 +20,15 @@ import {
   type Disperser,
   type SampleRequest,
 } from '../../da'
+import {
+  attestRequestSchema,
+  blobSampleRequestSchema,
+  blobSubmitRequestSchema,
+  daOperatorInfoSchema,
+  sampleRequestSchema,
+  storeChunkRequestSchema,
+} from '../../shared/schemas'
+import { expectValid } from '../../shared/validation'
 
 // ============================================================================
 // Context
@@ -127,13 +136,11 @@ export function createDARouter(ctx: DARouterContext = {}): Hono {
       return c.json({ error: 'DA layer not initialized' }, 503)
     }
 
-    const body = (await c.req.json()) as {
-      data: string // hex or base64
-      submitter: Address
-      namespace?: Hex
-      quorumPercent?: number
-      retentionPeriod?: number
-    }
+    const body = expectValid(
+      blobSubmitRequestSchema,
+      await c.req.json(),
+      'Blob submit request',
+    )
 
     // Decode data
     let data: Uint8Array
@@ -246,10 +253,11 @@ export function createDARouter(ctx: DARouterContext = {}): Hono {
       return c.json({ error: 'DA layer not initialized' }, 503)
     }
 
-    const body = (await c.req.json()) as {
-      blobId: Hex
-      requester: Address
-    }
+    const body = expectValid(
+      blobSampleRequestSchema,
+      await c.req.json(),
+      'Blob sample request',
+    )
 
     const metadata = disperser.getBlobManager().getMetadata(body.blobId)
     if (!metadata) {
@@ -270,25 +278,11 @@ export function createDARouter(ctx: DARouterContext = {}): Hono {
       return c.json({ error: 'Local operator not running' }, 503)
     }
 
-    const body = (await c.req.json()) as {
-      blobId: Hex
-      index: number
-      data: Hex
-      proof: {
-        merkleProof: Hex[]
-        openingProof: Hex
-        polynomialIndex: number
-      }
-      commitment: {
-        commitment: Hex
-        dataChunkCount: number
-        parityChunkCount: number
-        totalChunkCount: number
-        chunkSize: number
-        merkleRoot: Hex
-        timestamp: number
-      }
-    }
+    const body = expectValid(
+      storeChunkRequestSchema,
+      await c.req.json(),
+      'Store chunk request',
+    )
 
     const stored = localOperator.storeChunk(
       body.blobId,
@@ -315,8 +309,12 @@ export function createDARouter(ctx: DARouterContext = {}): Hono {
       return c.json({ error: 'Local operator not running' }, 503)
     }
 
-    const request = (await c.req.json()) as SampleRequest
-    const response = localOperator.handleSampleRequest(request)
+    const request = expectValid(
+      sampleRequestSchema,
+      await c.req.json(),
+      'Sample request',
+    )
+    const response = localOperator.handleSampleRequest(request as SampleRequest)
 
     return c.json(response)
   })
@@ -328,11 +326,11 @@ export function createDARouter(ctx: DARouterContext = {}): Hono {
       return c.json({ error: 'Local operator not running' }, 503)
     }
 
-    const body = (await c.req.json()) as {
-      blobId: Hex
-      commitment: Hex
-      chunkIndices: number[]
-    }
+    const body = expectValid(
+      attestRequestSchema,
+      await c.req.json(),
+      'Attest request',
+    )
 
     const signature = await localOperator.signAttestation(
       body.blobId,
@@ -369,8 +367,12 @@ export function createDARouter(ctx: DARouterContext = {}): Hono {
       return c.json({ error: 'DA layer not initialized' }, 503)
     }
 
-    const operator = (await c.req.json()) as DAOperatorInfo
-    disperser.registerOperator(operator)
+    const operator = expectValid(
+      daOperatorInfoSchema,
+      await c.req.json(),
+      'Register operator request',
+    )
+    disperser.registerOperator(operator as DAOperatorInfo)
 
     return c.json({ success: true, address: operator.address })
   })

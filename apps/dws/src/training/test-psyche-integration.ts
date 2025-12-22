@@ -36,7 +36,7 @@ import { createPsycheClient, type PsycheConfig } from './psyche-client'
 // ============================================================================
 
 const SOLANA_RPC_URL = process.env.SOLANA_RPC_URL || 'http://localhost:8899'
-const EVM_RPC_URL = process.env.EVM_RPC_URL || 'http://localhost:8545'
+const EVM_RPC_URL = process.env.EVM_RPC_URL || 'http://localhost:6545'
 const EVM_PRIVATE_KEY = (process.env.EVM_PRIVATE_KEY ||
   '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80') as Hex // Anvil default
 const MOCK_BRIDGE_ADDRESS =

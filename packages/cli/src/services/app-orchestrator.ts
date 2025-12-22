@@ -125,6 +125,7 @@ export class AppOrchestrator {
     logger.step('Warming up apps...')
 
     // Optional dependency - warmup is non-critical, skip if unavailable
+    // Dynamic import: optional dependency that may not be available
     type WarmupModule = { quickWarmup: (apps: string[]) => Promise<void> }
     const warmupModule = (await import('@jejunetwork/tests/warmup').catch(
       () => null,

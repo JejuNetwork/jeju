@@ -7,17 +7,9 @@
  * - etc.
  */
 
-import { join } from 'node:path'
 import { Command } from 'commander'
 import { logger } from '../lib/logger'
-
-// Import from packages/deployment/scripts/shared (relative path from cli package)
-const SCRIPTS_SHARED = join(
-  process.cwd(),
-  'scripts',
-  'shared',
-  'local-proxy.ts',
-)
+import * as proxyModule from '../../../deployment/scripts/shared/local-proxy'
 
 interface ProxyModule {
   hasJejuHostsBlock: () => boolean
@@ -36,8 +28,8 @@ interface ProxyModule {
   getLocalUrls: () => Record<string, string>
 }
 
-async function loadProxyModule(): Promise<ProxyModule> {
-  return await import(SCRIPTS_SHARED)
+function loadProxyModule(): ProxyModule {
+  return proxyModule as ProxyModule
 }
 
 export const proxyCommand = new Command('proxy')

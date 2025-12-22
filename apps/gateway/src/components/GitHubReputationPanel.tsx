@@ -8,7 +8,6 @@ import {
   RefreshCw,
   Shield,
 } from 'lucide-react'
-import Image from 'next/image'
 import { type ComponentType, useEffect, useState } from 'react'
 import { useAccount } from 'wagmi'
 import {
@@ -155,6 +154,7 @@ export default function GitHubReputationPanel({
           <h3 className="text-lg font-semibold">GitHub Reputation</h3>
         </div>
         <button
+          type="button"
           onClick={() => fetchLeaderboardReputation()}
           disabled={loading}
           className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
@@ -194,6 +194,7 @@ export default function GitHubReputationPanel({
               />
               <div className="flex gap-2">
                 <button
+                  type="button"
                   onClick={handleVerifyWallet}
                   disabled={loading || !username.trim() || !githubToken}
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
@@ -206,6 +207,7 @@ export default function GitHubReputationPanel({
                   Verify & Link
                 </button>
                 <button
+                  type="button"
                   onClick={() => setShowLinkForm(false)}
                   className="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
@@ -218,6 +220,7 @@ export default function GitHubReputationPanel({
             </div>
           ) : (
             <button
+              type="button"
               onClick={() => setShowLinkForm(true)}
               className="px-4 py-2 bg-gray-900 text-white rounded-lg hover:bg-gray-800 flex items-center gap-2"
             >
@@ -235,13 +238,12 @@ export default function GitHubReputationPanel({
           <div className="p-4 bg-gradient-to-r from-gray-900 to-gray-700 text-white">
             <div className="flex items-center gap-3">
               {leaderboardData.avatarUrl && (
-                <Image
+                <img
                   src={leaderboardData.avatarUrl}
                   alt={leaderboardData.username}
                   width={48}
                   height={48}
                   className="w-12 h-12 rounded-full border-2 border-white"
-                  unoptimized
                 />
               )}
               <div>
@@ -353,6 +355,7 @@ export default function GitHubReputationPanel({
             <div className="border-t pt-4 space-y-2">
               {!leaderboardData.attestation && (
                 <button
+                  type="button"
                   onClick={handleRequestAttestation}
                   disabled={loading || !githubToken}
                   className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
@@ -371,6 +374,7 @@ export default function GitHubReputationPanel({
                 agentId &&
                 isContractConfigured && (
                   <button
+                    type="button"
                     onClick={handleSubmitOnChain}
                     disabled={
                       loading ||
@@ -392,6 +396,7 @@ export default function GitHubReputationPanel({
                 registryAddress &&
                 !leaderboardData.attestation?.agentId && (
                   <button
+                    type="button"
                     onClick={handleLinkAgent}
                     disabled={loading}
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center justify-center gap-2"

@@ -474,6 +474,7 @@ export const QuotesParamsSchema = z
 
 /**
  * Parse and validate data with a Zod schema, throwing on failure
+ * Use for fail-fast validation of external API responses
  */
 export function parseOrThrow<T>(
   schema: z.ZodSchema<T>,
@@ -490,6 +491,18 @@ export function parseOrThrow<T>(
     )
   }
   return result.data
+}
+
+/**
+ * Safely parse JSON and validate with schema, returning null on failure
+ * Use for external/streaming data that might be malformed
+ */
+export function safeParse<T>(
+  schema: z.ZodSchema<T>,
+  data: unknown,
+): T | null {
+  const result = schema.safeParse(data)
+  return result.success ? result.data : null
 }
 
 /**
@@ -973,41 +986,39 @@ export const ExecutionResultSchema = z
   .strict()
 
 // =============================================================================
-// DEX Adapter Schemas
+// DEX Adapter Schemas for Solana
 // =============================================================================
 
-export const JupiterQuoteResponseSchema = z
-  .object({
-    inputMint: z.string(),
-    outputMint: z.string(),
-    inAmount: z.string(),
-    outAmount: z.string(),
-    priceImpactPct: z.string(),
-    routePlan: z.array(
-      z
-        .object({
-          swapInfo: z
-            .object({
-              ammKey: z.string(),
-              label: z.string(),
-              inputMint: z.string(),
-              outputMint: z.string(),
-              inAmount: z.string(),
-              outAmount: z.string(),
-              feeAmount: z.string(),
-            })
-            .strict(),
-        })
-        .strict(),
-    ),
-  })
-  .strict()
+/** Jupiter quote response (full format for DEX adapters) */
+export const JupiterQuoteResponseSchema = z.object({
+  inputMint: z.string(),
+  outputMint: z.string(),
+  inAmount: z.string(),
+  outAmount: z.string(),
+  priceImpactPct: z.string(),
+  routePlan: z.array(
+    z.object({
+      swapInfo: z.object({
+        ammKey: z.string(),
+        label: z.string(),
+        inputMint: z.string(),
+        outputMint: z.string(),
+        inAmount: z.string(),
+        outAmount: z.string(),
+        feeAmount: z.string(),
+        feeMint: z.string(),
+      }),
+      percent: z.number(),
+    }),
+  ),
+})
 
-export const JupiterSwapResponseSchema = z
-  .object({
-    swapTransaction: z.string(),
-  })
-  .strict()
+/** Jupiter swap response (full format for DEX adapters) */
+export const JupiterSwapResponseSchema = z.object({
+  swapTransaction: z.string(),
+  lastValidBlockHeight: z.number().optional(),
+  prioritizationFeeLamports: z.number().optional(),
+})
 
 export const JupiterPriceResponseSchema = z
   .object({
@@ -1321,3 +1332,418 @@ export const ParaswapQuoteResponseSchema = z
     error: z.string().optional(),
   })
   .strict()
+
+// =============================================================================
+// Chat API Schemas
+// =============================================================================
+
+/** Schema for chat request body (server.ts chat endpoint) */
+export const ChatRequestSchema = z
+  .object({
+    text: z.string().min(1, 'Text is required'),
+    userId: z.string().optional(),
+    roomId: z.string().optional(),
+  })
+  .strict()
+
+/** Schema for agent start request body (autonomous agents endpoint) */
+export const AgentStartRequestSchema = z
+  .object({
+    characterId: z.string().min(1, 'Character ID is required'),
+    tickIntervalMs: z.number().int().min(1000).max(3600000).optional(),
+    capabilities: z.record(z.string(), z.boolean()).optional(),
+  })
+  .strict()
+
+// =============================================================================
+// WebSocket Message Schemas (External Data Validation)
+// =============================================================================
+
+/** Schema for Alchemy pending transaction data */
+const AlchemyPendingTxSchema = z.object({
+  hash: z.string(),
+  from: z.string(),
+  to: z.string(),
+  value: z.string(),
+  gasPrice: z.string().optional(),
+  maxFeePerGas: z.string().optional(),
+  maxPriorityFeePerGas: z.string().optional(),
+  gas: z.string(),
+  input: z.string(),
+  nonce: z.string(),
+})
+
+/** Schema for Alchemy subscription message */
+export const AlchemySubscriptionMessageSchema = z.object({
+  method: z.literal('eth_subscription').optional(),
+  params: z
+    .object({
+      result: AlchemyPendingTxSchema.optional(),
+    })
+    .optional(),
+})
+
+/** Schema for WebSocket eth_subscription message (hash only) */
+export const WebSocketEthSubscriptionMessageSchema = z.object({
+  method: z.literal('eth_subscription').optional(),
+  params: z
+    .object({
+      result: z.string().optional(),
+    })
+    .optional(),
+})
+
+/** Schema for Bot API A2A request (simplified JSON-RPC style) */
+export const BotA2ARequestSchema = z
+  .object({
+    jsonrpc: z.literal('2.0').optional(),
+    method: z.string().min(1, 'Method is required'),
+    params: JsonObjectSchema.optional(),
+    id: z.union([z.number(), z.string()]).optional(),
+  })
+  .strict()
+
+// =============================================================================
+// Hyperliquid API Response Schemas
+// =============================================================================
+
+/** Hyperliquid metadata response */
+export const HyperliquidMetaSchema = z.object({
+  universe: z.array(
+    z.object({
+      name: z.string(),
+      szDecimals: z.number(),
+    }),
+  ),
+})
+
+/** Hyperliquid asset context */
+export const HyperliquidAssetCtxSchema = z.object({
+  funding: z.string(),
+  openInterest: z.string(),
+  prevDayPx: z.string(),
+  dayNtlVlm: z.string(),
+  premium: z.string().optional(),
+  oraclePx: z.string(),
+  markPx: z.string(),
+})
+
+/** Hyperliquid meta and asset contexts response tuple */
+export const HyperliquidMetaAndAssetCtxsSchema = z.tuple([
+  HyperliquidMetaSchema,
+  z.array(HyperliquidAssetCtxSchema),
+])
+
+/** Hyperliquid all mids response (price map) */
+export const HyperliquidAllMidsSchema = z.record(z.string(), z.string())
+
+/** Hyperliquid clearinghouse state response */
+export const HyperliquidStateSchema = z.object({
+  assetPositions: z.array(
+    z.object({
+      position: z.object({
+        coin: z.string(),
+        szi: z.string(),
+        entryPx: z.string(),
+        positionValue: z.string(),
+        unrealizedPnl: z.string(),
+        leverage: z.object({
+          type: z.string(),
+          value: z.number(),
+        }),
+      }),
+    }),
+  ),
+  marginSummary: z.object({
+    accountValue: z.string(),
+    totalMarginUsed: z.string(),
+    totalNtlPos: z.string(),
+  }),
+})
+
+/** Hyperliquid order result response */
+export const HyperliquidOrderResultSchema = z.object({
+  status: z.string(),
+  response: z
+    .object({
+      data: z
+        .object({
+          statuses: z.array(
+            z.object({
+              resting: z.object({ oid: z.number() }).optional(),
+            }),
+          ),
+        })
+        .optional(),
+    })
+    .optional(),
+})
+
+// =============================================================================
+// DWS (Decentralized Workstation Service) Response Schemas
+// =============================================================================
+
+/** DWS node stats response */
+export const DWSNodeStatsSchema = z.object({
+  inference: z
+    .object({
+      activeNodes: z.number().optional(),
+    })
+    .optional(),
+})
+
+/** DWS chat completion response */
+export const DWSChatResponseSchema = z.object({
+  choices: z.array(
+    z.object({
+      message: z.object({
+        role: z.string(),
+        content: z.string(),
+      }),
+      finish_reason: z.string().optional(),
+    }),
+  ),
+  node: z.string().optional(),
+  provider: z.string().optional(),
+  error: z.string().optional(),
+  message: z.string().optional(),
+})
+
+/** DWS inference response (alternate format) */
+export const DWSInferenceAltSchema = z.object({
+  choices: z
+    .array(
+      z.object({
+        message: z.object({ content: z.string() }).optional(),
+      }),
+    )
+    .optional(),
+  content: z.string().optional(),
+})
+
+/** DWS OpenAI-compatible response format */
+export const DWSOpenAICompatSchema = z.object({
+  choices: z.array(
+    z.object({
+      message: z.object({ content: z.string() }).optional(),
+    }),
+  ),
+  model: z.string().optional(),
+  usage: z
+    .object({
+      prompt_tokens: z.number().optional(),
+      completion_tokens: z.number().optional(),
+    })
+    .optional(),
+  cost: z.union([z.string(), z.number()]).optional(),
+})
+
+// =============================================================================
+// Flashbots/MEV Builder Response Schemas
+// =============================================================================
+
+/** Flashbots bundle submission response */
+export const FlashbotsBundleResponseSchema = z.object({
+  result: z
+    .object({
+      bundleHash: z.string().optional(),
+    })
+    .optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
+
+/** Flashbots simulation response */
+export const FlashbotsSimulationResponseSchema = z.object({
+  result: z
+    .object({
+      results: z
+        .array(
+          z.object({
+            txHash: z.string(),
+            gasUsed: z.string(),
+            revert: z.string().optional(),
+          }),
+        )
+        .optional(),
+      totalGasUsed: z.string().optional(),
+      coinbaseDiff: z.string().optional(),
+    })
+    .optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
+
+/** Flashbots bundle stats response */
+export const FlashbotsBundleStatsSchema = z.object({
+  result: z
+    .object({
+      isSimulated: z.boolean().optional(),
+      isIncluded: z.boolean().optional(),
+      blockNumber: z.string().optional(),
+    })
+    .optional(),
+})
+
+/** L2 raw transaction response */
+export const L2RawTxResponseSchema = z.object({
+  result: z.string().optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
+
+/** MEV-Share private transaction response */
+export const MevSharePrivateTxResponseSchema = z.object({
+  result: z.union([z.string(), z.object({ txHash: z.string().optional() })]).optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
+
+/** MEV-Share cancel response */
+export const MevShareCancelResponseSchema = z.object({
+  result: z.boolean().optional(),
+})
+
+// =============================================================================
+// Redstone Finance Response Schemas
+// =============================================================================
+
+/** Redstone price response */
+export const RedstonePriceResponseSchema = z.record(
+  z.string(),
+  z.object({
+    value: z.number(),
+    timestamp: z.number(),
+  }),
+)
+
+// =============================================================================
+// Solana DEX/Jupiter Response Schemas (External API)
+// =============================================================================
+
+/** Jupiter quote response */
+export const JupiterQuoteApiResponseSchema = z.object({
+  inputMint: z.string().optional(),
+  outputMint: z.string().optional(),
+  inAmount: z.string().optional(),
+  outAmount: z.string(),
+  priceImpactPct: z.string().optional(),
+  routePlan: z
+    .array(
+      z.object({
+        swapInfo: z.object({
+          ammKey: z.string().optional(),
+          label: z.string(),
+        }),
+      }),
+    )
+    .optional(),
+})
+
+/** Jupiter swap response */
+export const JupiterSwapApiResponseSchema = z.object({
+  swapTransaction: z.string(),
+  lastValidBlockHeight: z.number().optional(),
+})
+
+/** Jito bundle status response */
+export const JitoBundleStatusSchema = z.object({
+  result: z
+    .object({
+      value: z.array(
+        z.object({
+          confirmation_status: z.string(),
+        }),
+      ),
+    })
+    .optional(),
+})
+
+/** Jito bundle submission response */
+export const JitoBundleSubmitSchema = z.object({
+  result: z.string().optional(),
+  error: z.object({ message: z.string() }).optional(),
+})
+
+// =============================================================================
+// Solana DEX Pool API Response Schemas
+// =============================================================================
+
+/** Generic pool data from Solana DEX APIs */
+export const SolanaDexPoolSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  tvl: z.number(),
+  volume24h: z.number(),
+  apr: z
+    .object({
+      trading: z.number().optional(),
+      rewards: z.number().optional(),
+    })
+    .optional(),
+  tokenA: z.object({
+    symbol: z.string(),
+    mint: z.string(),
+    decimals: z.number(),
+  }),
+  tokenB: z.object({
+    symbol: z.string(),
+    mint: z.string(),
+    decimals: z.number(),
+  }),
+  fee: z.number().optional(),
+})
+
+/** Solana DEX pools response */
+export const SolanaDexPoolsResponseSchema = z.object({
+  data: z.array(SolanaDexPoolSchema).optional(),
+})
+
+/** Solana lending market data */
+export const SolanaLendingMarketSchema = z.object({
+  mint: z.string(),
+  symbol: z.string(),
+  decimals: z.number(),
+  supplyApr: z.number(),
+  borrowApr: z.number(),
+  tvl: z.number(),
+  utilization: z.number(),
+})
+
+/** Solana lending markets response */
+export const SolanaLendingMarketsResponseSchema = z.object({
+  markets: z.array(SolanaLendingMarketSchema).optional(),
+})
+
+// =============================================================================
+// EVM RPC Response Schemas
+// =============================================================================
+
+/** Eth getTransactionByHash response */
+export const EthGetTransactionResponseSchema = z.object({
+  result: z
+    .object({
+      hash: z.string(),
+      from: z.string(),
+      to: z.string(),
+      value: z.string(),
+      gasPrice: z.string().optional(),
+      maxFeePerGas: z.string().optional(),
+      maxPriorityFeePerGas: z.string().optional(),
+      gas: z.string(),
+      input: z.string(),
+      nonce: z.string(),
+    })
+    .nullable()
+    .optional(),
+})
+
+// =============================================================================
+// Chat/Agent API Response Schemas
+// =============================================================================
+
+/** Chat API response */
+export const ChatApiResponseSchema = z.object({
+  text: z.string(),
+})
+
+/** ZK Bridge transaction response */
+export const ZKBridgeTxResponseSchema = z.object({
+  txHash: z.string(),
+})

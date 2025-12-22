@@ -22,24 +22,26 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { CONTRACTS } from '@/config'
+import { CONTRACTS } from '../config'
 import { cidToBytes32, uploadToIPFS } from '../lib/ipfs'
 
 // ============ Types ============
 
-enum BanStatus {
-  NONE = 0,
-  ON_NOTICE = 1,
-  CHALLENGED = 2,
-  BANNED = 3,
-  CLEARED = 4,
-  APPEALING = 5,
-}
+const BanStatus = {
+  NONE: 0,
+  ON_NOTICE: 1,
+  CHALLENGED: 2,
+  BANNED: 3,
+  CLEARED: 4,
+  APPEALING: 5,
+} as const
+type BanStatus = (typeof BanStatus)[keyof typeof BanStatus]
 
-enum VotePosition {
-  YES = 0,
-  NO = 1,
-}
+const VotePosition = {
+  YES: 0,
+  NO: 1,
+} as const
+type VotePosition = (typeof VotePosition)[keyof typeof VotePosition]
 
 interface BanCase {
   caseId: `0x${string}`
@@ -195,30 +197,34 @@ const MODERATION_MARKETPLACE_ABI = [
 
 // ============ Components ============
 
-function StatusBadge({ status }: { status: number }) {
-  const statusConfig: Record<number, { label: string; className: string }> = {
-    [BanStatus.NONE]: { label: 'None', className: 'bg-gray-100 text-gray-800' },
-    [BanStatus.ON_NOTICE]: {
-      label: 'On Notice',
-      className: 'bg-yellow-100 text-yellow-800 animate-pulse',
-    },
-    [BanStatus.CHALLENGED]: {
-      label: 'Challenged',
-      className: 'bg-orange-100 text-orange-800',
-    },
-    [BanStatus.BANNED]: {
-      label: 'Banned',
-      className: 'bg-red-100 text-red-800',
-    },
-    [BanStatus.CLEARED]: {
-      label: 'Cleared',
-      className: 'bg-green-100 text-green-800',
-    },
-    [BanStatus.APPEALING]: {
-      label: 'Appealing',
-      className: 'bg-purple-100 text-purple-800',
-    },
-  }
+function StatusBadge({ status }: { status: BanStatus }) {
+  const statusConfig: Record<BanStatus, { label: string; className: string }> =
+    {
+      [BanStatus.NONE]: {
+        label: 'None',
+        className: 'bg-gray-100 text-gray-800',
+      },
+      [BanStatus.ON_NOTICE]: {
+        label: 'On Notice',
+        className: 'bg-yellow-100 text-yellow-800 animate-pulse',
+      },
+      [BanStatus.CHALLENGED]: {
+        label: 'Challenged',
+        className: 'bg-orange-100 text-orange-800',
+      },
+      [BanStatus.BANNED]: {
+        label: 'Banned',
+        className: 'bg-red-100 text-red-800',
+      },
+      [BanStatus.CLEARED]: {
+        label: 'Cleared',
+        className: 'bg-green-100 text-green-800',
+      },
+      [BanStatus.APPEALING]: {
+        label: 'Appealing',
+        className: 'bg-purple-100 text-purple-800',
+      },
+    }
 
   const config = statusConfig[status] || statusConfig[BanStatus.NONE]
 
@@ -331,7 +337,7 @@ function CaseCard({
               Case #{banCase.caseId.slice(0, 10)}...
             </span>
           </div>
-          <StatusBadge status={banCase.status} />
+          <StatusBadge status={banCase.status as BanStatus} />
         </div>
       </div>
 
@@ -391,6 +397,7 @@ function CaseCard({
             {!isExpired && canVote && (
               <>
                 <button
+                  type="button"
                   onClick={() => onVote(banCase.caseId, VotePosition.YES)}
                   disabled={isVoting}
                   className="flex-1 flex items-center justify-center gap-2 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
@@ -399,6 +406,7 @@ function CaseCard({
                   Vote BAN
                 </button>
                 <button
+                  type="button"
                   onClick={() => onVote(banCase.caseId, VotePosition.NO)}
                   disabled={isVoting}
                   className="flex-1 flex items-center justify-center gap-2 py-2 bg-green-500 hover:bg-green-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
@@ -410,6 +418,7 @@ function CaseCard({
             )}
             {isExpired && (
               <button
+                type="button"
                 onClick={() => onResolve(banCase.caseId)}
                 disabled={isVoting}
                 className="w-full flex items-center justify-center gap-2 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium transition-colors disabled:opacity-50"
@@ -703,6 +712,7 @@ export default function ModerationMarketplace() {
         {(['cases', 'stake', 'report', 'leaderboard'] as const).map((tab) => (
           <button
             key={tab}
+            type="button"
             onClick={() => setSelectedTab(tab)}
             className={`px-4 py-2 font-medium transition-colors whitespace-nowrap ${
               selectedTab === tab
@@ -783,10 +793,14 @@ export default function ModerationMarketplace() {
             <h3 className="font-semibold mb-4">Add Stake</h3>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm text-gray-600 mb-1">
+                <label
+                  htmlFor="moderation-stake-amount"
+                  className="block text-sm text-gray-600 mb-1"
+                >
                   Amount (ETH)
                 </label>
                 <input
+                  id="moderation-stake-amount"
                   type="number"
                   step="0.001"
                   min="0"
@@ -801,6 +815,7 @@ export default function ModerationMarketplace() {
                 )}
               </div>
               <button
+                type="button"
                 onClick={handleStake}
                 disabled={isLoading || !isConnected}
                 className="w-full py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"
@@ -1084,10 +1099,14 @@ function ReportForm({
       </h3>
 
       <div>
-        <label className="block text-sm text-gray-600 mb-1">
+        <label
+          htmlFor="moderation-target-address"
+          className="block text-sm text-gray-600 mb-1"
+        >
           Target Address *
         </label>
         <input
+          id="moderation-target-address"
           type="text"
           placeholder="0x..."
           value={target}
@@ -1097,8 +1116,14 @@ function ReportForm({
       </div>
 
       <div>
-        <label className="block text-sm text-gray-600 mb-1">Category *</label>
+        <label
+          htmlFor="moderation-category"
+          className="block text-sm text-gray-600 mb-1"
+        >
+          Category *
+        </label>
         <select
+          id="moderation-category"
           value={category}
           onChange={(e) => setCategory(e.target.value)}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent"
@@ -1112,9 +1137,9 @@ function ReportForm({
       </div>
 
       <div>
-        <label className="block text-sm text-gray-600 mb-1">
+        <div className="block text-sm text-gray-600 mb-1">
           Evidence * (Upload to IPFS)
-        </label>
+        </div>
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
           {!evidenceFile ? (
             <>
@@ -1154,8 +1179,14 @@ function ReportForm({
       </div>
 
       <div>
-        <label className="block text-sm text-gray-600 mb-1">Reason *</label>
+        <label
+          htmlFor="moderation-reason"
+          className="block text-sm text-gray-600 mb-1"
+        >
+          Reason *
+        </label>
         <textarea
+          id="moderation-reason"
           placeholder="Describe the violation in detail..."
           value={reason}
           onChange={(e) => setReason(e.target.value)}
@@ -1172,6 +1203,7 @@ function ReportForm({
       </div>
 
       <button
+        type="button"
         onClick={handleSubmit}
         disabled={isLoading || uploading || !target || !reason || !evidenceHash}
         className="w-full py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg font-semibold transition-colors disabled:opacity-50"

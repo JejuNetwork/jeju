@@ -1,4 +1,10 @@
+import { expectJson } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
+import {
+  MailboxDataSchema,
+  MailboxIndexSchema,
+} from '../shared/schemas/internal-storage'
 import { getMultiBackendManager, type MultiBackendManager } from '../storage'
 import { mailboxOperationsTotal, storageQuotaBytes } from './metrics'
 import type {
@@ -166,7 +172,11 @@ export class MailboxStorage {
           return null
         })
       if (data) {
-        const registry = JSON.parse(data.toString()) as Record<Address, string>
+        const registry = expectJson(
+          data.toString(),
+          z.record(z.string(), z.string()),
+          'email registry',
+        )
         this.mailboxRegistry = new Map(
           Object.entries(registry) as [Address, string][],
         )
@@ -282,16 +292,14 @@ export class MailboxStorage {
 
     if (!data) return null
 
-    const parsed = JSON.parse(data.toString()) as Record<string, unknown>
+    const parsed = expectJson(data.toString(), MailboxDataSchema, 'mailbox data')
     const mailbox: Mailbox = {
-      owner: parsed.owner as Address,
-      encryptedIndexCid: parsed.encryptedIndexCid as string,
-      quotaUsedBytes: BigInt(parsed.quotaUsedBytes?.toString() ?? '0'),
-      quotaLimitBytes: BigInt(
-        parsed.quotaLimitBytes?.toString() ?? String(100 * 1024 * 1024),
-      ),
-      lastUpdated: parsed.lastUpdated as number,
-      folders: parsed.folders as string[],
+      owner: parsed.owner,
+      encryptedIndexCid: parsed.encryptedIndexCid,
+      quotaUsedBytes: BigInt(parsed.quotaUsedBytes),
+      quotaLimitBytes: BigInt(parsed.quotaLimitBytes),
+      lastUpdated: parsed.lastUpdated,
+      folders: parsed.folders,
     }
 
     this.setCachedMailbox(owner, mailbox)
@@ -312,7 +320,11 @@ export class MailboxStorage {
       ? await this.encryptionService.decrypt(encryptedIndex, '0x' as Hex)
       : encryptedIndex
 
-    const index = JSON.parse(indexData.toString()) as MailboxIndex
+    const index = expectJson(
+      indexData.toString(),
+      MailboxIndexSchema,
+      'mailbox index',
+    ) as MailboxIndex
     this.setCachedIndex(owner, index)
 
     return index

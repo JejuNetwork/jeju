@@ -6,6 +6,14 @@
 import type { Abi } from 'viem'
 import AppTokenPreferenceAbiJson from '../../abis/AppTokenPreference.json'
 import AutomationRegistryAbiJson from '../../abis/AutomationRegistry.json'
+// Babylon Diamond ABIs (EIP-2535 Prediction Markets)
+import BabylonDiamondAbiJson from '../../abis/BabylonDiamond.json'
+import BabylonDiamondCutFacetAbiJson from '../../abis/BabylonDiamondCutFacet.json'
+import BabylonDiamondLoupeFacetAbiJson from '../../abis/BabylonDiamondLoupeFacet.json'
+import BabylonERC8004IdentityRegistryAbiJson from '../../abis/BabylonERC8004IdentityRegistry.json'
+import BabylonERC8004ReputationSystemAbiJson from '../../abis/BabylonERC8004ReputationSystem.json'
+import BabylonOracleFacetAbiJson from '../../abis/BabylonOracleFacet.json'
+import BabylonPredictionMarketFacetAbiJson from '../../abis/BabylonPredictionMarketFacet.json'
 // Moderation ABIs
 import BanManagerAbiJson from '../../abis/BanManager.json'
 import BazaarAbiJson from '../../abis/Bazaar.json'
@@ -57,6 +65,15 @@ export const BazaarAbi = BazaarAbiJson.abi as Abi
 export const IdentityRegistryAbi = IdentityRegistryAbiJson.abi as Abi
 export const ReputationRegistryAbi = ReputationRegistryAbiJson.abi as Abi
 export const ValidationRegistryAbi = ValidationRegistryAbiJson.abi as Abi
+
+// Babylon Diamond ABIs (EIP-2535 Prediction Markets)
+export const BabylonDiamondAbi = BabylonDiamondAbiJson.abi as Abi
+export const BabylonDiamondCutFacetAbi = BabylonDiamondCutFacetAbiJson.abi as Abi
+export const BabylonDiamondLoupeFacetAbi = BabylonDiamondLoupeFacetAbiJson.abi as Abi
+export const BabylonPredictionMarketFacetAbi = BabylonPredictionMarketFacetAbiJson.abi as Abi
+export const BabylonOracleFacetAbi = BabylonOracleFacetAbiJson.abi as Abi
+export const BabylonERC8004IdentityRegistryAbi = BabylonERC8004IdentityRegistryAbiJson.abi as Abi
+export const BabylonERC8004ReputationSystemAbi = BabylonERC8004ReputationSystemAbiJson.abi as Abi
 
 // OIF ABIs
 export const InputSettlerAbi = InputSettlerAbiJson.abi as Abi
@@ -144,6 +161,17 @@ export {
   AutomationRegistryAbiJson,
   OracleRouterAbiJson,
   ChainlinkGovernanceAbiJson,
+}
+
+// Babylon Diamond ABIs (EIP-2535 Prediction Markets)
+export {
+  BabylonDiamondAbiJson,
+  BabylonDiamondCutFacetAbiJson,
+  BabylonDiamondLoupeFacetAbiJson,
+  BabylonPredictionMarketFacetAbiJson,
+  BabylonOracleFacetAbiJson,
+  BabylonERC8004IdentityRegistryAbiJson,
+  BabylonERC8004ReputationSystemAbiJson,
 }
 
 // Common ABI fragments for convenience

@@ -57,7 +57,9 @@ export default function BblnICOPage() {
           </div>
         </div>
 
-        <button className="btn-primary w-full py-3">Participate in ICO</button>
+        <button type="button" className="btn-primary w-full py-3">
+          Participate in ICO
+        </button>
       </div>
     </div>
   )

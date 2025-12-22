@@ -4,6 +4,7 @@
 
 export { a2aRoutes } from './a2a'
 export { agentsRoutes } from './agents'
+export { bugBountyRoutes } from './bug-bounty'
 export { casualRoutes } from './casual'
 export { daoRoutes } from './dao'
 export { fundingRoutes } from './funding'
@@ -15,4 +16,5 @@ export { orchestratorRoutes } from './orchestrator'
 export { proposalsRoutes } from './proposals'
 export { registryRoutes } from './registry'
 export { researchRoutes } from './research'
+export { rlaifRoutes } from './rlaif'
 export { triggersRoutes } from './triggers'

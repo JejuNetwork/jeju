@@ -12,6 +12,15 @@ import {
 } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex } from 'viem'
 import { getServicesConfig, requireContract } from '../config'
+import {
+  DelegateInfoSchema,
+  DelegatesListSchema,
+  GovernanceIPFSUploadResponseSchema,
+  GovernanceStatsRawResponseSchema,
+  GovernanceVotingPowerResponseSchema,
+  ProposalInfoSchema,
+  ProposalsListSchema,
+} from '../shared/schemas'
 import type { JejuWallet } from '../wallet'
 
 export interface ProposalInfo {
@@ -201,7 +210,8 @@ export function createGovernanceModule(
     })
 
     if (!response.ok) throw new Error('Failed to upload proposal content')
-    const { cid } = (await response.json()) as { cid: string }
+    const rawUpload: unknown = await response.json()
+    const { cid } = GovernanceIPFSUploadResponseSchema.parse(rawUpload)
     const contentHash =
       `0x${Buffer.from(cid).toString('hex').padEnd(64, '0')}` as Hex
 
@@ -225,7 +235,8 @@ export function createGovernanceModule(
       `${services.gateway.api}/governance/proposals/${proposalId}`,
     )
     if (!response.ok) throw new Error('Failed to fetch proposal')
-    return (await response.json()) as ProposalInfo
+    const rawData: unknown = await response.json()
+    return ProposalInfoSchema.parse(rawData)
   }
 
   async function listProposals(
@@ -238,7 +249,8 @@ export function createGovernanceModule(
     const response = await fetch(url)
     if (!response.ok) throw new Error('Failed to list proposals')
 
-    const data = (await response.json()) as { proposals: ProposalInfo[] }
+    const rawData: unknown = await response.json()
+    const data = ProposalsListSchema.parse(rawData)
     return data.proposals
   }
 
@@ -273,7 +285,8 @@ export function createGovernanceModule(
     if (!response.ok) {
       throw new Error(`Failed to get voting power: ${response.statusText}`)
     }
-    const data = (await response.json()) as { power: string }
+    const rawData: unknown = await response.json()
+    const data = GovernanceVotingPowerResponseSchema.parse(rawData)
     return BigInt(data.power)
   }
 
@@ -302,7 +315,8 @@ export function createGovernanceModule(
     if (!response.ok) {
       throw new Error(`Failed to list delegates: ${response.statusText}`)
     }
-    const data = (await response.json()) as { delegates: DelegateInfo[] }
+    const rawData: unknown = await response.json()
+    const data = DelegatesListSchema.parse(rawData)
     return data.delegates
   }
 
@@ -314,7 +328,8 @@ export function createGovernanceModule(
     if (!response.ok) {
       throw new Error(`Failed to get delegation: ${response.statusText}`)
     }
-    return (await response.json()) as DelegateInfo
+    const rawData: unknown = await response.json()
+    return DelegateInfoSchema.parse(rawData)
   }
 
   async function getStats(): Promise<GovernanceStats> {
@@ -323,14 +338,8 @@ export function createGovernanceModule(
       throw new Error(`Failed to get governance stats: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as {
-      totalProposals: number
-      activeProposals: number
-      executedProposals: number
-      rejectedProposals: number
-      totalStaked: string
-      totalDelegated: string
-    }
+    const rawData: unknown = await response.json()
+    const data = GovernanceStatsRawResponseSchema.parse(rawData)
 
     return {
       ...data,

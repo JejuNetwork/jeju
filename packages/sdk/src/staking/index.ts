@@ -11,27 +11,30 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, parseEther } from 'viem'
 import { getServicesConfig, requireContract } from '../config'
+import { NodesListSchema, StakingStatsResponseSchema } from '../shared/schemas'
 import type { JejuWallet } from '../wallet'
 
 // ═══════════════════════════════════════════════════════════════════════════
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum StakingTier {
-  NONE = 0,
-  BRONZE = 1,
-  SILVER = 2,
-  GOLD = 3,
-  PLATINUM = 4,
-}
+export const StakingTier = {
+  NONE: 0,
+  BRONZE: 1,
+  SILVER: 2,
+  GOLD: 3,
+  PLATINUM: 4,
+} as const
+export type StakingTier = (typeof StakingTier)[keyof typeof StakingTier]
 
-export enum NodeType {
-  VALIDATOR = 0,
-  SEQUENCER = 1,
-  RPC_PROVIDER = 2,
-  STORAGE_PROVIDER = 3,
-  COMPUTE_PROVIDER = 4,
-}
+export const NodeType = {
+  VALIDATOR: 0,
+  SEQUENCER: 1,
+  RPC_PROVIDER: 2,
+  STORAGE_PROVIDER: 3,
+  COMPUTE_PROVIDER: 4,
+} as const
+export type NodeType = (typeof NodeType)[keyof typeof NodeType]
 
 export interface StakeInfo {
   staker: Address
@@ -529,17 +532,8 @@ export function createStakingModule(
       if (!response.ok) {
         throw new Error(`Failed to fetch staking stats: ${response.statusText}`)
       }
-      const data = (await response.json()) as {
-        totalStakers: number
-        currentAPY: number
-      }
-
-      if (
-        typeof data.totalStakers !== 'number' ||
-        typeof data.currentAPY !== 'number'
-      ) {
-        throw new Error('Invalid staking stats response')
-      }
+      const rawData: unknown = await response.json()
+      const data = StakingStatsResponseSchema.parse(rawData)
 
       return {
         totalStaked,
@@ -657,11 +651,9 @@ export function createStakingModule(
       if (!response.ok) {
         throw new Error(`Failed to list nodes: ${response.statusText}`)
       }
-      const data = (await response.json()) as { nodes: NodeStakeInfo[] }
-      if (!Array.isArray(data.nodes)) {
-        throw new Error('Invalid API response: expected nodes array')
-      }
-      return data.nodes
+      const rawData: unknown = await response.json()
+      const data = NodesListSchema.parse(rawData)
+      return data.nodes as NodeStakeInfo[]
     },
 
     async getMinNodeStake(nodeType) {

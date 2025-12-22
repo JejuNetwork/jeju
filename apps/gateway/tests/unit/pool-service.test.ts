@@ -47,46 +47,46 @@ describeOrSkip('PoolService', () => {
   describe('listV2Pools', () => {
     test('returns empty array when factory address is zero', async () => {
       process.env.XLP_V2_FACTORY = ZERO_ADDRESS
-      const pools = await poolService!.listV2Pools()
+      const pools = await poolService?.listV2Pools()
       expect(pools).toEqual([])
     })
 
     test('returns empty array when factory address is not set', async () => {
-      const pools = await poolService!.listV2Pools()
+      const pools = await poolService?.listV2Pools()
       expect(pools).toEqual([])
     })
 
     test('handles contract read failure gracefully', async () => {
       process.env.XLP_V2_FACTORY = TEST_FACTORY
-      const pools = await poolService!.listV2Pools()
+      const pools = await poolService?.listV2Pools()
       expect(Array.isArray(pools)).toBe(true)
     })
 
     test('limits to MAX_POOLS_TO_FETCH (100)', async () => {
       process.env.XLP_V2_FACTORY = TEST_FACTORY
-      const pools = await poolService!.listV2Pools()
+      const pools = await poolService?.listV2Pools()
       expect(pools.length).toBeLessThanOrEqual(100)
     })
   })
 
   describe('getV2PoolData', () => {
     test('returns null for invalid pair address', async () => {
-      const result = await poolService!.getV2PoolData(ZERO_ADDRESS)
+      const result = await poolService?.getV2PoolData(ZERO_ADDRESS)
       expect(result).toBeNull()
     })
 
     test('returns null when reserves call fails', async () => {
-      const result = await poolService!.getV2PoolData(TEST_PAIR_ADDRESS)
+      const result = await poolService?.getV2PoolData(TEST_PAIR_ADDRESS)
       expect(result).toBeNull()
     })
 
     test('returns null when token0 is missing', async () => {
-      const result = await poolService!.getV2PoolData(TEST_PAIR_ADDRESS)
+      const result = await poolService?.getV2PoolData(TEST_PAIR_ADDRESS)
       expect(result).toBeNull()
     })
 
     test('handles zero reserves correctly', async () => {
-      const result = await poolService!.getV2PoolData(TEST_PAIR_ADDRESS)
+      const result = await poolService?.getV2PoolData(TEST_PAIR_ADDRESS)
       if (result) {
         expect(result.reserve0).toBeDefined()
         expect(result.reserve1).toBeDefined()
@@ -97,7 +97,7 @@ describeOrSkip('PoolService', () => {
   describe('getV3Pool', () => {
     test('returns null when factory is zero address', async () => {
       process.env.XLP_V3_FACTORY = ZERO_ADDRESS
-      const result = await poolService!.getV3Pool(
+      const result = await poolService?.getV3Pool(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         3000,
@@ -107,7 +107,7 @@ describeOrSkip('PoolService', () => {
 
     test('sorts tokens correctly (token0 < token1)', async () => {
       process.env.XLP_V3_FACTORY = TEST_FACTORY
-      const result = await poolService!.getV3Pool(
+      const result = await poolService?.getV3Pool(
         TEST_ADDRESS_2,
         TEST_ADDRESS_1,
         3000,
@@ -117,7 +117,7 @@ describeOrSkip('PoolService', () => {
 
     test('handles invalid fee tiers', async () => {
       process.env.XLP_V3_FACTORY = TEST_FACTORY
-      const result = await poolService!.getV3Pool(
+      const result = await poolService?.getV3Pool(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         99999,
@@ -127,7 +127,7 @@ describeOrSkip('PoolService', () => {
 
     test('returns null when pool does not exist', async () => {
       process.env.XLP_V3_FACTORY = TEST_FACTORY
-      const result = await poolService!.getV3Pool(
+      const result = await poolService?.getV3Pool(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         3000,
@@ -138,24 +138,24 @@ describeOrSkip('PoolService', () => {
 
   describe('getV3PoolData', () => {
     test('returns null when slot0 call fails', async () => {
-      const result = await poolService!.getV3PoolData(TEST_PAIR_ADDRESS)
+      const result = await poolService?.getV3PoolData(TEST_PAIR_ADDRESS)
       expect(result).toBeNull()
     })
 
     test('returns null when token0 is missing', async () => {
-      const result = await poolService!.getV3PoolData(TEST_PAIR_ADDRESS)
+      const result = await poolService?.getV3PoolData(TEST_PAIR_ADDRESS)
       expect(result).toBeNull()
     })
 
     test('handles zero liquidity', async () => {
-      const result = await poolService!.getV3PoolData(TEST_PAIR_ADDRESS)
+      const result = await poolService?.getV3PoolData(TEST_PAIR_ADDRESS)
       if (result) {
         expect(result.liquidity).toBeDefined()
       }
     })
 
     test('defaults fee to 3000 when fee call fails', async () => {
-      const result = await poolService!.getV3PoolData(TEST_PAIR_ADDRESS)
+      const result = await poolService?.getV3PoolData(TEST_PAIR_ADDRESS)
       if (result) {
         expect(result.fee).toBe(3000)
       }
@@ -164,7 +164,7 @@ describeOrSkip('PoolService', () => {
 
   describe('listPoolsForPair', () => {
     test('returns empty array when no pools exist', async () => {
-      const pools = await poolService!.listPoolsForPair(
+      const pools = await poolService?.listPoolsForPair(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
       )
@@ -172,7 +172,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('checks all V3 fee tiers', async () => {
-      const pools = await poolService!.listPoolsForPair(
+      const pools = await poolService?.listPoolsForPair(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
       )
@@ -181,7 +181,7 @@ describeOrSkip('PoolService', () => {
 
     test('includes paymaster pool when reserves exist', async () => {
       process.env.CROSS_CHAIN_PAYMASTER = TEST_FACTORY
-      const pools = await poolService!.listPoolsForPair(
+      const pools = await poolService?.listPoolsForPair(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
       )
@@ -189,7 +189,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('handles same token address for both inputs', async () => {
-      const pools = await poolService!.listPoolsForPair(
+      const pools = await poolService?.listPoolsForPair(
         TEST_ADDRESS_1,
         TEST_ADDRESS_1,
       )
@@ -199,7 +199,7 @@ describeOrSkip('PoolService', () => {
 
   describe('getSwapQuote', () => {
     test('returns null when amountIn is zero', async () => {
-      const result = await poolService!.getSwapQuote(
+      const result = await poolService?.getSwapQuote(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         '0',
@@ -208,7 +208,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('returns null when amountIn is negative string', async () => {
-      const result = await poolService!.getSwapQuote(
+      const result = await poolService?.getSwapQuote(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         '-1',
@@ -217,7 +217,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('returns null when aggregator is not set', async () => {
-      const result = await poolService!.getSwapQuote(
+      const result = await poolService?.getSwapQuote(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         '1',
@@ -227,7 +227,7 @@ describeOrSkip('PoolService', () => {
 
     test('handles aggregator returning zero amountOut', async () => {
       process.env.XLP_AGGREGATOR = TEST_FACTORY
-      const result = await poolService!.getSwapQuote(
+      const result = await poolService?.getSwapQuote(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         '1',
@@ -236,7 +236,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('calculates V2 quote manually when aggregator unavailable', async () => {
-      const result = await poolService!.getSwapQuote(
+      const result = await poolService?.getSwapQuote(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         '1',
@@ -246,7 +246,7 @@ describeOrSkip('PoolService', () => {
 
     test('handles very large amountIn values', async () => {
       const largeAmount = '1000000000000000000000000'
-      const result = await poolService!.getSwapQuote(
+      const result = await poolService?.getSwapQuote(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         largeAmount,
@@ -256,7 +256,7 @@ describeOrSkip('PoolService', () => {
 
     test('handles very small amountIn values', async () => {
       const smallAmount = '0.000000000000000001'
-      const result = await poolService!.getSwapQuote(
+      const result = await poolService?.getSwapQuote(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         smallAmount,
@@ -266,7 +266,7 @@ describeOrSkip('PoolService', () => {
 
     test('handles invalid amountIn format', async () => {
       try {
-        const result = await poolService!.getSwapQuote(
+        const result = await poolService?.getSwapQuote(
           TEST_ADDRESS_1,
           TEST_ADDRESS_2,
           'invalid',
@@ -282,7 +282,7 @@ describeOrSkip('PoolService', () => {
 
   describe('getAllSwapQuotes', () => {
     test('returns empty array when no quotes available', async () => {
-      const quotes = await poolService!.getAllSwapQuotes(
+      const quotes = await poolService?.getAllSwapQuotes(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         '1',
@@ -291,7 +291,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('sorts quotes by amountOut descending', async () => {
-      const quotes = await poolService!.getAllSwapQuotes(
+      const quotes = await poolService?.getAllSwapQuotes(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         '1',
@@ -306,7 +306,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('filters out zero amountOut quotes', async () => {
-      const quotes = await poolService!.getAllSwapQuotes(
+      const quotes = await poolService?.getAllSwapQuotes(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         '1',
@@ -317,7 +317,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('falls back to getSwapQuote when aggregator returns empty', async () => {
-      const quotes = await poolService!.getAllSwapQuotes(
+      const quotes = await poolService?.getAllSwapQuotes(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         '1',
@@ -328,7 +328,7 @@ describeOrSkip('PoolService', () => {
 
   describe('getPoolStats', () => {
     test('returns zero counts when factories are not set', async () => {
-      const stats = await poolService!.getPoolStats()
+      const stats = await poolService?.getPoolStats()
       expect(stats.v2Pools).toBe(0)
       expect(stats.v3Pools).toBe(0)
       expect(stats.totalPools).toBe(0)
@@ -337,13 +337,13 @@ describeOrSkip('PoolService', () => {
     test('handles contract read failures gracefully', async () => {
       process.env.XLP_V2_FACTORY = TEST_FACTORY
       process.env.XLP_V3_FACTORY = TEST_FACTORY
-      const stats = await poolService!.getPoolStats()
+      const stats = await poolService?.getPoolStats()
       expect(stats.v2Pools).toBeGreaterThanOrEqual(0)
       expect(stats.v3Pools).toBeGreaterThanOrEqual(0)
     })
 
     test('calculates totalPools correctly', async () => {
-      const stats = await poolService!.getPoolStats()
+      const stats = await poolService?.getPoolStats()
       const expectedTotal =
         stats.v2Pools + stats.v3Pools + (stats.paymasterEnabled ? 1 : 0)
       expect(stats.totalPools).toBe(expectedTotal)
@@ -351,18 +351,18 @@ describeOrSkip('PoolService', () => {
 
     test('handles paymaster stats failure', async () => {
       process.env.CROSS_CHAIN_PAYMASTER = TEST_FACTORY
-      const stats = await poolService!.getPoolStats()
+      const stats = await poolService?.getPoolStats()
       expect(stats.paymasterEnabled).toBe(false)
     })
 
     test('formats liquidity USD correctly', async () => {
-      const stats = await poolService!.getPoolStats()
+      const stats = await poolService?.getPoolStats()
       expect(typeof stats.totalLiquidityUsd).toBe('string')
       expect(Number(stats.totalLiquidityUsd)).toBeGreaterThanOrEqual(0)
     })
 
     test('formats volume24h correctly', async () => {
-      const stats = await poolService!.getPoolStats()
+      const stats = await poolService?.getPoolStats()
       expect(typeof stats.volume24h).toBe('string')
       expect(Number(stats.volume24h)).toBeGreaterThanOrEqual(0)
     })
@@ -370,13 +370,13 @@ describeOrSkip('PoolService', () => {
 
   describe('getTokens', () => {
     test('returns token configuration', () => {
-      const tokens = poolService!.getTokens()
+      const tokens = poolService?.getTokens()
       expect(tokens).toBeDefined()
       expect(typeof tokens).toBe('object')
     })
 
     test('includes ETH token', () => {
-      const tokens = poolService!.getTokens()
+      const tokens = poolService?.getTokens()
       expect(tokens.ETH).toBeDefined()
       expect(tokens.ETH.symbol).toBe('ETH')
       expect(tokens.ETH.decimals).toBe(18)
@@ -385,7 +385,7 @@ describeOrSkip('PoolService', () => {
     test('handles missing environment variables', () => {
       delete process.env.WETH_ADDRESS
       delete process.env.USDC_ADDRESS
-      const tokens = poolService!.getTokens()
+      const tokens = poolService?.getTokens()
       // Should use defaults
       expect(tokens.WETH).toBeDefined()
       expect(tokens.USDC).toBeDefined()
@@ -394,7 +394,7 @@ describeOrSkip('PoolService', () => {
 
   describe('getContracts', () => {
     test('returns contract addresses', () => {
-      const contracts = poolService!.getContracts()
+      const contracts = poolService?.getContracts()
       expect(contracts).toBeDefined()
       expect(contracts.v2Factory).toBeDefined()
       expect(contracts.v3Factory).toBeDefined()
@@ -402,12 +402,12 @@ describeOrSkip('PoolService', () => {
 
     test('uses zero address as default when env not set', () => {
       delete process.env.XLP_V2_FACTORY
-      const contracts = poolService!.getContracts()
+      const contracts = poolService?.getContracts()
       expect(contracts.v2Factory).toBe(ZERO_ADDRESS)
     })
 
     test('reads from environment variables', () => {
-      const contracts = poolService!.getContracts()
+      const contracts = poolService?.getContracts()
       expect(contracts.v2Factory).toBeDefined()
       expect(typeof contracts.v2Factory).toBe('string')
       expect(contracts.v2Factory.length).toBe(42) // Valid Ethereum address length
@@ -416,21 +416,21 @@ describeOrSkip('PoolService', () => {
 
   describe('Error Handling & Invalid Inputs', () => {
     test('handles network errors gracefully', async () => {
-      const pools = await poolService!.listV2Pools()
+      const pools = await poolService?.listV2Pools()
       expect(Array.isArray(pools)).toBe(true)
     })
 
     test('handles malformed addresses', async () => {
       const invalidAddress = '0xinvalid' as Address
-      const result = await poolService!.getV2PoolData(invalidAddress)
+      const result = await poolService?.getV2PoolData(invalidAddress)
       expect(result === null || result !== undefined).toBe(true)
     })
 
     test('handles concurrent requests', async () => {
       const promises = [
-        poolService!.listV2Pools(),
-        poolService!.getPoolStats(),
-        poolService!.getSwapQuote(TEST_ADDRESS_1, TEST_ADDRESS_2, '1'),
+        poolService?.listV2Pools(),
+        poolService?.getPoolStats(),
+        poolService?.getSwapQuote(TEST_ADDRESS_1, TEST_ADDRESS_2, '1'),
       ]
       const results = await Promise.all(promises)
       expect(results.length).toBe(3)
@@ -441,7 +441,7 @@ describeOrSkip('PoolService', () => {
     test('handles rapid successive calls', async () => {
       const calls = Array(10)
         .fill(null)
-        .map(() => poolService!.getPoolStats())
+        .map(() => poolService?.getPoolStats())
       const results = await Promise.all(calls)
       expect(results.length).toBe(10)
       results.forEach((result) => {
@@ -452,7 +452,7 @@ describeOrSkip('PoolService', () => {
 
   describe('Data Validation & Output Verification', () => {
     test('V2 pool has correct structure', async () => {
-      const pools = await poolService!.listV2Pools()
+      const pools = await poolService?.listV2Pools()
       pools.forEach((pool) => {
         expect(pool.type).toBe('V2')
         expect(pool.address).toBeDefined()
@@ -466,7 +466,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('V3 pool has correct structure', async () => {
-      const pool = await poolService!.getV3Pool(
+      const pool = await poolService?.getV3Pool(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         3000,
@@ -484,7 +484,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('SwapQuote has correct structure', async () => {
-      const quote = await poolService!.getSwapQuote(
+      const quote = await poolService?.getSwapQuote(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         '1',
@@ -502,7 +502,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('PoolStats has correct structure', async () => {
-      const stats = await poolService!.getPoolStats()
+      const stats = await poolService?.getPoolStats()
       expect(typeof stats.totalPools).toBe('number')
       expect(typeof stats.v2Pools).toBe('number')
       expect(typeof stats.v3Pools).toBe('number')
@@ -515,7 +515,7 @@ describeOrSkip('PoolService', () => {
     })
 
     test('effectivePrice calculation is correct', async () => {
-      const quote = await poolService!.getSwapQuote(
+      const quote = await poolService?.getSwapQuote(
         TEST_ADDRESS_1,
         TEST_ADDRESS_2,
         '1',

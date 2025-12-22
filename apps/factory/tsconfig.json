@@ -15,6 +15,6 @@
     },
     "baseUrl": "."
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "lib/**/*", "hooks/**/*", "config/**/*", "types/**/*"],
   "exclude": ["node_modules", "dist"]
 }

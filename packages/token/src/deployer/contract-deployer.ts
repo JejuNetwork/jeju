@@ -3,6 +3,7 @@
  * Supports both standard deployment and CREATE2 deterministic deployment
  */
 
+import { expectValid } from '@jejunetwork/types'
 import {
   type Address,
   encodeDeployData,
@@ -12,6 +13,10 @@ import {
   type PublicClient,
   type WalletClient,
 } from 'viem'
+import {
+  type FoundryArtifact,
+  foundryArtifactSchema,
+} from '../validation/schemas'
 
 export type ContractName =
   | 'Token'
@@ -25,20 +30,6 @@ export type ContractName =
   | 'Mailbox'
   | 'InterchainGasPaymaster'
   | 'MultisigISM'
-
-interface FoundryArtifact {
-  abi: readonly object[]
-  bytecode: {
-    object: Hex
-    linkReferences: Record<
-      string,
-      Record<string, { start: number; length: number }[]>
-    >
-  }
-  deployedBytecode: {
-    object: Hex
-  }
-}
 
 // CREATE2 Factory (Deterministic Deployment Proxy - same address on all chains)
 // https://github.com/Arachnid/deterministic-deployment-proxy
@@ -76,11 +67,12 @@ export async function loadArtifact(
     )
   }
 
-  const artifact = (await file.json()) as FoundryArtifact
-
-  if (!artifact.bytecode?.object) {
-    throw new Error(`Invalid artifact: ${contractName} has no bytecode`)
-  }
+  const rawArtifact: unknown = await file.json()
+  const artifact = expectValid(
+    foundryArtifactSchema,
+    rawArtifact,
+    `artifact ${contractName}`,
+  )
 
   artifactCache.set(contractName, artifact)
   return artifact

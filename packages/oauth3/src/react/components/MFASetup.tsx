@@ -192,6 +192,7 @@ export function MFASetup({
     return (
       <div style={containerStyle} className={className}>
         <button
+          type="button"
           style={backButtonStyle}
           onClick={() => {
             setView('main')
@@ -269,7 +270,11 @@ export function MFASetup({
   if (view === 'passkey') {
     return (
       <div style={containerStyle} className={className}>
-        <button style={backButtonStyle} onClick={() => setView('main')}>
+        <button
+          type="button"
+          style={backButtonStyle}
+          onClick={() => setView('main')}
+        >
           ← Back
         </button>
 
@@ -312,6 +317,7 @@ export function MFASetup({
                   </div>
                 </div>
                 <button
+                  type="button"
                   onClick={() => handleRemovePasskey(pk.id)}
                   style={{
                     background: 'none',
@@ -351,6 +357,7 @@ export function MFASetup({
     return (
       <div style={containerStyle} className={className}>
         <button
+          type="button"
           style={backButtonStyle}
           onClick={() => {
             setView('main')
@@ -404,6 +411,7 @@ export function MFASetup({
         </div>
 
         <button
+          type="button"
           onClick={() => {
             const text = backupCodes.join('\n')
             navigator.clipboard.writeText(text)
@@ -414,6 +422,7 @@ export function MFASetup({
         </button>
 
         <button
+          type="button"
           onClick={() => {
             setView('main')
             setBackupCodes([])
@@ -437,8 +446,14 @@ export function MFASetup({
       {displayError && <p style={errorStyle}>{displayError}</p>}
 
       {showTOTP && (
-        <div
-          style={cardStyle}
+        <button
+          type="button"
+          style={{
+            ...cardStyle,
+            width: '100%',
+            textAlign: 'left',
+            background: 'none',
+          }}
           onClick={() => !mfaStatus?.totpEnabled && handleSetupTOTP()}
         >
           <div
@@ -462,6 +477,7 @@ export function MFASetup({
               >
                 <span style={{ color: '#22C55E' }}>✓ Enabled</span>
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation()
                     handleDisableTOTP()
@@ -475,11 +491,20 @@ export function MFASetup({
               <span style={{ color: '#4F46E5' }}>Set up →</span>
             )}
           </div>
-        </div>
+        </button>
       )}
 
       {showPasskeys && (
-        <div style={cardStyle} onClick={() => setView('passkey')}>
+        <button
+          type="button"
+          style={{
+            ...cardStyle,
+            width: '100%',
+            textAlign: 'left',
+            background: 'none',
+          }}
+          onClick={() => setView('passkey')}
+        >
           <div
             style={{
               display: 'flex',
@@ -505,11 +530,20 @@ export function MFASetup({
               <span style={{ color: '#4F46E5' }}>Manage →</span>
             </div>
           </div>
-        </div>
+        </button>
       )}
 
       {showBackupCodes && (
-        <div style={cardStyle} onClick={handleGenerateBackupCodes}>
+        <button
+          type="button"
+          style={{
+            ...cardStyle,
+            width: '100%',
+            textAlign: 'left',
+            background: 'none',
+          }}
+          onClick={handleGenerateBackupCodes}
+        >
           <div
             style={{
               display: 'flex',
@@ -538,7 +572,7 @@ export function MFASetup({
               </span>
             </div>
           </div>
-        </div>
+        </button>
       )}
     </div>
   )

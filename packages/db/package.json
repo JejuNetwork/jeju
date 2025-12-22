@@ -47,9 +47,10 @@
     "db"
   ],
   "dependencies": {
+    "@elysiajs/cors": "^1.2.0",
     "@jejunetwork/config": "workspace:*",
+    "elysia": "^1.2.25",
     "generic-pool": "^3.9.0",
-    "hono": "4.11.1",
     "opossum": "^9.0.0",
     "pino": "^10.1.0",
     "viem": "2.43.2",

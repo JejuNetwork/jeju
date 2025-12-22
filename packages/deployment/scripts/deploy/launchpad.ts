@@ -45,7 +45,7 @@ const CONTRACTS_DIR = join(ROOT_DIR, 'packages/contracts')
 // Network configurations
 const NETWORKS = {
   localnet: {
-    rpcUrl: 'http://127.0.0.1:9545',
+    rpcUrl: 'http://127.0.0.1:6546',
     chainId: 1337,
     privateKey:
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80',

@@ -20,6 +20,14 @@ import {
   validatePort,
   validateShellCommand,
 } from '../lib/security'
+import {
+  ComputeHealthResponseSchema,
+  InferenceResponseSchema,
+  JobDetailsResponseSchema,
+  JobSubmitResponseSchema,
+  JobsListResponseSchema,
+  validate,
+} from '../schemas'
 import { DEFAULT_PORTS } from '../types'
 
 function getDwsPort(): number {
@@ -145,13 +153,12 @@ async function checkStatus(): Promise<void> {
     })
     if (response.ok) {
       dwsOk = true
-      const status = (await response.json()) as {
-        service: string
-        status: string
-        activeJobs: number
-        maxConcurrent: number
-        queuedJobs: number
-      }
+      const rawStatus = await response.json()
+      const status = validate(
+        rawStatus,
+        ComputeHealthResponseSchema,
+        'compute health response',
+      )
 
       logger.newline()
       logger.subheader('Compute Service')
@@ -163,17 +170,17 @@ async function checkStatus(): Promise<void> {
         },
         {
           label: 'Active Jobs',
-          value: String(status.activeJobs),
+          value: String(status.activeJobs ?? 0),
           status: 'ok',
         },
         {
           label: 'Queued Jobs',
-          value: String(status.queuedJobs),
+          value: String(status.queuedJobs ?? 0),
           status: 'ok',
         },
         {
           label: 'Max Concurrent',
-          value: String(status.maxConcurrent),
+          value: String(status.maxConcurrent ?? 0),
           status: 'ok',
         },
       ])
@@ -377,7 +384,12 @@ async function submitJob(
       throw new Error(sanitizeErrorMessage(error))
     }
 
-    const result = (await response.json()) as { jobId: string; status: string }
+    const rawResult = await response.json()
+    const result = validate(
+      rawResult,
+      JobSubmitResponseSchema,
+      'job submit response',
+    )
     logger.success('Job submitted')
     logger.keyValue('Job ID', result.jobId)
     logger.keyValue('Status', result.status)
@@ -409,16 +421,8 @@ async function listJobs(options: {
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`)
 
-    const data = (await response.json()) as {
-      jobs: Array<{
-        jobId: string
-        status: string
-        exitCode: number | null
-        startedAt: number | null
-        completedAt: number | null
-      }>
-      total: number
-    }
+    const rawData = await response.json()
+    const data = validate(rawData, JobsListResponseSchema, 'jobs list response')
 
     if (data.jobs.length === 0) {
       logger.info('No jobs found')
@@ -472,15 +476,12 @@ async function getJob(jobId: string): Promise<void> {
       process.exit(1)
     }
 
-    const job = (await response.json()) as {
-      jobId: string
-      status: string
-      output: string
-      exitCode: number | null
-      startedAt: number | null
-      completedAt: number | null
-      duration: number | null
-    }
+    const rawJob = await response.json()
+    const job = validate(
+      rawJob,
+      JobDetailsResponseSchema,
+      'job details response',
+    )
 
     logger.header('JOB DETAILS')
     logger.keyValue('Job ID', job.jobId)
@@ -564,14 +565,12 @@ async function runInference(
       throw new Error(error)
     }
 
-    const result = (await response.json()) as {
-      choices: Array<{ message: { content: string } }>
-      usage: {
-        prompt_tokens: number
-        completion_tokens: number
-        total_tokens: number
-      }
-    }
+    const rawResult = await response.json()
+    const result = validate(
+      rawResult,
+      InferenceResponseSchema,
+      'inference response',
+    )
 
     logger.subheader('Response')
     console.log(result.choices[0]?.message?.content || 'No response')

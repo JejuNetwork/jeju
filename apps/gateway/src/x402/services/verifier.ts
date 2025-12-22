@@ -7,6 +7,7 @@ import {
 import { config } from '../config'
 import { getChainConfig, ZERO_ADDRESS } from '../lib/chains'
 import { EIP712_DOMAIN, EIP712_TYPES } from '../lib/contracts'
+import { PaymentPayloadSchema } from '../lib/schemas'
 import type {
   PaymentPayload,
   PaymentRequirements,
@@ -24,28 +25,19 @@ export function decodePaymentHeader(
     decoded = paymentHeader
   }
 
-  let parsed: PaymentPayload
+  let parsed: unknown
   try {
-    parsed = JSON.parse(decoded) as PaymentPayload
+    parsed = JSON.parse(decoded)
   } catch {
     return null
   }
 
-  if (
-    !parsed.scheme ||
-    !parsed.network ||
-    !parsed.asset ||
-    !parsed.payTo ||
-    !parsed.amount ||
-    !parsed.resource ||
-    !parsed.nonce ||
-    !parsed.timestamp ||
-    !parsed.signature
-  ) {
+  const result = PaymentPayloadSchema.safeParse(parsed)
+  if (!result.success) {
     return null
   }
 
-  return parsed
+  return result.data
 }
 
 async function verifySignature(

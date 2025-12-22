@@ -6,6 +6,7 @@ import { cors } from '@elysiajs/cors'
 import {
   Keypair,
   PublicKey,
+  sendAndConfirmTransaction,
   Transaction,
   TransactionInstruction,
 } from '@solana/web3.js'
@@ -22,11 +23,13 @@ import type {
 } from '../types/index.js'
 import { TransferStatus, toHash32 } from '../types/index.js'
 import {
+  BatchProofResponseSchema,
   ConsensusSnapshotSchema,
   CrossChainTransferSchema,
   createLogger,
   EthereumUpdateSchema,
   hashToHex,
+  SP1ProofResponseSchema,
   TransferSubmissionSchema,
 } from '../utils/index.js'
 
@@ -667,7 +670,6 @@ export class RelayerService {
         return
       }
 
-      const { sendAndConfirmTransaction } = await import('@solana/web3.js')
       const signature = await sendAndConfirmTransaction(
         connection,
         tx,
@@ -713,9 +715,17 @@ export class RelayerService {
         return null
       }
 
-      const result = (await response.json()) as SP1Proof
+      const rawData: unknown = await response.json()
+      const result = SP1ProofResponseSchema.parse(rawData)
       this.stats.proofsGenerated++
-      return result
+      // Convert JSON response to SP1Proof type
+      return {
+        proof: result.proof instanceof Uint8Array ? result.proof : new Uint8Array(result.proof),
+        publicInputs: result.publicInputs
+          ? (result.publicInputs instanceof Uint8Array ? result.publicInputs : new Uint8Array(result.publicInputs))
+          : new Uint8Array(0),
+        vkeyHash: toHash32(new Uint8Array(32)), // Would be parsed from result.vkeyHash if provided
+      }
     } catch (error) {
       log.error('Failed to generate Ethereum consensus proof', {
         error: String(error),
@@ -814,7 +824,8 @@ export class RelayerService {
         return null
       }
 
-      const result = (await response.json()) as { proof: number[] }
+      const rawData: unknown = await response.json()
+      const result = BatchProofResponseSchema.parse(rawData)
       this.stats.proofsGenerated++
       return result.proof
     } catch (error) {
@@ -904,9 +915,17 @@ export class RelayerService {
         return null
       }
 
-      const result = (await response.json()) as SP1Proof
+      const rawData: unknown = await response.json()
+      const result = SP1ProofResponseSchema.parse(rawData)
       this.stats.proofsGenerated++
-      return result
+      // Convert JSON response to SP1Proof type
+      return {
+        proof: result.proof instanceof Uint8Array ? result.proof : new Uint8Array(result.proof),
+        publicInputs: result.publicInputs
+          ? (result.publicInputs instanceof Uint8Array ? result.publicInputs : new Uint8Array(result.publicInputs))
+          : new Uint8Array(0),
+        vkeyHash: toHash32(new Uint8Array(32)),
+      }
     } catch (error) {
       log.error('Batch proof generation failed', { error: String(error) })
       return null
@@ -1101,7 +1120,7 @@ if (import.meta.main) {
     evmChains: [
       {
         chainId: parseInt(process.env.EVM_CHAIN_ID ?? '31337', 10) as ChainId,
-        rpcUrl: requireEnv('EVM_RPC_URL', 'http://127.0.0.1:8545'),
+        rpcUrl: requireEnv('EVM_RPC_URL', 'http://127.0.0.1:6545'),
         bridgeAddress: requireEnv('BRIDGE_ADDRESS'),
         lightClientAddress: requireEnv('LIGHT_CLIENT_ADDRESS'),
         privateKey: requireEnvSecret('PRIVATE_KEY'),

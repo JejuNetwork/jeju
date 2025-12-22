@@ -242,8 +242,8 @@ describe('Agent Types', () => {
     }
 
     expect(res.actions).toHaveLength(1)
-    expect(res.actions![0].name).toBe('CREATE_TODO')
-    expect(res.actions![0].params.title).toBe('Test')
+    expect(res.actions?.[0].name).toBe('CREATE_TODO')
+    expect(res.actions?.[0].params.title).toBe('Test')
   })
 })
 

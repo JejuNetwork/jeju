@@ -4,19 +4,22 @@ import { NETWORK_NAME } from './index'
 
 const networkName = NETWORK_NAME
 
-// Chain IDs enum for type safety
-export enum EvmChainIds {
-  EthereumMainnet = 1,
-  EthereumSepolia = 11155111,
-  mainnetChain = 420691,
-  testnetChain = 420690,
-  localnetChain = 1337,
-}
+// Chain IDs const for type safety
+export const EvmChainIds = {
+  EthereumMainnet: 1,
+  EthereumSepolia: 11155111,
+  mainnetChain: 420691,
+  testnetChain: 420690,
+  localnetChain: 1337,
+} as const
+export type EvmChainIds = (typeof EvmChainIds)[keyof typeof EvmChainIds]
 
-export enum SolanaNetworkIds {
-  Mainnet = 101,
-  Devnet = 103,
-}
+export const SolanaNetworkIds = {
+  Mainnet: 101,
+  Devnet: 103,
+} as const
+export type SolanaNetworkIds =
+  (typeof SolanaNetworkIds)[keyof typeof SolanaNetworkIds]
 
 // network chain definitions
 export const jejuMainnet = defineChain({
@@ -56,7 +59,7 @@ export const jejuLocalnet = defineChain({
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
     default: {
-      http: [process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:9545'],
+      http: [process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:6546'],
     },
   },
   blockExplorers: {
@@ -95,7 +98,7 @@ export const EVM_RPC_URLS: Record<EvmChainIds, string[]> = {
   [EvmChainIds.mainnetChain]: ['https://rpc.jejunetwork.org'],
   [EvmChainIds.testnetChain]: ['https://testnet-rpc.jejunetwork.org'],
   [EvmChainIds.localnetChain]: [
-    process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:9545',
+    process.env.NEXT_PUBLIC_JEJU_RPC_URL || 'http://localhost:6546',
   ],
 }
 

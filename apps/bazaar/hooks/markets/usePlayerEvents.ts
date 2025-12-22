@@ -8,8 +8,8 @@
 import { AddressSchema } from '@jejunetwork/types'
 import { gql, request } from 'graphql-request'
 import { useEffect, useState } from 'react'
-import { INDEXER_URL } from '@/config'
-import { expect } from '@/lib/validation'
+import { INDEXER_URL } from '../../config'
+import { expect } from '../../lib/validation'
 
 const PLAYER_EVENTS_QUERY = gql`
   query GetPlayerEvents($player: String) {

@@ -369,8 +369,8 @@ describe('Quote Parser', () => {
 
       expect(result.success).toBe(true)
       expect(result.quote).not.toBeNull()
-      expect(result.quote!.platform).toBe('intel_tdx')
-      expect(result.quote!.raw).toBe(quoteHex)
+      expect(result.quote?.platform).toBe('intel_tdx')
+      expect(result.quote?.raw).toBe(quoteHex)
     })
 
     test('parses SEV-SNP quote successfully', () => {
@@ -379,7 +379,7 @@ describe('Quote Parser', () => {
 
       expect(result.success).toBe(true)
       expect(result.quote).not.toBeNull()
-      expect(result.quote!.platform).toBe('amd_sev')
+      expect(result.quote?.platform).toBe('amd_sev')
     })
 
     test('parses SGX quote successfully', () => {
@@ -388,7 +388,7 @@ describe('Quote Parser', () => {
 
       expect(result.success).toBe(true)
       expect(result.quote).not.toBeNull()
-      expect(result.quote!.platform).toBe('intel_sgx')
+      expect(result.quote?.platform).toBe('intel_sgx')
     })
 
     test('rejects quote that is too short', () => {
@@ -467,7 +467,7 @@ describe('Quote Parser', () => {
       const result = parseQuote(quoteHex)
 
       expect(result.success).toBe(true)
-      expect(result.quote!.hardwareId).toMatch(/^0x[a-f0-9]{64}$/)
+      expect(result.quote?.hardwareId).toMatch(/^0x[a-f0-9]{64}$/)
     })
 
     test('extracts measurement from TDX quote', () => {
@@ -475,8 +475,8 @@ describe('Quote Parser', () => {
       const result = parseQuote(quoteHex)
 
       expect(result.success).toBe(true)
-      expect(result.quote!.measurement).toMatch(/^0x[a-f0-9]+$/)
-      expect(result.quote!.measurement).not.toBe(`0x${'00'.repeat(48)}`)
+      expect(result.quote?.measurement).toMatch(/^0x[a-f0-9]+$/)
+      expect(result.quote?.measurement).not.toBe(`0x${'00'.repeat(48)}`)
     })
 
     test('extracts chip ID from SEV quote', () => {
@@ -484,7 +484,7 @@ describe('Quote Parser', () => {
       const result = parseQuote(quoteHex)
 
       expect(result.success).toBe(true)
-      expect(result.quote!.hardwareId.length).toBe(2 + 64 * 2)
+      expect(result.quote?.hardwareId.length).toBe(2 + 64 * 2)
     })
 
     test('verifies parsed bytes match input', () => {
@@ -492,12 +492,12 @@ describe('Quote Parser', () => {
       const result = parseQuote(quoteHex)
 
       expect(result.success).toBe(true)
-      expect(result.quote!.raw).toBe(quoteHex)
+      expect(result.quote?.raw).toBe(quoteHex)
 
       // Verify measurement extraction is deterministic
       const result2 = parseQuote(quoteHex)
-      expect(result2.quote!.measurement).toBe(result.quote!.measurement)
-      expect(result2.quote!.hardwareId).toBe(result.quote!.hardwareId)
+      expect(result2.quote?.measurement).toBe(result.quote?.measurement)
+      expect(result2.quote?.hardwareId).toBe(result.quote?.hardwareId)
     })
 
     test('different quotes produce different hardware IDs', () => {
@@ -507,7 +507,7 @@ describe('Quote Parser', () => {
       const r1 = parseQuote(tdx1)
       const r2 = parseQuote(tdx2)
 
-      expect(r1.quote!.hardwareId).not.toBe(r2.quote!.hardwareId)
+      expect(r1.quote?.hardwareId).not.toBe(r2.quote?.hardwareId)
     })
   })
 
@@ -517,7 +517,8 @@ describe('Quote Parser', () => {
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
 
-      const verifyResult = await verifyQuote(parseResult.quote!)
+      if (!parseResult.quote) throw new Error('quote should be defined')
+      const verifyResult = await verifyQuote(parseResult.quote)
 
       expect(verifyResult.quote).toBeDefined()
       expect(verifyResult.measurementMatch).toBe(true)
@@ -529,8 +530,9 @@ describe('Quote Parser', () => {
       expect(parseResult.success).toBe(true)
 
       const wrongMeasurement = `0x${'11'.repeat(48)}` as Hex
+      expect(parseResult.quote).toBeDefined()
       const verifyResult = await verifyQuote(
-        parseResult.quote!,
+        parseResult.quote ?? ({} as never),
         wrongMeasurement,
       )
 
@@ -543,8 +545,9 @@ describe('Quote Parser', () => {
       const quoteHex = createMockTDXQuote()
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      if (!parseResult.quote) throw new Error('quote should be defined')
 
-      const verifyResult = await verifyQuote(parseResult.quote!)
+      const verifyResult = await verifyQuote(parseResult.quote)
       expect(verifyResult.quote.signature.length).toBeGreaterThan(10)
     })
 
@@ -552,11 +555,12 @@ describe('Quote Parser', () => {
       const quoteHex = createMockTDXQuote()
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      if (!parseResult.quote) throw new Error('quote should be defined')
 
       // Use actual measurement from quote
       const verifyResult = await verifyQuote(
-        parseResult.quote!,
-        parseResult.quote!.measurement,
+        parseResult.quote,
+        parseResult.quote.measurement,
       )
 
       expect(verifyResult.measurementMatch).toBe(true)
@@ -567,10 +571,11 @@ describe('Quote Parser', () => {
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
 
+      expect(parseResult.quote).toBeDefined()
       const upperMeasurement =
-        parseResult.quote!.measurement.toUpperCase() as Hex
+        parseResult.quote?.measurement.toUpperCase() as Hex
       const verifyResult = await verifyQuote(
-        parseResult.quote!,
+        parseResult.quote ?? ({} as never),
         upperMeasurement,
       )
 
@@ -581,8 +586,9 @@ describe('Quote Parser', () => {
       const quoteHex = createZeroSignatureQuote()
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      if (!parseResult.quote) throw new Error('quote should be defined')
 
-      const verifyResult = await verifyQuote(parseResult.quote!)
+      const verifyResult = await verifyQuote(parseResult.quote)
 
       // Zero signature should fail r/s range check
       expect(verifyResult.signatureValid).toBe(false)
@@ -592,23 +598,25 @@ describe('Quote Parser', () => {
       const quoteHex = createMockSEVQuote()
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      if (!parseResult.quote) throw new Error('quote should be defined')
 
-      const _verifyResult = await verifyQuote(parseResult.quote!)
+      const _verifyResult = await verifyQuote(parseResult.quote)
 
       // SEV uses RSA-4096 (512 bytes)
-      expect(parseResult.quote!.signature.length).toBe(2 + 512 * 2)
+      expect(parseResult.quote.signature.length).toBe(2 + 512 * 2)
     })
 
     test('concurrent verification calls return consistent results', async () => {
       const quoteHex = createMockTDXQuote()
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      if (!parseResult.quote) throw new Error('quote should be defined')
 
       // Run multiple verifications concurrently
       const results = await Promise.all([
-        verifyQuote(parseResult.quote!),
-        verifyQuote(parseResult.quote!),
-        verifyQuote(parseResult.quote!),
+        verifyQuote(parseResult.quote),
+        verifyQuote(parseResult.quote),
+        verifyQuote(parseResult.quote),
       ])
 
       // All results should be identical
@@ -623,8 +631,9 @@ describe('Quote Parser', () => {
       const quoteHex = createMockTDXQuote()
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      expect(parseResult.quote).toBeDefined()
 
-      const status = checkTCBStatus(parseResult.quote!)
+      const status = checkTCBStatus(parseResult.quote ?? ({} as never))
       expect(status).toBe('upToDate')
     })
 
@@ -632,8 +641,9 @@ describe('Quote Parser', () => {
       const quoteHex = createOutdatedTCBQuote()
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      expect(parseResult.quote).toBeDefined()
 
-      const status = checkTCBStatus(parseResult.quote!)
+      const status = checkTCBStatus(parseResult.quote ?? ({} as never))
       expect(status).toBe('outOfDate')
     })
 
@@ -641,8 +651,9 @@ describe('Quote Parser', () => {
       const quoteHex = createSEVMinTCBQuote()
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      expect(parseResult.quote).toBeDefined()
 
-      const status = checkTCBStatus(parseResult.quote!)
+      const status = checkTCBStatus(parseResult.quote ?? ({} as never))
       expect(status).toBe('upToDate')
     })
 
@@ -650,20 +661,25 @@ describe('Quote Parser', () => {
       const quoteHex = createMockSGXQuote()
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      expect(parseResult.quote).toBeDefined()
 
-      const status = checkTCBStatus(parseResult.quote!)
+      const status = checkTCBStatus(parseResult.quote ?? ({} as never))
       expect(status).toBe('upToDate')
     })
 
     test('handles different platforms consistently', () => {
-      const tdx = parseQuote(createMockTDXQuote()).quote!
-      const sev = parseQuote(createMockSEVQuote()).quote!
-      const sgx = parseQuote(createMockSGXQuote()).quote!
+      const tdxResult = parseQuote(createMockTDXQuote())
+      const sevResult = parseQuote(createMockSEVQuote())
+      const sgxResult = parseQuote(createMockSGXQuote())
+
+      expect(tdxResult.quote).toBeDefined()
+      expect(sevResult.quote).toBeDefined()
+      expect(sgxResult.quote).toBeDefined()
 
       // All valid quotes should be upToDate
-      expect(checkTCBStatus(tdx)).toBe('upToDate')
-      expect(checkTCBStatus(sev)).toBe('upToDate')
-      expect(checkTCBStatus(sgx)).toBe('upToDate')
+      expect(checkTCBStatus(tdxResult.quote ?? ({} as never))).toBe('upToDate')
+      expect(checkTCBStatus(sevResult.quote ?? ({} as never))).toBe('upToDate')
+      expect(checkTCBStatus(sgxResult.quote ?? ({} as never))).toBe('upToDate')
     })
 
     test('boundary: cpu exactly at minimum passes', () => {
@@ -688,8 +704,9 @@ describe('Quote Parser', () => {
           .join('')) as Hex
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      expect(parseResult.quote).toBeDefined()
 
-      const status = checkTCBStatus(parseResult.quote!)
+      const status = checkTCBStatus(parseResult.quote ?? ({} as never))
       expect(status).toBe('upToDate')
     })
 
@@ -719,9 +736,10 @@ describe('Quote Parser', () => {
           .join('')) as Hex
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      expect(parseResult.quote).toBeDefined()
 
       // With cpu=1 (below minimum of 2), should be outOfDate
-      const status = checkTCBStatus(parseResult.quote!)
+      const status = checkTCBStatus(parseResult.quote ?? ({} as never))
       expect(status).toBe('outOfDate')
     })
   })
@@ -765,8 +783,10 @@ describe('Quote Parser', () => {
       const quoteHex = createMockTDXQuote()
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      expect(parseResult.quote).toBeDefined()
 
-      const info = extractPlatformInfo(parseResult.quote!)
+      if (!parseResult.quote) throw new Error('quote should be defined')
+      const info = extractPlatformInfo(parseResult.quote)
 
       expect(info.platformName).toBe('Intel TDX')
       expect(info.hardwareIdType).toContain('MRTD')
@@ -776,8 +796,10 @@ describe('Quote Parser', () => {
       const quoteHex = createMockSEVQuote()
       const parseResult = parseQuote(quoteHex)
       expect(parseResult.success).toBe(true)
+      expect(parseResult.quote).toBeDefined()
+      if (!parseResult.quote) throw new Error('quote should be defined')
 
-      const info = extractPlatformInfo(parseResult.quote!)
+      const info = extractPlatformInfo(parseResult.quote)
 
       expect(info.platformName).toBe('AMD SEV-SNP')
       expect(info.hardwareIdType).toBe('Chip ID')
@@ -849,8 +871,8 @@ describe('Registry Client', () => {
     const entry = await mockClient.checkHardware(knownHash)
 
     expect(entry).not.toBeNull()
-    expect(entry!.level).toBe(2)
-    expect(entry!.cloudProvider).toBe('aws')
+    expect(entry?.level).toBe(2)
+    expect(entry?.cloudProvider).toBe('aws')
   })
 
   test('isRevoked returns false for valid hardware', async () => {
@@ -947,8 +969,8 @@ describe('Registry Client', () => {
     const entry1 = await mockClient.checkHardware(hash1)
     const entry2 = await mockClient.checkHardware(hash2)
 
-    expect(entry1!.level).toBe(1)
-    expect(entry2!.level).toBe(3)
+    expect(entry1?.level).toBe(1)
+    expect(entry2?.level).toBe(3)
   })
 
   test('getRevocations returns all revocations', async () => {
@@ -986,9 +1008,9 @@ describe('Registry Client', () => {
       mockClient.isRevoked(hash),
     ])
 
-    expect(results[0]!.level).toBe(2)
-    expect(results[1]!.level).toBe(2)
-    expect(results[2]!.level).toBe(2)
+    expect(results[0]?.level).toBe(2)
+    expect(results[1]?.level).toBe(2)
+    expect(results[2]?.level).toBe(2)
     expect(results[3]).toBe(true)
     expect(results[4]).toBe(false)
   })
@@ -1001,7 +1023,7 @@ describe('Registry Client', () => {
       mockClient.addMockEntry(createMockEntry({ hardwareIdHash: hash, level }))
 
       const entry = await mockClient.checkHardware(hash)
-      expect(entry!.level).toBe(level)
+      expect(entry?.level).toBe(level)
     }
   })
 
@@ -1129,12 +1151,13 @@ describe('Integration', () => {
     const registryResult = await mockClient.verifyQuote(quoteHex)
     expect(registryResult.verified).toBe(true)
     expect(registryResult.cloudProvider).toBe('aws')
+    expect(parseResult.quote).toBeDefined()
 
-    const verifyResult = await verifyQuote(parseResult.quote!)
+    const verifyResult = await verifyQuote(parseResult.quote ?? ({} as never))
     expect(verifyResult.quote).toBeDefined()
 
     const salt = keccak256(toBytes('test-salt'))
-    const hashedId = hashHardwareId(parseResult.quote!.hardwareId, salt)
+    const hashedId = hashHardwareId(parseResult.quote?.hardwareId, salt)
     expect(hashedId).toMatch(/^0x[a-f0-9]{64}$/)
   })
 
@@ -1161,15 +1184,15 @@ describe('Integration', () => {
     expect(sevResult.success).toBe(true)
     expect(sgxResult.success).toBe(true)
 
-    expect(tdxResult.quote!.platform).toBe('intel_tdx')
-    expect(sevResult.quote!.platform).toBe('amd_sev')
-    expect(sgxResult.quote!.platform).toBe('intel_sgx')
+    expect(tdxResult.quote?.platform).toBe('intel_tdx')
+    expect(sevResult.quote?.platform).toBe('amd_sev')
+    expect(sgxResult.quote?.platform).toBe('intel_sgx')
 
     // All should have unique hardware IDs
     const ids = [
-      tdxResult.quote!.hardwareId,
-      sevResult.quote!.hardwareId,
-      sgxResult.quote!.hardwareId,
+      tdxResult.quote?.hardwareId,
+      sevResult.quote?.hardwareId,
+      sgxResult.quote?.hardwareId,
     ]
     expect(new Set(ids).size).toBe(3)
   })
@@ -1183,9 +1206,13 @@ describe('Integration', () => {
 
     expect(validResult.success).toBe(true)
     expect(outdatedResult.success).toBe(true)
+    expect(validResult.quote).toBeDefined()
+    expect(outdatedResult.quote).toBeDefined()
 
-    const validVerify = await verifyQuote(validResult.quote!)
-    const outdatedVerify = await verifyQuote(outdatedResult.quote!)
+    const validVerify = await verifyQuote(validResult.quote ?? ({} as never))
+    const outdatedVerify = await verifyQuote(
+      outdatedResult.quote ?? ({} as never),
+    )
 
     expect(validVerify.tcbStatus).toBe('upToDate')
     expect(outdatedVerify.tcbStatus).toBe('outOfDate')
@@ -1197,7 +1224,8 @@ describe('Integration', () => {
     // Step 1: Parse
     const parseResult = parseQuote(quoteHex)
     expect(parseResult.success).toBe(true)
-    const quote = parseResult.quote!
+    if (!parseResult.quote) throw new Error('quote should be defined')
+    const quote = parseResult.quote
 
     // Step 2: Verify crypto
     const verifyResult = await verifyQuote(quote)
@@ -1226,8 +1254,8 @@ describe('Integration', () => {
     // Step 6: Check registry
     const entry = await mockClient.checkHardware(hashedHwId)
     expect(entry).not.toBeNull()
-    expect(entry!.level).toBe(3)
-    expect(entry!.cloudProvider).toBe('gcp')
+    expect(entry?.level).toBe(3)
+    expect(entry?.cloudProvider).toBe('gcp')
 
     // Step 7: Validate status
     const isValid = await mockClient.isHardwareValid(hashedHwId)
@@ -1278,7 +1306,10 @@ describe('Integration', () => {
     expect(parseResults.every((r) => r.success)).toBe(true)
 
     const verifyResults = await Promise.all(
-      parseResults.map((r) => verifyQuote(r.quote!)),
+      parseResults.map((r) => {
+        if (!r.quote) throw new Error('quote should be defined')
+        return verifyQuote(r.quote)
+      }),
     )
 
     // All should have valid structure
@@ -1295,8 +1326,8 @@ describe('Integration', () => {
     const salt1 = keccak256(toBytes('salt-1'))
     const salt2 = keccak256(toBytes('salt-2'))
 
-    const hash1 = hashHardwareId(parseResult.quote!.hardwareId, salt1)
-    const hash2 = hashHardwareId(parseResult.quote!.hardwareId, salt2)
+    const hash1 = hashHardwareId(parseResult.quote?.hardwareId, salt1)
+    const hash2 = hashHardwareId(parseResult.quote?.hardwareId, salt2)
 
     expect(hash1).not.toBe(hash2)
   })
@@ -1309,16 +1340,17 @@ describe('Integration', () => {
     const firstResult = results[0]
     for (const result of results) {
       expect(result.success).toBe(firstResult.success)
-      expect(result.quote!.platform).toBe(firstResult.quote!.platform)
-      expect(result.quote!.hardwareId).toBe(firstResult.quote!.hardwareId)
-      expect(result.quote!.measurement).toBe(firstResult.quote!.measurement)
+      expect(result.quote?.platform).toBe(firstResult.quote?.platform)
+      expect(result.quote?.hardwareId).toBe(firstResult.quote?.hardwareId)
+      expect(result.quote?.measurement).toBe(firstResult.quote?.measurement)
     }
   })
 
   test('verification result includes all expected fields', async () => {
     const quoteHex = createMockTDXQuote()
     const parseResult = parseQuote(quoteHex)
-    const verifyResult = await verifyQuote(parseResult.quote!)
+    if (!parseResult.quote) throw new Error('quote should be defined')
+    const verifyResult = await verifyQuote(parseResult.quote)
 
     // Check all fields are present
     expect(verifyResult).toHaveProperty('valid')
@@ -1343,8 +1375,9 @@ describe('Integration', () => {
     const quoteHex = createMockTDXQuote()
     const result = parseQuote(quoteHex)
     expect(result.success).toBe(true)
+    if (!result.quote) throw new Error('quote should be defined')
 
-    const quote = result.quote!
+    const quote = result.quote
 
     expect(quote).toHaveProperty('raw')
     expect(quote).toHaveProperty('platform')
@@ -1505,8 +1538,8 @@ describe('Metrics', () => {
     expect(p50).toBeDefined()
     expect(p95).toBeDefined()
     expect(p99).toBeDefined()
-    expect(p50!.value).toBeLessThan(p95!.value)
-    expect(p95!.value).toBeLessThan(p99!.value)
+    expect(p50?.value).toBeLessThan(p95?.value)
+    expect(p95?.value).toBeLessThan(p99?.value)
   })
 
   test('setActiveAgents updates gauge', () => {
@@ -1646,14 +1679,15 @@ describe('SEV-SNP ECDSA Verification', () => {
     const result = parseQuote(quoteHex)
 
     expect(result.success).toBe(true)
-    expect(result.quote!.platform).toBe('amd_sev')
-    expect(result.quote!.signature.length).toBe(2 + 96 * 2) // 0x + 96 bytes hex
+    expect(result.quote?.platform).toBe('amd_sev')
+    expect(result.quote?.signature.length).toBe(2 + 96 * 2) // 0x + 96 bytes hex
   })
 
   test('verifies SEV-SNP quote with ECDSA signature', async () => {
     const quoteHex = createSEVQuoteWithECDSA()
     const result = parseQuote(quoteHex)
-    const verifyResult = await verifyQuote(result.quote!)
+    if (!result.quote) throw new Error('quote should be defined')
+    const verifyResult = await verifyQuote(result.quote)
 
     // ECDSA path should have proper entropy check
     expect(verifyResult.signatureValid).toBe(true)
@@ -1673,9 +1707,10 @@ describe('SEV-SNP ECDSA Verification', () => {
         .map((b) => b.toString(16).padStart(2, '0'))
         .join('')) as Hex
     const result = parseQuote(quoteHex)
+    if (!result.quote) throw new Error('quote should be defined')
 
     // Should fail entropy check (too many zeros)
-    const verifyResult = await verifyQuote(result.quote!)
+    const verifyResult = await verifyQuote(result.quote)
     expect(verifyResult.certificateValid).toBe(false)
   })
 })
@@ -1751,7 +1786,7 @@ SIb3DQEBCwUAA0EAVMNjC5xR7b3V3dD4CqCqBvEn5h+8M3TN9cz8oZ/N9wK8jL3l
 
     expect(result.success).toBe(true)
     // The cert chain should be populated if extraction works
-    expect(result.quote!.certChain.length).toBeGreaterThanOrEqual(0)
+    expect(result.quote?.certChain.length).toBeGreaterThanOrEqual(0)
   })
 
   test('handles quote with no certificates gracefully', () => {
@@ -1759,7 +1794,7 @@ SIb3DQEBCwUAA0EAVMNjC5xR7b3V3dD4CqCqBvEn5h+8M3TN9cz8oZ/N9wK8jL3l
     const result = parseQuote(quoteHex)
 
     expect(result.success).toBe(true)
-    expect(result.quote!.certChain).toEqual([])
+    expect(result.quote?.certChain).toEqual([])
   })
 })
 
@@ -1867,8 +1902,8 @@ SIb3DQEBCwUAA0EAVMNjC5xR7b3V3dD4CqCqBvEn5h+8M3TN9cz8oZ/N9wK8jL3l
     test('converts valid PEM to DER', () => {
       const der = _testUtils.pemToDer(testCertPem)
       expect(der).not.toBeNull()
-      expect(der!.length).toBeGreaterThan(0)
-      expect(der![0]).toBe(0x30) // SEQUENCE tag
+      expect(der?.length).toBeGreaterThan(0)
+      expect(der?.[0]).toBe(0x30) // SEQUENCE tag
     })
 
     test('returns null for missing markers', () => {
@@ -1908,11 +1943,13 @@ MBExDzANBgNVBAMMBnRlc3RDQTAB
     test('handles Y2K correctly for UTCTime', () => {
       // Years 50-99 are 1950-1999
       const old = _testUtils.parseASN1Time('990601120000Z', false)
-      expect(new Date(old!).getFullYear()).toBe(1999)
+      if (old === null) throw new Error('old should not be null')
+      expect(new Date(old).getFullYear()).toBe(1999)
 
       // Years 00-49 are 2000-2049
       const newer = _testUtils.parseASN1Time('230601120000Z', false)
-      expect(new Date(newer!).getFullYear()).toBe(2023)
+      if (newer === null) throw new Error('newer should not be null')
+      expect(new Date(newer).getFullYear()).toBe(2023)
     })
 
     test('returns null for too short time string', () => {
@@ -2006,8 +2043,9 @@ MBExDzANBgNVBAMMBnRlc3RDQTAB
     test('extracts CN from valid certificate', () => {
       const der = _testUtils.pemToDer(testCertPem)
       expect(der).not.toBeNull()
+      if (!der) throw new Error('der should not be null')
 
-      const cn = _testUtils.extractSubjectCN(der!)
+      const cn = _testUtils.extractSubjectCN(der)
       expect(cn).toBe('testCA')
     })
 
@@ -2022,10 +2060,11 @@ MBExDzANBgNVBAMMBnRlc3RDQTAB
     test('extracts validity period from certificate', () => {
       const der = _testUtils.pemToDer(testCertPem)
       expect(der).not.toBeNull()
+      if (!der) throw new Error('der should not be null')
 
-      const info = _testUtils.parseX509Basic(der!)
+      const info = _testUtils.parseX509Basic(der)
       expect(info).not.toBeNull()
-      expect(info!.notBefore).toBeLessThan(info!.notAfter)
+      expect(info?.notBefore).toBeLessThan(info?.notAfter ?? 0)
     })
 
     test('returns null for non-SEQUENCE data', () => {

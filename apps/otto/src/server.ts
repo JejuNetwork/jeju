@@ -3,9 +3,8 @@
  * Provides HTTP API and integrates with ElizaOS plugins
  */
 
-import { serve } from '@hono/node-server'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import { z } from 'zod'
 import { getConfig } from './config'
 import {
@@ -37,44 +36,40 @@ const stateManager = getStateManager()
 // HTTP Server
 // ============================================================================
 
-const app = new Hono()
-
 // CORS Configuration
 // In production, OTTO_ALLOWED_ORIGINS should be set to restrict cross-origin access
 // e.g., OTTO_ALLOWED_ORIGINS=https://otto.jeju.network,https://app.jeju.network
 const allowedOrigins = process.env.OTTO_ALLOWED_ORIGINS?.split(',') ?? []
-const corsOrigin =
-  allowedOrigins.length > 0
-    ? (origin: string) =>
-        allowedOrigins.includes(origin) ? origin : allowedOrigins[0]
-    : '*' // Development: allow all origins
 
-app.use(
-  '/*',
-  cors({
-    origin: corsOrigin,
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Session-Id',
-      'X-Wallet-Address',
-    ],
-  }),
-)
+const app = new Elysia()
+  .use(
+    cors({
+      origin:
+        allowedOrigins.length > 0
+          ? (request) => {
+              const origin = request.headers.get('origin') ?? ''
+              return allowedOrigins.includes(origin)
+            }
+          : true, // Development: allow all origins
+      methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+      allowedHeaders: [
+        'Content-Type',
+        'Authorization',
+        'X-Session-Id',
+        'X-Wallet-Address',
+      ],
+    }),
+  )
 
-// Health & Status
-app.get('/health', (c) => {
-  return c.json({
+  // Health & Status
+  .get('/health', () => ({
     status: 'healthy',
     agent: 'otto',
     version: '1.0.0',
     runtime: 'elizaos',
-  })
-})
+  }))
 
-app.get('/status', (c) => {
-  return c.json({
+  .get('/status', () => ({
     name: 'Otto Trading Agent',
     version: '1.0.0',
     runtime: 'elizaos',
@@ -85,140 +80,119 @@ app.get('/status', (c) => {
       farcaster: { enabled: config.farcaster.enabled },
     },
     chains: config.trading.supportedChains,
-  })
-})
+  }))
 
-// ============================================================================
-// Webhooks
-// ============================================================================
+  // ============================================================================
+  // Webhooks
+  // ============================================================================
 
-// Discord webhook (for interactions API)
-app.post('/webhooks/discord', async (c) => {
-  const rawPayload = await c.req.json()
-  const payload = expectValid(
-    DiscordWebhookPayloadSchema,
-    rawPayload,
-    'Discord webhook',
-  )
+  // Discord webhook (for interactions API)
+  .post('/webhooks/discord', ({ body }) => {
+    const payload = expectValid(
+      DiscordWebhookPayloadSchema,
+      body,
+      'Discord webhook',
+    )
 
-  // Discord requires immediate response for interaction verification
-  if (payload.type === 1) {
-    // PING - respond with PONG
-    return c.json({ type: 1 })
-  }
-
-  // Acknowledge receipt
-  return c.json({ type: 5 }) // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
-})
-
-// Constant-time string comparison to prevent timing attacks
-function constantTimeCompare(a: string, b: string): boolean {
-  if (a.length !== b.length) {
-    return false
-  }
-  let result = 0
-  for (let i = 0; i < a.length; i++) {
-    result |= a.charCodeAt(i) ^ b.charCodeAt(i)
-  }
-  return result === 0
-}
-
-// Telegram webhook
-app.post('/webhooks/telegram', async (c) => {
-  // Verify secret token if configured - use constant-time comparison to prevent timing attacks
-  if (config.telegram.webhookSecret) {
-    const secretToken = c.req.header('X-Telegram-Bot-Api-Secret-Token')
-    if (
-      !secretToken ||
-      !constantTimeCompare(secretToken, config.telegram.webhookSecret)
-    ) {
-      return c.json({ error: 'Invalid secret token' }, 403)
+    // Discord requires immediate response for interaction verification
+    if (payload.type === 1) {
+      // PING - respond with PONG
+      return { type: 1 }
     }
-  }
 
-  const rawPayload = await c.req.json()
-  expectValid(TelegramWebhookPayloadSchema, rawPayload, 'Telegram webhook')
+    // Acknowledge receipt
+    return { type: 5 } // DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE
+  })
 
-  return c.json({ ok: true })
-})
+  // Telegram webhook
+  .post('/webhooks/telegram', ({ body, request, set }) => {
+    // Verify secret token if configured - use constant-time comparison to prevent timing attacks
+    if (config.telegram.webhookSecret) {
+      const secretToken = request.headers.get('X-Telegram-Bot-Api-Secret-Token')
+      if (
+        !secretToken ||
+        !constantTimeCompare(secretToken, config.telegram.webhookSecret)
+      ) {
+        set.status = 403
+        return { error: 'Invalid secret token' }
+      }
+    }
 
-// WhatsApp webhook (Twilio)
-app.post('/webhooks/whatsapp', async (c) => {
-  // Parse form data (Twilio sends as application/x-www-form-urlencoded)
-  const formData = await c.req.parseBody()
+    expectValid(TelegramWebhookPayloadSchema, body, 'Telegram webhook')
 
-  const rawPayload = {
-    MessageSid: String(formData.MessageSid ?? ''),
-    From: String(formData.From ?? ''),
-    To: String(formData.To ?? ''),
-    Body: String(formData.Body ?? ''),
-    NumMedia: String(formData.NumMedia ?? '0'),
-    MediaUrl0: formData.MediaUrl0 ? String(formData.MediaUrl0) : undefined,
-  }
+    return { ok: true }
+  })
 
-  expectValid(TwilioWebhookPayloadSchema, rawPayload, 'WhatsApp webhook')
+  // WhatsApp webhook (Twilio)
+  .post('/webhooks/whatsapp', async ({ request, set }) => {
+    // Parse form data (Twilio sends as application/x-www-form-urlencoded)
+    const formData = await request.formData()
 
-  // Return empty TwiML response
-  c.header('Content-Type', 'text/xml')
-  return c.body('<?xml version="1.0" encoding="UTF-8"?><Response></Response>')
-})
+    const rawPayload = {
+      MessageSid: String(formData.get('MessageSid') ?? ''),
+      From: String(formData.get('From') ?? ''),
+      To: String(formData.get('To') ?? ''),
+      Body: String(formData.get('Body') ?? ''),
+      NumMedia: String(formData.get('NumMedia') ?? '0'),
+      MediaUrl0: formData.get('MediaUrl0')
+        ? String(formData.get('MediaUrl0'))
+        : undefined,
+    }
 
-// WhatsApp webhook verification (Twilio)
-app.get('/webhooks/whatsapp', (c) => {
-  // Twilio may send GET for verification
-  return c.text('OK')
-})
+    expectValid(TwilioWebhookPayloadSchema, rawPayload, 'WhatsApp webhook')
 
-// Farcaster Frame webhook
-app.post('/webhooks/farcaster', async (c) => {
-  const rawPayload = await c.req.json()
-  expectValid(FarcasterFramePayloadSchema, rawPayload, 'Farcaster webhook')
+    // Return empty TwiML response
+    set.headers['Content-Type'] = 'text/xml'
+    return '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+  })
 
-  return c.json({ ok: true })
-})
+  // WhatsApp webhook verification (Twilio)
+  .get('/webhooks/whatsapp', () => 'OK')
 
-// Twitter webhook (Account Activity API)
-app.post('/webhooks/twitter', async (c) => {
-  const rawPayload = await c.req.json()
-  expectValid(TwitterWebhookPayloadSchema, rawPayload, 'Twitter webhook')
+  // Farcaster Frame webhook
+  .post('/webhooks/farcaster', ({ body }) => {
+    expectValid(FarcasterFramePayloadSchema, body, 'Farcaster webhook')
+    return { ok: true }
+  })
 
-  return c.json({ ok: true })
-})
+  // Twitter webhook (Account Activity API)
+  .post('/webhooks/twitter', ({ body }) => {
+    expectValid(TwitterWebhookPayloadSchema, body, 'Twitter webhook')
+    return { ok: true }
+  })
 
-// Twitter webhook verification (CRC challenge)
-app.get('/webhooks/twitter', async (c) => {
-  const crcTokenParam = c.req.query('crc_token')
-  if (!crcTokenParam) {
-    return c.text('Missing crc_token', 400)
-  }
+  // Twitter webhook verification (CRC challenge)
+  .get('/webhooks/twitter', async ({ query, set }) => {
+    const crcTokenParam = query.crc_token
+    if (!crcTokenParam) {
+      set.status = 400
+      return 'Missing crc_token'
+    }
 
-  const apiSecret = process.env.TWITTER_API_SECRET ?? ''
-  if (!apiSecret) {
-    throw new Error('TWITTER_API_SECRET is required for CRC verification')
-  }
+    const apiSecret = process.env.TWITTER_API_SECRET ?? ''
+    if (!apiSecret) {
+      throw new Error('TWITTER_API_SECRET is required for CRC verification')
+    }
 
-  // Generate CRC response
-  const crypto = await import('node:crypto')
-  const hmac = crypto.createHmac('sha256', apiSecret)
-  hmac.update(crcTokenParam)
-  const responseToken = `sha256=${hmac.digest('base64')}`
+    // Conditional import: only loaded when Twitter webhook verification is needed
+    const crypto = await import('node:crypto')
+    const hmac = crypto.createHmac('sha256', apiSecret)
+    hmac.update(crcTokenParam)
+    const responseToken = `sha256=${hmac.digest('base64')}`
 
-  return c.json({ response_token: responseToken })
-})
+    return { response_token: responseToken }
+  })
 
-// ============================================================================
-// API Routes
-// ============================================================================
+  // ============================================================================
+  // API Routes
+  // ============================================================================
 
-app.get('/api/chains', (c) => {
-  return c.json({
+  .get('/api/chains', () => ({
     chains: config.trading.supportedChains,
     defaultChainId: config.trading.defaultChainId,
-  })
-})
+  }))
 
-app.get('/api/info', (c) => {
-  return c.json({
+  .get('/api/info', () => ({
     name: 'Otto',
     description: 'ElizaOS-powered trading agent for Jeju Network',
     version: '1.0.0',
@@ -239,42 +213,45 @@ app.get('/api/info', (c) => {
       web: `${config.baseUrl}/miniapp/`,
     },
     frame: `${config.baseUrl}/frame`,
+  }))
+
+  // Chat API (uses local message processor)
+  .use(chatApi)
+
+  // Farcaster Frame
+  .use(frameApi)
+
+  // Miniapps
+  .use(miniappApi)
+  .get('/miniapp/', ({ set }) => {
+    set.redirect = '/miniapp'
   })
-})
+  .get('/', ({ set }) => {
+    set.redirect = '/miniapp'
+  })
 
-// Chat API (uses local message processor)
-app.route('/api/chat', chatApi)
+  // Auth callback
+  .get('/auth/callback', ({ query, set }) => {
+    const { address, signature, platform, platformId, nonce } = query
 
-// Farcaster Frame
-app.route('/frame', frameApi)
+    if (!address || !signature || !platform || !platformId || !nonce) {
+      set.headers['Content-Type'] = 'text/html'
+      return `<!DOCTYPE html><html><head><title>Error</title></head><body><h1>Connection Failed</h1><p>Missing required parameters.</p></body></html>`
+    }
 
-// Miniapps
-app.route('/miniapp', miniappApi)
-app.get('/miniapp/', (c) => c.redirect('/miniapp'))
-app.get('/', (c) => c.redirect('/miniapp'))
+    // Validate parameters with fail-fast - this ensures address is a valid 0x hex address
+    validateAddress(address)
+    validateHex(signature)
+    validatePlatform(platform)
+    expectValid(z.string().min(1), platformId, 'auth callback platformId')
+    validateNonce(nonce)
 
-// Auth callback
-app.get('/auth/callback', async (c) => {
-  const { address, signature, platform, platformId, nonce } = c.req.query()
+    // After validation, address is guaranteed to be 0x + 40 hex chars (safe for display)
+    // Extract only the validated hex characters for display
+    const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`
 
-  if (!address || !signature || !platform || !platformId || !nonce) {
-    return c.html(
-      `<!DOCTYPE html><html><head><title>Error</title></head><body><h1>Connection Failed</h1><p>Missing required parameters.</p></body></html>`,
-    )
-  }
-
-  // Validate parameters with fail-fast - this ensures address is a valid 0x hex address
-  validateAddress(address)
-  validateHex(signature)
-  validatePlatform(platform)
-  expectValid(z.string().min(1), platformId, 'auth callback platformId')
-  validateNonce(nonce)
-
-  // After validation, address is guaranteed to be 0x + 40 hex chars (safe for display)
-  // Extract only the validated hex characters for display
-  const shortAddress = `${address.slice(0, 6)}...${address.slice(-4)}`
-
-  return c.html(`<!DOCTYPE html>
+    set.headers['Content-Type'] = 'text/html'
+    return `<!DOCTYPE html>
 <html>
 <head>
   <title>Connected</title>
@@ -291,12 +268,13 @@ app.get('/auth/callback', async (c) => {
     <p>You can close this window.</p>
   </div>
 </body>
-</html>`)
-})
+</html>`
+  })
 
-// Wallet connect page
-app.get('/auth/connect', (c) => {
-  return c.html(`<!DOCTYPE html>
+  // Wallet connect page
+  .get('/auth/connect', ({ set }) => {
+    set.headers['Content-Type'] = 'text/html'
+    return `<!DOCTYPE html>
 <html>
 <head>
   <title>Connect to Otto</title>
@@ -371,8 +349,20 @@ app.get('/auth/connect', (c) => {
     }
   </script>
 </body>
-</html>`)
-})
+</html>`
+  })
+
+// Constant-time string comparison to prevent timing attacks
+function constantTimeCompare(a: string, b: string): boolean {
+  if (a.length !== b.length) {
+    return false
+  }
+  let result = 0
+  for (let i = 0; i < a.length; i++) {
+    result |= a.charCodeAt(i) ^ b.charCodeAt(i)
+  }
+  return result === 0
+}
 
 // ============================================================================
 // Main
@@ -410,7 +400,7 @@ async function main() {
   console.log('')
   console.log('========================================')
 
-  serve({ fetch: app.fetch, port })
+  app.listen(port)
 }
 
 // Graceful shutdown

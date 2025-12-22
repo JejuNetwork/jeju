@@ -54,6 +54,7 @@ export function Targets() {
           Targets
         </h1>
         <button
+          type="button"
           onClick={() => refetch()}
           disabled={loading}
           className="btn-secondary flex items-center gap-2"
@@ -74,6 +75,7 @@ export function Targets() {
 
           <div className="flex-1 w-full grid grid-cols-3 gap-4">
             <button
+              type="button"
               onClick={() => setHealthFilter('all')}
               className={`p-4 rounded-xl text-center ${healthFilter === 'all' ? 'ring-2 ring-jeju-primary' : ''}`}
               style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -93,6 +95,7 @@ export function Targets() {
             </button>
 
             <button
+              type="button"
               onClick={() => setHealthFilter('up')}
               className={`p-4 rounded-xl text-center ${healthFilter === 'up' ? 'ring-2 ring-jeju-success' : ''}`}
               style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -112,6 +115,7 @@ export function Targets() {
             </button>
 
             <button
+              type="button"
               onClick={() => setHealthFilter('down')}
               className={`p-4 rounded-xl text-center ${healthFilter === 'down' ? 'ring-2 ring-jeju-error' : ''}`}
               style={{ backgroundColor: 'var(--bg-secondary)' }}

@@ -516,6 +516,7 @@ export function BBLNPresaleCard() {
             !userContribution.claimed &&
             userContribution.claimable > 0n && (
               <button
+                type="button"
                 onClick={handleClaim}
                 disabled={isClaiming || isConfirmingClaim}
                 className="mt-4 w-full rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 py-2 font-medium text-white hover:from-amber-600 hover:to-orange-600 disabled:opacity-50"
@@ -530,10 +531,14 @@ export function BBLNPresaleCard() {
       {(stats.phase === 'WHITELIST' || stats.phase === 'PUBLIC') && (
         <div className="space-y-4">
           <div>
-            <label className="mb-2 block text-sm text-amber-300/70">
+            <label
+              htmlFor="bbln-bid-amount"
+              className="mb-2 block text-sm text-amber-300/70"
+            >
               Bid Amount (ETH)
             </label>
             <input
+              id="bbln-bid-amount"
               type="number"
               step="0.01"
               min="0.1"
@@ -545,10 +550,14 @@ export function BBLNPresaleCard() {
           </div>
 
           <div>
-            <label className="mb-2 block text-sm text-amber-300/70">
+            <label
+              htmlFor="bbln-max-price"
+              className="mb-2 block text-sm text-amber-300/70"
+            >
               Max Price (optional, leave empty to accept any price)
             </label>
             <input
+              id="bbln-max-price"
               type="number"
               step="0.0001"
               placeholder="0.0"
@@ -578,6 +587,7 @@ export function BBLNPresaleCard() {
             </div>
           ) : (
             <button
+              type="button"
               onClick={handleBid}
               disabled={isBidding || isConfirmingBid || !amount}
               className="w-full rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 py-3 font-bold text-white hover:from-amber-600 hover:to-orange-600 disabled:opacity-50"

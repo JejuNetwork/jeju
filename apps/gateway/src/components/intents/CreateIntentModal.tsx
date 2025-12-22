@@ -173,6 +173,8 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
 
   return (
     <div
+      role="dialog"
+      aria-modal="true"
       style={{
         position: 'fixed',
         inset: 0,
@@ -184,8 +186,19 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
         zIndex: 1000,
         padding: '1rem',
       }}
-      onClick={onClose}
     >
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Close modal backdrop"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'transparent',
+          border: 'none',
+          cursor: 'default',
+        }}
+      />
       <div
         className="card"
         style={{
@@ -195,8 +208,8 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
           maxWidth: '480px',
           maxHeight: '90vh',
           overflow: 'auto',
+          position: 'relative',
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         <div
           style={{
@@ -229,6 +242,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="button button-ghost"
             style={{ padding: '0.5rem', flexShrink: 0 }}
@@ -240,6 +254,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <div>
             <label
+              htmlFor="source-chain"
               style={{
                 display: 'block',
                 fontSize: '0.75rem',
@@ -251,6 +266,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
             </label>
             <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
               <select
+                id="source-chain"
                 className="input"
                 value={sourceChain}
                 onChange={(e) => setSourceChain(Number(e.target.value))}
@@ -301,6 +317,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
 
           <div>
             <label
+              htmlFor="dest-chain"
               style={{
                 display: 'block',
                 fontSize: '0.75rem',
@@ -311,6 +328,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
               To
             </label>
             <select
+              id="dest-chain"
               className="input"
               value={destChain}
               onChange={(e) => setDestChain(Number(e.target.value))}
@@ -444,6 +462,7 @@ export function CreateIntentModal({ onClose }: CreateIntentModalProps) {
           )}
 
           <button
+            type="button"
             className="button"
             onClick={handleSubmit}
             disabled={

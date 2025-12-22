@@ -1,10 +1,14 @@
 import { AddressSchema } from '@jejunetwork/types'
 import { gql, request } from 'graphql-request'
 import { useEffect, useState } from 'react'
-import { INDEXER_URL } from '@/config'
-import { calculateTotalPnL, calculateTotalValue } from '@/lib/portfolio'
-import { expect } from '@/lib/validation'
-import type { Position } from '@/types/markets'
+import { INDEXER_URL } from '../../config'
+import { calculateTotalPnL, calculateTotalValue } from '../../lib/portfolio'
+import { expect } from '../../lib/validation'
+import {
+  MarketPositionsResponseSchema,
+  type RawMarketPosition,
+} from '../../schemas/markets'
+import type { Position } from '../../types/markets'
 
 const POSITIONS_QUERY = gql`
   query GetUserPositions($user: String!) {
@@ -25,22 +29,7 @@ const POSITIONS_QUERY = gql`
   }
 `
 
-interface RawPosition {
-  id: string
-  yesShares: string
-  noShares: string
-  totalSpent: string
-  totalReceived: string
-  hasClaimed: boolean
-  market: {
-    sessionId: string
-    question: string
-    resolved: boolean
-    outcome: boolean | null
-  }
-}
-
-function transformPosition(raw: RawPosition): Position {
+function transformPosition(raw: RawMarketPosition): Position {
   return {
     id: raw.id,
     market: {
@@ -75,11 +64,20 @@ export function useUserPositions(address?: `0x${string}`) {
       AddressSchema.parse(validatedAddress)
       const endpoint = expect(INDEXER_URL, 'INDEXER_URL is not configured')
 
-      const data = (await request(endpoint, POSITIONS_QUERY, {
+      const rawData: unknown = await request(endpoint, POSITIONS_QUERY, {
         user: validatedAddress.toLowerCase(),
-      })) as { marketPositions: RawPosition[] }
+      })
 
-      const transformedPositions = data.marketPositions.map(transformPosition)
+      const parsed = MarketPositionsResponseSchema.safeParse(rawData)
+      if (!parsed.success) {
+        console.error('Invalid positions response:', parsed.error.message)
+        setPositions([])
+        setLoading(false)
+        return
+      }
+
+      const transformedPositions =
+        parsed.data.marketPositions.map(transformPosition)
 
       setPositions(transformedPositions)
       setTotalValue(calculateTotalValue(transformedPositions))

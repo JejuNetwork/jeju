@@ -257,6 +257,8 @@ export async function ceoCreateBounty(
   bountyRegistryAddress: Address,
 ): Promise<Hash> {
   const hash = await walletClient.writeContract({
+    chain: walletClient.chain,
+    account: walletClient.account ?? null,
     address: bountyRegistryAddress,
     abi: BOUNTY_REGISTRY_ABI,
     functionName: 'createBounty',
@@ -416,7 +418,11 @@ export async function executeCEOFundingSkill(
     walletClient: ReturnType<typeof createWalletClient>
     bountyRegistryAddress: Address
   },
-): Promise<{ success: boolean; result: unknown; error?: string }> {
+): Promise<{
+  success: boolean
+  result: Record<string, unknown> | null
+  error?: string
+}> {
   try {
     switch (skillId) {
       case 'hire-contributor': {

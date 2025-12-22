@@ -98,6 +98,7 @@ export default function EmbeddingsPage() {
             </option>
           </select>
           <button
+            type="button"
             className="btn btn-secondary"
             onClick={handleClear}
             disabled={results.length === 0}
@@ -172,6 +173,7 @@ export default function EmbeddingsPage() {
                     </div>
                   </div>
                   <button
+                    type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => handleCopy(result.embedding, i)}
                   >

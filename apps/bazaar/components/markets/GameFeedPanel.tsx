@@ -1,7 +1,7 @@
 'use client'
 
-import { EXPLORER_URL } from '@/config'
-import { useGameFeed } from '@/hooks/markets/useGameFeed'
+import { EXPLORER_URL } from '../../config'
+import { useGameFeed } from '../../hooks/markets/useGameFeed'
 
 interface GameFeedPanelProps {
   sessionId: string

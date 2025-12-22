@@ -23,17 +23,12 @@ import {
   parseAbi,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { scanRepositoryRequestSchema } from '../../shared/schemas'
+import { expectValid } from '../../shared/validation'
 
 // ============ Types ============
 
-interface ScanRequest {
-  daoId: string
-  repoOwner: string
-  repoName: string
-  registryTypes?: ('npm' | 'pypi' | 'cargo' | 'go')[]
-  maxDepth?: number
-  autoRegister?: boolean
-}
+// Using Zod schema for ScanRequest validation now (scanRepositoryRequestSchema)
 
 interface ScannedDependency {
   packageName: string
@@ -303,7 +298,11 @@ export function createDependencyScannerRouter(): Hono {
 
   // Scan a repository
   router.post('/scan', async (c) => {
-    const body = (await c.req.json()) as ScanRequest
+    const body = expectValid(
+      scanRepositoryRequestSchema,
+      await c.req.json(),
+      'Scan repository request',
+    )
     const {
       daoId,
       repoOwner,
@@ -312,10 +311,6 @@ export function createDependencyScannerRouter(): Hono {
       maxDepth,
       autoRegister,
     } = body
-
-    if (!daoId || !repoOwner || !repoName) {
-      return c.json({ error: 'daoId, repoOwner, and repoName required' }, 400)
-    }
 
     // Scan repository
     const deps = await scanRepository(

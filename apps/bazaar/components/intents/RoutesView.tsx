@@ -1,5 +1,5 @@
 import { Activity, ArrowRight, CheckCircle, Clock } from 'lucide-react'
-import { useRoutes } from '@/hooks/useIntentAPI'
+import { useRoutes } from '../../hooks/useIntentAPI'
 
 interface IntentRoute {
   id: string

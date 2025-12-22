@@ -29,7 +29,7 @@ interface ClientEndpoint {
 const L1_CLIENTS: ClientEndpoint[] = [
   {
     name: 'Geth L1',
-    http: process.env.GETH_L1_HTTP ?? 'http://localhost:8545',
+    http: process.env.GETH_L1_HTTP ?? 'http://localhost:6545',
     clientType: 'geth',
     layer: 'l1',
   },
@@ -50,7 +50,7 @@ const L1_CLIENTS: ClientEndpoint[] = [
 const L2_CLIENTS: ClientEndpoint[] = [
   {
     name: 'Geth L2 Seq',
-    http: process.env.GETH_L2_HTTP ?? 'http://localhost:9545',
+    http: process.env.GETH_L2_HTTP ?? 'http://localhost:6546',
     clientType: 'geth',
     layer: 'l2',
   },

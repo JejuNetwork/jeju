@@ -18,6 +18,13 @@
  */
 
 import type { Address, Hex } from 'viem'
+import {
+  HyperliquidPricesResponseSchema,
+  JitoBundleResponseSchema,
+  JitoBundleStatusResponseSchema,
+  JitoTipFloorResponseSchema,
+  JupiterPriceResponseSchema,
+} from '../../validation'
 
 // Lazy import to avoid native module issues with @solana/web3.js
 type ArbitrageExecutorModule = typeof import('./arbitrage-executor')
@@ -692,10 +699,13 @@ class BridgeServiceImpl implements BridgeService {
       }),
     })
 
-    const result = (await response.json()) as {
-      result?: string
-      error?: { message: string }
+    const json: unknown = await response.json()
+    const parsed = JitoBundleResponseSchema.safeParse(json)
+    if (!parsed.success) {
+      console.error('[Bridge] Invalid Jito bundle response')
+      return { bundleId: '', landed: false }
     }
+    const result = parsed.data
 
     if (result.error) {
       console.error(`[Bridge] Jito bundle failed: ${result.error.message}`)
@@ -729,10 +739,9 @@ class BridgeServiceImpl implements BridgeService {
       },
     )
 
-    const result = (await response.json()) as {
-      result?: { tip_floor_lamports: number }
-    }
-    return BigInt(result.result?.tip_floor_lamports ?? 10000)
+    const json: unknown = await response.json()
+    const parsed = JitoTipFloorResponseSchema.safeParse(json)
+    return BigInt(parsed.success ? (parsed.data.result?.tip_floor_lamports ?? 10000) : 10000)
   }
 
   // ============ Event Methods ============
@@ -903,11 +912,11 @@ class BridgeServiceImpl implements BridgeService {
     const response = await fetch(`${JUPITER_API}?ids=${mint}`)
     if (!response.ok) return null
 
-    const data = (await response.json()) as {
-      data?: Record<string, { price: number }>
-    }
-    const price = data.data?.[mint]?.price
+    const json: unknown = await response.json()
+    const parsed = JupiterPriceResponseSchema.safeParse(json)
+    if (!parsed.success) return null
 
+    const price = parsed.data.data?.[mint]?.price
     return price ? { price, dex: 'jupiter' } : null
   }
 
@@ -963,9 +972,12 @@ class BridgeServiceImpl implements BridgeService {
 
     if (!response.ok) return null
 
-    const data = (await response.json()) as Record<string, string>
+    const json: unknown = await response.json()
+    const parsed = HyperliquidPricesResponseSchema.safeParse(json)
+    if (!parsed.success) return null
+
     const symbol = token === 'WETH' ? 'ETH' : token
-    const price = data[symbol]
+    const price = parsed.data[symbol]
 
     return price ? { price: parseFloat(price), dex: 'hyperliquid' } : null
   }
@@ -1054,11 +1066,11 @@ class BridgeServiceImpl implements BridgeService {
         },
       )
 
-      const result = (await response.json()) as {
-        result?: { value: Array<{ confirmation_status: string }> }
-      }
+      const json: unknown = await response.json()
+      const parsed = JitoBundleStatusResponseSchema.safeParse(json)
+      if (!parsed.success) continue
 
-      const status = result.result?.value?.[0]?.confirmation_status
+      const status = parsed.data.result?.value?.[0]?.confirmation_status
       if (status === 'confirmed' || status === 'finalized') {
         return true
       }

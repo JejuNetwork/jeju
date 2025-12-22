@@ -41,7 +41,9 @@ async function cacheSet(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ key, value, ttl, namespace: CACHE_NS }),
   })
-  return res.ok && ((await res.json()) as { success: boolean }).success
+  if (!res.ok) return false
+  const data = await res.json()
+  return typeof data?.success === 'boolean' && data.success
 }
 
 async function cacheGet(key: string): Promise<string | null> {
@@ -49,7 +51,8 @@ async function cacheGet(key: string): Promise<string | null> {
     `${CACHE_URL}/cache/get?namespace=${CACHE_NS}&key=${encodeURIComponent(key)}`,
   )
   if (!res.ok) return null
-  return ((await res.json()) as { value: string | null }).value
+  const data = await res.json()
+  return typeof data?.value === 'string' ? data.value : null
 }
 
 async function cacheDel(key: string): Promise<boolean> {

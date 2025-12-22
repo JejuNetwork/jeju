@@ -13,6 +13,8 @@
 
 import { Hono } from 'hono'
 import { LRUCache } from 'lru-cache'
+import { batchPackagesRequestSchema } from '../../shared/schemas'
+import { expectValid } from '../../shared/validation'
 
 // ============ Types ============
 
@@ -278,12 +280,11 @@ export function createPkgRegistryProxyRouter(): Hono {
 
   // Batch fetch for dependency resolution
   router.post('/batch', async (c) => {
-    const body = (await c.req.json()) as {
-      packages: Array<{
-        name: string
-        registry: 'npm' | 'pypi' | 'cargo' | 'go'
-      }>
-    }
+    const body = expectValid(
+      batchPackagesRequestSchema,
+      await c.req.json(),
+      'Batch packages request',
+    )
 
     const results = await Promise.allSettled(
       body.packages.map(async ({ name, registry }) => {

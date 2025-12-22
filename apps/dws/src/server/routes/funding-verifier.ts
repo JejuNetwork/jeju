@@ -20,6 +20,30 @@ import {
   keccak256,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { z } from 'zod'
+import {
+  GitHubUserSchema,
+  verifyDependencyRequestSchema,
+  verifyRepoRequestSchema,
+  verifySocialRequestSchema,
+} from '../../shared/schemas'
+import { expectValid } from '../../shared/validation'
+
+// Schemas for external API responses
+const GitHubRepoPermissionsSchema = z.object({
+  permissions: z
+    .object({
+      admin: z.boolean().optional(),
+      push: z.boolean().optional(),
+    })
+    .optional(),
+})
+
+const NpmPackageSchema = z.object({
+  maintainers: z
+    .array(z.object({ name: z.string() }))
+    .optional(),
+})
 
 // ============ ABI ============
 
@@ -107,26 +131,7 @@ const PLATFORM_FARCASTER = keccak256(Buffer.from('farcaster'))
 
 // ============ Types ============
 
-interface VerificationRequest {
-  contributorId: string
-  platform: 'github' | 'discord' | 'twitter' | 'farcaster'
-  handle: string
-  oauthToken: string
-}
-
-interface RepoVerificationRequest {
-  claimId: string
-  owner: string
-  repo: string
-  oauthToken: string
-}
-
-interface DependencyVerificationRequest {
-  claimId: string
-  packageName: string
-  registryType: 'npm' | 'pypi' | 'cargo' | 'go'
-  oauthToken: string
-}
+// Types now defined via Zod schemas in shared/schemas/funding.ts
 
 // ============ GitHub Verification ============
 
@@ -152,7 +157,15 @@ async function verifyGitHubOwnership(
     }
   }
 
-  const user = (await userResponse.json()) as { login: string; id: number }
+  const userResult = GitHubUserSchema.safeParse(await userResponse.json())
+  if (!userResult.success) {
+    return {
+      verified: false,
+      proofHash: '0x' as Hex,
+      error: 'Invalid GitHub API response',
+    }
+  }
+  const user = userResult.data
 
   if (user.login.toLowerCase() !== expectedUsername.toLowerCase()) {
     return {
@@ -182,9 +195,17 @@ async function verifyGitHubOwnership(
       }
     }
 
-    const repo = (await repoResponse.json()) as {
-      permissions?: { admin?: boolean; push?: boolean }
+    const repoResult = GitHubRepoPermissionsSchema.safeParse(
+      await repoResponse.json(),
+    )
+    if (!repoResult.success) {
+      return {
+        verified: false,
+        proofHash: '0x' as Hex,
+        error: 'Invalid repository response',
+      }
     }
+    const repo = repoResult.data
 
     if (!repo.permissions?.admin && !repo.permissions?.push) {
       return {
@@ -219,9 +240,15 @@ async function verifyNpmMaintainer(
     }
   }
 
-  const pkg = (await pkgResponse.json()) as {
-    maintainers?: Array<{ name: string }>
+  const pkgResult = NpmPackageSchema.safeParse(await pkgResponse.json())
+  if (!pkgResult.success) {
+    return {
+      verified: false,
+      proofHash: '0x' as Hex,
+      error: 'Invalid package response',
+    }
   }
+  const pkg = pkgResult.data
 
   const isMaintainer = pkg.maintainers?.some(
     (m) => m.name.toLowerCase() === expectedUsername.toLowerCase(),
@@ -251,7 +278,15 @@ async function verifyNpmMaintainer(
     }
   }
 
-  const user = (await userResponse.json()) as { login: string; id: number }
+  const userResult = GitHubUserSchema.safeParse(await userResponse.json())
+  if (!userResult.success) {
+    return {
+      verified: false,
+      proofHash: '0x' as Hex,
+      error: 'Invalid GitHub user response',
+    }
+  }
+  const user = userResult.data
 
   const proofData = `npm:${packageName}:${user.login}:${Date.now()}`
   const proofHash = keccak256(Buffer.from(proofData))
@@ -289,7 +324,11 @@ export function createFundingVerifierRouter(): Hono {
   // ============ Social Link Verification ============
 
   router.post('/verify-social', async (c: Context) => {
-    const body = (await c.req.json()) as VerificationRequest
+    const body = expectValid(
+      verifySocialRequestSchema,
+      await c.req.json(),
+      'Verify social request',
+    )
     const { contributorId, platform, handle, oauthToken } = body
 
     if (!verifierKey) {
@@ -342,7 +381,11 @@ export function createFundingVerifierRouter(): Hono {
   // ============ Repository Verification ============
 
   router.post('/verify-repo', async (c: Context) => {
-    const body = (await c.req.json()) as RepoVerificationRequest
+    const body = expectValid(
+      verifyRepoRequestSchema,
+      await c.req.json(),
+      'Verify repository request',
+    )
     const { claimId, owner, repo, oauthToken } = body
 
     if (!verifierKey) {
@@ -361,7 +404,11 @@ export function createFundingVerifierRouter(): Hono {
       return c.json({ verified: false, error: 'Invalid GitHub token' })
     }
 
-    const user = (await userResponse.json()) as { login: string }
+    const userResult = GitHubUserSchema.safeParse(await userResponse.json())
+    if (!userResult.success) {
+      return c.json({ verified: false, error: 'Invalid GitHub response' })
+    }
+    const user = userResult.data
 
     const result = await verifyGitHubOwnership(
       oauthToken,
@@ -388,7 +435,11 @@ export function createFundingVerifierRouter(): Hono {
   // ============ Dependency Verification ============
 
   router.post('/verify-dependency', async (c: Context) => {
-    const body = (await c.req.json()) as DependencyVerificationRequest
+    const body = expectValid(
+      verifyDependencyRequestSchema,
+      await c.req.json(),
+      'Verify dependency request',
+    )
     const { claimId, packageName, registryType, oauthToken } = body
 
     if (!verifierKey) {
@@ -411,7 +462,11 @@ export function createFundingVerifierRouter(): Hono {
       return c.json({ verified: false, error: 'Invalid GitHub token' })
     }
 
-    const user = (await userResponse.json()) as { login: string }
+    const userResult = GitHubUserSchema.safeParse(await userResponse.json())
+    if (!userResult.success) {
+      return c.json({ verified: false, error: 'Invalid GitHub response' })
+    }
+    const user = userResult.data
 
     switch (registryType) {
       case 'npm': {
@@ -479,10 +534,15 @@ export function createFundingVerifierRouter(): Hono {
       },
     )
 
-    const tokenData = (await tokenResponse.json()) as {
-      access_token?: string
-      error?: string
+    const TokenResponseSchema = z.object({
+      access_token: z.string().optional(),
+      error: z.string().optional(),
+    })
+    const tokenResult = TokenResponseSchema.safeParse(await tokenResponse.json())
+    if (!tokenResult.success) {
+      return c.json({ error: 'Invalid token response' }, 400)
     }
+    const tokenData = tokenResult.data
 
     if (!tokenData.access_token) {
       return c.json({ error: tokenData.error || 'Token exchange failed' }, 400)

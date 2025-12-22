@@ -72,7 +72,11 @@ export default function AuthCallbackPage() {
       <div className="flex flex-col items-center justify-center min-h-[50vh] gap-4">
         <div className="text-red-500 text-lg">Authentication Failed</div>
         <p className="text-gray-500">{error}</p>
-        <button onClick={() => navigate('/')} className="btn-primary">
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="btn-primary"
+        >
           Return to Dashboard
         </button>
       </div>

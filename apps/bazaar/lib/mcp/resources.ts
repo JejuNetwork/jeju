@@ -3,8 +3,8 @@
  * Shared between API routes and hooks
  */
 
-import { getLatestBlocks, getNetworkTokens } from '@/lib/indexer-client'
-import { expect } from '@/lib/validation'
+import { getLatestBlocks, getNetworkTokens } from '../indexer-client'
+import { expect } from '../validation'
 
 export async function readMCPResource(uri: string): Promise<unknown | null> {
   expect(uri, 'URI is required')

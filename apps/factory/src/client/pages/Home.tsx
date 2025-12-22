@@ -43,7 +43,7 @@ const recentActivity = [
   },
   {
     type: 'package',
-    title: '@jeju/sdk@2.1.0',
+    title: '@jejunetwork/sdk@2.1.0',
     downloads: '3.4k',
     status: 'published',
     time: '8h ago',
@@ -151,7 +151,10 @@ export function HomePage() {
                   <span>
                     {bounty.deadline} • {bounty.applicants} applicants
                   </span>
-                  <button className="btn btn-primary text-sm py-1">
+                  <button
+                    type="button"
+                    className="btn btn-primary text-sm py-1"
+                  >
                     Apply
                   </button>
                 </div>
@@ -281,7 +284,9 @@ export function HomePage() {
           <p className="text-factory-400 mb-4">
             Connect with the Factory community on Farcaster
           </p>
-          <button className="btn btn-primary">Connect Farcaster</button>
+          <button type="button" className="btn btn-primary">
+            Connect Farcaster
+          </button>
         </div>
       </div>
     </div>

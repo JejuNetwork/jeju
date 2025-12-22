@@ -74,10 +74,15 @@ export default function RepositoriesPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
             disabled={!isConnected}
@@ -137,6 +142,7 @@ export default function RepositoriesPage() {
             {(['all', 'public', 'private'] as const).map((f) => (
               <button
                 key={f}
+                type="button"
                 className={`tab ${filter === f ? 'active' : ''}`}
                 onClick={() => setFilter(f)}
                 style={{ padding: '0.5rem 0.75rem', fontSize: '0.85rem' }}
@@ -163,6 +169,7 @@ export default function RepositoriesPage() {
             <h3>No repositories</h3>
             <p>Create your first Git repository</p>
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setShowModal(true)}
               disabled={!isConnected}
@@ -267,6 +274,7 @@ export default function RepositoriesPage() {
                 </div>
                 <div style={{ display: 'flex', gap: '0.5rem' }}>
                   <button
+                    type="button"
                     className="btn btn-ghost btn-sm"
                     onClick={() => handleCopy(repo.cloneUrl, repo.repoId)}
                     title="Copy clone URL"
@@ -277,7 +285,11 @@ export default function RepositoriesPage() {
                       <Copy size={14} />
                     )}
                   </button>
-                  <button className="btn btn-ghost btn-sm" title="Settings">
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    title="Settings"
+                  >
                     <Settings size={14} />
                   </button>
                 </div>
@@ -288,11 +300,29 @@ export default function RepositoriesPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowModal(false)}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">New Repository</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowModal(false)}
               >
@@ -302,8 +332,11 @@ export default function RepositoriesPage() {
             <form onSubmit={handleCreate}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Repository Name *</label>
+                  <label htmlFor="repo-name" className="form-label">
+                    Repository Name *
+                  </label>
                   <input
+                    id="repo-name"
                     className="input"
                     placeholder="my-project"
                     value={formData.name}
@@ -315,8 +348,11 @@ export default function RepositoriesPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Description</label>
+                  <label htmlFor="repo-description" className="form-label">
+                    Description
+                  </label>
                   <textarea
+                    id="repo-description"
                     className="input"
                     placeholder="A short description of your repository"
                     value={formData.description}
@@ -327,7 +363,7 @@ export default function RepositoriesPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Visibility</label>
+                  <span className="form-label">Visibility</span>
                   <div style={{ display: 'grid', gap: '0.75rem' }}>
                     <label
                       style={{

@@ -72,6 +72,7 @@ export function Header() {
           {/* Right Actions */}
           <div className="flex items-center gap-1.5 sm:gap-2">
             <button
+              type="button"
               onClick={toggleTheme}
               className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               aria-label="Toggle theme"
@@ -83,6 +84,7 @@ export function Header() {
 
             {/* Mobile Menu Toggle */}
             <button
+              type="button"
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="md:hidden p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
               aria-label="Toggle menu"

@@ -16,18 +16,21 @@ import type { JejuWallet } from '../wallet'
 //                              TYPES
 // ═══════════════════════════════════════════════════════════════════════════
 
-export enum PaymentCurrency {
-  ETH = 0,
-  USDC = 1,
-}
+export const PaymentCurrency = {
+  ETH: 0,
+  USDC: 1,
+} as const
+export type PaymentCurrency =
+  (typeof PaymentCurrency)[keyof typeof PaymentCurrency]
 
-export enum OfferStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  PAID = 'paid',
-  FULFILLED = 'fulfilled',
-  CANCELLED = 'cancelled',
-}
+export const OfferStatus = {
+  PENDING: 'pending',
+  APPROVED: 'approved',
+  PAID: 'paid',
+  FULFILLED: 'fulfilled',
+  CANCELLED: 'cancelled',
+} as const
+export type OfferStatus = (typeof OfferStatus)[keyof typeof OfferStatus]
 
 export interface RegisteredToken {
   tokenId: Hex

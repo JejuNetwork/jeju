@@ -143,7 +143,9 @@ export default function TFMMPage() {
             </div>
           </div>
 
-          <button className="btn-primary w-full py-2.5">Add Liquidity</button>
+          <button type="button" className="btn-primary w-full py-2.5">
+            Add Liquidity
+          </button>
         </div>
 
         <div className="card p-5 hover:scale-[1.02] transition-transform cursor-pointer">
@@ -196,7 +198,9 @@ export default function TFMMPage() {
             </div>
           </div>
 
-          <button className="btn-primary w-full py-2.5">Add Liquidity</button>
+          <button type="button" className="btn-primary w-full py-2.5">
+            Add Liquidity
+          </button>
         </div>
       </div>
     </div>

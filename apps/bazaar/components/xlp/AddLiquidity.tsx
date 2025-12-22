@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { formatEther } from 'viem'
-import type { TokenOption } from '@/components/TokenSelector'
-import TokenSelector from '@/components/TokenSelector'
-import { useLiquidityVault } from '@/hooks/useLiquidityVault'
-import { usePaymasterDeployment } from '@/hooks/usePaymasterFactory'
-import { useProtocolTokens } from '@/hooks/useProtocolTokens'
+import { useLiquidityVault } from '../../hooks/useLiquidityVault'
+import { usePaymasterDeployment } from '../../hooks/usePaymasterFactory'
+import { useProtocolTokens } from '../../hooks/useProtocolTokens'
+import type { TokenOption } from '../TokenSelector'
+import TokenSelector from '../TokenSelector'
 
 export default function AddLiquidity({
   vaultAddress: propVaultAddress,
@@ -86,6 +86,7 @@ export default function AddLiquidity({
           <form onSubmit={handleAddLiquidity} style={{ marginTop: '1.5rem' }}>
             <div style={{ marginBottom: '1rem' }}>
               <label
+                htmlFor="eth-amount"
                 style={{
                   display: 'block',
                   marginBottom: '0.5rem',
@@ -95,6 +96,7 @@ export default function AddLiquidity({
                 ETH Amount
               </label>
               <input
+                id="eth-amount"
                 className="input"
                 type="number"
                 step="0.1"
@@ -218,6 +220,7 @@ export default function AddLiquidity({
             </div>
 
             <button
+              type="button"
               className="button button-secondary"
               style={{ width: '100%', marginTop: '1rem' }}
               onClick={handleRemoveLiquidity}

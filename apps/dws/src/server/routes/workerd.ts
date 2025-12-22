@@ -3,10 +3,16 @@
  * V8 isolate-based serverless worker deployment and invocation
  */
 
+import { expectJson } from '@jejunetwork/types'
 import { Hono } from 'hono'
 import type { Address } from 'viem'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import { z } from 'zod'
+import {
+  workerdRegistryDeploySchema,
+  workerdReplicateRequestSchema,
+} from '../../shared/schemas'
+import { expectValid } from '../../shared/validation'
 import type { BackendManager } from '../../storage/backends'
 import {
   DEFAULT_ROUTER_CONFIG,
@@ -23,6 +29,15 @@ import {
 // Schemas
 // ============================================================================
 
+const WorkerdBindingsSchema = z.array(
+  z.object({
+    name: z.string(),
+    type: z.enum(['text', 'json', 'data', 'service']),
+    value: z.string().or(z.record(z.string(), z.string())).optional(),
+    service: z.string().optional(),
+  }),
+)
+
 const deployRequestSchema = z.object({
   name: z.string().min(1).max(64),
   code: z.string().or(z.instanceof(ArrayBuffer)).optional(),
@@ -36,16 +51,7 @@ const deployRequestSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .default('2024-01-01'),
   compatibilityFlags: z.array(z.string()).optional(),
-  bindings: z
-    .array(
-      z.object({
-        name: z.string(),
-        type: z.enum(['text', 'json', 'data', 'service']),
-        value: z.string().or(z.record(z.string(), z.string())).optional(),
-        service: z.string().optional(),
-      }),
-    )
-    .optional(),
+  bindings: WorkerdBindingsSchema.optional(),
 })
 
 const invokeRequestSchema = z.object({
@@ -129,6 +135,10 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Hono {
   if (enableDecentralized && registryConfig) {
     registry = new DecentralizedWorkerRegistry(registryConfig)
     workerRouter = new DecentralizedWorkerRouter(registry, routerConfig)
+
+    // Connect router to local executor for direct invocation
+    workerRouter.setLocalExecutor(executor)
+
     workerRouter.start()
   }
 
@@ -189,7 +199,11 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Hono {
           timeoutMs: parseInt(formData.get('timeoutMs') as string, 10) || 30000,
           cpuTimeMs: parseInt(formData.get('cpuTimeMs') as string, 10) || 50,
           compatibilityDate: formData.get('compatibilityDate') || '2024-01-01',
-          bindings: JSON.parse((formData.get('bindings') as string) || '[]'),
+          bindings: expectJson(
+            (formData.get('bindings') as string) || '[]',
+            WorkerdBindingsSchema,
+            'form data bindings',
+          ),
         })
 
         if (codeFile instanceof File) {
@@ -431,7 +445,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Hono {
     const body = await c.req.json()
     const request = invokeRequestSchema.parse(body)
 
-    // Use router for decentralized mode, otherwise invoke directly
+    // Use decentralized router if enabled (it checks local executor first)
     if (workerRouter && enableDecentralized) {
       const response = await workerRouter.route(workerId, {
         method: request.method,
@@ -450,6 +464,7 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Hono {
       })
     }
 
+    // Direct invocation when decentralized mode is disabled
     const response = await executor.invoke(workerId, {
       method: request.method,
       url: request.path,
@@ -552,8 +567,12 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Hono {
       const { workerId } = workerIdParamsSchema.parse({
         workerId: c.req.param('workerId'),
       })
-      const body = (await c.req.json()) as { targetCount?: number }
-      const targetCount = body.targetCount || 3
+      const body = expectValid(
+        workerdReplicateRequestSchema,
+        await c.req.json(),
+        'Replicate worker request',
+      )
+      const targetCount = body.targetCount
 
       const worker = await registry.getWorker(BigInt(workerId))
       if (!worker) {
@@ -573,7 +592,11 @@ export function createWorkerdRouter(options: WorkerdRouterOptions): Hono {
 
     // Deploy from registry (pull worker code from another node)
     router.post('/deploy-from-registry', async (c) => {
-      const body = (await c.req.json()) as { agentId: string }
+      const body = expectValid(
+        workerdRegistryDeploySchema,
+        await c.req.json(),
+        'Deploy from registry request',
+      )
       const agentId = BigInt(body.agentId)
 
       const worker = await registry.getWorker(agentId)
@@ -647,7 +670,7 @@ const NETWORK_DEFAULTS: Record<
   }
 > = {
   localnet: {
-    rpcUrl: 'http://localhost:9545',
+    rpcUrl: 'http://localhost:6546',
     identityRegistry: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
   },
   testnet: {

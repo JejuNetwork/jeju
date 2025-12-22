@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test'
 import type { Hex } from 'viem'
-import { FarcasterClient } from '../hub/client'
+import { FarcasterClient, farcasterClient } from '../hub/client'
 
 // Mock fetch globally
 const originalFetch = globalThis.fetch
@@ -597,8 +597,7 @@ describe('FarcasterClient', () => {
 })
 
 describe('farcasterClient singleton', () => {
-  it('exports a default client instance', async () => {
-    const { farcasterClient } = await import('../hub/client')
+  it('exports a default client instance', () => {
     expect(farcasterClient).toBeDefined()
     expect(farcasterClient).toBeInstanceOf(FarcasterClient)
   })

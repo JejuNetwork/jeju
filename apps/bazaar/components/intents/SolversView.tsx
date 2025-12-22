@@ -4,7 +4,7 @@ import {
   type LeaderboardEntry,
   useSolverLeaderboard,
   useSolvers,
-} from '@/hooks/useIntentAPI'
+} from '../../hooks/useIntentAPI'
 
 interface Solver extends BaseSolver {
   reputation: number

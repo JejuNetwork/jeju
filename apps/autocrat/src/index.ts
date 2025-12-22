@@ -47,11 +47,7 @@ import {
   initModeration,
 } from './moderation'
 import { type AutocratOrchestrator, createOrchestrator } from './orchestrator'
-import type {
-  CasualProposalCategory,
-  CasualSubmission,
-  ProposalDraft,
-} from './proposal-assistant'
+import type { CasualSubmission, ProposalDraft } from './proposal-assistant'
 import { getProposalAssistant } from './proposal-assistant'
 import {
   getRegistryIntegrationClient,
@@ -59,7 +55,11 @@ import {
 } from './registry-integration'
 import { getResearchAgent } from './research-agent'
 import { getTEEMode } from './tee'
-import type { CouncilConfig, ProposalType } from './types'
+import type {
+  CasualProposalCategory,
+  CouncilConfig,
+  ProposalType,
+} from './types'
 
 /**
  * Transform raw request body to ProposalDraft
@@ -70,7 +70,7 @@ function toProposalDraft(raw: {
   title: string
   summary: string
   description: string
-  proposalType: ProposalType
+  proposalType: number
   casualCategory?: string
   targetContract?: `0x${string}`
   calldata?: `0x${string}`
@@ -84,7 +84,7 @@ function toProposalDraft(raw: {
     title: raw.title,
     summary: raw.summary,
     description: raw.description,
-    proposalType: raw.proposalType,
+    proposalType: raw.proposalType as ProposalType,
     casualCategory: raw.casualCategory as CasualProposalCategory | undefined,
     targetContract: raw.targetContract,
     callData: raw.calldata,
@@ -97,12 +97,15 @@ function toProposalDraft(raw: {
 
 import { z } from 'zod'
 import {
+  A2AJsonRpcResponseSchema,
   AgentFeedbackRequestSchema,
   AgentRegisterRequestSchema,
   AssessProposalRequestSchema,
   CasualAssessRequestSchema,
   CasualHelpRequestSchema,
   expect,
+  expectValid,
+  extractA2AData,
   FactCheckRequestSchema,
   FutarchyEscalateRequestSchema,
   FutarchyExecuteRequestSchema,
@@ -143,7 +146,7 @@ function getConfig(): CouncilConfig {
     rpcUrl:
       process.env.RPC_URL ??
       process.env.JEJU_RPC_URL ??
-      'http://localhost:9545',
+      'http://localhost:6546',
     daoId: process.env.DEFAULT_DAO ?? 'jeju',
     contracts: {
       council: addr('COUNCIL_ADDRESS'),
@@ -230,24 +233,15 @@ async function callA2AInternal(
       },
     }),
   })
-  const result = (await response.json()) as {
-    result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }
-    error?: { message: string }
-  }
-  if (result.error) {
-    throw new Error(
-      `A2A call failed for skill '${skillId}': ${result.error.message}`,
-    )
-  }
-  const parts = result.result?.parts
-  if (!parts || parts.length === 0) {
-    throw new Error(`A2A call for skill '${skillId}' returned no parts`)
-  }
-  const dataPart = parts.find((p: { kind: string }) => p.kind === 'data')
-  if (!dataPart || !dataPart.data) {
-    throw new Error(`A2A call for skill '${skillId}' returned no data part`)
-  }
-  return dataPart.data
+  const result = expectValid(
+    A2AJsonRpcResponseSchema,
+    await response.json(),
+    `A2A call for skill '${skillId}'`,
+  )
+  return extractA2AData<Record<string, unknown>>(
+    result,
+    `A2A call for skill '${skillId}'`,
+  )
 }
 
 const config = getConfig()
@@ -339,7 +333,9 @@ app.post('/api/v1/orchestrator/start', async (c) => {
 })
 
 app.post('/api/v1/orchestrator/stop', async (c) => {
-  expect(orchestrator !== null, 'Orchestrator not running')
+  if (!orchestrator) {
+    throw new Error('Orchestrator not running')
+  }
   expect(orchestrator.getStatus().running === true, 'Orchestrator not running')
   await orchestrator.stop()
   return successResponse(c, { status: 'stopped' })
@@ -786,7 +782,9 @@ app.get('/api/v1/dao/active', async (c) => {
 
 app.get('/api/v1/dao/:daoId', async (c) => {
   const service = initDAOService()
-  expect(service !== null, 'DAO Registry not deployed')
+  if (!service) {
+    throw new Error('DAO Registry not deployed')
+  }
   const daoId = parseAndValidateParam(
     c,
     'daoId',
@@ -795,7 +793,6 @@ app.get('/api/v1/dao/:daoId', async (c) => {
   )
   const exists = await service.daoExists(daoId)
   expect(exists, 'DAO not found')
-  expect(service !== null, 'DAO service not initialized')
   const dao = await service.getDAOFull(daoId)
   return successResponse(c, dao)
 })
@@ -924,7 +921,9 @@ app.get('/api/v1/casual/categories', (c) => {
 
 // Orchestrator DAO status
 app.get('/api/v1/orchestrator/dao/:daoId', (c) => {
-  expect(orchestrator !== null, 'Orchestrator not running')
+  if (!orchestrator) {
+    throw new Error('Orchestrator not running')
+  }
   const status = orchestrator.getDAOStatus(c.req.param('daoId'))
   if (!status) return c.json({ error: 'DAO not tracked' }, 404)
   return c.json(status)
@@ -937,7 +936,9 @@ app.post('/api/v1/orchestrator/dao/:daoId/refresh', async (c) => {
 })
 
 app.post('/api/v1/orchestrator/dao/:daoId/active', async (c) => {
-  expect(orchestrator !== null, 'Orchestrator not running')
+  if (!orchestrator) {
+    throw new Error('Orchestrator not running')
+  }
   const daoId = parseAndValidateParam(
     c,
     'daoId',
@@ -973,7 +974,9 @@ app.get('/api/v1/registry/profile/:agentId', async (c) => {
   )
   const agentId = parseBigInt(idParam, 'Agent ID')
   const profile = await registryIntegration.getAgentProfile(agentId)
-  expect(profile !== null && profile !== undefined, 'Agent not found')
+  if (!profile) {
+    throw new Error('Agent not found')
+  }
   return successResponse(c, {
     ...profile,
     agentId: profile.agentId.toString(),
@@ -1451,7 +1454,6 @@ export {
 export { type AutocratOrchestrator, createOrchestrator } from './orchestrator'
 export {
   type CasualAssessment,
-  type CasualProposalCategory,
   type CasualSubmission,
   getProposalAssistant,
   ProposalAssistant,
@@ -1481,6 +1483,7 @@ export {
 } from './research-agent'
 export { decryptReasoning, getTEEMode, makeTEEDecision } from './tee'
 export type {
+  CasualProposalCategory,
   CEOPersona,
   CouncilConfig,
   FundingConfig,

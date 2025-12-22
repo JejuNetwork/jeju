@@ -149,7 +149,7 @@ function getDefaultRpcUrl(): string {
     case 'testnet':
       return 'https://testnet-rpc.jejunetwork.org'
     default:
-      return 'http://localhost:9545'
+      return 'http://localhost:6546'
   }
 }
 

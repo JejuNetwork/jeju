@@ -19,7 +19,11 @@ import type {
   TEEAttestation,
 } from '../types/index.js'
 import { toHash32 } from '../types/index.js'
-import { computeMerkleRoot, createLogger } from '../utils/index.js'
+import {
+  computeMerkleRoot,
+  createLogger,
+  PhalaAttestationResponseSchema,
+} from '../utils/index.js'
 
 const log = createLogger('phala')
 
@@ -177,14 +181,8 @@ export class PhalaClient {
       )
     }
 
-    const attestationData = (await response.json()) as {
-      quote: string
-      mr_enclave: string
-      report_data: string
-      signature: string
-      timestamp: number
-      enclave_id: string
-    }
+    const rawData: unknown = await response.json()
+    const attestationData = PhalaAttestationResponseSchema.parse(rawData)
 
     return {
       quote: Buffer.from(attestationData.quote, 'hex'),

@@ -7,8 +7,11 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { type BondingCurveStats, parseBondingCurveStats } from '@/lib/launchpad'
-import { expect, expectPositive } from '@/lib/validation'
+import {
+  type BondingCurveStats,
+  parseBondingCurveStats,
+} from '../../lib/launchpad'
+import { expect, expectPositive } from '../../lib/validation'
 
 export type { BondingCurveStats }
 
@@ -218,9 +221,3 @@ export function useBondingCurveQuote(
     priceImpact,
   }
 }
-
-// Re-export formatting functions from lib/launchpad
-export {
-  formatBasisPoints as formatProgress,
-  formatPrice as formatBondingCurvePrice,
-} from '@/lib/launchpad'

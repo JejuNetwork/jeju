@@ -8,7 +8,7 @@ echo ""
 cd "$(dirname "$0")"
 
 # Prerequisites check
-if ! curl -s http://localhost:9545 > /dev/null 2>&1; then
+if ! curl -s http://localhost:6546 > /dev/null 2>&1; then
     echo "❌ Localnet not running on port 8545"
     echo "   Start with: bun run localnet:start"
     exit 1

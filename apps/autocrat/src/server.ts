@@ -6,7 +6,6 @@
  */
 
 import { cors } from '@elysiajs/cors'
-import { swagger } from '@elysiajs/swagger'
 import { getNetworkName } from '@jejunetwork/config'
 import { Elysia } from 'elysia'
 import type { Address } from 'viem'
@@ -21,6 +20,7 @@ import { initModeration } from './moderation'
 import { createOrchestrator } from './orchestrator'
 import { a2aRoutes } from './routes/a2a'
 import { agentsRoutes } from './routes/agents'
+import { bugBountyRoutes } from './routes/bug-bounty'
 import { casualRoutes } from './routes/casual'
 import { daoRoutes } from './routes/dao'
 import { fundingRoutes } from './routes/funding'
@@ -32,6 +32,7 @@ import { orchestratorRoutes } from './routes/orchestrator'
 import { proposalsRoutes } from './routes/proposals'
 import { registryRoutes } from './routes/registry'
 import { researchRoutes } from './routes/research'
+import { rlaifRoutes } from './routes/rlaif'
 import { triggersRoutes } from './routes/triggers'
 import {
   blockchain,
@@ -47,34 +48,6 @@ const isDev = process.env.NODE_ENV !== 'production'
 
 const app = new Elysia()
   .use(cors({ origin: isDev ? '*' : 'https://autocrat.jejunetwork.org' }))
-  .use(
-    swagger({
-      documentation: {
-        info: {
-          title: 'Autocrat API',
-          version: '3.0.0',
-          description:
-            'AI-powered DAO governance with multi-tenant support, futarchy, and deep research',
-        },
-        tags: [
-          { name: 'health', description: 'Health and metrics' },
-          { name: 'proposals', description: 'Proposal management' },
-          { name: 'dao', description: 'Multi-tenant DAO management' },
-          { name: 'futarchy', description: 'Prediction market governance' },
-          { name: 'agents', description: 'ERC-8004 agent registry' },
-          { name: 'moderation', description: 'Content moderation' },
-          { name: 'research', description: 'AI research agent' },
-          { name: 'registry', description: 'Registry integration' },
-          { name: 'orchestrator', description: 'DAO orchestration' },
-          { name: 'triggers', description: 'DWS compute triggers' },
-          { name: 'casual', description: 'Casual proposal flow' },
-          { name: 'funding', description: 'Deep funding' },
-          { name: 'a2a', description: 'Agent-to-Agent protocol' },
-          { name: 'mcp', description: 'Model Context Protocol' },
-        ],
-      },
-    }),
-  )
   // Mount all routes
   .use(healthRoutes)
   .use(proposalsRoutes)
@@ -90,6 +63,8 @@ const app = new Elysia()
   .use(fundingRoutes)
   .use(a2aRoutes)
   .use(mcpRoutes)
+  .use(rlaifRoutes)
+  .use(bugBountyRoutes)
   // Root info
   .get('/', () => ({
     name: `${getNetworkName()} Autocrat`,
@@ -116,7 +91,9 @@ const app = new Elysia()
       futarchy: '/api/v1/futarchy',
       moderation: '/api/v1/moderation',
       registry: '/api/v1/registry',
-      ceo: '/api/v1/ceo',
+      ceo: '/api/v1/agents/ceo',
+      bugBounty: '/api/v1/bug-bounty',
+      rlaif: '/rlaif',
       health: '/health',
     },
   }))
@@ -128,8 +105,9 @@ const app = new Elysia()
   })
   .onError(({ error, path }) => {
     metricsData.errors++
-    console.error(`[Error] ${path}:`, error.message)
-    return { error: error.message }
+    const message = error instanceof Error ? error.message : String(error)
+    console.error(`[Error] ${path}:`, message)
+    return { error: message }
   })
 
 const autoStart = process.env.AUTO_START_ORCHESTRATOR !== 'false'
@@ -155,11 +133,15 @@ async function start() {
   TEE: ${getTEEMode()}
   Trigger: ${triggerMode}
   Endpoints: /a2a, /mcp, /api/v1
-  Swagger: http://localhost:${PORT}/swagger
 `)
   })
 
-  if (autoStart && blockchain.councilDeployed) {
+  const ZERO = '0x0000000000000000000000000000000000000000' as Address
+  const hasDAOContracts =
+    config.contracts.daoRegistry !== ZERO &&
+    config.contracts.daoFunding !== ZERO
+
+  if (autoStart && blockchain.councilDeployed && hasDAOContracts) {
     const orchestratorConfig = {
       rpcUrl: config.rpcUrl,
       daoRegistry: config.contracts.daoRegistry as Address,
@@ -170,9 +152,21 @@ async function start() {
       },
     }
     const orchestrator = createOrchestrator(orchestratorConfig, blockchain)
-    await orchestrator.start()
-    setOrchestrator(orchestrator)
-    if (triggerMode === 'local') startLocalCron(runOrchestratorCycle)
+    orchestrator
+      .start()
+      .then(() => {
+        setOrchestrator(orchestrator)
+        if (triggerMode === 'local') startLocalCron(runOrchestratorCycle)
+        console.log('[Orchestrator] Started successfully')
+      })
+      .catch((err) => {
+        console.error(
+          '[Orchestrator] Failed to start - server continues without it:',
+          err.message,
+        )
+      })
+  } else if (!hasDAOContracts) {
+    console.log('[Orchestrator] Skipped - DAO contracts not deployed')
   }
 }
 

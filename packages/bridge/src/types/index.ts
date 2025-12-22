@@ -138,34 +138,36 @@ export interface EthereumStateCommitment {
 // CROSS-CHAIN TOKEN TYPES
 
 /** Supported chains */
-export enum ChainId {
+export const ChainId = {
   // EVM Chains
-  ETHEREUM_MAINNET = 1,
-  ETHEREUM_SEPOLIA = 11155111,
-  BASE_MAINNET = 8453,
-  BASE_SEPOLIA = 84532,
-  ARBITRUM_ONE = 42161,
-  ARBITRUM_SEPOLIA = 421614,
-  OPTIMISM = 10,
-  OPTIMISM_SEPOLIA = 11155420,
-  BSC_MAINNET = 56,
-  BSC_TESTNET = 97,
+  ETHEREUM_MAINNET: 1,
+  ETHEREUM_SEPOLIA: 11155111,
+  BASE_MAINNET: 8453,
+  BASE_SEPOLIA: 84532,
+  ARBITRUM_ONE: 42161,
+  ARBITRUM_SEPOLIA: 421614,
+  OPTIMISM: 10,
+  OPTIMISM_SEPOLIA: 11155420,
+  BSC_MAINNET: 56,
+  BSC_TESTNET: 97,
   // Solana
-  SOLANA_MAINNET = 101,
-  SOLANA_DEVNET = 102,
-  SOLANA_LOCALNET = 103,
+  SOLANA_MAINNET: 101,
+  SOLANA_DEVNET: 102,
+  SOLANA_LOCALNET: 103,
   // Local development
-  LOCAL_EVM = 31337,
-  LOCAL_SOLANA = 104,
-}
+  LOCAL_EVM: 31337,
+  LOCAL_SOLANA: 104,
+} as const
+export type ChainId = (typeof ChainId)[keyof typeof ChainId]
 
 /** Token standard */
-export enum TokenStandard {
-  ERC20 = 'ERC20',
-  SPL = 'SPL',
+export const TokenStandard = {
+  ERC20: 'ERC20',
+  SPL: 'SPL',
   /** Cross-chain native token (like CCIP tokens) */
-  CROSS_CHAIN_NATIVE = 'CROSS_CHAIN_NATIVE',
-}
+  CROSS_CHAIN_NATIVE: 'CROSS_CHAIN_NATIVE',
+} as const
+export type TokenStandard = (typeof TokenStandard)[keyof typeof TokenStandard]
 
 /** Cross-chain token metadata */
 export interface CrossChainToken {
@@ -261,20 +263,22 @@ export interface TransferRecord {
 // CROSS-CHAIN EXECUTION TYPES
 
 /** Types of cross-chain operations beyond token transfers */
-export enum CrossChainOperationType {
+export const CrossChainOperationType = {
   /** Simple token transfer */
-  TOKEN_TRANSFER = 'TOKEN_TRANSFER',
+  TOKEN_TRANSFER: 'TOKEN_TRANSFER',
   /** Token transfer with contract call on destination */
-  TOKEN_TRANSFER_WITH_CALL = 'TOKEN_TRANSFER_WITH_CALL',
+  TOKEN_TRANSFER_WITH_CALL: 'TOKEN_TRANSFER_WITH_CALL',
   /** Arbitrary message passing */
-  MESSAGE = 'MESSAGE',
+  MESSAGE: 'MESSAGE',
   /** Cross-chain contract call (execute function on dest chain) */
-  CONTRACT_CALL = 'CONTRACT_CALL',
+  CONTRACT_CALL: 'CONTRACT_CALL',
   /** Cross-chain account/state query */
-  STATE_QUERY = 'STATE_QUERY',
+  STATE_QUERY: 'STATE_QUERY',
   /** Cross-chain NFT transfer */
-  NFT_TRANSFER = 'NFT_TRANSFER',
-}
+  NFT_TRANSFER: 'NFT_TRANSFER',
+} as const
+export type CrossChainOperationType =
+  (typeof CrossChainOperationType)[keyof typeof CrossChainOperationType]
 
 /** Cross-chain message envelope */
 export interface CrossChainMessage {

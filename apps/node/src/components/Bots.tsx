@@ -251,6 +251,7 @@ export function Bots() {
               <div className="flex items-center gap-2">
                 {bot.metadata.warnings.length > 0 && (
                   <button
+                    type="button"
                     onClick={() =>
                       setExpandedBot(
                         expandedBot === bot.metadata.id
@@ -270,6 +271,7 @@ export function Bots() {
 
                 {bot.status.running ? (
                   <button
+                    type="button"
                     onClick={() => handleStopBot(bot.metadata.id)}
                     className="btn btn-danger flex items-center gap-2"
                   >
@@ -278,6 +280,7 @@ export function Bots() {
                   </button>
                 ) : (
                   <button
+                    type="button"
                     onClick={() => handleStartBot(bot)}
                     className="btn btn-primary flex items-center gap-2"
                   >
@@ -315,8 +318,11 @@ export function Bots() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="label">Capital Allocation (ETH)</label>
+                  <label htmlFor="capital-allocation" className="label">
+                    Capital Allocation (ETH)
+                  </label>
                   <input
+                    id="capital-allocation"
                     type="number"
                     value={capitalAmount}
                     onChange={(e) => {
@@ -357,12 +363,14 @@ export function Bots() {
 
               <div className="flex gap-3 mt-6">
                 <button
+                  type="button"
                   onClick={() => setStartingBot(null)}
                   className="btn-secondary flex-1"
                 >
                   Cancel
                 </button>
                 <button
+                  type="button"
                   onClick={handleConfirmStart}
                   className="btn-primary flex-1"
                 >

@@ -135,6 +135,7 @@ export function BountiesPage() {
               ['all', 'open', 'in_progress', 'review', 'completed'] as const
             ).map((status) => (
               <button
+                type="button"
                 key={status}
                 onClick={() => setFilter(status)}
                 className={clsx(

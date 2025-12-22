@@ -3,7 +3,7 @@
  */
 
 export const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001'
-export const RPC_URL = 'http://127.0.0.1:9545'
+export const RPC_URL = 'http://127.0.0.1:6546'
 
 /**
  * Test wallet (Anvil default account #0)

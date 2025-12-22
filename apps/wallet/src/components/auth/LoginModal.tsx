@@ -102,9 +102,11 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default"
         onClick={onClose}
+        aria-label="Close modal"
       />
 
       {/* Modal */}
@@ -121,6 +123,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             </div>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-accent transition-colors"
           >
@@ -139,6 +142,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
         <div className="p-6 space-y-4">
           {/* Quick Start - Generate Wallet */}
           <button
+            type="button"
             onClick={handleGenerateWallet}
             disabled={isLoading}
             className="w-full flex items-center gap-4 p-4 rounded-xl bg-gradient-to-r from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 hover:from-emerald-500/20 hover:to-teal-500/20 transition-all group"
@@ -170,6 +174,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
 
           {/* Wallet Connect */}
           <button
+            type="button"
             onClick={() => handleLogin('wallet')}
             disabled={isLoading}
             className="w-full flex items-center gap-4 p-4 rounded-xl bg-secondary/50 border border-border hover:bg-secondary hover:border-orange-500/30 transition-all group"
@@ -193,6 +198,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             {SOCIAL_PROVIDERS.slice(0, 4).map(
               ({ id, name, icon: Icon, color }) => (
                 <button
+                  type="button"
                   key={id}
                   onClick={() => handleLogin(id)}
                   disabled={isLoading}
@@ -210,6 +216,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
 
           {/* More Options */}
           <button
+            type="button"
             onClick={() => setShowAdvanced(!showAdvanced)}
             className="w-full flex items-center justify-center gap-2 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
@@ -224,6 +231,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
             <div className="space-y-3 animate-in slide-in-from-top-2 duration-200">
               {/* Discord */}
               <button
+                type="button"
                 onClick={() => handleLogin('discord')}
                 disabled={isLoading}
                 className="w-full flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border hover:bg-indigo-500/10 hover:border-indigo-500/30 transition-all"
@@ -237,6 +245,7 @@ export function LoginModal({ isOpen, onClose, onSuccess }: LoginModalProps) {
 
               {/* Farcaster */}
               <button
+                type="button"
                 onClick={() => handleLogin('farcaster')}
                 disabled={isLoading}
                 className="w-full flex items-center gap-3 p-3 rounded-xl bg-secondary/30 border border-border hover:bg-purple-500/10 hover:border-purple-500/30 transition-all"

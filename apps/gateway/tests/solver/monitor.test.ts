@@ -99,12 +99,12 @@ describe('Event Parsing - Valid Events', () => {
     const result = monitor.testParseEvent(11155111, log)
 
     expect(result).not.toBeNull()
-    expect(result!.orderId).toBe(`0x${'ab'.repeat(32)}`)
-    expect(result!.sourceChain).toBe(11155111)
-    expect(result!.destinationChain).toBe(84532)
-    expect(result!.inputAmount).toBe('1000000')
-    expect(result!.outputAmount).toBe('900000000000000')
-    expect(result!.blockNumber).toBe(12345678n)
+    expect(result?.orderId).toBe(`0x${'ab'.repeat(32)}`)
+    expect(result?.sourceChain).toBe(11155111)
+    expect(result?.destinationChain).toBe(84532)
+    expect(result?.inputAmount).toBe('1000000')
+    expect(result?.outputAmount).toBe('900000000000000')
+    expect(result?.blockNumber).toBe(12345678n)
   })
 
   test('should convert bytes32 tokens to addresses', () => {
@@ -113,9 +113,9 @@ describe('Event Parsing - Valid Events', () => {
     const result = monitor.testParseEvent(11155111, log)
 
     // Should extract last 20 bytes (40 hex chars) from bytes32
-    expect(result!.inputToken).toMatch(/^0x[a-f0-9]{40}$/)
-    expect(result!.outputToken).toMatch(/^0x[a-f0-9]{40}$/)
-    expect(result!.recipient).toMatch(/^0x[a-f0-9]{40}$/)
+    expect(result?.inputToken).toMatch(/^0x[a-f0-9]{40}$/)
+    expect(result?.outputToken).toMatch(/^0x[a-f0-9]{40}$/)
+    expect(result?.recipient).toMatch(/^0x[a-f0-9]{40}$/)
   })
 
   test('should handle native token (zero address) correctly', () => {
@@ -133,7 +133,7 @@ describe('Event Parsing - Valid Events', () => {
 
     const result = monitor.testParseEvent(11155111, log)
 
-    expect(result!.inputToken).toBe(
+    expect(result?.inputToken).toBe(
       '0x0000000000000000000000000000000000000000',
     )
   })
@@ -251,7 +251,7 @@ describe('Event Parsing - Edge Cases', () => {
     const result = monitor.testParseEvent(11155111, log)
 
     expect(result).not.toBeNull()
-    expect(result!.inputAmount).toBe(maxUint256.toString())
+    expect(result?.inputAmount).toBe(maxUint256.toString())
   })
 
   test('should handle missing fillDeadline', () => {
@@ -266,7 +266,7 @@ describe('Event Parsing - Edge Cases', () => {
     const result = monitor.testParseEvent(11155111, log)
 
     expect(result).not.toBeNull()
-    expect(result!.deadline).toBe(0)
+    expect(result?.deadline).toBe(0)
   })
 
   test('should handle missing user address', () => {
@@ -281,7 +281,7 @@ describe('Event Parsing - Edge Cases', () => {
     const result = monitor.testParseEvent(11155111, log)
 
     expect(result).not.toBeNull()
-    expect(result!.user).toBe('0x')
+    expect(result?.user).toBe('0x')
   })
 
   test('should preserve transactionHash from log', () => {
@@ -290,7 +290,7 @@ describe('Event Parsing - Edge Cases', () => {
 
     const result = monitor.testParseEvent(11155111, log)
 
-    expect(result!.transactionHash).toBe(`0x${'dd'.repeat(32)}`)
+    expect(result?.transactionHash).toBe(`0x${'dd'.repeat(32)}`)
   })
 
   test('should handle chainId 0 in minReceived', () => {
@@ -308,7 +308,7 @@ describe('Event Parsing - Edge Cases', () => {
 
     const result = monitor.testParseEvent(11155111, log)
 
-    expect(result!.destinationChain).toBe(0)
+    expect(result?.destinationChain).toBe(0)
   })
 })
 
@@ -353,7 +353,7 @@ describe('Monitor Lifecycle', () => {
     monitor.emit('intent', testEvent)
 
     expect(receivedEvent).not.toBeNull()
-    expect(receivedEvent!.orderId).toBe(testEvent.orderId)
+    expect(receivedEvent?.orderId).toBe(testEvent.orderId)
   })
 
   test('should handle multiple event listeners', () => {

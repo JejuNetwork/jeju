@@ -4,6 +4,10 @@
  */
 
 import { EventEmitter } from 'node:events'
+import { expectValid } from '@jejunetwork/types'
+import { keccak256, toBytes } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { CQLQueryResponseSchema } from '../schemas'
 import type { SqlParam } from '../types'
 
 /**
@@ -630,9 +634,6 @@ export class CovenantSQLClient extends EventEmitter {
     payload: string,
     timestamp: string,
   ): Promise<string> {
-    const { keccak256, toBytes } = await import('viem')
-    const { privateKeyToAccount } = await import('viem/accounts')
-
     // Create message to sign: hash of payload + timestamp
     const message = keccak256(
       toBytes(`${this.config.databaseId}:${timestamp}:${payload}`),
@@ -746,15 +747,14 @@ export class CovenantSQLClient extends EventEmitter {
       throw new Error(`Query failed: ${error}`)
     }
 
-    const data = (await response.json()) as {
-      rows: T[]
-      rowCount: number
-      affectedRows: number
-      lastInsertId?: string
-    }
+    const data = expectValid(
+      CQLQueryResponseSchema,
+      await response.json(),
+      'CovenantSQL query response',
+    )
 
     return {
-      rows: data.rows,
+      rows: data.rows as T[],
       rowCount: data.rowCount,
       affectedRows: data.affectedRows,
       lastInsertId: data.lastInsertId,

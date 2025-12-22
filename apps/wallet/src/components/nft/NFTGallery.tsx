@@ -69,12 +69,14 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
           {/* View Toggle */}
           <div className="flex bg-secondary rounded-lg p-1">
             <button
+              type="button"
               onClick={() => setViewMode('grid')}
               className={`p-2 rounded ${viewMode === 'grid' ? 'bg-background' : ''}`}
             >
               <Grid className="w-4 h-4" />
             </button>
             <button
+              type="button"
               onClick={() => setViewMode('list')}
               className={`p-2 rounded ${viewMode === 'list' ? 'bg-background' : ''}`}
             >
@@ -84,6 +86,7 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
 
           {/* Refresh */}
           <button
+            type="button"
             onClick={fetchNFTs}
             className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-lg"
           >
@@ -96,6 +99,7 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
       {/* Chain Filter */}
       <div className="flex gap-2 overflow-x-auto pb-2">
         <button
+          type="button"
           onClick={() => setSelectedChain('all')}
           className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
             selectedChain === 'all'
@@ -107,6 +111,7 @@ export function NFTGallery({ address, onTransfer }: NFTGalleryProps) {
         </button>
         {Object.entries(SUPPORTED_CHAINS).map(([id, chain]) => (
           <button
+            type="button"
             key={id}
             onClick={() => setSelectedChain(Number(id) as SupportedChainId)}
             className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap ${
@@ -199,13 +204,12 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
         {/* Image */}
         <div className="w-16 h-16 rounded-lg bg-secondary flex-shrink-0 overflow-hidden relative">
           {!imageError && nft.imageUrl ? (
-            <Image
+            <img
               src={nft.imageUrl}
               alt={nft.name}
               width={64}
               height={64}
               className="w-full h-full object-cover"
-              unoptimized
               onError={() => setImageError(true)}
             />
           ) : (
@@ -230,6 +234,7 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
         <div className="flex items-center gap-2">
           {onTransfer && (
             <button
+              type="button"
               onClick={() => onTransfer(nft)}
               className="p-2 hover:bg-secondary rounded-lg"
               title="Transfer"
@@ -256,12 +261,10 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
       {/* Image */}
       <div className="aspect-square bg-secondary relative">
         {!imageError && nft.imageUrl ? (
-          <Image
+          <img
             src={nft.imageUrl}
             alt={nft.name}
-            fill
-            className="object-cover"
-            unoptimized
+            className="absolute inset-0 w-full h-full object-cover"
             onError={() => setImageError(true)}
           />
         ) : (
@@ -274,6 +277,7 @@ function NFTCard({ nft, viewMode, onTransfer }: NFTCardProps) {
         <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
           {onTransfer && (
             <button
+              type="button"
               onClick={() => onTransfer(nft)}
               className="p-3 bg-white/20 hover:bg-white/30 rounded-lg backdrop-blur"
               title="Transfer"

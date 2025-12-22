@@ -407,16 +407,17 @@ export interface FeedSpec {
   category: FeedCategory
 }
 
-export enum FeedCategory {
-  SPOT_PRICE = 0,
-  TWAP = 1,
-  FX_RATE = 2,
-  STABLECOIN_PEG = 3,
-  LST_RATE = 4,
-  GAS_PRICE = 5,
-  SEQUENCER_STATUS = 6,
-  MARKET_STATUS = 7,
-}
+export const FeedCategory = {
+  SPOT_PRICE: 0,
+  TWAP: 1,
+  FX_RATE: 2,
+  STABLECOIN_PEG: 3,
+  LST_RATE: 4,
+  GAS_PRICE: 5,
+  SEQUENCER_STATUS: 6,
+  MARKET_STATUS: 7,
+} as const
+export type FeedCategory = (typeof FeedCategory)[keyof typeof FeedCategory]
 
 export const FEED_CATEGORY_LABELS: Record<FeedCategory, string> = {
   [FeedCategory.SPOT_PRICE]: 'Spot Price',

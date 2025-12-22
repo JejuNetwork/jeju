@@ -609,8 +609,10 @@ describe.skipIf(!localnetAvailable)('Localnet Full System Integration', () => {
       const user2Account = privateKeyToAccount(
         TEST_WALLETS.user2.privateKey as `0x${string}`,
       )
+      const chain = l2PublicClient.chain
+      if (!chain) throw new Error('L2 public client chain not configured')
       const user2WalletClient = createWalletClient({
-        chain: l2PublicClient.chain!,
+        chain,
         transport: http(TEST_CONFIG.l2RpcUrl),
         account: user2Account,
       })
@@ -967,7 +969,8 @@ describe.skipIf(!localnetAvailable)('End-to-End User Journey', () => {
     }
     const gasUsed = receipt.gasUsed
     const gasPrice = receipt.effectiveGasPrice ?? receipt.gasPrice
-    const gasCost = gasUsed * gasPrice!
+    if (!gasPrice) throw new Error('Gas price not available in receipt')
+    const gasCost = gasUsed * gasPrice
     const _totalCost = sendAmount + gasCost
 
     // Fresh client to avoid cache

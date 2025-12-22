@@ -64,7 +64,9 @@ export default function ItemDetailPage() {
             </div>
           </div>
 
-          <button className="btn-primary w-full py-3">Make Offer</button>
+          <button type="button" className="btn-primary w-full py-3">
+            Make Offer
+          </button>
         </div>
       </div>
     </div>

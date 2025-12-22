@@ -25,7 +25,7 @@ import { createPsycheClient } from './psyche-client'
 // Configuration
 const CONFIG = {
   // Jeju Network
-  jejuRpcUrl: process.env.RPC_URL || 'http://127.0.0.1:9545',
+  jejuRpcUrl: process.env.RPC_URL || 'http://127.0.0.1:6546',
   jejuWsUrl: process.env.WS_URL || 'ws://127.0.0.1:9546',
 
   // Solana/Psyche

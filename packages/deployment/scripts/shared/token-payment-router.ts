@@ -769,7 +769,7 @@ export function createTokenPaymentRouter(
   const fullConfig: PaymentRouterConfig = {
     chainId: config.chainId || 420691,
     rpcUrl:
-      config.rpcUrl || process.env.JEJU_RPC_URL || 'http://127.0.0.1:9545',
+      config.rpcUrl || process.env.JEJU_RPC_URL || 'http://127.0.0.1:6546',
     crossChainPaymaster: (config.crossChainPaymaster ||
       process.env.CROSS_CHAIN_PAYMASTER_ADDRESS ||
       '0x0000000000000000000000000000000000000000') as Address,

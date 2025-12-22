@@ -1,7 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
+import { api, extractDataSafe } from '../lib/client'
 
 // ============ Types ============
 
@@ -74,66 +74,93 @@ export interface ModelStats {
   activeInference: number
 }
 
-// ============ Fetchers ============
+// ============ API Response Types ============
+
+interface ApiModel {
+  id: string
+  name: string
+  organization: string
+  type: string
+  description: string
+  version?: string
+  fileUri?: string
+  downloads: number
+  stars: number
+  size?: string
+  license?: string
+  status?: string
+  createdAt: number
+  updatedAt: number
+}
+
+// ============ Fetchers using Eden Treaty ============
 
 async function fetchModels(query?: {
   type?: ModelType
   search?: string
-  tag?: string
+  org?: string
 }): Promise<ModelListItem[]> {
-  const dwsUrl = getDwsUrl()
-  const params = new URLSearchParams()
-  if (query?.type) params.set('type', query.type)
-  if (query?.search) params.set('q', query.search)
-  if (query?.tag) params.set('tag', query.tag)
+  const response = await api.api.models.get({
+    query: {
+      q: query?.search,
+      type: query?.type,
+      org: query?.org,
+    },
+  })
 
-  const res = await fetch(`${dwsUrl}/api/models?${params.toString()}`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.models || []
+  const data = extractDataSafe(response)
+  if (!data) return []
+
+  // API returns { models, total }
+  const result = data as { models?: ApiModel[]; total?: number }
+
+  // Transform API response to expected format
+  return (result.models || []).map((m) => ({
+    id: m.id,
+    name: m.name,
+    organization: m.organization,
+    description: m.description,
+    type: m.type as ModelType,
+    parameters: m.size || 'Unknown',
+    downloads: m.downloads,
+    stars: m.stars,
+    lastUpdated: m.updatedAt,
+    isVerified: m.status === 'ready',
+    tags: [],
+    hasInference: m.status === 'ready',
+  }))
 }
 
 async function fetchModel(
   org: string,
   name: string,
 ): Promise<ModelData | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/models/${org}/${name}`)
-  if (!res.ok) return null
-  return res.json()
+  const response = await api.api.models({ org })({ name }).get()
+  return extractDataSafe(response) as ModelData | null
 }
 
 async function fetchModelStats(): Promise<ModelStats> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/models/stats`)
-  if (!res.ok) {
-    return {
-      totalModels: 0,
-      totalDownloads: 0,
-      verifiedModels: 0,
-      activeInference: 0,
-    }
+  // Stats endpoint may not exist, calculate from list
+  const models = await fetchModels()
+  return {
+    totalModels: models.length,
+    totalDownloads: models.reduce((sum, m) => sum + m.downloads, 0),
+    verifiedModels: models.filter((m) => m.isVerified).length,
+    activeInference: models.filter((m) => m.hasInference).length,
   }
-  return res.json()
 }
 
 async function fetchModelReadme(org: string, name: string): Promise<string> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/models/${org}/${name}/readme`)
-  if (!res.ok) return ''
-  const data = await res.json()
-  return data.readme || ''
+  const model = await fetchModel(org, name)
+  return (model as ModelData & { readme?: string })?.readme || ''
 }
 
 async function fetchModelVersions(
   org: string,
   name: string,
 ): Promise<ModelVersion[]> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/models/${org}/${name}/versions`)
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.versions || []
+  const model = await fetchModel(org, name)
+  return (model as ModelData & { versions?: ModelVersion[] })?.versions || []
 }
 
 async function runInference(
@@ -149,8 +176,12 @@ async function runInference(
   output: string
   usage: { promptTokens: number; completionTokens: number }
 }> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/models/${org}/${name}/inference`, {
+  // Inference endpoint - use direct fetch as Eden may not have this typed
+  const baseUrl =
+    typeof window !== 'undefined'
+      ? ''
+      : process.env.FACTORY_API_URL || 'http://localhost:4009'
+  const res = await fetch(`${baseUrl}/api/models/${org}/${name}/inference`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(input),
@@ -162,8 +193,12 @@ async function runInference(
 }
 
 async function starModel(org: string, name: string): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/models/${org}/${name}/star`, {
+  // Star endpoint - use direct fetch as Eden may not have this typed
+  const baseUrl =
+    typeof window !== 'undefined'
+      ? ''
+      : process.env.FACTORY_API_URL || 'http://localhost:4009'
+  const res = await fetch(`${baseUrl}/api/models/${org}/${name}/star`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
   })
@@ -175,7 +210,7 @@ async function starModel(org: string, name: string): Promise<boolean> {
 export function useModels(query?: {
   type?: ModelType
   search?: string
-  tag?: string
+  org?: string
 }) {
   const {
     data: models,

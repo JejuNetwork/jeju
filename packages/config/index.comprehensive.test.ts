@@ -201,6 +201,11 @@ describe('Services Configuration', () => {
 
   describe('getServiceUrl', () => {
     it('should get RPC L2 URL by default', () => {
+      // Clear env overrides to ensure we get config values
+      delete process.env.JEJU_RPC_URL
+      delete process.env.RPC_URL
+      delete process.env.L1_RPC_URL
+      delete process.env.JEJU_L1_RPC_URL
       const url = getServiceUrl('rpc', undefined, 'mainnet')
       expect(url).toContain('rpc')
     })

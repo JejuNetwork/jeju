@@ -32,6 +32,11 @@ import {
 } from 'viem'
 import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
+import {
+  DeployerConfigSchema,
+  expectJson,
+  type DeployerConfig,
+} from '../../schemas'
 
 const ROOT = join(import.meta.dir, '../../../..')
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys')
@@ -96,12 +101,6 @@ const TESTNETS = {
 
 type TestnetKey = keyof typeof TESTNETS
 
-interface DeployerConfig {
-  address: string
-  privateKey: string
-  createdAt: string
-}
-
 interface BalanceResult {
   network: string
   balance: string
@@ -123,7 +122,7 @@ function loadExistingKey(): DeployerConfig | null {
   const keyFile = join(KEYS_DIR, 'testnet-deployer.json')
   if (existsSync(keyFile)) {
     const content = readFileSync(keyFile, 'utf-8')
-    return JSON.parse(content) as DeployerConfig
+    return expectJson(content, DeployerConfigSchema, 'deployer config')
   }
   return null
 }

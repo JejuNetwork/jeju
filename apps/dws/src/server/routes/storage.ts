@@ -10,24 +10,7 @@
  * - IPFS-compatible API
  */
 
-import { Hono } from 'hono'
-import {
-  cidSchema,
-  expectValid,
-  regionHeaderSchema,
-  validateHeaders,
-  validateParams,
-  validateQuery,
-  z,
-} from '../../shared'
-import {
-  contentCategorySchema,
-  contentTierSchema,
-  popularContentQuerySchema,
-  regionalParamsSchema,
-  storageBackendTypeSchema,
-  torrentParamsSchema,
-} from '../../shared/schemas/storage'
+import { Elysia, t } from 'elysia'
 import { extractClientRegion } from '../../shared/utils/common'
 import { getMultiBackendManager } from '../../storage/multi-backend'
 import type {
@@ -36,418 +19,477 @@ import type {
   StorageBackendType,
 } from '../../storage/types'
 
-export function createStorageRouter(): Hono {
-  const router = new Hono()
-  const manager = getMultiBackendManager()
+const contentTierValues = ['system', 'popular', 'private'] as const
+const contentCategoryValues = ['data', 'media', 'code', 'document'] as const
+const storageBackendValues = ['ipfs', 'arweave', 'webtorrent'] as const
 
-  // ============================================================================
+export const storageRoutes = new Elysia({ name: 'storage', prefix: '/storage' })
+  .decorate('storageManager', getMultiBackendManager())
+
   // Health & Stats
-  // ============================================================================
+  .get('/health', async ({ storageManager }) => {
+    const backends = storageManager.listBackends()
+    const health = await storageManager.healthCheck()
+    const stats = storageManager.getNodeStats()
 
-  router.get('/health', async (c) => {
-    const backends = manager.listBackends()
-    const health = await manager.healthCheck()
-    const stats = manager.getNodeStats()
-
-    return c.json({
+    return {
       service: 'dws-storage',
-      status: 'healthy',
+      status: 'healthy' as const,
       backends,
       health,
       stats,
-    })
-  })
-
-  router.get('/stats', async (c) => {
-    const stats = manager.getNodeStats()
-    return c.json(stats)
-  })
-
-  // ============================================================================
-  // Upload
-  // ============================================================================
-
-  router.post('/upload', async (c) => {
-    const formData = await c.req.formData()
-    const file = formData.get('file')
-    if (!(file instanceof File)) {
-      throw new Error('file required')
     }
+  })
 
-    const content = Buffer.from(await file.arrayBuffer())
+  .get('/stats', ({ storageManager }) => storageManager.getNodeStats())
 
-    // Parse and validate options from form
-    const tierRaw = formData.get('tier')
-    const tier = tierRaw ? expectValid(contentTierSchema, tierRaw) : 'popular'
-    const categoryRaw = formData.get('category')
-    const category = categoryRaw
-      ? expectValid(contentCategorySchema, categoryRaw)
-      : 'data'
-    const encrypt = formData.get('encrypt') === 'true'
-    const permanent = formData.get('permanent') === 'true'
-    const backendsStr = formData.get('backends') as string | null
-    const preferredBackends = backendsStr
-      ?.split(',')
-      .filter(Boolean)
-      .map((b) => expectValid(storageBackendTypeSchema, b)) as
-      | StorageBackendType[]
-      | undefined
-    const accessPolicy = formData.get('accessPolicy') as string | undefined
+  // Upload endpoints
+  .post(
+    '/upload',
+    async ({ body, storageManager }) => {
+      const { file, tier, category, encrypt, permanent, backends, accessPolicy } = body
 
-    const result = await manager.upload(content, {
-      filename: file.name,
-      contentType: file.type,
-      tier,
-      category,
-      encrypt,
-      preferredBackends,
-      accessPolicy,
-    })
+      const content = Buffer.from(await file.arrayBuffer())
 
-    // Also upload to Arweave if permanent
-    if (permanent) {
-      const permanentResult = await manager.uploadPermanent(content, {
+      const preferredBackends = backends
+        ?.split(',')
+        .filter(Boolean) as StorageBackendType[] | undefined
+
+      const result = await storageManager.upload(content, {
         filename: file.name,
         contentType: file.type,
-        tier,
-        category,
+        tier: (tier || 'popular') as ContentTier,
+        category: (category || 'data') as ContentCategory,
+        encrypt: encrypt === 'true',
+        preferredBackends,
+        accessPolicy,
       })
-      return c.json(permanentResult)
-    }
 
-    return c.json(result)
-  })
+      if (permanent === 'true') {
+        const permanentResult = await storageManager.uploadPermanent(content, {
+          filename: file.name,
+          contentType: file.type,
+          tier: (tier || 'popular') as ContentTier,
+          category: (category || 'data') as ContentCategory,
+        })
+        return permanentResult
+      }
 
-  router.post('/upload/raw', async (c) => {
-    const body = await c.req.arrayBuffer()
-    const content = Buffer.from(body)
-    const { 'x-filename': filename } = validateHeaders(
-      z.object({ 'x-filename': z.string().optional() }),
-      c,
-    )
-
-    const tierRaw = c.req.header('x-tier')
-    const tier = tierRaw ? expectValid(contentTierSchema, tierRaw) : 'popular'
-    const categoryRaw = c.req.header('x-category')
-    const category = categoryRaw
-      ? expectValid(contentCategorySchema, categoryRaw)
-      : 'data'
-
-    const result = await manager.upload(content, {
-      filename: filename || 'file',
-      tier,
-      category,
-    })
-
-    return c.json({ ...result, size: content.length })
-  })
-
-  router.post('/upload/json', async (c) => {
-    const body = (await c.req.json()) as {
-      data: object
-      tier?: ContentTier
-      category?: ContentCategory
-      name?: string
-      encrypt?: boolean
-    }
-
-    const content = Buffer.from(JSON.stringify(body.data))
-
-    const result = await manager.upload(content, {
-      filename: body.name ?? 'data.json',
-      contentType: 'application/json',
-      tier: body.tier ?? 'popular',
-      category: body.category ?? 'data',
-      encrypt: body.encrypt,
-    })
-
-    return c.json(result)
-  })
-
-  router.post('/upload/permanent', async (c) => {
-    const formData = await c.req.formData()
-    const file = formData.get('file')
-    if (!(file instanceof File)) {
-      throw new Error('file required')
-    }
-
-    const content = Buffer.from(await file.arrayBuffer())
-    const tierRaw = formData.get('tier')
-    const tier = tierRaw ? expectValid(contentTierSchema, tierRaw) : 'popular'
-    const categoryRaw = formData.get('category')
-    const category = categoryRaw
-      ? expectValid(contentCategorySchema, categoryRaw)
-      : 'data'
-
-    const result = await manager.uploadPermanent(content, {
-      filename: file.name,
-      contentType: file.type,
-      tier,
-      category,
-    })
-
-    return c.json(result)
-  })
-
-  // ============================================================================
-  // Download
-  // ============================================================================
-
-  router.get('/download/:cid', async (c) => {
-    const { cid } = validateParams(z.object({ cid: cidSchema }), c)
-    const { 'x-region': xRegion, 'cf-ipcountry': cfIpCountry } =
-      validateHeaders(regionHeaderSchema, c)
-    const region = extractClientRegion(xRegion, cfIpCountry)
-    const { backend: preferredBackend, decrypt: decryptStr } = validateQuery(
-      z.object({
-        backend: z.enum(['ipfs', 'arweave', 'webtorrent']).optional(),
-        decrypt: z.string().optional(),
+      return result
+    },
+    {
+      body: t.Object({
+        file: t.File(),
+        tier: t.Optional(t.Union(contentTierValues.map(v => t.Literal(v)))),
+        category: t.Optional(t.Union(contentCategoryValues.map(v => t.Literal(v)))),
+        encrypt: t.Optional(t.String()),
+        permanent: t.Optional(t.String()),
+        backends: t.Optional(t.String()),
+        accessPolicy: t.Optional(t.String()),
       }),
-      c,
-    )
-    const decrypt = decryptStr === 'true'
-    const { 'x-decryption-key-id': decryptionKeyId } = validateHeaders(
-      z.object({ 'x-decryption-key-id': z.string().optional() }),
-      c,
-    )
+    },
+  )
 
-    const result = await manager
-      .download(cid, {
+  .post(
+    '/upload/raw',
+    () => {
+      // Raw bytes upload requires multipart form
+      return { message: 'Use multipart upload via /upload endpoint' }
+    },
+  )
+
+  .post(
+    '/upload/json',
+    async ({ body, storageManager }) => {
+      const content = Buffer.from(JSON.stringify(body.data))
+
+      const result = await storageManager.upload(content, {
+        filename: body.name ?? 'data.json',
+        contentType: 'application/json',
+        tier: (body.tier ?? 'popular') as ContentTier,
+        category: (body.category ?? 'data') as ContentCategory,
+        encrypt: body.encrypt,
+      })
+
+      return result
+    },
+    {
+      body: t.Object({
+        data: t.Unknown(),
+        name: t.Optional(t.String()),
+        tier: t.Optional(t.Union(contentTierValues.map(v => t.Literal(v)))),
+        category: t.Optional(t.Union(contentCategoryValues.map(v => t.Literal(v)))),
+        encrypt: t.Optional(t.Boolean()),
+      }),
+    },
+  )
+
+  .post(
+    '/upload/permanent',
+    async ({ body, storageManager }) => {
+      const { file, tier, category } = body
+      const content = Buffer.from(await file.arrayBuffer())
+
+      const result = await storageManager.uploadPermanent(content, {
+        filename: file.name,
+        contentType: file.type,
+        tier: (tier || 'popular') as ContentTier,
+        category: (category || 'data') as ContentCategory,
+      })
+
+      return result
+    },
+    {
+      body: t.Object({
+        file: t.File(),
+        tier: t.Optional(t.Union(contentTierValues.map(v => t.Literal(v)))),
+        category: t.Optional(t.Union(contentCategoryValues.map(v => t.Literal(v)))),
+      }),
+    },
+  )
+
+  // Download endpoints
+  .get(
+    '/download/:cid',
+    async ({ params, query, headers, storageManager, set }) => {
+      const region = extractClientRegion(
+        headers['x-region'],
+        headers['cf-ipcountry'],
+      )
+      const decrypt = query.decrypt === 'true'
+      const preferredBackend = query.backend as StorageBackendType | undefined
+
+      const result = await storageManager.download(params.cid, {
         region,
         preferredBackends: preferredBackend ? [preferredBackend] : undefined,
-        decryptionKeyId: decrypt ? decryptionKeyId : undefined,
-      })
-      .catch((_e: Error) => {
-        throw new Error('Not found')
+        decryptionKeyId: decrypt ? headers['x-decryption-key-id'] : undefined,
       })
 
-    const metadata = result.metadata
-    const contentType = metadata?.contentType ?? 'application/octet-stream'
+      const metadata = result.metadata
+      const contentType = metadata?.contentType ?? 'application/octet-stream'
 
-    return new Response(new Uint8Array(result.content), {
-      headers: {
-        'Content-Type': contentType,
-        'Content-Length': String(result.content.length),
-        'X-Backend': result.backend,
-        'X-Latency-Ms': String(result.latencyMs),
-        'X-From-Cache': String(result.fromCache),
-        ...(metadata?.tier && { 'X-Content-Tier': metadata.tier }),
-      },
-    })
-  })
+      set.headers['Content-Type'] = contentType
+      set.headers['Content-Length'] = String(result.content.length)
+      set.headers['X-Backend'] = result.backend
+      set.headers['X-Latency-Ms'] = String(result.latencyMs)
+      set.headers['X-From-Cache'] = String(result.fromCache)
+      if (metadata?.tier) {
+        set.headers['X-Content-Tier'] = metadata.tier
+      }
 
-  router.get('/download/:cid/json', async (c) => {
-    const { cid } = validateParams(z.object({ cid: cidSchema }), c)
-    const region = c.req.header('x-region') ?? 'unknown'
+      return new Uint8Array(result.content)
+    },
+    {
+      params: t.Object({
+        cid: t.String({ minLength: 1 }),
+      }),
+      query: t.Object({
+        backend: t.Optional(t.Union(storageBackendValues.map(v => t.Literal(v)))),
+        decrypt: t.Optional(t.String()),
+      }),
+      headers: t.Object({
+        'x-region': t.Optional(t.String()),
+        'cf-ipcountry': t.Optional(t.String()),
+        'x-decryption-key-id': t.Optional(t.String()),
+      }),
+    },
+  )
 
-    const result = await manager
-      .download(cid, { region })
-      .catch((e: Error) => ({ error: e.message }))
+  .get(
+    '/download/:cid/json',
+    async ({ params, headers, storageManager, set }) => {
+      const region = headers['x-region'] ?? 'unknown'
 
-    if ('error' in result) {
-      return c.json({ error: 'Not found' }, 404)
-    }
+      const result = await storageManager
+        .download(params.cid, { region })
+        .catch(() => null)
 
-    const data = JSON.parse(result.content.toString('utf-8'))
-    return c.json(data)
-  })
+      if (!result) {
+        set.status = 404
+        return { error: 'Not found' }
+      }
 
-  // ============================================================================
+      return JSON.parse(result.content.toString('utf-8'))
+    },
+    {
+      params: t.Object({
+        cid: t.String({ minLength: 1 }),
+      }),
+      headers: t.Object({
+        'x-region': t.Optional(t.String()),
+      }),
+    },
+  )
+
   // Content Management
-  // ============================================================================
+  .get(
+    '/content/:cid',
+    ({ params, storageManager, set }) => {
+      const metadata = storageManager.getMetadata(params.cid)
 
-  router.get('/content/:cid', async (c) => {
-    const { cid } = validateParams(z.object({ cid: cidSchema }), c)
-    const metadata = manager.getMetadata(cid)
+      if (!metadata) {
+        set.status = 404
+        return { error: 'Not found' }
+      }
 
-    if (!metadata) {
-      throw new Error('Not found')
-    }
+      return metadata
+    },
+    {
+      params: t.Object({
+        cid: t.String({ minLength: 1 }),
+      }),
+    },
+  )
 
-    return c.json(metadata)
-  })
+  .get(
+    '/content',
+    ({ query, storageManager }) => {
+      const tier = query.tier as ContentTier | undefined
+      const category = query.category as ContentCategory | undefined
+      const limit = parseInt(query.limit ?? '100', 10)
+      const offset = parseInt(query.offset ?? '0', 10)
 
-  router.get('/content', async (c) => {
-    const tier = c.req.query('tier') as ContentTier | undefined
-    const category = c.req.query('category') as ContentCategory | undefined
-    const limit = parseInt(c.req.query('limit') ?? '100', 10)
-    const offset = parseInt(c.req.query('offset') ?? '0', 10)
+      let items = tier
+        ? storageManager.listByTier(tier)
+        : category
+          ? storageManager.listByCategory(category)
+          : [
+              ...storageManager.listByTier('system'),
+              ...storageManager.listByTier('popular'),
+              ...storageManager.listByTier('private'),
+            ]
 
-    let items = tier
-      ? manager.listByTier(tier)
-      : category
-        ? manager.listByCategory(category)
-        : [
-            ...manager.listByTier('system'),
-            ...manager.listByTier('popular'),
-            ...manager.listByTier('private'),
-          ]
+      const total = items.length
+      items = items.slice(offset, offset + limit)
 
-    const total = items.length
-    items = items.slice(offset, offset + limit)
+      return { items, total, limit, offset }
+    },
+    {
+      query: t.Object({
+        tier: t.Optional(t.Union(contentTierValues.map(v => t.Literal(v)))),
+        category: t.Optional(t.Union(contentCategoryValues.map(v => t.Literal(v)))),
+        limit: t.Optional(t.String()),
+        offset: t.Optional(t.String()),
+      }),
+    },
+  )
 
-    return c.json({ items, total, limit, offset })
-  })
+  .get(
+    '/exists/:cid',
+    async ({ params, storageManager }) => {
+      const exists = await storageManager.exists(params.cid)
+      return { cid: params.cid, exists }
+    },
+    {
+      params: t.Object({
+        cid: t.String({ minLength: 1 }),
+      }),
+    },
+  )
 
-  router.get('/exists/:cid', async (c) => {
-    const { cid } = validateParams(z.object({ cid: cidSchema }), c)
-    const exists = await manager.exists(cid)
-    return c.json({ cid, exists })
-  })
-
-  // ============================================================================
   // Popularity & Regional
-  // ============================================================================
+  .get(
+    '/popular',
+    ({ query, storageManager }) => {
+      const limit = parseInt(query.limit ?? '10', 10)
+      const popular = storageManager.getPopularContent(limit)
+      return { items: popular }
+    },
+    {
+      query: t.Object({
+        limit: t.Optional(t.String()),
+      }),
+    },
+  )
 
-  router.get('/popular', async (c) => {
-    const { limit } = validateQuery(popularContentQuerySchema, c)
-    const popular = manager.getPopularContent(limit)
-    return c.json({ items: popular })
-  })
+  .get(
+    '/underseeded',
+    ({ query, storageManager }) => {
+      const minSeeders = parseInt(query.min ?? '3', 10)
+      const underseeded = storageManager.getUnderseededContent(minSeeders)
+      return { items: underseeded }
+    },
+    {
+      query: t.Object({
+        min: t.Optional(t.String()),
+      }),
+    },
+  )
 
-  router.get('/underseeded', async (c) => {
-    const minSeeders = parseInt(c.req.query('min') ?? '3', 10)
-    const underseeded = manager.getUnderseededContent(minSeeders)
-    return c.json({ items: underseeded })
-  })
+  .get(
+    '/regional/:region',
+    ({ params, storageManager }) => {
+      const popularity = storageManager.getRegionalPopularity(params.region)
+      return popularity
+    },
+    {
+      params: t.Object({
+        region: t.String({ minLength: 1 }),
+      }),
+    },
+  )
 
-  router.get('/regional/:region', async (c) => {
-    const { region } = validateParams(regionalParamsSchema, c)
-    const popularity = manager.getRegionalPopularity(region)
-    return c.json(popularity)
-  })
-
-  // ============================================================================
   // WebTorrent
-  // ============================================================================
+  .get(
+    '/torrent/:cid',
+    ({ params, storageManager, set }) => {
+      const metadata = storageManager.getMetadata(params.cid)
 
-  router.get('/torrent/:cid', async (c) => {
-    const cid = c.req.param('cid')
-    const metadata = manager.getMetadata(cid)
+      if (!metadata || !metadata.addresses.magnetUri) {
+        set.status = 404
+        return { error: 'Torrent not found' }
+      }
 
-    if (!metadata || !metadata.addresses.magnetUri) {
-      return c.json({ error: 'Torrent not found' }, 404)
-    }
+      return {
+        cid: params.cid,
+        magnetUri: metadata.addresses.magnetUri,
+        infoHash: metadata.addresses.cid,
+        size: metadata.size,
+        tier: metadata.tier,
+      }
+    },
+    {
+      params: t.Object({
+        cid: t.String({ minLength: 1 }),
+      }),
+    },
+  )
 
-    return c.json({
-      cid,
-      magnetUri: metadata.addresses.magnetUri,
-      infoHash: metadata.addresses.cid,
-      size: metadata.size,
-      tier: metadata.tier,
-    })
-  })
+  .get(
+    '/magnet/:cid',
+    ({ params, storageManager, set }) => {
+      const metadata = storageManager.getMetadata(params.cid)
 
-  router.get('/magnet/:cid', async (c) => {
-    const { cid } = validateParams(torrentParamsSchema, c)
-    const metadata = manager.getMetadata(cid)
+      if (!metadata || !metadata.addresses.magnetUri) {
+        set.status = 404
+        return { error: 'Magnet URI not found' }
+      }
 
-    if (!metadata || !metadata.addresses.magnetUri) {
-      throw new Error('Magnet URI not found')
-    }
+      set.headers['Content-Type'] = 'text/plain'
+      return metadata.addresses.magnetUri
+    },
+    {
+      params: t.Object({
+        cid: t.String({ minLength: 1 }),
+      }),
+    },
+  )
 
-    // Return magnet URI as text for easy copy
-    c.header('Content-Type', 'text/plain')
-    return c.text(metadata.addresses.magnetUri)
-  })
-
-  // ============================================================================
   // Arweave
-  // ============================================================================
+  .get(
+    '/arweave/:txId',
+    async ({ params, storageManager, set }) => {
+      const result = await storageManager
+        .download(params.txId, {
+          preferredBackends: ['arweave'],
+        })
+        .catch(() => null)
 
-  router.get('/arweave/:txId', async (c) => {
-    const txId = c.req.param('txId')
+      if (!result) {
+        set.status = 404
+        return { error: 'Not found' }
+      }
 
-    const result = await manager
-      .download(txId, {
-        preferredBackends: ['arweave'],
-      })
-      .catch((e: Error) => ({ error: e.message }))
+      const contentType =
+        result.metadata?.contentType ?? 'application/octet-stream'
 
-    if ('error' in result) {
-      return c.json({ error: 'Not found' }, 404)
-    }
+      set.headers['Content-Type'] = contentType
+      set.headers['X-Arweave-Tx'] = params.txId
 
-    const contentType =
-      result.metadata?.contentType ?? 'application/octet-stream'
+      return new Uint8Array(result.content)
+    },
+    {
+      params: t.Object({
+        txId: t.String({ minLength: 1 }),
+      }),
+    },
+  )
 
-    return new Response(new Uint8Array(result.content), {
-      headers: {
-        'Content-Type': contentType,
-        'X-Arweave-Tx': txId,
-      },
-    })
-  })
-
-  // ============================================================================
   // IPFS Compatibility
-  // ============================================================================
+  .post(
+    '/api/v0/add',
+    async ({ body, storageManager }) => {
+      const { file } = body
+      const content = Buffer.from(await file.arrayBuffer())
+      const result = await storageManager.upload(content, {
+        filename: file.name,
+        contentType: file.type,
+        tier: 'popular',
+      })
 
-  router.post('/api/v0/add', async (c) => {
-    const formData = await c.req.formData()
-    const file = formData.get('file')
-    if (!(file instanceof File)) {
-      throw new Error('file required')
-    }
+      return {
+        Hash: result.cid,
+        Size: String(result.size),
+        Name: file.name,
+      }
+    },
+    {
+      body: t.Object({
+        file: t.File(),
+      }),
+    },
+  )
 
-    const content = Buffer.from(await file.arrayBuffer())
-    const result = await manager.upload(content, {
-      filename: file.name,
-      contentType: file.type,
-      tier: 'popular',
-    })
-
-    // Return IPFS-compatible response
-    return c.json({
-      Hash: result.cid,
-      Size: String(result.size),
-      Name: file.name,
-    })
-  })
-
-  router.post('/api/v0/id', async (c) => {
-    const health = await manager.healthCheck()
+  .post('/api/v0/id', async ({ storageManager, set }) => {
+    const health = await storageManager.healthCheck()
     const allHealthy = Object.values(health).every((h) => h)
 
     if (!allHealthy) {
-      throw new Error('Storage backends unhealthy')
+      set.status = 503
+      return { error: 'Storage backends unhealthy' }
     }
 
-    const backends = manager.listBackends()
+    const backends = storageManager.listBackends()
 
-    return c.json({
+    return {
       ID: 'dws-storage',
       AgentVersion: 'dws/2.0.0',
       Addresses: [],
       Backends: backends,
-    })
+    }
   })
 
-  router.post('/api/v0/pin/rm', async (c) => {
-    const { arg } = validateQuery(z.object({ arg: cidSchema }), c)
-    return c.json({ Pins: [arg] })
-  })
+  .post(
+    '/api/v0/pin/rm',
+    ({ query }) => {
+      return { Pins: [query.arg] }
+    },
+    {
+      query: t.Object({
+        arg: t.String({ minLength: 1 }),
+      }),
+    },
+  )
 
-  router.get('/ipfs/:cid', async (c) => {
-    const { cid } = validateParams(z.object({ cid: cidSchema }), c)
-    const { 'x-region': xRegion } = validateHeaders(regionHeaderSchema, c)
-    const region = xRegion ?? 'unknown'
+  .get(
+    '/ipfs/:cid',
+    async ({ params, headers, storageManager, set }) => {
+      const region = headers['x-region'] ?? 'unknown'
 
-    const result = await manager.download(cid, { region }).catch(() => {
-      throw new Error('Not found')
-    })
+      const result = await storageManager.download(params.cid, { region }).catch(() => null)
 
-    const contentType =
-      result.metadata?.contentType ?? 'application/octet-stream'
+      if (!result) {
+        set.status = 404
+        return { error: 'Not found' }
+      }
 
-    return new Response(new Uint8Array(result.content), {
-      headers: {
-        'Content-Type': contentType,
-        'X-Ipfs-Path': `/ipfs/${cid}`,
-        'X-Backend': result.backend,
-      },
-    })
-  })
+      const contentType =
+        result.metadata?.contentType ?? 'application/octet-stream'
 
-  return router
-}
+      set.headers['Content-Type'] = contentType
+      set.headers['X-Ipfs-Path'] = `/ipfs/${params.cid}`
+      set.headers['X-Backend'] = result.backend
+
+      return new Uint8Array(result.content)
+    },
+    {
+      params: t.Object({
+        cid: t.String({ minLength: 1 }),
+      }),
+      headers: t.Object({
+        'x-region': t.Optional(t.String()),
+      }),
+    },
+  )
+
+export type StorageRoutes = typeof storageRoutes

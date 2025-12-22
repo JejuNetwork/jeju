@@ -85,8 +85,9 @@ describe('Dashboard File Validation', () => {
     for (const file of dashboardFiles) {
       const dashboard = loadDashboard(file)
       expect(dashboard.uid).toBeDefined()
-      expect(uids.has(dashboard.uid!)).toBe(false)
-      uids.add(dashboard.uid!)
+      if (!dashboard.uid) throw new Error('dashboard.uid should be defined')
+      expect(uids.has(dashboard.uid)).toBe(false)
+      uids.add(dashboard.uid)
     }
   })
 
@@ -783,7 +784,7 @@ describe('Dashboard Query Validation', () => {
           for (const target of panel.targets) {
             if (target.expr) {
               const hasValidPrefix = knownMetricPrefixes.some((prefix) =>
-                target.expr!.includes(prefix),
+                target.expr?.includes(prefix),
               )
               expect(hasValidPrefix).toBe(true)
             }

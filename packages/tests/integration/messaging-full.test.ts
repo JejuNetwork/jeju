@@ -798,7 +798,7 @@ describe('Messaging SDK Integration', () => {
 
       // Bob decrypts
       const encryptedBytes = new Uint8Array(
-        Buffer.from(received!.content, 'base64'),
+        Buffer.from(received?.content, 'base64'),
       )
       const decrypted = new TextDecoder().decode(
         encryptedBytes.map((b, i) => b ^ key[i % key.length]),

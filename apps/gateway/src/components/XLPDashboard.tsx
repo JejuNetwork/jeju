@@ -283,6 +283,7 @@ export default function XLPDashboard() {
           {(['overview', 'liquidity', 'stake', 'history'] as const).map(
             (tab) => (
               <button
+                type="button"
                 key={tab}
                 onClick={() => setActiveTab(tab)}
                 style={{
@@ -477,6 +478,7 @@ export default function XLPDashboard() {
 
               {xlpETH && Boolean(xlpETH > 0n) && (
                 <button
+                  type="button"
                   className="button button-secondary"
                   style={{ width: '100%', marginTop: '0.5rem' }}
                   onClick={handleWithdrawETH}
@@ -560,7 +562,7 @@ export default function XLPDashboard() {
                 </div>
 
                 <div style={{ marginBottom: '1.5rem' }}>
-                  <label
+                  <span
                     style={{
                       display: 'block',
                       marginBottom: '0.5rem',
@@ -568,7 +570,7 @@ export default function XLPDashboard() {
                     }}
                   >
                     Supported Chains
-                  </label>
+                  </span>
                   <div
                     style={{
                       display: 'grid',
@@ -604,6 +606,7 @@ export default function XLPDashboard() {
 
                 <form onSubmit={handleRegister}>
                   <label
+                    htmlFor="initial-stake-register"
                     style={{
                       display: 'block',
                       marginBottom: '0.5rem',
@@ -613,6 +616,7 @@ export default function XLPDashboard() {
                     Initial Stake (min 1 ETH)
                   </label>
                   <input
+                    id="initial-stake-register"
                     className="input"
                     type="number"
                     step="0.1"
@@ -720,6 +724,7 @@ export default function XLPDashboard() {
                   style={{ marginBottom: '1.5rem' }}
                 >
                   <label
+                    htmlFor="add-stake-amount"
                     style={{
                       display: 'block',
                       marginBottom: '0.5rem',
@@ -730,6 +735,7 @@ export default function XLPDashboard() {
                   </label>
                   <div style={{ display: 'flex', gap: '0.5rem' }}>
                     <input
+                      id="add-stake-amount"
                       className="input"
                       type="number"
                       step="0.1"
@@ -761,6 +767,7 @@ export default function XLPDashboard() {
                   }}
                 >
                   <button
+                    type="button"
                     className="button button-secondary"
                     onClick={() => stake && startUnbonding(stake.stakedAmount)}
                     disabled={isLoading || stake.unbondingAmount > 0n}
@@ -770,6 +777,7 @@ export default function XLPDashboard() {
                   {stake.unbondingAmount > 0n &&
                     unbondingTimeRemaining === 0n && (
                       <button
+                        type="button"
                         className="button"
                         onClick={() => completeUnbonding()}
                         disabled={isLoading}

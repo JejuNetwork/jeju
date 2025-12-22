@@ -1,12 +1,22 @@
 #!/usr/bin/env bun
 /**
  * Validate all configuration files
- * Used by CI to ensure configs are valid before deployment
+ * Uses Zod schemas for type-safe validation instead of manual checks
  */
 
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { z } from 'zod'
+import {
+  BrandingConfigValidationSchema,
+  ChainConfigValidationSchema,
+  ContractsConfigValidationSchema,
+  EILConfigValidationSchema,
+  expectJson,
+  ServicesConfigValidationSchema,
+  TokensConfigValidationSchema,
+} from '../schemas'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -21,6 +31,9 @@ interface ValidationResult {
 
 const results: ValidationResult[] = []
 
+/**
+ * Generic JSON validation - just checks if file is valid JSON
+ */
 function validateJson(file: string, name: string): boolean {
   const path = join(CONFIG_DIR, file)
 
@@ -30,11 +43,19 @@ function validateJson(file: string, name: string): boolean {
   }
 
   const content = readFileSync(path, 'utf8')
-  JSON.parse(content)
-  results.push({ name, passed: true })
-  return true
+  try {
+    expectJson(content, z.unknown(), name)
+    results.push({ name, passed: true })
+    return true
+  } catch (e) {
+    results.push({ name, passed: false, error: (e as Error).message })
+    return false
+  }
 }
 
+/**
+ * Validate chain config with Zod schema
+ */
 function validateChainConfig(network: string): void {
   const path = join(CONFIG_DIR, 'chain', `${network}.json`)
   const name = `Chain config (${network})`
@@ -45,36 +66,17 @@ function validateChainConfig(network: string): void {
   }
 
   const content = readFileSync(path, 'utf8')
-  const config = JSON.parse(content)
-
-  // Required fields
-  const requiredFields = ['chainId', 'name', 'rpcUrl', 'l1ChainId']
-  const missing = requiredFields.filter((f) => !(f in config))
-
-  if (missing.length > 0) {
-    results.push({
-      name,
-      passed: false,
-      error: `Missing fields: ${missing.join(', ')}`,
-    })
-    return
+  try {
+    expectJson(content, ChainConfigValidationSchema, name)
+    results.push({ name, passed: true })
+  } catch (e) {
+    results.push({ name, passed: false, error: (e as Error).message })
   }
-
-  // Validate chainId is a number
-  if (typeof config.chainId !== 'number') {
-    results.push({ name, passed: false, error: 'chainId must be a number' })
-    return
-  }
-
-  // Validate RPC URL format
-  if (!config.rpcUrl.startsWith('http')) {
-    results.push({ name, passed: false, error: 'rpcUrl must start with http' })
-    return
-  }
-
-  results.push({ name, passed: true })
 }
 
+/**
+ * Validate contracts config with Zod schema
+ */
 function validateContractsConfig(): void {
   const path = join(CONFIG_DIR, 'contracts.json')
   const name = 'Contracts config'
@@ -85,36 +87,17 @@ function validateContractsConfig(): void {
   }
 
   const content = readFileSync(path, 'utf8')
-  const config = JSON.parse(content)
-
-  // Check version exists
-  if (!config.version) {
-    results.push({ name, passed: false, error: 'Missing version field' })
-    return
+  try {
+    expectJson(content, ContractsConfigValidationSchema, name)
+    results.push({ name, passed: true })
+  } catch (e) {
+    results.push({ name, passed: false, error: (e as Error).message })
   }
-
-  // Check network configs exist
-  const networks = ['localnet', 'testnet', 'mainnet']
-  for (const network of networks) {
-    if (!config[network]) {
-      results.push({ name, passed: false, error: `Missing ${network} config` })
-      return
-    }
-
-    // Check chainId
-    if (typeof config[network].chainId !== 'number') {
-      results.push({
-        name,
-        passed: false,
-        error: `${network}.chainId must be a number`,
-      })
-      return
-    }
-  }
-
-  results.push({ name, passed: true })
 }
 
+/**
+ * Validate services config with Zod schema
+ */
 function validateServicesConfig(): void {
   const path = join(CONFIG_DIR, 'services.json')
   const name = 'Services config'
@@ -125,29 +108,17 @@ function validateServicesConfig(): void {
   }
 
   const content = readFileSync(path, 'utf8')
-  const config = JSON.parse(content)
-
-  const networks = ['localnet', 'testnet', 'mainnet']
-  for (const network of networks) {
-    if (!config[network]) {
-      results.push({
-        name,
-        passed: false,
-        error: `Missing ${network} services`,
-      })
-      return
-    }
-
-    // Check essential services
-    if (!config[network].rpc) {
-      results.push({ name, passed: false, error: `Missing ${network}.rpc` })
-      return
-    }
+  try {
+    expectJson(content, ServicesConfigValidationSchema, name)
+    results.push({ name, passed: true })
+  } catch (e) {
+    results.push({ name, passed: false, error: (e as Error).message })
   }
-
-  results.push({ name, passed: true })
 }
 
+/**
+ * Validate tokens config with Zod schema
+ */
 function validateTokensConfig(): void {
   const path = join(CONFIG_DIR, 'tokens.json')
   const name = 'Tokens config'
@@ -158,26 +129,26 @@ function validateTokensConfig(): void {
   }
 
   const content = readFileSync(path, 'utf8')
-  const config = JSON.parse(content)
+  try {
+    const config = expectJson(content, TokensConfigValidationSchema, name)
 
-  // Check core tokens exist (tokens is an object keyed by symbol)
-  const coreTokens = ['JEJU', 'WETH', 'USDC']
-  for (const token of coreTokens) {
-    if (!config.tokens?.[token]) {
-      // Just warn, don't fail - some tokens may be chain-specific
-      console.warn(`  ⚠️  Token ${token} not found in tokens config`)
+    // Check core tokens exist (tokens is an object keyed by symbol)
+    const coreTokens = ['JEJU', 'WETH', 'USDC']
+    for (const token of coreTokens) {
+      if (!config.tokens?.[token]) {
+        console.warn(`  ⚠️  Token ${token} not found in tokens config`)
+      }
     }
-  }
 
-  // Validate version exists
-  if (!config.version) {
-    results.push({ name, passed: false, error: 'Missing version field' })
-    return
+    results.push({ name, passed: true })
+  } catch (e) {
+    results.push({ name, passed: false, error: (e as Error).message })
   }
-
-  results.push({ name, passed: true })
 }
 
+/**
+ * Validate EIL config with Zod schema
+ */
 function validateEILConfig(): void {
   const path = join(CONFIG_DIR, 'eil.json')
   const name = 'EIL config'
@@ -188,20 +159,17 @@ function validateEILConfig(): void {
   }
 
   const content = readFileSync(path, 'utf8')
-  const config = JSON.parse(content)
-
-  // Validate structure
-  const networks = ['testnet', 'mainnet']
-  for (const network of networks) {
-    if (!config[network]?.chains) {
-      results.push({ name, passed: false, error: `Missing ${network}.chains` })
-      return
-    }
+  try {
+    expectJson(content, EILConfigValidationSchema, name)
+    results.push({ name, passed: true })
+  } catch (e) {
+    results.push({ name, passed: false, error: (e as Error).message })
   }
-
-  results.push({ name, passed: true })
 }
 
+/**
+ * Validate ports config (TypeScript file, just check it exists)
+ */
 function validatePortsConfig(): void {
   const path = join(CONFIG_DIR, 'ports.ts')
   const name = 'Ports config'
@@ -216,6 +184,9 @@ function validatePortsConfig(): void {
   results.push({ name, passed: true })
 }
 
+/**
+ * Validate branding config with Zod schema
+ */
 function validateBrandingConfig(): void {
   const path = join(CONFIG_DIR, 'branding.json')
   const name = 'Branding config'
@@ -226,20 +197,12 @@ function validateBrandingConfig(): void {
   }
 
   const content = readFileSync(path, 'utf8')
-  const config = JSON.parse(content)
-
-  // Check essential fields - name is under network.name
-  if (!config.network?.name) {
-    results.push({ name, passed: false, error: 'Missing network.name field' })
-    return
+  try {
+    expectJson(content, BrandingConfigValidationSchema, name)
+    results.push({ name, passed: true })
+  } catch (e) {
+    results.push({ name, passed: false, error: (e as Error).message })
   }
-
-  if (!config.version) {
-    results.push({ name, passed: false, error: 'Missing version field' })
-    return
-  }
-
-  results.push({ name, passed: true })
 }
 
 async function main() {

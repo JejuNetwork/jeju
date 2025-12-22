@@ -20,13 +20,14 @@ import type { Address } from 'viem'
 
 // ============ Chain Types ============
 
-export enum ChainType {
-  EVM_L1 = 'EVM_L1',
-  EVM_L2 = 'EVM_L2',
-  SOLANA = 'SOLANA',
-  HYPERLIQUID = 'HYPERLIQUID',
-  POLKADOT = 'POLKADOT',
-}
+export const ChainType = {
+  EVM_L1: 'EVM_L1',
+  EVM_L2: 'EVM_L2',
+  SOLANA: 'SOLANA',
+  HYPERLIQUID: 'HYPERLIQUID',
+  POLKADOT: 'POLKADOT',
+} as const
+export type ChainType = (typeof ChainType)[keyof typeof ChainType]
 
 export interface ChainInfo {
   chainId: number | string
@@ -156,16 +157,18 @@ export const ASTER_CONTRACTS = {
 
 // ============ Route Types ============
 
-export enum BridgeMechanism {
-  ZK_SOL_BRIDGE = 'ZK_SOL_BRIDGE',
-  EIL_XLP = 'EIL_XLP',
-  EIL_CANONICAL = 'EIL_CANONICAL',
-  OIF_SOLVER = 'OIF_SOLVER',
-  HYPERLANE = 'HYPERLANE',
-  CCIP = 'CCIP',
-  WORMHOLE = 'WORMHOLE',
-  DIRECT = 'DIRECT',
-}
+export const BridgeMechanism = {
+  ZK_SOL_BRIDGE: 'ZK_SOL_BRIDGE',
+  EIL_XLP: 'EIL_XLP',
+  EIL_CANONICAL: 'EIL_CANONICAL',
+  OIF_SOLVER: 'OIF_SOLVER',
+  HYPERLANE: 'HYPERLANE',
+  CCIP: 'CCIP',
+  WORMHOLE: 'WORMHOLE',
+  DIRECT: 'DIRECT',
+} as const
+export type BridgeMechanism =
+  (typeof BridgeMechanism)[keyof typeof BridgeMechanism]
 
 export interface RouteStep {
   mechanism: BridgeMechanism

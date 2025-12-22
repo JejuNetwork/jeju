@@ -6,10 +6,19 @@
  * with DWS container deployment and API exposure.
  */
 
+import { spawn } from 'bun'
 import { Keypair } from '@solana/web3.js'
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import type { Address, Hex } from 'viem'
+import {
+  AtroposStartRequestSchema,
+  JudgeBundlesRequestSchema,
+  MerkleProofRequestSchema,
+  MerkleRootRequestSchema,
+  TrainingJobRequestSchema,
+} from '../shared/schemas/training'
+import { validateBody } from '../shared/validation'
 import { startAtroposServer } from './atropos-server'
 import { createCrossChainBridge } from './cross-chain-bridge'
 import { createDistributedGRPOTrainer } from './grpo-trainer'
@@ -198,7 +207,6 @@ class NodeProvisioner {
   }
 
   private async verifyLocalGpu(): Promise<boolean> {
-    const { spawn } = await import('bun')
     const proc = spawn(
       ['python3', '-c', 'import torch; print(torch.cuda.is_available())'],
       {
@@ -214,8 +222,6 @@ class NodeProvisioner {
   private async startDockerContainer(
     allocation: NodeAllocation,
   ): Promise<void> {
-    const { spawn } = await import('bun')
-
     // Start NVIDIA Docker container for training
     const containerName = `training-${allocation.nodeId}`
     const proc = spawn(
@@ -261,8 +267,6 @@ class NodeProvisioner {
   }
 
   async releaseNodes(allocations: NodeAllocation[]): Promise<void> {
-    const { spawn } = await import('bun')
-
     for (const alloc of allocations) {
       if (
         !this.localMode &&
@@ -461,7 +465,11 @@ export function createTrainingRoutes(
 
   // Submit training job
   app.post('/jobs', async (c) => {
-    const body = (await c.req.json()) as Omit<TrainingJobRequest, 'jobId'>
+    const body = await validateBody(
+      TrainingJobRequestSchema,
+      c,
+      'Training job request',
+    )
     const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
 
     const request: TrainingJobRequest = {
@@ -502,7 +510,11 @@ export function createTrainingRoutes(
 
   // Judge rollout bundles (LLM-as-judge)
   app.post('/judge', async (c) => {
-    const body = (await c.req.json()) as { bundles: RolloutBundle[] }
+    const body = await validateBody(
+      JudgeBundlesRequestSchema,
+      c,
+      'Judge bundles request',
+    )
 
     if (!psycheListener) {
       return c.json({ error: 'Psyche integration not configured' }, 503)
@@ -515,13 +527,19 @@ export function createTrainingRoutes(
       llmJudgeModel: process.env.LLM_JUDGE_MODEL ?? 'default',
     })
 
-    const results = await psycheClient.judgeMultipleBundles(body.bundles)
+    const results = await psycheClient.judgeMultipleBundles(
+      body.bundles as RolloutBundle[],
+    )
     return c.json({ results })
   })
 
   // Start Atropos server for a job
   app.post('/jobs/:jobId/atropos', async (c) => {
-    const body = (await c.req.json()) as { port?: number }
+    const body = await validateBody(
+      AtroposStartRequestSchema,
+      c,
+      'Atropos start request',
+    )
     const port = body.port ?? 8000 + Math.floor(Math.random() * 1000)
 
     // Start Atropos server in background
@@ -532,11 +550,12 @@ export function createTrainingRoutes(
 
   // Bridge Merkle root computation
   app.post('/bridge/merkle/root', async (c) => {
-    const body = (await c.req.json()) as {
-      rewards: Array<{ client: string; amount: string }>
-    }
+    const body = await validateBody(
+      MerkleRootRequestSchema,
+      c,
+      'Merkle root request',
+    )
 
-    const { createCrossChainBridge } = await import('./cross-chain-bridge')
     const bridge = createCrossChainBridge({
       solanaRpcUrl: 'http://localhost:8899',
       evmRpcUrl: 'http://localhost:6546',
@@ -554,12 +573,12 @@ export function createTrainingRoutes(
 
   // Bridge Merkle proof generation
   app.post('/bridge/merkle/proof', async (c) => {
-    const body = (await c.req.json()) as {
-      rewards: Array<{ client: string; amount: string }>
-      index: number
-    }
+    const body = await validateBody(
+      MerkleProofRequestSchema,
+      c,
+      'Merkle proof request',
+    )
 
-    const { createCrossChainBridge } = await import('./cross-chain-bridge')
     const bridge = createCrossChainBridge({
       solanaRpcUrl: 'http://localhost:8899',
       evmRpcUrl: 'http://localhost:6546',

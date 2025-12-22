@@ -234,7 +234,7 @@ export class TwitterAdapter implements PlatformAdapter {
       response.data,
       'Twitter credentials',
     )
-    return validated as TwitterUser
+    return validated
   }
 
   private startPolling(): void {
@@ -469,7 +469,7 @@ export class TwitterAdapter implements PlatformAdapter {
       response.data,
       'Twitter user',
     )
-    return validated as TwitterUser
+    return validated
   }
 
   private formatEmbed(embed: MessageEmbed, buttons?: MessageButton[]): string {
@@ -534,6 +534,24 @@ export class TwitterAdapter implements PlatformAdapter {
       return {}
     }
 
-    return response.json()
+    // Parse JSON and validate basic structure
+    // Callers are responsible for validating the specific response shape
+    const rawData: unknown = await response.json()
+
+    // Twitter API v2 returns { data: ... } or { data: [...], ... } for most endpoints
+    // Basic structural validation - callers validate specific schemas
+    const TwitterApiResponseSchema = z
+      .object({
+        data: z.unknown().optional(),
+      })
+      .passthrough()
+
+    const result = TwitterApiResponseSchema.safeParse(rawData)
+    if (!result.success) {
+      console.error('[Twitter] Invalid API response structure')
+      return null
+    }
+
+    return result.data as { data?: T }
   }
 }

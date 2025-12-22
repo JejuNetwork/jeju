@@ -38,7 +38,7 @@ describe('TradingBot Configuration', () => {
       {
         chainId: 1,
         name: 'Ethereum',
-        rpcUrl: 'http://localhost:9545',
+        rpcUrl: 'http://localhost:6546',
         blockTime: 12000,
         isL2: false,
         nativeSymbol: 'ETH',
@@ -71,7 +71,7 @@ describe('TradingBot Configuration', () => {
           {
             chainId: 1,
             name: 'Ethereum',
-            rpcUrl: 'http://localhost:9545',
+            rpcUrl: 'http://localhost:6546',
             blockTime: 12000,
             isL2: false,
             nativeSymbol: 'ETH',
@@ -229,7 +229,7 @@ describe('TradingBot Configuration', () => {
         {
           chainId: 1,
           name: 'Ethereum',
-          rpcUrl: 'http://localhost:9545',
+          rpcUrl: 'http://localhost:6546',
           blockTime: 12000,
           isL2: false,
           nativeSymbol: 'ETH',
@@ -237,7 +237,7 @@ describe('TradingBot Configuration', () => {
         {
           chainId: 1337,
           name: 'Localnet',
-          rpcUrl: 'http://localhost:9545',
+          rpcUrl: 'http://localhost:6546',
           blockTime: 1000,
           isL2: false,
           nativeSymbol: 'ETH',
@@ -245,7 +245,7 @@ describe('TradingBot Configuration', () => {
         {
           chainId: 999999,
           name: 'Invalid',
-          rpcUrl: 'http://localhost:9545',
+          rpcUrl: 'http://localhost:6546',
           blockTime: 1000,
           isL2: false,
           nativeSymbol: 'ETH',
@@ -263,7 +263,7 @@ describe('TradingBot Configuration', () => {
         {
           chainId: 1,
           name: 'Ethereum',
-          rpcUrl: 'http://localhost:9545',
+          rpcUrl: 'http://localhost:6546',
           blockTime: 1,
           isL2: false,
           nativeSymbol: 'ETH',
@@ -271,7 +271,7 @@ describe('TradingBot Configuration', () => {
         {
           chainId: 1,
           name: 'Ethereum',
-          rpcUrl: 'http://localhost:9545',
+          rpcUrl: 'http://localhost:6546',
           blockTime: 60000,
           isL2: false,
           nativeSymbol: 'ETH',
@@ -287,7 +287,7 @@ describe('TradingBot Configuration', () => {
       const chain: TradingBotChain = {
         chainId: 1,
         name: 'Ethereum',
-        rpcUrl: 'http://localhost:9545',
+        rpcUrl: 'http://localhost:6546',
         blockTime: 12000,
         isL2: false,
         nativeSymbol: 'ETH',

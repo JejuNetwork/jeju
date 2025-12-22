@@ -3,8 +3,10 @@
  * Create and manage Safe wallets, propose and execute transactions
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
 import { encodeFunctionData } from 'viem'
+import { SafeTransactionsResponseSchema } from '../../schemas/api-responses'
 import { rpcService, type SupportedChainId } from '../rpc'
 
 // Safe Transaction Service API base URLs
@@ -240,8 +242,12 @@ class SafeService {
       throw new Error('Failed to fetch pending transactions')
     }
 
-    const data = await response.json()
-    return data.results
+    const data = expectValid(
+      SafeTransactionsResponseSchema,
+      await response.json(),
+      'Safe pending transactions',
+    )
+    return this.mapTransactionData(data.results)
   }
 
   /**
@@ -266,8 +272,61 @@ class SafeService {
       throw new Error('Failed to fetch transaction history')
     }
 
-    const data = await response.json()
-    return data.results
+    const data = expectValid(
+      SafeTransactionsResponseSchema,
+      await response.json(),
+      'Safe transaction history',
+    )
+    return this.mapTransactionData(data.results)
+  }
+
+  /**
+   * Map validated API response to SafeTransactionData
+   */
+  private mapTransactionData(
+    results: Array<{
+      safe: Address
+      to: Address
+      value: string
+      data: Hex | null
+      operation: 0 | 1
+      safeTxGas: string
+      baseGas: string
+      gasPrice: string
+      gasToken: Address
+      refundReceiver: Address
+      nonce: number
+      confirmations: Array<{
+        owner: Address
+        signature: Hex
+        submissionDate: string
+      }>
+      confirmationsRequired: number
+      isExecuted: boolean
+      safeTxHash: Hex
+      proposer?: Address
+      submissionDate?: string
+    }>,
+  ): SafeTransactionData[] {
+    return results.map((tx) => ({
+      safe: tx.safe,
+      to: tx.to,
+      value: BigInt(tx.value),
+      data: tx.data ?? ('0x' as Hex),
+      operation: tx.operation,
+      safeTxGas: BigInt(tx.safeTxGas),
+      baseGas: BigInt(tx.baseGas),
+      gasPrice: BigInt(tx.gasPrice),
+      gasToken: tx.gasToken,
+      refundReceiver: tx.refundReceiver,
+      nonce: tx.nonce,
+      confirmations: tx.confirmations,
+      confirmationsRequired: tx.confirmationsRequired,
+      isExecuted: tx.isExecuted,
+      safeTxHash: tx.safeTxHash,
+      proposer: tx.proposer ?? tx.confirmations[0]?.owner ?? ('0x' as Address),
+      submissionDate: tx.submissionDate ?? '',
+    }))
   }
 
   /**

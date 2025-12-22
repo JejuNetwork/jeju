@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { usePlayerEvents } from '@/hooks/markets/usePlayerEvents'
+import { usePlayerEvents } from '../../hooks/markets/usePlayerEvents'
 
 interface HyperscapeStatsPanelProps {
   playerAddress?: string
@@ -108,6 +108,7 @@ export function HyperscapeStatsPanel({
 
       <div className="flex gap-2 border-b border-gray-700">
         <button
+          type="button"
           onClick={() => setSelectedTab('skills')}
           className={`px-4 py-2 font-medium transition-colors ${
             selectedTab === 'skills'
@@ -118,6 +119,7 @@ export function HyperscapeStatsPanel({
           Skills ({skillEvents.length})
         </button>
         <button
+          type="button"
           onClick={() => setSelectedTab('combat')}
           className={`px-4 py-2 font-medium transition-colors ${
             selectedTab === 'combat'
@@ -128,6 +130,7 @@ export function HyperscapeStatsPanel({
           Combat ({deathEvents.length + killEvents.length})
         </button>
         <button
+          type="button"
           onClick={() => setSelectedTab('achievements')}
           className={`px-4 py-2 font-medium transition-colors ${
             selectedTab === 'achievements'

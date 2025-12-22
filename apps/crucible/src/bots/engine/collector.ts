@@ -95,7 +95,7 @@ const localnet: Chain = {
   name: 'Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['http://localhost:9545'] },
+    default: { http: ['http://localhost:6546'] },
   },
 }
 

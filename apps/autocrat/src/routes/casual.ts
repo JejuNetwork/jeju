@@ -4,10 +4,10 @@
 
 import { Elysia, t } from 'elysia'
 import {
-  type CasualProposalCategory,
   type CasualSubmission,
   getProposalAssistant,
 } from '../proposal-assistant'
+import type { CasualProposalCategory } from '../types'
 
 const proposalAssistant = getProposalAssistant()
 

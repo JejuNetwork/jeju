@@ -27,7 +27,7 @@ async function main() {
   console.log('')
 
   const network = process.env.NETWORK || 'localnet'
-  const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:8545'
+  const rpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
   const deploymentFile = join(DEPLOYMENTS_DIR, `${network}.json`)
 
   if (!existsSync(deploymentFile)) {

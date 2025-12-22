@@ -26,6 +26,10 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
+import {
+  expectValid,
+  SignResponseSchema,
+} from '../../schemas'
 
 const ACCOUNTS = [
   {
@@ -45,7 +49,7 @@ const ACCOUNTS = [
   },
 ]
 
-const RPC_URL = process.env.L1_RPC_URL || 'http://localhost:8545'
+const RPC_URL = process.env.L1_RPC_URL || 'http://localhost:6545'
 const THRESHOLD = 2
 const SIGNER_BASE_PORT = 4200
 

@@ -75,6 +75,7 @@ export function ApprovalButton({
 
   return (
     <button
+      type="button"
       onClick={handleApprove}
       disabled={isPending || isConfirming}
       className="w-full px-6 py-4 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-700 text-white font-bold rounded-lg transition mb-4"

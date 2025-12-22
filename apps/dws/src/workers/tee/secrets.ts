@@ -14,8 +14,10 @@
  * - Audit logging
  */
 
+import { expectJson } from '@jejunetwork/types'
 import nacl from 'tweetnacl'
 import { type Address, type Hex, keccak256, toBytes } from 'viem'
+import { VaultDataSchema } from '../../shared/schemas/internal-storage'
 import type { BackendManager } from '../../storage/backends'
 import type { EncryptedSecret, NetworkEnvironment, TEEPlatform } from './types'
 
@@ -79,9 +81,8 @@ export class TEESecretManager {
   // In-memory vault storage (for 'memory' backend)
   private vaults = new Map<string, SecretVault>()
 
-  // Enclave keys
-  private enclavePrivateKey: Uint8Array
-  private enclavePublicKey: Uint8Array
+  // Enclave keys (NaCl box keypair)
+  private enclaveKeyPair: nacl.BoxKeyPair
 
   // Decryption cache (secrets stay decrypted in memory only during execution)
   private decryptionCache = new Map<
@@ -93,8 +94,10 @@ export class TEESecretManager {
   constructor(config: SecretManagerConfig, backendManager?: BackendManager) {
     this.config = config
     this.backendManager = backendManager
-    this.enclavePrivateKey = config.enclavePrivateKey
-    this.enclavePublicKey = x25519.getPublicKey(this.enclavePrivateKey)
+
+    // Derive keypair from provided private key seed
+    const seed = config.enclavePrivateKey.slice(0, 32)
+    this.enclaveKeyPair = nacl.box.keyPair.fromSecretKey(seed)
   }
 
   // ============================================================================
@@ -106,7 +109,7 @@ export class TEESecretManager {
    * Users encrypt secrets to this key, only the TEE can decrypt
    */
   getEnclavePublicKey(): Hex {
-    return `0x${Buffer.from(this.enclavePublicKey).toString('hex')}` as Hex
+    return `0x${Buffer.from(this.enclaveKeyPair.publicKey).toString('hex')}` as Hex
   }
 
   /**
@@ -117,9 +120,8 @@ export class TEESecretManager {
     privateKey: Uint8Array
     publicKey: Uint8Array
   } {
-    const privateKey = randomBytes(32)
-    const publicKey = x25519.getPublicKey(privateKey)
-    return { privateKey, publicKey }
+    const keyPair = nacl.box.keyPair()
+    return { privateKey: keyPair.secretKey, publicKey: keyPair.publicKey }
   }
 
   /**
@@ -132,9 +134,9 @@ export class TEESecretManager {
     // In real implementation, this would use the TEE's hardware-derived key
     // For now, derive from attestation hash
     const hash = keccak256(toBytes(attestation))
-    const privateKey = new Uint8Array(Buffer.from(hash.slice(2), 'hex'))
-    const publicKey = x25519.getPublicKey(privateKey)
-    return { privateKey, publicKey }
+    const seed = new Uint8Array(Buffer.from(hash.slice(2), 'hex'))
+    const keyPair = nacl.box.keyPair.fromSecretKey(seed)
+    return { privateKey: keyPair.secretKey, publicKey: keyPair.publicKey }
   }
 
   // ============================================================================
@@ -144,6 +146,7 @@ export class TEESecretManager {
   /**
    * Encrypt a secret value to the enclave's public key
    * This is typically done client-side before storing
+   * Uses NaCl box (X25519 + XSalsa20 + Poly1305)
    */
   static encryptSecret(
     value: string,
@@ -153,33 +156,26 @@ export class TEESecretManager {
       Buffer.from(enclavePublicKey.slice(2), 'hex'),
     )
 
-    // Generate ephemeral keypair for ECDH
-    const ephemeralPrivate = randomBytes(32)
-    const ephemeralPublic = x25519.getPublicKey(ephemeralPrivate)
+    // Generate ephemeral keypair
+    const ephemeralKeyPair = nacl.box.keyPair()
 
-    // Compute shared secret via ECDH
-    const sharedSecret = x25519.getSharedSecret(
-      ephemeralPrivate,
-      publicKeyBytes,
-    )
+    // Generate random nonce
+    const nonce = nacl.randomBytes(nacl.box.nonceLength)
 
-    // Derive encryption key from shared secret
-    const encryptionKey = new Uint8Array(
-      Buffer.from(keccak256(sharedSecret).slice(2), 'hex'),
-    )
-
-    // Generate nonce
-    const nonce = randomBytes(24)
-
-    // Encrypt value
-    const cipher = xchacha20poly1305(encryptionKey, nonce)
+    // Encrypt using box (X25519 + XSalsa20-Poly1305)
     const plaintext = new TextEncoder().encode(value)
-    const ciphertext = cipher.encrypt(plaintext)
+    const ciphertext = nacl.box(
+      plaintext,
+      nonce,
+      publicKeyBytes,
+      ephemeralKeyPair.secretKey,
+    )
 
     return {
       name: '',
       encryptedValue: `0x${Buffer.from(ciphertext).toString('hex')}` as Hex,
-      encryptionKey: `0x${Buffer.from(ephemeralPublic).toString('hex')}` as Hex,
+      encryptionKey:
+        `0x${Buffer.from(ephemeralKeyPair.publicKey).toString('hex')}` as Hex,
       algorithm: 'x25519-xsalsa20-poly1305',
       nonce: `0x${Buffer.from(nonce).toString('hex')}` as Hex,
     }
@@ -209,20 +205,18 @@ export class TEESecretManager {
       Buffer.from(encrypted.encryptedValue.slice(2), 'hex'),
     )
 
-    // Compute shared secret via ECDH
-    const sharedSecret = x25519.getSharedSecret(
-      this.enclavePrivateKey,
+    // Decrypt using box.open
+    const plaintext = nacl.box.open(
+      ciphertext,
+      nonce,
       ephemeralPublic,
+      this.enclaveKeyPair.secretKey,
     )
 
-    // Derive decryption key
-    const decryptionKey = new Uint8Array(
-      Buffer.from(keccak256(sharedSecret).slice(2), 'hex'),
-    )
+    if (!plaintext) {
+      throw new Error('Decryption failed - invalid ciphertext or wrong key')
+    }
 
-    // Decrypt
-    const cipher = xchacha20poly1305(decryptionKey, nonce)
-    const plaintext = cipher.decrypt(ciphertext)
     const value = new TextDecoder().decode(plaintext)
 
     // Cache decrypted value
@@ -403,22 +397,11 @@ export class TEESecretManager {
     }
 
     const result = await this.backendManager.download(cid)
-    const data = JSON.parse(Buffer.from(result.content).toString()) as {
-      id: string
-      owner: Address
-      secrets: Array<{
-        name: string
-        encryptedValue: Hex
-        publicKey: Hex
-        nonce: Hex
-        version: number
-        createdAt: number
-        updatedAt: number
-        allowedWorkloads: string[]
-      }>
-      createdAt: number
-      updatedAt: number
-    }
+    const data = expectJson(
+      Buffer.from(result.content).toString(),
+      VaultDataSchema,
+      'vault data',
+    )
 
     const vault: SecretVault = {
       id: data.id,
@@ -513,12 +496,13 @@ export function createSecretManager(
   const environment = (process.env.NETWORK as NetworkEnvironment) ?? 'localnet'
 
   // Generate enclave keys if not provided
-  const { privateKey } = config.enclavePrivateKey
-    ? {
-        privateKey: config.enclavePrivateKey,
-        publicKey: x25519.getPublicKey(config.enclavePrivateKey),
-      }
-    : TEESecretManager.generateEnclaveKeys()
+  let privateKey: Uint8Array
+  if (config.enclavePrivateKey) {
+    privateKey = config.enclavePrivateKey
+  } else {
+    const keys = TEESecretManager.generateEnclaveKeys()
+    privateKey = keys.privateKey
+  }
 
   const fullConfig: SecretManagerConfig = {
     teePlatform: config.teePlatform ?? 'simulator',
@@ -526,7 +510,7 @@ export function createSecretManager(
     rpcUrl:
       config.rpcUrl ??
       process.env.RPC_URL ??
-      (environment === 'localnet' ? 'http://localhost:9545' : ''),
+      (environment === 'localnet' ? 'http://localhost:6546' : ''),
     enclavePrivateKey: privateKey,
     storageBackend: config.storageBackend ?? 'memory',
   }

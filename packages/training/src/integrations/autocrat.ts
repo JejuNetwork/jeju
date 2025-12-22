@@ -6,6 +6,11 @@
  */
 
 import type { Address } from 'viem'
+import { expectValid } from '@jejunetwork/types'
+import {
+  AgentRegistrationResponseSchema,
+  ProposalStatusResponseSchema,
+} from '../schemas'
 
 // ============================================================================
 // Types
@@ -175,7 +180,11 @@ ${proposal.description}
       `${this.autocratApiUrl}/api/v1/proposals/${proposalId}`,
     )
     if (response.ok) {
-      const data = (await response.json()) as { status?: string }
+      const data = expectValid(
+        ProposalStatusResponseSchema,
+        await response.json(),
+        'proposal status response',
+      )
       return data.status ?? 'unknown'
     }
     return 'not_found'
@@ -202,8 +211,11 @@ ${proposal.description}
     )
 
     if (response.ok) {
-      const data = (await response.json()) as { agentId: string }
-      return data
+      return expectValid(
+        AgentRegistrationResponseSchema,
+        await response.json(),
+        'agent registration response',
+      )
     }
 
     return { agentId: '' }

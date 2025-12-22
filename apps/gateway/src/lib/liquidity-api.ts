@@ -7,12 +7,13 @@ import { type Address, createPublicClient, formatEther, http } from 'viem'
 import { base, baseSepolia } from 'viem/chains'
 import { NETWORK } from '../config/networks'
 
-// Risk tier enum matching the contract
-export enum RiskTier {
-  CONSERVATIVE = 0,
-  BALANCED = 1,
-  AGGRESSIVE = 2,
-}
+// Risk tier const object matching the contract
+export const RiskTier = {
+  CONSERVATIVE: 0,
+  BALANCED: 1,
+  AGGRESSIVE: 2,
+} as const
+export type RiskTier = (typeof RiskTier)[keyof typeof RiskTier]
 
 export const RISK_TIER_NAMES = [
   'Conservative',

@@ -133,7 +133,8 @@ export function useJob(jobId: string) {
     queryFn: () => fetchJob(jobId),
     enabled: !!jobId,
     staleTime: 5000,
-    refetchInterval: (data) => (data?.status === 'running' ? 5000 : false),
+    refetchInterval: (query) =>
+      query.state.data?.status === 'running' ? 5000 : false,
   })
 
   return {

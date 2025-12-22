@@ -28,6 +28,7 @@ export function VPNToggle({
 
         {/* Button */}
         <button
+          type="button"
           onClick={onToggle}
           disabled={isLoading}
           className={`relative w-32 h-32 rounded-full flex items-center justify-center transition-all duration-300 ${

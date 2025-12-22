@@ -51,6 +51,7 @@ export function QueryExplorer() {
               className="input font-mono pr-12"
             />
             <button
+              type="button"
               onClick={handleCopy}
               className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg hover:bg-[var(--bg-tertiary)]"
             >
@@ -69,6 +70,7 @@ export function QueryExplorer() {
           </div>
 
           <button
+            type="button"
             onClick={handleExecute}
             disabled={loading || !query.trim()}
             className="btn-primary flex items-center justify-center gap-2"
@@ -83,6 +85,7 @@ export function QueryExplorer() {
       <div className="flex flex-wrap gap-2">
         {examples.map((ex) => (
           <button
+            type="button"
             key={ex.query}
             onClick={() => {
               setQuery(ex.query)

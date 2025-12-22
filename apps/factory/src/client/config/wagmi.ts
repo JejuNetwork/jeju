@@ -20,10 +20,10 @@ const jejuLocalnet: Chain = {
   name: 'Jeju Localnet',
   nativeCurrency: { name: 'Ether', symbol: 'ETH', decimals: 18 },
   rpcUrls: {
-    default: { http: ['http://localhost:9545'] },
+    default: { http: ['http://localhost:6546'] },
   },
   blockExplorers: {
-    default: { name: 'Explorer', url: 'http://localhost:9545' },
+    default: { name: 'Explorer', url: 'http://localhost:6546' },
   },
   testnet: true,
 }
@@ -97,6 +97,6 @@ export const RPC_URL = (() => {
     case 'testnet':
       return 'https://sepolia.base.org'
     default:
-      return 'http://localhost:9545'
+      return 'http://localhost:6546'
   }
 })()

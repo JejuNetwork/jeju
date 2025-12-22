@@ -232,24 +232,115 @@ export const OrchestratorConfigSchema = z.object({
 })
 
 // =============================================================================
-// API RESPONSE SCHEMAS
+// API RESPONSE SCHEMAS - Re-export from canonical location
 // =============================================================================
 
+// Jupiter Quote response schema (simplified version for bridge use)
+// Note: The full version is in @jejunetwork/solana if that dependency is added
 export const JupiterQuoteResponseSchema = z.object({
   inputMint: z.string(),
   outputMint: z.string(),
   inAmount: z.string(),
   outAmount: z.string(),
+  otherAmountThreshold: z.string(),
+  swapMode: z.string(),
+  slippageBps: z.number(),
   priceImpactPct: z.string(),
-  routePlan: z.array(
-    z.object({
-      swapInfo: z.object({
-        ammKey: z.string(),
-        label: z.string().optional(),
-      }),
-      percent: z.number(),
+  routePlan: z.array(JupiterRoutePlanSchema),
+  contextSlot: z.number(),
+  timeTaken: z.number(),
+})
+
+// Jupiter Price API response schema
+export const JupiterPriceDataSchema = z.object({
+  price: z.number(),
+})
+
+export const JupiterPriceResponseSchema = z.object({
+  data: z.record(z.string(), JupiterPriceDataSchema),
+})
+
+// Jupiter Quote response for arbitrage (simplified version)
+export const JupiterArbQuoteResponseSchema = z.object({
+  inAmount: z.string(),
+  outAmount: z.string(),
+  priceImpactPct: z.string(),
+})
+
+// 1inch quote response schema
+export const OneInchQuoteResponseSchema = z.object({
+  dstAmount: z.string(),
+})
+
+// Hyperliquid all mids response (maps symbol -> price string)
+export const HyperliquidAllMidsResponseSchema = z.record(z.string(), z.string())
+
+// Jito bundle response schema
+export const JitoBundleResponseSchema = z.object({
+  result: z.object({
+    bundle_id: z.string(),
+  }),
+})
+
+// Jito tip floor response schema
+export const JitoTipFloorResponseSchema = z.object({
+  tip_floor: z.string(),
+})
+
+// =============================================================================
+// BEACON CHAIN API SCHEMAS
+// =============================================================================
+
+// Finality checkpoints response
+export const BeaconFinalityCheckpointsResponseSchema = z.object({
+  data: z.object({
+    finalized: z.object({
+      epoch: z.string(),
+      root: z.string(),
     }),
-  ),
+  }),
+})
+
+// Light client update response
+export const BeaconHeaderSchema = z.object({
+  slot: z.string(),
+  proposer_index: z.string().optional(),
+  parent_root: z.string(),
+  state_root: z.string(),
+  body_root: z.string(),
+})
+
+export const BeaconLightClientUpdateSchema = z.object({
+  attested_header: z.object({ beacon: BeaconHeaderSchema }),
+  finalized_header: z.object({ beacon: BeaconHeaderSchema }),
+  finality_branch: z.array(z.string()),
+  sync_aggregate: z.object({
+    sync_committee_bits: z.string(),
+    sync_committee_signature: z.string(),
+  }),
+  signature_slot: z.string(),
+})
+
+export const BeaconLightClientUpdatesResponseSchema = z.object({
+  data: z.array(BeaconLightClientUpdateSchema),
+})
+
+// Sync committee response
+export const BeaconSyncCommitteeResponseSchema = z.object({
+  data: z.object({
+    validators: z.array(z.string()),
+  }),
+})
+
+// Block header response (for state root)
+export const BeaconBlockHeaderResponseSchema = z.object({
+  data: z.object({
+    header: z.object({
+      message: z.object({
+        state_root: z.string(),
+      }),
+    }),
+  }),
 })
 
 export const OrderbookLevelSchema = z.object({
@@ -451,6 +542,68 @@ export const TransferSubmissionSchema = CrossChainTransferSchema.extend({
 })
 
 // =============================================================================
+// SP1 PROVER API SCHEMAS
+// =============================================================================
+
+// SP1 proof response from prover service (JSON format)
+export const SP1ProofResponseSchema = z.object({
+  proof: z.array(z.number()).or(z.instanceof(Uint8Array)),
+  publicInputs: z.array(z.number()).or(z.instanceof(Uint8Array)).optional(),
+  vkeyHash: z.string().optional(),
+})
+
+// Batch proof response
+export const BatchProofResponseSchema = z.object({
+  proof: z.array(z.number()),
+})
+
+// =============================================================================
+// JUPITER DEX API SCHEMAS (full versions for swap/quote)
+// =============================================================================
+
+export const JupiterRoutePlanSchema = z.object({
+  swapInfo: z.object({
+    ammKey: z.string(),
+    label: z.string(),
+    inputMint: z.string(),
+    outputMint: z.string(),
+    inAmount: z.string(),
+    outAmount: z.string(),
+    feeAmount: z.string(),
+    feeMint: z.string(),
+  }),
+  percent: z.number(),
+})
+
+export const JupiterQuoteFullSchema = z.object({
+  inputMint: z.string(),
+  outputMint: z.string(),
+  inAmount: z.string(),
+  outAmount: z.string(),
+  otherAmountThreshold: z.string(),
+  swapMode: z.enum(['ExactIn', 'ExactOut']),
+  slippageBps: z.number(),
+  priceImpactPct: z.number(),
+  routePlan: z.array(JupiterRoutePlanSchema),
+  contextSlot: z.number(),
+  timeTaken: z.number(),
+})
+
+export const JupiterSwapResponseSchema = z.object({
+  swapTransaction: z.string(),
+  lastValidBlockHeight: z.number().optional(),
+})
+
+export const JupiterTokenListItemSchema = z.object({
+  address: z.string(),
+  symbol: z.string(),
+  name: z.string(),
+  decimals: z.number(),
+})
+
+export const JupiterTokenListSchema = z.array(JupiterTokenListItemSchema)
+
+// =============================================================================
 // UTILITY TYPES
 // =============================================================================
 
@@ -471,3 +624,8 @@ export type HyperCorePosition = z.infer<typeof HyperCorePositionSchema>
 export type EVMRPCResponse = z.infer<typeof EVMRPCResponseSchema>
 export type SolanaHealthResponse = z.infer<typeof SolanaHealthResponseSchema>
 export type SuccinctProveResponse = z.infer<typeof SuccinctProveResponseSchema>
+export type SP1ProofResponse = z.infer<typeof SP1ProofResponseSchema>
+export type BatchProofResponse = z.infer<typeof BatchProofResponseSchema>
+export type JupiterQuoteFull = z.infer<typeof JupiterQuoteFullSchema>
+export type JupiterSwapResponse = z.infer<typeof JupiterSwapResponseSchema>
+export type JupiterTokenListItem = z.infer<typeof JupiterTokenListItemSchema>

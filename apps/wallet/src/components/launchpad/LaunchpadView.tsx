@@ -120,10 +120,16 @@ export function LaunchpadView({ address }: LaunchpadViewProps) {
             </div>
 
             <div className="flex gap-2 mt-4">
-              <button className="flex-1 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm font-medium">
+              <button
+                type="button"
+                className="flex-1 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm font-medium"
+              >
                 Buy
               </button>
-              <button className="flex-1 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-sm font-medium">
+              <button
+                type="button"
+                className="flex-1 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-lg text-sm font-medium"
+              >
                 Sell
               </button>
             </div>
@@ -131,7 +137,10 @@ export function LaunchpadView({ address }: LaunchpadViewProps) {
         )}
 
         {!curveInfo && launch.launchType === LaunchType.ICOPresale && (
-          <button className="w-full mt-4 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm font-medium">
+          <button
+            type="button"
+            className="w-full mt-4 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg text-sm font-medium"
+          >
             Join Presale
           </button>
         )}
@@ -154,6 +163,7 @@ export function LaunchpadView({ address }: LaunchpadViewProps) {
             </p>
           </div>
           <button
+            type="button"
             onClick={fetchData}
             disabled={isLoading}
             className="flex items-center gap-2 px-4 py-2 bg-secondary hover:bg-secondary/80 rounded-xl disabled:opacity-50"
@@ -213,6 +223,7 @@ export function LaunchpadView({ address }: LaunchpadViewProps) {
             },
           ].map(({ id, label, icon: Icon }) => (
             <button
+              type="button"
               key={id}
               onClick={() => setTab(id)}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
@@ -245,6 +256,7 @@ export function LaunchpadView({ address }: LaunchpadViewProps) {
                   Be the first to launch a token
                 </p>
                 <button
+                  type="button"
                   onClick={() => setTab('create')}
                   className="mt-4 px-6 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl"
                 >
@@ -278,7 +290,10 @@ export function LaunchpadView({ address }: LaunchpadViewProps) {
                   <li>✓ Automatic price discovery</li>
                   <li>✓ Graduates to LP</li>
                 </ul>
-                <button className="w-full px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium">
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-lg font-medium"
+                >
                   Launch with Curve
                 </button>
               </div>
@@ -298,7 +313,10 @@ export function LaunchpadView({ address }: LaunchpadViewProps) {
                   <li>✓ Soft/hard cap goals</li>
                   <li>✓ LP locked after sale</li>
                 </ul>
-                <button className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium">
+                <button
+                  type="button"
+                  className="w-full px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-lg font-medium"
+                >
                   Launch ICO
                 </button>
               </div>
@@ -321,6 +339,7 @@ export function LaunchpadView({ address }: LaunchpadViewProps) {
                   You haven't launched any tokens
                 </p>
                 <button
+                  type="button"
                   onClick={() => setTab('create')}
                   className="mt-4 px-6 py-2 bg-purple-500 hover:bg-purple-600 text-white rounded-xl"
                 >

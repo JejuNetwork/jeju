@@ -452,7 +452,7 @@ describe('Messaging SDK', () => {
       // Find our message
       const received = messages.find((m) => m.id === envelope.id)
       expect(received).toBeDefined()
-      expect(received!.from).toBe(aliceAddress)
+      expect(received?.from).toBe(aliceAddress)
     })
 
     test('multiple messages between users', async () => {

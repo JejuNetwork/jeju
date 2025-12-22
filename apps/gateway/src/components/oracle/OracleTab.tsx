@@ -84,6 +84,7 @@ export function OracleTab() {
       {/* Sub-navigation */}
       <div className="flex gap-2 border-b border-gray-200 dark:border-gray-700 pb-2">
         <button
+          type="button"
           className={`px-4 py-2 rounded-t-lg transition-colors ${
             activeSubTab === 'feeds'
               ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
@@ -97,6 +98,7 @@ export function OracleTab() {
           </div>
         </button>
         <button
+          type="button"
           className={`px-4 py-2 rounded-t-lg transition-colors ${
             activeSubTab === 'subscriptions'
               ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'
@@ -110,6 +112,7 @@ export function OracleTab() {
           </div>
         </button>
         <button
+          type="button"
           className={`px-4 py-2 rounded-t-lg transition-colors ${
             activeSubTab === 'operators'
               ? 'bg-purple-100 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400'

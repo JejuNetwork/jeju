@@ -111,6 +111,7 @@ export function Header() {
             <div className="flex items-center gap-2 md:gap-3">
               {/* Theme Toggle */}
               <button
+                type="button"
                 onClick={toggleTheme}
                 className="p-2 md:p-2.5 rounded-xl transition-all duration-200 hover:scale-105"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -128,6 +129,7 @@ export function Header() {
                 ) : (
                   <>
                     <button
+                      type="button"
                       onClick={() =>
                         setShowPortfolioDropdown(!showPortfolioDropdown)
                       }
@@ -148,6 +150,7 @@ export function Header() {
                         fill="none"
                         stroke="currentColor"
                         viewBox="0 0 24 24"
+                        aria-hidden="true"
                       >
                         <path
                           strokeLinecap="round"
@@ -161,9 +164,11 @@ export function Header() {
                     {/* Dropdown Menu */}
                     {showPortfolioDropdown && (
                       <>
-                        <div
-                          className="fixed inset-0 z-40"
+                        <button
+                          type="button"
+                          className="fixed inset-0 z-40 cursor-default"
                           onClick={() => setShowPortfolioDropdown(false)}
+                          aria-label="Close dropdown"
                         />
                         <div
                           className="absolute right-0 top-full mt-2 w-56 rounded-xl border shadow-lg z-50 overflow-hidden"
@@ -181,6 +186,7 @@ export function Header() {
                             <span className="font-medium">View Portfolio</span>
                           </Link>
                           <button
+                            type="button"
                             onClick={() => {
                               disconnect()
                               setShowPortfolioDropdown(false)
@@ -200,6 +206,7 @@ export function Header() {
 
               {/* Mobile Menu Button */}
               <button
+                type="button"
                 onClick={() => setShowMobileMenu(!showMobileMenu)}
                 className="lg:hidden p-2.5 rounded-xl transition-all"
                 style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -210,6 +217,7 @@ export function Header() {
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
+                  aria-hidden="true"
                 >
                   {showMobileMenu ? (
                     <path
@@ -239,8 +247,14 @@ export function Header() {
           showMobileMenu ? 'opacity-100' : 'opacity-0 pointer-events-none'
         }`}
         style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
-        onClick={() => setShowMobileMenu(false)}
-      />
+      >
+        <button
+          type="button"
+          className="absolute inset-0 cursor-default"
+          onClick={() => setShowMobileMenu(false)}
+          aria-label="Close mobile menu"
+        />
+      </div>
 
       {/* Mobile Menu Panel */}
       <nav
@@ -257,6 +271,7 @@ export function Header() {
           >
             <span className="text-lg font-bold text-gradient">Menu</span>
             <button
+              type="button"
               onClick={() => setShowMobileMenu(false)}
               className="p-2 rounded-xl"
               style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -266,6 +281,7 @@ export function Header() {
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
+                aria-hidden="true"
               >
                 <path
                   strokeLinecap="round"
@@ -338,6 +354,7 @@ export function Header() {
                     Portfolio
                   </Link>
                   <button
+                    type="button"
                     onClick={() => {
                       disconnect()
                       setShowMobileMenu(false)

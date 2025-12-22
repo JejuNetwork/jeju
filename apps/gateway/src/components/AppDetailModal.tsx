@@ -60,17 +60,29 @@ export default function AppDetailModal({
       style={{
         position: 'fixed',
         inset: 0,
-        background: 'rgba(0, 0, 0, 0.5)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         zIndex: 1000,
         padding: '1rem',
       }}
-      onClick={onClose}
     >
+      <button
+        type="button"
+        style={{
+          position: 'absolute',
+          inset: 0,
+          background: 'rgba(0, 0, 0, 0.5)',
+          border: 'none',
+          cursor: 'default',
+        }}
+        onClick={onClose}
+        aria-label="Close modal backdrop"
+      />
       <div
         className="card"
+        role="dialog"
+        aria-modal="true"
         style={{
           maxWidth: '600px',
           width: '100%',
@@ -78,9 +90,9 @@ export default function AppDetailModal({
           overflow: 'auto',
           position: 'relative',
         }}
-        onClick={(e) => e.stopPropagation()}
       >
         <button
+          type="button"
           onClick={onClose}
           style={{
             position: 'absolute',
@@ -345,6 +357,7 @@ export default function AppDetailModal({
                   }}
                 >
                   <button
+                    type="button"
                     className="button button-secondary"
                     style={{
                       display: 'flex',
@@ -357,6 +370,7 @@ export default function AppDetailModal({
                     Edit
                   </button>
                   <button
+                    type="button"
                     className="button"
                     onClick={handleWithdraw}
                     disabled={isWithdrawing}

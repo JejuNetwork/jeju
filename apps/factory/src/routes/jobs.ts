@@ -2,7 +2,8 @@
  * Jobs Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { CreateJobBodySchema, expectValid, JobsQuerySchema } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
 interface Job {
@@ -30,8 +31,9 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
   .get(
     '/',
     async ({ query }) => {
-      const page = parseInt(query.page || '1', 10)
-      const limit = parseInt(query.limit || '20', 10)
+      const validated = expectValid(JobsQuerySchema, query, 'query params')
+      const page = parseInt(validated.page || '1', 10)
+      const limit = parseInt(validated.limit || '20', 10)
 
       const jobs: Job[] = [
         {
@@ -75,13 +77,6 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
       }
     },
     {
-      query: t.Object({
-        page: t.Optional(t.String()),
-        limit: t.Optional(t.String()),
-        type: t.Optional(t.String()),
-        remote: t.Optional(t.String()),
-        skill: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['jobs'],
         summary: 'List jobs',
@@ -98,16 +93,18 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
+      const validated = expectValid(CreateJobBodySchema, body, 'request body')
+
       const job: Job = {
         id: `job-${Date.now()}`,
-        title: body.title,
-        company: body.company,
-        type: body.type,
-        remote: body.remote,
-        location: body.location,
-        salary: body.salary,
-        skills: body.skills,
-        description: body.description,
+        title: validated.title,
+        company: validated.company,
+        type: validated.type,
+        remote: validated.remote,
+        location: validated.location,
+        salary: validated.salary,
+        skills: validated.skills,
+        description: validated.description,
         createdAt: Date.now(),
         updatedAt: Date.now(),
         applications: 0,
@@ -117,36 +114,6 @@ export const jobsRoutes = new Elysia({ prefix: '/api/jobs' })
       return job
     },
     {
-      body: t.Object({
-        title: t.String({ minLength: 1, maxLength: 200 }),
-        company: t.String({ minLength: 1, maxLength: 100 }),
-        type: t.Union([
-          t.Literal('full-time'),
-          t.Literal('part-time'),
-          t.Literal('contract'),
-          t.Literal('bounty'),
-        ]),
-        remote: t.Boolean(),
-        location: t.String({ minLength: 1 }),
-        salary: t.Optional(
-          t.Object({
-            min: t.Number({ minimum: 0 }),
-            max: t.Number({ minimum: 0 }),
-            currency: t.String({ minLength: 1 }),
-            period: t.Optional(
-              t.Union([
-                t.Literal('hour'),
-                t.Literal('day'),
-                t.Literal('week'),
-                t.Literal('month'),
-                t.Literal('year'),
-              ]),
-            ),
-          }),
-        ),
-        skills: t.Array(t.String({ minLength: 1 })),
-        description: t.String({ minLength: 10 }),
-      }),
       detail: {
         tags: ['jobs'],
         summary: 'Create job',

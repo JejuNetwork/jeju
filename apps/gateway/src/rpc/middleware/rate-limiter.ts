@@ -1,4 +1,4 @@
-import type { Context, Next } from 'hono'
+import { Elysia } from 'elysia'
 import { LRUCache } from 'lru-cache'
 import { RateLimiterMemory, type RateLimiterRes } from 'rate-limiter-flexible'
 import { type Address, type Chain, createPublicClient, http } from 'viem'
@@ -15,7 +15,6 @@ export type RateTier = keyof typeof RATE_LIMITS
  * Check if an IP is a private/local address that could be spoofed
  */
 function isPrivateIp(ip: string): boolean {
-  // IPv4 private ranges and localhost
   if (
     ip.startsWith('10.') ||
     ip.startsWith('192.168.') ||
@@ -45,35 +44,29 @@ function isPrivateIp(ip: string): boolean {
 }
 
 /**
- * Extracts client IP address safely from Hono context.
+ * Extracts client IP address safely from request headers.
  *
  * SECURITY: X-Forwarded-For can be spoofed by clients.
  * This function prefers X-Real-IP (set by trusted proxies like nginx)
  * and validates X-Forwarded-For by taking the rightmost non-private IP.
  */
-function getClientIp(c: Context): string {
-  // X-Real-IP is typically set by nginx and is more trustworthy
-  const realIp = c.req.header('X-Real-IP')
+function getClientIp(request: Request): string {
+  const realIp = request.headers.get('X-Real-IP')
   if (realIp) {
     return realIp.trim()
   }
 
-  // For X-Forwarded-For, we take the rightmost non-private IP
-  // The rightmost IP is the one added by our most trusted proxy
-  const forwardedFor = c.req.header('X-Forwarded-For')
+  const forwardedFor = request.headers.get('X-Forwarded-For')
   if (forwardedFor) {
-    // Split and reverse to get rightmost first
     const ips = forwardedFor
       .split(',')
       .map((ip) => ip.trim())
       .reverse()
     for (const ip of ips) {
-      // Skip private/local IPs that could be spoofed
       if (ip && !isPrivateIp(ip)) {
         return ip
       }
     }
-    // If all IPs are private, use the last one (closest to us)
     if (ips[0]) return ips[0]
   }
 
@@ -90,7 +83,7 @@ const apiKeyCache = new LRUCache<string, { address: Address; tier: RateTier }>({
 const rateLimiters = {
   FREE: new RateLimiterMemory({
     points: RATE_LIMITS.FREE,
-    duration: 60, // Per minute
+    duration: 60,
     blockDuration: 0,
   }),
   BASIC: new RateLimiterMemory({
@@ -128,7 +121,7 @@ const RPC_STAKING_ABI = [
 ] as const
 
 const STAKING_ADDR = process.env.RPC_STAKING_ADDRESS as Address | undefined
-const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:9545'
+const RPC_URL = process.env.JEJU_RPC_URL || 'http://localhost:6546'
 const CHAIN_ID = Number(process.env.JEJU_CHAIN_ID || 420690)
 
 const chain: Chain = {
@@ -171,17 +164,18 @@ const checkAccess = async (addr: Address): Promise<boolean> => {
     .catch(() => true)
 }
 
-const getUserKey = (c: Context): { key: string; address: Address | null } => {
-  const apiKey = c.req.header('X-Api-Key')
+const getUserKey = (
+  request: Request,
+): { key: string; address: Address | null } => {
+  const apiKey = request.headers.get('X-Api-Key')
   if (apiKey && apiKeyCache.has(apiKey))
     return {
       key: `key:${apiKey}`,
       address: apiKeyCache.get(apiKey)?.address || null,
     }
-  const wallet = c.req.header('X-Wallet-Address') as Address | undefined
+  const wallet = request.headers.get('X-Wallet-Address') as Address | undefined
   if (wallet) return { key: `addr:${wallet.toLowerCase()}`, address: wallet }
-  // Use secure IP extraction that handles proxy header spoofing
-  const ip = getClientIp(c)
+  const ip = getClientIp(request)
   return { key: `ip:${ip}`, address: null }
 }
 
@@ -194,21 +188,36 @@ const rateLimitToTier = (limit: number): RateTier =>
         ? 'BASIC'
         : 'FREE'
 
-export function rateLimiter() {
-  return async (c: Context, next: Next) => {
-    if (c.req.path === '/health' || c.req.path === '/') return next()
+export interface RateLimitInfo {
+  tier: RateTier
+  remaining: number
+  resetAt: number
+}
 
-    const { key, address } = getUserKey(c)
+/**
+ * Elysia rate limiter plugin
+ */
+export const rateLimiterPlugin = new Elysia({ name: 'rate-limiter' })
+  .derive({ as: 'scoped' }, () => ({
+    rateLimit: undefined as RateLimitInfo | undefined,
+  }))
+  .onBeforeHandle(async ({ request, set, path }) => {
+    // Skip rate limiting for health/root
+    if (path === '/health' || path === '/') return
 
+    const { key, address } = getUserKey(request)
+
+    // Whitelist check
     if (address && WHITELIST.has(address.toLowerCase())) {
-      c.set('rateLimit', { tier: 'UNLIMITED', remaining: -1, resetAt: 0 })
-      return next()
+      return
     }
 
     let rateLimit: number = RATE_LIMITS.FREE
     if (address) {
-      if (!(await checkAccess(address)))
-        return c.json({ error: 'Access denied' }, 403)
+      if (!(await checkAccess(address))) {
+        set.status = 403
+        return { error: 'Access denied' }
+      }
       rateLimit = await getContractRateLimit(address)
     }
 
@@ -221,40 +230,71 @@ export function rateLimiter() {
       const remaining = limit === 0 ? -1 : res.remainingPoints
       const resetAt = Date.now() + res.msBeforeNext
 
-      c.header('X-RateLimit-Limit', limit === 0 ? 'unlimited' : String(limit))
-      c.header(
-        'X-RateLimit-Remaining',
-        remaining === -1 ? 'unlimited' : String(remaining),
-      )
-      c.header('X-RateLimit-Reset', String(Math.ceil(resetAt / 1000)))
-      c.header('X-RateLimit-Tier', tier)
-      c.set('rateLimit', { tier, remaining, resetAt })
+      set.headers['X-RateLimit-Limit'] =
+        limit === 0 ? 'unlimited' : String(limit)
+      set.headers['X-RateLimit-Remaining'] =
+        remaining === -1 ? 'unlimited' : String(remaining)
+      set.headers['X-RateLimit-Reset'] = String(Math.ceil(resetAt / 1000))
+      set.headers['X-RateLimit-Tier'] = tier
 
-      return next()
+      // Continue to handler - rateLimit will be available via derive
+      return
     } catch (rejRes) {
       const res = rejRes as RateLimiterRes
       const resetAt = Date.now() + res.msBeforeNext
 
-      c.header('X-RateLimit-Limit', String(limit))
-      c.header('X-RateLimit-Remaining', '0')
-      c.header('X-RateLimit-Reset', String(Math.ceil(resetAt / 1000)))
-      c.header('X-RateLimit-Tier', tier)
-      c.header('Retry-After', String(Math.ceil(res.msBeforeNext / 1000)))
+      set.headers['X-RateLimit-Limit'] = String(limit)
+      set.headers['X-RateLimit-Remaining'] = '0'
+      set.headers['X-RateLimit-Reset'] = String(Math.ceil(resetAt / 1000))
+      set.headers['X-RateLimit-Tier'] = tier
+      set.headers['Retry-After'] = String(Math.ceil(res.msBeforeNext / 1000))
 
-      return c.json(
-        {
-          error: 'Rate limit exceeded',
-          tier,
-          limit,
-          resetAt,
-          retryAfter: Math.ceil(res.msBeforeNext / 1000),
-          upgrade: 'Stake JEJU to increase limit',
-        },
-        429,
-      )
+      set.status = 429
+      return {
+        error: 'Rate limit exceeded',
+        tier,
+        limit,
+        resetAt,
+        retryAfter: Math.ceil(res.msBeforeNext / 1000),
+        upgrade: 'Stake JEJU to increase limit',
+      }
     }
-  }
-}
+  })
+  .resolve(async ({ request, path }) => {
+    // Provide rateLimit info to handlers
+    if (path === '/health' || path === '/') {
+      return { rateLimit: undefined }
+    }
+
+    const { key, address } = getUserKey(request)
+
+    if (address && WHITELIST.has(address.toLowerCase())) {
+      return {
+        rateLimit: {
+          tier: 'UNLIMITED' as RateTier,
+          remaining: -1,
+          resetAt: 0,
+        },
+      }
+    }
+
+    let rateLimit: number = RATE_LIMITS.FREE
+    if (address) {
+      rateLimit = await getContractRateLimit(address)
+    }
+
+    const tier = rateLimitToTier(rateLimit)
+    const limit = RATE_LIMITS[tier]
+    const remaining = limit === 0 ? -1 : limit
+
+    return {
+      rateLimit: {
+        tier,
+        remaining,
+        resetAt: Date.now() + 60000,
+      },
+    }
+  })
 
 export const registerApiKey = (key: string, addr: Address, tier: RateTier) =>
   apiKeyCache.set(key, { address: addr, tier })

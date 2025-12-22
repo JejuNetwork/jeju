@@ -7,7 +7,7 @@ import {
   XCircle,
 } from 'lucide-react'
 import { useState } from 'react'
-import { useAllIntents } from '@/hooks/useIntentAPI'
+import { useAllIntents } from '../../hooks/useIntentAPI'
 
 type IntentStatus =
   | 'open'
@@ -93,6 +93,7 @@ export function IntentsView() {
         {['', 'open', 'pending', 'filled', 'expired'].map((status) => (
           <button
             key={status}
+            type="button"
             onClick={() => setStatusFilter(status)}
             className={`pill ${statusFilter === status ? 'pill-active' : ''}`}
           >
@@ -200,6 +201,7 @@ function IntentCard({ intent }: { intent: Intent }) {
             </div>
           </div>
           <button
+            type="button"
             className="button button-ghost"
             style={{
               flexShrink: 0,

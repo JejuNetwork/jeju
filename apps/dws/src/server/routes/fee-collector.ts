@@ -24,6 +24,8 @@ import {
   parseAbi,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import { recordFeeRequestSchema } from '../../shared/schemas'
+import { expectValid } from '../../shared/validation'
 
 // ============ Types ============
 
@@ -188,11 +190,11 @@ export function createFeeCollectorRouter(): Hono {
 
   // Record fee manually (for services that don't use middleware)
   router.post('/record', async (c) => {
-    const body = (await c.req.json()) as {
-      daoId: string
-      source: string
-      amount: string
-    }
+    const body = expectValid(
+      recordFeeRequestSchema,
+      await c.req.json(),
+      'Record fee request',
+    )
     recordFee(body.daoId, body.source, BigInt(body.amount))
     return c.json({ recorded: true })
   })

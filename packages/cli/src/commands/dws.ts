@@ -22,8 +22,10 @@ import {
 } from '../lib/security'
 import { findMonorepoRoot } from '../lib/system'
 import {
+  CDNHealthResponseSchema,
   CIRunListResponseSchema,
   CIRunSchema,
+  CidResponseSchema,
   CreateRepoResponseSchema,
   PackageInfoSchema,
   PackageSearchResultSchema,
@@ -31,8 +33,9 @@ import {
   RepoSchema,
   ServiceHealthResponseSchema,
   UploadResponseSchema,
-  validate,
   WorkflowListResponseSchema,
+  expectValid,
+  validate,
 } from '../schemas'
 import { createInfrastructureService } from '../services/infrastructure'
 import { DEFAULT_PORTS } from '../types'
@@ -588,6 +591,7 @@ async function downloadFile(
   const parentDir = join(outputPath, '..')
   const resolvedParent = resolve(parentDir)
   if (existsSync(resolvedParent)) {
+    // Dynamic import: only needed when parent directory exists (conditional check)
     const { statSync } = await import('node:fs')
     const parentStat = statSync(resolvedParent)
     if (!parentStat.isDirectory()) {
@@ -598,6 +602,7 @@ async function downloadFile(
 
   // SECURITY: Check output path is not a symlink pointing outside cwd
   if (existsSync(outputPath)) {
+    // Dynamic import: only needed when output path exists (conditional check)
     const { lstatSync, realpathSync } = await import('node:fs')
     const lstat = lstatSync(outputPath)
     if (lstat.isSymbolicLink()) {
@@ -1079,12 +1084,12 @@ async function checkCdnStatus(): Promise<void> {
     })
 
     if (response.ok) {
-      const health = (await response.json()) as {
-        status: string
-        service: string
-        cache?: { entries: number; hitRate: number }
-        edgeNodes?: number
-      }
+      const rawHealth = await response.json()
+      const health = validate(
+        rawHealth,
+        CDNHealthResponseSchema,
+        'CDN health response',
+      )
 
       logger.table([
         {
@@ -1177,7 +1182,7 @@ async function seedDev(): Promise<void> {
         body: file.content,
       })
       if (res.ok) {
-        const { cid } = (await res.json()) as { cid: string }
+        const { cid } = validate(await res.json(), CidResponseSchema, 'upload response')
         logger.success(`${file.name} -> ${cid.slice(0, 16)}...`)
       }
     } catch {
@@ -1278,10 +1283,11 @@ async function selfHost(): Promise<void> {
     })
 
     if (res.ok) {
-      const { repoId, cloneUrl } = (await res.json()) as {
-        repoId: string
-        cloneUrl: string
-      }
+      const { repoId, cloneUrl } = validate(
+        await res.json(),
+        CreateRepoResponseSchema,
+        'repo create response',
+      )
       logger.success('Repository created')
       logger.keyValue('Repo ID', repoId)
       logger.keyValue('Clone URL', cloneUrl)
@@ -1318,7 +1324,7 @@ async function selfHost(): Promise<void> {
     })
 
     if (res.ok) {
-      const { cid } = (await res.json()) as { cid: string }
+      const { cid } = validate(await res.json(), CidResponseSchema, 'upload response')
       logger.success('Frontend uploaded')
       logger.keyValue('Frontend CID', cid)
       logger.newline()

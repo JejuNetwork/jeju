@@ -9,6 +9,17 @@
 
 import type { NetworkType } from '@jejunetwork/types'
 import { getServicesConfig } from '../config'
+import {
+  MCPJsonRpcResponseSchema,
+  MCPPromptGetResponseSchema,
+  MCPPromptsListResponseSchema,
+  MCPResourceContentSchema,
+  MCPResourcesListResponseSchema,
+  MCPResourcesReadResponseSchema,
+  MCPServerSchema,
+  MCPToolResultSchema,
+  MCPToolsListResponseSchema,
+} from '../shared/schemas'
 import type { JsonRecord, JsonValue } from '../shared/types'
 import type { JejuWallet } from '../wallet'
 
@@ -212,12 +223,8 @@ export function createMCPModule(
       throw new Error(`MCP request failed: ${response.statusText}`)
     }
 
-    const result = (await response.json()) as {
-      jsonrpc: string
-      id: number
-      result?: T
-      error?: { code: number; message: string; data?: JsonValue }
-    }
+    const rawData: unknown = await response.json()
+    const result = MCPJsonRpcResponseSchema.parse(rawData)
 
     if (result.error) {
       throw new Error(`MCP error: ${result.error.message}`)
@@ -229,43 +236,41 @@ export function createMCPModule(
   function createServiceClient(baseUrl: string) {
     return {
       async listTools(): Promise<MCPTool[]> {
-        return mcpRequest<{ tools: MCPTool[] }>(baseUrl, 'tools/list').then(
-          (r) => r.tools,
-        )
+        const result = await mcpRequest<unknown>(baseUrl, 'tools/list')
+        const validated = MCPToolsListResponseSchema.parse(result)
+        return validated.tools as MCPTool[]
       },
 
       async callTool(
         toolName: string,
         args: JsonRecord,
       ): Promise<MCPToolResult> {
-        return mcpRequest<MCPToolResult>(baseUrl, 'tools/call', {
+        const result = await mcpRequest<unknown>(baseUrl, 'tools/call', {
           name: toolName,
           arguments: args,
         })
+        return MCPToolResultSchema.parse(result) as MCPToolResult
       },
 
       async listResources(): Promise<MCPResource[]> {
-        return mcpRequest<{ resources: MCPResource[] }>(
-          baseUrl,
-          'resources/list',
-        ).then((r) => r.resources)
+        const result = await mcpRequest<unknown>(baseUrl, 'resources/list')
+        const validated = MCPResourcesListResponseSchema.parse(result)
+        return validated.resources as MCPResource[]
       },
 
       async readResource(uri: string): Promise<MCPResourceContent> {
-        return mcpRequest<{ contents: MCPResourceContent[] }>(
-          baseUrl,
-          'resources/read',
-          {
-            uri,
-          },
-        ).then((r) => r.contents[0])
+        const result = await mcpRequest<unknown>(baseUrl, 'resources/read', {
+          uri,
+        })
+        const validated = MCPResourcesReadResponseSchema.parse(result)
+        return validated.contents[0] as MCPResourceContent
       },
     }
   }
 
   return {
     async discoverServer(endpoint) {
-      return mcpRequest<MCPServer>(endpoint, 'initialize', {
+      const result = await mcpRequest<unknown>(endpoint, 'initialize', {
         protocolVersion: '2024-11-05',
         capabilities: {
           tools: {},
@@ -277,6 +282,7 @@ export function createMCPModule(
           version: '1.0.0',
         },
       })
+      return MCPServerSchema.parse(result) as MCPServer
     },
 
     async listKnownServers() {
@@ -343,35 +349,31 @@ export function createMCPModule(
     },
 
     async listTools(endpoint) {
-      const result = await mcpRequest<{ tools: MCPTool[] }>(
-        endpoint,
-        'tools/list',
-      )
-      return result.tools
+      const result = await mcpRequest<unknown>(endpoint, 'tools/list')
+      const validated = MCPToolsListResponseSchema.parse(result)
+      return validated.tools as MCPTool[]
     },
 
     async callTool(endpoint, toolName, arguments_: JsonRecord) {
-      return mcpRequest<MCPToolResult>(endpoint, 'tools/call', {
+      const result = await mcpRequest<unknown>(endpoint, 'tools/call', {
         name: toolName,
         arguments: arguments_,
       })
+      return MCPToolResultSchema.parse(result) as MCPToolResult
     },
 
     async listResources(endpoint) {
-      const result = await mcpRequest<{ resources: MCPResource[] }>(
-        endpoint,
-        'resources/list',
-      )
-      return result.resources
+      const result = await mcpRequest<unknown>(endpoint, 'resources/list')
+      const validated = MCPResourcesListResponseSchema.parse(result)
+      return validated.resources as MCPResource[]
     },
 
     async readResource(endpoint, uri) {
-      const result = await mcpRequest<{ contents: MCPResourceContent[] }>(
-        endpoint,
-        'resources/read',
-        { uri },
-      )
-      return result.contents[0]
+      const result = await mcpRequest<unknown>(endpoint, 'resources/read', {
+        uri,
+      })
+      const validated = MCPResourcesReadResponseSchema.parse(result)
+      return validated.contents[0] as MCPResourceContent
     },
 
     subscribeResource(endpoint, uri, onChange) {
@@ -406,7 +408,13 @@ export function createMCPModule(
             if (line.startsWith('data: ')) {
               const data = line.slice(6)
               if (data !== '[DONE]') {
-                onChange(JSON.parse(data) as MCPResourceContent)
+                // Use safeParse since individual SSE messages may be malformed
+                const result = MCPResourceContentSchema.safeParse(
+                  JSON.parse(data),
+                )
+                if (result.success) {
+                  onChange(result.data as MCPResourceContent)
+                }
               }
             }
           }
@@ -417,21 +425,21 @@ export function createMCPModule(
     },
 
     async listPrompts(endpoint) {
-      const result = await mcpRequest<{ prompts: MCPPrompt[] }>(
-        endpoint,
-        'prompts/list',
-      )
-      return result.prompts
+      const result = await mcpRequest<unknown>(endpoint, 'prompts/list')
+      const validated = MCPPromptsListResponseSchema.parse(result)
+      return validated.prompts as MCPPrompt[]
     },
 
     async getPrompt(endpoint, promptName, arguments_) {
-      return mcpRequest<{
-        description?: string
-        messages: MCPPromptMessage[]
-      }>(endpoint, 'prompts/get', {
+      const result = await mcpRequest<unknown>(endpoint, 'prompts/get', {
         name: promptName,
         ...(arguments_ && { arguments: arguments_ }),
       })
+      const validated = MCPPromptGetResponseSchema.parse(result)
+      return {
+        description: validated.description,
+        messages: validated.messages as MCPPromptMessage[],
+      }
     },
 
     factory: createServiceClient(factoryMcpUrl),

@@ -1,19 +1,19 @@
 /**
  * Faucet Page
+ *
+ * Uses the typed Eden Treaty client for API calls.
  */
 
 import { useCallback, useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
+import type { Address } from 'viem'
 import { useAccount } from 'wagmi'
-import {
-  type FaucetClaimResult,
-  FaucetClaimResultSchema,
-  type FaucetInfo,
-  FaucetInfoSchema,
-  type FaucetStatus,
-  FaucetStatusSchema,
-  parseJsonResponse,
-} from '../../lib/faucet'
+import { claimFaucet, getFaucetInfo, getFaucetStatus } from '../../lib/api'
+import type {
+  FaucetClaimResult,
+  FaucetInfo,
+  FaucetStatus,
+} from '../../lib/client'
 
 function formatTime(ms: number): string {
   const hours = Math.floor(ms / 3600000)
@@ -23,8 +23,6 @@ function formatTime(ms: number): string {
   }
   return `${minutes}m`
 }
-
-const API_BASE = process.env.PUBLIC_API_URL || 'http://localhost:4007'
 
 function useFaucet() {
   const { address } = useAccount()
@@ -40,31 +38,25 @@ function useFaucet() {
     setLoading(true)
     setError(null)
 
-    const response = await fetch(`${API_BASE}/api/faucet/status/${address}`)
-    if (!response.ok) {
-      setError('Failed to fetch faucet status')
+    try {
+      const data = await getFaucetStatus(address as Address)
+      setStatus(data)
+    } catch (err) {
+      setError(
+        err instanceof Error ? err.message : 'Failed to fetch faucet status',
+      )
+    } finally {
       setLoading(false)
-      return
     }
-    const result = await parseJsonResponse(response, FaucetStatusSchema)
-    if (!result.success) {
-      setError('Invalid faucet status response')
-      setLoading(false)
-      return
-    }
-    setStatus(result.data)
-    setLoading(false)
   }, [address])
 
   const fetchInfo = useCallback(async () => {
-    const response = await fetch(`${API_BASE}/api/faucet/info`)
-    if (!response.ok) return
-    const result = await parseJsonResponse(response, FaucetInfoSchema)
-    if (!result.success) {
-      console.error('Invalid faucet info response:', result.error)
-      return
+    try {
+      const data = await getFaucetInfo()
+      setInfo(data)
+    } catch (err) {
+      console.error('Failed to fetch faucet info:', err)
     }
-    setInfo(result.data)
   }, [])
 
   const claim = useCallback(async () => {
@@ -72,21 +64,19 @@ function useFaucet() {
     setClaiming(true)
     setClaimResult(null)
 
-    const response = await fetch(`${API_BASE}/api/faucet/claim`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ address }),
-    })
-    const result = await parseJsonResponse(response, FaucetClaimResultSchema)
-    if (!result.success) {
-      setClaimResult({ success: false, error: 'Invalid claim response' })
+    try {
+      const result = await claimFaucet(address as Address)
+      setClaimResult(result)
+      if (result.success) {
+        await fetchStatus()
+      }
+    } catch (err) {
+      setClaimResult({
+        success: false,
+        error: err instanceof Error ? err.message : 'Claim failed',
+      })
+    } finally {
       setClaiming(false)
-      return
-    }
-    setClaimResult(result.data)
-    setClaiming(false)
-    if (result.data.success) {
-      await fetchStatus()
     }
   }, [address, fetchStatus])
 
@@ -150,6 +140,7 @@ export default function FaucetPage() {
             <h1 className="text-xl font-bold">{info?.name || 'JEJU Faucet'}</h1>
           </div>
           <button
+            type="button"
             className="btn btn-secondary p-2"
             onClick={refresh}
             disabled={loading}
@@ -268,6 +259,7 @@ export default function FaucetPage() {
         )}
 
         <button
+          type="button"
           className="btn btn-primary w-full py-3 font-semibold"
           onClick={claim}
           disabled={!status?.eligible || claiming || loading}
@@ -328,6 +320,7 @@ export default function FaucetPage() {
 
       <div className="card p-4">
         <button
+          type="button"
           className="flex items-center justify-between w-full"
           onClick={() => setShowApiDocs(!showApiDocs)}
         >

@@ -12,6 +12,7 @@
  * 5. Repeat until FINISH or max iterations
  */
 
+import { z } from 'zod'
 import {
   type CrucibleAgentRuntime,
   checkDWSHealth,
@@ -28,6 +29,16 @@ import type {
 } from './types'
 
 const log = createLogger('AutonomousTick')
+
+/** Schema for raw LLM decision parsing - accepts various field names LLMs might use */
+const RawLLMDecisionSchema = z.object({
+  isFinish: z.boolean().optional(),
+  is_finish: z.boolean().optional(),
+  action: z.string().optional(),
+  parameters: z.record(z.string(), z.unknown()).optional(),
+  thought: z.string().optional(),
+  reasoning: z.string().optional(),
+})
 
 /**
  * Result of an autonomous tick
@@ -414,21 +425,32 @@ export class AutonomousTick {
       return null
     }
 
+    let raw: unknown
     try {
-      const parsed = JSON.parse(jsonMatch[0]) as Record<string, unknown>
-
-      return {
-        isFinish: Boolean(parsed.isFinish ?? parsed.is_finish ?? false),
-        action: parsed.action as string | undefined,
-        parameters: parsed.parameters as Record<string, unknown> | undefined,
-        thought: (parsed.thought ?? parsed.reasoning ?? '') as string,
-      }
+      raw = JSON.parse(jsonMatch[0])
     } catch (e) {
       log.warn('Failed to parse decision JSON', {
         error: String(e),
         json: jsonMatch[0].substring(0, 200),
       })
       return null
+    }
+
+    // Validate with schema - LLM output can be unpredictable
+    const parseResult = RawLLMDecisionSchema.safeParse(raw)
+    if (!parseResult.success) {
+      log.warn('Invalid decision JSON structure', {
+        errors: parseResult.error.issues.map((i) => i.message).join(', '),
+      })
+      return null
+    }
+
+    const parsed = parseResult.data
+    return {
+      isFinish: Boolean(parsed.isFinish ?? parsed.is_finish ?? false),
+      action: parsed.action,
+      parameters: parsed.parameters,
+      thought: (parsed.thought ?? parsed.reasoning ?? '') as string,
     }
   }
 

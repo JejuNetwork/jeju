@@ -1,6 +1,7 @@
 import { AddressSchema } from '@jejunetwork/types'
-import { expect } from '@/lib/validation'
+import { z } from 'zod'
 import { INDEXER_URL as CONFIG_INDEXER_URL } from '../config'
+import { expect, expectValid } from './validation'
 
 const INDEXER_URL = CONFIG_INDEXER_URL
 
@@ -16,10 +17,17 @@ function sanitizeLimit(
   return Math.min(limit, MAX_LIMIT)
 }
 
-interface GraphQLResponse<T> {
-  data?: T
-  errors?: Array<{ message: string }>
-}
+// Schema for base GraphQL response validation
+const BaseGraphQLResponseSchema = z.object({
+  data: z.unknown().optional(),
+  errors: z
+    .array(
+      z.object({
+        message: z.string(),
+      }),
+    )
+    .optional(),
+})
 
 async function graphqlQuery<T>(
   query: string,
@@ -38,7 +46,6 @@ async function graphqlQuery<T>(
       query,
       variables,
     }),
-    next: { revalidate: 4 }, // Revalidate every 4 seconds for fresh data
   })
 
   if (!response.ok) {
@@ -47,13 +54,20 @@ async function graphqlQuery<T>(
     )
   }
 
-  const json = (await response.json()) as GraphQLResponse<T>
+  const json = expectValid(
+    BaseGraphQLResponseSchema,
+    await response.json(),
+    'GraphQL response',
+  )
 
   if (json.errors) {
     throw new Error(`GraphQL Error: ${json.errors[0].message}`)
   }
 
-  const data = expect(json.data, 'No data returned from GraphQL query')
+  const data = expect(
+    json.data as T | undefined,
+    'No data returned from GraphQL query',
+  )
 
   return data
 }

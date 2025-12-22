@@ -2,8 +2,14 @@
  * AI Agents Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
+import {
+  AgentIdParamSchema,
+  AgentsQuerySchema,
+  CreateAgentBodySchema,
+  expectValid,
+} from '../schemas'
 import { crucibleService } from '../services/crucible'
 import { requireAuth } from '../validation/access-control'
 
@@ -28,23 +34,22 @@ export const agentsRoutes = new Elysia({ prefix: '/api/agents' })
   .get(
     '/',
     async ({ query }) => {
+      const validated = expectValid(AgentsQuerySchema, query, 'query params')
       const agents = await crucibleService.getAgents({
-        capability: query.q,
+        capability: validated.q,
         active:
-          query.status === 'active'
+          validated.status === 'active'
             ? true
-            : query.status === 'inactive'
+            : validated.status === 'inactive'
               ? false
               : undefined,
       })
-      return agents
+      return agents.map((agent) => ({
+        ...agent,
+        agentId: agent.agentId.toString(),
+      }))
     },
     {
-      query: t.Object({
-        type: t.Optional(t.String()),
-        status: t.Optional(t.String()),
-        q: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['agents'],
         summary: 'List agents',
@@ -61,12 +66,13 @@ export const agentsRoutes = new Elysia({ prefix: '/api/agents' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
-      // Mock agent creation - in production would call crucibleService.deployAgent
+      const validated = expectValid(CreateAgentBodySchema, body, 'request body')
+
       const agent: Agent = {
         agentId: BigInt(Date.now()),
         owner: authResult.address,
-        name: body.name,
-        botType: body.type,
+        name: validated.name,
+        botType: validated.type,
         characterCid: null,
         stateCid: 'ipfs://...',
         vaultAddress: '0x0000000000000000000000000000000000000000' as Address,
@@ -86,16 +92,6 @@ export const agentsRoutes = new Elysia({ prefix: '/api/agents' })
       }
     },
     {
-      body: t.Object({
-        name: t.String({ minLength: 1, maxLength: 100 }),
-        type: t.Union([
-          t.Literal('ai_agent'),
-          t.Literal('trading_bot'),
-          t.Literal('org_tool'),
-        ]),
-        config: t.Record(t.String(), t.Any()),
-        modelId: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['agents'],
         summary: 'Deploy agent',
@@ -106,7 +102,8 @@ export const agentsRoutes = new Elysia({ prefix: '/api/agents' })
   .get(
     '/:agentId',
     async ({ params }) => {
-      const agent = await crucibleService.getAgent(BigInt(params.agentId))
+      const validated = expectValid(AgentIdParamSchema, params, 'params')
+      const agent = await crucibleService.getAgent(BigInt(validated.agentId))
       if (!agent) {
         return { error: 'Agent not found' }
       }
@@ -116,9 +113,6 @@ export const agentsRoutes = new Elysia({ prefix: '/api/agents' })
       }
     },
     {
-      params: t.Object({
-        agentId: t.String(),
-      }),
       detail: {
         tags: ['agents'],
         summary: 'Get agent',

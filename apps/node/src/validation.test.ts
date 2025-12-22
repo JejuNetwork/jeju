@@ -339,7 +339,7 @@ describe('RuntimeConfigSchema', () => {
   test('validates localnet network', () => {
     const valid = {
       network: 'localnet',
-      rpcUrl: 'http://127.0.0.1:9545',
+      rpcUrl: 'http://127.0.0.1:6546',
       chainId: 1337,
       autoClaim: false,
       autoStake: false,

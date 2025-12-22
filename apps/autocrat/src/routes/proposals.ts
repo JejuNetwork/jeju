@@ -3,7 +3,13 @@
  */
 
 import { Elysia, t } from 'elysia'
+import { createAutocratA2AServer } from '../a2a-server'
 import { getProposalAssistant, type ProposalDraft } from '../proposal-assistant'
+import {
+  A2AJsonRpcResponseSchema,
+  expectValid,
+  extractA2AData,
+} from '../schemas'
 import { blockchain, config } from '../shared-state'
 import type { CasualProposalCategory, ProposalType } from '../types'
 
@@ -14,7 +20,7 @@ function toProposalDraft(raw: {
   title: string
   summary: string
   description: string
-  proposalType: ProposalType
+  proposalType: number
   casualCategory?: string
   targetContract?: `0x${string}`
   calldata?: `0x${string}`
@@ -28,7 +34,7 @@ function toProposalDraft(raw: {
     title: raw.title,
     summary: raw.summary,
     description: raw.description,
-    proposalType: raw.proposalType,
+    proposalType: raw.proposalType as ProposalType,
     casualCategory: raw.casualCategory as CasualProposalCategory | undefined,
     targetContract: raw.targetContract,
     callData: raw.calldata,
@@ -44,8 +50,6 @@ async function callA2AInternal(
   skillId: string,
   params: Record<string, unknown> = {},
 ) {
-  // Import the A2A server to make internal calls
-  const { createAutocratA2AServer } = await import('../a2a-server')
   const a2aServer = createAutocratA2AServer(config, blockchain)
 
   const response = await a2aServer.getRouter().fetch(
@@ -65,16 +69,15 @@ async function callA2AInternal(
       }),
     }),
   )
-  const result = (await response.json()) as {
-    result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }
-    error?: { message: string }
-  }
-  if (result.error) {
-    throw new Error(`A2A call failed: ${result.error.message}`)
-  }
-  const parts = result.result?.parts
-  const dataPart = parts?.find((p) => p.kind === 'data')
-  return dataPart?.data ?? {}
+  const result = expectValid(
+    A2AJsonRpcResponseSchema,
+    await response.json(),
+    `A2A internal ${skillId}`,
+  )
+  return extractA2AData<Record<string, unknown>>(
+    result,
+    `A2A internal ${skillId}`,
+  )
 }
 
 export const proposalsRoutes = new Elysia({ prefix: '/api/v1/proposals' })
@@ -104,7 +107,12 @@ export const proposalsRoutes = new Elysia({ prefix: '/api/v1/proposals' })
   .post(
     '/assess',
     async ({ body }) => {
-      const draft = toProposalDraft(body)
+      const draft = toProposalDraft({
+        ...body,
+        proposalType: body.proposalType as ProposalType,
+        targetContract: body.targetContract as `0x${string}` | undefined,
+        calldata: body.calldata as `0x${string}` | undefined,
+      })
       const assessment = await proposalAssistant.assessQuality(draft)
       return assessment
     },
@@ -129,7 +137,10 @@ export const proposalsRoutes = new Elysia({ prefix: '/api/v1/proposals' })
   .post(
     '/check-duplicates',
     async ({ body }) => {
-      const draft = toProposalDraft(body)
+      const draft = toProposalDraft({
+        ...body,
+        proposalType: body.proposalType as ProposalType,
+      })
       const duplicates = await proposalAssistant.checkDuplicates(draft)
       return { duplicates }
     },
@@ -147,10 +158,21 @@ export const proposalsRoutes = new Elysia({ prefix: '/api/v1/proposals' })
   .post(
     '/improve',
     async ({ body }) => {
-      const draft = toProposalDraft(body.draft)
+      const draft = toProposalDraft({
+        ...body.draft,
+        proposalType: body.draft.proposalType as ProposalType,
+      })
+      type QualityCriterion =
+        | 'clarity'
+        | 'completeness'
+        | 'feasibility'
+        | 'alignment'
+        | 'impact'
+        | 'riskAssessment'
+        | 'costBenefit'
       const improved = await proposalAssistant.improveProposal(
         draft,
-        body.criterion,
+        body.criterion as QualityCriterion,
       )
       return { improved }
     },
@@ -191,7 +213,10 @@ export const proposalsRoutes = new Elysia({ prefix: '/api/v1/proposals' })
   .post(
     '/quick-score',
     async ({ body }) => {
-      const draft = toProposalDraft(body)
+      const draft = toProposalDraft({
+        ...body,
+        proposalType: body.proposalType as ProposalType,
+      })
       const score = proposalAssistant.quickScore(draft)
       const contentHash = proposalAssistant.getContentHash(draft)
       return {

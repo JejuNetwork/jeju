@@ -21,6 +21,11 @@ import {
   KMSProviderType,
   resetKMS,
 } from './index'
+import {
+  roleGatedPolicy,
+  stakeGatedPolicy,
+  timeLockedPolicy,
+} from './sdk/encrypt'
 
 describe('KMS Service', () => {
   beforeEach(async () => {
@@ -489,7 +494,7 @@ describe('KMS Service', () => {
       const retrieved = kms.getKey(generated.metadata.id)
 
       expect(retrieved).not.toBeNull()
-      expect(retrieved!.id).toBe(generated.metadata.id)
+      expect(retrieved?.id).toBe(generated.metadata.id)
     })
 
     it('should return null for non-existent key', () => {
@@ -622,8 +627,7 @@ describe('SDK Functions', () => {
 
   afterEach(() => resetKMS())
 
-  it('should create time-locked policy with future timestamp', async () => {
-    const { timeLockedPolicy } = await import('./sdk/encrypt')
+  it('should create time-locked policy with future timestamp', () => {
     const futureTime = Math.floor(Date.now() / 1000) + 3600
 
     const policy = timeLockedPolicy('base-sepolia', futureTime)
@@ -634,17 +638,14 @@ describe('SDK Functions', () => {
     expect(policy.operator).toBe('and')
   })
 
-  it('should create time-locked policy with past timestamp (already unlocked)', async () => {
-    const { timeLockedPolicy } = await import('./sdk/encrypt')
+  it('should create time-locked policy with past timestamp (already unlocked)', () => {
     const pastTime = Math.floor(Date.now() / 1000) - 3600
 
     const policy = timeLockedPolicy('base-sepolia', pastTime)
     expect((policy.conditions[0] as { value: number }).value).toBe(pastTime)
   })
 
-  it('should create stake-gated policy with minimum stake', async () => {
-    const { stakeGatedPolicy } = await import('./sdk/encrypt')
-
+  it('should create stake-gated policy with minimum stake', () => {
     const policy = stakeGatedPolicy(
       '0x0000000000000000000000000000000000000001',
       'base-sepolia',
@@ -658,9 +659,7 @@ describe('SDK Functions', () => {
     )
   })
 
-  it('should create stake-gated policy with zero minimum', async () => {
-    const { stakeGatedPolicy } = await import('./sdk/encrypt')
-
+  it('should create stake-gated policy with zero minimum', () => {
     const policy = stakeGatedPolicy(
       '0x0000000000000000000000000000000000000001',
       'base-sepolia',
@@ -672,9 +671,7 @@ describe('SDK Functions', () => {
     )
   })
 
-  it('should create role-gated policy', async () => {
-    const { roleGatedPolicy } = await import('./sdk/encrypt')
-
+  it('should create role-gated policy', () => {
     const policy = roleGatedPolicy(
       '0x0000000000000000000000000000000000000001',
       'base-sepolia',
@@ -686,9 +683,7 @@ describe('SDK Functions', () => {
     expect((policy.conditions[0] as { role: string }).role).toBe('ADMIN')
   })
 
-  it('should create role-gated policy with custom role name', async () => {
-    const { roleGatedPolicy } = await import('./sdk/encrypt')
-
+  it('should create role-gated policy with custom role name', () => {
     const policy = roleGatedPolicy(
       '0x0000000000000000000000000000000000000001',
       'mainnet',
@@ -754,8 +749,8 @@ describe('Edge Cases', () => {
     })
 
     expect(encrypted.metadata).toBeDefined()
-    expect(encrypted.metadata!.custom).toBe('metadata')
-    expect(encrypted.metadata!.purpose).toBe('testing')
+    expect(encrypted.metadata?.custom).toBe('metadata')
+    expect(encrypted.metadata?.purpose).toBe('testing')
   })
 
   it('should handle chain parameter variations', async () => {

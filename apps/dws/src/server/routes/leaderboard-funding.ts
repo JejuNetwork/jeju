@@ -21,6 +21,11 @@ import {
   parseAbi,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
+import {
+  leaderboardPreviewRequestSchema,
+  leaderboardSyncRequestSchema,
+} from '../../shared/schemas'
+import { expectValid } from '../../shared/validation'
 
 // ============ Types ============
 
@@ -218,21 +223,25 @@ export function createLeaderboardFundingRouter(): Hono {
 
   // Trigger sync
   router.post('/sync', async (c) => {
-    const body = (await c.req.json()) as { daoId: string; limit?: number }
+    const body = expectValid(
+      leaderboardSyncRequestSchema,
+      await c.req.json(),
+      'Leaderboard sync request',
+    )
 
-    if (!body.daoId) {
-      return c.json({ error: 'daoId required' }, 400)
-    }
-
-    const result = await syncLeaderboardToFunding(body.daoId, body.limit || 50)
+    const result = await syncLeaderboardToFunding(body.daoId, body.limit ?? 50)
     return c.json(result)
   })
 
   // Preview sync (dry run)
   router.post('/preview', async (c) => {
-    const body = (await c.req.json()) as { limit?: number }
+    const body = expectValid(
+      leaderboardPreviewRequestSchema,
+      await c.req.json(),
+      'Leaderboard preview request',
+    )
 
-    const leaderboard = await fetchLeaderboard(body.limit || 50)
+    const leaderboard = await fetchLeaderboard(body.limit ?? 50)
     if (leaderboard.length === 0) {
       return c.json({ contributors: [], maxScore: 0 })
     }

@@ -203,6 +203,8 @@ export class WorkAgreementService {
       )?.[0] || '0'
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'createAgreement',
@@ -226,6 +228,8 @@ export class WorkAgreementService {
     if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'signAgreement',
@@ -237,6 +241,8 @@ export class WorkAgreementService {
     if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'pauseAgreement',
@@ -248,6 +254,8 @@ export class WorkAgreementService {
     if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'resumeAgreement',
@@ -259,6 +267,8 @@ export class WorkAgreementService {
     if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'terminateAgreement',
@@ -278,6 +288,8 @@ export class WorkAgreementService {
     if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'addMilestone',
@@ -293,6 +305,8 @@ export class WorkAgreementService {
     if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'completeMilestone',
@@ -307,6 +321,8 @@ export class WorkAgreementService {
     if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'approveMilestone',
@@ -320,6 +336,8 @@ export class WorkAgreementService {
     if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'processPayment',
@@ -337,6 +355,8 @@ export class WorkAgreementService {
     if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'raiseDispute',
@@ -351,6 +371,8 @@ export class WorkAgreementService {
     if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'voteOnDispute',
@@ -362,6 +384,8 @@ export class WorkAgreementService {
     if (!this.walletClient) throw new Error('Wallet client required')
 
     return await this.walletClient.writeContract({
+      chain: this.walletClient.chain,
+      account: this.walletClient.account ?? null,
       address: this.registryAddress,
       abi: WORK_AGREEMENT_REGISTRY_ABI,
       functionName: 'escalateToFutarchy',

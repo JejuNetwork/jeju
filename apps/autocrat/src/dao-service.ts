@@ -3,6 +3,7 @@
  * Handles all DAO operations including creation, configuration, and state management
  */
 
+import { expectTrue as expect, expectDefined } from '@jejunetwork/types'
 import {
   type Account,
   type Address,
@@ -15,23 +16,14 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
-import { expect, expectDefined } from './schemas'
 import type {
   CEOPersona,
   CouncilMemberConfig,
   DAOStatus,
   FundingConfig,
+  FundingStatus,
   GovernanceParams,
 } from './types'
-
-// Re-export types for convenience
-export type {
-  CEOPersona,
-  GovernanceParams,
-  CouncilMemberConfig,
-  FundingConfig,
-  DAOStatus,
-}
 
 // Internal types
 export interface DAO {
@@ -73,7 +65,7 @@ export interface FundingProject {
   ceoWeight: number
   communityStake: bigint
   totalFunded: bigint
-  status: number
+  status: FundingStatus
   createdAt: number
   lastFundedAt: number
   proposer: Address
@@ -1843,7 +1835,7 @@ export class DAOService {
       ceoWeight: Number(raw.ceoWeight),
       communityStake: raw.communityStake,
       totalFunded: raw.totalFunded,
-      status: raw.status,
+      status: raw.status as FundingStatus,
       createdAt: Number(raw.createdAt),
       lastFundedAt: Number(raw.lastFundedAt),
       proposer: raw.proposer,

@@ -10,14 +10,7 @@
  * - Secret distribution to TEE enclaves
  */
 
-import {
-  type Address,
-  createPublicClient,
-  createWalletClient,
-  http,
-  type PublicClient,
-} from 'viem'
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
+import { type Address, createPublicClient, http, type PublicClient } from 'viem'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import {
   estimateLatency,
@@ -136,7 +129,6 @@ const DEFAULT_CONFIG: Partial<CoordinatorConfig> = {
 export class RegionalTEECoordinator {
   private config: CoordinatorConfig
   private publicClient: PublicClient
-  private account: PrivateKeyAccount | null = null
 
   // Node tracking
   private nodes = new Map<string, TEEWorkerNode>() // agentId -> node
@@ -161,15 +153,6 @@ export class RegionalTEECoordinator {
       chain,
       transport: http(config.rpcUrl),
     }) as PublicClient
-
-    if (config.privateKey) {
-      this.account = privateKeyToAccount(config.privateKey)
-      this.walletClient = createWalletClient({
-        account: this.account,
-        chain,
-        transport: http(config.rpcUrl),
-      })
-    }
   }
 
   private inferChain(rpcUrl: string) {
@@ -984,7 +967,7 @@ export function createCoordinator(
   const rpcUrl =
     options?.rpcUrl ??
     process.env.RPC_URL ??
-    (environment === 'localnet' ? 'http://localhost:9545' : undefined)
+    (environment === 'localnet' ? 'http://localhost:6546' : undefined)
 
   if (!rpcUrl) {
     throw new Error('RPC_URL required')

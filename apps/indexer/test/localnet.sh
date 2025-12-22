@@ -15,9 +15,9 @@ cd "$(dirname "$0")"
 echo "1️⃣  LOCALNET STATUS"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
-if curl -s http://localhost:9545 -X POST -H "Content-Type: application/json" \
+if curl -s http://localhost:6546 -X POST -H "Content-Type: application/json" \
     -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' | grep -q "result"; then
-    BLOCK_NUM=$(curl -s http://localhost:9545 -X POST -H "Content-Type: application/json" \
+    BLOCK_NUM=$(curl -s http://localhost:6546 -X POST -H "Content-Type: application/json" \
         -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' | grep -o '"result":"[^"]*"' | cut -d'"' -f4)
     echo "   ✅ Localnet RPC responding"
     echo "   📊 Current block: $BLOCK_NUM"
@@ -36,12 +36,12 @@ cat > .env << EOF
 DB_NAME=indexer
 DB_PORT=23798
 GQL_PORT=4350
-RPC_ETH_HTTP=http://localhost:9545
+RPC_ETH_HTTP=http://localhost:6546
 START_BLOCK=0
 CHAIN_ID=42069
 EOF
 
-echo "   ✅ Configured for localnet (http://localhost:9545)"
+echo "   ✅ Configured for localnet (http://localhost:6546)"
 
 # Step 3: Setup database
 echo ""

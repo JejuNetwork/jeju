@@ -3,7 +3,17 @@
  * Single source of truth for all network services
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import { z } from 'zod'
+import {
+  BundlerEstimateGasResponseSchema,
+  BundlerReceiptResponseSchema,
+  BundlerSendUserOpResponseSchema,
+  GraphQLResponseSchema,
+  IndexerBlocksResponseSchema,
+  IndexerHealthResponseSchema,
+} from '../../schemas/api-responses'
 
 // Network infrastructure URLs
 const INDEXER_URL =
@@ -13,27 +23,164 @@ const GRAPHQL_URL =
 const BUNDLER_URL =
   import.meta.env.VITE_JEJU_BUNDLER_URL || 'http://localhost:4337'
 
-// GraphQL query helper
-async function graphql<T>(
+// GraphQL query helper with schema validation
+async function graphql<T extends z.ZodTypeAny>(
   query: string,
+  dataSchema: T,
+  context: string,
   variables?: Record<string, unknown>,
-): Promise<T> {
+): Promise<z.infer<T>> {
   const response = await fetch(GRAPHQL_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query, variables }),
   })
-  const { data, errors } = await response.json()
-  if (errors?.length) throw new Error(errors[0].message)
-  return data
+  const validated = expectValid(
+    GraphQLResponseSchema(dataSchema),
+    await response.json(),
+    context,
+  )
+  if (validated.errors?.length) throw new Error(validated.errors[0].message)
+  if (!validated.data)
+    throw new Error(`No data in GraphQL response for ${context}`)
+  return validated.data
 }
 
-// REST API helper
-async function api<T>(endpoint: string): Promise<T> {
+// REST API helper with schema validation
+async function api<T>(
+  endpoint: string,
+  schema: z.ZodSchema<T>,
+  context: string,
+): Promise<T> {
   const response = await fetch(`${INDEXER_URL}${endpoint}`)
   if (!response.ok) throw new Error(`API error: ${response.status}`)
-  return response.json()
+  return expectValid(schema, await response.json(), context)
 }
+
+// ============================================================================
+// GraphQL Response Schemas
+// ============================================================================
+
+const GraphQLTransactionResponseSchema = z.object({
+  hash: z.string(),
+  from: z.object({ address: z.string() }),
+  to: z.object({ address: z.string() }).nullable(),
+  value: z.string(),
+  blockNumber: z.number(),
+  timestamp: z.string().optional(),
+  status: z.enum(['SUCCESS', 'FAILURE', 'PENDING']),
+  gasUsed: z.string().nullable(),
+  input: z.string().nullable(),
+})
+
+const TransactionsDataSchema = z.object({
+  transactions: z.array(GraphQLTransactionResponseSchema),
+})
+
+const TokenTransferSchema = z.object({
+  token: z.string(),
+  tokenSymbol: z.string(),
+  from: z.string(),
+  to: z.string(),
+  value: z.string(),
+  txHash: z.string().default(''),
+  timestamp: z.string(),
+})
+
+const TokenTransfersDataSchema = z.object({
+  tokenTransfers: z.array(TokenTransferSchema),
+})
+
+const TokenBalanceItemSchema = z.object({
+  token: z.string(),
+  symbol: z.string(),
+  decimals: z.number(),
+  balance: z.string(),
+})
+
+const TokenBalancesDataSchema = z.object({
+  tokenBalances: z.array(TokenBalanceItemSchema),
+})
+
+const NFTTokenSchema = z.object({
+  contractAddress: z.string().optional(),
+  tokenId: z.string(),
+  owner: z.string().optional(),
+  tokenUri: z.string().nullable(),
+  metadata: z
+    .object({
+      name: z.string().optional(),
+      description: z.string().optional(),
+      image: z.string().optional(),
+      attributes: z
+        .array(z.object({ trait_type: z.string(), value: z.string() }))
+        .optional(),
+    })
+    .nullable(),
+})
+
+const NFTsDataSchema = z.object({
+  nftTokens: z.array(NFTTokenSchema),
+})
+
+const ApprovalEventSchema = z.object({
+  token: z.string(),
+  tokenSymbol: z.string(),
+  spender: z.string(),
+  value: z.string(),
+  txHash: z.string().default(''),
+  timestamp: z.string(),
+})
+
+const ApprovalsDataSchema = z.object({
+  approvalEvents: z.array(ApprovalEventSchema),
+})
+
+const OracleFeedSchema = z.object({
+  symbol: z.string(),
+  latestPrice: z.string(),
+  decimals: z.number(),
+  latestTimestamp: z.string(),
+  latestConfidence: z.string(),
+})
+
+const OracleFeedsDataSchema = z.object({
+  oracleFeeds: z.array(OracleFeedSchema),
+})
+
+const GasPriceOracleSchema = z.object({
+  oracleFeeds: z.array(z.object({ latestPrice: z.string() })),
+})
+
+const IntentSchema = z.object({
+  id: z.string(),
+  user: z.string(),
+  inputToken: z.string(),
+  inputAmount: z.string(),
+  outputToken: z.string(),
+  minOutputAmount: z.string(),
+  sourceChainId: z.number(),
+  destinationChainId: z.number(),
+  status: z.enum(['PENDING', 'FILLED', 'SETTLED', 'EXPIRED', 'CANCELLED']),
+  solver: z.string().optional(),
+  filledAmount: z.string().optional(),
+  createdAt: z.string(),
+})
+
+const IntentsDataSchema = z.object({
+  oifIntents: z.array(IntentSchema),
+})
+
+const SolverSchema = z.object({
+  address: z.string(),
+  reputation: z.number(),
+  supportedChains: z.array(z.number()),
+  totalFills: z.number(),
+})
+
+const SolversDataSchema = z.object({
+  oifSolvers: z.array(SolverSchema),
+})
 
 // ============================================================================
 // Account & Transaction History
@@ -43,19 +190,6 @@ export interface IndexedTransaction {
   hash: string
   from: string
   to: string | null
-  value: string
-  blockNumber: number
-  timestamp: string
-  status: 'SUCCESS' | 'FAILURE' | 'PENDING'
-  gasUsed: string | null
-  input: string | null
-}
-
-// GraphQL response type - the nested structure returned by the query
-interface GraphQLTransactionResponse {
-  hash: string
-  from: { address: string }
-  to: { address: string } | null
   value: string
   blockNumber: number
   timestamp: string
@@ -85,7 +219,7 @@ export async function getAccountHistory(
   address: Address,
   limit = 50,
 ): Promise<IndexedTransaction[]> {
-  const data = await graphql<{ transactions: GraphQLTransactionResponse[] }>(
+  const data = await graphql(
     `
     query GetHistory($address: String!, $limit: Int!) {
       transactions(
@@ -104,6 +238,8 @@ export async function getAccountHistory(
       }
     }
   `,
+    TransactionsDataSchema,
+    'getAccountHistory',
     { address: address.toLowerCase(), limit },
   )
 
@@ -113,7 +249,7 @@ export async function getAccountHistory(
     to: tx.to?.address ?? null,
     value: tx.value,
     blockNumber: tx.blockNumber,
-    timestamp: tx.timestamp,
+    timestamp: tx.timestamp ?? '',
     status: tx.status,
     gasUsed: tx.gasUsed,
     input: tx.input,
@@ -124,7 +260,7 @@ export async function getTokenTransfers(
   address: Address,
   limit = 50,
 ): Promise<TokenTransfer[]> {
-  const data = await graphql<{ tokenTransfers: TokenTransfer[] }>(
+  const data = await graphql(
     `
     query GetTransfers($address: String!, $limit: Int!) {
       tokenTransfers(
@@ -142,6 +278,8 @@ export async function getTokenTransfers(
       }
     }
   `,
+    TokenTransfersDataSchema,
+    'getTokenTransfers',
     { address: address.toLowerCase(), limit },
   )
 
@@ -151,7 +289,7 @@ export async function getTokenTransfers(
 export async function getTokenBalances(
   address: Address,
 ): Promise<TokenBalance[]> {
-  const data = await graphql<{ tokenBalances: TokenBalance[] }>(
+  const data = await graphql(
     `
     query GetBalances($address: String!) {
       tokenBalances(where: { account: { address_eq: $address }, balance_gt: "0" }) {
@@ -160,6 +298,8 @@ export async function getTokenBalances(
       }
     }
   `,
+    TokenBalancesDataSchema,
+    'getTokenBalances',
     { address: address.toLowerCase() },
   )
 
@@ -184,7 +324,7 @@ export interface IndexedNFT {
 }
 
 export async function getNFTs(address: Address): Promise<IndexedNFT[]> {
-  const data = await graphql<{ nftTokens: IndexedNFT[] }>(
+  const data = await graphql(
     `
     query GetNFTs($address: String!) {
       nftTokens(where: { owner: { address_eq: $address } }) {
@@ -196,10 +336,18 @@ export async function getNFTs(address: Address): Promise<IndexedNFT[]> {
       }
     }
   `,
+    NFTsDataSchema,
+    'getNFTs',
     { address: address.toLowerCase() },
   )
 
-  return data.nftTokens
+  return data.nftTokens.map((nft) => ({
+    contractAddress: nft.contractAddress ?? '',
+    tokenId: nft.tokenId,
+    owner: nft.owner ?? '',
+    tokenUri: nft.tokenUri,
+    metadata: nft.metadata,
+  }))
 }
 
 // ============================================================================
@@ -219,7 +367,7 @@ export async function getApprovals(
   address: Address,
 ): Promise<IndexedApproval[]> {
   // Query approval events from indexer
-  const data = await graphql<{ approvalEvents: IndexedApproval[] }>(
+  const data = await graphql(
     `
     query GetApprovals($address: String!) {
       approvalEvents(
@@ -234,6 +382,8 @@ export async function getApprovals(
       }
     }
   `,
+    ApprovalsDataSchema,
+    'getApprovals',
     { address: address.toLowerCase() },
   )
 
@@ -252,18 +402,10 @@ export interface OraclePrice {
   confidence: string
 }
 
-interface OracleFeedResult {
-  symbol: string
-  latestPrice: string
-  decimals: number
-  latestTimestamp: string
-  latestConfidence: string
-}
-
 export async function getOraclePrices(
   symbols: string[],
 ): Promise<Map<string, OraclePrice>> {
-  const data = await graphql<{ oracleFeeds: OracleFeedResult[] }>(
+  const data = await graphql(
     `
     query GetPrices($symbols: [String!]!) {
       oracleFeeds(where: { symbol_in: $symbols, isActive_eq: true }) {
@@ -275,6 +417,8 @@ export async function getOraclePrices(
       }
     }
   `,
+    OracleFeedsDataSchema,
+    'getOraclePrices',
     { symbols },
   )
 
@@ -296,13 +440,17 @@ export async function getGasPrice(): Promise<{
   standard: bigint
   fast: bigint
 }> {
-  const data = await graphql<{ oracleFeeds: Array<{ latestPrice: string }> }>(`
+  const data = await graphql(
+    `
     query {
       oracleFeeds(where: { category_eq: L2_GAS, isActive_eq: true }, limit: 1) {
         latestPrice
       }
     }
-  `)
+  `,
+    GasPriceOracleSchema,
+    'getGasPrice',
+  )
 
   if (!data.oracleFeeds[0]?.latestPrice) {
     throw new Error('No gas price oracle feed available')
@@ -336,7 +484,7 @@ export interface Intent {
 }
 
 export async function getIntents(address: Address): Promise<Intent[]> {
-  const data = await graphql<{ oifIntents: Intent[] }>(
+  const data = await graphql(
     `
     query GetIntents($address: String!) {
       oifIntents(where: { user: { address_eq: $address } }, orderBy: createdAt_DESC, limit: 50) {
@@ -356,6 +504,8 @@ export async function getIntents(address: Address): Promise<Intent[]> {
       }
     }
   `,
+    IntentsDataSchema,
+    'getIntents',
     { address: address.toLowerCase() },
   )
 
@@ -370,14 +520,8 @@ export async function getSolvers(): Promise<
     totalFills: number
   }>
 > {
-  const data = await graphql<{
-    oifSolvers: Array<{
-      address: string
-      reputation: number
-      supportedChains: number[]
-      totalFills: number
-    }>
-  }>(`
+  const data = await graphql(
+    `
     query {
       oifSolvers(where: { isActive_eq: true }, orderBy: reputation_DESC, limit: 20) {
         address
@@ -386,7 +530,10 @@ export async function getSolvers(): Promise<
         totalFills
       }
     }
-  `)
+  `,
+    SolversDataSchema,
+    'getSolvers',
+  )
 
   return data.oifSolvers
 }
@@ -411,9 +558,14 @@ export async function sendUserOperation(
     }),
   })
 
-  const { result, error } = await response.json()
-  if (error) throw new Error(error.message)
-  return result as Hex
+  const data = expectValid(
+    BundlerSendUserOpResponseSchema,
+    await response.json(),
+    'sendUserOperation',
+  )
+  if (data.error) throw new Error(data.error.message)
+  if (!data.result) throw new Error('No result in sendUserOperation response')
+  return data.result
 }
 
 export async function estimateUserOperationGas(
@@ -436,13 +588,17 @@ export async function estimateUserOperationGas(
     }),
   })
 
-  const { result, error } = await response.json()
-  if (error) throw new Error(error.message)
+  const data = expectValid(
+    BundlerEstimateGasResponseSchema,
+    await response.json(),
+    'estimateUserOperationGas',
+  )
+  if (data.error) throw new Error(data.error.message)
 
   return {
-    callGasLimit: BigInt(result.callGasLimit),
-    verificationGasLimit: BigInt(result.verificationGasLimit),
-    preVerificationGas: BigInt(result.preVerificationGas),
+    callGasLimit: BigInt(data.result.callGasLimit),
+    verificationGasLimit: BigInt(data.result.verificationGasLimit),
+    preVerificationGas: BigInt(data.result.preVerificationGas),
   }
 }
 
@@ -461,12 +617,16 @@ export async function getUserOperationReceipt(
     }),
   })
 
-  const { result } = await response.json()
-  if (!result) return null
+  const data = expectValid(
+    BundlerReceiptResponseSchema,
+    await response.json(),
+    'getUserOperationReceipt',
+  )
+  if (!data.result) return null
 
   return {
-    success: result.success,
-    txHash: result.receipt.transactionHash,
+    success: data.result.success,
+    txHash: data.result.receipt.transactionHash,
   }
 }
 
@@ -478,9 +638,15 @@ export async function getIndexerHealth(): Promise<{
   status: string
   latestBlock: number
 }> {
-  const health = await api<{ status: string }>('/health')
-  const blocks = await api<{ blocks: Array<{ number: number }> }>(
+  const health = await api(
+    '/health',
+    IndexerHealthResponseSchema,
+    'indexer health',
+  )
+  const blocks = await api(
     '/api/blocks?limit=1',
+    IndexerBlocksResponseSchema,
+    'indexer blocks',
   )
 
   return {

@@ -91,12 +91,13 @@ export const MODERATION_CONFIG = {
 } as const
 
 // Ban types for display
-export enum BanType {
-  NONE = 0,
-  ON_NOTICE = 1,
-  CHALLENGED = 2,
-  PERMANENT = 3,
-}
+export const BanType = {
+  NONE: 0,
+  ON_NOTICE: 1,
+  CHALLENGED: 2,
+  PERMANENT: 3,
+} as const
+export type BanType = (typeof BanType)[keyof typeof BanType]
 
 export const BAN_TYPE_LABELS: Record<BanType, string> = {
   [BanType.NONE]: 'Not Banned',
@@ -113,10 +114,12 @@ export const BAN_TYPE_COLORS: Record<BanType, string> = {
 }
 
 // Evidence position types
-export enum EvidencePosition {
-  FOR_ACTION = 0,
-  AGAINST_ACTION = 1,
-}
+export const EvidencePosition = {
+  FOR_ACTION: 0,
+  AGAINST_ACTION: 1,
+} as const
+export type EvidencePosition =
+  (typeof EvidencePosition)[keyof typeof EvidencePosition]
 
 export const EVIDENCE_POSITION_LABELS: Record<EvidencePosition, string> = {
   [EvidencePosition.FOR_ACTION]: 'Supports Action',
@@ -124,13 +127,15 @@ export const EVIDENCE_POSITION_LABELS: Record<EvidencePosition, string> = {
 }
 
 // Proposal types for reputation providers
-export enum ProviderProposalType {
-  ADD_PROVIDER = 0,
-  REMOVE_PROVIDER = 1,
-  UPDATE_WEIGHT = 2,
-  SUSPEND_PROVIDER = 3,
-  UNSUSPEND_PROVIDER = 4,
-}
+export const ProviderProposalType = {
+  ADD_PROVIDER: 0,
+  REMOVE_PROVIDER: 1,
+  UPDATE_WEIGHT: 2,
+  SUSPEND_PROVIDER: 3,
+  UNSUSPEND_PROVIDER: 4,
+} as const
+export type ProviderProposalType =
+  (typeof ProviderProposalType)[keyof typeof ProviderProposalType]
 
 export const PROPOSAL_TYPE_LABELS: Record<ProviderProposalType, string> = {
   [ProviderProposalType.ADD_PROVIDER]: 'Add Provider',
@@ -141,14 +146,16 @@ export const PROPOSAL_TYPE_LABELS: Record<ProviderProposalType, string> = {
 }
 
 // Proposal status
-export enum ProposalStatus {
-  PENDING = 0,
-  COUNCIL_REVIEW = 1,
-  APPROVED = 2,
-  REJECTED = 3,
-  EXECUTED = 4,
-  CANCELLED = 5,
-}
+export const ProposalStatus = {
+  PENDING: 0,
+  COUNCIL_REVIEW: 1,
+  APPROVED: 2,
+  REJECTED: 3,
+  EXECUTED: 4,
+  CANCELLED: 5,
+} as const
+export type ProposalStatus =
+  (typeof ProposalStatus)[keyof typeof ProposalStatus]
 
 export const PROPOSAL_STATUS_LABELS: Record<ProposalStatus, string> = {
   [ProposalStatus.PENDING]: 'Challenge Period',

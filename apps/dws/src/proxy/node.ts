@@ -3,12 +3,9 @@
  * Decentralized bandwidth provider node
  */
 
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { cors } from '@elysiajs/cors'
+import { Elysia, t } from 'elysia'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
-
-const app = new Hono()
-app.use('/*', cors({ origin: '*' }))
 
 const nodeId = crypto.randomUUID()
 const region = process.env.NODE_REGION || 'US'
@@ -63,8 +60,9 @@ async function registerWithCoordinator(): Promise<void> {
   }
 }
 
-app.get('/health', (c) => {
-  return c.json({
+export const proxyNodeApp = new Elysia({ name: 'proxy-node' })
+  .use(cors({ origin: '*' }))
+  .get('/health', () => ({
     status: 'healthy',
     service: 'dws-proxy-node',
     nodeId,
@@ -72,56 +70,57 @@ app.get('/health', (c) => {
     address: address || 'standalone',
     currentConnections,
     maxConcurrent,
-  })
-})
-
-app.get('/stats', (c) => {
-  return c.json({
+  }))
+  .get('/stats', () => ({
     nodeId,
     region,
     currentConnections,
     maxConcurrent,
     utilization: currentConnections / maxConcurrent,
-  })
-})
+  }))
+  .post(
+    '/proxy',
+    async ({ body, set }) => {
+      if (currentConnections >= maxConcurrent) {
+        set.status = 503
+        return { error: 'Node at capacity' }
+      }
 
-app.post('/proxy', async (c) => {
-  if (currentConnections >= maxConcurrent) {
-    return c.json({ error: 'Node at capacity' }, 503)
-  }
+      currentConnections++
 
-  const body = await c.req.json<{
-    url: string
-    method?: string
-    headers?: Record<string, string>
-  }>()
-  currentConnections++
+      const response = await fetch(body.url, {
+        method: body.method || 'GET',
+        headers: body.headers,
+      }).catch((e: Error) => {
+        currentConnections--
+        throw e
+      })
 
-  const response = await fetch(body.url, {
-    method: body.method || 'GET',
-    headers: body.headers,
-  }).catch((e: Error) => {
-    currentConnections--
-    throw e
-  })
-
-  currentConnections--
-  const data = await response.arrayBuffer()
-  return new Response(data, {
-    status: response.status,
-    headers: {
-      'Content-Type':
-        response.headers.get('Content-Type') || 'application/octet-stream',
+      currentConnections--
+      const data = await response.arrayBuffer()
+      return new Response(data, {
+        status: response.status,
+        headers: {
+          'Content-Type':
+            response.headers.get('Content-Type') || 'application/octet-stream',
+        },
+      })
     },
-  })
-})
+    {
+      body: t.Object({
+        url: t.String(),
+        method: t.Optional(t.String()),
+        headers: t.Optional(t.Record(t.String(), t.String())),
+      }),
+    },
+  )
 
 const PORT = parseInt(process.env.PROXY_NODE_PORT || '4022', 10)
 
 if (import.meta.main) {
   initializeWallet().then(registerWithCoordinator)
   console.log(`[DWS Proxy Node] Running at http://localhost:${PORT}`)
-  Bun.serve({ port: PORT, fetch: app.fetch })
+  proxyNodeApp.listen(PORT)
 }
 
-export { app as proxyNodeApp }
+export type ProxyNodeApp = typeof proxyNodeApp

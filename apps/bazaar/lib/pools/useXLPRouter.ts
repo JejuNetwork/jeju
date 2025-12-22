@@ -2,9 +2,9 @@ import { AddressSchema } from '@jejunetwork/types'
 import type { Abi, Address } from 'viem'
 import { encodePacked } from 'viem'
 import { useAccount, useReadContracts, useWriteContract } from 'wagmi'
-import { JEJU_CHAIN_ID } from '@/config/chains'
-import { getXLPContracts } from '@/config/contracts'
-import { expect, expectPositive, expectTrue } from '@/lib/validation'
+import { JEJU_CHAIN_ID } from '../../config/chains'
+import { getXLPContracts } from '../../config/contracts'
+import { expect, expectPositive, expectTrue } from '../validation'
 
 // XLP Router ABI (minimal)
 const ROUTER_ABI: Abi = [

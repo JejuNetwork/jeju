@@ -42,7 +42,7 @@ test.describe('Package Detail', () => {
   test('displays package header', async ({ page }) => {
     await page.goto('/packages/%40jeju/sdk')
     await expect(
-      page.locator('h1').filter({ hasText: '@jeju/sdk' }),
+      page.locator('h1').filter({ hasText: '@jejunetwork/sdk' }),
     ).toBeVisible()
   })
 

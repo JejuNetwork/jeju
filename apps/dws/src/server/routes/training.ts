@@ -8,11 +8,20 @@ import { Keypair } from '@solana/web3.js'
 import { Hono } from 'hono'
 import type { Address, Hex } from 'viem'
 import {
+  AtroposStartRequestSchema,
+  CreatePsycheRunRequestSchema,
+  JudgeRequestSchema,
+  MerkleProofRequestSchema,
+  MerkleRootRequestSchema,
+  StartTrainerRequestSchema,
+  SubmitTrainingJobRequestSchema,
+} from '../../shared/schemas'
+import { expectValid } from '../../shared/validation'
+import {
   createCrossChainBridge,
   createDWSTrainingService,
   createGRPOTrainer,
   createPsycheClient,
-  type RolloutBundle,
   startAtroposServer,
   type TrainingJobRequest,
 } from '../../training'
@@ -28,7 +37,11 @@ const trainingService = createDWSTrainingService()
 
 // Submit a new training job
 app.post('/jobs', async (c) => {
-  const body = (await c.req.json()) as Omit<TrainingJobRequest, 'jobId'>
+  const body = expectValid(
+    SubmitTrainingJobRequestSchema,
+    await c.req.json(),
+    'Submit training job request',
+  )
 
   const jobId = `job-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
   const request: TrainingJobRequest = {
@@ -75,7 +88,11 @@ app.get('/jobs/:jobId/allocations', (c) => {
 
 // Start an Atropos server
 app.post('/atropos/start', async (c) => {
-  const body = (await c.req.json()) as { port?: number }
+  const body = expectValid(
+    AtroposStartRequestSchema,
+    await c.req.json(),
+    'Start Atropos server request',
+  )
   const port = body.port ?? 8000
 
   startAtroposServer(port)
@@ -106,13 +123,11 @@ app.get('/atropos/health', async (c) => {
 
 // Create and start a trainer
 app.post('/trainer/start', async (c) => {
-  const body = (await c.req.json()) as {
-    modelName?: string
-    trainingSteps?: number
-    batchSize?: number
-    learningRate?: number
-    atroposUrl?: string
-  }
+  const body = expectValid(
+    StartTrainerRequestSchema,
+    await c.req.json(),
+    'Start trainer request',
+  )
 
   const trainer = createGRPOTrainer({
     modelName: body.modelName ?? 'TinyLlama/TinyLlama-1.1B-Chat-v1.0',
@@ -143,11 +158,11 @@ app.get('/trainer/status', (c) => {
 
 // Score rollout bundles
 app.post('/judge', async (c) => {
-  const body = (await c.req.json()) as {
-    bundles: RolloutBundle[]
-    llmJudgeUrl?: string
-    llmJudgeModel?: string
-  }
+  const body = expectValid(
+    JudgeRequestSchema,
+    await c.req.json(),
+    'Judge bundles request',
+  )
 
   const psycheClient = createPsycheClient({
     solanaRpcUrl: process.env.SOLANA_RPC_URL ?? 'http://localhost:8899',
@@ -184,31 +199,11 @@ app.get('/psyche/runs/:runId', async (c) => {
 
 // Create a new Psyche run
 app.post('/psyche/runs', async (c) => {
-  const body = (await c.req.json()) as {
-    runId: string
-    metadata: {
-      name: string
-      description: string
-      modelHubRepo: string
-      datasetHubRepo: string
-    }
-    config: {
-      maxClients: number
-      minClients: number
-      epochLengthMs: number
-      warmupEpochs: number
-      checkpointIntervalEpochs: number
-      learningRate: number
-      batchSize: number
-      gradientAccumulationSteps: number
-      maxSeqLength: number
-    }
-    model: {
-      hubRepo: string
-      revision: string
-      sha256: string
-    }
-  }
+  const body = expectValid(
+    CreatePsycheRunRequestSchema,
+    await c.req.json(),
+    'Create Psyche run request',
+  )
 
   const solanaPrivateKey = process.env.SOLANA_PRIVATE_KEY
   if (!solanaPrivateKey) {
@@ -276,9 +271,11 @@ app.post('/bridge/runs/:runId/track', async (c) => {
 
 // Compute Merkle root for rewards
 app.post('/bridge/merkle/root', async (c) => {
-  const body = (await c.req.json()) as {
-    rewards: Array<{ client: Address; amount: string }>
-  }
+  const body = expectValid(
+    MerkleRootRequestSchema,
+    await c.req.json(),
+    'Merkle root request',
+  )
 
   const bridge = createCrossChainBridge({
     evmRpcUrl: 'http://localhost:6546',
@@ -298,10 +295,11 @@ app.post('/bridge/merkle/root', async (c) => {
 
 // Generate Merkle proof
 app.post('/bridge/merkle/proof', async (c) => {
-  const body = (await c.req.json()) as {
-    rewards: Array<{ client: Address; amount: string }>
-    index: number
-  }
+  const body = expectValid(
+    MerkleProofRequestSchema,
+    await c.req.json(),
+    'Merkle proof request',
+  )
 
   const bridge = createCrossChainBridge({
     evmRpcUrl: 'http://localhost:6546',

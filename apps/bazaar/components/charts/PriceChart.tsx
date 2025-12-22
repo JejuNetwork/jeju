@@ -105,6 +105,7 @@ export function PriceChart({
       className="rounded-xl"
       style={{ backgroundColor: 'var(--bg-secondary)' }}
     >
+      <title>Price Chart</title>
       {/* Grid lines */}
       {[0, 0.25, 0.5, 0.75, 1].map((pct) => {
         const y =

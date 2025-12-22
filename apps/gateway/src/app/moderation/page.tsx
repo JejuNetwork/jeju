@@ -221,6 +221,7 @@ export default function ModerationDashboard() {
               { id: 'submit', label: 'Submit Report', icon: FlagIcon },
             ].map((tab) => (
               <button
+                type="button"
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as TabType)}
                 className={`py-4 px-4 border-b-2 transition-colors whitespace-nowrap ${
@@ -343,6 +344,7 @@ export default function ModerationDashboard() {
                     <ReportCard key={reportId.toString()} reportId={reportId} />
                   ))}
                   <button
+                    type="button"
                     onClick={() => setActiveTab('active')}
                     className="w-full py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
                   >
@@ -396,6 +398,7 @@ export default function ModerationDashboard() {
                 <FlagIcon className="mx-auto text-gray-300 mb-4" size={48} />
                 <p className="text-gray-600">No active reports</p>
                 <button
+                  type="button"
                   onClick={() => setActiveTab('submit')}
                   className="mt-4 px-6 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
                 >
@@ -643,6 +646,7 @@ function ReportCard({ reportId }: { reportId: bigint }) {
 
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => {
               const hash = report.evidenceHash
               if (hash && hash !== ZERO_BYTES32) {
@@ -669,6 +673,7 @@ function ReportCard({ reportId }: { reportId: bigint }) {
             View Evidence
           </button>
           <button
+            type="button"
             onClick={() => setShowVoting(!showVoting)}
             className={`px-3 py-1.5 rounded text-sm ${showVoting ? 'bg-gray-500 text-white' : 'bg-blue-500 text-white hover:bg-blue-600'}`}
           >
@@ -754,6 +759,7 @@ function ResolvedReportCard({ reportId }: { reportId: bigint }) {
         </div>
 
         <button
+          type="button"
           onClick={() => {
             const hash = report.evidenceHash
             if (hash && hash !== ZERO_BYTES32) {

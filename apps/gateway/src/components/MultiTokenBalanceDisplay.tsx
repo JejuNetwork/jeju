@@ -1,5 +1,4 @@
 import { Coins, type LucideProps, Star } from 'lucide-react'
-import Image from 'next/image'
 import { type ComponentType, useMemo } from 'react'
 import { useProtocolTokens } from '../hooks/useProtocolTokens'
 import { useTokenBalances } from '../hooks/useTokenBalances'
@@ -173,7 +172,7 @@ export default function MultiTokenBalanceDisplay() {
                 }}
               >
                 {token.logoUrl ? (
-                  <Image
+                  <img
                     src={token.logoUrl}
                     alt={token.symbol}
                     width={36}
@@ -184,10 +183,9 @@ export default function MultiTokenBalanceDisplay() {
                       borderRadius: '50%',
                       flexShrink: 0,
                     }}
-                    onError={(e) => {
+                    onError={(e: React.SyntheticEvent<HTMLImageElement>) => {
                       e.currentTarget.style.display = 'none'
                     }}
-                    unoptimized
                   />
                 ) : (
                   <div

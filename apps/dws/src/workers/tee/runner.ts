@@ -14,16 +14,7 @@
 import { existsSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
-import {
-  type Address,
-  createWalletClient,
-  type Hex,
-  http,
-  keccak256,
-  toBytes,
-} from 'viem'
-import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
-import { base, baseSepolia, localhost } from 'viem/chains'
+import { type Address, type Hex, keccak256, toBytes } from 'viem'
 import type { BackendManager } from '../../storage/backends'
 import { getRegion, getRegionConfig } from './regions'
 import type { TEESecretManager } from './secrets'
@@ -96,7 +87,6 @@ export class TEEWorkerRunner {
   private config: RunnerConfig
   private backendManager: BackendManager
   private secretManager: TEESecretManager
-  private account: PrivateKeyAccount
 
   // Running workloads
   private workloads = new Map<string, RunningWorkload>()
@@ -114,24 +104,6 @@ export class TEEWorkerRunner {
     this.config = { ...DEFAULT_CONFIG, ...config } as RunnerConfig
     this.backendManager = backendManager
     this.secretManager = secretManager
-
-    this.account = privateKeyToAccount(config.privateKey)
-    const chain = this.inferChain(config.rpcUrl)
-    this.walletClient = createWalletClient({
-      account: this.account,
-      chain,
-      transport: http(config.rpcUrl),
-    })
-  }
-
-  private inferChain(rpcUrl: string) {
-    if (rpcUrl.includes('base-sepolia') || rpcUrl.includes('84532')) {
-      return baseSepolia
-    }
-    if (rpcUrl.includes('base') && !rpcUrl.includes('localhost')) {
-      return base
-    }
-    return localhost
   }
 
   // ============================================================================
@@ -807,7 +779,7 @@ export function createRunner(
   const rpcUrl =
     config.rpcUrl ??
     process.env.RPC_URL ??
-    (environment === 'localnet' ? 'http://localhost:9545' : undefined)
+    (environment === 'localnet' ? 'http://localhost:6546' : undefined)
 
   if (!rpcUrl) {
     throw new Error('RPC_URL required')

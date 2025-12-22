@@ -2,7 +2,12 @@
  * Issue Tracking Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import {
+  CreateIssueBodySchema,
+  expectValid,
+  IssuesQuerySchema,
+} from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
 interface Issue {
@@ -24,7 +29,8 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
   .get(
     '/',
     async ({ query }) => {
-      const page = parseInt(query.page || '1', 10)
+      const validated = expectValid(IssuesQuerySchema, query, 'query params')
+      const page = parseInt(validated.page || '1', 10)
 
       const issues: Issue[] = [
         {
@@ -54,14 +60,6 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
       return { issues, total: issues.length, page }
     },
     {
-      query: t.Object({
-        page: t.Optional(t.String()),
-        limit: t.Optional(t.String()),
-        repo: t.Optional(t.String()),
-        status: t.Optional(t.String()),
-        label: t.Optional(t.String()),
-        assignee: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['issues'],
         summary: 'List issues',
@@ -78,14 +76,16 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
+      const validated = expectValid(CreateIssueBodySchema, body, 'request body')
+
       const issue: Issue = {
         id: `issue-${Date.now()}`,
         number: Math.floor(Math.random() * 1000),
-        repo: body.repo,
-        title: body.title,
-        body: body.body,
-        labels: body.labels || [],
-        assignees: (body.assignees || []).map((addr) => ({ name: addr })),
+        repo: validated.repo,
+        title: validated.title,
+        body: validated.body,
+        labels: validated.labels || [],
+        assignees: (validated.assignees || []).map((addr) => ({ name: addr })),
         status: 'open',
         author: { name: authResult.address },
         comments: 0,
@@ -97,13 +97,6 @@ export const issuesRoutes = new Elysia({ prefix: '/api/issues' })
       return issue
     },
     {
-      body: t.Object({
-        repo: t.String({ minLength: 1 }),
-        title: t.String({ minLength: 1, maxLength: 200 }),
-        body: t.String({ minLength: 10 }),
-        labels: t.Optional(t.Array(t.String())),
-        assignees: t.Optional(t.Array(t.String())),
-      }),
       detail: {
         tags: ['issues'],
         summary: 'Create issue',

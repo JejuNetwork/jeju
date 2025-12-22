@@ -107,10 +107,10 @@ describe('Payment Header Decoding', () => {
     const decoded = decodePaymentHeader(header)
 
     expect(decoded).not.toBeNull()
-    expect(decoded!.scheme).toBe('exact')
-    expect(decoded!.network).toBe('jeju')
-    expect(decoded!.amount).toBe('1000000')
-    expect(decoded!.signature).toBeDefined()
+    expect(decoded?.scheme).toBe('exact')
+    expect(decoded?.network).toBe('jeju')
+    expect(decoded?.amount).toBe('1000000')
+    expect(decoded?.signature).toBeDefined()
   })
 
   test('should decode base64-encoded JSON payment header', () => {
@@ -133,8 +133,8 @@ describe('Payment Header Decoding', () => {
     const decoded = decodePaymentHeader(header)
 
     expect(decoded).not.toBeNull()
-    expect(decoded!.amount).toBe('500000')
-    expect(decoded!.nonce).toBe('testnonce123')
+    expect(decoded?.amount).toBe('500000')
+    expect(decoded?.nonce).toBe('testnonce123')
   })
 
   test('should return null for invalid base64', () => {
@@ -180,7 +180,8 @@ describe('Signature Verification', () => {
 
   test('should fail for tampered payload', async () => {
     const header = await createTestPaymentHeader()
-    const decoded = decodePaymentHeader(header)!
+    const decoded = decodePaymentHeader(header)
+    if (!decoded) throw new Error('Failed to decode payment header')
 
     // Tamper with the amount
     const tampered = { ...decoded, amount: '9999999' }

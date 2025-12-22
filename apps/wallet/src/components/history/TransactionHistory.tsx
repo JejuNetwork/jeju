@@ -221,6 +221,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
           {(['all', 'sent', 'received', 'swaps', 'approvals'] as const).map(
             (f) => (
               <button
+                type="button"
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1.5 text-sm rounded transition-colors ${
@@ -259,6 +260,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
           <p>No transactions found</p>
           {filter !== 'all' && (
             <button
+              type="button"
               onClick={() => setFilter('all')}
               className="mt-2 text-sm text-emerald-500 hover:text-emerald-400"
             >
@@ -278,6 +280,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
 
                   return (
                     <button
+                      type="button"
                       key={tx.hash}
                       onClick={() => onTransactionClick?.(tx)}
                       className="w-full p-4 bg-zinc-800 hover:bg-zinc-750 rounded-lg transition-colors text-left"
@@ -355,6 +358,7 @@ export const TransactionHistory: React.FC<TransactionHistoryProps> = ({
       {hasMore && (
         <div className="text-center py-4">
           <button
+            type="button"
             onClick={onLoadMore}
             disabled={loading}
             className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors disabled:opacity-50"

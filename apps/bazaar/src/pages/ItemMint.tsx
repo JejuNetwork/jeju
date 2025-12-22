@@ -26,22 +26,30 @@ export default function ItemMintPage() {
         <form className="space-y-4">
           <div>
             <label
+              htmlFor="nft-name"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
               Name
             </label>
-            <input type="text" placeholder="My NFT" className="input" />
+            <input
+              id="nft-name"
+              type="text"
+              placeholder="My NFT"
+              className="input"
+            />
           </div>
 
           <div>
             <label
+              htmlFor="nft-description"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
               Description
             </label>
             <textarea
+              id="nft-description"
               placeholder="Describe your NFT..."
               className="input min-h-[100px]"
             />
@@ -49,12 +57,18 @@ export default function ItemMintPage() {
 
           <div>
             <label
+              htmlFor="nft-image-url"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
               Image URL
             </label>
-            <input type="url" placeholder="https://..." className="input" />
+            <input
+              id="nft-image-url"
+              type="url"
+              placeholder="https://..."
+              className="input"
+            />
           </div>
 
           <button type="submit" className="btn-primary w-full py-3">

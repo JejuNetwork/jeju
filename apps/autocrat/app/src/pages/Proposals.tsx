@@ -57,12 +57,14 @@ export default function ProposalsPage() {
         />
         <div className="flex gap-1.5 shrink-0">
           <button
+            type="button"
             onClick={() => setFilter('all')}
             className={`btn text-xs sm:text-sm flex-1 xs:flex-none ${filter === 'all' ? 'btn-primary' : 'btn-secondary'}`}
           >
             All
           </button>
           <button
+            type="button"
             onClick={() => setFilter('active')}
             className={`btn text-xs sm:text-sm flex-1 xs:flex-none ${filter === 'active' ? 'btn-primary' : 'btn-secondary'}`}
           >

@@ -4,8 +4,10 @@
  * Provides decentralized file storage via the Storage Marketplace.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import { type ZodSchema, z } from 'zod'
+import { StorageUploadResponseSchema } from '../schemas'
 import type { ProtocolValue } from '../types'
 
 export type StorageTier = 'hot' | 'warm' | 'cold' | 'permanent'
@@ -240,7 +242,11 @@ class StorageServiceImpl implements StorageService {
       console.error(`[Storage] Upload failed: ${response.status}`)
       return null
     }
-    const data = (await response.json()) as { cid: string }
+    const data = expectValid(
+      StorageUploadResponseSchema,
+      await response.json(),
+      'storage upload response',
+    )
     return data.cid
   }
 

@@ -311,15 +311,15 @@ describe('MPC Coordinator Edge Cases', () => {
       expect(result.signature).toBeDefined()
 
       // Verify signature components are valid hex
-      expect(result.signature!.r).toMatch(/^0x[a-fA-F0-9]{64}$/)
-      expect(result.signature!.s).toMatch(/^0x[a-fA-F0-9]+$/)
-      expect(result.signature!.v).toBeGreaterThanOrEqual(27)
-      expect(result.signature!.v).toBeLessThanOrEqual(28)
+      expect(result.signature?.r).toMatch(/^0x[a-fA-F0-9]{64}$/)
+      expect(result.signature?.s).toMatch(/^0x[a-fA-F0-9]+$/)
+      expect(result.signature?.v).toBeGreaterThanOrEqual(27)
+      expect(result.signature?.v).toBeLessThanOrEqual(28)
 
       // Recover signer address and verify it matches the key address
       const recoveredAddress = await recoverMessageAddress({
         message: { raw: toBytes(messageHash) },
-        signature: result.signature!.signature,
+        signature: result.signature?.signature,
       })
 
       expect(recoveredAddress.toLowerCase()).toBe(key.address.toLowerCase())
@@ -401,8 +401,8 @@ describe('MPC Coordinator Edge Cases', () => {
 
       const retrieved = coordinator.getSession(session.sessionId)
       expect(retrieved).not.toBeNull()
-      expect(retrieved!.sessionId).toBe(session.sessionId)
-      expect(retrieved!.keyId).toBe('session-key')
+      expect(retrieved?.sessionId).toBe(session.sessionId)
+      expect(retrieved?.keyId).toBe('session-key')
     })
 
     it('should return null for non-existent session', () => {
@@ -516,8 +516,8 @@ describe('MPC Coordinator Edge Cases', () => {
       expect(result.newVersion).toBe(2)
 
       const key = coordinator.getKey('rotation-key')
-      expect(key!.threshold).toBe(3)
-      expect(key!.totalParties).toBe(5)
+      expect(key?.threshold).toBe(3)
+      expect(key?.totalParties).toBe(5)
     })
 
     it('should maintain signing capability after rotation', async () => {

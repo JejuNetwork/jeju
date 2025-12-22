@@ -40,6 +40,7 @@ import {
   getLogs,
   waitForTransactionReceipt,
 } from 'viem/actions'
+import { expectJson, GovernanceAddressesSchema } from '../../schemas'
 
 // Configuration
 interface NetworkConfig {
@@ -64,7 +65,7 @@ interface DeployedAddresses {
 
 const NETWORKS: Record<string, NetworkConfig> = {
   localnet: {
-    rpcUrl: process.env.LOCALNET_RPC_URL ?? 'http://localhost:9545',
+    rpcUrl: process.env.LOCALNET_RPC_URL ?? 'http://localhost:6546',
     chainId: 31337,
     safeFactory: '0x0000000000000000000000000000000000000000',
     safeSingleton: '0x0000000000000000000000000000000000000000',
@@ -178,9 +179,12 @@ async function main() {
   let existingAddresses: Partial<DeployedAddresses> = {}
 
   if (existsSync(addressesPath)) {
-    existingAddresses = JSON.parse(
-      readFileSync(addressesPath, 'utf-8'),
-    ) as Partial<DeployedAddresses>
+    const addressesContent = readFileSync(addressesPath, 'utf-8')
+    existingAddresses = expectJson(
+      addressesContent,
+      GovernanceAddressesSchema,
+      `${networkArg} addresses`,
+    )
     console.log('\nLoaded existing addresses:')
     console.log(JSON.stringify(existingAddresses, null, 2))
   }
@@ -499,9 +503,12 @@ async function loadBytecode(contractName: string): Promise<string> {
 
   for (const path of artifactPaths) {
     if (existsSync(path)) {
-      const artifact = JSON.parse(readFileSync(path, 'utf-8')) as {
-        bytecode: { object: string }
-      }
+      const artifactContent = readFileSync(path, 'utf-8')
+      const artifact = expectJson(
+        artifactContent,
+        ForgeArtifactSchema,
+        `${contractName} artifact`,
+      )
       return artifact.bytecode.object
     }
   }

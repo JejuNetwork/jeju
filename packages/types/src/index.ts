@@ -29,6 +29,8 @@ export * from './names'
 export * from './nft-eil'
 export * from './oif'
 export * from './oracle'
+// JSON-RPC types
+export * from './rpc'
 export * from './torrent'
 // Core validation primitives (must be first - contains base types)
 export * from './validation'

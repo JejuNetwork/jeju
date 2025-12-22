@@ -19,6 +19,12 @@ import type {
   State,
 } from '@elizaos/core'
 import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
+import {
+  A2AJsonRpcResponseSchema,
+  expectValid,
+  extractA2AData,
+  MCPToolsResponseSchema,
+} from '../schemas'
 import type { AutocratVote } from '../types'
 
 // ============================================================================
@@ -60,15 +66,6 @@ function getAutocratA2A(): string {
   return process.env.AUTOCRAT_A2A_URL ?? getAutocratA2AUrl()
 }
 
-interface A2AResponseResult {
-  parts?: Array<{ kind: string; data?: Record<string, unknown> }>
-}
-
-interface A2AJsonRpcResponse {
-  result?: A2AResponseResult
-  error?: { message: string }
-}
-
 async function callAutocratA2A<T>(
   skillId: string,
   params: Record<string, unknown> = {},
@@ -96,24 +93,13 @@ async function callAutocratA2A<T>(
     )
   }
 
-  const result = (await response.json()) as A2AJsonRpcResponse
-  if (result.error) {
-    throw new Error(
-      `Autocrat A2A call for '${skillId}' returned error: ${result.error.message}`,
-    )
-  }
+  const result = expectValid(
+    A2AJsonRpcResponseSchema,
+    await response.json(),
+    `Autocrat A2A ${skillId}`,
+  )
 
-  const parts = result.result?.parts
-  if (!parts || parts.length === 0) {
-    throw new Error(`Autocrat A2A call for '${skillId}' returned no parts`)
-  }
-
-  const dataPart = parts.find((p) => p.kind === 'data')
-  if (!dataPart || !dataPart.data) {
-    throw new Error(`Autocrat A2A call for '${skillId}' returned no data part`)
-  }
-
-  return dataPart.data as T
+  return extractA2AData<T>(result, `Autocrat A2A ${skillId}`)
 }
 
 // ============================================================================
@@ -511,9 +497,9 @@ export const mcpResourcesProvider: Provider = {
     const mcpUrl = process.env.AUTOCRAT_MCP_URL ?? `${getAutocratUrl()}/mcp`
 
     const response = await fetch(`${mcpUrl}/tools`)
-    const data = (await response.json()) as {
-      tools?: Array<{ name: string; description: string }>
-    }
+    const data = response.ok
+      ? expectValid(MCPToolsResponseSchema, await response.json(), 'MCP tools')
+      : { tools: [] }
     const tools = data.tools ?? []
 
     return {

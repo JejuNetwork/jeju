@@ -12,6 +12,7 @@
  */
 
 import { type Address, formatEther } from 'viem'
+import { CowAuctionHistoryResponseSchema } from '../../lib/validation.js'
 import type { CowAuction, CowProtocolSolver, CowSolution } from './cow'
 
 // CoW API for historical data
@@ -133,24 +134,21 @@ export class CowSolverValidator {
       }
     }
 
-    const auctionData = (await auctionResponse.json()) as {
-      auctionId: number
-      orders: Array<{
-        uid: string
-        sellToken: string
-        buyToken: string
-        sellAmount: string
-        buyAmount: string
-        kind: string
-        partiallyFillable: boolean
-      }>
-      solutions: Array<{
-        solver: string
-        score: string
-        ranking: number
-        orders: Array<{ id: string; executedAmount: string }>
-      }>
+    const rawData = await auctionResponse.json()
+    const parseResult = CowAuctionHistoryResponseSchema.safeParse(rawData)
+    if (!parseResult.success) {
+      return {
+        ourSolution: null,
+        winningSolution: null,
+        comparison: {
+          wouldWin: false,
+          surplusDifference: 0n,
+          fillRateDifference: 0,
+          reasons: ['Invalid auction data from API'],
+        },
+      }
     }
+    const auctionData = parseResult.data
 
     // Convert to our auction format
     const auction: CowAuction = {

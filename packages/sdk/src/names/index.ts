@@ -5,6 +5,15 @@
 import type { NetworkType } from '@jejunetwork/types'
 import { type Address, encodeFunctionData, type Hex, namehash } from 'viem'
 import { getServicesConfig, requireContract } from '../config'
+import {
+  JNSAvailabilityResponseSchema,
+  JNSNamesListResponseSchema,
+  JNSPriceResponseSchema,
+  JNSResolveResponseSchema,
+  JNSReverseResolveResponseSchema,
+  NameInfoSchema,
+  NameRecordsSchema,
+} from '../shared/schemas'
 import type { JejuWallet } from '../wallet'
 
 export interface NameInfo {
@@ -203,7 +212,8 @@ export function createNamesModule(
     )
     if (!response.ok) return null
 
-    const data = (await response.json()) as { address: Address }
+    const rawData: unknown = await response.json()
+    const data = JNSResolveResponseSchema.parse(rawData)
     return data.address
   }
 
@@ -213,7 +223,8 @@ export function createNamesModule(
     )
     if (!response.ok) return null
 
-    const data = (await response.json()) as { name: string }
+    const rawData: unknown = await response.json()
+    const data = JNSReverseResolveResponseSchema.parse(rawData)
     return data.name
   }
 
@@ -224,7 +235,8 @@ export function createNamesModule(
     )
     if (!response.ok) return {}
 
-    return (await response.json()) as NameRecords
+    const rawData: unknown = await response.json()
+    return NameRecordsSchema.parse(rawData)
   }
 
   async function register(params: RegisterNameParams): Promise<Hex> {
@@ -325,7 +337,8 @@ export function createNamesModule(
     )
     if (!response.ok) return null
 
-    return (await response.json()) as NameInfo
+    const rawData: unknown = await response.json()
+    return NameInfoSchema.parse(rawData)
   }
 
   async function listMyNames(): Promise<NameInfo[]> {
@@ -336,7 +349,8 @@ export function createNamesModule(
       throw new Error(`Failed to list names: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as { names: NameInfo[] }
+    const rawData: unknown = await response.json()
+    const data = JNSNamesListResponseSchema.parse(rawData)
     return data.names
   }
 
@@ -347,7 +361,8 @@ export function createNamesModule(
     )
     if (!response.ok) return false
 
-    const data = (await response.json()) as { available: boolean }
+    const rawData: unknown = await response.json()
+    const data = JNSAvailabilityResponseSchema.parse(rawData)
     return data.available
   }
 
@@ -361,7 +376,8 @@ export function createNamesModule(
     )
     if (!response.ok) throw new Error('Failed to get price')
 
-    const data = (await response.json()) as { price: string }
+    const rawData: unknown = await response.json()
+    const data = JNSPriceResponseSchema.parse(rawData)
     return BigInt(data.price)
   }
 

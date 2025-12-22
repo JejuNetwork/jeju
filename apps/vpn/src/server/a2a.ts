@@ -6,13 +6,13 @@
  * Uses fail-fast validation patterns
  */
 
-import type { Context } from 'hono'
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import type { z } from 'zod'
 import { verifyAuth } from './auth'
 import {
   A2ARequestSchema,
+  A2ASkillDataSchema,
   expect,
   expectValid,
   ProxyRequestSchema,
@@ -42,59 +42,60 @@ import { verifyX402Payment } from './x402'
 // Infer types from Zod schemas
 type A2ARequest = z.infer<typeof A2ARequestSchema>
 
+// Maximum response body size for A2A proxy (10MB)
+const A2A_MAX_RESPONSE_BODY_SIZE = 10 * 1024 * 1024
+
 // ============================================================================
 // Router
 // ============================================================================
 
-export function createA2ARouter(ctx: VPNServiceContext): Hono {
-  const router = new Hono()
-
-  // Error handling middleware
-  router.onError((err, c) => {
-    console.error('A2A API error:', err)
-    return c.json(
-      {
+export function createA2ARouter(ctx: VPNServiceContext) {
+  const router = new Elysia({ prefix: '/a2a' })
+    // Error handling middleware
+    .onError(({ error, set }) => {
+      console.error('A2A API error:', error)
+      set.status = 500
+      const message = error instanceof Error ? error.message : 'Internal error'
+      return {
         jsonrpc: '2.0',
         id: 0,
-        error: { code: -32603, message: err.message || 'Internal error' },
-      },
-      500,
-    )
-  })
+        error: { code: -32603, message },
+      }
+    })
 
-  /**
-   * POST / - A2A JSON-RPC endpoint
-   */
-  router.post('/', async (c) => {
-    const auth = await verifyAuth(c)
-    const address = auth.valid ? (auth.address as Address) : null
+    /**
+     * POST / - A2A JSON-RPC endpoint
+     */
+    .post('/', async ({ request, body }) => {
+      const auth = await verifyAuth(request)
+      // auth.address is already validated as Address by verifyAuth when valid
+      const address = auth.valid && auth.address ? auth.address : null
 
-    const rawRequest = await c.req.json()
-    const request = expectValid(A2ARequestSchema, rawRequest, 'A2A request')
+      const a2aRequest = expectValid(A2ARequestSchema, body, 'A2A request')
 
-    // Route based on method
-    switch (request.method) {
-      case 'message/send':
-        return handleMessage(c, ctx, request, address)
+      // Route based on method
+      switch (a2aRequest.method) {
+        case 'message/send':
+          return handleMessage(request, ctx, a2aRequest, address)
 
-      case 'agent/card':
-        return c.json({
-          jsonrpc: '2.0',
-          id: request.id,
-          result: await getAgentCard(ctx),
-        })
+        case 'agent/card':
+          return {
+            jsonrpc: '2.0',
+            id: a2aRequest.id,
+            result: await getAgentCard(ctx),
+          }
 
-      default:
-        return c.json({
-          jsonrpc: '2.0',
-          id: request.id,
-          error: {
-            code: -32601,
-            message: `Method not found: ${request.method}`,
-          },
-        })
-    }
-  })
+        default:
+          return {
+            jsonrpc: '2.0',
+            id: a2aRequest.id,
+            error: {
+              code: -32601,
+              message: `Method not found: ${a2aRequest.method}`,
+            },
+          }
+      }
+    })
 
   return router
 }
@@ -104,12 +105,12 @@ export function createA2ARouter(ctx: VPNServiceContext): Hono {
 // ============================================================================
 
 async function handleMessage(
-  c: Context,
+  request: Request,
   ctx: VPNServiceContext,
-  request: A2ARequest,
+  a2aRequest: A2ARequest,
   address: Address | null,
-): Promise<Response> {
-  const message = request.params.message
+) {
+  const message = a2aRequest.params.message
 
   // Extract skill and params from message
   const dataPart = message.parts.find((p) => p.kind === 'data')
@@ -117,43 +118,37 @@ async function handleMessage(
     throw new Error('Message must contain a data part with data object')
   }
 
-  if (typeof dataPart.data !== 'object' || dataPart.data === null) {
-    throw new Error('Data must be an object')
-  }
-
-  const skillId = dataPart.data.skillId as string
-  if (typeof skillId !== 'string' || skillId.length === 0) {
-    throw new Error('skillId must be a non-empty string')
-  }
-
-  const params = dataPart.data.params as Record<string, unknown>
-  if (typeof params !== 'object' || params === null) {
-    throw new Error('params must be an object')
-  }
+  // Validate skill data with Zod schema
+  const skillData = expectValid(
+    A2ASkillDataSchema,
+    dataPart.data,
+    'A2A skill data',
+  )
+  const { skillId, params } = skillData
 
   // Handle each skill
   switch (skillId) {
     case 'vpn_connect':
-      return handleConnect(c, ctx, request, params, address)
+      return handleConnect(ctx, a2aRequest, params, address)
 
     case 'vpn_disconnect':
-      return handleDisconnect(c, ctx, request, params, address)
+      return handleDisconnect(ctx, a2aRequest, params, address)
 
     case 'get_nodes':
-      return handleGetNodes(c, ctx, request, params)
+      return handleGetNodes(ctx, a2aRequest, params)
 
     case 'proxy_request':
-      return handleProxyRequest(c, ctx, request, params)
+      return handleProxyRequest(request, ctx, a2aRequest, params)
 
     case 'get_contribution':
-      return handleGetContribution(c, ctx, request, address)
+      return handleGetContribution(ctx, a2aRequest, address)
 
     default:
-      return c.json({
+      return {
         jsonrpc: '2.0',
-        id: request.id,
+        id: a2aRequest.id,
         error: { code: -32601, message: `Unknown skill: ${skillId}` },
-      })
+      }
   }
 }
 
@@ -162,12 +157,11 @@ async function handleMessage(
 // ============================================================================
 
 async function handleConnect(
-  c: Context,
   ctx: VPNServiceContext,
-  request: A2ARequest,
+  a2aRequest: A2ARequest,
   params: Record<string, unknown>,
   address: Address | null,
-): Promise<Response> {
+) {
   if (!address) {
     throw new Error('Authentication required for VPN connection')
   }
@@ -196,9 +190,9 @@ async function handleConnect(
     protocol as 'wireguard' | 'socks5' | 'http',
   )
 
-  return c.json({
+  return {
     jsonrpc: '2.0',
-    id: request.id,
+    id: a2aRequest.id,
     result: {
       parts: [
         {
@@ -216,16 +210,15 @@ async function handleConnect(
         },
       ],
     },
-  })
+  }
 }
 
 async function handleDisconnect(
-  c: Context,
   ctx: VPNServiceContext,
-  request: A2ARequest,
+  a2aRequest: A2ARequest,
   params: Record<string, unknown>,
   address: Address | null,
-): Promise<Response> {
+) {
   const connectionId =
     typeof params.connectionId === 'string' ? params.connectionId : null
   if (!connectionId || connectionId.length === 0) {
@@ -242,9 +235,9 @@ async function handleDisconnect(
   const bytesTransferred = getSessionBytesTransferred(session)
   deleteSession(ctx, connectionId)
 
-  return c.json({
+  return {
     jsonrpc: '2.0',
-    id: request.id,
+    id: a2aRequest.id,
     result: {
       parts: [
         {
@@ -261,15 +254,14 @@ async function handleDisconnect(
         },
       ],
     },
-  })
+  }
 }
 
 async function handleGetNodes(
-  c: Context,
   ctx: VPNServiceContext,
-  request: A2ARequest,
+  a2aRequest: A2ARequest,
   params: Record<string, unknown>,
-): Promise<Response> {
+) {
   const countryCode =
     typeof params.countryCode === 'string' ? params.countryCode : undefined
 
@@ -278,9 +270,9 @@ async function handleGetNodes(
     nodes = filterNodesByCountry(nodes, countryCode)
   }
 
-  return c.json({
+  return {
     jsonrpc: '2.0',
-    id: request.id,
+    id: a2aRequest.id,
     result: {
       parts: [
         {
@@ -300,20 +292,17 @@ async function handleGetNodes(
         },
       ],
     },
-  })
+  }
 }
 
-// Maximum response body size for A2A proxy (10MB)
-const A2A_MAX_RESPONSE_BODY_SIZE = 10 * 1024 * 1024
-
 async function handleProxyRequest(
-  c: Context,
+  request: Request,
   ctx: VPNServiceContext,
-  request: A2ARequest,
+  a2aRequest: A2ARequest,
   params: Record<string, unknown>,
-): Promise<Response> {
+) {
   // Proxy requests require x402 payment
-  const paymentHeader = c.req.header('x-payment')
+  const paymentHeader = request.headers.get('x-payment')
   const paymentResult = await verifyX402Payment(
     paymentHeader || '',
     BigInt(ctx.config.pricing.pricePerRequest),
@@ -392,9 +381,9 @@ async function handleProxyRequest(
     }, new Uint8Array(0)),
   )
 
-  return c.json({
+  return {
     jsonrpc: '2.0',
-    id: request.id,
+    id: a2aRequest.id,
     result: {
       parts: [
         {
@@ -410,15 +399,14 @@ async function handleProxyRequest(
         },
       ],
     },
-  })
+  }
 }
 
 async function handleGetContribution(
-  c: Context,
   ctx: VPNServiceContext,
-  request: A2ARequest,
+  a2aRequest: A2ARequest,
   address: Address | null,
-): Promise<Response> {
+) {
   if (!address) {
     throw new Error('Authentication required for contribution status')
   }
@@ -427,9 +415,9 @@ async function handleGetContribution(
   const quotaRemaining = getQuotaRemaining(contribution)
   const contributionRatio = calculateContributionRatio(contribution)
 
-  return c.json({
+  return {
     jsonrpc: '2.0',
-    id: request.id,
+    id: a2aRequest.id,
     result: {
       parts: [
         {
@@ -447,10 +435,10 @@ async function handleGetContribution(
         },
       ],
     },
-  })
+  }
 }
 
-interface AgentCard {
+export interface AgentCard {
   protocolVersion: string
   name: string
   url: string

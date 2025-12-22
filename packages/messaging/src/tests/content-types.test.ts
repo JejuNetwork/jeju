@@ -410,7 +410,7 @@ describe('Content Serialization', () => {
       text: 'Reply text',
       replyToId: 'msg-orig',
       replyToContent: 'Original',
-      replyToSender: '0xabc' as Address,
+      replyToSender: '0xabcdef0123456789abcdef0123456789abcdef01' as Address,
     })
 
     const serialized = serializeContent(original)
@@ -453,7 +453,7 @@ describe('Content Serialization', () => {
   test('throws on unknown content type', () => {
     const badJson = JSON.stringify({ type: 'unknown', data: {} })
 
-    expect(() => deserializeContent(badJson)).toThrow('Unknown content type')
+    expect(() => deserializeContent(badJson)).toThrow('Invalid message content')
   })
 
   test('serialization produces valid JSON', () => {

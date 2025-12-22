@@ -30,6 +30,10 @@
     "./integrations": {
       "types": "./src/integrations/index.ts",
       "import": "./src/integrations/index.ts"
+    },
+    "./rubrics": {
+      "types": "./src/rubrics/index.ts",
+      "import": "./src/rubrics/index.ts"
     }
   },
   "scripts": {
@@ -45,10 +49,12 @@
     "@jejunetwork/kms": "workspace:*",
     "@jejunetwork/sdk": "workspace:*",
     "@jejunetwork/shared": "workspace:*",
+    "@jejunetwork/types": "workspace:*",
     "@solana/web3.js": "^1.98.0",
     "borsh": "^2.0.0",
+    "elysia": "^1.2.25",
+    "@elysiajs/cors": "^1.1.1",
     "ethers": "^6.14.4",
-    "hono": "^4.6.0",
     "uuid": "^13.0.0",
     "viem": "^2.31.3",
     "zod": "^4.1.12"

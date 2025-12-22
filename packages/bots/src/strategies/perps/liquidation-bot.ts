@@ -4,6 +4,7 @@
  * Monitors positions from indexer and executes profitable liquidations on-chain.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import {
   type Address,
   formatUnits,
@@ -139,8 +140,11 @@ export class LiquidationBot {
       throw new Error(`Indexer request failed: ${response.status}`)
     }
 
-    const rawJson: unknown = await response.json()
-    const json = IndexerPositionsResponseSchema.parse(rawJson)
+    const json = expectValid(
+      IndexerPositionsResponseSchema,
+      await response.json(),
+      'indexer positions response',
+    )
 
     if (json.errors && json.errors.length > 0) {
       throw new Error(`Indexer error: ${json.errors[0].message}`)

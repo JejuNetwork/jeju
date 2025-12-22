@@ -318,7 +318,7 @@ async function runTeeGenesis(network: NetworkType, endpoint?: string) {
   logger.step('Connecting to TEE...')
 
   try {
-    // Dynamically import TEE ceremony
+    // Dynamic import kept conditional - only loads TEE ceremony module when TEE ceremony is requested
     const { runTeeCeremony, verifyAttestation } = await import(
       '../tee/genesis-ceremony'
     )
@@ -590,7 +590,7 @@ async function runDistributedCeremony(options: DistributedCeremonyOptions) {
   logger.newline()
 
   try {
-    // Import and run distributed ceremony
+    // Dynamic import kept conditional - only loads distributed ceremony module when distributed ceremony is requested
     const { runDistributedCeremony: runCeremony, registerCeremonyOnChain } =
       await import('../tee/distributed-ceremony')
 
@@ -1456,7 +1456,7 @@ async function showKeys(network: NetworkType, showPrivate: boolean) {
     logger.subheader('MetaMask Configuration')
     logger.newline()
     logger.info('Network Name:   Network Localnet')
-    logger.info('RPC URL:        http://127.0.0.1:9545')
+    logger.info('RPC URL:        http://127.0.0.1:6546')
     logger.info('Chain ID:       1337')
     logger.info('Currency:       ETH')
     logger.newline()

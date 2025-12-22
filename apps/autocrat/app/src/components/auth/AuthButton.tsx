@@ -189,6 +189,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
   if (isConnected && address) {
     return (
       <button
+        type="button"
         onClick={() => disconnectAsync()}
         className={`btn-secondary text-xs py-2 px-3 ${className}`}
       >
@@ -201,6 +202,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
   return (
     <>
       <button
+        type="button"
         onClick={() => setShowModal(true)}
         className={`btn-primary text-xs py-2 px-3 ${className}`}
       >
@@ -210,9 +212,11 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
       {/* Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          <button
+            type="button"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm cursor-default"
             onClick={() => setShowModal(false)}
+            aria-label="Close modal"
           />
 
           <div
@@ -232,6 +236,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
                 <span className="font-semibold">Sign In</span>
               </div>
               <button
+                type="button"
                 onClick={() => setShowModal(false)}
                 className="p-1 rounded hover:bg-gray-100 dark:hover:bg-gray-800"
               >
@@ -250,6 +255,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
             <div className="p-4 space-y-3">
               {/* Wallet */}
               <button
+                type="button"
                 onClick={() => handleWalletConnect('injected')}
                 disabled={isLoading}
                 className="w-full flex items-center gap-3 p-3 rounded-lg border transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -264,6 +270,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
 
               {/* Farcaster */}
               <button
+                type="button"
                 onClick={handleFarcaster}
                 disabled={isLoading}
                 className="w-full flex items-center gap-3 p-3 rounded-lg border transition-colors hover:bg-purple-500/10"
@@ -280,6 +287,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
               {/* Social */}
               <div className="grid grid-cols-2 gap-2">
                 <button
+                  type="button"
                   onClick={() => handleSocial('google')}
                   disabled={isLoading}
                   className="flex items-center justify-center gap-2 p-2.5 rounded-lg border transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -289,6 +297,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
                   <span className="text-xs">Google</span>
                 </button>
                 <button
+                  type="button"
                   onClick={() => handleSocial('github')}
                   disabled={isLoading}
                   className="flex items-center justify-center gap-2 p-2.5 rounded-lg border transition-colors hover:bg-gray-50 dark:hover:bg-gray-800"
@@ -302,6 +311,7 @@ export function AuthButton({ onSuccess, className = '' }: AuthButtonProps) {
               {/* Passkey */}
               {hasPasskeys && (
                 <button
+                  type="button"
                   onClick={handlePasskey}
                   disabled={isLoading}
                   className="w-full flex items-center gap-3 p-3 rounded-lg border transition-colors hover:bg-emerald-500/10"

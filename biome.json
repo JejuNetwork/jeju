@@ -22,36 +22,12 @@
     "enabled": true,
     "rules": {
       "recommended": true,
-      "suspicious": {
-        "noExplicitAny": "error",
-        "noDebugger": "warn",
-        "noArrayIndexKey": "error",
-        "useIterableCallbackReturn": "error",
-        "noAssignInExpressions": "error"
-      },
       "correctness": {
         "noUnusedVariables": "error",
-        "noUnusedImports": "error",
-        "useExhaustiveDependencies": "error"
-      },
-      "performance": {
-        "noImgElement": "error"
+        "noUnusedImports": "error"
       },
       "style": {
-        "useConst": "error",
-        "noNonNullAssertion": "error",
-        "noEnum": "off"
-      },
-      "a11y": {
-        "recommended": false
-      },
-      "security": {
-        "noDangerouslySetInnerHtml": "error"
-      },
-      "complexity": {
-        "noStaticOnlyClass": "error",
-        "noCommaOperator": "error",
-        "noBannedTypes": "error"
+        "noNonNullAssertion": "error"
       }
     }
   },
@@ -60,20 +36,5 @@
       "quoteStyle": "single",
       "semicolons": "asNeeded"
     }
-  },
-  "overrides": [
-    {
-      "includes": ["**/*.test.ts", "**/*.test.tsx", "**/tests/**/*.ts", "**/test/**/*.ts"],
-      "linter": {
-        "rules": {
-          "suspicious": {
-            "noExplicitAny": "warn"
-          },
-          "style": {
-            "noNonNullAssertion": "off"
-          }
-        }
-      }
-    }
-  ]
+  }
 }

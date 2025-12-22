@@ -3,6 +3,7 @@
  * Serverless function deployment and invocation
  */
 
+import { expectJson } from '@jejunetwork/types'
 import { Hono } from 'hono'
 import {
   contentTypeHeaderSchema,
@@ -26,6 +27,8 @@ import type {
   WorkerRuntime as RuntimeType,
   WorkerFunction,
 } from '../../workers/types'
+
+const EnvRecordSchema = z.record(z.string(), z.string())
 
 export function createWorkersRouter(backend: BackendManager): Hono {
   const router = new Hono()
@@ -71,7 +74,11 @@ export function createWorkersRouter(backend: BackendManager): Hono {
         code: Buffer.from(await codeFile.arrayBuffer()),
         memory: parseInt(formData.get('memory') as string, 10) || 256,
         timeout: parseInt(formData.get('timeout') as string, 10) || 30000,
-        env: JSON.parse((formData.get('env') as string) || '{}'),
+        env: expectJson(
+          (formData.get('env') as string) || '{}',
+          EnvRecordSchema,
+          'worker env',
+        ),
       }
     } else {
       const body = await validateBody(deployWorkerRequestSchema, c)

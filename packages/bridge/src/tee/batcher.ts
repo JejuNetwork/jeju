@@ -290,6 +290,7 @@ export class TEEBatcher {
 
     if (phalaEndpoint) {
       // Use real Phala TEE attestation
+      // Dynamic import: only needed when Phala endpoint is configured (conditional check)
       const { createPhalaClient } = await import('./phala-client.js')
       const phalaClient = createPhalaClient({ endpoint: phalaEndpoint })
       await phalaClient.initialize()

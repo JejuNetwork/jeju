@@ -69,7 +69,8 @@ export default function OrganizationsPage() {
       let orgs: Organization[] = []
 
       if (gitResponse.ok) {
-        const gitOrgs = (await gitResponse.json()) as Array<{
+        const rawOrgs = await gitResponse.json()
+        const gitOrgs: Array<{
           name: string
           displayName?: string
           description?: string
@@ -79,7 +80,7 @@ export default function OrganizationsPage() {
           repoCount: number
           createdAt: string
           verified?: boolean
-        }>
+        }> = Array.isArray(rawOrgs) ? rawOrgs : []
 
         // Enrich with package counts from pkg registry
         orgs = await Promise.all(
@@ -90,8 +91,8 @@ export default function OrganizationsPage() {
                 `${npmRegistryUrl}/-/org/${org.name}/package`,
               )
               if (pkgResponse.ok) {
-                const packages = (await pkgResponse.json()) as string[]
-                packageCount = packages.length
+                const packages = await pkgResponse.json()
+                packageCount = Array.isArray(packages) ? packages.length : 0
               }
             } catch {
               // Continue without package count
@@ -140,11 +141,12 @@ export default function OrganizationsPage() {
       )
 
       if (response.ok) {
-        const memberData = (await response.json()) as Array<{
+        const rawMembers = await response.json()
+        const memberData: Array<{
           username: string
           role: 'owner' | 'admin' | 'member'
           joinedAt: string
-        }>
+        }> = Array.isArray(rawMembers) ? rawMembers : []
         setMembers(memberData)
       } else {
         setMembers([])
@@ -182,7 +184,10 @@ export default function OrganizationsPage() {
               Manage teams and collaborate on repositories and packages
             </p>
           </div>
-          <button className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors flex items-center gap-2">
+          <button
+            type="button"
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors flex items-center gap-2"
+          >
             <PlusIcon className="w-4 h-4" />
             New Organization
           </button>
@@ -219,6 +224,7 @@ export default function OrganizationsPage() {
               <div className="space-y-4">
                 {filteredOrgs.map((org) => (
                   <button
+                    type="button"
                     key={org.id}
                     onClick={() => selectOrg(org)}
                     className={`w-full text-left p-6 bg-gray-800 rounded-lg border transition-colors ${
@@ -282,7 +288,10 @@ export default function OrganizationsPage() {
                     <h2 className="text-xl font-bold">
                       {selectedOrg.displayName}
                     </h2>
-                    <button className="p-2 hover:bg-gray-700 rounded-lg transition-colors">
+                    <button
+                      type="button"
+                      className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+                    >
                       <SettingsIcon className="w-5 h-5 text-gray-400" />
                     </button>
                   </div>
@@ -340,7 +349,10 @@ export default function OrganizationsPage() {
                       </div>
                     ))}
                   </div>
-                  <button className="w-full mt-4 py-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-sm">
+                  <button
+                    type="button"
+                    className="w-full mt-4 py-2 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors text-sm"
+                  >
                     View All Members
                   </button>
                 </div>

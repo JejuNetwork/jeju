@@ -1,7 +1,7 @@
 'use client'
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { getDwsUrl } from '../config/contracts'
+import { api, extractDataSafe } from '../lib/client'
 
 // ============ Types ============
 
@@ -41,51 +41,108 @@ export interface ContainerStats {
   totalStorage: string
 }
 
-// ============ Fetchers ============
+// ============ Fetchers using Eden Treaty ============
+
+interface ApiContainerImage {
+  id: string
+  name: string
+  tag: string
+  digest: string
+  size: number | string
+  platform?: string
+  downloads?: number
+  createdAt: number
+  updatedAt?: number
+  description?: string
+}
 
 async function fetchImages(query?: {
   search?: string
 }): Promise<ContainerImage[]> {
-  const dwsUrl = getDwsUrl()
-  const params = new URLSearchParams()
-  if (query?.search) params.set('q', query.search)
+  const response = await api.api.containers.get({
+    query: {
+      q: query?.search,
+    },
+  })
 
-  const res = await fetch(
-    `${dwsUrl}/api/containers/images?${params.toString()}`,
-  )
-  if (!res.ok) return []
-  const data = await res.json()
-  return data.images || []
+  const data = extractDataSafe(response)
+  if (!data) return []
+
+  // API returns { containers, total }
+  const result = data as { containers?: ApiContainerImage[]; total?: number }
+
+  // Transform API response to expected format
+  return (result.containers || []).map((c) => ({
+    id: c.id,
+    name: c.name,
+    tag: c.tag,
+    size:
+      typeof c.size === 'number'
+        ? formatBytes(c.size as number)
+        : String(c.size),
+    digest: c.digest,
+    createdAt: c.createdAt,
+    pulls: c.downloads || 0,
+    isPublic: true,
+    description: c.description,
+  }))
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes === 0) return '0 B'
+  const k = 1024
+  const sizes = ['B', 'KB', 'MB', 'GB']
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+  return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`
 }
 
 async function fetchInstances(): Promise<ContainerInstance[]> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/containers/instances`)
+  // Instances endpoint may not be in the typed API
+  const baseUrl =
+    typeof window !== 'undefined'
+      ? ''
+      : process.env.FACTORY_API_URL || 'http://localhost:4009'
+  const res = await fetch(`${baseUrl}/api/containers/instances`)
   if (!res.ok) return []
   const data = await res.json()
   return data.instances || []
 }
 
 async function fetchContainerStats(): Promise<ContainerStats> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/containers/stats`)
-  if (!res.ok) {
-    return {
-      totalImages: 0,
-      runningContainers: 0,
-      totalPulls: 0,
-      totalStorage: '0 B',
-    }
+  // Calculate stats from images list
+  const images = await fetchImages()
+  const totalBytes = images.reduce((sum, img) => sum + parseSize(img.size), 0)
+  return {
+    totalImages: images.length,
+    runningContainers: 0,
+    totalPulls: images.reduce((sum, img) => sum + img.pulls, 0),
+    totalStorage: formatBytes(totalBytes),
   }
-  return res.json()
+}
+
+function parseSize(sizeStr: string): number {
+  const match = sizeStr.match(/^([\d.]+)\s*(B|KB|MB|GB)$/i)
+  if (!match) return 0
+  const num = Number.parseFloat(match[1])
+  const unit = match[2].toUpperCase()
+  const multipliers: Record<string, number> = {
+    B: 1,
+    KB: 1024,
+    MB: 1024 ** 2,
+    GB: 1024 ** 3,
+  }
+  return num * (multipliers[unit] || 1)
 }
 
 async function startContainer(
   imageId: string,
   config: { name: string; cpu: string; memory: string; gpu?: string },
 ): Promise<ContainerInstance | null> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/containers/instances`, {
+  const baseUrl =
+    typeof window !== 'undefined'
+      ? ''
+      : process.env.FACTORY_API_URL || 'http://localhost:4009'
+  const res = await fetch(`${baseUrl}/api/containers/instances`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ imageId, ...config }),
@@ -95,9 +152,12 @@ async function startContainer(
 }
 
 async function stopContainer(instanceId: string): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
+  const baseUrl =
+    typeof window !== 'undefined'
+      ? ''
+      : process.env.FACTORY_API_URL || 'http://localhost:4009'
   const res = await fetch(
-    `${dwsUrl}/api/containers/instances/${instanceId}/stop`,
+    `${baseUrl}/api/containers/instances/${instanceId}/stop`,
     {
       method: 'POST',
     },
@@ -106,8 +166,11 @@ async function stopContainer(instanceId: string): Promise<boolean> {
 }
 
 async function deleteContainer(instanceId: string): Promise<boolean> {
-  const dwsUrl = getDwsUrl()
-  const res = await fetch(`${dwsUrl}/api/containers/instances/${instanceId}`, {
+  const baseUrl =
+    typeof window !== 'undefined'
+      ? ''
+      : process.env.FACTORY_API_URL || 'http://localhost:4009'
+  const res = await fetch(`${baseUrl}/api/containers/instances/${instanceId}`, {
     method: 'DELETE',
   })
   return res.ok

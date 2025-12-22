@@ -5,7 +5,7 @@
 import { Elysia } from 'elysia'
 
 const DWS_API_URL = process.env.DWS_URL || 'http://localhost:3456'
-const RPC_URL = process.env.RPC_URL || 'http://localhost:9545'
+const RPC_URL = process.env.RPC_URL || 'http://localhost:6546'
 
 export const healthRoutes = new Elysia({ prefix: '/api/health' }).get(
   '/',

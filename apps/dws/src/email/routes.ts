@@ -166,7 +166,7 @@ async function getAuthenticatedUser(c: {
     }
   }
 
-  const rpcUrl = process.env.JEJU_RPC_URL ?? 'http://localhost:8545'
+  const rpcUrl = process.env.JEJU_RPC_URL ?? 'http://localhost:6545'
   const registryAddress = process.env.EMAIL_REGISTRY_ADDRESS as
     | Address
     | undefined

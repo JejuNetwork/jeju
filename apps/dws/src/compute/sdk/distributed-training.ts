@@ -424,7 +424,7 @@ export class DistributedTrainingClient {
     if (
       this.config.selfEndpoint &&
       this.config.rpcUrl &&
-      !this.config.rpcUrl.includes('localhost:9545')
+      !this.config.rpcUrl.includes('localhost:6546')
     ) {
       if (!this.p2pNetwork) {
         this.p2pNetwork = createP2PNetwork({

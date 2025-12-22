@@ -1,9 +1,13 @@
 /**
  * Production server script
- * Serves the built static files
+ *
+ * Serves the built static files from dist/static/
+ * and proxies API requests to the worker or standalone API server.
  */
 
 const PORT = Number(process.env.PORT) || 4006
+const API_URL = process.env.API_URL || 'http://localhost:4007'
+const STATIC_DIR = './dist/static'
 
 Bun.serve({
   port: PORT,
@@ -11,34 +15,66 @@ Bun.serve({
     const url = new URL(req.url)
     let path = url.pathname
 
-    // API proxy
-    if (path.startsWith('/api/')) {
-      const apiUrl = process.env.API_URL || 'http://localhost:4007'
-      return fetch(new URL(path + url.search, apiUrl), {
+    // API proxy (to worker or standalone server)
+    if (
+      path.startsWith('/api/') ||
+      path.startsWith('/health') ||
+      path.startsWith('/.well-known/')
+    ) {
+      const targetUrl = `${API_URL}${path}${url.search}`
+      return fetch(targetUrl, {
         method: req.method,
         headers: req.headers,
-        body: req.body,
+        body:
+          req.method !== 'GET' && req.method !== 'HEAD' ? req.body : undefined,
+      }).catch((error) => {
+        console.error('API proxy error:', error.message)
+        return new Response(JSON.stringify({ error: 'Backend unavailable' }), {
+          status: 503,
+          headers: { 'Content-Type': 'application/json' },
+        })
       })
     }
 
-    // Try to serve static file
+    // Normalize path
     if (path === '/') {
       path = '/index.html'
     }
 
-    const file = Bun.file(`./dist${path}`)
+    // Try to serve static file
+    const file = Bun.file(`${STATIC_DIR}${path}`)
     if (await file.exists()) {
       const contentType = getContentType(path)
+      const cacheControl = getCacheControl(path)
       return new Response(await file.arrayBuffer(), {
-        headers: { 'Content-Type': contentType },
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': cacheControl,
+        },
       })
     }
 
-    // SPA fallback
-    const indexFile = Bun.file('./dist/index.html')
+    // Check for chunks directory
+    if (path.startsWith('/chunks/')) {
+      const chunkFile = Bun.file(`${STATIC_DIR}${path}`)
+      if (await chunkFile.exists()) {
+        return new Response(await chunkFile.arrayBuffer(), {
+          headers: {
+            'Content-Type': 'application/javascript',
+            'Cache-Control': 'public, max-age=31536000, immutable',
+          },
+        })
+      }
+    }
+
+    // SPA fallback - serve index.html for all unmatched routes
+    const indexFile = Bun.file(`${STATIC_DIR}/index.html`)
     if (await indexFile.exists()) {
       return new Response(await indexFile.arrayBuffer(), {
-        headers: { 'Content-Type': 'text/html' },
+        headers: {
+          'Content-Type': 'text/html',
+          'Cache-Control': 'no-cache',
+        },
       })
     }
 
@@ -55,7 +91,28 @@ function getContentType(path: string): string {
   if (path.endsWith('.svg')) return 'image/svg+xml'
   if (path.endsWith('.png')) return 'image/png'
   if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return 'image/jpeg'
+  if (path.endsWith('.woff2')) return 'font/woff2'
+  if (path.endsWith('.woff')) return 'font/woff'
   return 'application/octet-stream'
 }
 
+function getCacheControl(path: string): string {
+  // Hash-named files are immutable
+  if (path.match(/-[a-f0-9]{8,}\.(js|css)$/)) {
+    return 'public, max-age=31536000, immutable'
+  }
+  // Other JS/CSS files
+  if (path.endsWith('.js') || path.endsWith('.css')) {
+    return 'public, max-age=86400'
+  }
+  // HTML files
+  if (path.endsWith('.html')) {
+    return 'no-cache'
+  }
+  // Default
+  return 'public, max-age=3600'
+}
+
 console.log(`🏝️ Bazaar running at http://localhost:${PORT}`)
+console.log(`   API: ${API_URL}`)
+console.log(`   Static: ${STATIC_DIR}`)

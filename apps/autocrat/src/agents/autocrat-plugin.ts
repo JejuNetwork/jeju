@@ -20,6 +20,7 @@ import type {
   State,
 } from '@elizaos/core'
 import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
+import { A2AJsonRpcResponseSchema, MCPToolCallResponseSchema } from '../schemas'
 import { autocratProviders } from './autocrat-providers'
 
 // ============================================================================
@@ -55,10 +56,12 @@ async function callA2A(
     }),
   })
 
-  const result = (await response.json()) as {
-    result?: { parts?: Array<{ kind: string; data?: Record<string, unknown> }> }
+  const result = A2AJsonRpcResponseSchema.safeParse(await response.json())
+  if (!result.success) {
+    return {}
   }
-  return result.result?.parts?.find((p) => p.kind === 'data')?.data ?? {}
+  const dataPart = result.data.result?.parts?.find((p) => p.kind === 'data')
+  return dataPart?.kind === 'data' && dataPart.data ? dataPart.data : {}
 }
 
 // ============================================================================
@@ -364,9 +367,10 @@ const callMCPToolAction: Action = {
       body: JSON.stringify({ params: { name: toolName, arguments: {} } }),
     })
 
-    const result = (await response.json()) as {
-      content?: Array<{ text?: string }>
-    }
+    const parseResult = MCPToolCallResponseSchema.safeParse(
+      await response.json(),
+    )
+    const result = parseResult.success ? parseResult.data : { content: [] }
 
     if (callback) {
       await callback({
@@ -374,7 +378,7 @@ const callMCPToolAction: Action = {
 
 Tool: ${toolName}
 Response:
-${result.content?.[0]?.text ?? JSON.stringify(result).slice(0, 500)}`,
+${result.content?.[0]?.text ?? 'No content returned'}`,
         action: 'CALL_MCP_TOOL',
       })
     }

@@ -319,6 +319,7 @@ export const TransactionSimulation: React.FC<TransactionSimulationProps> = ({
         <div className="flex gap-3 pt-2">
           {onCancel && (
             <button
+              type="button"
               onClick={onCancel}
               className="flex-1 py-3 px-4 bg-zinc-800 hover:bg-zinc-700 rounded-lg font-medium transition-colors"
             >
@@ -327,6 +328,7 @@ export const TransactionSimulation: React.FC<TransactionSimulationProps> = ({
           )}
           {onProceed && simulation.success && (
             <button
+              type="button"
               onClick={onProceed}
               disabled={simulation.risk.level === 'critical'}
               className={`flex-1 py-3 px-4 rounded-lg font-medium transition-colors ${

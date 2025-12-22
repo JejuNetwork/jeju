@@ -14,7 +14,7 @@ const RPC_MAINNET =
 const RPC_TESTNET =
   import.meta.env.VITE_RPC_TESTNET || 'https://rpc.testnet.jejunetwork.org'
 const RPC_LOCALNET =
-  import.meta.env.VITE_RPC_LOCALNET || 'http://localhost:9545'
+  import.meta.env.VITE_RPC_LOCALNET || 'http://localhost:6546'
 
 export interface UrlsBranding {
   rpc: {

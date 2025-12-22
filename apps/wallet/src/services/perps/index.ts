@@ -177,15 +177,17 @@ const MARGIN_MANAGER_ABI = [
   },
 ] as const
 
-export enum PositionSide {
-  Long = 0,
-  Short = 1,
-}
+export const PositionSide = {
+  Long: 0,
+  Short: 1,
+} as const
+export type PositionSide = (typeof PositionSide)[keyof typeof PositionSide]
 
-export enum MarginType {
-  Isolated = 0,
-  Cross = 1,
-}
+export const MarginType = {
+  Isolated: 0,
+  Cross: 1,
+} as const
+export type MarginType = (typeof MarginType)[keyof typeof MarginType]
 
 export interface PerpMarket {
   marketId: Hex
@@ -275,7 +277,7 @@ export class PerpsService {
     if (cached) {
       return cached
     }
-    const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:9545'
+    const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:6546'
     const client = createPublicClient({ transport: http(rpcUrl) })
     this.clientCache.set(this.chainId, client)
     return client

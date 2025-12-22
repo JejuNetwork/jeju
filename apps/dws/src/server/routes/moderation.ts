@@ -32,7 +32,7 @@ interface ModerationConfig {
 }
 
 const getConfig = (): ModerationConfig => ({
-  rpcUrl: process.env.JEJU_RPC_URL ?? 'http://localhost:8545',
+  rpcUrl: process.env.JEJU_RPC_URL ?? 'http://localhost:6545',
   chainId: parseInt(process.env.CHAIN_ID ?? '31337', 10),
   moderationMarketplaceAddress: (process.env.MODERATION_MARKETPLACE_ADDRESS ??
     '0x0') as Address,

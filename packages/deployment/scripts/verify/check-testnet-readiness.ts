@@ -22,6 +22,13 @@ import { join } from 'node:path'
 import { $ } from 'bun'
 import { type Address, createPublicClient, formatEther, http } from 'viem'
 import { inferChainFromRpcUrl } from '../shared/chain-utils'
+import {
+  expectJson,
+  expectValid,
+  EILDeploymentSchema,
+  JsonRpcBlockNumberResponseSchema,
+  OIFDeploymentSchema,
+} from '../../schemas'
 
 const ROOT = process.cwd()
 const KEYS_DIR = join(ROOT, 'packages/deployment/.keys')
@@ -506,13 +513,12 @@ async function checkL2Genesis() {
 async function checkChainStatus() {
   const category = 'Chain Status'
 
-  const config = existsSync(CHAIN_CONFIG)
-    ? JSON.parse(readFileSync(CHAIN_CONFIG, 'utf-8'))
-    : null
-  if (!config) {
+  if (!existsSync(CHAIN_CONFIG)) {
     addResult(category, 'Chain Config', 'fail', 'Config not found')
     return
   }
+  const configContent = readFileSync(CHAIN_CONFIG, 'utf-8')
+  const config = JSON.parse(configContent) as { rpcUrl: string }
 
   // Try to connect to testnet RPC
   try {
@@ -527,10 +533,8 @@ async function checkChainStatus() {
       }),
     })
 
-    const data = (await response.json()) as {
-      result?: string
-      error?: { message: string }
-    }
+    const dataRaw = await response.json()
+    const data = expectValid(JsonRpcBlockNumberResponseSchema, dataRaw, 'eth_blockNumber response')
     if (data.result) {
       const blockNumber = parseInt(data.result, 16)
       addResult(category, 'L2 RPC', 'pass', `Block: ${blockNumber}`)
@@ -554,13 +558,8 @@ async function checkApplicationContracts() {
   const eilFile = join(ROOT, 'packages/contracts/deployments/eil-testnet.json')
 
   if (existsSync(oifFile)) {
-    interface OIFChainStatus {
-      status: string
-    }
-    interface OIFDeployment {
-      chains?: Record<string, OIFChainStatus>
-    }
-    const oif = JSON.parse(readFileSync(oifFile, 'utf-8')) as OIFDeployment
+    const oifContent = readFileSync(oifFile, 'utf-8')
+    const oif = expectJson(oifContent, OIFDeploymentSchema, 'OIF deployment')
     const deployedChains = Object.values(oif.chains || {}).filter(
       (c) => c.status === 'deployed',
     ).length
@@ -575,7 +574,8 @@ async function checkApplicationContracts() {
   }
 
   if (existsSync(eilFile)) {
-    const eil = JSON.parse(readFileSync(eilFile, 'utf-8'))
+    const eilContent = readFileSync(eilFile, 'utf-8')
+    const eil = expectJson(eilContent, EILDeploymentSchema, 'EIL deployment')
     const hasL1 = eil.l1StakeManager && eil.l1StakeManager !== ''
     addResult(
       category,

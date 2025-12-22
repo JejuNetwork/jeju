@@ -2526,6 +2526,12 @@ app.get('/health', () => {
   }
 })
 
+/**
+ * Export the app type for Eden Treaty client type inference.
+ * This enables fully typed API clients across the codebase.
+ */
+export type App = typeof app
+
 // Start server
 getWebSocketServer(Number(WS_PORT))
 

@@ -49,6 +49,7 @@ export default function RegistryTab() {
         }}
       >
         <button
+          type="button"
           className={`button nav-tab ${activeSection === 'list' ? '' : 'button-secondary'}`}
           onClick={() => setActiveSection('list')}
         >
@@ -56,6 +57,7 @@ export default function RegistryTab() {
           Browse
         </button>
         <button
+          type="button"
           className={`button nav-tab ${activeSection === 'register' ? '' : 'button-secondary'}`}
           onClick={() => setActiveSection('register')}
         >

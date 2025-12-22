@@ -361,16 +361,3 @@ export const rawDeployments = {
   xlpAmmLocalnet: xlpAmmLocalnet_raw,
   launchpadLocalnet: launchpadLocalnet_raw,
 } as const
-
-// Re-export types
-export type {
-  BazaarMarketplaceDeployment,
-  ContractAddresses,
-  ERC20FactoryDeployment,
-  GameSystemDeployment,
-  IdentitySystemDeployment,
-  LaunchpadDeployment,
-  PaymasterSystemDeployment,
-  UniswapV4Deployment,
-  XLPDeployment,
-} from './schemas'

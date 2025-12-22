@@ -18,6 +18,7 @@ import { privateKeyToAccount } from 'viem/accounts'
 import {
   MessagingClientConfigBaseSchema,
   SendMessageRequestSchema,
+  SendMessageResponseSchema,
   WebSocketIncomingMessageSchema,
 } from '../schemas'
 import { KEY_REGISTRY_ABI, MESSAGE_NODE_REGISTRY_ABI } from './abis'
@@ -647,8 +648,9 @@ export class MessagingClient {
       )
     }
 
-    const result = (await response.json()) as SendMessageResponse
-    return result
+    const rawResult: unknown = await response.json()
+    const result = SendMessageResponseSchema.parse(rawResult)
+    return result as SendMessageResponse
   }
 
   // ============ Event Handling ============

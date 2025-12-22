@@ -13,7 +13,7 @@ import {IDAORegistry} from "../src/governance/interfaces/IDAORegistry.sol";
  * @notice Deploy multi-tenant DAO governance infrastructure
  *
  * Usage:
- *   forge script script/DeployDAORegistry.s.sol --rpc-url http://localhost:9545 --broadcast
+ *   forge script script/DeployDAORegistry.s.sol --rpc-url http://localhost:6546 --broadcast
  *   forge script script/DeployDAORegistry.s.sol --rpc-url $RPC_URL --broadcast --verify
  */
 contract DeployDAORegistry is Script {

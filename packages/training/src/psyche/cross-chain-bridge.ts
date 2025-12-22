@@ -22,6 +22,7 @@ import {
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
+import { sign } from 'tweetnacl'
 import type { CoordinatorState, PsycheClient } from './psyche-client'
 
 // ============================================================================
@@ -316,7 +317,6 @@ export class CrossChainTrainingBridge {
     view.setBigUint64(36, BigInt(solanaState.totalSteps), true)
     view.setUint32(44, solanaState.clients.length, true)
 
-    const { sign } = await import('tweetnacl')
     const solanaSignature = sign.detached(message, this.solanaKeypair.secretKey)
 
     const hash = await this.evmWalletClient.writeContract({

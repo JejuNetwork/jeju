@@ -21,7 +21,9 @@ import {
   createTriggerRequestSchema,
   createWorkflowRunRequestSchema,
   environmentNameParamsSchema,
+  expectValid,
   jejuAddressHeaderSchema,
+  logEntrySchema,
   logsQuerySchema,
   runIdParamsSchema,
   runnerParamsSchema,
@@ -238,7 +240,7 @@ export function createCIRouter(ctx: CIContext): Hono {
         .toString()
         .split('\n')
         .filter((l) => l.trim())
-        .map((l) => JSON.parse(l) as LogEntry)
+        .map((l) => expectValid(logEntrySchema, JSON.parse(l), 'log entry'))
 
       if (jobId) logs = logs.filter((l) => l.jobId === jobId)
       if (stepId) logs = logs.filter((l) => l.stepId === stepId)

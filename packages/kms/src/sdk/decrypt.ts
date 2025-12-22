@@ -2,7 +2,7 @@
  * KMS SDK - Decryption utilities
  */
 
-import type { Address, Hex } from 'viem'
+import { keccak256, toBytes, type Address, type Hex } from 'viem'
 import type { ZodSchema } from 'zod'
 import { getKMS } from '../kms.js'
 import type { AuthSignature, EncryptedPayload } from '../types.js'
@@ -111,7 +111,6 @@ export async function decryptAndVerify(
   const decrypted = await kms.decrypt({ payload, authSig })
 
   if (expectedHash) {
-    const { keccak256, toBytes } = await import('viem')
     return {
       data: decrypted,
       verified: keccak256(toBytes(decrypted)) === expectedHash,

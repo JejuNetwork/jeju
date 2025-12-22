@@ -147,12 +147,12 @@ describe('Privy Token Verification (Mock)', () => {
     const userInfo = await verifyPrivyToken(client, 'valid-token-1')
 
     expect(userInfo).not.toBeNull()
-    expect(userInfo!.privyUserId).toBe('did:privy:test-user-1')
-    expect(userInfo!.walletAddress).toBe(
+    expect(userInfo?.privyUserId).toBe('did:privy:test-user-1')
+    expect(userInfo?.walletAddress).toBe(
       '0x1234567890123456789012345678901234567890',
     )
-    expect(userInfo!.email).toBe('test@example.com')
-    expect(userInfo!.isVerified).toBe(true)
+    expect(userInfo?.email).toBe('test@example.com')
+    expect(userInfo?.isVerified).toBe(true)
   })
 
   it('should return null for invalid token', async () => {
@@ -164,8 +164,8 @@ describe('Privy Token Verification (Mock)', () => {
     const userInfo = await verifyPrivyToken(client, 'valid-token-2')
 
     expect(userInfo).not.toBeNull()
-    expect(userInfo!.farcasterFid).toBe('12345')
-    expect(userInfo!.walletAddress).toBe(
+    expect(userInfo?.farcasterFid).toBe('12345')
+    expect(userInfo?.walletAddress).toBe(
       '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
     )
   })
@@ -174,9 +174,9 @@ describe('Privy Token Verification (Mock)', () => {
     const userInfo = await verifyPrivyToken(client, 'valid-token-3')
 
     expect(userInfo).not.toBeNull()
-    expect(userInfo!.email).toBe('emailonly@example.com')
-    expect(userInfo!.walletAddress).toBeNull()
-    expect(userInfo!.farcasterFid).toBeNull()
+    expect(userInfo?.email).toBe('emailonly@example.com')
+    expect(userInfo?.walletAddress).toBeNull()
+    expect(userInfo?.farcasterFid).toBeNull()
   })
 })
 
@@ -190,7 +190,7 @@ describe('Privy User Lookup (Mock)', () => {
   it('should find existing user by ID', async () => {
     const user = await client.getUserById('did:privy:test-user-1')
     expect(user).not.toBeNull()
-    expect(user!.id).toBe('did:privy:test-user-1')
+    expect(user?.id).toBe('did:privy:test-user-1')
   })
 
   it('should return null for non-existent user', async () => {

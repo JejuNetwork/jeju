@@ -24,30 +24,6 @@
  * await jeju.crosschain.transfer({ from: 'base', to: 'arbitrum', amount });
  * ```
  */
-
-// Re-export types
-export type {
-  ComputeProvider,
-  ComputeRental,
-  ComputeResources,
-  ContributionQuota,
-  ContributionSettings,
-  CountryCode,
-  InferenceRequest,
-  InferenceResponse,
-  Intent,
-  IntentQuote,
-  Proposal,
-  ProposalStatus,
-  ProposalType,
-  Solver,
-  VoteType,
-  Voucher,
-  VoucherRequest,
-  VPNConnection,
-  VPNNode,
-  VPNProtocol,
-} from '@jejunetwork/types'
 export * from './a2a'
 export * from './agents'
 export * from './amm'

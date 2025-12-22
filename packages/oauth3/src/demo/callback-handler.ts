@@ -152,7 +152,7 @@ function validateOrigin(
 }
 
 /**
- * Creates a simple Hono route handler for OAuth callbacks
+ * Creates a callback route handler for Elysia
  * SECURITY: Origin must be validated against allowlist, not accepted from query parameter
  */
 export function createCallbackRoute(allowedOrigins: string[]) {
@@ -160,9 +160,8 @@ export function createCallbackRoute(allowedOrigins: string[]) {
     throw new Error('At least one allowed origin must be configured')
   }
 
-  return (c: { req: { url: string }; html: (content: string) => Response }) => {
-    const url = new URL(c.req.url)
-    const requestedOrigin = url.searchParams.get('origin')
+  return ({ query }: { query: Record<string, string | undefined> }) => {
+    const requestedOrigin = query.origin
 
     // SECURITY: Validate the requested origin against allowlist
     // If not in allowlist, use the first allowed origin as default
@@ -172,6 +171,6 @@ export function createCallbackRoute(allowedOrigins: string[]) {
 
     const origin = validatedOrigin ?? allowedOrigins[0]
 
-    return c.html(generateCallbackHtml(origin))
+    return generateCallbackHtml(origin)
   }
 }

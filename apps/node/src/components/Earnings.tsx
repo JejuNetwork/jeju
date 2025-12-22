@@ -34,7 +34,7 @@ export function Earnings() {
           </p>
         </div>
 
-        <button className="btn-secondary flex items-center gap-2">
+        <button type="button" className="btn-secondary flex items-center gap-2">
           <Download size={16} />
           Export
         </button>
@@ -104,6 +104,7 @@ export function Earnings() {
           <div className="flex gap-1 bg-volcanic-800 rounded-lg p-1">
             {timeRangeOptions.map((option) => (
               <button
+                type="button"
                 key={option.value}
                 onClick={() => setTimeRange(option.value)}
                 className={clsx(

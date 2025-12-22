@@ -12,7 +12,7 @@ describe('Moderation Load Tests', () => {
 
   beforeAll(() => {
     publicClient = createPublicClient({
-      transport: http(process.env.RPC_URL || 'http://localhost:9545'),
+      transport: http(process.env.RPC_URL || 'http://localhost:6546'),
     })
     banManagerAddress = (process.env.BAN_MANAGER_ADDRESS ||
       '0x0000000000000000000000000000000000000000') as `0x${string}`

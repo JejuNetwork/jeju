@@ -2,7 +2,13 @@
  * MCP (Model Context Protocol) Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import {
+  expectValid,
+  MCPPromptGetBodySchema,
+  MCPResourceReadBodySchema,
+  MCPToolCallBodySchema,
+} from '../schemas'
 
 const SERVER_INFO = {
   name: 'jeju-factory',
@@ -231,8 +237,12 @@ function handleResourceRead(
     case 'factory://packages':
       contents = {
         packages: [
-          { name: '@jeju/sdk', version: '1.5.2', downloads: 45000 },
-          { name: '@jeju/contracts', version: '2.0.0', downloads: 32000 },
+          { name: '@jejunetwork/sdk', version: '1.5.2', downloads: 45000 },
+          {
+            name: '@jejunetwork/contracts',
+            version: '2.0.0',
+            downloads: 32000,
+          },
         ],
       }
       break
@@ -305,7 +315,7 @@ function handleToolCall(
       result = {
         packages: [
           {
-            name: '@jeju/sdk',
+            name: '@jejunetwork/sdk',
             version: '1.5.2',
             description: 'Jeju Network SDK',
           },
@@ -394,7 +404,12 @@ export const mcpRoutes = new Elysia({ prefix: '/api/mcp' })
   .post(
     '/resources/read',
     async ({ body, set }) => {
-      const result = handleResourceRead(body.uri)
+      const validated = expectValid(
+        MCPResourceReadBodySchema,
+        body,
+        'request body',
+      )
+      const result = handleResourceRead(validated.uri)
       if (!result) {
         set.status = 404
         return { error: 'Resource not found' }
@@ -402,32 +417,41 @@ export const mcpRoutes = new Elysia({ prefix: '/api/mcp' })
       return result
     },
     {
-      body: t.Object({
-        uri: t.String({ minLength: 1 }),
-      }),
+      detail: {
+        tags: ['mcp'],
+        summary: 'Read resource',
+        description: 'Read a specific MCP resource',
+      },
     },
   )
   .get('/tools/list', () => ({ tools: TOOLS }))
   .post(
     '/tools/call',
     async ({ body }) => {
+      const validated = expectValid(MCPToolCallBodySchema, body, 'request body')
       return handleToolCall(
-        body.name,
-        body.arguments as Record<string, unknown>,
+        validated.name,
+        validated.arguments as Record<string, unknown>,
       )
     },
     {
-      body: t.Object({
-        name: t.String({ minLength: 1 }),
-        arguments: t.Record(t.String(), t.Any()),
-      }),
+      detail: {
+        tags: ['mcp'],
+        summary: 'Call tool',
+        description: 'Call an MCP tool',
+      },
     },
   )
   .get('/prompts/list', () => ({ prompts: PROMPTS }))
   .post(
     '/prompts/get',
     async ({ body, set }) => {
-      const prompt = PROMPTS.find((p) => p.name === body.name)
+      const validated = expectValid(
+        MCPPromptGetBodySchema,
+        body,
+        'request body',
+      )
+      const prompt = PROMPTS.find((p) => p.name === validated.name)
       if (!prompt) {
         set.status = 404
         return { error: 'Prompt not found' }
@@ -438,14 +462,14 @@ export const mcpRoutes = new Elysia({ prefix: '/api/mcp' })
         content: { type: string; text: string }
       }>
 
-      switch (body.name) {
+      switch (validated.name) {
         case 'code_review':
           messages = [
             {
               role: 'user',
               content: {
                 type: 'text',
-                text: `Please review the pull request #${body.arguments.prNumber} in ${body.arguments.repo}.`,
+                text: `Please review the pull request #${validated.arguments.prNumber} in ${validated.arguments.repo}.`,
               },
             },
           ]
@@ -456,7 +480,7 @@ export const mcpRoutes = new Elysia({ prefix: '/api/mcp' })
               role: 'user',
               content: {
                 type: 'text',
-                text: `Create a detailed bounty proposal for: ${body.arguments.title}\nRequired skills: ${body.arguments.skills}`,
+                text: `Create a detailed bounty proposal for: ${validated.arguments.title}\nRequired skills: ${validated.arguments.skills}`,
               },
             },
           ]
@@ -469,9 +493,10 @@ export const mcpRoutes = new Elysia({ prefix: '/api/mcp' })
       return { messages }
     },
     {
-      body: t.Object({
-        name: t.String({ minLength: 1 }),
-        arguments: t.Record(t.String(), t.String()),
-      }),
+      detail: {
+        tags: ['mcp'],
+        summary: 'Get prompt',
+        description: 'Get a specific MCP prompt',
+      },
     },
   )

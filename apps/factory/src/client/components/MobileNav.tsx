@@ -97,6 +97,7 @@ export function MobileNav() {
           </Link>
 
           <button
+            type="button"
             onClick={() => setIsOpen(!isOpen)}
             className="p-2 -mr-2 text-factory-400 hover:text-factory-100"
             aria-label="Toggle menu"
@@ -116,9 +117,11 @@ export function MobileNav() {
         )}
       >
         {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        <button
+          type="button"
+          className="absolute inset-0 bg-black/60 backdrop-blur-sm border-0 cursor-default"
           onClick={() => setIsOpen(false)}
+          aria-label="Close menu"
         />
 
         {/* Menu Panel */}

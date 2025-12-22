@@ -147,18 +147,18 @@ export class CQLServer {
     const hash =
       '0x' +
       Buffer.from(crypto.getRandomValues(new Uint8Array(32))).toString('hex')
-    // Use atomic INSERT...SELECT to prevent race conditions
-    // This ensures we always get the correct next height even under concurrent load
-    this.registry.run(
-      `INSERT INTO blocks (height, timestamp, tx_count, hash) 
-       SELECT COALESCE(MAX(height), 0) + 1, ?, ?, ? FROM blocks`,
-      [Date.now(), txCount, hash],
-    )
-    // Update cached height from database to ensure consistency
+    // Use IMMEDIATE transaction to acquire exclusive lock and prevent race conditions
+    this.registry.exec('BEGIN IMMEDIATE')
     const result = this.registry
-      .query('SELECT MAX(height) as height FROM blocks')
-      .get() as { height: number | null } | null
-    this.blockHeight = result?.height ?? 0
+      .query('SELECT COALESCE(MAX(height), -1) + 1 as next FROM blocks')
+      .get() as { next: number }
+    const nextHeight = result.next
+    this.registry.run(
+      `INSERT INTO blocks (height, timestamp, tx_count, hash) VALUES (?, ?, ?, ?)`,
+      [nextHeight, Date.now(), txCount, hash],
+    )
+    this.registry.exec('COMMIT')
+    this.blockHeight = nextHeight
     return this.blockHeight
   }
 

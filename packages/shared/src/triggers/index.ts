@@ -5,7 +5,17 @@
  * via the Compute Trigger Service with on-chain registration.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address, Hex } from 'viem'
+import {
+  TriggerBalanceResponseSchema,
+  TriggerCreateResponseSchema,
+  TriggerGetResponseSchema,
+  TriggerListResponseSchema,
+  TriggerProofResponseSchema,
+  TriggerStatsResponseSchema,
+  TriggerTxHashResponseSchema,
+} from '../schemas'
 import type { WebhookBody } from '../types'
 
 export interface TriggerConfig {
@@ -119,7 +129,11 @@ class DecentralizedTriggerClient implements TriggerClient {
       throw new Error(`Failed to create trigger: ${error}`)
     }
 
-    const data = (await response.json()) as { trigger: Trigger }
+    const data = expectValid(
+      TriggerCreateResponseSchema,
+      await response.json(),
+      'trigger create response',
+    )
     return data.trigger
   }
 
@@ -139,7 +153,11 @@ class DecentralizedTriggerClient implements TriggerClient {
       throw new Error(`Failed to get trigger: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as { trigger: Trigger }
+    const data = expectValid(
+      TriggerGetResponseSchema,
+      await response.json(),
+      'trigger get response',
+    )
     return data.trigger
   }
 
@@ -168,7 +186,11 @@ class DecentralizedTriggerClient implements TriggerClient {
       throw new Error(`Failed to list triggers: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as { triggers: Trigger[] }
+    const data = expectValid(
+      TriggerListResponseSchema,
+      await response.json(),
+      'trigger list response',
+    )
     return data.triggers
   }
 
@@ -224,7 +246,11 @@ class DecentralizedTriggerClient implements TriggerClient {
       throw new Error(`Webhook execution failed: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as { proof: TriggerProof }
+    const data = expectValid(
+      TriggerProofResponseSchema,
+      await response.json(),
+      'trigger webhook response',
+    )
     return data.proof
   }
 
@@ -237,7 +263,11 @@ class DecentralizedTriggerClient implements TriggerClient {
       throw new Error(`Failed to get stats: ${response.statusText}`)
     }
 
-    return response.json() as Promise<TriggerStats>
+    return expectValid(
+      TriggerStatsResponseSchema,
+      await response.json(),
+      'trigger stats response',
+    )
   }
 
   async depositPrepaid(amount: string): Promise<string> {
@@ -255,7 +285,11 @@ class DecentralizedTriggerClient implements TriggerClient {
       throw new Error(`Failed to deposit: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as { txHash: string }
+    const data = expectValid(
+      TriggerTxHashResponseSchema,
+      await response.json(),
+      'trigger deposit response',
+    )
     return data.txHash
   }
 
@@ -274,7 +308,11 @@ class DecentralizedTriggerClient implements TriggerClient {
       throw new Error(`Failed to withdraw: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as { txHash: string }
+    const data = expectValid(
+      TriggerTxHashResponseSchema,
+      await response.json(),
+      'trigger withdraw response',
+    )
     return data.txHash
   }
 
@@ -290,7 +328,11 @@ class DecentralizedTriggerClient implements TriggerClient {
       throw new Error(`Failed to get balance: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as { balance: string }
+    const data = expectValid(
+      TriggerBalanceResponseSchema,
+      await response.json(),
+      'trigger balance response',
+    )
     return data.balance
   }
 }

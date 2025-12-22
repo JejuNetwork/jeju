@@ -8,9 +8,9 @@ import {
   useWaitForTransactionReceipt,
   useWriteContract,
 } from 'wagmi'
-import { CONTRACTS } from '@/config'
-import NFTMarketplaceABI from '@/lib/abis/NFTMarketplace.json'
-import { expectPositive, expectTrue } from '@/lib/validation'
+import { CONTRACTS } from '../../config'
+import NFTMarketplaceABI from '../../lib/abis/NFTMarketplace.json'
+import { expectPositive, expectTrue } from '../../lib/validation'
 
 const MARKETPLACE_ADDRESS = CONTRACTS.nftMarketplace
 

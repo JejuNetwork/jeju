@@ -12,6 +12,12 @@
 
 import { createPublicClient, type Hex, http, type PublicClient } from 'viem'
 import { mainnet } from 'viem/chains'
+import {
+  BeaconBlockHeaderResponseSchema,
+  BeaconFinalityCheckpointsResponseSchema,
+  BeaconLightClientUpdatesResponseSchema,
+  BeaconSyncCommitteeResponseSchema,
+} from '../../../src/utils/validation.js'
 
 // =============================================================================
 // TYPES
@@ -174,11 +180,8 @@ export class BeaconChainWatcher {
       throw new Error(`Failed to get finalized checkpoint: ${response.status}`)
     }
 
-    const data = (await response.json()) as {
-      data: {
-        finalized: { epoch: string; root: string }
-      }
-    }
+    const rawData: unknown = await response.json()
+    const data = BeaconFinalityCheckpointsResponseSchema.parse(rawData)
 
     const epoch = BigInt(data.data.finalized.epoch)
     const slot = epoch * BigInt(32) // 32 slots per epoch
@@ -205,18 +208,8 @@ export class BeaconChainWatcher {
         return null
       }
 
-      const data = (await response.json()) as {
-        data: Array<{
-          attested_header: { beacon: BeaconBlockHeader }
-          finalized_header: { beacon: BeaconBlockHeader }
-          finality_branch: string[]
-          sync_aggregate: {
-            sync_committee_bits: string
-            sync_committee_signature: string
-          }
-          signature_slot: string
-        }>
-      }
+      const rawData: unknown = await response.json()
+      const data = BeaconLightClientUpdatesResponseSchema.parse(rawData)
 
       if (data.data.length === 0) {
         return null
@@ -224,8 +217,8 @@ export class BeaconChainWatcher {
 
       const update = data.data[0]
       return {
-        attestedHeader: update.attested_header.beacon,
-        finalizedHeader: update.finalized_header.beacon,
+        attestedHeader: update.attested_header.beacon as BeaconBlockHeader,
+        finalizedHeader: update.finalized_header.beacon as BeaconBlockHeader,
         finalityBranch: update.finality_branch as Hex[],
         syncAggregate: {
           syncCommitteeBits: update.sync_aggregate.sync_committee_bits as Hex,
@@ -253,11 +246,8 @@ export class BeaconChainWatcher {
         return null
       }
 
-      const data = (await response.json()) as {
-        data: {
-          validators: string[]
-        }
-      }
+      const rawData: unknown = await response.json()
+      const data = BeaconSyncCommitteeResponseSchema.parse(rawData)
 
       // In production, would aggregate pubkeys properly
       return {
@@ -309,9 +299,8 @@ export class BeaconChainWatcher {
       )
     }
 
-    const data = (await response.json()) as {
-      data: { header: { message: { state_root: string } } }
-    }
+    const rawData: unknown = await response.json()
+    const data = BeaconBlockHeaderResponseSchema.parse(rawData)
 
     return data.data.header.message.state_root as Hex
   }
@@ -375,7 +364,7 @@ export function createBeaconWatcher(config: BeaconConfig): BeaconChainWatcher {
 if (import.meta.main) {
   const config: BeaconConfig = {
     beaconRpcUrl: process.env.BEACON_RPC_URL ?? 'http://localhost:5052',
-    executionRpcUrl: process.env.EXECUTION_RPC_URL ?? 'http://localhost:8545',
+    executionRpcUrl: process.env.EXECUTION_RPC_URL ?? 'http://localhost:6545',
     relayerEndpoint: process.env.RELAYER_ENDPOINT ?? 'http://localhost:8081',
     pollingIntervalMs: 12000, // 12 seconds (slot time)
     finalityConfirmations: 2,

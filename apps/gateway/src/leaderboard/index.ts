@@ -56,3 +56,4 @@ export {
 
 // Server
 export { leaderboardApp } from './server.js'
+export type { LeaderboardApp } from './server.js'

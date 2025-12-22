@@ -4,26 +4,9 @@
  * All inputs and outputs are validated with fail-fast patterns
  */
 
-import { type Address, getAddress, type Hex } from 'viem'
+import { AddressSchema, HexSchema } from '@jejunetwork/types'
+import type { Address } from 'viem'
 import { z } from 'zod'
-
-// ============================================================================
-// Address Validation
-// ============================================================================
-
-const AddressSchema = z.string().transform((val): Address => {
-  return getAddress(val) as Address
-})
-
-const HexSchema = z
-  .string()
-  .refine(
-    (val): val is Hex => {
-      return /^0x[a-fA-F0-9]+$/.test(val) && val.length >= 2
-    },
-    { error: 'Invalid hex string' },
-  )
-  .transform((val) => val as Hex)
 
 // ============================================================================
 // VPN Node Schemas
@@ -300,6 +283,14 @@ export const ContributionSettingsRequestSchema = z
 // ============================================================================
 // A2A Schemas
 // ============================================================================
+
+// A2A skill data schema for validating skill invocations
+export const A2ASkillDataSchema = z
+  .object({
+    skillId: z.string().min(1, 'Skill ID required'),
+    params: z.record(z.string(), z.unknown()),
+  })
+  .strict()
 
 export const A2AMessagePartSchema = z
   .object({

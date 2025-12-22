@@ -156,10 +156,14 @@ export default function LabelProposalInterface({
     <form onSubmit={handleSubmit} className="space-y-6">
       {/* Target Agent */}
       <div>
-        <label className="block text-sm font-medium mb-2">
+        <label
+          htmlFor="label-target-agent"
+          className="block text-sm font-medium mb-2"
+        >
           Target Agent ID *
         </label>
         <input
+          id="label-target-agent"
           type="number"
           value={formData.targetAgentId}
           onChange={(e) =>
@@ -173,9 +177,7 @@ export default function LabelProposalInterface({
 
       {/* Label Selection */}
       <div>
-        <label className="block text-sm font-medium mb-2">
-          Reputation Label *
-        </label>
+        <div className="block text-sm font-medium mb-2">Reputation Label *</div>
         <div className="grid gap-3">
           {LABEL_TYPES.map((label) => {
             const Icon = label.icon
@@ -219,9 +221,9 @@ export default function LabelProposalInterface({
 
       {/* Evidence Upload */}
       <div>
-        <label className="block text-sm font-medium mb-2">
+        <div className="block text-sm font-medium mb-2">
           Evidence * (IPFS Upload)
-        </label>
+        </div>
         <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
           {!evidenceFile ? (
             <>

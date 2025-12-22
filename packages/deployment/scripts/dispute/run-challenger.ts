@@ -604,7 +604,7 @@ async function main(): Promise<void> {
   console.log('⚔️  Permissionless Challenger Service\n')
 
   const network = process.env.NETWORK || 'localnet'
-  const l1RpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:8545'
+  const l1RpcUrl = process.env.L1_RPC_URL || 'http://127.0.0.1:6545'
   const l2RpcUrl = process.env.L2_RPC_URL
 
   let disputeGameFactoryAddr = process.env.DISPUTE_GAME_FACTORY_ADDRESS

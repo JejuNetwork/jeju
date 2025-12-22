@@ -12,6 +12,8 @@ import { existsSync } from 'node:fs'
 import { mkdir, readFile, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { Hex } from 'viem'
+import { installDWSAgentRequestSchema } from '../shared/schemas'
+import { expectValid } from '../shared/validation'
 
 // ============================================================================
 // Types
@@ -221,6 +223,16 @@ async function createK3dCluster(
   cluster.nodes = await getK3dNodes(binary, config.name)
 }
 
+/** Schema for k3d node list JSON output */
+const K3dNodeListSchema = z.array(
+  z.object({
+    name: z.string(),
+    role: z.string(),
+    state: z.object({ running: z.boolean() }),
+    IP: z.object({ IP: z.string() }).optional(),
+  }),
+)
+
 async function getK3dNodes(
   binary: string,
   clusterName: string,
@@ -231,12 +243,13 @@ async function getK3dNodes(
   await proc.exited
 
   const output = await new Response(proc.stdout).text()
-  const allNodes = JSON.parse(output) as Array<{
-    name: string
-    role: string
-    state: { running: boolean }
-    IP: { IP: string }
-  }>
+  const parseResult = K3dNodeListSchema.safeParse(JSON.parse(output))
+  if (!parseResult.success) {
+    throw new Error(
+      `k3d node list output validation failed: ${parseResult.error.message}`,
+    )
+  }
+  const allNodes = parseResult.data
 
   return allNodes
     .filter((n) => n.name.includes(clusterName))
@@ -849,11 +862,11 @@ export function createK3sRouter(): Hono {
   // Install DWS agent
   router.post('/clusters/:name/dws-agent', async (c) => {
     const name = c.req.param('name')
-    const body = (await c.req.json()) as {
-      nodeEndpoint: string
-      privateKey?: Hex
-      capabilities?: string[]
-    }
+    const body = expectValid(
+      installDWSAgentRequestSchema,
+      await c.req.json(),
+      'Install DWS agent request',
+    )
 
     await installDWSAgent(name, body)
 

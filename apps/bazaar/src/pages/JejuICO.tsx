@@ -72,7 +72,7 @@ export default function JejuICOPage() {
           50% of target reached
         </p>
 
-        <button className="btn-primary w-full py-3 mb-4">
+        <button type="button" className="btn-primary w-full py-3 mb-4">
           Participate in ICO
         </button>
 

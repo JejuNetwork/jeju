@@ -32,7 +32,10 @@ export default function MarketDetailPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-4 mb-6">
-          <button className="card p-4 text-center border-green-500/30 hover:bg-green-500/10">
+          <button
+            type="button"
+            className="card p-4 text-center border-green-500/30 hover:bg-green-500/10"
+          >
             <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
               Yes
             </p>
@@ -41,7 +44,10 @@ export default function MarketDetailPage() {
               $0.65
             </p>
           </button>
-          <button className="card p-4 text-center border-red-500/30 hover:bg-red-500/10">
+          <button
+            type="button"
+            className="card p-4 text-center border-red-500/30 hover:bg-red-500/10"
+          >
             <p className="text-sm" style={{ color: 'var(--text-tertiary)' }}>
               No
             </p>
@@ -55,15 +61,23 @@ export default function MarketDetailPage() {
         <div className="space-y-4">
           <div>
             <label
+              htmlFor="amount-input"
               className="text-sm block mb-1.5"
               style={{ color: 'var(--text-tertiary)' }}
             >
               Amount (USDC)
             </label>
-            <input type="number" placeholder="10" className="input" />
+            <input
+              id="amount-input"
+              type="number"
+              placeholder="10"
+              className="input"
+            />
           </div>
 
-          <button className="btn-primary w-full py-3">Place Bet</button>
+          <button type="button" className="btn-primary w-full py-3">
+            Place Bet
+          </button>
         </div>
       </div>
     </div>

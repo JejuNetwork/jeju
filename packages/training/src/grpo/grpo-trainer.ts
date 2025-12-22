@@ -7,6 +7,8 @@
  */
 
 import { type Subprocess, spawn } from 'bun'
+import { expectValid } from '@jejunetwork/types'
+import { BatchResponseSchema } from '../schemas'
 
 // ============================================================================
 // Types
@@ -23,9 +25,8 @@ export interface TrainingConfig {
   savePath: string
   vllmRestartInterval: number
   vllmPort: number
-  useWandb: boolean
-  wandbProject?: string
-  wandbGroup?: string
+  runProject?: string
+  runGroup?: string
   atroposUrl: string
 }
 
@@ -71,7 +72,6 @@ const DEFAULT_CONFIG: TrainingConfig = {
   savePath: 'trained_model_checkpoints',
   vllmRestartInterval: 5,
   vllmPort: 9001,
-  useWandb: false,
   atroposUrl: 'http://localhost:8000',
 }
 
@@ -219,8 +219,8 @@ export class GRPOTrainer {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        wandb_group: this.config.wandbGroup ?? '',
-        wandb_project: this.config.wandbProject ?? '',
+        run_group: this.config.runGroup ?? 'jeju-training',
+        run_project: this.config.runProject ?? 'rlaif',
         batch_size:
           this.config.batchSize * this.config.gradientAccumulationSteps,
         max_token_len: this.config.seqLen,
@@ -244,7 +244,11 @@ export class GRPOTrainer {
       throw new Error(`Failed to get batch: ${response.status}`)
     }
 
-    const data = (await response.json()) as { batch: BatchData[] | null }
+    const data = expectValid(
+      BatchResponseSchema,
+      await response.json(),
+      'Atropos batch response',
+    )
     if (!data.batch) {
       return null
     }
@@ -573,8 +577,8 @@ if (import.meta.main) {
     modelName: process.env.MODEL_NAME ?? 'Qwen/Qwen2.5-1.5B-Instruct',
     trainingSteps: parseInt(process.env.TRAINING_STEPS ?? '20', 10),
     vllmRestartInterval: parseInt(process.env.VLLM_RESTART_INTERVAL ?? '3', 10),
-    useWandb: process.env.USE_WANDB === 'true',
-    wandbProject: process.env.WANDB_PROJECT,
+    runProject: process.env.RUN_PROJECT,
+    runGroup: process.env.RUN_GROUP,
     atroposUrl: process.env.ATROPOS_URL ?? 'http://localhost:8000',
   }
 

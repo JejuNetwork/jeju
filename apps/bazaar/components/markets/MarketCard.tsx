@@ -2,7 +2,7 @@
 
 import { formatDistanceToNow } from 'date-fns'
 import Link from 'next/link'
-import type { Market } from '@/types/markets'
+import type { Market } from '../../types/markets'
 
 export function MarketCard({ market }: { market: Market }) {
   const yesPercent = Number(market.yesPrice) / 1e16

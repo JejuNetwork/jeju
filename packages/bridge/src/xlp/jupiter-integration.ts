@@ -6,6 +6,12 @@
 import { EventEmitter } from 'node:events'
 import { Connection, Keypair, VersionedTransaction } from '@solana/web3.js'
 import { createLogger } from '../utils/logger.js'
+import {
+  JupiterPriceResponseSchema,
+  JupiterQuoteFullSchema,
+  JupiterSwapResponseSchema,
+  JupiterTokenListSchema,
+} from '../utils/validation.js'
 
 const log = createLogger('jupiter')
 
@@ -128,7 +134,8 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter quote failed: ${error}`)
     }
 
-    return response.json() as Promise<JupiterQuote>
+    const rawData: unknown = await response.json()
+    return JupiterQuoteFullSchema.parse(rawData)
   }
 
   /**
@@ -180,7 +187,8 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter swap failed: ${error}`)
     }
 
-    const swapData = (await swapResponse.json()) as { swapTransaction: string }
+    const rawSwapData: unknown = await swapResponse.json()
+    const swapData = JupiterSwapResponseSchema.parse(rawSwapData)
     const swapTransaction = swapData.swapTransaction
 
     // Deserialize and sign
@@ -245,12 +253,14 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter swap transaction failed: ${error}`)
     }
 
-    const swapData = (await swapResponse.json()) as {
-      swapTransaction: string
-      lastValidBlockHeight: number
-    }
+    const rawSwapData: unknown = await swapResponse.json()
+    const swapData = JupiterSwapResponseSchema.parse(rawSwapData)
     const transactionBuf = Buffer.from(swapData.swapTransaction, 'base64')
     const transaction = VersionedTransaction.deserialize(transactionBuf)
+
+    if (swapData.lastValidBlockHeight === undefined) {
+      throw new Error('Jupiter API did not return lastValidBlockHeight')
+    }
 
     return {
       transaction,
@@ -267,9 +277,8 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter price API failed: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as {
-      data: Record<string, { price: number }>
-    }
+    const rawData: unknown = await response.json()
+    const data = JupiterPriceResponseSchema.parse(rawData)
     const priceData = data.data[tokenMint]
     if (!priceData) {
       throw new Error(`Price not found for ${tokenMint}`)
@@ -289,9 +298,8 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter price API failed: ${response.statusText}`)
     }
 
-    const data = (await response.json()) as {
-      data: Record<string, { price: number }>
-    }
+    const rawData: unknown = await response.json()
+    const data = JupiterPriceResponseSchema.parse(rawData)
     const prices: Record<string, number> = {}
 
     for (const mint of tokenMints) {
@@ -314,9 +322,8 @@ export class JupiterClient extends EventEmitter {
       throw new Error(`Jupiter token list failed: ${response.statusText}`)
     }
 
-    return response.json() as Promise<
-      { address: string; symbol: string; name: string; decimals: number }[]
-    >
+    const rawData: unknown = await response.json()
+    return JupiterTokenListSchema.parse(rawData)
   }
 
   /**

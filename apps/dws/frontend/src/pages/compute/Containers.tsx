@@ -67,10 +67,15 @@ export default function ContainersPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
             disabled={!isConnected}
@@ -147,6 +152,7 @@ export default function ContainersPage() {
             <h3>No container executions</h3>
             <p>Run your first container to get started</p>
             <button
+              type="button"
               className="btn btn-primary"
               onClick={() => setShowModal(true)}
               disabled={!isConnected}
@@ -215,7 +221,11 @@ export default function ContainersPage() {
                     </td>
                     <td>
                       {container.status === 'running' && (
-                        <button className="btn btn-ghost btn-sm" title="Stop">
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-sm"
+                          title="Stop"
+                        >
                           <Square size={14} />
                         </button>
                       )}
@@ -229,11 +239,29 @@ export default function ContainersPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowModal(false)}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">Run Container</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowModal(false)}
               >
@@ -243,8 +271,11 @@ export default function ContainersPage() {
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Image *</label>
+                  <label htmlFor="container-image-modal" className="form-label">
+                    Image *
+                  </label>
                   <input
+                    id="container-image-modal"
                     className="input"
                     placeholder="e.g., ubuntu:22.04, python:3.11"
                     value={formData.image}
@@ -256,8 +287,14 @@ export default function ContainersPage() {
                   <div className="form-hint">Docker image to run</div>
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Command</label>
+                  <label
+                    htmlFor="container-command-modal"
+                    className="form-label"
+                  >
+                    Command
+                  </label>
                   <input
+                    id="container-command-modal"
                     className="input"
                     placeholder="e.g., python script.py"
                     value={formData.command}
@@ -267,8 +304,11 @@ export default function ContainersPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label className="form-label">Mode</label>
+                  <label htmlFor="container-mode-modal" className="form-label">
+                    Mode
+                  </label>
                   <select
+                    id="container-mode-modal"
                     className="input"
                     value={formData.mode}
                     onChange={(e) =>
@@ -288,8 +328,11 @@ export default function ContainersPage() {
                   }}
                 >
                   <div className="form-group">
-                    <label className="form-label">CPU Cores</label>
+                    <label htmlFor="container-cpu-modal" className="form-label">
+                      CPU Cores
+                    </label>
                     <select
+                      id="container-cpu-modal"
                       className="input"
                       value={formData.cpuCores}
                       onChange={(e) =>
@@ -303,8 +346,14 @@ export default function ContainersPage() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Memory</label>
+                    <label
+                      htmlFor="container-memory-modal"
+                      className="form-label"
+                    >
+                      Memory
+                    </label>
                     <select
+                      id="container-memory-modal"
                       className="input"
                       value={formData.memoryMb}
                       onChange={(e) =>

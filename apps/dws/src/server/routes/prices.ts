@@ -22,6 +22,7 @@ import {
   type CacheStats,
   getCacheClient,
 } from '@jejunetwork/shared'
+import { expectJson } from '@jejunetwork/types'
 import { Hono } from 'hono'
 import type { Address } from 'viem'
 import { z } from 'zod'
@@ -40,6 +41,7 @@ let _solanaAggregator: Awaited<
 async function getSolanaAggregator() {
   if (!_solanaAggregator) {
     try {
+      // Dynamic import: only needed when Solana aggregator is requested (conditional - lazy loading with error handling)
       const mod = await import('../../solver/external/solana-price-aggregator')
       _solanaAggregator = mod.getSolanaPriceAggregator()
     } catch (err) {
@@ -49,6 +51,30 @@ async function getSolanaAggregator() {
   }
   return _solanaAggregator
 }
+
+// ============ Cache Schemas ============
+
+const TokenPriceSchema = z.object({
+  priceUSD: z.number(),
+  liquidityUSD: z.number(),
+  volume24h: z.number().optional(),
+  priceChange24h: z.number().optional(),
+})
+
+const TokenAddressArraySchema = z.array(z.string())
+
+const EthPriceSchema = z.object({
+  price: z.number(),
+  timestamp: z.number(),
+})
+
+const SubscriptionMessageSchema = z.object({
+  type: z.enum(['subscribe', 'unsubscribe']),
+  tokens: z
+    .array(z.object({ chainId: z.number(), address: z.string() }))
+    .optional(),
+  chains: z.array(z.number()).optional(),
+})
 
 // ============ Types ============
 
@@ -260,7 +286,11 @@ class PriceStreamingService {
       const tokensJson = await this.getCache().get(chainPricesKey(chainId))
       if (!tokensJson) continue
 
-      const tokenAddresses: string[] = JSON.parse(tokensJson)
+      const tokenAddresses = expectJson(
+        tokensJson,
+        TokenAddressArraySchema,
+        'token addresses',
+      )
 
       for (const address of tokenAddresses) {
         const price = await this.evmAggregator.getPrice(
@@ -288,7 +318,7 @@ class PriceStreamingService {
     // Calculate 24h change if we have previous price
     let priceChange24h = 0
     if (cached) {
-      const prev = JSON.parse(cached) as TokenPrice
+      const prev = expectJson(cached, TokenPriceSchema, 'cached price')
       if (prev.priceUSD > 0) {
         priceChange24h =
           ((price.priceUSD - prev.priceUSD) / prev.priceUSD) * 100
@@ -335,7 +365,7 @@ class PriceStreamingService {
    */
   async getPrice(chainId: number, address: string): Promise<TokenPrice | null> {
     const cached = await this.getCache().get(priceKey(chainId, address))
-    return cached ? JSON.parse(cached) : null
+    return cached ? expectJson(cached, TokenPriceSchema, 'price cache') : null
   }
 
   /**
@@ -350,7 +380,7 @@ class PriceStreamingService {
     const prices = new Map<string, TokenPrice>()
     for (const [key, value] of results) {
       if (value) {
-        prices.set(key, JSON.parse(value))
+        prices.set(key, expectJson(value, TokenPriceSchema, 'batch price'))
       }
     }
     return prices
@@ -362,7 +392,7 @@ class PriceStreamingService {
   async getETHPrice(chainId: number): Promise<number> {
     const cached = await this.getCache().get(ethPriceKey(chainId))
     if (cached) {
-      const data = JSON.parse(cached)
+      const data = expectJson(cached, EthPriceSchema, 'ETH price cache')
       return data.price
     }
     return this.evmAggregator.getETHPrice(chainId)
@@ -374,7 +404,9 @@ class PriceStreamingService {
   async trackToken(chainId: number, address: string): Promise<void> {
     const key = chainPricesKey(chainId)
     const existing = await this.getCache().get(key)
-    const tokens: string[] = existing ? JSON.parse(existing) : []
+    const tokens = existing
+      ? expectJson(existing, TokenAddressArraySchema, 'tracked tokens')
+      : []
 
     if (!tokens.includes(address.toLowerCase())) {
       tokens.push(address.toLowerCase())
@@ -584,7 +616,17 @@ export function handlePriceWebSocket(ws: BrowserWebSocket): void {
   const service = getPriceService()
 
   ws.addEventListener('message', (event) => {
-    const msg = JSON.parse(event.data as string) as SubscriptionMessage
+    const parseResult = SubscriptionMessageSchema.safeParse(
+      JSON.parse(event.data as string),
+    )
+    if (!parseResult.success) {
+      console.warn(
+        '[PriceService] Invalid WebSocket message:',
+        parseResult.error,
+      )
+      return
+    }
+    const msg = parseResult.data
 
     if (msg.type === 'subscribe') {
       service.subscribe(ws, msg)

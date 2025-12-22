@@ -120,6 +120,7 @@ export default function ItemsPage() {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           <div className="flex gap-2 overflow-x-auto pb-2 sm:pb-0 -mx-4 px-4 sm:mx-0 sm:px-0 scrollbar-hide">
             <button
+              type="button"
               onClick={() => setFilter('all')}
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all ${
                 filter === 'all' ? 'bg-bazaar-primary text-white' : ''
@@ -133,6 +134,7 @@ export default function ItemsPage() {
               All NFTs
             </button>
             <button
+              type="button"
               onClick={() => setFilter('my-nfts')}
               disabled={!isConnected}
               className={`px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-all disabled:opacity-50 ${
@@ -195,9 +197,10 @@ export default function ItemsPage() {
               </h2>
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 md:gap-4">
                 {nfts.map((nft) => (
-                  <div
+                  <button
+                    type="button"
                     key={nft.id}
-                    className="card overflow-hidden group cursor-pointer active:scale-[0.98] transition-transform"
+                    className="card overflow-hidden group cursor-pointer active:scale-[0.98] transition-transform text-left"
                     onClick={() => setSelectedNFT(nft)}
                   >
                     <div className="aspect-square bg-gradient-to-br from-bazaar-primary to-bazaar-purple flex items-center justify-center text-3xl md:text-4xl group-hover:scale-105 transition-transform">
@@ -217,7 +220,7 @@ export default function ItemsPage() {
                         {nft.contractName}
                       </p>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             </div>
@@ -227,10 +230,16 @@ export default function ItemsPage() {
 
       {/* NFT Modal */}
       {selectedNFT && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4"
+        <dialog
+          open
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-transparent"
           style={{ backgroundColor: 'rgba(0,0,0,0.7)' }}
           onClick={() => setSelectedNFT(null)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape' || e.key === 'Enter') {
+              setSelectedNFT(null)
+            }
+          }}
         >
           <div
             className="w-full max-w-md rounded-2xl border overflow-hidden"
@@ -239,6 +248,14 @@ export default function ItemsPage() {
               borderColor: 'var(--border)',
             }}
             onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setSelectedNFT(null)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
           >
             <div className="aspect-[4/3] bg-gradient-to-br from-bazaar-primary to-bazaar-purple flex items-center justify-center text-6xl">
               🖼️
@@ -261,6 +278,7 @@ export default function ItemsPage() {
                   </p>
                 </div>
                 <button
+                  type="button"
                   onClick={() => setSelectedNFT(null)}
                   className="p-2 rounded-xl transition-colors"
                   style={{ backgroundColor: 'var(--bg-secondary)' }}
@@ -291,11 +309,12 @@ export default function ItemsPage() {
               </div>
 
               {isOwner && hasMarketplace ? (
-                <button className="btn-primary w-full py-3">
+                <button type="button" className="btn-primary w-full py-3">
                   List for Sale
                 </button>
               ) : (
                 <button
+                  type="button"
                   onClick={() => setSelectedNFT(null)}
                   className="btn-secondary w-full py-3"
                 >
@@ -304,7 +323,7 @@ export default function ItemsPage() {
               )}
             </div>
           </div>
-        </div>
+        </dialog>
       )}
     </div>
   )

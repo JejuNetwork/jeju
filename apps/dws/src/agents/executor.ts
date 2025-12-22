@@ -3,6 +3,7 @@
  * Manages agent workers via workerd
  */
 
+import { z } from 'zod'
 import type {
   IWorkerdExecutor,
   WorkerdBinding,
@@ -20,6 +21,34 @@ import type {
   WarmPoolConfig,
 } from './types'
 import { DEFAULT_WARM_POOL_CONFIG } from './types'
+
+// Schema for workerd invoke result
+const AgentInvokeResultSchema = z.object({
+  success: z.boolean(),
+  response: z
+    .object({
+      id: z.string(),
+      agentId: z.string(),
+      text: z.string(),
+      actions: z
+        .array(
+          z.object({
+            name: z.string(),
+            params: z.record(z.string(), z.string()),
+          }),
+        )
+        .optional(),
+      metadata: z
+        .object({
+          model: z.string().optional(),
+          tokensUsed: z.number().optional(),
+          latencyMs: z.number().optional(),
+        })
+        .optional(),
+    })
+    .optional(),
+  error: z.string().optional(),
+})
 
 // ============================================================================
 // Executor Configuration
@@ -283,17 +312,22 @@ export class AgentExecutor {
         throw new Error(`Worker returned ${result.status}: ${result.body}`)
       }
 
-      const responseData = JSON.parse(result.body ?? '{}') as {
-        success: boolean
-        response?: AgentResponse
-        error?: string
+      const bodyStr =
+        typeof result.body === 'string'
+          ? result.body
+          : result.body.toString('utf-8')
+      const parseResult = AgentInvokeResultSchema.safeParse(
+        JSON.parse(bodyStr || '{}'),
+      )
+      if (
+        !parseResult.success ||
+        !parseResult.data.success ||
+        !parseResult.data.response
+      ) {
+        throw new Error(parseResult.data?.error ?? 'Unknown error')
       }
 
-      if (!responseData.success || !responseData.response) {
-        throw new Error(responseData.error ?? 'Unknown error')
-      }
-
-      const response = responseData.response
+      const response = parseResult.data.response
 
       invocation.response = response
       invocation.status = 'completed'
@@ -358,17 +392,22 @@ export class AgentExecutor {
       }),
     })
 
-    const responseData = JSON.parse(result.body ?? '{}') as {
-      success: boolean
-      response?: AgentResponse
-      error?: string
+    const bodyStr =
+      typeof result.body === 'string'
+        ? result.body
+        : result.body.toString('utf-8')
+    const parseResult = AgentInvokeResultSchema.safeParse(
+      JSON.parse(bodyStr || '{}'),
+    )
+    if (
+      !parseResult.success ||
+      !parseResult.data.success ||
+      !parseResult.data.response
+    ) {
+      throw new Error(parseResult.data?.error ?? 'Cron invocation failed')
     }
 
-    if (!responseData.success || !responseData.response) {
-      throw new Error(responseData.error ?? 'Cron invocation failed')
-    }
-
-    return responseData.response
+    return parseResult.data.response
   }
 
   // ============================================================================

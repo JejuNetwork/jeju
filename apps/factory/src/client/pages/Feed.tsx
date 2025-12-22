@@ -21,7 +21,9 @@ export function FeedPage() {
           Connect to Farcaster
         </h3>
         <p className="text-factory-500 mb-4">Join the Factory community feed</p>
-        <button className="btn btn-primary">Connect Farcaster</button>
+        <button type="button" className="btn btn-primary">
+          Connect Farcaster
+        </button>
       </div>
     </div>
   )

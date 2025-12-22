@@ -62,12 +62,13 @@ export const DEFAULT_TAKER_FEE_BPS = 5n
  */
 export const MAINTENANCE_MARGIN_FACTOR = 0.95
 
-// ============ Position Side Enum ============
+// ============ Position Side Const ============
 
-export enum PositionSide {
-  Long = 0,
-  Short = 1,
-}
+export const PositionSide = {
+  Long: 0,
+  Short: 1,
+} as const
+export type PositionSide = (typeof PositionSide)[keyof typeof PositionSide]
 
 // ============ Formatting Functions ============
 

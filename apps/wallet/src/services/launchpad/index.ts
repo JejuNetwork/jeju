@@ -297,10 +297,11 @@ const ICO_PRESALE_ABI = [
   },
 ] as const
 
-export enum LaunchType {
-  BondingCurve = 0,
-  ICOPresale = 1,
-}
+export const LaunchType = {
+  BondingCurve: 0,
+  ICOPresale: 1,
+} as const
+export type LaunchType = (typeof LaunchType)[keyof typeof LaunchType]
 
 export interface BondingCurveConfig {
   virtualEthReserves: bigint
@@ -414,7 +415,7 @@ export class LaunchpadService {
     if (cached) {
       return cached
     }
-    const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:9545'
+    const rpcUrl = getNetworkRpcUrl(this.chainId) || 'http://localhost:6546'
     const client = createPublicClient({ transport: http(rpcUrl) })
     this.clientCache.set(this.chainId, client)
     return client

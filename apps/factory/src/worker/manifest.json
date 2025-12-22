@@ -32,7 +32,7 @@
     {
       "type": "plain_text",
       "name": "RPC_URL",
-      "text": "http://localhost:9545"
+      "text": "http://localhost:6546"
     }
   ],
   "triggers": {

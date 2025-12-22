@@ -2,7 +2,8 @@
  * Pull Request Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import { CreatePullBodySchema, expectValid, PullsQuerySchema } from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
 interface PullRequest {
@@ -31,7 +32,8 @@ export const pullsRoutes = new Elysia({ prefix: '/api/pulls' })
   .get(
     '/',
     async ({ query }) => {
-      const page = parseInt(query.page || '1', 10)
+      const validated = expectValid(PullsQuerySchema, query, 'query params')
+      const page = parseInt(validated.page || '1', 10)
 
       const pulls: PullRequest[] = [
         {
@@ -66,13 +68,6 @@ export const pullsRoutes = new Elysia({ prefix: '/api/pulls' })
       return { pulls, total: pulls.length, page }
     },
     {
-      query: t.Object({
-        page: t.Optional(t.String()),
-        limit: t.Optional(t.String()),
-        repo: t.Optional(t.String()),
-        status: t.Optional(t.String()),
-        author: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['pulls'],
         summary: 'List pull requests',
@@ -89,15 +84,17 @@ export const pullsRoutes = new Elysia({ prefix: '/api/pulls' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
+      const validated = expectValid(CreatePullBodySchema, body, 'request body')
+
       const pr: PullRequest = {
         id: `pr-${Date.now()}`,
         number: Math.floor(Math.random() * 1000),
-        repo: body.repo,
-        title: body.title,
-        body: body.body,
-        sourceBranch: body.sourceBranch,
-        targetBranch: body.targetBranch,
-        isDraft: body.isDraft ?? false,
+        repo: validated.repo,
+        title: validated.title,
+        body: validated.body,
+        sourceBranch: validated.sourceBranch,
+        targetBranch: validated.targetBranch,
+        isDraft: validated.isDraft ?? false,
         status: 'open',
         author: { name: authResult.address },
         labels: [],
@@ -115,14 +112,6 @@ export const pullsRoutes = new Elysia({ prefix: '/api/pulls' })
       return pr
     },
     {
-      body: t.Object({
-        repo: t.String({ minLength: 1 }),
-        title: t.String({ minLength: 1, maxLength: 200 }),
-        body: t.String({ minLength: 10 }),
-        sourceBranch: t.String({ minLength: 1 }),
-        targetBranch: t.String({ minLength: 1 }),
-        isDraft: t.Optional(t.Boolean()),
-      }),
       detail: {
         tags: ['pulls'],
         summary: 'Create pull request',

@@ -18,24 +18,13 @@ import {
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { formatEther } from 'viem'
-
-// Types
-interface BountySubmission {
-  submissionId: string
-  title: string
-  severity: number
-  status: number
-  submittedAt: number
-  rewardAmount: bigint
-}
-
-interface BountyStats {
-  totalPool: bigint
-  totalPaidOut: bigint
-  activeSubmissions: number
-  guardianCount: number
-}
+import { formatEther, parseEther } from 'viem'
+import {
+  type BountyStats,
+  type BountySubmission,
+  fetchBugBountyStats,
+  fetchBugBountySubmissions,
+} from '../config/api'
 
 // Severity config
 const SEVERITY_CONFIG = [
@@ -118,40 +107,29 @@ export default function BugBountyPage() {
 
   useEffect(() => {
     async function fetchData() {
-      try {
-        const [statsRes, submissionsRes] = await Promise.all([
-          fetch('/api/bug-bounty/stats'),
-          fetch('/api/bug-bounty/submissions?limit=10'),
-        ])
+      setLoading(true)
+      const [statsData, submissionsData] = await Promise.all([
+        fetchBugBountyStats().catch(() => null),
+        fetchBugBountySubmissions(10).catch(() => ({
+          submissions: [],
+          total: 0,
+        })),
+      ])
 
-        if (statsRes.ok) {
-          const data = await statsRes.json()
-          setStats({
-            ...data,
-            totalPool: BigInt(data.totalPool ?? '0'),
-            totalPaidOut: BigInt(data.totalPaidOut ?? '0'),
-          })
-        }
-
-        if (submissionsRes.ok) {
-          const data = await submissionsRes.json()
-          setSubmissions(
-            data.submissions?.map(
-              (s: BountySubmission & { rewardAmount: string }) => ({
-                ...s,
-                rewardAmount: BigInt(s.rewardAmount ?? '0'),
-              }),
-            ) ?? [],
-          )
-        }
-      } catch (err) {
-        console.error('Failed to fetch bug bounty data:', err)
+      if (statsData) {
+        setStats(statsData)
       }
+      setSubmissions(submissionsData.submissions ?? [])
       setLoading(false)
     }
 
     fetchData()
   }, [])
+
+  const formatPoolValue = (value: string) => {
+    const parsed = parseEther(value || '0')
+    return `${formatEther(parsed)} ETH`
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-gray-900">
@@ -202,13 +180,13 @@ export default function BugBountyPage() {
             <StatCard
               icon={DollarSign}
               label="Bounty Pool"
-              value={stats ? `${formatEther(stats.totalPool)} ETH` : '---'}
+              value={stats ? formatPoolValue(stats.totalPool) : '---'}
               loading={loading}
             />
             <StatCard
               icon={Award}
               label="Total Paid"
-              value={stats ? `${formatEther(stats.totalPaidOut)} ETH` : '---'}
+              value={stats ? formatPoolValue(stats.totalPaidOut) : '---'}
               loading={loading}
             />
             <StatCard
@@ -233,6 +211,7 @@ export default function BugBountyPage() {
           {(['overview', 'submissions', 'leaderboard'] as const).map((tab) => (
             <button
               key={tab}
+              type="button"
               onClick={() => setActiveTab(tab)}
               className={`px-4 py-3 font-medium capitalize transition-colors ${
                 activeTab === tab
@@ -509,9 +488,10 @@ export default function BugBountyPage() {
             ) : (
               <div className="space-y-4">
                 {submissions.map((sub) => (
-                  <div
+                  <button
+                    type="button"
                     key={sub.submissionId}
-                    className="p-4 rounded-xl bg-gray-800/50 border border-gray-700 hover:border-gray-600 transition-colors cursor-pointer"
+                    className="p-4 rounded-xl bg-gray-800/50 border border-gray-700 hover:border-gray-600 transition-colors cursor-pointer w-full text-left"
                     onClick={() => navigate(`/bug-bounty/${sub.submissionId}`)}
                   >
                     <div className="flex items-center justify-between">
@@ -529,9 +509,9 @@ export default function BugBountyPage() {
                         >
                           {STATUS_CONFIG[sub.status]?.label ?? 'Unknown'}
                         </div>
-                        {sub.rewardAmount > 0n && (
+                        {BigInt(sub.rewardAmount) > 0n && (
                           <span className="text-green-400 font-medium">
-                            {formatEther(sub.rewardAmount)} ETH
+                            {formatEther(BigInt(sub.rewardAmount))} ETH
                           </span>
                         )}
                         <span className="text-sm text-gray-400">
@@ -541,7 +521,7 @@ export default function BugBountyPage() {
                         </span>
                       </div>
                     </div>
-                  </div>
+                  </button>
                 ))}
               </div>
             )}

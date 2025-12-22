@@ -2,7 +2,12 @@
  * Container Registry Routes
  */
 
-import { Elysia, t } from 'elysia'
+import { Elysia } from 'elysia'
+import {
+  ContainersQuerySchema,
+  CreateContainerBodySchema,
+  expectValid,
+} from '../schemas'
 import { requireAuth } from '../validation/access-control'
 
 interface ContainerImage {
@@ -21,8 +26,9 @@ interface ContainerImage {
 export const containersRoutes = new Elysia({ prefix: '/api/containers' })
   .get(
     '/',
-    async () => {
-      // Mock data - in production this would query the ContainerRegistry
+    async ({ query }) => {
+      expectValid(ContainersQuerySchema, query, 'query params')
+
       const containers: ContainerImage[] = [
         {
           id: '1',
@@ -53,10 +59,6 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
       return { containers, total: containers.length }
     },
     {
-      query: t.Object({
-        org: t.Optional(t.String()),
-        q: t.Optional(t.String()),
-      }),
       detail: {
         tags: ['containers'],
         summary: 'List containers',
@@ -73,14 +75,20 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
         return { error: { code: 'UNAUTHORIZED', message: authResult.error } }
       }
 
+      const validated = expectValid(
+        CreateContainerBodySchema,
+        body,
+        'request body',
+      )
+
       const container: ContainerImage = {
         id: `container-${Date.now()}`,
-        name: body.name,
-        tag: body.tag,
-        digest: body.digest,
-        size: body.size,
-        platform: body.platform,
-        labels: body.labels,
+        name: validated.name,
+        tag: validated.tag,
+        digest: validated.digest,
+        size: validated.size,
+        platform: validated.platform,
+        labels: validated.labels,
         downloads: 0,
         createdAt: Date.now(),
         updatedAt: Date.now(),
@@ -90,14 +98,6 @@ export const containersRoutes = new Elysia({ prefix: '/api/containers' })
       return container
     },
     {
-      body: t.Object({
-        name: t.String({ minLength: 1, maxLength: 255 }),
-        tag: t.String({ minLength: 1, maxLength: 128 }),
-        digest: t.String({ pattern: '^sha256:[a-f0-9]{64}$' }),
-        size: t.Number({ minimum: 1 }),
-        platform: t.String({ minLength: 1 }),
-        labels: t.Optional(t.Record(t.String(), t.String())),
-      }),
       detail: {
         tags: ['containers'],
         summary: 'Push container',

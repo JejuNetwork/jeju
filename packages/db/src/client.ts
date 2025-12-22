@@ -32,6 +32,17 @@ import type {
 } from './types.js'
 import { parseTimeout } from './utils.js'
 
+// Hex schema for config validation (inline to avoid circular dependency)
+const HexSchema = z.custom<`0x${string}`>(
+  (val) => typeof val === 'string' && /^0x[0-9a-fA-F]*$/.test(val),
+  { message: 'Invalid hex string' },
+)
+
+const AddressSchema = z.custom<`0x${string}`>(
+  (val) => typeof val === 'string' && /^0x[a-fA-F0-9]{40}$/.test(val),
+  { message: 'Invalid address' },
+)
+
 // Zod schemas for API response validation
 const QueryResponseSchema = z.object({
   rows: z.array(z.object({}).passthrough()),
@@ -48,8 +59,85 @@ const ExecResponseSchema = z.object({
   gasUsed: z.string(),
 })
 
+const DatabaseStatusSchema = z.enum([
+  'creating',
+  'running',
+  'stopped',
+  'migrating',
+  'error',
+])
+
+const DatabaseInfoSchema = z.object({
+  id: z.string(),
+  createdAt: z.number(),
+  owner: AddressSchema,
+  nodeCount: z.number(),
+  consistencyMode: z.enum(['eventual', 'strong']),
+  status: DatabaseStatusSchema,
+  blockHeight: z.number(),
+  sizeBytes: z.number(),
+  monthlyCost: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
+})
+
+const DatabaseListResponseSchema = z.object({
+  databases: z.array(DatabaseInfoSchema),
+})
+
+const ACLPermissionSchema = z.enum([
+  'SELECT',
+  'INSERT',
+  'UPDATE',
+  'DELETE',
+  'ALL',
+])
+
+const ACLRuleSchema = z.object({
+  grantee: z.union([AddressSchema, z.literal('*')]),
+  table: z.string(),
+  columns: z.union([z.array(z.string()), z.literal('*')]),
+  permissions: z.array(ACLPermissionSchema),
+  condition: z.string().optional(),
+})
+
+const ACLListResponseSchema = z.object({
+  rules: z.array(ACLRuleSchema),
+})
+
+const RentalPlanSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  nodeCount: z.number(),
+  storageBytes: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
+  queriesPerMonth: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
+  pricePerMonth: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
+  paymentToken: AddressSchema,
+})
+
+const RentalPlanListResponseSchema = z.object({
+  plans: z.array(RentalPlanSchema),
+})
+
+const RentalInfoSchema = z.object({
+  id: z.string(),
+  databaseId: z.string(),
+  renter: AddressSchema,
+  planId: z.string(),
+  startedAt: z.number(),
+  expiresAt: z.number(),
+  autoRenew: z.boolean(),
+  paymentStatus: z.enum(['current', 'overdue', 'cancelled']),
+})
+
+const BlockProducerInfoSchema = z.object({
+  address: AddressSchema,
+  endpoint: z.string(),
+  blockHeight: z.number(),
+  databases: z.number(),
+  stake: z.union([z.bigint(), z.string()]).transform((v) => BigInt(v)),
+  status: z.enum(['active', 'syncing', 'offline']),
+})
+
 // Zod schema for CQL config validation
-const HexSchema = z.string().regex(/^0x[a-fA-F0-9]+$/, 'Invalid hex string')
 const CQLConfigSchema = z.object({
   blockProducerEndpoint: z.string().url(),
   minerEndpoint: z.string().url().optional(),
@@ -92,13 +180,18 @@ circuitBreaker.on('close', () =>
   log.info('Circuit breaker closed, service recovered'),
 )
 
-async function request<T>(url: string, options?: RequestInit): Promise<T> {
+async function request<T>(
+  url: string,
+  schema: z.ZodSchema<T>,
+  options?: RequestInit,
+): Promise<T> {
   const response = await circuitBreaker.fire(async () => {
     const res = await fetch(url, options)
     if (!res.ok) throw new Error(`Request failed: ${res.status}`)
     return res
   })
-  return response.json() as Promise<T>
+  const rawData: unknown = await response.json()
+  return schema.parse(rawData)
 }
 
 async function requestVoid(url: string, options?: RequestInit): Promise<void> {
@@ -255,7 +348,6 @@ class CQLConnectionPoolImpl implements CQLConnectionPool {
   private pool: Pool<CQLConnectionImpl>
 
   constructor(config: CQLConfig, dbId: string, maxSize = 10) {
-    this.dbId = dbId
     this.pool = createPool<CQLConnectionImpl>(
       {
         create: async () => {
@@ -356,30 +448,37 @@ export class CQLClient {
 
   // Database Management
   async createDatabase(config: DatabaseConfig): Promise<DatabaseInfo> {
-    return request<DatabaseInfo>(`${this.endpoint}/api/v1/databases`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nodeCount: config.nodeCount,
-        useEventualConsistency: config.useEventualConsistency ?? false,
-        regions: config.regions,
-        schema: config.schema,
-        owner: config.owner,
-        paymentToken: config.paymentToken,
-      }),
-    })
+    return request(
+      `${this.endpoint}/api/v1/databases`,
+      DatabaseInfoSchema,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodeCount: config.nodeCount,
+          useEventualConsistency: config.useEventualConsistency ?? false,
+          regions: config.regions,
+          schema: config.schema,
+          owner: config.owner,
+          paymentToken: config.paymentToken,
+        }),
+      },
+    )
   }
 
   async getDatabase(id: string): Promise<DatabaseInfo> {
-    return request<DatabaseInfo>(`${this.endpoint}/api/v1/databases/${id}`)
+    return request(
+      `${this.endpoint}/api/v1/databases/${id}`,
+      DatabaseInfoSchema,
+    )
   }
 
   async listDatabases(owner: Address): Promise<DatabaseInfo[]> {
-    return (
-      await request<{ databases: DatabaseInfo[] }>(
-        `${this.endpoint}/api/v1/databases?owner=${owner}`,
-      )
-    ).databases
+    const response = await request(
+      `${this.endpoint}/api/v1/databases?owner=${owner}`,
+      DatabaseListResponseSchema,
+    )
+    return response.databases
   }
 
   async deleteDatabase(id: string): Promise<void> {
@@ -406,38 +505,51 @@ export class CQLClient {
   }
 
   async listACL(dbId: string): Promise<ACLRule[]> {
-    return (
-      await request<{ rules: ACLRule[] }>(
-        `${this.endpoint}/api/v1/databases/${dbId}/acl`,
-      )
-    ).rules
+    const response = await request(
+      `${this.endpoint}/api/v1/databases/${dbId}/acl`,
+      ACLListResponseSchema,
+    )
+    return response.rules
   }
 
   // Rental Management
   async listPlans(): Promise<RentalPlan[]> {
-    return (
-      await request<{ plans: RentalPlan[] }>(`${this.endpoint}/api/v1/plans`)
-    ).plans
+    const response = await request(
+      `${this.endpoint}/api/v1/plans`,
+      RentalPlanListResponseSchema,
+    )
+    return response.plans
   }
 
   async createRental(req: CreateRentalRequest): Promise<RentalInfo> {
-    return request<RentalInfo>(`${this.endpoint}/api/v1/rentals`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(req),
-    })
+    return request(
+      `${this.endpoint}/api/v1/rentals`,
+      RentalInfoSchema,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(req),
+      },
+    )
   }
 
   async getRental(id: string): Promise<RentalInfo> {
-    return request<RentalInfo>(`${this.endpoint}/api/v1/rentals/${id}`)
+    return request(
+      `${this.endpoint}/api/v1/rentals/${id}`,
+      RentalInfoSchema,
+    )
   }
 
   async extendRental(id: string, months: number): Promise<RentalInfo> {
-    return request<RentalInfo>(`${this.endpoint}/api/v1/rentals/${id}/extend`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ months }),
-    })
+    return request(
+      `${this.endpoint}/api/v1/rentals/${id}/extend`,
+      RentalInfoSchema,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ months }),
+      },
+    )
   }
 
   async cancelRental(id: string): Promise<void> {
@@ -448,7 +560,10 @@ export class CQLClient {
 
   // Status
   async getBlockProducerInfo(): Promise<BlockProducerInfo> {
-    return request<BlockProducerInfo>(`${this.endpoint}/api/v1/status`)
+    return request(
+      `${this.endpoint}/api/v1/status`,
+      BlockProducerInfoSchema,
+    )
   }
 
   async isHealthy(): Promise<boolean> {

@@ -8,8 +8,8 @@
 import { useCallback, useState } from 'react'
 import type { Address } from 'viem'
 import { useAccount } from 'wagmi'
-import { OIF_AGGREGATOR_URL } from '@/config'
-import { OIF_INPUT_SETTLERS, OIF_SUPPORTED_CHAINS } from '@/config/chains'
+import { OIF_AGGREGATOR_URL } from '../config'
+import { OIF_INPUT_SETTLERS, OIF_SUPPORTED_CHAINS } from '../config/chains'
 
 export interface SwapQuote {
   amountOut: bigint

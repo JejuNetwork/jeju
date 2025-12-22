@@ -250,3 +250,148 @@ export const MCPResourceReadResponseSchema = z.object({
 export type MCPResourceReadResponse = z.infer<
   typeof MCPResourceReadResponseSchema
 >
+
+// ============ DWS API Response Schemas ============
+
+export const DWSFunctionDeployResponseSchema = z.object({
+  functionId: z.string(),
+})
+export type DWSFunctionDeployResponse = z.infer<
+  typeof DWSFunctionDeployResponseSchema
+>
+
+export const DWSWorkerDeployResponseSchema = z.object({
+  workerId: z.string(),
+})
+export type DWSWorkerDeployResponse = z.infer<
+  typeof DWSWorkerDeployResponseSchema
+>
+
+export const DWSInvokeResponseSchema = z.object({
+  body: z.string().optional(),
+  statusCode: z.number().optional(),
+})
+export type DWSInvokeResponse = z.infer<typeof DWSInvokeResponseSchema>
+
+export const DWSHealthResponseSchema = z.object({
+  status: z.string(),
+  service: z.string().optional(),
+  teeMode: z.string().optional(),
+  services: z
+    .object({
+      workers: z.object({ status: z.string() }).optional(),
+      workerd: z.object({ status: z.string() }).optional(),
+    })
+    .optional(),
+})
+export type DWSHealthResponse = z.infer<typeof DWSHealthResponseSchema>
+
+export const DWSWorkerdHealthResponseSchema = z.object({
+  status: z.string(),
+  runtime: z.string().optional(),
+})
+export type DWSWorkerdHealthResponse = z.infer<
+  typeof DWSWorkerdHealthResponseSchema
+>
+
+// ============ IPFS/Storage Response Schemas ============
+
+export const IPFSUploadResponseSchema = z.object({
+  cid: z.string(),
+})
+export type IPFSUploadResponse = z.infer<typeof IPFSUploadResponseSchema>
+
+// ============ Bundler (ERC-4337) Response Schemas ============
+
+export const BundlerSendUserOpResponseSchema = z.object({
+  result: z.string().optional(),
+  error: z
+    .object({
+      message: z.string(),
+    })
+    .optional(),
+})
+export type BundlerSendUserOpResponse = z.infer<
+  typeof BundlerSendUserOpResponseSchema
+>
+
+export const BundlerUserOpReceiptResponseSchema = z.object({
+  result: z
+    .object({
+      receipt: z
+        .object({
+          transactionHash: z.string(),
+        })
+        .optional(),
+    })
+    .optional(),
+})
+export type BundlerUserOpReceiptResponse = z.infer<
+  typeof BundlerUserOpReceiptResponseSchema
+>
+
+// ============ GraphQL Response Schemas ============
+
+export const GraphQLDataResponseSchema = <T extends z.ZodTypeAny>(
+  dataSchema: T,
+) =>
+  z.object({
+    data: dataSchema.optional(),
+    errors: z
+      .array(
+        z.object({
+          message: z.string(),
+        }),
+      )
+      .optional(),
+  })
+
+// ============ Faucet API Response Schemas ============
+
+export const FaucetInfoResponseSchema = z.object({
+  name: z.string(),
+  chainId: z.number(),
+})
+export type FaucetInfoResponse = z.infer<typeof FaucetInfoResponseSchema>
+
+// ============ A2A Service Response Schemas ============
+
+export const A2AServiceInfoResponseSchema = z.object({
+  service: z.string(),
+})
+export type A2AServiceInfoResponse = z.infer<
+  typeof A2AServiceInfoResponseSchema
+>
+
+// ============ Agent Card Response Schema ============
+
+export const AgentCardResponseSchema = z.object({
+  name: z.string(),
+  skills: z.array(
+    z.object({
+      id: z.string(),
+      name: z.string(),
+      description: z.string(),
+      tags: z.array(z.string()).optional(),
+    }),
+  ),
+})
+export type AgentCardResponse = z.infer<typeof AgentCardResponseSchema>
+
+// ============ ABI-related Schemas (for validation tests) ============
+
+export const ABIFunctionSchema = z.object({
+  name: z.string().optional(),
+  inputs: z
+    .array(
+      z.object({
+        name: z.string(),
+        type: z.string().optional(),
+      }),
+    )
+    .optional(),
+})
+export type ABIFunction = z.infer<typeof ABIFunctionSchema>
+
+export const ABISchema = z.array(ABIFunctionSchema)
+export type ABI = z.infer<typeof ABISchema>

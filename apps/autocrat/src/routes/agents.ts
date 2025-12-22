@@ -3,7 +3,9 @@
  */
 
 import { Elysia, t } from 'elysia'
+import { createAutocratA2AServer } from '../a2a-server'
 import { type ERC8004Config, getERC8004Client } from '../erc8004'
+import { A2AJsonRpcResponseSchema, expectValid } from '../schemas'
 import { blockchain, config } from '../shared-state'
 
 const erc8004Config: ERC8004Config = {
@@ -92,7 +94,6 @@ export const agentsRoutes = new Elysia({ prefix: '/api/v1/agents' })
     '/ceo',
     async () => {
       // Get CEO status via internal call
-      const { createAutocratA2AServer } = await import('../a2a-server')
       const a2aServer = createAutocratA2AServer(config, blockchain)
       const response = await a2aServer.getRouter().fetch(
         new Request('http://localhost/a2a', {
@@ -111,7 +112,11 @@ export const agentsRoutes = new Elysia({ prefix: '/api/v1/agents' })
           }),
         }),
       )
-      const result = (await response.json()) as Record<string, unknown>
+      const result = expectValid(
+        A2AJsonRpcResponseSchema,
+        await response.json(),
+        'CEO status A2A response',
+      )
       return result
     },
     {

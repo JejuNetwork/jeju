@@ -90,11 +90,12 @@ export interface SolanaNetworkInfo {
   isSuperchain: boolean
 }
 
-export enum TrustTier {
-  UNSTAKED = 0,
-  STAKED = 1,
-  VERIFIED = 2,
-}
+export const TrustTier = {
+  UNSTAKED: 0,
+  STAKED: 1,
+  VERIFIED: 2,
+} as const
+export type TrustTier = (typeof TrustTier)[keyof typeof TrustTier]
 
 export class SolanaNetworkRegistry {
   private config: NetworkRegistryConfig

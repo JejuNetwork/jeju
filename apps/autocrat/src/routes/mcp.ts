@@ -12,7 +12,7 @@ const honoRouter = mcpServer.getRouter()
 export const mcpRoutes = new Elysia({ prefix: '/mcp' })
   .get('/', async () => {
     const response = await honoRouter.fetch(
-      new Request('http://localhost/mcp', { method: 'GET' }),
+      new Request('http://localhost/', { method: 'GET' }),
     )
     return response.json()
   })
@@ -20,7 +20,7 @@ export const mcpRoutes = new Elysia({ prefix: '/mcp' })
     '/',
     async ({ body }) => {
       const response = await honoRouter.fetch(
-        new Request('http://localhost/mcp', {
+        new Request('http://localhost/', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
@@ -35,13 +35,13 @@ export const mcpRoutes = new Elysia({ prefix: '/mcp' })
   )
   .get('/tools', async () => {
     const response = await honoRouter.fetch(
-      new Request('http://localhost/mcp/tools', { method: 'GET' }),
+      new Request('http://localhost/tools/list', { method: 'POST' }),
     )
     return response.json()
   })
   .get('/resources', async () => {
     const response = await honoRouter.fetch(
-      new Request('http://localhost/mcp/resources', { method: 'GET' }),
+      new Request('http://localhost/resources/list', { method: 'POST' }),
     )
     return response.json()
   })

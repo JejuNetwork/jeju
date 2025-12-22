@@ -289,9 +289,10 @@ describe('parseLPPosition', () => {
       const result = parseLPPosition(position, balance, totalSupply)
 
       expect(result).not.toBeNull()
+      if (!result) throw new Error('result should not be null')
       // Should use tuple format, which includes token shares
-      expect(result!.tokenShares).toBe(parseEther('50'))
-      expect(result!.pendingFees).toBe(parseEther('10'))
+      expect(result.tokenShares).toBe(parseEther('50'))
+      expect(result.pendingFees).toBe(parseEther('10'))
     })
 
     test('falls back to balance when tuple is undefined', () => {
@@ -301,8 +302,9 @@ describe('parseLPPosition', () => {
       const result = parseLPPosition(undefined, balance, totalSupply)
 
       expect(result).not.toBeNull()
-      expect(result!.ethShares).toBe(balance)
-      expect(result!.tokenShares).toBe(0n) // Balance format has no token shares
+      if (!result) throw new Error('result should not be null')
+      expect(result.ethShares).toBe(balance)
+      expect(result.tokenShares).toBe(0n) // Balance format has no token shares
     })
   })
 
@@ -333,7 +335,8 @@ describe('parseLPPosition', () => {
       ]
       const result = parseLPPosition(position, undefined, 0n)
       expect(result).not.toBeNull()
-      expect(result!.sharePercent).toBe(0)
+      if (!result) throw new Error('result should not be null')
+      expect(result.sharePercent).toBe(0)
     })
   })
 
@@ -351,7 +354,8 @@ describe('parseLPPosition', () => {
       const result = parseLPPosition(position, undefined, totalSupply)
 
       expect(result).not.toBeNull()
-      expect(result!.sharePercent).toBe(0.01) // 10/100000 = 0.01%
+      if (!result) throw new Error('result should not be null')
+      expect(result.sharePercent).toBe(0.01) // 10/100000 = 0.01%
     })
 
     test('whale position', () => {
@@ -367,7 +371,8 @@ describe('parseLPPosition', () => {
       const result = parseLPPosition(position, undefined, totalSupply)
 
       expect(result).not.toBeNull()
-      expect(result!.sharePercent).toBe(50) // 50% of pool
+      if (!result) throw new Error('result should not be null')
+      expect(result.sharePercent).toBe(50) // 50% of pool
     })
 
     test('initial LP (first depositor)', () => {
@@ -383,7 +388,8 @@ describe('parseLPPosition', () => {
       const result = parseLPPosition(position, undefined, initialDeposit)
 
       expect(result).not.toBeNull()
-      expect(result!.sharePercent).toBe(100) // 100% owner
+      if (!result) throw new Error('result should not be null')
+      expect(result.sharePercent).toBe(100) // 100% owner
     })
 
     test('dust position', () => {
@@ -400,7 +406,8 @@ describe('parseLPPosition', () => {
       const result = parseLPPosition(position, undefined, totalSupply)
 
       expect(result).not.toBeNull()
-      expect(result!.sharePercent).toBe(0) // Too small to register
+      if (!result) throw new Error('result should not be null')
+      expect(result.sharePercent).toBe(0) // Too small to register
     })
   })
 })

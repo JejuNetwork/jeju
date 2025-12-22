@@ -120,6 +120,7 @@ export function Navigation() {
               {'children' in item ? (
                 <div>
                   <button
+                    type="button"
                     onClick={() => toggleExpanded(item.name)}
                     className={clsx(
                       'w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm font-medium transition-colors',
@@ -211,7 +212,10 @@ export function Navigation() {
             </p>
             <p className="text-xs text-factory-500">to get started</p>
           </div>
-          <button className="p-2 hover:bg-factory-800 rounded-lg transition-colors">
+          <button
+            type="button"
+            className="p-2 hover:bg-factory-800 rounded-lg transition-colors"
+          >
             <Bell className="w-5 h-5 text-factory-400" />
           </button>
         </div>

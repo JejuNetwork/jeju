@@ -63,10 +63,15 @@ export default function JobsPage() {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button className="btn btn-secondary" onClick={() => refetch()}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => refetch()}
+          >
             <RefreshCw size={16} /> Refresh
           </button>
           <button
+            type="button"
             className="btn btn-primary"
             onClick={() => setShowModal(true)}
             disabled={!isConnected}
@@ -154,6 +159,7 @@ export default function JobsPage() {
               <h3>No jobs submitted</h3>
               <p>Submit your first compute job</p>
               <button
+                type="button"
                 className="btn btn-primary"
                 onClick={() => setShowModal(true)}
                 disabled={!isConnected}
@@ -233,6 +239,7 @@ export default function JobsPage() {
                 <AlertCircle size={18} /> Job Details
               </h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-sm"
                 onClick={() => setSelectedJob(null)}
               >
@@ -310,11 +317,29 @@ export default function JobsPage() {
       </div>
 
       {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" onClick={(e) => e.stopPropagation()}>
+        <div className="modal-overlay">
+          <button
+            type="button"
+            className="absolute inset-0 cursor-default"
+            onClick={() => setShowModal(false)}
+            aria-label="Close modal"
+          />
+          <div
+            className="modal"
+            onClick={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation()
+              if (e.key === 'Escape') {
+                setShowModal(false)
+              }
+            }}
+            role="dialog"
+            aria-modal="true"
+          >
             <div className="modal-header">
               <h3 className="modal-title">Submit Job</h3>
               <button
+                type="button"
                 className="btn btn-ghost btn-icon"
                 onClick={() => setShowModal(false)}
               >
@@ -324,8 +349,11 @@ export default function JobsPage() {
             <form onSubmit={handleSubmit}>
               <div className="modal-body">
                 <div className="form-group">
-                  <label className="form-label">Command *</label>
+                  <label htmlFor="job-command" className="form-label">
+                    Command *
+                  </label>
                   <textarea
+                    id="job-command"
                     className="input"
                     placeholder="echo 'Hello World'"
                     style={{
@@ -347,8 +375,11 @@ export default function JobsPage() {
                   }}
                 >
                   <div className="form-group">
-                    <label className="form-label">Shell</label>
+                    <label htmlFor="job-shell" className="form-label">
+                      Shell
+                    </label>
                     <select
+                      id="job-shell"
                       className="input"
                       value={formData.shell}
                       onChange={(e) =>
@@ -361,8 +392,11 @@ export default function JobsPage() {
                     </select>
                   </div>
                   <div className="form-group">
-                    <label className="form-label">Timeout</label>
+                    <label htmlFor="job-timeout" className="form-label">
+                      Timeout
+                    </label>
                     <select
+                      id="job-timeout"
                       className="input"
                       value={formData.timeout}
                       onChange={(e) =>
