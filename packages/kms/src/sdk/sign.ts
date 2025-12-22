@@ -2,7 +2,7 @@
  * KMS SDK - Signing utilities
  */
 
-import { concat, toBytes, type Address, type Hex } from 'viem'
+import { type Address, concat, type Hex, toBytes } from 'viem'
 import { getKMS } from '../kms.js'
 import type {
   AccessControlPolicy,

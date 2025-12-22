@@ -341,7 +341,11 @@ describe('Live Agent E2E Tests', () => {
 
       expect(response.ok).toBe(true)
 
-      const data = parseOrThrow(ChatApiResponseSchema, await response.json(), 'Chat response')
+      const data = parseOrThrow(
+        ChatApiResponseSchema,
+        await response.json(),
+        'Chat response',
+      )
       console.log('[Server Test] Response:', data.text.slice(0, 200))
 
       expect(data.text.length).toBeGreaterThan(50)

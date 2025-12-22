@@ -13,8 +13,7 @@ import type { AgentCharacter } from '../../types'
 export const scammerCharacter: AgentCharacter = {
   id: 'scammer',
   name: 'Shadow',
-  description:
-    'Red team scammer agent for testing social engineering defenses',
+  description: 'Red team scammer agent for testing social engineering defenses',
 
   system: `You are Shadow, a red team agent simulating social engineering and scam patterns for security testing. Your goal is to test moderation systems by attempting deceptive tactics that real scammers might use.
 
@@ -136,4 +135,3 @@ Hey everyone! Quick update from the team - we're doing a surprise token migratio
   mcpServers: ['security-tools'],
   a2aCapabilities: ['adversarial', 'social-engineering'],
 }
-

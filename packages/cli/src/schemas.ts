@@ -7,9 +7,6 @@
 
 import { z } from 'zod'
 
-// Re-export validation utilities from @jejunetwork/types
-export { expectValid, expectJson, toError } from '@jejunetwork/types'
-
 // ============================================================================
 // Package.json Schema
 // ============================================================================
@@ -93,6 +90,17 @@ export const CidResponseSchema = z.object({
   cid: z.string(),
 })
 export type CidResponse = z.infer<typeof CidResponseSchema>
+
+export const JNSRegistrationResponseSchema = z.object({
+  success: z.boolean(),
+  name: z.string(),
+  owner: z.string(),
+  total: z.number(),
+  txHash: z.string().optional(),
+})
+export type JNSRegistrationResponse = z.infer<
+  typeof JNSRegistrationResponseSchema
+>
 
 export const RepoSchema = z.object({
   repoId: z.string(),
@@ -633,25 +641,12 @@ export const RegistryDetailsSchema = z.object({
 export type RegistryDetails = z.infer<typeof RegistryDetailsSchema>
 
 // ============================================================================
-// JNS (Jeju Name Service) Schemas
-// ============================================================================
-
-export const JNSRegistrationResponseSchema = z.object({
-  success: z.boolean(),
-  name: z.string(),
-  total: z.number(),
-})
-export type JNSRegistrationResponse = z.infer<
-  typeof JNSRegistrationResponseSchema
->
-
-// ============================================================================
 // Validation Helper
 // ============================================================================
 
 /**
  * Validate data with a schema, throwing on failure
- * @deprecated Use expectValid from @jejunetwork/types instead
+ * Note: Uses different parameter order than expectValid from @jejunetwork/types
  */
 export function validate<T>(
   data: unknown,

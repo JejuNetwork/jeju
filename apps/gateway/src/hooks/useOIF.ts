@@ -1,3 +1,4 @@
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import { useCallback, useMemo, useState } from 'react'
 import {
   type Address,
@@ -14,7 +15,6 @@ import {
   useWriteContract,
 } from 'wagmi'
 import { CONTRACTS } from '../config'
-import { ZERO_ADDRESS } from '../lib/contracts'
 
 const INPUT_SETTLER_ABI = [
   {

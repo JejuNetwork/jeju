@@ -8,6 +8,7 @@
  * - No centralized cloud provider is required
  */
 
+import { getIpfsApiUrl } from '@jejunetwork/config/ports'
 import type { Address, Hex } from 'viem'
 
 // ============================================================================
@@ -398,7 +399,7 @@ export const NETWORK_CONFIGS: Record<NetworkEnvironment, NetworkConfig> = {
     },
     ipfs: {
       gateway: 'http://127.0.0.1:8080',
-      apiUrl: 'http://127.0.0.1:5001',
+      apiUrl: getIpfsApiUrl(),
     },
     p2p: {
       bootstrapNodes: [],

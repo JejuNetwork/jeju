@@ -231,7 +231,7 @@ export class TicTacToeEnv {
         position = validMoves[Math.floor(Math.random() * validMoves.length)]
       }
 
-      const reasoning = this.generateReasoning(obs, position)
+      const reasoning = this.generateReasoning(position)
       const { reward, done } = this.makeMove(position, reasoning)
       totalReward += reward
 
@@ -269,11 +269,7 @@ export class TicTacToeEnv {
   /**
    * Generate reasoning for a move (simulated LLM response)
    */
-  private generateReasoning(
-    obs: GameStep['observation'],
-    position: number,
-  ): string {
-    const _boardStr = obs.board
+  private generateReasoning(position: number): string {
     const positionLabels = [
       'top-left',
       'top-center',

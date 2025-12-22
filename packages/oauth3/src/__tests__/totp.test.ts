@@ -3,7 +3,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { TOTPManager, createTOTPManager } from '../mfa/totp'
+import { createTOTPManager, TOTPManager } from '../mfa/totp'
 
 describe('TOTPManager initialization', () => {
   test('should create with default issuer', () => {
@@ -148,7 +148,7 @@ describe('TOTPManager.verify', () => {
     // Get current code and add spaces
     const currentCode = await manager.getCurrentCode('user')
     if (currentCode) {
-      const spacedCode = currentCode.slice(0, 3) + ' ' + currentCode.slice(3)
+      const spacedCode = `${currentCode.slice(0, 3)} ${currentCode.slice(3)}`
       const result = await manager.verify('user', spacedCode)
       expect(result.valid).toBe(true)
     }

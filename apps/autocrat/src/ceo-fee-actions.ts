@@ -23,11 +23,9 @@ import {
   type Address,
   type createPublicClient,
   type createWalletClient,
-  encodeAbiParameters,
   type Hash,
   type Hex,
   parseAbi,
-  parseAbiParameters,
 } from 'viem'
 
 // ============ Types ============
@@ -621,7 +619,7 @@ export async function executeCEOFeeSkill(
     switch (skillId) {
       case 'get-fees': {
         const state = await getFeeConfigState()
-        return { success: true, result: state as Record<string, unknown> }
+        return { success: true, result: state as unknown as Record<string, unknown> }
       }
 
       case 'set-distribution-fees': {

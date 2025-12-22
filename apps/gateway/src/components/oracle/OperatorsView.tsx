@@ -11,9 +11,15 @@ import {
 import { type ComponentType, useState } from 'react'
 import { useAccount } from 'wagmi'
 import {
+  readContract,
+  waitForTransactionReceipt,
+  writeContract,
+} from 'wagmi/actions'
+import {
   useFeedRegistry,
   useOperatorCommittees,
 } from '../../hooks/useOracleNetwork'
+import { getConfig } from '../../lib/wagmi-config'
 
 const UsersIcon = Users as ComponentType<LucideProps>
 const ShieldIcon = Shield as ComponentType<LucideProps>
@@ -176,12 +182,6 @@ function OperatorRegistrationForm({
     setError(null)
 
     try {
-      // Import wagmi hooks dynamically to avoid SSR issues
-      const { writeContract, waitForTransactionReceipt } = await import(
-        'wagmi/actions'
-      )
-      const { getConfig } = await import('../../lib/wagmi-config')
-
       const config = getConfig()
 
       // OracleNetworkConnector ABI for registration
@@ -364,9 +364,6 @@ function PerformanceMetrics() {
 
     const fetchMetrics = async () => {
       try {
-        const { readContract } = await import('wagmi/actions')
-        const { getConfig } = await import('../../lib/wagmi-config')
-
         const config = getConfig()
         const contractAddress = process.env.NEXT_PUBLIC_ORACLE_NETWORK_CONNECTOR
 

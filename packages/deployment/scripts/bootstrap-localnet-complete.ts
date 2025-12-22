@@ -31,6 +31,7 @@ import { execSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { getNetworkName } from '@jejunetwork/config'
+import { AddressRecordSchema, expectValid } from '../schemas'
 
 interface BootstrapResult {
   network: string
@@ -365,10 +366,12 @@ class CompleteBootstrapper {
     )
     if (existsSync(existingFile)) {
       try {
-        const addresses = (await Bun.file(existingFile).json()) as Record<
-          string,
-          string
-        >
+        const addressesRaw = await Bun.file(existingFile).json()
+        const addresses = expectValid(
+          AddressRecordSchema,
+          addressesRaw,
+          'localnet addresses',
+        )
         if (addresses.usdc) {
           console.log(`  ✅ USDC (existing): ${addresses.usdc}`)
           return addresses.usdc
@@ -407,10 +410,12 @@ class CompleteBootstrapper {
     )
     if (existsSync(existingFile)) {
       try {
-        const addresses = (await Bun.file(existingFile).json()) as Record<
-          string,
-          string
-        >
+        const addressesRaw = await Bun.file(existingFile).json()
+        const addresses = expectValid(
+          AddressRecordSchema,
+          addressesRaw,
+          'localnet addresses',
+        )
         if (addresses.elizaOS) {
           console.log(`  ✅ elizaOS (existing): ${addresses.elizaOS}`)
           return addresses.elizaOS

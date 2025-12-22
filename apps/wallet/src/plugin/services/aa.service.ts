@@ -18,6 +18,7 @@ import {
   type PublicClient,
   toHex,
 } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
 import {
   BundlerReceiptResponseSchema,
   BundlerSendUserOpResponseSchema,
@@ -481,8 +482,6 @@ export class AccountAbstractionService {
     }>
     validUntil: number
   }): Promise<SessionKey> {
-    // Dynamic import: Only needed when creating session keys
-    const { privateKeyToAccount } = await import('viem/accounts')
     const sessionPrivateKey = keccak256(
       toHex(crypto.getRandomValues(new Uint8Array(32))),
     )

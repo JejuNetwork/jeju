@@ -1,8 +1,8 @@
 /**
- * @deprecated This file is deprecated. Import from '@jeju-vendor/cloud' or 'vendor/cloud/src' instead.
+ * Cloud Reputation Integration
  *
- * This file re-exports from vendor/cloud for backwards compatibility.
- * New code should import directly from the vendor package.
+ * Integrates with ERC-8004 registry for cloud service registration,
+ * reputation management, and x402 payments.
  */
 
 import {
@@ -25,13 +25,9 @@ import { readContract, waitForTransactionReceipt } from 'viem/actions'
 import { createSignedFeedbackAuth } from './cloud-signing'
 import type { Logger } from './logger'
 
-// Re-export types for backwards compatibility
-// NOTE: New code should import from '@jeju-vendor/cloud' or 'vendor/cloud/src'
-
 /**
- * @deprecated Use CloudConfig from '@jeju-vendor/cloud'
  * Cloud service integration with ERC-8004 registry and services contracts
- * Enables cloud to:
+ * Enables cloud services to:
  * - Register as an agent
  * - Set reputation for users/agents
  * - Ban violators

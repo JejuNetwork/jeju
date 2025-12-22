@@ -10,8 +10,6 @@
  * - Historical MEV extraction analysis
  */
 
-import type { Token } from '../types'
-
 // ============ Types ============
 
 export interface MEVSearcher {
@@ -98,9 +96,27 @@ const KNOWN_SEARCHERS: MEVSearcher[] = [
     avgGasPriceMultiplier: 1.5,
     latencyMs: 10,
     strategies: [
-      { type: 'arbitrage', successRate: 0.5, avgProfitUsd: 500, avgGasUsed: 400000n, competitionLevel: 'extreme' },
-      { type: 'sandwich', successRate: 0.3, avgProfitUsd: 200, avgGasUsed: 350000n, competitionLevel: 'high' },
-      { type: 'liquidation', successRate: 0.6, avgProfitUsd: 1000, avgGasUsed: 500000n, competitionLevel: 'high' },
+      {
+        type: 'arbitrage',
+        successRate: 0.5,
+        avgProfitUsd: 500,
+        avgGasUsed: 400000n,
+        competitionLevel: 'extreme',
+      },
+      {
+        type: 'sandwich',
+        successRate: 0.3,
+        avgProfitUsd: 200,
+        avgGasUsed: 350000n,
+        competitionLevel: 'high',
+      },
+      {
+        type: 'liquidation',
+        successRate: 0.6,
+        avgProfitUsd: 1000,
+        avgGasUsed: 500000n,
+        competitionLevel: 'high',
+      },
     ],
     weeklyVolume: 5000000n,
   },
@@ -112,8 +128,20 @@ const KNOWN_SEARCHERS: MEVSearcher[] = [
     avgGasPriceMultiplier: 1.3,
     latencyMs: 15,
     strategies: [
-      { type: 'arbitrage', successRate: 0.4, avgProfitUsd: 400, avgGasUsed: 380000n, competitionLevel: 'extreme' },
-      { type: 'backrun', successRate: 0.5, avgProfitUsd: 150, avgGasUsed: 200000n, competitionLevel: 'medium' },
+      {
+        type: 'arbitrage',
+        successRate: 0.4,
+        avgProfitUsd: 400,
+        avgGasUsed: 380000n,
+        competitionLevel: 'extreme',
+      },
+      {
+        type: 'backrun',
+        successRate: 0.5,
+        avgProfitUsd: 150,
+        avgGasUsed: 200000n,
+        competitionLevel: 'medium',
+      },
     ],
     weeklyVolume: 3000000n,
   },
@@ -125,8 +153,20 @@ const KNOWN_SEARCHERS: MEVSearcher[] = [
     avgGasPriceMultiplier: 1.2,
     latencyMs: 25,
     strategies: [
-      { type: 'arbitrage', successRate: 0.3, avgProfitUsd: 300, avgGasUsed: 400000n, competitionLevel: 'high' },
-      { type: 'jit-liquidity', successRate: 0.4, avgProfitUsd: 100, avgGasUsed: 300000n, competitionLevel: 'low' },
+      {
+        type: 'arbitrage',
+        successRate: 0.3,
+        avgProfitUsd: 300,
+        avgGasUsed: 400000n,
+        competitionLevel: 'high',
+      },
+      {
+        type: 'jit-liquidity',
+        successRate: 0.4,
+        avgProfitUsd: 100,
+        avgGasUsed: 300000n,
+        competitionLevel: 'low',
+      },
     ],
     weeklyVolume: 1000000n,
   },
@@ -145,9 +185,9 @@ const BLOCK_BUILDERS: BlockBuilder[] = [
   {
     id: 'builder0x69',
     name: 'builder0x69',
-    marketShare: 0.20,
+    marketShare: 0.2,
     avgBlockValue: 45000000000000000n,
-    bundleAcceptanceRate: 0.80,
+    bundleAcceptanceRate: 0.8,
     minTipGwei: 2,
   },
   {
@@ -161,9 +201,9 @@ const BLOCK_BUILDERS: BlockBuilder[] = [
   {
     id: 'rsync',
     name: 'rsync-builder',
-    marketShare: 0.10,
+    marketShare: 0.1,
     avgBlockValue: 35000000000000000n,
-    bundleAcceptanceRate: 0.70,
+    bundleAcceptanceRate: 0.7,
     minTipGwei: 2,
   },
 ]
@@ -172,9 +212,7 @@ const BLOCK_BUILDERS: BlockBuilder[] = [
 
 export class MEVCompetitionSimulator {
   private ourSearcher: MEVSearcher
-  private competitors: MEVSearcher[]
   private builders: BlockBuilder[]
-  private simulationResults: MEVOpportunityWindow[] = []
 
   constructor(
     ourConfig: Partial<MEVSearcher> = {},
@@ -184,13 +222,25 @@ export class MEVCompetitionSimulator {
     this.ourSearcher = {
       id: 'us',
       name: 'Our Bot',
-      successRate: 0.20,
+      successRate: 0.2,
       avgProfitBps: 20,
       avgGasPriceMultiplier: 1.1,
       latencyMs: 50, // Assume 50ms latency
       strategies: [
-        { type: 'arbitrage', successRate: 0.25, avgProfitUsd: 250, avgGasUsed: 400000n, competitionLevel: 'high' },
-        { type: 'liquidation', successRate: 0.30, avgProfitUsd: 500, avgGasUsed: 500000n, competitionLevel: 'medium' },
+        {
+          type: 'arbitrage',
+          successRate: 0.25,
+          avgProfitUsd: 250,
+          avgGasUsed: 400000n,
+          competitionLevel: 'high',
+        },
+        {
+          type: 'liquidation',
+          successRate: 0.3,
+          avgProfitUsd: 500,
+          avgGasUsed: 500000n,
+          competitionLevel: 'medium',
+        },
       ],
       weeklyVolume: 0n,
       ...ourConfig,
@@ -203,17 +253,17 @@ export class MEVCompetitionSimulator {
   /**
    * Run full competition simulation
    */
-  async runSimulation(
-    config: {
-      blocks: number
-      opportunitiesPerBlock: number
-      gasPriceGwei: number
-      ethPriceUsd: number
-    },
-  ): Promise<CompetitionSimResult> {
+  async runSimulation(config: {
+    blocks: number
+    opportunitiesPerBlock: number
+    gasPriceGwei: number
+    ethPriceUsd: number
+  }): Promise<CompetitionSimResult> {
     console.log('\n🏁 MEV Competition Simulation')
     console.log('='.repeat(60))
-    console.log(`Simulating ${config.blocks} blocks with ~${config.opportunitiesPerBlock} opportunities each`)
+    console.log(
+      `Simulating ${config.blocks} blocks with ~${config.opportunitiesPerBlock} opportunities each`,
+    )
 
     const opportunities: MEVOpportunityWindow[] = []
     const results: Array<{
@@ -242,19 +292,20 @@ export class MEVCompetitionSimulator {
     }
 
     // Aggregate results
-    const won = results.filter(r => r.won)
-    const lost = results.filter(r => !r.won)
+    const won = results.filter((r) => r.won)
+    const lost = results.filter((r) => !r.won)
 
     const totalProfit = won.reduce((sum, r) => sum + r.profit, 0)
     const totalGasCost = won.reduce((sum, r) => sum + r.gasCost, 0)
 
     const profitByStrategy: Record<string, number> = {}
     for (const r of won) {
-      profitByStrategy[r.strategy] = (profitByStrategy[r.strategy] ?? 0) + r.profit
+      profitByStrategy[r.strategy] =
+        (profitByStrategy[r.strategy] ?? 0) + r.profit
     }
 
-    const lostToLatency = lost.filter(r => r.lostReason === 'latency').length
-    const lostToPrice = lost.filter(r => r.lostReason === 'price').length
+    const lostToLatency = lost.filter((r) => r.lostReason === 'latency').length
+    const lostToPrice = lost.filter((r) => r.lostReason === 'price').length
 
     const result: CompetitionSimResult = {
       totalOpportunities: opportunities.length,
@@ -265,7 +316,9 @@ export class MEVCompetitionSimulator {
       netProfit: totalProfit - totalGasCost,
       profitByStrategy,
       competitionAnalysis: {
-        avgCompetitors: opportunities.reduce((sum, o) => sum + o.competingSearchers, 0) / opportunities.length,
+        avgCompetitors:
+          opportunities.reduce((sum, o) => sum + o.competingSearchers, 0) /
+          opportunities.length,
         avgWinMargin: 0.15, // Would calculate from actual bid data
         lostToLatency,
         lostToPrice,
@@ -296,7 +349,10 @@ export class MEVCompetitionSimulator {
     console.log(`   Analyzing ${mevData.length} transactions`)
 
     // Calculate real-world success rates
-    const byType: Record<string, { success: number; total: number; avgProfit: number }> = {}
+    const byType: Record<
+      string,
+      { success: number; total: number; avgProfit: number }
+    > = {}
 
     for (const tx of mevData) {
       if (!byType[tx.type]) {
@@ -316,7 +372,9 @@ export class MEVCompetitionSimulator {
       if (historical && historical.total > 10) {
         strategy.successRate = historical.success / historical.total
         strategy.avgProfitUsd = historical.avgProfit / historical.success
-        console.log(`   Updated ${strategy.type}: ${(strategy.successRate * 100).toFixed(1)}% success, $${strategy.avgProfitUsd.toFixed(0)} avg profit`)
+        console.log(
+          `   Updated ${strategy.type}: ${(strategy.successRate * 100).toFixed(1)}% success, $${strategy.avgProfitUsd.toFixed(0)} avg profit`,
+        )
       }
     }
   }
@@ -326,7 +384,7 @@ export class MEVCompetitionSimulator {
    */
   simulatePGA(
     opportunityValue: number,
-    baseFeeGwei: number,
+    _baseFeeGwei: number,
     competitors: number,
   ): {
     optimalTipGwei: number
@@ -335,7 +393,7 @@ export class MEVCompetitionSimulator {
   } {
     // Model: Each competitor bids a fraction of opportunity value
     // Higher bids = higher win probability but lower profit
-    
+
     // Nash equilibrium approximation for n-player all-pay auction
     const n = competitors + 1 // Including us
     const equilibriumBidFraction = (n - 1) / n
@@ -379,8 +437,8 @@ export class MEVCompetitionSimulator {
     }> = []
 
     // Score each builder
-    const scores = this.builders.map(builder => {
-      const score = 
+    const scores = this.builders.map((builder) => {
+      const score =
         builder.marketShare * 0.4 +
         builder.bundleAcceptanceRate * 0.4 +
         (1 - builder.minTipGwei / 10) * 0.2
@@ -403,7 +461,7 @@ export class MEVCompetitionSimulator {
 
     return {
       recommendations,
-      optimalSubmissionOrder: scores.map(s => s.builder.id),
+      optimalSubmissionOrder: scores.map((s) => s.builder.id),
     }
   }
 
@@ -415,8 +473,14 @@ export class MEVCompetitionSimulator {
     ethPriceUsd: number,
   ): MEVOpportunityWindow[] {
     const opportunities: MEVOpportunityWindow[] = []
-    
-    const types: MEVStrategy['type'][] = ['arbitrage', 'sandwich', 'liquidation', 'backrun', 'jit-liquidity']
+
+    const types: MEVStrategy['type'][] = [
+      'arbitrage',
+      'sandwich',
+      'liquidation',
+      'backrun',
+      'jit-liquidity',
+    ]
     const typeDistribution = [0.4, 0.25, 0.15, 0.15, 0.05] // Probability weights
 
     for (let i = 0; i < count; i++) {
@@ -439,7 +503,9 @@ export class MEVCompetitionSimulator {
       const competitors = this.getCompetitorCount(selectedType)
 
       // Calculate win probability based on our capabilities
-      const ourStrategy = this.ourSearcher.strategies.find(s => s.type === selectedType)
+      const ourStrategy = this.ourSearcher.strategies.find(
+        (s) => s.type === selectedType,
+      )
       const baseWinProb = ourStrategy?.successRate ?? 0.1
       const winProb = baseWinProb / (1 + competitors * 0.2)
 
@@ -463,24 +529,24 @@ export class MEVCompetitionSimulator {
   private generateProfitDistribution(type: MEVStrategy['type']): number {
     // Log-normal distribution for MEV profits
     const params: Record<string, { mu: number; sigma: number }> = {
-      'arbitrage': { mu: 5.5, sigma: 1.2 },      // ~$250 median
-      'sandwich': { mu: 4.8, sigma: 1.0 },       // ~$120 median
-      'liquidation': { mu: 6.5, sigma: 1.5 },    // ~$650 median
-      'backrun': { mu: 4.5, sigma: 0.8 },        // ~$90 median
-      'jit-liquidity': { mu: 4.0, sigma: 0.6 },  // ~$55 median
+      arbitrage: { mu: 5.5, sigma: 1.2 }, // ~$250 median
+      sandwich: { mu: 4.8, sigma: 1.0 }, // ~$120 median
+      liquidation: { mu: 6.5, sigma: 1.5 }, // ~$650 median
+      backrun: { mu: 4.5, sigma: 0.8 }, // ~$90 median
+      'jit-liquidity': { mu: 4.0, sigma: 0.6 }, // ~$55 median
     }
 
-    const { mu, sigma } = params[type] ?? params['arbitrage']
+    const { mu, sigma } = params[type] ?? params.arbitrage
     const normal = this.randomNormal()
     return Math.exp(mu + sigma * normal)
   }
 
   private getTypicalGas(type: MEVStrategy['type']): bigint {
     const gasMap: Record<string, bigint> = {
-      'arbitrage': 400000n,
-      'sandwich': 600000n, // 2 transactions
-      'liquidation': 500000n,
-      'backrun': 200000n,
+      arbitrage: 400000n,
+      sandwich: 600000n, // 2 transactions
+      liquidation: 500000n,
+      backrun: 200000n,
       'jit-liquidity': 300000n,
     }
     return gasMap[type] ?? 400000n
@@ -488,10 +554,10 @@ export class MEVCompetitionSimulator {
 
   private getCompetitorCount(type: MEVStrategy['type']): number {
     const competition: Record<string, [number, number]> = {
-      'arbitrage': [3, 8],
-      'sandwich': [2, 5],
-      'liquidation': [2, 6],
-      'backrun': [1, 4],
+      arbitrage: [3, 8],
+      sandwich: [2, 5],
+      liquidation: [2, 6],
+      backrun: [1, 4],
       'jit-liquidity': [1, 3],
     }
     const [min, max] = competition[type] ?? [2, 5]
@@ -508,7 +574,8 @@ export class MEVCompetitionSimulator {
     strategy: string
     lostReason?: 'latency' | 'price' | 'builder'
   } {
-    const gasCost = Number(opp.gasRequired) * config.gasPriceGwei * 1e-9 * config.ethPriceUsd
+    const gasCost =
+      Number(opp.gasRequired) * config.gasPriceGwei * 1e-9 * config.ethPriceUsd
 
     // Check if opportunity is even profitable for us
     if (opp.profitUsd < gasCost * 1.2) {
@@ -539,13 +606,20 @@ export class MEVCompetitionSimulator {
 
     // Main competition roll - adjusted for niche strategies
     // JIT liquidity and backrun have lower competition
-    const competitionMultiplier = opp.type === 'jit-liquidity' ? 2 
-      : opp.type === 'backrun' ? 1.5 
-      : opp.type === 'liquidation' ? 1.3
-      : 1
+    const competitionMultiplier =
+      opp.type === 'jit-liquidity'
+        ? 2
+        : opp.type === 'backrun'
+          ? 1.5
+          : opp.type === 'liquidation'
+            ? 1.3
+            : 1
 
-    const adjustedWinProb = Math.min(opp.winProbability * competitionMultiplier, 0.6)
-    
+    const adjustedWinProb = Math.min(
+      opp.winProbability * competitionMultiplier,
+      0.6,
+    )
+
     if (roll < adjustedWinProb) {
       return {
         won: true,
@@ -566,7 +640,7 @@ export class MEVCompetitionSimulator {
 
   private calculateBuilderStats(wonCount: number): BuilderStats {
     const preferences: Record<string, number> = {}
-    
+
     for (const builder of this.builders) {
       // Distribute wins based on market share
       preferences[builder.name] = Math.round(wonCount * builder.marketShare)
@@ -584,7 +658,9 @@ export class MEVCompetitionSimulator {
     results: Array<{ won: boolean; lostReason?: string }>,
     opportunities: MEVOpportunityWindow[],
   ): LatencyImpact {
-    const lostToLatency = results.filter(r => r.lostReason === 'latency').length
+    const lostToLatency = results.filter(
+      (r) => r.lostReason === 'latency',
+    ).length
 
     // Calculate potential gain with zero latency
     const latencyLossValue = opportunities
@@ -606,12 +682,14 @@ export class MEVCompetitionSimulator {
   }
 
   private printResults(result: CompetitionSimResult): void {
-    console.log('\n' + '─'.repeat(60))
+    console.log(`\n${'─'.repeat(60)}`)
     console.log('COMPETITION SIMULATION RESULTS')
     console.log('─'.repeat(60))
 
     console.log(`\nOpportunities: ${result.totalOpportunities}`)
-    console.log(`Won: ${result.opportunitiesWon} (${(result.winRate * 100).toFixed(1)}%)`)
+    console.log(
+      `Won: ${result.opportunitiesWon} (${(result.winRate * 100).toFixed(1)}%)`,
+    )
     console.log(`Net Profit: $${result.netProfit.toFixed(2)}`)
     console.log(`Total Profit: $${result.totalProfit.toFixed(2)}`)
     console.log(`Gas Costs: $${result.totalGasCost.toFixed(2)}`)
@@ -622,39 +700,51 @@ export class MEVCompetitionSimulator {
     }
 
     console.log('\nCompetition Analysis:')
-    console.log(`  Avg Competitors: ${result.competitionAnalysis.avgCompetitors.toFixed(1)}`)
-    console.log(`  Lost to Latency: ${result.competitionAnalysis.lostToLatency}`)
+    console.log(
+      `  Avg Competitors: ${result.competitionAnalysis.avgCompetitors.toFixed(1)}`,
+    )
+    console.log(
+      `  Lost to Latency: ${result.competitionAnalysis.lostToLatency}`,
+    )
     console.log(`  Lost to Price: ${result.competitionAnalysis.lostToPrice}`)
 
     console.log('\nLatency Impact:')
     console.log(`  Our Latency: ${result.latencyImpact.avgLatencyMs}ms`)
-    console.log(`  Missed Opportunities: ${result.latencyImpact.missedOpportunities}`)
-    console.log(`  Zero-Latency Gain: $${result.latencyImpact.optimalLatencyGain.toFixed(2)}`)
+    console.log(
+      `  Missed Opportunities: ${result.latencyImpact.missedOpportunities}`,
+    )
+    console.log(
+      `  Zero-Latency Gain: $${result.latencyImpact.optimalLatencyGain.toFixed(2)}`,
+    )
 
     console.log('\nBuilder Preferences:')
-    for (const [builder, count] of Object.entries(result.builderStats.builderPreferences)) {
+    for (const [builder, count] of Object.entries(
+      result.builderStats.builderPreferences,
+    )) {
       console.log(`  ${builder}: ${count} wins`)
     }
-    console.log(`  Bundle Inclusion Rate: ${(result.builderStats.bundleInclusionRate * 100).toFixed(0)}%`)
-    console.log(`  Reverted Transactions: ${result.builderStats.revertedTransactions}`)
+    console.log(
+      `  Bundle Inclusion Rate: ${(result.builderStats.bundleInclusionRate * 100).toFixed(0)}%`,
+    )
+    console.log(
+      `  Reverted Transactions: ${result.builderStats.revertedTransactions}`,
+    )
   }
 }
 
 // ============ Exports ============
 
-export function runMEVCompetitionSim(
-  config: {
-    blocks: number
-    opportunitiesPerBlock: number
-    gasPriceGwei: number
-    ethPriceUsd: number
-    ourLatencyMs?: number
-    ourSuccessRate?: number
-  },
-): Promise<CompetitionSimResult> {
+export function runMEVCompetitionSim(config: {
+  blocks: number
+  opportunitiesPerBlock: number
+  gasPriceGwei: number
+  ethPriceUsd: number
+  ourLatencyMs?: number
+  ourSuccessRate?: number
+}): Promise<CompetitionSimResult> {
   const simulator = new MEVCompetitionSimulator({
     latencyMs: config.ourLatencyMs ?? 50,
-    successRate: config.ourSuccessRate ?? 0.20,
+    successRate: config.ourSuccessRate ?? 0.2,
   })
 
   return simulator.runSimulation({
@@ -664,4 +754,3 @@ export function runMEVCompetitionSim(
     ethPriceUsd: config.ethPriceUsd,
   })
 }
-

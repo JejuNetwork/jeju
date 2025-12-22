@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test'
+import { fetchPredictionMarkets } from '../data-client'
 
 // Mock fetch for testing
 const originalFetch = globalThis.fetch
@@ -88,8 +89,7 @@ describe('Data Client - Prediction Markets', () => {
     globalThis.fetch = originalFetch
   })
 
-  test('should export fetchPredictionMarkets function', async () => {
-    const { fetchPredictionMarkets } = await import('../data-client')
+  test('should export fetchPredictionMarkets function', () => {
     expect(typeof fetchPredictionMarkets).toBe('function')
   })
 
@@ -99,7 +99,6 @@ describe('Data Client - Prediction Markets', () => {
       mock((): Promise<Response> => Promise.reject(new Error('Network error'))),
     )
 
-    const { fetchPredictionMarkets } = await import('../data-client')
     const markets = await fetchPredictionMarkets({ limit: 10 })
 
     expect(markets).toEqual([])

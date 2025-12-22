@@ -1,17 +1,6 @@
-/**
- * CQL Database Client for Todo storage
- *
- * Uses CovenantSQL for decentralized SQL storage with:
- * - BFT-Raft consensus
- * - Column-level ACL
- * - Strong consistency
- *
- * Falls back to in-memory storage in localnet when CQL is unavailable.
- */
-
 import { type CQLClient, getCQL } from '@jejunetwork/db'
 import type { Address } from 'viem'
-import type { CreateTodoInput, Todo, UpdateTodoInput } from '../types'
+import type { CreateTodoInput, Todo, UpdateTodoInput } from '../schemas'
 
 const DATABASE_ID = process.env.CQL_DATABASE_ID || 'todo-experimental'
 const NETWORK = process.env.NETWORK || 'localnet'

@@ -15,13 +15,7 @@ import {
   TransactionInstruction,
 } from '@solana/web3.js'
 import * as borsh from 'borsh'
-import {
-  type Address,
-  createPublicClient,
-  createWalletClient,
-  type Hex,
-  http,
-} from 'viem'
+import { type Address, createWalletClient, type Hex, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { foundry } from 'viem/chains'
 
@@ -32,12 +26,6 @@ import { foundry } from 'viem/chains'
 // Psyche program IDs from vendor_examples/psyche
 const PSYCHE_COORDINATOR_PROGRAM_ID = new PublicKey(
   '4SHugWqSXwKE5fqDchkJcPEqnoZE22VYKtSTVm7axbT7',
-)
-
-// These are placeholders - use real deployed addresses in production
-// Using the coordinator program ID as a fallback for now
-const _PSYCHE_TREASURER_PROGRAM_ID = new PublicKey(
-  'PsyAUmhpmiUouWsnJdNGFSX8vZ6rWjXjgDPHsgqPGyw', // From psyche docker test
 )
 
 const PSYCHE_MINING_POOL_PROGRAM_ID = new PublicKey(
@@ -247,27 +235,19 @@ export class PsycheClient {
   private solanaKeypair: Keypair | null = null
 
   constructor(config: PsycheConfig) {
-    this.config = config
     this.connection = new Connection(config.solanaRpcUrl, 'confirmed')
 
     if (config.solanaKeypair) {
       this.solanaKeypair = config.solanaKeypair
     }
 
-    if (config.evmRpcUrl) {
-      this.evmPublicClient = createPublicClient({
+    if (config.evmRpcUrl && config.evmPrivateKey) {
+      this.evmAccount = privateKeyToAccount(config.evmPrivateKey)
+      this.evmWalletClient = createWalletClient({
+        account: this.evmAccount,
         chain: foundry,
         transport: http(config.evmRpcUrl),
       })
-
-      if (config.evmPrivateKey) {
-        this.evmAccount = privateKeyToAccount(config.evmPrivateKey)
-        this.evmWalletClient = createWalletClient({
-          account: this.evmAccount,
-          chain: foundry,
-          transport: http(config.evmRpcUrl),
-        })
-      }
     }
   }
 

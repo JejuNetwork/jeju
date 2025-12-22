@@ -6,7 +6,7 @@
 import { beforeAll, describe, expect, test } from 'bun:test'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import {
   createWorkerdRouter,
   type WorkerdRouterOptions,
@@ -21,7 +21,7 @@ import { DEFAULT_WORKERD_CONFIG } from '../src/workers/workerd/types'
 
 // Test setup
 const backend = createBackendManager()
-let app: Hono
+let app: Elysia
 let workerdAvailable = false
 
 // Find workerd binary
@@ -70,14 +70,21 @@ beforeAll(async () => {
     enableDecentralized: false, // Test without on-chain registry
   }
 
-  app = new Hono()
-  app.route('/workerd', createWorkerdRouter(options))
+  // createWorkerdRouter() returns Elysia with prefix: '/workerd' built in
+  const workerdRouter = createWorkerdRouter(options)
+  app = new Elysia().use(workerdRouter)
 })
+
+// Helper to make requests
+async function request(path: string, options?: RequestInit): Promise<Response> {
+  const req = new Request(`http://localhost${path}`, options)
+  return app.handle(req)
+}
 
 describe('Workerd API', () => {
   describe('Health and Stats', () => {
     test('GET /workerd/health returns healthy status', async () => {
-      const res = await app.request('/workerd/health')
+      const res = await request('/workerd/health')
       expect(res.status).toBe(200)
 
       const data = (await res.json()) as {
@@ -91,7 +98,7 @@ describe('Workerd API', () => {
     })
 
     test('GET /workerd/stats returns pool metrics', async () => {
-      const res = await app.request('/workerd/stats')
+      const res = await request('/workerd/stats')
       expect(res.status).toBe(200)
 
       const data = (await res.json()) as { pool: { totalWorkers: number } }
@@ -104,7 +111,7 @@ describe('Workerd API', () => {
   // Run these with: INTEGRATION=1 bun test tests/workerd.test.ts
   describe('Worker Deployment (Unit)', () => {
     test('GET /workerd lists workers (empty initially)', async () => {
-      const res = await app.request('/workerd')
+      const res = await request('/workerd')
       expect(res.status).toBe(200)
 
       const data = (await res.json()) as {
@@ -116,21 +123,19 @@ describe('Workerd API', () => {
     })
 
     test('GET /workerd/:workerId returns 400 for invalid UUID', async () => {
-      const res = await app.request('/workerd/invalid-id')
+      const res = await request('/workerd/invalid-id')
       expect(res.status).toBe(400)
     })
 
     test('GET /workerd/:workerId returns 404 for non-existent worker', async () => {
-      const res = await app.request(
-        '/workerd/00000000-0000-0000-0000-000000000000',
-      )
+      const res = await request('/workerd/00000000-0000-0000-0000-000000000000')
       expect(res.status).toBe(404)
     })
   })
 
   describe('Worker Authorization', () => {
     test('requires x-jeju-address header for deployment', async () => {
-      const res = await app.request('/workerd', {
+      const res = await request('/workerd', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -147,7 +152,7 @@ describe('Workerd API', () => {
     })
 
     test('requires x-jeju-address header for deletion', async () => {
-      const res = await app.request('/workerd/some-worker-id', {
+      const res = await request('/workerd/some-worker-id', {
         method: 'DELETE',
         headers: {},
       })
@@ -158,7 +163,7 @@ describe('Workerd API', () => {
 
   describe('Input Validation', () => {
     test('validates worker name', async () => {
-      const res = await app.request('/workerd', {
+      const res = await request('/workerd', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -174,7 +179,7 @@ describe('Workerd API', () => {
     })
 
     test('validates memory limits', async () => {
-      const res = await app.request('/workerd', {
+      const res = await request('/workerd', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -191,7 +196,7 @@ describe('Workerd API', () => {
     })
 
     test('validates timeout limits', async () => {
-      const res = await app.request('/workerd', {
+      const res = await request('/workerd', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -231,12 +236,7 @@ describe('Config Generator', () => {
       updatedAt: Date.now(),
     }
 
-    const config = generateWorkerConfig(worker, 30001, {
-      cpuTimeLimitMs: 50,
-      isolateMemoryMb: 128,
-      requestTimeoutMs: 30000,
-      subrequestLimit: 50,
-    })
+    const config = generateWorkerConfig(worker, 30001)
 
     expect(config).toContain('using Workerd')
     expect(config).toContain('worker.js')

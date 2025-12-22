@@ -18,7 +18,6 @@ import type {
   DeployedWorker,
   InfraEvent,
   InfraEventHandler,
-  NetworkConfig,
   NodeConfig,
   WorkerConfig,
   WorkerInstance,
@@ -44,20 +43,17 @@ export class DecentralizedWorkerDeployer {
     nodeRegistry: DecentralizedNodeRegistry,
     backendManager: BackendManager,
     workerdExecutor: WorkerdExecutor,
-    networkConfig: NetworkConfig,
   ) {
     this.nodeRegistry = nodeRegistry
     this.backendManager = backendManager
     this.workerdExecutor = workerdExecutor
-    this.networkConfig = networkConfig
   }
 
   /**
    * Set this node's identity (call after registering as a node)
    */
-  setSelf(agentId: bigint, endpoint: string): void {
+  setSelf(agentId: bigint): void {
     this.selfAgentId = agentId
-    this.selfEndpoint = endpoint
   }
 
   // ============================================================================

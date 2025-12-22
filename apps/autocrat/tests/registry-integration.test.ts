@@ -2,7 +2,7 @@
  * Registry Integration Tests
  *
  * Tests for the CouncilRegistryIntegration contract and client.
- * Requires local chain running. Set INTEGRATION=true to enable.
+ * Runs against local Jeju services.
  */
 
 import { beforeAll, describe, expect, it } from 'bun:test'
@@ -12,7 +12,6 @@ import {
 } from '../src/registry-integration'
 
 const ZERO_ADDRESS = '0x0000000000000000000000000000000000000000'
-const SKIP_RPC = !process.env.INTEGRATION
 
 // Test configuration - uses localhost by default
 const testConfig: RegistryIntegrationConfig = {
@@ -23,7 +22,7 @@ const testConfig: RegistryIntegrationConfig = {
   delegationRegistry: process.env.DELEGATION_REGISTRY_ADDRESS,
 }
 
-describe.skipIf(SKIP_RPC)('RegistryIntegrationClient', () => {
+describe('RegistryIntegrationClient', () => {
   let client: RegistryIntegrationClient
 
   beforeAll(() => {

@@ -18,7 +18,7 @@ import {
   type WalletClient,
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
-import type { ChainId } from '../autocrat-types'
+import type { ChainId } from '../autocrat-types-source'
 
 // ============ Contract ABIs ============
 

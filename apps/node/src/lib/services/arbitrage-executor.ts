@@ -1,19 +1,3 @@
-/**
- * Arbitrage Executor - Real Cross-Chain Arbitrage Execution
- *
- * Handles:
- * - EVM swaps via 1inch Fusion / Uniswap V3
- * - Solana swaps via Jupiter
- * - Cross-chain bridging via ZKSolBridge
- * - Jito bundle submission for Solana MEV
- * - Hyperliquid perpetual trading
- *
- * Revenue Model:
- * - Price difference capture (typically 0.3-2%)
- * - Solver fees on successful fills
- * - MEV on Solana via Jito tips
- */
-
 import {
   type Address,
   type Chain,
@@ -45,7 +29,6 @@ import {
   TransactionMessage,
   VersionedTransaction,
 } from '@solana/web3.js'
-import type { ArbOpportunity } from './bridge'
 import {
   BridgeTransferResponseSchema,
   BridgeTxResponseSchema,
@@ -55,6 +38,7 @@ import {
   JupiterSwapResponseSchema,
   OneInchSwapResponseSchema,
 } from '../../validation'
+import type { ArbOpportunity } from './bridge'
 
 // ============ Configuration ============
 
@@ -641,7 +625,9 @@ export class ArbitrageExecutor {
     const json: unknown = await response.json()
     const parsed = JupiterSwapResponseSchema.safeParse(json)
     if (!parsed.success) {
-      throw new Error(`Invalid Jupiter swap response: ${parsed.error.issues[0]?.message}`)
+      throw new Error(
+        `Invalid Jupiter swap response: ${parsed.error.issues[0]?.message}`,
+      )
     }
     const { swapTransaction } = parsed.data
 
@@ -991,7 +977,9 @@ export class ArbitrageExecutor {
     const json: unknown = await response.json()
     const parsed = BridgeTransferResponseSchema.safeParse(json)
     if (!parsed.success) {
-      throw new Error(`Invalid bridge response: ${parsed.error.issues[0]?.message}`)
+      throw new Error(
+        `Invalid bridge response: ${parsed.error.issues[0]?.message}`,
+      )
     }
     return parsed.data.transferId
   }
@@ -1044,7 +1032,9 @@ export class ArbitrageExecutor {
     const json: unknown = await response.json()
     const parsed = BridgeTransferResponseSchema.safeParse(json)
     if (!parsed.success) {
-      throw new Error(`Invalid bridge response: ${parsed.error.issues[0]?.message}`)
+      throw new Error(
+        `Invalid bridge response: ${parsed.error.issues[0]?.message}`,
+      )
     }
     return parsed.data.transferId
   }
@@ -1080,7 +1070,9 @@ export class ArbitrageExecutor {
     const json: unknown = await response.json()
     const parsed = BridgeTxResponseSchema.safeParse(json)
     if (!parsed.success) {
-      throw new Error(`Invalid bridge response: ${parsed.error.issues[0]?.message}`)
+      throw new Error(
+        `Invalid bridge response: ${parsed.error.issues[0]?.message}`,
+      )
     }
     return parsed.data.txHash
   }

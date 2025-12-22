@@ -5,8 +5,8 @@
  * Connects Eliza agent conversations to RLAIF training infrastructure.
  */
 
-import { getDWSComputeUrl } from '@jejunetwork/config'
 import type { Action, IAgentRuntime, Memory, State } from '@elizaos/core'
+import { getDWSComputeUrl } from '@jejunetwork/config'
 
 // ============================================================================
 // Types
@@ -102,7 +102,9 @@ export const submitTrajectory: Action = {
     [
       {
         user: '{{user1}}',
-        content: { text: 'Submit this conversation for training with reward 0.8' },
+        content: {
+          text: 'Submit this conversation for training with reward 0.8',
+        },
       },
       {
         user: '{{agentName}}',
@@ -114,7 +116,10 @@ export const submitTrajectory: Action = {
     ],
   ],
 
-  validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
     const text = message.content?.text?.toLowerCase() ?? ''
     return (
       text.includes('submit') &&
@@ -209,7 +214,10 @@ export const checkTrainingStatus: Action = {
     ],
   ],
 
-  validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
     const text = message.content?.text?.toLowerCase() ?? ''
     return text.includes('training') && text.includes('status')
   },
@@ -245,9 +253,10 @@ export const checkTrainingStatus: Action = {
     } else {
       const jobDetails = activeJobs
         .map((j) => {
-          const progress = j.metrics?.step && j.metrics?.totalSteps
-            ? `${((j.metrics.step / j.metrics.totalSteps) * 100).toFixed(1)}%`
-            : 'starting'
+          const progress =
+            j.metrics?.step && j.metrics?.totalSteps
+              ? `${((j.metrics.step / j.metrics.totalSteps) * 100).toFixed(1)}%`
+              : 'starting'
           const loss = j.metrics?.loss?.toFixed(4) ?? 'N/A'
           return `- Job ${j.id}: ${j.status} (${progress}, loss: ${loss})`
         })
@@ -273,7 +282,12 @@ export const checkTrainingStatus: Action = {
 export const startTrainingJob: Action = {
   name: 'START_TRAINING_JOB',
   description: 'Start a new distributed training job on the DWS/Psyche network',
-  similes: ['start training', 'begin training', 'train model', 'launch training'],
+  similes: [
+    'start training',
+    'begin training',
+    'train model',
+    'launch training',
+  ],
   examples: [
     [
       {
@@ -290,10 +304,15 @@ export const startTrainingJob: Action = {
     ],
   ],
 
-  validate: async (_runtime: IAgentRuntime, message: Memory): Promise<boolean> => {
+  validate: async (
+    _runtime: IAgentRuntime,
+    message: Memory,
+  ): Promise<boolean> => {
     const text = message.content?.text?.toLowerCase() ?? ''
     return (
-      (text.includes('start') || text.includes('begin') || text.includes('launch')) &&
+      (text.includes('start') ||
+        text.includes('begin') ||
+        text.includes('launch')) &&
       text.includes('training')
     )
   },
@@ -360,4 +379,3 @@ export const trainingActions = [
 ]
 
 export default trainingActions
-

@@ -1,19 +1,11 @@
 /**
- * Contract ABIs and constants
- * Re-exports from @jejunetwork/ui for backwards compatibility
+ * Gateway-specific contract ABIs and constants
  */
 
-// Re-export from shared UI package
-export {
-  IERC20_ABI,
-  LIQUIDITY_VAULT_ABI,
-  PAYMASTER_FACTORY_ABI,
-  TOKEN_REGISTRY_ABI,
-  ZERO_ADDRESS,
-  ZERO_BYTES32,
-} from '@jejunetwork/ui'
+/** Zero address constant */
+export const ZERO_ADDRESS =
+  '0x0000000000000000000000000000000000000000' as const
 
-// Gateway-specific ABIs (not in shared package)
 export const JEJU_TOKEN_ABI = [
   {
     type: 'function',

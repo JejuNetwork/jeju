@@ -1,4 +1,5 @@
-import { Hono } from 'hono'
+import { expectValid } from '@jejunetwork/types'
+import { Elysia } from 'elysia'
 import {
   type Address,
   createPublicClient,
@@ -8,7 +9,7 @@ import {
   parseAbiItem,
 } from 'viem'
 import { z } from 'zod'
-import { expectValid, validateQuery } from '../shared/validation'
+import { validateQueryFromObj } from '../shared/validation'
 import { emailsSentTotal, getMetrics, mailboxOperationsTotal } from './metrics'
 import { getEmailRelayService } from './relay'
 import { getMailboxStorage } from './storage'
@@ -141,14 +142,12 @@ const folderQuerySchema = z.object({
   offset: z.coerce.number().int().nonnegative().default(0),
 })
 
-async function getAuthenticatedUser(c: {
-  req: { header: (name: string) => string | undefined }
-}): Promise<{
+async function getAuthenticatedUser(request: Request): Promise<{
   address: Address
   email: string
   tier: EmailTier
 } | null> {
-  const addressHeader = c.req.header('x-wallet-address')
+  const addressHeader = request.headers.get('x-wallet-address')
   if (!addressHeader) return null
 
   if (!isAddress(addressHeader)) {
@@ -218,396 +217,437 @@ function parseBody<T>(schema: z.ZodType<T>, body: unknown): T {
   return expectValid(schema, body, 'Request body')
 }
 
-export function createEmailRouter(): Hono {
-  const app = new Hono()
-
-  app.get('/health', (c) => {
-    return c.json({ status: 'ok', service: 'email' })
-  })
-
-  app.get('/metrics', async (c) => {
-    const metrics = await getMetrics()
-    c.header('Content-Type', 'text/plain')
-    return c.body(metrics)
-  })
-
-  app.post('/send', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const body = await c.req.json()
-    const request = parseBody(sendEmailSchema, body) as SendEmailRequest
-
-    const relay = getEmailRelayService()
-    const response = await relay.sendEmail(request, user.address, user.tier)
-
-    emailsSentTotal.inc({
-      tier: user.tier,
-      status: response.success ? 'success' : 'failure',
-      external: request.to.some((t) => !t.endsWith('@jeju.mail'))
-        ? 'true'
-        : 'false',
+export function createEmailRouter() {
+  return new Elysia({ name: 'email', prefix: '/email' })
+    .get('/health', () => {
+      return { status: 'ok', service: 'email' }
     })
 
-    return c.json(response, response.success ? 200 : 400)
-  })
-
-  app.get('/mailbox', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const storage = getMailboxStorage()
-    let mailbox = await storage.getMailbox(user.address)
-
-    if (!mailbox) {
-      mailbox = await storage.initializeMailbox(user.address)
-      mailboxOperationsTotal.inc({ operation: 'initialize', status: 'success' })
-    }
-
-    const index = await storage.getIndex(user.address)
-    if (!index) {
-      mailboxOperationsTotal.inc({ operation: 'get_index', status: 'failure' })
-      return c.json({ error: 'Failed to load mailbox' }, 500)
-    }
-
-    mailboxOperationsTotal.inc({ operation: 'get_mailbox', status: 'success' })
-    const unreadCount = index.inbox.filter((e) => !e.flags.read).length
-
-    return c.json({
-      mailbox: serializeMailbox(mailbox),
-      index,
-      unreadCount,
+    .get('/metrics', async ({ set }) => {
+      const metrics = await getMetrics()
+      set.headers['Content-Type'] = 'text/plain'
+      return metrics
     })
-  })
 
-  app.get('/mailbox/:folder', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
+    .post('/send', async ({ body, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
 
-    const folder = c.req.param('folder')
-    const { limit, offset } = validateQuery(folderQuerySchema, c)
+      const emailRequest = parseBody(sendEmailSchema, body) as SendEmailRequest
 
-    const storage = getMailboxStorage()
-    const index = await storage.getIndex(user.address)
+      const relay = getEmailRelayService()
+      const response = await relay.sendEmail(
+        emailRequest,
+        user.address,
+        user.tier,
+      )
 
-    if (!index) {
-      return c.json({ error: 'Mailbox not found' }, 404)
-    }
+      emailsSentTotal.inc({
+        tier: user.tier,
+        status: response.success ? 'success' : 'failure',
+        external: emailRequest.to.some(
+          (toAddr) => !toAddr.endsWith('@jeju.mail'),
+        )
+          ? 'true'
+          : 'false',
+      })
 
-    let emails: typeof index.inbox
-
-    if (folder in index) {
-      emails = index[folder as keyof typeof index] as typeof index.inbox
-    } else if (index.folders[folder]) {
-      emails = index.folders[folder]
-    } else {
-      return c.json({ error: 'Folder not found' }, 404)
-    }
-
-    const total = emails.length
-    const results = emails.slice(offset, offset + limit)
-
-    return c.json({
-      folder,
-      emails: results,
-      total,
-      hasMore: offset + limit < total,
+      set.status = response.success ? 200 : 400
+      return response
     })
-  })
 
-  app.get('/email/:messageId', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
+    .get('/mailbox', async ({ request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
 
-    const messageId = c.req.param('messageId') as Hex
+      const storage = getMailboxStorage()
+      let mailbox = await storage.getMailbox(user.address)
 
-    const storage = getMailboxStorage()
-    const email = await storage.getEmail(user.address, messageId)
+      if (!mailbox) {
+        mailbox = await storage.initializeMailbox(user.address)
+        mailboxOperationsTotal.inc({
+          operation: 'initialize',
+          status: 'success',
+        })
+      }
 
-    if (!email) {
-      return c.json({ error: 'Email not found' }, 404)
-    }
+      const index = await storage.getIndex(user.address)
+      if (!index) {
+        mailboxOperationsTotal.inc({
+          operation: 'get_index',
+          status: 'failure',
+        })
+        set.status = 500
+        return { error: 'Failed to load mailbox' }
+      }
 
-    await storage.updateFlags(user.address, messageId, { read: true })
+      mailboxOperationsTotal.inc({
+        operation: 'get_mailbox',
+        status: 'success',
+      })
+      const unreadCount = index.inbox.filter((e) => !e.flags.read).length
 
-    const index = await storage.getIndex(user.address)
-    const allEmails = index
-      ? [
-          ...index.inbox,
-          ...index.sent,
-          ...index.drafts,
-          ...index.trash,
-          ...index.spam,
-          ...index.archive,
-          ...Object.values(index.folders).flat(),
-        ]
-      : []
+      return {
+        mailbox: serializeMailbox(mailbox),
+        index,
+        unreadCount,
+      }
+    })
 
-    const reference = allEmails.find((e) => e.messageId === messageId)
+    .get('/mailbox/:folder', async ({ params, query, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
 
-    const response: GetEmailResponse = {
-      envelope: email.envelope,
-      content: email.content ?? {
-        subject: '',
-        bodyText: '',
-        headers: {},
-        attachments: [],
+      const folder = params.folder
+      const { limit, offset } = validateQueryFromObj(folderQuerySchema, query)
+
+      const storage = getMailboxStorage()
+      const index = await storage.getIndex(user.address)
+
+      if (!index) {
+        set.status = 404
+        return { error: 'Mailbox not found' }
+      }
+
+      let emails: typeof index.inbox
+
+      if (folder in index) {
+        emails = index[folder as keyof typeof index] as typeof index.inbox
+      } else if (index.folders[folder]) {
+        emails = index.folders[folder]
+      } else {
+        set.status = 404
+        return { error: 'Folder not found' }
+      }
+
+      const total = emails.length
+      const results = emails.slice(offset, offset + limit)
+
+      return {
+        folder,
+        emails: results,
+        total,
+        hasMore: offset + limit < total,
+      }
+    })
+
+    .get('/email/:messageId', async ({ params, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
+
+      const messageId = params.messageId as Hex
+
+      const storage = getMailboxStorage()
+      const email = await storage.getEmail(user.address, messageId)
+
+      if (!email) {
+        set.status = 404
+        return { error: 'Email not found' }
+      }
+
+      await storage.updateFlags(user.address, messageId, { read: true })
+
+      const index = await storage.getIndex(user.address)
+      const allEmails = index
+        ? [
+            ...index.inbox,
+            ...index.sent,
+            ...index.drafts,
+            ...index.trash,
+            ...index.spam,
+            ...index.archive,
+            ...Object.values(index.folders).flat(),
+          ]
+        : []
+
+      const reference = allEmails.find((e) => e.messageId === messageId)
+
+      const response: GetEmailResponse = {
+        envelope: email.envelope,
+        content: email.content ?? {
+          subject: '',
+          bodyText: '',
+          headers: {},
+          attachments: [],
+        },
+        flags: reference?.flags ?? {
+          read: true,
+          starred: false,
+          important: false,
+          answered: false,
+          forwarded: false,
+          deleted: false,
+          spam: false,
+        },
+      }
+
+      return response
+    })
+
+    .patch(
+      '/email/:messageId/flags',
+      async ({ params, body, request, set }) => {
+        const user = await getAuthenticatedUser(request)
+        if (!user) {
+          set.status = 401
+          return { error: 'Unauthorized' }
+        }
+
+        const messageId = params.messageId as Hex
+        const flags = parseBody(updateFlagsSchema, body) as Partial<EmailFlags>
+
+        const storage = getMailboxStorage()
+        await storage.updateFlags(user.address, messageId, flags)
+
+        return { success: true }
       },
-      flags: reference?.flags ?? {
-        read: true,
-        starred: false,
-        important: false,
-        answered: false,
-        forwarded: false,
-        deleted: false,
-        spam: false,
-      },
-    }
-
-    return c.json(response)
-  })
-
-  app.patch('/email/:messageId/flags', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const messageId = c.req.param('messageId') as Hex
-    const body = await c.req.json()
-    const flags = parseBody(updateFlagsSchema, body) as Partial<EmailFlags>
-
-    const storage = getMailboxStorage()
-    await storage.updateFlags(user.address, messageId, flags)
-
-    return c.json({ success: true })
-  })
-
-  app.post('/email/:messageId/move', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const messageId = c.req.param('messageId') as Hex
-    const body = await c.req.json()
-    const { targetFolder } = parseBody(moveEmailSchema, body)
-
-    const storage = getMailboxStorage()
-    await storage.moveToFolder(user.address, messageId, targetFolder)
-
-    return c.json({ success: true })
-  })
-
-  app.delete('/email/:messageId', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const messageId = c.req.param('messageId') as Hex
-    const permanent = c.req.query('permanent') === 'true'
-
-    const storage = getMailboxStorage()
-
-    if (permanent) {
-      await storage.deleteEmail(user.address, messageId)
-    } else {
-      await storage.moveToFolder(user.address, messageId, 'trash')
-    }
-
-    return c.json({ success: true })
-  })
-
-  app.post('/search', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const body = await c.req.json()
-    const request = parseBody(searchEmailsSchema, body) as SearchEmailsRequest
-
-    const storage = getMailboxStorage()
-    const result = await storage.searchEmails(user.address, request.query, {
-      folder: request.folder,
-      from: request.from,
-      to: request.to,
-      dateFrom: request.dateFrom,
-      dateTo: request.dateTo,
-      hasAttachment: request.hasAttachment,
-      limit: request.limit,
-      offset: request.offset,
-    })
-
-    const response: SearchEmailsResponse = {
-      results: result.results,
-      total: result.total,
-      hasMore: (request.offset ?? 0) + result.results.length < result.total,
-    }
-
-    return c.json(response)
-  })
-
-  app.post('/folders', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const body = await c.req.json()
-    const { name } = parseBody(folderNameSchema, body)
-
-    const storage = getMailboxStorage()
-    const index = await storage.getIndex(user.address)
-
-    if (!index) {
-      return c.json({ error: 'Mailbox not found' }, 404)
-    }
-
-    if (index.folders[name]) {
-      return c.json({ error: 'Folder already exists' }, 400)
-    }
-
-    index.folders[name] = []
-    await storage.saveIndex(user.address, index)
-
-    return c.json({ success: true, folder: name })
-  })
-
-  app.delete('/folders/:name', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const name = c.req.param('name')
-
-    const storage = getMailboxStorage()
-    const index = await storage.getIndex(user.address)
-
-    if (!index) {
-      return c.json({ error: 'Mailbox not found' }, 404)
-    }
-
-    if (!index.folders[name]) {
-      return c.json({ error: 'Folder not found' }, 404)
-    }
-
-    index.inbox.push(...index.folders[name])
-    Reflect.deleteProperty(index.folders, name)
-
-    await storage.saveIndex(user.address, index)
-
-    return c.json({ success: true })
-  })
-
-  app.get('/rules', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const storage = getMailboxStorage()
-    const index = await storage.getIndex(user.address)
-
-    if (!index) {
-      return c.json({ error: 'Mailbox not found' }, 404)
-    }
-
-    return c.json({ rules: index.rules })
-  })
-
-  app.post('/rules', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const body = await c.req.json()
-    const rule = parseBody(filterRuleSchema, body) as FilterRule
-
-    const storage = getMailboxStorage()
-    await storage.addFilterRule(user.address, rule)
-
-    return c.json({ success: true, rule })
-  })
-
-  app.delete('/rules/:ruleId', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const ruleId = c.req.param('ruleId')
-
-    const storage = getMailboxStorage()
-    await storage.removeFilterRule(user.address, ruleId)
-
-    return c.json({ success: true })
-  })
-
-  app.get('/export', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
-
-    const storage = getMailboxStorage()
-    const data = await storage.exportUserData(user.address)
-
-    c.header('Content-Type', 'application/json')
-    c.header(
-      'Content-Disposition',
-      `attachment; filename="jeju-mail-export-${Date.now()}.json"`,
     )
 
-    return c.body(JSON.stringify(data, bigIntReplacer, 2))
-  })
+    .post('/email/:messageId/move', async ({ params, body, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
 
-  app.delete('/account', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
+      const messageId = params.messageId as Hex
+      const { targetFolder } = parseBody(moveEmailSchema, body)
 
-    const body = await c.req.json()
-    parseBody(accountDeleteSchema, body) // Validates confirm: true is present
+      const storage = getMailboxStorage()
+      await storage.moveToFolder(user.address, messageId, targetFolder)
 
-    const storage = getMailboxStorage()
-    await storage.deleteAllUserData(user.address)
-
-    return c.json({
-      success: true,
-      message: 'All email data has been permanently deleted',
+      return { success: true }
     })
-  })
 
-  app.get('/status/:messageId', async (c) => {
-    const user = await getAuthenticatedUser(c)
-    if (!user) {
-      return c.json({ error: 'Unauthorized' }, 401)
-    }
+    .delete('/email/:messageId', async ({ params, query, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
 
-    const messageId = c.req.param('messageId') as Hex
+      const messageId = params.messageId as Hex
+      const permanent = query.permanent === 'true'
 
-    const relay = getEmailRelayService()
-    const status = relay.getDeliveryStatus(messageId)
+      const storage = getMailboxStorage()
 
-    if (!status) {
-      return c.json({ error: 'Message not found' }, 404)
-    }
+      if (permanent) {
+        await storage.deleteEmail(user.address, messageId)
+      } else {
+        await storage.moveToFolder(user.address, messageId, 'trash')
+      }
 
-    return c.json({ messageId, status })
-  })
+      return { success: true }
+    })
 
-  return app
+    .post('/search', async ({ body, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
+
+      const searchRequest = parseBody(
+        searchEmailsSchema,
+        body,
+      ) as SearchEmailsRequest
+
+      const storage = getMailboxStorage()
+      const result = await storage.searchEmails(
+        user.address,
+        searchRequest.query,
+        {
+          folder: searchRequest.folder,
+          from: searchRequest.from,
+          to: searchRequest.to,
+          dateFrom: searchRequest.dateFrom,
+          dateTo: searchRequest.dateTo,
+          hasAttachment: searchRequest.hasAttachment,
+          limit: searchRequest.limit,
+          offset: searchRequest.offset,
+        },
+      )
+
+      const response: SearchEmailsResponse = {
+        results: result.results,
+        total: result.total,
+        hasMore:
+          (searchRequest.offset ?? 0) + result.results.length < result.total,
+      }
+
+      return response
+    })
+
+    .post('/folders', async ({ body, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
+
+      const { name } = parseBody(folderNameSchema, body)
+
+      const storage = getMailboxStorage()
+      const index = await storage.getIndex(user.address)
+
+      if (!index) {
+        set.status = 404
+        return { error: 'Mailbox not found' }
+      }
+
+      if (index.folders[name]) {
+        set.status = 400
+        return { error: 'Folder already exists' }
+      }
+
+      index.folders[name] = []
+      await storage.saveIndex(user.address, index)
+
+      return { success: true, folder: name }
+    })
+
+    .delete('/folders/:name', async ({ params, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
+
+      const name = params.name
+
+      const storage = getMailboxStorage()
+      const index = await storage.getIndex(user.address)
+
+      if (!index) {
+        set.status = 404
+        return { error: 'Mailbox not found' }
+      }
+
+      if (!index.folders[name]) {
+        set.status = 404
+        return { error: 'Folder not found' }
+      }
+
+      index.inbox.push(...index.folders[name])
+      Reflect.deleteProperty(index.folders, name)
+
+      await storage.saveIndex(user.address, index)
+
+      return { success: true }
+    })
+
+    .get('/rules', async ({ request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
+
+      const storage = getMailboxStorage()
+      const index = await storage.getIndex(user.address)
+
+      if (!index) {
+        set.status = 404
+        return { error: 'Mailbox not found' }
+      }
+
+      return { rules: index.rules }
+    })
+
+    .post('/rules', async ({ body, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
+
+      const rule = parseBody(filterRuleSchema, body) as FilterRule
+
+      const storage = getMailboxStorage()
+      await storage.addFilterRule(user.address, rule)
+
+      return { success: true, rule }
+    })
+
+    .delete('/rules/:ruleId', async ({ params, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
+
+      const ruleId = params.ruleId
+
+      const storage = getMailboxStorage()
+      await storage.removeFilterRule(user.address, ruleId)
+
+      return { success: true }
+    })
+
+    .get('/export', async ({ request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
+
+      const storage = getMailboxStorage()
+      const data = await storage.exportUserData(user.address)
+
+      set.headers['Content-Type'] = 'application/json'
+      set.headers['Content-Disposition'] =
+        `attachment; filename="jeju-mail-export-${Date.now()}.json"`
+
+      return JSON.stringify(data, bigIntReplacer, 2)
+    })
+
+    .delete('/account', async ({ body, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
+
+      parseBody(accountDeleteSchema, body) // Validates confirm: true is present
+
+      const storage = getMailboxStorage()
+      await storage.deleteAllUserData(user.address)
+
+      return {
+        success: true,
+        message: 'All email data has been permanently deleted',
+      }
+    })
+
+    .get('/status/:messageId', async ({ params, request, set }) => {
+      const user = await getAuthenticatedUser(request)
+      if (!user) {
+        set.status = 401
+        return { error: 'Unauthorized' }
+      }
+
+      const messageId = params.messageId as Hex
+
+      const relay = getEmailRelayService()
+      const status = relay.getDeliveryStatus(messageId)
+
+      if (!status) {
+        set.status = 404
+        return { error: 'Message not found' }
+      }
+
+      return { messageId, status }
+    })
 }

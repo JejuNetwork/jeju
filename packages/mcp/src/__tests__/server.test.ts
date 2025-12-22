@@ -4,10 +4,14 @@
  * Tests the MCP server: tool registration, request handling, protocol negotiation
  */
 
-import { describe, expect, it, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { z } from 'zod'
-import { MCPServer, createMCPServer, DEFAULT_MCP_PROTOCOL_VERSION } from '../server/mcp-server'
-import type { MCPToolDefinition, JsonValue } from '../types/mcp'
+import {
+  createMCPServer,
+  DEFAULT_MCP_PROTOCOL_VERSION,
+  MCPServer,
+} from '../server/mcp-server'
+import type { JsonValue, MCPToolDefinition } from '../types/mcp'
 
 describe('MCPServer', () => {
   let server: MCPServer
@@ -64,7 +68,9 @@ describe('MCPServer', () => {
     })
 
     it('should fallback to default version for unsupported versions', () => {
-      const result = server.getInitializeResult('unsupported-version' as '2024-11-05')
+      const result = server.getInitializeResult(
+        'unsupported-version' as '2024-11-05',
+      )
       expect(result.protocolVersion).toBe(DEFAULT_MCP_PROTOCOL_VERSION)
     })
   })
@@ -81,7 +87,9 @@ describe('MCPServer', () => {
             required: ['input'],
           },
         },
-        handler: async (args: Record<string, JsonValue>) => ({ result: args['input'] }),
+        handler: async (args: Record<string, JsonValue>) => ({
+          result: args.input,
+        }),
       }
 
       server.registerTool(tool)
@@ -112,7 +120,9 @@ describe('MCPServer', () => {
       server.registerTool(tool1)
       server.registerTool(tool2)
 
-      expect(server.getTool('test-tool')?.tool.description).toBe('Second version')
+      expect(server.getTool('test-tool')?.tool.description).toBe(
+        'Second version',
+      )
     })
   })
 
@@ -173,11 +183,19 @@ describe('MCPServer', () => {
     it('should return all registered tools', () => {
       server.registerTools([
         {
-          tool: { name: 'a', description: 'A', inputSchema: { type: 'object', properties: {} } },
+          tool: {
+            name: 'a',
+            description: 'A',
+            inputSchema: { type: 'object', properties: {} },
+          },
           handler: async () => ({}),
         },
         {
-          tool: { name: 'b', description: 'B', inputSchema: { type: 'object', properties: {} } },
+          tool: {
+            name: 'b',
+            description: 'B',
+            inputSchema: { type: 'object', properties: {} },
+          },
           handler: async () => ({}),
         },
       ])
@@ -257,7 +275,7 @@ describe('MCPServer', () => {
           },
         },
         handler: async (args: Record<string, JsonValue>) => ({
-          sum: (args['a'] as number) + (args['b'] as number),
+          sum: (args.a as number) + (args.b as number),
         }),
       })
 
@@ -319,15 +337,16 @@ describe('MCPServer', () => {
 
 describe('createMCPServer', () => {
   it('should create server with initial tools', () => {
-    const server = createMCPServer(
-      { name: 'test', version: '1.0.0' },
-      [
-        {
-          tool: { name: 'tool1', description: 'Tool 1', inputSchema: { type: 'object', properties: {} } },
-          handler: async () => ({}),
+    const server = createMCPServer({ name: 'test', version: '1.0.0' }, [
+      {
+        tool: {
+          name: 'tool1',
+          description: 'Tool 1',
+          inputSchema: { type: 'object', properties: {} },
         },
-      ],
-    )
+        handler: async () => ({}),
+      },
+    ])
 
     expect(server.hasTool('tool1')).toBe(true)
   })
@@ -371,7 +390,7 @@ describe('MCPServer with validation', () => {
       },
       validator: (args: Record<string, unknown>) => inputSchema.parse(args),
       handler: async (args: Record<string, JsonValue>) => ({
-        greeting: `Hello ${args['name']}, count: ${args['count']}`,
+        greeting: `Hello ${args.name}, count: ${args.count}`,
       }),
     })
 
@@ -403,4 +422,3 @@ describe('MCPServer with validation', () => {
     expect(invalidResponse.error?.message).toContain('Invalid arguments')
   })
 })
-

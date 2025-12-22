@@ -3,8 +3,8 @@
  * Shared payment handling for Git and Pkg services
  */
 
-import type { Context, MiddlewareHandler } from 'hono'
 import type { Address } from 'viem'
+import type { ElysiaContext } from './validation'
 
 export interface PaymentConfig {
   paymentRecipient: Address
@@ -139,8 +139,8 @@ export async function verifyPayment(
 /**
  * Parse payment proof from request headers
  */
-export function parsePaymentProof(c: Context): PaymentProof | null {
-  const proofHeader = c.req.header('X-Payment-Proof')
+export function parsePaymentProof(ctx: ElysiaContext): PaymentProof | null {
+  const proofHeader = ctx.headers['x-payment-proof']
   if (!proofHeader) return null
 
   const [txHash, amount, asset, payer, timestamp] = proofHeader.split(':')
@@ -156,16 +156,26 @@ export function parsePaymentProof(c: Context): PaymentProof | null {
 }
 
 /**
- * x402 middleware factory
+ * x402 beforeHandle hook result
  */
-export function x402Middleware(
+export interface X402HookResult {
+  paymentVerified?: boolean
+  paymentAmount?: string
+}
+
+/**
+ * x402 beforeHandle hook factory for Elysia
+ * Returns payment verification result or 402 response
+ */
+export function createX402BeforeHandle(
   config: PaymentConfig,
   rules: PricingRule[],
   getUserTier?: (address: Address) => Promise<string>,
-): MiddlewareHandler {
-  return async (c, next) => {
-    const path = c.req.path
-    const method = c.req.method
+) {
+  return async (ctx: ElysiaContext): Promise<X402HookResult | Response> => {
+    const url = new URL(ctx.request.url)
+    const path = url.pathname
+    const method = ctx.request.method
 
     // Find matching rule
     const rule = rules.find((r) => {
@@ -178,24 +188,23 @@ export function x402Middleware(
 
     // No pricing rule = free
     if (!rule) {
-      await next()
-      return
+      return {}
     }
 
     // Check if user's tier gets this free
-    const userAddress = c.req.header('X-Jeju-Address') as Address | undefined
+    const userAddress = ctx.headers['x-jeju-address'] as Address | undefined
     if (userAddress && rule.freeForTiers && getUserTier) {
       const tier = await getUserTier(userAddress)
       if (rule.freeForTiers.includes(tier)) {
-        await next()
-        return
+        return {}
       }
     }
 
     // Calculate cost
     let units = 1
     if (rule.unitKey) {
-      const unitValue = c.req.header(rule.unitKey) || c.req.query(rule.unitKey)
+      const unitValue =
+        ctx.headers[rule.unitKey.toLowerCase()] || ctx.query[rule.unitKey]
       if (unitValue) {
         units = parseInt(unitValue, 10) || 1
       }
@@ -204,7 +213,7 @@ export function x402Middleware(
     const { total } = calculatePrice(rule.baseCost, units)
 
     // Check for payment proof
-    const proof = parsePaymentProof(c)
+    const proof = parsePaymentProof(ctx)
     if (proof) {
       const verification = await verifyPayment(
         proof,
@@ -213,10 +222,10 @@ export function x402Middleware(
       )
       if (verification.valid) {
         // Payment verified, proceed
-        c.set('paymentVerified', true)
-        c.set('paymentAmount', proof.amount)
-        await next()
-        return
+        return {
+          paymentVerified: true,
+          paymentAmount: proof.amount,
+        }
       }
     }
 

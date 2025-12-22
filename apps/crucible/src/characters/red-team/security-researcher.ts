@@ -155,4 +155,3 @@ Continuing to probe for additional issues...`,
   mcpServers: ['security-tools', 'analysis', 'contracts'],
   a2aCapabilities: ['security-testing', 'vulnerability-research'],
 }
-

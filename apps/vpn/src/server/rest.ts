@@ -14,8 +14,9 @@ import {
   expectValid,
   NodesQuerySchema,
   ProxyRequestSchema,
+  type VPNNodeState,
 } from './schemas'
-import type { VPNNodeState, VPNServiceContext } from './types'
+import type { VPNServiceContext } from './types'
 import {
   calculateContributionRatio,
   getOrCreateContribution,
@@ -30,8 +31,8 @@ import {
   getNodesByCountry,
   sortNodesByStatusAndLoad,
 } from './utils/nodes'
-// Import SSRF validation from shared utility
 import { validateProxyUrlWithDNS } from './utils/proxy-validation'
+import { readResponseBody } from './utils/response-reader'
 import {
   createSession,
   deleteSession,
@@ -53,7 +54,8 @@ export function createRESTRouter(ctx: VPNServiceContext) {
     .onError(({ error, set }) => {
       console.error('REST API error:', error)
       set.status = 500
-      const message = error instanceof Error ? error.message : 'Internal server error'
+      const message =
+        error instanceof Error ? error.message : 'Internal server error'
       return { error: message }
     })
 
@@ -158,7 +160,11 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         throw new Error('Authentication address missing')
       }
 
-      const validatedBody = expectValid(ConnectRequestSchema, body, 'connect request')
+      const validatedBody = expectValid(
+        ConnectRequestSchema,
+        body,
+        'connect request',
+      )
 
       // Find best node
       let targetNode: VPNNodeState | undefined
@@ -294,13 +300,20 @@ export function createRESTRouter(ctx: VPNServiceContext) {
 
       // SECURITY: Check content-length before parsing body
       const contentLength = request.headers.get('content-length')
-      if (contentLength && parseInt(contentLength, 10) > MAX_REQUEST_BODY_SIZE) {
+      if (
+        contentLength &&
+        parseInt(contentLength, 10) > MAX_REQUEST_BODY_SIZE
+      ) {
         throw new Error(
           `Request body too large. Max size: ${MAX_REQUEST_BODY_SIZE} bytes`,
         )
       }
 
-      const validatedBody = expectValid(ProxyRequestSchema, body, 'proxy request')
+      const validatedBody = expectValid(
+        ProxyRequestSchema,
+        body,
+        'proxy request',
+      )
 
       // SECURITY: Validate URL with DNS resolution to prevent SSRF and DNS rebinding attacks
       await validateProxyUrlWithDNS(validatedBody.url)
@@ -321,47 +334,9 @@ export function createRESTRouter(ctx: VPNServiceContext) {
         signal: controller.signal,
       }).finally(() => clearTimeout(timeoutId))
 
-      // SECURITY: Check response size before reading
-      const responseContentLength = response.headers.get('content-length')
-      if (
-        responseContentLength &&
-        parseInt(responseContentLength, 10) > MAX_RESPONSE_BODY_SIZE
-      ) {
-        throw new Error(
-          `Response too large. Max size: ${MAX_RESPONSE_BODY_SIZE} bytes`,
-        )
-      }
-
-      // SECURITY: Read response with size limit
-      const reader = response.body?.getReader()
-      if (!reader) {
-        throw new Error('No response body')
-      }
-
-      const chunks: Uint8Array[] = []
-      let totalSize = 0
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        totalSize += value.length
-        if (totalSize > MAX_RESPONSE_BODY_SIZE) {
-          reader.cancel()
-          throw new Error(
-            `Response too large. Max size: ${MAX_RESPONSE_BODY_SIZE} bytes`,
-          )
-        }
-        chunks.push(value)
-      }
-
-      const responseBody = new TextDecoder().decode(
-        chunks.reduce((acc, chunk) => {
-          const result = new Uint8Array(acc.length + chunk.length)
-          result.set(acc)
-          result.set(chunk, acc.length)
-          return result
-        }, new Uint8Array(0)),
+      const responseBody = await readResponseBody(
+        response,
+        MAX_RESPONSE_BODY_SIZE,
       )
 
       const responseHeaders: Record<string, string> = {}

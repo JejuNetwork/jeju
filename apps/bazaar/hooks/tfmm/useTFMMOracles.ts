@@ -1,5 +1,3 @@
-'use client'
-
 import { type Address, formatUnits } from 'viem'
 import { useReadContract } from 'wagmi'
 

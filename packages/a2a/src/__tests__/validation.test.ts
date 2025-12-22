@@ -6,12 +6,12 @@
 
 import { describe, expect, it } from 'bun:test'
 import {
-  DiscoverParamsSchema,
-  PaymentRequestParamsSchema,
   BuySharesParamsSchema,
-  OpenPositionParamsSchema,
   CreatePostParamsSchema,
+  DiscoverParamsSchema,
   GetFeedParamsSchema,
+  OpenPositionParamsSchema,
+  PaymentRequestParamsSchema,
   SearchUsersParamsSchema,
   TransferPointsParamsSchema,
 } from '../core/validation'
@@ -301,4 +301,3 @@ describe('TransferPointsParamsSchema', () => {
     ).toThrow()
   })
 })
-

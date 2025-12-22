@@ -1,5 +1,6 @@
 import { existsSync, readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { getIpfsApiUrl } from '@jejunetwork/config/ports'
 import {
   type Address,
   type Chain,
@@ -14,6 +15,11 @@ import {
 } from 'viem'
 import { type PrivateKeyAccount, privateKeyToAccount } from 'viem/accounts'
 import { readContract, waitForTransactionReceipt } from 'viem/actions'
+import {
+  AgentRegistrationFileSchema,
+  expectValid,
+  IPFSAddResponseLineSchema,
+} from '../../schemas'
 import { Logger } from './logger'
 
 const logger = new Logger({ prefix: 'agent0' })
@@ -304,7 +310,7 @@ export function buildRegistrationFile(
  */
 export async function uploadToIPFS(
   registrationFile: Record<string, unknown>,
-  ipfsUrl: string = 'http://localhost:5001',
+  ipfsUrl: string = getIpfsApiUrl(),
 ): Promise<string> {
   const response = await fetch(`${ipfsUrl}/api/v0/add`, {
     method: 'POST',
@@ -320,7 +326,12 @@ export async function uploadToIPFS(
     throw new Error(`Failed to upload to IPFS: ${response.statusText}`)
   }
 
-  const result = (await response.json()) as { Hash: string }
+  const resultRaw = await response.json()
+  const result = expectValid(
+    IPFSAddResponseLineSchema,
+    resultRaw,
+    'IPFS upload',
+  )
   return `ipfs://${result.Hash}`
 }
 
@@ -516,7 +527,7 @@ export async function getAgentInfo(
   })
 
   // If tokenURI is an IPFS or HTTP URL, fetch the registration file
-  let registrationFile: Record<string, unknown> = {}
+  let registrationFile = AgentRegistrationFileSchema.parse({})
   if (tokenURI) {
     const fetchUrl = tokenURI.startsWith('ipfs://')
       ? `https://ipfs.io/ipfs/${tokenURI.slice(7)}`
@@ -524,22 +535,23 @@ export async function getAgentInfo(
 
     const response = await fetch(fetchUrl)
     if (response.ok) {
-      registrationFile = (await response.json()) as Record<string, unknown>
+      const regRaw = await response.json()
+      const parsed = AgentRegistrationFileSchema.safeParse(regRaw)
+      if (parsed.success) {
+        registrationFile = parsed.data
+      }
     }
   }
 
   // Extract endpoints
-  const endpoints = (registrationFile.endpoints || []) as Array<{
-    type: string
-    value: string
-  }>
+  const endpoints = registrationFile.endpoints || []
   const a2aEndpoint = endpoints.find((e) => e.type === 'a2a')?.value
   const mcpEndpoint = endpoints.find((e) => e.type === 'mcp')?.value
 
   return {
     agentId: `${networkConfig.chainId}:${tokenId}`,
-    name: (registrationFile.name as string) || '',
-    description: (registrationFile.description as string) || '',
+    name: registrationFile.name || '',
+    description: registrationFile.description || '',
     a2aEndpoint,
     mcpEndpoint,
     tags: tags as string[],

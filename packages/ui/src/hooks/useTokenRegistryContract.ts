@@ -1,6 +1,5 @@
 /**
  * Token Registry Contract Hook
- * Consolidated from gateway and bazaar
  */
 
 import { useCallback, useMemo } from 'react'

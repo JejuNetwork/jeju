@@ -5,7 +5,7 @@ import {
   buildVerifyErrorResponse,
   buildVerifySuccessResponse,
 } from '../lib/response-builders'
-import { handleVerifyRequest, parseJsonBody } from '../lib/route-helpers'
+import { handleVerifyRequest } from '../lib/route-helpers'
 import type { PaymentRequirements } from '../lib/types'
 import { createClients } from '../services/settler'
 import {
@@ -15,17 +15,18 @@ import {
 } from '../services/verifier'
 
 const verifyRoutes = new Elysia({ prefix: '/verify' })
-  .post('/', async ({ request, set }) => {
+  .post('/', async ({ body, set }) => {
     const cfg = config()
-    const parseResult = await parseJsonBody(request)
-    if (parseResult.error) {
+    const requestBody = body as Record<string, unknown> | null
+
+    if (!requestBody) {
       set.status = 400
       return buildVerifyErrorResponse('Invalid JSON request body')
     }
 
-    const handleResult = handleVerifyRequest(parseResult.body, cfg.network)
-    if (!handleResult.valid) {
-      set.status = handleResult.status
+    const handleResult = handleVerifyRequest(requestBody, cfg.network)
+    if (handleResult.valid === false) {
+      set.status = handleResult.status as 200 | 400
       return handleResult.response
     }
 
@@ -64,40 +65,32 @@ const verifyRoutes = new Elysia({ prefix: '/verify' })
       result.decodedPayment.amount.toString(),
     )
   })
-  .post('/signature', async ({ request, set }) => {
-    const parseResult = await parseJsonBody<{
-      paymentHeader: string
+  .post('/signature', async ({ body, set }) => {
+    const requestBody = body as {
+      paymentHeader?: string
       network?: string
-    }>(request)
-    if (parseResult.error) {
+    } | null
+
+    if (!requestBody) {
       set.status = 400
       return { valid: false, error: 'Invalid JSON request body' }
     }
 
-    if (!parseResult.body.paymentHeader) {
+    if (!requestBody.paymentHeader) {
       set.status = 400
       return { valid: false, error: 'Missing paymentHeader' }
     }
 
     const cfg = config()
-    function getNetworkFromRequest(
-      requirementsNetwork: string | undefined,
-      defaultNetwork: string,
-    ): string {
-      return requirementsNetwork ?? defaultNetwork
-    }
-    const network = getNetworkFromRequest(parseResult.body.network, cfg.network)
-    const payload = decodePaymentHeader(parseResult.body.paymentHeader)
+    const network = requestBody.network ?? cfg.network
+    const payload = decodePaymentHeader(requestBody.paymentHeader)
 
     if (!payload) {
       set.status = 400
       return { valid: false, error: 'Invalid payment header encoding' }
     }
 
-    const result = await verifySignatureOnly(
-      parseResult.body.paymentHeader,
-      network,
-    )
+    const result = await verifySignatureOnly(requestBody.paymentHeader, network)
 
     if (!result.valid) {
       return {

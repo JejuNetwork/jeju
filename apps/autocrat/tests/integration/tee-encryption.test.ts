@@ -3,7 +3,8 @@ import { beforeAll, describe, expect, test } from 'bun:test'
 
 // These tests require TEE infrastructure which may not be available in CI/local
 // Set TEE_PLATFORM=none to run in local mode without external dependencies
-const SKIP_TEE_TESTS = !process.env.TEE_PLATFORM || process.env.SKIP_TEE_TESTS === 'true'
+const SKIP_TEE_TESTS =
+  !process.env.TEE_PLATFORM || process.env.SKIP_TEE_TESTS === 'true'
 
 describe('TEE Encryption', () => {
   let tee: typeof import('../../src/tee')

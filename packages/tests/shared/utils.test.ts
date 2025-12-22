@@ -518,25 +518,27 @@ describe('getTestEnv - Environment Config', () => {
 // Integration Tests (require live chain)
 // ============================================================================
 
-describe.skipIf(!process.env.CHAIN_AVAILABLE)(
-  'RPC Health - Integration',
-  () => {
-    test('should return healthy for running chain', async () => {
-      const result = await checkRpcHealth(REAL_RPC, 5000)
+// Auto-detect chain availability (sync check for skipIf)
+const CHAIN_AVAILABLE =
+  process.env.CHAIN_AVAILABLE === 'true' ||
+  (await isRpcAvailable(REAL_RPC).catch(() => false))
 
-      expect(result.available).toBe(true)
-      expect(result.chainId).toBeGreaterThan(0)
-      expect(result.blockNumber).toBeGreaterThanOrEqual(0)
+describe.skipIf(!CHAIN_AVAILABLE)('RPC Health - Integration', () => {
+  test('should return healthy for running chain', async () => {
+    const result = await checkRpcHealth(REAL_RPC, 5000)
+
+    expect(result.available).toBe(true)
+    expect(result.chainId).toBeGreaterThan(0)
+    expect(result.blockNumber).toBeGreaterThanOrEqual(0)
+  })
+
+  test('should detect chain ID mismatch in waitForRpc', async () => {
+    const result = await waitForRpc(REAL_RPC, {
+      maxWaitMs: 3000,
+      expectedChainId: 99999, // Wrong chain ID
     })
 
-    test('should detect chain ID mismatch in waitForRpc', async () => {
-      const result = await waitForRpc(REAL_RPC, {
-        maxWaitMs: 3000,
-        expectedChainId: 99999, // Wrong chain ID
-      })
-
-      // Should connect but fail chain ID check
-      expect(result).toBe(false)
-    })
-  },
-)
+    // Should connect but fail chain ID check
+    expect(result).toBe(false)
+  })
+})

@@ -5,7 +5,7 @@
  */
 
 import { describe, expect, test } from 'bun:test'
-import { Hono } from 'hono'
+import { Elysia } from 'elysia'
 import type { Address } from 'viem'
 import type {
   IWorkerdExecutor,
@@ -82,13 +82,12 @@ class MockWorkerdExecutor implements IWorkerdExecutor {
 }
 
 // Create test app
-const app = new Hono()
 const mockExecutor = new MockWorkerdExecutor()
 
 // Initialize with mock
 initExecutor(mockExecutor)
 
-app.route('/agents', createAgentRouter())
+const app = new Elysia().use(createAgentRouter())
 
 // Helper to make requests
 async function request(
@@ -106,7 +105,7 @@ async function request(
     },
     body: body ? JSON.stringify(body) : undefined,
   })
-  return app.fetch(req)
+  return app.handle(req)
 }
 
 // ============================================================================
@@ -152,7 +151,8 @@ describe('Agent API Routes', () => {
 
   test('POST /agents rejects without character', async () => {
     const res = await request('POST', '/agents', {})
-    expect(res.status).toBe(400)
+    // Elysia returns 422 for validation errors
+    expect(res.status).toBe(422)
   })
 
   test('GET /agents lists agents', async () => {
@@ -253,7 +253,8 @@ describe('Agent API Routes', () => {
     const res = await request('POST', `/agents/${created.id}/chat`, {
       userId: 'test-user',
     })
-    expect(res.status).toBe(400)
+    // Elysia returns 422 for validation errors
+    expect(res.status).toBe(422)
   })
 
   test('POST /agents/:id/pause pauses agent', async () => {

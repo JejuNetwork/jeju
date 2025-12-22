@@ -1,15 +1,3 @@
-/**
- * Deployment Script for Decentralized App Template
- *
- * Deploys all components to the decentralized network:
- * 1. Database schema to CQL
- * 2. Frontend to IPFS via Storage Marketplace
- * 3. Backend to Compute Network
- * 4. JNS name registration
- * 5. Cron triggers
- * 6. OAuth3 app registration
- */
-
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import type { Hex } from 'viem'

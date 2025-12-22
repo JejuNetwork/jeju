@@ -13,7 +13,6 @@ import {
 
 /**
  * Staking operation status
- * Consolidates staking status definitions
  */
 export type StakeStatus =
   | 'idle' // Not staked
@@ -27,7 +26,6 @@ export type StakeStatus =
 
 /**
  * Supported DEX protocols across the Jeju ecosystem
- * Consolidates all DEX protocol definitions into a single source of truth
  */
 export type DexProtocol =
   | 'uniswap-v2'

@@ -1,10 +1,3 @@
-/**
- * Decentralized Todo Frontend
- *
- * A vanilla TypeScript frontend that connects to all decentralized services.
- * Deployed to IPFS via Storage Marketplace.
- */
-
 // Ethereum provider types for wallet interaction
 type EthereumRequestMethod =
   | 'eth_requestAccounts'
@@ -64,7 +57,6 @@ const state: AppState = {
   filter: 'all',
 }
 
-// Auth helpers
 async function getAuthHeaders(): Promise<Record<string, string>> {
   if (!state.address || !window.ethereum) {
     throw new Error('Wallet not connected')
@@ -86,8 +78,6 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
   }
 }
 
-// Validation helpers
-// Validates external API responses to ensure type safety
 function validateTodo(data: Record<string, unknown>): Todo {
   if (typeof data.id !== 'string' || !data.id)
     throw new Error('Todo ID is required')
@@ -153,7 +143,6 @@ function validatePriority(priority: string): 'low' | 'medium' | 'high' {
   return priority as 'low' | 'medium' | 'high'
 }
 
-// API functions with validation
 async function fetchTodos(): Promise<void> {
   state.loading = true
   state.error = null
@@ -269,7 +258,6 @@ async function encryptTodo(id: string): Promise<void> {
   await fetchTodos()
 }
 
-// Wallet connection with validation
 async function connectWallet(): Promise<void> {
   if (!window.ethereum) {
     state.error = 'Please install MetaMask or another Web3 wallet'
@@ -300,7 +288,6 @@ function disconnectWallet(): void {
   render()
 }
 
-// Render functions
 function render(): void {
   const app = document.getElementById('app')
   if (!app) return
@@ -597,7 +584,6 @@ function attachEventListeners(): void {
   })
 }
 
-// Initialize
 if (window.ethereum) {
   window.ethereum.on('accountsChanged', (accounts: string[]) => {
     if (accounts.length > 0) {

@@ -5,6 +5,27 @@
  */
 
 import { describe, expect, it, mock } from 'bun:test'
+import {
+  BackupCodesManager,
+  createBackupCodesManager,
+} from '../src/mfa/backup-codes.js'
+import { MFAMethod } from '../src/mfa/index.js'
+import { createPasskeyManager, PasskeyManager } from '../src/mfa/passkeys.js'
+import { createTOTPManager, TOTPManager } from '../src/mfa/totp.js'
+import { createEmailProvider, EmailProvider } from '../src/providers/email.js'
+import { createPhoneProvider, PhoneProvider } from '../src/providers/phone.js'
+import { ConnectedAccount } from '../src/react/components/ConnectedAccount.js'
+import { LoginButton } from '../src/react/components/LoginButton.js'
+import { LoginModal } from '../src/react/components/LoginModal.js'
+import { MFASetup } from '../src/react/components/MFASetup.js'
+import { useCredentials } from '../src/react/hooks/useCredentials.js'
+import { useLogin } from '../src/react/hooks/useLogin.js'
+import { useMFA } from '../src/react/hooks/useMFA.js'
+import { useSession } from '../src/react/hooks/useSession.js'
+import * as reactSdk from '../src/react/index.js'
+import { OAuth3Provider } from '../src/react/provider.js'
+import { createOAuth3Client } from '../src/sdk/client.js'
+import { AuthProvider } from '../src/types.js'
 
 // Mock React for testing without DOM
 // Note: Using explicit type casts since we're testing module exports, not React integration
@@ -44,72 +65,53 @@ const _mockReact = {
 // Test the core SDK types and utilities
 describe('OAuth3 React SDK', () => {
   describe('Type Exports', () => {
-    it('exports OAuth3ProviderProps type', async () => {
-      const { OAuth3Provider } = await import('../src/react/provider.js')
+    it('exports OAuth3ProviderProps type', () => {
       expect(OAuth3Provider).toBeDefined()
     })
 
-    it('exports useLogin hook', async () => {
-      const { useLogin } = await import('../src/react/hooks/useLogin.js')
+    it('exports useLogin hook', () => {
       expect(useLogin).toBeDefined()
       expect(typeof useLogin).toBe('function')
     })
 
-    it('exports useMFA hook', async () => {
-      const { useMFA } = await import('../src/react/hooks/useMFA.js')
+    it('exports useMFA hook', () => {
       expect(useMFA).toBeDefined()
       expect(typeof useMFA).toBe('function')
     })
 
-    it('exports useCredentials hook', async () => {
-      const { useCredentials } = await import(
-        '../src/react/hooks/useCredentials.js'
-      )
+    it('exports useCredentials hook', () => {
       expect(useCredentials).toBeDefined()
       expect(typeof useCredentials).toBe('function')
     })
 
-    it('exports useSession hook', async () => {
-      const { useSession } = await import('../src/react/hooks/useSession.js')
+    it('exports useSession hook', () => {
       expect(useSession).toBeDefined()
       expect(typeof useSession).toBe('function')
     })
 
-    it('exports LoginButton component', async () => {
-      const { LoginButton } = await import(
-        '../src/react/components/LoginButton.js'
-      )
+    it('exports LoginButton component', () => {
       expect(LoginButton).toBeDefined()
       expect(typeof LoginButton).toBe('function')
     })
 
-    it('exports LoginModal component', async () => {
-      const { LoginModal } = await import(
-        '../src/react/components/LoginModal.js'
-      )
+    it('exports LoginModal component', () => {
       expect(LoginModal).toBeDefined()
       expect(typeof LoginModal).toBe('function')
     })
 
-    it('exports ConnectedAccount component', async () => {
-      const { ConnectedAccount } = await import(
-        '../src/react/components/ConnectedAccount.js'
-      )
+    it('exports ConnectedAccount component', () => {
       expect(ConnectedAccount).toBeDefined()
       expect(typeof ConnectedAccount).toBe('function')
     })
 
-    it('exports MFASetup component', async () => {
-      const { MFASetup } = await import('../src/react/components/MFASetup.js')
+    it('exports MFASetup component', () => {
       expect(MFASetup).toBeDefined()
       expect(typeof MFASetup).toBe('function')
     })
   })
 
   describe('Main Index Exports', () => {
-    it('exports all React SDK items from main index', async () => {
-      const reactSdk = await import('../src/react/index.js')
-
+    it('exports all React SDK items from main index', () => {
       // Provider
       expect(reactSdk.OAuth3Provider).toBeDefined()
       expect(reactSdk.useOAuth3).toBeDefined()
@@ -130,9 +132,7 @@ describe('OAuth3 React SDK', () => {
   })
 
   describe('AuthProvider Enum', () => {
-    it('includes all authentication providers', async () => {
-      const { AuthProvider } = await import('../src/types.js')
-
+    it('includes all authentication providers', () => {
       expect(AuthProvider.WALLET).toBe('wallet')
       expect(AuthProvider.FARCASTER).toBe('farcaster')
       expect(AuthProvider.GOOGLE).toBe('google')
@@ -146,20 +146,14 @@ describe('OAuth3 React SDK', () => {
   })
 
   describe('MFA Exports', () => {
-    it('exports MFAMethod enum', async () => {
-      const { MFAMethod } = await import('../src/mfa/index.js')
-
+    it('exports MFAMethod enum', () => {
       expect(MFAMethod.PASSKEY).toBe('passkey')
       expect(MFAMethod.TOTP).toBe('totp')
       expect(MFAMethod.SMS).toBe('sms')
       expect(MFAMethod.BACKUP_CODE).toBe('backup_code')
     })
 
-    it('exports PasskeyManager', async () => {
-      const { PasskeyManager, createPasskeyManager } = await import(
-        '../src/mfa/passkeys.js'
-      )
-
+    it('exports PasskeyManager', () => {
       expect(PasskeyManager).toBeDefined()
       expect(createPasskeyManager).toBeDefined()
 
@@ -167,11 +161,7 @@ describe('OAuth3 React SDK', () => {
       expect(manager).toBeInstanceOf(PasskeyManager)
     })
 
-    it('exports TOTPManager', async () => {
-      const { TOTPManager, createTOTPManager } = await import(
-        '../src/mfa/totp.js'
-      )
-
+    it('exports TOTPManager', () => {
       expect(TOTPManager).toBeDefined()
       expect(createTOTPManager).toBeDefined()
 
@@ -179,11 +169,7 @@ describe('OAuth3 React SDK', () => {
       expect(manager).toBeInstanceOf(TOTPManager)
     })
 
-    it('exports BackupCodesManager', async () => {
-      const { BackupCodesManager, createBackupCodesManager } = await import(
-        '../src/mfa/backup-codes.js'
-      )
-
+    it('exports BackupCodesManager', () => {
       expect(BackupCodesManager).toBeDefined()
       expect(createBackupCodesManager).toBeDefined()
 
@@ -193,18 +179,12 @@ describe('OAuth3 React SDK', () => {
   })
 
   describe('Email Provider', () => {
-    it('exports EmailProvider', async () => {
-      const { EmailProvider, createEmailProvider } = await import(
-        '../src/providers/email.js'
-      )
-
+    it('exports EmailProvider', () => {
       expect(EmailProvider).toBeDefined()
       expect(createEmailProvider).toBeDefined()
     })
 
     it('can create and use email provider', async () => {
-      const { createEmailProvider } = await import('../src/providers/email.js')
-
       const provider = createEmailProvider({
         fromEmail: 'test@example.com',
         fromName: 'Test App',
@@ -221,8 +201,6 @@ describe('OAuth3 React SDK', () => {
     })
 
     it('validates email format', async () => {
-      const { createEmailProvider } = await import('../src/providers/email.js')
-
       const provider = createEmailProvider({
         fromEmail: 'test@example.com',
         fromName: 'Test App',
@@ -235,8 +213,6 @@ describe('OAuth3 React SDK', () => {
     })
 
     it('handles email OTP flow', async () => {
-      const { createEmailProvider } = await import('../src/providers/email.js')
-
       const provider = createEmailProvider({
         fromEmail: 'test@example.com',
         fromName: 'Test App',
@@ -251,25 +227,17 @@ describe('OAuth3 React SDK', () => {
   })
 
   describe('Phone Provider', () => {
-    it('exports PhoneProvider', async () => {
-      const { PhoneProvider, createPhoneProvider } = await import(
-        '../src/providers/phone.js'
-      )
-
+    it('exports PhoneProvider', () => {
       expect(PhoneProvider).toBeDefined()
       expect(createPhoneProvider).toBeDefined()
     })
 
-    it('can create phone provider', async () => {
-      const { createPhoneProvider } = await import('../src/providers/phone.js')
-
+    it('can create phone provider', () => {
       const provider = createPhoneProvider()
       expect(provider).toBeDefined()
     })
 
     it('sends OTP to valid phone number', async () => {
-      const { createPhoneProvider } = await import('../src/providers/phone.js')
-
       const provider = createPhoneProvider({ devMode: true })
 
       const result = await provider.sendOTP('+14155551234')
@@ -278,8 +246,6 @@ describe('OAuth3 React SDK', () => {
     })
 
     it('rejects invalid phone numbers', async () => {
-      const { createPhoneProvider } = await import('../src/providers/phone.js')
-
       const provider = createPhoneProvider({ devMode: true })
 
       await expect(provider.sendOTP('invalid')).rejects.toThrow()
@@ -288,8 +254,6 @@ describe('OAuth3 React SDK', () => {
 
   describe('TOTP Manager', () => {
     it('generates TOTP secret', async () => {
-      const { createTOTPManager } = await import('../src/mfa/totp.js')
-
       const manager = createTOTPManager({ issuer: 'TestApp' })
       const result = await manager.generateSecret('user123', 'test@example.com')
 
@@ -299,8 +263,6 @@ describe('OAuth3 React SDK', () => {
     })
 
     it('verifies valid TOTP code', async () => {
-      const { createTOTPManager } = await import('../src/mfa/totp.js')
-
       const manager = createTOTPManager({ issuer: 'TestApp' })
       const setup = await manager.generateSecret('user123', 'test@example.com')
 
@@ -311,11 +273,7 @@ describe('OAuth3 React SDK', () => {
   })
 
   describe('Backup Codes Manager', () => {
-    it('generates backup codes', async () => {
-      const { createBackupCodesManager } = await import(
-        '../src/mfa/backup-codes.js'
-      )
-
+    it('generates backup codes', () => {
       const manager = createBackupCodesManager()
       const result = manager.generate('user123')
 
@@ -324,11 +282,7 @@ describe('OAuth3 React SDK', () => {
       expect(result.codes[0]).toMatch(/^[A-Z0-9]{4}-[A-Z0-9]{4}$/)
     })
 
-    it('verifies valid backup code', async () => {
-      const { createBackupCodesManager } = await import(
-        '../src/mfa/backup-codes.js'
-      )
-
+    it('verifies valid backup code', () => {
       const manager = createBackupCodesManager()
       const { codes } = manager.generate('user123')
 
@@ -342,11 +296,7 @@ describe('OAuth3 React SDK', () => {
       expect(result2.valid).toBe(false)
     })
 
-    it('rejects invalid backup codes', async () => {
-      const { createBackupCodesManager } = await import(
-        '../src/mfa/backup-codes.js'
-      )
-
+    it('rejects invalid backup codes', () => {
       const manager = createBackupCodesManager()
       manager.generate('user123')
 
@@ -357,8 +307,6 @@ describe('OAuth3 React SDK', () => {
 
   describe('Passkey Manager', () => {
     it('generates registration options', async () => {
-      const { createPasskeyManager } = await import('../src/mfa/passkeys.js')
-
       const manager = createPasskeyManager({
         rpId: 'example.com',
         rpName: 'Example',
@@ -377,8 +325,6 @@ describe('OAuth3 React SDK', () => {
     })
 
     it('generates authentication options', async () => {
-      const { createPasskeyManager } = await import('../src/mfa/passkeys.js')
-
       const manager = createPasskeyManager({
         rpId: 'example.com',
         rpName: 'Example',
@@ -394,9 +340,7 @@ describe('OAuth3 React SDK', () => {
 })
 
 describe('OAuth3 Client SDK', () => {
-  it('creates client with config', async () => {
-    const { createOAuth3Client } = await import('../src/sdk/client.js')
-
+  it('creates client with config', () => {
     const client = createOAuth3Client({
       appId: 'test.apps.jeju',
       redirectUri: 'https://test.com/callback',
@@ -409,9 +353,7 @@ describe('OAuth3 Client SDK', () => {
     expect(typeof client.getSession).toBe('function')
   })
 
-  it('supports event subscription', async () => {
-    const { createOAuth3Client } = await import('../src/sdk/client.js')
-
+  it('supports event subscription', () => {
     const client = createOAuth3Client({
       appId: 'test.apps.jeju',
       redirectUri: 'https://test.com/callback',

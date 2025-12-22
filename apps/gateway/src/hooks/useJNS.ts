@@ -1,8 +1,8 @@
+import { ZERO_ADDRESS } from '@jejunetwork/ui'
 import { useCallback, useState } from 'react'
 import { type Address, type Hash, namehash } from 'viem'
 import { useAccount, usePublicClient, useWalletClient } from 'wagmi'
 import { CONTRACTS, INDEXER_URL } from '../config'
-import { ZERO_ADDRESS } from '../lib/contracts'
 
 // Contract addresses from centralized config
 const JNS_REGISTRY = CONTRACTS.jnsRegistry

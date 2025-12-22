@@ -19,6 +19,7 @@ import {
   getNetworkDir,
 } from '../lib/system'
 import { CHAIN_CONFIG, type NetworkType } from '../types'
+import { keysCommand } from './keys'
 
 // Schema validation for deployment config files
 const DeployConfigSchema = z.object({
@@ -163,8 +164,6 @@ export const deployCommand = new Command('deploy')
         })
 
         if (generateKeys) {
-          // Dynamic import kept conditional - only loads if user chooses to generate keys
-          const { keysCommand } = await import('./keys')
           await keysCommand.parseAsync(['genesis', '-n', network], {
             from: 'user',
           })

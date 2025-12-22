@@ -5,7 +5,7 @@
  */
 
 import { expectValid } from '@jejunetwork/types'
-import { hashMessage, recoverAddress, type Address } from 'viem'
+import { type Address, hashMessage, recoverAddress } from 'viem'
 import { z } from 'zod'
 import {
   KMSDecryptResponseSchema,

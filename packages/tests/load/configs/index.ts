@@ -5,8 +5,9 @@
  */
 
 import type { AppLoadTestConfig } from '../types'
+
 export { testServerConfig } from './test-server'
-export { optimizedServerConfig } from './optimized-server'
+export { cachedServerConfig } from './cached-server'
 
 export const autocratConfig: AppLoadTestConfig = {
   name: 'autocrat',
@@ -501,9 +502,7 @@ export const monitoringConfig: AppLoadTestConfig = {
   baseUrl: 'http://localhost:5173',
   port: 5173,
   healthEndpoint: '/',
-  endpoints: [
-    { path: '/', method: 'GET', weight: 0.3, expectedStatus: [200] },
-  ],
+  endpoints: [{ path: '/', method: 'GET', weight: 0.3, expectedStatus: [200] }],
   thresholds: {
     p50Latency: 100,
     p95Latency: 300,
@@ -583,9 +582,7 @@ export const walletConfig: AppLoadTestConfig = {
   baseUrl: 'http://localhost:4015',
   port: 4015,
   healthEndpoint: '/',
-  endpoints: [
-    { path: '/', method: 'GET', weight: 1.0, expectedStatus: [200] },
-  ],
+  endpoints: [{ path: '/', method: 'GET', weight: 1.0, expectedStatus: [200] }],
   thresholds: {
     p50Latency: 100,
     p95Latency: 300,
@@ -621,7 +618,7 @@ export const documentationConfig: AppLoadTestConfig = {
 
 // Import test server configs
 import { testServerConfig } from './test-server'
-import { optimizedServerConfig } from './optimized-server'
+import { cachedServerConfig } from './cached-server'
 
 // All configs for easy iteration
 export const ALL_CONFIGS: AppLoadTestConfig[] = [
@@ -641,7 +638,7 @@ export const ALL_CONFIGS: AppLoadTestConfig[] = [
   walletConfig,
   documentationConfig,
   testServerConfig,
-  optimizedServerConfig,
+  cachedServerConfig,
 ]
 
 // API-focused configs (apps with meaningful API endpoints)
@@ -661,8 +658,5 @@ export const API_CONFIGS: AppLoadTestConfig[] = [
 ]
 
 export function getConfigByName(name: string): AppLoadTestConfig | undefined {
-  return ALL_CONFIGS.find(
-    (c) => c.name.toLowerCase() === name.toLowerCase(),
-  )
+  return ALL_CONFIGS.find((c) => c.name.toLowerCase() === name.toLowerCase())
 }
-

@@ -21,7 +21,15 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type Subprocess, spawn } from 'bun'
-import type { Address, Hex } from 'viem'
+import {
+  type Address,
+  createPublicClient,
+  encodePacked,
+  type Hex,
+  http,
+  keccak256,
+  toHex,
+} from 'viem'
 import { z } from 'zod'
 import { logger } from '../lib/logger'
 import {
@@ -399,8 +407,6 @@ class ServicesOrchestrator {
           }
 
           // Read from on-chain PriceOracle
-          // Dynamic import: only needed when PriceOracle is deployed (conditional)
-          const { createPublicClient, http } = await import('viem')
           const client = createPublicClient({ transport: http(rpcUrl) })
 
           const allPrices: Record<string, object> = {}
@@ -769,9 +775,6 @@ class ServicesOrchestrator {
       'function setText(bytes32 node, string key, string value) external',
     ]
 
-    // Dynamic import: viem utilities only needed when JNS service is started (conditional)
-    const { keccak256, encodePacked, toHex } = await import('viem')
-
     // ENS-compatible namehash
     const namehash = (name: string): string => {
       let node =
@@ -815,8 +818,6 @@ class ServicesOrchestrator {
           const node = namehash(name)
 
           // Call on-chain resolver
-          // Dynamic import: only needed when resolver is deployed (conditional)
-          const { createPublicClient, http } = await import('viem')
           const client = createPublicClient({ transport: http(rpcUrl) })
 
           if (!jnsResolver) {
@@ -868,8 +869,6 @@ class ServicesOrchestrator {
             })
           }
 
-          // Dynamic import: only needed when registrar is deployed (conditional)
-          const { createPublicClient, http } = await import('viem')
           const client = createPublicClient({ transport: http(rpcUrl) })
 
           const available = await client
@@ -908,8 +907,6 @@ class ServicesOrchestrator {
             })
           }
 
-          // Dynamic import: only needed when registrar is deployed (conditional)
-          const { createPublicClient, http } = await import('viem')
           const client = createPublicClient({ transport: http(rpcUrl) })
           const duration = BigInt(years * 365 * 24 * 60 * 60) // years in seconds
 

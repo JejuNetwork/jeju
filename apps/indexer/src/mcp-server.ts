@@ -4,8 +4,9 @@
  * Model Context Protocol interface for blockchain data queries.
  */
 
-import { Elysia } from 'elysia'
 import { cors } from '@elysiajs/cors'
+import { AddressSchema, HashSchema, validateOrThrow } from '@jejunetwork/types'
+import { Elysia } from 'elysia'
 import {
   buildAccountQuery,
   buildAgentQuery,
@@ -19,18 +20,15 @@ import {
 } from './lib/graphql-utils'
 import { BadRequestError, NotFoundError } from './lib/types'
 import {
-  addressSchema,
   analyzeTransactionPromptArgsSchema,
   blockNumberSchema,
   explainProposalPromptArgsSchema,
-  hashSchema,
   type JsonValue,
   mcpPromptGetSchema,
   mcpResourceReadSchema,
   mcpToolCallSchema,
   summarizeAgentActivityPromptArgsSchema,
   validateBody,
-  validateOrThrow,
 } from './lib/validation'
 
 interface MCPResourceContents {
@@ -298,11 +296,15 @@ export function createIndexerMCPServer() {
     )
     // SECURITY: Global error handler for JSON parse errors and other exceptions
     .onError(({ error, set }) => {
-      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorMessage =
+        error instanceof Error ? error.message : String(error)
       console.error('[MCP] Error:', errorMessage)
 
       // Handle JSON parse errors
-      if (errorMessage.includes('JSON') || errorMessage.includes('Unexpected')) {
+      if (
+        errorMessage.includes('JSON') ||
+        errorMessage.includes('Unexpected')
+      ) {
         set.status = 400
         return { error: 'Invalid JSON in request body' }
       }
@@ -336,7 +338,10 @@ export function createIndexerMCPServer() {
       if (path === '/') return
 
       // Use IP or API key for rate limiting
-      const forwarded = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
+      const forwarded = request.headers
+        .get('x-forwarded-for')
+        ?.split(',')[0]
+        ?.trim()
       const apiKey = request.headers.get('x-api-key')
       const clientKey = apiKey
         ? `apikey:${apiKey}`
@@ -354,7 +359,9 @@ export function createIndexerMCPServer() {
       set.headers['X-RateLimit-Remaining'] = String(
         Math.max(0, MCP_RATE_LIMIT - record.count),
       )
-      set.headers['X-RateLimit-Reset'] = String(Math.ceil(record.resetAt / 1000))
+      set.headers['X-RateLimit-Reset'] = String(
+        Math.ceil(record.resetAt / 1000),
+      )
 
       if (record.count > MCP_RATE_LIMIT) {
         set.status = 429
@@ -494,7 +501,11 @@ export function createIndexerMCPServer() {
             )
           }
           if (blockHash) {
-            validateOrThrow(hashSchema, blockHash, 'MCP tool get_block blockHash')
+            validateOrThrow(
+              HashSchema,
+              blockHash,
+              'MCP tool get_block blockHash',
+            )
           }
           const query = buildBlockQuery(blockNumber, blockHash)
           result = { query: query.query }
@@ -505,7 +516,11 @@ export function createIndexerMCPServer() {
           if (typeof args.hash !== 'string') {
             throw new BadRequestError('hash is required and must be a string')
           }
-          validateOrThrow(hashSchema, args.hash, 'MCP tool get_transaction hash')
+          validateOrThrow(
+            HashSchema,
+            args.hash,
+            'MCP tool get_transaction hash',
+          )
           const query = buildTransactionQuery(args.hash)
           result = { query: query.query }
           break
@@ -513,10 +528,12 @@ export function createIndexerMCPServer() {
 
         case 'get_account': {
           if (typeof args.address !== 'string') {
-            throw new BadRequestError('address is required and must be a string')
+            throw new BadRequestError(
+              'address is required and must be a string',
+            )
           }
           validateOrThrow(
-            addressSchema,
+            AddressSchema,
             args.address,
             'MCP tool get_account address',
           )
@@ -527,10 +544,12 @@ export function createIndexerMCPServer() {
 
         case 'get_token_balances': {
           if (typeof args.address !== 'string') {
-            throw new BadRequestError('address is required and must be a string')
+            throw new BadRequestError(
+              'address is required and must be a string',
+            )
           }
           validateOrThrow(
-            addressSchema,
+            AddressSchema,
             args.address,
             'MCP tool get_token_balances address',
           )
@@ -586,10 +605,12 @@ export function createIndexerMCPServer() {
 
         case 'get_contract_events': {
           if (typeof args.address !== 'string') {
-            throw new BadRequestError('address is required and must be a string')
+            throw new BadRequestError(
+              'address is required and must be a string',
+            )
           }
           validateOrThrow(
-            addressSchema,
+            AddressSchema,
             args.address,
             'MCP tool get_contract_events address',
           )

@@ -1,8 +1,8 @@
 //! Earnings tracking and history
 
+use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use chrono::{DateTime, Utc};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EarningsEntry {
@@ -53,31 +53,31 @@ impl EarningsTracker {
     pub fn load(&mut self) -> Result<(), Box<dyn std::error::Error>> {
         let data_dir = crate::config::NodeConfig::data_dir()?;
         let earnings_path = data_dir.join("earnings.json");
-        
+
         if earnings_path.exists() {
             let contents = std::fs::read_to_string(&earnings_path)?;
             let data: EarningsData = serde_json::from_str(&contents)?;
             self.entries = data.entries;
             self.stats = data.stats;
         }
-        
+
         Ok(())
     }
 
     pub fn save(&self) -> Result<(), Box<dyn std::error::Error>> {
         let data_dir = crate::config::NodeConfig::data_dir()?;
         std::fs::create_dir_all(&data_dir)?;
-        
+
         let earnings_path = data_dir.join("earnings.json");
-        
+
         let data = EarningsData {
             entries: self.entries.clone(),
             stats: self.stats.clone(),
         };
-        
+
         let contents = serde_json::to_string_pretty(&data)?;
         std::fs::write(&earnings_path, contents)?;
-        
+
         Ok(())
     }
 
@@ -86,9 +86,11 @@ impl EarningsTracker {
         let amount: u128 = entry.amount_wei.parse().unwrap_or(0);
         let current_total: u128 = self.stats.total_wei.parse().unwrap_or(0);
         self.stats.total_wei = (current_total + amount).to_string();
-        
+
         // Update by service
-        let service_total: u128 = self.stats.by_service
+        let service_total: u128 = self
+            .stats
+            .by_service
             .get(&entry.service_id)
             .and_then(|s| s.parse().ok())
             .unwrap_or(0);
@@ -96,20 +98,24 @@ impl EarningsTracker {
             entry.service_id.clone(),
             (service_total + amount).to_string(),
         );
-        
+
         // Update by day
         let date = chrono::NaiveDateTime::from_timestamp_opt(entry.timestamp, 0)
             .map(|dt| dt.format("%Y-%m-%d").to_string())
             .unwrap_or_default();
-        
-        let day_total: u128 = self.stats.by_day
+
+        let day_total: u128 = self
+            .stats
+            .by_day
             .get(&date)
             .and_then(|s| s.parse().ok())
             .unwrap_or(0);
-        self.stats.by_day.insert(date, (day_total + amount).to_string());
-        
+        self.stats
+            .by_day
+            .insert(date, (day_total + amount).to_string());
+
         self.entries.push(entry);
-        
+
         // Save
         let _ = self.save();
     }
@@ -121,7 +127,9 @@ impl EarningsTracker {
         end_time: Option<i64>,
         limit: Option<usize>,
     ) -> Vec<&EarningsEntry> {
-        let mut filtered: Vec<&EarningsEntry> = self.entries.iter()
+        let mut filtered: Vec<&EarningsEntry> = self
+            .entries
+            .iter()
             .filter(|e| {
                 if let Some(sid) = service_id {
                     if e.service_id != sid {
@@ -141,14 +149,14 @@ impl EarningsTracker {
                 true
             })
             .collect();
-        
+
         // Sort by timestamp descending
         filtered.sort_by(|a, b| b.timestamp.cmp(&a.timestamp));
-        
+
         if let Some(lim) = limit {
             filtered.truncate(lim);
         }
-        
+
         filtered
     }
 
@@ -158,7 +166,11 @@ impl EarningsTracker {
 
     pub fn get_total_today(&self) -> String {
         let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
-        self.stats.by_day.get(&today).cloned().unwrap_or_else(|| "0".to_string())
+        self.stats
+            .by_day
+            .get(&today)
+            .cloned()
+            .unwrap_or_else(|| "0".to_string())
     }
 }
 
@@ -173,4 +185,3 @@ impl Default for EarningsTracker {
         Self::new()
     }
 }
-

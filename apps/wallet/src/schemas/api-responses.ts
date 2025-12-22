@@ -5,13 +5,13 @@
  * Used with expectValid for fail-fast validation.
  */
 
-import { z } from 'zod'
 import {
   AddressSchema,
   BigIntSchema,
   ChainIdSchema,
   HexSchema,
-} from '../lib/validation'
+} from '@jejunetwork/types'
+import { z } from 'zod'
 
 // ============================================================================
 // JSON-RPC Response Schemas

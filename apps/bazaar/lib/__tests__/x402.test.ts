@@ -6,10 +6,12 @@ import { describe, expect, test } from 'bun:test'
 import { parseEther } from 'viem'
 import {
   calculatePercentageFee,
+  createPaymentPayload,
   createPaymentRequirement,
   PAYMENT_TIERS,
   type PaymentPayload,
   parsePaymentHeader,
+  signPaymentPayload,
   type UntrustedPaymentPayload,
   verifyPayment,
 } from '../x402'
@@ -42,9 +44,6 @@ describe('x402 Payment Protocol', () => {
   test('should verify valid payment with signature', async () => {
     const amount = parseEther('1.0')
 
-    // Create and sign payload
-    const { createPaymentPayload, signPaymentPayload } = await import('../x402')
-
     // Use Anvil test account #0 private key for testing
     const testPrivateKey =
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
@@ -72,8 +71,6 @@ describe('x402 Payment Protocol', () => {
   test('should reject payment with insufficient amount', async () => {
     const required = parseEther('1.0')
     const provided = parseEther('0.5')
-
-    const { createPaymentPayload, signPaymentPayload } = await import('../x402')
     const testPrivateKey =
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
@@ -95,8 +92,6 @@ describe('x402 Payment Protocol', () => {
     const wrongRecipient =
       '0x9999999999999999999999999999999999999999' as `0x${string}`
     const amount = parseEther('1.0')
-
-    const { createPaymentPayload, signPaymentPayload } = await import('../x402')
     const testPrivateKey =
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 
@@ -117,8 +112,6 @@ describe('x402 Payment Protocol', () => {
   test('should reject expired payment', async () => {
     const amount = parseEther('1.0')
     const oldTimestamp = Math.floor(Date.now() / 1000) - 400 // 400 seconds ago
-
-    const { signPaymentPayload } = await import('../x402')
     const testPrivateKey =
       '0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80'
 

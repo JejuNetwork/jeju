@@ -604,7 +604,10 @@ export class CDNClient {
    * List all sites for the connected wallet
    */
   async listSites(): Promise<`0x${string}`[]> {
-    return this.registryContract.read.getOwnerSites([this.account.address])
+    const sites = await this.registryContract.read.getOwnerSites([
+      this.account.address,
+    ])
+    return [...sites]
   }
 
   // ============================================================================
@@ -615,7 +618,7 @@ export class CDNClient {
    * Deposit funds for CDN usage
    */
   async deposit(amount: bigint): Promise<`0x${string}`> {
-    return this.billingContract.write.deposit([], { value: amount })
+    return this.billingContract.write.deposit({ value: amount })
   }
 
   /**

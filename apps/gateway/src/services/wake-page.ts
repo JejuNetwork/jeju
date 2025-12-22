@@ -1,7 +1,4 @@
-// Re-export consolidated HealthStatus
-import type { HealthStatus } from '@jejunetwork/types'
 import { type Address, namehash } from 'viem'
-export type { HealthStatus }
 
 export interface WakePageData {
   jnsName: string
@@ -484,7 +481,8 @@ export async function checkWakePage(
       data: {
         jnsName,
         appName: jnsName.replace('.jeju', ''),
-        description: 'This decentralized app needs funding to resume operation.',
+        description:
+          'This decentralized app needs funding to resume operation.',
         owner,
         vaultAddress,
         currentBalance,

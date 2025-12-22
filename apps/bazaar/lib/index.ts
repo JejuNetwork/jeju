@@ -29,7 +29,6 @@ export {
 } from './client'
 export * from './crosschain'
 export * from './erc8004'
-// Faucet - re-export only schemas and types (API functions are in ./api)
 export {
   ClaimRequestSchema,
   FaucetClaimResultSchema,
@@ -43,7 +42,6 @@ export {
 } from './faucet'
 export * from './games'
 export * from './indexer-client'
-// Re-export launchpad with renamed formatPrice to avoid conflict with markets
 export {
   type BondingCurveConfig,
   BondingCurveConfigSchema,
@@ -86,8 +84,6 @@ export {
 } from './launchpad'
 export * from './markets'
 export * from './moderation-contracts'
-export * from './paymaster'
-// Perps exports with explicit names to avoid collision with markets module
 export {
   calculateCurrentLeverage,
   calculateFee,

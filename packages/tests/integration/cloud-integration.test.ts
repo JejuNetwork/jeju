@@ -7,7 +7,7 @@ import {
   http,
   parseAbi,
 } from 'viem'
-import { privateKeyToAccount } from 'viem/accounts'
+import { generatePrivateKey, privateKeyToAccount } from 'viem/accounts'
 import { getLogs, waitForTransactionReceipt } from 'viem/actions'
 import { inferChainFromRpcUrl } from '../../../packages/deployment/scripts/shared/chain-utils'
 import {
@@ -264,7 +264,6 @@ describe.skipIf(!localnetAvailable)('Cloud Integration', () => {
   describe('Security', () => {
     test('should reject unauthorized reputation updates', async () => {
       // Create unauthorized signer
-      const { generatePrivateKey } = await import('viem/accounts')
       const unauthorizedAccount = privateKeyToAccount(generatePrivateKey())
 
       // This should fail (not authorized operator)

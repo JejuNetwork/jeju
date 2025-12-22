@@ -6,13 +6,13 @@
  * Uses @jejunetwork/eliza-plugin for 60+ network actions.
  */
 
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
+import { cors } from '@elysiajs/cors'
+import { Elysia } from 'elysia'
 import { createPublicClient, createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
 import { localhost, mainnet, sepolia } from 'viem/chains'
 import { z } from 'zod'
+import { DEFAULT_AUTONOMOUS_CONFIG } from './autonomous/types'
 import { BotInitializer } from './bots/initializer'
 import type { TradingBot } from './bots/trading-bot'
 import { characters, getCharacter, listCharacters } from './characters'
@@ -244,29 +244,27 @@ if (config.privateKey && walletClient) {
   }
 }
 
-const app = new Hono()
+const app = new Elysia()
 
-// Middleware
 // CORS - restrict to configured origins in production
 // SECURITY: Wildcard '*' is ONLY honored in localnet to prevent misconfiguration
 app.use(
-  '*',
   cors({
-    origin: (origin) => {
+    origin: (request) => {
+      const origin = request.headers.get('origin')
       // In development (localnet), allow all origins including wildcard
-      if (config.network === 'localnet') return origin
+      if (config.network === 'localnet') return true
       // In production/testnet, NEVER allow wildcard - explicit origins only
-      if (!origin) return null
-      if (ALLOWED_ORIGINS.includes(origin)) return origin
+      if (!origin) return false
+      if (ALLOWED_ORIGINS.includes(origin)) return true
       // Log rejected origins for debugging (but don't expose in response)
       if (origin && !ALLOWED_ORIGINS.includes('*')) {
         log.debug('CORS rejected origin', { origin, allowed: ALLOWED_ORIGINS })
       }
-      return null
+      return false
     },
     credentials: true,
-    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-    allowHeaders: [
+    allowedHeaders: [
       'Content-Type',
       'Authorization',
       'X-API-Key',
@@ -276,23 +274,22 @@ app.use(
   }),
 )
 
-app.use('*', logger())
-
 // Rate limiting middleware with atomic increment pattern
-app.use('*', async (c, next) => {
-  const path = c.req.path
+app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
+  const url = new URL(request.url)
+  const path = url.pathname
 
   // Skip rate limiting for exempt paths
   if (RATE_LIMIT_EXEMPT_PATHS.some((p) => path.startsWith(p))) {
-    return next()
+    return undefined
   }
 
   // Use IP or wallet address as rate limit key
   const clientIp =
-    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ??
-    c.req.header('x-real-ip') ??
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    request.headers.get('x-real-ip') ??
     'unknown'
-  const walletAddress = c.req.header('x-wallet-address') ?? ''
+  const walletAddress = request.headers.get('x-wallet-address') ?? ''
   const key = walletAddress || clientIp
 
   const now = Date.now()
@@ -321,77 +318,81 @@ app.use('*', async (c, next) => {
     record.count++
 
     if (record.count > RATE_LIMIT_MAX_REQUESTS) {
-      c.header('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS.toString())
-      c.header('X-RateLimit-Remaining', '0')
-      c.header('X-RateLimit-Reset', Math.ceil(record.resetAt / 1000).toString())
-      return c.json({ error: 'Rate limit exceeded' }, 429)
+      set.headers['X-RateLimit-Limit'] = RATE_LIMIT_MAX_REQUESTS.toString()
+      set.headers['X-RateLimit-Remaining'] = '0'
+      set.headers['X-RateLimit-Reset'] = Math.ceil(
+        record.resetAt / 1000,
+      ).toString()
+      set.status = 429
+      return { error: 'Rate limit exceeded' }
     }
   }
 
-  c.header('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS.toString())
-  c.header(
-    'X-RateLimit-Remaining',
-    Math.max(0, RATE_LIMIT_MAX_REQUESTS - record.count).toString(),
-  )
-  c.header('X-RateLimit-Reset', Math.ceil(record.resetAt / 1000).toString())
-
-  return next()
+  set.headers['X-RateLimit-Limit'] = RATE_LIMIT_MAX_REQUESTS.toString()
+  set.headers['X-RateLimit-Remaining'] = Math.max(
+    0,
+    RATE_LIMIT_MAX_REQUESTS - record.count,
+  ).toString()
+  set.headers['X-RateLimit-Reset'] = Math.ceil(record.resetAt / 1000).toString()
+  return undefined
 })
 
 // API Key authentication middleware (when enabled)
-app.use('*', async (c, next) => {
-  const path = c.req.path
+app.onBeforeHandle(({ request, set }): { error: string } | undefined => {
+  const url = new URL(request.url)
+  const path = url.pathname
 
   // Skip auth for public paths
   if (PUBLIC_PATHS.some((p) => path.startsWith(p))) {
-    return next()
+    return undefined
   }
 
   // Skip auth if not required
   if (!REQUIRE_AUTH || !API_KEY) {
-    return next()
+    return undefined
   }
 
   const providedKey =
-    c.req.header('x-api-key') ??
-    c.req.header('authorization')?.replace('Bearer ', '')
+    request.headers.get('x-api-key') ??
+    request.headers.get('authorization')?.replace('Bearer ', '')
 
   if (!providedKey || !constantTimeCompare(providedKey, API_KEY)) {
-    return c.json({ error: 'Unauthorized' }, 401)
+    set.status = 401
+    return { error: 'Unauthorized' }
   }
-
-  return next()
+  return undefined
 })
 
-app.use('*', banCheckMiddleware()) // Ban check - blocks banned users
-app.use('*', async (c, next) => {
-  const start = Date.now()
+// Ban check middleware
+app.onBeforeHandle(banCheckMiddleware())
+
+// Metrics middleware
+app.onBeforeHandle(() => {
   metrics.requests.total++
-  await next()
-  const duration = Date.now() - start
-  metrics.latency.sum += duration
-  metrics.latency.count++
-  if (c.res.status >= 400) metrics.requests.error++
+})
+
+app.onAfterHandle(({ set }) => {
+  const statusNum =
+    typeof set.status === 'number' ? set.status : Number(set.status) || 200
+  if (statusNum >= 400) metrics.requests.error++
   else metrics.requests.success++
 })
 
 // Health & Info
-app.get('/health', (c) =>
-  c.json({
-    status: 'healthy',
-    service: 'crucible',
-    network: config.network,
-    timestamp: new Date().toISOString(),
-  }),
-)
+app.get('/health', () => ({
+  status: 'healthy',
+  service: 'crucible',
+  network: config.network,
+  timestamp: new Date().toISOString(),
+}))
 
-app.get('/info', async (c) => {
+app.get('/info', async ({ request }) => {
   const dwsAvailable = await checkDWSHealth()
 
   // Check if request is authenticated (has valid API key)
   const providedKey =
-    c.req.header('x-api-key') ??
-    c.req.header('authorization')?.replace('Bearer ', '')
+    request.headers.get('x-api-key') ??
+    request.headers.get('authorization')?.replace('Bearer ', '')
   const isAuthenticated = API_KEY && providedKey === API_KEY
 
   // Basic info for unauthenticated requests
@@ -406,14 +407,14 @@ app.get('/info', async (c) => {
 
   // Return full info only for authenticated requests
   if (isAuthenticated) {
-    return c.json({
+    return {
       ...basicInfo,
       contracts: config.contracts,
       services: config.services,
-    })
+    }
   }
 
-  return c.json(basicInfo)
+  return basicInfo
 })
 
 // ============================================================================
@@ -421,16 +422,16 @@ app.get('/info', async (c) => {
 // ============================================================================
 
 // Chat with an agent
-app.post('/api/v1/chat/:characterId', async (c) => {
-  const characterId = c.req.param('characterId')
+app.post('/api/v1/chat/:characterId', async ({ params, body }) => {
+  const characterId = params.characterId
   const character = getCharacter(characterId)
 
   if (!character) {
-    return c.json({ error: `Character not found: ${characterId}` }, 404)
+    return { error: `Character not found: ${characterId}` }
   }
 
-  const rawBody = await c.req.json()
-  const body = parseOrThrow(ChatRequestSchema, rawBody, 'Chat request')
+  const rawBody = body as Record<string, unknown>
+  const parsedBody = parseOrThrow(ChatRequestSchema, rawBody, 'Chat request')
 
   // Get or create runtime for this character
   let runtime = runtimeManager.getRuntime(characterId)
@@ -443,25 +444,25 @@ app.post('/api/v1/chat/:characterId', async (c) => {
 
   const message: RuntimeMessage = {
     id: crypto.randomUUID(),
-    userId: body.userId ?? 'anonymous',
-    roomId: body.roomId ?? 'default',
-    content: { text: body.text, source: 'api' },
+    userId: parsedBody.userId ?? 'anonymous',
+    roomId: parsedBody.roomId ?? 'default',
+    content: { text: parsedBody.text, source: 'api' },
     createdAt: Date.now(),
   }
 
   const response = await runtime.processMessage(message)
   metrics.agents.executions++
 
-  return c.json({
+  return {
     text: response.text,
     action: response.action,
     actions: response.actions,
     character: characterId,
-  })
+  }
 })
 
 // List available characters with runtime status
-app.get('/api/v1/chat/characters', async (c) => {
+app.get('/api/v1/chat/characters', () => {
   const characterList = listCharacters().map((id) => {
     const char = getCharacter(id)
     const runtime = runtimeManager.getRuntime(id)
@@ -472,11 +473,11 @@ app.get('/api/v1/chat/characters', async (c) => {
       hasRuntime: !!runtime,
     }
   })
-  return c.json({ characters: characterList })
+  return { characters: characterList }
 })
 
 // Initialize all character runtimes
-app.post('/api/v1/chat/init', async (c) => {
+app.post('/api/v1/chat/init', async () => {
   const results: Record<string, { success: boolean; error?: string }> = {}
 
   for (const [id, character] of Object.entries(characters)) {
@@ -494,15 +495,15 @@ app.post('/api/v1/chat/init', async (c) => {
     }
   }
 
-  return c.json({
+  return {
     initialized: Object.values(results).filter((r) => r.success).length,
     total: Object.keys(characters).length,
     results,
-  })
+  }
 })
 
 // Prometheus Metrics
-app.get('/metrics', (c) => {
+app.get('/metrics', ({ set }) => {
   const uptimeSeconds = Math.floor((Date.now() - metrics.startTime) / 1000)
   const avgLatency =
     metrics.latency.count > 0 ? metrics.latency.sum / metrics.latency.count : 0
@@ -543,12 +544,12 @@ app.get('/metrics', (c) => {
     '',
   ]
 
-  c.header('Content-Type', 'text/plain; version=0.0.4; charset=utf-8')
-  return c.text(lines.join('\n'))
+  set.headers['Content-Type'] = 'text/plain; version=0.0.4; charset=utf-8'
+  return lines.join('\n')
 })
 
 // Character Templates
-app.get('/api/v1/characters', (c) => {
+app.get('/api/v1/characters', () => {
   const characterList = listCharacters()
     .map((id) => {
       const char = getCharacter(id)
@@ -557,166 +558,171 @@ app.get('/api/v1/characters', (c) => {
         : null
     })
     .filter(Boolean)
-  return c.json({ characters: characterList })
+  return { characters: characterList }
 })
 
-app.get('/api/v1/characters/:id', (c) => {
-  const id = c.req.param('id')
+app.get('/api/v1/characters/:id', ({ params }) => {
+  const id = params.id
   expect(id, 'Character ID is required')
   const character = expect(getCharacter(id), `Character not found: ${id}`)
-  return c.json({ character })
+  return { character }
 })
 
 // Agent Management
-app.post('/api/v1/agents', async (c) => {
-  const rawBody = await c.req.json()
-  const body = parseOrThrow(
+app.post('/api/v1/agents', async ({ body }) => {
+  const rawBody = body as Record<string, unknown>
+  const parsedBody = parseOrThrow(
     RegisterAgentRequestSchema,
     rawBody,
     'Register agent request',
   )
-  log.info('Registering agent', { name: body.character.name })
+  log.info('Registering agent', { name: parsedBody.character.name })
 
-  const result = await agentSdk.registerAgent(body.character, {
-    initialFunding: body.initialFunding
-      ? BigInt(body.initialFunding)
+  const result = await agentSdk.registerAgent(parsedBody.character, {
+    initialFunding: parsedBody.initialFunding
+      ? BigInt(parsedBody.initialFunding)
       : undefined,
   })
   metrics.agents.registered++
 
-  return c.json({
+  return {
     agentId: result.agentId.toString(),
     vaultAddress: result.vaultAddress,
     characterCid: result.characterCid,
     stateCid: result.stateCid,
-  })
-})
-
-app.get('/api/v1/agents/:agentId', async (c) => {
-  const params = parseOrThrow(
-    AgentIdParamSchema,
-    c.req.param(),
-    'Agent ID parameter',
-  )
-  const agentId = BigInt(params.agentId)
-  const agent = await agentSdk.getAgent(agentId)
-  const validAgent = expect(agent, `Agent not found: ${params.agentId}`)
-  return c.json({
-    agent: { ...validAgent, agentId: validAgent.agentId.toString() },
-  })
-})
-
-app.get('/api/v1/agents/:agentId/character', async (c) => {
-  const params = parseOrThrow(
-    AgentIdParamSchema,
-    c.req.param(),
-    'Agent ID parameter',
-  )
-  try {
-    const character = await agentSdk.loadCharacter(BigInt(params.agentId))
-    return c.json({ character })
-  } catch (error) {
-    return c.json({ error: String(error) }, 404)
   }
 })
 
-app.get('/api/v1/agents/:agentId/state', async (c) => {
-  const params = parseOrThrow(
+app.get('/api/v1/agents/:agentId', async ({ params }) => {
+  const parsedParams = parseOrThrow(
     AgentIdParamSchema,
-    c.req.param(),
+    params,
     'Agent ID parameter',
   )
-  const state = await agentSdk.loadState(BigInt(params.agentId))
-  return c.json({ state })
+  const agentId = BigInt(parsedParams.agentId)
+  const agent = await agentSdk.getAgent(agentId)
+  const validAgent = expect(agent, `Agent not found: ${parsedParams.agentId}`)
+  return {
+    agent: { ...validAgent, agentId: validAgent.agentId.toString() },
+  }
 })
 
-app.get('/api/v1/agents/:agentId/balance', async (c) => {
-  const params = parseOrThrow(
+app.get('/api/v1/agents/:agentId/character', async ({ params, set }) => {
+  const parsedParams = parseOrThrow(
     AgentIdParamSchema,
-    c.req.param(),
+    params,
     'Agent ID parameter',
   )
-  const balance = await agentSdk.getVaultBalance(BigInt(params.agentId))
-  return c.json({ balance: balance.toString() })
+  try {
+    const character = await agentSdk.loadCharacter(BigInt(parsedParams.agentId))
+    return { character }
+  } catch (error) {
+    set.status = 404
+    return { error: String(error) }
+  }
 })
 
-app.post('/api/v1/agents/:agentId/fund', async (c) => {
-  const params = parseOrThrow(
+app.get('/api/v1/agents/:agentId/state', async ({ params }) => {
+  const parsedParams = parseOrThrow(
     AgentIdParamSchema,
-    c.req.param(),
+    params,
     'Agent ID parameter',
   )
-  const rawBody = await c.req.json()
-  const body = parseOrThrow(
+  const state = await agentSdk.loadState(BigInt(parsedParams.agentId))
+  return { state }
+})
+
+app.get('/api/v1/agents/:agentId/balance', async ({ params }) => {
+  const parsedParams = parseOrThrow(
+    AgentIdParamSchema,
+    params,
+    'Agent ID parameter',
+  )
+  const balance = await agentSdk.getVaultBalance(BigInt(parsedParams.agentId))
+  return { balance: balance.toString() }
+})
+
+app.post('/api/v1/agents/:agentId/fund', async ({ params, body, set }) => {
+  const parsedParams = parseOrThrow(
+    AgentIdParamSchema,
+    params,
+    'Agent ID parameter',
+  )
+  const rawBody = body as Record<string, unknown>
+  const parsedBody = parseOrThrow(
     FundAgentRequestSchema,
     rawBody,
     'Fund agent request',
   )
-  const agentId = BigInt(params.agentId)
+  const agentId = BigInt(parsedParams.agentId)
   try {
-    const txHash = await agentSdk.fundVault(agentId, BigInt(body.amount))
-    return c.json({ txHash })
+    const txHash = await agentSdk.fundVault(agentId, BigInt(parsedBody.amount))
+    return { txHash }
   } catch (error) {
-    return c.json({ error: String(error) }, 400)
+    set.status = 400
+    return { error: String(error) }
   }
 })
 
-app.post('/api/v1/agents/:agentId/memory', async (c) => {
-  const params = parseOrThrow(
+app.post('/api/v1/agents/:agentId/memory', async ({ params, body }) => {
+  const parsedParams = parseOrThrow(
     AgentIdParamSchema,
-    c.req.param(),
+    params,
     'Agent ID parameter',
   )
-  const rawBody = await c.req.json()
-  const body = parseOrThrow(
+  const rawBody = body as Record<string, unknown>
+  const parsedBody = parseOrThrow(
     AddMemoryRequestSchema,
     rawBody,
     'Add memory request',
   )
-  const agentId = BigInt(params.agentId)
-  const memory = await agentSdk.addMemory(agentId, body.content, {
-    importance: body.importance,
-    roomId: body.roomId,
-    userId: body.userId,
+  const agentId = BigInt(parsedParams.agentId)
+  const memory = await agentSdk.addMemory(agentId, parsedBody.content, {
+    importance: parsedBody.importance,
+    roomId: parsedBody.roomId,
+    userId: parsedBody.userId,
   })
-  return c.json({ memory })
+  return { memory }
 })
 
 // Room Management
-app.post('/api/v1/rooms', async (c) => {
-  const rawBody = await c.req.json()
-  const body = parseOrThrow(
+app.post('/api/v1/rooms', async ({ body }) => {
+  const rawBody = body as Record<string, unknown>
+  const parsedBody = parseOrThrow(
     CreateRoomRequestSchema,
     rawBody,
     'Create room request',
   )
-  log.info('Creating room', { name: body.name, roomType: body.roomType })
+  log.info('Creating room', {
+    name: parsedBody.name,
+    roomType: parsedBody.roomType,
+  })
 
   const result = await roomSdk.createRoom(
-    body.name,
-    body.description,
-    body.roomType,
+    parsedBody.name,
+    parsedBody.description,
+    parsedBody.roomType,
     {
-      maxMembers: body.config?.maxMembers ?? 10,
-      turnBased: body.config?.turnBased ?? false,
-      turnTimeout: body.config?.turnTimeout ?? 300,
+      maxMembers: parsedBody.config?.maxMembers ?? 10,
+      turnBased: parsedBody.config?.turnBased ?? false,
+      turnTimeout: parsedBody.config?.turnTimeout ?? 300,
       visibility: 'public' as const,
     },
   )
   metrics.rooms.created++
 
-  return c.json({ roomId: result.roomId.toString(), stateCid: result.stateCid })
+  return { roomId: result.roomId.toString(), stateCid: result.stateCid }
 })
 
-app.get('/api/v1/rooms/:roomId', async (c) => {
-  const params = parseOrThrow(
+app.get('/api/v1/rooms/:roomId', async ({ params }) => {
+  const parsedParams = parseOrThrow(
     RoomIdParamSchema,
-    c.req.param(),
+    params,
     'Room ID parameter',
   )
-  const room = await roomSdk.getRoom(BigInt(params.roomId))
-  const validRoom = expect(room, `Room not found: ${params.roomId}`)
-  return c.json({
+  const room = await roomSdk.getRoom(BigInt(parsedParams.roomId))
+  const validRoom = expect(room, `Room not found: ${parsedParams.roomId}`)
+  return {
     room: {
       ...validRoom,
       roomId: validRoom.roomId.toString(),
@@ -725,66 +731,77 @@ app.get('/api/v1/rooms/:roomId', async (c) => {
         agentId: m.agentId.toString(),
       })),
     },
-  })
+  }
 })
 
-app.post('/api/v1/rooms/:roomId/join', async (c) => {
-  const params = parseOrThrow(
+app.post('/api/v1/rooms/:roomId/join', async ({ params, body }) => {
+  const parsedParams = parseOrThrow(
     RoomIdParamSchema,
-    c.req.param(),
+    params,
     'Room ID parameter',
   )
-  const rawBody = await c.req.json()
-  const body = parseOrThrow(JoinRoomRequestSchema, rawBody, 'Join room request')
-  await roomSdk.joinRoom(BigInt(params.roomId), BigInt(body.agentId), body.role)
-  return c.json({ success: true })
+  const rawBody = body as Record<string, unknown>
+  const parsedBody = parseOrThrow(
+    JoinRoomRequestSchema,
+    rawBody,
+    'Join room request',
+  )
+  await roomSdk.joinRoom(
+    BigInt(parsedParams.roomId),
+    BigInt(parsedBody.agentId),
+    parsedBody.role,
+  )
+  return { success: true }
 })
 
-app.post('/api/v1/rooms/:roomId/leave', async (c) => {
-  const params = parseOrThrow(
+app.post('/api/v1/rooms/:roomId/leave', async ({ params, body }) => {
+  const parsedParams = parseOrThrow(
     RoomIdParamSchema,
-    c.req.param(),
+    params,
     'Room ID parameter',
   )
-  const rawBody = await c.req.json()
-  const body = parseOrThrow(
+  const rawBody = body as Record<string, unknown>
+  const parsedBody = parseOrThrow(
     LeaveRoomRequestSchema,
     rawBody,
     'Leave room request',
   )
-  await roomSdk.leaveRoom(BigInt(params.roomId), BigInt(body.agentId))
-  return c.json({ success: true })
+  await roomSdk.leaveRoom(
+    BigInt(parsedParams.roomId),
+    BigInt(parsedBody.agentId),
+  )
+  return { success: true }
 })
 
-app.post('/api/v1/rooms/:roomId/message', async (c) => {
-  const params = parseOrThrow(
+app.post('/api/v1/rooms/:roomId/message', async ({ params, body }) => {
+  const parsedParams = parseOrThrow(
     RoomIdParamSchema,
-    c.req.param(),
+    params,
     'Room ID parameter',
   )
-  const rawBody = await c.req.json()
-  const body = parseOrThrow(
+  const rawBody = body as Record<string, unknown>
+  const parsedBody = parseOrThrow(
     PostMessageRequestSchema,
     rawBody,
     'Post message request',
   )
   const message = await roomSdk.postMessage(
-    BigInt(params.roomId),
-    BigInt(body.agentId),
-    body.content,
-    body.action,
+    BigInt(parsedParams.roomId),
+    BigInt(parsedBody.agentId),
+    parsedBody.content,
+    parsedBody.action,
   )
   metrics.rooms.messages++
-  return c.json({ message })
+  return { message }
 })
 
-app.get('/api/v1/rooms/:roomId/messages', async (c) => {
-  const params = parseOrThrow(
+app.get('/api/v1/rooms/:roomId/messages', async ({ params, query, set }) => {
+  const parsedParams = parseOrThrow(
     RoomIdParamSchema,
-    c.req.param(),
+    params,
     'Room ID parameter',
   )
-  const limitStr = c.req.query('limit')
+  const limitStr = query.limit
   const limit = limitStr
     ? parseOrThrow(
         z.number().int().min(1).max(1000),
@@ -793,36 +810,48 @@ app.get('/api/v1/rooms/:roomId/messages', async (c) => {
       )
     : 50
   try {
-    const messages = await roomSdk.getMessages(BigInt(params.roomId), limit)
-    return c.json({ messages })
+    const messages = await roomSdk.getMessages(
+      BigInt(parsedParams.roomId),
+      limit,
+    )
+    return { messages }
   } catch (error) {
-    return c.json({ error: String(error) }, 404)
+    set.status = 404
+    return { error: String(error) }
   }
 })
 
-app.post('/api/v1/rooms/:roomId/phase', async (c) => {
-  const params = parseOrThrow(
+app.post('/api/v1/rooms/:roomId/phase', async ({ params, body }) => {
+  const parsedParams = parseOrThrow(
     RoomIdParamSchema,
-    c.req.param(),
+    params,
     'Room ID parameter',
   )
-  const rawBody = await c.req.json()
-  const body = parseOrThrow(SetPhaseRequestSchema, rawBody, 'Set phase request')
-  await roomSdk.setPhase(BigInt(params.roomId), body.phase)
-  return c.json({ success: true })
+  const rawBody = body as Record<string, unknown>
+  const parsedBody = parseOrThrow(
+    SetPhaseRequestSchema,
+    rawBody,
+    'Set phase request',
+  )
+  await roomSdk.setPhase(BigInt(parsedParams.roomId), parsedBody.phase)
+  return { success: true }
 })
 
 // Execution
-app.post('/api/v1/execute', async (c) => {
+app.post('/api/v1/execute', async ({ body }) => {
   expect(
     walletClient && account,
     'Executor not configured - missing private key',
   )
 
-  const rawBody = await c.req.json()
-  const body = parseOrThrow(ExecuteRequestSchema, rawBody, 'Execute request')
+  const rawBody = body as Record<string, unknown>
+  const parsedBody = parseOrThrow(
+    ExecuteRequestSchema,
+    rawBody,
+    'Execute request',
+  )
 
-  log.info('Executing agent', { agentId: body.agentId })
+  log.info('Executing agent', { agentId: parsedBody.agentId })
 
   const executorSdk = createExecutorSDK({
     crucibleConfig: config,
@@ -836,14 +865,14 @@ app.post('/api/v1/execute', async (c) => {
   })
 
   const request: ExecutionRequest = {
-    agentId: BigInt(body.agentId),
-    triggerId: body.triggerId,
-    input: body.input,
-    options: body.options
+    agentId: BigInt(parsedBody.agentId),
+    triggerId: parsedBody.triggerId,
+    input: parsedBody.input,
+    options: parsedBody.options
       ? {
-          ...body.options,
-          maxCost: body.options.maxCost
-            ? BigInt(body.options.maxCost)
+          ...parsedBody.options,
+          maxCost: parsedBody.options.maxCost
+            ? BigInt(parsedBody.options.maxCost)
             : undefined,
         }
       : undefined,
@@ -852,7 +881,7 @@ app.post('/api/v1/execute', async (c) => {
   const result = await executorSdk.execute(request)
   metrics.agents.executions++
 
-  return c.json({
+  return {
     result: {
       ...result,
       agentId: result.agentId.toString(),
@@ -864,62 +893,62 @@ app.post('/api/v1/execute', async (c) => {
         executionFee: result.cost.executionFee.toString(),
       },
     },
-  })
+  }
 })
 
 // Bot Management
-app.get('/api/v1/bots', async (c) => {
+app.get('/api/v1/bots', () => {
   const bots = Array.from(tradingBots.entries()).map(([agentId, bot]) => ({
     agentId: agentId.toString(),
     metrics: bot.getMetrics(),
     healthy: bot.isHealthy(),
   }))
-  return c.json({ bots })
+  return { bots }
 })
 
-app.get('/api/v1/bots/:agentId/metrics', async (c) => {
-  const params = parseOrThrow(
+app.get('/api/v1/bots/:agentId/metrics', ({ params }) => {
+  const parsedParams = parseOrThrow(
     BotIdParamSchema,
-    c.req.param(),
+    params,
     'Bot ID parameter',
   )
-  const agentId = BigInt(params.agentId)
+  const agentId = BigInt(parsedParams.agentId)
   const bot = expect(
     tradingBots.get(agentId),
-    `Bot not found: ${params.agentId}`,
+    `Bot not found: ${parsedParams.agentId}`,
   )
-  return c.json({ metrics: bot.getMetrics() })
+  return { metrics: bot.getMetrics() }
 })
 
-app.post('/api/v1/bots/:agentId/stop', async (c) => {
-  const params = parseOrThrow(
+app.post('/api/v1/bots/:agentId/stop', async ({ params }) => {
+  const parsedParams = parseOrThrow(
     BotIdParamSchema,
-    c.req.param(),
+    params,
     'Bot ID parameter',
   )
-  const agentId = BigInt(params.agentId)
+  const agentId = BigInt(parsedParams.agentId)
   const bot = expect(
     tradingBots.get(agentId),
-    `Bot not found: ${params.agentId}`,
+    `Bot not found: ${parsedParams.agentId}`,
   )
   await bot.stop()
   tradingBots.delete(agentId)
-  return c.json({ success: true })
+  return { success: true }
 })
 
-app.post('/api/v1/bots/:agentId/start', async (c) => {
-  const params = parseOrThrow(
+app.post('/api/v1/bots/:agentId/start', async ({ params }) => {
+  const parsedParams = parseOrThrow(
     BotIdParamSchema,
-    c.req.param(),
+    params,
     'Bot ID parameter',
   )
-  const agentId = BigInt(params.agentId)
+  const agentId = BigInt(parsedParams.agentId)
   const bot = expect(
     tradingBots.get(agentId),
-    `Bot not found: ${params.agentId}`,
+    `Bot not found: ${parsedParams.agentId}`,
   )
   await bot.start()
-  return c.json({ success: true })
+  return { success: true }
 })
 
 // ============================================================================
@@ -948,107 +977,108 @@ if (process.env.AUTONOMOUS_ENABLED === 'true') {
 }
 
 // Get autonomous runner status
-app.get('/api/v1/autonomous/status', (c) => {
+app.get('/api/v1/autonomous/status', () => {
   if (!autonomousRunner) {
-    return c.json({
+    return {
       enabled: false,
       message:
         'Autonomous mode not enabled. Set AUTONOMOUS_ENABLED=true to enable.',
-    })
+    }
   }
-  return c.json({
+  return {
     enabled: true,
     ...autonomousRunner.getStatus(),
-  })
+  }
 })
 
 // Start autonomous runner (if not already running)
-app.post('/api/v1/autonomous/start', async (c) => {
+app.post('/api/v1/autonomous/start', async () => {
   if (!autonomousRunner) {
     autonomousRunner = createAgentRunner()
   }
   await autonomousRunner.start()
-  return c.json({ success: true, status: autonomousRunner.getStatus() })
+  return { success: true, status: autonomousRunner.getStatus() }
 })
 
 // Stop autonomous runner
-app.post('/api/v1/autonomous/stop', async (c) => {
+app.post('/api/v1/autonomous/stop', async ({ set }) => {
   if (!autonomousRunner) {
-    return c.json({ success: false, message: 'Runner not started' }, 400)
+    set.status = 400
+    return { success: false, message: 'Runner not started' }
   }
   await autonomousRunner.stop()
-  return c.json({ success: true })
+  return { success: true }
 })
 
 // Register an agent for autonomous mode
-app.post('/api/v1/autonomous/agents', async (c) => {
+app.post('/api/v1/autonomous/agents', async ({ body, set }) => {
   if (!autonomousRunner) {
-    return c.json({ error: 'Autonomous runner not started' }, 400)
+    set.status = 400
+    return { error: 'Autonomous runner not started' }
   }
 
-  const rawBody = await c.req.json()
-  const body = parseOrThrow(
+  const rawBody = body as Record<string, unknown>
+  const parsedBody = parseOrThrow(
     AgentStartRequestSchema,
     rawBody,
     'Agent start request',
   )
 
-  const character = getCharacter(body.characterId)
+  const character = getCharacter(parsedBody.characterId)
   if (!character) {
-    return c.json({ error: `Character not found: ${body.characterId}` }, 404)
+    set.status = 404
+    return { error: `Character not found: ${parsedBody.characterId}` }
   }
-
-  // Conditional dynamic import: autonomous/types only needed when autonomous runner is enabled
-  const { DEFAULT_AUTONOMOUS_CONFIG } = await import('./autonomous/types')
 
   await autonomousRunner.registerAgent({
     ...DEFAULT_AUTONOMOUS_CONFIG,
-    agentId: `autonomous-${body.characterId}`,
+    agentId: `autonomous-${parsedBody.characterId}`,
     character,
     tickIntervalMs:
-      body.tickIntervalMs ?? DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
-    capabilities: body.capabilities
+      parsedBody.tickIntervalMs ?? DEFAULT_AUTONOMOUS_CONFIG.tickIntervalMs,
+    capabilities: parsedBody.capabilities
       ? {
           ...DEFAULT_AUTONOMOUS_CONFIG.capabilities,
-          ...body.capabilities,
+          ...parsedBody.capabilities,
         }
       : DEFAULT_AUTONOMOUS_CONFIG.capabilities,
   })
 
-  return c.json({ success: true, agentId: `autonomous-${body.characterId}` })
+  return { success: true, agentId: `autonomous-${parsedBody.characterId}` }
 })
 
 // Remove an agent from autonomous mode
-app.delete('/api/v1/autonomous/agents/:agentId', (c) => {
+app.delete('/api/v1/autonomous/agents/:agentId', ({ params, set }) => {
   if (!autonomousRunner) {
-    return c.json({ error: 'Autonomous runner not started' }, 400)
+    set.status = 400
+    return { error: 'Autonomous runner not started' }
   }
-  const agentId = c.req.param('agentId')
+  const agentId = params.agentId
   autonomousRunner.unregisterAgent(agentId)
-  return c.json({ success: true })
+  return { success: true }
 })
 
 // Search
-app.get('/api/v1/search/agents', async (c) => {
+app.get('/api/v1/search/agents', async ({ query, set }) => {
   try {
-    const rawQuery = c.req.query()
-    const parsedQuery = AgentSearchQuerySchema.parse(rawQuery)
+    const parsedQuery = AgentSearchQuerySchema.parse(query)
     const result = await agentSdk.searchAgents({
       name: parsedQuery.name,
       owner: parsedQuery.owner as `0x${string}` | undefined,
       active: parsedQuery.active,
       limit: parsedQuery.limit ?? 20,
     })
-    return c.json({
+    return {
       agents: result.items.map((a) => ({
         ...a,
         agentId: a.agentId.toString(),
       })),
       total: result.total,
       hasMore: result.hasMore,
-    })
+    }
   } catch (error) {
-    return c.json({ error: String(error) }, 400)
+    set.status = 400
+    return { error: String(error) }
   }
 })
 
@@ -1071,4 +1101,6 @@ log.info('Starting server', {
   wallet: maskedWallet,
 })
 
-export default { port, fetch: app.fetch }
+app.listen(port)
+
+export default app

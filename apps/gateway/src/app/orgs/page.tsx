@@ -1,5 +1,3 @@
-'use client'
-
 import {
   Building2,
   ExternalLink,

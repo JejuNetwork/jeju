@@ -77,13 +77,12 @@ config:
   resubmission: "12s"
   batchType: 1
   dataAvailability:
-    # Options: "blobs" (Ethereum native), "eigenda", "jejuda", "calldata"
+    # Options: "blobs" (Ethereum native with PeerDAS), "jejuda", "calldata"
     # Post-Fusaka recommendation: use "blobs" with PeerDAS (8x capacity)
     type: "blobs"
-    # Alt-DA server URL (for eigenda or jejuda)
+    # Alt-DA server URL (for Jeju DA)
     altDaServer: ""
     # JejuDA: "http://jeju-da:3100"
-    # EigenDA: "http://eigenda:4242"
   # Fusaka blob settings (Dec 9: 10/15, Jan 7: 14/21 blobs per block)
   blobs:
     # Max blobs per batch (adjust based on L1 capacity)

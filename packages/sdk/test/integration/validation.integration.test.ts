@@ -58,7 +58,7 @@ describe('Validation Integration Tests', () => {
         rpcUrl: RPC_URL,
         smartAccount: false,
       })
-    } catch (e) {
+    } catch (_e) {
       console.log('⚠️ Contracts not configured for localnet - skipping tests')
       skipTests = true
       return

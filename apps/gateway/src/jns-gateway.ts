@@ -14,9 +14,9 @@
  * example.jejunetwork.org → resolves example.jeju → contenthash → IPFS gateway
  */
 
-import type { Context } from 'hono'
-import { Hono } from 'hono'
-import { cors } from 'hono/cors'
+import { cors } from '@elysiajs/cors'
+import { getCacheClient } from '@jejunetwork/shared'
+import { Elysia } from 'elysia'
 import {
   type Address,
   type Chain,
@@ -212,7 +212,7 @@ function getMimeType(path: string): string {
 }
 
 export class JNSGateway {
-  private app: Hono
+  private app: Elysia
   private config: JNSGatewayConfig
   private client: PublicClient<Transport, Chain>
   private localCache: Map<
@@ -225,7 +225,7 @@ export class JNSGateway {
 
   constructor(config: JNSGatewayConfig) {
     this.config = config
-    this.app = new Hono()
+    this.app = new Elysia()
 
     const chain =
       config.rpcUrl.includes('sepolia') || config.rpcUrl.includes('testnet')
@@ -241,73 +241,77 @@ export class JNSGateway {
   }
 
   private setupRoutes(): void {
-    this.app.use('*', cors())
+    this.app.use(cors())
 
     // Health check
-    this.app.get('/health', (c) =>
-      c.json({ status: 'healthy', service: 'jns-gateway' }),
-    )
+    this.app.get('/health', () => ({
+      status: 'healthy',
+      service: 'jns-gateway',
+    }))
 
     // Direct CID access
-    this.app.get('/ipfs/:cid{.+}', async (c) => {
-      const cid = c.req.param('cid')
-      const path = c.req.path.replace(`/ipfs/${cid}`, '') || '/'
-      return this.serveIpfsContent(c, cid, path)
+    this.app.get('/ipfs/:cid', async ({ params, request, set }) => {
+      const cid = params.cid
+      const url = new URL(request.url)
+      const path = url.pathname.replace(`/ipfs/${cid}`, '') || '/'
+      return this.serveIpfsContent(cid, path, set)
     })
 
     // JNS resolution API
-    this.app.get('/api/resolve/:name', async (c) => {
-      const name = c.req.param('name')
+    this.app.get('/api/resolve/:name', async ({ params, set }) => {
+      const name = params.name
       const content = await this.resolveJNS(name)
 
       if (!content) {
-        return c.json({ error: 'Name not found or no contenthash' }, 404)
+        set.status = 404
+        return { error: 'Name not found or no contenthash' }
       }
 
-      return c.json({
+      return {
         name,
         cid: content.cid,
         codec: content.codec,
         gatewayUrl: this.getGatewayUrl(content),
-      })
+      }
     })
 
     // JNS name serving - catch all for name.jeju paths
-    this.app.get('/:name{[a-z0-9-]+\\.jeju}/*', async (c) => {
-      const name = c.req.param('name')
-      const path = c.req.path.replace(`/${name}`, '') || '/index.html'
-      return this.serveJNSContent(c, name, path)
+    this.app.get('/:name/*', async ({ params, request, set }) => {
+      const name = params.name
+      // Only handle .jeju names
+      if (!/^[a-z0-9-]+\.jeju$/.test(name)) {
+        set.status = 404
+        return { error: 'Invalid JNS name' }
+      }
+      const url = new URL(request.url)
+      const path = url.pathname.replace(`/${name}`, '') || '/index.html'
+      return this.serveJNSContent(name, path, set)
     })
 
     // Host-based JNS resolution
-    this.app.get('*', async (c) => {
-      const host = c.req.header('host') ?? ''
+    this.app.get('*', async ({ request, set }) => {
+      const host = request.headers.get('host') ?? ''
 
       // Check if this is a JNS subdomain (e.g., app.jejunetwork.org)
       const jnsMatch = host.match(/^([a-z0-9-]+)\.jeju\.(network|io|local)/)
       if (jnsMatch?.[1]) {
         const name = `${jnsMatch[1]}.jeju`
-        const path = c.req.path === '/' ? '/index.html' : c.req.path
-        return this.serveJNSContent(c, name, path)
+        const url = new URL(request.url)
+        const path = url.pathname === '/' ? '/index.html' : url.pathname
+        return this.serveJNSContent(name, path, set)
       }
 
-      return c.text(
-        'JNS Gateway - Use *.jejunetwork.org for name resolution',
-        200,
-      )
+      return 'JNS Gateway - Use *.jejunetwork.org for name resolution'
     })
   }
 
   /**
    * Initialize decentralized cache
-   * Uses dynamic import to avoid loading @jejunetwork/shared if cache is unavailable
-   * and to handle optional dependency gracefully
    */
   private async initDecentralizedCache(): Promise<void> {
     if (this.decentralizedCache) return
 
     try {
-      const { getCacheClient } = await import('@jejunetwork/shared')
       this.decentralizedCache = getCacheClient('jns-gateway')
       console.log('[JNS Gateway] Decentralized cache initialized')
     } catch {
@@ -418,17 +422,18 @@ export class JNSGateway {
    * Serve content from JNS-resolved CID
    */
   private async serveJNSContent(
-    c: Context,
     name: string,
     path: string,
-  ): Promise<Response> {
+    set: { status?: number | string; headers: Record<string, string | number> },
+  ): Promise<Response | string | object> {
     const content = await this.resolveJNS(name)
 
     if (!content) {
-      return c.text(`JNS name "${name}" not found or has no contenthash`, 404)
+      set.status = 404
+      return `JNS name "${name}" not found or has no contenthash`
     }
 
-    return this.serveIpfsContent(c, content.cid, path)
+    return this.serveIpfsContent(content.cid, path, set)
   }
 
   /**
@@ -437,10 +442,10 @@ export class JNSGateway {
    * DECENTRALIZED: Uses only our configured IPFS gateway - no centralized fallbacks.
    */
   private async serveIpfsContent(
-    c: Context,
     cid: string,
     path: string,
-  ): Promise<Response> {
+    set: { status?: number | string; headers: Record<string, string | number> },
+  ): Promise<Response | object> {
     const gateway = this.config.ipfsGatewayUrl
     const url = `${gateway}/ipfs/${cid}${path}`
 
@@ -488,17 +493,15 @@ export class JNSGateway {
       }
     }
 
-    return c.json(
-      {
-        error: 'Content not available',
-        cid,
-        gateway,
-        status: response?.status ?? 'connection_failed',
-        message:
-          'IPFS content not found. Ensure content is pinned to the network.',
-      },
-      502,
-    )
+    set.status = 502
+    return {
+      error: 'Content not available',
+      cid,
+      gateway,
+      status: response?.status ?? 'connection_failed',
+      message:
+        'IPFS content not found. Ensure content is pinned to the network.',
+    }
   }
 
   /**
@@ -519,7 +522,7 @@ export class JNSGateway {
     }
   }
 
-  getApp(): Hono {
+  getApp(): Elysia {
     return this.app
   }
 
@@ -539,10 +542,7 @@ export class JNSGateway {
 ╚═══════════════════════════════════════════════════════════╝
 `)
 
-    Bun.serve({
-      port: this.config.port,
-      fetch: this.app.fetch,
-    })
+    this.app.listen(this.config.port)
 
     console.log(`JNS Gateway listening on port ${this.config.port}`)
   }

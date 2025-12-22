@@ -3,7 +3,8 @@
  * Shared business logic for block-related operations
  */
 
-import { blockNumberSchema, hashSchema, validateOrThrow } from './validation'
+import { HashSchema, validateOrThrow } from '@jejunetwork/types'
+import { blockNumberSchema } from './validation'
 
 export interface BlockIdentifier {
   type: 'number' | 'hash'
@@ -20,7 +21,7 @@ export function parseBlockIdentifier(numberOrHash: string): BlockIdentifier {
 
   if (numberOrHash.startsWith('0x')) {
     // It's a hash
-    validateOrThrow(hashSchema, numberOrHash, 'parseBlockIdentifier hash')
+    validateOrThrow(HashSchema, numberOrHash, 'parseBlockIdentifier hash')
     return { type: 'hash', value: numberOrHash }
   } else {
     // It's a block number

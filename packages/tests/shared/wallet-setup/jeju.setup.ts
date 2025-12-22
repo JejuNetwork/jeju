@@ -33,7 +33,7 @@
 
 import { defineWalletSetup } from '@synthetixio/synpress'
 import { MetaMask } from '@synthetixio/synpress/playwright'
-import { JEJU_CHAIN, PASSWORD, SEED_PHRASE } from '../synpress.config.base'
+import { JEJU_CHAIN, PASSWORD, SEED_PHRASE } from '../utils'
 
 /**
  * Default wallet setup for Jeju testing.
@@ -69,13 +69,3 @@ export default defineWalletSetup(PASSWORD, async (context, walletPage) => {
 
   console.log('[Jeju Wallet Setup] Complete')
 })
-
-// Re-export constants for convenience
-export {
-  JEJU_CHAIN,
-  JEJU_CHAIN_ID,
-  JEJU_RPC_URL,
-  PASSWORD,
-  SEED_PHRASE,
-  TEST_WALLET_ADDRESS,
-} from '../synpress.config.base'

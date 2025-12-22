@@ -25,7 +25,6 @@ import {
 } from 'wagmi'
 import { useSponsorshipStatus } from '../useGasless'
 
-// Re-export getRarityInfo from lib/games for convenience
 export { getRarityInfo } from '../../lib/games'
 
 const INDEXER_URL =

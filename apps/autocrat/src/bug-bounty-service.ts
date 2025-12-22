@@ -17,6 +17,7 @@ import {
 } from '@jejunetwork/config'
 import { type CQLClient, getCQL, type QueryParam } from '@jejunetwork/db'
 import { type CacheClient, getCacheClient } from '@jejunetwork/shared'
+import { expectDefined, expectValid } from '@jejunetwork/types'
 import {
   type Address,
   createPublicClient,
@@ -32,8 +33,6 @@ import { privateKeyToAccount } from 'viem/accounts'
 import { base, baseSepolia, localhost } from 'viem/chains'
 import {
   BountySubmissionSchema,
-  expectDefined,
-  expectValid,
   KMSEncryptResponseSchema,
   type SandboxResult,
   SandboxResultSchema,

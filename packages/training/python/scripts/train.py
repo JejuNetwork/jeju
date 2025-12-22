@@ -7,19 +7,19 @@ Only trajectories with actual LLM calls are used for training.
 
 Supports:
 - Apple Silicon (MLX) - LoRA fine-tuning
-- NVIDIA GPU (PyTorch/CUDA) - Full or LoRA fine-tuning  
+- NVIDIA GPU (PyTorch/CUDA) - Full or LoRA fine-tuning
 - CPU fallback (slow but works)
 
 Usage:
     # Mac with MLX from Postgres Database
     python scripts/train.py --backend mlx --model mlx-community/Qwen2.5-1.5B-Instruct-4bit
-    
+
     # Mac with MLX from local JSON files
     python scripts/train.py --backend mlx --source-dir ./data/trajectories
-    
+
     # NVIDIA GPU from Postgres Database
     python scripts/train.py --backend cuda --model Qwen/Qwen2.5-1.5B-Instruct
-    
+
     # From CSV file (pre-processed data)
     python scripts/train.py --backend cuda --csv ./data/scored_trajectories.csv
 
@@ -46,19 +46,19 @@ from typing import Literal
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
-
+from src.data_bridge.reader import (
+    JsonTrajectoryReader,
+    PostgresTrajectoryReader,
+    validate_llm_calls,
+)
 from src.models import BabylonTrajectory
-from src.data_bridge.reader import JsonTrajectoryReader, PostgresTrajectoryReader, validate_llm_calls
 
 # Load environment
 env_path = Path(__file__).parent.parent.parent.parent.parent / ".env"
 if env_path.exists():
     load_dotenv(env_path)
 
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
 
@@ -66,6 +66,7 @@ def detect_backend() -> Literal["mlx", "cuda", "cpu"]:
     """Auto-detect the best available backend."""
     try:
         import mlx.core  # type: ignore
+
         logger.info("MLX backend available (Apple Silicon)")
         return "mlx"
     except ImportError:
@@ -73,6 +74,7 @@ def detect_backend() -> Literal["mlx", "cuda", "cpu"]:
 
     try:
         import torch
+
         if torch.cuda.is_available():
             logger.info(f"CUDA backend available: {torch.cuda.get_device_name(0)}")
             return "cuda"
@@ -126,7 +128,9 @@ async def load_postgres_data(
                 trajectories.append(BabylonTrajectory.model_validate(traj_data))
 
     if len(trajectories) < 10:
-        raise ValueError(f"Insufficient training data: only {len(trajectories)} valid trajectories found.")
+        raise ValueError(
+            f"Insufficient training data: only {len(trajectories)} valid trajectories found."
+        )
 
     logger.info(f"Loaded {len(trajectories)} trajectories from database")
     return trajectories
@@ -135,26 +139,26 @@ async def load_postgres_data(
 def load_json_data(source_dir: str, max_trajectories: int) -> list[BabylonTrajectory]:
     """Load training data from local JSON files."""
     logger.info(f"Loading training data from: {source_dir}")
-    
+
     reader = JsonTrajectoryReader(source_dir)
     trajectories: list[BabylonTrajectory] = []
-    
+
     for window_id in reader.get_window_ids():
         if len(trajectories) >= max_trajectories:
             break
         for traj_data in reader.get_trajectories_by_window(window_id):
             # Handle nested trajectory key and stepsJson string format
-            if 'trajectory' in traj_data:
-                traj_data = traj_data['trajectory']
-            if 'stepsJson' in traj_data and isinstance(traj_data['stepsJson'], str):
-                traj_data['steps'] = json.loads(traj_data['stepsJson'])
+            if "trajectory" in traj_data:
+                traj_data = traj_data["trajectory"]
+            if "stepsJson" in traj_data and isinstance(traj_data["stepsJson"], str):
+                traj_data["steps"] = json.loads(traj_data["stepsJson"])
 
-            is_valid, _ = validate_llm_calls(traj_data.get('steps', []))
+            is_valid, _ = validate_llm_calls(traj_data.get("steps", []))
             if not is_valid:
                 continue
 
-            if 'id' not in traj_data:
-                traj_data['id'] = traj_data.get('trajectory_id', 'id_missing')
+            if "id" not in traj_data:
+                traj_data["id"] = traj_data.get("trajectory_id", "id_missing")
 
             trajectories.append(BabylonTrajectory.model_validate(traj_data))
 
@@ -168,28 +172,28 @@ def load_json_data(source_dir: str, max_trajectories: int) -> list[BabylonTrajec
 def load_csv_data(csv_path: str) -> list[dict]:
     """Load pre-processed training data from CSV."""
     import pandas as pd
-    
+
     logger.info(f"Loading training data from CSV: {csv_path}")
     df = pd.read_csv(csv_path)
-    
+
     # Filter for high quality data
-    if 'score' in df.columns:
-        df = df[df['score'] > 0.7].copy()
+    if "score" in df.columns:
+        df = df[df["score"] > 0.7].copy()
         logger.info(f"Filtered to {len(df)} high-quality samples")
-    
+
     samples = []
     for _, row in df.iterrows():
         messages = []
-        if 'system' in row and pd.notna(row['system']):
-            messages.append({"role": "system", "content": str(row['system'])})
-        if 'prompt' in row and pd.notna(row['prompt']):
-            messages.append({"role": "user", "content": str(row['prompt'])})
-        if 'response' in row and pd.notna(row['response']):
-            messages.append({"role": "assistant", "content": str(row['response'])})
-        
+        if "system" in row and pd.notna(row["system"]):
+            messages.append({"role": "system", "content": str(row["system"])})
+        if "prompt" in row and pd.notna(row["prompt"]):
+            messages.append({"role": "user", "content": str(row["prompt"])})
+        if "response" in row and pd.notna(row["response"]):
+            messages.append({"role": "assistant", "content": str(row["response"])})
+
         if len(messages) >= 2:
             samples.append({"messages": messages})
-    
+
     logger.info(f"Loaded {len(samples)} training samples from CSV")
     return samples
 
@@ -220,18 +224,18 @@ def trajectories_to_samples(trajectories: list[BabylonTrajectory]) -> list[dict]
 
 
 def train_mlx(
-    samples: list[dict], 
-    model_name: str, 
+    samples: list[dict],
+    model_name: str,
     output_dir: str,
-    num_iters: int, 
-    batch_size: int, 
-    learning_rate: float
+    num_iters: int,
+    batch_size: int,
+    learning_rate: float,
 ) -> str:
     """Train using MLX LoRA on Apple Silicon."""
     logger.info("=" * 60)
     logger.info("MLX LORA TRAINING")
     logger.info("=" * 60)
-    
+
     data_dir = os.path.join(output_dir, "training_data")
     os.makedirs(data_dir, exist_ok=True)
 
@@ -239,51 +243,71 @@ def train_mlx(
     split_idx = int(len(samples) * 0.9)
     train_samples, valid_samples = samples[:split_idx], samples[split_idx:]
 
-    with open(os.path.join(data_dir, "train.jsonl"), 'w') as f:
+    with open(os.path.join(data_dir, "train.jsonl"), "w") as f:
         for s in train_samples:
             f.write(json.dumps(s) + "\n")
-    with open(os.path.join(data_dir, "valid.jsonl"), 'w') as f:
+    with open(os.path.join(data_dir, "valid.jsonl"), "w") as f:
         for s in valid_samples:
             f.write(json.dumps(s) + "\n")
 
     adapter_path = os.path.join(output_dir, "adapters")
-    
+
     cmd = [
-        sys.executable, "-m", "mlx_lm", "lora",
-        "--model", model_name,
+        sys.executable,
+        "-m",
+        "mlx_lm",
+        "lora",
+        "--model",
+        model_name,
         "--train",
-        "--data", data_dir,
-        "--adapter-path", adapter_path,
-        "--batch-size", str(batch_size),
-        "--iters", str(num_iters),
-        "--learning-rate", str(learning_rate),
-        "--steps-per-report", "10",
-        "--steps-per-eval", "25",
-        "--val-batches", "5",
-        "--max-seq-length", "1024",
-        "--num-layers", "8",
+        "--data",
+        data_dir,
+        "--adapter-path",
+        adapter_path,
+        "--batch-size",
+        str(batch_size),
+        "--iters",
+        str(num_iters),
+        "--learning-rate",
+        str(learning_rate),
+        "--steps-per-report",
+        "10",
+        "--steps-per-eval",
+        "25",
+        "--val-batches",
+        "5",
+        "--max-seq-length",
+        "1024",
+        "--num-layers",
+        "8",
         "--mask-prompt",
     ]
-    
+
     logger.info(f"Running: {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
-    
+
     return adapter_path
 
 
 def train_cuda(
-    samples: list[dict], 
-    model_name: str, 
+    samples: list[dict],
+    model_name: str,
     output_dir: str,
-    epochs: int, 
-    batch_size: int, 
-    learning_rate: float, 
-    use_lora: bool
+    epochs: int,
+    batch_size: int,
+    learning_rate: float,
+    use_lora: bool,
 ) -> str:
     """Train using PyTorch/CUDA on NVIDIA GPU."""
     import torch
-    from transformers import AutoModelForCausalLM, AutoTokenizer, TrainingArguments, Trainer, DataCollatorForLanguageModeling
     from datasets import Dataset
+    from transformers import (
+        AutoModelForCausalLM,
+        AutoTokenizer,
+        DataCollatorForLanguageModeling,
+        Trainer,
+        TrainingArguments,
+    )
 
     logger.info("=" * 60)
     logger.info("CUDA/PYTORCH TRAINING")
@@ -295,8 +319,13 @@ def train_cuda(
         tokenizer.pad_token = tokenizer.eos_token
 
     formatted = [
-        {"text": tokenizer.apply_chat_template(s['messages'], tokenize=False, add_generation_prompt=False)} 
-        for s in samples if s.get("messages")
+        {
+            "text": tokenizer.apply_chat_template(
+                s["messages"], tokenize=False, add_generation_prompt=False
+            )
+        }
+        for s in samples
+        if s.get("messages")
     ]
     dataset = Dataset.from_list(formatted)
 
@@ -311,20 +340,18 @@ def train_cuda(
     tokenized = dataset.map(tokenize_fn, batched=True, remove_columns=["text"])
 
     model = AutoModelForCausalLM.from_pretrained(
-        model_name, 
-        torch_dtype=torch.float16, 
-        trust_remote_code=True, 
-        device_map="auto"
+        model_name, torch_dtype=torch.float16, trust_remote_code=True, device_map="auto"
     )
 
     if use_lora:
-        from peft import LoraConfig, get_peft_model, TaskType
+        from peft import LoraConfig, TaskType, get_peft_model
+
         lora_config = LoraConfig(
-            task_type=TaskType.CAUSAL_LM, 
-            r=16, 
+            task_type=TaskType.CAUSAL_LM,
+            r=16,
             lora_alpha=32,
-            lora_dropout=0.1, 
-            target_modules=["q_proj", "v_proj", "k_proj", "o_proj"]
+            lora_dropout=0.1,
+            target_modules=["q_proj", "v_proj", "k_proj", "o_proj"],
         )
         model = get_peft_model(model, lora_config)
         model.print_trainable_parameters()
@@ -341,14 +368,14 @@ def train_cuda(
         save_total_limit=2,
         fp16=True,
         report_to="none",
-        remove_unused_columns=False
+        remove_unused_columns=False,
     )
 
     trainer = Trainer(
-        model=model, 
-        args=training_args, 
+        model=model,
+        args=training_args,
         train_dataset=tokenized,
-        data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+        data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False),
     )
 
     trainer.train()
@@ -357,30 +384,26 @@ def train_cuda(
 
 
 def train_cpu(
-    samples: list[dict], 
-    model_name: str, 
-    output_dir: str, 
-    epochs: int, 
-    learning_rate: float
+    samples: list[dict], model_name: str, output_dir: str, epochs: int, learning_rate: float
 ) -> str:
     """Train using CPU (slow fallback)."""
     logger.warning("=" * 60)
     logger.warning("CPU TRAINING (VERY SLOW)")
     logger.warning("=" * 60)
     # Use smaller model for CPU
-    return train_cuda(samples, "Qwen/Qwen2.5-0.5B-Instruct", output_dir, epochs, 1, learning_rate, use_lora=False)
+    return train_cuda(
+        samples, "Qwen/Qwen2.5-0.5B-Instruct", output_dir, epochs, 1, learning_rate, use_lora=False
+    )
 
 
 def validate_model(
-    model_path: str, 
-    backend: Literal["mlx", "cuda", "cpu"], 
-    base_model: str | None = None
+    model_path: str, backend: Literal["mlx", "cuda", "cpu"], base_model: str | None = None
 ) -> bool:
     """Validate trained model by generating a test response."""
     logger.info("=" * 60)
     logger.info("VALIDATING TRAINED MODEL")
     logger.info("=" * 60)
-    
+
     test_prompt = """You are a trading agent in prediction markets.
 
 Current State:
@@ -395,7 +418,8 @@ Market Update:
 Analyze this market update and explain your trading decision."""
 
     if backend == "mlx":
-        from mlx_lm import load, generate  # type: ignore
+        from mlx_lm import generate, load  # type: ignore
+
         model, tokenizer = load(base_model, adapter_path=model_path)
         messages = [{"role": "user", "content": test_prompt}]
         prompt = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
@@ -403,6 +427,7 @@ Analyze this market update and explain your trading decision."""
     else:
         import torch
         from transformers import AutoModelForCausalLM, AutoTokenizer
+
         tokenizer = AutoTokenizer.from_pretrained(model_path, trust_remote_code=True)
         model = AutoModelForCausalLM.from_pretrained(
             model_path,
@@ -416,13 +441,15 @@ Analyze this market update and explain your trading decision."""
         if backend == "cuda":
             inputs = {k: v.cuda() for k, v in inputs.items()}
         outputs = model.generate(
-            **inputs, 
-            max_new_tokens=200, 
+            **inputs,
+            max_new_tokens=200,
             temperature=0.7,
-            do_sample=True, 
-            pad_token_id=tokenizer.eos_token_id
+            do_sample=True,
+            pad_token_id=tokenizer.eos_token_id,
         )
-        response = tokenizer.decode(outputs[0][inputs["input_ids"].shape[1]:], skip_special_tokens=True)
+        response = tokenizer.decode(
+            outputs[0][inputs["input_ids"].shape[1] :], skip_special_tokens=True
+        )
 
     logger.info(f"Test Response:\n{'-' * 40}\n{response[:500]}...\n{'-' * 40}")
 
@@ -438,9 +465,11 @@ async def main_async(args: argparse.Namespace) -> int:
     """Main training function."""
     backend = args.backend or detect_backend()
     model_name = args.model or (
-        "mlx-community/Qwen2.5-1.5B-Instruct-4bit" if backend == "mlx" else "Qwen/Qwen2.5-1.5B-Instruct"
+        "mlx-community/Qwen2.5-1.5B-Instruct-4bit"
+        if backend == "mlx"
+        else "Qwen/Qwen2.5-1.5B-Instruct"
     )
-    
+
     logger.info(f"Backend: {backend}, Model: {model_name}")
     os.makedirs(args.output, exist_ok=True)
 
@@ -467,12 +496,16 @@ async def main_async(args: argparse.Namespace) -> int:
     # Train
     model_path = ""
     base_model: str | None = None
-    
+
     if backend == "mlx":
-        model_path = train_mlx(samples, model_name, args.output, args.iters, args.batch_size, args.lr)
+        model_path = train_mlx(
+            samples, model_name, args.output, args.iters, args.batch_size, args.lr
+        )
         base_model = model_name
     elif backend == "cuda":
-        model_path = train_cuda(samples, model_name, args.output, args.epochs, args.batch_size, args.lr, args.lora)
+        model_path = train_cuda(
+            samples, model_name, args.output, args.epochs, args.batch_size, args.lr, args.lora
+        )
     else:
         model_path = train_cpu(samples, model_name, args.output, args.epochs, args.lr)
 
@@ -489,8 +522,7 @@ async def main_async(args: argparse.Namespace) -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Jeju Local Training",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        description="Jeju Local Training", formatter_class=argparse.ArgumentDefaultsHelpFormatter
     )
 
     # Data sources (mutually exclusive)
@@ -500,13 +532,21 @@ def main() -> int:
     source_group.add_argument("--database-url", help="PostgreSQL database URL")
 
     # Backend and model
-    parser.add_argument("--backend", choices=["mlx", "cuda", "cpu"], help="Training backend (auto-detected if not specified)")
+    parser.add_argument(
+        "--backend",
+        choices=["mlx", "cuda", "cpu"],
+        help="Training backend (auto-detected if not specified)",
+    )
     parser.add_argument("--model", help="Model to train (default depends on backend)")
 
     # Data loading options
     parser.add_argument("--min-actions", type=int, default=3, help="Minimum actions per trajectory")
-    parser.add_argument("--lookback-hours", type=int, default=168, help="Hours to look back for trajectories")
-    parser.add_argument("--max-trajectories", type=int, default=500, help="Maximum trajectories to load")
+    parser.add_argument(
+        "--lookback-hours", type=int, default=168, help="Hours to look back for trajectories"
+    )
+    parser.add_argument(
+        "--max-trajectories", type=int, default=500, help="Maximum trajectories to load"
+    )
 
     # Training options
     parser.add_argument("--output", default="./trained_models", help="Output directory")
@@ -514,8 +554,15 @@ def main() -> int:
     parser.add_argument("--epochs", type=int, default=3, help="Training epochs (CUDA/CPU)")
     parser.add_argument("--batch-size", type=int, default=2, help="Batch size")
     parser.add_argument("--lr", type=float, default=1e-5, help="Learning rate")
-    parser.add_argument("--lora", action=argparse.BooleanOptionalAction, default=True, help="Use LoRA (CUDA only)")
-    parser.add_argument("--validate", action=argparse.BooleanOptionalAction, default=True, help="Validate trained model")
+    parser.add_argument(
+        "--lora", action=argparse.BooleanOptionalAction, default=True, help="Use LoRA (CUDA only)"
+    )
+    parser.add_argument(
+        "--validate",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Validate trained model",
+    )
 
     args = parser.parse_args()
     return asyncio.run(main_async(args))

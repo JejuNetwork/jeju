@@ -11,6 +11,7 @@ import {
   decryptFromPayload,
   deriveKeyFromSecret,
   encryptToPayload,
+  extractRecoveryId,
   generateKeyId,
   sealWithMasterKey,
   unsealWithMasterKey,
@@ -45,17 +46,6 @@ interface EnclaveKey {
   address: Address
 }
 
-/** Safe recovery ID extraction from signature with bounds validation */
-function extractRecoveryId(signature: string): number {
-  if (signature.length < 132) return 0
-  const vHex = signature.slice(130, 132)
-  const v = parseInt(vHex, 16)
-  // Recovery ID must be 0 or 1 (v is 27/28 for legacy, or 0/1 for EIP-155)
-  if (v >= 27 && v <= 28) return v - 27
-  if (v === 0 || v === 1) return v
-  return 0 // Default to 0 for invalid values
-}
-
 export class TEEProvider implements KMSProvider {
   type = KMSProviderType.TEE
   private config: TEEConfig
@@ -84,7 +74,7 @@ export class TEEProvider implements KMSProvider {
       const response = await fetch(`${this.config.endpoint}/health`, {
         signal: AbortSignal.timeout(5000),
       }).catch(() => null)
-      return response?.ok
+      return response?.ok ?? false
     }
     return true
   }

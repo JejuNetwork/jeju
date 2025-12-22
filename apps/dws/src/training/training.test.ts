@@ -24,6 +24,7 @@ import {
   type Registration,
   type ScoredData,
 } from './atropos-server'
+import { CrossChainTrainingBridge } from './cross-chain-bridge'
 import { createFundamentalPredictionEnv } from './environments/fundamental-prediction'
 import { createGRPOTrainer } from './grpo-trainer'
 
@@ -405,9 +406,6 @@ describe('GRPO Trainer', () => {
 
 describe('Cross-Chain Bridge', () => {
   test('merkle root computation is consistent', async () => {
-    // Import the bridge module
-    const { CrossChainTrainingBridge } = await import('./cross-chain-bridge')
-
     // Create bridge with mock config
     const bridge = new CrossChainTrainingBridge({
       evmRpcUrl: 'http://localhost:6545',

@@ -1,5 +1,3 @@
-'use client'
-
 import { AlertTriangle, Shield } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useReadContract } from 'wagmi'

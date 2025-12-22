@@ -18,7 +18,6 @@ export type BridgeTransferStatus = z.infer<typeof BridgeTransferStatusSchema>
 
 /**
  * Simple transfer status (for basic transfers)
- * Consolidates TransferStatus definitions
  */
 export type TransferStatus = 'pending' | 'completed' | 'failed'
 

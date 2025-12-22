@@ -236,9 +236,11 @@ describe('NodeConfigSchema', () => {
   })
 
   test('accepts config with all optional fields', () => {
+    // IPFS API port from centralized config (default 5001)
+    const ipfsPort = process.env.IPFS_API_PORT ?? '5001'
     const full = {
       ...validConfig,
-      ipfsUrl: 'http://localhost:5001',
+      ipfsUrl: `http://localhost:${ipfsPort}`,
       maxMessageSize: 1024000,
       messageRetentionDays: 30,
     }

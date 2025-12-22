@@ -20,6 +20,7 @@ const HomePage = lazy(() => import('./pages/Home'))
 const SwapPage = lazy(() => import('./pages/Swap'))
 const PoolsPage = lazy(() => import('./pages/Pools'))
 const PerpsPage = lazy(() => import('./pages/Perps'))
+const PerpsDetailPage = lazy(() => import('./pages/PerpsDetail'))
 const ChartsPage = lazy(() => import('./pages/Charts'))
 const ChartDetailPage = lazy(() => import('./pages/ChartDetail'))
 const IntelPage = lazy(() => import('./pages/Intel'))
@@ -32,6 +33,7 @@ const JejuWhitepaperPage = lazy(() => import('./pages/JejuWhitepaper'))
 const BblnICOPage = lazy(() => import('./pages/BblnICO'))
 const MarketsPage = lazy(() => import('./pages/Markets'))
 const MarketDetailPage = lazy(() => import('./pages/MarketDetail'))
+const PredictionDetailPage = lazy(() => import('./pages/PredictionDetail'))
 const ItemsPage = lazy(() => import('./pages/Items'))
 const ItemDetailPage = lazy(() => import('./pages/ItemDetail'))
 const ItemMintPage = lazy(() => import('./pages/ItemMint'))
@@ -42,6 +44,13 @@ const NamesPage = lazy(() => import('./pages/Names'))
 const LiquidityPage = lazy(() => import('./pages/Liquidity'))
 const TFMMPage = lazy(() => import('./pages/TFMM'))
 const PortfolioPage = lazy(() => import('./pages/Portfolio'))
+const ProfileDetailPage = lazy(() => import('./pages/ProfileDetail'))
+const RewardsPage = lazy(() => import('./pages/Rewards'))
+const SettingsPage = lazy(() => import('./pages/Settings'))
+const SharePnLPage = lazy(() => import('./pages/SharePnL'))
+const ShareReferralPage = lazy(() => import('./pages/ShareReferral'))
+const TrendingTagPage = lazy(() => import('./pages/TrendingTag'))
+const TrendingGroupPage = lazy(() => import('./pages/TrendingGroup'))
 const AuthCallbackPage = lazy(() => import('./pages/AuthCallback'))
 const NotFoundPage = lazy(() => import('./pages/NotFound'))
 
@@ -151,6 +160,16 @@ export function App() {
               />
               <Route path="/markets" element={<MarketsPage />} />
               <Route path="/markets/:id" element={<MarketDetailPage />} />
+              <Route path="/markets/perps" element={<PerpsPage />} />
+              <Route
+                path="/markets/perps/:ticker"
+                element={<PerpsDetailPage />}
+              />
+              <Route path="/markets/predictions" element={<MarketsPage />} />
+              <Route
+                path="/markets/predictions/:id"
+                element={<PredictionDetailPage />}
+              />
               <Route path="/items" element={<ItemsPage />} />
               <Route path="/items/mint" element={<ItemMintPage />} />
               <Route path="/items/:id" element={<ItemDetailPage />} />
@@ -161,6 +180,17 @@ export function App() {
               <Route path="/liquidity" element={<LiquidityPage />} />
               <Route path="/tfmm" element={<TFMMPage />} />
               <Route path="/portfolio" element={<PortfolioPage />} />
+              <Route path="/profile/:id" element={<ProfileDetailPage />} />
+              <Route path="/rewards" element={<RewardsPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
+              <Route path="/share/pnl/:userId" element={<SharePnLPage />} />
+              <Route
+                path="/share/referral/:userId"
+                element={<ShareReferralPage />}
+              />
+              <Route path="/trending" element={<TrendingTagPage />} />
+              <Route path="/trending/:tag" element={<TrendingTagPage />} />
+              <Route path="/trending/group" element={<TrendingGroupPage />} />
               <Route path="/auth/callback" element={<AuthCallbackPage />} />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>

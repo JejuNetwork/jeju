@@ -1,36 +1,22 @@
-import { defineConfig, devices } from '@playwright/test'
+/**
+ * DWS Frontend Playwright Configuration
+ * Uses shared config from @jejunetwork/tests
+ */
+import { createAppConfig } from '@jejunetwork/tests'
 
+const DWS_FRONTEND_PORT = parseInt(process.env.FRONTEND_PORT || '4031', 10)
 const isE2E = process.env.E2E === 'true'
-const baseURL = process.env.BASE_URL || 'http://localhost:4031'
 
-export default defineConfig({
+export default createAppConfig({
+  name: 'dws-frontend',
+  port: DWS_FRONTEND_PORT,
   testDir: './tests',
-  // E2E tests need more time
   timeout: isE2E ? 60000 : 30000,
-  fullyParallel: !isE2E, // Run e2e tests serially for stability
-  forbidOnly: !!process.env.CI,
-  retries: process.env.CI ? 2 : 0,
-  workers: isE2E ? 1 : process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? 'github' : 'html',
-  use: {
-    baseURL,
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-  },
-  projects: [
-    {
-      name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
-    },
-  ],
-  // Only start web server for regular tests, not e2e (e2e has own setup)
-  webServer:
-    !isE2E && !process.env.BASE_URL
-      ? {
-          command: 'bun run dev',
-          url: 'http://localhost:4031',
-          reuseExistingServer: !process.env.CI,
-          timeout: 60000,
-        }
-      : undefined,
+  workers: isE2E ? 1 : undefined,
+  webServer: !isE2E
+    ? {
+        command: 'bun run dev',
+        timeout: 60000,
+      }
+    : undefined,
 })

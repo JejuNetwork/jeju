@@ -1,7 +1,3 @@
-/**
- * Storage service - Real contract integration with torrent seeding
- */
-
 import type { Address } from 'viem'
 import { z } from 'zod'
 import { STORAGE_MARKET_ABI } from '../abis'
@@ -191,7 +187,7 @@ export class StorageService {
       infohash: s.infohash,
       bytesUploaded: s.uploaded,
       peersServed: s.peers,
-      startedAt: 0, // Not tracked in new service
+      startedAt: 0,
     }))
   }
 

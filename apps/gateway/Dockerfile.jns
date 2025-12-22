@@ -6,15 +6,15 @@ FROM oven/bun:1.1-alpine AS builder
 WORKDIR /app
 
 # Create minimal package.json with only required deps
-RUN echo '{"name":"jns-gateway","dependencies":{"hono":"^4.0.0","viem":"^2.0.0"}}' > package.json
+RUN echo '{"name":"jns-gateway","dependencies":{"elysia":"^1.4.19","@elysiajs/cors":"^1.4.0","viem":"^2.0.0"}}' > package.json
 
 # Install dependencies
 RUN bun install
 
 # Create the JNS gateway source inline using heredoc
 RUN mkdir -p src && cat > src/jns-gateway.ts << 'ENDOFFILE'
-import { Hono } from "hono";
-import { cors } from "hono/cors";
+import { cors } from "@elysiajs/cors";
+import { Elysia } from "elysia";
 
 const PORT = parseInt(process.env.JNS_GATEWAY_PORT ?? "4005");
 const IPFS_GATEWAY = process.env.IPFS_GATEWAY_URL ?? "http://ipfs:8080";
@@ -34,52 +34,57 @@ function setCache(name: string, content: string): void {
   cache.set(name, { content, expiry: Date.now() + CACHE_TTL });
 }
 
-const app = new Hono();
-app.use("*", cors());
-
-app.get("/health", (c) => c.json({ status: "healthy", service: "jns-gateway", cacheSize: cache.size }));
-
-app.get("/resolve/:name", async (c) => {
-  const name = c.req.param("name");
-  const cached = getFromCache(name);
-  if (cached) return c.json({ name, contenthash: cached, cached: true });
-  return c.json({ name, error: "JNS resolution not configured" }, 404);
-});
-
-app.get("/ipfs/:cid{.*}", async (c) => {
-  const cid = c.req.param("cid");
-  const path = c.req.url.split("/ipfs/" + cid)[1] || "";
-  try {
-    const url = IPFS_GATEWAY + "/ipfs/" + cid + path;
-    const response = await fetch(url);
-    if (!response.ok) return c.json({ error: "Content not found" }, 404);
-    const contentType = response.headers.get("content-type") || "application/octet-stream";
-    const body = await response.arrayBuffer();
-    return new Response(body, { headers: { "Content-Type": contentType } });
-  } catch {
-    return c.json({ error: "Failed to fetch from IPFS" }, 500);
-  }
-});
-
-app.get("/:name{.*}.jeju/*", async (c) => {
-  const fullPath = c.req.path;
-  const nameMatch = fullPath.match(/\/([^\/]+)\.jeju/);
-  if (!nameMatch) return c.json({ error: "Invalid JNS path" }, 400);
-  const name = nameMatch[1] + ".jeju";
-  const pathAfterName = fullPath.replace(/\/[^\/]+\.jeju/, "");
-  const contenthash = getFromCache(name);
-  if (!contenthash) return c.json({ error: "Name not resolved" }, 404);
-  return c.redirect("/ipfs/" + contenthash + pathAfterName);
-});
-
-app.get("/", (c) => c.json({
-  service: "Jeju JNS Gateway",
-  version: "1.0.0",
-  endpoints: { health: "/health", resolve: "/resolve/:name", ipfs: "/ipfs/:cid", serve: "/:name.jeju/*" }
-}));
+const app = new Elysia()
+  .use(cors())
+  .get("/health", () => ({ status: "healthy", service: "jns-gateway", cacheSize: cache.size }))
+  .get("/resolve/:name", async ({ params }) => {
+    const name = params.name;
+    const cached = getFromCache(name);
+    if (cached) return { name, contenthash: cached, cached: true };
+    return { name, error: "JNS resolution not configured" };
+  })
+  .get("/ipfs/:cid/*", async ({ params, path, set }) => {
+    const cid = params.cid;
+    const pathAfter = path.split("/ipfs/" + cid)[1] || "";
+    try {
+      const url = IPFS_GATEWAY + "/ipfs/" + cid + pathAfter;
+      const response = await fetch(url);
+      if (!response.ok) {
+        set.status = 404;
+        return { error: "Content not found" };
+      }
+      const contentType = response.headers.get("content-type") || "application/octet-stream";
+      const body = await response.arrayBuffer();
+      return new Response(body, { headers: { "Content-Type": contentType } });
+    } catch {
+      set.status = 500;
+      return { error: "Failed to fetch from IPFS" };
+    }
+  })
+  .get("/:name/*", async ({ params, path, redirect, set }) => {
+    const fullPath = path;
+    const nameMatch = fullPath.match(/\/([^\/]+)\.jeju/);
+    if (!nameMatch) {
+      set.status = 400;
+      return { error: "Invalid JNS path" };
+    }
+    const name = nameMatch[1] + ".jeju";
+    const pathAfterName = fullPath.replace(/\/[^\/]+\.jeju/, "");
+    const contenthash = getFromCache(name);
+    if (!contenthash) {
+      set.status = 404;
+      return { error: "Name not resolved" };
+    }
+    return redirect("/ipfs/" + contenthash + pathAfterName);
+  })
+  .get("/", () => ({
+    service: "Jeju JNS Gateway",
+    version: "1.0.0",
+    endpoints: { health: "/health", resolve: "/resolve/:name", ipfs: "/ipfs/:cid", serve: "/:name.jeju/*" }
+  }));
 
 console.log("JNS Gateway listening on port " + PORT);
-Bun.serve({ port: PORT, fetch: app.fetch });
+app.listen(PORT);
 ENDOFFILE
 
 # Build

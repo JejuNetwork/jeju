@@ -309,17 +309,18 @@ describe('MPC Coordinator Edge Cases', () => {
 
       expect(result.complete).toBe(true)
       expect(result.signature).toBeDefined()
+      if (!result.signature) throw new Error('Signature should be defined')
 
       // Verify signature components are valid hex
-      expect(result.signature?.r).toMatch(/^0x[a-fA-F0-9]{64}$/)
-      expect(result.signature?.s).toMatch(/^0x[a-fA-F0-9]+$/)
-      expect(result.signature?.v).toBeGreaterThanOrEqual(27)
-      expect(result.signature?.v).toBeLessThanOrEqual(28)
+      expect(result.signature.r).toMatch(/^0x[a-fA-F0-9]{64}$/)
+      expect(result.signature.s).toMatch(/^0x[a-fA-F0-9]+$/)
+      expect(result.signature.v).toBeGreaterThanOrEqual(27)
+      expect(result.signature.v).toBeLessThanOrEqual(28)
 
       // Recover signer address and verify it matches the key address
       const recoveredAddress = await recoverMessageAddress({
         message: { raw: toBytes(messageHash) },
-        signature: result.signature?.signature,
+        signature: result.signature.signature,
       })
 
       expect(recoveredAddress.toLowerCase()).toBe(key.address.toLowerCase())

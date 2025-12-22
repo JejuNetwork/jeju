@@ -24,7 +24,7 @@ import {
 import { privateKeyToAccount } from 'viem/accounts'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
 import { createLogger } from '../../sdk/logger'
-import type { ArbitrageOpportunity, ChainId } from '../autocrat-types'
+import type { ArbitrageOpportunity, ChainId } from '../autocrat-types-source'
 
 const log = createLogger('Flashloan')
 

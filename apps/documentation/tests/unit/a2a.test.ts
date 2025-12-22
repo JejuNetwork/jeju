@@ -14,7 +14,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const SERVER_PATH = join(__dirname, '../../server/a2a-server.ts')
 
 // Check if documentation content exists
-const DOCS_EXIST = existsSync(DOCS_ROOT) && existsSync(join(DOCS_ROOT, 'index.mdx'))
+const DOCS_EXIST =
+  existsSync(DOCS_ROOT) && existsSync(join(DOCS_ROOT, 'index.mdx'))
 
 describe('A2A Server Structure', () => {
   test('server file exists', () => {

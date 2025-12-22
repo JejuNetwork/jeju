@@ -176,22 +176,21 @@ export class XMTPMessageRouter {
     for (const [id, node] of this.relayNodes) {
       const startTime = Date.now()
 
-      try {
-        const response = await fetch(
-          `${node.url.replace('wss', 'https')}/health`,
-          {
-            signal: AbortSignal.timeout(5000),
-          },
-        )
+      const response = await fetch(
+        `${node.url.replace('wss', 'https')}/health`,
+        {
+          signal: AbortSignal.timeout(5000),
+        },
+      ).catch(() => null)
 
-        node.isHealthy = response.ok
+      if (response?.ok) {
+        node.isHealthy = true
         node.latencyMs = Date.now() - startTime
-        node.lastHealthCheck = Date.now()
-      } catch {
+      } else {
         node.isHealthy = false
         node.latencyMs = -1
-        node.lastHealthCheck = Date.now()
       }
+      node.lastHealthCheck = Date.now()
 
       this.relayNodes.set(id, node)
     }

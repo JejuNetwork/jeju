@@ -309,7 +309,8 @@ describe('MPC Coordinator', () => {
 
     it('should rotate key shares while preserving address', async () => {
       const keyBefore = coordinator.getKey('rotate-key')
-      const addressBefore = keyBefore?.address
+      if (!keyBefore) throw new Error('Key should exist')
+      const addressBefore = keyBefore.address
 
       const result = await coordinator.rotateKey({
         keyId: 'rotate-key',

@@ -43,7 +43,11 @@ export async function parseJsonBody<T>(
 }
 
 type HandleVerifyResult =
-  | { valid: false; status: number; response: ReturnType<typeof buildVerifyErrorResponse> }
+  | {
+      valid: false
+      status: number
+      response: ReturnType<typeof buildVerifyErrorResponse>
+    }
   | { valid: true; body: VerifyRequest; network: string }
 
 export function handleVerifyRequest(
@@ -62,7 +66,9 @@ export function handleVerifyRequest(
     return {
       valid: false,
       status,
-      response: buildVerifyErrorResponse(validation.error ?? 'Validation failed'),
+      response: buildVerifyErrorResponse(
+        validation.error ?? 'Validation failed',
+      ),
     }
   }
 
@@ -73,9 +79,21 @@ export function handleVerifyRequest(
   return { valid: true, body: validation.body, network }
 }
 
-type HandleSettleResultBase = { valid: false; status: number; response: ReturnType<typeof buildSettleErrorResponse> }
-type HandleSettleResultWithAuth = { valid: true; body: SettleRequestWithAuth; network: string }
-type HandleSettleResultNoAuth = { valid: true; body: SettleRequest; network: string }
+type HandleSettleResultBase = {
+  valid: false
+  status: number
+  response: ReturnType<typeof buildSettleErrorResponse>
+}
+type HandleSettleResultWithAuth = {
+  valid: true
+  body: SettleRequestWithAuth
+  network: string
+}
+type HandleSettleResultNoAuth = {
+  valid: true
+  body: SettleRequest
+  network: string
+}
 
 export function handleSettleRequest(
   body: unknown,

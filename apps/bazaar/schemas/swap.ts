@@ -2,9 +2,13 @@
  * Swap-related Zod schemas
  */
 
-import { AddressSchema } from '@jejunetwork/types'
+import {
+  AddressSchema,
+  BigIntSchema,
+  EvmChainIdSchema,
+  NonEmptyStringSchema,
+} from '@jejunetwork/types'
 import { z } from 'zod'
-import { BigIntSchema, EvmChainIdSchema, NonEmptyStringSchema } from './common'
 
 /**
  * Swap token with metadata for display

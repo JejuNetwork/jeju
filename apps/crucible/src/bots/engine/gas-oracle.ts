@@ -17,7 +17,7 @@ import {
 } from 'viem'
 import { arbitrum, base, mainnet, optimism } from 'viem/chains'
 import { createLogger } from '../../sdk/logger'
-import type { ChainId } from '../autocrat-types'
+import type { ChainId } from '../autocrat-types-source'
 
 const log = createLogger('GasOracle')
 

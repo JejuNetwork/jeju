@@ -351,12 +351,10 @@ export class JejuMLSClient {
   }
 
   private startSyncLoop(): void {
-    // Sync every 5 seconds
     this.syncInterval = setInterval(async () => {
-      try {
-        await this.sync()
-      } catch {
-        // Ignore sync errors
+      const result = await this.sync()
+      if (result.errors.length > 0) {
+        console.error('[MLS Client] Sync errors:', result.errors.join(', '))
       }
     }, 5000)
   }

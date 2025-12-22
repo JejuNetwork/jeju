@@ -15,7 +15,6 @@ import {
   RPC_URLS,
 } from '../config/networks.js'
 
-// network chain definitions
 export const jejuTestnet: Chain = {
   id: 420690,
   name: CHAIN_META[420690].name,

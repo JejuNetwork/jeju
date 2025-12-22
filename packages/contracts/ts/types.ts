@@ -5,49 +5,6 @@
 
 import type { Abi, Address } from 'viem'
 
-// Re-export schemas and types
-export {
-  AddressSchema,
-  type BazaarMarketplaceDeployment,
-  BazaarMarketplaceDeploymentSchema,
-  type ContractAddresses,
-  ContractAddressesSchema,
-  type EILDeployment,
-  EILDeploymentSchema,
-  type ERC20FactoryDeployment,
-  ERC20FactoryDeploymentSchema,
-  type GameSystemDeployment,
-  GameSystemDeploymentSchema,
-  type IdentitySystemDeployment,
-  IdentitySystemDeploymentSchema,
-  type L1Deployment,
-  L1DeploymentSchema,
-  type LaunchpadDeployment,
-  LaunchpadDeploymentSchema,
-  type LiquiditySystemDeployment,
-  LiquiditySystemDeploymentSchema,
-  type ModerationSystemDeployment,
-  ModerationSystemDeploymentSchema,
-  type MultiTokenSystemDeployment,
-  MultiTokenSystemDeploymentSchema,
-  type PaymasterSystemDeployment,
-  PaymasterSystemDeploymentSchema,
-  parseBazaarMarketplaceDeployment,
-  parseERC20FactoryDeployment,
-  parseGameSystemDeployment,
-  parseIdentitySystemDeployment,
-  parseLaunchpadDeployment,
-  parsePaymasterSystemDeployment,
-  parseUniswapV4Deployment,
-  parseXLPDeployment,
-  safeParseGameSystemDeployment,
-  safeParseUniswapV4Deployment,
-  type UniswapV4Deployment,
-  UniswapV4DeploymentSchema,
-  type XLPDeployment,
-  XLPDeploymentSchema,
-} from './schemas'
-
 // ============================================================================
 // Network Types
 // ============================================================================

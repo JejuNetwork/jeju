@@ -1,4 +1,5 @@
 # Default values for DWS (Decentralized Web Services)
+# Supports regional deployment with scale-to-zero using KEDA
 
 replicaCount: 3
 
@@ -63,12 +64,152 @@ resources:
     cpu: 500m
     memory: 1Gi
 
+# Standard HPA autoscaling (used when KEDA is not available)
 autoscaling:
   enabled: true
   minReplicas: 3
   maxReplicas: 10
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 80
+
+# KEDA-based autoscaling with scale-to-zero support
+keda:
+  enabled: false
+  # Minimum replicas (can be 0 for scale-to-zero)
+  minReplicaCount: 0
+  maxReplicaCount: 100
+  # Cooldown period before scaling down (seconds)
+  cooldownPeriod: 300
+  # Polling interval for scaling metrics (seconds)
+  pollingInterval: 30
+  # Advanced replica settings
+  advanced:
+    # Horizontal pod autoscaler config
+    horizontalPodAutoscalerConfig:
+      behavior:
+        scaleDown:
+          stabilizationWindowSeconds: 300
+          policies:
+            - type: Percent
+              value: 25
+              periodSeconds: 60
+        scaleUp:
+          stabilizationWindowSeconds: 30
+          policies:
+            - type: Percent
+              value: 100
+              periodSeconds: 15
+            - type: Pods
+              value: 4
+              periodSeconds: 15
+          selectPolicy: Max
+  # Scaling triggers
+  triggers:
+    # Scale based on Prometheus metrics
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-server.monitoring.svc.cluster.local
+        metricName: dws_active_requests
+        query: sum(rate(dws_http_requests_total{job="dws"}[2m]))
+        threshold: "100"
+    # Scale based on CPU utilization
+    - type: cpu
+      metricType: Utilization
+      metadata:
+        value: "70"
+    # Scale based on pending HTTP requests
+    - type: prometheus
+      metadata:
+        serverAddress: http://prometheus-server.monitoring.svc.cluster.local
+        metricName: dws_pending_requests
+        query: sum(dws_pending_requests{job="dws"})
+        threshold: "10"
+
+# Regional deployment configuration
+regional:
+  enabled: false
+  # Default region (used when geo-routing is disabled)
+  defaultRegion: "global"
+  # Enable geo-based request routing
+  geoRouting: true
+  # Regional configurations
+  regions:
+    us-east-1:
+      enabled: true
+      replicaCount: 2
+      minReplicas: 0
+      maxReplicas: 20
+      scaleToZero: true
+      idleTimeoutSeconds: 600
+      nodeSelector:
+        topology.kubernetes.io/region: us-east-1
+    us-west-2:
+      enabled: true
+      replicaCount: 2
+      minReplicas: 0
+      maxReplicas: 20
+      scaleToZero: true
+      idleTimeoutSeconds: 600
+      nodeSelector:
+        topology.kubernetes.io/region: us-west-2
+    eu-west-1:
+      enabled: true
+      replicaCount: 2
+      minReplicas: 0
+      maxReplicas: 15
+      scaleToZero: true
+      idleTimeoutSeconds: 600
+      nodeSelector:
+        topology.kubernetes.io/region: eu-west-1
+    eu-central-1:
+      enabled: true
+      replicaCount: 2
+      minReplicas: 0
+      maxReplicas: 15
+      scaleToZero: true
+      idleTimeoutSeconds: 600
+      nodeSelector:
+        topology.kubernetes.io/region: eu-central-1
+    ap-northeast-1:
+      enabled: true
+      replicaCount: 2
+      minReplicas: 0
+      maxReplicas: 15
+      scaleToZero: true
+      idleTimeoutSeconds: 600
+      nodeSelector:
+        topology.kubernetes.io/region: ap-northeast-1
+    ap-southeast-1:
+      enabled: true
+      replicaCount: 2
+      minReplicas: 0
+      maxReplicas: 10
+      scaleToZero: true
+      idleTimeoutSeconds: 600
+      nodeSelector:
+        topology.kubernetes.io/region: ap-southeast-1
+
+# Workerd worker runtime configuration
+workers:
+  enabled: true
+  # Default scaling configuration for deployed workers
+  defaultScaling:
+    minInstances: 0
+    maxInstances: 100
+    targetConcurrency: 10
+    scaleToZero: true
+    idleTimeoutMs: 600000  # 10 minutes
+    cooldownMs: 60000  # 1 minute
+  # Default resource limits for workers
+  defaultResources:
+    memoryMb: 256
+    cpuMillis: 100
+    timeoutMs: 30000
+  # Warm pool configuration (pre-spawned workers for cold start reduction)
+  warmPool:
+    enabled: true
+    size: 5
+    maxIdleTimeMs: 300000  # 5 minutes
 
 nodeSelector: {}
 

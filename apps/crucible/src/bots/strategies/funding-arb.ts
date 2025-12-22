@@ -117,12 +117,6 @@ interface FundingPosition {
   status: 'active' | 'closing' | 'closed'
 }
 
-import type { z } from 'zod'
-
-// Infer types from schemas for type-safe usage
-type HyperliquidMeta = z.infer<typeof HyperliquidMetaSchema>
-type HyperliquidState = z.infer<typeof HyperliquidStateSchema>
-
 // Client types for multi-chain support - use base types with Transport/Chain generics
 type ChainPublicClient = PublicClient<Transport, Chain>
 type ChainWalletClient = WalletClient<Transport, Chain>
@@ -182,7 +176,11 @@ export class FundingArbStrategy extends EventEmitter {
       body: JSON.stringify({ type: 'meta' }),
     })
 
-    const meta = parseOrThrow(HyperliquidMetaSchema, await metaResponse.json(), 'Hyperliquid meta')
+    const meta = parseOrThrow(
+      HyperliquidMetaSchema,
+      await metaResponse.json(),
+      'Hyperliquid meta',
+    )
 
     for (const asset of meta.universe) {
       this.assetMeta.set(asset.name, { szDecimals: asset.szDecimals })
@@ -238,7 +236,11 @@ export class FundingArbStrategy extends EventEmitter {
       body: JSON.stringify({ type: 'metaAndAssetCtxs' }),
     })
 
-    const data = parseOrThrow(HyperliquidMetaAndAssetCtxsSchema, await response.json(), 'Hyperliquid meta and asset contexts')
+    const data = parseOrThrow(
+      HyperliquidMetaAndAssetCtxsSchema,
+      await response.json(),
+      'Hyperliquid meta and asset contexts',
+    )
     const [meta, assetCtxs] = data
 
     for (let i = 0; i < meta.universe.length; i++) {
@@ -439,7 +441,11 @@ export class FundingArbStrategy extends EventEmitter {
       body: JSON.stringify({ type: 'allMids' }),
     })
 
-    const prices = parseOrThrow(HyperliquidAllMidsSchema, await pricesResponse.json(), 'Hyperliquid prices')
+    const prices = parseOrThrow(
+      HyperliquidAllMidsSchema,
+      await pricesResponse.json(),
+      'Hyperliquid prices',
+    )
     const price = parseFloat(prices[asset])
 
     if (!price) {
@@ -458,7 +464,11 @@ export class FundingArbStrategy extends EventEmitter {
       body: JSON.stringify({ type: 'meta' }),
     })
 
-    const meta = parseOrThrow(HyperliquidMetaSchema, await metaResponse.json(), 'Hyperliquid meta')
+    const meta = parseOrThrow(
+      HyperliquidMetaSchema,
+      await metaResponse.json(),
+      'Hyperliquid meta',
+    )
     const assetIndex = meta.universe.findIndex((a) => a.name === asset)
 
     if (assetIndex === -1) {
@@ -539,7 +549,11 @@ export class FundingArbStrategy extends EventEmitter {
       }),
     })
 
-    const orderResult = parseOrThrow(HyperliquidOrderResultSchema, await orderResponse.json(), 'Hyperliquid order result')
+    const orderResult = parseOrThrow(
+      HyperliquidOrderResultSchema,
+      await orderResponse.json(),
+      'Hyperliquid order result',
+    )
 
     if (orderResult.status !== 'ok') {
       return {
@@ -575,7 +589,11 @@ export class FundingArbStrategy extends EventEmitter {
       }),
     })
 
-    const state = parseOrThrow(HyperliquidStateSchema, await stateResponse.json(), 'Hyperliquid state')
+    const state = parseOrThrow(
+      HyperliquidStateSchema,
+      await stateResponse.json(),
+      'Hyperliquid state',
+    )
 
     const position = state.assetPositions.find((p) => p.position.coin === asset)
     if (!position) {

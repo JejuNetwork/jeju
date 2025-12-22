@@ -248,7 +248,11 @@ describe('compute command', () => {
   })
 
   test('inference subcommand has model option', async () => {
-    const { stdout, exitCode } = await runCLI(['compute', 'inference', '--help'])
+    const { stdout, exitCode } = await runCLI([
+      'compute',
+      'inference',
+      '--help',
+    ])
     expect(exitCode).toBe(0)
     expect(stdout).toContain('--model')
     expect(stdout).toContain('--system')
@@ -275,14 +279,22 @@ describe('decentralize command', () => {
   })
 
   test('verify subcommand exists', async () => {
-    const { stdout, exitCode } = await runCLI(['decentralize', 'verify', '--help'])
+    const { stdout, exitCode } = await runCLI([
+      'decentralize',
+      'verify',
+      '--help',
+    ])
     expect(exitCode).toBe(0)
     expect(stdout).toContain('Verify contract ownership')
     expect(stdout).toContain('--network')
   })
 
   test('status subcommand exists', async () => {
-    const { stdout, exitCode } = await runCLI(['decentralize', 'status', '--help'])
+    const { stdout, exitCode } = await runCLI([
+      'decentralize',
+      'status',
+      '--help',
+    ])
     expect(exitCode).toBe(0)
     expect(stdout).toContain('ownership')
     expect(stdout).toContain('--network')
@@ -301,7 +313,11 @@ describe('deploy-mips command', () => {
   })
 
   test('status subcommand exists', async () => {
-    const { stdout, exitCode } = await runCLI(['deploy-mips', 'status', '--help'])
+    const { stdout, exitCode } = await runCLI([
+      'deploy-mips',
+      'status',
+      '--help',
+    ])
     expect(exitCode).toBe(0)
     expect(stdout).toContain('MIPS')
     expect(stdout).toContain('--network')
@@ -319,7 +335,11 @@ describe('verify-stage2 command', () => {
   })
 
   test('check subcommand has options', async () => {
-    const { stdout, exitCode } = await runCLI(['verify-stage2', 'check', '--help'])
+    const { stdout, exitCode } = await runCLI([
+      'verify-stage2',
+      'check',
+      '--help',
+    ])
     expect(exitCode).toBe(0)
     expect(stdout).toContain('--network')
     expect(stdout).toContain('--verbose')
@@ -448,4 +468,3 @@ describe('bots command', () => {
     expect(stdout).toContain('bot')
   })
 })
-

@@ -53,7 +53,6 @@ export {
   type ReputationData,
   storeAttestation,
 } from './reputation.js'
-
+export type { LeaderboardApp } from './server.js'
 // Server
 export { leaderboardApp } from './server.js'
-export type { LeaderboardApp } from './server.js'

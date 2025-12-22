@@ -1,6 +1,6 @@
 /**
  * IPFS Client for Bazaar
- * Re-exports from @jejunetwork/shared with bazaar-specific config
+ * Provides bazaar-specific IPFS configuration and helpers
  */
 
 import { cidToBytes32, createIPFSClient } from '@jejunetwork/shared'
@@ -26,7 +26,6 @@ export function getIPFSUrl(hash: string): string {
   return ipfsClient.getUrl(hash)
 }
 
-// Re-export cidToBytes32 from shared
 export { cidToBytes32 }
 
 // Export client for direct access

@@ -5,12 +5,12 @@
  * Model deployments require DAO approval.
  */
 
+import { expectValid } from '@jejunetwork/types'
 import type { Address } from 'viem'
 import {
   AgentRegistrationResponseSchema,
   ProposalStatusResponseSchema,
 } from '../shared/schemas/training'
-import { expectValid } from '../shared/validation'
 
 // ============================================================================
 // Types
@@ -49,16 +49,13 @@ export interface TrainingProposal {
 
 export class AutocratTrainingClient {
   private autocratApiUrl: string
-  private dwsApiUrl: string
 
   constructor(
     config: {
       autocratApiUrl?: string
-      dwsApiUrl?: string
     } = {},
   ) {
     this.autocratApiUrl = config.autocratApiUrl ?? 'http://localhost:8010'
-    this.dwsApiUrl = config.dwsApiUrl ?? 'http://localhost:4030'
   }
 
   /**

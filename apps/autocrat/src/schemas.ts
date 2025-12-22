@@ -8,17 +8,11 @@
 import {
   AddressSchema,
   BigIntSchema,
-  expect,
-  expectDefined,
   expectValid,
   HashSchema,
   HexSchema,
-  validateOrThrow,
 } from '@jejunetwork/types'
 import { z } from 'zod'
-
-// Re-export validation functions for local imports
-export { expect, expectDefined, expectValid, validateOrThrow }
 
 // ============ Base Schemas ============
 

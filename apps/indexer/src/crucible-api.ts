@@ -1,6 +1,6 @@
+import { AddressSchema, validateOrThrow } from '@jejunetwork/types'
 import type { DataSource } from 'typeorm'
 import { z } from 'zod'
-import { addressSchema, validateOrThrow } from './lib/validation'
 import { ComputeProvider, RegisteredAgent, StorageProvider } from './model'
 
 export interface AgentSearchResult {
@@ -78,7 +78,7 @@ export interface ServiceSearchFilter {
 
 const agentSearchFilterSchema = z.object({
   name: z.string().optional(),
-  owner: addressSchema.optional(),
+  owner: AddressSchema.optional(),
   active: z.boolean().optional(),
   hasServices: z.boolean().optional(),
   limit: z.number().int().min(1).max(100).optional(),
@@ -274,7 +274,7 @@ export async function getService(
     )
   }
 
-  validateOrThrow(addressSchema, address, 'getService address')
+  validateOrThrow(AddressSchema, address, 'getService address')
 
   if (type === 'compute') {
     const p = await dataSource

@@ -4,8 +4,6 @@
  * Used across all network apps
  */
 
-'use client'
-
 import { type BanStatus, BanType, getBanTypeLabel } from '../hooks/useBanStatus'
 
 interface BanBannerProps {

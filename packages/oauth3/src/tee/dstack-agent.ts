@@ -163,7 +163,6 @@ export class DstackAuthAgent {
   private mpcCoordinator: FROSTCoordinator | null = null
   private mpcInitialized = false
   private cleanupInterval: ReturnType<typeof setInterval> | null = null
-  private nodePrivateKey: Uint8Array
 
   constructor(config: AuthAgentConfig) {
     this.config = config
@@ -186,7 +185,6 @@ export class DstackAuthAgent {
       pendingAuths: new Map(),
     }
 
-    this.nodePrivateKey = toBytes(config.privateKey)
     this.nodeAccount = privateKeyToAccount(config.privateKey)
 
     // Initialize MPC coordinator if enabled

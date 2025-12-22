@@ -234,3 +234,13 @@ export async function deriveKeyForEncryption(
   const salt = toBytes(keccak256(toBytes(`${keyId}:${policyJson}`)))
   return deriveEncryptionKey(masterKey, salt, 'encryption')
 }
+
+/** Safe recovery ID extraction from signature with bounds validation */
+export function extractRecoveryId(signature: string): number {
+  if (signature.length < 132) return 0
+  const vHex = signature.slice(130, 132)
+  const v = parseInt(vHex, 16)
+  if (v >= 27 && v <= 28) return v - 27
+  if (v === 0 || v === 1) return v
+  return 0
+}

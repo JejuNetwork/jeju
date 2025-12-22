@@ -6,9 +6,10 @@
  */
 
 import { getDWSComputeUrl } from '@jejunetwork/config'
+import { expectValid } from '@jejunetwork/types'
 import { keccak256, stringToHex } from 'viem'
 import { checkDWSCompute, dwsGenerate } from './agents/runtime'
-import { ComputeInferenceResponseSchema, expectValid } from './schemas'
+import { ComputeInferenceResponseSchema } from './schemas'
 import { parseJson } from './shared'
 
 // DWS endpoint is resolved dynamically based on the current network
@@ -80,8 +81,13 @@ const evictOldest = () => {
 }
 
 // Compute marketplace configuration - uses DWS network
-const COMPUTE_ENABLED = process.env.COMPUTE_ENABLED === 'true'
-const COMPUTE_MODEL = process.env.COMPUTE_MODEL ?? 'claude-3-opus'
+// These are functions to allow test overrides via process.env
+function isComputeEnabled(): boolean {
+  return process.env.COMPUTE_ENABLED === 'true'
+}
+function getComputeModel(): string {
+  return process.env.COMPUTE_MODEL ?? 'claude-3-opus'
+}
 
 interface ComputeInferenceRequest {
   modelId: string
@@ -98,12 +104,12 @@ async function computeMarketplaceInference(
   prompt: string,
   systemPrompt: string,
 ): Promise<string> {
-  if (!COMPUTE_ENABLED) {
+  if (!isComputeEnabled()) {
     throw new Error('Compute marketplace is not enabled')
   }
 
   const request: ComputeInferenceRequest = {
-    modelId: COMPUTE_MODEL,
+    modelId: getComputeModel(),
     input: {
       messages: [
         { role: 'system', content: systemPrompt },
@@ -143,7 +149,7 @@ async function computeMarketplaceInference(
 }
 
 async function checkComputeMarketplace(): Promise<boolean> {
-  if (!COMPUTE_ENABLED) return false
+  if (!isComputeEnabled()) return false
   const computeEndpoint = getComputeEndpoint()
   const response = await fetch(`${computeEndpoint}/health`)
   return response.ok
@@ -277,7 +283,7 @@ Return JSON:
     return {
       proposalId: request.proposalId,
       requestHash,
-      model: `compute:${COMPUTE_MODEL}`,
+      model: `compute:${getComputeModel()}`,
       sections: parsed.sections,
       recommendation: parsed.recommendation as ResearchReport['recommendation'],
       confidenceLevel: parsed.confidenceLevel,

@@ -13,10 +13,10 @@
 
 import type { Address } from 'viem'
 import {
+  BLUE_TEAM_CHARACTERS,
   getCharacter,
   listCharacters,
   RED_TEAM_CHARACTERS,
-  BLUE_TEAM_CHARACTERS,
 } from '../characters'
 import {
   type CrucibleAgentRuntime,
@@ -26,11 +26,11 @@ import { createLogger } from '../sdk/logger'
 import { AutonomousTick, type AutonomousTickResult } from './tick'
 import {
   type AutonomousAgentConfig,
-  DEFAULT_AUTONOMOUS_CONFIG,
-  RED_TEAM_CONFIG,
   BLUE_TEAM_CONFIG,
-  getRedTeamConfig,
+  DEFAULT_AUTONOMOUS_CONFIG,
   DEFAULT_SMALL_MODEL,
+  getRedTeamConfig,
+  RED_TEAM_CONFIG,
 } from './types'
 
 const log = createLogger('AutonomousRunner')
@@ -160,10 +160,18 @@ export class AutonomousAgentRunner {
     // Check if red team is enabled for this network
     const redTeamSettings = getRedTeamConfig(this.config.network)
 
-    console.log(`\n${COLORS.bold}${COLORS.cyan}════════════════════════════════════════════════════════════════${COLORS.reset}`)
-    console.log(`${COLORS.bold}${COLORS.cyan}  AUTONOMOUS AGENT LOADER${COLORS.reset}`)
-    console.log(`${COLORS.bold}${COLORS.cyan}════════════════════════════════════════════════════════════════${COLORS.reset}`)
-    console.log(`${COLORS.dim}Network: ${this.config.network} | Model: ${redTeamSettings.model} | Max Agents: ${this.config.maxConcurrentAgents}${COLORS.reset}\n`)
+    console.log(
+      `\n${COLORS.bold}${COLORS.cyan}════════════════════════════════════════════════════════════════${COLORS.reset}`,
+    )
+    console.log(
+      `${COLORS.bold}${COLORS.cyan}  AUTONOMOUS AGENT LOADER${COLORS.reset}`,
+    )
+    console.log(
+      `${COLORS.bold}${COLORS.cyan}════════════════════════════════════════════════════════════════${COLORS.reset}`,
+    )
+    console.log(
+      `${COLORS.dim}Network: ${this.config.network} | Model: ${redTeamSettings.model} | Max Agents: ${this.config.maxConcurrentAgents}${COLORS.reset}\n`,
+    )
 
     // If enabled, load all built-in characters as autonomous agents
     if (this.config.enableBuiltinCharacters) {
@@ -236,15 +244,27 @@ export class AutonomousAgentRunner {
         await this.registerAgent(agentConfig)
 
         // Pretty print agent loading
-        const teamColor = isRedTeam ? COLORS.red : isBlueTeam ? COLORS.blue : COLORS.green
+        const teamColor = isRedTeam
+          ? COLORS.red
+          : isBlueTeam
+            ? COLORS.blue
+            : COLORS.green
         const teamLabel = isRedTeam ? 'RED' : isBlueTeam ? 'BLUE' : 'GENERAL'
-        console.log(`${teamColor}[${teamLabel}]${COLORS.reset} ${COLORS.bold}${character.name}${COLORS.reset} (${characterId}) - ${character.description.substring(0, 50)}...`)
+        console.log(
+          `${teamColor}[${teamLabel}]${COLORS.reset} ${COLORS.bold}${character.name}${COLORS.reset} (${characterId}) - ${character.description.substring(0, 50)}...`,
+        )
       }
     }
 
-    console.log(`\n${COLORS.cyan}Loaded ${this.agents.size} agents${COLORS.reset}`)
-    console.log(`${COLORS.dim}Red Team: ${RED_TEAM_CHARACTERS.length} | Blue Team: ${BLUE_TEAM_CHARACTERS.length}${COLORS.reset}`)
-    console.log(`${COLORS.bold}${COLORS.cyan}════════════════════════════════════════════════════════════════${COLORS.reset}\n`)
+    console.log(
+      `\n${COLORS.cyan}Loaded ${this.agents.size} agents${COLORS.reset}`,
+    )
+    console.log(
+      `${COLORS.dim}Red Team: ${RED_TEAM_CHARACTERS.length} | Blue Team: ${BLUE_TEAM_CHARACTERS.length}${COLORS.reset}`,
+    )
+    console.log(
+      `${COLORS.bold}${COLORS.cyan}════════════════════════════════════════════════════════════════${COLORS.reset}\n`,
+    )
   }
 
   /**
@@ -369,15 +389,29 @@ export class AutonomousAgentRunner {
 
     // Determine team color for logging
     const charId = config.character.id
-    const isRedTeam = (RED_TEAM_CHARACTERS as readonly string[]).includes(charId)
-    const isBlueTeam = (BLUE_TEAM_CHARACTERS as readonly string[]).includes(charId)
-    const teamColor = isRedTeam ? COLORS.red : isBlueTeam ? COLORS.blue : COLORS.green
+    const isRedTeam = (RED_TEAM_CHARACTERS as readonly string[]).includes(
+      charId,
+    )
+    const isBlueTeam = (BLUE_TEAM_CHARACTERS as readonly string[]).includes(
+      charId,
+    )
+    const teamColor = isRedTeam
+      ? COLORS.red
+      : isBlueTeam
+        ? COLORS.blue
+        : COLORS.green
     const teamEmoji = isRedTeam ? '🔴' : isBlueTeam ? '🔵' : '🟢'
 
     if (this.config.verbose) {
-      console.log(`\n${teamColor}${COLORS.bold}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLORS.reset}`)
-      console.log(`${teamEmoji} ${teamColor}${COLORS.bold}${config.character.name}${COLORS.reset} is thinking...`)
-      console.log(`${COLORS.dim}Agent: ${agentId} | Tick #${execution.lastTickAt > 0 ? Math.floor((now - execution.lastTickAt) / config.tickIntervalMs) + 1 : 1}${COLORS.reset}`)
+      console.log(
+        `\n${teamColor}${COLORS.bold}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${COLORS.reset}`,
+      )
+      console.log(
+        `${teamEmoji} ${teamColor}${COLORS.bold}${config.character.name}${COLORS.reset} is thinking...`,
+      )
+      console.log(
+        `${COLORS.dim}Agent: ${agentId} | Tick #${execution.lastTickAt > 0 ? Math.floor((now - execution.lastTickAt) / config.tickIntervalMs) + 1 : 1}${COLORS.reset}`,
+      )
     }
 
     try {
@@ -402,10 +436,14 @@ export class AutonomousAgentRunner {
       if (this.config.verbose && result.actionsExecuted.length > 0) {
         console.log(`${teamColor}${COLORS.bold}Actions taken:${COLORS.reset}`)
         for (const action of result.actionsExecuted) {
-          const status = action.success ? `${COLORS.green}✓${COLORS.reset}` : `${COLORS.red}✗${COLORS.reset}`
+          const status = action.success
+            ? `${COLORS.green}✓${COLORS.reset}`
+            : `${COLORS.red}✗${COLORS.reset}`
           console.log(`  ${status} ${action.name}`)
           if (action.result && this.config.verbose) {
-            console.log(`    ${COLORS.dim}→ ${JSON.stringify(action.result).substring(0, 100)}${COLORS.reset}`)
+            console.log(
+              `    ${COLORS.dim}→ ${JSON.stringify(action.result).substring(0, 100)}${COLORS.reset}`,
+            )
           }
         }
       }
@@ -521,7 +559,9 @@ ${COLORS.dim}  Using Groq llama-3.1-8b-instant for fast, cheap inference${COLORS
 
   // Handle shutdown gracefully
   const shutdown = async () => {
-    console.log(`\n${COLORS.yellow}Shutting down autonomous agents...${COLORS.reset}`)
+    console.log(
+      `\n${COLORS.yellow}Shutting down autonomous agents...${COLORS.reset}`,
+    )
     await runner.stop()
     process.exit(0)
   }
@@ -531,6 +571,8 @@ ${COLORS.dim}  Using Groq llama-3.1-8b-instant for fast, cheap inference${COLORS
 
   await runner.start()
 
-  console.log(`\n${COLORS.green}${COLORS.bold}Agents are now running autonomously.${COLORS.reset}`)
+  console.log(
+    `\n${COLORS.green}${COLORS.bold}Agents are now running autonomously.${COLORS.reset}`,
+  )
   console.log(`${COLORS.dim}Press Ctrl+C to stop.${COLORS.reset}\n`)
 }

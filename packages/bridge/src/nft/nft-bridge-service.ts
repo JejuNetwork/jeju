@@ -768,7 +768,9 @@ export class NFTBridgeService extends EventEmitter {
 
     if (proverUrl || apiKey) {
       // Conditional dynamic import: only load SP1 prover if configured
+      // This avoids loading heavy SP1 dependencies when not needed
       const { createSP1Client } = await import('../prover/sp1-client.js')
+      // Conditional dynamic import: only load types when SP1 prover is used
       const { toHash32 } = await import('../types/index.js')
       const prover = createSP1Client({
         programsDir: process.cwd(),

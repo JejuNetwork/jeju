@@ -14,7 +14,8 @@
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
 import { createPublicClient, http } from 'viem'
-import { createWalletSetup, PASSWORD } from '../shared/synpress.config.base'
+import { createWalletSetup } from '../shared/synpress.config.base'
+import { PASSWORD } from '../shared/utils'
 
 const basicSetup = createWalletSetup()
 const test = testWithSynpress(metaMaskFixtures(basicSetup))

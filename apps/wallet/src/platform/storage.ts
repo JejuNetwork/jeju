@@ -2,8 +2,8 @@
  * Cross-platform Storage Adapter
  */
 
+import { expectJson } from '@jejunetwork/types'
 import type { z } from 'zod'
-import { expectJson } from '../lib/validation'
 import { getPlatformInfo } from './detection'
 import type { StorageAdapter } from './types'
 
@@ -102,6 +102,7 @@ class TauriStorageAdapter implements StorageAdapter {
 
   async get(key: string): Promise<string | null> {
     if (this.isTauri()) {
+      // Dynamic import: Tauri API is only available in Tauri runtime
       const { invoke } = await import('@tauri-apps/api/core')
       return invoke('storage_get', { key })
     }
@@ -110,6 +111,7 @@ class TauriStorageAdapter implements StorageAdapter {
 
   async set(key: string, value: string): Promise<void> {
     if (this.isTauri()) {
+      // Dynamic import: Tauri API is only available in Tauri runtime
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('storage_set', { key, value })
       return
@@ -119,6 +121,7 @@ class TauriStorageAdapter implements StorageAdapter {
 
   async remove(key: string): Promise<void> {
     if (this.isTauri()) {
+      // Dynamic import: Tauri API is only available in Tauri runtime
       const { invoke } = await import('@tauri-apps/api/core')
       await invoke('storage_remove', { key })
       return
@@ -135,6 +138,7 @@ class TauriStorageAdapter implements StorageAdapter {
 
   async keys(): Promise<string[]> {
     if (this.isTauri()) {
+      // Dynamic import: Tauri API is only available in Tauri runtime
       const { invoke } = await import('@tauri-apps/api/core')
       return invoke('storage_keys')
     }
@@ -151,27 +155,32 @@ class TauriStorageAdapter implements StorageAdapter {
 
 class CapacitorStorageAdapter implements StorageAdapter {
   async get(key: string): Promise<string | null> {
+    // Dynamic import: Capacitor is only available on mobile platforms
     const { Preferences } = await import('@capacitor/preferences')
     const { value } = await Preferences.get({ key })
     return value
   }
 
   async set(key: string, value: string): Promise<void> {
+    // Dynamic import: Capacitor is only available on mobile platforms
     const { Preferences } = await import('@capacitor/preferences')
     await Preferences.set({ key, value })
   }
 
   async remove(key: string): Promise<void> {
+    // Dynamic import: Capacitor is only available on mobile platforms
     const { Preferences } = await import('@capacitor/preferences')
     await Preferences.remove({ key })
   }
 
   async clear(): Promise<void> {
+    // Dynamic import: Capacitor is only available on mobile platforms
     const { Preferences } = await import('@capacitor/preferences')
     await Preferences.clear()
   }
 
   async keys(): Promise<string[]> {
+    // Dynamic import: Capacitor is only available on mobile platforms
     const { Preferences } = await import('@capacitor/preferences')
     const { keys } = await Preferences.keys()
     return keys

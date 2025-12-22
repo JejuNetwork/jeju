@@ -208,6 +208,8 @@ export * from './types.js'
 // React SDK (separate entry point for tree-shaking)
 // import { OAuth3Provider, useOAuth3 } from '@jejunetwork/oauth3/react'
 
+// Re-export type guards from viem
+export { isAddress, isHex } from 'viem'
 // Multi-tenant Council
 export {
   type CEOConfig,
@@ -230,7 +232,6 @@ export {
 } from './credentials/verifiable-credentials.js'
 // Cross-chain Identity (Open Intents)
 export {
-  ChainId,
   type ChainIdentityState,
   type CrossChainAuthIntent,
   CrossChainIdentityManager,
@@ -279,8 +280,6 @@ export {
   // Core schemas
   HexSchema,
   IPFSAddResponseSchema,
-  isAddress,
-  isHex,
   MFAStatusSchema,
   type NeynarCast,
   NeynarCastSchema,

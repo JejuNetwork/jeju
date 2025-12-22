@@ -40,8 +40,9 @@ function modInverse(a: bigint, mod: bigint): bigint {
 
 /**
  * Evaluate polynomial at point
+ * Reserved for future use in polynomial commitment verification
  */
-function _evaluatePolynomial(coeffs: bigint[], x: bigint): bigint {
+export function evaluatePolynomial(coeffs: bigint[], x: bigint): bigint {
   let result = 0n
   let power = 1n
 

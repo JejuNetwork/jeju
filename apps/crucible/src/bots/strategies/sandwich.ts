@@ -4,7 +4,7 @@ import type {
   Pool,
   SandwichOpportunity,
   StrategyConfig,
-} from '../autocrat-types'
+} from '../autocrat-types-source'
 import type { PendingTransaction } from '../engine/collector'
 
 interface DecodedSwap {

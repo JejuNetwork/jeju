@@ -8,9 +8,9 @@
  */
 
 import { getCurrentNetwork, getDWSComputeUrl } from '@jejunetwork/config'
+import { expectValid } from '@jejunetwork/types'
 import { z } from 'zod'
 import {
-  expectValid,
   extractLLMContent,
   LLMCompletionResponseSchema,
   SandboxExecutionResponseSchema,

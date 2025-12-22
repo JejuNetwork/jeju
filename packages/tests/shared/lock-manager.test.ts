@@ -3,7 +3,13 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test'
-import { existsSync, readFileSync, unlinkSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  unlinkSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 import { LockManager, withTestLock } from './lock-manager'
 
@@ -18,8 +24,7 @@ function createTestLock(options: { ttlMs?: number; force?: boolean } = {}) {
 }
 
 // Ensure test directory exists
-beforeEach(async () => {
-  const { mkdirSync } = await import('node:fs')
+beforeEach(() => {
   try {
     mkdirSync(TEST_LOCK_DIR, { recursive: true })
   } catch {

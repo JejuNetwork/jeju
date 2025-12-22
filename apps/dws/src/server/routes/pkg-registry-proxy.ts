@@ -11,10 +11,8 @@
  * - Fallback to direct registry if cache miss
  */
 
-import { Hono } from 'hono'
+import { Elysia, t } from 'elysia'
 import { LRUCache } from 'lru-cache'
-import { batchPackagesRequestSchema } from '../../shared/schemas'
-import { expectValid } from '../../shared/validation'
 
 // ============ Types ============
 
@@ -108,13 +106,15 @@ async function fetchPyPIPackage(packageName: string): Promise<PackageMetadata> {
     }
   }
 
+  const projectUrls = info.project_urls as Record<string, string> | undefined
+  const repoUrl = projectUrls?.Source
+
   return {
     name: info.name as string,
     version: info.version as string,
     description: info.summary as string | undefined,
     homepage: info.home_page as string | undefined,
-    repository:
-      info.project_urls && (info.project_urls as Record<string, string>).Source,
+    repository: repoUrl as string | undefined,
     maintainers,
     license: info.license as string | undefined,
     dependencies,
@@ -138,22 +138,18 @@ async function fetchCargoPackage(
 
   // Fetch dependencies for latest version
   const dependencies: Record<string, string> = {}
-  try {
-    const depsResponse = await fetch(
-      `https://crates.io/api/v1/crates/${packageName}/${latestVersion}/dependencies`,
-    )
-    if (depsResponse.ok) {
-      const depsData = (await depsResponse.json()) as {
-        dependencies: Array<{ crate_id: string; req: string; kind: string }>
-      }
-      for (const dep of depsData.dependencies || []) {
-        if (dep.kind === 'normal') {
-          dependencies[dep.crate_id] = dep.req
-        }
+  const depsResponse = await fetch(
+    `https://crates.io/api/v1/crates/${packageName}/${latestVersion}/dependencies`,
+  ).catch(() => null)
+  if (depsResponse?.ok) {
+    const depsData = (await depsResponse.json()) as {
+      dependencies: Array<{ crate_id: string; req: string; kind: string }>
+    }
+    for (const dep of depsData.dependencies || []) {
+      if (dep.kind === 'normal') {
+        dependencies[dep.crate_id] = dep.req
       }
     }
-  } catch {
-    // Ignore dependency fetch errors
   }
 
   const owners = crate.owners as Array<{ login: string }> | undefined
@@ -214,139 +210,206 @@ async function fetchGoPackage(moduleName: string): Promise<PackageMetadata> {
 
 // ============ Router ============
 
-export function createPkgRegistryProxyRouter(): Hono {
-  const router = new Hono()
+export function createPkgRegistryProxyRouter() {
+  return (
+    new Elysia({ name: 'pkg-registry-proxy', prefix: '/pkg-proxy' })
+      // NPM proxy
+      .get(
+        '/npm/:package',
+        async ({ params }) => {
+          const packageName = params.package
+            .replace('%2f', '/')
+            .replace('%2F', '/')
+          const cacheKey = `npm:${packageName}`
 
-  // NPM proxy
-  router.get('/npm/:package{.+}', async (c) => {
-    const packageName = c.req.param('package')
-    const cacheKey = `npm:${packageName}`
+          // Check cache
+          const cached = packageCache.get(cacheKey)
+          if (cached && Date.now() - cached.fetchedAt < cached.ttl) {
+            return { ...cached.data, cached: true }
+          }
 
-    // Check cache
-    const cached = packageCache.get(cacheKey)
-    if (cached && Date.now() - cached.fetchedAt < cached.ttl) {
-      return c.json({ ...cached.data, cached: true })
-    }
+          const data = await fetchNpmPackage(packageName)
+          packageCache.set(cacheKey, {
+            data,
+            fetchedAt: Date.now(),
+            ttl: CACHE_TTL,
+          })
+          return data
+        },
+        {
+          params: t.Object({
+            package: t.String(),
+          }),
+        },
+      )
 
-    const data = await fetchNpmPackage(packageName)
-    packageCache.set(cacheKey, { data, fetchedAt: Date.now(), ttl: CACHE_TTL })
-    return c.json(data)
-  })
+      // PyPI proxy
+      .get(
+        '/pypi/:package',
+        async ({ params }) => {
+          const packageName = params.package
+          const cacheKey = `pypi:${packageName}`
 
-  // PyPI proxy
-  router.get('/pypi/:package', async (c) => {
-    const packageName = c.req.param('package')
-    const cacheKey = `pypi:${packageName}`
+          const cached = packageCache.get(cacheKey)
+          if (cached && Date.now() - cached.fetchedAt < cached.ttl) {
+            return { ...cached.data, cached: true }
+          }
 
-    const cached = packageCache.get(cacheKey)
-    if (cached && Date.now() - cached.fetchedAt < cached.ttl) {
-      return c.json({ ...cached.data, cached: true })
-    }
+          const data = await fetchPyPIPackage(packageName)
+          packageCache.set(cacheKey, {
+            data,
+            fetchedAt: Date.now(),
+            ttl: CACHE_TTL,
+          })
+          return data
+        },
+        {
+          params: t.Object({
+            package: t.String(),
+          }),
+        },
+      )
 
-    const data = await fetchPyPIPackage(packageName)
-    packageCache.set(cacheKey, { data, fetchedAt: Date.now(), ttl: CACHE_TTL })
-    return c.json(data)
-  })
+      // Cargo/crates.io proxy
+      .get(
+        '/cargo/:package',
+        async ({ params }) => {
+          const packageName = params.package
+          const cacheKey = `cargo:${packageName}`
 
-  // Cargo/crates.io proxy
-  router.get('/cargo/:package', async (c) => {
-    const packageName = c.req.param('package')
-    const cacheKey = `cargo:${packageName}`
+          const cached = packageCache.get(cacheKey)
+          if (cached && Date.now() - cached.fetchedAt < cached.ttl) {
+            return { ...cached.data, cached: true }
+          }
 
-    const cached = packageCache.get(cacheKey)
-    if (cached && Date.now() - cached.fetchedAt < cached.ttl) {
-      return c.json({ ...cached.data, cached: true })
-    }
+          const data = await fetchCargoPackage(packageName)
+          packageCache.set(cacheKey, {
+            data,
+            fetchedAt: Date.now(),
+            ttl: CACHE_TTL,
+          })
+          return data
+        },
+        {
+          params: t.Object({
+            package: t.String(),
+          }),
+        },
+      )
 
-    const data = await fetchCargoPackage(packageName)
-    packageCache.set(cacheKey, { data, fetchedAt: Date.now(), ttl: CACHE_TTL })
-    return c.json(data)
-  })
+      // Go modules proxy
+      .get(
+        '/go/:module',
+        async ({ params }) => {
+          const moduleName = params.module
+            .replace('%2f', '/')
+            .replace('%2F', '/')
+          const cacheKey = `go:${moduleName}`
 
-  // Go modules proxy
-  router.get('/go/:module{.+}', async (c) => {
-    const moduleName = c.req.param('module')
-    const cacheKey = `go:${moduleName}`
+          const cached = packageCache.get(cacheKey)
+          if (cached && Date.now() - cached.fetchedAt < cached.ttl) {
+            return { ...cached.data, cached: true }
+          }
 
-    const cached = packageCache.get(cacheKey)
-    if (cached && Date.now() - cached.fetchedAt < cached.ttl) {
-      return c.json({ ...cached.data, cached: true })
-    }
+          const data = await fetchGoPackage(moduleName)
+          packageCache.set(cacheKey, {
+            data,
+            fetchedAt: Date.now(),
+            ttl: CACHE_TTL,
+          })
+          return data
+        },
+        {
+          params: t.Object({
+            module: t.String(),
+          }),
+        },
+      )
 
-    const data = await fetchGoPackage(moduleName)
-    packageCache.set(cacheKey, { data, fetchedAt: Date.now(), ttl: CACHE_TTL })
-    return c.json(data)
-  })
+      // Batch fetch for dependency resolution
+      .post(
+        '/batch',
+        async ({ body }) => {
+          const results = await Promise.allSettled(
+            body.packages.map(async (pkg) => {
+              const cacheKey = `${pkg.registry}:${pkg.name}`
+              const cached = packageCache.get(cacheKey)
+              if (cached && Date.now() - cached.fetchedAt < cached.ttl) {
+                return { ...cached.data, registry: pkg.registry, cached: true }
+              }
 
-  // Batch fetch for dependency resolution
-  router.post('/batch', async (c) => {
-    const body = expectValid(
-      batchPackagesRequestSchema,
-      await c.req.json(),
-      'Batch packages request',
-    )
+              let data: PackageMetadata
+              switch (pkg.registry) {
+                case 'npm':
+                  data = await fetchNpmPackage(pkg.name)
+                  break
+                case 'pypi':
+                  data = await fetchPyPIPackage(pkg.name)
+                  break
+                case 'cargo':
+                  data = await fetchCargoPackage(pkg.name)
+                  break
+                case 'go':
+                  data = await fetchGoPackage(pkg.name)
+                  break
+                default:
+                  throw new Error(`Unknown registry: ${pkg.registry}`)
+              }
 
-    const results = await Promise.allSettled(
-      body.packages.map(async ({ name, registry }) => {
-        const cacheKey = `${registry}:${name}`
-        const cached = packageCache.get(cacheKey)
-        if (cached && Date.now() - cached.fetchedAt < cached.ttl) {
-          return { name, registry, ...cached.data, cached: true }
-        }
+              packageCache.set(cacheKey, {
+                data,
+                fetchedAt: Date.now(),
+                ttl: CACHE_TTL,
+              })
+              return { ...data, registry: pkg.registry }
+            }),
+          )
 
-        let data: PackageMetadata
-        switch (registry) {
-          case 'npm':
-            data = await fetchNpmPackage(name)
-            break
-          case 'pypi':
-            data = await fetchPyPIPackage(name)
-            break
-          case 'cargo':
-            data = await fetchCargoPackage(name)
-            break
-          case 'go':
-            data = await fetchGoPackage(name)
-            break
-        }
+          return {
+            packages: results.map((result, i) => {
+              if (result.status === 'fulfilled') {
+                return result.value
+              }
+              return {
+                name: body.packages[i].name,
+                registry: body.packages[i].registry,
+                error: result.reason?.message || 'Unknown error',
+              }
+            }),
+          }
+        },
+        {
+          body: t.Object({
+            packages: t.Array(
+              t.Object({
+                name: t.String(),
+                registry: t.Union([
+                  t.Literal('npm'),
+                  t.Literal('pypi'),
+                  t.Literal('cargo'),
+                  t.Literal('go'),
+                ]),
+              }),
+            ),
+          }),
+        },
+      )
 
-        packageCache.set(cacheKey, {
-          data,
-          fetchedAt: Date.now(),
-          ttl: CACHE_TTL,
-        })
-        return { name, registry, ...data }
-      }),
-    )
+      // Cache stats
+      .get('/stats', () => ({
+        size: packageCache.size,
+        maxSize: MAX_CACHE_SIZE,
+        ttl: CACHE_TTL,
+      }))
 
-    return c.json({
-      packages: results.map((result, i) => {
-        if (result.status === 'fulfilled') {
-          return result.value
-        }
-        return {
-          name: body.packages[i].name,
-          registry: body.packages[i].registry,
-          error: result.reason?.message || 'Unknown error',
-        }
-      }),
-    })
-  })
-
-  // Cache stats
-  router.get('/stats', (c) => {
-    return c.json({
-      size: packageCache.size,
-      maxSize: MAX_CACHE_SIZE,
-      ttl: CACHE_TTL,
-    })
-  })
-
-  // Clear cache (admin only)
-  router.delete('/cache', (c) => {
-    packageCache.clear()
-    return c.json({ cleared: true })
-  })
-
-  return router
+      // Clear cache (admin only)
+      .delete('/cache', () => {
+        packageCache.clear()
+        return { cleared: true }
+      })
+  )
 }
+
+export type PkgRegistryProxyRoutes = ReturnType<
+  typeof createPkgRegistryProxyRouter
+>

@@ -1,10 +1,3 @@
-/**
- * Storage Service for IPFS attachments
- *
- * Provides decentralized file storage using the Storage Marketplace.
- * No fallbacks - requires IPFS storage to be available.
- */
-
 import type { Address } from 'viem'
 
 const STORAGE_ENDPOINT =

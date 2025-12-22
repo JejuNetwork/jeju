@@ -22,8 +22,6 @@ import {
 } from '@jejunetwork/config'
 import chalk from 'chalk'
 import { Command } from 'commander'
-import { CommanderErrorSchema, PackageJsonSchema } from './schemas'
-import { expectJson } from '@jejunetwork/types'
 import { appsCommand } from './commands/apps'
 import { botsCommand } from './commands/bots'
 import { buildCommand } from './commands/build'
@@ -56,6 +54,7 @@ import { validateCommand } from './commands/validate'
 import { vendorCommand } from './commands/vendor'
 import { verifyStage2Command } from './commands/verify-stage2'
 import { logger } from './lib/logger'
+import { CommanderErrorSchema, PackageJsonSchema, validate } from './schemas'
 
 const cli = getCliBranding()
 const networkName = getNetworkName()
@@ -66,7 +65,11 @@ function getVersion(): string {
   const __dirname = dirname(__filename)
   const pkgPath = join(__dirname, '..', 'package.json')
   if (existsSync(pkgPath)) {
-    const pkg = expectJson(readFileSync(pkgPath, 'utf-8'), PackageJsonSchema, 'package.json')
+    const pkg = validate(
+      JSON.parse(readFileSync(pkgPath, 'utf-8')),
+      PackageJsonSchema,
+      'package.json',
+    )
     return pkg.version
   }
   return '0.1.0'

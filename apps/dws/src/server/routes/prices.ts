@@ -3,18 +3,6 @@
  *
  * Real-time token price streaming via WebSocket and cached reads via REST.
  * Uses the shared cache service for distributed price storage.
- *
- * Architecture:
- * 1. Price Aggregators (EVM + Solana) poll prices periodically
- * 2. Prices cached in shared cache service with pub/sub
- * 3. WebSocket connections receive real-time updates
- * 4. REST endpoints for cached reads (frontend can query directly)
- *
- * Cache Keys:
- * - price:{chainId}:{address} - Individual token prices
- * - prices:chain:{chainId} - List of all tokens on chain
- * - price:eth:{chainId} - ETH price for chain
- * - candle:{chainId}:{address}:{interval}:{timestamp} - OHLCV candles
  */
 
 import {
@@ -23,7 +11,7 @@ import {
   getCacheClient,
 } from '@jejunetwork/shared'
 import { expectJson } from '@jejunetwork/types'
-import { Hono } from 'hono'
+import { Elysia, t } from 'elysia'
 import type { Address } from 'viem'
 import { z } from 'zod'
 import {
@@ -31,19 +19,15 @@ import {
   type TokenPrice,
 } from '../../solver/external/price-aggregator'
 import type { SolanaTokenPrice } from '../../solver/external/solana-price-aggregator'
+import { getSolanaPriceAggregator as createSolanaPriceAggregator } from '../../solver/external/solana-price-aggregator'
 
-// Lazy load Solana price aggregator to avoid buffer-layout compatibility issues
-let _solanaAggregator: Awaited<
-  ReturnType<
-    typeof import('../../solver/external/solana-price-aggregator').getSolanaPriceAggregator
-  >
-> | null = null
+// Optional/conditional: Solana aggregator may fail due to buffer-layout compatibility issues
+let _solanaAggregator: ReturnType<typeof createSolanaPriceAggregator> | null =
+  null
 async function getSolanaAggregator() {
   if (!_solanaAggregator) {
     try {
-      // Dynamic import: only needed when Solana aggregator is requested (conditional - lazy loading with error handling)
-      const mod = await import('../../solver/external/solana-price-aggregator')
-      _solanaAggregator = mod.getSolanaPriceAggregator()
+      _solanaAggregator = createSolanaPriceAggregator()
     } catch (err) {
       console.warn('[PriceService] Solana aggregator unavailable:', err)
       return null
@@ -54,11 +38,25 @@ async function getSolanaAggregator() {
 
 // ============ Cache Schemas ============
 
-const TokenPriceSchema = z.object({
+// Schema for cached price data (subset of full TokenPrice)
+const CachedPriceSchema = z.object({
+  address: z.string(),
+  chainId: z.number(),
+  symbol: z.string(),
   priceUSD: z.number(),
+  priceETH: z.number(),
+  confidence: z.number(),
+  sources: z.array(
+    z.object({
+      dex: z.string(),
+      pool: z.string(),
+      price: z.number(),
+      liquidity: z.number(),
+      lastUpdate: z.number(),
+    }),
+  ),
+  timestamp: z.number(),
   liquidityUSD: z.number(),
-  volume24h: z.number().optional(),
-  priceChange24h: z.number().optional(),
 })
 
 const TokenAddressArraySchema = z.array(z.string())
@@ -78,16 +76,11 @@ const SubscriptionMessageSchema = z.object({
 
 // ============ Types ============
 
-/**
- * Minimal WebSocket interface compatible with both Bun's ServerWebSocket and browser WebSocket.
- * Only includes the methods actually used by PriceStreamingService.
- */
 export interface SubscribableWebSocket {
   readonly readyState: number
   send(data: string | ArrayBufferLike | Blob | ArrayBufferView): void
 }
 
-/** WebSocket.OPEN constant */
 const WS_OPEN = 1
 
 interface PriceUpdate {
@@ -212,7 +205,6 @@ class PriceStreamingService {
 
   constructor() {
     this.cache = getCacheClient(CACHE_NAMESPACE)
-    // Test cache availability
     this.checkCacheAvailability()
   }
 
@@ -232,26 +224,18 @@ class PriceStreamingService {
     return this.cacheAvailable ? this.cache : this.fallbackCache
   }
 
-  /**
-   * Start the price polling loop
-   */
   start(): void {
     if (this.running) return
     this.running = true
 
-    // Poll prices every 10 seconds
     this.updateInterval = setInterval(() => {
       this.pollPrices().catch(console.error)
     }, 10_000)
 
-    // Initial poll
     this.pollPrices().catch(console.error)
     console.log('[PriceService] Started price polling')
   }
 
-  /**
-   * Stop the price polling loop
-   */
   stop(): void {
     this.running = false
     if (this.updateInterval) {
@@ -261,13 +245,9 @@ class PriceStreamingService {
     console.log('[PriceService] Stopped price polling')
   }
 
-  /**
-   * Poll prices from aggregators and update cache
-   */
   private async pollPrices(): Promise<void> {
-    const chains = [1, 42161, 10, 8453] // Ethereum, Arbitrum, Optimism, Base
+    const chains = [1, 42161, 10, 8453]
 
-    // Update ETH prices for all chains
     for (const chainId of chains) {
       const ethPrice = await this.evmAggregator
         .getETHPrice(chainId)
@@ -281,7 +261,6 @@ class PriceStreamingService {
       }
     }
 
-    // Get tracked tokens from cache
     for (const chainId of chains) {
       const tokensJson = await this.getCache().get(chainPricesKey(chainId))
       if (!tokensJson) continue
@@ -304,9 +283,6 @@ class PriceStreamingService {
     }
   }
 
-  /**
-   * Update a token's price in cache and notify subscribers
-   */
   private async updateTokenPrice(
     chainId: number,
     address: string,
@@ -315,20 +291,21 @@ class PriceStreamingService {
     const key = priceKey(chainId, address)
     const cached = await this.getCache().get(key)
 
-    // Calculate 24h change if we have previous price
     let priceChange24h = 0
     if (cached) {
-      const prev = expectJson(cached, TokenPriceSchema, 'cached price')
+      const prev = expectJson(
+        cached,
+        CachedPriceSchema,
+        'cached price',
+      ) as TokenPrice
       if (prev.priceUSD > 0) {
         priceChange24h =
           ((price.priceUSD - prev.priceUSD) / prev.priceUSD) * 100
       }
     }
 
-    // Cache the price
     await this.getCache().set(key, JSON.stringify(price), PRICE_TTL)
 
-    // Notify WebSocket subscribers
     const update: PriceUpdate = {
       type: 'price_update',
       chainId,
@@ -342,9 +319,6 @@ class PriceStreamingService {
     this.broadcast(key, update)
   }
 
-  /**
-   * Broadcast update to all subscribers of a token
-   */
   private broadcast(key: string, update: PriceUpdate): void {
     const message = JSON.stringify(update)
 
@@ -360,17 +334,13 @@ class PriceStreamingService {
     }
   }
 
-  /**
-   * Get cached price for a token
-   */
   async getPrice(chainId: number, address: string): Promise<TokenPrice | null> {
     const cached = await this.getCache().get(priceKey(chainId, address))
-    return cached ? expectJson(cached, TokenPriceSchema, 'price cache') : null
+    return cached
+      ? (expectJson(cached, CachedPriceSchema, 'price cache') as TokenPrice)
+      : null
   }
 
-  /**
-   * Get cached prices for multiple tokens
-   */
   async getPrices(
     tokens: Array<{ chainId: number; address: string }>,
   ): Promise<Map<string, TokenPrice>> {
@@ -380,15 +350,15 @@ class PriceStreamingService {
     const prices = new Map<string, TokenPrice>()
     for (const [key, value] of results) {
       if (value) {
-        prices.set(key, expectJson(value, TokenPriceSchema, 'batch price'))
+        prices.set(
+          key,
+          expectJson(value, CachedPriceSchema, 'batch price') as TokenPrice,
+        )
       }
     }
     return prices
   }
 
-  /**
-   * Get ETH price for a chain
-   */
   async getETHPrice(chainId: number): Promise<number> {
     const cached = await this.getCache().get(ethPriceKey(chainId))
     if (cached) {
@@ -398,9 +368,6 @@ class PriceStreamingService {
     return this.evmAggregator.getETHPrice(chainId)
   }
 
-  /**
-   * Track a token for price updates
-   */
   async trackToken(chainId: number, address: string): Promise<void> {
     const key = chainPricesKey(chainId)
     const existing = await this.getCache().get(key)
@@ -414,9 +381,6 @@ class PriceStreamingService {
     }
   }
 
-  /**
-   * Subscribe a WebSocket to price updates
-   */
   subscribe(ws: SubscribableWebSocket, msg: SubscriptionMessage): void {
     if (!this.subscribers.has(ws)) {
       this.subscribers.set(ws, new Set())
@@ -437,9 +401,6 @@ class PriceStreamingService {
     }
   }
 
-  /**
-   * Unsubscribe a WebSocket from price updates
-   */
   unsubscribe(ws: SubscribableWebSocket, msg: SubscriptionMessage): void {
     const subs = this.subscribers.get(ws)
     if (!subs) return
@@ -457,20 +418,18 @@ class PriceStreamingService {
     }
   }
 
-  /**
-   * Remove a WebSocket from all subscriptions
-   */
   removeSubscriber(ws: SubscribableWebSocket): void {
     this.subscribers.delete(ws)
   }
 
-  /**
-   * Get Solana token price
-   */
   async getSolanaPrice(mint: string): Promise<SolanaTokenPrice | null> {
     const aggregator = await getSolanaAggregator()
     if (!aggregator) return null
     return aggregator.getPrice(mint)
+  }
+
+  getSubscriberCount(): number {
+    return this.subscribers.size
   }
 }
 
@@ -478,7 +437,7 @@ class PriceStreamingService {
 
 let priceService: PriceStreamingService | null = null
 
-function getPriceService(): PriceStreamingService {
+export function getPriceService(): PriceStreamingService {
   if (!priceService) {
     priceService = new PriceStreamingService()
     priceService.start()
@@ -486,124 +445,127 @@ function getPriceService(): PriceStreamingService {
   return priceService
 }
 
-// ============ Validation Schemas ============
-
-const GetPriceParamsSchema = z.object({
-  chainId: z.string().regex(/^\d+$/).transform(Number),
-  address: z.string().regex(/^0x[a-fA-F0-9]{40}$/),
-})
-
-const GetPricesBodySchema = z.object({
-  tokens: z.array(
-    z.object({
-      chainId: z.number(),
-      address: z.string(),
-    }),
-  ),
-})
-
-const TrackTokenBodySchema = z.object({
-  chainId: z.number(),
-  address: z.string(),
-})
-
 // ============ Router ============
 
-export function createPricesRouter(): Hono {
-  const router = new Hono()
+export function createPricesRouter() {
   const service = getPriceService()
 
-  /**
-   * Health check
-   */
-  router.get('/health', (c) => {
-    return c.json({
-      status: 'healthy',
-      service: 'price-streaming',
-      subscribers: priceService?.subscribers.size ?? 0,
-    })
-  })
+  return (
+    new Elysia({ name: 'prices', prefix: '/prices' })
+      // Health check
+      .get('/health', () => ({
+        status: 'healthy',
+        service: 'price-streaming',
+        subscribers: service.getSubscriberCount(),
+      }))
 
-  /**
-   * Get price for a single token
-   */
-  router.get('/:chainId/:address', async (c) => {
-    const params = GetPriceParamsSchema.parse({
-      chainId: c.req.param('chainId'),
-      address: c.req.param('address'),
-    })
+      // Get price for a single token
+      .get(
+        '/:chainId/:address',
+        async ({ params, set }) => {
+          const chainId = parseInt(params.chainId, 10)
+          const price = await service.getPrice(chainId, params.address)
+          if (!price) {
+            // Fetch fresh if not cached
+            const fresh = await getPriceAggregator().getPrice(
+              params.address as Address,
+              chainId,
+            )
+            if (!fresh) {
+              set.status = 404
+              return { error: 'Token not found' }
+            }
+            await service.trackToken(chainId, params.address)
+            return fresh
+          }
 
-    const price = await service.getPrice(params.chainId, params.address)
-    if (!price) {
-      // Fetch fresh if not cached
-      const fresh = await getPriceAggregator().getPrice(
-        params.address as Address,
-        params.chainId,
+          return price
+        },
+        {
+          params: t.Object({
+            chainId: t.String({ pattern: '^\\d+$' }),
+            address: t.String({ pattern: '^0x[a-fA-F0-9]{40}$' }),
+          }),
+        },
       )
-      if (!fresh) {
-        return c.json({ error: 'Token not found' }, 404)
-      }
-      await service.trackToken(params.chainId, params.address)
-      return c.json(fresh)
-    }
 
-    return c.json(price)
-  })
+      // Get prices for multiple tokens (batch)
+      .post(
+        '/batch',
+        async ({ body }) => {
+          const prices = await service.getPrices(body.tokens)
 
-  /**
-   * Get prices for multiple tokens (batch)
-   */
-  router.post('/batch', async (c) => {
-    const body = GetPricesBodySchema.parse(await c.req.json())
-    const prices = await service.getPrices(body.tokens)
+          const result: Record<string, TokenPrice> = {}
+          for (const [key, value] of prices) {
+            result[key] = value
+          }
 
-    // Convert Map to object
-    const result: Record<string, TokenPrice> = {}
-    for (const [key, value] of prices) {
-      result[key] = value
-    }
+          return { prices: result }
+        },
+        {
+          body: t.Object({
+            tokens: t.Array(
+              t.Object({
+                chainId: t.Number(),
+                address: t.String(),
+              }),
+            ),
+          }),
+        },
+      )
 
-    return c.json({ prices: result })
-  })
+      // Get ETH price for a chain
+      .get(
+        '/eth/:chainId',
+        async ({ params }) => {
+          const chainId = parseInt(params.chainId, 10)
+          const price = await service.getETHPrice(chainId)
+          return { chainId, priceUSD: price, timestamp: Date.now() }
+        },
+        {
+          params: t.Object({
+            chainId: t.String({ pattern: '^\\d+$' }),
+          }),
+        },
+      )
 
-  /**
-   * Get ETH price for a chain
-   */
-  router.get('/eth/:chainId', async (c) => {
-    const chainId = parseInt(c.req.param('chainId'), 10)
-    const price = await service.getETHPrice(chainId)
-    return c.json({ chainId, priceUSD: price, timestamp: Date.now() })
-  })
+      // Track a token for price updates
+      .post(
+        '/track',
+        async ({ body }) => {
+          await service.trackToken(body.chainId, body.address)
+          return { success: true }
+        },
+        {
+          body: t.Object({
+            chainId: t.Number(),
+            address: t.String(),
+          }),
+        },
+      )
 
-  /**
-   * Track a token for price updates
-   */
-  router.post('/track', async (c) => {
-    const body = TrackTokenBodySchema.parse(await c.req.json())
-    await service.trackToken(body.chainId, body.address)
-    return c.json({ success: true })
-  })
-
-  /**
-   * Get Solana token price
-   */
-  router.get('/solana/:mint', async (c) => {
-    const mint = c.req.param('mint')
-    const price = await service.getSolanaPrice(mint)
-    if (!price) {
-      return c.json({ error: 'Token not found' }, 404)
-    }
-    return c.json(price)
-  })
-
-  return router
+      // Get Solana token price
+      .get(
+        '/solana/:mint',
+        async ({ params, set }) => {
+          const price = await service.getSolanaPrice(params.mint)
+          if (!price) {
+            set.status = 404
+            return { error: 'Token not found' }
+          }
+          return price
+        },
+        {
+          params: t.Object({
+            mint: t.String(),
+          }),
+        },
+      )
+  )
 }
 
 // ============ WebSocket Handler ============
 
-/**
- * Browser WebSocket interface with event handling - used by handlePriceWebSocket
- */
 interface BrowserWebSocket extends SubscribableWebSocket {
   addEventListener(
     type: 'message',
@@ -646,6 +608,5 @@ export function handlePriceWebSocket(ws: BrowserWebSocket): void {
   })
 }
 
-// ============ Exports ============
-
-export { getPriceService, PriceStreamingService }
+export type PricesRoutes = ReturnType<typeof createPricesRouter>
+export { PriceStreamingService }

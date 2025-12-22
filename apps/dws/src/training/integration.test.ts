@@ -204,9 +204,7 @@ describe('GRPO Trainer Integration', () => {
     })
 
     expect(trainer).toBeDefined()
-    expect(trainer.getConfig().modelName).toBe(
-      'distilgpt2',
-    )
+    expect(trainer.getConfig().modelName).toBe('distilgpt2')
   })
 })
 

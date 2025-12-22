@@ -8,8 +8,9 @@
  */
 
 import { getDWSComputeUrl } from '@jejunetwork/config'
+import { expectValid } from '@jejunetwork/types'
 import { keccak256, stringToHex } from 'viem'
-import { expectValid, SandboxExecutionResponseSchema } from './schemas'
+import { SandboxExecutionResponseSchema } from './schemas'
 import { ValidationResult, VulnerabilityType } from './types'
 
 // ============ Configuration (Network-Aware) ============

@@ -3,7 +3,6 @@
  * @module gateway/tests/fixtures/wallet
  */
 
-// Re-export shared fixtures
 export {
   JEJU_NETWORK,
   JEJU_TEST_WALLET as TEST_WALLET,

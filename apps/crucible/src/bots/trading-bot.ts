@@ -14,7 +14,7 @@ import type {
   Opportunity,
   ProfitSource,
   StrategyConfig,
-} from './autocrat-types'
+} from './autocrat-types-source'
 import { EventCollector } from './engine/collector'
 import { TransactionExecutor } from './engine/executor'
 import { TreasuryManager } from './engine/treasury'

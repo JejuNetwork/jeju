@@ -292,7 +292,11 @@ export class MailboxStorage {
 
     if (!data) return null
 
-    const parsed = expectJson(data.toString(), MailboxDataSchema, 'mailbox data')
+    const parsed = expectJson(
+      data.toString(),
+      MailboxDataSchema,
+      'mailbox data',
+    )
     const mailbox: Mailbox = {
       owner: parsed.owner,
       encryptedIndexCid: parsed.encryptedIndexCid,

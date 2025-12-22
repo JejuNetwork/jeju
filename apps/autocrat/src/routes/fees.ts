@@ -5,8 +5,7 @@
  * All fee changes are recorded on-chain for transparency.
  */
 
-import { Hono } from 'hono'
-import { z } from 'zod'
+import { Elysia, t } from 'elysia'
 import {
   ceoFeeSkills,
   executeCEOFeeSkill,
@@ -15,105 +14,97 @@ import {
 } from '../ceo-fee-actions'
 import { getSharedState } from '../shared-state'
 
-// ============ Schemas ============
+// Initialize fee actions on first call
+let initialized = false
 
-const executeFeeSkillSchema = z.object({
-  skillId: z.string(),
-  params: z.record(z.unknown()),
-})
+function ensureFeeActionsInitialized(): boolean {
+  if (initialized) return true
 
-const feeChangeProposalSchema = z.object({
-  category: z.enum([
-    'distribution',
-    'compute',
-    'storage',
-    'defi',
-    'infrastructure',
-    'marketplace',
-    'names',
-    'token',
-  ]),
-  newValues: z.record(z.unknown()),
-  reason: z.string().min(10, 'Reason must be at least 10 characters'),
-})
+  const state = getSharedState()
+  if (
+    state.clients.publicClient &&
+    state.clients.walletClient &&
+    state.contracts.feeConfig
+  ) {
+    initializeFeeActions(
+      state.contracts.feeConfig,
+      state.clients.publicClient,
+      state.clients.walletClient,
+    )
+    initialized = true
+    return true
+  }
+  return false
+}
 
-// ============ Router ============
-
-export function createFeesRouter(): Hono {
-  const router = new Hono()
-
-  // Initialize fee actions on first request
-  let initialized = false
-  router.use('*', async (c, next) => {
-    if (!initialized) {
-      const state = getSharedState()
-      if (state.clients.publicClient && state.clients.walletClient && state.contracts.feeConfig) {
-        initializeFeeActions(
-          state.contracts.feeConfig,
-          state.clients.publicClient,
-          state.clients.walletClient,
-        )
-        initialized = true
-      }
-    }
-    await next()
-  })
-
+export const feesRoutes = new Elysia({ prefix: '/fees' })
   /**
    * GET /fees
    * Get current fee configuration
    */
-  router.get('/', async (c) => {
+  .get('/', async () => {
+    if (!ensureFeeActionsInitialized()) {
+      return { success: false, error: 'Fee actions not initialized' }
+    }
+
     const state = await getFeeConfigState()
-    return c.json({
+    return {
       success: true,
       data: state,
       timestamp: Date.now(),
-    })
+    }
   })
 
   /**
    * GET /fees/skills
    * List available CEO fee management skills
    */
-  router.get('/skills', (c) => {
-    return c.json({
-      success: true,
-      skills: ceoFeeSkills,
-    })
-  })
+  .get('/skills', () => ({
+    success: true,
+    skills: ceoFeeSkills,
+  }))
 
   /**
    * POST /fees/execute
    * Execute a fee management skill
    */
-  router.post('/execute', async (c) => {
-    const body = await c.req.json()
-    const parsed = executeFeeSkillSchema.safeParse(body)
+  .post(
+    '/execute',
+    async ({ body }) => {
+      if (!ensureFeeActionsInitialized()) {
+        return { success: false, error: 'Fee actions not initialized' }
+      }
 
-    if (!parsed.success) {
-      return c.json({ success: false, error: parsed.error.message }, 400)
-    }
+      const { skillId, params } = body
+      const result = await executeCEOFeeSkill(skillId, params)
 
-    const { skillId, params } = parsed.data
-    const result = await executeCEOFeeSkill(skillId, params)
+      if (!result.success) {
+        return { success: false, error: result.error }
+      }
 
-    if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400)
-    }
-
-    return c.json({
-      success: true,
-      data: result.result,
-      skillId,
-    })
-  })
+      return {
+        success: true,
+        data: result.result,
+        skillId,
+      }
+    },
+    {
+      body: t.Object({
+        skillId: t.String(),
+        params: t.Record(t.String(), t.Unknown()),
+      }),
+    },
+  )
 
   /**
    * GET /fees/summary
    * Get a human-readable summary of current fees
    */
-  router.get('/summary', async (c) => {
+  .get('/summary', async () => {
+    if (!ensureFeeActionsInitialized()) {
+      return { success: false, error: 'Fee actions not initialized' }
+    }
+
     const state = await getFeeConfigState()
 
     const summary = {
@@ -162,88 +153,90 @@ export function createFeesRouter(): Hono {
       },
     }
 
-    return c.json({
+    return {
       success: true,
       summary,
       raw: state,
-    })
+    }
   })
 
   /**
    * POST /fees/propose
    * Propose a fee change (for council, CEO can execute immediately or after timelock)
    */
-  router.post('/propose', async (c) => {
-    const body = await c.req.json()
-    const parsed = feeChangeProposalSchema.safeParse(body)
+  .post(
+    '/propose',
+    async ({ body }) => {
+      if (!ensureFeeActionsInitialized()) {
+        return { success: false, error: 'Fee actions not initialized' }
+      }
 
-    if (!parsed.success) {
-      return c.json({ success: false, error: parsed.error.message }, 400)
-    }
+      const { category, newValues, reason } = body
 
-    const { category, newValues, reason } = parsed.data
+      // Map category to skill and params
+      const skillMap: Record<string, string> = {
+        distribution: 'set-distribution-fees',
+        compute: 'set-compute-fees',
+        storage: 'set-storage-fees',
+        defi: 'set-defi-fees',
+        infrastructure: 'set-infrastructure-fees',
+        marketplace: 'set-marketplace-fees',
+        names: 'set-names-fees',
+        token: 'set-token-fees',
+      }
 
-    // Map category to skill and params
-    const skillMap: Record<string, string> = {
-      distribution: 'set-distribution-fees',
-      compute: 'set-compute-fees',
-      storage: 'set-storage-fees',
-      defi: 'set-defi-fees',
-      infrastructure: 'set-infrastructure-fees',
-      marketplace: 'set-marketplace-fees',
-      names: 'set-names-fees',
-      token: 'set-token-fees',
-    }
+      const skillId = skillMap[category]
+      if (!skillId) {
+        return { success: false, error: `Unknown category: ${category}` }
+      }
 
-    const skillId = skillMap[category]
-    if (!skillId) {
-      return c.json({ success: false, error: `Unknown category: ${category}` }, 400)
-    }
+      const result = await executeCEOFeeSkill(skillId, newValues)
 
-    const result = await executeCEOFeeSkill(skillId, newValues)
+      if (!result.success) {
+        return { success: false, error: result.error }
+      }
 
-    if (!result.success) {
-      return c.json({ success: false, error: result.error }, 400)
-    }
-
-    return c.json({
-      success: true,
-      category,
-      reason,
-      txHash: result.result?.txHash,
-    })
-  })
+      return {
+        success: true,
+        category,
+        reason,
+        txHash: (result.result as { txHash?: string } | null)?.txHash,
+      }
+    },
+    {
+      body: t.Object({
+        category: t.Union([
+          t.Literal('distribution'),
+          t.Literal('compute'),
+          t.Literal('storage'),
+          t.Literal('defi'),
+          t.Literal('infrastructure'),
+          t.Literal('marketplace'),
+          t.Literal('names'),
+          t.Literal('token'),
+        ]),
+        newValues: t.Record(t.String(), t.Unknown()),
+        reason: t.String({ minLength: 10 }),
+      }),
+    },
+  )
 
   /**
    * GET /fees/history
    * Get fee change history (from blockchain events)
-   * TODO: Implement by querying FeeConfig events
    */
-  router.get('/history', async (c) => {
-    // Placeholder - would query blockchain for fee change events
-    return c.json({
-      success: true,
-      history: [],
-      message: 'Fee history query not yet implemented',
-    })
-  })
+  .get('/history', () => ({
+    success: true,
+    history: [],
+    message: 'Fee history query not yet implemented - query FeeConfig events on-chain',
+  }))
 
   /**
    * GET /fees/pending
    * Get pending fee changes awaiting execution
-   * TODO: Implement by querying pendingChanges mapping
    */
-  router.get('/pending', async (c) => {
-    // Placeholder - would query blockchain for pending changes
-    return c.json({
-      success: true,
-      pending: [],
-      message: 'Pending changes query not yet implemented',
-    })
-  })
-
-  return router
-}
-
-export default createFeesRouter
-
+  .get('/pending', () => ({
+    success: true,
+    pending: [],
+    message: 'Pending changes query not yet implemented - query pendingChanges mapping on-chain',
+  }))

@@ -13,6 +13,7 @@
 import { existsSync } from 'node:fs'
 import { platform } from 'node:os'
 import { join } from 'node:path'
+import { CORE_PORTS } from '@jejunetwork/config/ports'
 import { execa, type ResultPromise } from 'execa'
 import { logger } from '../lib/logger'
 import { DEFAULT_PORTS } from '../types'
@@ -39,7 +40,7 @@ const CQL_DATA_DIR = '.data/cql'
 // Docker services (excludes CQL which runs natively)
 const DOCKER_SERVICES = {
   ipfs: {
-    port: 5001,
+    port: CORE_PORTS.IPFS_API.DEFAULT,
     healthPath: '/api/v0/id',
     name: 'IPFS',
     container: 'jeju-ipfs',
@@ -630,7 +631,7 @@ export class InfrastructureService {
       L2_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
       JEJU_RPC_URL: `http://127.0.0.1:${LOCALNET_PORT}`,
       CQL_URL: 'http://127.0.0.1:4661',
-      IPFS_API_URL: 'http://127.0.0.1:5001',
+      IPFS_API_URL: `http://127.0.0.1:${CORE_PORTS.IPFS_API.DEFAULT}`,
       DA_URL: 'http://127.0.0.1:4010',
       CACHE_URL: 'http://127.0.0.1:4115',
       CHAIN_ID: '1337',

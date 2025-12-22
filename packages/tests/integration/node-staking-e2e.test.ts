@@ -526,17 +526,5 @@ describe.skipIf(!runE2ETests || !kurtosisAvailable)(
 // Run test if called directly
 if (import.meta.main) {
   console.log('Running Node Rewards E2E Tests...\n')
-
-  const {
-    test: _test,
-    describe: _describe,
-    expect: _expect,
-    beforeAll: _beforeAll,
-    afterAll: _afterAll,
-  } = await import('bun:test')
-
-  // Import test framework
-  const _runner = await import('bun:test')
-
   console.log('\n✅ All E2E tests completed successfully!\n')
 }

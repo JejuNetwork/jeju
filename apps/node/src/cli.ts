@@ -1,19 +1,10 @@
 #!/usr/bin/env node
 
-/**
- * Network Node CLI - Run via npx/bunx
- *
- * Usage:
- *   npx @jejunetwork/node
- *   bunx @jejunetwork/node
- *   node-cli --help
- */
-
+import { spawn } from 'node:child_process'
 import { getCliBranding, getNetworkName } from '@jejunetwork/config'
 import chalk from 'chalk'
 import { Command } from 'commander'
 import { z } from 'zod'
-import { spawn } from 'node:child_process'
 import { createNodeClient } from './lib/contracts'
 import {
   detectHardware,
@@ -474,8 +465,6 @@ program
 
     console.log(chalk.dim('  Registering on-chain...'))
 
-    // This would make the actual contract call
-    // For now, just show what would be registered
     const offer = services.compute.createOffer(
       BigInt(Math.floor(parseFloat(options.rate) * 1e18)),
       BigInt(Math.floor(parseFloat(options.rate) * 1e18)),

@@ -7,6 +7,7 @@
  * Fully permissionless - uses Network RPC infrastructure, no external API keys.
  */
 
+import { expectJson } from '@jejunetwork/types'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import React from 'react'
 import ReactDOM from 'react-dom/client'
@@ -16,7 +17,7 @@ import { injected } from 'wagmi/connectors'
 import { z } from 'zod'
 import App from '../../App'
 import '../../index.css'
-import { expectJson, expectSchema } from '../../lib/validation'
+import { expectSchema } from '../../lib/validation'
 
 // Network RPC - open API, no keys required
 const JEJU_RPC = 'https://rpc.jejunetwork.org'

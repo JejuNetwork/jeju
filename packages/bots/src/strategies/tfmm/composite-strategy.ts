@@ -88,6 +88,13 @@ export class CompositeStrategy extends BaseTFMMStrategy {
     )
   }
 
+  /**
+   * Get current configuration
+   */
+  getConfig(): CompositeConfig {
+    return this.config
+  }
+
   async calculateWeights(ctx: StrategyContext): Promise<WeightCalculation> {
     // Run all strategies
     const [momentumResult, meanRevResult, volResult] = await Promise.all([

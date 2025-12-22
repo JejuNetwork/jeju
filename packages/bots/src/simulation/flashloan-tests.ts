@@ -11,19 +11,19 @@
  * Requires: Anvil (Foundry) for forked mainnet testing
  */
 
-import { spawn, type ChildProcess } from 'node:child_process'
+import { type ChildProcess, spawn } from 'node:child_process'
 import {
+  type Address,
   createPublicClient,
   createWalletClient,
-  http,
-  parseEther,
-  formatEther,
-  type Address,
-  parseAbi,
   encodeFunctionData,
+  formatEther,
+  http,
+  parseAbi,
+  parseEther,
 } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { mainnet, base, arbitrum } from 'viem/chains'
+import { arbitrum, base, mainnet } from 'viem/chains'
 
 // ============ Types ============
 
@@ -88,14 +88,14 @@ const BALANCER_VAULT_ABI = parseAbi([
   'function flashLoan(address recipient, address[] tokens, uint256[] amounts, bytes userData) external',
 ])
 
-const ERC20_ABI = parseAbi([
+const _ERC20_ABI = parseAbi([
   'function balanceOf(address account) external view returns (uint256)',
   'function approve(address spender, uint256 amount) external returns (bool)',
   'function transfer(address to, uint256 amount) external returns (bool)',
 ])
 
 // Flash loan receiver contract bytecode (minimal test receiver)
-const TEST_RECEIVER_BYTECODE = '0x' // Would contain actual bytecode
+const _TEST_RECEIVER_BYTECODE = '0x' // Would contain actual bytecode
 
 // ============ Anvil Manager ============
 
@@ -109,8 +109,10 @@ class AnvilManager {
 
   async start(forkUrl: string, blockNumber?: bigint): Promise<string> {
     const args = [
-      '--fork-url', forkUrl,
-      '--port', this.port.toString(),
+      '--fork-url',
+      forkUrl,
+      '--port',
+      this.port.toString(),
       '--auto-impersonate',
     ]
 
@@ -179,7 +181,7 @@ export class FlashLoanTester {
 
     // Start Anvil with forked mainnet
     this.anvil = new AnvilManager()
-    
+
     let localRpc: string
     try {
       console.log(`Forking ${this.getChainName(this.config.chainId)}...`)
@@ -190,15 +192,19 @@ export class FlashLoanTester {
       console.log(`Anvil running at ${localRpc}`)
     } catch (error) {
       console.error('Failed to start Anvil. Is Foundry installed?')
-      console.error('Install with: curl -L https://foundry.paradigm.xyz | bash && foundryup')
-      return [{
-        testName: 'Anvil Startup',
-        chainId: this.config.chainId,
-        provider: 'aave',
-        success: false,
-        error: String(error),
-        duration: 0,
-      }]
+      console.error(
+        'Install with: curl -L https://foundry.paradigm.xyz | bash && foundryup',
+      )
+      return [
+        {
+          testName: 'Anvil Startup',
+          chainId: this.config.chainId,
+          provider: 'aave',
+          success: false,
+          error: String(error),
+          duration: 0,
+        },
+      ]
     }
 
     try {
@@ -223,7 +229,8 @@ export class FlashLoanTester {
     const testName = 'Aave V3 Flash Loan'
     const startTime = Date.now()
 
-    const aavePool = this.config.aavePoolAddress ?? AAVE_V3_POOLS[this.config.chainId]
+    const aavePool =
+      this.config.aavePoolAddress ?? AAVE_V3_POOLS[this.config.chainId]
     if (!aavePool) {
       this.results.push({
         testName,
@@ -241,8 +248,10 @@ export class FlashLoanTester {
       transport: http(rpcUrl),
     })
 
-    const account = privateKeyToAccount(this.config.testPrivateKey as `0x${string}`)
-    const wallet = createWalletClient({
+    const account = privateKeyToAccount(
+      this.config.testPrivateKey as `0x${string}`,
+    )
+    const _wallet = createWalletClient({
       account,
       chain: this.getChain(this.config.chainId),
       transport: http(rpcUrl),
@@ -275,21 +284,23 @@ export class FlashLoanTester {
       // 4. Check that we paid back amount + premium
 
       // For now, simulate the call
-      const gasEstimate = await client.estimateGas({
-        account: account.address,
-        to: aavePool,
-        data: encodeFunctionData({
-          abi: AAVE_POOL_ABI,
-          functionName: 'flashLoanSimple',
-          args: [
-            account.address, // receiver (should be contract)
-            weth,
-            flashAmount,
-            '0x' as `0x${string}`, // params
-            0, // referral code
-          ],
-        }),
-      }).catch(() => 500000n) // Default estimate if call fails
+      const gasEstimate = await client
+        .estimateGas({
+          account: account.address,
+          to: aavePool,
+          data: encodeFunctionData({
+            abi: AAVE_POOL_ABI,
+            functionName: 'flashLoanSimple',
+            args: [
+              account.address, // receiver (should be contract)
+              weth,
+              flashAmount,
+              '0x' as `0x${string}`, // params
+              0, // referral code
+            ],
+          }),
+        })
+        .catch(() => 500000n) // Default estimate if call fails
 
       this.results.push({
         testName,
@@ -301,7 +312,6 @@ export class FlashLoanTester {
       })
 
       console.log(`   ✅ Gas estimate: ${gasEstimate}`)
-
     } catch (error) {
       this.results.push({
         testName,
@@ -329,7 +339,9 @@ export class FlashLoanTester {
       transport: http(rpcUrl),
     })
 
-    const account = privateKeyToAccount(this.config.testPrivateKey as `0x${string}`)
+    const account = privateKeyToAccount(
+      this.config.testPrivateKey as `0x${string}`,
+    )
 
     try {
       console.log(`\n📋 ${testName}`)
@@ -343,20 +355,22 @@ export class FlashLoanTester {
 
       const flashAmount = parseEther('10')
 
-      const gasEstimate = await client.estimateGas({
-        account: account.address,
-        to: balancerVault,
-        data: encodeFunctionData({
-          abi: BALANCER_VAULT_ABI,
-          functionName: 'flashLoan',
-          args: [
-            account.address,
-            [weth],
-            [flashAmount],
-            '0x' as `0x${string}`,
-          ],
-        }),
-      }).catch(() => 400000n)
+      const gasEstimate = await client
+        .estimateGas({
+          account: account.address,
+          to: balancerVault,
+          data: encodeFunctionData({
+            abi: BALANCER_VAULT_ABI,
+            functionName: 'flashLoan',
+            args: [
+              account.address,
+              [weth],
+              [flashAmount],
+              '0x' as `0x${string}`,
+            ],
+          }),
+        })
+        .catch(() => 400000n)
 
       this.results.push({
         testName,
@@ -368,7 +382,6 @@ export class FlashLoanTester {
       })
 
       console.log(`   ✅ Gas estimate: ${gasEstimate}`)
-
     } catch (error) {
       this.results.push({
         testName,
@@ -399,7 +412,9 @@ export class FlashLoanTester {
 
       // Get current gas price
       const gasPrice = await client.getGasPrice()
-      console.log(`   Current gas price: ${formatEther(gasPrice * 1000000000n)} gwei`)
+      console.log(
+        `   Current gas price: ${formatEther(gasPrice * 1000000000n)} gwei`,
+      )
 
       // Calculate break-even profit for a typical arb
       const typicalGasUsed = 500000n
@@ -408,14 +423,14 @@ export class FlashLoanTester {
 
       // Aave premium (0.05%)
       const flashAmount = parseEther('100')
-      const aavePremium = flashAmount * 5n / 10000n
+      const aavePremium = (flashAmount * 5n) / 10000n
       console.log(`   Aave premium on 100 ETH: ${formatEther(aavePremium)} ETH`)
 
       const totalCost = gasCost + aavePremium
       console.log(`   Total min profit needed: ${formatEther(totalCost)} ETH`)
 
       // Convert to bps relative to flash amount
-      const minProfitBps = Number(totalCost * 10000n / flashAmount)
+      const minProfitBps = Number((totalCost * 10000n) / flashAmount)
       console.log(`   Min profit in bps: ${minProfitBps}`)
 
       this.results.push({
@@ -429,7 +444,6 @@ export class FlashLoanTester {
       })
 
       console.log(`   ✅ Profitability analysis complete`)
-
     } catch (error) {
       this.results.push({
         testName,
@@ -449,7 +463,7 @@ export class FlashLoanTester {
     const testName = 'Gas Estimation Accuracy'
     const startTime = Date.now()
 
-    const client = createPublicClient({
+    const _client = createPublicClient({
       chain: this.getChain(this.config.chainId),
       transport: http(rpcUrl),
     })
@@ -473,7 +487,9 @@ export class FlashLoanTester {
         const buffer = 1.2 // 20% buffer
         const withBuffer = BigInt(Math.floor(Number(op.expectedGas) * buffer))
 
-        console.log(`   ${op.name}: ${op.expectedGas} (buffered: ${withBuffer})`)
+        console.log(
+          `   ${op.name}: ${op.expectedGas} (buffered: ${withBuffer})`,
+        )
 
         // Check if our buffer is reasonable
         if (Number(withBuffer) > 1000000) {
@@ -491,7 +507,6 @@ export class FlashLoanTester {
       })
 
       console.log(`   ✅ Gas estimation validated`)
-
     } catch (error) {
       this.results.push({
         testName,
@@ -507,7 +522,7 @@ export class FlashLoanTester {
   /**
    * Test circuit breaker under high gas conditions
    */
-  private async testCircuitBreaker(rpcUrl: string): Promise<void> {
+  private async testCircuitBreaker(_rpcUrl: string): Promise<void> {
     const testName = 'Circuit Breaker (High Gas)'
     const startTime = Date.now()
 
@@ -537,8 +552,8 @@ export class FlashLoanTester {
         const status = correct ? '✅' : '❌'
         console.log(
           `   ${status} ${scenario.gasGwei} gwei: ` +
-          `${wouldExecute ? 'execute' : 'skip'} ` +
-          `(expected: ${scenario.shouldExecute ? 'execute' : 'skip'})`,
+            `${wouldExecute ? 'execute' : 'skip'} ` +
+            `(expected: ${scenario.shouldExecute ? 'execute' : 'skip'})`,
         )
       }
 
@@ -549,7 +564,6 @@ export class FlashLoanTester {
         success: allPassed,
         duration: Date.now() - startTime,
       })
-
     } catch (error) {
       this.results.push({
         testName,
@@ -566,29 +580,37 @@ export class FlashLoanTester {
 
   private getChain(chainId: number) {
     switch (chainId) {
-      case 1: return mainnet
-      case 8453: return base
-      case 42161: return arbitrum
-      default: return mainnet
+      case 1:
+        return mainnet
+      case 8453:
+        return base
+      case 42161:
+        return arbitrum
+      default:
+        return mainnet
     }
   }
 
   private getChainName(chainId: number): string {
     switch (chainId) {
-      case 1: return 'Ethereum Mainnet'
-      case 8453: return 'Base'
-      case 42161: return 'Arbitrum One'
-      default: return `Chain ${chainId}`
+      case 1:
+        return 'Ethereum Mainnet'
+      case 8453:
+        return 'Base'
+      case 42161:
+        return 'Arbitrum One'
+      default:
+        return `Chain ${chainId}`
     }
   }
 
   private printResults(): void {
-    console.log('\n' + '='.repeat(60))
+    console.log(`\n${'='.repeat(60)}`)
     console.log('FLASH LOAN TEST RESULTS')
     console.log('='.repeat(60))
 
-    const passed = this.results.filter(r => r.success).length
-    const failed = this.results.filter(r => !r.success).length
+    const passed = this.results.filter((r) => r.success).length
+    const failed = this.results.filter((r) => !r.success).length
 
     console.log(`\nPassed: ${passed}/${this.results.length}`)
     console.log(`Failed: ${failed}/${this.results.length}`)
@@ -621,4 +643,3 @@ export async function runFlashLoanTests(
   const tester = new FlashLoanTester(config)
   return tester.runAllTests()
 }
-

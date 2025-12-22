@@ -52,7 +52,11 @@ function parseArgs(): RunnerOptions {
       options.scenario = arg.split('=')[1] ?? 'light'
     } else if (arg.startsWith('--network=')) {
       const network = arg.split('=')[1]
-      if (network === 'localnet' || network === 'testnet' || network === 'mainnet') {
+      if (
+        network === 'localnet' ||
+        network === 'testnet' ||
+        network === 'mainnet'
+      ) {
         options.network = network
       }
     } else if (arg === '--sequential') {
@@ -142,11 +146,15 @@ async function runAppTest(
   return simulator.runTest(config, scenario, network)
 }
 
-async function runTests(options: RunnerOptions): Promise<CombinedLoadTestResult> {
+async function runTests(
+  options: RunnerOptions,
+): Promise<CombinedLoadTestResult> {
   const scenario = SCENARIOS[options.scenario.toUpperCase()]
   if (!scenario) {
     console.error(`Unknown scenario: ${options.scenario}`)
-    console.error(`Available: ${Object.keys(SCENARIOS).join(', ').toLowerCase()}`)
+    console.error(
+      `Available: ${Object.keys(SCENARIOS).join(', ').toLowerCase()}`,
+    )
     process.exit(1)
   }
 
@@ -161,14 +169,14 @@ async function runTests(options: RunnerOptions): Promise<CombinedLoadTestResult>
     configs.push(config)
   }
 
-  console.log('\n' + '═'.repeat(70))
+  console.log(`\n${'═'.repeat(70)}`)
   console.log('  JEJU NETWORK LOAD TESTING')
   console.log('═'.repeat(70))
   console.log(`  Network: ${options.network}`)
   console.log(`  Scenario: ${scenario.name} (${scenario.description})`)
   console.log(`  Apps: ${configs.map((c) => c.name).join(', ')}`)
   console.log(`  Mode: ${options.parallel ? 'Parallel' : 'Sequential'}`)
-  console.log('═'.repeat(70) + '\n')
+  console.log(`${'═'.repeat(70)}\n`)
 
   let results: LoadTestResult[]
 
@@ -236,4 +244,3 @@ main().catch((err) => {
 })
 
 export { runTests }
-

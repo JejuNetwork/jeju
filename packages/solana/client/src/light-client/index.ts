@@ -351,6 +351,3 @@ export function createEVMLightClientClient(
 ): EVMLightClientClient {
   return new EVMLightClientClient(connection, programId)
 }
-
-// Re-export hex/bytes utilities from shared utils for backward compatibility
-export { bytesToHex, hexToBytes } from '../dex/utils'

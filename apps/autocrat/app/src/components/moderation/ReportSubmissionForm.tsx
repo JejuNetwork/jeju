@@ -1,5 +1,3 @@
-'use client'
-
 import { AlertTriangle, FileText, Image, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { parseEther } from 'viem'

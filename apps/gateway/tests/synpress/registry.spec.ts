@@ -4,6 +4,7 @@
  * Tests app registration and discovery.
  */
 
+import { getCoreAppUrl } from '@jejunetwork/config/ports'
 import { testWithSynpress } from '@synthetixio/synpress'
 import { MetaMask, metaMaskFixtures } from '@synthetixio/synpress/playwright'
 import { basicSetup } from '../../synpress.config'
@@ -11,7 +12,7 @@ import { basicSetup } from '../../synpress.config'
 const test = testWithSynpress(metaMaskFixtures(basicSetup))
 const { expect } = test
 
-const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:4001'
+const GATEWAY_URL = process.env.GATEWAY_URL || getCoreAppUrl('GATEWAY')
 
 async function connectAndNavigateToRegistry(
   page: ReturnType<typeof test.extend>['page'] extends Promise<infer P>

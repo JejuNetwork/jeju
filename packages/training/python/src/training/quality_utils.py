@@ -13,16 +13,15 @@ ENHANCED v3:
 """
 
 import re
-import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Literal
 
 from ..models import (
-    BabylonTrajectory,
-    TrajectoryStep,
     Action,
+    BabylonTrajectory,
     EnvironmentState,
+    TrajectoryStep,
 )
 
 if TYPE_CHECKING:
@@ -34,24 +33,19 @@ ARCHETYPE_WEIGHTS: dict[str, dict[str, float]] = {
     "researcher": {"llm_calls": 0.3, "reasoning": 0.45, "action": 0.15, "feedback": 0.1},
     "information-trader": {"llm_calls": 0.3, "reasoning": 0.4, "action": 0.2, "feedback": 0.1},
     "super-predictor": {"llm_calls": 0.3, "reasoning": 0.4, "action": 0.2, "feedback": 0.1},
-
     # Action-heavy archetypes prioritize execution
     "trader": {"llm_calls": 0.3, "reasoning": 0.2, "action": 0.4, "feedback": 0.1},
     "degen": {"llm_calls": 0.2, "reasoning": 0.15, "action": 0.55, "feedback": 0.1},
     "perps-trader": {"llm_calls": 0.25, "reasoning": 0.2, "action": 0.45, "feedback": 0.1},
-
     # Social archetypes prioritize engagement (response quality)
     "social-butterfly": {"llm_calls": 0.35, "reasoning": 0.25, "action": 0.25, "feedback": 0.15},
     "ass-kisser": {"llm_calls": 0.35, "reasoning": 0.3, "action": 0.2, "feedback": 0.15},
     "goody-twoshoes": {"llm_calls": 0.35, "reasoning": 0.3, "action": 0.2, "feedback": 0.15},
-
     # Deceptive archetypes prioritize reasoning (planning deception)
     "scammer": {"llm_calls": 0.25, "reasoning": 0.4, "action": 0.25, "feedback": 0.1},
     "liar": {"llm_calls": 0.25, "reasoning": 0.4, "action": 0.25, "feedback": 0.1},
-
     # Balanced
     "infosec": {"llm_calls": 0.3, "reasoning": 0.3, "action": 0.3, "feedback": 0.1},
-
     # Default
     "default": {"llm_calls": 0.4, "reasoning": 0.3, "action": 0.2, "feedback": 0.1},
 }
@@ -83,12 +77,11 @@ def validate_xml_structure(response: str) -> float:
         return -0.5  # Has wrappers but no decision?
 
     # Check for critical attributes (simple heuristic regex to handle both quote styles)
-    has_ticker = re.search(
-        r'ticker="[^"]+"', response) or re.search(r"ticker='[^']+'", response)
-    has_market = re.search(
-        r'marketId="[^"]+"', response) or re.search(r"marketId='[^']+'", response)
-    has_amount = re.search(
-        r'amount="[^"]+"', response) or re.search(r"amount='[^']+'", response)
+    has_ticker = re.search(r'ticker="[^"]+"', response) or re.search(r"ticker='[^']+'", response)
+    has_market = re.search(r'marketId="[^"]+"', response) or re.search(
+        r"marketId='[^']+'", response
+    )
+    has_amount = re.search(r'amount="[^"]+"', response) or re.search(r"amount='[^']+'", response)
 
     # Need either ticker OR marketId, AND amount
     if (not has_ticker and not has_market) or not has_amount:
@@ -128,12 +121,9 @@ def check_reasoning_action_alignment(
 
     # --- 2. Directional Alignment ---
     # Sentiment indicators
-    bullish_words = ["bullish", "buy", "long",
-                     "upward", "positive", "opportunity", "moon"]
-    bearish_words = ["bearish", "sell", "short",
-                     "downward", "negative", "avoid", "dump"]
-    wait_words = ["wait", "hold", "unclear",
-                  "uncertain", "need more data", "observing"]
+    bullish_words = ["bullish", "buy", "long", "upward", "positive", "opportunity", "moon"]
+    bearish_words = ["bearish", "sell", "short", "downward", "negative", "avoid", "dump"]
+    wait_words = ["wait", "hold", "unclear", "uncertain", "need more data", "observing"]
 
     # Count sentiment
     bullish_score = sum(1 for w in bullish_words if w in reasoning_lower)
@@ -160,10 +150,7 @@ def check_reasoning_action_alignment(
         else:
             score = 0.4
     elif is_wait:
-        if wait_score > 0:
-            score = 0.7
-        else:
-            score = 0.5
+        score = 0.7 if wait_score > 0 else 0.5
 
     # Cap total at 1.0
     return min(1.0, score + literacy_bonus)
@@ -180,19 +167,26 @@ def check_reasoning_coherence(reasoning_text: str) -> float:
     text = reasoning_text
 
     # Check for structure (numbered lists, bullet points)
-    if re.search(r'(\d+[\.\):]|\-|\*|\•)', text):
+    if re.search(r"(\d+[\.\):]|\-|\*|\•)", text):
         score += 0.25
 
     # Check for conclusion markers
     conclusion_markers = [
-        "therefore", "conclusion", "decision", "recommend",
-        "suggest", "final", "result", "action:", "execute"
+        "therefore",
+        "conclusion",
+        "decision",
+        "recommend",
+        "suggest",
+        "final",
+        "result",
+        "action:",
+        "execute",
     ]
     if any(marker in text.lower() for marker in conclusion_markers):
         score += 0.25
 
     # Check sentence count (2-10 sentences is ideal)
-    sentences = text.split('. ')
+    sentences = text.split(". ")
     if 2 <= len(sentences) <= 10:
         score += 0.2
     elif len(sentences) > 10:
@@ -210,7 +204,7 @@ def check_reasoning_coherence(reasoning_text: str) -> float:
         score += 0.1
 
     # Check for numeric analysis (prices, percentages)
-    if re.search(r'\$?\d+(?:\.\d+)?(?:%|k|K|M)?', text):
+    if re.search(r"\$?\d+(?:\.\d+)?(?:%|k|K|M)?", text):
         score += 0.15  # Contains quantitative analysis
 
     return min(max(score, 0.0), 1.0)
@@ -249,8 +243,7 @@ def calculate_detailed_tick_quality(
     full_reasoning = " ".join(reasoning_texts)
 
     if full_reasoning:
-        reasoning_score = check_reasoning_action_alignment(
-            full_reasoning, action)
+        reasoning_score = check_reasoning_action_alignment(full_reasoning, action)
         # Coherence boost
         reasoning_score += check_reasoning_coherence(full_reasoning) * 0.2
 
@@ -267,12 +260,10 @@ def calculate_tick_quality_score(
     Calculate quality score for a single tick (0-1).
     Legacy wrapper that returns a single float to maintain API compatibility.
     """
-    weights = ARCHETYPE_WEIGHTS.get(
-        archetype or "default", ARCHETYPE_WEIGHTS["default"])
+    weights = ARCHETYPE_WEIGHTS.get(archetype or "default", ARCHETYPE_WEIGHTS["default"])
 
     # Get detailed scores
-    fmt, rsn = calculate_detailed_tick_quality(
-        llm_calls, action, feedback, archetype)
+    fmt, rsn = calculate_detailed_tick_quality(llm_calls, action, feedback, archetype)
 
     # Calculate action score separately as before
     action_score = 0.0
@@ -294,10 +285,10 @@ def calculate_tick_quality_score(
     normalized_format = (fmt + 1.0) / 1.5
 
     total_score = (
-        normalized_format * weights["llm_calls"] +
-        rsn * weights["reasoning"] +
-        action_score * weights["action"] +
-        feedback_score * weights["feedback"]
+        normalized_format * weights["llm_calls"]
+        + rsn * weights["reasoning"]
+        + action_score * weights["action"]
+        + feedback_score * weights["feedback"]
     )
 
     return min(1.0, max(0.0, total_score))
@@ -309,6 +300,7 @@ CurriculumLevel = Literal["easy", "medium", "hard"]
 @dataclass
 class TrajectoryDifficulty:
     """Trajectory difficulty assessment for curriculum learning"""
+
     level: CurriculumLevel
     score: float  # 0-1, higher = harder
     reasons: list[str]
@@ -410,10 +402,11 @@ def assess_trajectory_difficulty(
     for tick in ticks:
         if tick.action:
             curr = tick.action.action_type
-            if prev_action:
-                if (prev_action in ["buy", "long"] and curr in ["sell", "short"]) or \
-                   (prev_action in ["sell", "short"] and curr in ["buy", "long"]):
-                    reversals += 1
+            if prev_action and (
+                (prev_action in ["buy", "long"] and curr in ["sell", "short"])
+                or (prev_action in ["sell", "short"] and curr in ["buy", "long"])
+            ):
+                reversals += 1
             prev_action = curr
 
     if reversals >= 2:
@@ -424,16 +417,15 @@ def assess_trajectory_difficulty(
 
     # Factor 5: Reasoning depth required
     total_reasoning_len = sum(
-        sum(len(c.reasoning or "") for c in tick.llm_calls) +
-        len((tick.action.reasoning or "") if tick.action else "")
+        sum(len(c.reasoning or "") for c in tick.llm_calls)
+        + len((tick.action.reasoning or "") if tick.action else "")
         for tick in ticks
     )
 
     avg_reasoning = total_reasoning_len / len(ticks) if ticks else 0
     if avg_reasoning > 200:
         difficulty_score += 0.2
-        reasons.append(
-            f"Deep reasoning required (avg {avg_reasoning:.0f} chars)")
+        reasons.append(f"Deep reasoning required (avg {avg_reasoning:.0f} chars)")
     elif avg_reasoning > 100:
         difficulty_score += 0.1
 
@@ -483,7 +475,8 @@ def build_trajectory_from_ticks(
             environment_state=tick.environment_state,
             provider_accesses=[],
             llm_calls=tick.llm_calls,
-            action=tick.action or Action(
+            action=tick.action
+            or Action(
                 action_type="wait",
                 parameters={},
                 success=True,
@@ -499,15 +492,14 @@ def build_trajectory_from_ticks(
 
     # Count trades and posts
     trades_executed = sum(
-        1 for t in ticks
-        if t.action and t.action.action_type in [
-            "buy", "sell", "buy_prediction", "sell_prediction",
-            "open_perp", "close_perp"
-        ]
+        1
+        for t in ticks
+        if t.action
+        and t.action.action_type
+        in ["buy", "sell", "buy_prediction", "sell_prediction", "open_perp", "close_perp"]
     )
     posts_created = sum(
-        1 for t in ticks
-        if t.action and t.action.action_type in ["create_post", "post"]
+        1 for t in ticks if t.action and t.action.action_type in ["create_post", "post"]
     )
 
     now = datetime.now(timezone.utc)
@@ -517,10 +509,8 @@ def build_trajectory_from_ticks(
         trajectory_id=trajectory_id,
         agent_id=agent_id,
         window_id=now.strftime("%Y-%m-%dT%H:00"),
-        start_time=datetime.fromtimestamp(
-            ticks[0].timestamp / 1000, tz=timezone.utc),
-        end_time=datetime.fromtimestamp(
-            ticks[-1].timestamp / 1000, tz=timezone.utc),
+        start_time=datetime.fromtimestamp(ticks[0].timestamp / 1000, tz=timezone.utc),
+        end_time=datetime.fromtimestamp(ticks[-1].timestamp / 1000, tz=timezone.utc),
         duration_ms=ticks[-1].timestamp - ticks[0].timestamp,
         steps=steps,
         total_reward=total_reward,
@@ -557,8 +547,7 @@ def state_to_env_state(game_state: dict, agent_id: str) -> EnvironmentState:
     return EnvironmentState(
         agent_balance=portfolio.get("balance", 10000.0),
         agentPnL=portfolio.get("pnl", 0.0),
-        open_positions=portfolio.get(
-            "positionCount", portfolio.get("positions", 0)),
+        open_positions=portfolio.get("positionCount", portfolio.get("positions", 0)),
         active_markets=len(game_state.get("predictionMarkets", [])),
     )
 
@@ -566,6 +555,7 @@ def state_to_env_state(game_state: dict, agent_id: str) -> EnvironmentState:
 @dataclass
 class ValidationResult:
     """Result of rollout validation"""
+
     is_valid: bool
     issues: list[str]
     quality_score: float
@@ -606,8 +596,7 @@ def validate_trajectory_quality(
     ticks_with_calls = sum(1 for t in ticks if t.llm_calls)
     call_coverage = ticks_with_calls / len(ticks)
     if call_coverage < min_llm_calls_per_tick:
-        issues.append(
-            f"Low LLM call coverage: {call_coverage:.1%} < {min_llm_calls_per_tick:.1%}")
+        issues.append(f"Low LLM call coverage: {call_coverage:.1%} < {min_llm_calls_per_tick:.1%}")
 
     # Check for empty LLM calls
     empty_calls = 0
@@ -623,8 +612,7 @@ def validate_trajectory_quality(
     quality_score = calculate_trajectory_quality_score(ticks)
 
     if quality_score < min_quality_score:
-        issues.append(
-            f"Quality score too low: {quality_score:.2f} < {min_quality_score}")
+        issues.append(f"Quality score too low: {quality_score:.2f} < {min_quality_score}")
 
     return ValidationResult(
         is_valid=len(issues) == 0,

@@ -300,9 +300,6 @@ export function getSolanaChains(mainnetOnly = true): ChainConfig[] {
   return chains.filter((c) => c.chainType === 'solana')
 }
 
-// Deprecated: Use getSolanaChains instead
-export const getSVMChains = getSolanaChains
-
 export function getHomeChain(mainnetOnly = true): ChainConfig {
   const chains = mainnetOnly ? MAINNET_CHAINS : ALL_CHAINS
   const home = chains.find((c) => c.isHomeChain)

@@ -1,5 +1,3 @@
-'use client'
-
 import { useCallback, useState } from 'react'
 import { type Address, formatUnits } from 'viem'
 import {

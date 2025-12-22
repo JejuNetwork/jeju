@@ -45,6 +45,14 @@ export {
   parseGetCodeResponse,
 }
 
+// Re-export JSON-RPC types from @jejunetwork/types
+export type {
+  JsonRpcErrorResponse,
+  JsonRpcRequest,
+  JsonRpcResponse,
+  JsonRpcSuccessResponse,
+} from '@jejunetwork/types'
+
 // ============================================================================
 // Additional Address & Hash Schemas (extend shared schemas)
 // ============================================================================
@@ -248,14 +256,6 @@ export const SetupInfoSchema = z.object({
 // ============================================================================
 // Type Exports
 // ============================================================================
-
-// Re-export JSON-RPC types from @jejunetwork/types
-export type {
-  JsonRpcErrorResponse,
-  JsonRpcRequest,
-  JsonRpcResponse,
-  JsonRpcSuccessResponse,
-} from '@jejunetwork/types'
 
 // Local types
 export type Address = z.infer<typeof AddressSchema>

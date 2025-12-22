@@ -13,9 +13,6 @@ import type { Address, Hex } from 'viem'
 /** Supported chain identifiers - combines EVM and Solana */
 export type ChainId = EVMChainId | SolanaNetwork
 
-// Re-export consolidated chain types
-export type { ChainType, EVMChainId, SolanaNetwork }
-
 /** Chain configuration for deployment */
 export interface ChainConfig {
   chainId: ChainId

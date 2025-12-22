@@ -46,6 +46,13 @@ function safeParsePort(
 // ============================================================================
 
 export const CORE_PORTS = {
+  /** Block Explorer - Blockchain explorer UI */
+  EXPLORER: {
+    DEFAULT: 4000,
+    ENV_VAR: 'EXPLORER_PORT',
+    get: () => safeParsePort(process.env.EXPLORER_PORT, 4000),
+  },
+
   /** Gateway Portal - Bridge tokens, deploy paymasters, earn LP rewards */
   GATEWAY: {
     DEFAULT: 4001,
@@ -78,6 +85,13 @@ export const CORE_PORTS = {
     get: () => safeParsePort(process.env.DOCUMENTATION_PORT, 4004),
   },
 
+  /** Documentation A2A - Agent-to-Agent protocol for docs search */
+  DOCUMENTATION_A2A: {
+    DEFAULT: 7778,
+    ENV_VAR: 'DOCUMENTATION_A2A_PORT',
+    get: () => safeParsePort(process.env.DOCUMENTATION_A2A_PORT, 7778),
+  },
+
   /** Predimarket - Prediction market platform */
   PREDIMARKET: {
     DEFAULT: 4005,
@@ -92,11 +106,18 @@ export const CORE_PORTS = {
     get: () => safeParsePort(process.env.BAZAAR_PORT, 4006),
   },
 
+  /** Bazaar API - Bazaar backend API server */
+  BAZAAR_API: {
+    DEFAULT: 4007,
+    ENV_VAR: 'BAZAAR_API_PORT',
+    get: () => safeParsePort(process.env.BAZAAR_API_PORT, 4007),
+  },
+
   /** Compute Marketplace - Decentralized AI inference marketplace */
   COMPUTE: {
-    DEFAULT: 4007,
+    DEFAULT: 4015,
     ENV_VAR: 'COMPUTE_PORT',
-    get: () => safeParsePort(process.env.COMPUTE_PORT, 4007),
+    get: () => safeParsePort(process.env.COMPUTE_PORT, 4015),
   },
 
   /** Compute Node API - Provider node endpoint */
@@ -120,11 +141,39 @@ export const CORE_PORTS = {
     get: () => safeParsePort(process.env.IPFS_NODE_PORT, 4100),
   },
 
+  /** IPFS API - Standard Kubo HTTP API (port 5001) for local development */
+  IPFS_API: {
+    DEFAULT: 5001,
+    ENV_VAR: 'IPFS_API_PORT',
+    get: () => safeParsePort(process.env.IPFS_API_PORT, 5001),
+  },
+
   /** Indexer GraphQL - Subsquid data indexing */
   INDEXER_GRAPHQL: {
     DEFAULT: 4350,
     ENV_VAR: 'INDEXER_GRAPHQL_PORT',
     get: () => safeParsePort(process.env.INDEXER_GRAPHQL_PORT, 4350),
+  },
+
+  /** Indexer A2A - Agent-to-Agent protocol endpoint */
+  INDEXER_A2A: {
+    DEFAULT: 4351,
+    ENV_VAR: 'INDEXER_A2A_PORT',
+    get: () => safeParsePort(process.env.INDEXER_A2A_PORT, 4351),
+  },
+
+  /** Indexer REST - REST API endpoint */
+  INDEXER_REST: {
+    DEFAULT: 4352,
+    ENV_VAR: 'INDEXER_REST_PORT',
+    get: () => safeParsePort(process.env.INDEXER_REST_PORT, 4352),
+  },
+
+  /** Indexer MCP - Model Context Protocol endpoint */
+  INDEXER_MCP: {
+    DEFAULT: 4353,
+    ENV_VAR: 'INDEXER_MCP_PORT',
+    get: () => safeParsePort(process.env.INDEXER_MCP_PORT, 4353),
   },
 
   /** Indexer Database - PostgreSQL */
@@ -153,6 +202,13 @@ export const CORE_PORTS = {
     DEFAULT: 4011,
     ENV_VAR: 'OIF_AGGREGATOR_PORT',
     get: () => safeParsePort(process.env.OIF_AGGREGATOR_PORT, 4011),
+  },
+
+  /** RPC Gateway - Load-balanced RPC endpoint */
+  RPC_GATEWAY: {
+    DEFAULT: 4012,
+    ENV_VAR: 'RPC_GATEWAY_PORT',
+    get: () => safeParsePort(process.env.RPC_GATEWAY_PORT, 4012),
   },
 
   /** Crucible API - Bot execution and strategy platform */
@@ -265,6 +321,27 @@ export const CORE_PORTS = {
     DEFAULT: 4090,
     ENV_VAR: 'LEADERBOARD_PORT',
     get: () => safeParsePort(process.env.LEADERBOARD_PORT, 4090),
+  },
+
+  /** Babylon Web Frontend - Social prediction platform */
+  BABYLON_WEB: {
+    DEFAULT: 5008,
+    ENV_VAR: 'BABYLON_WEB_PORT',
+    get: () => safeParsePort(process.env.BABYLON_WEB_PORT, 5008),
+  },
+
+  /** Babylon API - Social prediction backend */
+  BABYLON_API: {
+    DEFAULT: 5009,
+    ENV_VAR: 'BABYLON_API_PORT',
+    get: () => safeParsePort(process.env.BABYLON_API_PORT, 5009),
+  },
+
+  /** Monitoring - Infrastructure monitoring service */
+  MONITORING: {
+    DEFAULT: 3002,
+    ENV_VAR: 'MONITORING_PORT',
+    get: () => safeParsePort(process.env.MONITORING_PORT, 3002),
   },
 } as const
 
@@ -615,10 +692,26 @@ export function getL2WsUrl(): string {
   const port = INFRA_PORTS.L2_WS.get()
   const host = process.env.RPC_HOST || '127.0.0.1'
   return `ws://${host}:${port}`
-} /**
+}
+
+/**
  * Alias for getL2RpcUrl - the "default" Jeju RPC
  */
-export const getJejuRpcUrl = getL2RpcUrl /**
+export const getJejuRpcUrl = getL2RpcUrl
+
+/**
+ * Get the IPFS API URL (Kubo daemon HTTP API)
+ * Respects environment variable overrides: IPFS_API_URL, then IPFS_API_PORT
+ * Default: http://127.0.0.1:5001
+ */
+export function getIpfsApiUrl(): string {
+  if (process.env.IPFS_API_URL) return process.env.IPFS_API_URL
+  const port = CORE_PORTS.IPFS_API.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
  * Check if a URL points to localnet
  */
 export function isLocalnet(rpcUrl: string): boolean {
@@ -630,4 +723,119 @@ export function isLocalnet(rpcUrl: string): boolean {
     rpcUrl.includes(`:${l1Port}`) ||
     rpcUrl.includes(`:${l2Port}`)
   )
+}
+
+// ============================================================================
+// Service URL Helpers
+// ============================================================================
+
+/**
+ * Get the Indexer GraphQL URL
+ */
+export function getIndexerGraphqlUrl(): string {
+  if (process.env.INDEXER_GRAPHQL_URL) return process.env.INDEXER_GRAPHQL_URL
+  const port = CORE_PORTS.INDEXER_GRAPHQL.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}/graphql`
+}
+
+/**
+ * Get the Indexer REST API URL
+ */
+export function getIndexerRestUrl(): string {
+  if (process.env.INDEXER_REST_URL) return process.env.INDEXER_REST_URL
+  const port = CORE_PORTS.INDEXER_REST.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}/api`
+}
+
+/**
+ * Get the Indexer A2A URL
+ */
+export function getIndexerA2AUrl(): string {
+  if (process.env.INDEXER_A2A_URL) return process.env.INDEXER_A2A_URL
+  const port = CORE_PORTS.INDEXER_A2A.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}/api/a2a`
+}
+
+/**
+ * Get the Indexer MCP URL
+ */
+export function getIndexerMcpUrl(): string {
+  if (process.env.INDEXER_MCP_URL) return process.env.INDEXER_MCP_URL
+  const port = CORE_PORTS.INDEXER_MCP.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
+ * Get the RPC Gateway URL
+ */
+export function getRpcGatewayUrl(): string {
+  if (process.env.RPC_GATEWAY_URL) return process.env.RPC_GATEWAY_URL
+  const port = CORE_PORTS.RPC_GATEWAY.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
+ * Get the IPFS service URL (x402 storage service)
+ */
+export function getIpfsUrl(): string {
+  if (process.env.IPFS_URL) return process.env.IPFS_URL
+  const port = CORE_PORTS.IPFS.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
+ * Get the OIF Aggregator URL
+ */
+export function getOifAggregatorUrl(): string {
+  if (process.env.OIF_AGGREGATOR_URL) return process.env.OIF_AGGREGATOR_URL
+  const port = CORE_PORTS.OIF_AGGREGATOR.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}/api`
+}
+
+/**
+ * Get the Leaderboard API URL
+ */
+export function getLeaderboardUrl(): string {
+  if (process.env.LEADERBOARD_URL) return process.env.LEADERBOARD_URL
+  const port = CORE_PORTS.LEADERBOARD_API.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
+ * Get the Explorer URL
+ */
+export function getExplorerUrl(): string {
+  if (process.env.EXPLORER_URL) return process.env.EXPLORER_URL
+  const port = CORE_PORTS.EXPLORER.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
+}
+
+/**
+ * Get the Documentation A2A URL
+ */
+export function getDocumentationA2AUrl(): string {
+  if (process.env.DOCUMENTATION_A2A_URL)
+    return process.env.DOCUMENTATION_A2A_URL
+  const port = CORE_PORTS.DOCUMENTATION_A2A.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}/api/a2a`
+}
+
+/**
+ * Get the OAuth3 API URL
+ */
+export function getOAuth3Url(): string {
+  if (process.env.OAUTH3_URL) return process.env.OAUTH3_URL
+  const port = CORE_PORTS.OAUTH3_API.get()
+  const host = process.env.HOST || '127.0.0.1'
+  return `http://${host}:${port}`
 }

@@ -40,7 +40,10 @@ export default function App() {
         <Route path="/compute/workers" element={<WorkersPage />} />
         <Route path="/compute/jobs" element={<JobsPage />} />
         <Route path="/compute/training" element={<TrainingPage />} />
-        <Route path="/compute/infrastructure" element={<InfrastructurePage />} />
+        <Route
+          path="/compute/infrastructure"
+          element={<InfrastructurePage />}
+        />
 
         {/* Storage */}
         <Route path="/storage/buckets" element={<BucketsPage />} />

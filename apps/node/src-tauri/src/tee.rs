@@ -36,24 +36,27 @@ impl TeeAttestor {
         #[cfg(target_os = "linux")]
         {
             // Check for Intel TDX
-            if std::path::Path::new("/dev/tdx_guest").exists() ||
-               std::path::Path::new("/dev/tdx-guest").exists() {
+            if std::path::Path::new("/dev/tdx_guest").exists()
+                || std::path::Path::new("/dev/tdx-guest").exists()
+            {
                 return TeeType::IntelTdx;
             }
-            
+
             // Check for Intel SGX
-            if std::path::Path::new("/dev/sgx_enclave").exists() ||
-               std::path::Path::new("/dev/isgx").exists() {
+            if std::path::Path::new("/dev/sgx_enclave").exists()
+                || std::path::Path::new("/dev/isgx").exists()
+            {
                 return TeeType::IntelSgx;
             }
-            
+
             // Check for AMD SEV
-            if std::path::Path::new("/dev/sev").exists() ||
-               std::path::Path::new("/dev/sev-guest").exists() {
+            if std::path::Path::new("/dev/sev").exists()
+                || std::path::Path::new("/dev/sev-guest").exists()
+            {
                 return TeeType::AmdSev;
             }
         }
-        
+
         TeeType::None
     }
 
@@ -81,22 +84,22 @@ impl TeeAttestor {
         // 2. Generate report data
         // 3. Request quote from QGS
         // 4. Return the attestation
-        
+
         #[cfg(target_os = "linux")]
         {
             use std::fs::File;
             use std::io::{Read, Write};
-            
+
             // Try to open TDX device
             let device_path = if std::path::Path::new("/dev/tdx_guest").exists() {
                 "/dev/tdx_guest"
             } else {
                 "/dev/tdx-guest"
             };
-            
+
             // Generate random report data
             let report_data: [u8; 64] = rand::random();
-            
+
             // For now, return a placeholder
             // Real implementation would use ioctl to get quote
             return Ok(AttestationReport {
@@ -107,7 +110,7 @@ impl TeeAttestor {
                 verified: false,
             });
         }
-        
+
         #[cfg(not(target_os = "linux"))]
         Err("TDX only available on Linux".to_string())
     }
@@ -132,7 +135,7 @@ impl TeeAttestor {
         // 1. Verify the quote signature
         // 2. Check the measurement against expected values
         // 3. Verify the timestamp is recent
-        
+
         Ok(report.verified)
     }
 }
@@ -142,4 +145,3 @@ impl Default for TeeAttestor {
         Self::new()
     }
 }
-

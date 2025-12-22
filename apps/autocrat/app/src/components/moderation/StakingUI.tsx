@@ -1,5 +1,3 @@
-'use client'
-
 import { AlertCircle, Award, Shield, TrendingUp } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { formatEther, parseEther } from 'viem'

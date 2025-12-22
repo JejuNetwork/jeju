@@ -8,7 +8,6 @@ import {
   BanChecker,
   type BanCheckResult,
 } from '@jejunetwork/shared'
-import type { Context, Next } from 'hono'
 import type { Address } from 'viem'
 import { z } from 'zod'
 
@@ -52,37 +51,57 @@ if (BAN_MANAGER_ADDRESS) {
   checker = new BanChecker(config)
 }
 
+interface BanResponse {
+  error: string
+  message: string
+  banType: number | undefined
+  caseId: `0x${string}` | null | undefined
+  canAppeal: boolean | undefined
+}
+
+interface ElysiaContext {
+  request: Request
+  set: { status?: number | string }
+}
+
 /**
- * Hono middleware that checks ban status
+ * Elysia middleware that checks ban status
  */
 export function banCheckMiddleware() {
-  return async (c: Context, next: Next) => {
+  return async (ctx: ElysiaContext): Promise<BanResponse | undefined> => {
+    const { request, set } = ctx
     // Skip if no ban manager configured (local dev)
     if (!checker) {
-      return next()
+      return undefined
     }
 
+    const url = new URL(request.url)
+    const path = url.pathname
+
     // Skip certain paths
-    if (SKIP_PATHS.some((path) => c.req.path.startsWith(path))) {
-      return next()
+    if (SKIP_PATHS.some((skipPath) => path.startsWith(skipPath))) {
+      return undefined
     }
 
     // Extract address from various sources
-    let address = c.req.header('x-wallet-address') || c.req.query('address')
+    let address: string | null =
+      request.headers.get('x-wallet-address') ?? url.searchParams.get('address')
 
     if (!address) {
       // Try to get from JSON body with schema validation
-      const contentType = c.req.header('content-type') || ''
+      const contentType = request.headers.get('content-type') ?? ''
       if (contentType.includes('application/json')) {
-        const rawBody = await c.req.json().catch(() => null)
+        const clonedRequest = request.clone()
+        const rawBody = await clonedRequest.json().catch(() => null)
         if (rawBody !== null) {
           const parsed = AddressBodySchema.safeParse(rawBody)
           if (parsed.success) {
             address =
-              parsed.data.address ||
-              parsed.data.from ||
-              parsed.data.sender ||
-              parsed.data.agentOwner
+              parsed.data.address ??
+              parsed.data.from ??
+              parsed.data.sender ??
+              parsed.data.agentOwner ??
+              null
           }
         }
       }
@@ -90,31 +109,29 @@ export function banCheckMiddleware() {
 
     // No address to check - allow through
     if (!address) {
-      return next()
+      return undefined
     }
 
     // Validate address format
     if (!/^0x[a-fA-F0-9]{40}$/.test(address)) {
-      return next()
+      return undefined
     }
 
     const result = await checker.checkBan(address as Address)
 
     if (!result.allowed) {
-      return c.json(
-        {
-          error: 'BANNED',
-          message:
-            result.status?.reason || 'User is banned from Crucible services',
-          banType: result.status?.banType,
-          caseId: result.status?.caseId,
-          canAppeal: result.status?.canAppeal,
-        },
-        403,
-      )
+      set.status = 403
+      return {
+        error: 'BANNED',
+        message:
+          result.status?.reason ?? 'User is banned from Crucible services',
+        banType: result.status?.banType,
+        caseId: result.status?.caseId,
+        canAppeal: result.status?.canAppeal,
+      }
     }
 
-    return next()
+    return undefined
   }
 }
 

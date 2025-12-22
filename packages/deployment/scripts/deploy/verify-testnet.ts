@@ -19,6 +19,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { type Address, createPublicClient, http } from 'viem'
 import { baseSepolia } from 'viem/chains'
+import { CIDUploadResponseSchema, expectValid } from '../../schemas'
 
 // ============================================================================
 // Configuration
@@ -262,7 +263,12 @@ class TestnetVerifier {
       return
     }
 
-    const uploadResult = (await uploadResponse.json()) as { cid: string }
+    const uploadResultRaw = await uploadResponse.json()
+    const uploadResult = expectValid(
+      CIDUploadResponseSchema,
+      uploadResultRaw,
+      'upload response',
+    )
     this.addResult(
       'Storage',
       'Upload',

@@ -200,21 +200,13 @@ describeOrSkip('PoolService', () => {
   describe('getSwapQuote', () => {
     test('throws validation error when amountIn is zero', async () => {
       await expect(
-        poolService?.getSwapQuote(
-          TEST_ADDRESS_1,
-          TEST_ADDRESS_2,
-          '0',
-        )
+        poolService?.getSwapQuote(TEST_ADDRESS_1, TEST_ADDRESS_2, '0'),
       ).rejects.toThrow(/positive number/)
     })
 
     test('throws validation error when amountIn is negative string', async () => {
       await expect(
-        poolService?.getSwapQuote(
-          TEST_ADDRESS_1,
-          TEST_ADDRESS_2,
-          '-1',
-        )
+        poolService?.getSwapQuote(TEST_ADDRESS_1, TEST_ADDRESS_2, '-1'),
       ).rejects.toThrow(/positive number/)
     })
 

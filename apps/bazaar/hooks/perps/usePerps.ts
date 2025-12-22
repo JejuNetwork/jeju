@@ -1,5 +1,3 @@
-'use client'
-
 import { AddressSchema } from '@jejunetwork/types'
 import { useCallback, useMemo, useState } from 'react'
 import type { Address, Hash } from 'viem'
@@ -13,7 +11,6 @@ import {
 import { CONTRACTS } from '../../config'
 import { expect, expectPositive, expectTrue } from '../../lib/validation'
 
-// Re-export types and formatters from lib for backwards compatibility
 export {
   calculateCurrentLeverage,
   calculateFee,
@@ -55,7 +52,6 @@ export {
   validatePositionParams,
 } from '../../lib/perps'
 
-// Re-export types from schemas
 export type {
   FormattedPnL,
   OpenInterest,

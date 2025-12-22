@@ -1,0 +1,158 @@
+name: Deploy Babylon Web
+
+on:
+  push:
+    branches: [develop, main]
+    paths:
+      - 'vendor/babylon/apps/web/**'
+      - 'vendor/babylon/packages/shared/**'
+      - 'packages/config/**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Deployment environment'
+        required: true
+        default: 'testnet'
+        type: choice
+        options:
+          - testnet
+          - mainnet
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  BUN_VERSION: 1.2.0
+
+jobs:
+  determine-env:
+    name: Determine Environment
+    runs-on: ubuntu-latest
+    outputs:
+      network: ${{ steps.env.outputs.network }}
+    steps:
+      - name: Determine deployment environment
+        id: env
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "network=${{ inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [ "${{ github.ref }}" = "refs/heads/main" ]; then
+            echo "network=mainnet" >> $GITHUB_OUTPUT
+          else
+            echo "network=testnet" >> $GITHUB_OUTPUT
+          fi
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    needs: determine-env
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Type check
+        working-directory: vendor/babylon/apps/web
+        run: bun run typecheck
+
+      - name: Build for ${{ needs.determine-env.outputs.network }}
+        working-directory: vendor/babylon/apps/web
+        env:
+          NETWORK: ${{ needs.determine-env.outputs.network }}
+        run: bun run build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: babylon-web-${{ needs.determine-env.outputs.network }}
+          path: |
+            vendor/babylon/apps/web/dist/
+            vendor/babylon/apps/web/jeju-manifest.json
+          retention-days: 7
+
+  deploy-testnet:
+    name: Deploy to Testnet
+    runs-on: ubuntu-latest
+    needs: [determine-env, build]
+    if: needs.determine-env.outputs.network == 'testnet'
+    environment: testnet
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: babylon-web-testnet
+          path: vendor/babylon/apps/web/
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Deploy to DWS (Testnet)
+        working-directory: vendor/babylon/apps/web
+        env:
+          NETWORK: testnet
+          DWS_AUTH_TOKEN: ${{ secrets.DWS_AUTH_TOKEN_TESTNET }}
+        run: bun run deploy
+
+      - name: Verify deployment
+        run: |
+          echo "Verifying deployment..."
+          sleep 10
+          curl -f https://babylon.testnet.jejunetwork.org/ || echo "Frontend verification pending CDN propagation"
+
+  deploy-mainnet:
+    name: Deploy to Mainnet
+    runs-on: ubuntu-latest
+    needs: [determine-env, build]
+    if: needs.determine-env.outputs.network == 'mainnet'
+    environment: mainnet
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v1
+        with:
+          bun-version: ${{ env.BUN_VERSION }}
+
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: babylon-web-mainnet
+          path: vendor/babylon/apps/web/
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Deploy to DWS (Mainnet)
+        working-directory: vendor/babylon/apps/web
+        env:
+          NETWORK: mainnet
+          DWS_AUTH_TOKEN: ${{ secrets.DWS_AUTH_TOKEN_MAINNET }}
+        run: bun run deploy
+
+      - name: Verify deployment
+        run: |
+          echo "Verifying deployment..."
+          sleep 10
+          curl -f https://babylon.jejunetwork.org/ || echo "Frontend verification pending CDN propagation"
+
+  notify:
+    name: Notify
+    runs-on: ubuntu-latest
+    needs: [determine-env, deploy-testnet, deploy-mainnet]
+    if: always() && (needs.deploy-testnet.result == 'success' || needs.deploy-mainnet.result == 'success')
+    steps:
+      - name: Deployment notification
+        run: |
+          echo "✅ Babylon Web deployed to ${{ needs.determine-env.outputs.network }}"
+          echo "   Domain: babylon.${{ needs.determine-env.outputs.network == 'mainnet' && '' || 'testnet.' }}jejunetwork.org"

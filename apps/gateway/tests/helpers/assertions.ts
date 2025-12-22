@@ -17,10 +17,7 @@ export async function assertTokenDisplay(page: Page, symbol: string) {
  * Assert that all protocol tokens are displayed
  */
 export async function assertAllProtocolTokens(page: Page) {
-  await assertTokenDisplay(page, 'elizaOS')
-  await assertTokenDisplay(page, 'CLANKER')
-  await assertTokenDisplay(page, 'VIRTUAL')
-  await assertTokenDisplay(page, 'CLANKERMON')
+  await assertTokenDisplay(page, 'JEJU')
 }
 
 /**

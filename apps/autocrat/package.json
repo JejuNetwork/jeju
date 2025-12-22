@@ -26,7 +26,6 @@
     "@jejunetwork/eliza-plugin": "workspace:*",
     "ai": "^5.0.52",
     "elysia": "^1.4.19",
-    "hono": "4.11.1",
     "viem": "2.43.3",
     "zod": "^4.1.13"
   },

@@ -7,7 +7,6 @@ import { AddressSchema } from './validation'
 
 /**
  * Transaction execution status
- * Consolidates all transaction status definitions across the codebase
  */
 export type TransactionStatus =
   | 'pending' // Transaction created but not yet submitted

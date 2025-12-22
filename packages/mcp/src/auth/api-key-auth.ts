@@ -5,13 +5,15 @@
  * Implementations should provide their own validation logic.
  */
 
+import type { JsonValue } from '../types/mcp'
+
 /**
  * Result of API key validation
  */
 export interface ApiKeyValidationResult {
   userId: string
   agentId?: string
-  metadata?: Record<string, unknown>
+  metadata?: Record<string, JsonValue>
 }
 
 /**

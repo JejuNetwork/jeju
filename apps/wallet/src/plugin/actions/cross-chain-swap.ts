@@ -4,7 +4,8 @@
  * Performs bridgeless cross-chain swaps using EIL.
  */
 
-import { expectChainId, expectNonEmpty } from '../../lib/validation'
+import { expectChainId } from '@jejunetwork/types'
+import { expectNonEmpty } from '../../lib/validation'
 import type { EILService } from '../services/eil.service'
 import type { ActionContext, ActionResult } from './wallet-info'
 

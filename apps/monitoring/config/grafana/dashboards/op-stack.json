@@ -162,7 +162,7 @@
       ]
     },
     {
-      "title": "EigenDA Performance",
+      "title": "Jeju DA Performance (PeerDAS)",
       "type": "graph",
       "gridPos": {
         "x": 0,
@@ -172,15 +172,15 @@
       },
       "targets": [
         {
-          "expr": "rate(eigenda_dispersal_success_total[5m])",
+          "expr": "rate(jeju_da_dispersal_success_total[5m])",
           "legendFormat": "Successful Dispersals/sec"
         },
         {
-          "expr": "rate(eigenda_dispersal_failures_total[5m])",
+          "expr": "rate(jeju_da_dispersal_failures_total[5m])",
           "legendFormat": "Failed Dispersals/sec"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(eigenda_dispersal_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, rate(jeju_da_dispersal_duration_seconds_bucket[5m]))",
           "legendFormat": "P95 Dispersal Latency (s)"
         }
       ]

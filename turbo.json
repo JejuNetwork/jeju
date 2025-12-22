@@ -11,7 +11,7 @@
         "!**/*.test.ts",
         "!**/*.test.tsx"
       ],
-      "outputs": ["dist/**", "build/**", ".next/**", "out/**", "lib/**"]
+      "outputs": ["dist/**", "build/**", "out/**", "lib/**"]
     },
     "typecheck": {
       "dependsOn": ["^typecheck"],
@@ -70,8 +70,6 @@
   ],
   "globalEnv": [
     "NODE_ENV",
-    "CI",
-    "VERCEL",
-    "VERCEL_ENV"
+    "CI"
   ]
 }

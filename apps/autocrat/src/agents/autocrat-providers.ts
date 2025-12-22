@@ -18,11 +18,15 @@ import type {
   ProviderResult,
   State,
 } from '@elizaos/core'
-import { getAutocratA2AUrl, getAutocratUrl } from '@jejunetwork/config'
+import {
+  getAutocratA2AUrl,
+  getAutocratUrl,
+  getCoreAppUrl,
+} from '@jejunetwork/config'
+import { expectValid } from '@jejunetwork/types'
 import {
   A2AJsonRpcResponseSchema,
   AgentCardSchema,
-  expectValid,
   extractA2AData,
   MCPToolsResponseSchema,
 } from '../schemas'
@@ -40,20 +44,11 @@ function getAutocratMCP(): string {
 }
 
 function getCEOA2A(): string {
-  const baseUrl = getAutocratUrl()
-  // CEO server runs on port 4004 in localnet, separate service elsewhere
-  return (
-    process.env.CEO_A2A_URL ??
-    `${baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo')}/a2a`
-  )
+  return process.env.CEO_A2A_URL ?? `${getCoreAppUrl('AUTOCRAT_CEO')}/a2a`
 }
 
 function getCEOMCP(): string {
-  const baseUrl = getAutocratUrl()
-  return (
-    process.env.CEO_MCP_URL ??
-    `${baseUrl.replace(':4040', ':4004').replace('-autocrat', '-ceo')}/mcp`
-  )
+  return process.env.CEO_MCP_URL ?? `${getCoreAppUrl('AUTOCRAT_CEO')}/mcp`
 }
 
 // Service registry for A2A discovery - resolved dynamically
