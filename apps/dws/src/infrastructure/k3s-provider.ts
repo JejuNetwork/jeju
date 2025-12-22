@@ -679,8 +679,8 @@ const installChartSchema = z.object({
   chart: z.string().min(1),
   release: z.string().min(1),
   namespace: z.string().optional(),
-  values: z.record(z.unknown()).optional(),
-  set: z.record(z.string()).optional(),
+  values: z.record(z.string(), z.string()).optional(),
+  set: z.record(z.string(), z.string()).optional(),
   wait: z.boolean().optional(),
   timeout: z.string().optional(),
 });

@@ -105,7 +105,7 @@ describe('Helm Provider', () => {
     expect(body.id).toBeDefined()
     expect(body.name).toBe('infra-test-config')
     expect(body.namespace).toBe('default')
-    expect(body.status).toBe('deploying')
+    expect(body.status).toBe('running')
     deploymentId = body.id
   })
 
